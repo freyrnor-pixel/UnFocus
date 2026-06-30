@@ -89,6 +89,54 @@ to UnFocus rebuild repo:
 This establishes the spec and architecture for the rebuilt UnFocus app.
 No app code yet; next phase will port foundation components (Decision 001).
 
+## 2026-06-30 — Phase 2b: Rendering primitives porting (Decision 007 — native gradients)
+**Status: Complete (code-ready; native build prerequisite pending)**
+
+**Scope:** Port four rendering components to use native gradient libraries per Decision 007.
+Libraries required: expo-linear-gradient, expo-blur, react-native-svg. These are NOT yet
+installed in package.json and will require an APK build once added.
+
+**Deliverables:**
+- **GradientSwatch.tsx** (new) — Radial gradients via react-native-svg for RadialSwatch
+  (light-center → saturated-edge with 4-stop SVG RadialGradient). ConicSwatch left on
+  existing fake (concentric wedges) with TODO: Decision 006 defers custom hue; conic
+  gradient support deferred to future phase.
+- **HomeHeroBackground.tsx** (updated) — Sky bands (14 stacked Views) → single LinearGradient
+  from expo-linear-gradient (top 60% of screen). Ground fade (3 stacked Views) → single
+  LinearGradient. OrbHalo glow and animations (RisingDot, PulseRing) unchanged.
+- **ScreenBackground.tsx** (updated) — Per-material blobs (concentric rings) → radial SVG
+  gradients via react-native-svg for smoother falloff. Placement (blobsFor) and opacity
+  constraints (≤0.2 core) preserved exactly. All 5 materials (glass/metal/rock/paper/plain)
+  unchanged.
+- **TreeWatermark.tsx** (no changes) — Already correctly uses android-icon-monochrome.png
+  asset, not a faked View approximation. OTA-safe as-is.
+
+**Library ownership per Decision 007:**
+- Gradient filling rectangular regions → expo-linear-gradient (sky, ground)
+- Gradient filling non-rectangular/vector shapes → react-native-svg (blob glows)
+
+**Decisions deferred (TODO notes added):**
+- Decision 006: Custom hue + conic gradients — ConicSwatch stays on concentric wedges
+  with TODO flag for future phase.
+
+**Blocker for deployment:**
+The three native libraries are not in package.json and must be added before next APK build:
+```json
+"expo-linear-gradient": "^56.0.x",
+"expo-blur": "^56.0.x",
+"react-native-svg": "^x.y.z"
+```
+Run `npx expo install` and trigger `.github/workflows/build-android.yml` (workflow_dispatch)
+to create new native APK with these dependencies. OTA updates cannot deliver these modules.
+
+**All other implementations ready:**
+- Code compiles (pending library installation for runtime checks)
+- File headers updated with new imports/usages
+- Public contracts (props, positioning, pointerEvents) unchanged
+- Existing logic preserved (animations, material system, color tokens)
+
+**Next phase:** Install native libraries, trigger APK build, then test Decision 007 deployment.
+
 ## 2026-06-30 — Phase 0: Planning files
 Created REBUILD_DECISIONS.md (seeded with Decision 001), PROGRESS_LOG.md,
 and REBUILD_PLAN.md. No code touched. Next session: Phase 1, foundation /

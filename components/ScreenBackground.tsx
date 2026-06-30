@@ -2,17 +2,15 @@
  * ScreenBackground.tsx — ambient backdrop behind a screen's scrollable content.
  *
  * Renders the theme's base colour plus a couple of large, soft colour blobs
- * (concentric rings of increasing opacity fake a blur without a native blur
- * dependency, staying OTA-safe like the rest of the material system) whose
- * placement/hue/mood vary with the chosen material — glass is bright and
- * airy, metal is cool with a sheen, rock is a grounded dark vignette, paper
- * is a single warm flat blob, and plain is just the flat theme colour with
- * no blobs at all. This is the "backgrounds... should match the material
- * chosen in settings" half of the material system; Surface.tsx is the other
- * half for cards.
+ * (radial SVG gradients for smooth falloff) whose placement/hue/mood vary with
+ * the chosen material — glass is bright and airy, metal is cool with a sheen,
+ * rock is a grounded dark vignette, paper is a single warm flat blob, and plain
+ * is just the flat theme colour with no blobs at all. This is the "backgrounds...
+ * should match the material chosen in settings" half of the material system;
+ * Surface.tsx is the other half for cards.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, store/useSettingsStore
+ *   Imports → constants/theme, lib/useAppTheme, store/useSettingsStore, react-native-svg
  *   Used by → most app screens, rendered as the first child inside the SafeAreaView
  *             (app/index.tsx uses components/HomeHeroBackground instead)
  *   Data    → reads bubbleMaterial from useSettingsStore
@@ -24,9 +22,12 @@
  *     get painted over.
  *   - Blobs are intentionally low-opacity (≤ ~0.2 at their core) so body text
  *     rendered directly on the background (not inside a Surface) stays legible.
+ *   - Blob placement via blobsFor() unchanged; radial gradients provide smoother
+ *     falloff than concentric rings (Decision 007).
  */
 import React from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { AppColors, MaterialName } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -59,11 +60,19 @@ function blobsFor(material: MaterialName, theme: AppColors): BlobSpec[] {
 }
 
 function Blob({ size, color, pos }: BlobSpec) {
+  const gradientId = `blob-${color.replace('#', '')}-${size}`;
   return (
-    <View pointerEvents="none" style={[{ position: 'absolute', width: size, height: size, borderRadius: size / 2 }, pos]}>
-      <View style={[StyleSheet.absoluteFill, { borderRadius: size / 2, backgroundColor: color, opacity: 0.07 }]} />
-      <View style={{ position: 'absolute', top: size * 0.15, left: size * 0.15, right: size * 0.15, bottom: size * 0.15, borderRadius: size / 2, backgroundColor: color, opacity: 0.07 }} />
-      <View style={{ position: 'absolute', top: size * 0.32, left: size * 0.32, right: size * 0.32, bottom: size * 0.32, borderRadius: size / 2, backgroundColor: color, opacity: 0.08 }} />
+    <View pointerEvents="none" style={[{ position: 'absolute', width: size, height: size }, pos]}>
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <Defs>
+          <RadialGradient id={gradientId} cx="50%" cy="50%" rx="50%" ry="50%">
+            <Stop offset="0%" stopColor={color} stopOpacity="0.2" />
+            <Stop offset="50%" stopColor={color} stopOpacity="0.08" />
+            <Stop offset="100%" stopColor={color} stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${gradientId})`} />
+      </Svg>
     </View>
   );
 }

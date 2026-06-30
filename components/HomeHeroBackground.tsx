@@ -5,59 +5,28 @@
  * glowing orb halo centered behind the tree; "Deep Focus" (dark) is the same
  * structure on a navy sky with pulsing rings added around the orb. Both have
  * a sparse field of ink dots that rise and fade, and a ground fade at the
- * bottom so list content stays legible. Built entirely from Views/Animated
- * (no react-native-svg or expo-linear-gradient) to avoid requiring a new
- * native build.
+ * bottom so list content stays legible. Sky and ground use true linear gradients
+ * (expo-linear-gradient); orb halo and animations stay as concentric circles.
  *
  * Connections:
- *   Imports → lib/useAppTheme (useIsDark)
+ *   Imports → lib/useAppTheme (useIsDark), expo-linear-gradient
  *   Used by → app/index.tsx, replacing ScreenBackground on the home screen
  *
  * Edit notes:
  *   - Render as the first child inside the SafeAreaView, same contract as
  *     ScreenBackground: absolutely positioned, pointerEvents="none".
- *   - Gradient bands are 3 stacked flat-color Views (not a real blend) —
- *     intentional, keeps this dependency-free.
+ *   - Sky and ground are now true LinearGradient components (Decision 007).
  *   - The orb is centered at 50%/50%, same anchor as TreeWatermark's
  *     centered wrap in app/index.tsx, so the halo sits behind the tree
  *     rather than floating independently. Faked blur via concentric
  *     same-opacity circles (see ScreenBackground.tsx's Blob for the same
  *     trick), not a single hard-edged circle.
- *   - No brush-flow strokes here (an earlier version drew thick rotated
- *     bars to mimic the design mockup's blurred SVG strokes) — flat Views
- *     have no blur, so they rendered as a hard, ugly crossed-bar X instead
- *     of soft sweeps. Dropped rather than faked badly.
  */
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
+import LinearGradient from 'expo-linear-gradient';
 import { useIsDark } from '@/lib/useAppTheme';
 
-type Percent = `${number}%`;
-
-const SKY_BAND_COUNT = 14;
-
-function hexToRgb(hex: string): [number, number, number] {
-  const n = parseInt(hex.replace('#', ''), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-function rgbToHex([r, g, b]: [number, number, number]): string {
-  return '#' + [r, g, b].map((c) => Math.round(c).toString(16).padStart(2, '0')).join('');
-}
-
-function lerpColor(a: string, b: string, t: number): string {
-  const [ar, ag, ab] = hexToRgb(a);
-  const [br, bg, bb] = hexToRgb(b);
-  return rgbToHex([ar + (br - ar) * t, ag + (bg - ag) * t, ab + (bb - ab) * t]);
-}
-
-/** Interpolates through 3 color stops to produce N closely-stepped band colors — fakes a smooth gradient from flat-color Views. */
-function gradientBands(stops: [string, string, string], count: number): string[] {
-  return Array.from({ length: count }, (_, i) => {
-    const t = i / (count - 1);
-    return t <= 0.5 ? lerpColor(stops[0], stops[1], t / 0.5) : lerpColor(stops[1], stops[2], (t - 0.5) / 0.5);
-  });
-}
 
 type DotSpec = { size: number; left: Percent; bottom: Percent; duration: number; delay: number };
 
@@ -181,9 +150,13 @@ export default function HomeHeroBackground() {
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {gradientBands(palette.sky as [string, string, string], SKY_BAND_COUNT).map((color, i) => (
-        <View key={i} style={[styles.skyBand, { backgroundColor: color }]} />
-      ))}
+      {/* Sky gradient */}
+      <LinearGradient
+        colors={palette.sky}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 0.6 }}
+        style={styles.sky}
+      />
 
       <OrbHalo size={280} color={palette.orb} />
       {isDark && (
@@ -198,17 +171,25 @@ export default function HomeHeroBackground() {
         <RisingDot key={i} spec={spec} color={palette.dot} />
       ))}
 
-      <View style={styles.groundFade}>
-        <View style={[styles.groundBand, { backgroundColor: palette.ground[0] }]} />
-        <View style={[styles.groundBand, { backgroundColor: palette.ground[1] }]} />
-        <View style={[styles.groundBand, { backgroundColor: palette.ground[2] }]} />
-      </View>
+      {/* Ground fade gradient */}
+      <LinearGradient
+        colors={palette.ground}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={styles.groundFade}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  skyBand: { flex: 1 },
+  sky: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '60%',
+  },
   orbWrap: {
     position: 'absolute',
     top: '50%',
@@ -236,5 +217,4 @@ const styles = StyleSheet.create({
     right: 0,
     height: 150,
   },
-  groundBand: { flex: 1 },
 });
