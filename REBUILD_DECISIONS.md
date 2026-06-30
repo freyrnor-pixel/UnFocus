@@ -73,3 +73,78 @@ component file does not come over to the new repo. Primary navigation is
 block, etc. may end up using different fonts/sizes per placement. That's a
 later decision. For now use sensible defaults from the existing theme
 tokens; do not commit to a typography system.
+
+---
+
+## Decision 008 — Glass redesigned around real blur (materials-system change)
+
+**Status:** Resolved
+**Depends on:** 007 (adopted expo-blur, expo-linear-gradient, react-native-svg; deferred glass-uses-blur HOW to 008)
+**Blocks:** Surface.tsx port
+**Date:** 2026-06-30
+
+### Context
+007 installed and verified expo-blur as the only real-blur primitive but deferred how the
+glass material consumes it, to keep 007 about library adoption rather than a materials rewrite.
+008 owns the glass/metal/rock/paper/plain finish system now that real blur is available.
+
+### Decisions
+
+1. **Glass is redesigned around a real `<BlurView>`, with a two-context split.**
+   Glass is the only material whose identity is "you see through it," so the blur *is* its
+   redesign. A glass Surface now frosts real pixels behind it, replacing the opacity-stacked
+   fake (flat fill + sheen layers). Two contexts, selected by a new Surface prop
+   (`surfaceContext: 'ambient' | 'overlay'`, default `'ambient'`):
+   - `ambient` (default): glass frosts the **ScreenBackground backdrop**. Every existing
+     `<Surface>` call site keeps working untouched — this is the default.
+   - `overlay`: glass frosts **live scrolling content** behind it (sticky headers, bottom
+     sheets, modals, nav bar). Opt-in; only a handful of (mostly later-phase) surfaces pass it.
+   Surface implements both paths over one shared expo-blur code path; consumers only declare intent.
+
+2. **Non-glass materials are unchanged and context-blind.**
+   metal / rock / paper / plain render identically whether `ambient` or `overlay` — `overlay`
+   is a **no-op** for them. They keep today's getMaterialStyle() opaque fill + sheen/shade
+   treatment. This is the rule that bounds 008: "four materials unchanged + glass is
+   context-aware," not "five materials × two contexts."
+   - *"Smoked-chrome" (translucent/frosted metal) is explicitly NOT in 008.* If ever wanted it
+     is a NEW material / deliberate metal redesign with its own contrast+legibility work — a
+     future decision, flagged here so it is never smuggled in under a glass-redesign banner.
+
+3. **ScreenBackground enrichment is IN SCOPE for 008.**
+   Choosing the ambient path means ambient glass needs colour/structure behind it or the frost
+   reads as muddy flat cream. ScreenBackground is therefore tuned richer/more saturated as part
+   of 008 (not deferred). Note: the existing concentric-ring fake-blur blobs are NOT deleted —
+   ambient glass only blurs the area under a card; exposed backdrop still needs its own
+   softening. Real blur (under cards) and fake blur (exposed backdrop) coexist.
+
+4. **react-native-skia is ruled OUT of 008** — consistent with 007's general Skia ruling.
+   expo-blur covers both contexts (ambient over backdrop, overlay over scrolling content are
+   both standard expo-blur use). Neither path needs Skia's unique capabilities (pixel sampling,
+   custom shaders, runtime gradients, content-colour extraction).
+   - **Pre-approved Skia escape hatch (named trigger):** IF `overlay` glass over scrolling
+     content shows unacceptable jank on **Android** that expo-blur's
+     `experimentalBlurMethod="dimezisBlurView"` cannot resolve, THEN Skia for the overlay glass
+     fill is pre-approved without re-litigating 007/008. Decision order is fixed:
+     expo-blur → `experimentalBlurMethod` → Skia, in that sequence, last resort only.
+     Rationale: adding Skia later is a clean additive swap of the overlay fill (ambient path
+     untouched); removing it later is painful. Reversibility is lopsided, so default to not
+     adopting until measured need.
+
+5. **BubbleMenu is DROPPED — 007 #4 (the bubble gradient/sizing mandate) is moot.**
+   BottomNav won navigation; the spinning-wheel bubble menu is out of the product (already
+   disabled — mount commented out in app/index.tsx). The FEATURE_INVENTORY mandates
+   ("gradient colouring instead of today's look," "all bubbles the same size, big enough for
+   the longest word") are therefore moot and require no resolution.
+   - **Consequence for 008:** BubbleMenu is removed from the 008-blocked tier. 008 owns exactly
+     **one** component — Surface.tsx — plus the ScreenBackground enrichment in (3). BubbleMenu
+     is NOT ported (kept as dead reference in-repo until a separate cleanup removes it).
+   - **Out-of-scope ripple (flagged, not absorbed):** dropping BubbleMenu touches the
+     FEATURE_INVENTORY bubble-menu section, WHEEL_ITEMS routes, and any Shared-section wiring
+     that assumed the wheel. This is a separate cleanup decision, NOT part of 008.
+
+### Verification hooks (for the porting session)
+- Surface: `ambient` glass blurs the backdrop; `overlay` glass blurs live content; non-glass
+  identical across both contexts; all existing `<Surface>` call sites still render (default ambient).
+- ScreenBackground: richer backdrop; ambient glass reads as frosted, not muddy; body text on
+  exposed backdrop still legible (the ≤~0.2 core-opacity constraint).
+- Confirm no Skia import landed.
