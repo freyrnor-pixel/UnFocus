@@ -27,6 +27,7 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import LinearGradient from 'expo-linear-gradient';
 import { useIsDark } from '@/lib/useAppTheme';
 
+type Percent = `${number}%`;
 
 type DotSpec = { size: number; left: Percent; bottom: Percent; duration: number; delay: number };
 
