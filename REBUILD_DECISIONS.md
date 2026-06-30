@@ -148,3 +148,86 @@ glass material consumes it, to keep 007 about library adoption rather than a mat
 - ScreenBackground: richer backdrop; ambient glass reads as frosted, not muddy; body text on
   exposed backdrop still legible (the ≤~0.2 core-opacity constraint).
 - Confirm no Skia import landed.
+
+---
+
+## Decision 009 — Home preview convergence (composite + Plans phases)
+
+**Status:** Decided 2026-06-30 (planning session resolving Home screen decisions 1–4).
+No code written yet. Originally one session; **split** into Session A (composite:
+Notes + Shopping previews) and Session B (Plans, tied to the full Plans redesign) so
+the Plans-preview redesign stays attached to the full Plans redesign rather than being
+half-done early.
+
+**Phase placement:** Decisions 1 and 4 below are **Home-phase** work (Home is
+near-last). Decisions 2 and 3 are **composite/Plans-phase** work. Ordering per
+REBUILD_PLAN.md: record decisions → Session A (composite) → Session B (Plans, after its
+own design decision is made) → Home phase (assembles 1+4 and the converged previews).
+
+### Decisions
+
+1. **Energy check-in — removed from Home.**
+   `EnergyCheckIn` component and `useEnergyStore` stay in the repo but are unmounted from
+   Home. The flagged "no difference between medium and high" ambiguity is *deferred, not
+   resolved* — the feature simply isn't surfaced for now.
+
+2. **Shared preview card — one card type across Notes / Plans / Shopping.**
+   All three Home previews render through the single `ExpandableCard` primitive: preview
+   content, mark-done via `rightAction`, inline add/remove in the body, and a "See more →"
+   affordance routing to the full page. No bespoke per-section cards.
+   - **Notes preview** = `InboxSection.tsx` (today on `Surface`, reads `useInboxStore`,
+     renders nothing when empty; already routes to `/capture?id=` to edit a row).
+   - **Plans preview** = `PlanTaskCard.tsx` — *already wraps `ExpandableCard`* in
+     controlled mode; this is the reference implementation for the shared-card pattern.
+   - **Shopping preview** = `WeekListCard.tsx` / `ShoppingRow` family. Already uses
+     `ExpandableCard` for "From meals" dish groups; ungrouped rows use raw accent-bordered
+     `View` cards and must be standardized onto `ExpandableCard`.
+
+3. **Plans preview redesign — inherits the full Plans redesign.**
+   The flagged "time now + rest of day" redesign applies to BOTH the full Plans screen and
+   its Home preview, via the shared card pattern. **Executed in the Plans phase (Session B),
+   not the composite phase.** The specific Plans visual direction is **still an open design
+   question** — the edit note asks for "a better/easier way to view 'time now + rest of
+   day'" but does not say what it looks like. Session B must NOT invent it silently; resolve
+   it into an explicit decision with the user first (the way Focus mode was resolved here),
+   and record the resolved direction here before building.
+
+4. **Focus mode — Home-only view-state (Option C).**
+   - Toggle in the upper-right header, immediately left of the Settings gear; same button
+     toggles on/off.
+   - ON: Notes and Shopping previews hidden; only the task/Plans surface remains, filtered
+     to essential/remaining tasks (reads existing `importance` field — no store change).
+   - No input affordances while focused — FAB and add/edit hidden. Done-toggle stays live
+     (completing a task is "doing the thing," not input).
+   - Completing the last visible task shows a gentle done-state, not an empty screen.
+   - OFF by default; ephemeral — every app launch and navigation-away resets to unfocused.
+     Not persisted.
+   - Forward note (not built now): same one-at-a-time pattern is a candidate for a future
+     "Tasks" screen. Intent only, no code.
+
+### Session scoping (from the handoff)
+
+- **Session A — composite phase:** converge **Notes (`InboxSection`)** and **Shopping
+  ungrouped rows** onto `ExpandableCard` (decision 2). Plans deliberately excluded.
+  - InboxSection: refactor `Surface` → `ExpandableCard`; add inline **edit of an existing
+    note** in the card body (surface the existing `/capture?id=` route as an edit
+    affordance — don't invent a new store path), closing the flagged "edit an old note"
+    gap. Preserve one-tap →Task promotion with existing defaults, Discard, and
+    render-nothing-when-empty.
+  - Shopping preview: standardize ungrouped weekly rows from raw accent-bordered `View`
+    cards onto `ExpandableCard` with `ShoppingRow` as body content; preserve tick-to-buy.
+    Do NOT touch the full shopping screen's monthly to-buy → in-cart → bought logic.
+  - **Precondition (stop if unmet):** `ExpandableCard`, `Surface`, `ShoppingRow`,
+    `useInboxStore` / shopping stores must be ported and logged done in PROGRESS_LOG.md.
+    If any is missing, stop and report — do not port it in Session A.
+  - Out of scope: Plans preview, Home screen assembly, Focus mode, Energy check-in, store
+    changes. Flag — don't fix — anything outside these two components.
+  - Reference docs only: CARD_CONTAINER_LIBRARY.md, ANIMATION_GUIDELINES.md,
+    SPACING_LAYOUT_LIBRARY.md.
+
+- **Session B — Plans phase:** full Plans "time now + rest of day" redesign + preview
+  convergence (decisions 2+3), run as part of / immediately alongside the Plans screen
+  phase, NOT before it. Resolve the visual direction with the user first (see decision 3).
+  - **Precondition (stop if unmet):** `ExpandableCard`, `PlanTaskCard`, `DraggableTaskRow`,
+    `DayTimeline`, and the task store ported and logged done.
+  - Out of scope: Notes/Shopping previews (Session A), Focus mode, Home assembly.

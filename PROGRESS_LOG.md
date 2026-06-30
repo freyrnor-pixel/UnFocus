@@ -193,3 +193,26 @@ BubbleMenu NOT ported (Decision 008 (5): dropped, kept as dead reference).
   not yet in package.json / node_modules, so a full `tsc` and runtime check
   can't run here. Install the native libs and trigger a new APK build before
   on-device verification; OTA cannot deliver these native modules.
+
+## 2026-06-30 — Planning: Decision 009 logged (Home preview convergence)
+Recorded Decision 009 in REBUILD_DECISIONS.md from the Home-preview-convergence
+handoff (planning session resolving Home decisions 1–4). No code written.
+Summary of what was decided:
+- (1) Energy check-in removed from Home (component/store kept; medium-vs-high
+  ambiguity deferred, not resolved).
+- (2) Single shared preview card: Notes / Plans / Shopping previews all render
+  through `ExpandableCard` (no bespoke per-section cards).
+- (3) Plans preview "time now + rest of day" redesign inherits the full Plans
+  redesign — executed in the Plans phase (Session B), and the Plans *visual
+  direction is still an open design question* to resolve with the user before
+  building.
+- (4) Focus mode = Home-only, ephemeral view-state (Option C): header toggle left
+  of the gear; hides Notes/Shopping previews; filters tasks to essential via the
+  existing `importance` field; hides input affordances but keeps done-toggle; not
+  persisted.
+Work is split: Session A (composite) converges Notes (`InboxSection`) + Shopping
+ungrouped rows onto `ExpandableCard` and closes the edit-old-note gap; Session B
+(Plans phase) does the full Plans redesign + preview alignment. Decisions 1 and 4
+land in the later Home phase. Both sessions carry stop-if-unmet preconditions
+(see Decision 009). Nothing here unblocks coding yet — these are recorded
+decisions only.
