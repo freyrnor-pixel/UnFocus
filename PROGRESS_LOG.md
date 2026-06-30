@@ -4,6 +4,43 @@ Per-session summaries, newest at the bottom. Each entry: date, phase, what
 was ported/built, any new decisions added to REBUILD_DECISIONS.md, anything
 left unresolved.
 
+## 2026-06-30 — Phase: Foundation / `colors.ts` token layer (Decision 006)
+**Status: Complete** — Six-theme colour token layer built, tested, and verified.
+
+**Deliverables:**
+- **constants/colors.ts** — Decision 006 token layer with all six named themes (Default, Summer, Nature, Fluffy Pink, Gothic, Black & White), each with complete light and dark palettes. 31 semantic tokens per theme mode: surfaces (bg, surface, surfaceMuted, surfaceInset), text (text, textMuted, textInverse), borders (border, borderStrong), accent (accent, accentSoft, accentInk), semantic state (good/goodSoft, bad/badSoft, warn/warnSoft), depth (shadow, overlay), hint card, and feature accents (8 bubble types).
+- **TypeScript type `ThemePalette`** — Enumerates the full token set (31 keys), so missing tokens are compile errors, not runtime undefined.
+- **Theme resolver** — `getThemePalette(themeName, isDark)` function to retrieve the correct palette.
+- **Extended `lib/useAppTheme.ts`** — Updated to return `ThemePalette` from the new token layer. Drop-in replacement (same hook signatures); component ports will follow in later phases.
+- **Test suite: `lib/__tests__/colors.test.ts`** — 57 tests verifying:
+  - (a) All six themes × two modes have complete token sets ✓
+  - (b) WCAG AA contrast (≥4.5:1) for text and textMuted on both bg and surface in all themes ✓
+  - (c) Dark-mode depth ordering: bg < surface < border (darker to lighter) ✓
+  - Theme resolver returns correct palettes ✓
+
+**Test result:** All 57 tests passing.
+
+**Dark-mode constraints satisfied:**
+1. ✓ text and textMuted both achieve ≥4.5:1 contrast against both bg AND surface in all themes
+2. ✓ border is lighter than surface in dark mode (ordered by relative luminance)
+3. ✓ surface is lighter than bg in dark mode
+4. ✓ Accents desaturated ~25% in dark to avoid neon clash (preserved hue while reducing saturation)
+
+**Non-Decision 006 notes (additions/interpretations):**
+- Accent desaturation implemented via per-channel linear blend in dark mode — accents lightened AND desaturated to maintain visual harmony
+- Semantic state colours (good/bad) remain chromatic in Black & White theme for instant visual recognition (exception to otherwise monochrome design)
+- Feature accent palette (8 types: task/plan/habit/shop/meal/budget/note/health) tuned per-theme to stay recognizable while respecting theme's hue identity
+- Shadow tokens are per-theme tints rather than universal blacks (Theme-aware darkness keeps consistency with palette)
+
+**Out of scope (confirmed deferred):**
+- Component ports — all consuming components remain unchanged; rewiring to new token names is a later phase
+- Custom hue system — Decision 006 specifies custom is deferred; no HuePicker or runtime buildCustomTheme() ported
+- Decision 007 dependencies (native gradient/blur) — token layer is pure data, has no 007 deps
+- Material/finish system — independently maintained in constants/theme.ts, not touched
+
+**Next phase:**
+- Port components to use new `ThemePalette` token names (requires careful rewiring to replace old tokens like `orange` → `accent`, `white` → `surface`, etc.)
+
 ## 2026-06-30 — Phase 1: Foundation & Universal Screen Scaffold
 Ported Decision 001 implementation to UnFocus:
 

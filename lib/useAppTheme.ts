@@ -2,21 +2,21 @@
  * useAppTheme.ts — React hooks resolving the active colour palette + dark-mode state.
  *
  * useAppTheme() reads the user's colorTheme + darkMode from the settings store and
- * the system colour scheme, then returns the matching AppColors via getTheme().
- * useSoftTheme() returns the same palette softened for emotional/health screens.
+ * the system colour scheme, then returns the matching ThemePalette (Decision 006)
+ * via getThemePalette() from constants/colors.ts.
  * useIsDark() returns just the resolved dark/light boolean.
- * useAccessibility() returns { reducedMotion, fontScale } for animation and font scaling.
+ * useAccessibility() returns { reducedMotion, getFontSize } for animation and font scaling.
  * useScaledStyles() takes a StyleSheet.create() result and rescales every fontSize per the user's text-size setting.
  *
  * Connections:
- *   Imports → constants/theme, store/useSettingsStore
- *   Used by → app/automations.tsx, app/budget.tsx, app/focus.tsx, app/habit-form.tsx, app/habits.tsx, app/health.tsx, app/index.tsx, app/meals.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/onboarding/step6.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/BubbleMenu.tsx, components/CompletionGlow.tsx, components/ConfirmationBanner.tsx, components/DatePickerCalendar.tsx, components/DayTimeline.tsx, components/ExpandableCard.tsx, components/HintCard.tsx, components/Pet.tsx, components/PressableScale.tsx, components/QuickAddSheet.tsx, components/ShoppingRow.tsx, components/TaskItem.tsx, components/TimePickerWheel.tsx, components/cover/CoverHabitsSection.tsx, components/cover/CoverHeader.tsx, components/cover/CoverScreen.tsx, components/cover/CoverTasksSection.tsx
+ *   Imports → constants/colors, constants/theme, store/useSettingsStore
+ *   Used by → components (will be ported to use new ThemePalette token names)
  *   Data    → reads `colorTheme`, `darkMode`, `reducedMotion`, `fontSize` from the settings Zustand
  *             store; reducedMotion is OR'd with the live OS-level AccessibilityInfo setting
  *
  * Edit notes:
  *   - These are hooks — only call from React components/other hooks, never from
- *     stores or schedulers (use getTheme() directly there).
+ *     stores or schedulers (use getThemePalette() directly there).
  *   - darkMode 'system' defers to useColorScheme(); keep the on/system/off logic
  *     in sync between useAppTheme and useIsDark.
  *   - useAccessibility()'s reducedMotion is `manual setting OR system setting` — the
@@ -26,30 +26,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, useColorScheme } from 'react-native';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { getTheme, getSoftTheme, getFontSize, AppColors, FontSizeScale } from '@/constants/theme';
+import { getThemePalette, ThemePalette, ThemeName } from '@/constants/colors';
+import { getFontSize, FontSizeScale } from '@/constants/theme';
 
-export function useAppTheme(): AppColors {
-  const colorTheme = useSettingsStore((s) => s.colorTheme);
+export function useAppTheme(): ThemePalette {
+  const colorTheme = useSettingsStore((s) => s.colorTheme) as ThemeName;
   const darkMode = useSettingsStore((s) => s.darkMode);
-  const customPrimaryColor = useSettingsStore((s) => s.customPrimaryColor);
-  const customSecondaryColor = useSettingsStore((s) => s.customSecondaryColor);
   const systemScheme = useColorScheme();
   const isDark = darkMode === 'on' || (darkMode === 'system' && systemScheme === 'dark');
-  return getTheme(colorTheme, isDark, { primary: customPrimaryColor, secondary: customSecondaryColor });
-}
-
-/**
- * Like useAppTheme() but softened for emotional/health screens (warmer, lower contrast).
- * Use on app/health.tsx and app/habits.tsx so they read gentler than productivity screens.
- */
-export function useSoftTheme(): AppColors {
-  const colorTheme = useSettingsStore((s) => s.colorTheme);
-  const darkMode = useSettingsStore((s) => s.darkMode);
-  const customPrimaryColor = useSettingsStore((s) => s.customPrimaryColor);
-  const customSecondaryColor = useSettingsStore((s) => s.customSecondaryColor);
-  const systemScheme = useColorScheme();
-  const isDark = darkMode === 'on' || (darkMode === 'system' && systemScheme === 'dark');
-  return getSoftTheme(getTheme(colorTheme, isDark, { primary: customPrimaryColor, secondary: customSecondaryColor }));
+  return getThemePalette(colorTheme, isDark);
 }
 
 export function useIsDark(): boolean {

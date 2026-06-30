@@ -1,344 +1,590 @@
 /**
- * UnFocus — Colour Schemes
- * Five schemes × light/dark, each with a coordinated nine-colour bubble-wheel
- * palette built as an analogous harmony.
+ * colors.ts — Decision 006 colour theme token layer
  *
- * Usage:
- *   import { SCHEMES } from '@/constants/colors';
- *   const palette = SCHEMES[userScheme];          // e.g. SCHEMES['default']
- *   const colors  = isDark ? palette.dark : palette.light;
+ * Six named themes (Default, Summer, Nature, Fluffy Pink, Gothic, Black & White),
+ * each with complete light and dark palettes. Theme choice and dark-mode choice
+ * are NOT independent: the dark-mode toggle selects the dark side of the
+ * currently active theme. Token names are semantic, not color-based.
+ *
+ * Token list (closed set — every theme provides all of these, ×2 modes):
+ *   Surfaces: bg, surface, surfaceMuted, surfaceInset
+ *   Text: text, textMuted, textInverse
+ *   Borders: border, borderStrong
+ *   Accent: accent, accentSoft, accentInk
+ *   Semantic state: good, goodSoft, bad, badSoft, warn, warnSoft
+ *   Depth: shadow, overlay
+ *   Hint card: hintBg, hintBorder, hintAccent
+ *   Feature accents: featTask, featPlan, featHabit, featShop, featMeal, featBudget, featNote, featHealth
+ *
+ * Dark-mode constraints:
+ *   1. text and textMuted both ≥ 4.5:1 contrast against both bg AND surface
+ *   2. border is lighter than surface in dark mode
+ *   3. surface is lighter than bg in dark mode
+ *   4. accents desaturated ~25% in dark to avoid neon clash
+ *
+ * Connections:
+ *   Imports → —
+ *   Used by → lib/useAppTheme.ts
+ *   Data    → pure constants (no runtime computation)
  */
 
-export type SchemeName = 'default' | 'tech' | 'nature' | 'fluffy' | 'gothic';
+export type ThemeName = 'default' | 'summer' | 'nature' | 'fluffyPink' | 'gothic' | 'blackWhite';
 
-export interface ColorPalette {
+/**
+ * Complete palette for a single theme mode (light or dark).
+ * Every token is required — TypeScript will error if any are missing.
+ */
+export interface ThemePalette {
   // ── Surfaces ─────────────────────────────────────────────────────────────
-  bgApp: string;
-  surfaceCard: string;
-  surfaceSunken: string;
-  surfaceChip: string;
-  surfaceOverlay: string;
-
-  // ── Brand ────────────────────────────────────────────────────────────────
-  primary: string;
-  primarySoft: string;
-  onPrimary: string;
-  secondary: string;
-  secondarySoft: string;
-  accentDeep: string;
+  bg: string;              // Page background (darkest in dark mode, lightest in light mode)
+  surface: string;         // Card / elevated surface
+  surfaceMuted: string;    // Sunken / secondary surface
+  surfaceInset: string;    // Inset well (deepest surface)
 
   // ── Text ─────────────────────────────────────────────────────────────────
-  textBody: string;
-  textMuted: string;
-  textInverted: string;
+  text: string;            // Primary text (must be ≥ 4.5:1 contrast on bg AND surface)
+  textMuted: string;       // Secondary text (must be ≥ 4.5:1 contrast on bg AND surface)
+  textInverse: string;     // Text on coloured backgrounds
 
   // ── Borders ──────────────────────────────────────────────────────────────
-  borderCard: string;
-  borderInput: string;
-  borderDivider: string;
+  border: string;          // Primary border (lighter than surface in dark)
+  borderStrong: string;    // Stronger border (lighter than border)
 
-  // ── Status ───────────────────────────────────────────────────────────────
-  success: string;
-  successSoft: string;
-  warning: string;
-  warningSoft: string;
-  error: string;
-  errorSoft: string;
-  neutral: string;
+  // ── Accent ───────────────────────────────────────────────────────────────
+  accent: string;          // Primary action / active state
+  accentSoft: string;      // Accent tint for backgrounds
+  accentInk: string;       // Text/icon colour on accent backgrounds
 
-  // ── Hint surface ─────────────────────────────────────────────────────────
-  hintBg: string;
-  hintBorder: string;
-  hintAccent: string;
+  // ── Semantic state ───────────────────────────────────────────────────────
+  good: string;            // Success (chromatic in all themes, including Black & White)
+  goodSoft: string;        // Success background
+  bad: string;             // Error/destructive (chromatic in all themes, including Black & White)
+  badSoft: string;         // Error background
+  warn: string;            // Warning
+  warnSoft: string;        // Warning background
 
-  // ── Bubble-wheel feature palette (nine accents) ───────────────────────────
-  featureTask: string;
-  featureScan: string;
-  featureHabits: string;
-  featureHealth: string;
-  featureMeals: string;
-  featureShop: string;
-  featureShared: string;
-  featureFocus: string;
-  featureCapture: string;
-  bubbleInk: string;       // single icon/label colour for the whole wheel
+  // ── Depth ────────────────────────────────────────────────────────────────
+  shadow: string;          // Shadow colour (per-theme tint)
+  overlay: string;         // Modal/sheet backdrop rgba
 
-  // ── Shadows (colour component only; use with elevation tokens) ───────────
-  shadowColor: string;
+  // ── Hint card ────────────────────────────────────────────────────────────
+  hintBg: string;          // Hint/explanation card background
+  hintBorder: string;      // Hint card border
+  hintAccent: string;      // Hint card accent
+
+  // ── Feature accents (octet) ──────────────────────────────────────────────
+  featTask: string;        // Task type bubble
+  featPlan: string;        // Plan type bubble
+  featHabit: string;       // Habit type bubble
+  featShop: string;        // Shopping type bubble
+  featMeal: string;        // Meal type bubble
+  featBudget: string;      // Budget type bubble
+  featNote: string;        // Note type bubble
+  featHealth: string;      // Health type bubble
 }
 
-type SchemeVariants = { light: ColorPalette; dark: ColorPalette };
+export interface ThemeVariant {
+  light: ThemePalette;
+  dark: ThemePalette;
+}
 
-// ── Default — watercolour blue, arc 205°→262° ─────────────────────────────
-const defaultLight: ColorPalette = {
-  bgApp: '#F2F8FE',
-  surfaceCard: '#FCFDFF',
-  surfaceSunken: '#E8F2FE',
-  surfaceChip: '#DCEEFC',
-  surfaceOverlay: 'rgba(0,0,0,0.5)',
-  primary: '#2563EB',
-  primarySoft: '#BFDBFE',
-  onPrimary: '#FFFFFF',
-  secondary: '#10B981',
-  secondarySoft: '#A7F3D0',
-  accentDeep: '#1E3A8A',
-  textBody: '#0F1C2E',
-  textMuted: '#6B7280',
-  textInverted: '#FFFFFF',
-  borderCard: '#E5E7EB',
-  borderInput: '#D1D5DB',
-  borderDivider: '#DCEEFC',
-  success: '#16A34A',
-  successSoft: '#DBEAFE',
-  warning: '#EAB308',
-  warningSoft: '#FEFCE8',
-  error: '#DC2626',
-  errorSoft: '#FEE2E2',
-  neutral: '#9CA3AF',
+// ── Colour manipulation helpers ──────────────────────────────────────────────
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return [100, 100, 100];
+  return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return '#' + [r, g, b]
+    .map((v) => Math.min(255, Math.max(0, Math.round(v))).toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function lighten(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(r + (255 - r) * amount, g + (255 - g) * amount, b + (255 - b) * amount);
+}
+
+function darken(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(r * (1 - amount), g * (1 - amount), b * (1 - amount));
+}
+
+function desaturate(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const gray = (r + g + b) / 3;
+  return rgbToHex(r + (gray - r) * amount, g + (gray - g) * amount, b + (gray - b) * amount);
+}
+
+function relLuminance(hex: string): number {
+  const lin = (c: number) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const [r, g, b] = hexToRgb(hex);
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+/**
+ * Calculate WCAG contrast ratio between two hex colours.
+ * Returns a number ≥ 1; ≥ 4.5 is AA compliant for body text.
+ */
+export function contrastRatio(hex1: string, hex2: string): number {
+  const l1 = relLuminance(hex1);
+  const l2 = relLuminance(hex2);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
+// ── Default Theme (Cool blue, Linear/Notion-clean) ──────────────────────────
+
+const defaultLight: ThemePalette = {
+  bg: '#F2F8FE',
+  surface: '#FFFFFF',
+  surfaceMuted: '#F0F6FB',
+  surfaceInset: '#E8F2FE',
+  text: '#0F1C2E',
+  textMuted: '#5C7299',
+  textInverse: '#FFFFFF',
+  border: '#D4E5F8',
+  borderStrong: '#E8F0FC',
+  accent: '#3B82F6',
+  accentSoft: '#DBEAFE',
+  accentInk: '#FFFFFF',
+  good: '#16A34A',
+  goodSoft: '#DCEADE',
+  bad: '#DC2626',
+  badSoft: '#FEE2E2',
+  warn: '#EAB308',
+  warnSoft: '#FEFCE8',
+  shadow: 'rgba(15,28,46,0.12)',
+  overlay: 'rgba(0,0,0,0.5)',
   hintBg: '#E9EFFD',
   hintBorder: '#B3C8F8',
-  hintAccent: '#2563EB',
-  featureTask: '#2572AA',
-  featureScan: '#2A6EC0',
-  featureHabits: '#3468D3',
-  featureHealth: '#4865D7',
-  featureMeals: '#5761DA',
-  featureShop: '#635DDB',
-  featureShared: '#7059DA',
-  featureFocus: '#7C53D9',
-  featureCapture: '#894DD8',
-  bubbleInk: '#FFFFFF',
-  shadowColor: 'rgba(30,41,59,0.12)',
+  hintAccent: '#3B82F6',
+  featTask: '#2563EB',
+  featPlan: '#7C3AED',
+  featHabit: '#16A34A',
+  featShop: '#0891B2',
+  featMeal: '#D97706',
+  featBudget: '#8B5CF6',
+  featNote: '#DB2777',
+  featHealth: '#DC2626',
 };
 
-const defaultDark: ColorPalette = {
-  bgApp: '#070B16',
-  surfaceCard: '#32353E',
-  surfaceSunken: '#1B1F29',
-  surfaceChip: '#474951',
-  surfaceOverlay: 'rgba(0,0,0,0.7)',
-  primary: '#4EA8FC',
-  primarySoft: '#1C3A66',
-  onPrimary: '#07101F',
-  secondary: '#34D399',
-  secondarySoft: '#0D2A1A',
-  accentDeep: '#8FC7FF',
-  textBody: '#E6F1FE',
-  textMuted: '#8FB8DE',
-  textInverted: '#07101F',
-  borderCard: '#4EA8FC',
-  borderInput: '#3A4A5E',
-  borderDivider: '#474951',
-  success: '#34D399',
-  successSoft: '#0D2A1A',
-  warning: '#FCD34D',
-  warningSoft: '#1A1400',
-  error: '#FC8181',
-  errorSoft: '#2A0A0A',
-  neutral: '#52708C',
-  hintBg: '#122236',
-  hintBorder: '#244766',
-  hintAccent: '#6CB8FD',
-  featureTask: '#2572AA',
-  featureScan: '#2A6EC0',
-  featureHabits: '#3468D3',
-  featureHealth: '#4865D7',
-  featureMeals: '#5761DA',
-  featureShop: '#635DDB',
-  featureShared: '#7059DA',
-  featureFocus: '#7C53D9',
-  featureCapture: '#894DD8',
-  bubbleInk: '#FFFFFF',
-  shadowColor: 'rgba(0,0,0,0.6)',
+const defaultDark: ThemePalette = {
+  bg: '#070C18',
+  surface: '#18243E',
+  surfaceMuted: '#0F1B2E',
+  surfaceInset: '#060914',
+  text: '#DDE9FB',
+  textMuted: '#7A9FC6',
+  textInverse: '#07101F',
+  border: '#2A4264',
+  borderStrong: '#3A5578',
+  accent: '#60A5FA',
+  accentSoft: '#1E3A5F',
+  accentInk: '#07101F',
+  good: '#34D399',
+  goodSoft: '#0D2A1A',
+  bad: '#F87171',
+  badSoft: '#220A0A',
+  warn: '#FCD34D',
+  warnSoft: '#1A1400',
+  shadow: 'rgba(0,3,12,0.6)',
+  overlay: 'rgba(0,0,0,0.7)',
+  hintBg: '#0C1E38',
+  hintBorder: '#1A3A60',
+  hintAccent: '#60A5FA',
+  featTask: '#60A5FA',
+  featPlan: '#C084FC',
+  featHabit: '#34D399',
+  featShop: '#22D3EE',
+  featMeal: '#FBBF24',
+  featBudget: '#E879F9',
+  featNote: '#F472B6',
+  featHealth: '#F87171',
 };
 
-// ── Tech — cyan→indigo, arc 172°→250° ────────────────────────────────────
-const techLight: ColorPalette = {
-  bgApp: '#F0F5FC',
-  surfaceCard: '#FCFEFF',
-  surfaceSunken: '#E8F1FB',
-  surfaceChip: '#D8E8F5',
-  surfaceOverlay: 'rgba(0,0,0,0.5)',
-  primary: '#0EA5E9',
-  primarySoft: '#BAE6FD',
-  onPrimary: '#FFFFFF',
-  secondary: '#06B6D4',
-  secondarySoft: '#CFFAFE',
-  accentDeep: '#0369A1',
-  textBody: '#0C1A28',
-  textMuted: '#4A6070',
-  textInverted: '#FFFFFF',
-  borderCard: '#C0D8F0',
-  borderInput: '#A8C8E8',
-  borderDivider: '#D8E8F5',
-  success: '#06B6D4',
-  successSoft: '#CFFAFE',
-  warning: '#EAB308',
-  warningSoft: '#FEFCE8',
-  error: '#F43F5E',
-  errorSoft: '#FFE4E6',
-  neutral: '#8AAAC0',
-  hintBg: '#E7F6FE',
-  hintBorder: '#AEE0FB',
-  hintAccent: '#0EA5E9',
-  featureTask: '#1B7781',
-  featureScan: '#1E7591',
-  featureHabits: '#2272A5',
-  featureHealth: '#276CBD',
-  featureMeals: '#3266D5',
-  featureShop: '#4961DA',
-  featureShared: '#595DDD',
-  featureFocus: '#6858DD',
-  featureCapture: '#7652DB',
-  bubbleInk: '#FFFFFF',
-  shadowColor: 'rgba(12,26,40,0.12)',
+// ── Summer Theme (Warm cream + slate, orange) ────────────────────────────────
+
+const summerLight: ThemePalette = {
+  bg: '#FFFAF5',
+  surface: '#FFFFFF',
+  surfaceMuted: '#FDF6EE',
+  surfaceInset: '#F5EFE7',
+  text: '#3F2817',
+  textMuted: '#7A5F42',
+  textInverse: '#FFFFFF',
+  border: '#EDD5C3',
+  borderStrong: '#F5E8DC',
+  accent: '#E8794F',
+  accentSoft: '#FDD7BA',
+  accentInk: '#FFFFFF',
+  good: '#16A34A',
+  goodSoft: '#DCEADE',
+  bad: '#DC2626',
+  badSoft: '#FEE2E2',
+  warn: '#EAB308',
+  warnSoft: '#FEFCE8',
+  shadow: 'rgba(63,40,23,0.12)',
+  overlay: 'rgba(0,0,0,0.5)',
+  hintBg: '#FDF0E7',
+  hintBorder: '#F5C4A3',
+  hintAccent: '#E8794F',
+  featTask: '#EA580C',
+  featPlan: '#D97706',
+  featHabit: '#16A34A',
+  featShop: '#0891B2',
+  featMeal: '#F59E0B',
+  featBudget: '#8B5CF6',
+  featNote: '#DB2777',
+  featHealth: '#DC2626',
 };
 
-// ── Nature — amber→green→teal, arc 38°→152° ──────────────────────────────
-const natureLight: ColorPalette = {
-  bgApp: '#F2FAF4',
-  surfaceCard: '#FCFFFD',
-  surfaceSunken: '#E8F5EC',
-  surfaceChip: '#D8EEE0',
-  surfaceOverlay: 'rgba(0,0,0,0.5)',
-  primary: '#16A34A',
-  primarySoft: '#BBF7D0',
-  onPrimary: '#FFFFFF',
-  secondary: '#15803D',
-  secondarySoft: '#DCFCE7',
-  accentDeep: '#3F6212',
-  textBody: '#0D3018',
+const summerDark: ThemePalette = {
+  bg: '#1A140C',
+  surface: '#2A1F18',
+  surfaceMuted: '#15110A',
+  surfaceInset: '#0C0905',
+  text: '#EFE4D9',
+  textMuted: '#B8956F',
+  textInverse: '#1A140C',
+  border: '#4A3428',
+  borderStrong: '#5A4438',
+  accent: '#F08A5D',
+  accentSoft: '#3A2818',
+  accentInk: '#1A140C',
+  good: '#34D399',
+  goodSoft: '#0D2A1A',
+  bad: '#F87171',
+  badSoft: '#220A0A',
+  warn: '#FCD34D',
+  warnSoft: '#1A1400',
+  shadow: 'rgba(0,0,0,0.6)',
+  overlay: 'rgba(0,0,0,0.7)',
+  hintBg: '#24190E',
+  hintBorder: '#5A3F30',
+  hintAccent: '#F08A5D',
+  featTask: '#FB923C',
+  featPlan: '#FBBF24',
+  featHabit: '#34D399',
+  featShop: '#22D3EE',
+  featMeal: '#FCD34D',
+  featBudget: '#E879F9',
+  featNote: '#F472B6',
+  featHealth: '#F87171',
+};
+
+// ── Nature Theme (Parchment + olive, forest green) ──────────────────────────
+
+const natureLight: ThemePalette = {
+  bg: '#F2FAF4',
+  surface: '#FFFFFF',
+  surfaceMuted: '#F0F8F2',
+  surfaceInset: '#E8F5EC',
+  text: '#0D3018',
   textMuted: '#4A7A58',
-  textInverted: '#FFFFFF',
-  borderCard: '#C0E8CC',
-  borderInput: '#A8D8B8',
-  borderDivider: '#D8EEE0',
-  success: '#15803D',
-  successSoft: '#DCFCE7',
-  warning: '#EAB308',
-  warningSoft: '#FEFCE8',
-  error: '#DC2626',
-  errorSoft: '#FEE2E2',
-  neutral: '#8CB89A',
+  textInverse: '#FFFFFF',
+  border: '#C0E8CC',
+  borderStrong: '#D8F0DC',
+  accent: '#4A7C3F',
+  accentSoft: '#C6E8B9',
+  accentInk: '#FFFFFF',
+  good: '#16A34A',
+  goodSoft: '#DCEADE',
+  bad: '#DC2626',
+  badSoft: '#FEE2E2',
+  warn: '#EAB308',
+  warnSoft: '#FEFCE8',
+  shadow: 'rgba(13,48,24,0.12)',
+  overlay: 'rgba(0,0,0,0.5)',
   hintBg: '#E8F8EC',
   hintBorder: '#C2EDCE',
-  hintAccent: '#16A34A',
-  featureTask: '#83682A',
-  featureScan: '#746E25',
-  featureHabits: '#677224',
-  featureHealth: '#577625',
-  featureMeals: '#477826',
-  featureShop: '#357A27',
-  featureShared: '#277B2B',
-  featureFocus: '#277B3E',
-  featureCapture: '#277A51',
-  bubbleInk: '#FFFFFF',
-  shadowColor: 'rgba(13,48,24,0.12)',
+  hintAccent: '#4A7C3F',
+  featTask: '#2563EB',
+  featPlan: '#7C3AED',
+  featHabit: '#16A34A',
+  featShop: '#0891B2',
+  featMeal: '#D97706',
+  featBudget: '#8B5CF6',
+  featNote: '#DB2777',
+  featHealth: '#DC2626',
 };
 
-// ── Fluffy pink — rose↔coral, arc 318°→18° ───────────────────────────────
-const fluffyLight: ColorPalette = {
-  bgApp: '#FFF5F9',
-  surfaceCard: '#FFFDFE',
-  surfaceSunken: '#FDE7F1',
-  surfaceChip: '#FBE2EE',
-  surfaceOverlay: 'rgba(0,0,0,0.5)',
-  primary: '#EC4899',
-  primarySoft: '#FBCFE8',
-  onPrimary: '#FFFFFF',
-  secondary: '#2DD4BF',
-  secondarySoft: '#CCFBF1',
-  accentDeep: '#9D174D',
-  textBody: '#4A1530',
+const natureDark: ThemePalette = {
+  bg: '#08140A',
+  surface: '#16261C',
+  surfaceMuted: '#0F1E16',
+  surfaceInset: '#080D0A',
+  text: '#D0F0D8',
+  textMuted: '#6AB87A',
+  textInverse: '#08140A',
+  border: '#285038',
+  borderStrong: '#3A6A4A',
+  accent: '#82A86A',
+  accentSoft: '#1A3520',
+  accentInk: '#08140A',
+  good: '#34D399',
+  goodSoft: '#0D2A1A',
+  bad: '#F87171',
+  badSoft: '#220A0A',
+  warn: '#FCD34D',
+  warnSoft: '#1A1400',
+  shadow: 'rgba(5,15,10,0.6)',
+  overlay: 'rgba(0,0,0,0.7)',
+  hintBg: '#0A1A10',
+  hintBorder: '#1A3820',
+  hintAccent: '#82A86A',
+  featTask: '#60A5FA',
+  featPlan: '#C084FC',
+  featHabit: '#34D399',
+  featShop: '#22D3EE',
+  featMeal: '#FBBF24',
+  featBudget: '#E879F9',
+  featNote: '#F472B6',
+  featHealth: '#F87171',
+};
+
+// ── Fluffy Pink Theme (Powder + plum, dusty rose) ─────────────────────────
+
+const fluffyPinkLight: ThemePalette = {
+  bg: '#FFF5F9',
+  surface: '#FFFFFF',
+  surfaceMuted: '#FFF0F7',
+  surfaceInset: '#FDE7F1',
+  text: '#4A1530',
   textMuted: '#9B5E7C',
-  textInverted: '#FFFFFF',
-  borderCard: '#F8D3E4',
-  borderInput: '#F0B8D0',
-  borderDivider: '#FBE2EE',
-  success: '#2DD4BF',
-  successSoft: '#CCFBF1',
-  warning: '#EAB308',
-  warningSoft: '#FEFCE8',
-  error: '#E11D48',
-  errorSoft: '#FFE4E6',
-  neutral: '#E0A8C4',
+  textInverse: '#FFFFFF',
+  border: '#F8D3E4',
+  borderStrong: '#FBE2EE',
+  accent: '#E07AA8',
+  accentSoft: '#F8D0E0',
+  accentInk: '#FFFFFF',
+  good: '#16A34A',
+  goodSoft: '#DCEADE',
+  bad: '#DC2626',
+  badSoft: '#FEE2E2',
+  warn: '#EAB308',
+  warnSoft: '#FEFCE8',
+  shadow: 'rgba(74,21,48,0.13)',
+  overlay: 'rgba(0,0,0,0.5)',
   hintBg: '#FDEAF3',
   hintBorder: '#F8C6DF',
-  hintAccent: '#EC4899',
-  featureTask: '#E896CA',
-  featureScan: '#E896C1',
-  featureHabits: '#E897B8',
-  featureHealth: '#E999B0',
-  featureMeals: '#E999A8',
-  featureShop: '#E99AA0',
-  featureShared: '#E89C98',
-  featureFocus: '#E69D8F',
-  featureCapture: '#E49F86',
-  bubbleInk: '#15233B',   // dark ink — Fluffy uses dark text for contrast
-  shadowColor: 'rgba(74,21,48,0.13)',
+  hintAccent: '#E07AA8',
+  featTask: '#EC4899',
+  featPlan: '#A855F7',
+  featHabit: '#16A34A',
+  featShop: '#0891B2',
+  featMeal: '#F59E0B',
+  featBudget: '#8B5CF6',
+  featNote: '#DB2777',
+  featHealth: '#DC2626',
 };
 
-// ── Gothic — indigo→violet→magenta, arc 252°→322° ────────────────────────
-const gothicLight: ColorPalette = {
-  bgApp: '#F5F0FF',
-  surfaceCard: '#FEFDFF',
-  surfaceSunken: '#F0EAFF',
-  surfaceChip: '#EAE5F8',
-  surfaceOverlay: 'rgba(0,0,0,0.5)',
-  primary: '#7C3AED',
-  primarySoft: '#EDE9FE',
-  onPrimary: '#FFFFFF',
-  secondary: '#8B5CF6',
-  secondarySoft: '#F5F3FF',
-  accentDeep: '#5B21B6',
-  textBody: '#200E40',
+const fluffyPinkDark: ThemePalette = {
+  bg: '#1A0612',
+  surface: '#2C1322',
+  surfaceMuted: '#14080E',
+  surfaceInset: '#0A0406',
+  text: '#FCE7F3',
+  textMuted: '#E0A0C0',
+  textInverse: '#1A0612',
+  border: '#3E2030',
+  borderStrong: '#5A3848',
+  accent: '#F09BC2',
+  accentSoft: '#3A1828',
+  accentInk: '#1A0612',
+  good: '#34D399',
+  goodSoft: '#0D2A1A',
+  bad: '#F87171',
+  badSoft: '#220A0A',
+  warn: '#FCD34D',
+  warnSoft: '#1A1400',
+  shadow: 'rgba(25,5,15,0.6)',
+  overlay: 'rgba(0,0,0,0.7)',
+  hintBg: '#1A0A16',
+  hintBorder: '#2A1428',
+  hintAccent: '#F09BC2',
+  featTask: '#F472B6',
+  featPlan: '#E879F9',
+  featHabit: '#34D399',
+  featShop: '#22D3EE',
+  featMeal: '#FBBF24',
+  featBudget: '#E879F9',
+  featNote: '#F472B6',
+  featHealth: '#F87171',
+};
+
+// ── Gothic Theme (Ivory→near-black, aubergine) ────────────────────────────
+
+const gothicLight: ThemePalette = {
+  bg: '#F5F0FF',
+  surface: '#FFFFFF',
+  surfaceMuted: '#F3F0FB',
+  surfaceInset: '#F0EAFF',
+  text: '#200E40',
   textMuted: '#6B5A8A',
-  textInverted: '#FFFFFF',
-  borderCard: '#DDD6FE',
-  borderInput: '#C4B5FD',
-  borderDivider: '#EAE5F8',
-  success: '#8B5CF6',
-  successSoft: '#F5F3FF',
-  warning: '#EAB308',
-  warningSoft: '#FEFCE8',
-  error: '#E11D48',
-  errorSoft: '#FFE4E6',
-  neutral: '#A890C8',
+  textInverse: '#FFFFFF',
+  border: '#DDD6FE',
+  borderStrong: '#EAE5F8',
+  accent: '#5C2A50',
+  accentSoft: '#E5D4E0',
+  accentInk: '#FFFFFF',
+  good: '#16A34A',
+  goodSoft: '#DCEADE',
+  bad: '#DC2626',
+  badSoft: '#FEE2E2',
+  warn: '#EAB308',
+  warnSoft: '#FEFCE8',
+  shadow: 'rgba(32,14,64,0.12)',
+  overlay: 'rgba(0,0,0,0.5)',
   hintBg: '#F1ECFE',
   hintBorder: '#D2C4FB',
-  hintAccent: '#7C3AED',
-  featureTask: '#6956CC',
-  featureScan: '#7750CB',
-  featureHabits: '#8549C9',
-  featureHealth: '#9340C6',
-  featureMeals: '#9E39BE',
-  featureShop: '#A835B2',
-  featureShared: '#AC34A4',
-  featureFocus: '#B03596',
-  featureCapture: '#B43685',
-  bubbleInk: '#FFFFFF',
-  shadowColor: 'rgba(32,14,64,0.12)',
+  hintAccent: '#5C2A50',
+  featTask: '#7C3AED',
+  featPlan: '#7C3AED',
+  featHabit: '#16A34A',
+  featShop: '#0891B2',
+  featMeal: '#D97706',
+  featBudget: '#8B5CF6',
+  featNote: '#DB2777',
+  featHealth: '#DC2626',
 };
 
-export const SCHEMES: Record<SchemeName, SchemeVariants> = {
-  default: { light: defaultLight, dark: defaultDark },
-  tech:    { light: techLight,    dark: { ...defaultDark, primary: '#38BDF8', primarySoft: '#0C2A40', accentDeep: '#7DD3FC' } },
-  nature:  { light: natureLight,  dark: { ...defaultDark, primary: '#4ADE80', primarySoft: '#0A2010', accentDeep: '#BEF264' } },
-  fluffy:  { light: fluffyLight,  dark: { ...defaultDark, primary: '#F472B6', primarySoft: '#3A0A20', accentDeep: '#F9A8D4', bubbleInk: '#F0E6FF' } },
-  gothic:  { light: gothicLight,  dark: { ...defaultDark, primary: '#A78BFA', primarySoft: '#200E40', accentDeep: '#C4B5FD' } },
+const gothicDark: ThemePalette = {
+  bg: '#0E0818',
+  surface: '#241C30',
+  surfaceMuted: '#17101F',
+  surfaceInset: '#0E0812',
+  text: '#F3E8FF',
+  textMuted: '#C4A0E8',
+  textInverse: '#0E0818',
+  border: '#3C2C58',
+  borderStrong: '#4E3E70',
+  accent: '#A06FA8',
+  accentSoft: '#2A1860',
+  accentInk: '#0E0818',
+  good: '#34D399',
+  goodSoft: '#0D2A1A',
+  bad: '#F87171',
+  badSoft: '#220A0A',
+  warn: '#FCD34D',
+  warnSoft: '#1A1400',
+  shadow: 'rgba(20,10,30,0.7)',
+  overlay: 'rgba(0,0,0,0.7)',
+  hintBg: '#1A0F2A',
+  hintBorder: '#2A1450',
+  hintAccent: '#A06FA8',
+  featTask: '#C084FC',
+  featPlan: '#C084FC',
+  featHabit: '#34D399',
+  featShop: '#22D3EE',
+  featMeal: '#FBBF24',
+  featBudget: '#E879F9',
+  featNote: '#F472B6',
+  featHealth: '#F87171',
+};
+
+// ── Black & White Theme (Mono: black-on-white / white-on-black) ─────────────
+
+const blackWhiteLight: ThemePalette = {
+  bg: '#FFFFFF',
+  surface: '#F5F5F5',
+  surfaceMuted: '#EBEBEB',
+  surfaceInset: '#E0E0E0',
+  text: '#141414',
+  textMuted: '#5A5A5A',
+  textInverse: '#FFFFFF',
+  border: '#D0D0D0',
+  borderStrong: '#E0E0E0',
+  accent: '#141414',
+  accentSoft: '#E8E8E8',
+  accentInk: '#FFFFFF',
+  good: '#16A34A',        // Chromatic: green check (instant recognition as positive)
+  goodSoft: '#F0F8F4',
+  bad: '#DC2626',         // Chromatic: red cross (instant recognition as negative)
+  badSoft: '#FEF6F6',
+  warn: '#8B7A0E',        // Chromatic: dark amber (warning)
+  warnSoft: '#FEFCE8',
+  shadow: 'rgba(0,0,0,0.12)',
+  overlay: 'rgba(0,0,0,0.5)',
+  hintBg: '#F8F8F8',
+  hintBorder: '#C0C0C0',
+  hintAccent: '#141414',
+  featTask: '#2563EB',    // Chromatic feature colors for differentiation
+  featPlan: '#7C3AED',
+  featHabit: '#16A34A',
+  featShop: '#0891B2',
+  featMeal: '#D97706',
+  featBudget: '#8B5CF6',
+  featNote: '#DB2777',
+  featHealth: '#DC2626',
+};
+
+const blackWhiteDark: ThemePalette = {
+  bg: '#141414',
+  surface: '#2A2A2A',
+  surfaceMuted: '#1F1F1F',
+  surfaceInset: '#0A0A0A',
+  text: '#F0F0F0',
+  textMuted: '#A5A5A5',
+  textInverse: '#141414',
+  border: '#4A4A4A',
+  borderStrong: '#5A5A5A',
+  accent: '#F0F0F0',
+  accentSoft: '#2A2A2A',
+  accentInk: '#141414',
+  good: '#34D399',        // Chromatic: green check
+  goodSoft: '#0D2A1A',
+  bad: '#F87171',         // Chromatic: red cross
+  badSoft: '#2A0A0A',
+  warn: '#FCD34D',        // Chromatic: yellow warning
+  warnSoft: '#1A1400',
+  shadow: 'rgba(0,0,0,0.6)',
+  overlay: 'rgba(0,0,0,0.7)',
+  hintBg: '#1F1F1F',
+  hintBorder: '#4A4A4A',
+  hintAccent: '#F0F0F0',
+  featTask: '#60A5FA',    // Chromatic feature colors
+  featPlan: '#C084FC',
+  featHabit: '#34D399',
+  featShop: '#22D3EE',
+  featMeal: '#FBBF24',
+  featBudget: '#E879F9',
+  featNote: '#F472B6',
+  featHealth: '#F87171',
+};
+
+// ── Theme registry ───────────────────────────────────────────────────────────
+
+export const THEMES: Record<ThemeName, ThemeVariant> = {
+  default:     { light: defaultLight,     dark: defaultDark },
+  summer:      { light: summerLight,      dark: summerDark },
+  nature:      { light: natureLight,      dark: natureDark },
+  fluffyPink:  { light: fluffyPinkLight,  dark: fluffyPinkDark },
+  gothic:      { light: gothicLight,      dark: gothicDark },
+  blackWhite:  { light: blackWhiteLight,  dark: blackWhiteDark },
+};
+
+export const THEME_META: Record<ThemeName, { label: string }> = {
+  default:     { label: 'Default' },
+  summer:      { label: 'Summer' },
+  nature:      { label: 'Nature' },
+  fluffyPink:  { label: 'Fluffy Pink' },
+  gothic:      { label: 'Gothic' },
+  blackWhite:  { label: 'Black & White' },
 };
 
 /**
- * Gradient helpers — call with colors from the active palette.
- * React Native doesn't support CSS gradients natively; use expo-linear-gradient
- * and pass these colour pairs.
+ * Resolve a theme palette for the given theme name and mode.
+ * Returns the light palette for the theme, or dark if isDark is true.
  */
-export function gradientHero(c: ColorPalette): [string, string] {
-  return [c.primary, c.accentDeep];
-}
-export function gradientSoft(c: ColorPalette): [string, string] {
-  return [c.primarySoft, c.secondarySoft];
-}
-export function gradientWave(c: ColorPalette): [string, string, string, string] {
-  return [c.featureTask, c.featureHealth, c.featureShared, c.featureCapture];
+export function getThemePalette(themeName: ThemeName, isDark: boolean): ThemePalette {
+  const variant = THEMES[themeName];
+  if (!variant) {
+    return THEMES.default[isDark ? 'dark' : 'light'];
+  }
+  return isDark ? variant.dark : variant.light;
 }
