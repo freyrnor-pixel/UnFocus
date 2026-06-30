@@ -13,11 +13,21 @@
  * still spans the full card).
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, store/useSettingsStore
+ *   Imports → constants/theme, lib/useAppTheme, store/useSettingsStore, expo-blur
  *   Used by → app screens that render a "card" surface (see grep for `<Surface`)
  *   Data    → reads bubbleMaterial from useSettingsStore when `material` prop is omitted
  *
  * Edit notes:
+ *   - Glass (and only glass) is built around a real `<BlurView>` (expo-blur) per
+ *     Decision 008: the fill is an absolutely-positioned BlurView frosting whatever
+ *     sits behind the card, plus a thin colour wash (mat.backgroundColor at reduced
+ *     opacity) so the surface still carries the theme hue. The `surfaceContext` prop
+ *     (`'ambient'` default | `'overlay'`) selects ONLY the blur intensity/tint —
+ *     one shared code path; what sits *behind* the card (ScreenBackground backdrop
+ *     for ambient, live scrolling content for overlay) is decided by where the
+ *     caller mounts the Surface, not here. `surfaceContext` is a no-op for
+ *     metal/rock/paper/plain — they keep the opaque getMaterialStyle() fill + sheen.
+ *     Android wires `experimentalBlurMethod="dimezisBlurView"` (Decision 008 (2)).
  *   - `style` is split three ways: padding keys AND content-layout keys
  *     (alignItems/justifyContent/flexDirection/gap...) move to the inner content
  *     view; everything else non-owned (margin, width, flex, borderRadius...) stays
@@ -36,17 +46,39 @@
  *     computed from this base.
  */
 import React from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { getMaterialStyle, MaterialName, Radius } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
+/**
+ * Which backdrop a glass Surface frosts (Decision 008). 'ambient' (default) sits
+ * over the calm ScreenBackground backdrop and uses a lighter blur; 'overlay' sits
+ * over live scrolling content (sticky headers, sheets, nav bar) and blurs harder so
+ * the moving content behind stays unreadable-but-present. No-op for non-glass.
+ */
+export type SurfaceContext = 'ambient' | 'overlay';
+
 type Props = {
   material?: MaterialName;
+  surfaceContext?: SurfaceContext;
   tint?: string;
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 };
+
+// Blur strength per context. Overlay frosts busier (live) content, so it leans
+// stronger to keep that content from reading through as legible detail.
+const GLASS_BLUR_INTENSITY: Record<SurfaceContext, number> = {
+  ambient: 25,
+  overlay: 45,
+};
+
+// The glass colour wash sits on top of the BlurView to keep the theme hue. Its
+// own token (mat.backgroundColor) is rgba(tinted, 0.84) — tuned for the old
+// fake (no real blur behind), so dim it here or it would hide the frost.
+const GLASS_WASH_OPACITY = 0.5;
 
 const PADDING_KEYS = new Set([
   'padding', 'paddingHorizontal', 'paddingVertical',
@@ -67,13 +99,14 @@ const OWNED_KEYS = new Set([
   'shadowColor', 'shadowOpacity', 'shadowRadius', 'shadowOffset', 'elevation',
 ]);
 
-export default function Surface({ material, tint, style, children }: Props) {
+export default function Surface({ material, surfaceContext = 'ambient', tint, style, children }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
   const settingsMaterial = useSettingsStore((s) => s.bubbleMaterial);
   const finish = material ?? settingsMaterial;
   const base = tint ?? theme.white;
   const mat = getMaterialStyle(base, finish);
+  const isGlass = finish === 'glass';
 
   const flat = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
   const outer: Record<string, unknown> = {};
@@ -110,7 +143,22 @@ export default function Surface({ material, tint, style, children }: Props) {
         },
       ]}
     >
-      <View style={[styles.mask, { borderRadius: radius, backgroundColor: mat.backgroundColor }]}>
+      <View style={[styles.mask, { borderRadius: radius }, isGlass ? null : { backgroundColor: mat.backgroundColor }]}>
+        {isGlass && (
+          <>
+            {/* Real frost: blurs whatever the caller mounted behind this card
+                (ScreenBackground backdrop for ambient, live content for overlay). */}
+            <BlurView
+              pointerEvents="none"
+              tint={isDark ? 'dark' : 'light'}
+              intensity={GLASS_BLUR_INTENSITY[surfaceContext]}
+              experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
+              style={StyleSheet.absoluteFill}
+            />
+            {/* Thin colour wash so the glass still carries the theme/tint hue. */}
+            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: mat.backgroundColor, opacity: GLASS_WASH_OPACITY }]} />
+          </>
+        )}
         {sheenOuterOpacity > 0 && (
           <View pointerEvents="none" style={[styles.sheenOuter, { backgroundColor: mat.sheenColor, opacity: sheenOuterOpacity, borderTopLeftRadius: radius, borderTopRightRadius: radius }]} />
         )}

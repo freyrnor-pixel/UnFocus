@@ -141,3 +141,55 @@ to create new native APK with these dependencies. OTA updates cannot deliver the
 Created REBUILD_DECISIONS.md (seeded with Decision 001), PROGRESS_LOG.md,
 and REBUILD_PLAN.md. No code touched. Next session: Phase 1, foundation /
 universal screen scaffold.
+
+## 2026-06-30 — Phase: Surface glass redesign around real blur (Decision 008)
+**Status: Complete (code-ready; native install + APK build pending — see blocker)**
+
+**Scope:** Ported `components/Surface.tsx` to real blur and enriched
+`components/ScreenBackground.tsx` per Decision 008. Nothing else touched.
+BubbleMenu NOT ported (Decision 008 (5): dropped, kept as dead reference).
+
+**Deliverables:**
+- **Surface.tsx**
+  - New prop `surfaceContext?: 'ambient' | 'overlay'` (default `'ambient'`),
+    exported type `SurfaceContext`. For glass it selects only the blur
+    intensity/tint (ambient 25 / overlay 45) — one shared expo-blur code path;
+    what sits *behind* the card is decided by where the caller mounts it, not
+    by Surface. No-op for non-glass.
+  - Glass fill rebuilt around a real `<BlurView>` (expo-blur) at
+    `StyleSheet.absoluteFill` inside the existing overflow:hidden rounded mask,
+    plus a thin colour wash (`mat.backgroundColor` @ opacity 0.5) so the surface
+    keeps its theme/tint hue. `tint` = dark-mode-aware. Android wires
+    `experimentalBlurMethod="dimezisBlurView"` from the start (Decision 008 (2)/(4)).
+  - metal/rock/paper/plain: byte-identical behaviour — mask still gets the opaque
+    `getMaterialStyle()` fill; the glass branch is the only new path; sheen/shade,
+    3-way style split, owned-key dropping, dark-mode sheen suppression, `tint`
+    base, and shadow-from-theme-token all preserved. `getMaterialStyle()` itself
+    was left untouched (keeps it context-blind; glass tokens reused as-is).
+- **ScreenBackground.tsx** — enriched per Decision 008 (3): bigger blobs, a
+  slower mid-falloff (added 35%/70% stops; mid raised 0.08 → 0.13/0.06), and a
+  third accent blob for glass, so ambient glass has real colour to frost.
+  Core opacity kept at 0.2 (exposed-backdrop legibility cap honoured). The
+  concentric-ring fake-blur blobs are retained — real blur (under cards) and
+  fake blur (exposed backdrop) coexist as Decision 008 (3) requires.
+
+**Decision 008 verification hooks:**
+- ambient glass frosts the backdrop; overlay glass frosts live content; the two
+  differ only by blur intensity over one code path. ✔ (by construction)
+- non-glass renders identically in both contexts (`surfaceContext` unread for
+  them). ✔
+- all existing `<Surface>` call sites (BottomNav, ScreenHeader) untouched and
+  default to ambient. ✔
+- ScreenBackground richer, ≤0.2 core opacity preserved. ✔
+- No react-native-skia import landed. ✔ (expo-blur only)
+
+**Unresolved / notes:**
+- No new decisions made — everything followed Decision 008 as written.
+- **Android blur jank (Skia-trigger record):** not measurable in this remote
+  env (no device, libraries not installed). The Decision 008 (4) escape hatch
+  — expo-blur → `experimentalBlurMethod` → Skia — remains untriggered. Flag for
+  the first on-device test of `overlay` glass over scrolling content.
+- **Blocker (same as Decision 007):** `expo-blur` (and `react-native-svg`) are
+  not yet in package.json / node_modules, so a full `tsc` and runtime check
+  can't run here. Install the native libs and trigger a new APK build before
+  on-device verification; OTA cannot deliver these native modules.
