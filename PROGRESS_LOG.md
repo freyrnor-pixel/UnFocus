@@ -4,6 +4,40 @@ Per-session summaries, newest at the bottom. Each entry: date, phase, what
 was ported/built, any new decisions added to REBUILD_DECISIONS.md, anything
 left unresolved.
 
+## 2026-06-30 — Phase 1: Foundation & Universal Screen Scaffold
+Ported Decision 001 implementation to UnFocus:
+
+**Foundation files ported:**
+- constants/colors.ts, constants/theme.ts
+- lib/useAppTheme.ts, lib/i18n.ts, lib/haptics.ts, lib/siteNav.ts, lib/dataAccess.ts, lib/db.ts
+- store/useSettingsStore.ts
+- components/Surface.tsx, components/PressableScale.tsx
+- Background layers: ScreenBackground.tsx, HomeHeroBackground.tsx, ParticleBackground.tsx, TreeWatermark.tsx
+- assets/bg-light.png, assets/bg-dark.png, assets/android-icon-monochrome.png
+
+**Components upgraded (Decision 001):**
+- ScreenHeader.tsx: tier-aware rendering (site vs sub), wrapped in translucent Surface,
+  Settings (gear) left + Focus-mode (eye-outline) right for tier='site',
+  back link (iOS only) left for tier='sub'
+- BottomNav.tsx: wrapped in translucent Surface, no logic changes
+
+**New components:**
+- ScreenScaffold.tsx: universal layout wrapper composing all layers (background → particles →
+  content → top block + optional bottom block), tier-aware chrome rendering
+- app/_scaffold-demo.tsx: temporary demo screen proving scaffold works (site and sub tiers)
+
+**App bootstrap:**
+- app/_layout.tsx: minimal setup (fonts, router stack)
+- app/index.tsx: Phase 1 placeholder with link to demo
+
+**Flags for user confirmation/resolution:**
+- Focus-mode icon: chose 'eye-outline' (confirm or suggest alternative)
+- Focus-mode onPress: placeholder no-op, flagged for phase 2 (toggle state needed)
+- app/_scaffold-demo.tsx: marked for deletion after visual review in next session
+
+No new decisions added to REBUILD_DECISIONS.md. All work implements Decision 001 as specified.
+Next phase: port remaining primitives (Button, Badge, IconButton, ProgressBar, etc.).
+
 ## 2026-06-30 — Planning files ported to UnFocus
 Ported all planning and design system documentation from All-the-small-things
 to UnFocus rebuild repo:

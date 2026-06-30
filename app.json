@@ -1,0 +1,95 @@
+{
+  "expo": {
+    "name": "UnFocus",
+    "slug": "all-the-small-things",
+    "owner": "freyrnor-pixel",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "unfocus",
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/7ccb5393-f6b8-4a0f-8e45-8c86977d581c",
+      "channel": "preview"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-updates",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#F4A261"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow UnFocus to use your camera to scan receipts."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow UnFocus to access your photos to scan receipts."
+        }
+      ],
+      "expo-audio",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "UnFocus uses your location to remind you about tasks tied to a place."
+        }
+      ],
+      "expo-calendar",
+      "expo-task-manager",
+      "expo-background-task",
+      "expo-sensors"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.freyrnorpixel.unfocus",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "UnFocus uses the microphone so you can add tasks and notes by voice.",
+        "NSLocationWhenInUseUsageDescription": "UnFocus uses your location to remind you about tasks tied to a place, like errands near a store.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "UnFocus uses your location in the background to remind you about tasks tied to a place, even when the app isn't open.",
+        "NSCalendarsUsageDescription": "UnFocus can add your tasks to your device calendar if you choose to sync them.",
+        "NSContactsUsageDescription": "UnFocus can suggest contacts when sharing a list, if you choose to use that feature.",
+        "UIBackgroundModes": ["location", "fetch", "processing"]
+      }
+    },
+    "android": {
+      "versionCode": 11,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.freyrnorpixel.unfocus",
+      "permissions": [
+        "RECORD_AUDIO",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR",
+        "ACTIVITY_RECOGNITION",
+        "READ_CONTACTS",
+        "WRITE_CONTACTS"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7ccb5393-f6b8-4a0f-8e45-8c86977d581c"
+      }
+    }
+  }
+}
