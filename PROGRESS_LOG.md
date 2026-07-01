@@ -833,3 +833,64 @@ depends on those being ported first too.
 **Open Backlog now:** OB-1 resolved (see Decision 016). Remaining: OB-2 (energy
 medium/high parity, deferred), OB-3 (sharing explanation copy). Neither blocks
 current phases.
+
+## 2026-07-01 — Planning: Phase 3c gated-card audit (pre-port ambiguity sweep)
+
+**Status: Complete** — No code written. Read-only audit of the three ⚠
+decision-gated cards in Phase 3c (PlanTaskCard, ShoppingRow, WeekListCard)
+against their governing decisions, applying the "resolve before Code silently
+re-decides" pass to the next gated phase in line. Findings below; two
+REBUILD_PLAN.md ⚠-marker corrections and one new decision thread (017) result.
+
+### PlanTaskCard ⚠ → UNBLOCKED (marker stale) + source-vs-target divergence recorded
+- The ⚠ marker in REBUILD_PLAN.md 3c cites "Decision 009 #3 — Session B,
+  resolve with user first." That is **stale**: Decisions 009a and 009b (both
+  2026-07-01, filed after 009) resolved the Plans visual direction. The
+  day-view is locked — read-only preview = day-view, proportional rail
+  (Option C), collapsed = current + next + 2 after, gap state, dimmed Done
+  zone, rail tail = 10% of visible span (009b). No open design question
+  remains. PlanTaskCard is no longer gated on an unresolved decision.
+- **Divergence found (recorded so Code doesn't port the wrong system):** the
+  old app renders plans two different ways — `app/plans.tsx` uses a two-section
+  drag-sortable stack (Important/General) via `PlanTaskCard` + `DraggableTaskRow`,
+  with NO time rail; the old Home preview (`app/index.tsx`) uses a SEPARATE
+  `DayTimeline` component. The locked target (009a: "one component, one
+  behavior") is the **rail-based day-view**, which matches neither old system
+  cleanly. Session B therefore BUILDS the rail day-view; it does not faithfully
+  port the old two-section stack. This is a design-intended divergence from
+  source, not a port fidelity target — flag for Session B so "port PlanTaskCard"
+  is not misread as "reproduce app/plans.tsx's stack."
+
+### ShoppingRow ⚠ → PORTABLE (planning-resolved; one in-session verification)
+- Decision 011 A2·1 fully specs the two-line redesign (A2-2) and ripples R1
+  (drag reorder), R2 (swipe-remove, catalog vs. ad-hoc branch preserved), R3
+  (CHECKED_OPACITY still exported). No planning-level ambiguity remains.
+- R1's "confirm a drag-reorder primitive exists / is acceptable" is partly
+  answered by this audit: `DraggableTaskRow.tsx` exists and is the plans drag
+  primitive, but it is coupled to `app/plans.tsx` (reports gesture state up,
+  owns no data, does its hit-testing in the parent). Whether it is reusable for
+  shopping rows or shopping needs its own remains a **within-session
+  verification** (as 011 already scoped it), not a planning blocker. ShoppingRow
+  is clear to enter its Session A2·1 port when 3c is scoped.
+
+### WeekListCard ⚠ → GENUINELY UNRESOLVED → opened as Decision 017
+- Entangled with 009 #2 AND 011, and neither closes it. 009 #2 converges
+  ungrouped weekly rows onto ExpandableCard but scopes that to Session A (Home
+  preview) and explicitly forbids touching the full shopping screen. 011
+  redesigns the full screen (A2-1 sticky header lifts the per-list
+  summary/progress OUT of the card) and the row (A2-2), but never states
+  WeekListCard's remaining container role on the full screen, nor whether the
+  ungrouped-rows-onto-ExpandableCard convergence applies there too or only in
+  the preview.
+- Real silent-re-decision risk: entering 3c cold, Code would most likely either
+  double-converge or leave the full-screen WeekListCard forked from the Home
+  preview. Routed to its own thread (Decision 017) to resolve before 3c.
+- **Note on numbering:** drafted upstream as "Decision 016" — that number is
+  already used in this log for the habit-reminders decision (filed earlier the
+  same day) — so the WeekListCard decision is filed as 017 instead.
+
+### Outputs of this audit
+- REBUILD_PLAN.md 3c: correct PlanTaskCard's ⚠ marker (now unblocked — points
+  to 009a/009b, not "resolve with user"); leave ShoppingRow ⚠ but note
+  planning-resolved / R1 in-session; keep WeekListCard ⚠ pending Decision 017.
+- New decision thread 017 opened for WeekListCard's full-screen role.

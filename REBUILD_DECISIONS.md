@@ -897,3 +897,83 @@ decided here.
   as a gap.
 
 **Supersedes:** the OB-1 "real feature addition" framing. OB-1 is closed.
+
+## Decision 017 — WeekListCard's full-screen role (post-A2-1 / post-009 #2)
+
+**Status:** Resolved
+**Date:** 2026-07-01
+**Depends on:** 009 (#2 preview convergence), 011 (A2-1 sticky header, A2-2 row
+redesign)
+**Source:** Phase 3c gated-card audit (2026-07-01) — WeekListCard was ⚠ on
+"entangled with 009 #2 + 011" but neither decision specified its remaining
+container role on the FULL shopping screen. Left cold, Code would silently
+re-decide (double-converge, or fork the full-screen card from the Home
+preview).
+
+**Note on numbering:** drafted upstream as "Decision 016" — this log already
+uses 016 for the habit-reminders decision (filed earlier the same day), so
+this entry is filed as 017 instead. Content is otherwise unchanged from the
+source document.
+
+### Context
+On the full shopping screen, WeekListCard per list owned: (1) a per-list
+summary/progress header, (2) "From meals" dish groups (already ExpandableCard),
+(3) ungrouped weekly rows (raw accent-bordered View cards), (4) "In cart".
+Decision 011 A2-1 lifted (1) into a screen-level sticky header. Decision 009 #2
+converged (3) onto ExpandableCard but scoped that to the Home preview ONLY,
+explicitly forbidding touching the full screen. That left the full-screen
+WeekListCard half-specified.
+
+### Decision
+1. **Container role (Q1):** WeekListCard stays as a per-list container on the
+   full screen, keeping its own list-level chrome — title, lock, delete
+   (trash), bookmark/SavedLists entry, and the container shell — MINUS the full
+   summary/progress block (that lives in the sticky header per A2-1). It is not
+   dissolved; the screen does not render sections directly.
+
+2. **Row convergence (Q2):** The full-screen ungrouped weekly rows ALSO
+   converge onto ExpandableCard, matching the Home preview (009 #2). One
+   row-container language everywhere — the full screen and the Home preview no
+   longer fork. This extends 009 #2's convergence to the full screen; 009 #2's
+   "do NOT touch the full shopping screen" scope limit was a Session-A scoping
+   boundary, not a decision that the full screen should stay unconverged. That
+   boundary is now lifted for the row-container question specifically (and only
+   that), and this extension is recorded here rather than by editing 009.
+
+3. **Multi-list summary (Q3 + Q4):** The full screen shows several Week list
+   Containers at once. The sticky header (A2-1) summarizes the **focused/current
+   list only** — NOT an aggregate across all lists. Each **non-focused** list
+   shows a **compact inline progress line in its own card header** (Q4-A). The
+   compact inline line and the sticky header's summary are the SAME data at two
+   densities — the sticky bar is the focused list's inline line, promoted and
+   expanded. One progress calculation, two presentations; no fork.
+
+### Bounded amendment to Decision 011 A2-1 (flagged, not silently absorbed)
+A2-1 lifted the per-list summary/progress OUT of WeekListCard into the sticky
+header and did not anticipate the multi-list case. Q4-A reintroduces a COMPACT
+progress readout into each card header (non-focused lists). This is not a
+reversal of A2-1 — A2-1 removed the FULL summary block; this adds back a
+compact line — but it splits progress presentation across the sticky header
+(focused, full) and the card header (non-focused, compact). Recorded as a
+bounded amendment so the A2·2 screen-layout session builds the sticky header as
+**focused-list-only, not aggregate**, and the row-redesign / screen-layout
+sessions know the card header now carries a compact progress line.
+
+### Consequences for Phase 3c / the shopping sessions
+- WeekListCard is now UNBLOCKED for its 3c port, targeting: per-list container
+  with list-level chrome, no full summary block, compact inline progress line in
+  its header (non-focused state), dish groups + ungrouped rows both on
+  ExpandableCard.
+- Session A2·2 (shopping screen re-layout): sticky header summarizes the focused
+  list only; tapping a list focuses it (promotes its compact line into the
+  sticky bar). "Focused/current list" selection mechanism is a screen-layout
+  detail for A2·2 — not re-decided here — but it MUST drive which list the
+  sticky header reflects.
+- No change to Monthly (MonthlyTableRow), "From meals" dish groups (already
+  ExpandableCard), or the monthly to-buy → in-cart → bought logic.
+
+### Blocks / unblocks
+- **Unblocks:** WeekListCard's 3c port (was the one genuinely-unresolved gated
+  card).
+- **No new blocks.** The focused-list selection mechanism is an A2·2 in-session
+  layout detail, not a separate planning blocker.

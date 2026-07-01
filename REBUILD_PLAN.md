@@ -26,12 +26,17 @@ Phase order. One phase per Claude Code session. Don't batch.
      ListSettingsSheet. AddItemSheet is explicitly out of the A2 redesign
      (Decision 011 A2-5) — faithful port, not a restyle.
    - **3c — Cards & rows** (⚠ decision-gated — do NOT port as a uniform
-     batch). PlanTaskCard ⚠ (Plans preview redesign, Decision 009 #3 —
-     Session B, resolve with user first), ShoppingRow ⚠ (Decision 011
-     A2·1, two-line redesign + ripples R1/R2/R3), WeekListCard ⚠
-     (entangled with Decision 009 #2 + 011), NextTaskCard, NoteRow,
-     MonthlyTableRow. Only the un-gated rows are plain ports; the ⚠ items
-     route to their dedicated sessions.
+     batch). PlanTaskCard ⚠ (Plans day-view — UNBLOCKED by Decisions 009a +
+     009b; the visual direction is resolved. NOTE: target is the rail-based
+     day-view, which is a design-intended divergence from the old two-section
+     stack in app/plans.tsx — Session B BUILDS the rail view, does not port the
+     old stack. See 3c audit in PROGRESS_LOG), ShoppingRow ⚠ (Decision 011
+     A2·1 — planning-resolved; two-line redesign + ripples R1/R2/R3; R1
+     drag-primitive reuse is an in-session verification, DraggableTaskRow.tsx
+     is the candidate), WeekListCard ⚠ (full-screen container role UNRESOLVED —
+     blocked on Decision 017; do NOT port until 017 is recorded), NextTaskCard,
+     NoteRow, MonthlyTableRow. Only the un-gated rows are plain ports; the ⚠
+     items route to their dedicated sessions.
    - **3d — Timeline & interaction.** DayTimeline, DraggableTaskRow (⚠ role
      pending verification as the drag-reorder primitive under Decision 011
      R1), DatePickerCalendar, AddFAB, AddSourceChooser, EnergyCheckIn.
