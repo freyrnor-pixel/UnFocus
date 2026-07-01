@@ -405,3 +405,63 @@ this session.
   `lib/date.ts`, `ScreenHeader.tsx` Platform import, native libs not
   installed) are still open — none are blockers for this session's scope but
   will need a dedicated cleanup pass before a full green `tsc` run is possible.
+
+## 2026-07-01 — Phase 3b: Sheets — STOPPED before porting (missing store deps)
+
+**Status: STOPPED, flagged.** Zero of the six sheets ported this session.
+
+**Preconditions checked first (all passed):**
+- Decisions 001, 006, 007, 008 are real, structured entries in
+  REBUILD_DECISIONS.md — confirmed present.
+- Phase 3a (AppModal, ExpandableCard, SectionDivider, AddDivider,
+  CompletionGlow) is logged complete in PROGRESS_LOG.md — confirmed.
+- `Surface.tsx` has the Decision 008 `surfaceContext` prop — confirmed
+  (`surfaceContext?: SurfaceContext`, default `'ambient'`).
+- `AppModal.tsx` already uses `<Surface surfaceContext="overlay">` and never
+  imports `expo-blur` directly — confirmed, good reference pattern for the
+  six sheets.
+
+**Why it stopped:** read all six old-app sheet sources
+(`AddItemSheet`, `QuickAddSheet`, `AddDishSheet`, `ShoppingQuickAddSheet`,
+`UpdateSheet`, `ListSettingsSheet`) before writing any port. Every one of them
+imports a Zustand store that does not exist yet in this repo:
+- `AddItemSheet` → `useCatalogStore` (autocomplete suggestions)
+- `QuickAddSheet` → `useTaskStore` (direct `add()` call inside the sheet) +
+  `lib/date.ts` (`todayStr`/`dateStr`) — the missing-file already flagged in
+  the prior entry
+- `AddDishSheet` → `useCatalogStore`, `useMealStore`
+- `ShoppingQuickAddSheet` → `useShoppingStore`, `useShoppingListStore`,
+  `lib/date.ts`
+- `UpdateSheet` → imports the `ShoppingItem` type from `useShoppingStore`
+- `ListSettingsSheet` → imports the `ShoppingList` type from
+  `useShoppingListStore`
+
+`store/` in this repo currently contains only `useSettingsStore.ts` — stores
+are Phase 5 (stores + paired screens) per REBUILD_PLAN.md, not this Phase 3b.
+Per this session's own instructions ("If you believe one is needed as a
+dependency of a sheet, STOP and flag rather than pulling it in"), stopping
+here rather than porting stub/placeholder stores or hand-waving the types.
+
+**FormControls reuse (assessed, not yet applied):** `components/FormControls.tsx`
+already exports `Input` (themed TextInput, label/error/focus-border) and
+`Switch` (themed RN Switch wrapper) — both look like direct fits for every
+text field and toggle across all six sheets (replacing hand-rolled
+`TextInput`/`Switch` + `theme.offWhite`/`theme.orange` styling in the old
+source). No `Checkbox`/`SegmentedControl` usage identified in the six sheets.
+This confirms the primitives are ready; just blocked on the store layer.
+
+**Doc-vs-source conflicts:** none encountered — no port work was started.
+
+**Left unresolved / next steps for Phase 3b (or a re-scoped predecessor):**
+1. The six stores above (`useCatalogStore`, `useTaskStore`, `useMealStore`,
+   `useShoppingStore`, `useShoppingListStore`) plus `lib/date.ts` need to
+   exist before any of these sheets can be ported for real. Whether that
+   means pulling Phase 5's relevant stores forward, or stubbing minimal typed
+   interfaces just for these sheets, is a scope call for the user/planning
+   thread, not something to decide unilaterally mid-session.
+2. Once unblocked: Decision 011 (A2-5) still applies — `AddItemSheet` and
+   `ShoppingQuickAddSheet` must be ported faithfully, not restyled to any
+   shopping-redesign direction.
+3. Phase 3c (cards & rows) remains separately gated: `PlanTaskCard` on
+   Decision 009, `ShoppingRow`/`WeekListCard` on Decision 011 — untouched,
+   not started.
