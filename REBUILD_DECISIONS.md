@@ -602,3 +602,54 @@ don't churn.
 **Scope:** ConfirmationBanner primitive only. No caller migration this phase.
 
 **Supersedes:** the success-only shape of the old `ConfirmationBanner.tsx`.
+
+---
+
+## Decision 014 — ExpandableCard accentColor tint scope after Surface delegation
+
+**Status:** Resolved (ratifies a consequence of Decision 008)
+**Date:** 2026-07-01
+**Depends on:** 008 (glass around real blur), 009 (Home previews route through ExpandableCard)
+
+### Context
+Phase 3a ported `ExpandableCard` to delegate its card face to
+`<Surface surfaceContext="ambient">` instead of hand-rolling the two-layer
+material mask. Claude Code logged a "behavioral drop": `accentColor` now
+tints only the 4px accent bar, no longer the card border/sheen. This decision
+records the tint contract explicitly so the three Decision 009 preview
+sessions (Notes, Shopping, Plans) consume a known behavior rather than
+inheriting an unrecorded one.
+
+### What the old source actually did with accentColor
+- Fed it into `getMaterialStyle(accentColor ?? theme.orange, finish)`, which
+  tinted the border and sheen — not the fill. The fill was always
+  `theme.white`.
+- Rendered a dedicated 4px accent bar (`styles.accent`).
+- So the old capabilities were: (a) border/sheen tint, (b) accent bar. There
+  was never fill tinting to lose — the Phase 3a summary's "fill tinting was
+  inconsistent" overstates it.
+
+### Decision
+`accentColor` tints the 4px accent bar only. Border/sheen tinting is not
+restored.
+
+### Rationale
+The border/sheen tint was already surrendered by Decision 008, not by this
+port: once the card face delegates to `Surface`, `Surface` owns
+border/sheen/blur and by design does not accept a caller's arbitrary border
+tint. Accent-bar-only is the honest structural consequence of 008, not a new
+design reduction. Category/accent signaling reads adequately from a 4px bar
+for all current previews.
+
+### Downstream to-do (non-blocking)
+`health.tsx` is the one caller that uses `accentColor` for genuine
+information (per-log severity), and it's a not-yet-ported screen. When
+Health's store+screen phase runs, that session must confirm a 4px accent bar
+still reads as severity, or add an explicit severity affordance (e.g. a
+`Badge`). Flagged here so it isn't rediscovered cold.
+
+### Contract for Decision 009 preview sessions
+Notes / Shopping / Plans previews may pass `accentColor` for a thin accent
+stripe only. Do not expect it to tint the card border, sheen, or fill. If a
+preview needs stronger category color, use an explicit affordance (`Badge`,
+icon tint), not `accentColor`.

@@ -285,6 +285,26 @@ in `components/`. None wired into any screen yet (Phase 6). Next phase per
 REBUILD_PLAN.md: Phase 3 composites (AppModal, sheets, cards, ExpandableCard,
 etc.).
 
+## 2026-07-01 — Decision 014 logged (ExpandableCard accentColor scope)
+Recorded Decision 014 in REBUILD_DECISIONS.md, ratifying a Phase 3a consequence
+of Decision 008: `ExpandableCard`'s `accentColor` now tints only the 4px accent
+bar (not the card border/sheen, which `Surface` owns post-008). Old source
+never tinted the fill either — only border/sheen + the accent bar — so nothing
+beyond border/sheen tint was actually lost. `health.tsx` (not yet ported) is
+flagged as the one caller that uses `accentColor` for real severity signaling;
+its future store+screen phase must confirm the 4px bar reads as severity or add
+an explicit `Badge` affordance. Decision 009 preview sessions (Notes/Shopping/
+Plans) are contracted to treat `accentColor` as accent-stripe-only. No code
+changed this entry.
+
+**Open threads (carried forward, not Phase 3a's scope):**
+- **`components/ScreenHeader.tsx` has a known bug**, surfaced during Phase 3a
+  but not caused by it. Whichever later session first touches ScreenHeader
+  should fix it then, rather than rediscover cold.
+- **`lib/date.ts` is missing** — referenced (imported) by code but absent from
+  the repo, also surfaced during Phase 3a, not in its scope. Whichever later
+  session first imports from `lib/date.ts` should add it then.
+
 ## 2026-07-01 — Phase 3a: Foundational composites (AppModal, ExpandableCard, SectionDivider, AddDivider, CompletionGlow)
 
 **Status: Complete.** Ported the five structural/leaf composites scoped to this
