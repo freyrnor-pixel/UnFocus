@@ -14,6 +14,74 @@ Rules:
 
 ---
 
+## Decision 006 — Colour token layer (colors.ts)
+
+**Status:** Resolved. Backfilled entry — this decision was made and treated as
+binding earlier but existed only as PROGRESS_LOG narrative until now (Gap G1,
+Orientation 2026-07-01). No change to the decision itself; this records it.
+
+**Decision:** All colour in the app is addressed through a semantic token layer in
+`constants/colors.ts`: 31 semantic tokens, resolved across 6 themes (Default/blue,
+Summer, Nature, Fluffy Pink, Gothic, Black & White), each with light and dark
+variants. Tokens are verified WCAG AA. Components reference tokens by name only —
+never raw hex, never a token not present in `colors.ts`.
+
+**Token names are the source of record in `colors.ts`, not in this entry.** Where any
+doc, source file, or session prompt names a token, it must match `colors.ts` exactly.
+Old pre-006 source files reference retired names (`theme.textLight`, `theme.orange`,
+`theme.green`, `theme.danger`, etc.) and must be remapped at port time to their 006
+equivalents; the canonical remap table lives in the relevant session prompt.
+
+**Open verification — RESOLVED:** the entry originally flagged `textInverse` vs
+`accentInk` as needing confirmation (both referenced for text-on-coloured-fill; the
+remap table only lists `accentInk`). Checked directly against `constants/colors.ts`:
+both tokens exist and are distinct — `textInverse` (text on coloured backgrounds
+generally) and `accentInk` (text/icon colour specifically on accent-coloured fills).
+`textInverse` is not an invented token; no correction needed. Token count of 31 is
+confirmed against the file's own header comment (4 surfaces + 3 text + 2 borders + 3
+accent + 6 semantic state + 2 depth + 3 hint + 8 feature accents = 31).
+
+**Scope:** foundational. Every component, primitive, composite, and screen depends on
+this. No component may ship a raw hex value or an off-list token name.
+
+**Supersedes:** all pre-006 `theme.*` colour names in old source files.
+
+---
+
+## Decision 007 — Rendering primitive libraries
+
+**Status:** Resolved. Backfilled entry — source of record for native rendering-library
+ownership; previously lived only as PROGRESS_LOG Phase 2b narrative (Gap G2,
+Orientation 2026-07-01). No change to the decision itself; this records it.
+
+**Decision:** The app's non-plain rendering is built on three libraries, and only
+these three:
+- `expo-linear-gradient` — rectangular gradient backgrounds and overlays.
+- `react-native-svg` — non-rectangular shapes and vector paths.
+- `expo-blur` — real blur for the glass material (glass usage governed by Decision 008).
+
+Skia is ruled out as a general renderer, retained only as the named Android-jank
+escape hatch defined in Decision 008 (expo-blur → `experimentalBlurMethod=
+"dimezisBlurView"` → Skia only on measured Android jank).
+
+**Install discipline:** these libraries are installed only when the phase that first
+needs them runs. A phase that does not use gradient/blur/svg must not add, import, or
+install any of them. If a session believes one is needed out of sequence, it stops and
+flags rather than installing. (Phase 2 remaining primitives explicitly need none of
+the three.)
+
+**Component tiering:** components are split into 007-unblocked (no gradient/blur/svg)
+and 008-blocked (require glass/blur) porting tiers. The nine Phase 2 primitives are all
+007-unblocked.
+
+**Scope:** foundational for all visual components. Dependency of Decision 008 (glass
+redesign around real blur).
+
+**Supersedes:** the "dependency-free on purpose / OTA-safe" notes in original component
+source, which were premised on a constraint (no dev build) that has since been lifted.
+
+---
+
 ## Decision 001 — Universal screen scaffold
 
 **Status:** Decided 2026-06-30. Supersedes the implicit "Home is special"
