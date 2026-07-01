@@ -255,3 +255,115 @@ readings, pick one when porting screens:
 
 Undecided. Whichever way it goes, it is cheap. Resolve per-screen in the
 stores+screens phase, not in a foundation/composite phase.
+
+---
+
+## Decision 011 — A2: Shopping list overhaul
+
+**Status:** Resolved (2026-07-01)
+**Source:** FEATURE_INVENTORY.docx, 2026-06-21 notes — "Shopping list needs a big
+overhaul. Looks crowded and hard to read because of the layout. I need input to
+make decisions on the redesign."
+**Supersedes old code where they conflict:** yes — target is the redesign below,
+not current ShoppingRow.tsx / shopping screen behaviour.
+
+Grounding note: on the actual shopping screen (app/shopping.tsx) the top-of-screen
+competition is hint → shared-requests → per-list summary/progress → item
+sub-sections (From meals / Shopping list / In cart, inside WeekListCard) →
+bought-history → reset. (InboxSection is a home-screen component, not shopping —
+the inventory's "incoming shares at top" note conflates the two; the redesign
+targets the shopping screen's own shared-requests section.)
+
+---
+
+### A2-1 — Screen section order & hierarchy
+**Choice:** Sticky compact header + scrolling body.
+- A fixed slim header holds the summary + progress + reset-access (via an overflow
+  menu — see A2-4). Header stays visible while the body scrolls.
+- Everything else scrolls under it: shared-requests → items → bought-history.
+- Hint renders inline once, at the first scroll position (not pinned).
+**Why:** Keeps the summary/budget always visible while scrolling, which matches the
+budgeting focus; de-crowds the top by moving hint/shared/history into the scroll.
+**Trade-off accepted:** the sticky header costs some permanent vertical space.
+
+### A2-2 — Row layout & density (ShoppingRow)
+**Choice:** Two-line row, price kept visible.
+- Line 1: leading check · name · price-total (right-aligned).
+- Line 2 (smaller/dimmed): qty+unit · qty stepper (−/badge/+) · in-stock label.
+- Remove moves to swipe-left (off the visible row).
+- Reorder moves to a drag handle / drag gesture — the inline move-chevrons are
+  retired (see Ripple R1).
+- Cart 'undo' stays as a single trailing icon on 'cart' variant.
+**Why:** Relieves the six-zones-on-one-line crowding while keeping money (line total)
+glanceable, since budget is a first-class feature.
+**Trade-off accepted:** swipe-to-remove is less discoverable than a visible ×;
+line 2 is slightly busier than a meta-only second line.
+**Applies to:** weekly ShoppingRow only (see A2-3).
+
+### A2-3 — Weekly vs. monthly parity
+**Choice:** Keep them deliberately different.
+- Weekly stays the friendly checklist (redesigned ShoppingRow per A2-2).
+- Monthly stays the spreadsheet/table (MonthlyTableRow), untouched by A2-2.
+**Why:** The two serve different jobs — quick weekly ticking vs. monthly
+planning/pricing with column-aligned scan. Lowest risk; no ripple into
+MonthlyTableRow.
+**Trade-off accepted:** two visual languages to maintain; may revisit unification
+later if it reads as inconsistent (explicitly deferred, not decided against).
+
+### A2-4 — Bought-history & reset placement
+**Choice:** Remapped for the A2-1 = B layout (original "behind the segment" option
+was C-only and not buildable here).
+- Bought-history: collapsed "Bought this week (n) ▸" at the bottom of the scrolling
+  body, expands in place.
+- Reset: lives in the sticky header's overflow menu (keeps the destructive action
+  out of accidental reach, and the header already owns reset-access under A2-1 = B).
+**Why:** Fits the sticky-header + scrolling-body layout without inventing a second
+pane; keeps reset deliberate rather than a tappable button in the flow.
+
+### A2-5 — Add-sheet surface (AddItemSheet)
+**Choice:** Out of scope for A2.
+**Why:** Not flagged as crowded in the inventory; the add flow (name/price/qty/
+temporary, centered modal) works and isn't part of the readability problem.
+
+---
+
+### Ripples flagged (not silently absorbed)
+- **R1 — Reorder mechanism change.** A2-2 retires ShoppingRow's inline
+  move-chevrons. The weekly call site (WeekListCard → app/shopping.tsx) currently
+  passes reorder(id,'up'|'down') from useShoppingStore per-row. The redesign
+  replaces this with a drag-based reorder. Scope: whichever session does A2-2 must
+  wire drag reorder to the same store action (or an equivalent) and drop the
+  chevron props. **Open question for the coding session:** confirm a drag-reorder
+  primitive exists / is acceptable (DraggableTaskRow.tsx exists in the repo and may
+  be the pattern to reuse) — VERIFY before building; do not silently keep chevrons.
+- **R2 — Remove affordance change.** A2-2 moves remove to swipe-left. The
+  fromCatalog rows currently show a red InventoryIcon (put-back-to-catalog) vs. a
+  plain × (delete) as their remove button. The swipe action must preserve this
+  branch: catalog rows swipe to "put back to catalog"
+  (useShoppingStore.putBackToInventory), ad-hoc/purchased rows swipe to delete.
+  Same store actions, new gesture surface.
+- **R3 — CHECKED_OPACITY reuse.** ShoppingRow exports CHECKED_OPACITY (0.55), reused
+  by the "Shopping done" disabled state in app/shopping.tsx. The row redesign must
+  keep exporting it (or the screen re-layout must re-home the constant) so the
+  shared dim value doesn't fork.
+
+### Design-system dependencies to VERIFY (not in project knowledge)
+- Sticky-header material/elevation, swipe-action styling, and drag-handle affordance
+  should be checked against the relevant *_LIBRARY.md docs at port time (materials/
+  finishes + interaction patterns). Marked for verification — do not assume.
+
+### Blocks / unblocks
+- **Unblocks** the flagged-components / shopping composite phase, which was hard-
+  blocked on this decision.
+- **No new blocks** introduced. R1's drag-reorder verification is a within-session
+  check, not a separate planning blocker.
+
+### Packaging — split into two Claude Code sessions
+- **Session A2·1 — ShoppingRow redesign** (A2-2 + ripples R1, R2, R3). Self-
+  contained component work: two-line layout, swipe-remove with catalog/ad-hoc
+  branch, drag reorder, CHECKED_OPACITY preserved.
+- **Session A2·2 — Shopping screen re-layout** (A2-1 + A2-4). Sticky compact
+  header, scrolling body order, hint inline, shared-requests, collapsed history,
+  reset-in-overflow.
+- Order: A2·1 (row) before A2·2 (screen), so the screen re-layout composes the
+  finished row.
