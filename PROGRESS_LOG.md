@@ -238,3 +238,22 @@ Recorded Decision 010 (OPEN) from a read-only investigation of the OLD app
   (dated 2026-06-21) → STALE. Note editing and a routed `/notes` screen are
   shipped and reachable (see C1). Treat the feature as DONE, not a gap. The
   absence of a BottomNav tab is intentional, not a missing piece.
+
+## 2026-07-01 — Planning: Open Backlog logged (OB-1, OB-2, OB-3)
+
+**Status: Complete** — No code written. Recorded three unresolved decision
+threads surfaced by the 2026-07-01 decision-log audit into a new "Open
+Backlog" section in REBUILD_DECISIONS.md (that file is otherwise a
+resolved-only log; this section is explicitly exempt from that rule).
+
+- **OB-1 (Open):** Habit reminders — multiple times per day. Real feature
+  addition; needs a decision on data model (time array vs. recurrence rule),
+  add/remove UI, and notification scheduling before it can be built.
+- **OB-2 (Open, deferred):** Energy check-in medium-vs-high parity. Already
+  flagged as deferred by Decision 009; re-surfaced here so it stays visible
+  instead of silently dropping off.
+- **OB-3 (Open):** Sharing per-location explanation copy. Wording-only; needs
+  the share locations enumerated and short explanatory strings drafted.
+
+None of the three block Phase 2 primitives. They're candidate threads for
+after primitives land, in no fixed order.

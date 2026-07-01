@@ -467,3 +467,43 @@ the rule breaking down.
 **Note on numbering:** filed as Decision 012 (not 011) — Decision 011 already
 exists in this log (A2: Shopping list overhaul); this entry does not
 supersede it.
+
+---
+
+## Open Backlog — unresolved decision threads (logged 2026-07-01)
+
+**Not decisions.** This section is exempt from the append-only-resolved rule
+above; it exists to track genuine open threads surfaced by the 2026-07-01
+decision-log audit so they don't quietly become "forgotten" instead of
+"deferred." When one of these is resolved, add a proper numbered Decision
+entry above and remove (or mark resolved-see-Decision-NNN) its entry here.
+
+None of these block Phase 2 primitives. Listed in no fixed order.
+
+### OB-1 — Habit reminders: multiple per day
+**Source:** FEATURE_INVENTORY.docx edit note — "Add the option for several
+reminders a day... Today only ONE fixed time is possible."
+**Status:** Open. Explicit feature request, no Decision entry.
+**Nature:** Real feature addition (old app supports one fixed reminder time
+per habit; request is N reminders/day). Needs a decision thread covering data
+model (array of times vs. recurrence rule), UI for adding/removing times, and
+notification scheduling implications before it can be ported/built.
+
+### OB-2 — Energy check-in: medium vs. high parity
+**Source:** FEATURE_INVENTORY.docx edit note — old app has "no difference
+between medium and high" energy levels.
+**Status:** Open, DEFERRED (not resolved). Decision 009 removed the Energy
+check-in from Home but explicitly deferred this ambiguity rather than fixing
+it. Correctly tracked as deferred, flagged here so "deferred" doesn't quietly
+become "forgotten."
+**Nature:** Behaviour decision — either medium and high should drive different
+task filtering/surfacing, or they should collapse to fewer levels. Needs a
+call on what the levels actually DO before Energy resurfaces anywhere.
+
+### OB-3 — Sharing: per-location explanation copy
+**Source:** FEATURE_INVENTORY.docx edit note — asks for a short explanation of
+"what it actually does" at each share location. Wording TBD.
+**Status:** Open. No Decision entry.
+**Nature:** Copy/wording decision (not behaviour). Needs the actual short
+explanatory string for each place sharing is offered. Cheap to close once the
+share locations are enumerated.
