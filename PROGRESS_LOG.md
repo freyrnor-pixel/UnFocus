@@ -465,3 +465,106 @@ This confirms the primitives are ready; just blocked on the store layer.
 3. Phase 3c (cards & rows) remains separately gated: `PlanTaskCard` on
    Decision 009, `ShoppingRow`/`WeekListCard` on Decision 011 — untouched,
    not started.
+
+## 2026-07-01 — Phase 3b: Sheets — ported (Decision 015 store interfaces)
+
+**Status: Complete.** All six sheets ported this session:
+`AddItemSheet`, `QuickAddSheet`, `ShoppingQuickAddSheet`, `AddDishSheet`,
+`UpdateSheet`, `ListSettingsSheet`.
+
+**Preconditions confirmed before starting:** Decisions 001, 006, 007, 008
+present as real structured entries in REBUILD_DECISIONS.md. Phase 3a
+(AppModal, ExpandableCard, SectionDivider, AddDivider, CompletionGlow) logged
+complete. `Surface.tsx` has the Decision 008 `surfaceContext` prop.
+Decision 015 (declared in the session brief but not yet recorded in
+REBUILD_DECISIONS.md) was written up as a real entry before porting began, so
+the store-interface contract has a durable record, not just a one-off brief.
+
+**Old source located:** the repo has no local "old app" checkout; the actual
+reference implementation lives in the sibling `All-the-small-things` repo
+(same six sheet files, `lib/date.ts`, `Surface.tsx`, `constants/theme.ts`).
+Confirmed this is the correct reference before reading any sheet source.
+
+**Store stubs (Decision 015):** created `store/useTaskStore.ts`,
+`useShoppingStore.ts`, `useShoppingListStore.ts`, `useCatalogStore.ts`,
+`useMealStore.ts` — each exports only the declared contract surface and
+throws on actual invocation (`useMealStore`'s `dishes` returns `[]` rather
+than throwing, since it's a plain data field, not a call — still inert).
+**One contract correction found while porting, recorded as Decision 015a:**
+`useCatalogStore.suggest()` is actually called as `suggest(name, limit)` and
+consumes `{id, name, price}[]` results (rendered with price in both
+AddItemSheet's and AddDishSheet's suggestion dropdowns) — not the
+`suggest(name): string[]` Decision 015 originally declared. Corrected the
+stub and documented the correction rather than reshaping the sheets to fit
+the original (wrong) signature.
+
+**lib/date.ts:** ported for real, not stubbed — full file, all exports
+(`todayStr`, `dateStr`, `currentMonthStr`, `dayOfWeekMon0`, `toExpoWeekday`,
+`getWeekDates`, `getMonthDates`, `getWeekRangeContaining`,
+`formatDateRange`). Pure functions, no store entanglement, matches the
+"foundation gap-fill" instruction.
+
+**Overlay glass (Decision 008):** every sheet's outer card/sheet renders via
+`<Surface surfaceContext="overlay">`, confirmed no direct `expo-blur` import
+in any of the six files. None of the six mount inside `AppModal` (each has
+its own `<Modal>`), so there's no AppModal-nesting double-frost case to
+check. Internal nested elements (AddItemSheet's/AddDishSheet's suggestion
+dropdowns, AddDishSheet's "From Meals" picker list) are rendered as plain
+themed `View`s (`theme.surfaceMuted` fill, `theme.border` outline) rather
+than a second nested `Surface` — avoids double-frosting glass-within-glass
+inside a single sheet.
+
+**FormControls reuse:** `Input` used for AddItemSheet's name/price fields;
+`Switch` used for every toggle across AddItemSheet, UpdateSheet,
+ListSettingsSheet (replacing hand-rolled `TextInput`/`Switch` +
+`theme.offWhite`/`theme.orange` styling). Not used for QuickAddSheet's
+title/time inputs, ShoppingQuickAddSheet's name input, or AddDishSheet's
+ingredient-row inputs — those are dense, non-labelled, or multi-field-per-row
+inputs where `Input`'s label+error chrome doesn't fit the old layout;
+hand-rolled `TextInput` kept there, restyled to new tokens only. No
+`Checkbox`/`SegmentedControl` usage in any of the six (matches the
+previous stopped session's assessment).
+
+**Token remap (all six):** `theme.white`→`surface` (via Surface, implicit),
+`theme.offWhite`→`surfaceMuted`, `theme.text`→`text`, `theme.textLight`→
+`textMuted`, `theme.orange`→`accent`, `theme.orangeLight`→`accentSoft`,
+`theme.grayLight`/`gray`→`border`/`textMuted` (context-dependent, matching
+Decision 006's existing precedent from Phase 3a), `theme.danger`/
+`dangerLight`→`bad`/`badSoft`, button text on accent/bad fills→`accentInk`/
+`textInverse`. Old `Shadow.fab` card shadow dropped — superseded by
+Surface's material-based shadow/border, same precedent as AppModal.
+`Colors.white` (fixed button text) → `theme.accentInk` read via
+`useAppTheme()`. The old `theme: AppColors` prop threaded through by the
+caller was dropped from every sheet's public API — no `AppColors` type
+exists in this codebase; every other ported component (Surface,
+ConfirmationBanner, AppModal) already reads `useAppTheme()` internally
+rather than receiving it as a prop, so this keeps the six sheets consistent
+with that established pattern rather than reintroducing a removed type.
+
+**A2-5 faithfulness (Decision 011):** `AddItemSheet` and
+`ShoppingQuickAddSheet` ported with unchanged layout/fields/flow — only
+token/material/FormControls substitutions, no restyle toward any shopping
+redesign direction.
+
+**Doc-vs-source conflicts:** none beyond the Decision 015a contract
+correction above (not a doc-vs-source conflict, a source-vs-stated-contract
+one).
+
+**Verification:** `npx tsc --noEmit` run. None of the eleven new/changed
+files (six sheets, five stores, `lib/date.ts`) produced errors. Remaining
+errors are all pre-existing and out of scope — same list as Phase 3a's own
+run (`expo-blur`/`expo-linear-gradient`/`react-native-svg` not installed,
+old-token-name errors in `_layout.tsx`/`index.tsx`/`_scaffold-demo.tsx`/
+`BottomNav.tsx`/`ScreenHeader.tsx`/`ScreenBackground.tsx`/`ScreenScaffold.tsx`/
+`Surface.tsx`'s one `theme.white` line, `ScreenHeader.tsx`'s stray `Platform`
+import). None touched or introduced by this session.
+
+**Unresolved for next Phase 3 sub-session:**
+- None of the six sheets are mounted into any screen yet — that's Phase 5
+  (stores + paired screens), which must also implement the five stub stores
+  against the contracts recorded in Decision 015/015a.
+- Phase 3c (cards & rows) remains separately gated: `PlanTaskCard` on
+  Decision 009, `ShoppingRow`/`WeekListCard` on Decision 011 — untouched,
+  not started.
+- Pre-existing `tsc` errors listed above are still open, same as before this
+  session — no new ones added.

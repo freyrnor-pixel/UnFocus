@@ -653,3 +653,75 @@ Notes / Shopping / Plans previews may pass `accentColor` for a thin accent
 stripe only. Do not expect it to tint the card border, sheen, or fill. If a
 preview needs stronger category color, use an explicit affordance (`Badge`,
 icon tint), not `accentColor`.
+
+## Decision 015 — Phase 3b sheets port against store interfaces, not implementations
+
+**Status:** Resolved
+**Date:** 2026-07-01
+**Depends on:** phase order (Phase 3 composites precede Phase 5 stores+screens)
+
+### Context
+Three Phase 3b sheets consume Phase-5 store hooks that don't exist yet
+(`useTaskStore`, `useShoppingStore`, `useShoppingListStore`, `useCatalogStore`,
+`useMealStore`). Two more import store types only (`ShoppingItem`,
+`ShoppingList`). Pulling the stores forward would move Phase 5 work into
+Phase 3 and hollow out Phase 5's "port each store alongside its smallest
+screen" validation.
+
+### Decision
+Declare the minimal store API surface the sheets consume as thin typed
+interfaces now (a stub module per store that satisfies the type checker).
+Port the 3b sheets against those interfaces. Phase 5 implements each real
+store to its declared contract and does its port-alongside-screen validation
+as designed. No store logic moves into Phase 3.
+
+Contract surface the 3b sheets actually require (from old source, verified):
+- `useTaskStore` — `add(task: TaskInput): void`. `TaskInput` fields: `title`,
+  `date`, `time?`, `taskType`, `durationMinutes?`, `done`, `recurring`,
+  `recurringDays`, `importance`, `sortOrder`.
+- `useShoppingStore` — `add(item: ShoppingItemInput): void`; exports type
+  `ShoppingItem` (consumed by UpdateSheet).
+- `useShoppingListStore` — `currentList(dateStr: string): { id: string } |
+  undefined`; exports type `ShoppingList` (consumed by ListSettingsSheet).
+- `useCatalogStore` — `suggest(name: string): string[]`.
+- `useMealStore` — `dishes: Dish[]` (`Dish`: `id`, `name`, `ingredients`).
+
+### Rationale
+The sheets are mostly presentational — UpdateSheet and ListSettingsSheet
+mutate only via callbacks (no hook); AddItemSheet/AddDishSheet are read-only
+consumers. Only QuickAddSheet and ShoppingQuickAddSheet dispatch writes. The
+write surface is two `add()` calls with known payloads. Declaring that
+surface is cheap and precise; implementing the stores now is not.
+
+### Phase 5 obligation (recorded so it isn't lost)
+When each store is implemented in Phase 5, it must satisfy the interface
+declared here. If Phase 5 finds the contract wrong, that's a real signal —
+fix the contract and re-typecheck the consuming sheet, don't silently
+diverge. The stub modules are placeholders: they must throw or be replaced at
+runtime, never ship as real behavior.
+
+## Decision 015a — useCatalogStore.suggest() contract correction (extends Decision 015)
+
+**Status:** Resolved
+**Date:** 2026-07-01
+
+### Context
+While porting AddItemSheet and AddDishSheet against Decision 015's declared
+`useCatalogStore` interface, both old-source call sites turned out to call
+`suggest(name, limit)` (two args) and consume the result as objects with
+`.id`, `.name`, `.price` (rendered directly in a suggestions dropdown,
+including a price display) — not the `suggest(name: string): string[]`
+signature Decision 015 declared.
+
+### Decision
+Correct the stub contract to match verified old-source usage:
+`suggest(name: string, limit?: number): { id: string; name: string; price: number }[]`.
+Both consuming sheets (AddItemSheet, AddDishSheet) are ported against this
+corrected signature. No other part of Decision 015's contract changes.
+
+### Rationale
+Per this session's own instructions, a sheet calling a store method beyond
+the declared contract must not be papered over — the contract was
+under-specified for this one method, not wrong in spirit. Recording the
+correction here rather than inventing/renaming call sites to fit the
+original stub keeps the stub honest as a Phase 5 obligation.
