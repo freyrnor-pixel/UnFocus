@@ -236,25 +236,27 @@ own design decision is made) → Home phase (assembles 1+4 and the converged pre
 
 ## Decision 010 — HintCard reach: parity vs. inventory-prose correction
 
-**Status:** OPEN — do not resolve now. Decide during the stores+screens phase
-(REBUILD_PLAN phase 5/6), per-screen. Low effort either way.
-**Source:** Read-only investigation of the old app (2026-07-01, Thread #2 / E1).
+**Status:** Resolved (was Open)
+**Date:** 2026-07-01
+**Context:** Read-only investigation confirmed the old app renders HintCard on
+only 2 screens (scan, notes), not "most screens" as FEATURE_INVENTORY.docx
+prose implies. The open question was whether to expand for parity or correct
+the prose.
+
+**Decision:** HintCard reach is decided per-screen at port time, not by a
+global count. It is not a fixed-count feature and not a global setting. The
+inventory's "most screens" phrasing is wrong framing, not a target to hit —
+each screen's port decides whether HintCard belongs there on its own merits.
+The 2-screen reality of the old app is the starting reference, not a ceiling.
+
+**Consequence:** No HintCard reach work happens as its own task. It is folded
+into each screen's Phase 5/6 port decision. HintCard stays intentionally flat
+(existing locked exception).
 
 ### Finding (confirmed against old code)
 `HintCard` is imported by exactly **two** screens — `app/scan.tsx` and
 `app/notes.tsx` — NOT "most screens." (Other grep hits are the component's own
 definition, i18n `hints.*` strings, and comments — not imports.)
-
-### The open question
-The FEATURE_INVENTORY says hint boxes appear "at the top of most screens." Two
-readings, pick one when porting screens:
-- **(a) Parity is the target** — HintCard should be added to more screens during
-  their individual ports; treat it as a per-screen parity gap to close.
-- **(b) Two screens is correct** — the inventory prose is loose and should be
-  corrected to match reality.
-
-Undecided. Whichever way it goes, it is cheap. Resolve per-screen in the
-stores+screens phase, not in a foundation/composite phase.
 
 ---
 
@@ -367,3 +369,101 @@ temporary, centered modal) works and isn't part of the readability problem.
   reset-in-overflow.
 - Order: A2·1 (row) before A2·2 (screen), so the screen re-layout composes the
   finished row.
+
+---
+
+## Decision 001a — Focus-mode icon confirmed (Phase 1 flag closed)
+
+**Status:** Resolved
+**Date:** 2026-07-01
+**Context:** Phase 1 shipped ScreenHeader/scaffold with the Home focus-mode
+trigger using 'eye-outline' as a placeholder icon, onPress stubbed, both
+pending confirmation.
+
+**Decision:** 'eye-outline' is confirmed as the focus-mode icon. No change.
+The Phase 1 open flag is closed. The onPress wiring (focus mode = Home-only,
+ephemeral, hides Notes/Shopping + filters tasks, per Decision 009) is an
+execution task for the Home screen phase, not a design open question.
+
+**Supersedes:** Phase 1 "placeholder pending confirmation" note.
+
+---
+
+## Decision 009a — Plans preview = day-view, read-only (Session B unblocked)
+
+**Status:** Resolved
+**Date:** 2026-07-01
+**Context:** Decision 009 converged Home previews on ExpandableCard and
+deferred the Plans preview redesign to its own thread (Session B), flagged as
+the real blocker. The open question was how much of the locked day-view lives
+inside the Home preview card.
+
+**Decision:** The Home Plans preview IS the day-view, rendered read-only. Not a
+reduced sibling, not a Home-specific variant — the same component, same
+structure, same rail. The only difference is Home renders it non-interactive.
+
+This resolves the preview design questions by elimination:
+- Collapsed state: current/in-progress + next + 2 after (4 rows), same as
+  day-view. Current in-progress task always leads.
+- Time rail: full proportional rail (Option C from day-view), same as day-view.
+  The rail is the preview's identity, not a simplified marker.
+- No current task (between tasks / pre-start): gap state — "Nothing until
+  HH:MM" + the next task.
+- Done zone: dimmed, collapsed by default, same as day-view. No divergence.
+
+**Principle:** One component, one behavior. The value of "preview = day-view"
+is that behavior is never forked between Home and the full Plans screen. Any
+Home-specific variant was explicitly rejected to preserve this.
+
+**Remaining TBD (does not block Session B start):** Rail axis-end tail — the
+fixed padding added after the last unfinished task's end time. Needs a default
+value. Everything else is decided.
+
+---
+
+## Decision 009b — Rail axis-end tail default
+
+**Status:** Resolved
+**Date:** 2026-07-01
+**Context:** 009a left the rail axis-end tail as the one open number — the
+padding added after the last unfinished task's end time so the final task
+isn't jammed against the rail's bottom edge.
+
+**Decision:** Proportional tail — 10% of the visible day's span. Scales with
+how packed the day is: a dense day gets a proportionally small tail, a sparse
+day gets more breathing room. No fixed-minute constant.
+
+**Implementation note for Session B:** "Visible day's span" = from the rail
+axis-start to the last unfinished task's end time. Tail = 10% of that span,
+added below. Watch the degenerate case: a near-empty day (one task, short
+span) yields a tiny absolute tail — if that reads badly on-device, a small
+minimum floor (e.g. clamp to ≥15 min) is a reasonable execution-time
+adjustment, but start with pure 10% and only add the floor if measured layout
+needs it.
+
+---
+
+## Decision 012 — Note editing is shipped (stale inventory note corrected)
+
+**Status:** Resolved
+**Date:** 2026-07-01
+**Context:** FEATURE_INVENTORY.docx (dated 2026-06-21) states note editing
+doesn't exist / there is no Notes page. NoteRow.tsx references app/notes.tsx,
+useNotesStore, and full edit callbacks. Read-only investigation of the old app
+confirmed: the /notes route ships and is reachable, note editing is SQLite-
+backed (update() for header + body), commit callbacks are wired.
+
+**Decision:** Note editing exists and works in the old app. Port it as a
+working, shipped feature — not as a gap to fill. The 2026-06-21 inventory note
+is stale and does not override the code here.
+
+**Note on the edit-notes-win principle:** The standing rule is that dated edit
+notes beat old code when they conflict. This is the deliberate inverse: the
+code wins because independent investigation confirmed the feature ships and is
+reachable, and the edit note is a stale omission rather than an intentional
+removal decision. Recording the inversion explicitly so it isn't mistaken for
+the rule breaking down.
+
+**Note on numbering:** filed as Decision 012 (not 011) — Decision 011 already
+exists in this log (A2: Shopping list overhaul); this entry does not
+supersede it.
