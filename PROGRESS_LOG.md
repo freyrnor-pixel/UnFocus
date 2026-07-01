@@ -568,3 +568,137 @@ import). None touched or introduced by this session.
   not started.
 - Pre-existing `tsc` errors listed above are still open, same as before this
   session — no new ones added.
+
+## 2026-07-01 — Phase 3c (partial): un-gated cards & rows ported
+
+**Status: Complete.** Ported exactly the three un-gated components named in
+this session's brief: `NextTaskCard`, `NoteRow`, `MonthlyTableRow`.
+`PlanTaskCard`, `ShoppingRow`, and `WeekListCard` were **left untouched** —
+all three are decision-gated (Decision 009 for `PlanTaskCard`, Decision 011
+for `ShoppingRow`/`WeekListCard`) and route to their own sessions per this
+session's explicit instructions. None of the three ported components needed
+any of the gated three as a dependency, so no stop-and-flag was triggered.
+
+**Old source confirmed:** read all three from the sibling `All-the-small-things`
+repo (`components/NextTaskCard.tsx`, `NoteRow.tsx`, `MonthlyTableRow.tsx`) —
+same filenames, confirmed before porting.
+
+**Docs read before porting:** REBUILD_DECISIONS.md Decisions 001, 006, 007,
+008, 009, 011, 014, 015/015a; `constants/colors.ts`'s Decision 006 token header
+(`ThemePalette`, 31 tokens); `components/Surface.tsx`, `FormControls.tsx`,
+`HintCard.tsx` (precedent for hintBg/hintBorder/hintAccent usage), and the
+existing `useTaskStore.ts`/`useShoppingStore.ts` Decision 015 stubs.
+
+**Store stubs declared/extended (Decision 015):**
+- `store/useTaskStore.ts` — extended the existing stub with a minimal `Task`
+  type (`id`/`title`/`time?`/`taskType`/`durationMinutes?` — only the fields
+  `NextTaskCard` reads, same minimal-contract precedent as `ShoppingItem`) and
+  a `toggle(id)` method on the store state, both throwing like `add()`.
+- `store/useShoppingStore.ts` — extended `ShoppingItem` with `pendingRestock:
+  boolean`, the field `MonthlyTableRow` reads to render the staging checkbox;
+  the existing stub was missing it (only `id`/`name`/`price`/`targetQuantity`/
+  `isTemporary` were declared, sufficient for the sheets that declared it but
+  not for this row).
+- `store/useNotesStore.ts` — **new file**, did not exist at all. Type-only
+  stub exporting `Note` (`id`/`header`/`body`/`checked`) — no hook, since
+  `NoteRow` only consumes the type via props (the parent screen owns all
+  Notes data/callbacks per the component's own header), unlike the sheets'
+  stubs which needed a callable `add()`.
+
+**Doc-vs-source conflicts:** none. i18n coverage was already complete —
+`nextTask.*` and `notes.*` (including `checkedLabel`, `headerPlaceholder`,
+`bodyPlaceholder`, `addToShoppingLabel`, `addToPlansLabel`, `deleteNote`) and
+`temporaryBadge` all already existed in both `en`/`no` in `lib/i18n.ts` from
+earlier phases — no new i18n keys needed for any of the three components.
+
+**Token remap applied (all three):** `theme.white`→`surface` (row/card fill)
+or `accentInk` (icon/text on an accent-coloured fill, context-dependent — see
+below), `theme.text`→`text`, `theme.textLight`→`textMuted`, `theme.orange`→
+`accent`, `theme.orangeLight`→`accentSoft`, `theme.grayLight`→`surfaceMuted`
+(solid fill use) or `border` (border use, context-dependent, same precedent
+as Phase 3b), `theme.danger`→`bad`, `FeatureColors.shop`/`FeatureColors.task`
+(fixed hex constants) → `theme.featShop`/`theme.featTask` (the actual
+per-theme Decision 006 tokens the fixed constants were superseded by).
+
+**`accentInk` on `hintAccent`-filled elements (NextTaskCard):** the old
+`doneBtn` fill is `theme.hintAccent` (not `theme.accent`), and old source
+hard-coded its checkmark icon/label text to `theme.white`/`Colors.white`
+regardless of theme. There's no paired "hintAccentInk" token, so this session
+applied the codebase's established convention (seen in `AppModal`, `Button`,
+`Badge`, `AddItemSheet`, etc. — text/icon on any accent-ish fill pairs with
+`accentInk`) rather than inventing a new token or leaving the old hard-coded
+white in place, which would have violated Decision 006.
+
+**`countdownColor + '22'` hex-alpha hack removed (NextTaskCard):** the old
+countdown chip computed its background by string-concatenating `'22'` onto
+a resolved colour token, producing a colour not present in `colors.ts` —
+explicitly what Decision 006 rules out. Replaced with the token layer's own
+paired Soft tokens per state: default `textMuted`/`surfaceMuted`, `≤15min`
+`accent`/`accentSoft`, `now/overdue` `bad`/`badSoft`.
+
+**`<Surface>` usage — one flagged non-obvious call:** `NoteRow` renders its
+whole row through `<Surface surfaceContext="ambient">` (default) since it
+IS the card unit (one Surface per note), matching Decision 008's default.
+`MonthlyTableRow` deliberately does **not** wrap in `<Surface>` — confirmed
+against the old `app/shopping.tsx` reference that ungrouped Katalog rows are
+sub-rows inside one already-Surface-owned parent card (rows separated by a
+plain divider, not individually carded); wrapping each row in its own
+`Surface` would double up the material/blur treatment. Neither of the three
+needs `surfaceContext="overlay"` — none sit over live scrolling content, per
+the session brief's expectation.
+
+**FormControls reuse — assessed, not applied to either TextInput/Checkbox
+case in `NoteRow`:** `NoteRow`'s header/body `TextInput`s are hand-rolled
+(restyled to tokens only), not `FormControls.Input` — both fields are
+borderless/unlabelled and integrated into the card face, and `Input`'s
+label+error chrome doesn't fit that layout (same reasoning Phase 3b applied
+to `QuickAddSheet`'s title/time inputs). The checkmark circles in `NoteRow`
+and `MonthlyTableRow` are hand-rolled circular `Pressable`s, not
+`FormControls.Checkbox` (square-cornered) — kept circular to match the
+existing shared "done" affordance with `components/TaskItem.tsx` (not yet
+ported, but its 24px circular check is referenced directly in both old
+source headers).
+
+**`theme` prop dropped (both `NoteRow` and `MonthlyTableRow`):** both took an
+old `theme: AppColors` prop from their caller; `AppColors` is the legacy
+pre-006 interface in `constants/theme.ts`, not the current `ThemePalette`.
+Dropped the prop entirely in favour of an internal `useAppTheme()` call —
+matches the pattern established for every other ported component (Surface,
+ConfirmationBanner, AppModal, the six Phase 3b sheets).
+
+**Verification:** ran `npm install --legacy-peer-deps` first — this remote
+container had zero `node_modules` (fresh clone), so `npx tsc --noEmit`
+initially failed outright on missing type roots/`expo/tsconfig.base`, not on
+real project errors; `--legacy-peer-deps` was needed because
+`react-native-reanimated@4.5.0` peer-conflicts with the pinned
+`react-native-worklets@^0.9.1` (pre-existing `package.json` conflict, not
+touched). After install, `npx tsc --noEmit` produced exactly 33 errors, all
+pre-existing and none touching any of the three new files or the three
+extended/new store stub files (confirmed by grepping the output for
+`NextTaskCard|NoteRow|MonthlyTableRow|useTaskStore|useShoppingStore|
+useNotesStore` — zero hits). The 33 errors are the same family already
+catalogued in the Phase 3b log entry: missing `expo-blur`/
+`expo-linear-gradient`/`react-native-svg` modules, and old-token-name
+(`theme.white`/`.orange`/`.cream`/`.textLight`/`.grayLight`) errors in
+`app/_layout.tsx`, `app/_scaffold-demo.tsx`, `app/index.tsx`,
+`components/BottomNav.tsx`, `components/ScreenHeader.tsx` (also its stray
+`Platform`-from-`'react'` import), `components/ScreenBackground.tsx`,
+`components/ScreenScaffold.tsx`, and `components/Surface.tsx`'s one
+`theme.white` line. None introduced or touched by this session.
+
+**Left untouched (restated):** `PlanTaskCard.tsx` (Decision 009,
+Notes/Shopping/Plans Home-preview convergence — Plans preview redesign is
+still an open design question per that decision) and `ShoppingRow.tsx`/
+`WeekListCard.tsx` (Decision 011, A2 shopping list overhaul) were not read,
+not ported, and not modified this session — exactly as instructed. None of
+the three ported components required any of them as a dependency.
+
+**Unresolved for the next Phase 3c sub-session or Phase 5:**
+- None of the three ported components are mounted into any screen yet —
+  `app/notes.tsx` and `app/shopping.tsx`/`app/inventory-edit.tsx` don't exist
+  in this repo yet (Phase 5).
+- Phase 5 must implement `useTaskStore`, `useShoppingStore`, and
+  `useNotesStore` for real, matching the contracts recorded above (and in the
+  Decision 015/015a entries from Phase 3b).
+- `PlanTaskCard`/`ShoppingRow`/`WeekListCard` remain gated on Decisions
+  009/011 respectively — still not started.
