@@ -770,3 +770,127 @@ dependency stopped the session — so they should be quick once unblocked.
    stepper bounds 1–99 confirmed) plus Decision 011 A2-2/R1/R2/R3.
 3. Shopping screen (A2-1/A2-4), `WeekListCard`, `PlanTaskCard` remain
    untouched, exactly as instructed — not part of this stop.
+
+## 2026-07-01 — Planning: Decision 016 logged (habit reminders, multiple per day) — OB-1 resolved
+
+**Status: Complete.** No code written in UnFocus. Filed a decision document
+supplied by the user for OB-1; investigation collapsed it from "feature
+addition" into a C1-pattern ratification (the feature already ships in the
+old app end to end). Recorded as **Decision 016** in REBUILD_DECISIONS.md
+(the source document called itself "Decision 015", but this log already uses
+015 for the Phase 3b store-interfaces decision — renumbered on file, content
+unchanged) and marked OB-1 resolved.
+
+**What the old app actually has (verified in sources, not inventory prose):**
+- `Habit.notificationTimes: string[]` — SQLite `notification_times` (JSON),
+  migration present in `lib/db.ts`. Legacy `notification_time` mirrored to
+  `[0]` for back-compat.
+- `app/habit-form.tsx` — three-mode reminder picker (Once / Several times /
+  Every…), start–end window, stepper 2–12, interval chips 30–240 min, live
+  preview. `computeReminderTimes()` resolves all modes to a flat HH:MM list.
+- `lib/habitNotifications.ts` — one daily trigger per time (`habit-<id>-<i>`,
+  cap 24), cancels legacy `habit-<id>` before rescheduling.
+- `lib/i18n.ts` — all mode/count/interval/preview strings present.
+
+**Decision 016 resolutions (Q1–Q5 + storage fork):**
+- **Q1 — Port as-is.** Keep the three modes + window + preview. No simplify,
+  no redesign.
+- **Q2 — Drop legacy `notification_time` from the live UnFocus schema.**
+  `notification_times` is sole source of truth. Direct old-app data import is
+  NOT assumed in scope; IF import tooling is ever built it must map
+  `notification_time` → `notification_times` (one-element array). Drop the
+  back-compat mirror writes on port.
+- **Q3 — Persist the editing recipe (3B-ii).** Store recipe AND resolved list;
+  list stays authoritative for scheduling, list wins on disagreement. Five new
+  nullable columns: `reminder_mode`, `reminder_count`, `reminder_interval_min`,
+  `reminder_start`, `reminder_end` (via migrations array, never recreate
+  tables). Rejected 3B-i (recipe-only + recompute-on-load) recorded for
+  reversibility.
+- **Q4 — Habit reminders defer past quiet hours, skip-inside-window.** Closes
+  the old task/habit asymmetry. Occurrences inside the quiet window are SKIPPED
+  for that day (not shifted — shifting would pile reminders on the window end).
+  `syncHabitReminder` must take quiet-hours settings and consult
+  `isWithinQuietHours`. Settings quiet-hours hint copy needs updating (habits
+  now covered; skip-not-wait) — settings-phase copy task.
+- **Q5 — Ratify all shipped defaults** (cap 24, count 2–12, interval floor 15 /
+  options 30–240, inverted window → single at start, shared title/body, toggle
+  off ⇒ empty list).
+
+**Consumed later by three phases (none unblocked by the decision alone):**
+form phase (habit-form picker + drop mirror + recipe columns), store+notif
+phase (`useHabitStore` / `lib/habitNotifications` / `lib/db` migration +
+quiet-hours skip), settings phase (quiet-hours hint copy). Per
+`REBUILD_PLAN.md`, habit-form.tsx sits in **Phase 6** and the store falls
+under **Phase 5** — both unstarted; the current session is still stalled
+mid-**Phase 3c** (see entry above, `DraggableTaskRow` blocker). Explicitly
+decided (user call, this session) NOT to pull habits forward out of that
+order — this entry is planning-only, no habit code written.
+
+**Also note:** `lib/notifications.ts` and `lib/taskNotifications.ts` do not
+exist in this repo yet — the quiet-hours store+notifications phase for habits
+depends on those being ported first too.
+
+**Open Backlog now:** OB-1 resolved (see Decision 016). Remaining: OB-2 (energy
+medium/high parity, deferred), OB-3 (sharing explanation copy). Neither blocks
+current phases.
+
+## 2026-07-01 — Planning: Phase 3c gated-card audit (pre-port ambiguity sweep)
+
+**Status: Complete** — No code written. Read-only audit of the three ⚠
+decision-gated cards in Phase 3c (PlanTaskCard, ShoppingRow, WeekListCard)
+against their governing decisions, applying the "resolve before Code silently
+re-decides" pass to the next gated phase in line. Findings below; two
+REBUILD_PLAN.md ⚠-marker corrections and one new decision thread (017) result.
+
+### PlanTaskCard ⚠ → UNBLOCKED (marker stale) + source-vs-target divergence recorded
+- The ⚠ marker in REBUILD_PLAN.md 3c cites "Decision 009 #3 — Session B,
+  resolve with user first." That is **stale**: Decisions 009a and 009b (both
+  2026-07-01, filed after 009) resolved the Plans visual direction. The
+  day-view is locked — read-only preview = day-view, proportional rail
+  (Option C), collapsed = current + next + 2 after, gap state, dimmed Done
+  zone, rail tail = 10% of visible span (009b). No open design question
+  remains. PlanTaskCard is no longer gated on an unresolved decision.
+- **Divergence found (recorded so Code doesn't port the wrong system):** the
+  old app renders plans two different ways — `app/plans.tsx` uses a two-section
+  drag-sortable stack (Important/General) via `PlanTaskCard` + `DraggableTaskRow`,
+  with NO time rail; the old Home preview (`app/index.tsx`) uses a SEPARATE
+  `DayTimeline` component. The locked target (009a: "one component, one
+  behavior") is the **rail-based day-view**, which matches neither old system
+  cleanly. Session B therefore BUILDS the rail day-view; it does not faithfully
+  port the old two-section stack. This is a design-intended divergence from
+  source, not a port fidelity target — flag for Session B so "port PlanTaskCard"
+  is not misread as "reproduce app/plans.tsx's stack."
+
+### ShoppingRow ⚠ → PORTABLE (planning-resolved; one in-session verification)
+- Decision 011 A2·1 fully specs the two-line redesign (A2-2) and ripples R1
+  (drag reorder), R2 (swipe-remove, catalog vs. ad-hoc branch preserved), R3
+  (CHECKED_OPACITY still exported). No planning-level ambiguity remains.
+- R1's "confirm a drag-reorder primitive exists / is acceptable" is partly
+  answered by this audit: `DraggableTaskRow.tsx` exists and is the plans drag
+  primitive, but it is coupled to `app/plans.tsx` (reports gesture state up,
+  owns no data, does its hit-testing in the parent). Whether it is reusable for
+  shopping rows or shopping needs its own remains a **within-session
+  verification** (as 011 already scoped it), not a planning blocker. ShoppingRow
+  is clear to enter its Session A2·1 port when 3c is scoped.
+
+### WeekListCard ⚠ → GENUINELY UNRESOLVED → opened as Decision 017
+- Entangled with 009 #2 AND 011, and neither closes it. 009 #2 converges
+  ungrouped weekly rows onto ExpandableCard but scopes that to Session A (Home
+  preview) and explicitly forbids touching the full shopping screen. 011
+  redesigns the full screen (A2-1 sticky header lifts the per-list
+  summary/progress OUT of the card) and the row (A2-2), but never states
+  WeekListCard's remaining container role on the full screen, nor whether the
+  ungrouped-rows-onto-ExpandableCard convergence applies there too or only in
+  the preview.
+- Real silent-re-decision risk: entering 3c cold, Code would most likely either
+  double-converge or leave the full-screen WeekListCard forked from the Home
+  preview. Routed to its own thread (Decision 017) to resolve before 3c.
+- **Note on numbering:** drafted upstream as "Decision 016" — that number is
+  already used in this log for the habit-reminders decision (filed earlier the
+  same day) — so the WeekListCard decision is filed as 017 instead.
+
+### Outputs of this audit
+- REBUILD_PLAN.md 3c: correct PlanTaskCard's ⚠ marker (now unblocked — points
+  to 009a/009b, not "resolve with user"); leave ShoppingRow ⚠ but note
+  planning-resolved / R1 in-session; keep WeekListCard ⚠ pending Decision 017.
+- New decision thread 017 opened for WeekListCard's full-screen role.

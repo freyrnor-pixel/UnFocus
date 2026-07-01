@@ -549,13 +549,11 @@ entry above and remove (or mark resolved-see-Decision-NNN) its entry here.
 None of these block Phase 2 primitives. Listed in no fixed order.
 
 ### OB-1 — Habit reminders: multiple per day
-**Source:** FEATURE_INVENTORY.docx edit note — "Add the option for several
-reminders a day... Today only ONE fixed time is possible."
-**Status:** Open. Explicit feature request, no Decision entry.
-**Nature:** Real feature addition (old app supports one fixed reminder time
-per habit; request is N reminders/day). Needs a decision thread covering data
-model (array of times vs. recurrence rule), UI for adding/removing times, and
-notification scheduling implications before it can be ported/built.
+**Status:** Resolved — see Decision 016. Investigation showed this is a
+C1-pattern case (the feature already ships end to end in the old app, not a
+real addition); Decision 016 ratifies the shipped design and closes the
+remaining gaps (legacy field drop, recipe persistence, quiet-hours parity).
+Consuming work is scheduled for Phases 5/6 per REBUILD_PLAN.md, not yet started.
 
 ### OB-2 — Energy check-in: medium vs. high parity
 **Source:** FEATURE_INVENTORY.docx edit note — old app has "no difference
@@ -725,3 +723,257 @@ the declared contract must not be papered over — the contract was
 under-specified for this one method, not wrong in spirit. Recording the
 correction here rather than inventing/renaming call sites to fit the
 original stub keeps the stub honest as a Phase 5 obligation.
+
+---
+
+## Decision 016 — Habit reminders: multiple per day (ratify shipped design + close gaps)
+
+**Status:** Resolved.
+**Date:** 2026-07-01
+**Resolves:** OB-1 (Open Backlog). Mark OB-1 as `resolved — see Decision 016`.
+**Depends on:** 006 (colour tokens). Touches habit-form (later form phase),
+`useHabitStore` + `lib/habitNotifications` + `lib/notifications` (later
+store+screen phase), and the settings notifications tab (later settings phase).
+No code written by this entry.
+
+**Note on numbering:** drafted upstream as "Decision 015" — this log already
+uses 015 for the Phase 3b store-interfaces decision, so this entry is filed as
+016 instead. Content is otherwise unchanged from the source document.
+
+### Context
+
+OB-1 was logged as a feature *addition* ("old app supports one fixed reminder
+time; request is N per day"). Investigation of the actual sources proves this is
+a **C1-pattern case**: the multiple-reminders-per-day feature already ships in
+the old app, end to end.
+
+- **Data model:** `Habit.notificationTimes: string[]` (SQLite column
+  `notification_times`, JSON, migration present in `lib/db.ts`). Legacy
+  `notificationTime` (`notification_time`) is kept mirrored to
+  `notificationTimes[0]` for back-compat.
+- **UI:** `app/habit-form.tsx` has a three-mode reminder picker — *Once*
+  (single time), *Several times* (N reminders evenly spaced across a start–end
+  window, stepper 2–12), *Every…* (interval chips 30/60/90/120/180/240 min
+  across a window) — with a live preview line. `computeReminderTimes()`
+  resolves all three modes to a flat `HH:MM` list.
+- **Scheduling:** `lib/habitNotifications.ts` schedules one daily trigger per
+  time (`habit-<id>-<i>`, capped at `MAX_HABIT_REMINDERS = 24`) and cancels the
+  legacy `habit-<id>` key before rescheduling.
+- **i18n:** all mode/count/interval/preview strings exist in `lib/i18n.ts`.
+
+**The 2026-06-21 FEATURE_INVENTORY line ("Today only ONE fixed time is
+possible") is STALE.** This is the second proven-stale note from that same
+dated pass (the first was note-editing, Decision 012). See the source
+correction below.
+
+Same inversion note as Decision 012 applies: the standing rule is
+edit-notes-win, but here the code wins because independent investigation
+confirmed the feature ships and is reachable, and the edit note is a stale
+omission rather than an intentional decision. Recorded so it is not mistaken
+for the rule breaking down.
+
+### Decision
+
+Port the shipped multiple-reminders-per-day design, ratifying it as the target
+and closing the specific open sub-decisions investigation surfaced.
+
+**Q1 — Overall stance: PORT AS-IS (option A).**
+Keep the three modes (Once / Several times / Every…), the start–end window
+pickers, the stepper/interval chips, and the live preview line. It is a
+complete, working design; do not simplify to a raw add/remove time list and do
+not open a redesign thread.
+
+**Q2 — Legacy `notificationTime` field: DROP FROM LIVE SCHEMA (option C).**
+`notificationTimes` (`notification_times`) is the sole source of truth in the
+new schema. Do **not** carry `notification_time` as a live mirrored column in
+UnFocus.
+- Underlying question this resolves: **direct import of old-app data into
+  UnFocus is NOT assumed in scope.** No decision anywhere commits to importing
+  the old SQLite DB.
+- Import path preserved on paper: **if** old-app import tooling is ever built,
+  it must map old `notification_time` → new `notification_times` (wrap the
+  single value in a one-element array when `notification_times` is empty). This
+  mapping requirement is recorded here so the clean schema does not silently
+  foreclose a future import.
+- Consequence for the form/store port: drop the back-compat mirroring writes
+  (`notificationTime` kept equal to `notificationTimes[0]`). The store's
+  `rowToHabit` fallback that reads `notification_time` when `notification_times`
+  is empty is import-layer concern only and does not belong in the live read
+  path.
+
+**Q3 — Reminder mode round-trip on edit: PERSIST THE RECIPE (option B),
+stored as 3B-ii.**
+The old form is lossy: a habit saved via "Every 2 h" reopens in "Several times"
+mode (times preserved exactly, editing mode lost). Fix by persisting the
+editing recipe so a habit reopens in the mode that created it.
+
+- **Storage shape: 3B-ii — store recipe AND the resolved list.** The resolved
+  `notification_times` list stays authoritative for scheduling (matches the
+  shipped scheduling path, smallest diff, no recompute-on-load risk). The
+  recipe columns are **editing metadata only**; if recipe and list ever
+  disagree, the **list wins**.
+- **New nullable columns** (only meaningful when `notification_times` has >1
+  entry): `reminder_mode TEXT`, `reminder_count INTEGER`,
+  `reminder_interval_min INTEGER`, `reminder_start TEXT`, `reminder_end TEXT`.
+  Added via the migrations array in `lib/db.ts` (never recreate tables).
+- **Rejected alternative, recorded for reversibility — 3B-i:** store recipe
+  only and recompute `notificationTimes` on load. Single source of truth, no
+  drift, but changes the scheduling path (list stops being persisted as such)
+  and is a bigger diff from shipped code. Not chosen; revisit only if the
+  redundant list proves to cause real drift bugs.
+
+**Q4 — Quiet hours vs. habit reminders: DEFER PAST QUIET HOURS (option B),
+skip-inside-window.**
+Confirmed old-app asymmetry: task reminders defer past quiet hours; habit
+reminders ignore quiet hours entirely. With N reminders/day (e.g. every 2 h,
+08:00–22:00) evening pings colliding with a quiet window become likely, so the
+asymmetry is closed.
+
+- Habit reminder occurrences that fall **inside** the quiet window are
+  **skipped** for that day — NOT shifted. Rationale: shifting multiple
+  occurrences to the window's end would pile several near-identical reminders
+  onto one moment; skipping is the calmer behaviour and fits the app's
+  no-pressure framing.
+- The task-side deferral (`deferPastQuietHours` in `lib/taskNotifications.ts`,
+  which *shifts*) is deliberately NOT reused verbatim — habits skip, tasks
+  shift. Both consult the same pure `isWithinQuietHours` math in
+  `lib/notifications.ts`.
+- **Copy update required:** the settings quiet-hours hint currently reads
+  "*Task* reminders wait until quiet hours end…". Update it to cover habits too
+  and to reflect skip-not-wait for habits. Exact wording is a settings-phase
+  copy task; flagged, not drafted here.
+- Implementation note for the future store/notifications phase:
+  `syncHabitReminder` must take the quiet-hours settings (enabled/start/end),
+  same way `taskNotifications` already receives a `TaskNotifSettings` subset,
+  and drop occurrences where `isWithinQuietHours` is true.
+
+**Q5 — Ratify shipped defaults: ALL AS-IS (option A).**
+- Cap of 24 scheduled reminders per habit (`MAX_HABIT_REMINDERS`).
+- Count mode range 2–12.
+- Interval floor 15 min; offered options 30/60/90/120/180/240 min.
+- Inverted window (end ≤ start) collapses to a single reminder at start.
+- All reminders for a habit share the same title/body.
+- Notification toggle OFF ⇒ `notification_times` saved empty (`[]`).
+
+### Scope
+
+Spec/decision only. Consumed later by three separate phases, each on its own
+session, none unblocked by this entry alone. Per REBUILD_PLAN.md, these fall
+under **Phase 6** ("self-contained forms" includes `habit-form.tsx`) and
+**Phase 5** ("stores + paired screens") — both phases have not started as of
+this entry; do not pull this work forward out of sequence without an explicit
+scope call recorded here first.
+1. **Form phase** — `habit-form.tsx`: port the three-mode picker + preview;
+   drop the `notificationTime` mirror write (Q2-C); persist recipe columns
+   (Q3 / 3B-ii).
+2. **Store + notifications phase** — `useHabitStore` / `lib/habitNotifications`
+   / `lib/db` migration: add the five recipe columns; make `syncHabitReminder`
+   quiet-hours-aware with skip-inside-window (Q4-B); remove live-path reliance
+   on `notification_time`. Note: `lib/notifications.ts` and
+   `lib/taskNotifications.ts` do not exist in this repo yet either as of this
+   entry — this phase also depends on their prior porting.
+3. **Settings phase** — quiet-hours hint copy update (Q4).
+
+### Adjacent finding (not resolved here, flagged for the settings phase)
+
+The old settings screen merges task + habit notifications into a single "Plan
+notifications" toggle (`applyAndSync({ taskNotificationsEnabled: v,
+habitNotificationsEnabled: v })`; no separate habit toggle;
+`taskNotificationsEnabled` read as the display value for both). Whether UnFocus
+keeps that merge or splits habit notifications back out is a **settings-screen
+content decision** for the settings phase — recorded so it is not lost, not
+decided here.
+
+### Source correction (FEATURE_INVENTORY line proven stale)
+
+- Habit reminders / "Add the option for several reminders a day… Today only ONE
+  fixed time is possible" (dated 2026-06-21) → **STALE.** Multiple reminders
+  per day (Once / Several times / Every…) ship and are reachable in the old
+  app. Treat the feature as DONE and port it; the request is already satisfied.
+- **Pattern watch:** two 2026-06-21 notes now proven stale (note-editing →
+  Decision 012; habit reminders → this entry). Remaining unverified claims from
+  that same dated inventory pass should be treated as *possibly* predating a
+  late implementation burst — verify against code before treating any of them
+  as a gap.
+
+**Supersedes:** the OB-1 "real feature addition" framing. OB-1 is closed.
+
+## Decision 017 — WeekListCard's full-screen role (post-A2-1 / post-009 #2)
+
+**Status:** Resolved
+**Date:** 2026-07-01
+**Depends on:** 009 (#2 preview convergence), 011 (A2-1 sticky header, A2-2 row
+redesign)
+**Source:** Phase 3c gated-card audit (2026-07-01) — WeekListCard was ⚠ on
+"entangled with 009 #2 + 011" but neither decision specified its remaining
+container role on the FULL shopping screen. Left cold, Code would silently
+re-decide (double-converge, or fork the full-screen card from the Home
+preview).
+
+**Note on numbering:** drafted upstream as "Decision 016" — this log already
+uses 016 for the habit-reminders decision (filed earlier the same day), so
+this entry is filed as 017 instead. Content is otherwise unchanged from the
+source document.
+
+### Context
+On the full shopping screen, WeekListCard per list owned: (1) a per-list
+summary/progress header, (2) "From meals" dish groups (already ExpandableCard),
+(3) ungrouped weekly rows (raw accent-bordered View cards), (4) "In cart".
+Decision 011 A2-1 lifted (1) into a screen-level sticky header. Decision 009 #2
+converged (3) onto ExpandableCard but scoped that to the Home preview ONLY,
+explicitly forbidding touching the full screen. That left the full-screen
+WeekListCard half-specified.
+
+### Decision
+1. **Container role (Q1):** WeekListCard stays as a per-list container on the
+   full screen, keeping its own list-level chrome — title, lock, delete
+   (trash), bookmark/SavedLists entry, and the container shell — MINUS the full
+   summary/progress block (that lives in the sticky header per A2-1). It is not
+   dissolved; the screen does not render sections directly.
+
+2. **Row convergence (Q2):** The full-screen ungrouped weekly rows ALSO
+   converge onto ExpandableCard, matching the Home preview (009 #2). One
+   row-container language everywhere — the full screen and the Home preview no
+   longer fork. This extends 009 #2's convergence to the full screen; 009 #2's
+   "do NOT touch the full shopping screen" scope limit was a Session-A scoping
+   boundary, not a decision that the full screen should stay unconverged. That
+   boundary is now lifted for the row-container question specifically (and only
+   that), and this extension is recorded here rather than by editing 009.
+
+3. **Multi-list summary (Q3 + Q4):** The full screen shows several Week list
+   Containers at once. The sticky header (A2-1) summarizes the **focused/current
+   list only** — NOT an aggregate across all lists. Each **non-focused** list
+   shows a **compact inline progress line in its own card header** (Q4-A). The
+   compact inline line and the sticky header's summary are the SAME data at two
+   densities — the sticky bar is the focused list's inline line, promoted and
+   expanded. One progress calculation, two presentations; no fork.
+
+### Bounded amendment to Decision 011 A2-1 (flagged, not silently absorbed)
+A2-1 lifted the per-list summary/progress OUT of WeekListCard into the sticky
+header and did not anticipate the multi-list case. Q4-A reintroduces a COMPACT
+progress readout into each card header (non-focused lists). This is not a
+reversal of A2-1 — A2-1 removed the FULL summary block; this adds back a
+compact line — but it splits progress presentation across the sticky header
+(focused, full) and the card header (non-focused, compact). Recorded as a
+bounded amendment so the A2·2 screen-layout session builds the sticky header as
+**focused-list-only, not aggregate**, and the row-redesign / screen-layout
+sessions know the card header now carries a compact progress line.
+
+### Consequences for Phase 3c / the shopping sessions
+- WeekListCard is now UNBLOCKED for its 3c port, targeting: per-list container
+  with list-level chrome, no full summary block, compact inline progress line in
+  its header (non-focused state), dish groups + ungrouped rows both on
+  ExpandableCard.
+- Session A2·2 (shopping screen re-layout): sticky header summarizes the focused
+  list only; tapping a list focuses it (promotes its compact line into the
+  sticky bar). "Focused/current list" selection mechanism is a screen-layout
+  detail for A2·2 — not re-decided here — but it MUST drive which list the
+  sticky header reflects.
+- No change to Monthly (MonthlyTableRow), "From meals" dish groups (already
+  ExpandableCard), or the monthly to-buy → in-cart → bought logic.
+
+### Blocks / unblocks
+- **Unblocks:** WeekListCard's 3c port (was the one genuinely-unresolved gated
+  card).
+- **No new blocks.** The focused-list selection mechanism is an A2·2 in-session
+  layout detail, not a separate planning blocker.
