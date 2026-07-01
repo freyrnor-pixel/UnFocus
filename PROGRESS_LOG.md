@@ -257,3 +257,30 @@ resolved-only log; this section is explicitly exempt from that rule).
 
 None of the three block Phase 2 primitives. They're candidate threads for
 after primitives land, in no fixed order.
+
+## 2026-07-01 — Phase 2 complete: all nine primitives ported
+**Status: Complete.** Button, Badge, IconButton, ProgressBar, PressableScale,
+FormControls, EmptyState, ConfirmationBanner were already ported in prior
+sessions (all on Decision 006 token names: `accent`/`accentSoft`, `good`/`bad`/
+`warn`, `textMuted`, `surface`, etc. — no raw hexes). This session ported the
+ninth and last: **HintCard.tsx**.
+
+**HintCard.tsx (new):**
+- Direct port of the old app's HintCard — same gating (`showHints` from
+  `useSettingsStore`, renders null when off), same `hintBg`/`hintBorder`/
+  `hintAccent` tokens (Decision 006 kept these names verbatim), same
+  accent-bar + info-icon + text/example layout.
+- Only change: `theme.textLight` → `theme.textMuted` (old→new token rename).
+  `text`/`example` still passed in pre-localized; component doesn't call `useT()`.
+- Not yet mounted anywhere — Decision 010 (OPEN) still governs where it goes
+  when screens are ported (old app only had it on scan.tsx + notes.tsx).
+
+**Decision 013 (ConfirmationBanner variants) verified in code:** `variant:
+'success'|'danger'|'warn'` prop present, default `'success'`, fills `good`/
+`bad`/`warn`, glyph `textInverse` on all three, icons `checkmark-circle`/
+`alert-circle`/`warning`. Matches the decision spec exactly.
+
+**Phase 2 status:** all nine primitives from REBUILD_PLAN.md's list now exist
+in `components/`. None wired into any screen yet (Phase 6). Next phase per
+REBUILD_PLAN.md: Phase 3 composites (AppModal, sheets, cards, ExpandableCard,
+etc.).
