@@ -575,3 +575,30 @@ call on what the levels actually DO before Energy resurfaces anywhere.
 **Nature:** Copy/wording decision (not behaviour). Needs the actual short
 explanatory string for each place sharing is offered. Cheap to close once the
 share locations are enumerated.
+
+## Decision 013 — ConfirmationBanner gains danger/warn variants
+
+**Status:** Resolved.
+
+**Context:** The old `ConfirmationBanner.tsx` is success-only — a tappable,
+auto-dismissing banner with no `variant` prop (fill hardcoded to `theme.green`,
+glyph `theme.white`, icon `checkmark-circle`). Phase 2 is about to port it. The
+user wants danger and warn variants added at port time — a deliberate scope
+expansion beyond the source, recorded here so the port builds against a real spec.
+
+**Decision:** ConfirmationBanner ports with a `variant: 'success' | 'danger' | 'warn'`
+prop (default `'success'`). All three keep existing behaviour (tappable, auto-dismiss
+via `duration`, `message`/`onDismiss` API); variant changes only fill, glyph colour,
+and icon. Fills use the strong semantic token, glyph `textInverse` on all three:
+
+- **success** — fill `good`, glyph `textInverse`, icon `checkmark-circle`.
+- **danger** — fill `bad`, glyph `textInverse`, icon `alert-circle`.
+- **warn** — fill `warn`, glyph `textInverse`, icon `warning`.
+
+`shadowColor` stays a shadow treatment (not tokenised). Public API stays a superset
+of the old one — optional `variant` with a `'success'` default means existing callers
+don't churn.
+
+**Scope:** ConfirmationBanner primitive only. No caller migration this phase.
+
+**Supersedes:** the success-only shape of the old `ConfirmationBanner.tsx`.
