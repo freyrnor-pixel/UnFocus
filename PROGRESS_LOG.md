@@ -702,3 +702,71 @@ the three ported components required any of them as a dependency.
   Decision 015/015a entries from Phase 3b).
 - `PlanTaskCard`/`ShoppingRow`/`WeekListCard` remain gated on Decisions
   009/011 respectively — still not started.
+
+## 2026-07-01 — Phase 3c, Session A2·1 (ShoppingRow): STOPPED before porting (missing DraggableTaskRow)
+
+**Status: STOPPED, flagged.** `ShoppingRow.tsx` was not created/ported this
+session. No files changed.
+
+**Preconditions checked first:**
+- `Surface` (with Decision 008 `surfaceContext`), `FormControls`,
+  `IconButton`, `Badge` — confirmed logged done (Phase 2 complete entry,
+  2026-07-01; `Surface.tsx` `surfaceContext` prop confirmed in the Phase 3b
+  entry).
+- `useShoppingStore`/`useShoppingListStore` Decision 015 stubs — confirmed
+  present in `store/`. **Contract gap found (expected/allowed by the
+  session brief):** `useShoppingStore` currently only declares `add()` — it
+  has none of `putBackToInventory`, `toggleCheck`/`onCollect`-equivalent,
+  `adjustAmount`, `removeWithSource`, or a reorder action that
+  `ShoppingRow`'s redesign needs. This alone was not a stop condition (the
+  brief explicitly allows extending the stub + recording a Decision
+  015-style correction) and was not the reason porting stopped.
+- **`DraggableTaskRow` present in `components/` — FAILED.** The session
+  brief asserted this as true ("DraggableTaskRow present in components/ (it
+  is — it's the drag-reorder pattern to reuse for R1)"). Checked directly:
+  `find`/`grep` across this repo's `app/`, `components/`, `lib/`, `store/`
+  for `Draggable`/`onDragEnd`/drag-related identifiers returns **zero**
+  hits outside doc prose. `DraggableTaskRow.tsx` exists only in the sibling
+  `All-the-small-things` (old) repo — it has **not** been ported into this
+  repo yet. `REBUILD_PLAN.md` confirms this is intentional and expected:
+  `DraggableTaskRow` is scoped to **Phase 3d — Timeline & interaction**
+  (alongside `DayTimeline`), explicitly flagged there as "⚠ role pending
+  verification as the drag-reorder primitive under Decision 011 R1" — i.e.
+  Phase 3d hasn't run yet. Decision 011 R1 itself only says the file "exists
+  in the repo and may be the pattern to reuse," referring to the old repo,
+  and requires the coding session to **verify** the primitive exists before
+  building, explicitly forbidding silently keeping the chevrons as a
+  fallback.
+
+**Why this stops the whole session, not just R1:** A2-2's redesign makes
+reorder drag-based and retires the move-chevrons outright — R1 isn't an
+optional add-on, it's load-bearing for the target layout in this same
+prompt. With no drag-reorder primitive ported into this repo, there is no
+in-scope way to satisfy A2-2 that isn't one of the two things this session
+is explicitly told not to do: (a) silently keep the chevrons, or (b) invent
+a new drag-and-drop implementation from scratch — the latter is also
+out of scope for a single-component port session and belongs to Phase 3d
+per `REBUILD_PLAN.md`. Rather than choose silently between two forbidden
+options, stopping here and reporting, per this session's own "stop if
+unmet" precondition instruction.
+
+**Not done, so not evaluated this session:** the two-line layout, R2
+(swipe-left catalog/ad-hoc branch), R3 (`CHECKED_OPACITY` export), stepper-
+minus-at-1 behavior, and the Design-system-dependencies VERIFY items
+(sticky-header/swipe/drag-handle styling against the `*_LIBRARY.md` docs).
+None of these were blocked on their own merits — only R1's missing
+dependency stopped the session — so they should be quick once unblocked.
+
+**Left unresolved / next steps:**
+1. `DraggableTaskRow` needs to be ported (Phase 3d, per `REBUILD_PLAN.md`)
+   before Session A2·1 can complete, **or** the user/planning thread makes
+   an explicit scope call to pull a minimal drag-reorder primitive forward
+   out of order for this one session — either way this is a decision for
+   the user, not something to resolve unilaterally mid-session.
+2. Once unblocked: re-run this session against old `ShoppingRow.tsx`
+   (`All-the-small-things` repo, read this session — two-line layout
+   confirmed, `CHECKED_OPACITY = 0.55` confirmed, catalog-vs-ad-hoc remove
+   branch confirmed via `item.fromCatalog` + `InventoryIcon`/`×` split,
+   stepper bounds 1–99 confirmed) plus Decision 011 A2-2/R1/R2/R3.
+3. Shopping screen (A2-1/A2-4), `WeekListCard`, `PlanTaskCard` remain
+   untouched, exactly as instructed — not part of this stop.
