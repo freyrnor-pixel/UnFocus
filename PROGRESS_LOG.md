@@ -284,3 +284,104 @@ ninth and last: **HintCard.tsx**.
 in `components/`. None wired into any screen yet (Phase 6). Next phase per
 REBUILD_PLAN.md: Phase 3 composites (AppModal, sheets, cards, ExpandableCard,
 etc.).
+
+## 2026-07-01 — Phase 3a: Foundational composites (AppModal, ExpandableCard, SectionDivider, AddDivider, CompletionGlow)
+
+**Status: Complete.** Ported the five structural/leaf composites scoped to this
+session; none of the excluded composites (PlanTaskCard, ShoppingRow,
+WeekListCard, InboxSection, DraggableTaskRow, sheets/icons/pickers) were
+touched. All five ported to Decision 006 token names — no raw hex (shadowColor
+exempt), no off-list tokens.
+
+**Preconditions confirmed before starting:** Decisions 001, 006, 007, 008, 009
+all present in REBUILD_DECISIONS.md with real structured entries. PROGRESS_LOG
+confirmed Phase 2 (nine primitives) and the Phase 1 Surface/glass (008) port
+both logged complete — Surface.tsx exists with `surfaceContext` prop.
+
+**AppModal.tsx:**
+- Ported with `showAppModal()` / `<AppModalHost/>` API unchanged.
+- Modal card now renders via `<Surface surfaceContext="overlay">` — confirmed
+  `overlay` used (modal sits over live content behind the backdrop) and blur
+  comes from Surface's BlurView, not a direct expo-blur import in this file.
+- Token remap: `theme.white`→`surface` (implicit, via Surface), `theme.text`→
+  `text`, `theme.textLight`→`textMuted`, `theme.orange`→`accent` (button fill),
+  `theme.danger`→`bad`, button text colours→`accentInk`/`textInverse` per
+  Decision 006's fill/text-on-fill pairing. Backdrop switched from an animated
+  fixed-alpha black to the `overlay` token's own baked-in alpha, animating the
+  View's opacity 0→1 instead of 0→0.5 (equivalent visual result, token-only).
+  Card's own shadow/border no longer set from `Shadow.fab` — Surface supplies
+  material-based shadow/border from the `shadow` token, superseding the old
+  hardcoded black shadow.
+- Not yet mounted in `app/_layout.tsx` (screens phase, per Decision 010-style
+  "not yet mounted anywhere" precedent from Phase 2's HintCard).
+
+**ExpandableCard.tsx:**
+- Public API kept as a superset of old source: `title`/`subtitle`/`badge`/
+  `children`/`leadingAction`/`rightAction`/`defaultOpen`/`open`/`onToggle`/
+  `accentColor`/`material` all present, same semantics.
+- **Controlled and uncontrolled modes both verified in code:** uncontrolled
+  (no `open`/`onToggle` passed) uses internal `useState` exactly as before;
+  controlled mode (`open`+`onToggle` both passed) has the same
+  mount-vs-external-change guard (`mountedRef`) so external toggles animate
+  but the initial mount doesn't. This is the pattern PlanTaskCard's controlled
+  usage and the 009 previews depend on — preserved byte-for-byte in logic,
+  only the rendering shell (mask→Surface) changed.
+- **Doc-vs-source conflict, resolved docs-win (per instructions):** old source
+  hand-rolled its own two-layer mask (`getMaterialStyle` + manual border/sheen/
+  shadow views) instead of delegating to Surface. Decision 008 says Surface
+  owns all material/blur rendering now, so this session refactored the card
+  face to `<Surface material={material} surfaceContext="ambient">` instead of
+  porting the old mask verbatim. One behavioural drop as a result: old code's
+  `accentColor` fed `getMaterialStyle(accentColor, finish)` for border/shadow
+  tint, but the mask *fill* was hardcoded to `theme.white` regardless — an
+  inconsistency in the original (border tinted, fill not). Surface's `tint`
+  prop tints the whole material (fill+border together), so there's no way to
+  reproduce "tint border only" through Surface. Rather than silently
+  reintroducing a hand-rolled mask to preserve that inconsistency, `accentColor`
+  now only colours the left accent bar; the card face uses Surface's default
+  (untinted) material. Flagging this as the resolved call, not a silent regression.
+- `material` prop forwards straight to `<Surface material={material}>` — when
+  omitted, Surface itself reads `bubbleMaterial` from settings, so this
+  component no longer needs its own `useSettingsStore` read (simplification
+  enabled by consuming Surface rather than duplicating its default-resolution
+  logic).
+- Token remap: `theme.textLight`→`textMuted`, `theme.orangeLight`→`accentSoft`,
+  `theme.brown`→`accent` (badge text on `accentSoft` fill), `theme.grayLight`→
+  `border` (body top rule).
+
+**SectionDivider.tsx:** direct port, no token changes needed — `theme.border`
+already exists under that exact name in the new token layer.
+
+**AddDivider.tsx:** direct port. Token remap: `theme.grayLight` split into two
+006 tokens depending on role — divider lines → `border` (matches its "hairline
+border" semantic), "+" button circle fill → `surfaceMuted` (subtle secondary
+surface), button text → `textMuted`.
+
+**CompletionGlow.tsx:**
+- **Native-lib check (per task step 5): NOT needed.** Verified it's a pure
+  `Animated.View` opacity/scale bloom — no `react-native-svg` or
+  `expo-linear-gradient` import in old source, and none added here. No
+  install, no flag required; ported as-is with only the colour token changed
+  (`theme.green`→`theme.good`).
+- No other logic changes — reduced-motion gating, rising-edge-only trigger,
+  and the 300ms/400ms bloom timing all preserved verbatim.
+
+**Verification:** `npx tsc --noEmit` run — none of the five new/changed files
+produced errors. Remaining errors in the run are all pre-existing and out of
+scope: missing native libs (`expo-blur`, `expo-linear-gradient`,
+`react-native-svg` — Decision 007/008's known install blocker, not yet
+installed), old-token-name errors in `app/_layout.tsx`, `app/index.tsx`,
+`app/_scaffold-demo.tsx`, `BottomNav.tsx`, `ScreenHeader.tsx`,
+`ScreenBackground.tsx` (not yet rewired to `ThemePalette` — a later phase per
+Decision 006's own "component ports are a later phase" note), a
+`ScreenHeader.tsx` stray `Platform` import bug, and a missing `lib/date.ts`
+file referenced by `lib/db.ts`. None of these were touched or introduced by
+this session.
+
+**Unresolved for next Phase 3 sub-session:**
+- The five composites here are not mounted into any screen yet — that's
+  Session A/B (Decision 009) and later Phase 3 sub-sessions' job.
+- Pre-existing `tsc` errors listed above (old-token screens, missing
+  `lib/date.ts`, `ScreenHeader.tsx` Platform import, native libs not
+  installed) are still open — none are blockers for this session's scope but
+  will need a dedicated cleanup pass before a full green `tsc` run is possible.
