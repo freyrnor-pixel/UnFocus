@@ -231,3 +231,27 @@ own design decision is made) → Home phase (assembles 1+4 and the converged pre
   - **Precondition (stop if unmet):** `ExpandableCard`, `PlanTaskCard`, `DraggableTaskRow`,
     `DayTimeline`, and the task store ported and logged done.
   - Out of scope: Notes/Shopping previews (Session A), Focus mode, Home assembly.
+
+---
+
+## Decision 010 — HintCard reach: parity vs. inventory-prose correction
+
+**Status:** OPEN — do not resolve now. Decide during the stores+screens phase
+(REBUILD_PLAN phase 5/6), per-screen. Low effort either way.
+**Source:** Read-only investigation of the old app (2026-07-01, Thread #2 / E1).
+
+### Finding (confirmed against old code)
+`HintCard` is imported by exactly **two** screens — `app/scan.tsx` and
+`app/notes.tsx` — NOT "most screens." (Other grep hits are the component's own
+definition, i18n `hints.*` strings, and comments — not imports.)
+
+### The open question
+The FEATURE_INVENTORY says hint boxes appear "at the top of most screens." Two
+readings, pick one when porting screens:
+- **(a) Parity is the target** — HintCard should be added to more screens during
+  their individual ports; treat it as a per-screen parity gap to close.
+- **(b) Two screens is correct** — the inventory prose is loose and should be
+  corrected to match reality.
+
+Undecided. Whichever way it goes, it is cheap. Resolve per-screen in the
+stores+screens phase, not in a foundation/composite phase.

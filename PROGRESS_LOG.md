@@ -216,3 +216,25 @@ ungrouped rows onto `ExpandableCard` and closes the edit-old-note gap; Session B
 land in the later Home phase. Both sessions carry stop-if-unmet preconditions
 (see Decision 009). Nothing here unblocks coding yet — these are recorded
 decisions only.
+
+## 2026-07-01 — Planning: Decision 010 logged (HintCard reach) + C1 note
+Recorded Decision 010 (OPEN) from a read-only investigation of the OLD app
+(All-the-small-things). No code written in UnFocus.
+- **E1 → Decision 010 (OPEN):** `HintCard` is imported by exactly TWO old-app
+  screens (`scan.tsx`, `notes.tsx`), NOT "most screens" as the inventory claims.
+  Open question deferred to the stores+screens phase, per-screen: (a) add HintCard
+  to more screens for parity, or (b) correct the inventory prose. Low effort either
+  way — don't resolve in a foundation/composite phase.
+- **C1 (context, not a UnFocus decision):** note editing is already SHIPPED &
+  reachable in the old app (`notes.tsx` routed screen; `useNotesStore` SQLite-backed
+  with header+body `update`; NoteRow commit callbacks; reached via Home preview "See
+  all" → `/notes`). The 2026-06-21 FEATURE_INVENTORY line is stale. Design intent to
+  preserve on port: Notes has NO BottomNav tab by design — don't add one as a "fix."
+  (Full C1/E1 investigation detail lives in the old-app PROGRESS_LOG; this is the
+  rebuild-side pointer.)
+
+**Source correction (FEATURE_INVENTORY lines proven stale):**
+- Notes / "Edit an old note — doesn't exist yet" & "no separate Notes page"
+  (dated 2026-06-21) → STALE. Note editing and a routed `/notes` screen are
+  shipped and reachable (see C1). Treat the feature as DONE, not a gap. The
+  absence of a BottomNav tab is intentional, not a missing piece.
