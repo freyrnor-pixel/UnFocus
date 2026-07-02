@@ -1182,6 +1182,98 @@ rather than welded onto 018.
 
 ### Blocks / unblocks
 
-- **No blocks.** Independent of 018 and of the still-stub `useTaskStore`
-  (Decision 015) — this is a field to add when Phase 5 implements the real
-  task store, not before.
+- **No blocks.** Independent of the connect-tasks link (below) and of the
+  still-stub `useTaskStore` (Decision 015) — this is a field to add when
+  Phase 5 implements the real task store, not before.
+- **Note on this entry's own internal references (added by Decision 020,
+  not an edit to this entry):** the "Decision 018" this entry cross-references
+  above ("Same user request that produced Decision 018 (connect-tasks/link
+  feature)"; "Independent of Decision 018") is the connect-tasks/"then" link
+  feature, which is recorded below as **Decision 020**, not 018 — it collided
+  twice on the way to a stable number (drafted as 018, then briefly 019) while
+  this entry was concurrently merged under 019. Read this entry's "018"
+  references as "020." Left as originally written per the append-only rule
+  (past entries are never edited in place); this note lives on the
+  superseding entry instead.
+
+---
+
+## Decision 020 — Task "then" link (one-to-one follower, surfacing-only)
+
+**Status:** Decided
+**Date:** 2026-07-02
+**Note on numbering:** this entry collided twice while in flight. Drafted and
+originally filed as "Decision 018" in this same planning session; on rebase,
+`main` had independently filed a different Decision 018 (Energy check-in
+removal), so it was renumbered to 019 — same precedent as Decision 017's
+renumbering. Before that renumbered version could be pushed, `main` again
+independently merged a different Decision 019 (the "next-time hint" note
+field, above — from the same user conversation as this feature, and which
+still refers to this entry internally as "Decision 018," predating both
+renumberings). Filed here, finally, as Decision 020. Content is otherwise
+unchanged from the original entry.
+**Phase placement:** Phase 5 (stores) + Phase 6 (screens). NOT composite-phase
+work. Recorded now for traceability; deferred to build. This is net-new
+architecture, not the resolution of an existing inventory ambiguity.
+
+**Origin:** User feature request — an intuitive way to connect tasks done in
+sequence (e.g. a morning routine). Explored A (steps), B (routine container),
+C (soft link); user chose C. Design constraint stated by user: setup cost per
+task must be near-zero, and the link must feel part of the checklist without
+being "too much to think about per task."
+
+### Resolved shape
+1. **Cardinality: one-to-one.** A task has at most one optional follower
+   ("then → this task"). One predecessor → one follower. Not many-followers.
+   This makes it a single nullable column, not a join table.
+2. **Behavior: surfacing-only, NOT notifying.** Completing a task
+   surfaces/highlights its follower (floats to top / visually flagged in the
+   day view). It does **NOT** schedule a separate notification for the
+   follower. This is the deliberate move that keeps setup to one inline
+   action and sidesteps all notification-timing design.
+3. **Direction: one-directional.** The link points predecessor → follower
+   only.
+4. **Setup: inline.** Set from within the task being edited (a single
+   "then → pick a task" affordance), not a separate linking screen.
+5. **Independence preserved.** Both linked tasks remain fully independent
+   Tasks — own date, time, importance, recurrence, and their own existing
+   per-task notification. The link adds nothing to and removes nothing from
+   either task's own scheduling.
+
+### Schema (verified against lib/db.ts — no existing task-to-task reference
+exists)
+- New nullable column on `tasks`: `follows_task_id TEXT DEFAULT NULL`
+  (or `then_task_id` — name TBD at build, not a decision-level question).
+- **Deletion:** `ON DELETE SET NULL` semantics — if the predecessor is
+  deleted, the follower loses its incoming link cleanly (no orphan).
+  Precedent: `task_steps` uses `ON DELETE CASCADE`; `plans.tsx` self-heals
+  orphaned `task_drafts` on mount. Follower link uses SET NULL rather than
+  CASCADE because deleting A must NOT delete B (B is an independent task).
+
+### Open sub-questions for the build session (do NOT let a coding session
+decide silently)
+- **Recurrence interaction:** if both tasks recur weekly, does the link
+  persist across recurrence instances? (Leaning: link is on the task
+  definition, so yes, but confirm at build — flag, don't assume.)
+- **Cross-date links:** predecessor and follower on different dates — does
+  surfacing pull the follower into today's view, or only highlight it on its
+  own date? (Leaning: highlight in place, no date-move, to avoid silently
+  rescheduling. Confirm at build.)
+- **Cycle guard:** one-to-one prevents wide fan-out but A→B→A is still
+  possible; the setup UI must prevent selecting a task that already points
+  (transitively) back.
+
+### Out-of-scope ripple (flagged, NOT absorbed into 020)
+- **Per-follower notifications** ("extra notifications for that stuff could
+  be useful if implemented properly" — user). This is a DIFFERENT want and is
+  explicitly NOT built into the link. If a followed task needs its own
+  reminder, that is the task's own existing notification. Any behavioral
+  "notify the follower when predecessor completes" is a separate future
+  decision, not part of 020.
+
+### Blocks / unblocks
+- **Unblocks:** nothing yet buildable this session — recorded for
+  traceability ahead of Phase 5/6 work on this feature.
+- **No new blocks** on in-flight phases; this is net-new, additive schema.
+- **Independent of Decision 019** (the "next-time hint" note field) — related
+  origin, separate mechanism, no dependency either direction.
