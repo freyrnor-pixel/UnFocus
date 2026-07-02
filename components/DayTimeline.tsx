@@ -28,9 +28,9 @@
  *   - onToggle is optional: when passed, the dot becomes its own tappable check
  *     target (mirrors TaskItem's checkbox) so tasks can be checked off inline.
  *     Without onToggle the whole row falls back to onPress only.
- *   - `done`/`importance` were added to the Decision 015 `Task` stub
- *     (store/useTaskStore.ts) for this component — Phase 5's real store must
- *     keep both fields.
+ *   - `done`/`importance` were part of the Decision 015 `Task` stub's minimal
+ *     contract for this component; Phase 5's real store (store/useTaskStore.ts,
+ *     2026-07-02) keeps both fields — confirmed, no changes needed here.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';

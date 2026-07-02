@@ -8,7 +8,7 @@
  * Connections:
  *   Imports → components/PressableScale, constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, store/useTaskStore
  *   Used by → (not yet mounted — Phase 5: app/index.tsx)
- *   Data    → none directly; takes a Task via props and writes through useTaskStore's toggle() (Phase 5 stub, Decision 015)
+ *   Data    → none directly; takes a Task via props and writes through useTaskStore's toggle() (real store since 2026-07-02, was a Decision 015 stub)
  *
  * Edit notes:
  *   - Uses theme.hintBg/hintBorder/hintAccent (the same "soft card surface" tokens

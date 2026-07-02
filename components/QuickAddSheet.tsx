@@ -11,7 +11,7 @@
  *             lib/date, lib/i18n, lib/useAppTheme, store/useTaskStore,
  *             react-native-safe-area-context
  *   Used by → (not yet mounted — Phase 5 screen: app/index.tsx)
- *   Data    → calls useTaskStore.add() (Phase 5 stub per Decision 015) to insert a
+ *   Data    → calls useTaskStore.add() (real store since 2026-07-02, was a Decision 015 stub) to insert a
  *             task; scaled fontSize via useScaledStyles()
  *
  * Edit notes:

@@ -1959,3 +1959,162 @@ unfiled), consolidating the collision notes previously scattered across
 **Not touched:** no design decision was opened, resolved, or re-litigated;
 no app code, component, store, or screen was touched, per this session's
 explicit scope.
+
+## 2026-07-02 — Phase 5: real useTaskStore + task-form.tsx (Decisions 018/019/020)
+
+**Status: Complete.** Replaced the Decision 015 `notImplemented` stub with the real,
+SQLite-backed `useTaskStore` and ported `app/task-form.tsx` against it — the first
+real store + paired screen in this repo (every other `store/*.ts` is still a Decision
+015 stub). Read `REBUILD_DECISIONS.md` and `PROGRESS_LOG.md` in full, plus the old
+`All-the-small-things` repo's `store/useTaskStore.ts`, `app/task-form.tsx`, `lib/db.ts`,
+`lib/date.ts`, `lib/dataAccess.ts` before writing anything, per this session's own
+instructions.
+
+**Decision 020 sub-questions — asked, not guessed (per this session's explicit STOP
+instruction):**
+1. **(a) Recurrence persistence — answered "yes, it's on the task definition."**
+   Matches the leaning already recorded in Decision 020: `follows_task_id` lives on
+   the same single row a recurring task already uses for every generated occurrence
+   (this schema never materializes per-occurrence rows), so the link persists across
+   recurrence instances by construction — no extra schema or code needed.
+2. **(b) Cross-date surfacing — answered "pull the follower into today's view"**
+   (a bigger commitment than the leaning recorded in Decision 020, which favored
+   "highlight in place only"). This is explicitly Home-phase day-view work, out of
+   this session's scope (schema + form-level setup affordance only) — **not built
+   here**. Flagging for whichever session builds the Home/day-view follower surfacing:
+   the user's answer supersedes Decision 020's own leaning on this point, so build
+   toward "pull into today's view," not "highlight in place."
+3. **(c) Cycle guard — answered "walk the chain live, disable looping tasks in the
+   picker"** (the recommended option). Implemented as `useTaskStore.followerCycleChain(id)`
+   (walks `followsTaskId` backward from `id`, self included) — `task-form.tsx`'s
+   follower picker excludes every id in `followerCycleChain(existing.id)` from its
+   candidate list, so a cycle can never be selected in the first place (not caught
+   after the fact on save).
+
+**Schema (`lib/db.ts` migrations array, append-only, two new lines):**
+- `tasks.hint TEXT DEFAULT ''` (Decision 019) — freeform "next time" note, display-only.
+- `tasks.follows_task_id TEXT DEFAULT NULL` (Decision 020) — lives on the **follower**
+  row, pointing at its predecessor's id (`t.followsTaskId === predecessorId` means "t
+  follows predecessor"). SQLite can't `ALTER TABLE` to add a real `FOREIGN KEY` to an
+  existing table, so `ON DELETE SET NULL` is enforced in application code instead:
+  `useTaskStore.remove()` clears any row's `follows_task_id` that pointed at the
+  deleted task, in the same `tx()` transaction as the delete. Documented as a header
+  gotcha in `lib/db.ts` so a future raw-delete call site doesn't reintroduce an orphan.
+
+**`store/useTaskStore.ts` (full real port):**
+- `Task`/`TaskInput` are the old app's shape plus `hint: string` and
+  `followsTaskId: string | null`. `TaskInput.hint`/`followsTaskId` are optional so
+  existing callers (`QuickAddSheet.tsx`, which never set either) keep compiling
+  unchanged — `add()` defaults them to `''`/`null`.
+- Ported via `lib/dataAccess.ts`'s `loadFirst`/`loadAll`/`updateRow`/`insertRow` +
+  `FieldMap` pattern (CLAUDE.md constraint 6) — `load`, `add`, `update`, `toggle`,
+  `completeDirect`, `remove`, `clearAll`, `tasksForDate`, `backlogTasks`,
+  `completedCount`, `focusTask`, `reorderTasks`, and the full `task_steps` CRUD
+  (`addStep`/`removeStep`/`toggleStep`/`reorderStep`, immediate-persist, no
+  draft/save gate) are all faithful ports of the old store's logic.
+- **`followsTaskId` is deliberately excluded from `TASK_COLUMNS`** (the FieldMap used
+  by `add()`/`update()`) and from `update()`'s patch type
+  (`Partial<Omit<Task, 'id' | 'followsTaskId'>>`) — the only legal way to change it is
+  the new `setFollower(predecessorId, followerId)` action, since a follower change can
+  touch a SECOND row (clearing whoever previously followed the same predecessor, to
+  keep the 1:1 invariant both directions). Both statements run inside one `tx()`.
+- **Not ported (flagged, not silently dropped): per-task notification scheduling and
+  the `'task_completed'` automation trigger.** The old store's `syncTaskNotification`
+  (via `lib/notifications.ts`/`lib/taskNotifications.ts`) and
+  `useAutomationStore.fireTrigger()` calls were dropped because none of those three
+  files exist in this repo yet (confirmed via `ls` before writing — `lib/` has no
+  `notifications.ts`/`taskNotifications.ts`, `store/` has no `useAutomationStore.ts`).
+  This mirrors Decision 016's own phase split ("Store + notifications phase" is
+  explicitly a separate future phase from "Form phase") rather than pulling that work
+  forward out of sequence. `syncAllTaskNotifications()` was dropped from the store's
+  public API entirely for the same reason (nothing calls it yet either).
+- Ported `lib/id.ts` (`generateId()`) verbatim — needed for SQLite TEXT primary keys
+  and didn't exist in this repo yet (every other store is still a stub, so nothing had
+  needed it before now).
+
+**`app/task-form.tsx` (new file, Decision 001 tier='sub' scaffold):**
+- Mounts via `ScreenScaffold` (back link left, iOS-only; Save `checkmark` icon in the
+  right action slot — plain `Pressable`+`Ionicons`, matching `ScreenHeader`'s own
+  24px icon rhythm for that slot, not a new pattern).
+- All text inputs/toggles/segmented choices go through `FormControls`
+  (`Input`/`Switch`/`SegmentedControl`/`Checkbox`) per this session's instruction;
+  structural pickers (week-day chips, duration chips, the calendar toggle, the
+  "then" candidate list) stay bespoke `Pressable` rows, matching how every other
+  ported screen in this repo already treats chip/grid pickers vs. generic inputs.
+  `DatePickerCalendar` (already ported, Phase 3d) is reused for the full-month
+  fallback; the Mon–Sun week-chip row is hand-rolled, same structure as the old app.
+  Time/Type fields are grouped in one `<Surface>` card, same as the old app's
+  `timeTypeGroup`.
+- **No `TimePickerWheel`** — that component was never ported into this repo (outside
+  Phase 3d's scope). Time entry uses a plain `FormControls.Input` (HH:MM text) instead
+  of porting a new bottom-sheet wheel component, per this session's own "use
+  FormControls for all inputs" instruction.
+- **Decision 018 (Energy removed):** Mode field is a two-option `SegmentedControl`
+  (General/Essential, the existing `importance` field) — no energy/battery picker,
+  matches the decision exactly.
+- **Decision 019 (hint):** one `FormControls.Input` (multiline), label/placeholder from
+  the two new i18n keys below. Included in the same Save payload as every other field
+  — no separate write path, since it's a plain display-only note.
+- **Decision 020 (then link):** gated on `existing` (same precedent as the Steps
+  section — a predecessor needs an id to link a follower to). Shows the current
+  follower's title (looked up by reverse-scanning `tasks` for whoever's
+  `followsTaskId === existing.id`, since the pointer lives on the *follower's* row,
+  not `existing`'s own) with a remove `IconButton`, or a "+ Pick a task" button that
+  expands a candidate list excluding `followerCycleChain(existing.id)`. Picking a
+  candidate calls `setFollower()` immediately (same immediate-persist pattern as
+  Steps) — not gated behind the main Save button.
+- Per-type accent colouring (old app's `FeatureColors.task`/`FeatureColors.shared` on
+  the Type segmented control) was **not ported** — Decision 006's 8 feature-accent
+  tokens don't include a "shared" equivalent, and inventing a new token mapping here
+  would be exactly the kind of silent color decision CLAUDE.md/AGENTS.md forbid. The
+  Type field is now a plain `SegmentedControl` like every other segmented choice in
+  the form (single accent, no per-option colour) — flagged here as a deliberate
+  simplification, not an oversight.
+- Save/delete/confirmation-banner flow, `confirmationMessage()`, and
+  `confirmDelete()`/`performDelete()` are faithful ports of the old app's logic and
+  timing (~900ms delay before `router.back()`).
+
+**i18n (`lib/i18n.ts`, both `en`/`no`):** confirmed nearly every task-form string
+already existed from earlier phases (the file's own header already listed
+`app/task-form.tsx` as a future consumer). Added only what Decision 019/020 needed:
+`taskHintLabel`, `taskHintPlaceholder`, `thenTaskLabel`, `thenTaskNone`,
+`thenTaskPick`, `thenTaskChange`, `thenTaskRemove`, `thenTaskEmptyList`. (`thenLabel`
+already existed but under the unrelated `automations` IFTTT namespace — new keys were
+named `thenTask*` to avoid colliding with it.)
+
+**Header updates (AGENTS.md "update headers as you go"):** `DayTimeline.tsx`,
+`NextTaskCard.tsx`, `QuickAddSheet.tsx` each had a stale "Phase 5 stub / Decision 015"
+note about `useTaskStore` — corrected to reflect the real store now existing.
+`DraggableTaskRow.tsx` checked and confirmed it doesn't reference `useTaskStore`/`Task`
+directly, so no change needed there.
+
+**Verification:** fresh `npm install --legacy-peer-deps` (no `node_modules` in this
+container) + `npx tsc --noEmit` — 35 errors, **zero** touching any file this session
+created or changed (confirmed by grepping the output for
+`task-form|useTaskStore|lib/id\.ts|lib/db\.ts|lib/i18n\.ts|DayTimeline|NextTaskCard|
+QuickAddSheet|DraggableTaskRow` — no hits). The 35 are the same known pre-existing
+family from every prior session's own run: missing `expo-blur`/`expo-linear-gradient`/
+`react-native-svg`, old-token-name errors in `app/_layout.tsx`, `app/_scaffold-demo.tsx`,
+`app/index.tsx`, `BottomNav.tsx`, `ScreenHeader.tsx` (including its already-flagged
+stray `Platform`-from-`'react'` import bug), `ScreenBackground.tsx`, `ScreenScaffold.tsx`,
+`Surface.tsx`'s one `theme.white` line, and `app/shopping.tsx`'s pre-existing
+`t.moreOptions` gap. None touched or introduced by this session — left exactly as
+prior sessions found them, per the same "not this session's scope" precedent used
+throughout this log.
+
+**Unresolved / flagged for future sessions:**
+- **Decision 020 (b)'s answer supersedes its own recorded leaning** ("pull the
+  follower into today's view" vs. the decision's "highlight in place" leaning) — the
+  Home/day-view phase that builds actual follower surfacing must build toward the
+  user's answer here, not Decision 020's original text. Worth a formal decision-log
+  update when that phase starts, so the leaning text doesn't mislead a cold read.
+- Notification scheduling (`lib/notifications.ts`, `lib/taskNotifications.ts`) and
+  `store/useAutomationStore.ts` still don't exist in this repo — whichever session
+  ports them next must wire `syncTaskNotification`/`fireTrigger('task_completed')`
+  back into `useTaskStore.ts`'s `add`/`update`/`toggle`/`completeDirect` (flagged
+  in-file, in the store's own header Edit notes).
+- `app/task-form.tsx` isn't linked from anywhere yet (no "+" affordance, no Plans row
+  tap-through) — same "ported ahead of its caller" precedent as every other Phase 3/5
+  component so far; wiring it up is Home/Plans-phase work.
+- `app/shopping.tsx`'s pre-existing `t.moreOptions` gap (flagged in the Phase 3e/4
+  entries above) is still open — not touched, out of this session's scope.

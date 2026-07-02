@@ -18,6 +18,13 @@
  *   - pruneOldData() deliberately spares config-like tables (recurring tasks,
  *     dishes, habits, catalog, settings) and user-authored persistent content
  *     (notes); only dated/append-only rows are pruned.
+ *   - `tasks.follows_task_id` (Decision 020) has no real FOREIGN KEY constraint —
+ *     SQLite can't ALTER TABLE to add one to an existing table. It lives on the
+ *     FOLLOWER row and points at its predecessor's id; ON DELETE SET NULL is
+ *     enforced in application code instead (`useTaskStore.ts`'s `remove()` clears
+ *     any row's `follows_task_id` pointing at the task being deleted, in the same
+ *     transaction as the delete). Don't delete a task via a raw query elsewhere
+ *     without doing the same cleanup.
  */
 import * as SQLite from 'expo-sqlite';
 import { dateStr } from '@/lib/date';
@@ -416,6 +423,13 @@ export function initDb() {
     "CREATE INDEX IF NOT EXISTS idx_task_steps_task ON task_steps(task_id)",
     // Manual drag-sort position within a task's Important/General section (app/plans.tsx)
     "ALTER TABLE tasks ADD COLUMN sort_order INTEGER DEFAULT 0",
+    // Freeform "next-time hint" note (Decision 019) — display-only, no behavior.
+    "ALTER TABLE tasks ADD COLUMN hint TEXT DEFAULT ''",
+    // One-to-one "then" follower link (Decision 020) — surfacing-only, no notification.
+    // Lives on the FOLLOWER row, pointing at its predecessor's id (see the header's
+    // Edit notes for the ON-DELETE-SET-NULL enforcement, since SQLite can't ALTER
+    // TABLE to add a real FK here).
+    "ALTER TABLE tasks ADD COLUMN follows_task_id TEXT DEFAULT NULL",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
