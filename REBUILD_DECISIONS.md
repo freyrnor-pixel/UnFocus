@@ -1277,3 +1277,73 @@ decide silently)
 - **No new blocks** on in-flight phases; this is net-new, additive schema.
 - **Independent of Decision 019** (the "next-time hint" note field) — related
   origin, separate mechanism, no dependency either direction.
+
+---
+
+## Decision 021 — Re-adding an already-listed shopping item (increment parity + feedback)
+
+**Status:** Resolved
+**Date:** 2026-07-02
+**Note on numbering:** drafted and originally filed as "Decision 018" in this
+planning session, per the same numbering precedent as 017/020 above — 018,
+019, and 020 were each independently claimed by other parallel sessions
+before this one landed, so it is filed here as 021. Content is otherwise
+unchanged from the original entry.
+**Phase:** Phase 5 (store behavior) + Phase 6 presentational touch (ShoppingRow highlight).
+Recorded now, executed when the shopping-store session runs — held out of any
+Phase 3/4 Code session.
+**Source:** Planning-chat product question ("adding to week both from itself and
+from monthly — three states: already there / newly added / amount increase").
+
+### Reference-repo inconsistency being resolved
+In the old repo (`All-the-small-things`, working code), the two re-add paths
+disagree:
+- `add()` on a matching weekly row **increments** amount
+  (`existing.amount + item.amount`), keyed on status+listId+name+dishName.
+- `addToWeeklyFromCatalog()` **overwrites** amount
+  (`amount: String(Math.max(1, quantity))`) and only matches `status='catalog'`
+  rows — so an item already at `status='inWeeklyList'` isn't even found by this
+  path (its catalog row no longer exists).
+Per the "edit notes / target win over old code" rule, the target unifies on
+increment; the overwrite behavior is a bug not to be ported.
+
+### Decision
+1. **Re-add increments (both paths).** Re-adding an item that already exists in
+   the target week list adds to that row's existing amount rather than
+   overwriting it. `addToWeeklyFromCatalog` (or its UnFocus successor) is
+   brought in line with `add()`'s increment semantics for the case where a
+   matching `inWeeklyList` row already exists.
+2. **Feedback is ephemeral, no schema change.** When a re-add bumps an existing
+   row, the affected ShoppingRow shows a brief highlight ("just added" / "amount
+   increased") that fades out. No persisted per-row status column, no new
+   ShoppingItem field. The three conceptual states (already-there / newly-added /
+   amount-increased) are a transient presentational treatment, not stored data.
+3. **Scope of the highlight.** The "already there → increment" highlight applies
+   only to the same-item-re-added case (matching status+listId+name+dishName).
+   It does NOT apply to the cross-dish standalone case — that case's decision
+   is **not yet filed in this repo** (see numbering note below); treat the
+   cross-dish case as open until that entry lands.
+
+**Numbering/cross-reference note:** the source planning conversation for this
+decision referred to the cross-dish standalone case as "Decision 019," but by
+the time this entry was filed, 019 had already been independently claimed
+here by the unrelated task "next-time hint" note field (same collision
+pattern as 017/020 above). The cross-dish decision itself was never committed
+to this repo under any number — do not assume it is 019, 020, or any entry
+above. A future session must file it fresh and this entry's item 3 should be
+updated to point at the real number once it exists.
+
+### Consequence / ripple
+- The eventual shopping-store Code session must NOT port
+  `addToWeeklyFromCatalog`'s overwrite line verbatim. Flag in that session's prompt.
+- ShoppingRow gains a transient highlight state (local component state or a
+  short-lived prop pulse); no store or schema involvement.
+
+### Blocks / unblocks
+- **Unblocks:** nothing yet buildable this session — `useShoppingStore.ts` is
+  still the Phase 5 `notImplemented` stub (Decision 015); this decision is
+  recorded for traceability ahead of that build.
+- **No new blocks** on in-flight phases.
+- **Depends on the not-yet-filed cross-dish standalone-case decision** for the
+  scope carve-out in item 3 above — flag for a future planning session, not a
+  Code session.
