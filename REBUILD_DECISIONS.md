@@ -1422,3 +1422,48 @@ rediscover these)
 - **Depends on** the Phase 4 drag mechanism (Decision 011 R1) already existing
   in UnFocus — confirmed present, no new gesture infrastructure needed.
 - **No new blocks** on in-flight phases.
+
+---
+
+## Numbering reconciliation (2026-07-02)
+
+**Status:** Not a decision — a lookup note only. Consolidates the
+numbering-collision and cross-reference notes already scattered across
+Decisions 019, 020, 021, and 022 into one place. Append-only: no past entry
+above is edited by this note.
+
+**Canonical map, Decisions 016–022** (verified against this log):
+- **016** — Habit reminders: multiple per day (ratifies shipped design,
+  closes OB-1).
+- **017** — WeekListCard's full-screen container role.
+- **018** — Energy check-in removed; General/Essential are the only task
+  modes, gated by Focus mode (closes OB-2).
+- **019** — Task "next-time hint" note field.
+- **020** — Task "then" link (one-to-one follower, surfacing-only). Drafted
+  in flight as "018," then briefly "019," before landing at 020 — see its
+  own numbering note.
+- **021** — Re-adding an already-listed shopping item (increment parity +
+  ephemeral feedback). Drafted in flight as "018" — see its own numbering
+  note.
+- **022** — Drag-to-merge a standalone item into a dish group. Resolves the
+  cross-dish standalone-item case that Decision 021, item 3 explicitly
+  carved out of scope.
+
+**Decision 019's internal "Decision 018" references mean Decision 020.**
+Decision 019's body (written concurrently with Decision 020's in-flight
+renumbering) twice references "Decision 018 (connect-tasks/link feature)."
+That number was never permanently claimed by the connect-tasks/link feature
+in this log — it settled at Decision 020 after two collisions. Read every
+"Decision 018" in Decision 019's body as "Decision 020." (Decision 019
+already carries its own note to this effect; restated here for a single
+lookup point.)
+
+**The cross-dish standalone shopping-item case is filed — it is Decision
+022, not unfiled.** Decision 021, item 3 explicitly carved this case out of
+scope and, at the time it was written, could not point to a real entry for
+it (the source planning conversation called it "Decision 019," a number
+already claimed here by the unrelated task-hint-field decision). That gap is
+closed: Decision 022 is the cross-dish case, filed and Resolved. Decision
+021 already carries its own pointer update to this effect; this entry
+restates it as part of the consolidated 016–022 map so it doesn't need to be
+re-derived from three separate cross-reference notes.
