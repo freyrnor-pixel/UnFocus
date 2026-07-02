@@ -1178,3 +1178,157 @@ rationale (money glanceable via the total) is already served without it.
 
 **Unblocks:** Session A2·2 (shopping screen re-layout) — `ShoppingRow` is
 now the finished component the screen composes.
+
+## 2026-07-02 — Session A2·2: Shopping screen re-layout — built (scope expanded)
+
+**Status: Complete, but well outside the session's original brief.** The brief's four
+gates (PROGRESS_LOG entry, Decision 011 resolved, `ShoppingRow`/`DraggableTaskRow` exist,
+`useShoppingStore` stub staged) all held. What the brief *assumed but didn't gate on* —
+that `app/shopping.tsx` and `components/WeekListCard.tsx` already existed and only
+needed a layout pass — did not hold: neither file, nor three of the four other
+components the old screen composes (`SharedRequestsSection`, `SavedListsModal`,
+`MonthlyResetSummaryModal` — all Phase 3e, unported; `SiteSwipeView` also unported but
+dropped, see below), had ever been created in this repo. Stopped and reported this to
+the user twice (once on discovering `WeekListCard`/`app/shopping.tsx` didn't exist, once
+after discovering the three Phase 3e components didn't exist either); the user chose to
+expand scope both times ("port WeekListCard first, then build the screen", then "fully
+port all three now") rather than defer to a later session. This entry documents the
+resulting session as actually run, not the original brief.
+
+**What actually got built, beyond the brief's stated scope:**
+- `components/WeekListCard.tsx` — **new file**, did not exist. Built fresh against
+  Decision 011 (A2-1/A2-4/R1/R3) and Decision 017 rather than ported byte-for-byte from
+  the old repo, which wrapped everything in the old padlock-gated `Container.tsx`.
+  `Container.tsx` is NOT ported — `ExpandableCard.tsx`'s own header already documented
+  itself as this card's intended base (Decision 009), so Container is superseded, not a
+  gap. Owns list-level chrome (rename, lock, saved-lists/list-settings/delete icons —
+  Decision 017 Q1), a compact inline progress line for non-focused lists only (Decision
+  017 Q3/Q4's bounded amendment — tapping it calls `onFocus`), dish groups + a collapsed
+  "Bought this week (n)" `ExpandableCard` (Decision 011 A2-4, replacing the old always-
+  visible "In cart" section), and the "Shopping done!" button (dimmed via `ShoppingRow`'s
+  exported `CHECKED_OPACITY`, Decision 011 R3 — this button lived here in the old app
+  too, not at screen level). Does NOT wrap its own reorderable rows in `DraggableTaskRow`
+  — takes a `renderReorderableRow` prop instead, so the parent screen can own reorder
+  hit-testing per Decision 011 R1's session split (see below).
+- `app/shopping.tsx` — **new file**, did not exist (not even a placeholder — this repo's
+  `app/` had only `_layout.tsx`, `_scaffold-demo.tsx`, `index.tsx` before this session).
+  Built from scratch against Decision 011/017, using the old repo's `app/shopping.tsx`
+  only as a behavior/copy reference, not a port target.
+- `components/SharedRequestsSection.tsx`, `components/SavedListsModal.tsx`,
+  `components/MonthlyResetSummaryModal.tsx` — **new files**, Phase 3e components pulled
+  forward out of plan order (REBUILD_PLAN.md 3e hasn't run). `SavedListsModal`/
+  `MonthlyResetSummaryModal` rebuilt on `<Surface surfaceContext="overlay">` (this repo's
+  established sheet pattern — see `ListSettingsSheet.tsx`/`UpdateSheet.tsx`) instead of
+  the old repo's bare `View` + `theme.white` + `Shadow.fab` — "Surface owns card/glass"
+  per this session's standing constraints, not a literal port.
+- `components/SiteSwipeView.tsx` (swipe-between-screens wrapper) — **not ported**,
+  flagged rather than pulled forward like the other three. Not required by A2-1/A2-4,
+  lower necessity than shared-requests/reset/saved-lists which A2-4's own body-order spec
+  names directly. Still a Phase 3e gap.
+- `store/useSharedStore.ts` — **new file**, Decision-015-style stub. Didn't exist at all;
+  `SharedRequestsSection` can't render without it. `kind='task'` branch dropped from the
+  ported component (app/index.tsx doesn't exist yet — out of scope, re-add in Phase 6).
+- `store/useShoppingStore.ts` / `store/useShoppingListStore.ts` — extended well past
+  Session A2·1's staged surface: full `items`/`trips` state, `update`/
+  `addToWeeklyFromCatalog`/`setPendingRestock`/`confirmStagingTray`/`doneShopping`/
+  `monthlyReset`/`buildMonthlyResetSummary` actions, `MonthlyResetSummary` type,
+  `ShoppingItem` widened with `dishName?`/`orderIndex?`/`listId?`/`status`/
+  `purchasedAt?`/`shoppingTripId?`; `ShoppingList` widened with `name`/`locked`/
+  `isTemplate`/`startDate`/`endDate`; `lists` state plus `rename`/`toggleLocked`/
+  `setRecurring`/`advanceRecurringLists`/`saveAsTemplate`/`instantiateTemplate`/`add`/
+  `remove`. `useShoppingStore` also gained a Zustand-shaped `getState()` (the old screen
+  calls it outside a component). Same minimal-contract precedent as every Decision 015
+  stub — mirrors the old app's store signatures where a ported consumer reads them;
+  `category` dropped (nothing here reads it).
+- `lib/shoppingGroups.ts` — **new file**, direct port of `groupByDish`/`computeListGroups`
+  plus a new `listProgress()` helper (not in the old repo) so the sticky header (focused
+  list) and `WeekListCard`'s compact line (non-focused lists) share ONE progress
+  calculation rather than forking it — Decision 017 note 3's explicit requirement.
+- `components/ScreenScaffold.tsx` — added an optional `stickyBelowHeader`/
+  `stickyBelowHeaderHeight` prop pair (additive, backward-compatible — every existing
+  caller renders identically when omitted). Decision 011 A2-1 needs a screen-level sticky
+  bar under the header that survives scrolling; ScreenScaffold is Decision 001's mandated
+  universal wrapper, so extending it beat hand-rolling a second copy of its L1-L5 layer
+  stack inside `app/shopping.tsx` alone. Uses the same absolute-position-plus-zIndex float
+  pattern as the header/bottom-nav blocks, not `ScrollView.stickyHeaderIndices` (would sit
+  underneath the already-absolutely-positioned header).
+- `app/_layout.tsx` — mounted `<AppModalHost/>` (was never mounted anywhere). Its own
+  header already said this should happen "during the screens phase" — `app/shopping.tsx`
+  is the first real screen needing `showAppModal()` (delete-list confirm, done-shopping
+  receipt choice, manual monthly-reset confirm, new-list chooser).
+
+**A2-1 sticky header — design-system verification (per the brief's own instruction):**
+checked SHADOW_ELEVATION_LIBRARY.md and CARD_CONTAINER_LIBRARY.md — both are stale
+relative to Decision 008's real-blur `Surface` redesign (still reference `Shadow.card`/
+`theme.white` from the pre-006/008 token system; flagged as a doc-vs-source conflict, not
+fixed here, out of scope). Went with `Surface`'s own docstring instead, which explicitly
+names `surfaceContext="overlay"` for "sticky headers... nav bar" — used that. Notable:
+`ScreenHeader.tsx`/`BottomNav.tsx` both actually use the `ambient` default despite being
+comparable floating chrome, a real inconsistency with `Surface`'s own stated rule — not
+fixed here either (shared foundation files, out of scope), just flagged.
+
+**Decision 011 R1 reorder wiring:** screen-owned, per the decision's explicit session
+split. `app/shopping.tsx` collects each rendered row's layout (`rowLayouts` ref, keyed
+`listId:itemId`), does hit-testing on drag-move (`computeTargetIndex`, comparing the
+dragged row's live centerY against a snapshot of sibling layouts captured at drag-start),
+reflows the live preview via `LayoutAnimation.configureNext` (same idiom
+`ExpandableCard.tsx` already uses) each time the computed insertion index changes, and on
+drag-end calls `useShoppingStore.reorder(id, 'up'|'down')` once per index step crossed
+between drag-start and drag-end. Only the "Shopping list" (ungrouped-unchecked) section
+is reorderable — matches the old inline move-chevrons' scope exactly; dish-group and
+bought-history rows never had move affordances either. The hit-test snapshot is captured
+once at drag-start and doesn't re-measure mid-drag, so it's an approximation, not
+pixel-perfect — reasonable for a first cut with no live-app verification available.
+
+**Mount-time store-action calls deliberately NOT wired (Phase 5 follow-up, not silently
+dropped):** the old screen's `advanceRecurringLists(todayStr())` + `useShoppingStore
+.getState().load()` mount effect, and its automatic payday-boundary monthly-reset
+detection effect. Both call store-stub actions that throw until Phase 5 — calling either
+unconditionally on mount would crash the screen on first load. Every action call in this
+session's `app/shopping.tsx`/`WeekListCard.tsx` is instead behind a user-triggered
+handler (onPress/onSubmitEditing/drag-end), the same accepted-safe pattern every other
+already-shipped sheet in this repo (`AddItemSheet`, `UpdateSheet`, etc.) already uses —
+those buttons also crash today if actually pressed, and that's the accepted state of this
+whole codebase pre-Phase-5. The manual "Reset monthly list now" overflow action (A2-4's
+own requirement) follows the same pattern and will start working the moment Phase 5 lands.
+
+**Dropped from the old screen, flagged not silently absorbed:** the header's Share pill
+(site-tier `ScreenHeader` has no custom-right slot, only sub-tier does — out of scope to
+change); the `'shopping_opened'` automation trigger (`useAutomationStore` doesn't exist in
+this repo); routing to `/scan` from "Shopping done!"'s receipt choice (`app/scan.tsx`
+isn't ported — Scan/Upload/Skip all just commit the trip for now).
+
+**Monthly/Katalog tab:** built as a light, functional but NOT redesigned port — Decision
+011 A2-3 says Monthly "stays... untouched by A2-2," and A2-1/A2-4's own grounding note
+scopes the redesign to the weekly tab specifically. `Surface` replaces the old `Container`
+but section order/behavior is otherwise unchanged from the old app. Needed regardless —
+without it the screen would only have one working tab.
+
+**i18n:** 9 new keys added to both `en`/`no` (`boughtThisWeekSection`,
+`savedListsButtonLabel`, `deleteListButtonLabel`, `listSettingsButtonLabel`,
+`lockListButtonLabel`, `unlockListButtonLabel`, `resetMonthlyListAction`,
+`resetMonthlyListConfirmTitle`, `resetMonthlyListConfirmBody`). Everything else needed
+(hints.shopping, sharedRequests.*, every sheet's field/button copy) already existed from
+earlier phases — confirmed before adding anything new, per token policy.
+
+**Token remapping applied (Decision 006):** consistent with every prior 3b/3c/3d session
+— orange→accent, green→good, white→surface (Surface-owned), grayLight→border/surfaceMuted
+(context-dependent), textLight→textMuted, offWhite→surfaceMuted, hardcoded `'#fff'`→
+textInverse, hardcoded `fontWeight`→`Fonts` tokens. `theme` prop dropped from every newly
+ported component in favor of internal `useAppTheme()`.
+
+**Not evaluated this session:** typecheck (`npx tsc --noEmit`) could not run — no
+`node_modules` in this remote environment, consistent with CLAUDE.md's "local-only" note.
+No live-app verification either (also consistent with current policy) — the reorder
+hit-test math and the sticky bar's fixed `STICKY_HEIGHT` estimate are unverified against
+a real render.
+
+**Out of scope, flagged not touched:** `SiteSwipeView` (Phase 3e); `app/scan.tsx`,
+`app/inventory-edit.tsx`, `app/index.tsx`/`useAutomationStore` (later phases); 011a/R4
+dish-checkbox nesting wiring (already resolved in Decision 011a but not re-touched here —
+this session's dish groups render read-only ingredient rows, no parent/child checkbox
+binding attempted); `PlanTaskCard` (Session B); real store logic (Phase 5).
+
+**Unblocks:** nothing further gated on this — Decision 011 (A2-1, A2-2, A2-4) and
+Decision 017 are now fully built out, not just decided. Phase 5 (real store logic) is the
+next thing that would make this screen actually functional end-to-end.

@@ -9,9 +9,9 @@
  * Connections:
  *   Imports → components/Surface, components/PressableScale, constants/theme, lib/i18n,
  *             lib/useAppTheme, react-native-reanimated
- *   Used by → (not yet mounted — Phase 3a foundational port; app/_layout.tsx wires the
- *             host in during the screens phase; every screen/store that previously called
- *             Alert.alert will call showAppModal() at that point)
+ *   Used by → <AppModalHost/> mounted in app/_layout.tsx (2026-07-02, Session A2·2);
+ *             showAppModal() called from app/shopping.tsx (delete-list confirm,
+ *             done-shopping receipt choice, manual monthly-reset confirm, new-list chooser)
  *   Data    → none — purely presentational; buttons carry their own onPress callbacks
  *
  * Edit notes:

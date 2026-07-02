@@ -12,7 +12,7 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme, store/useShoppingStore
- *   Used by → (not yet mounted — Phase 5: app/shopping.tsx, app/inventory-edit.tsx)
+ *   Used by → app/shopping.tsx (Monthly catalog tab); app/inventory-edit.tsx not yet ported
  *   Data    → consumes the ShoppingItem type from useShoppingStore; mutations happen in the parent via onTogglePending/onPress; scaled fontSize via useScaledStyles()
  *
  * Edit notes:

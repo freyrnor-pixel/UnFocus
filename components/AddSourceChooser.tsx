@@ -14,7 +14,7 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/i18n, lib/useAppTheme, store/useShoppingStore (ShoppingItem type only)
- *   Used by → (not yet mounted — ported ahead of app/shopping.tsx per REBUILD_PLAN.md 3d)
+ *   Used by → app/shopping.tsx (weekly list's "+" source picker)
  *   Data    → none directly — catalogItems/callbacks are passed in by the parent
  *
  * Edit notes:

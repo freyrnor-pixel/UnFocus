@@ -8,8 +8,8 @@
  *
  * Connections:
  *   Imports → constants/theme, store/useSettingsStore, lib/useAppTheme
- *   Used by → (ported Phase 2; Decision 010 open on reach — old app only
- *             mounted this on scan.tsx and notes.tsx)
+ *   Used by → app/shopping.tsx; Decision 010 still open on further reach — old app also
+ *             mounted this on scan.tsx and notes.tsx, neither ported yet
  *   Data    → reads showHints from useSettingsStore (no writes); colours from
  *             useAppTheme(); scaled fontSize via useScaledStyles()
  *
