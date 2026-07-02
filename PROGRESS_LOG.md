@@ -1909,3 +1909,53 @@ to file it fresh; see the numbering note on Decision 021 itself.
 highlight) — `useShoppingStore.ts` is still the Phase 5 `notImplemented`
 stub (Decision 015); not buildable yet, recorded now for traceability. See
 Decision 021 in `REBUILD_DECISIONS.md` for full detail.
+
+## 2026-07-02 — Documentation reconciliation (REBUILD_PLAN.md + REBUILD_DECISIONS.md numbering note)
+
+**Status: Complete.** No app code touched — bookkeeping pass only, per this
+session's explicit scope.
+
+**Discrepancy found before editing (per this session's own gate) and
+resolved with the user:** the session brief's canonical decision map listed
+the cross-dish standalone shopping-item case as UNFILED. Reading
+REBUILD_DECISIONS.md in full first (as instructed) showed this was stale —
+**Decision 022** ("Drag-to-merge a standalone item into a dish group",
+Resolved, 2026-07-02) already files and resolves that exact case, and
+Decision 021's own "Pointer update" note already points to it. Stopped and
+asked the user before editing; user chose to treat 022 as part of the
+canonical map and proceed with all three tasks on that basis.
+
+**REBUILD_PLAN.md (Task 1 — Phase 3 3c/3d text):**
+- Removed the "Sequencing correction … Run 3d before Session A2·1, not
+  after" instruction and 3d's "Run before Session A2·1" note (both satisfied
+  — Phase 3d logged done 2026-07-02, before Session A2·1 as planned).
+  Replaced with past-tense landed-as-planned notes citing Decision 011 R1.
+  3d now carries a ✅ DONE marker matching 3a/3e's existing style.
+- Cleared the ⚠ marker on ShoppingRow (now ✅ DONE, citing Decision 011
+  A2-2/R1/R2/R3 and the Session A2·1 port). WeekListCard already carried
+  ✅ DONE — untouched beyond the surrounding sentence. PlanTaskCard's
+  existing note (BUILD under Decision 009 Session B, not a 3c port) was
+  already accurate — kept as-is. Cleared the heading-level ⚠ on the 3c
+  bullet itself (batch-uniform-port warning), now stale since the whole
+  batch resolved and landed.
+- Left the existing "Phase 3 complete" summary line untouched, as
+  instructed.
+
+**REBUILD_PLAN.md (Task 2 — Phase 5/6 forward-reference list):** added a
+list under the Phase 6 screen breakdown naming Decisions 019 (hint field),
+020 (then-link), 021 (re-add increment), and — per the corrected map — 022
+(drag-to-merge, resolves 021's cross-dish carve-out) with their Phase 5
+store / Phase 6 presentational split, plus OB-3 (still open, deferred to
+Phase 6 per the Phase 4 answer).
+
+**REBUILD_DECISIONS.md (Task 3 — reconciliation note):** appended a new
+"## Numbering reconciliation (2026-07-02)" section at the bottom of the
+file (no existing entry edited). States the canonical 016–022 map, clarifies
+Decision 019's internal "Decision 018" self-references mean Decision 020,
+and states plainly that the cross-dish case is filed as Decision 022 (not
+unfiled), consolidating the collision notes previously scattered across
+019/020/021/022 into one lookup point.
+
+**Not touched:** no design decision was opened, resolved, or re-litigated;
+no app code, component, store, or screen was touched, per this session's
+explicit scope.
