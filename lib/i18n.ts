@@ -63,6 +63,11 @@ const en = {
   plansEssentialsHidden: (n: number) => `+ ${n} regular plan${n !== 1 ? 's' : ''} hidden →`,
   timelineEmpty: 'Nothing planned — enjoy your day 🌿',
   timelineNow: 'Now',
+  // Day-view rail (components/PlanTaskCard.tsx — full /plans screen + read-only Home preview)
+  dayViewGapUntil: (time: string) => `Nothing until ${time}`,
+  dayViewDoneZone: (n: number) => `Done today (${n})`,
+  dayViewAllDone: 'All done for today 🌿',
+  dayViewFollowerBadge: 'Then',
   shoppingPreview: 'Shop soon',
   seeAll: 'See all →',
   shoppingEmpty: 'Shopping list is empty — well done!',
@@ -943,6 +948,11 @@ const no: typeof en = {
   plansEssentialsHidden: (n: number) => `+ ${n} vanlige planer skjult →`,
   timelineEmpty: 'Ingenting planlagt — nyt dagen 🌿',
   timelineNow: 'Nå',
+  // Day-view rail (components/PlanTaskCard.tsx — full /plans screen + read-only Home preview)
+  dayViewGapUntil: (time: string) => `Ingenting før ${time}`,
+  dayViewDoneZone: (n: number) => `Ferdig i dag (${n})`,
+  dayViewAllDone: 'Alt gjort for i dag 🌿',
+  dayViewFollowerBadge: 'Så',
   shoppingPreview: 'Handle snart',
   seeAll: 'Se alt →',
   shoppingEmpty: 'Handlelisten er tom — bra jobbet!',

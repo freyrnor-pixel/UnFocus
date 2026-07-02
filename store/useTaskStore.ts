@@ -11,7 +11,8 @@
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/date
  *   Used by → components/QuickAddSheet.tsx, components/NextTaskCard.tsx, components/DayTimeline.tsx,
- *             components/DraggableTaskRow.tsx (Task type), app/task-form.tsx
+ *             components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
+ *             app/task-form.tsx, app/plans.tsx
  *   Data    → defines a Zustand store; owns SQLite tables `tasks` and `task_steps`
  *
  * Edit notes:
