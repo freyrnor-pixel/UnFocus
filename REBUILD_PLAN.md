@@ -51,20 +51,26 @@ Phase order. One phase per Claude Code session. Don't batch.
      this port also satisfies Decision 009 Session B's precondition that
      DraggableTaskRow be ported, so it unblocks two downstream consumers at
      once.
-   - **3e — Icons, pickers, misc leaves.** HabitIcon, InventoryIcon,
-     GradientSwatch, HuePicker, SwatchPicker, QRCodeDisplay, SaveButton,
-     StickySaveBar, InboxSection (⚠ Decision 009 Session A refactor —
-     Surface→ExpandableCard + inline note edit), SharedRequestsSection ✅
-     **DONE**, SavedListsModal ✅ **DONE**, MonthlyResetSummaryModal ✅
-     **DONE** (all three built 2026-07-02 during Session A2·2, out of plan
-     order, needed by app/shopping.tsx — see PROGRESS_LOG; the two modals
-     were rebuilt on `<Surface surfaceContext="overlay">`, not ported as
-     literal `Shadow.fab` Views), Pet, SiteSwipeView, DebugOverlay.
+   - **3e — Icons, pickers, misc leaves ✅ DONE** (see PROGRESS_LOG, 2026-07-02).
+     HabitIcon, InventoryIcon (done earlier, A2·1), GradientSwatch (done
+     earlier, Phase 2b), HuePicker, SwatchPicker, QRCodeDisplay, SaveButton,
+     StickySaveBar (filename typo `SticklySaveBar`→`StickySaveBar` corrected
+     on port), InboxSection (Decision 009 Session A refactor — Surface→
+     ExpandableCard, edit affordance still routes to `/capture?id=` per
+     Decision 012, no new inline-text-edit UI), SharedRequestsSection,
+     SavedListsModal, MonthlyResetSummaryModal (all three done earlier,
+     Session A2·2, pulled forward out of plan order — see PROGRESS_LOG; the
+     two modals were rebuilt on `<Surface surfaceContext="overlay">`, not
+     ported as literal `Shadow.fab` Views), Pet, SiteSwipeView, DebugOverlay.
+
+   **Phase 3 (composites) is now complete** — 3a/3b/3c/3d/3e all logged
+   done. `PlanTaskCard` remains its own BUILD under Decision 009 Session B
+   (Plans phase), not a 3c/3e port item.
 
    Scope each sub-phase only when the prior one is logged done in
-   PROGRESS_LOG.md. Do NOT pre-write 3c–3e prompts. Where a component is
-   marked ⚠, its decision must be resolved and recorded in
-   REBUILD_DECISIONS.md before that component's code is written.
+   PROGRESS_LOG.md. Where a component is marked ⚠, its decision must be
+   resolved and recorded in REBUILD_DECISIONS.md before that component's
+   code is written.
 4. **Flagged-for-redesign components** — resolve any remaining items in
    FEATURE_INVENTORY.docx edit notes that flag a component for redesign.
    BubbleMenu is already resolved (Decision 001: remove).

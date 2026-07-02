@@ -1459,3 +1459,162 @@ binding attempted); `PlanTaskCard` (Session B); real store logic (Phase 5).
 **Unblocks:** nothing further gated on this — Decision 011 (A2-1, A2-2, A2-4) and
 Decision 017 are now fully built out, not just decided. Phase 5 (real store logic) is the
 next thing that would make this screen actually functional end-to-end.
+
+## 2026-07-02 — Phase 3e: Icons, pickers, misc leaves — ported (Phase 3 complete)
+
+**Status: Complete.** Gate 1 (Phase 3c logged complete) — unmet at the start of this
+session, per the STOPPED entry above — was resolved when the user confirmed Session
+A2·2 had landed on `main` in a parallel chat; merged `origin/main` into this branch
+(resolving a `PROGRESS_LOG.md` conflict by keeping both the stop entry and the A2·2
+entry in sequence) before re-checking gates. All three gates then held: Phase 3c
+closed (WeekListCard built during A2·2), Decision 009 Session A InboxSection spec
+Resolved on file, `ExpandableCard` present. Ported the remainder of the 3e batch —
+`SharedRequestsSection`/`SavedListsModal`/`MonthlyResetSummaryModal` were already done
+(pulled forward during Session A2·2) and `InventoryIcon`/`GradientSwatch` were already
+done from earlier phases, so this session's actual scope was: **HabitIcon, HuePicker,
+SwatchPicker, QRCodeDisplay, SaveButton, StickySaveBar, InboxSection (refactor), Pet,
+SiteSwipeView, DebugOverlay** — ten items. With this, **Phase 3 (composites) is fully
+complete** (3a/3b/3c/3d/3e all logged done); `REBUILD_PLAN.md` updated accordingly.
+
+**Old source located:** all ten read directly from the sibling `All-the-small-things`
+repo (`components/HabitIcon.tsx`, `HuePicker.tsx`, `SwatchPicker.tsx`,
+`QRCodeDisplay.tsx`, `SaveButton.tsx`, `SticklySaveBar.tsx` — note the old repo's own
+filename typo, `InboxSection.tsx`, `Pet.tsx`, `SiteSwipeView.tsx`, `DebugOverlay.tsx`,
+plus `constants/petData.ts` as a Pet.tsx dependency).
+
+**Straight ports, no token remap needed:**
+- **HabitIcon.tsx** — byte-for-byte; `color` is always caller-supplied, no app-chrome
+  token read internally.
+- **QRCodeDisplay.tsx** — byte-for-byte; black/white QR modules are a functional
+  encoding (scanner contrast), not app chrome — same precedent as HomeHeroBackground's
+  sky/orb palette for "this hex is decorative/functional, not Decision 006's job."
+- **SiteSwipeView.tsx** — byte-for-byte; pure gesture/nav wiring, no colour tokens at
+  all. `lib/siteNav.ts`/`lib/haptics.ts` (`selection`/`tug`) both already present from
+  earlier phases — no new dependency gaps. Noted in the header that its
+  `activeOffsetX([-12,12])`/`failOffsetY([-10,10])`/`SWIPE_VELOCITY_THRESHOLD=800`
+  gesture thresholds are the same ones `ShoppingRow.tsx`'s swipe-to-remove already
+  reused (Session A2·1) — flagged so both stay in sync if either changes.
+- **HuePicker.tsx** — byte-for-byte logic; `hslToHex` already exists in
+  `constants/theme.ts` under that exact name, no remap needed. Ported as an **inert
+  leaf only** — Decision 006/007 explicitly deferred the runtime "custom" 7th theme
+  (no `hueToCustomColors()`, no `custom` entry in `ThemeName`), so this component is
+  not wired into anything and stays unmounted, same "ports ahead of its screen"
+  precedent as every other Phase 3 composite. Flagged in the header so a later session
+  doesn't read "HuePicker exists" as "custom theme is live."
+
+**Token remap applied (Decision 006), `theme` prop dropped where present:**
+- **SwatchPicker.tsx** — `theme.orange`→`accent`, `theme.textLight`→`textMuted`,
+  `theme.border` unchanged. Already called `useAppTheme()` internally in the old
+  source (no prop to drop). `Shadow.card`/`Shadow.cardHeavy` used unchanged — direct
+  ring/shadow styling, not a `Surface` material, so Decision 008 doesn't apply here.
+- **SaveButton.tsx** — `theme?.orange`→`accent` (fill), `theme?.white`→`accentInk`
+  (text-on-fill pairing). `theme?: AppColors` prop dropped for internal
+  `useAppTheme()`, established Phase 3c/3d convention. **Also fixed:** old source
+  defaulted `label = 'Lagre'` (a hardcoded Norwegian string) — `label` is now a
+  required prop with no fallback, matching the *same file's sibling* StickySaveBar's
+  own stated principle ("no hardcoded Norwegian fallback text — caller passes i18n
+  strings") and AGENTS.md's "all UI text through useT()" rule. Callers (settings.tsx,
+  not ported yet) will pass `t.save`.
+- **StickySaveBar.tsx** — ported from the old repo's `SticklySaveBar.tsx` (typo
+  corrected to the plain-English filename `REBUILD_PLAN.md`'s 3e list already used).
+  `theme?.offWhite`→`surfaceMuted`, `theme?.grayLight`→`border`, `theme?.textLight`→
+  `textMuted`, `theme?.orange`→`accent`, hardcoded `'#FFFFFF'` save-button text→
+  `accentInk`. `theme` prop dropped for internal `useAppTheme()`. `label`/`saveLabel`/
+  `undoLabel` were already required (no hardcoded fallback) in the old source — kept
+  as-is, no change needed there.
+- **DebugOverlay.tsx** — `theme.border` unchanged, `theme.white`→`surface`,
+  `theme.orange`→`accent`, `theme.grayLight`→`surfaceMuted` (note-box fill, sheet
+  handle), `theme.text`→`text`, `theme.textLight`→`textMuted`, `theme.gray`→
+  `textMuted` (placeholder colour), `theme.danger`→`bad`, hardcoded `'#fff'`
+  composer-save text→`accentInk`. All `t.debug.*`/`t.resetConfirmTitle`/
+  `t.resetConfirmBody`/`t.resetConfirmBtn`/`t.cancel`/`t.save`/`t.taskSavedSimple`
+  i18n keys already existed in both `en`/`no` from earlier phases — confirmed before
+  writing, no new i18n needed. Uses `AppModal`'s `showAppModal()` and
+  `ConfirmationBanner` unchanged (both already ported, signatures matched exactly).
+- **Pet.tsx** — only the speech bubble is app chrome: `theme.white`→`surface`,
+  `theme.border`/`theme.text` unchanged names. Habitat backgrounds, floor colours, and
+  food-chip emoji/colours stay fixed decorative hex in `constants/petData.ts` (ported
+  near-verbatim) — same precedent as `HomeHeroBackground.tsx`'s sky/orb palette:
+  illustrative art values, not semantic UI chrome, so Decision 006's token rule
+  doesn't reach them.
+
+**InboxSection.tsx — refactor, not a faithful port (Decision 009 Session A + Decision
+012), gate 2 spec followed exactly:**
+- Surface → the whole section is now **one `ExpandableCard`** (title = `t.inbox.
+  sectionTitle`, `badge` = item count, `defaultOpen` for visibility parity with the
+  old always-shown flat card) rather than per-item cards — matches Decision 009 #2's
+  "all three Home previews render through the single ExpandableCard primitive."
+  No "See more →" link added: unlike Plans/Shopping there's no separate full-inbox
+  screen to route to (items get promoted or discarded, not browsed) — inventing one
+  would exceed this component-only refactor's scope, so it's flagged rather than built.
+- **Edit affordance — surfaced the existing route, did not invent inline text-edit
+  state:** per the brief's own instruction ("surface the existing `/capture?id=` route
+  as an edit affordance — don't invent a new store path"), the Edit button still
+  routes to `/capture?id=`, just relocated into the new card's body instead of the old
+  flat Surface row. Decision 012 already established this route as a shipped, working
+  feature — this refactor doesn't touch that, only the surrounding card chrome.
+- Preserved unchanged: one-tap →Task promotion with the same defaults (today's date,
+  `start-at`, no recurrence, `regular` importance), Discard, `success()`-on-promote
+  haptic (with `haptic={false}` on that `PressableScale` so it doesn't double-fire),
+  Discard's default `PressableScale` tap haptic, render-nothing-when-empty (the
+  `items.length === 0` guard still short-circuits before any `ExpandableCard` renders).
+- Token remap: `theme.offWhite`(row divider)→`surfaceMuted`, `theme.orangeLight`/
+  `theme.orange`→`accentSoft`/`accent` (promote pill), `theme.grayLight`→
+  `surfaceMuted` (edit/discard pills), `theme.textLight`→`textMuted` (edit/discard
+  pill text), `theme.text` unchanged.
+- All `t.inbox.*` keys used (`sectionTitle`, `promote`, `edit`, `discard`) already
+  existed in both `en`/`no` — confirmed before writing.
+
+**Store stubs created/extended (Decision 015-style, pre-authorized by the session's
+own "extend stubs only where a component can't compile without it" instruction):**
+- `store/useInboxStore.ts` — **new file.** `items`/`add`/`update`/`remove`/
+  `promoteToTask` typed surface, matching the old app's `useInboxStore.ts` contract.
+  `promoteToTask`'s second argument is typed as `TaskInput` (imported from
+  `useTaskStore.ts`) rather than re-deriving the old app's
+  `Omit<Task, 'id' | 'steps'>` — this repo's `Task` stub has no `steps` field yet, so
+  `TaskInput` is the exact match already used by `handlePromote()`'s call shape.
+- `store/useFeedbackStore.ts` — **new file.** `notes`/`add`/`clearAll` typed surface
+  for `DebugOverlay`; the old app's `load()` and legacy `screen`/`x`/`y` placeholder
+  columns are a Phase 5 real-store implementation detail, not part of this
+  component-facing contract, so they're not in the stub.
+- `store/useShoppingStore.ts` — extended `ShoppingItem` with `category?: string`
+  (optional), re-adding a field Session A2·2 had deliberately dropped as "nothing
+  reads it yet" — `Pet.tsx`'s food-chip mapping is the first real reader. Also
+  adapted `Pet.tsx` itself to read weekly-list membership via `status ===
+  'inWeeklyList'` (this store's actual lifecycle field) instead of the old app's
+  separate `listType` field, which this stub never carried — not a new store
+  capability, just wiring Pet to the field names Session A2·2 already established.
+- `constants/petData.ts` — **new file**, near-verbatim port (habitat/food emoji +
+  decorative hex unchanged; only doc/connections header updated). Pure data + helper
+  functions, no store entanglement.
+
+**Verification:** ran `npm install --legacy-peer-deps` (fresh `node_modules`, same as
+Phase 3c's precedent) and `npx tsc --noEmit`. 35 pre-existing errors, **zero** touching
+any file this session created or modified (confirmed by grepping the output for every
+new/changed filename — zero hits). The 35 are the same known family from prior
+sessions (missing `expo-blur`/`expo-linear-gradient`/`react-native-svg`, old-token-name
+screens not yet rewired to `ThemePalette`: `app/_layout.tsx`, `app/_scaffold-demo.tsx`,
+`app/index.tsx`, `BottomNav.tsx`, `ScreenHeader.tsx`, `ScreenBackground.tsx`,
+`ScreenScaffold.tsx`, `Surface.tsx`) plus one **not previously catalogued, flagged
+here rather than fixed:** `app/shopping.tsx` calls `t.moreOptions` (top-level) twice,
+but the key only exists nested at `t.habits.moreOptions` — a pre-existing gap from
+Session A2·2 (not touched or introduced by this session; out of scope to fix here per
+this session's own component-only scope).
+
+**Merge note:** this branch had diverged from `main` (a Phase 3e stop-entry commit vs.
+`main`'s Session A2·2 merge). Merged `origin/main` in before starting any port work,
+resolving the `PROGRESS_LOG.md` conflict by hand (kept both entries, in sequence, with
+a short pointer note) rather than picking one side. No other files conflicted.
+
+**Not done, so not evaluated this session:** nothing — all ten items in this session's
+actual scope landed. `PlanTaskCard` remains out of scope as always (Decision 009
+Session B, a BUILD not a port).
+
+**Out of scope, flagged not touched:** wiring any of these ten into their eventual
+screens/mounts (`app/settings.tsx`, `app/index.tsx`, `app/_layout.tsx`'s
+`DebugOverlay`/`SiteSwipeView` mounts, `app/onboarding/step5.tsx`/`step6.tsx`) — all
+Phase 5/6 screen work, same "ports ahead of screens" pattern as every prior Phase 3
+sub-phase. Real store logic for `useInboxStore`/`useFeedbackStore` (Phase 5). The
+`app/shopping.tsx` `t.moreOptions` gap noted above.
+
+**Phase 3 complete.**

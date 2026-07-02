@@ -51,6 +51,13 @@
  *     accepted-safe pattern as AddItemSheet/UpdateSheet's existing buttons. The automatic
  *     recurring-list-advance and payday-boundary monthly-reset effects are flagged as a
  *     Phase 5 follow-up in PROGRESS_LOG, not silently dropped.
+ *   - **Phase 3e extension (components/Pet.tsx):** re-added `category?: string`,
+ *     optional — Session A2·2 dropped `category` as unread; Pet.tsx's food-chip
+ *     mapping (constants/petData.ts's shoppingItemToFoodChip) is the first real
+ *     reader, so it's back as an optional field rather than reopening the
+ *     Session A2·2 contract. Pet also reads weekly-list membership via
+ *     `status === 'inWeeklyList'` (this store's existing lifecycle field) instead
+ *     of the old app's separate `listType` field, which this stub never carried.
  */
 export type ShoppingItem = {
   id: string;
@@ -77,6 +84,8 @@ export type ShoppingItem = {
   purchasedAt?: string;
   /** Which shopping_trips row this purchase belongs to (status === 'purchased' rows only). */
   shoppingTripId?: string;
+  /** Catalog category slug, used by Pet.tsx's food-chip emoji mapping. */
+  category?: string;
 };
 
 export type ShoppingItemInput = {
