@@ -2118,3 +2118,168 @@ throughout this log.
   component so far; wiring it up is Home/Plans-phase work.
 - `app/shopping.tsx`'s pre-existing `t.moreOptions` gap (flagged in the Phase 3e/4
   entries above) is still open — not touched, out of this session's scope.
+
+## 2026-07-02 — Phase 5/6: real useHabitStore + habit-form.tsx + habit notifications (Decision 016)
+
+**Status: Complete.** Second real store + paired screen in this repo (after `useTaskStore`/
+`task-form.tsx`). Read `REBUILD_DECISIONS.md` and `PROGRESS_LOG.md` in full, plus the old
+`All-the-small-things` repo's `store/useHabitStore.ts`, `lib/habitNotifications.ts`,
+`lib/notifications.ts`, `lib/taskNotifications.ts`, `lib/db.ts`, `app/habit-form.tsx` before
+writing anything, per this session's own instructions.
+
+**Dependency gate checked first:** the task-store phase (`store/useTaskStore.ts` +
+`app/task-form.tsx`, Decisions 018/019/020) is logged complete immediately above — real
+`dataAccess.ts` usage and migration precedent are both established there. Gate met, proceeded.
+Note: unlike the brief's framing, there was no Decision 015 `useHabitStore` stub to replace —
+`store/` had no `useHabitStore.ts` at all (Decision 015 only declared stubs for the six Phase 3b
+sheets' stores). Built the real store fresh, same shape as if a stub had existed.
+
+**Schema (`lib/db.ts` migrations array, append-only, five new nullable columns):**
+- Decision 016 Q3 (3B-ii) — `habits.reminder_mode TEXT`, `reminder_count INTEGER`,
+  `reminder_interval_min INTEGER`, `reminder_start TEXT`, `reminder_end TEXT`. Editing
+  metadata only; `notification_times` (already migrated in an earlier session) stays the sole
+  authoritative source for scheduling — these are never read back into it.
+- Decision 016 Q2 — the base `habits` table's `notification_time` column (already part of the
+  original `CREATE TABLE`, predates this session) is now formally dead: the real store neither
+  reads nor writes it. Documented in `lib/db.ts`'s header (same "kept per never-drop-columns,
+  same precedent as `energy_logs`" framing already used there for the dead energy table).
+
+**`lib/notifications.ts` (new file, ported in full):** the old app's low-level
+expo-notifications primitives layer. Habit reminders only need
+`scheduleDailyReminder`/`cancelDailyReminder`/`isWithinQuietHours` from it, but the file is a
+single self-contained module with zero SQLite/store coupling (confirmed via its own header:
+"Data → schedules OS notifications (no SQLite/store)") — splitting out a habit-only slice would
+fork it from the identical file a future task-notifications phase needs verbatim. Applied the
+same "port the foundational file whole, ahead of every consumer" precedent already used twice
+in this repo for `lib/date.ts` and `lib/id.ts`, rather than either option the brief offered
+literally (minimal slice, or stop-and-flag) — flagging the substitution here per the brief's own
+"port the minimum needed and note it" instruction. Everything task/weekly/monthly/
+persistent-notification/re-nudge-related in the file is inert (no store calls it yet), same
+"ported ahead of its consumer" pattern as every other Phase 3/5 file so far. `expo-notifications`
+was already in `package.json` (no new native dependency, no APK build needed).
+**`lib/taskNotifications.ts` was explicitly NOT ported** — nothing in habit scope needs it
+(`lib/habitNotifications.ts` never imported it, even in the old app); task-reminder wiring
+stays its own future phase per Decision 016's own phase split, exactly as the brief scoped it.
+
+**`lib/habitNotifications.ts` (new file, ported + Decision 016 Q4 quiet-hours wiring):**
+- `syncHabitReminder(habit, settings)` now takes a `HabitNotifSettings` subset (mirrors
+  `useTaskStore`'s existing `TaskNotifSettings` pattern) instead of separate
+  language/enabled args, so `quietHoursEnabled`/`quietHoursStart`/`quietHoursEnd` come along
+  the same way.
+- **Skip-inside-window, not shift (Decision 016 Q4):** each candidate occurrence is checked
+  against `isWithinQuietHours(hour, minute, start, end)` before scheduling; an occurrence
+  inside the window is simply never scheduled for that slot (everything was already cancelled
+  via `cancelHabitReminders()` at the top of the function, so "skip" requires no extra code —
+  just not calling `scheduleDailyReminder` for that index). `pushPastQuietHours` (the task-side
+  shift behaviour) is deliberately not imported here, matching the decision's explicit
+  "habits skip, tasks shift" split.
+- **Decision 016 Q2 — dropped the legacy single-time fallback.** Old code fell back to
+  `habit.notificationTime` when `notificationTimes` was empty; the new `Habit` type has no
+  `notificationTime` field at all, so this fallback has nothing to read — `notificationTimes`
+  is unconditionally the only source, empty ⇒ no reminders scheduled.
+
+**`store/useHabitStore.ts` (full real port):**
+- Ported via the same `lib/dataAccess.ts` `loadAll`/`insertRow`/`updateRow` + `FieldMap`
+  pattern used by `useTaskStore`/every other real store (CLAUDE.md constraint 6) — `load`,
+  `add`, `update`, `remove`, `reorder`, `increment`, `decrement`, `markRestDay`,
+  `syncAllHabitReminders` are faithful ports of the old store's logic, unchanged apart from the
+  reminder fields below.
+- **`Habit` type has no `notificationTime` field** (Decision 016 Q2) — `notificationTimes:
+  string[]` is the only reminder-time field. Added `reminderMode: HabitReminderMode | null`,
+  `reminderCount: number | null`, `reminderIntervalMin: number | null`, `reminderStart: string
+  | null`, `reminderEnd: string | null` (Decision 016 Q3) to both the type and `HABIT_COLUMNS`
+  (identity `to`, since string|null/number|null already match `SQLValue`). `rowToHabit` reads
+  the two nullable-integer columns via a direct `row[col] == null ? null : Number(...)` check
+  (no shared `readNullableInt` added to `lib/dataAccess.ts` for two call sites — inlined,
+  matching the "don't over-abstract for a handful of uses" instruction) and the nullable-string
+  columns via the same `readStr(...) || null` idiom `useTaskStore.ts` already established for
+  `followsTaskId`.
+- `syncHabitReminder()` (module-private, schedules on `add`/`update`) now builds a full
+  `HabitNotifSettings` object from `useSettingsStore.getState()` (adding
+  `quietHoursEnabled`/`quietHoursStart`/`quietHoursEnd` to the existing
+  `habitNotificationsEnabled`/`language` reads) instead of the old two-arg call.
+- `HabitReminderMode = 'single' | 'count' | 'interval'` now lives in the store (exported) rather
+  than as a form-local type, since it's a persisted column's type, not just UI state —
+  `app/habit-form.tsx` imports it from here.
+
+**`app/habit-form.tsx` (new file, Decision 001 tier='sub' scaffold):**
+- Mounts via `ScreenScaffold` (back link left, iOS-only; Save `checkmark` icon right action —
+  same plain `Pressable`+`Ionicons` pattern `task-form.tsx` already established for that slot).
+- FormControls throughout: `SegmentedControl` for kind (build/break) and the three reminder
+  modes (old app hand-rolled both as chip rows — converged onto the shared primitive, matching
+  this session's explicit instruction); `Input` for title, the four cue→craving→response→reward
+  fields, and every HH:MM time field; `Switch` for the notification toggle (old app used a raw
+  RN `Switch` with hardcoded `Colors.orange`/`Colors.white` — replaced). No FormControls
+  stepper primitive exists in this repo, so the daily-goal and reminder-count steppers stay
+  hand-rolled `Pressable` +/- pairs, restyled to Decision 006 tokens (same precedent
+  `task-form.tsx` set for its duration/day chips, which also have no FormControls equivalent).
+- **No TimePickerWheel** (never ported into this repo, Phase 3d's scope didn't include it,
+  same situation `task-form.tsx` already documented) — every time field (single-mode time,
+  reminder-window start/end) is a plain `FormControls.Input` (HH:MM text), per this session's
+  own "use FormControls for all inputs" instruction.
+- **Decision 016 Q1 (port as-is):** the three-mode picker (Once/Several times/Every…), window
+  pickers, count stepper (2–12), interval chips (30/60/90/120/180/240, floor 15 enforced in
+  `computeReminderTimes`), and live preview line are all present, unchanged in behavior from
+  the old form — `computeReminderTimes()` ported verbatim (byte-for-byte logic, including the
+  inverted-window-collapses-to-single-at-start default, Decision 016 Q5).
+- **Decision 016 Q2 (drop mirror):** no `notificationTime` field or write anywhere in this
+  file — `save()`'s payload only ever sets `notificationTimes`.
+- **Decision 016 Q3 (recipe columns, round-trip fix):** `save()` persists `reminderMode` plus
+  whichever of `reminderCount`/`reminderIntervalMin`/`reminderStart`/`reminderEnd` are relevant
+  to the current mode (others explicitly `null`); all five are `null` when notifications are
+  off. The initial form state prefers `existing.reminderMode` when present and only falls back
+  to the old app's length-based inference (`notificationTimes.length > 1 ? 'count' : 'single'`)
+  for a habit saved before this session (or while notifications are off) — so a habit created
+  via "Every 2 h" now reopens in "Every…" mode instead of silently becoming "Several times".
+- Essentials-first layout preserved from the old form: Kind → Title → (For, if child profiles
+  exist) → Notification are always visible; icon, category, the four steps, daily goal, and the
+  (now effectively decorative, since only 'daily' is offered) recurrence picker stay behind the
+  existing `t.habits.moreOptions`/`fewerOptions` disclosure, open by default in edit mode when
+  any advanced field already holds a value — unchanged from the old app's own default-open rule.
+- Delete is confirm-gated via `showAppModal`, reusing `t.resetConfirmTitle`/`resetConfirmBody`/
+  `resetConfirmBtn` — matches the old habit-form's own (slightly unusual) choice to reuse the
+  "reset" copy family for this confirmation rather than "delete"; not changed, since re-wording
+  it wasn't asked for and old copy already exists in both languages.
+- **No ConfirmationBanner / no post-save delay** — unlike `task-form.tsx`, which added a
+  ~900ms-delayed confirmation banner as a deliberate enhancement for that screen, the old
+  habit-form just calls `add`/`update` then `router.back()` immediately with no banner. Kept
+  that plain behavior rather than importing `task-form.tsx`'s embellishment un-asked-for.
+
+**i18n (`lib/i18n.ts`, both `en`/`no`):** confirmed nearly every habit-form string already
+existed from an earlier phase (all of `habitFormTitle`/`habitFormEdit`/`habitKindBuild`/
+`habitReminderMode*`/`habitReminderCountLabel`/`habitReminderIntervalLabel`/
+`habitReminderStart/EndLabel`/`habitReminderEveryHours`/`Minutes`/`habitReminderTimesPreview`/
+`habitCategories`/`habits.moreOptions`/`fewerOptions`/etc. were all already present — checked
+before adding anything, per token policy). Added only one new key pair:
+`hints.habitForm.{text,example}` (the `HintCard` at the top of the form — no hint existed for
+this specific screen; `hints.habits` already existed but is the *habits list* screen's hint, a
+different consumer).
+
+**Header updates (AGENTS.md "update headers as you go"):** `lib/db.ts`'s header gained an edit
+note documenting `notification_time` as dead and the five new recipe columns as scheduling-inert
+metadata. `components/HabitIcon.tsx`'s "Used by" line updated — it now has a real consumer
+(`app/habit-form.tsx`) instead of being a leaf ahead of all three of its listed screens.
+`store/useSettingsStore.ts` and `lib/i18n.ts` already forward-declared `store/useHabitStore.ts`/
+`app/habit-form.tsx` as consumers in their headers from an earlier phase — no change needed there.
+
+**Verification:** fresh `npm install --legacy-peer-deps` (no `node_modules` in this container) +
+`npx tsc --noEmit` — 35 errors, **zero** touching any file this session created or changed
+(confirmed by grepping the output for `habit-form|useHabitStore|habitNotifications|lib/
+notifications|lib/db\.ts|lib/i18n\.ts|HabitIcon` — no hits). Same count and same known
+pre-existing family as the immediately-prior task-store session's own run (missing `expo-blur`/
+`expo-linear-gradient`/`react-native-svg`, old-token-name screens, `ScreenHeader.tsx`'s stray
+`Platform` import, `app/shopping.tsx`'s pre-existing `t.moreOptions` gap). None touched or
+introduced by this session.
+
+**Unresolved / flagged for future sessions:**
+- `app/habit-form.tsx` isn't linked from anywhere yet (no habits-list "+" affordance) — same
+  "ported ahead of its caller" precedent as every other Phase 3/5/6 screen so far; wiring it up
+  is the `app/habits.tsx` screen's own future phase.
+- The settings-phase quiet-hours hint copy update (Decision 016 Q4 — "Task reminders wait until
+  quiet hours end…" needs to cover habits too, and reflect skip-not-wait for habits) is still
+  open — explicitly scoped to the settings phase in Decision 016, not touched here.
+- The settings-phase "merged Plan notifications toggle vs. separate habit toggle" question
+  (Decision 016's own "Adjacent finding") is still open — not decided or touched here.
+- `app/habits.tsx`, `app/health.tsx`'s inline habits sub-section, and `app/settings.tsx`'s
+  habit-notification/quiet-hours UI are all still unported — `store/useSettingsStore.ts`'s
+  header already forward-lists them as future consumers.
