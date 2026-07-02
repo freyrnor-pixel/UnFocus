@@ -1147,3 +1147,121 @@ Essential modes, gated by Focus mode."
   009 (4) already specified (Home phase work, not yet started) — this entry
   doesn't add new scope to it, only confirms it's now the only intensity
   toggle in the app.
+
+## Decision 019 — Task-to-task soft link ("follower" pointer)
+
+**Status:** Deferred to Phase 5/6 — net-new architecture, not built this
+session.
+**Note on numbering:** originally discussed under a working label of
+"Decision 018" before this log's actual Decision 018 (Energy check-in
+removal, above) was filed the same day. Renumbered to 019 to avoid a
+collision — no decision content changes as a result of the renumbering.
+
+### Context
+User raised a net-new feature: the ability to intuitively connect two
+sequential tasks (e.g. "unload dishwasher" → "load dishwasher") so the app
+can surface the relationship. Before proposing a design, checked the
+existing schema for a precedent: `tasks` (`lib/db.ts`) has no task-to-task
+reference today. The one existing task-owns-rows relationship is
+`task_steps` (one-to-many, `FOREIGN KEY (task_id) REFERENCES tasks(id) ON
+DELETE CASCADE`) — steps are owned by their parent task and die with it.
+Separately, `plans.tsx` already self-heals orphaned `task_drafts` rather
+than relying on a DB-level cascade for that relationship. Neither existing
+pattern is a one-to-one, symmetric "these two tasks are related" link, so
+this is net-new, not an extension of `task_steps`.
+
+Three shapes were considered:
+- **Steps** — model the follow-up as another row in the existing
+  `task_steps` table. Rejected: steps are sub-parts of one task, not a
+  pointer to a second independent task; would conflate "parts of this task"
+  with "the task after this task."
+- **Container** — a wrapping entity that owns both tasks. Rejected as
+  heavier than the ask: the user wants two tasks to *know about* each other,
+  not a new grouping concept with its own lifecycle/UI.
+- **Soft link** — a single nullable pointer column on `tasks` from one task
+  to the task it "follows," one-to-one, surfacing-only (no behavior forced
+  by the link — it doesn't gate scheduling, completion, or notifications on
+  its own).
+
+### Decision
+Go with the **soft link**: a single self-referential, nullable pointer on
+`tasks` (e.g. `follows_task_id TEXT DEFAULT NULL`) added via the standard
+`ALTER TABLE tasks ADD COLUMN` migration pattern — no new table. One-to-one
+(a task can follow at most one other task), surfacing-only: its only job is
+to let the UI show "this often comes after X" / "leads into Y," not to
+drive scheduling, recurrence, or completion logic. On the linked task's
+deletion, the pointer resolves via **`SET NULL`, not `CASCADE`** — deleting
+the earlier task should silently un-link the follower, not delete or orphan
+it. This mirrors the deletion posture already established elsewhere in the
+codebase (`task_steps` cascades because steps are *owned*; `task_drafts`
+self-heals rather than cascading because drafts are *referencing*, not
+*owned* — the follower pointer is the same "referencing" case as
+`task_drafts`, so it gets the same non-destructive treatment, not the
+`task_steps` treatment).
+
+**Explicitly out of scope, deferred (not absorbed into this decision):**
+per-follower notifications (e.g. "reminder because you just did the task
+this follows"). Flagged so it isn't silently folded into Phase 5/6 build-out
+without its own decision entry later.
+
+### Consequence for code
+None this session — no source touched. When built (Phase 5/6): one
+migration line in `lib/db.ts`, a field on the `Task` type, and UI surfacing
+(exact screen/placement not yet decided — deferred along with the rest of
+this feature).
+
+### Rationale
+Smallest schema addition that satisfies "connect two tasks" without
+inventing a new owning relationship or a new entity. Reusing the
+`task_drafts` self-heal precedent for deletion semantics keeps the app
+consistent with how it already treats references vs. ownership, rather than
+introducing a third deletion pattern.
+
+### Blocks / unblocks
+- **Unblocks:** Decision 020 (hint field) is a sibling of this decision, not
+  a dependency — the two can be built independently of each other in
+  Phase 5/6.
+- **No new blocks.** Nothing in the currently-active phases depends on this
+  landing.
+
+## Decision 020 — "Makes it easier next time" hint field
+
+**Status:** Deferred to Phase 5/6 — net-new architecture, not built this
+session.
+**Note on numbering:** discussed alongside Decision 019 in the same
+conversation, under a working label of "Decision 019"; renumbered to 020
+for the same reason as Decision 019's renumbering note above.
+
+### Context
+Alongside the task-linking soft link (Decision 019), the user wanted a way
+to capture a short freeform hint on a task — something like "makes it
+easier next time" — a tip left for a future occurrence of a recurring task,
+or for whoever does the followed-into task next. This is conceptually
+separate from the link itself: a task doesn't need a follower to have a
+hint, and a link doesn't require either side to carry one.
+
+### Decision
+A **separate field**, not folded into the Decision 019 link column — a
+single nullable text field on `tasks` (e.g. `hint TEXT DEFAULT NULL`),
+added via the standard `ALTER TABLE tasks ADD COLUMN` migration pattern.
+Kept as its own decision/column rather than reusing or overloading the
+follower pointer so the two remain independently useful: a standalone task
+can carry a hint with no link at all, and a link can exist with no hint on
+either side.
+
+### Consequence for code
+None this session — no source touched. When built (Phase 5/6): one
+migration line in `lib/db.ts`, a field on the `Task` type, i18n label(s) for
+the input, and UI surfacing (not yet decided — deferred along with Decision
+019).
+
+### Rationale
+Keeping the hint as an independent column avoids coupling two features that
+happen to have been raised in the same conversation but don't share a
+lifecycle — the link can be deleted (`SET NULL`, per Decision 019) without
+touching the hint, and the hint can be edited without touching the link.
+
+### Blocks / unblocks
+- **Sibling of Decision 019.** No ordering dependency between the two.
+- **No new blocks.** Deferred to Phase 5/6 along with Decision 019; neither
+  is a composite-phase concern for the phases currently in flight.
