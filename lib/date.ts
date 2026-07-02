@@ -7,7 +7,8 @@
  *
  * Connections:
  *   Imports → —
- *   Used by → components/QuickAddSheet.tsx, components/ShoppingQuickAddSheet.tsx
+ *   Used by → components/QuickAddSheet.tsx, components/ShoppingQuickAddSheet.tsx,
+ *             components/SharedRequestsSection.tsx, app/shopping.tsx
  *             (Phase 5 stores/screens will add more callers as they're ported)
  *   Data    → none (pure functions)
  *

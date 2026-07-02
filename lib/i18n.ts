@@ -362,6 +362,16 @@ const en = {
   moveItemDown: 'Move item down',
   decreaseQty: 'Decrease quantity',
   increaseQty: 'Increase quantity',
+  // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
+  boughtThisWeekSection: (n: number) => `Bought this week (${n})`,
+  savedListsButtonLabel: 'Saved lists',
+  deleteListButtonLabel: 'Delete list',
+  listSettingsButtonLabel: 'List settings',
+  lockListButtonLabel: 'Lock list',
+  unlockListButtonLabel: 'Unlock list',
+  resetMonthlyListAction: 'Reset monthly list now',
+  resetMonthlyListConfirmTitle: 'Reset monthly list?',
+  resetMonthlyListConfirmBody: 'This clears temporary items and logs a fresh reset period. It normally happens automatically on your reset date.',
   category: 'Category',
   shoppingCategories: {
     produce: 'Fruit & veg',
@@ -1219,6 +1229,16 @@ const no: typeof en = {
   moveItemDown: 'Flytt vare ned',
   decreaseQty: 'Reduser antall',
   increaseQty: 'Øk antall',
+  // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
+  boughtThisWeekSection: (n: number) => `Kjøpt denne uken (${n})`,
+  savedListsButtonLabel: 'Lagrede lister',
+  deleteListButtonLabel: 'Slett liste',
+  listSettingsButtonLabel: 'Listeinnstillinger',
+  lockListButtonLabel: 'Lås liste',
+  unlockListButtonLabel: 'Lås opp liste',
+  resetMonthlyListAction: 'Nullstill månedsliste nå',
+  resetMonthlyListConfirmTitle: 'Nullstille månedslisten?',
+  resetMonthlyListConfirmBody: 'Dette fjerner midlertidige varer og logger en ny nullstillingsperiode. Dette skjer vanligvis automatisk på nullstillingsdatoen din.',
   category: 'Kategori',
   shoppingCategories: {
     produce: 'Frukt og grønt',

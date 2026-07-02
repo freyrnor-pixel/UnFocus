@@ -7,9 +7,10 @@
  *
  * Connections:
  *   Imports → components/Surface, constants/theme, lib/useAppTheme
- *   Used by → (not yet mounted — Phase 3a foundational port; later Phase 3 sessions wire
- *             this into PlanTaskCard (controlled), InboxSection/WeekListCard/meals/health
- *             (uncontrolled or per-log controlled) per Decision 009)
+ *   Used by → components/WeekListCard.tsx (dish groups + collapsed "bought this week"
+ *             history, uncontrolled), app/shopping.tsx (Monthly catalog dish groups);
+ *             later Phase 3/6 sessions will also wire this into PlanTaskCard (controlled)
+ *             and InboxSection/meals/health per Decision 009
  *   Data    → driven by props; reads reducedMotion + scaled fontSize via useAccessibility()/useScaledStyles()
  *
  * Edit notes:

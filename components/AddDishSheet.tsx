@@ -17,7 +17,7 @@
  *   Imports → components/PressableScale, components/Surface, constants/theme,
  *             lib/i18n, lib/useAppTheme, store/useCatalogStore, store/useMealStore,
  *             react-native-reanimated
- *   Used by → (not yet mounted — Phase 5 screen: app/shopping.tsx, Monthly tab)
+ *   Used by → app/shopping.tsx (Monthly tab's "add a whole dish" divider)
  *   Data    → none directly — onSave hands the parent a dishName + ingredient list; the
  *             parent loops useShoppingStore.add() once per ingredient (status:'catalog',
  *             listType:'monthly', dishName). Reads useMealStore.dishes (read-only, "From

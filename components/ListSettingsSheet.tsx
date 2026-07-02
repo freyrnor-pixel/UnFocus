@@ -12,7 +12,7 @@
  *   Imports → components/FormControls, components/PressableScale, components/Surface,
  *             constants/theme, lib/i18n, lib/useAppTheme,
  *             store/useShoppingListStore (ShoppingList type only)
- *   Used by → (not yet mounted — Phase 5 screen: app/shopping.tsx)
+ *   Used by → app/shopping.tsx (weekly list's recurring-toggle sheet)
  *   Data    → none directly — `list` and `onSetRecurring` are owned by the parent
  *
  * Edit notes:

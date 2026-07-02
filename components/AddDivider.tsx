@@ -12,7 +12,7 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme
- *   Used by → (not yet mounted — Phase 3a foundational port; screens wire this in later)
+ *   Used by → components/WeekListCard.tsx, app/shopping.tsx (Monthly catalog add-item/add-dish spots)
  *   Data    → none — purely presentational, fires onPress
  */
 import React from 'react';

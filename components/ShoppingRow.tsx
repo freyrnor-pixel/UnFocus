@@ -13,8 +13,7 @@
  *   Imports → components/Badge, components/InventoryIcon, constants/theme, lib/haptics,
  *             lib/i18n, lib/useAppTheme, react-native-gesture-handler, react-native-reanimated,
  *             store/useShoppingStore (ShoppingItem type only)
- *   Used by → (not yet mounted — Session A2·2 composes this into the shopping screen /
- *             WeekListCard; this session ports the row only)
+ *   Used by → components/WeekListCard.tsx, app/shopping.tsx (weekly rows + purchased-history rows)
  *   Data    → none directly — all mutations are bubbled up via onToggle/onCollect/onRemove/
  *             onIncrement/onDecrement callbacks, same dumb-row pattern as NoteRow/MonthlyTableRow.
  *             The parent screen (Session A2·2) is what actually calls
