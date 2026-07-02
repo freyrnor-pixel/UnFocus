@@ -1068,3 +1068,41 @@ sessions know the card header now carries a compact progress line.
   card).
 - **No new blocks.** The focused-list selection mechanism is an A2·2 in-session
   layout detail, not a separate planning blocker.
+
+## Decision 019 — Task "next-time hint" note field
+
+**Status:** Decided.
+**Date:** 2026-07-02
+**Phase placement:** Phase 5 (stores) + Phase 6 (screens). No code written by
+this entry.
+
+### Context
+
+Same user request that produced Decision 018 (connect-tasks/link feature): a
+place to capture "this makes it easier / simpler next time" (e.g. "put the
+thing in a specific spot"). User confirmed this is conceptually the same
+mechanism as the connect-tasks idea, but it resolves to its own small field,
+not the link — so it is recorded here separately per the ripple principle
+rather than welded onto 018.
+
+### Decision
+
+- Add a freeform optional `hint` (working name — final name TBD at build) string
+  field on `Task`, surfaced on the task card / in the task's detail when the
+  task comes up. No behavior beyond display.
+- New nullable column on `tasks`: `hint TEXT DEFAULT ''`.
+- All visible strings via `useT()`; renders through the existing card — no new
+  component.
+
+### Notes
+
+- Independent of Decision 018 — ships on its own, does not require the link.
+  Could be sequenced earlier within Phase 5/6 as the cheaper of the two.
+- Small; net-new scope. Not a checklist item on FEATURE_INVENTORY.docx — this
+  entry is the system of record for it.
+
+### Blocks / unblocks
+
+- **No blocks.** Independent of 018 and of the still-stub `useTaskStore`
+  (Decision 015) — this is a field to add when Phase 5 implements the real
+  task store, not before.
