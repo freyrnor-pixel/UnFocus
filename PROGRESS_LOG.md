@@ -2404,3 +2404,91 @@ forward-reference is realised, no edit needed).
   Left out deliberately; flag if a future weekly-clear affordance needs it.
 - Decision 021's ShoppingRow highlight and Decision 022's drag wiring remain Phase-6
   presentational work (see above) — the store side is done.
+
+## 2026-07-02 — Phase 5: Shopping-list store real port + shopping-screen persistence wiring
+
+**Status: Complete.** Ported the last remaining Decision 015 stub in the shopping
+stack (`useShoppingListStore`) to a real SQLite-backed store, and wired the
+mount-time hydration/advance/reset calls `app/shopping.tsx` previously omitted, so
+the screen now actually persists. `useShoppingStore` was already the real Phase-5
+port (prior commit `b28514c`, verified this session — Decisions 021 & 022 correct).
+
+**Preconditions verified before coding:** Decisions 006, 011, 011a/R4, 015/015a,
+017, 021, 022 all present as real structured entries; `shopping_lists` table + all
+columns exist in `lib/db.ts` (incl. `locked` migration, line 393); `lib/date.ts`
+exports `todayStr`/`dateStr`/`getWeekRangeContaining`/`formatDateRange`; settings
+store has `weeklyResetDay`/`language`/`monthlyResetDate`/`lastMonthlyReset`;
+`lib/i18n.ts` has `monthsShort` (en+no); `lib/id.generateId` + `getTranslations`
+present. No unrecorded decision hit — did not stop-and-flag.
+
+**Ported `store/useShoppingListStore.ts` (stub → real):**
+- Verbatim port of the old-app store logic (multiple named/recurring/template
+  weekly lists over `shopping_lists`): `load` (+ `backfillOrphanedItems`
+  self-heal), `add`, `update`, `remove`, `rename`, `setRecurring`, `toggleLocked`,
+  `currentList`, `advanceRecurringLists` (closed-form period jump + `copyOpenItemsToList`),
+  `saveAsTemplate`, `instantiateTemplate`.
+- Exported `ShoppingList` **widens** the stub shape (adds
+  `isCustomName`/`sortOrder`/`createdAt`, makes `recurrenceIntervalWeeks` required).
+  Verified no consumer constructs a `ShoppingList` literal — `WeekListCard`,
+  `ListSettingsSheet`, `SavedListsModal`, `app/shopping.tsx` all only read it as a
+  prop type — so the widening is additive and no consumer churns. The stub's
+  `add(range)→void` / `currentList→{id}` are subsumed by the real
+  `add(ShoppingListAddInput)→string` / `currentList→ShoppingList|undefined`.
+
+**`app/shopping.tsx` mount-time wiring (scope item 5):** replaced the cleanup-only
+`useFocusEffect` with a full on-focus effect that:
+1. Initialises the DB once per app session (idempotent `initDb()`, guarded by a
+   module-level `dbBootstrapped` flag). The app still has **no global bootstrap** —
+   `_layout.tsx` is the Phase-1 scaffold and calls neither `initDb()` nor any store
+   `load()` — so the first screen needing persistence bootstraps it. Flagged below.
+2. Hydrates settings → shopping → list stores (settings first: the list store's
+   default-name/week-range helpers read `weeklyResetDay`+`language`).
+3. Runs `advanceRecurringLists(today)` then re-runs `loadShopping()` (advance writes
+   `shopping_items` rows directly via the list store, so items need a refresh).
+4. Performs the automatic payday-boundary monthly reset: reads settings via
+   `getState()` (fresh, post-`loadSettings()`), and when `lastMonthlyReset`'s
+   YYYY-MM ≠ this period **and** today's day-of-month ≥ `monthlyResetDate`, calls
+   `buildMonthlyResetSummary()` **before** `monthlyReset()`, then persists
+   `lastMonthlyReset: today`. Matches the old app's logic exactly.
+   Still closes both add sheets on blur (unchanged rationale).
+- Updated the screen header's stale "no store action from a mount-time effect"
+  note and `useShoppingStore`'s "load not wired yet" header line to reflect reality.
+
+**Decision confirmations (no code needed — already correct from prior commit):**
+- **021 (re-add increment parity):** `add()` and `addToWeeklyFromCatalog()` both
+  increment a matching `inWeeklyList` row instead of overwriting; the old
+  `addToWeeklyFromCatalog` overwrite line was NOT ported. ✔
+- **022 (store action):** `mergeItems(sourceId, targetId)` sums amounts into the
+  target (dish) row and deletes the source, so the merged row keeps the target's
+  `dishName`/group. ✔
+- **011a/R4 (dish checkbox roll-up/down):** `toggleDish()` bulk-toggles via the real
+  `toggleCheck` (check-all-if-not-all-checked / uncheck-all-if-all-checked);
+  `computeListGroups()` includes checked items in dish groups so the derived
+  `dishGroupAllChecked()` roll-up is observable. ✔
+
+**Verification:** `npm install --legacy-peer-deps` then `npx tsc --noEmit` → 33 errors,
+**identical to the standing baseline** (old-token screens `_layout`/`_scaffold-demo`/
+`index`/`BottomNav`/`ScreenHeader`/`ScreenBackground`/`ScreenScaffold`/`Surface`, missing
+native libs, `StatusBar.barStyle`, and the pre-existing `app/shopping.tsx` `moreOptions`
+i18n gap present in HEAD before this session). The new `useShoppingListStore.ts` and the
+shopping.tsx effect added **zero** new errors.
+
+**Unresolved / flagged:**
+- **Decision 022 drag-to-merge UI wiring is NOT done — deliberately, and it is not
+  cleanly doable under this session's "no new gesture infra" constraint.** The store
+  action is ready, but a standalone item (`dishName: undefined`, in the
+  ungrouped-unchecked section) and a dish ingredient (in a dish group) are in
+  **different sections**. The existing Phase-4 drag surface only measures/hit-tests the
+  single ungrouped-unchecked "Shopping list" section within one list — dish-group rows
+  render `ShoppingRow` directly and are **not** drop targets. Wiring a same-name
+  cross-section drop → `mergeItems` requires extending hit-testing to dish rows, which
+  is new drag infrastructure and belongs to the incomplete A2·1 shopping-row drag
+  redesign (STOPPED, see 2026-07-01 entry). Did not invent it here. `mergeItems` is
+  callable and correct the moment that surface exists.
+- **Decision 021 ShoppingRow "just added / amount increased" highlight** remains Phase-6
+  presentational (local component state, no schema) — store side done.
+- **No global app bootstrap yet.** `initDb()` + settings/store `load()` now run from
+  `app/shopping.tsx`'s focus effect (self-contained, guarded). A future `_layout`
+  bootstrap phase should hoist `initDb()` + startup store loads app-wide so screens
+  other than shopping also persist; at that point the shopping-screen guard becomes a
+  redundant (harmless) safety net.
