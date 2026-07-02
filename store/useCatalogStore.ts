@@ -1,33 +1,204 @@
 /**
- * useCatalogStore.ts — Decision 015 stub: typed interface only, no store logic.
+ * useCatalogStore.ts — item catalog + purchase history (store/price/category learning)
  *
- * Declares the minimal suggest() contract Phase 3b's AddItemSheet and
- * AddDishSheet need for name-autocomplete, ahead of Phase 5's real catalog
- * store. Never call in a mounted app — throws to make accidental real usage
- * fail loudly instead of silently no-op'ing.
+ * Zustand store backing the scan/shopping autocomplete: remembers known grocery
+ * items with their last store, price, and category, and logs every purchase.
+ * Powers the suggest() typeahead and learns from recordPurchases() so suggestions
+ * improve. Also supports resetItemPrice() for escape-hatch correction of misread OCR prices.
+ *
+ * Phase 5 real port (2026-07-02) — replaces the Decision 015/015a typed-only stub.
+ * suggest() returns full StoreItem rows (id/name/category/store/price); its
+ * consumers (AddItemSheet, AddDishSheet) only read id/name/price, so the stub's
+ * narrower CatalogSuggestion shape is a structural subset — they keep compiling.
  *
  * Connections:
- *   Imports → —
- *   Used by → components/AddItemSheet.tsx, components/AddDishSheet.tsx
- *   Data    → none — placeholder for Phase 5's real SQLite-backed store
+ *   Imports → lib/catalogSeed, lib/db, lib/dataAccess, lib/id
+ *   Used by → components/AddItemSheet.tsx, components/AddDishSheet.tsx (suggest); app/scan.tsx + app/_layout.tsx (future — startup load / purchase logging, not wired yet)
+ *   Data    → defines a Zustand store; owns SQLite tables store_items (catalog) and purchase_log (append-only history, optionally linked to a receipts row via receipt_id)
  *
  * Edit notes:
- *   - Signature corrected from Decision 015's original `suggest(name):
- *     string[]` to match verified old-source usage — see Decision 015a.
- *   - Phase 5 must implement this store to satisfy suggest() exactly as
- *     declared here. If the real store's needs differ, fix the contract
- *     there and re-typecheck the consuming sheets.
+ *   - seedCatalog() runs on every load() and uses stable name-derived IDs ('cat_<name>') with INSERT OR IGNORE — safe to re-run, but renaming seed items orphans old rows.
+ *   - price_source ('seed' | 'purchase') tracks where a row's price came from: seedCatalog() keeps 'seed' rows in sync with lib/catalogSeed.ts on every load, but never overwrites a price once a real purchase sets it to 'purchase'.
+ *   - purchase_log is append-only and pruned by RETENTION_DAYS in lib/db.ts; recordPurchases() also upserts the catalog row's store/category, but only raises price — a new purchase price below the existing catalog price never lowers it (store/category still update unconditionally).
+ *   - recordPurchases()'s optional receiptId links each purchase_log row to a receipts row (purchase_log.receipt_id) for a future budget screen — pass it whenever a receipt was already created; omit it for purchases with no receipt (e.g. manual catalog edits).
+ *   - resetItemPrice(id, newPrice) directly updates a store_items row's price and sets price_source = 'purchase' — escape hatch for correcting misread OCR prices.
+ *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
  */
-export type CatalogSuggestion = { id: string; name: string; price: number };
+import { create } from 'zustand';
+import db from '@/lib/db';
+import { Row, loadAll, insertRow, readStr, readReal, tx } from '@/lib/dataAccess';
+import { generateId } from '@/lib/id';
+import { CATALOG_SEED } from '@/lib/catalogSeed';
 
-type CatalogStoreState = {
-  suggest: (name: string, limit?: number) => CatalogSuggestion[];
+export type StoreItem = {
+  id: string;
+  name: string;
+  category: string;
+  store: string;
+  price: number;
 };
 
-export function useCatalogStore<T>(selector: (s: CatalogStoreState) => T): T {
-  return selector({
-    suggest: () => {
-      throw new Error('useCatalogStore is a Phase 5 stub (Decision 015a) — not implemented yet');
-    },
-  });
+export type PurchaseInput = {
+  name: string;
+  category?: string;
+  store: string;
+  price: number;
+  wasOnList: boolean;
+};
+
+type CatalogStore = {
+  items: StoreItem[];
+  load: () => void;
+  suggest: (query: string, limit?: number) => StoreItem[];
+  recordPurchases: (purchases: PurchaseInput[], receiptId?: string) => void;
+  resetItemPrice: (id: string, newPrice: number) => void;
+};
+
+function rowToItem(row: Row): StoreItem {
+  return {
+    id: readStr(row, 'id'),
+    name: readStr(row, 'name'),
+    category: readStr(row, 'category') || 'other',
+    store: readStr(row, 'store'),
+    price: readReal(row, 'price'),
+  };
 }
+
+function seedCatalog(): void {
+  const now = new Date().toISOString();
+  for (const s of CATALOG_SEED) {
+    // Stable ID derived from name so this is safe to call on every load.
+    const stableId = 'cat_' + s.name.toLowerCase().replace(/\s+/g, '_');
+    try {
+      db.runSync(
+        `INSERT OR IGNORE INTO store_items (id, name, category, store, price, price_source, last_updated)
+         VALUES (?, ?, ?, '', ?, 'seed', ?)`,
+        [stableId, s.name, s.category, s.price, now]
+      );
+      // Keep seed-sourced prices in sync with lib/catalogSeed.ts on every load.
+      // Stops touching the row once a real purchase marks it price_source = 'purchase'.
+      db.runSync(
+        `UPDATE store_items SET price = ?, price_source = 'seed' WHERE id = ? AND price_source = 'seed'`,
+        [s.price, stableId]
+      );
+    } catch (err) {
+      // Log errors for debugging, but still continue seeding other items.
+      console.error(`Failed to seed item ${s.name}:`, err);
+    }
+  }
+}
+
+export const useCatalogStore = create<CatalogStore>((set, get) => ({
+  items: [],
+
+  load() {
+    seedCatalog();
+    set({ items: loadAll('store_items', rowToItem, { orderBy: 'name' }) });
+  },
+
+  suggest(query, limit = 8) {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const seen = new Set<string>();
+    const matches = get().items.filter((i) => {
+      const ln = i.name.toLowerCase();
+      if (!ln.includes(q) || seen.has(ln)) return false;
+      seen.add(ln);
+      return true;
+    });
+    matches.sort((a, b) => {
+      const ap = a.name.toLowerCase().startsWith(q) ? 0 : 1;
+      const bp = b.name.toLowerCase().startsWith(q) ? 0 : 1;
+      return ap !== bp ? ap - bp : a.name.localeCompare(b.name, 'no');
+    });
+    return matches.slice(0, limit);
+  },
+
+  recordPurchases(purchases, receiptId) {
+    if (purchases.length === 0) return;
+    const now = new Date().toISOString();
+    const next = [...get().items];
+
+    // One transaction for all per-item writes (was up to 2 autocommits per item);
+    // per-item try/catch still keeps logging best-effort. set() runs after, so a
+    // rollback can't leave in-memory state ahead of the DB.
+    tx(() => {
+    for (const p of purchases) {
+      const name = p.name.trim();
+      if (!name) continue;
+      try {
+        insertRow('purchase_log', {
+          id: generateId(),
+          item_name: name,
+          store: p.store,
+          price: p.price,
+          was_on_list: p.wasOnList ? 1 : 0,
+          purchased_at: now,
+          receipt_id: receiptId ?? null,
+        });
+      } catch { /* logging is best-effort */ }
+
+      const idx = next.findIndex((i) => i.name.toLowerCase() === name.toLowerCase());
+      if (idx >= 0) {
+        // Catalog price only ever moves up from a real purchase — a lower price
+        // on a later receipt (sale, different store) doesn't overwrite the
+        // catalog's known price.
+        const priceIncreased = p.price > next[idx].price;
+        const merged: StoreItem = {
+          ...next[idx],
+          store: p.store || next[idx].store,
+          price: priceIncreased ? p.price : next[idx].price,
+          category: p.category ?? next[idx].category,
+        };
+        next[idx] = merged;
+        try {
+          db.runSync(
+            `UPDATE store_items SET store = ?, price = ?, category = ?, last_updated = ?,
+              price_source = CASE WHEN ? THEN 'purchase' ELSE price_source END
+             WHERE id = ?`,
+            [merged.store, merged.price, merged.category, now, priceIncreased ? 1 : 0, merged.id]
+          );
+        } catch { /* ignore */ }
+      } else {
+        const id = generateId();
+        const item: StoreItem = { id, name, category: p.category ?? 'other', store: p.store, price: p.price };
+        next.push(item);
+        try {
+          insertRow('store_items', {
+            id,
+            name: item.name,
+            category: item.category,
+            store: item.store,
+            price: item.price,
+            last_updated: now,
+            price_source: 'purchase',
+          });
+        } catch { /* ignore */ }
+      }
+    }
+    });
+
+    next.sort((a, b) => a.name.localeCompare(b.name, 'no'));
+    set({ items: next });
+  },
+
+  resetItemPrice(id, newPrice) {
+    const idx = get().items.findIndex((i) => i.id === id);
+    if (idx < 0) return;
+    const now = new Date().toISOString();
+    const updated: StoreItem = {
+      ...get().items[idx],
+      price: newPrice,
+    };
+    const next = [...get().items];
+    next[idx] = updated;
+    try {
+      db.runSync(
+        'UPDATE store_items SET price = ?, price_source = ?, last_updated = ? WHERE id = ?',
+        [newPrice, 'purchase', now, id]
+      );
+    } catch { /* ignore */ }
+    next.sort((a, b) => a.name.localeCompare(b.name, 'no'));
+    set({ items: next });
+  },
+}));

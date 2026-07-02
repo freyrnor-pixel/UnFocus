@@ -2283,3 +2283,124 @@ introduced by this session.
 - `app/habits.tsx`, `app/health.tsx`'s inline habits sub-section, and `app/settings.tsx`'s
   habit-notification/quiet-hours UI are all still unported — `store/useSettingsStore.ts`'s
   header already forward-lists them as future consumers.
+
+---
+
+## 2026-07-02 — Phase 5: catalog + shopping stores (real ports) + inventory-edit.tsx
+
+**Scope:** Ported the real `useCatalogStore` and `useShoppingStore` (replacing their
+Decision 015 stubs) plus `app/inventory-edit.tsx` — the last self-contained form. This
+is the Phase 5 "port each store alongside the smallest screen that uses it" step:
+inventory-edit is the smallest screen consuming `useShoppingStore` (it reads only the
+`status === 'catalog'` inventory slice). Verification: `npm install --legacy-peer-deps`
++ `npx tsc --noEmit` → **33 errors, zero touching any file this session created or
+changed** (grep-confirmed clean for `useCatalogStore|useShoppingStore|inventory-edit|
+catalogSeed`). The 33 are the same known pre-existing family every recent session reports
+(missing `expo-blur`/`expo-linear-gradient`/`react-native-svg`; old-token screens
+`_scaffold-demo`/`index`/`BottomNav`; `ScreenHeader.tsx`'s stray `Platform` import;
+`app/shopping.tsx`'s `t.moreOptions` gap; `_layout.tsx`'s StatusBar/`cream`). No live-app
+run is possible in this environment (no device/Expo host); typecheck + clean compile of
+all downstream consumers is the available verification.
+
+**`lib/catalogSeed.ts` (new file):** copied verbatim from the old repo (`CATALOG_SEED`,
+~230 Norwegian grocery seeds). Header already names `store/useCatalogStore.ts` as its
+sole consumer. Needed because `useCatalogStore.load()` seeds `store_items` from it and
+the new repo hadn't carried it over yet.
+
+**`store/useCatalogStore.ts` (real port):** faithful port of the old store — `load()`
+(seeds on every call via stable `cat_<name>` IDs + `INSERT OR IGNORE`, keeps `price_source
+= 'seed'` rows synced), `suggest(query, limit)`, `recordPurchases(purchases, receiptId?)`
+(append-only `purchase_log`, price only ever rises, `receipt_id` link), `resetItemPrice`.
+- **Decision 015a contract satisfied and widened, not narrowed:** the stub declared
+  `suggest(name, limit?) => { id; name; price }[]`. The real `suggest` returns full
+  `StoreItem[]` (`id/name/category/store/price`); the two consumers (`AddItemSheet`,
+  `AddDishSheet`) read only `id/name/price`, so the stub shape is a structural subset —
+  both compile unchanged (confirmed: neither appears in the tsc output).
+- No `useReceiptStore` dependency in this repo — `recordPurchases`'s `receiptId` just
+  writes `purchase_log.receipt_id` (column exists, migration already present). All
+  `store_items`/`purchase_log` columns it writes (`price_source`, `last_updated`,
+  `receipt_id`) already exist in `lib/db.ts` — no migration added.
+
+**`store/useShoppingStore.ts` (real port, reconciled to the stub contract):** ported the
+old 613-line store's logic, but the EXPORTED types/signatures are reconciled to the
+Decision 015 stub every already-ported consumer (`app/shopping.tsx` + 8 components)
+compiles against, so nothing downstream churned:
+- **`MonthlyResetSummary.inventoryItems/adHocItems` are `ShoppingItem[]`** (the purchased
+  rows themselves, chronologically sorted) — matching `MonthlyResetSummaryModal`'s
+  existing expectation. The old app's projected `MonthlyResetSummaryItem[]` +
+  `generatedAt` shape was dropped (nothing in this repo read them; the modal reads
+  `id/name/price/purchasedAt`, all on `ShoppingItem`).
+- **`update()` keeps the broad `Partial<Omit<ShoppingItem,'id'>>` signature** the store's
+  own internals require (they patch `amount`/`status`/`checked`/…). The stub's narrow
+  `{name,price,targetQuantity,isTemporary}` patch is a subset, so external callers still
+  typecheck; broadening a param type never breaks callers passing less.
+- **Legacy old-only columns** (`listType`/`store`/`monthlyAllocated`/`monthlySourceId`/
+  `weekKey`) stay on `ShoppingItem` as optional/legacy fields (additive — breaks no
+  consumer) so `rowToItem`/`ITEM_COLUMNS`/`removeWithSource`'s allocation-release path
+  keep working against the existing schema. `status` is exported as `ShoppingStatus`
+  (richer than the stub's `string`, still comparison-compatible everywhere).
+- **Schema:** every column the store reads/writes already exists in `lib/db.ts`
+  (`shopping_items` status/order_index/list_id/from_catalog/collected/target_quantity/…,
+  `shopping_trips` incl. the `list_id` ALTER at migration ~391). **No migration added**,
+  no `CREATE TABLE` touched — consistent with the never-drop/recreate invariant.
+- **`getState()`** comes for free from Zustand's `create` (the stub hand-rolled it);
+  `app/shopping.tsx`'s `useShoppingStore.getState().load()` keeps working.
+
+**Decisions applied by the shopping-store port (both were flagged in REBUILD_PLAN as
+Phase-5 store behaviour landing here):**
+- **Decision 021 (re-add increments, no overwrite):** `addToWeeklyFromCatalog` no longer
+  ports the old `amount: String(Math.max(1, quantity))` OVERWRITE line verbatim (the
+  decision explicitly forbids that). It now checks for a matching `inWeeklyList` row
+  (same name+dishName+listId) in the target list first: if found, it INCREMENTS that
+  row's amount by `quantity` and leaves the standing `catalog` row intact; otherwise it
+  flips the catalog row in place with `amount = quantity` (first add). This brings the
+  path in line with `add()`'s increment semantics. The ephemeral ShoppingRow "just
+  added / amount increased" highlight is Decision 021's Phase-6 presentational half —
+  NOT built here (no schema/store state for it, per the decision).
+- **Decision 022 (drag-to-merge into a dish group):** added the new `mergeItems(sourceId,
+  targetId)` store action — sums the two rows' amounts into the target (dish) row,
+  which keeps its own `dishName`/group membership, then deletes the source. This is the
+  decision's Phase-5 store-action obligation. The same-name drop gate + drag hit-testing
+  are the future shopping-row drag session's Phase-6 concern (Decision 011 R1 mechanism)
+  and are deliberately NOT wired here — `mergeItems` currently has no caller, exactly as
+  Decision 022's "Unblocks: nothing yet buildable this session" anticipates.
+
+**`app/inventory-edit.tsx` (ported against the real store + new components):**
+- Decision 001 `tier='sub'` scaffold: mounts via `ScreenScaffold` (back link left,
+  iOS-only; no bottom block), replacing the old `SafeAreaView` + `ScreenHeader bordered`.
+- Ported against the NEW component prop shapes (all theme-internal now — no `theme`
+  prop): `MonthlyTableRow(item,onTogglePending,onPress,temporaryLabel)`,
+  `UpdateSheet(visible,item,onClose,onSave,onDelete)`,
+  `AddItemSheet(visible,origin,onClose,onAdd)`, `EmptyState(title=…)` (old `text` prop
+  renamed), `AddFAB(onPress,bottom)`.
+- The `<Modal>`-based sheets + the absolutely-positioned `AddFAB` render as **siblings**
+  of `ScreenScaffold` (its children live inside an internal `ScrollView`) — same overlay
+  pattern `app/shopping.tsx` documents for its `ConfirmationBanner`.
+- `AddItemSheet`'s `onAdd` now yields an extra `alsoAddToCatalog` flag (only meaningful
+  for `origin='weekly'`); ignored here since this screen always adds `status:'catalog'`.
+- Decision 006 tokens only: `theme.surface` (was `theme.white`), `theme.border` (was
+  `theme.grayLight`).
+- Route auto-registers via Expo Router file-based routing — `app/_layout.tsx` uses a
+  bare `<Stack>` with no explicit `<Stack.Screen>` entries, so no registration edit.
+- **No `HintCard`** — the old inventory-edit had none, and Decision 010 leaves HintCard
+  reach a per-screen merit call; this orphaned utility screen doesn't warrant one.
+
+**Header updates (AGENTS.md "update headers as you go"):** rewrote both store headers
+from their stub text to the real Connections/Data/Edit-notes; `lib/catalogSeed.ts`'s
+header (copied) already lists the correct consumer. `lib/db.ts`'s `Used by →` already
+listed both stores (they were stubs that never actually imported it — now they do, so the
+forward-reference is realised, no edit needed).
+
+**Unresolved / flagged for future sessions:**
+- **Startup `load()` wiring is still deferred to the `_layout` bootstrap phase.** Neither
+  store self-loads, and no screen calls `load()` on mount — same established precedent as
+  `task-form`/`useTaskStore` and every other ported store so far. Until the `_layout`
+  phase wires `useShoppingStore.getState().load()` / `useCatalogStore.getState().load()`
+  at startup, `inventory-edit` (and shopping autocomplete) render empty. `app/shopping.tsx`
+  already documents that its automatic recurring-list-advance + payday monthly-reset
+  effects are the same deferred `_layout`/Phase-5-follow-up work.
+- **`resetWeekly` was NOT ported** — it belonged to the retired `list_type='weekly'` bulk
+  delete and has no consumer in the new status-model repo (the stub never declared it).
+  Left out deliberately; flag if a future weekly-clear affordance needs it.
+- Decision 021's ShoppingRow highlight and Decision 022's drag wiring remain Phase-6
+  presentational work (see above) — the store side is done.
