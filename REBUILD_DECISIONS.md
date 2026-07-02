@@ -1277,3 +1277,148 @@ decide silently)
 - **No new blocks** on in-flight phases; this is net-new, additive schema.
 - **Independent of Decision 019** (the "next-time hint" note field) — related
   origin, separate mechanism, no dependency either direction.
+
+---
+
+## Decision 021 — Re-adding an already-listed shopping item (increment parity + feedback)
+
+**Status:** Resolved
+**Date:** 2026-07-02
+**Note on numbering:** drafted and originally filed as "Decision 018" in this
+planning session, per the same numbering precedent as 017/020 above — 018,
+019, and 020 were each independently claimed by other parallel sessions
+before this one landed, so it is filed here as 021. Content is otherwise
+unchanged from the original entry.
+**Phase:** Phase 5 (store behavior) + Phase 6 presentational touch (ShoppingRow highlight).
+Recorded now, executed when the shopping-store session runs — held out of any
+Phase 3/4 Code session.
+**Source:** Planning-chat product question ("adding to week both from itself and
+from monthly — three states: already there / newly added / amount increase").
+
+### Reference-repo inconsistency being resolved
+In the old repo (`All-the-small-things`, working code), the two re-add paths
+disagree:
+- `add()` on a matching weekly row **increments** amount
+  (`existing.amount + item.amount`), keyed on status+listId+name+dishName.
+- `addToWeeklyFromCatalog()` **overwrites** amount
+  (`amount: String(Math.max(1, quantity))`) and only matches `status='catalog'`
+  rows — so an item already at `status='inWeeklyList'` isn't even found by this
+  path (its catalog row no longer exists).
+Per the "edit notes / target win over old code" rule, the target unifies on
+increment; the overwrite behavior is a bug not to be ported.
+
+### Decision
+1. **Re-add increments (both paths).** Re-adding an item that already exists in
+   the target week list adds to that row's existing amount rather than
+   overwriting it. `addToWeeklyFromCatalog` (or its UnFocus successor) is
+   brought in line with `add()`'s increment semantics for the case where a
+   matching `inWeeklyList` row already exists.
+2. **Feedback is ephemeral, no schema change.** When a re-add bumps an existing
+   row, the affected ShoppingRow shows a brief highlight ("just added" / "amount
+   increased") that fades out. No persisted per-row status column, no new
+   ShoppingItem field. The three conceptual states (already-there / newly-added /
+   amount-increased) are a transient presentational treatment, not stored data.
+3. **Scope of the highlight.** The "already there → increment" highlight applies
+   only to the same-item-re-added case (matching status+listId+name+dishName).
+   It does NOT apply to the cross-dish standalone case — that case's decision
+   is **not yet filed in this repo** (see numbering note below); treat the
+   cross-dish case as open until that entry lands.
+
+**Numbering/cross-reference note:** the source planning conversation for this
+decision referred to the cross-dish standalone case as "Decision 019," but by
+the time this entry was filed, 019 had already been independently claimed
+here by the unrelated task "next-time hint" note field (same collision
+pattern as 017/020 above). The cross-dish decision itself was never committed
+to this repo under any number — do not assume it is 019, 020, or any entry
+above. A future session must file it fresh and this entry's item 3 should be
+updated to point at the real number once it exists.
+
+### Consequence / ripple
+- The eventual shopping-store Code session must NOT port
+  `addToWeeklyFromCatalog`'s overwrite line verbatim. Flag in that session's prompt.
+- ShoppingRow gains a transient highlight state (local component state or a
+  short-lived prop pulse); no store or schema involvement.
+
+### Blocks / unblocks
+- **Unblocks:** nothing yet buildable this session — `useShoppingStore.ts` is
+  still the Phase 5 `notImplemented` stub (Decision 015); this decision is
+  recorded for traceability ahead of that build.
+- **No new blocks** on in-flight phases.
+- **Depends on the not-yet-filed cross-dish standalone-case decision** for the
+  scope carve-out in item 3 above — flag for a future planning session, not a
+  Code session.
+
+  **Pointer update (added by Decision 022, not an edit to this entry):** the
+  cross-dish standalone-case decision referenced above now exists — see
+  **Decision 022** below. Per the append-only rule, this note lives on the
+  superseding entry rather than editing item 3 in place.
+
+---
+
+## Decision 022 — Drag-to-merge a standalone item into a dish group
+
+**Status:** Resolved
+**Date:** 2026-07-02
+**Phase placement:** Phase 5 (store action) + reuses the existing Phase 4 drag
+mechanism (Decision 011 R1: `DraggableTaskRow` + screen-owned hit-testing). No
+code written by this entry.
+**Origin:** Same planning conversation as Decision 021 (re-add increment
+parity); this is the cross-dish standalone-item case that entry's item 3
+explicitly carved out of scope and left unfiled (see Decision 021's "Blocks /
+unblocks" and its numbering note — the source conversation called this case
+"Decision 019," but 019 was independently claimed by an unrelated entry before
+this one could land, so it is filed fresh here as 022).
+
+### Context
+Adding "garlic" as a standalone item when garlic already exists inside a dish
+group does **not** auto-merge on add: standalone garlic (`dishName: undefined`)
+and dish garlic (`dishName: 'X'`) are different `groupByDish` keys, so they
+correctly land as separate rows. This matches `add()`'s existing dedup
+behavior (Decision 018/021 pattern) — confirmed not a bug, no change to `add()`.
+
+Instead, the user can **drag** the standalone row onto the dish's matching row
+to combine them.
+
+### Decision
+1. **Merge trigger:** only a same-name drop merges. Dropping a row onto
+   another row with a different name falls back to normal reorder behavior
+   (no merge, no rejection — existing `reorder()` semantics apply unchanged).
+2. **Result shape:** on a same-name drop, the two rows merge into one, which
+   **joins the dish** — keeps the dish's `dishName`, stays inside the "From
+   meals" `ExpandableCard` group, and shows the summed amount. The standalone
+   row is removed.
+3. **Confirmation:** none — the merge applies **immediately** on drop, with
+   an ephemeral undo affordance (toast/snackbar), not a confirm dialog. Same
+   presentational spirit as Decision 021's transient highlight: no schema
+   change, no persisted "pending merge" state.
+4. **New store action required.** `useShoppingStore` has no merge action —
+   `reorder()` only swaps adjacent `orderIndex` values, it does not combine
+   rows. A new action (working name TBD at build, e.g. `mergeItems`) must sum
+   the two rows' amounts, adopt the dish row's `dishName`/group membership,
+   and delete the standalone row. This slots into the **existing** drag
+   mechanism (`DraggableTaskRow` + screen-owned hit-testing, Decision 011 R1)
+   as a drop-target outcome — it must not introduce a parallel gesture.
+
+### Notes / consequences to flag at build (do NOT let a coding session
+rediscover these)
+- Once merged, the ex-standalone item is **indistinguishable** from an
+  original dish ingredient — grouping is derived purely from `dishName`, there
+  is no provenance flag. It therefore rides along with the dish for: Decision
+  011a roll-down uncheck, dish removal, and monthly reset. This is the
+  accepted consequence of "joins the dish" (item 2 above), not a bug to fix
+  later.
+- After the merge sets `dishName`, a future re-add of dish-garlic
+  auto-consolidates with the merged row via `add()`'s existing
+  dishName-keyed dedup — consistent with Decision 018/021, no separate row
+  re-forms.
+
+### Blocks / unblocks
+- **Resolves** the scope carve-out flagged in Decision 021, item 3 /
+  "Blocks / unblocks" (the "not-yet-filed cross-dish standalone-case
+  decision").
+- **Unblocks:** nothing yet buildable this session — `useShoppingStore.ts` is
+  still the Phase 5 `notImplemented` stub (Decision 015); recorded for
+  traceability ahead of that build, alongside Decision 021.
+- **Depends on** the Phase 4 drag mechanism (Decision 011 R1) already existing
+  in UnFocus — confirmed present, no new gesture infrastructure needed.
+- **No new blocks** on in-flight phases.

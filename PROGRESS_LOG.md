@@ -1873,3 +1873,39 @@ comment) were explicitly flagged as out of scope for 020.
 architecture, not a Phase 3 composite-card gate. Not buildable yet; recorded
 now for traceability ahead of that work. See Decision 020 in
 `REBUILD_DECISIONS.md` for full detail.
+
+## 2026-07-02 — Planning: re-adding an already-listed shopping item (Decision 021)
+
+**Status: Complete** — No code written. Planning-chat product question: what
+happens when a user adds an item to a week list that's already there, from
+either the week list itself or from the monthly catalog — three conceptual
+states (already there / newly added / amount increased).
+
+Resolved and filed as **Decision 021** (drafted as "Decision 018" in the
+source planning session, per the same numbering precedent as 017/020 —
+018/019/020 were each independently claimed by other sessions before this
+landed). Reviewed the two old-repo (`All-the-small-things`) re-add paths and
+found they disagree: `add()` increments the existing row's amount on a
+matching weekly row, while `addToWeeklyFromCatalog()` overwrites the amount
+and only matches `status='catalog'` rows (so it silently misses rows already
+promoted to `inWeeklyList`). Resolved to unify on **increment** for both
+paths — the overwrite behavior is a bug in the old repo, not a pattern to
+port forward.
+
+Feedback for the three states is **ephemeral only**: a brief highlight
+("just added" / "amount increased") on the affected `ShoppingRow` that fades
+out, with no persisted per-row status column and no new `ShoppingItem`
+field. The highlight scope is explicitly limited to the same-item-re-added
+case (matching status+listId+name+dishName) — the cross-dish standalone case
+is out of scope here.
+
+**Numbering gap flagged:** the source conversation referred to the cross-dish
+case as "Decision 019," but that number was already independently claimed in
+this repo by the unrelated task hint-note field. The cross-dish decision was
+never actually filed here under any number — a future planning session needs
+to file it fresh; see the numbering note on Decision 021 itself.
+
+**Phase placement:** Phase 5 (store behavior) + Phase 6 (ShoppingRow
+highlight) — `useShoppingStore.ts` is still the Phase 5 `notImplemented`
+stub (Decision 015); not buildable yet, recorded now for traceability. See
+Decision 021 in `REBUILD_DECISIONS.md` for full detail.
