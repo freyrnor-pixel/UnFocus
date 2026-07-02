@@ -1838,3 +1838,38 @@ the real Plans build — not part of this decision). Focus mode's own constructi
 
 **Phase 4 complete** (both compiled questions answered; no further open items from the
 FEATURE_INVENTORY sweep).
+
+## 2026-07-02 — Planning: task "then" link (net-new feature, Decision 020)
+
+**Status: Complete** — No code written. Planning session for a user-requested
+feature: an intuitive way to chain tasks done in sequence (e.g. a morning
+routine). Three shapes were explored — A (explicit multi-step list), B
+(routine container object), C (soft one-to-one link) — user chose C for its
+near-zero setup cost.
+
+Resolved and filed as **Decision 020** (this entry collided on number twice
+in flight — drafted as "Decision 018," rebased to "019" after `main`
+independently filed a different Decision 018 in the interim, then rebased
+again to 020 after `main` independently filed a different Decision 019 in
+the interim; see the numbering note on Decision 020 itself): a task gets an
+optional, one-to-one "then → this task" follower pointer, one-directional
+(predecessor → follower), set inline from the task-edit affordance.
+Completing the predecessor surfaces/highlights the follower in the day view;
+it does **not** schedule a notification for it — both tasks keep their own
+independent date, time, recurrence, and existing per-task notification
+untouched. Schema: single nullable `follows_task_id` column on `tasks`
+(verified against `lib/db.ts` — no prior task-to-task reference exists),
+`ON DELETE SET NULL` so deleting the predecessor cleanly clears the
+follower's link without deleting the follower.
+
+Three sub-questions were explicitly left open for the build session rather
+than guessed here: whether the link persists across weekly-recurrence
+instances, whether cross-date surfacing pulls the follower into today's view
+or only highlights it in place, and how the setup UI guards against an
+A→B→A cycle. Per-follower notifications (a related but distinct user
+comment) were explicitly flagged as out of scope for 020.
+
+**Phase placement:** Phase 5 (stores) + Phase 6 (screens) — net-new
+architecture, not a Phase 3 composite-card gate. Not buildable yet; recorded
+now for traceability ahead of that work. See Decision 020 in
+`REBUILD_DECISIONS.md` for full detail.
