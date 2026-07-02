@@ -1148,14 +1148,65 @@ Essential modes, gated by Focus mode."
   doesn't add new scope to it, only confirms it's now the only intensity
   toggle in the app.
 
-## Decision 019 — Task-to-task soft link ("follower" pointer)
+## Decision 019 — Task "next-time hint" note field
+
+**Status:** Decided.
+**Date:** 2026-07-02
+**Phase placement:** Phase 5 (stores) + Phase 6 (screens). No code written by
+this entry.
+
+### Context
+
+Same user request that produced Decision 020 (connect-tasks/link feature,
+below): a place to capture "this makes it easier / simpler next time" (e.g.
+"put the thing in a specific spot"). User confirmed this is conceptually the
+same mechanism as the connect-tasks idea, but it resolves to its own small
+field, not the link — so it is recorded here separately per the ripple
+principle rather than welded onto the link decision.
+
+### Decision
+
+- Add a freeform optional `hint` (working name — final name TBD at build) string
+  field on `Task`, surfaced on the task card / in the task's detail when the
+  task comes up. No behavior beyond display.
+- New nullable column on `tasks`: `hint TEXT DEFAULT ''`.
+- All visible strings via `useT()`; renders through the existing card — no new
+  component.
+
+### Notes
+
+- Independent of Decision 020 — ships on its own, does not require the link.
+  Could be sequenced earlier within Phase 5/6 as the cheaper of the two.
+- Small; net-new scope. Not a checklist item on FEATURE_INVENTORY.docx — this
+  entry is the system of record for it.
+- **Numbering correction (merge of two parallel sessions' work):** this entry
+  and Decision 020 were drafted concurrently by two sessions working the same
+  user conversation; each initially used "018" as a working label before
+  discovering Decision 018 was already taken (Energy check-in removal). This
+  branch merged to `main` first and kept 019 for the hint field; the
+  concurrently-drafted link-feature entry is filed below as Decision 020
+  (originally referenced here as "Decision 018" before the fix). No decision
+  content changed — only the entry numbers and cross-references.
+
+### Blocks / unblocks
+
+- **No blocks.** Independent of 020 and of the still-stub `useTaskStore`
+  (Decision 015) — this is a field to add when Phase 5 implements the real
+  task store, not before.
+
+## Decision 020 — Task-to-task soft link ("follower" pointer)
 
 **Status:** Deferred to Phase 5/6 — net-new architecture, not built this
 session.
-**Note on numbering:** originally discussed under a working label of
-"Decision 018" before this log's actual Decision 018 (Energy check-in
-removal, above) was filed the same day. Renumbered to 019 to avoid a
-collision — no decision content changes as a result of the renumbering.
+**Note on numbering:** this entry and Decision 019 (hint field, above) came
+out of the same user conversation and were drafted concurrently in two
+parallel sessions, each initially labeling this decision "018" before
+realizing Decision 018 (Energy check-in removal, further above) was already
+taken. The parallel session's branch merged to `main` first and claimed 019
+for the hint field; this entry is renumbered to 020 on merge to avoid a
+second collision. No decision content changes as a result of the
+renumbering. See Decision 019's "Notes" for the corresponding
+cross-reference fix.
 
 ### Context
 User raised a net-new feature: the ability to intuitively connect two
@@ -1218,50 +1269,8 @@ consistent with how it already treats references vs. ownership, rather than
 introducing a third deletion pattern.
 
 ### Blocks / unblocks
-- **Unblocks:** Decision 020 (hint field) is a sibling of this decision, not
-  a dependency — the two can be built independently of each other in
-  Phase 5/6.
+- **Unblocks:** Decision 019 (hint field, above) is a sibling of this
+  decision, not a dependency — the two can be built independently of each
+  other in Phase 5/6.
 - **No new blocks.** Nothing in the currently-active phases depends on this
   landing.
-
-## Decision 020 — "Makes it easier next time" hint field
-
-**Status:** Deferred to Phase 5/6 — net-new architecture, not built this
-session.
-**Note on numbering:** discussed alongside Decision 019 in the same
-conversation, under a working label of "Decision 019"; renumbered to 020
-for the same reason as Decision 019's renumbering note above.
-
-### Context
-Alongside the task-linking soft link (Decision 019), the user wanted a way
-to capture a short freeform hint on a task — something like "makes it
-easier next time" — a tip left for a future occurrence of a recurring task,
-or for whoever does the followed-into task next. This is conceptually
-separate from the link itself: a task doesn't need a follower to have a
-hint, and a link doesn't require either side to carry one.
-
-### Decision
-A **separate field**, not folded into the Decision 019 link column — a
-single nullable text field on `tasks` (e.g. `hint TEXT DEFAULT NULL`),
-added via the standard `ALTER TABLE tasks ADD COLUMN` migration pattern.
-Kept as its own decision/column rather than reusing or overloading the
-follower pointer so the two remain independently useful: a standalone task
-can carry a hint with no link at all, and a link can exist with no hint on
-either side.
-
-### Consequence for code
-None this session — no source touched. When built (Phase 5/6): one
-migration line in `lib/db.ts`, a field on the `Task` type, i18n label(s) for
-the input, and UI surfacing (not yet decided — deferred along with Decision
-019).
-
-### Rationale
-Keeping the hint as an independent column avoids coupling two features that
-happen to have been raised in the same conversation but don't share a
-lifecycle — the link can be deleted (`SET NULL`, per Decision 019) without
-touching the hint, and the hint can be edited without touching the link.
-
-### Blocks / unblocks
-- **Sibling of Decision 019.** No ordering dependency between the two.
-- **No new blocks.** Deferred to Phase 5/6 along with Decision 019; neither
-  is a composite-phase concern for the phases currently in flight.
