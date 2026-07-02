@@ -954,3 +954,46 @@ the dish state, un-check semantics if adopted) must be decided fresh, not
 copied from an existing pattern, and Decision 011a itself already flags them
 as "no coding session may pick these silently." No source touched; this
 entry is read-only per S0's scope.
+
+## 2026-07-02 — S1 planning: Decision 011a resolved + drag-sequencing correction
+
+**Status: Complete.** No source touched — decisions/plan docs only.
+
+**011a resolution (user-decided, no code-derivable answer existed):**
+Presented as numbered questions per the S0 conclusion above. User chose:
+(1) dish checkbox exists, full two-way bind (roll-up + roll-down); (2) state
+model is derived, not stored — no persisted dish-level flag, tapping the
+dish checkbox bulk-writes its ingredients' `checked` field instead. Un-check
+semantics fold into roll-down (no separate case, since there's nothing
+stored to un-check independently). Recorded in REBUILD_DECISIONS.md, Decision
+011a now **Resolved**. R4 (derived-vs-stored ripple) given its formal
+definition there; R5 (WeekListCard Level-1 container, previously a dangling
+reference) formally closed by pointer to Decision 017, which already
+resolved it in full.
+
+**Drag-reorder sequencing correction (user-decided):** re-verified the
+queue's assumption that Session A2·1 (ShoppingRow) could run before Phase
+3d. It cannot — PROGRESS_LOG's 2026-07-01 entry already recorded a STOPPED
+session on exactly this gap (`DraggableTaskRow` not yet ported into this
+repo, scoped to Phase 3d, which hadn't run) and explicitly flagged the fix
+as a user-level scope call. Presented three options; user chose to run all
+of **Phase 3d before Session A2·1**, rather than pulling only
+`DraggableTaskRow` forward alone or having shopping build its own drag
+primitive. This also satisfies Decision 009 Session B's precondition (which
+separately requires `DraggableTaskRow` ported), so one port unblocks two
+downstream consumers. Recorded in REBUILD_DECISIONS.md (Decision 011 R1 +
+Packaging) and REBUILD_PLAN.md (3c/3d bullets updated in place — no
+renumbering of phases, just an explicit run-order note).
+
+**PlanTaskCard batch-placement — confirmed, not re-decided:** the record
+already correctly placed PlanTaskCard in Decision 009's Session B (Plans
+phase), not the Phase 3c cards-and-rows batch — the 3c audit's "BUILD, not a
+port" framing and REBUILD_PLAN.md's existing 3c bullet already said this.
+Made it explicit in REBUILD_PLAN.md's 3c bullet so a future Phase-3c-remainder
+session prompt doesn't have to re-derive it. No change to Decision 009.
+
+**Corrected next step:** the original queue (S2 = Session A2·1) is
+superseded by the sequencing correction above. Next Code session is **Phase
+3d** (DayTimeline, DraggableTaskRow, DatePickerCalendar, AddFAB,
+AddSourceChooser, EnergyCheckIn), sourced from the All-the-small-things repo.
+Session A2·1 (ShoppingRow) follows once 3d is logged done here.
