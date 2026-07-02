@@ -1618,3 +1618,223 @@ sub-phase. Real store logic for `useInboxStore`/`useFeedbackStore` (Phase 5). Th
 `app/shopping.tsx` `t.moreOptions` gap noted above.
 
 **Phase 3 complete.**
+
+## 2026-07-02 — Phase 4: flagged-for-redesign sweep
+
+**Status: Gate met, partial completion — one component-level fix landed, two questions
+compiled for the user (see bottom of this entry).** Gate ("Phase 3 logged complete") was
+unmet at the start of this session (WeekListCard/Phase 3e both still open at that point);
+confirmed resolved once Session A2·2 and the Phase 3e completion entry above both landed —
+see the separate STOPPED-gate log entry earlier in this file and its supersession.
+
+**Full enumeration of FEATURE_INVENTORY.docx's non-blank "Edit notes:" lines (extracted via
+`python3`/`zipfile`, all 366 paragraphs read — not sampled):** exactly ten flagged items
+exist in the whole document (everything else is a blank "Edit notes:" placeholder, not a
+flag). Cross-referenced each against REBUILD_DECISIONS.md rather than trusting the task
+brief's pre-supplied "known resolved" list at face value:
+
+1. **Energy level, medium vs. high** ("No difference between medium and high") — tracked as
+   **OB-2, open/deferred**. Per the stale-note protocol (two 2026-06-21 notes already proven
+   stale — note-editing, habit reminders), checked this claim against the old repo's actual
+   code rather than assuming it's also stale: grepped `lib/taskSuggestion.ts` and
+   `app/plans.tsx` in `All-the-small-things` for every energy-level branch — both filter
+   ONLY on `energy === 'low'` (`candidates.filter(t => t.importance === 'essential')`);
+   there is no `medium`/`high` branch anywhere. **Confirmed accurate, not stale** — no
+   inversion recorded (the protocol only requires recording an inversion when a claim turns
+   out to be wrong; this one checked out true). Remains open — see Question 1 below.
+2. **Plans day-view redesign** ("Need a better/easier way to view 'time now + rest of
+   day'") — **resolved by decision** (009/009a/009b: read-only day-view, proportional rail,
+   collapsed states, gap state, dimmed done zone, 10%-of-span rail tail). Not built yet —
+   the decision itself scopes the actual construction to Decision 009's Session B, run
+   alongside the full Plans screen (`REBUILD_PLAN.md` Phase 6, and `PlanTaskCard` is
+   explicitly a BUILD not a port there). Cross off as resolved; **not pulled into this
+   session** — building the Plans screen now would jump Phase 6 out of sequence, the same
+   discipline every prior session in this log has held to.
+3. **Bubble gradient colouring** ("Gradient colouring instead of today's look... letters
+   must be the same colour and easy to read") — **moot**, per Decision 008 (5): BubbleMenu is
+   dropped entirely, not redesigned. Cross off, no work.
+4. **Bubble sizing** ("All bubbles the same size... big enough for the longest word") —
+   same as #3, moot per Decision 008 (5). Cross off, no work.
+5. **Sharing explanation copy** ("Add a short explanation of what sharing does there...
+   wording TBD") — tracked as **OB-3, open, no decision**. Genuinely a copy/wording gap, not
+   a stale claim (the explanatory strings don't exist anywhere in either repo — verified by
+   grepping `lib/i18n.ts` in both repos for anything resembling per-location share copy;
+   nothing found). Remains open — see Question 2 below.
+6. **Shopping list overhaul, overall** ("Needs a big overhaul... I need input to make
+   decisions") — **resolved (Decision 011) and fully built** (Session A2·2:
+   `app/shopping.tsx` + `WeekListCard.tsx` shipped). Cross off, nothing left to do.
+7. **Shopping screen order/crowding** ("Feels crowded — prime candidate for the redesign")
+   — **resolved (Decision 011 A2-1) and built** (sticky header + scrolling body, same
+   session as #6). Cross off, nothing left to do.
+8. **Habit reminders, multiple per day** ("Add the option for several reminders a day...
+   Today only ONE fixed time is possible") — **proven stale, already resolved** (Decision
+   016: the multi-mode reminder picker already ships in the old app; the note predates that
+   feature). Decision recorded; the actual form/store/notifications work is explicitly
+   scoped to Phase 5/6 (habit-form.tsx, `useHabitStore`, `lib/habitNotifications`), none of
+   which exist in this repo yet. Cross off as resolved-by-decision; **not pulled into this
+   session** — same out-of-sequence reasoning as #2.
+9. **Notes home preview — can't edit old notes** ("Lacks a way of fixing/editing existing
+   notes") — **proven stale, already resolved** (Decision 012) **and the component-level fix
+   is already built**: the Phase 3e `InboxSection` refactor (2026-07-02, logged above)
+   explicitly surfaced the existing `/capture?id=` route as an in-card edit affordance. Cross
+   off, nothing left to do at the component level (the screen it routes to, `capture.tsx`, is
+   Phase 6 — components ported ahead of their screens, same pattern as the rest of Phase 3).
+10. **"Edit an old note — doesn't exist yet"** ("This is the gap — add a way to open and
+    change a note you saved earlier") — same claim as #9, same resolution. Cross off.
+
+**Verification of the task brief's own "known resolved" list — one gap found, not just
+rubber-stamped:** Decision 011a (shopping dish/ingredient checkbox nesting, part of the
+"shopping overhaul (011/011a/017)" bucket the brief calls resolved) turned out to be
+**resolved-but-not-implemented**. Session A2·2's own log entry explicitly flagged this out
+of scope ("this session's dish groups render read-only ingredient rows, no parent/child
+checkbox binding attempted"), despite R4's text naming "whichever session builds/finishes
+WeekListCard's dish-group rendering... owns wiring this — it is not a separate session." No
+FEATURE_INVENTORY line names this directly (011a was user-decided fresh, not sourced from an
+edit note — see its own entry), but it's squarely inside the shopping-overhaul thread this
+session is scoped to close out, has a fully recorded direction with zero ambiguity left, and
+is small/self-contained — exactly what this session's instruction 3 authorizes ("For each
+remaining item WITH recorded direction: do the component-level work now"). Built this session
+(see below) rather than opening a new decision or a new session for it.
+
+**Component-level work done — Decision 011a/R4 dish-checkbox wiring:**
+- `lib/shoppingGroups.ts` — `computeListGroups()`'s dish grouping previously derived
+  `dishGroups` from unchecked items only, which meant a fully-checked dish's items fell out
+  of the group entirely into the flat "Bought this week" bucket, making Decision 011a's
+  roll-up ("dish shows checked when every ingredient is checked") structurally
+  unobservable. Fixed to group ALL of a list's items by dish first (checked + unchecked
+  together), then split only the ungrouped remainder into `ungroupedUnchecked`/`checked`.
+  Added `dishGroupAllChecked(items)` — the decision's "computed, never stored" derived
+  value (011a decision #2). `listProgress()` updated to count dish items by their own
+  `checked` state rather than treating whole-group membership as "remaining" (otherwise a
+  checked dish ingredient would double-count as still-remaining after the grouping fix).
+- `components/WeekListCard.tsx` — each dish-group `ExpandableCard` now renders a checkbox in
+  `rightAction` (same 20px circle / `theme.good` fill / checkmark visual language as
+  `ShoppingRow`'s own check button, for consistency) reading `dishGroupAllChecked(groupItems)`
+  and calling the new `onToggleDish` prop on tap. Also fixed a related latent bug this
+  surfaced: the "Shopping done!" button's disabled/dim state read `checked.length` (the flat
+  bucket only), which would now under-count once dish items can carry their own checked
+  state without ever appearing in that bucket — switched to `progress.inCart` (the same
+  shared `listProgress()` total used by the sticky header) so a fully-checked dish alone is
+  enough to enable the button.
+- `app/shopping.tsx` — new `toggleDish(items)` handler: computes the target state (check all
+  if not all are checked, uncheck all if all are — 011a decision #1/#3, no separate un-check
+  case) and calls the existing per-item `useShoppingStore.toggleCheck` only for items not
+  already at the target state (no new store action, per R4). Wired to `WeekListCard`'s new
+  `onToggleDish` prop. Also fixed the same `checked.length`-undercounts-dish-items bug at the
+  `handleDoneShopping` call site — now passes `listProgress(groups).inCart` instead of
+  `groups.checked.length`.
+- `lib/i18n.ts` — one new key pair, `dishCheckAllLabel` (en/no), the dish checkbox's
+  accessibility label. Everything else needed already existed.
+- Monthly/Katalog tab's own dish groups (`catalogDishGroups`) were checked and correctly
+  left untouched — they're driven by `pendingRestock` (a staging flag), not `checked`, a
+  different mechanism Decision 011a never named, and Decision 011 A2-3 keeps Monthly
+  unredesigned regardless.
+
+**Verification:** `npm install --legacy-peer-deps` + `npx tsc --noEmit` — 33 errors, **zero**
+touching any file changed this session (confirmed by grepping the full output for
+`WeekListCard|shoppingGroups|lib/i18n` — no hits; `app/shopping.tsx`'s two hits are both the
+pre-existing `t.moreOptions` gap flagged in the Phase 3e entry above, untouched by this
+session). Count is down from the prior session's 35 (same pre-existing family: missing
+native libs, old-token-name screens) — not a regression.
+
+**Not done, out of scope, flagged not touched:** items #2 and #8 above (Plans day-view,
+habit reminders) — both fully decided, both explicitly scheduled to their own later
+phase/session, not pulled forward. BubbleMenu (#3/#4) — moot, not touched. `app/capture.tsx`
+(Phase 6) — InboxSection's edit route still points at a screen that doesn't exist yet, same
+as every other "component ported ahead of its screen" precedent in this repo.
+
+---
+
+### Question compilation (per this session's instruction 4 — no direction decided here)
+
+**Question 1 — Energy check-in: what should medium and high actually DO differently?**
+Confirmed accurate (not stale, see item 1 above): today only `low` does anything (narrows
+tasks to `importance === 'essential'`); medium and high are identical no-ops. The Home
+Energy check-in is currently unmounted anyway (Decision 009), so this doesn't block any
+in-flight work — but it should be decided before Energy ever resurfaces on a screen.
+
+- **A. Give medium a real middle tier** — low → essential only (unchanged); medium →
+  essential + important; high → everything (unchanged, matches today's implicit fallback).
+  Directly fixes the flagged complaint with the smallest change (one new filter branch,
+  reuses the existing `importance` field, no new UI). *Recommended.*
+- **B. Collapse to two levels** (drop the three-way battery picker down to low / not-low).
+  Simplest and matches actual current behavior honestly, but removes a UI affordance
+  (medium) the user would need to re-approve removing, and doesn't give the user what the
+  note seems to be asking for (a distinction, not a removal).
+- **C. Leave as-is, revisit only once Energy is remounted somewhere.** Zero work now, but
+  the complaint sits unresolved indefinitely with no trigger to reopen it.
+
+**Question 2 — Sharing: what should the per-location explanation copy actually say?**
+No location currently has this copy in either repo — confirmed by grepping `lib/i18n.ts` in
+both repos for anything share-explanation-shaped; nothing exists to reuse or correct. The
+consuming screens (`share-modal.tsx`, `shared.tsx`) are Phase 6, not yet built, so this is a
+copy decision to bank now rather than a blocked one.
+
+- **A. Draft the three strings now as a starting proposal** (e.g. shopping: "Makes a code so
+  another phone can see and tick off this same list."; tasks: "Shares these tasks so another
+  phone can see and complete them."; plans: "Shares today's plan so another phone can follow
+  along.") — user edits/approves before Phase 6 needs them. Gives Phase 6 something concrete
+  to consume immediately once it starts. *Recommended.*
+- **B. Leave it TBD until Phase 6 actually builds the sharing screens**, draft copy in that
+  session instead, in context of the real UI. No wasted effort if the wording changes once
+  the screens exist, but reopens the exact same open question later instead of closing it
+  now while it's cheap (per Decision 011a's OB-3 framing: "cheap to close").
+- **C. User supplies the exact wording directly**, no draft proposed. Skips any risk of
+  anchoring on a Claude-drafted phrasing the user didn't ask for.
+
+## 2026-07-02 — Phase 4 answers: Decision 018 (Energy removed) + OB-3 deferred to Phase 6
+
+**Status: Complete.** User answered both compiled questions from the entry above.
+
+**Question 1 (Energy medium/high parity) — answered with a fourth option not offered:**
+remove the Energy check-in feature entirely. Task intensity is now exactly the codebase's
+existing two-value `importance` field (`'regular'`/`'essential'`), renamed to user-facing
+**General**/**Essential** "modes," gated solely by Focus mode (Decision 009 (4) — already
+fully specified, not re-decided here). Recorded as **Decision 018** in
+REBUILD_DECISIONS.md, superseding Decision 009 (1)'s "stays in repo, unmounted" clause.
+OB-2 marked resolved (removed, not refined).
+
+**Code changes (same session, small/contained — direct execution of the user's decision,
+no further ambiguity to compile into a question):**
+- **Deleted** `components/EnergyCheckIn.tsx` and `store/useEnergyStore.ts` — confirmed via
+  grep these had exactly one consumer relationship (component → stub store) and no other
+  importers anywhere in the repo before removing.
+- `lib/i18n.ts` — removed the now-orphaned `en.energy`/`no.energy` blocks (check-in prompt,
+  low/medium/high, low-energy hint). Renamed `importanceRegular` ("Regular"/"Vanlig") →
+  **"General"/"Generelt"** — reuses the exact word already sitting unused in this same file
+  as `generalSectionLabel` (the old app's superseded Important/General two-section Plans
+  stack, Decision 009a — not touched, still dead/unconsumed pending the real Plans build),
+  so "General" isn't an invented term. `importanceLabel` ("Importance"/"Viktighet") →
+  **"Mode"/"Modus"** to match. Neither key has a real consumer yet (task-form.tsx is
+  Phase 6) — zero behavioral risk, confirmed by grep before renaming.
+- `lib/db.ts` — corrected the file header's `Used by →` list (dropped the now-deleted
+  `store/useEnergyStore.ts` entry — it never actually imported this file, being an
+  in-memory Decision 015 stub, so this is a header-accuracy fix, not a functional change)
+  and annotated the still-present `energy_logs` table in the `Data →` line as dead. The
+  table itself (and its retention-pruning `DELETE` line) is **left in place, unused** —
+  per AGENTS.md's standing "never drop/recreate tables" invariant, leaving harmless dead
+  schema is the safe default over surgically stripping a table, even though nothing has
+  shipped from this specific rebuild to a real device yet.
+- `components/DayTimeline.tsx`'s `task.importance === 'essential'` star-marker rendering
+  was checked and correctly left untouched — that's the separate "important tasks marked"
+  visual cue (FEATURE_INVENTORY's Today's-plans section), not an energy-driven filter, so
+  Decision 018 doesn't reach it.
+
+**Question 2 (Sharing explanation copy) — answered "B":** defer to Phase 6. The sharing
+screens (`share-modal.tsx`, `shared.tsx`) don't exist yet; copy will be drafted in that
+session, in context of the real UI, rather than banked now. REBUILD_DECISIONS.md's OB-3
+entry updated to record this choice — still open, no Decision entry, just a recorded
+"when" instead of "now."
+
+**Verification:** `npx tsc --noEmit` — 33 errors, identical count and file list to the
+prior Phase 4 entry's run (confirmed via grep — zero hits for
+`EnergyCheckIn|useEnergyStore|lib/i18n.ts|lib/db.ts` in the new output). No new errors from
+either the deletions or the renames.
+
+**Out of scope, unaffected:** `importantSectionLabel`/`generalSectionLabel` (old two-section
+Plans stack labels, superseded by Decision 009a's rail day-view, still unconsumed pending
+the real Plans build — not part of this decision). Focus mode's own construction (Decision
+009 (4)) — still Home-phase work, not pulled forward here.
+
+**Phase 4 complete** (both compiled questions answered; no further open items from the
+FEATURE_INVENTORY sweep).

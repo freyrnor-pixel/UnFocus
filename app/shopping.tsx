@@ -87,6 +87,14 @@
  *     A2-3: "Monthly stays... untouched by A2-2"; A2-1/A2-4 only target the weekly tab
  *     per Decision 011's own grounding note) — Surface replaces the old Container, but
  *     the section order/behavior is otherwise unchanged from the old app.
+ *   - Decision 011a/R4 dish-checkbox wiring (2026-07-02, Phase 4): this session flagged
+ *     dish groups as "read-only... no parent/child checkbox binding attempted." Closed
+ *     now — toggleDish() here is the bulk roll-up/roll-down action R4 calls for, reusing
+ *     the existing per-item toggleCheck (no new store action); WeekListCard's dish-group
+ *     ExpandableCard calls it via the new onToggleDish prop. Required loosening
+ *     computeListGroups()'s dish grouping to include checked items too (previously
+ *     unchecked-only, which made the "dish shows checked" roll-up unobservable) — see
+ *     lib/shoppingGroups.ts's own header note.
  */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -176,6 +184,19 @@ export default function ShoppingScreen() {
   const update = useShoppingStore((s) => s.update);
   const toggle = useShoppingStore((s) => s.toggleCheck);
   const toggleCollected = useShoppingStore((s) => s.toggleCollected);
+  /** Decision 011a/R4: bulk roll-up/roll-down for a dish group's checkbox — checks every
+   *  unchecked ingredient if not all are checked yet, unchecks every ingredient if all are
+   *  (011a decision #1/#3, no separate un-check case). Reuses the existing per-item
+   *  `toggleCheck` path rather than a new store action. */
+  const toggleDish = useCallback(
+    (dishItems: ShoppingItem[]) => {
+      const target = !dishItems.every((i) => i.checked);
+      dishItems.forEach((i) => {
+        if (i.checked !== target) toggle(i.id);
+      });
+    },
+    [toggle]
+  );
   const addToWeeklyFromCatalog = useShoppingStore((s) => s.addToWeeklyFromCatalog);
   const putBackToInventory = useShoppingStore((s) => s.putBackToInventory);
   const removeWithSource = useShoppingStore((s) => s.removeWithSource);
@@ -567,6 +588,7 @@ export default function ShoppingScreen() {
 
             {nonTemplateLists.map((list) => {
               const groups = computeListGroups(items, list.id);
+              const groupsProgress = listProgress(groups);
               const order = groups.ungroupedUnchecked.map((i) => i.id);
               const displayUngrouped =
                 drag && drag.listId === list.id
@@ -589,12 +611,13 @@ export default function ShoppingScreen() {
                   onOpenListSettings={() => setListSettingsListId(list.id)}
                   onDelete={() => handleDeleteList(list.id)}
                   onToggleItem={(item) => toggle(item.id)}
+                  onToggleDish={toggleDish}
                   onCollectItem={(item) => toggleCollected(item.id)}
                   onRemoveItem={handleRemoveWeeklyItem}
                   onIncrementItem={(item) => adjustAmount(item.id, 1)}
                   onDecrementItem={(item) => adjustAmount(item.id, -1)}
                   onAddPress={() => setAddSourceChooserListId(list.id)}
-                  onDoneShopping={() => handleDoneShopping(list, groups.checked.length)}
+                  onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
                   renderReorderableRow={(item) => (
                     <DraggableTaskRow
                       isOpen={false}

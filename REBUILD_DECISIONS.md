@@ -647,23 +647,22 @@ remaining gaps (legacy field drop, recipe persistence, quiet-hours parity).
 Consuming work is scheduled for Phases 5/6 per REBUILD_PLAN.md, not yet started.
 
 ### OB-2 — Energy check-in: medium vs. high parity
-**Source:** FEATURE_INVENTORY.docx edit note — old app has "no difference
-between medium and high" energy levels.
-**Status:** Open, DEFERRED (not resolved). Decision 009 removed the Energy
-check-in from Home but explicitly deferred this ambiguity rather than fixing
-it. Correctly tracked as deferred, flagged here so "deferred" doesn't quietly
-become "forgotten."
-**Nature:** Behaviour decision — either medium and high should drive different
-task filtering/surfacing, or they should collapse to fewer levels. Needs a
-call on what the levels actually DO before Energy resurfaces anywhere.
+**Status:** Resolved — see Decision 018. Phase 4 re-verified the underlying
+claim against the old app's code (confirmed accurate, not stale) and offered
+it as a question; the user's answer removed the feature outright rather than
+fixing the medium/high distinction — General/Essential (the existing
+`importance` field) plus Focus mode replace it entirely.
 
 ### OB-3 — Sharing: per-location explanation copy
 **Source:** FEATURE_INVENTORY.docx edit note — asks for a short explanation of
 "what it actually does" at each share location. Wording TBD.
-**Status:** Open. No Decision entry.
+**Status:** Open. No Decision entry. Phase 4 offered this as a question (draft
+copy now vs. defer to Phase 6 vs. user supplies wording); user chose to defer
+to Phase 6 (the sharing screens' own build session drafts copy in context of
+the real UI, rather than banking a guess now).
 **Nature:** Copy/wording decision (not behaviour). Needs the actual short
-explanatory string for each place sharing is offered. Cheap to close once the
-share locations are enumerated.
+explanatory string for each place sharing is offered — deferred until
+`share-modal.tsx`/`shared.tsx` (Phase 6) are actually built.
 
 ## Decision 013 — ConfirmationBanner gains danger/warn variants
 
@@ -1068,6 +1067,86 @@ sessions know the card header now carries a compact progress line.
   card).
 - **No new blocks.** The focused-list selection mechanism is an A2·2 in-session
   layout detail, not a separate planning blocker.
+
+---
+
+## Decision 018 — Energy check-in removed; General/Essential are the only task modes, gated by Focus mode
+
+**Status:** Resolved (user call, answering Phase 4's Question 1)
+**Date:** 2026-07-02
+**Resolves:** OB-2 (Open Backlog — energy medium/high parity). Mark OB-2 as
+`resolved — see Decision 018`.
+**Supersedes:** Decision 009 (1)'s "`EnergyCheckIn` component and `useEnergyStore`
+stay in the repo but are unmounted from Home" — that clause is superseded below;
+the rest of Decision 009 (##2–4, the ExpandableCard convergence and Focus mode
+spec) is untouched.
+
+### Context
+Phase 4 compiled OB-2 as an open question rather than deciding it: today only
+`energy === 'low'` does anything (narrows tasks to `importance === 'essential'`
+in the old app's `lib/taskSuggestion.ts`/`app/plans.tsx`); medium and high are
+identical no-ops. Verified accurate against the old app's actual code (not a
+stale inventory note) before asking. Offered as Question 1: give medium a real
+tier, collapse to two levels, or leave as-is.
+
+### Decision
+The user chose a fourth option not offered: **remove the Energy check-in
+feature entirely**, rather than fixing or collapsing its three levels. Task
+"intensity" going forward is exactly the two-value model the codebase already
+has (`Task.importance`: `'regular' | 'essential'`, `tasks.importance` SQLite
+column) — no new field, no data migration. The old app's separate
+low/medium/high battery picker is not ported at all.
+
+**Terminology:** the two importance values are user-facing "modes" —
+**General** (today's `'regular'`) and **Essential**. Focus mode (Decision 009
+(4), already fully specified — Home-only, ephemeral, header toggle left of the
+gear) is the *sole* mechanism that switches between them: OFF shows General
+(everything); ON filters to Essential only. No separate energy-driven filter
+path exists or is ported — Focus mode fully replaces what the old app's
+low-energy check-in used to do.
+
+### Consequence for code (executed same session as this entry)
+- `components/EnergyCheckIn.tsx` and `store/useEnergyStore.ts` — **deleted**,
+  not just left unmounted. They were Phase 3d Decision-015 stub ports with
+  exactly one consumer relationship (the component read the stub store); no
+  other file imported either.
+- `lib/i18n.ts` — removed the now-orphaned `en.energy`/`no.energy` string
+  blocks (check-in prompt, low/medium/high labels, low-energy hint). Renamed
+  `importanceRegular` ("Regular"/"Vanlig") → **"General"/"Generelt"** to match
+  the mode terminology above — reuses the exact word already established by
+  the (currently unused, old-two-section-stack-only) `generalSectionLabel`
+  key, so "General" isn't a novel term in this codebase. `importanceLabel`
+  ("Importance"/"Viktighet") renamed to **"Mode"/"Modus"** to match. Neither
+  renamed key has a real consumer yet (task-form.tsx is Phase 6) — zero
+  behavioral risk.
+- `lib/db.ts` — the `energy_logs` table (`CREATE TABLE IF NOT EXISTS`) and its
+  retention-pruning line are **left in place, unused** — per this codebase's
+  standing "never drop/recreate tables" invariant (AGENTS.md), dead schema is
+  the safe default over surgically removing a table, even for a feature that
+  never shipped to a real device from this rebuild. Removed the stale
+  `store/useEnergyStore.ts` entry from the file's own `Used by →` header list
+  (that store never actually imported `db.ts` — it was an in-memory Decision
+  015 stub — so this is a header correction, not a functional change).
+- `components/DayTimeline.tsx`'s `task.importance === 'essential'` star-marker
+  rendering is unrelated to this decision and is unchanged — that's the
+  "important tasks marked" visual cue (FEATURE_INVENTORY's Today's-plans
+  section), not an energy-driven filter.
+
+### Rationale
+The user's answer resolves the ambiguity by elimination rather than by picking
+one of the offered options — cheaper than adding a third meaningful tier, and
+it removes a feature (a once-a-day mood check-in) that Decision 009 had
+already benched from Home with no re-mount planned. Reusing the
+already-two-value `importance` field means no new store, no new DB column, no
+new migration — the smallest possible diff that satisfies "General and
+Essential modes, gated by Focus mode."
+
+### Blocks / unblocks
+- **Closes OB-2.** No further Energy-related work anywhere in the plan.
+- **No new blocks.** Focus mode's own build-out remains exactly what Decision
+  009 (4) already specified (Home phase work, not yet started) — this entry
+  doesn't add new scope to it, only confirms it's now the only intensity
+  toggle in the app.
 
 ## Decision 019 — Task "next-time hint" note field
 

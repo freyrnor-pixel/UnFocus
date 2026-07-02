@@ -6,7 +6,7 @@
  *
  * Connections:
  *   Imports → store/useShoppingStore (ShoppingItem type)
- *   Used by → app/shopping.tsx
+ *   Used by → app/shopping.tsx, components/WeekListCard.tsx (dishGroupAllChecked)
  *   Data    → none — pure functions over arrays passed in by the caller
  *
  * Edit notes:
@@ -15,12 +15,23 @@
  *   - groupByDish() is also used standalone by the Monthly tab (no listId/status notion
  *     there, just catalog rows), while computeListGroups() is Week-list-specific
  *     (filters by status==='inWeeklyList' and a given listId first).
- *   - Direct port (2026-07-02, Session A2·2) — unchanged from the old repo.
- *   - listProgress() is new (Session A2·2, not in the old repo) — Decision 017 note 3
- *     requires the sticky header (focused list, full) and WeekListCard's own header
- *     (non-focused lists, compact) to share ONE progress calculation, not fork it. Both
- *     app/shopping.tsx and WeekListCard.tsx call this on the same computeListGroups()
- *     output rather than each computing remaining/inCart counts independently.
+ *   - computeListGroups() dish grouping deliberately includes BOTH checked and unchecked
+ *     items for a dish (2026-07-02, Phase 4 — Decision 011a/R4 wiring). Originally (Session
+ *     A2·2) it grouped unchecked items only, which meant a fully-checked dish's items fell
+ *     out of dishGroups entirely into the flat `checked` bucket, losing their dish grouping
+ *     and making the roll-up "dish shows checked when all ingredients are checked" (Decision
+ *     011a) structurally unobservable. Fixed by grouping the FULL per-list item set by dish
+ *     first, then splitting only the ungrouped remainder into ungroupedUnchecked/checked.
+ *   - dishGroupAllChecked() is the Decision 011a/R4 "computed allChecked" — always derived
+ *     from the group's own items at read time, never persisted (011a decision #2). Consumed
+ *     by WeekListCard's dish-group ExpandableCard header checkbox.
+ *   - listProgress() (Session A2·2, not in the old repo) — Decision 017 note 3 requires the
+ *     sticky header (focused list, full) and WeekListCard's own header (non-focused lists,
+ *     compact) to share ONE progress calculation, not fork it. Both app/shopping.tsx and
+ *     WeekListCard.tsx call this on the same computeListGroups() output rather than each
+ *     computing remaining/inCart counts independently. Updated alongside the dish-grouping
+ *     fix above so dish items still count correctly toward remaining/inCart by their own
+ *     checked state, not by bucket membership.
  */
 import { ShoppingItem } from '@/store/useShoppingStore';
 
@@ -40,27 +51,41 @@ export function groupByDish(items: ShoppingItem[]): { dishGroups: [string, Shopp
   return { dishGroups: Array.from(dishMap.entries()).sort((a, b) => a[0].localeCompare(b[0])), ungrouped };
 }
 
-/** Buckets one Week list's inWeeklyList items into dish groups / ungrouped (orderIndex-sorted) / checked. */
+/** Buckets one Week list's inWeeklyList items into dish groups (checked + unchecked members
+ *  together, per Decision 011a) / ungrouped (orderIndex-sorted) / checked. */
 export function computeListGroups(items: ShoppingItem[], listId: string) {
-  const unchecked = items.filter((i) => i.status === 'inWeeklyList' && !i.checked && i.listId === listId);
-  const checked = items
-    .filter((i) => i.status === 'inWeeklyList' && i.checked && i.listId === listId)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const listItems = items.filter((i) => i.status === 'inWeeklyList' && i.listId === listId);
+  const { dishGroups, ungrouped } = groupByDish(listItems);
 
-  const { dishGroups, ungrouped: ungroupedUnchecked } = groupByDish(unchecked);
-  ungroupedUnchecked.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+  const ungroupedUnchecked = ungrouped
+    .filter((i) => !i.checked)
+    .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+  const checked = ungrouped.filter((i) => i.checked).sort((a, b) => a.name.localeCompare(b.name));
 
   return { dishGroups, ungroupedUnchecked, checked };
 }
 
-/** One shared remaining/in-cart/percent calculation for a list — see header note. */
+/** Decision 011a derived state: a dish group reads as "checked" only when every one of its
+ *  ingredients is checked. No persisted dish-level flag — always recomputed from the group's
+ *  own ShoppingItem[] (see R4). */
+export function dishGroupAllChecked(items: ShoppingItem[]): boolean {
+  return items.length > 0 && items.every((i) => i.checked);
+}
+
+/** One shared remaining/in-cart/percent calculation for a list — see header note.
+ *  Dish-group items now carry their own checked state (Decision 011a) rather than living
+ *  exclusively in either bucket, so they're split by that state here instead of being
+ *  counted wholesale as "remaining." */
 export function listProgress(groups: {
   dishGroups: [string, ShoppingItem[]][];
   ungroupedUnchecked: ShoppingItem[];
   checked: ShoppingItem[];
 }): { remaining: number; inCart: number; total: number; pct: number } {
-  const remaining = groups.ungroupedUnchecked.length + groups.dishGroups.reduce((sum, [, items]) => sum + items.length, 0);
-  const inCart = groups.checked.length;
+  const dishItems = groups.dishGroups.flatMap(([, dishItems]) => dishItems);
+  const dishRemaining = dishItems.filter((i) => !i.checked).length;
+  const dishChecked = dishItems.filter((i) => i.checked).length;
+  const remaining = groups.ungroupedUnchecked.length + dishRemaining;
+  const inCart = groups.checked.length + dishChecked;
   const total = remaining + inCart;
   return { remaining, inCart, total, pct: total > 0 ? inCart / total : 0 };
 }
