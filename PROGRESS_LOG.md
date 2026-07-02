@@ -1233,3 +1233,60 @@ into `app/shopping.tsx`.
 **Out of scope, unaffected:** `PlanTaskCard` (→ Session B), real store logic
 (→ Phase 5) — untouched, as instructed. This entry does NOT close Phase 3c —
 the WeekListCard piece remains open pending Session A2·2.
+
+## 2026-07-02 — Phase 3e: Icons, pickers, misc leaves — STOPPED before porting (Gate 1 unmet — Phase 3c not logged complete)
+
+**Status: STOPPED, flagged.** No source touched. None of the batch (HabitIcon,
+HuePicker, SwatchPicker, QRCodeDisplay, SaveButton, StickySaveBar,
+`InboxSection` refactor, SharedRequestsSection, SavedListsModal,
+MonthlyResetSummaryModal, Pet, SiteSwipeView, DebugOverlay) ported this
+session.
+
+**Gates checked first (per this session's brief):**
+1. **Phase 3c logged complete (P2's closing entry) — FAILED.** The most
+   recent PROGRESS_LOG entry (immediately above, 2026-07-02 "Phase 3c
+   remainder (WeekListCard): STOPPED before porting") explicitly states "This
+   entry does NOT close Phase 3c — the WeekListCard piece remains open
+   pending Session A2·2." Confirmed directly, not just by reading the log
+   prose: `WeekListCard.tsx` and `lib/shoppingGroups.ts` do not exist
+   anywhere in this repo, and `app/shopping.tsx` does not exist either
+   (filesystem search, zero hits). `git log` confirms the same — the most
+   recent Phase-3c-related commit is the WeekListCard STOP entry
+   (`2407cd0`), not a closing/completion entry. Session A2·2 (shopping
+   screen re-layout, Decision 011 A2-1/A2-4) has not run.
+2. Decision 009 (Session A InboxSection spec) — confirmed **Resolved** in
+   REBUILD_DECISIONS.md, with an explicit spec (Surface→ExpandableCard
+   refactor + inline edit-of-existing-note via the existing `/capture?id=`
+   route, per Decision 009 Session A + Decision 012). MET.
+3. `ExpandableCard` present — confirmed at `components/ExpandableCard.tsx`
+   (ported Phase 3a, 2026-07-01). MET.
+
+**Why this stops the whole session:** Gate 1 as literally stated in this
+session's brief requires Phase 3c logged complete before 3e starts, and it
+isn't — one item (WeekListCard) is still open, itself gated on a screen
+session (A2·2) that hasn't run. Per this session's own "STOP and report if
+any is unmet" instruction, honoring the gate literally rather than reasoning
+past it.
+
+**Noted for the record, not acted on:** none of the thirteen 3e items
+actually depend on WeekListCard or `app/shopping.tsx` — the unmet gate is a
+phase-sequencing precondition, not a per-component dependency block. Flagging
+this in case the user wants to make an explicit scope call to run 3e ahead of
+Session A2·2 (same kind of call already made once for Phase 3d before Session
+A2·1) — not something to decide unilaterally mid-session.
+
+**Left unresolved / next steps:**
+1. Session A2·2 (shopping screen re-layout: sticky compact header per A2-1,
+   scrolling body order, hint inline, shared-requests, collapsed
+   bought-history, reset-in-overflow per A2-4) needs to run and be logged
+   done in PROGRESS_LOG.md.
+2. Once A2·2 lands, the previously-stopped Phase 3c remainder (WeekListCard
+   build + mount) can complete, genuinely closing Phase 3c.
+3. Once Phase 3c is closed, re-run this same Phase 3e prompt — no
+   re-decision needed, only the missing precondition. All findings above
+   (gates 2 and 3 met, known-already-done items InventoryIcon/GradientSwatch)
+   still hold and don't need re-verification.
+
+**Not done, so not evaluated this session:** all thirteen 3e items and their
+individual scope details (InboxSection's inline note-editing per Decision
+009/012, the Decision 006 token remap, `useAppTheme()`/`useT()` usage, etc.).
