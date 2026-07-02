@@ -1347,3 +1347,78 @@ updated to point at the real number once it exists.
 - **Depends on the not-yet-filed cross-dish standalone-case decision** for the
   scope carve-out in item 3 above — flag for a future planning session, not a
   Code session.
+
+  **Pointer update (added by Decision 022, not an edit to this entry):** the
+  cross-dish standalone-case decision referenced above now exists — see
+  **Decision 022** below. Per the append-only rule, this note lives on the
+  superseding entry rather than editing item 3 in place.
+
+---
+
+## Decision 022 — Drag-to-merge a standalone item into a dish group
+
+**Status:** Resolved
+**Date:** 2026-07-02
+**Phase placement:** Phase 5 (store action) + reuses the existing Phase 4 drag
+mechanism (Decision 011 R1: `DraggableTaskRow` + screen-owned hit-testing). No
+code written by this entry.
+**Origin:** Same planning conversation as Decision 021 (re-add increment
+parity); this is the cross-dish standalone-item case that entry's item 3
+explicitly carved out of scope and left unfiled (see Decision 021's "Blocks /
+unblocks" and its numbering note — the source conversation called this case
+"Decision 019," but 019 was independently claimed by an unrelated entry before
+this one could land, so it is filed fresh here as 022).
+
+### Context
+Adding "garlic" as a standalone item when garlic already exists inside a dish
+group does **not** auto-merge on add: standalone garlic (`dishName: undefined`)
+and dish garlic (`dishName: 'X'`) are different `groupByDish` keys, so they
+correctly land as separate rows. This matches `add()`'s existing dedup
+behavior (Decision 018/021 pattern) — confirmed not a bug, no change to `add()`.
+
+Instead, the user can **drag** the standalone row onto the dish's matching row
+to combine them.
+
+### Decision
+1. **Merge trigger:** only a same-name drop merges. Dropping a row onto
+   another row with a different name falls back to normal reorder behavior
+   (no merge, no rejection — existing `reorder()` semantics apply unchanged).
+2. **Result shape:** on a same-name drop, the two rows merge into one, which
+   **joins the dish** — keeps the dish's `dishName`, stays inside the "From
+   meals" `ExpandableCard` group, and shows the summed amount. The standalone
+   row is removed.
+3. **Confirmation:** none — the merge applies **immediately** on drop, with
+   an ephemeral undo affordance (toast/snackbar), not a confirm dialog. Same
+   presentational spirit as Decision 021's transient highlight: no schema
+   change, no persisted "pending merge" state.
+4. **New store action required.** `useShoppingStore` has no merge action —
+   `reorder()` only swaps adjacent `orderIndex` values, it does not combine
+   rows. A new action (working name TBD at build, e.g. `mergeItems`) must sum
+   the two rows' amounts, adopt the dish row's `dishName`/group membership,
+   and delete the standalone row. This slots into the **existing** drag
+   mechanism (`DraggableTaskRow` + screen-owned hit-testing, Decision 011 R1)
+   as a drop-target outcome — it must not introduce a parallel gesture.
+
+### Notes / consequences to flag at build (do NOT let a coding session
+rediscover these)
+- Once merged, the ex-standalone item is **indistinguishable** from an
+  original dish ingredient — grouping is derived purely from `dishName`, there
+  is no provenance flag. It therefore rides along with the dish for: Decision
+  011a roll-down uncheck, dish removal, and monthly reset. This is the
+  accepted consequence of "joins the dish" (item 2 above), not a bug to fix
+  later.
+- After the merge sets `dishName`, a future re-add of dish-garlic
+  auto-consolidates with the merged row via `add()`'s existing
+  dishName-keyed dedup — consistent with Decision 018/021, no separate row
+  re-forms.
+
+### Blocks / unblocks
+- **Resolves** the scope carve-out flagged in Decision 021, item 3 /
+  "Blocks / unblocks" (the "not-yet-filed cross-dish standalone-case
+  decision").
+- **Unblocks:** nothing yet buildable this session — `useShoppingStore.ts` is
+  still the Phase 5 `notImplemented` stub (Decision 015); recorded for
+  traceability ahead of that build, alongside Decision 021.
+- **Depends on** the Phase 4 drag mechanism (Decision 011 R1) already existing
+  in UnFocus — confirmed present, no new gesture infrastructure needed.
+- **No new blocks** on in-flight phases.
