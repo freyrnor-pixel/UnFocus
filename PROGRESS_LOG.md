@@ -1073,3 +1073,108 @@ to run the typecheck pass.
 and Decision 009 Session B's `DraggableTaskRow`-ported precondition (the
 other precondition, `PlanTaskCard`, remains its own BUILD when Session B
 actually runs).
+
+## 2026-07-02 — Phase 3c, Session A2·1: ShoppingRow redesign — ported
+
+**Status: Complete.** `components/ShoppingRow.tsx` built per Decision 011
+A2-2 (two-line row, price total on line 1, qty+stepper+in-stock on line 2).
+Ripples R1 (drag reorder), R2 (swipe-left remove, catalog/ad-hoc branch),
+R3 (`CHECKED_OPACITY` export) all addressed.
+
+**Gates checked first:** Decision 011 (Resolved) and its R1 addendum
+(`DraggableTaskRow` children-based API) present; the 2026-07-02 "Phase 3d"
+entry confirmed and `components/DraggableTaskRow.tsx` read directly —
+children-based API verified before writing any drag-related code; Decision
+015 `useShoppingStore` stub present. All four gates met, no stop.
+
+**R1 (drag reorder) — resolved by composition, not by this component:**
+`ShoppingRow` does not wrap itself in `DraggableTaskRow` and carries no
+drag-related props (the old inline move-up/move-down chevrons are gone
+entirely, not kept as a fallback). Per Decision 011 R1's 2026-07-02
+resolution, the Phase 3d port made `DraggableTaskRow` take `children` — the
+Session A2·2 shopping screen is what wraps `<DraggableTaskRow><ShoppingRow
+.../></DraggableTaskRow>` and owns the actual reorder persistence. This
+session only had to confirm the children API exists and design `ShoppingRow`
+to compose cleanly as a plain child (no special layout requirements it
+imposes on a wrapper).
+
+**R2 (swipe-left remove) — new gesture surface, same store-action branch:**
+Implemented as a `Gesture.Pan`, disambiguated from vertical scrolling the
+same way `components/SiteSwipeView.tsx` already does
+(`activeOffsetX([-12, 12])` + `failOffsetY([-10, 10])`) — the only other
+real horizontal-swipe precedent in this codebase; reused rather than
+inventing new thresholds. No working "swipe-to-close" implementation
+actually exists anywhere in either repo despite ANIMATION_GUIDELINES.md's
+haptics table listing one (checked directly — zero `Gesture.Pan`/
+`PanGestureHandler` hits in `AddItemSheet.tsx` or any sheet); the row's
+swipe design is original but stays inside the documented haptics contract
+(§4: `selection()` on crossing a gesture threshold, `heavy()` on a
+destructive-adjacent commit, both fired at the moment of the visual event).
+Swipe past `COMMIT_THRESHOLD` (-64px) or a fast flick
+(`SWIPE_VELOCITY_THRESHOLD`, 800 — same magnitude `SiteSwipeView` uses)
+animates the row off-screen and calls `onRemove`; short of that snaps back.
+`reducedMotion` skips the slide/snap animations (haptics still fire),
+matching `DayTimeline`/`DraggableTaskRow`'s existing gating pattern. The
+catalog-vs-ad-hoc branch is preserved exactly (`item.fromCatalog` on
+non-purchased rows reveals `InventoryIcon`; everything else reveals a plain
+"×") — `ShoppingRow` still only decides which icon/reveal-tint to show, the
+parent's `onRemove` decides which store action actually runs, unchanged
+from the old row.
+
+**Precondition gap filled inline: `InventoryIcon.tsx` pulled forward from
+its Phase 3e slot.** R2 can't preserve the catalog/ad-hoc icon distinction
+without it. Unlike the `DraggableTaskRow`/`PlanTaskCard` situation, this is
+a 12-line, single-consumer, zero-design-risk leaf (an `Ionicons` wrapper) —
+pulling it forward doesn't touch anything not yet built, doesn't require
+a design call, and doesn't set a precedent for pulling the rest of 3e
+forward. Flagging in case a later session disagrees and wants it re-homed
+to a proper 3e batch instead — no functional risk either way.
+
+**Store stub extension (Decision 015-style, as pre-authorized by this
+session's brief):** `store/useShoppingStore.ts`'s `ShoppingItem` widened
+with `amount`/`unit`/`checked`/`collected`/`fromCatalog`/`inventoryQty` (the
+row can't render without them) and the action surface widened with
+`toggleCheck`/`toggleCollected`/`adjustAmount`/`putBackToInventory`/
+`removeWithSource`/`reorder` typed stubs — signatures mirror the old app's
+store 1:1. `ShoppingRow` itself doesn't call any of these (dumb-row pattern,
+same as `NoteRow`/`MonthlyTableRow` — it only fires
+`onToggle`/`onCollect`/`onRemove`/`onIncrement`/`onDecrement` callbacks);
+they're staged now so Session A2·2's screen doesn't hit a stub gap mid-session.
+No existing consumer (`ShoppingQuickAddSheet`, `UpdateSheet`,
+`MonthlyTableRow`) constructs a `ShoppingItem` object literal, so widening
+the type is non-breaking.
+
+**Token remapping applied (Decision 006):** green→good, orange→accent,
+white(icon-on-fill)→textInverse, gray→textMuted, textLight→textMuted,
+danger→bad, grayLight(stepper disabled)→border, and `brown`(stepper
+enabled)→`accent` — reusing the `brown`→`accent` remap already recorded
+earlier in this log rather than inventing a new mapping for the same old
+token. `theme` prop dropped in favor of internal `useAppTheme()`, matching
+the established Phase 3c/3d convention.
+
+**Design-system verification (per this session's brief):** checked
+ANIMATION_GUIDELINES.md (haptics timing/contract — no real swipe-gesture
+code exists to mirror, so the SiteSwipeView precedent + the documented
+haptics rules were used instead, noted above), SPACING_LAYOUT_LIBRARY.md
+(row's own `Spacing.sm` vertical padding matches the old row and doesn't
+conflict with the "space between list items" `Spacing.md` guidance, which
+governs the *list's* inter-row gap, not this row's internal padding), and
+CARD_CONTAINER_LIBRARY.md (`Radius.md` used for the swipe-reveal panel,
+matching the documented standard card radius).
+
+**Dropped from the old row, per A2-2's own spec:** the separate "kr/stk"
+per-unit price meta text — A2-2 only specifies a line-1 total and a line-2
+qty/stepper/in-stock trio; the per-unit price isn't mentioned and A2-2's own
+rationale (money glanceable via the total) is already served without it.
+
+**Not evaluated this session:** typecheck (`npx tsc --noEmit`) could not run
+— no `node_modules` in this remote environment, consistent with CLAUDE.md's
+"local-only" note.
+
+**Out of scope, flagged not touched:** shopping screen re-layout (A2-1/A2-4,
+→ Session A2·2), `WeekListCard` and the 011a/R4 dish-group checkbox wiring
+(→ 3c remainder), `PlanTaskCard` (→ Session B), any real store logic
+(→ Phase 5).
+
+**Unblocks:** Session A2·2 (shopping screen re-layout) — `ShoppingRow` is
+now the finished component the screen composes.
