@@ -7,7 +7,7 @@
  *
  * Connections:
  *   Imports → @expo/vector-icons
- *   Used by → app/habit-form.tsx (icon picker), app/habits.tsx (habit cards/week/month rows), app/health.tsx (inline habits sub-section) — none ported yet, this is a leaf ahead of its screens
+ *   Used by → app/habit-form.tsx (icon picker); app/habits.tsx (habit cards/week/month rows) and app/health.tsx (inline habits sub-section) not yet ported — this stays a leaf ahead of those two screens
  *   Data    → none
  */
 import React from 'react';

@@ -25,6 +25,12 @@
  *     any row's `follows_task_id` pointing at the task being deleted, in the same
  *     transaction as the delete). Don't delete a task via a raw query elsewhere
  *     without doing the same cleanup.
+ *   - `habits.notification_time` is dead (Decision 016 Q2 — `notification_times`
+ *     is the sole live source of truth; kept unread/unwritten per the never-drop-
+ *     columns rule, same precedent as `energy_logs`). `habits.reminder_mode`/
+ *     `reminder_count`/`reminder_interval_min`/`reminder_start`/`reminder_end`
+ *     (Decision 016 Q3) are editing metadata only — never used to recompute
+ *     `notification_times`, which stays authoritative for scheduling.
  */
 import * as SQLite from 'expo-sqlite';
 import { dateStr } from '@/lib/date';
@@ -430,6 +436,17 @@ export function initDb() {
     // Edit notes for the ON-DELETE-SET-NULL enforcement, since SQLite can't ALTER
     // TABLE to add a real FK here).
     "ALTER TABLE tasks ADD COLUMN follows_task_id TEXT DEFAULT NULL",
+    // Habit reminder editing recipe (Decision 016 Q3, storage shape 3B-ii) — metadata
+    // only, so a habit reopens in the mode that created it. notification_times stays
+    // the sole authoritative source for actual scheduling; these are never read back
+    // into it. Only meaningful when notification_enabled is true — null otherwise.
+    // The legacy notification_time column above is NOT read/written by the live store
+    // (Decision 016 Q2) and is kept only because columns are never dropped.
+    "ALTER TABLE habits ADD COLUMN reminder_mode TEXT DEFAULT NULL",
+    "ALTER TABLE habits ADD COLUMN reminder_count INTEGER DEFAULT NULL",
+    "ALTER TABLE habits ADD COLUMN reminder_interval_min INTEGER DEFAULT NULL",
+    "ALTER TABLE habits ADD COLUMN reminder_start TEXT DEFAULT NULL",
+    "ALTER TABLE habits ADD COLUMN reminder_end TEXT DEFAULT NULL",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

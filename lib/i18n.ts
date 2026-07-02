@@ -847,6 +847,10 @@ const en = {
       text: 'Just a title and a date — everything else is optional.',
       example: '',
     },
+    habitForm: {
+      text: 'Just a name — reminders and the cue→craving→response→reward steps are optional.',
+      example: '',
+    },
     shopping: {
       text: 'Add items as you run out — the list resets weekly.',
       example: '',
@@ -1698,6 +1702,10 @@ const no: typeof en = {
     },
     taskForm: {
       text: 'Bare tittel og dato — resten er valgfritt.',
+      example: '',
+    },
+    habitForm: {
+      text: 'Bare et navn — påminnelser og signal→trang→respons→belønning er valgfritt.',
       example: '',
     },
     shopping: {
