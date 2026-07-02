@@ -1179,6 +1179,70 @@ rationale (money glanceable via the total) is already served without it.
 **Unblocks:** Session A2·2 (shopping screen re-layout) — `ShoppingRow` is
 now the finished component the screen composes.
 
+## 2026-07-02 — Phase 3c remainder (WeekListCard): STOPPED before porting (Gate 2 unmet — Session A2·2 not run)
+
+**Status: STOPPED, flagged.** No source touched. `WeekListCard.tsx` not
+built, not mounted. `lib/shoppingGroups.ts` not pulled forward.
+
+**Gates checked first (per session brief):**
+1. Decision 017 (WeekListCard full-screen role) and Decision 011a
+   (dish/ingredient checkbox nesting, incl. R4) — both confirmed **Resolved**
+   as real structured entries in REBUILD_DECISIONS.md. MET.
+2. **Session A2·2 logged done (the screen this card mounts into exists) —
+   FAILED.** No PROGRESS_LOG entry exists for a Session A2·2 (shopping
+   screen re-layout: sticky header per A2-1, scrolling body, A2-4 history/
+   reset placement). `app/shopping.tsx` does not exist anywhere in this
+   repo — `app/` currently contains only `_layout.tsx`, `_scaffold-demo.tsx`,
+   `index.tsx`. The prior entry in this log (Session A2·1: ShoppingRow)
+   explicitly states it "**Unblocks:** Session A2·2 (shopping screen
+   re-layout)" as the *next* session to run, not one already completed.
+   `git log` on this branch confirms the same — the most recent commit is
+   the ShoppingRow port; nothing after it touches a shopping screen.
+3. `ExpandableCard`, `ShoppingRow` present in this repo — confirmed
+   (`components/ExpandableCard.tsx`, `components/ShoppingRow.tsx`). MET.
+
+**Why this stops the whole session:** scope item 3 of the brief requires
+mounting WeekListCard "into app/shopping.tsx where A2·2 left its slot" —
+that slot doesn't exist. Decision 017 itself defines WeekListCard's
+container role (list-level chrome minus the summary/progress block, which
+now lives in A2·2's sticky header) as something that composes against a
+screen-level sticky header that hasn't been built. Building WeekListCard's
+full-screen role now would mean silently inventing or pre-deciding A2·2's
+screen layout mid-session — exactly what this session's own gate
+instruction is designed to prevent.
+
+**Scope item 1 (verify NextTaskCard/NoteRow/MonthlyTableRow) — checked,
+already done:** all three are already ported and present in `components/`
+(logged complete 2026-07-01, "Phase 3c (partial): port un-gated cards &
+rows"). No action needed, no re-port performed.
+
+**Not done, so not evaluated this session:** WeekListCard build (container
+role, ExpandableCard convergence for ungrouped rows, dish-group 011a/R4
+derived-checkbox wiring), `lib/shoppingGroups.ts` pull-forward, mounting
+into `app/shopping.tsx`.
+
+**Left unresolved / next steps:**
+1. Session A2·2 (shopping screen re-layout: sticky compact header per A2-1,
+   scrolling body order, hint inline, shared-requests, collapsed
+   bought-history, reset-in-overflow per A2-4) needs to run and be logged
+   done in PROGRESS_LOG.md before this WeekListCard session can proceed.
+2. Once A2·2 lands: re-run this session's scope (WeekListCard build +
+   mount) against Decision 017 + 011a/R4 exactly as specified in the
+   original brief — no re-decision needed, only the missing precondition.
+
+**Out of scope, unaffected:** `PlanTaskCard` (→ Session B), real store logic
+(→ Phase 5) — untouched, as instructed. This entry does NOT close Phase 3c —
+the WeekListCard piece remains open pending Session A2·2.
+
+**Resolved by the next entry below:** this session ran in parallel with,
+and merged after, Session A2·2 (shopping screen re-layout) — which, on
+hitting the same missing-`app/shopping.tsx` blocker independently, absorbed
+WeekListCard's build into its own (user-expanded) scope rather than waiting
+on a separate session. `WeekListCard.tsx` and `lib/shoppingGroups.ts` are
+therefore already built — see "Session A2·2: Shopping screen re-layout —
+built" immediately below. Nothing further is needed from this entry's
+"next steps."
+
 ## 2026-07-02 — Session A2·2: Shopping screen re-layout — built (scope expanded)
 
 **Status: Complete, but well outside the session's original brief.** The brief's four
