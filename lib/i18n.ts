@@ -118,6 +118,16 @@ const en = {
   stepsLabel: 'Steps',
   stepPlaceholder: 'Add a step',
   deleteTask: 'Delete plan',
+  // Task form — "next-time hint" note field (Decision 019, freeform, display-only)
+  taskHintLabel: 'Next time…',
+  taskHintPlaceholder: 'e.g. Keep the charger in the top drawer',
+  // Task form — "then" follow-up link (Decision 020, one-to-one, surfacing-only)
+  thenTaskLabel: 'Then',
+  thenTaskNone: 'No follow-up task set',
+  thenTaskPick: '+ Pick a task',
+  thenTaskChange: 'Change',
+  thenTaskRemove: 'Remove link',
+  thenTaskEmptyList: 'No eligible tasks to link',
   // Task form — save confirmation (W-B). `day` is a localized reference (Today / Tomorrow / Monday…).
   taskSavedSimple: 'Saved ✓',
   taskSavedReminder: (time: string, day: string) => `Reminder set for ${time} on ${day} ✓`,
@@ -983,6 +993,16 @@ const no: typeof en = {
   stepsLabel: 'Steg',
   stepPlaceholder: 'Legg til et steg',
   deleteTask: 'Slett plan',
+  // Task form — "neste gang"-notat (Decision 019, fritekst, kun visning)
+  taskHintLabel: 'Neste gang…',
+  taskHintPlaceholder: 'f.eks. Legg laderen i den øverste skuffen',
+  // Task form — "så"-oppfølgingslenke (Decision 020, én-til-én, kun visning)
+  thenTaskLabel: 'Så',
+  thenTaskNone: 'Ingen oppfølgingsoppgave satt',
+  thenTaskPick: '+ Velg en oppgave',
+  thenTaskChange: 'Endre',
+  thenTaskRemove: 'Fjern lenke',
+  thenTaskEmptyList: 'Ingen aktuelle oppgaver å lenke',
   // Task form — lagringsbekreftelse (W-B). `day` er en lokalisert referanse (I dag / Imorgen / Mandag…).
   taskSavedSimple: 'Lagret ✓',
   taskSavedReminder: (time: string, day: string) => `Påminnelse satt til ${time} ${day} ✓`,
