@@ -2492,3 +2492,97 @@ shopping.tsx effect added **zero** new errors.
   bootstrap phase should hoist `initDb()` + startup store loads app-wide so screens
   other than shopping also persist; at that point the shopping-screen guard becomes a
   redundant (harmless) safety net.
+
+## 2026-07-02 — Decision 009 Session B: PlanTaskCard day-view BUILD + app/plans.tsx + follower/hint surfacing
+
+**Status: Complete.** BUILT the rail-based day-view (Decisions 009 / 009a / 009b), NOT a
+port of the old two-section drag stack. Read `REBUILD_DECISIONS.md` (009/009a/009b/014/018/
+019/020 + numbering reconciliation), `PROGRESS_LOG.md`, and both CLAUDE.md/AGENTS.md in full;
+read old `All-the-small-things` `app/plans.tsx` + `components/PlanTaskCard.tsx` for reference
+only (confirmed OLD two-section system — deliberately not ported), plus this repo's
+`DayTimeline`, `NextTaskCard`, `ExpandableCard`, `Surface`, `useTaskStore`.
+
+**Dependency gate — MET (checked first, per prompt):** the Phase 5 real `useTaskStore` +
+`task-form.tsx` (Decisions 018/019/020) is logged complete above, including the Decision 020
+`follows_task_id` column and `setFollower`/`followerCycleChain`. Session 1 also already
+ANSWERED Decision 020 open sub-question (b) — "pull the follower into today's view" (supersedes
+Decision 020's own "highlight in place" leaning). So no STOP/ASK was needed; built toward the
+recorded answer.
+
+**`components/PlanTaskCard.tsx` (new — the day-view, replaces the old meaning of this name):**
+Per Decision 009a "the Home preview IS the day-view, rendered read-only" — this is a single
+component, one `<Surface>` card, that both the full `/plans` screen (interactive) and the Home
+preview (`readOnly`) render. It is NOT the old accordion-per-task card and does NOT wrap
+`ExpandableCard` (009a's redesign supersedes Decision 009 #2's "PlanTaskCard wraps
+ExpandableCard" reference — the collapsed day-view still shows content, which ExpandableCard's
+hide-all-body accordion shape can't express; noted in ExpandableCard's header).
+- **Proportional rail (Option C):** connector height between two consecutive timed tasks =
+  real gap minutes × `PX_PER_MIN` (0.55), clamped `MIN_GAP`(14)…`MAX_GAP`(72). Distance ∝ time
+  without a long empty afternoon pushing the card off-screen. Anytime (untimed) tasks have no
+  rail position — plain dotted rows above the timed rail (same as DayTimeline).
+- **Collapsed = current + next + 2 after (4 rows):** the current/in-progress task always leads
+  (`nextTimedIndex`), then next+2; overdue-but-pending timed tasks before "current" collapse
+  away. "Show full day / Show less" toggle appears only when pending overflows the window and
+  not in readOnly.
+- **Gap state:** no task happening now but one coming → dashed marker "Nothing until HH:MM"
+  (`t.dayViewGapUntil`) leading, next task follows.
+- **Live now marker:** re-renders on 60s interval; inserted into the connector whose
+  time-window contains `now`, or the task dot fills accent when happening-now.
+- **Dimmed Done zone:** collapsed by default with its own chevron, `t.dayViewDoneZone(n)` count;
+  expands in place. All-done day shows gentle `t.dayViewAllDone`, empty day shows
+  `t.timelineEmpty`.
+- **Rail tail (Decision 009b):** `railTailMinutes()` = 10% of visible span (first timed start →
+  last unfinished end), floored at 15 min (the 009b-sanctioned execution guard, since on-device
+  measurement isn't available in this env — started from pure 10%). Rendered as a trailing
+  connector stub, `clamp(_, 10, MAX_GAP)` px.
+- **Decision 020 follower surfacing (surfacing-only):** for each DONE task, its pending follower
+  (`follower.followsTaskId === done.id`) is highlighted (3px accent dot ring + a "Then"
+  `t.dayViewFollowerBadge` chip) AND pulled into today's view even across dates — pass
+  `allTasks` (full store) so cross-date followers resolve. No notification, no scheduling.
+- **Decision 019 hint:** the task considered "up" (current or next) shows its `hint` under the
+  title (bulb icon, italic, display-only) — the reminder appears exactly when it's useful.
+- **Decision 014 accent bar:** card face is `<Surface surfaceContext="ambient">`; a 4px left
+  accent BAR (tinted `theme.featPlan`) is the only accent — no Surface border/sheen/fill tint,
+  matching the 008/014 contract.
+- **readOnly (Home preview):** disables done-toggle + row tap-through ONLY; structure, rail,
+  collapse, done zone identical (009a "one component, one behavior"). Optional `onSeeMore`
+  renders a "See everything →" (`t.seeEverythingLink`) link routing to the full screen.
+- Haptics via `lib/haptics` (`success` on complete, `tap` on collapse/done toggles).
+
+**`app/plans.tsx` (new — full Plans screen):** site-tier `ScreenScaffold` (BottomNav + header
+chrome), `HintCard`, the interactive `PlanTaskCard` (today's tasks + `allTasks` for cross-date
+followers), and an `AddFAB`. Rows tap through to `/task-form?id=…` (this also becomes the first
+real caller of the ported-ahead `task-form.tsx`); the dot checks off inline via `toggle()`; the
+FAB pushes `/task-form` for a new task. Loads settings + tasks on `useFocusEffect` (idempotent
+`initDb()` guarded by a module flag, same pattern as `shopping.tsx`). No Focus mode here — Focus
+mode is Home-only (Decisions 009 #4 / 018).
+
+**i18n (`lib/i18n.ts`, both en/no):** added `dayViewGapUntil(time)`, `dayViewDoneZone(n)`,
+`dayViewAllDone`, `dayViewFollowerBadge`. Reused existing `plansTitle`, `plansExpand`,
+`plansCollapse`, `timelineEmpty`, `timelineNow`, `seeEverythingLink`, `hints.plans.text`.
+
+**Headers updated (AGENTS.md "update as you go"):** `useTaskStore.ts` Used-by (added
+`PlanTaskCard.tsx` + `app/plans.tsx`); `ExpandableCard.tsx` (corrected the speculative
+"PlanTaskCard wraps ExpandableCard" note to record the 009a redesign divergence).
+
+**Home day-view preview alignment:** delivered as the `readOnly` capability on the single shared
+component (the alignment mechanism per 009a), NOT by assembling the Home screen — Home assembly
+is explicitly out of Session B scope (Decision 009 Session-B scoping). Home will mount
+`<PlanTaskCard readOnly onSeeMore=… />` in the Home phase; the component is ready for it.
+
+**Scope boundaries honored:** did NOT touch Notes/Shopping previews, Focus mode, or Home
+assembly. Left `components/DayTimeline.tsx` in place (still a valid agenda-strip component;
+`plans.tsx` uses `PlanTaskCard`, not `DayTimeline`).
+
+**Verification:** no remote toolchain (`node_modules` absent; `tsc` local-only per CLAUDE.md,
+Jest not required). Manual review only, per repo policy: matched existing `DayTimeline`/
+`ExpandableCard`/`NextTaskCard` idioms (token names, `useScaledStyles`, `useNowMinutes`,
+Surface `cardRow`+accent pattern) so no new token/API surface was invented. All new i18n keys
+added to both `en` and `no` (TS infers the dictionary type from `en`; `no` mirrors it).
+
+**Flagged for the Home phase (not built here):**
+- Mount `<PlanTaskCard readOnly allTasks={tasks} onSeeMore={→ /plans} />` inside the Home Plans
+  preview slot; gate with Focus mode per Decisions 009 #4 / 018.
+- A formal decision-log update is still worth filing so Decision 020's "highlight in place"
+  leaning text doesn't mislead a cold read now that sub-question (b) resolved to "pull into
+  today's view" (already flagged by Session 1; restated here since this session built to it).

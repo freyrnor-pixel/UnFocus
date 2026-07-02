@@ -9,8 +9,12 @@
  *   Imports → components/Surface, constants/theme, lib/useAppTheme
  *   Used by → components/WeekListCard.tsx (dish groups + collapsed "bought this week"
  *             history, uncontrolled), app/shopping.tsx (Monthly catalog dish groups);
- *             later Phase 3/6 sessions will also wire this into PlanTaskCard (controlled)
- *             and InboxSection/meals/health per Decision 009
+ *             later Phase 3/6 sessions may also wire this into InboxSection/meals/health
+ *             per Decision 009. NOTE: PlanTaskCard does NOT wrap ExpandableCard — Decision
+ *             009a redesigned the Plans preview into a bespoke proportional-rail day-view
+ *             (its collapsed state still shows content, which ExpandableCard's hide-all-body
+ *             accordion shape can't express), superseding Decision 009 #2's original
+ *             "PlanTaskCard wraps ExpandableCard" reference.
  *   Data    → driven by props; reads reducedMotion + scaled fontSize via useAccessibility()/useScaledStyles()
  *
  * Edit notes:
