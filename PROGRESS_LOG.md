@@ -894,3 +894,11 @@ REBUILD_PLAN.md ⚠-marker corrections and one new decision thread (017) result.
   to 009a/009b, not "resolve with user"); leave ShoppingRow ⚠ but note
   planning-resolved / R1 in-session; keep WeekListCard ⚠ pending Decision 017.
 - New decision thread 017 opened for WeekListCard's full-screen role.
+
+## 2026-07-02 — Planning: Decision 011a logged (OPEN) + 011 pointer
+Recorded Decision 011a (OPEN) — shopping dish/ingredient checkbox nesting,
+blocked on the pending read-only Steps investigation. Added a "See 011a"
+pointer under Decision 011. No source touched. Flagged for later reconciliation:
+"R4" and "R5" are referenced elsewhere but not defined in this log — R4 is
+folded into 011a pending the investigation; R5 (WeekListCard as Level-1
+container) remains undefined and needs its own entry.

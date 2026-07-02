@@ -438,6 +438,62 @@ temporary, centered modal) works and isn't part of the readability problem.
 - Order: A2·1 (row) before A2·2 (screen), so the screen re-layout composes the
   finished row.
 
+### Sub-decision
+- **See Decision 011a** — dish/ingredient checkbox nesting (whether a dish group
+  gets its own checkbox two-way bound to its ingredient rows). Split out of A2's
+  dish grouping; OPEN, blocked on a read-only Steps investigation.
+
+---
+
+## Decision 011a — Shopping list dish/ingredient checkbox nesting
+
+**Status:** OPEN — blocked on READ-ONLY investigation (see PROGRESS_LOG entry
+"task Steps parent/child checkbox state"). Do NOT build until resolved.
+**Parent:** Decision 011 (A2 shopping list overhaul). Sub-decision spun off from
+A2's dish grouping; does not supersede 011.
+**Source:** Follow-on from Decision 011's "From meals" dish grouping —
+lib/shoppingGroups.ts buckets ShoppingItems by dishName and WeekListCard renders
+each dish group as an uncontrolled ExpandableCard. Open question: does a dish
+group get its own checkbox bound to its ingredient rows' checked state.
+
+### Proposal on the table (NOT yet decided)
+Each dish group gets a checkbox two-way bound to its ingredient (ShoppingItem)
+checkboxes:
+- roll-up — all ingredients checked → dish checked
+- roll-down — dish checked → all ingredients checked
+- un-check directions specified only if a parent-checked state is adopted
+
+### Why Open, not Resolved
+The proposal's framing was "reuse the app's existing task Steps parent/child
+checkbox pattern rather than invent one." That assumes the pattern exists and
+binds two-way. Whether it does is exactly what the READ-ONLY investigation
+(I1–I4) checks, against useTaskStore / PlanTaskCard in this repo or the sibling
+All-the-small-things repo. Until findings land, the reuse clause is unverified.
+
+### Blocker
+READ-ONLY investigation of task Steps parent/child checkbox state (I1–I4).
+Findings append to PROGRESS_LOG.md. 011a cannot resolve until they are in.
+
+### Resolution tree (for the follow-up planning chat)
+- If a reusable two-way Steps pattern exists → adopt it; record which directions
+  it binds and derived-vs-stored, and mirror it rather than diverge.
+- If Steps are an independent immediate-persist checklist with no roll-up/roll-
+  down → no pattern to reuse. Decide fresh: (a) whether the dish checkbox exists
+  at all, (b) derived-vs-stored for the dish checked state.
+
+### Open under this decision (no coding session may pick these silently)
+- Whether the dish-level checkbox exists at all, or dishes stay display-only
+  groups with per-ingredient checkboxes only.
+- Derived vs. stored for the dish checked state.
+- Un-check semantics, if a parent-checked state is adopted.
+
+### Numbering note
+Filed as 011a (sub-decision of 011), consistent with the log's "012 is not 011"
+discipline. The Steps-investigation handoff references "011a" and "R4"; this
+entry is what "011a" points at. "R4" (derived-vs-stored) is NOT a defined ripple
+in this log — 011's ripples stop at R3 — so it is folded in here rather than
+left dangling, and gets its concrete definition when 011a resolves.
+
 ---
 
 ## Decision 001a — Focus-mode icon confirmed (Phase 1 flag closed)
