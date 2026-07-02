@@ -1,64 +1,84 @@
 /**
- * useShoppingStore.ts — Decision 015 stub: typed interface only, no store logic.
+ * useShoppingStore.ts — Katalog (permanent inventory) + Ukeliste (weekly working list)
  *
- * Declares the minimal add() contract Phase 3b's ShoppingQuickAddSheet needs,
- * and exports the ShoppingItem type UpdateSheet, MonthlyTableRow, and
- * ShoppingRow consume for their props, ahead of Phase 5's real shopping
- * store. Every action throws to make accidental real usage fail loudly
- * instead of silently no-op'ing — consumers must only call actions from
- * user-triggered handlers (onPress etc.), never unconditionally on mount,
- * or the screen will crash before Phase 5 lands. Reading state (items/trips)
- * is always safe — it just returns empty arrays.
+ * Zustand store for shopping items, all living in the single `shopping_items`
+ * table, driven by a single `status` pipeline:
+ *   'catalog' -> 'inWeeklyList' -> 'purchased'
+ * ('staged' is vestigial — staging is now tracked via the `pendingRestock` flag
+ * while status stays 'catalog'.) Katalog is the permanent household inventory;
+ * confirming the staging tray moves items to 'inWeeklyList'; doneShopping marks
+ * them 'purchased' and records a shopping_trips row; monthlyReset reverts
+ * non-temporary items to 'catalog' and purges trips + temporary rows.
+ *
+ * Phase 5 real port (2026-07-02) — replaces the Decision 015 typed-only stub.
+ * The port keeps the old app's logic but reconciles its EXPORTED shape to the
+ * stub contract every already-ported consumer (app/shopping.tsx + 8 components)
+ * compiles against, so no consumer churns:
+ *   - `MonthlyResetSummary.inventoryItems/adHocItems` are `ShoppingItem[]` (the
+ *     purchased rows themselves), matching MonthlyResetSummaryModal — the old
+ *     app's projected `MonthlyResetSummaryItem[]`/`generatedAt` shape is dropped.
+ *   - `update()` keeps the broad `Partial<Omit<ShoppingItem,'id'>>` signature the
+ *     store's own internals need; the stub's narrow patch is a subset, so callers
+ *     passing `{name,price,targetQuantity,isTemporary}` still typecheck.
+ *   - Old-only columns (listType/store/monthlyAllocated/monthlySourceId/weekKey)
+ *     stay on ShoppingItem as optional/legacy fields — additive, breaks nobody.
+ *
+ * Decisions applied by this port:
+ *   - Decision 021 — re-add increments (both paths). addToWeeklyFromCatalog no
+ *     longer OVERWRITES amount; if a matching inWeeklyList row already exists in
+ *     the target list it increments that row instead (leaving the standing
+ *     catalog row intact), matching add()'s increment semantics.
+ *   - Decision 022 — mergeItems(sourceId, targetId): sums the two rows' amounts
+ *     into the target (the dish row), adopts the target's dishName/group, and
+ *     deletes the source. New Phase-5 store action; the same-name gate + drag
+ *     wiring is the future shopping-row drag session's Phase-6 concern, not here.
  *
  * Connections:
- *   Imports → —
- *   Used by → components/ShoppingQuickAddSheet.tsx, components/UpdateSheet.tsx (type only),
- *             components/MonthlyTableRow.tsx (type only), components/ShoppingRow.tsx (type only),
- *             components/SharedRequestsSection.tsx (add only), components/WeekListCard.tsx (type only),
- *             components/MonthlyResetSummaryModal.tsx (MonthlyResetSummary type),
- *             lib/shoppingGroups.ts (type only), app/shopping.tsx (full surface)
- *   Data    → none — placeholder for Phase 5's real SQLite-backed store
+ *   Imports → lib/db, lib/dataAccess, lib/id
+ *   Used by → app/inventory-edit.tsx, app/shopping.tsx, components/ShoppingQuickAddSheet.tsx,
+ *             components/AddItemSheet.tsx (type), components/AddDishSheet.tsx (add), components/UpdateSheet.tsx (type),
+ *             components/MonthlyTableRow.tsx (type), components/ShoppingRow.tsx (type), components/WeekListCard.tsx (type),
+ *             components/SharedRequestsSection.tsx (add), components/MonthlyResetSummaryModal.tsx (MonthlyResetSummary),
+ *             components/Pet.tsx (type), lib/shoppingGroups.ts (type); app/_layout.tsx (future — startup load(), not wired yet)
+ *   Data    → defines a Zustand store; owns SQLite tables shopping_items + shopping_trips
  *
  * Edit notes:
- *   - Phase 5 must implement this store to satisfy ShoppingItemInput/ShoppingItem
- *     exactly as declared here (Decision 015). If the real store's needs differ,
- *     fix the contract there and re-typecheck the consuming sheets.
- *   - pendingRestock added for MonthlyTableRow (Phase 3c) — the old app's field
- *     flagging an item into the weekly staging tray, independent of `status`.
- *   - amount/unit/checked/collected/fromCatalog/inventoryQty added for Session A2·1's
- *     ShoppingRow (Phase 3c, 2026-07-02).
- *   - toggleCheck/toggleCollected/adjustAmount/putBackToInventory/removeWithSource/reorder
- *     added as typed-only action stubs for the same reason as above (Session A2·1).
- *   - **Session A2·2 extension (2026-07-02, expanded scope — see PROGRESS_LOG):** widened
- *     to the full old-app ShoppingItem/store surface so app/shopping.tsx (and the newly
- *     ported WeekListCard/SharedRequestsSection/MonthlyResetSummaryModal it composes)
- *     can typecheck. Added fields: dishName?, orderIndex?, listId?, status, purchasedAt?,
- *     shoppingTripId? — the last three power the Monthly-tab purchase history and
- *     computeListGroups()'s weekly filtering, none of which Session A2·1's row alone
- *     needed. Added state: items, trips. Added actions: update, addToWeeklyFromCatalog,
- *     setPendingRestock, confirmStagingTray, doneShopping, monthlyReset,
- *     buildMonthlyResetSummary, load. Added `getState()` (Zustand-shape) since the old
- *     screen calls `useShoppingStore.getState().load()` outside a component (after
- *     useShoppingListStore.advanceRecurringLists/instantiateTemplate write rows this
- *     store doesn't know about yet) — Phase 5 must implement it the same way. Same
- *     minimal-contract precedent as every other Decision 015 stub — mirrors the old
- *     app's useShoppingStore.ts signatures where a ported consumer reads them;
- *     `category` (old app field) dropped since nothing in this repo reads it yet.
- *   - **app/shopping.tsx deliberately does NOT call any action below from a mount-time
- *     effect** (unlike the old app's advanceRecurringLists/load()/automatic monthly-reset
- *     detection) — every one of them throws until Phase 5, and a mount-time throw would
- *     crash the whole screen. Only user-triggered handlers (onPress) call them, same
- *     accepted-safe pattern as AddItemSheet/UpdateSheet's existing buttons. The automatic
- *     recurring-list-advance and payday-boundary monthly-reset effects are flagged as a
- *     Phase 5 follow-up in PROGRESS_LOG, not silently dropped.
- *   - **Phase 3e extension (components/Pet.tsx):** re-added `category?: string`,
- *     optional — Session A2·2 dropped `category` as unread; Pet.tsx's food-chip
- *     mapping (constants/petData.ts's shoppingItemToFoodChip) is the first real
- *     reader, so it's back as an optional field rather than reopening the
- *     Session A2·2 contract. Pet also reads weekly-list membership via
- *     `status === 'inWeeklyList'` (this store's existing lifecycle field) instead
- *     of the old app's separate `listType` field, which this stub never carried.
+ *   - add() consolidates duplicates: same status+listId+name+dishName bumps the
+ *     existing row's targetQuantity (catalog) or amount (weekly) instead of
+ *     inserting — never assume add() creates a fresh row.
+ *   - collected = "checked off while in the cart" (distinct from checked = "moved
+ *     to cart"). fromCatalog = row originated from the standing Katalog; it drives
+ *     buildMonthlyResetSummary()'s inventory-vs-ad-hoc split — call it BEFORE
+ *     monthlyReset(), which clears the purchasedAt/shoppingTripId it reads.
+ *   - putBackToInventory(id) reverts ANY row to status='catalog' (clearing
+ *     checked/collected/pendingRestock) — used when removing a fromCatalog row
+ *     from the weekly list, since that row IS the user's permanent Katalog entry.
+ *   - listId/orderIndex let multiple inWeeklyList items coexist across dated lists;
+ *     doneShopping(listId,...) and add()'s dedup both scope by listId. Items never
+ *     carry listId once status='catalog'. reorder(id,dir) swaps orderIndex with
+ *     the adjacent same-listId item.
+ *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
+ *   - isTemporary purges on monthly reset; permanent catalog items are never
+ *     deleted by reset, only their status/pendingRestock move.
  */
+import { create } from 'zustand';
+import db from '@/lib/db';
+import {
+  Row,
+  FieldMap,
+  loadAll,
+  insertRow,
+  updateRow,
+  rowValues,
+  readStr,
+  readReal,
+  readInt,
+  readBool,
+} from '@/lib/dataAccess';
+import { generateId } from '@/lib/id';
+
+export type ShoppingStatus = 'catalog' | 'staged' /* vestigial: never written by new code; kept for old row compatibility */ | 'inWeeklyList' | 'purchased';
+
 export type ShoppingItem = {
   id: string;
   name: string;
@@ -78,14 +98,21 @@ export type ShoppingItem = {
   orderIndex?: number;
   /** Which Week list this row belongs to (status === 'inWeeklyList' rows only). */
   listId?: string;
-  /** 'catalog' | 'inWeeklyList' | 'purchased' — the row's lifecycle stage. */
-  status: string;
+  /** 'catalog' | 'staged' | 'inWeeklyList' | 'purchased' — the row's lifecycle stage. */
+  status: ShoppingStatus;
   /** ISO datetime stamped by doneShopping(); only set once status === 'purchased'. */
   purchasedAt?: string;
   /** Which shopping_trips row this purchase belongs to (status === 'purchased' rows only). */
   shoppingTripId?: string;
   /** Catalog category slug, used by Pet.tsx's food-chip emoji mapping. */
   category?: string;
+  // --- Legacy columns kept for backward read/write compatibility (additive; new code paths don't rely on them). ---
+  /** Vestigial weekly/monthly split — the status pipeline supersedes it, but the column still exists. */
+  listType?: 'weekly' | 'monthly';
+  store?: string;
+  monthlyAllocated?: number;
+  monthlySourceId?: string;
+  weekKey?: string;
 };
 
 export type ShoppingItemInput = {
@@ -106,6 +133,10 @@ export type ShoppingItemInput = {
 export type ShoppingTrip = {
   id: string;
   label: string;
+  completedAt: string;
+  monthResetDate: number;
+  /** The shopping_lists row this trip's purchases came from. */
+  listId?: string;
 };
 
 export type MonthlyResetSummary = {
@@ -115,58 +146,459 @@ export type MonthlyResetSummary = {
   adHocItems: ShoppingItem[];
 };
 
-type ShoppingStoreState = {
+type ShoppingStore = {
   items: ShoppingItem[];
   trips: ShoppingTrip[];
-  add: (item: ShoppingItemInput) => void;
-  update: (id: string, patch: { name: string; price: number; targetQuantity: number; isTemporary: boolean }) => void;
+  load: () => void;
+  add: (item: ShoppingItemInput) => string;
+  update: (id: string, patch: Partial<Omit<ShoppingItem, 'id'>>) => void;
   toggleCheck: (id: string) => void;
   toggleCollected: (id: string) => void;
   adjustAmount: (id: string, delta: number) => void;
   putBackToInventory: (id: string) => void;
+  remove: (id: string) => void;
   removeWithSource: (id: string) => void;
+  /** Swaps orderIndex with the adjacent item sharing the same listId (mirrors useHabitStore.reorder). */
   reorder: (id: string, direction: 'up' | 'down') => void;
-  addToWeeklyFromCatalog: (id: string, quantity: number, listId: string) => void;
+  /** Decision 022 — merge the source row into the target (dish) row: sum amounts, adopt target group, delete source. */
+  mergeItems: (sourceId: string, targetId: string) => void;
+  addToWeeklyFromCatalog: (id: string, quantity?: number, listId?: string) => void;
   setPendingRestock: (id: string, pending: boolean) => void;
   confirmStagingTray: () => void;
-  doneShopping: (listId: string, tripLabel: string, monthlyResetDate: number) => void;
+  doneShopping: (listId: string, label: string, monthResetDate: number) => string;
   monthlyReset: () => void;
   buildMonthlyResetSummary: () => MonthlyResetSummary;
-  load: () => void;
 };
 
-function notImplemented(): never {
-  throw new Error('useShoppingStore is a Phase 5 stub (Decision 015) — not implemented yet');
+function rowToItem(row: Row): ShoppingItem {
+  return {
+    id: readStr(row, 'id'),
+    name: readStr(row, 'name'),
+    amount: readStr(row, 'amount') || '1',
+    unit: readStr(row, 'unit'),
+    listType: (readStr(row, 'list_type', 'weekly') as 'weekly' | 'monthly'),
+    checked: readBool(row, 'checked'),
+    store: readStr(row, 'store'),
+    price: readReal(row, 'price'),
+    category: readStr(row, 'category') || 'other',
+    monthlyAllocated: readReal(row, 'monthly_allocated'),
+    monthlySourceId: readStr(row, 'monthly_source_id') || undefined,
+    inventoryQty: readReal(row, 'inventory_qty'),
+    dishName: readStr(row, 'dish_name') || undefined,
+    status: (readStr(row, 'status') || 'catalog') as ShoppingStatus,
+    isTemporary: readBool(row, 'is_temporary'),
+    purchasedAt: readStr(row, 'purchased_at') || undefined,
+    weekKey: readStr(row, 'week_key') || undefined,
+    pendingRestock: readBool(row, 'pending_restock'),
+    targetQuantity: readInt(row, 'target_quantity', 1),
+    shoppingTripId: readStr(row, 'shopping_trip_id') || undefined,
+    collected: readBool(row, 'collected'),
+    fromCatalog: readBool(row, 'from_catalog'),
+    listId: readStr(row, 'list_id') || undefined,
+    orderIndex: readInt(row, 'order_index'),
+  };
 }
 
-const state: ShoppingStoreState = {
+function rowToTrip(row: Row): ShoppingTrip {
+  return {
+    id: readStr(row, 'id'),
+    completedAt: readStr(row, 'completed_at'),
+    label: readStr(row, 'label'),
+    monthResetDate: readInt(row, 'month_reset_date', 1),
+    listId: readStr(row, 'list_id') || undefined,
+  };
+}
+
+/** Field → column mapping for shopping items (serialisers preserve the old INSERT/UPDATE nulls/booleans). */
+const ITEM_COLUMNS: FieldMap<ShoppingItem> = {
+  id: { col: 'id' },
+  name: { col: 'name' },
+  amount: { col: 'amount' },
+  unit: { col: 'unit' },
+  listType: { col: 'list_type', to: (v) => v ?? 'weekly' },
+  checked: { col: 'checked', to: (v) => (v ? 1 : 0) },
+  store: { col: 'store', to: (v) => v ?? '' },
+  price: { col: 'price' },
+  category: { col: 'category', to: (v) => v ?? 'other' },
+  monthlyAllocated: { col: 'monthly_allocated', to: (v) => v ?? 0 },
+  monthlySourceId: { col: 'monthly_source_id', to: (v) => v ?? null },
+  inventoryQty: { col: 'inventory_qty', to: (v) => v ?? 0 },
+  dishName: { col: 'dish_name', to: (v) => v ?? null },
+  status: { col: 'status' },
+  isTemporary: { col: 'is_temporary', to: (v) => (v ? 1 : 0) },
+  purchasedAt: { col: 'purchased_at', to: (v) => v ?? null },
+  weekKey: { col: 'week_key', to: (v) => v ?? null },
+  pendingRestock: { col: 'pending_restock', to: (v) => (v ? 1 : 0) },
+  targetQuantity: { col: 'target_quantity', to: (v) => v ?? 1 },
+  shoppingTripId: { col: 'shopping_trip_id', to: (v) => v ?? null },
+  collected: { col: 'collected', to: (v) => (v ? 1 : 0) },
+  fromCatalog: { col: 'from_catalog', to: (v) => (v ? 1 : 0) },
+  listId: { col: 'list_id', to: (v) => v ?? null },
+  orderIndex: { col: 'order_index', to: (v) => v ?? 0 },
+};
+
+/**
+ * One-time self-healing pass: merges rows that share status+name+dishName (the
+ * same key add()'s dedup safeguard checks) into a single row, summing amount
+ * (weekly/cart/purchased rows) or targetQuantity (catalog rows) and deleting the
+ * extras. Needed because that safeguard only stops *new* duplicates — rows
+ * created before it existed can still be sitting in the DB.
+ */
+function mergeDuplicateItems(items: ShoppingItem[]): ShoppingItem[] {
+  const groups = new Map<string, ShoppingItem[]>();
+  for (const item of items) {
+    const key = `${item.status}|${item.name.trim().toLowerCase()}|${item.dishName ?? ''}`;
+    const group = groups.get(key);
+    if (group) group.push(item);
+    else groups.set(key, [item]);
+  }
+
+  const result: ShoppingItem[] = [];
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      result.push(group[0]);
+      continue;
+    }
+    try {
+      const [keep, ...dupes] = [...group].sort((a, b) => a.id.localeCompare(b.id));
+      let amount = parseInt(keep.amount, 10) || 1;
+      let targetQuantity = keep.targetQuantity;
+      let price = keep.price;
+      for (const dupe of dupes) {
+        if (keep.status === 'catalog') {
+          targetQuantity += dupe.targetQuantity;
+        } else {
+          amount += parseInt(dupe.amount, 10) || 1;
+        }
+        if (dupe.price > 0) price = dupe.price;
+        db.runSync('DELETE FROM shopping_items WHERE id = ?', [dupe.id]);
+      }
+      const merged: ShoppingItem = { ...keep, amount: String(amount), targetQuantity, price };
+      updateRow('shopping_items', rowValues(merged, ITEM_COLUMNS), 'id = ?', [keep.id]);
+      result.push(merged);
+    } catch {
+      // Merge failed (e.g. mid-write error) — keep the rows as-is rather than losing data.
+      result.push(...group);
+    }
+  }
+  return result;
+}
+
+export const useShoppingStore = create<ShoppingStore>((set, get) => ({
   items: [],
   trips: [],
-  add: notImplemented,
-  update: notImplemented,
-  toggleCheck: notImplemented,
-  toggleCollected: notImplemented,
-  adjustAmount: notImplemented,
-  putBackToInventory: notImplemented,
-  removeWithSource: notImplemented,
-  reorder: notImplemented,
-  addToWeeklyFromCatalog: notImplemented,
-  setPendingRestock: notImplemented,
-  confirmStagingTray: notImplemented,
-  doneShopping: notImplemented,
-  monthlyReset: notImplemented,
-  buildMonthlyResetSummary: notImplemented,
-  load: notImplemented,
-};
 
-type ShoppingStoreHook = {
-  <T>(selector: (s: ShoppingStoreState) => T): T;
-  getState: () => ShoppingStoreState;
-};
+  load() {
+    const items = loadAll('shopping_items', rowToItem, { orderBy: 'status, name' });
+    set({
+      items: mergeDuplicateItems(items),
+      trips: loadAll('shopping_trips', rowToTrip, { orderBy: 'completed_at DESC' }),
+    });
+  },
 
-function useShoppingStoreImpl<T>(selector: (s: ShoppingStoreState) => T): T {
-  return selector(state);
-}
-useShoppingStoreImpl.getState = () => state;
+  add(item) {
+    const status = (item.status || 'catalog') as ShoppingStatus;
+    const targetQuantity = item.targetQuantity ?? 1;
 
-export const useShoppingStore: ShoppingStoreHook = useShoppingStoreImpl;
+    // Consolidate with an existing row of the same status/name/dish instead of
+    // creating a duplicate row — same item added twice becomes one row with an
+    // incremented amount (weekly/inventory-add) or target quantity (catalog-add).
+    const trimmedName = item.name.trim();
+    const existing = get().items.find(
+      (i) =>
+        i.status === status &&
+        i.listId === item.listId &&
+        i.name.trim().toLowerCase() === trimmedName.toLowerCase() &&
+        (i.dishName ?? undefined) === (item.dishName ?? undefined)
+    );
+    if (existing) {
+      const patch: Partial<Omit<ShoppingItem, 'id'>> =
+        status === 'catalog'
+          ? { targetQuantity: existing.targetQuantity + targetQuantity }
+          : { amount: String((parseInt(existing.amount, 10) || 1) + (parseInt(item.amount, 10) || 1)) };
+      if (item.price > 0) patch.price = item.price;
+      get().update(existing.id, patch);
+      return existing.id;
+    }
+
+    const id = generateId();
+    const isTemporary = item.isTemporary ?? false;
+    const fromCatalog = status === 'catalog';
+    const orderIndex = get().items.filter((i) => i.listId === item.listId).length;
+    const newItem: ShoppingItem = {
+      id,
+      name: trimmedName,
+      amount: item.amount,
+      unit: item.unit,
+      listType: (item.listType as 'weekly' | 'monthly') || 'weekly',
+      store: item.store,
+      price: item.price,
+      category: 'other',
+      monthlyAllocated: 0,
+      monthlySourceId: undefined,
+      inventoryQty: item.inventoryQty ?? 0,
+      dishName: item.dishName,
+      status,
+      isTemporary,
+      purchasedAt: undefined,
+      weekKey: undefined,
+      pendingRestock: false,
+      targetQuantity,
+      shoppingTripId: undefined,
+      checked: false,
+      collected: false,
+      fromCatalog,
+      listId: item.listId,
+      orderIndex,
+    };
+    insertRow('shopping_items', rowValues(newItem, ITEM_COLUMNS));
+    set((s) => ({ items: [...s.items, newItem] }));
+    return id;
+  },
+
+  update(id, patch) {
+    const item = get().items.find((i) => i.id === id);
+    if (!item) return;
+    const next = { ...item, ...patch };
+    updateRow('shopping_items', rowValues(patch, ITEM_COLUMNS), 'id = ?', [id]);
+    set((s) => ({ items: s.items.map((i) => (i.id === id ? next : i)) }));
+  },
+
+  toggleCheck(id) {
+    const item = get().items.find((i) => i.id === id);
+    if (!item) return;
+    const patch: Partial<Omit<ShoppingItem, 'id'>> = { checked: !item.checked };
+    // When unchecking a collected cart item, clear collected too so it
+    // doesn't silently re-enter the cart in a pre-collected state.
+    if (item.checked && item.collected) patch.collected = false;
+    get().update(id, patch);
+  },
+
+  toggleCollected(id) {
+    const item = get().items.find((i) => i.id === id);
+    if (!item) return;
+    get().update(id, { collected: !item.collected });
+  },
+
+  adjustAmount(id, delta) {
+    const item = get().items.find((i) => i.id === id);
+    if (!item) return;
+    const current = parseInt(item.amount, 10) || 1;
+    const next = Math.max(0, current + delta);
+    if (next === 0) {
+      get().removeWithSource(id);
+    } else {
+      get().update(id, { amount: String(next) });
+    }
+  },
+
+  putBackToInventory(id) {
+    const item = get().items.find((i) => i.id === id);
+    if (!item) return;
+    get().update(id, { status: 'catalog', checked: false, collected: false, pendingRestock: false });
+  },
+
+  remove(id) {
+    db.runSync('DELETE FROM shopping_items WHERE id = ?', [id]);
+    set((s) => ({ items: s.items.filter((i) => i.id !== id) }));
+  },
+
+  removeWithSource(id) {
+    const item = get().items.find((i) => i.id === id);
+    if (!item) return;
+
+    if (item.monthlySourceId) {
+      const qty = parseInt(item.amount, 10) || 1;
+      try {
+        db.runSync(
+          'UPDATE shopping_items SET monthly_allocated = MAX(0, monthly_allocated - ?) WHERE id = ?',
+          [qty, item.monthlySourceId]
+        );
+      } catch { /* ignore */ }
+      set((s) => ({
+        items: s.items.map((i) =>
+          i.id === item.monthlySourceId
+            ? { ...i, monthlyAllocated: Math.max(0, (i.monthlyAllocated ?? 0) - qty) }
+            : i
+        ),
+      }));
+    }
+
+    db.runSync('DELETE FROM shopping_items WHERE id = ?', [id]);
+    set((s) => ({ items: s.items.filter((i) => i.id !== id) }));
+  },
+
+  reorder(id, direction) {
+    const item = get().items.find((i) => i.id === id);
+    if (!item) return;
+    const sameList = get().items
+      .filter((i) => i.listId === item.listId)
+      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+    const idx = sameList.findIndex((i) => i.id === id);
+    if (idx < 0) return;
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= sameList.length) return;
+    const a = sameList[idx];
+    const b = sameList[swapIdx];
+    const aOrder = a.orderIndex ?? 0;
+    const bOrder = b.orderIndex ?? 0;
+    updateRow('shopping_items', { order_index: bOrder }, 'id = ?', [a.id]);
+    updateRow('shopping_items', { order_index: aOrder }, 'id = ?', [b.id]);
+    set((s) => ({
+      items: s.items.map((i) => {
+        if (i.id === a.id) return { ...i, orderIndex: bOrder };
+        if (i.id === b.id) return { ...i, orderIndex: aOrder };
+        return i;
+      }),
+    }));
+  },
+
+  /**
+   * Decision 022 — merge two rows drag-dropped onto each other. Sums the source
+   * row's amount into the target (dish) row and deletes the source. The target
+   * keeps its own dishName/group membership, so the merged row "joins the dish".
+   * The same-name gate and the drag hit-testing are the caller's concern (the
+   * future shopping-row drag session); this action just performs the merge.
+   */
+  mergeItems(sourceId, targetId) {
+    if (sourceId === targetId) return;
+    const source = get().items.find((i) => i.id === sourceId);
+    const target = get().items.find((i) => i.id === targetId);
+    if (!source || !target) return;
+    const summed = String((parseInt(target.amount, 10) || 1) + (parseInt(source.amount, 10) || 1));
+    get().update(target.id, { amount: summed });
+    get().remove(source.id);
+  },
+
+  /** "+" menu's "From inventory" — flips a catalog row into the weekly list.
+   *  Decision 021: if a matching weekly row already exists in this list, increment
+   *  it instead of flipping (which would overwrite the amount / duplicate the row);
+   *  the standing catalog row is left intact. */
+  addToWeeklyFromCatalog(id, quantity = 1, listId) {
+    const item = get().items.find((i) => i.id === id && i.status === 'catalog');
+    if (!item) return;
+    const qty = Math.max(1, quantity);
+    const existingWeekly = get().items.find(
+      (i) =>
+        i.status === 'inWeeklyList' &&
+        i.listId === listId &&
+        i.name.trim().toLowerCase() === item.name.trim().toLowerCase() &&
+        (i.dishName ?? undefined) === (item.dishName ?? undefined)
+    );
+    if (existingWeekly) {
+      get().update(existingWeekly.id, {
+        amount: String((parseInt(existingWeekly.amount, 10) || 1) + qty),
+      });
+      return;
+    }
+    get().update(id, { status: 'inWeeklyList', pendingRestock: false, amount: String(qty), listId });
+  },
+
+  /** Catalog checkbox press: flags an item for the staging tray without changing status. */
+  setPendingRestock(id, pending) {
+    get().update(id, { pendingRestock: pending });
+  },
+
+  /** Staging tray "Legg til i ukeliste" — commits every staged (pendingRestock) catalog item to the weekly list. */
+  confirmStagingTray() {
+    const staged = get().items.filter((i) => i.pendingRestock && i.status === 'catalog');
+    if (staged.length === 0) return;
+    db.runSync(
+      "UPDATE shopping_items SET status = 'inWeeklyList', pending_restock = 0 WHERE pending_restock = 1 AND status = 'catalog'"
+    );
+    set((s) => ({
+      items: s.items.map((i) =>
+        i.pendingRestock && i.status === 'catalog'
+          ? { ...i, status: 'inWeeklyList' as const, pendingRestock: false }
+          : i
+      ),
+    }));
+  },
+
+  /** "Handlingen fullført" — creates a shopping_trips row and marks every inWeeklyList item in `listId` purchased. */
+  doneShopping(listId, label, monthResetDate) {
+    const tripId = generateId();
+    const now = new Date().toISOString();
+    insertRow('shopping_trips', {
+      id: tripId,
+      completed_at: now,
+      label,
+      month_reset_date: monthResetDate,
+      list_id: listId,
+    });
+    db.runSync(
+      "UPDATE shopping_items SET status = 'purchased', purchased_at = ?, shopping_trip_id = ?, checked = 0, collected = 0 WHERE status = 'inWeeklyList' AND list_id = ?",
+      [now, tripId, listId]
+    );
+    const trip: ShoppingTrip = { id: tripId, completedAt: now, label, monthResetDate, listId };
+    set((s) => ({
+      trips: [trip, ...s.trips],
+      items: s.items.map((i) =>
+        i.status === 'inWeeklyList' && i.listId === listId
+          ? { ...i, status: 'purchased' as const, purchasedAt: now, shoppingTripId: tripId, checked: false, collected: false }
+          : i
+      ),
+    }));
+    return tripId;
+  },
+
+  /**
+   * Monthly reset, per the redesign's contract:
+   *  1. Detach every trip's purchased items back to 'catalog' (clear trip refs), delete all trips.
+   *  2. Delete all isTemporary=1 items outright.
+   *  3. Clear pendingRestock on everything left.
+   *  4. Revert any remaining 'inWeeklyList' item to 'catalog'.
+   *  5. Permanent catalog items are never deleted — only their status/flags move.
+   */
+  monthlyReset() {
+    db.runSync(
+      "UPDATE shopping_items SET status = 'catalog', shopping_trip_id = NULL, purchased_at = NULL, checked = 0, collected = 0 WHERE shopping_trip_id IS NOT NULL"
+    );
+    db.runSync('DELETE FROM shopping_trips');
+    db.runSync('DELETE FROM shopping_items WHERE is_temporary = 1');
+    db.runSync('UPDATE shopping_items SET pending_restock = 0');
+    db.runSync("UPDATE shopping_items SET status = 'catalog', checked = 0, collected = 0 WHERE status = 'inWeeklyList'");
+
+    set((s) => ({
+      trips: [],
+      items: s.items
+        .filter((i) => !i.isTemporary)
+        .map((i) => {
+          if (i.shoppingTripId || i.status === 'inWeeklyList') {
+            return { ...i, status: 'catalog' as const, shoppingTripId: undefined, purchasedAt: undefined, pendingRestock: false, checked: false, collected: false };
+          }
+          return { ...i, pendingRestock: false };
+        }),
+    }));
+  },
+
+  /**
+   * Snapshot for the monthly reset summary — must be called BEFORE monthlyReset(),
+   * since that mutates/clears the very purchasedAt/shoppingTripId fields this reads.
+   * inventoryItems/adHocItems are the purchased ShoppingItem rows themselves
+   * (already chronologically sorted), matching MonthlyResetSummaryModal's contract.
+   */
+  buildMonthlyResetSummary() {
+    const items = get().items;
+    const lineTotal = (i: ShoppingItem) => i.price * (parseInt(i.amount, 10) || 1);
+    const byPurchasedAt = (a: ShoppingItem, b: ShoppingItem) =>
+      (a.purchasedAt ?? '').localeCompare(b.purchasedAt ?? '');
+
+    const purchased = items.filter((i) => i.status === 'purchased');
+    const inventoryPurchased = purchased.filter((i) => i.fromCatalog).sort(byPurchasedAt);
+    const adHocPurchased = purchased.filter((i) => !i.fromCatalog).sort(byPurchasedAt);
+
+    // "Full inventory list" value = everything that's part of the standing Katalog
+    // right now (status='catalog') plus catalog-sourced rows currently checked out
+    // for this trip (inWeeklyList/purchased, same row, fromCatalog carries over).
+    const inventoryUniverse = items.filter((i) => !i.isTemporary && (i.status === 'catalog' || i.fromCatalog));
+    const inventoryTotalValue = inventoryUniverse.reduce((sum, i) => sum + i.price * i.targetQuantity, 0);
+
+    return {
+      inventorySpent: inventoryPurchased.reduce((sum, i) => sum + lineTotal(i), 0),
+      inventoryTotalValue,
+      inventoryItems: inventoryPurchased,
+      adHocItems: adHocPurchased,
+    };
+  },
+}));
