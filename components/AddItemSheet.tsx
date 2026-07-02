@@ -16,7 +16,7 @@
  *   Imports → components/FormControls, components/PressableScale, components/Surface,
  *             constants/theme, lib/i18n, lib/useAppTheme, store/useCatalogStore,
  *             react-native-reanimated
- *   Used by → (not yet mounted — Phase 5 screens: app/shopping.tsx, app/inventory-edit.tsx)
+ *   Used by → app/shopping.tsx (catalog + weekly add); app/inventory-edit.tsx not yet ported
  *   Data    → none directly — creation flows out via onAdd; the parent calls
  *             useShoppingStore.add(). Reads useCatalogStore.suggest() (read-only,
  *             Phase 5 stub per Decision 015/015a) for the name-field autocomplete.

@@ -14,11 +14,21 @@
  *   Data    → none (presentational; all logic in child screens)
  *
  * Edit notes:
- *   - Layer order is critical: L1 background → L2 particles → L3 content → L4 top block → L5 bottom block
+ *   - Layer order is critical: L1 background → L2 particles → L3 content → L4 top block →
+ *     L4.5 optional sticky-below-header block → L5 bottom block
  *   - ParticleBackground gating (particlesEnabled + reducedMotion) happens inside the component
  *   - Top and bottom blocks float above content with translucency — content scrolls behind them
  *   - SafeAreaView handles insets; blocks are positioned absolutely
  *   - isHome=true mounts HomeHeroBackground; false uses ScreenBackground
+ *   - **stickyBelowHeader (added 2026-07-02, Session A2·2)**: optional screen-owned chrome
+ *     pinned directly under the header block, e.g. app/shopping.tsx's Decision 011 A2-1
+ *     per-list summary/progress bar. Additive, backward-compatible — omit both props and a
+ *     screen renders exactly as before. Uses the same absolute-positioned float pattern as
+ *     the header/bottom-nav blocks (not ScrollView's `stickyHeaderIndices`, which would sit
+ *     underneath the already-absolutely-positioned header). `stickyBelowHeaderHeight` must
+ *     match the rendered content's actual height — it drives the ScrollView's top content
+ *     padding so the first real content item isn't permanently hidden under the two floating
+ *     blocks (mirrors the header's own float, which every current screen already accepts).
  */
 import React from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
@@ -38,6 +48,10 @@ type Props = {
   isHome?: boolean;
   onBack?: () => void;
   headerRight?: React.ReactNode;
+  /** Optional chrome pinned directly under the header block (e.g. a sticky summary bar). */
+  stickyBelowHeader?: React.ReactNode;
+  /** Rendered height of `stickyBelowHeader` — required whenever that prop is passed. */
+  stickyBelowHeaderHeight?: number;
 };
 
 export default function ScreenScaffold({
@@ -47,6 +61,8 @@ export default function ScreenScaffold({
   isHome = false,
   onBack,
   headerRight,
+  stickyBelowHeader,
+  stickyBelowHeaderHeight = 0,
 }: Props) {
   const theme = useAppTheme();
 
@@ -69,6 +85,7 @@ export default function ScreenScaffold({
         style={styles.scrollView}
         contentContainerStyle={[
           styles.contentContainer,
+          !!stickyBelowHeader && { paddingTop: stickyBelowHeaderHeight },
           tier === 'site' && { paddingBottom: BOTTOM_NAV_HEIGHT },
         ]}
         scrollIndicatorInsets={{
@@ -87,6 +104,13 @@ export default function ScreenScaffold({
           headerRight={headerRight}
         />
       </View>
+
+      {/* L4.5: optional sticky-below-header block (e.g. a screen-owned summary bar) */}
+      {stickyBelowHeader && (
+        <View style={[styles.stickyBlock, { top: HEADER_HEIGHT, height: stickyBelowHeaderHeight }]}>
+          {stickyBelowHeader}
+        </View>
+      )}
 
       {/* L5: Bottom block (BottomNav, site-tier only) */}
       {tier === 'site' && (
@@ -114,6 +138,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100,
+  },
+  stickyBlock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 99,
   },
   bottomBlock: {
     position: 'absolute',

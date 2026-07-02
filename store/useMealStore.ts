@@ -8,7 +8,9 @@
  *
  * Connections:
  *   Imports → —
- *   Used by → components/AddDishSheet.tsx
+ *   Used by → components/AddDishSheet.tsx, app/shopping.tsx (dishes prop into
+ *             WeekListCard's "From meals" groups; WeekListCard itself only imports the
+ *             Dish type, the hook call lives in the screen)
  *   Data    → none — placeholder for Phase 5's real SQLite-backed store
  *
  * Edit notes:

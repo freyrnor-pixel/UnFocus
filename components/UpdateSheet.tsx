@@ -10,7 +10,7 @@
  * Connections:
  *   Imports → components/FormControls, components/PressableScale, components/Surface,
  *             constants/theme, lib/i18n, lib/useAppTheme, store/useShoppingStore (type only)
- *   Used by → (not yet mounted — Phase 5 screens: app/shopping.tsx, app/inventory-edit.tsx)
+ *   Used by → app/shopping.tsx (Monthly catalog row edit); app/inventory-edit.tsx not yet ported
  *   Data    → none directly — all mutations flow out via onSave/onDelete callbacks; the
  *             parent calls useShoppingStore.update()/removeWithSource() (Phase 5)
  *

@@ -37,9 +37,12 @@ Phase order. One phase per Claude Code session. Don't batch.
      gated on Phase 3d landing first — a prior attempt STOPPED because its
      drag-reorder primitive, DraggableTaskRow, isn't ported into this repo
      yet. Run 3d before Session A2·1, not after. See Decision 011 R1.),
-     WeekListCard ⚠ (full-screen container role now RESOLVED by Decision 017
-     — unblocked for its 3c port; also carries Decision 011a's R4 dish-group
-     checkbox wiring, resolved 2026-07-02), NextTaskCard, NoteRow,
+     WeekListCard ✅ **DONE** (built 2026-07-02 during Session A2·2, out of
+     plan order — see PROGRESS_LOG. Built fresh against Decision 017, not a
+     port of the old Container-wrapped version; Container.tsx itself was NOT
+     ported, superseded by ExpandableCard per Decision 009. Decision 011a's
+     R4 dish-group checkbox wiring was NOT re-touched — dish groups render
+     read-only rows, still a follow-up), NextTaskCard, NoteRow,
      MonthlyTableRow. Only the un-gated rows are plain ports; the ⚠ items
      route to their dedicated sessions.
    - **3d — Timeline & interaction.** DayTimeline, DraggableTaskRow,
@@ -51,9 +54,12 @@ Phase order. One phase per Claude Code session. Don't batch.
    - **3e — Icons, pickers, misc leaves.** HabitIcon, InventoryIcon,
      GradientSwatch, HuePicker, SwatchPicker, QRCodeDisplay, SaveButton,
      StickySaveBar, InboxSection (⚠ Decision 009 Session A refactor —
-     Surface→ExpandableCard + inline note edit), SharedRequestsSection,
-     SavedListsModal, MonthlyResetSummaryModal, Pet, SiteSwipeView,
-     DebugOverlay.
+     Surface→ExpandableCard + inline note edit), SharedRequestsSection ✅
+     **DONE**, SavedListsModal ✅ **DONE**, MonthlyResetSummaryModal ✅
+     **DONE** (all three built 2026-07-02 during Session A2·2, out of plan
+     order, needed by app/shopping.tsx — see PROGRESS_LOG; the two modals
+     were rebuilt on `<Surface surfaceContext="overlay">`, not ported as
+     literal `Shadow.fab` Views), Pet, SiteSwipeView, DebugOverlay.
 
    Scope each sub-phase only when the prior one is logged done in
    PROGRESS_LOG.md. Do NOT pre-write 3c–3e prompts. Where a component is
@@ -67,8 +73,11 @@ Phase order. One phase per Claude Code session. Don't batch.
 6. **Screens (smallest/most independent first → onboarding last):**
    - Self-contained forms: task-form.tsx, habit-form.tsx, inventory-edit.tsx
    - Single-purpose: plans.tsx, capture.tsx, share-modal.tsx, notes.tsx
-   - Mid-complexity sites: shopping.tsx, habits.tsx, meals.tsx, health.tsx,
-     budget.tsx, scan.tsx, automations.tsx, shared.tsx
+   - Mid-complexity sites: shopping.tsx ✅ **DONE** (built 2026-07-02 during
+     Session A2·2, out of plan order — see PROGRESS_LOG; stores are still
+     Phase 5 stubs, so the screen renders but nothing persists yet),
+     habits.tsx, meals.tsx, health.tsx, budget.tsx, scan.tsx, automations.tsx,
+     shared.tsx
    - Home: index.tsx
    - Onboarding last: app/onboarding/*
 
