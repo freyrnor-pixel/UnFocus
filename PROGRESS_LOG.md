@@ -902,3 +902,55 @@ pointer under Decision 011. No source touched. Flagged for later reconciliation:
 "R4" and "R5" are referenced elsewhere but not defined in this log — R4 is
 folded into 011a pending the investigation; R5 (WeekListCard as Level-1
 container) remains undefined and needs its own entry.
+
+## 2026-07-02 — S0: task Steps parent/child checkbox investigation (READ-ONLY, I1–I4)
+Investigated task Steps (`useTaskStore.ts` / `PlanTaskCard.tsx`) in the
+All-the-small-things repo (source of truth — the UnFocus rebuild's stub
+`useTaskStore.ts` has no `steps` field yet, only the Decision 015 minimal
+`toggle()` contract). No source touched in either repo.
+
+- **I1 — Does a Steps checklist exist, and where.** Yes.
+  `All-the-small-things/store/useTaskStore.ts` defines `TaskStep` (`id`,
+  `taskId`, `title`, `done`, `orderIndex`) backed by a separate `task_steps`
+  SQLite table (own migration, own index). Rendered in
+  `components/PlanTaskCard.tsx` (lines ~430–494) and `app/task-form.tsx`
+  (~447+) as a checklist under the task, with add/toggle/remove/reorder rows.
+
+- **I2 — Is it two-way bound to the parent task's done state (roll-up /
+  roll-down)?** No. `toggle(id)` (the task-level done toggle,
+  `useTaskStore.ts:191`) calls `get().update(id, { done: willBeDone })` and
+  fires the `task_completed` automation trigger — it never reads or writes
+  `task.steps`. Conversely `toggleStep(id)` (`useTaskStore.ts:240`) finds the
+  owning task, flips only that one step's `done` via
+  `updateRow('task_steps', ...)`, and never reads or writes the owning
+  task's `done`. No roll-up (all steps done → task done) or roll-down (task
+  done → all steps done) logic exists anywhere in the store, `PlanTaskCard.tsx`,
+  or `task-form.tsx`. The two `done` booleans are written by completely
+  disjoint code paths.
+
+- **I3 — Derived vs. stored.** Both are stored, independently. Step `done`
+  persists immediately to `task_steps.done` on every `toggleStep()` call (no
+  draft/save gate — confirmed by the file header's own note: "steps persist
+  straight to SQLite on every change"). Task `done` persists to `tasks.done`
+  via the separate `update()`/`toggle()` path. Neither is computed from the
+  other at read time (no derivation in `load()`'s row-grouping either — it
+  just attaches `steps: byTask.get(t.id) ?? []` to each task, no aggregation).
+
+- **I4 — Any other parent/child checkbox precedent in the old repo, in case
+  Steps isn't the only candidate?** Checked `useMealStore` / `app/meals.tsx`'s
+  dish→ingredients relationship, since `PlanTaskCard.tsx`'s own comment cites
+  it as steps' style precedent ("mirrors app/meals.tsx's ingredient list").
+  It is not a checkbox pattern at all — dish ingredients are a recipe list
+  collected at dish-creation time with no `done`/checked field anywhere on
+  `Ingredient`. No other dish/ingredient or group/item checkbox nesting
+  exists anywhere else in the old repo. Steps was the only candidate, and it
+  has no two-way binding to reuse.
+
+**Conclusion for Decision 011a:** lands on the resolution tree's "no
+reusable pattern" branch — "Steps are an independent immediate-persist
+checklist with no roll-up/roll-down." Per that branch, 011a's three
+remaining open questions (dish-checkbox-exists-at-all, derived-vs-stored for
+the dish state, un-check semantics if adopted) must be decided fresh, not
+copied from an existing pattern, and Decision 011a itself already flags them
+as "no coding session may pick these silently." No source touched; this
+entry is read-only per S0's scope.
