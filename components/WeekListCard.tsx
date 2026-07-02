@@ -13,8 +13,8 @@
  * Connections:
  *   Imports → components/AddDivider, components/ExpandableCard, components/IconButton,
  *             components/Surface, components/ShoppingRow (CHECKED_OPACITY), constants/theme,
- *             lib/i18n, lib/shoppingGroups (listProgress), lib/useAppTheme, lib/haptics,
- *             store/useShoppingListStore (ShoppingList type), store/useShoppingStore
+ *             lib/i18n, lib/shoppingGroups (listProgress, dishGroupAllChecked), lib/useAppTheme,
+ *             lib/haptics, store/useShoppingListStore (ShoppingList type), store/useShoppingStore
  *             (ShoppingItem type), store/useMealStore (Dish type)
  *   Used by → app/shopping.tsx
  *   Data    → none directly — every item/group/callback is owned by the parent
@@ -64,6 +64,16 @@
  *     (dims remove/move/stepper; checkmark/collect/undo stay interactive regardless), and
  *     the AddDivider below "Shopping list" is disabled via its own `disabled` prop — but
  *     "Shopping done!" is NEVER lock-gated (finishing a trip isn't an edit).
+ *   - Decision 011a/R4 wiring (2026-07-02, Phase 4): each dish-group ExpandableCard now
+ *     renders a checkbox in `rightAction` reading `dishGroupAllChecked(groupItems)` (derived,
+ *     never stored — 011a decision #2) and calling the new `onToggleDish` prop on tap. The
+ *     parent (app/shopping.tsx) owns the actual bulk-toggle: check every unchecked ingredient
+ *     if not all are checked, uncheck every ingredient if all are (011a decision #1/#3 — no
+ *     separate "un-check" case, it's the same roll-down write). This was flagged as
+ *     out-of-scope during Session A2·2 ("dish groups render read-only ingredient rows, no
+ *     parent/child checkbox binding attempted") despite R4 naming this card's dish-group
+ *     session as the intended owner — closed here since the wiring only needed this
+ *     component + `lib/shoppingGroups.ts`, no new decision.
  */
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -73,13 +83,14 @@ import { Dish } from '@/store/useMealStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { listProgress } from '@/lib/shoppingGroups';
+import { listProgress, dishGroupAllChecked } from '@/lib/shoppingGroups';
 import Surface from '@/components/Surface';
 import IconButton from '@/components/IconButton';
 import ExpandableCard from '@/components/ExpandableCard';
 import AddDivider from '@/components/AddDivider';
 import PressableScale from '@/components/PressableScale';
 import ShoppingRow, { CHECKED_OPACITY } from '@/components/ShoppingRow';
+import { Ionicons } from '@expo/vector-icons';
 
 type Props = {
   list: ShoppingList;
@@ -95,6 +106,8 @@ type Props = {
   onOpenListSettings: () => void;
   onDelete: () => void;
   onToggleItem: (item: ShoppingItem) => void;
+  /** Decision 011a/R4 bulk toggle: check all if not all are checked, uncheck all if all are. */
+  onToggleDish: (items: ShoppingItem[]) => void;
   onCollectItem: (item: ShoppingItem) => void;
   onRemoveItem: (item: ShoppingItem) => void;
   onIncrementItem: (item: ShoppingItem) => void;
@@ -119,6 +132,7 @@ export default function WeekListCard({
   onOpenListSettings,
   onDelete,
   onToggleItem,
+  onToggleDish,
   onCollectItem,
   onRemoveItem,
   onIncrementItem,
@@ -212,8 +226,30 @@ export default function WeekListCard({
             {dishGroups.map(([dishName, groupItems]) => {
               const dish = dishes.find((d) => d.name === dishName);
               const subtitle = t.ingredientsCount(groupItems.length);
+              const allChecked = dishGroupAllChecked(groupItems);
               return (
-                <ExpandableCard key={dishName} title={dishName} subtitle={subtitle} accentColor={theme.good} defaultOpen={false}>
+                <ExpandableCard
+                  key={dishName}
+                  title={dishName}
+                  subtitle={subtitle}
+                  accentColor={theme.good}
+                  defaultOpen={false}
+                  rightAction={
+                    <Pressable
+                      style={[
+                        styles.dishCheck,
+                        allChecked ? { backgroundColor: theme.good, borderColor: theme.good } : { borderColor: theme.good },
+                      ]}
+                      onPress={() => onToggleDish(groupItems)}
+                      accessibilityRole="checkbox"
+                      accessibilityLabel={t.dishCheckAllLabel}
+                      accessibilityState={{ checked: allChecked }}
+                      hitSlop={6}
+                    >
+                      {allChecked && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
+                    </Pressable>
+                  }
+                >
                   {groupItems.map((item, idx) => (
                     <View key={item.id}>
                       <ShoppingRow
@@ -282,11 +318,11 @@ export default function WeekListCard({
         <PressableScale
           style={[
             styles.doneShoppingBtn,
-            { backgroundColor: theme.good, opacity: checked.length === 0 ? CHECKED_OPACITY : 1 },
+            { backgroundColor: theme.good, opacity: progress.inCart === 0 ? CHECKED_OPACITY : 1 },
           ]}
           onPress={onDoneShopping}
-          disabled={checked.length === 0}
-          pointerEvents={checked.length === 0 ? 'none' : 'auto'}
+          disabled={progress.inCart === 0}
+          pointerEvents={progress.inCart === 0 ? 'none' : 'auto'}
         >
           <Text style={[styles.doneShoppingText, { color: theme.textInverse }]}>{t.doneShoppingBtn}</Text>
         </PressableScale>
@@ -321,6 +357,14 @@ const baseStyles = StyleSheet.create({
   sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, borderLeftWidth: 3 },
   rowDivider: { height: 1 },
+  dishCheck: {
+    width: 20,
+    height: 20,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   doneShoppingBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', minHeight: 44 },
   doneShoppingText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 });
