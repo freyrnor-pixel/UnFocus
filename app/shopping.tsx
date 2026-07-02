@@ -65,13 +65,16 @@
  *     snapshot is captured once at drag-start from each row's last-measured layout; it
  *     does not re-measure mid-drag, so it's an approximation, not pixel-perfect —
  *     reasonable for a first cut given no live-app verification is available this session.
- *   - **Store stubs are Phase 5 (Decision 015) — every action throws.** This screen never
- *     calls a store action from a mount-time effect (unlike the old app's
- *     advanceRecurringLists/load()/automatic payday-boundary monthly-reset detection,
- *     none of which are wired here — flagged as a Phase 5 follow-up in PROGRESS_LOG, not
- *     silently dropped). Every action call site here is a user-triggered handler
- *     (onPress/onSubmitEditing/drag-end), the same accepted-safe pattern every other
- *     already-shipped sheet in this repo already uses.
+ *   - **Mount-time store hydration (Phase 5, 2026-07-02):** the on-focus effect now
+ *     initialises the DB (idempotent, once per app session via the module-level
+ *     `dbBootstrapped` guard — the app still has no global bootstrap; _layout is the
+ *     Phase 1 scaffold), hydrates the settings/shopping/list stores, runs
+ *     advanceRecurringLists(today) (re-loading shopping items after, since it writes
+ *     shopping_items rows directly), and performs the automatic payday-boundary
+ *     monthly-reset detection (buildMonthlyResetSummary BEFORE monthlyReset, then
+ *     persists lastMonthlyReset). This replaces the earlier stub-era note that said no
+ *     store action is called from a mount-time effect — useShoppingStore /
+ *     useShoppingListStore are now real Phase-5 stores, not throwing Decision 015 stubs.
  *   - **Dropped from the old screen, flagged not silently absorbed**: the header's Share
  *     pill (site-tier ScreenHeader has no custom-right slot — only sub-tier does); the
  *     'shopping_opened' automation trigger (useAutomationStore doesn't exist in this repo);
@@ -130,8 +133,17 @@ import { todayStr, dateStr, getWeekRangeContaining } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { groupByDish, computeListGroups, listProgress } from '@/lib/shoppingGroups';
+import { initDb } from '@/lib/db';
 
 type Tab = 'weekly' | 'catalog';
+
+/**
+ * One-time-per-app-session DB init guard. The app has no global bootstrap yet
+ * (_layout.tsx is still the Phase 1 scaffold), so the first screen that needs
+ * persistence initialises the schema. initDb() is idempotent, but this avoids
+ * re-running the full CREATE/migrate pass on every screen focus.
+ */
+let dbBootstrapped = false;
 
 /** What a tapped inline "+" should add to: a specific Week list, or the Monthly catalog. */
 type AddItemTarget = { origin: 'weekly'; listId: string } | { origin: 'catalog' };
@@ -219,6 +231,11 @@ export default function ShoppingScreen() {
   const instantiateTemplate = useShoppingListStore((s) => s.instantiateTemplate);
   const addList = useShoppingListStore((s) => s.add);
   const removeList = useShoppingListStore((s) => s.remove);
+  const advanceRecurringLists = useShoppingListStore((s) => s.advanceRecurringLists);
+  const loadLists = useShoppingListStore((s) => s.load);
+  const loadShopping = useShoppingStore((s) => s.load);
+  const loadSettings = useSettingsStore((s) => s.load);
+  const updateSettings = useSettingsStore((s) => s.update);
 
   const nonTemplateLists = useMemo(() => lists.filter((l) => !l.isTemplate), [lists]);
   const templateLists = useMemo(() => lists.filter((l) => l.isTemplate), [lists]);
@@ -227,17 +244,60 @@ export default function ShoppingScreen() {
     [nonTemplateLists, focusedListId]
   );
 
-  // Close both add sheets on every focus transition — mirrors the old app's rationale:
-  // the receipt pop-up's Scan/Upload choices would otherwise leave a sheet open behind
-  // whatever screen it pushed to. No /scan push exists yet, but the reset-on-blur is
-  // still correct behavior for any other bypass of the normal close path.
+  // Persistence bootstrap + mount-time store hydration (Phase 5). Runs on every
+  // focus; also closes both add sheets on blur (mirrors the old app: the receipt
+  // pop-up's Scan/Upload choices would otherwise leave a sheet open behind
+  // whatever screen it pushed to — no /scan push exists yet, but the reset is
+  // still correct for any other bypass of the normal close path).
   useFocusEffect(
     useCallback(() => {
+      if (!dbBootstrapped) {
+        initDb();
+        dbBootstrapped = true;
+      }
+      // Hydrate every store this screen reads. Settings first, since the list
+      // store's default-name / week-range helpers read weeklyResetDay + language.
+      loadSettings();
+      loadShopping();
+      loadLists();
+
+      // Roll any overdue recurring list forward to the period containing today.
+      // A no-op once every recurring list is already current, so it's safe to run
+      // on every focus rather than gating it behind a once-per-period flag like
+      // the monthly reset below. advanceRecurringLists() writes shopping_items
+      // rows directly via the list store, so re-run the shopping load afterwards
+      // to pick up any freshly copied rows.
+      const today = todayStr();
+      advanceRecurringLists(today);
+      loadShopping();
+
+      // Automatic payday-boundary reset: once per period, when today's day-of-month
+      // has reached monthlyResetDate and we haven't already reset for this period.
+      // Read settings via getState() (not the render-time selectors) so we see the
+      // values loadSettings() just wrote this same tick. buildMonthlyResetSummary()
+      // must run BEFORE monthlyReset() clears the purchased rows it reads.
+      const periodKey = today.slice(0, 7); // YYYY-MM
+      const settings = useSettingsStore.getState();
+      const alreadyResetThisPeriod = settings.lastMonthlyReset.slice(0, 7) === periodKey;
+      if (!alreadyResetThisPeriod && new Date().getDate() >= settings.monthlyResetDate) {
+        setResetSummary(buildMonthlyResetSummary());
+        monthlyReset();
+        updateSettings({ lastMonthlyReset: today });
+      }
+
       return () => {
         setAddItemTarget(null);
         setAddSourceChooserListId(null);
       };
-    }, [])
+    }, [
+      loadSettings,
+      loadShopping,
+      loadLists,
+      advanceRecurringLists,
+      buildMonthlyResetSummary,
+      monthlyReset,
+      updateSettings,
+    ])
   );
 
   const catalogItems = useMemo(

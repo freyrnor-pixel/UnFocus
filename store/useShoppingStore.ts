@@ -39,7 +39,7 @@
  *             components/AddItemSheet.tsx (type), components/AddDishSheet.tsx (add), components/UpdateSheet.tsx (type),
  *             components/MonthlyTableRow.tsx (type), components/ShoppingRow.tsx (type), components/WeekListCard.tsx (type),
  *             components/SharedRequestsSection.tsx (add), components/MonthlyResetSummaryModal.tsx (MonthlyResetSummary),
- *             components/Pet.tsx (type), lib/shoppingGroups.ts (type); app/_layout.tsx (future — startup load(), not wired yet)
+ *             components/Pet.tsx (type), lib/shoppingGroups.ts (type); app/shopping.tsx hydrates via load() in its on-focus effect (Phase 5 — no global bootstrap yet)
  *   Data    → defines a Zustand store; owns SQLite tables shopping_items + shopping_trips
  *
  * Edit notes:
