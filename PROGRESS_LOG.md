@@ -997,3 +997,79 @@ superseded by the sequencing correction above. Next Code session is **Phase
 3d** (DayTimeline, DraggableTaskRow, DatePickerCalendar, AddFAB,
 AddSourceChooser, EnergyCheckIn), sourced from the All-the-small-things repo.
 Session A2·1 (ShoppingRow) follows once 3d is logged done here.
+
+## 2026-07-02 — Phase 3d: Timeline & interaction — ported (DraggableTaskRow generalized)
+
+**Status: Complete.** All six components ported from the All-the-small-things
+repo: `DayTimeline`, `DraggableTaskRow`, `DatePickerCalendar`, `AddFAB`,
+`AddSourceChooser`, `EnergyCheckIn`. None are mounted anywhere yet (no call
+sites exist until their respective screen phases) — same "ports ahead of
+their screens" pattern as Phase 3a/3b/3c's un-gated components.
+
+**Preconditions checked first:** `react-native-gesture-handler` (^3.0.0) and
+`react-native-reanimated` (^4.4.1) already in `package.json`;
+`GestureHandlerRootView` already wraps the app root in `app/_layout.tsx` — no
+new native dependency needed for `DraggableTaskRow`. `Surface`, `useAppTheme`,
+`lib/haptics`, `lib/date`, `BottomNav` (`BOTTOM_NAV_HEIGHT`) all confirmed
+present from earlier phases.
+
+**Load-bearing finding — `DraggableTaskRow` was not portable as-is, contrary
+to the queue's assumption:** the old file doesn't just couple to
+`app/plans.tsx` for hit-testing (already known from the 3c audit) — it
+directly imports and hardcodes `<PlanTaskCard task={task} {...cardProps} />`
+as its rendered child. `PlanTaskCard` is a **BUILD, not a port**, scoped to
+Decision 009's Session B (Plans phase), which is sequenced far later in the
+queue (Phase 6, alongside the Plans screen) — it doesn't exist in this repo
+and, per 009a/009b, the eventual real one won't even look like the old app's
+version. Porting the hardcoded old file verbatim here would have either
+failed to compile or forced building a throwaway old-style `PlanTaskCard`
+early, against a design the record already superseded.
+
+**Resolution (mechanical, code-derivable — not escalated):** generalized
+`DraggableTaskRow` to take `children: React.ReactNode` instead of a
+`task`/`cardProps` pair. The gesture logic (activateAfterLongPress(180),
+failOffsetX, the lift/scale/shadow animation, onRowLayout/onDragStart/
+onDragMove/onDragEnd reporting) is byte-for-byte identical to the old file —
+`task` was never read for gesture purposes in the original either, only
+handed through to the hardcoded `<PlanTaskCard>` call, so removing it drops
+zero behavior. This is consistent with the component's own header, which
+already claimed it "owns no task data" — the hardcoded child was the one
+place that wasn't actually true. Both future consumers (Session A2·1's
+`ShoppingRow` drag reorder and Session B's `PlanTaskCard` drag reorder)
+instantiate it with their own row in `children`.
+
+**Store stub extensions (Decision 015-style):**
+- `store/useTaskStore.ts` — added `done: boolean` and `importance: string` to
+  the `Task` stub for `DayTimeline`'s dimming/star-indicator logic. No
+  existing consumer (`NextTaskCard`, `QuickAddSheet`) constructs a `Task`
+  object literal, so widening the type is non-breaking.
+- `store/useEnergyStore.ts` — new stub (`levels`/`setToday()` only, the
+  fields `EnergyCheckIn` reads/calls) — first Decision 015 stub for this
+  store. Full contract (`load()`, `todayLevel()`) is Phase 5's job.
+
+**Token remapping applied (Decision 006):** same remap table as prior
+Phase 3 sessions — orange/orangeLight→accent/accentSoft, white→surface
+(fill) or accentInk/textInverse (text-on-color), grayLight/offWhite→
+surfaceMuted, textLight→textMuted, green/greenLight→good/goodSoft (used in
+`AddSourceChooser`'s "from inventory" affordance — first port to need the
+success/good pair for a non-semantic-state decorative purpose).
+
+**`theme` prop dropped (established Phase 3c convention, applied here):**
+`DatePickerCalendar` and `AddSourceChooser` took `theme: AppColors` as a
+prop in the old app. Following the same convention `NoteRow`/`MonthlyTableRow`
+already established ("no longer threaded in as a prop... reads useAppTheme()
+internally, consistent with every other ported component"), both now call
+`useAppTheme()` internally instead. Their prop signatures are narrower than
+the old app's as a result — not yet exercised by a real call site, so no
+ripple to anything else.
+
+**Not evaluated this session:** typecheck (`npx tsc --noEmit`) could not run
+— no `node_modules` in this remote environment, consistent with CLAUDE.md's
+"local-only" note. Manual review only; flagging for the next local session
+to run the typecheck pass.
+
+**Unblocks:** Decision 011 R1's sequencing gate (Session A2·1 can now run —
+`DraggableTaskRow`'s gesture pattern is ported and reusable via `children`)
+and Decision 009 Session B's `DraggableTaskRow`-ported precondition (the
+other precondition, `PlanTaskCard`, remains its own BUILD when Session B
+actually runs).
