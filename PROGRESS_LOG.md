@@ -1781,3 +1781,60 @@ copy decision to bank now rather than a blocked one.
   now while it's cheap (per Decision 011a's OB-3 framing: "cheap to close").
 - **C. User supplies the exact wording directly**, no draft proposed. Skips any risk of
   anchoring on a Claude-drafted phrasing the user didn't ask for.
+
+## 2026-07-02 — Phase 4 answers: Decision 018 (Energy removed) + OB-3 deferred to Phase 6
+
+**Status: Complete.** User answered both compiled questions from the entry above.
+
+**Question 1 (Energy medium/high parity) — answered with a fourth option not offered:**
+remove the Energy check-in feature entirely. Task intensity is now exactly the codebase's
+existing two-value `importance` field (`'regular'`/`'essential'`), renamed to user-facing
+**General**/**Essential** "modes," gated solely by Focus mode (Decision 009 (4) — already
+fully specified, not re-decided here). Recorded as **Decision 018** in
+REBUILD_DECISIONS.md, superseding Decision 009 (1)'s "stays in repo, unmounted" clause.
+OB-2 marked resolved (removed, not refined).
+
+**Code changes (same session, small/contained — direct execution of the user's decision,
+no further ambiguity to compile into a question):**
+- **Deleted** `components/EnergyCheckIn.tsx` and `store/useEnergyStore.ts` — confirmed via
+  grep these had exactly one consumer relationship (component → stub store) and no other
+  importers anywhere in the repo before removing.
+- `lib/i18n.ts` — removed the now-orphaned `en.energy`/`no.energy` blocks (check-in prompt,
+  low/medium/high, low-energy hint). Renamed `importanceRegular` ("Regular"/"Vanlig") →
+  **"General"/"Generelt"** — reuses the exact word already sitting unused in this same file
+  as `generalSectionLabel` (the old app's superseded Important/General two-section Plans
+  stack, Decision 009a — not touched, still dead/unconsumed pending the real Plans build),
+  so "General" isn't an invented term. `importanceLabel` ("Importance"/"Viktighet") →
+  **"Mode"/"Modus"** to match. Neither key has a real consumer yet (task-form.tsx is
+  Phase 6) — zero behavioral risk, confirmed by grep before renaming.
+- `lib/db.ts` — corrected the file header's `Used by →` list (dropped the now-deleted
+  `store/useEnergyStore.ts` entry — it never actually imported this file, being an
+  in-memory Decision 015 stub, so this is a header-accuracy fix, not a functional change)
+  and annotated the still-present `energy_logs` table in the `Data →` line as dead. The
+  table itself (and its retention-pruning `DELETE` line) is **left in place, unused** —
+  per AGENTS.md's standing "never drop/recreate tables" invariant, leaving harmless dead
+  schema is the safe default over surgically stripping a table, even though nothing has
+  shipped from this specific rebuild to a real device yet.
+- `components/DayTimeline.tsx`'s `task.importance === 'essential'` star-marker rendering
+  was checked and correctly left untouched — that's the separate "important tasks marked"
+  visual cue (FEATURE_INVENTORY's Today's-plans section), not an energy-driven filter, so
+  Decision 018 doesn't reach it.
+
+**Question 2 (Sharing explanation copy) — answered "B":** defer to Phase 6. The sharing
+screens (`share-modal.tsx`, `shared.tsx`) don't exist yet; copy will be drafted in that
+session, in context of the real UI, rather than banked now. REBUILD_DECISIONS.md's OB-3
+entry updated to record this choice — still open, no Decision entry, just a recorded
+"when" instead of "now."
+
+**Verification:** `npx tsc --noEmit` — 33 errors, identical count and file list to the
+prior Phase 4 entry's run (confirmed via grep — zero hits for
+`EnergyCheckIn|useEnergyStore|lib/i18n.ts|lib/db.ts` in the new output). No new errors from
+either the deletions or the renames.
+
+**Out of scope, unaffected:** `importantSectionLabel`/`generalSectionLabel` (old two-section
+Plans stack labels, superseded by Decision 009a's rail day-view, still unconsumed pending
+the real Plans build — not part of this decision). Focus mode's own construction (Decision
+009 (4)) — still Home-phase work, not pulled forward here.
+
+**Phase 4 complete** (both compiled questions answered; no further open items from the
+FEATURE_INVENTORY sweep).

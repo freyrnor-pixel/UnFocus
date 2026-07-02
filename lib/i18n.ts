@@ -108,8 +108,8 @@ const en = {
   typeStartAt: 'Start at this time',
   typeTimeBox: 'Time block (duration)',
   durationLabel: 'Duration (minutes)',
-  importanceLabel: 'Importance',
-  importanceRegular: 'Regular',
+  importanceLabel: 'Mode',
+  importanceRegular: 'General',
   importanceEssential: '⭐ Essential',
   importantSectionLabel: 'Important',
   generalSectionLabel: 'General',
@@ -772,14 +772,6 @@ const en = {
     habitsSummary: (done: number, total: number) => `${done}/${total} done`,
     moreTasksHint: (n: number) => `+${n} more`,
   },
-  // AP-03 — once-a-day energy check-in (components/EnergyCheckIn.tsx)
-  energy: {
-    checkInPrompt: "How's your energy today?",
-    low: 'Low',
-    medium: 'Medium',
-    high: 'High',
-    lowEnergyHint: 'Showing just your must-dos for today — the rest will keep.',
-  },
   // AP-04 — "up next" single-task suggestion (components/NextTaskCard.tsx)
   nextTask: {
     title: 'Up next',
@@ -981,8 +973,8 @@ const no: typeof en = {
   typeStartAt: 'Start på dette tidspunktet',
   typeTimeBox: 'Fra da til da (timer)',
   durationLabel: 'Varighet (minutter)',
-  importanceLabel: 'Viktighet',
-  importanceRegular: 'Vanlig',
+  importanceLabel: 'Modus',
+  importanceRegular: 'Generelt',
   importanceEssential: '⭐ Viktig',
   importantSectionLabel: 'Viktig',
   generalSectionLabel: 'Generelt',
@@ -1622,14 +1614,6 @@ const no: typeof en = {
     habitsToday: 'Vaner',
     habitsSummary: (done: number, total: number) => `${done}/${total} ferdig`,
     moreTasksHint: (n: number) => `+${n} til`,
-  },
-  // AP-03 — daglig energi-innsjekk (components/EnergyCheckIn.tsx)
-  energy: {
-    checkInPrompt: 'Hvordan er energien din i dag?',
-    low: 'Lav',
-    medium: 'Middels',
-    high: 'Høy',
-    lowEnergyHint: 'Viser bare det viktigste i dag — resten venter.',
   },
   // AP-04 — forslag til "neste oppgave" (components/NextTaskCard.tsx)
   nextTask: {
