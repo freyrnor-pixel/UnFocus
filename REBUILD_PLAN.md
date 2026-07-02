@@ -26,20 +26,28 @@ Phase order. One phase per Claude Code session. Don't batch.
      ListSettingsSheet. AddItemSheet is explicitly out of the A2 redesign
      (Decision 011 A2-5) — faithful port, not a restyle.
    - **3c — Cards & rows** (⚠ decision-gated — do NOT port as a uniform
-     batch). PlanTaskCard ⚠ (Plans day-view — UNBLOCKED by Decisions 009a +
-     009b; the visual direction is resolved. NOTE: target is the rail-based
-     day-view, which is a design-intended divergence from the old two-section
-     stack in app/plans.tsx — Session B BUILDS the rail view, does not port the
-     old stack. See 3c audit in PROGRESS_LOG), ShoppingRow ⚠ (Decision 011
-     A2·1 — planning-resolved; two-line redesign + ripples R1/R2/R3; R1
-     drag-primitive reuse is an in-session verification, DraggableTaskRow.tsx
-     is the candidate), WeekListCard ⚠ (full-screen container role UNRESOLVED —
-     blocked on Decision 017; do NOT port until 017 is recorded), NextTaskCard,
-     NoteRow, MonthlyTableRow. Only the un-gated rows are plain ports; the ⚠
-     items route to their dedicated sessions.
-   - **3d — Timeline & interaction.** DayTimeline, DraggableTaskRow (⚠ role
-     pending verification as the drag-reorder primitive under Decision 011
-     R1), DatePickerCalendar, AddFAB, AddSourceChooser, EnergyCheckIn.
+     batch). PlanTaskCard is **NOT part of this batch** — confirmed 2026-07-02
+     (S1 planning) that it stays placed in Decision 009's Session B (Plans
+     phase, alongside the full Plans screen redesign), per Decision 009's own
+     session scoping and the 3c audit's "BUILD, not a port" note (target is
+     the rail-based day-view, a design-intended divergence from the old
+     two-section stack in app/plans.tsx). ShoppingRow ⚠ (Decision 011
+     A2·1 — planning-resolved; two-line redesign + ripples R1/R2/R3.
+     **Sequencing correction (2026-07-02, user call):** Session A2·1 is
+     gated on Phase 3d landing first — a prior attempt STOPPED because its
+     drag-reorder primitive, DraggableTaskRow, isn't ported into this repo
+     yet. Run 3d before Session A2·1, not after. See Decision 011 R1.),
+     WeekListCard ⚠ (full-screen container role now RESOLVED by Decision 017
+     — unblocked for its 3c port; also carries Decision 011a's R4 dish-group
+     checkbox wiring, resolved 2026-07-02), NextTaskCard, NoteRow,
+     MonthlyTableRow. Only the un-gated rows are plain ports; the ⚠ items
+     route to their dedicated sessions.
+   - **3d — Timeline & interaction.** DayTimeline, DraggableTaskRow,
+     DatePickerCalendar, AddFAB, AddSourceChooser, EnergyCheckIn. **Run before
+     Session A2·1** (see 3c ShoppingRow note above and Decision 011 R1) —
+     this port also satisfies Decision 009 Session B's precondition that
+     DraggableTaskRow be ported, so it unblocks two downstream consumers at
+     once.
    - **3e — Icons, pickers, misc leaves.** HabitIcon, InventoryIcon,
      GradientSwatch, HuePicker, SwatchPicker, QRCodeDisplay, SaveButton,
      StickySaveBar, InboxSection (⚠ Decision 009 Session A refactor —

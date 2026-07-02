@@ -1,0 +1,130 @@
+/**
+ * DraggableTaskRow.tsx — long-press-and-drag wrapper for one reorderable row.
+ *
+ * Wraps an arbitrary row (a collapsed card) so it can be manually reordered
+ * by long-press-then-drag. This component owns no task/row data and persists
+ * nothing — it only reports gesture state up to the parent (onRowLayout/
+ * onDragStart/onDragMove/onDragEnd); the parent screen does the hit-testing
+ * (against row layouts it collects via onRowLayout) and the actual reorder
+ * persistence on drop.
+ *
+ * Connections:
+ *   Imports → lib/haptics, lib/useAppTheme, react-native-gesture-handler, react-native-reanimated
+ *   Used by → (not yet mounted — ported ahead of its consumers per REBUILD_PLAN.md 3d;
+ *             Decision 011 R1 sequences Session A2·1's ShoppingRow drag reorder after
+ *             this port, and Decision 009 Session B (Plans phase) wraps PlanTaskCard rows)
+ *   Data    → none directly — callbacks drive the parent's drag/livePreview state
+ *
+ * Edit notes:
+ *   - Pan only activates after a ~180ms hold (`activateAfterLongPress`), not on a bare vertical
+ *     offset — deliberate, so a quick vertical swipe still scrolls the parent's ScrollView
+ *     normally; only a held-then-dragged touch claims the row for reordering. `failOffsetX`
+ *     still lets a fast horizontal swipe fall through to a swipe-nav view immediately.
+ *   - Disabled outright (`.enabled(!isOpen)`) while the wrapped row is expanded — dragging only
+ *     ever applies to collapsed rows, so an open card's scrolling/typing is never contested.
+ *   - The dragged row lifts (scale + shadow, via the `lifted` shared value) and follows the
+ *     finger via translateY; siblings are NOT animated here — the parent reflows them itself
+ *     via LayoutAnimation when the live preview order changes, same idiom ExpandableCard.tsx
+ *     already uses for expand/collapse (relies on that file's module-level Android enable).
+ *   - onDragMove reports the dragged row's current screen-space center Y, throttled to firing
+ *     only once movement exceeds a small pixel delta — the parent does the actual index/
+ *     section hit-test and decides whether anything changed; this component only fires
+ *     tap() once, on lift.
+ *   - **Generalized from the old repo's version during the port (2026-07-02, Phase 3d):**
+ *     the old `DraggableTaskRow.tsx` hardcoded `<PlanTaskCard task={task} {...cardProps} />`
+ *     as its rendered child. `PlanTaskCard` doesn't exist in this repo yet — it's a BUILD,
+ *     not a port, scoped to Decision 009's Session B (Plans phase, much later than this
+ *     port). Porting the hardcoded version here would either fail to compile or force
+ *     building a throwaway PlanTaskCard early against the old (pre-009a/009b) visual
+ *     design. This version takes `children` instead of a `task`/`cardProps` pair — the
+ *     gesture logic is byte-for-byte identical to the old file; only the rendered content
+ *     is now caller-supplied. Session B wraps its own row in `children`; Session A2·1
+ *     (ShoppingRow) does the same. See PROGRESS_LOG.md's Phase 3d entry.
+ */
+import React, { useRef } from 'react';
+import { LayoutChangeEvent, StyleSheet } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
+import { tap } from '@/lib/haptics';
+import { useAccessibility } from '@/lib/useAppTheme';
+
+type Props = {
+  children: React.ReactNode;
+  isOpen: boolean;
+  onRowLayout: (layout: { y: number; height: number }) => void;
+  onDragStart: () => void;
+  onDragMove: (centerY: number) => void;
+  onDragEnd: () => void;
+};
+
+const MOVE_REPORT_THRESHOLD = 6;
+
+export default function DraggableTaskRow({
+  children,
+  isOpen,
+  onRowLayout,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+}: Props) {
+  const { reducedMotion } = useAccessibility();
+  const translateY = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const lifted = useSharedValue(0);
+  const rowYRef = useRef(0);
+  const rowHeightRef = useRef(0);
+  const lastReportedY = useSharedValue(0);
+
+  function handleLayout(e: LayoutChangeEvent) {
+    rowYRef.current = e.nativeEvent.layout.y;
+    rowHeightRef.current = e.nativeEvent.layout.height;
+    onRowLayout({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height });
+  }
+
+  const pan = Gesture.Pan()
+    .activateAfterLongPress(180)
+    .failOffsetX([-12, 12])
+    .enabled(!isOpen)
+    .onStart(() => {
+      lifted.value = 1;
+      scale.value = reducedMotion ? 1.03 : withSpring(1.03, { damping: 18, stiffness: 320 });
+      lastReportedY.value = 0;
+      runOnJS(tap)();
+      runOnJS(onDragStart)();
+    })
+    .onUpdate((e) => {
+      translateY.value = e.translationY;
+      if (Math.abs(e.translationY - lastReportedY.value) > MOVE_REPORT_THRESHOLD) {
+        lastReportedY.value = e.translationY;
+        const centerY = rowYRef.current + e.translationY + rowHeightRef.current / 2;
+        runOnJS(onDragMove)(centerY);
+      }
+    })
+    .onEnd(() => {
+      lifted.value = 0;
+      translateY.value = reducedMotion ? 0 : withTiming(0, { duration: 200 });
+      scale.value = reducedMotion ? 1 : withTiming(1, { duration: 150 });
+      runOnJS(onDragEnd)();
+    });
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }, { scale: scale.value }],
+    zIndex: lifted.value ? 10 : 0,
+    shadowOpacity: lifted.value ? 0.25 : 0,
+    shadowRadius: lifted.value ? 12 : 0,
+    shadowOffset: { width: 0, height: lifted.value ? 6 : 0 },
+    elevation: lifted.value ? 8 : 0,
+  }));
+
+  return (
+    <GestureDetector gesture={pan}>
+      <Animated.View style={[styles.row, animStyle]} onLayout={handleLayout}>
+        {children}
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
+const styles = StyleSheet.create({
+  row: { backgroundColor: 'transparent' },
+});

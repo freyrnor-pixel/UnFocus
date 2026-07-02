@@ -403,9 +403,20 @@ temporary, centered modal) works and isn't part of the readability problem.
   passes reorder(id,'up'|'down') from useShoppingStore per-row. The redesign
   replaces this with a drag-based reorder. Scope: whichever session does A2-2 must
   wire drag reorder to the same store action (or an equivalent) and drop the
-  chevron props. **Open question for the coding session:** confirm a drag-reorder
-  primitive exists / is acceptable (DraggableTaskRow.tsx exists in the repo and may
-  be the pattern to reuse) — VERIFY before building; do not silently keep chevrons.
+  chevron props.
+  **Resolved 2026-07-02 (S1 planning, user call):** A prior Session A2·1
+  attempt (PROGRESS_LOG 2026-07-01) STOPPED here — `DraggableTaskRow.tsx`
+  exists only in the sibling All-the-small-things (old) repo, not yet ported
+  into this one, and it is scoped to Phase 3d, which had not run. Rather than
+  invent a separate drag mechanism or silently keep the chevrons (both
+  forbidden), the user chose to **reorder the queue: run Phase 3d (ports
+  `DraggableTaskRow` plus `DayTimeline`, `DatePickerCalendar`, `AddFAB`,
+  `AddSourceChooser`, `EnergyCheckIn`) before Session A2·1.** This also
+  satisfies Decision 009 Session B's precondition (`DraggableTaskRow` ported),
+  so the single port unblocks both consumers. Session A2·1 wires its drag
+  reorder to the now-ported `DraggableTaskRow` gesture pattern (adapted for a
+  shopping row rather than a `PlanTaskCard` — same gesture primitive, new
+  call site); it does not invent a new drag-and-drop implementation.
 - **R2 — Remove affordance change.** A2-2 moves remove to swipe-left. The
   fromCatalog rows currently show a red InventoryIcon (put-back-to-catalog) vs. a
   plain × (delete) as their remove button. The swipe action must preserve this
@@ -425,17 +436,20 @@ temporary, centered modal) works and isn't part of the readability problem.
 ### Blocks / unblocks
 - **Unblocks** the flagged-components / shopping composite phase, which was hard-
   blocked on this decision.
-- **No new blocks** introduced. R1's drag-reorder verification is a within-session
-  check, not a separate planning blocker.
+- **New sequencing dependency (2026-07-02):** Session A2·1 is now gated on
+  Phase 3d's `DraggableTaskRow` port landing first (see R1 resolution above).
+  Not a new open question — a scheduling dependency only.
 
 ### Packaging — split into two Claude Code sessions
 - **Session A2·1 — ShoppingRow redesign** (A2-2 + ripples R1, R2, R3). Self-
   contained component work: two-line layout, swipe-remove with catalog/ad-hoc
-  branch, drag reorder, CHECKED_OPACITY preserved.
+  branch, drag reorder, CHECKED_OPACITY preserved. **Gated:** run only after
+  Phase 3d (`DraggableTaskRow` et al.) is logged done in PROGRESS_LOG.md.
 - **Session A2·2 — Shopping screen re-layout** (A2-1 + A2-4). Sticky compact
   header, scrolling body order, hint inline, shared-requests, collapsed history,
   reset-in-overflow.
-- Order: A2·1 (row) before A2·2 (screen), so the screen re-layout composes the
+- Order: **Phase 3d → A2·1 (row) → A2·2 (screen)**, so the drag primitive
+  exists before the row needs it, and the screen re-layout composes the
   finished row.
 
 ### Sub-decision
@@ -447,8 +461,8 @@ temporary, centered modal) works and isn't part of the readability problem.
 
 ## Decision 011a — Shopping list dish/ingredient checkbox nesting
 
-**Status:** OPEN — blocked on READ-ONLY investigation (see PROGRESS_LOG entry
-"task Steps parent/child checkbox state"). Do NOT build until resolved.
+**Status:** Resolved
+**Date:** 2026-07-02
 **Parent:** Decision 011 (A2 shopping list overhaul). Sub-decision spun off from
 A2's dish grouping; does not supersede 011.
 **Source:** Follow-on from Decision 011's "From meals" dish grouping —
@@ -456,43 +470,64 @@ lib/shoppingGroups.ts buckets ShoppingItems by dishName and WeekListCard renders
 each dish group as an uncontrolled ExpandableCard. Open question: does a dish
 group get its own checkbox bound to its ingredient rows' checked state.
 
-### Proposal on the table (NOT yet decided)
-Each dish group gets a checkbox two-way bound to its ingredient (ShoppingItem)
-checkboxes:
-- roll-up — all ingredients checked → dish checked
-- roll-down — dish checked → all ingredients checked
-- un-check directions specified only if a parent-checked state is adopted
+### Investigation (I1–I4, read-only) — resolution tree outcome
+PROGRESS_LOG.md's 2026-07-02 S0 entry confirms the "no reusable pattern"
+branch: task Steps (`useTaskStore.ts` / `PlanTaskCard.tsx`, old repo) are an
+independent, immediate-persist checklist with no roll-up/roll-down binding to
+the parent task's `done` state, and no other dish/ingredient-style checkbox
+nesting exists anywhere else in the old repo. There was no existing two-way
+pattern to adopt — the three sub-questions below were decided fresh (user
+call, since the record had no derivable answer for any of them).
 
-### Why Open, not Resolved
-The proposal's framing was "reuse the app's existing task Steps parent/child
-checkbox pattern rather than invent one." That assumes the pattern exists and
-binds two-way. Whether it does is exactly what the READ-ONLY investigation
-(I1–I4) checks, against useTaskStore / PlanTaskCard in this repo or the sibling
-All-the-small-things repo. Until findings land, the reuse clause is unverified.
+### Decision
+1. **Dish-level checkbox exists — full two-way bind.** A dish group gets a
+   checkbox. Roll-up: when every ingredient in the dish is checked, the dish
+   shows checked. Roll-down: tapping the dish checkbox checks or unchecks
+   every ingredient in it in one action.
+2. **State model — derived, not stored.** The dish's checked appearance is
+   computed live from its ingredients' checked states on every read; there is
+   no persisted `checked` column on the dish grouping itself. Tapping the
+   dish checkbox does not write a dish-level flag — it fans out a bulk
+   write to the underlying `ShoppingItem` rows (check all if not all are
+   currently checked; uncheck all if all are currently checked), and the
+   dish's own displayed state simply re-derives from the result on next read.
+3. **Un-check semantics — folded into roll-down.** Because state is derived,
+   there is no separate "un-check the dish while leaving ingredients alone"
+   case to specify: unchecking the dish IS the roll-down write to all
+   ingredients (see #1/#2). No dangling parent-only flag can exist.
 
-### Blocker
-READ-ONLY investigation of task Steps parent/child checkbox state (I1–I4).
-Findings append to PROGRESS_LOG.md. 011a cannot resolve until they are in.
+### R4 — formal ripple record (derived-vs-stored dish checkbox)
+`lib/shoppingGroups.ts` (or wherever the "From meals" grouping is read at
+render time) must expose, per dish group, a computed `allChecked` (or
+equivalent) derived from its `ShoppingItem[]`, plus a bulk-toggle action that
+writes `checked` to every ingredient in that group via the existing
+`useShoppingStore` per-item update path (no new store field). WeekListCard's
+dish-group `ExpandableCard` header renders this derived value as its
+checkbox and wires the bulk-toggle to its `rightAction`/tap handler. Scope:
+whichever session builds/finishes WeekListCard's dish-group rendering (3c
+remainder, since "From meals" dish groups are already `ExpandableCard` per
+the 3c audit) owns wiring this — it is not a separate session.
 
-### Resolution tree (for the follow-up planning chat)
-- If a reusable two-way Steps pattern exists → adopt it; record which directions
-  it binds and derived-vs-stored, and mirror it rather than diverge.
-- If Steps are an independent immediate-persist checklist with no roll-up/roll-
-  down → no pattern to reuse. Decide fresh: (a) whether the dish checkbox exists
-  at all, (b) derived-vs-stored for the dish checked state.
+### R5 — formal ripple record (WeekListCard as Level-1 container)
+Referenced in the 2026-07-02 011a-logging entry as "referenced but not
+defined." This is the full-screen container-role question for WeekListCard
+that Decision 017 already resolved in full (per-list container retained
+minus the full summary block, compact inline progress line for non-focused
+lists, ungrouped rows converged onto ExpandableCard). R5 is formally closed
+by reference to Decision 017 — no separate ripple work remains under this
+number.
 
-### Open under this decision (no coding session may pick these silently)
-- Whether the dish-level checkbox exists at all, or dishes stay display-only
-  groups with per-ingredient checkboxes only.
-- Derived vs. stored for the dish checked state.
-- Un-check semantics, if a parent-checked state is adopted.
+### Blocks / unblocks
+- **Unblocks** the dish-group checkbox wiring inside WeekListCard's 3c port
+  (previously blocked pending this decision).
+- **No new blocks.** R4's wiring is scoped to the existing WeekListCard/3c
+  session, not a new one.
 
 ### Numbering note
 Filed as 011a (sub-decision of 011), consistent with the log's "012 is not 011"
 discipline. The Steps-investigation handoff references "011a" and "R4"; this
-entry is what "011a" points at. "R4" (derived-vs-stored) is NOT a defined ripple
-in this log — 011's ripples stop at R3 — so it is folded in here rather than
-left dangling, and gets its concrete definition when 011a resolves.
+entry is what "011a" points at, and R4/R5 are now formally defined above
+rather than left dangling.
 
 ---
 

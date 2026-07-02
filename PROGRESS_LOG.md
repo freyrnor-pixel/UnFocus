@@ -902,3 +902,174 @@ pointer under Decision 011. No source touched. Flagged for later reconciliation:
 "R4" and "R5" are referenced elsewhere but not defined in this log — R4 is
 folded into 011a pending the investigation; R5 (WeekListCard as Level-1
 container) remains undefined and needs its own entry.
+
+## 2026-07-02 — S0: task Steps parent/child checkbox investigation (READ-ONLY, I1–I4)
+Investigated task Steps (`useTaskStore.ts` / `PlanTaskCard.tsx`) in the
+All-the-small-things repo (source of truth — the UnFocus rebuild's stub
+`useTaskStore.ts` has no `steps` field yet, only the Decision 015 minimal
+`toggle()` contract). No source touched in either repo.
+
+- **I1 — Does a Steps checklist exist, and where.** Yes.
+  `All-the-small-things/store/useTaskStore.ts` defines `TaskStep` (`id`,
+  `taskId`, `title`, `done`, `orderIndex`) backed by a separate `task_steps`
+  SQLite table (own migration, own index). Rendered in
+  `components/PlanTaskCard.tsx` (lines ~430–494) and `app/task-form.tsx`
+  (~447+) as a checklist under the task, with add/toggle/remove/reorder rows.
+
+- **I2 — Is it two-way bound to the parent task's done state (roll-up /
+  roll-down)?** No. `toggle(id)` (the task-level done toggle,
+  `useTaskStore.ts:191`) calls `get().update(id, { done: willBeDone })` and
+  fires the `task_completed` automation trigger — it never reads or writes
+  `task.steps`. Conversely `toggleStep(id)` (`useTaskStore.ts:240`) finds the
+  owning task, flips only that one step's `done` via
+  `updateRow('task_steps', ...)`, and never reads or writes the owning
+  task's `done`. No roll-up (all steps done → task done) or roll-down (task
+  done → all steps done) logic exists anywhere in the store, `PlanTaskCard.tsx`,
+  or `task-form.tsx`. The two `done` booleans are written by completely
+  disjoint code paths.
+
+- **I3 — Derived vs. stored.** Both are stored, independently. Step `done`
+  persists immediately to `task_steps.done` on every `toggleStep()` call (no
+  draft/save gate — confirmed by the file header's own note: "steps persist
+  straight to SQLite on every change"). Task `done` persists to `tasks.done`
+  via the separate `update()`/`toggle()` path. Neither is computed from the
+  other at read time (no derivation in `load()`'s row-grouping either — it
+  just attaches `steps: byTask.get(t.id) ?? []` to each task, no aggregation).
+
+- **I4 — Any other parent/child checkbox precedent in the old repo, in case
+  Steps isn't the only candidate?** Checked `useMealStore` / `app/meals.tsx`'s
+  dish→ingredients relationship, since `PlanTaskCard.tsx`'s own comment cites
+  it as steps' style precedent ("mirrors app/meals.tsx's ingredient list").
+  It is not a checkbox pattern at all — dish ingredients are a recipe list
+  collected at dish-creation time with no `done`/checked field anywhere on
+  `Ingredient`. No other dish/ingredient or group/item checkbox nesting
+  exists anywhere else in the old repo. Steps was the only candidate, and it
+  has no two-way binding to reuse.
+
+**Conclusion for Decision 011a:** lands on the resolution tree's "no
+reusable pattern" branch — "Steps are an independent immediate-persist
+checklist with no roll-up/roll-down." Per that branch, 011a's three
+remaining open questions (dish-checkbox-exists-at-all, derived-vs-stored for
+the dish state, un-check semantics if adopted) must be decided fresh, not
+copied from an existing pattern, and Decision 011a itself already flags them
+as "no coding session may pick these silently." No source touched; this
+entry is read-only per S0's scope.
+
+## 2026-07-02 — S1 planning: Decision 011a resolved + drag-sequencing correction
+
+**Status: Complete.** No source touched — decisions/plan docs only.
+
+**011a resolution (user-decided, no code-derivable answer existed):**
+Presented as numbered questions per the S0 conclusion above. User chose:
+(1) dish checkbox exists, full two-way bind (roll-up + roll-down); (2) state
+model is derived, not stored — no persisted dish-level flag, tapping the
+dish checkbox bulk-writes its ingredients' `checked` field instead. Un-check
+semantics fold into roll-down (no separate case, since there's nothing
+stored to un-check independently). Recorded in REBUILD_DECISIONS.md, Decision
+011a now **Resolved**. R4 (derived-vs-stored ripple) given its formal
+definition there; R5 (WeekListCard Level-1 container, previously a dangling
+reference) formally closed by pointer to Decision 017, which already
+resolved it in full.
+
+**Drag-reorder sequencing correction (user-decided):** re-verified the
+queue's assumption that Session A2·1 (ShoppingRow) could run before Phase
+3d. It cannot — PROGRESS_LOG's 2026-07-01 entry already recorded a STOPPED
+session on exactly this gap (`DraggableTaskRow` not yet ported into this
+repo, scoped to Phase 3d, which hadn't run) and explicitly flagged the fix
+as a user-level scope call. Presented three options; user chose to run all
+of **Phase 3d before Session A2·1**, rather than pulling only
+`DraggableTaskRow` forward alone or having shopping build its own drag
+primitive. This also satisfies Decision 009 Session B's precondition (which
+separately requires `DraggableTaskRow` ported), so one port unblocks two
+downstream consumers. Recorded in REBUILD_DECISIONS.md (Decision 011 R1 +
+Packaging) and REBUILD_PLAN.md (3c/3d bullets updated in place — no
+renumbering of phases, just an explicit run-order note).
+
+**PlanTaskCard batch-placement — confirmed, not re-decided:** the record
+already correctly placed PlanTaskCard in Decision 009's Session B (Plans
+phase), not the Phase 3c cards-and-rows batch — the 3c audit's "BUILD, not a
+port" framing and REBUILD_PLAN.md's existing 3c bullet already said this.
+Made it explicit in REBUILD_PLAN.md's 3c bullet so a future Phase-3c-remainder
+session prompt doesn't have to re-derive it. No change to Decision 009.
+
+**Corrected next step:** the original queue (S2 = Session A2·1) is
+superseded by the sequencing correction above. Next Code session is **Phase
+3d** (DayTimeline, DraggableTaskRow, DatePickerCalendar, AddFAB,
+AddSourceChooser, EnergyCheckIn), sourced from the All-the-small-things repo.
+Session A2·1 (ShoppingRow) follows once 3d is logged done here.
+
+## 2026-07-02 — Phase 3d: Timeline & interaction — ported (DraggableTaskRow generalized)
+
+**Status: Complete.** All six components ported from the All-the-small-things
+repo: `DayTimeline`, `DraggableTaskRow`, `DatePickerCalendar`, `AddFAB`,
+`AddSourceChooser`, `EnergyCheckIn`. None are mounted anywhere yet (no call
+sites exist until their respective screen phases) — same "ports ahead of
+their screens" pattern as Phase 3a/3b/3c's un-gated components.
+
+**Preconditions checked first:** `react-native-gesture-handler` (^3.0.0) and
+`react-native-reanimated` (^4.4.1) already in `package.json`;
+`GestureHandlerRootView` already wraps the app root in `app/_layout.tsx` — no
+new native dependency needed for `DraggableTaskRow`. `Surface`, `useAppTheme`,
+`lib/haptics`, `lib/date`, `BottomNav` (`BOTTOM_NAV_HEIGHT`) all confirmed
+present from earlier phases.
+
+**Load-bearing finding — `DraggableTaskRow` was not portable as-is, contrary
+to the queue's assumption:** the old file doesn't just couple to
+`app/plans.tsx` for hit-testing (already known from the 3c audit) — it
+directly imports and hardcodes `<PlanTaskCard task={task} {...cardProps} />`
+as its rendered child. `PlanTaskCard` is a **BUILD, not a port**, scoped to
+Decision 009's Session B (Plans phase), which is sequenced far later in the
+queue (Phase 6, alongside the Plans screen) — it doesn't exist in this repo
+and, per 009a/009b, the eventual real one won't even look like the old app's
+version. Porting the hardcoded old file verbatim here would have either
+failed to compile or forced building a throwaway old-style `PlanTaskCard`
+early, against a design the record already superseded.
+
+**Resolution (mechanical, code-derivable — not escalated):** generalized
+`DraggableTaskRow` to take `children: React.ReactNode` instead of a
+`task`/`cardProps` pair. The gesture logic (activateAfterLongPress(180),
+failOffsetX, the lift/scale/shadow animation, onRowLayout/onDragStart/
+onDragMove/onDragEnd reporting) is byte-for-byte identical to the old file —
+`task` was never read for gesture purposes in the original either, only
+handed through to the hardcoded `<PlanTaskCard>` call, so removing it drops
+zero behavior. This is consistent with the component's own header, which
+already claimed it "owns no task data" — the hardcoded child was the one
+place that wasn't actually true. Both future consumers (Session A2·1's
+`ShoppingRow` drag reorder and Session B's `PlanTaskCard` drag reorder)
+instantiate it with their own row in `children`.
+
+**Store stub extensions (Decision 015-style):**
+- `store/useTaskStore.ts` — added `done: boolean` and `importance: string` to
+  the `Task` stub for `DayTimeline`'s dimming/star-indicator logic. No
+  existing consumer (`NextTaskCard`, `QuickAddSheet`) constructs a `Task`
+  object literal, so widening the type is non-breaking.
+- `store/useEnergyStore.ts` — new stub (`levels`/`setToday()` only, the
+  fields `EnergyCheckIn` reads/calls) — first Decision 015 stub for this
+  store. Full contract (`load()`, `todayLevel()`) is Phase 5's job.
+
+**Token remapping applied (Decision 006):** same remap table as prior
+Phase 3 sessions — orange/orangeLight→accent/accentSoft, white→surface
+(fill) or accentInk/textInverse (text-on-color), grayLight/offWhite→
+surfaceMuted, textLight→textMuted, green/greenLight→good/goodSoft (used in
+`AddSourceChooser`'s "from inventory" affordance — first port to need the
+success/good pair for a non-semantic-state decorative purpose).
+
+**`theme` prop dropped (established Phase 3c convention, applied here):**
+`DatePickerCalendar` and `AddSourceChooser` took `theme: AppColors` as a
+prop in the old app. Following the same convention `NoteRow`/`MonthlyTableRow`
+already established ("no longer threaded in as a prop... reads useAppTheme()
+internally, consistent with every other ported component"), both now call
+`useAppTheme()` internally instead. Their prop signatures are narrower than
+the old app's as a result — not yet exercised by a real call site, so no
+ripple to anything else.
+
+**Not evaluated this session:** typecheck (`npx tsc --noEmit`) could not run
+— no `node_modules` in this remote environment, consistent with CLAUDE.md's
+"local-only" note. Manual review only; flagging for the next local session
+to run the typecheck pass.
+
+**Unblocks:** Decision 011 R1's sequencing gate (Session A2·1 can now run —
+`DraggableTaskRow`'s gesture pattern is ported and reusable via `children`)
+and Decision 009 Session B's `DraggableTaskRow`-ported precondition (the
+other precondition, `PlanTaskCard`, remains its own BUILD when Session B
+actually runs).
