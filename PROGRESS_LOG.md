@@ -3189,3 +3189,56 @@ User tests the internal build before any store promotion.
 ### Flagged for build time (unchanged from 027)
 - **`runtimeVersion` stays `1.0.0`** in this commit. Bump to `1.1.0` (match `version`) only once the
   APK actually ships, or current 1.0.0 installs get stranded on the preview OTA channel.
+
+---
+
+## 2026-07-03 — Decision 028: Norwegian Date Display Format (DD.MM.YYYY)
+**Status: Complete** — Display-layer date formatting implemented and verified.
+
+### Scope & Constraint
+**Display layer only** — `formatDisplayDate(iso: string, lang: 'en' | 'no')` added to `lib/date.ts`. Renders stored YYYY-MM-DD keys as DD.MM.YYYY in Norwegian, keeps ISO format in English. All storage keys, DB values, period comparisons remain YYYY-MM-DD (untouched).
+
+### Display Sites Converted (3 total)
+1. **app/budget.tsx** (line 188): Receipt dates in monthly budget list
+   - Before: `{r.date}` 
+   - After: `{formatDisplayDate(r.date, lang)}`
+   
+2. **app/shared.tsx** (line 258): Shared task dates in activity log
+   - Before: `{item.date}`
+   - After: `{formatDisplayDate(item.date, lang)}`
+   
+3. **app/share-modal.tsx** (line 70): Task dates in QR share selection list
+   - Before: `sub: task.date`
+   - After: `sub: formatDisplayDate(task.date, lang)`
+
+### Storage Integrity — Verified
+- ✅ `todayStr()` — YYYY-MM-DD (DB key, unchanged)
+- ✅ `dateStr(d)` — YYYY-MM-DD (canonical, unchanged)
+- ✅ `currentMonthStr()` — YYYY-MM period key (unchanged)
+- ✅ All date comparisons (`>=`, `<`, `==`) — operate on ISO, unaffected
+- ✅ `lastMonthlyReset` setting — ISO key, unchanged
+- ✅ Receipt month grouping — based on ISO, unchanged
+- ✅ SQLite column values — all remain YYYY-MM-DD
+- ✅ Week-range keys — YYYY-MM-DD format, unchanged
+
+### Language Support
+- **English**: ISO format (YYYY-MM-DD) — no visual change
+- **Norwegian**: DD.MM.YYYY — proper locale convention
+
+Language sourced from `useSettingsStore` at each display site.
+
+### Malformed Input Handling
+Returns input unchanged if ISO parse fails (missing segments, empty parts) — never crashes a render.
+
+### File Changes
+| File | Changes |
+|------|---------|
+| `lib/date.ts` | Added `formatDisplayDate()` function (90–95) |
+| `app/budget.tsx` | Import formatter, get lang, apply at line 188 |
+| `app/shared.tsx` | Import formatter + settings store, get lang, apply at line 258 |
+| `app/share-modal.tsx` | Import formatter, get lang, apply in useMemo at line 70 |
+
+### Verification
+- `npx tsc --noEmit` — no date-related errors
+- No storage/key logic modified — scope was display layer only
+- All display sites correctly receive language parameter from settings store
