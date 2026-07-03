@@ -3666,3 +3666,124 @@ Decision 011 + 011a + 021 present (028 depends on them); Decision 010 closed by 
 - `SCREEN_UPDATE_TEMPLATE.md` does not exist in this repo — Decision 030's "soften the
   every-scrollable-screen line" could not be applied to a file; Decision 030 itself is the
   superseding record. Nothing to fix.
+
+## 2026-07-03 — Onboarding flow VERIFICATION (read-only audit, no code changed)
+
+**Scope:** the ten onboarding files + `app/_layout.tsx` bootstrap/redirect. Verified
+against FEATURE_INVENTORY.docx (onboarding section), Decisions 006/010/016, and the
+two 2026-07-03 onboarding + reminders PROGRESS_LOG entries. No app/store/lib code
+touched; this entry is the only write.
+
+**Inventory coverage:** flow order in the docx —
+language → privacy → guided-or-explore → name → work mode → shopping reset days →
+reminders confirmation → colour theme + handedness → name your pet → done — matches
+the committed routes exactly (language→privacy→guided→index→step2→step3→step4→step5→
+step6→"/"). Each step has the specified shape (icon, heading, subline, its choice,
+6-dot progress row, Back/Next; step2/step3 also carry the optional Skip). No inventory
+checklist item lacks a corresponding UI. The docx onboarding "Edit notes:" are empty —
+no dated override to honour.
+
+**Per-file verdicts:**
+- `_layout.tsx` (onboarding stack) — **PASS.** Bare Stack, headerShown:false,
+  slide_from_right; header accurate.
+- `language.tsx` — **PASS.** Writes `language`, →privacy. Tokens/useT throughout;
+  literal language names ("English"/"Norsk") are intentional data, not chrome.
+- `privacy.tsx` — **PASS.** Informational, →guided. Emoji glyphs (not hex); tokens/
+  Button/useT.
+- `guided.tsx` — **PASS.** `goGuided()` sets `showHints:true` **before** pushing the
+  wizard (Decision 010 gate satisfied); `goExplore()` sets setupComplete + showHints +
+  essentialsModeEnabled + showPoints and replaces "/". `<Surface tint={accent}>` with
+  `accentInk` text (Decision 006/008).
+- `index.tsx` (name) — **PASS.** Writes `userName`, →step2, dot 0. `onboardingSettingsNote`
+  is an always-visible `accentSoft` note (correctly NOT a `showHints`-gated HintCard).
+  `assets/icon.png` present.
+- `step2.tsx` (work mode) — **PASS.** `HintCard text={t.tipWorkMode}` present, gated on
+  `showHints` (Decision 010). Hour fields use `FormControls.Input` (TimePickerWheel not
+  ported — accepted precedent). Minor: uses raw RN `Switch` (token-coloured, no hex —
+  consistent with other ported screens, not a violation); `tipBox`/`tipText` styles are
+  now dead after the HintCard conversion (cosmetic dead code, not blocking).
+- `step3.tsx` (shopping days) — **PASS.** `HintCard text={t.monthlyPaydayHint}` present
+  (Decision 010). `weeklyResetDay` defaults 0, `monthlyResetDate` validated 1–31 with
+  onBlur revert. `featShop` icon. Dot 2.
+- `step4.tsx` (notification confirm) — **PASS.** Sets `remindersEnabled` +
+  `taskNotificationsEnabled` + `reminderTime:'14:00'`. Single merged task+habit/shopping
+  confirmation with no toggle — consistent with Decision 016's merged model; implies no
+  split the settings screen must honour. OS prompt correctly deferred to step6. Dot 3.
+- `step5.tsx` (theme + handedness) — **PASS.** `SwatchPicker` over `THEMES` (minus
+  custom) + `leftHanded` Switch. `THEMES[key].orange/.white` in the swatch renderer are
+  per-theme **preview data** (documented exempt), not screen chrome. →step6, dot 4.
+- `step6.tsx` (pet naming) — **FLAG** (see below). Otherwise conformant: Pet preview
+  live-bound, pet colour swatches are stored hex data values (exempt), Button CTAs,
+  tokens/useT, dot 5.
+
+**step6.finish() — the known conflict (CONFIRMED + now a live gap):**
+Committed `finish()` calls exactly: `settings.update({ setupComplete:true,
+essentialsModeEnabled:true, showPoints:true, petEnabled:true, petName })`, then
+`void requestPermissions()`, then `router.replace('/')`. It does **NOT** call
+`syncReminders()` or `useTaskStore.syncAllTaskNotifications()`.
+- When the onboarding session shipped (earlier 2026-07-03 entry), omitting those two was
+  correct — neither module existed. **That is no longer true.** Confirmed present in the
+  tree now: `lib/reminders.ts` (`export async function syncReminders`), `lib/taskNotifications.ts`,
+  and `useTaskStore.syncAllTaskNotifications()` (store impl at useTaskStore.ts:432) — all
+  ported by the later reminders/notifications session and the settings-screen session.
+- Consequence: step4 turns `remindersEnabled`/`taskNotificationsEnabled` ON and step6
+  requests OS permission, but nothing schedules the weekly/monthly reminders or per-task
+  notifications at onboarding finish. A user completing onboarding grants permission and
+  gets no scheduled reminders until some later action re-syncs. This is a **silent
+  behavioral gap**, not a recorded decision. step6's header note ("Neither exists in this
+  repo yet … left out until those modules are ported") is now **stale**.
+
+**Bootstrap consistency (`app/_layout.tsx`) — PASS on guard, FLAG on doc drift:**
+- Redirect guard matches across file and header: `if (!loaded || setupComplete) return;
+  if (segments[0] !== 'onboarding') router.replace('/onboarding/language')` — the header's
+  description is accurate. ✓
+- The committed file DOES fire an app-wide `load()` pass: a `loaded`-keyed effect loads
+  all 13 non-settings stores (automation/catalog/habit/health/inbox/meal/notes/receipt/
+  shared/shoppingList/shopping/task), and the header claims exactly this. Code ↔ header
+  are consistent. ✓
+- **Drift (FLAG):** the two onboarding-era PROGRESS_LOG entries describe a *"minimal
+  bootstrap … NOT the full multi-store … which stays deferred (each screen self-loads on
+  focus)."* The committed `_layout.tsx` has since been upgraded to the full multi-store
+  startup load (by the later A2·2 / store-bootstrap work). So the onboarding entries'
+  "minimal bootstrap" narrative is now **stale relative to committed code** — documentation
+  drift only, no functional problem. Note the notification-scheduling half of that original
+  claim is still literally true: `_layout.tsx` calls neither `syncReminders()` nor
+  `syncAllTaskNotifications()`, so nothing re-schedules on startup either (compounds the
+  step6 gap above).
+
+**Constraints (Decision 006):** confirmed the remap actually landed, not just described —
+every screen reads Decision 006 tokens (`accent`/`accentSoft`/`accentInk`/`surface`/
+`surfaceMuted`/`text`/`textMuted`/`border`/`good`/`featShop`); no legacy `theme.orange`/
+`.white`/`.grayLight`/`.textLight` names in chrome; no raw hex except the documented
+exemptions (Shadow.card `shadowColor` tokens; step6 pet `petColor` hex data values;
+step5 `THEMES[].orange/.white` preview data). All CTAs are `<Button>`; text/number inputs
+use `FormControls.Input` where labelled (step2 hours) or token-styled `TextInput` where
+inline (name, monthly date, pet name — same precedent as task-form/habit-form). PASS.
+
+**HintCard (Decision 010):** present on step2 (`tipWorkMode`) and step3
+(`monthlyPaydayHint`), both gated on `showHints`, which `guided.goGuided()` sets true
+before the wizard. PASS.
+
+**Notification merge (Decision 016):** step4 uses the single merged confirmation model;
+no split is implied, so nothing for the settings screen to dishonour. PASS.
+
+**SiteSwipeView (confirmed, not resolved):** still NOT wired and still unrecorded as a
+decision — onboarding uses bare SafeAreaView and `_layout.tsx` does not import/mount it.
+Expected state; noted, not touched.
+
+### Flags raised — routing for the planning layer (no decisions opened here)
+1. **step6.finish() no longer schedules (was benign, now a live gap).** `syncReminders()`
+   + `syncAllTaskNotifications()` now exist but finish() still calls only
+   `requestPermissions()`. → **Needs a REBUILD_DECISIONS.md entry** (ratify "permission-only
+   at finish, scheduling happens elsewhere" OR wire the two calls) **plus a follow-up Code
+   session** to implement whichever is chosen and refresh step6's stale header note. Same
+   wiring gap applies to `_layout.tsx` startup (no `syncReminders()` there either).
+2. **Bootstrap doc drift.** Onboarding-era "minimal bootstrap" narrative is stale vs the
+   now-full multi-store `_layout.tsx`. → Documentation-only; a follow-up Code session can
+   correct the narrative. No new decision required (the committed code + `_layout` header
+   are the authoritative record).
+3. **SiteSwipeView deferral** — still unrecorded. → Candidate for its own
+   REBUILD_DECISIONS.md entry (per-screen wraps across the 5 nav sites, excluding scan's
+   camera overlay), as the onboarding session already recommended. Surfaced, not resolved.
+
+Minor (no routing needed): step2 dead `tipBox`/`tipText` styles.
