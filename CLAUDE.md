@@ -4,6 +4,7 @@
 
 ## Before Starting
 
+- **For ANY build, version bump, or APK work:** Read `OTA_BUILD_WORKFLOW.md` first. It documents the exact sequence to avoid runtime mismatches and broken OTA updates.
 - **Read file headers first.** Every `.ts`/`.tsx` file starts with a JSDoc block listing imports, callers, data touches, and gotchas. This is the fastest way to understand a file's purpose — no need to read the whole thing.
 - **Trust AGENTS.md's hand-maintained dependency maps.** Don't grep the repo to re-derive what's already written in the `Connections:` blocks in file headers. If a header looks stale, update it as you go — cheap now, expensive later.
 
