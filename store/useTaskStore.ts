@@ -9,7 +9,8 @@
  * Decision 015 notImplemented stub.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, store/useAutomationStore
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, lib/notifications, lib/taskNotifications,
+ *             store/useAutomationStore, store/useSettingsStore
  *   Used by → components/QuickAddSheet.tsx, components/NextTaskCard.tsx, components/DayTimeline.tsx,
  *             components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
  *             app/task-form.tsx, app/plans.tsx
@@ -20,11 +21,13 @@
  *   - **'task_completed' automation trigger — WIRED (Phase 6).** toggle() (only when the
  *     task transitions to done) and completeDirect() call
  *     `useAutomationStore.getState().fireTrigger('task_completed')`, matching the old store.
- *   - **Still not ported (flag, don't silently build): per-task notification scheduling.**
- *     The old app's store wired `lib/notifications.ts`/`lib/taskNotifications.ts`
- *     (syncTaskNotification); `lib/taskNotifications.ts` doesn't exist in this repo yet, so
- *     `add`/`update`/`remove`/`clearAll` are faithful ports minus that one side effect.
- *     Whichever session ports task notifications next must wire syncTaskNotification back in.
+ *   - **Per-task notification scheduling — WIRED.** `add`/`update` reschedule via
+ *     `syncTaskNotification` (which passes the current settings to
+ *     `lib/taskNotifications.ts`); `remove`/`clearAll` cancel via
+ *     `lib/notifications.ts`'s `cancelTaskNotification`. Notification copy is baked in
+ *     at schedule time, so call `syncAllTaskNotifications()` after a settings/language
+ *     change to re-schedule every task. Quiet hours SHIFT a task reminder past the
+ *     window (habits skip instead — see lib/habitNotifications.ts).
  *   - `task.steps` persist straight to SQLite on every change (addStep/removeStep/
  *     toggleStep/reorderStep) — no draft/save gate. load() loads all task_steps in
  *     one query and groups them onto their owning task in JS (one query, not N+1).
@@ -69,6 +72,9 @@ import {
 import { generateId } from '@/lib/id';
 import { dayOfWeekMon0 } from '@/lib/date';
 import { useAutomationStore } from '@/store/useAutomationStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
+import { cancelTaskNotification } from '@/lib/notifications';
+import { syncTaskNotification as scheduleTaskReminder } from '@/lib/taskNotifications';
 
 export type TaskType = 'start-at' | 'time-box';
 export type Recurring = 'none' | 'weekly';
@@ -128,6 +134,8 @@ type TaskStore = {
   completedCount: () => number;
   /** First pending task for the focus view, respecting work-mode filter. */
   focusTask: (date: string, workModeActive: boolean) => Task | null;
+  /** Re-schedule every task's reminder (after a settings/language change). */
+  syncAllTaskNotifications: () => void;
   /** Write a new sort_order (by array position) for every id in orderedIds. */
   reorderTasks: (orderedIds: string[]) => void;
   /** Steps persist straight to SQLite on every change — no draft/save gate. */
@@ -140,6 +148,11 @@ type TaskStore = {
   /** Decision 020 cycle guard — ids reachable walking followsTaskId backward from `id` (self included). */
   followerCycleChain: (id: string) => string[];
 };
+
+/** Schedule (or cancel) a single task's reminder using the current settings. */
+function syncTaskNotification(task: Task): void {
+  scheduleTaskReminder(task, useSettingsStore.getState());
+}
 
 function rowToTask(row: Row): Task {
   return {
@@ -231,6 +244,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     };
     insertRow('tasks', rowValues(task, TASK_COLUMNS));
     set((s) => ({ tasks: [...s.tasks, task] }));
+    syncTaskNotification(task);
     return task;
   },
 
@@ -240,6 +254,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const next = { ...task, ...patch };
     updateRow('tasks', rowValues(patch, TASK_COLUMNS), 'id = ?', [id]);
     set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? next : t)) }));
+    syncTaskNotification(next);
   },
 
   toggle(id) {
@@ -266,6 +281,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       db.runSync('UPDATE tasks SET follows_task_id = NULL WHERE follows_task_id = ?', [id]);
       db.runSync('DELETE FROM tasks WHERE id = ?', [id]);
     });
+    void cancelTaskNotification(id);
     set((s) => ({
       tasks: s.tasks
         .filter((t) => t.id !== id)
@@ -371,7 +387,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   clearAll() {
+    const ids = get().tasks.map((t) => t.id);
     db.runSync('DELETE FROM tasks');
+    ids.forEach((id) => void cancelTaskNotification(id));
     set({ tasks: [] });
   },
 
@@ -409,5 +427,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       return a.id.localeCompare(b.id);
     });
     return sorted[0] ?? null;
+  },
+
+  syncAllTaskNotifications() {
+    get().tasks.forEach(syncTaskNotification);
   },
 }));
