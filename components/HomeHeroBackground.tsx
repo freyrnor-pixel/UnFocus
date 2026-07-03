@@ -24,7 +24,7 @@
  */
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import LinearGradient from 'expo-linear-gradient';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useIsDark } from '@/lib/useAppTheme';
 
 type Percent = `${number}%`;
@@ -135,18 +135,18 @@ export default function HomeHeroBackground() {
 
   const palette = isDark
     ? {
-        sky: ['#0d1f3e', '#112449', '#162e56'],
+        sky: ['#0d1f3e', '#112449', '#162e56'] as const,
         orb: '#4682f0',
         ring: 'rgba(110,165,255,0.14)',
         dot: '#7ab0ff',
-        ground: ['rgba(11,22,46,0)', 'rgba(11,22,46,0.55)', 'rgba(11,22,46,0.85)'],
+        ground: ['rgba(11,22,46,0)', 'rgba(11,22,46,0.55)', 'rgba(11,22,46,0.85)'] as const,
       }
     : {
-        sky: ['#6fa8e8', '#a8cdf0', '#eaf4fc'],
+        sky: ['#6fa8e8', '#a8cdf0', '#eaf4fc'] as const,
         orb: '#a9cdf5',
         ring: 'rgba(160,210,255,0.16)',
         dot: '#3B72D6',
-        ground: ['rgba(246,250,255,0)', 'rgba(246,250,255,0.55)', 'rgba(246,250,255,0.85)'],
+        ground: ['rgba(246,250,255,0)', 'rgba(246,250,255,0.55)', 'rgba(246,250,255,0.85)'] as const,
       };
 
   return (
