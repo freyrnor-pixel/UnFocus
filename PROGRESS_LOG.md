@@ -2680,3 +2680,14 @@ The 33 are the identical standing baseline every recent session reports (old-tok
   same deferred `_layout` bootstrap precedent as shopping/plans.
 - Share-modal entry points on Home/Plans aren't wired in the rebuild yet (those screens'
   own future phases); share-modal is reachable by route/kind regardless.
+
+### 2026-07-03 addendum — OB-3 resolved (Decision 023)
+
+User approved the per-kind in-modal explanation line. On wiring, found the OB-3 copy
+was already pre-seeded bilingually in `lib/i18n.ts` (`shareExplainShopping`/
+`shareExplainTasks`/`shareExplainLaterBuild`, EN+NO) — same meaning as the approved
+drafts plus a "one-time copy for now, live sync later" caveat. Reused those keys rather
+than overwrite bilingual copy with English-only drafts. Wired a `<Text>` under the
+selection-card title in `share-modal.tsx` (picks the string by `kind`, appends the caveat).
+Filed **Decision 023**, marked OB-3 resolved. No new i18n keys. Typecheck: 33 baseline
+errors, zero in changed files.

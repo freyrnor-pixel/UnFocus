@@ -656,10 +656,9 @@ fixing the medium/high distinction — General/Essential (the existing
 ### OB-3 — Sharing: per-location explanation copy
 **Source:** FEATURE_INVENTORY.docx edit note — asks for a short explanation of
 "what it actually does" at each share location. Wording TBD.
-**Status:** Open. No Decision entry. Phase 4 offered this as a question (draft
-copy now vs. defer to Phase 6 vs. user supplies wording); user chose to defer
-to Phase 6 (the sharing screens' own build session drafts copy in context of
-the real UI, rather than banking a guess now).
+**Status:** Resolved — see Decision 023. Phase 6 built the sharing screens and
+surfaced the real share locations; the pre-seeded bilingual `shareExplain*` copy
+was approved and wired into `share-modal.tsx`.
 **Nature:** Copy/wording decision (not behaviour). Needs the actual short
 explanatory string for each place sharing is offered — deferred until
 `share-modal.tsx`/`shared.tsx` (Phase 6) are actually built.
@@ -1467,3 +1466,26 @@ closed: Decision 022 is the cross-dish case, filed and Resolved. Decision
 021 already carries its own pointer update to this effect; this entry
 restates it as part of the consolidated 016–022 map so it doesn't need to be
 re-derived from three separate cross-reference notes.
+
+## Decision 023 — Sharing: per-location explanation copy (OB-3 resolved)
+
+**Status:** Resolved.
+**Date:** 2026-07-03
+**Context:** OB-3 (open backlog) asked for a short "what does sharing actually do"
+explanation at each share location, deferred to the Phase 6 sharing-screens build
+so copy could be drafted against the real UI.
+
+**Share locations enumerated (the built UI):**
+1. Shopping screen → `/share-modal?kind=s` — shares unchecked shopping items.
+2. Plans + Home screens → `/share-modal?kind=t` — shares future undone tasks.
+3. Post-share QR screen shows `shareInstructions`; `/shared` is the sent/received history.
+
+**Decision:** Render a per-kind explanation line under the selection-card title in
+`share-modal.tsx`, followed by a "one-time copy for now" caveat. The copy uses the
+pre-existing bilingual i18n keys already seeded in `lib/i18n.ts`
+(`shareExplainShopping` / `shareExplainTasks` / `shareExplainLaterBuild`, both EN + NO)
+— they say what the user approved (pick items → QR → other person scans to copy into
+their own UnFocus) and additionally flag that live phone-to-phone sync is a later build.
+No new keys were added; the placement (in-modal, per kind) is the recommended option the
+user approved. `sharedRequestExplain*` keys remain available for the incoming-share
+surface (`SharedRequestsSection`) if that wants the same treatment later.

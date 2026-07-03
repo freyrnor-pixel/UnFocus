@@ -21,8 +21,9 @@
  *   - The post-share "Done" button uses dismissAll() + push('/shared') so the result matches
  *     the app's <=2-deep site-stack invariant regardless of which site screen opened it.
  *   - Decision 001 tier='sub' scaffold; Decision 006 tokens only (accent/good/textMuted).
- *   - OB-3 (per-location share explanation copy) is still open — no per-location explanatory
- *     string is drafted here yet; this port carries only the existing shareInstructions copy.
+ *   - OB-3 resolved (Decision 023): a per-kind explanation line + the "one-time copy for now"
+ *     caveat render under the selection-card title (t.shareExplain{Shopping,Tasks} +
+ *     t.shareExplainLaterBuild — pre-existing bilingual keys reused).
  */
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -153,6 +154,11 @@ export default function ShareModal() {
                   </Text>
                 </Pressable>
               </View>
+              <Text style={[styles.explain, { color: theme.textMuted }]}>
+                {kind === 's' ? t.shareExplainShopping : t.shareExplainTasks}
+                {' '}
+                {t.shareExplainLaterBuild}
+              </Text>
               {sourceItems.length === 0 ? (
                 <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.noSharedItems}</Text>
               ) : (
@@ -225,6 +231,7 @@ const baseStyles = StyleSheet.create({
   },
   cardTitle: { fontSize: FontSize.md, fontWeight: '700' },
   toggleAll: { fontSize: FontSize.sm, fontWeight: '600' },
+  explain: { fontSize: FontSize.xs, lineHeight: 17, marginBottom: Spacing.xs },
   emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.md },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.xs },
   checkbox: {
