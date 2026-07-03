@@ -74,7 +74,7 @@ export default function ScreenScaffold({
   const HEADER_HEIGHT = 56;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.cream }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
       {/* L1: Background */}
       {isHome ? (
         <HomeHeroBackground />

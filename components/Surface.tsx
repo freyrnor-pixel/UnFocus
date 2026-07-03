@@ -8,7 +8,7 @@
  * flat fill — this is what makes "backgrounds and the material things are
  * made of" actually track the Settings → Material choice outside the bubble
  * menu. Drop-in replacement for `<View style={[styles.card, {backgroundColor:
- * theme.white}]}>` — pass the same `style` (radius/margin/padding all still
+ * theme.surface}]}>` — pass the same `style` (radius/margin/padding all still
  * work; padding is automatically moved to the inner content so the sheen
  * still spans the full card).
  *
@@ -104,7 +104,7 @@ export default function Surface({ material, surfaceContext = 'ambient', tint, st
   const isDark = useIsDark();
   const settingsMaterial = useSettingsStore((s) => s.bubbleMaterial);
   const finish = material ?? settingsMaterial;
-  const base = tint ?? theme.white;
+  const base = tint ?? theme.surface;
   const mat = getMaterialStyle(base, finish);
   const isGlass = finish === 'glass';
 

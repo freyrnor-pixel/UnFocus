@@ -3444,3 +3444,53 @@ since this port doesn't wire that path).
 entry: "Neither `permissionTests.ts` nor an `app/settings.tsx` screen exists anywhere in
 the repo"). `permissionTests.ts` itself remains unbuilt — still blocked on the native
 dev-build prerequisite, unchanged from the 027 finding.
+
+## 2026-07-03 — Old-token chrome sweep: standing tsc baseline cleared
+
+**Status: Complete.** Mechanical Decision 006 token remap over the fixed set of files
+that made up the standing `tsc` baseline. No design decisions invented — every remap
+below reuses a mapping already established earlier in this log (or is a same-role port
+of an existing precedent, e.g. `cream`→`bg` for full-page background contexts, already
+used by `_layout.tsx`'s Stack `contentStyle`).
+
+**Before:** 21 errors. **After:** 0 errors in the target files (2 pre-existing,
+out-of-scope `app/shopping.tsx` `moreOptions` i18n errors remain — untouched, not part
+of this sweep's file list).
+
+**Files changed:**
+- `app/_scaffold-demo.tsx` — `orange`→`accent`, `cream`→`bg`, `textLight`→`textMuted`
+  (×2), `white`(button glyph on accent fill)→`accentInk`, `white`(demo card fill)→`surface`.
+- `components/BottomNav.tsx` — `orange`(active icon/FAB fill)→`accent`,
+  `textLight`(inactive icon)→`textMuted`, `white`(FAB glyph on accent fill)→`accentInk`,
+  `grayLight`(active-tab highlight fill)→`surfaceMuted`.
+- `components/ScreenHeader.tsx` — stray `Platform` import moved from `'react'` to
+  `'react-native'` (was never exported by `'react'`; the component already used
+  `Platform.OS` at runtime, so this was a straight up latent bug, not a design call).
+  `orange`(back-link text)→`accent`.
+- `components/ScreenScaffold.tsx` — `cream`(SafeAreaView fill, painted under
+  `ScreenBackground`/`HomeHeroBackground`)→`bg`.
+- `components/Surface.tsx` — the one `theme.white` line: card fill (`base = tint ?? theme.white`)
+  →`surface` (Surface's own rendered fill is literally the "Card / elevated surface" token).
+  Also fixed the stale header-comment code sample referencing the same old token.
+- `components/ScreenBackground.tsx` — the deepest fix in this sweep: `blobsFor()` was typed
+  against the legacy `AppColors` (from `constants/theme`) while called with the live
+  `ThemePalette` (Decision 006) object, which is what actually produced the type-mismatch
+  error at the call site (not just the visible `theme.cream` line). Retyped `blobsFor` to
+  take `ThemePalette` (imported from `@/constants/colors`) and remapped every decorative
+  colour inside it using precedents already on record in this log: `orange`→`accent`,
+  `green`→`good`, `brown`→`accent` (reusing the `brown`→`accent` remap from the
+  ExpandableCard/ShoppingRow sessions rather than inventing a new one), `gray`→`textMuted`,
+  `orangeLight`→`accentSoft`, `text`→`text` (already valid, untouched), background fill
+  `cream`→`bg`. `theme.text` blob glow-color usages (rock material) needed no change.
+  Result: glass material's blob 1 and blob 3 (previously distinct `orange`/`brown` hues)
+  now both render `accent` — an acceptable collapse per the same "don't invent a new
+  mapping for an old token that already has one" precedent, not a new design choice.
+  Header `Connections:`/edit-notes prose updated to match (`cream`→`bg` throughout).
+- `app/_layout.tsx` — audited per the task's file list; already clean (uses `theme.bg`
+  only), no changes needed.
+
+**Verification:** `npm install --legacy-peer-deps` (fresh clone) then `npx tsc --noEmit`
+→ 2 errors, both pre-existing `app/shopping.tsx` `moreOptions` i18n gaps, unrelated to
+this sweep and out of its file scope. Grepped all seven target files post-edit for any
+remaining `theme.(white|orange|cream|textLight|gray|grayLight|brown|green|danger)` —
+zero hits.

@@ -47,18 +47,18 @@ export default function BottomNav() {
 
   const renderItem = (item: typeof SITE_ITEMS[0], isCentre = false) => {
     const active = pathname === item.route;
-    const iconColor = active ? theme.orange : theme.textLight;
+    const iconColor = active ? theme.accent : theme.textMuted;
 
     if (isCentre) {
       return (
         <PressableScale
           key={item.key}
           scaleTo={0.92}
-          style={[styles.centreButton, { backgroundColor: theme.orange, ...Shadow.fab }]}
+          style={[styles.centreButton, { backgroundColor: theme.accent, ...Shadow.fab }]}
           onPress={() => goToSite(router, pathname, item.route)}
           hitSlop={8}
         >
-          <Ionicons name={active ? item.activeIcon : item.icon} size={24} color={theme.white} />
+          <Ionicons name={active ? item.activeIcon : item.icon} size={24} color={theme.accentInk} />
         </PressableScale>
       );
     }
@@ -67,7 +67,7 @@ export default function BottomNav() {
       <PressableScale
         key={item.key}
         scaleTo={0.92}
-        style={[styles.item, active && { backgroundColor: theme.grayLight, borderRadius: Radius.sm }]}
+        style={[styles.item, active && { backgroundColor: theme.surfaceMuted, borderRadius: Radius.sm }]}
         onPress={() => goToSite(router, pathname, item.route)}
         hitSlop={6}
       >

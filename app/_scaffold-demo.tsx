@@ -36,7 +36,7 @@ export default function ScaffoldDemo() {
 
   const headerRight = variant === 'sub' ? (
     <Pressable onPress={() => alert('Right action pressed')}>
-      <Text style={[styles.actionText, { color: theme.orange }]}>Action</Text>
+      <Text style={[styles.actionText, { color: theme.accent }]}>Action</Text>
     </Pressable>
   ) : null;
 
@@ -48,19 +48,19 @@ export default function ScaffoldDemo() {
       onBack={handleBack}
       headerRight={headerRight}
     >
-      <View style={[styles.content, { backgroundColor: theme.cream }]}>
+      <View style={[styles.content, { backgroundColor: theme.bg }]}>
         <Text style={[styles.heading, { color: theme.text }]}>
           Scaffold Demo
         </Text>
-        <Text style={[styles.subtitle, { color: theme.textLight }]}>
+        <Text style={[styles.subtitle, { color: theme.textMuted }]}>
           Current tier: {variant}
         </Text>
 
         <Pressable
-          style={[styles.button, { backgroundColor: theme.orange }]}
+          style={[styles.button, { backgroundColor: theme.accent }]}
           onPress={handleToggle}
         >
-          <Text style={[styles.buttonText, { color: theme.white }]}>
+          <Text style={[styles.buttonText, { color: theme.accentInk }]}>
             Toggle to {variant === 'site' ? 'sub' : 'site'} tier
           </Text>
         </Pressable>
@@ -73,7 +73,7 @@ export default function ScaffoldDemo() {
           </Text>
         </View>
 
-        <Text style={[styles.label, { color: theme.textLight }]}>
+        <Text style={[styles.label, { color: theme.textMuted }]}>
           Content scrolls behind header and bottom nav ↑↓
         </Text>
 
@@ -82,7 +82,7 @@ export default function ScaffoldDemo() {
             key={i}
             style={[
               styles.demoCard,
-              { backgroundColor: theme.white, borderColor: theme.border },
+              { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
             <Text style={[styles.cardText, { color: theme.text }]}>

@@ -23,8 +23,8 @@
  *   - Settings press navigates to /settings; flag for resolution in phase 2
  *   - iOS-only back link on sub-screens; Android uses system back
  */
-import React, { Platform } from 'react';
-import { Pressable, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
+import React from 'react';
+import { Platform, Pressable, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { FontSize, Spacing } from '@/constants/theme';
@@ -68,7 +68,7 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
           </Pressable>
         ) : Platform.OS === 'ios' && onBack ? (
           <Pressable onPress={onBack} hitSlop={8}>
-            <Text style={[styles.back, { color: theme.orange }]}>{t.back}</Text>
+            <Text style={[styles.back, { color: theme.accent }]}>{t.back}</Text>
           </Pressable>
         ) : null}
       </View>
