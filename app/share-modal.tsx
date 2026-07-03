@@ -7,17 +7,19 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/Button,
- *             components/QRCodeDisplay, constants/theme, lib/date, lib/i18n, lib/share,
- *             lib/useAppTheme, store/useSettingsStore, store/useSharedStore,
+ *             components/QRCodeDisplay, constants/theme, lib/date (todayStr, formatDisplayDate),
+ *             lib/i18n, lib/share, lib/useAppTheme, store/useSettingsStore, store/useSharedStore,
  *             store/useShoppingStore, store/useTaskStore
  *   Used by → Expo Router route "/share-modal"; entry points push it with a `kind`
  *             param — app/shopping.tsx ('s'), app/plans.tsx ('t'), app/index.tsx ('t')
- *   Data    → reads useShoppingStore (shopping_items) / useTaskStore (tasks); writes outbound
- *             rows to useSharedStore (shared_shopping_items / shared_tasks)
+ *   Data    → reads useShoppingStore (shopping_items) / useTaskStore (tasks) / useSettingsStore
+ *             (language for date formatting); writes outbound rows to useSharedStore
+ *             (shared_shopping_items / shared_tasks)
  *
  * Edit notes:
  *   - All visible strings go through useT(); kind param ('t' = tasks, anything else = shopping) drives the whole sheet.
  *   - Source lists are filtered to unchecked shopping / future-dated undone tasks (today via todayStr()); payload built with encodeSharePayload.
+ *   - Task dates in the UI are rendered via formatDisplayDate (Decision 028) — DD.MM.YYYY in Norwegian, ISO in English.
  *   - The post-share "Done" button uses dismissAll() + push('/shared') so the result matches
  *     the app's <=2-deep site-stack invariant regardless of which site screen opened it.
  *   - Decision 001 tier='sub' scaffold; Decision 006 tokens only (accent/good/textMuted).
@@ -38,7 +40,7 @@ import QRCodeDisplay from '@/components/QRCodeDisplay';
 import Surface from '@/components/Surface';
 import Button from '@/components/Button';
 import ScreenScaffold from '@/components/ScreenScaffold';
-import { todayStr } from '@/lib/date';
+import { todayStr, formatDisplayDate } from '@/lib/date';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
@@ -49,6 +51,7 @@ export default function ShareModal() {
 
   const t = useT();
   const userName = useSettingsStore((s) => s.userName);
+  const lang = useSettingsStore((s) => s.language);
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
 
@@ -67,8 +70,8 @@ export default function ShareModal() {
     }
     return tasks
       .filter((task) => task.date >= today && !task.done)
-      .map((task) => ({ id: task.id, label: task.title, sub: task.date }));
-  }, [kind, shoppingItems, tasks, today]);
+      .map((task) => ({ id: task.id, label: task.title, sub: formatDisplayDate(task.date, lang) }));
+  }, [kind, shoppingItems, tasks, today, lang]);
 
   const [selected, setSelected] = useState<Set<string>>(() => new Set(sourceItems.map((i) => i.id)));
   const [shared, setShared] = useState(false);
