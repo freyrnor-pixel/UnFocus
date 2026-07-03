@@ -47,23 +47,9 @@
         }
       ],
       "expo-audio",
-      [
-        "expo-location",
-        {
-          "locationAlwaysAndWhenInUsePermission": "UnFocus uses your location to remind you about tasks tied to a place."
-        }
-      ],
-      "expo-calendar",
       "expo-task-manager",
       "expo-background-task",
-      "expo-sensors",
       "expo-font",
-      [
-        "expo-speech-recognition",
-        {
-          "microphonePermission": "UnFocus uses the microphone to record voice notes and tasks."
-        }
-      ],
       [
         "expo-media-library",
         {
@@ -71,24 +57,20 @@
           "saveToPhotosPermission": "Allow UnFocus to save images to your photo library."
         }
       ],
-      [
-        "expo-contacts",
-        {
-          "contactsPermission": "UnFocus can suggest contacts when sharing lists."
-        }
-      ]
+      "react-native-android-widget",
+      "@bacons/apple-targets"
     ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.freyrnorpixel.unfocus",
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.freyrnorpixel.unfocus"]
+      },
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "UnFocus uses the microphone so you can add tasks and notes by voice.",
-        "NSLocationWhenInUseUsageDescription": "UnFocus uses your location to remind you about tasks tied to a place, like errands near a store.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "UnFocus uses your location in the background to remind you about tasks tied to a place, even when the app isn't open.",
-        "NSCalendarsUsageDescription": "UnFocus can add your tasks to your device calendar if you choose to sync them.",
-        "NSContactsUsageDescription": "UnFocus can suggest contacts when sharing a list, if you choose to use that feature.",
+        "NSMicrophoneUsageDescription": "UnFocus uses the microphone so you can record voice notes.",
+        "NSPhotoLibraryUsageDescription": "UnFocus can add a receipt photo from your library so you can scan it.",
         "NSPhotoLibraryAddUsageDescription": "UnFocus can save receipt photos to your photo library.",
-        "UIBackgroundModes": ["location", "fetch", "processing"]
+        "UIBackgroundModes": ["fetch", "processing"]
       }
     },
     "android": {
@@ -101,16 +83,7 @@
       "package": "com.freyrnorpixel.unfocus",
       "permissions": [
         "RECORD_AUDIO",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
-        "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION",
-        "READ_CALENDAR",
-        "WRITE_CALENDAR",
-        "ACTIVITY_RECOGNITION",
-        "READ_CONTACTS",
-        "WRITE_CONTACTS"
+        "FOREGROUND_SERVICE"
       ]
     },
     "web": {

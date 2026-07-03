@@ -1562,3 +1562,74 @@ in `scan.tsx` document the exemption.
 Everything else in both screens maps cleanly to Decision 006 tokens (orange→accent,
 green→good/greenLight→goodSoft, white→surface/accentInk, offWhite/grayLight→surfaceMuted/border,
 textLight→textMuted, gray→textMuted).
+
+## Decision 027 — Expanded-permission native build: scope, module selection & distribution
+
+**Status: Resolved (Session G, 2026-07-03).**
+**Depends on:** the native build prerequisites in `REBUILD_PLAN.md` §1–§3.
+
+### Purpose
+One native build that installs every native module and declares every permission the
+near-roadmap needs, so no planned feature forces a *later* rebuild. Guardrail: each
+permission maps to a **named** planned feature — not speculative surface.
+
+### Q1 — Permission set: PRUNE to the mapped features (user call).
+The pre-027 `app.json` (from the earlier "add missing native plugins" config sweep) had
+drifted broad. Under 027's "no speculative surface" test the set is narrowed to six areas,
+each tied to a real feature:
+- **Camera** — receipt scan (`app/scan.tsx`, OCR) → `expo-camera`.
+- **Notifications** — task/habit/weekly/persistent reminders → `expo-notifications`
+  (+ `expo-background-task`/`expo-task-manager` for scheduling/background refresh).
+- **Photo library / media read** — receipt upload-from-gallery → `expo-image-picker`
+  + `expo-media-library`.
+- **Microphone** — voice notes → `expo-audio` (audio-capture module; see Q2).
+- **Widgets** — shopping/notes/tasks home & lock-screen widgets → config-plugin
+  scaffolding now (see Q3).
+- **Rich / lock-screen notification presentation** — Notification Service Extension
+  scaffolding now (see Q3).
+
+**Pruned** (module + permission + usage string all removed): `expo-location`
+(location reminders), `expo-calendar` (calendar sync), `expo-contacts` (share-to-contacts),
+`expo-sensors` (step counting). None are on the near-roadmap; re-adding any is a fresh
+native build. `FOREGROUND_SERVICE_LOCATION` and `UIBackgroundModes: location` went with
+`expo-location`; generic `FOREGROUND_SERVICE` is kept for persistent notifications.
+
+### Q2 — Microphone module: `expo-audio`, and prune `expo-speech-recognition` (Session G call).
+Decision 027's microphone feature is *voice notes* = audio capture. `expo-audio` is the
+current Expo-recommended capture module (the `expo-av` audio APIs are deprecated), so it is
+selected and retained. `expo-speech-recognition` (speech-to-text) is a **distinct** capability
+not enumerated in 027 and not on the near-roadmap; under Q1's prune directive it is removed
+(module + `NSSpeechRecognitionUsageDescription`). Flagged here rather than silently kept:
+if on-device transcription of voice notes is wanted later, re-add it — that is a new build.
+
+### Q3 — Widgets & rich notifications: ship config-plugin scaffolding now (user call).
+No first-party Expo widget module exists. Selected, and packages added now:
+- **Android widgets** → `react-native-android-widget` (AppWidget/Glance config plugin).
+- **iOS widgets + Notification Service Extension** → `@bacons/apple-targets` (WidgetKit
+  target + NSE target).
+- **App Group** `group.com.freyrnorpixel.unfocus` declared in `ios.entitlements` so the app
+  and its widgets/extension can share data.
+Scope boundary (stated to prevent overclaim): this build **installs modules + declares
+entitlements only**. It does NOT implement widget layouts, voice-note recording, or rich
+notification content — each is a later phase with its own design decisions (contents,
+refresh cadence, tap targets). Android big-picture styling and `lockscreenVisibility` are
+JS-side (OTA-able), no native change.
+
+### Q4 — Distribution: EAS internal/preview only (option A, user-resolved).
+Build with the full permission/module set now, distribute via **EAS internal/preview**.
+User tests before any store submission. Promote to store only once each permissioned feature
+has at least minimal working code — avoids store-review queries about permissions with no
+visible feature. `eas.json` already encodes this (`preview` → `distribution: internal`;
+`production` → `store`, used only later).
+
+### Version / runtime handling (flagged, not done here)
+This is a native change, so per AGENTS.md a new APK/AAB is required and `runtimeVersion`
+must eventually match `version`. `runtimeVersion` is **left at `1.0.0`** in this commit on
+purpose: bumping it before the APK actually ships would silently strand current 1.0.0
+installs on the `preview` OTA channel. Bump `runtimeVersion` → `1.1.0` (to match `version`)
+**at build time**, when the APK is produced.
+
+### Package-resolution caveat
+Version pins for `@bacons/apple-targets` and `react-native-android-widget` are best-effort;
+they were not `npm install`-resolved in the remote session. Confirm SDK 56 / RN 0.85
+compatible versions with `npx expo install` before the first prebuild.

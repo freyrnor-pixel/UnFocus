@@ -3046,3 +3046,60 @@ baseline family (`_scaffold-demo`, `BottomNav`, `ScreenBackground`, `ScreenHeade
 - **Notification scheduling** (`lib/reminders.ts`, `useTaskStore.syncAllTaskNotifications`,
   per-task/weekly/monthly) still unported — step6.finish() and the `_layout` bootstrap both
   leave the scheduling calls out and only request permission.
+
+---
+
+## Session G — Decision 027: expanded-permission native build (config only)
+
+**Scope:** `app.json`, `package.json`, `REBUILD_PLAN.md` (native prereqs §1–§3),
+`REBUILD_DECISIONS.md` (Decision 027). No app/store/lib/component code touched — this is a
+build-config session, not a feature port.
+
+### Module selection (recorded per Decision 027's mandate to *select and record*, not assume)
+| Feature area | Module selected | Notes |
+|---|---|---|
+| Camera / receipt scan | `expo-camera` | unchanged |
+| OCR | `@react-native-ml-kit/text-recognition` | unchanged, autolinked |
+| Notifications | `expo-notifications` (+ `expo-background-task`/`expo-task-manager`) | unchanged |
+| Photo / media read | `expo-image-picker` + `expo-media-library` | both keep their config plugins |
+| Microphone / voice notes | **`expo-audio`** | Expo-recommended capture module; `expo-av` audio APIs deprecated. Matches the decision's expected "obvious choice" — no divergence to flag. |
+| Android widgets | **`react-native-android-widget`** | Expo community standard; no first-party module. |
+| iOS widgets + rich-notif NSE | **`@bacons/apple-targets`** | WidgetKit + Notification Service Extension targets; App Group `group.com.freyrnorpixel.unfocus`. |
+
+### Pruned (Decision 027 Q1 — user "prune to the 027 list", + Q2 Session G call)
+Removed module + permission(s) + usage string(s) for: `expo-location`, `expo-calendar`,
+`expo-contacts`, `expo-sensors`, and (Session G call) `expo-speech-recognition`. Rationale
+and re-add cost are in Decision 027 Q1/Q2. Kept generic Android `FOREGROUND_SERVICE` (maps
+to persistent notifications) but dropped `FOREGROUND_SERVICE_LOCATION`; dropped `location`
+from iOS `UIBackgroundModes` (kept `fetch`, `processing` for background tasks).
+
+### app.json changes
+- `plugins`: removed `expo-location`, `expo-calendar`, `expo-sensors`,
+  `expo-speech-recognition`, `expo-contacts`; added `react-native-android-widget`,
+  `@bacons/apple-targets`. Kept the `expo-media-library` plugin (photo read/save strings).
+- `ios.entitlements`: added App Group `group.com.freyrnorpixel.unfocus`.
+- `ios.infoPlist`: kept `NSMicrophoneUsageDescription` (reworded to honest voice-note copy),
+  kept `NSPhotoLibraryAddUsageDescription`, added `NSPhotoLibraryUsageDescription` (read);
+  removed the two `NSLocation*`, `NSCalendarsUsageDescription`, `NSContactsUsageDescription`;
+  `UIBackgroundModes` now `["fetch","processing"]`.
+- `android.permissions`: now just `RECORD_AUDIO`, `FOREGROUND_SERVICE`.
+- **All usage-description strings are honest and non-empty** (esp. `NSMicrophoneUsageDescription`).
+
+### package.json changes
+- Removed: `expo-calendar`, `expo-contacts`, `expo-location`, `expo-sensors`,
+  `expo-speech-recognition`.
+- Added: `@bacons/apple-targets` (`^0.4.0`), `react-native-android-widget` (`^0.16.0`).
+
+### Flagged for build time (not done here — deliberate)
+- **`runtimeVersion` stays `1.0.0`.** Bump to `1.1.0` (match `version`) only when the APK is
+  actually built, or current installs get stranded on the preview OTA channel. See Decision 027.
+- **Package versions are best-effort, not resolved.** No `npm install`/network build ran in
+  this remote session. Run `npx expo install @bacons/apple-targets react-native-android-widget`
+  at build time to pin SDK-56/RN-0.85-compatible versions before the first `expo prebuild`.
+- **Widget/NSE target contents not implemented** — scaffolding only, per 027's scope boundary.
+
+### Verification
+Config-only change; no typecheck/build available in the remote env (per CLAUDE.md). Manual
+review: `app.json` is valid JSON and internally consistent (every retained plugin has its dep;
+every removed dep has its plugin/permission/string removed). AGENTS.md already documents the
+native-build → new-APK flow, so no AGENTS.md edit needed beyond the REBUILD_PLAN §1–§3 rewrite.
