@@ -2946,3 +2946,103 @@ session reports (missing `expo-blur`/`expo-linear-gradient`/`react-native-svg`; 
   loaded them) is still a future task.
 - Task per-task notification scheduling still unported (`lib/taskNotifications.ts` absent) — see
   useTaskStore header.
+
+## 2026-07-03 — Phase 6 (final): Onboarding flow ported + deferred mounts wired
+
+**Status: Complete (code + typecheck).** Ported all ten onboarding files —
+`app/onboarding/{_layout,language,privacy,guided,index,step2,step3,step4,step5,step6}.tsx`
+— the last screens in the rebuild. With this, **Phase 6 / the rebuild is complete**
+except the one flagged item below (SiteSwipeView wiring).
+
+**Preconditions read in full before coding:** REBUILD_DECISIONS.md (006/008/010/014),
+PROGRESS_LOG.md tail, both CLAUDE.md/AGENTS.md, REBUILD_PLAN.md onboarding phase, and
+all ten old `All-the-small-things` onboarding sources.
+
+**Token remap (Decision 006, all screens):** `theme.white`→`surface`, `theme.grayLight`→
+`surfaceMuted` (icon badges, inactive dots, switch tracks) or `border` (dividers/switch
+track-false), `theme.textLight`→`textMuted`, `theme.orange`→`accent`, `theme.orangeLight`→
+`accentSoft`, `theme.gray`→`textMuted` (switch thumb-off), `theme.green`→`good`,
+`FeatureColors.shop`→`theme.featShop`. Text/icon on the guided screen's accent-tinted
+`<Surface tint={theme.accent}>` → `accentInk`. No raw hex in screen chrome (shadowColor via
+Shadow.card token exempt; pet colour swatches are stored hex data values — petColor is a hex
+string — with `accent`/`good` seeding the first two, flagged in step6's header).
+
+**Structure:** onboarding keeps its bare `SafeAreaView` layout (it's pre-setup, no BottomNav/
+header chrome — Decision 001 scaffold is for the 5 sites + sub-screens, not onboarding).
+Consistent typography (FontSize/Fonts tokens), Spacing tokens throughout (no magic numbers),
+`Button` component for every CTA, 6-dot progress row (steps 0–5) on index/step2–6.
+
+**HintCard (Decision 010, per-screen call):** added to step2 (`tipWorkMode`) and step3
+(`monthlyPaydayHint`) — the two genuine "tip" boxes, converted from inline tipBox Views to
+`HintCard`. Gated on `showHints`, which `guided.goGuided()` sets true before the wizard, so
+they render in the guided flow. The core reassurance boxes (`onboardingSettingsNote` on
+index/step4) stay as always-visible `accentSoft` note boxes (not hidden by a hints toggle).
+
+**TimePickerWheel (never ported) — step2 work-hours:** replaced with `FormControls.Input`
+(HH:MM text), the exact precedent task-form.tsx / habit-form.tsx already set for time entry.
+No new component pulled in.
+
+**icon.png asset gap-fill:** `assets/icon.png` was absent in this repo (only bg-light/dark +
+monochrome had been ported); copied it over from the old repo so the welcome-screen logo
+(index.tsx) renders. Same per-phase asset-port precedent as Phase 1.
+
+**Deferred mounts wired (Phase 3e flag):**
+- **DebugOverlay** — mounted in `app/_layout.tsx`, gated `loaded && debugModeEnabled`
+  (both now exist in `useSettingsStore`). The old DebugOverlay header note ("debugModeEnabled
+  doesn't exist yet") is now stale — the gate is live.
+- **Pet in step5/step6** — step5 is theme+handedness (SwatchPicker), step6 is pet naming and
+  mounts `<Pet completedToday={0} />` inline in a fixed-height `position:'relative'` preview
+  box (Pet's root is `position:'absolute'`). Building these two screens *is* the flagged
+  wiring; both now render their respective leaf (SwatchPicker / Pet).
+- **SiteSwipeView — NOT wired, flagged (unrecorded decision → stop-and-flag per constraints).**
+  The component's own header contract says wrap each *site screen's* scrollable content and
+  explicitly NOT modals/camera overlays; a single global `_layout` wrap contradicts that and
+  risks gesture conflicts (ShoppingRow's swipe-to-remove reuses the same
+  activeOffsetX/velocity thresholds). Per-screen wiring across the 5 nav sites is a
+  cross-cutting change outside onboarding scope. Left for a dedicated follow-up; recommended
+  approach is per-screen wraps (index/plans/shopping/health/scan), excluding scan's camera
+  overlay per SiteSwipeView's edit note. (An AskUserQuestion to confirm scope failed to
+  deliver — tool stream closed — so defaulted to the contract-safe defer.)
+
+**app/_layout.tsx bootstrap (minimal, to make onboarding reachable):** added `initDb()` +
+`useSettingsStore.load()` on mount and the onboarding redirect guard (`loaded &&
+!setupComplete && segments[0]!=='onboarding' → /onboarding/language`), registered the
+`onboarding` Stack.Screen (plus the other ported screens + the four modal presentations), and
+mounted DebugOverlay. This is a faithful slice of the old `_layout` — NOT the full multi-store
+notification bootstrap, which stays deferred (each screen self-loads on focus). Switched the
+Stack `contentStyle` from the non-existent `theme.cream` to `theme.bg`, which also cleared
+`_layout.tsx` from the tsc baseline.
+
+**step6.finish() — unported notification deps dropped, flagged:** the old finish() called
+`syncReminders()` (lib/reminders.ts) and `useTaskStore.syncAllTaskNotifications()` — neither
+exists in this repo (weekly/monthly reminder + per-task notification scheduling still
+unported, per prior Phase 6 flags). Kept `requestPermissions()` (which does exist) so the OS
+prompt still fires; the two sync calls are omitted with a header note, not stubbed.
+
+**No new decisions, no new i18n keys, no migrations.** Every visible string already existed in
+both en/no (chooseLanguage*, onboarding.privacy.*, guided*/explore*, whatsYourName/name*/
+welcome*/features/onboardingSettingsNote, workMode*/startWithWorkMode/canChangeAnytime/
+autoActivateWorkHours/appSwitchesItself/workHours*/tipWorkMode, shoppingOnboarding*/
+monthly*, notifications*/taskNotifications*/weeklyReminders*, theme*/themeNames/
+settings.accessibility.leftHanded*, onboarding.step6.*/settings.pet.*, config.skipForNow,
+previous/next/getStarted/finishBtn).
+
+**Verification:** `npm install --legacy-peer-deps` + `npx tsc --noEmit` → 24 errors, **zero in
+any of the 10 onboarding files or `app/_layout.tsx`** (grep-clean). All 24 are the standing
+baseline family (`_scaffold-demo`, `BottomNav`, `ScreenBackground`, `ScreenHeader`,
+`ScreenScaffold`, `Surface`, `GradientSwatch`/`HomeHeroBackground` native-lib types,
+`shopping.tsx` moreOptions) — and this session actually shrank the baseline by clearing
+`app/_layout.tsx`'s old `theme.cream` error. Manual review only per repo policy.
+
+**Unresolved / flagged for future sessions:**
+- **SiteSwipeView** wiring (above) — the one remaining deferred mount.
+- **Settings screen** (`app/settings.tsx`) is NOT in this repo — the one remaining screen.
+  Two carried-forward notes for whoever builds it: (1) the old settings screen MERGES task +
+  habit notifications into a single toggle (Decision 016's flagged "keep merge or split?" —
+  a settings-content decision, still open); (2) the quiet-hours hint copy needs updating —
+  habits are now covered and habit occurrences inside quiet hours are *skipped* not deferred
+  (Decision 016 Q4). DebugOverlay's own on/off toggle also lives on the (unbuilt) settings
+  screen (`debugModeEnabled`).
+- **Notification scheduling** (`lib/reminders.ts`, `useTaskStore.syncAllTaskNotifications`,
+  per-task/weekly/monthly) still unported — step6.finish() and the `_layout` bootstrap both
+  leave the scheduling calls out and only request permission.
