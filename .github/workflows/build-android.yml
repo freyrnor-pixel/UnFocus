@@ -10,13 +10,16 @@ on:
 
 jobs:
   build:
-    name: Build Debug APK
+    name: Build Debug APK (arm64-v8a)
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Validate app.json (runtimeVersion / slug guardrail)
+        run: node .github/scripts/check-app-config.js
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -33,11 +36,22 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Run Expo prebuild
-        run: npx expo prebuild --clean
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
 
-      - name: Build debug APK
-        run: cd android && ./gradlew assembleDebug
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build debug APK (arm64-v8a only)
+        working-directory: android
+        run: ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a
 
       - name: Upload APK to artifacts
         uses: actions/upload-artifact@v4
@@ -51,5 +65,5 @@ jobs:
         run: |
           echo "## Android APK Build Complete" >> $GITHUB_STEP_SUMMARY
           echo "Build message: ${{ inputs.message || 'No message provided' }}" >> $GITHUB_STEP_SUMMARY
-          echo "Version: 1.1.0 (Preview)" >> $GITHUB_STEP_SUMMARY
+          echo "Version: $(node -p "require('./app.json').expo.version") (runtimeVersion: $(node -p "require('./app.json').expo.runtimeVersion"))" >> $GITHUB_STEP_SUMMARY
           echo "Download APK from Artifacts" >> $GITHUB_STEP_SUMMARY
