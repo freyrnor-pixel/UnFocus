@@ -3563,3 +3563,36 @@ mechanism, the mount-skip, and the reducedMotion behaviour.
 **Verification:** manual code review only (per CLAUDE.md — no Jest, tsc is local-only in this
 remote env). No new props/imports beyond `useEffect`/`useRef`/`withSequence`; no baseline
 TypeScript surface changed.
+
+## 2026-07-03 — Global store bootstrap hoisted into app/_layout.tsx
+
+**Status: Complete.** `_layout.tsx` previously did minimal bootstrap only (guarded
+`initDb` + settings load + onboarding redirect); every screen self-loaded its store on
+focus. This session hoists the startup store loads app-wide.
+
+**What changed (single file, `app/_layout.tsx`):** added a second `useEffect` keyed on
+`loaded` (settings hydration) that fires `getState().load()` once settings are ready for
+all twelve non-settings stores: `useAutomationStore`, `useCatalogStore`, `useHabitStore`,
+`useHealthStore`, `useInboxStore`, `useMealStore`, `useNotesStore`, `useReceiptStore`,
+`useSharedStore`, `useShoppingListStore`, `useShoppingStore`, `useTaskStore`. Settings
+itself keeps its own mount-only effect (unchanged).
+
+**Automation gap closed (the point of the session):** `useAutomationStore.load()` now runs
+at startup, so `shopping_opened` / `task_completed` triggers are live from launch instead
+of only after the user first visits a screen that happened to load that store — the exact
+gap flagged in the 2026-07-03 budget/scan/automations log entry.
+
+**Render is NOT gated on these loads** (unlike the font gate) — matches the existing
+settings-load pattern; screens already tolerate post-paint hydration via their guards.
+
+**Per-screen guarded focus-loads left in place** as redundant safety nets (harmless), not
+ripped out, per session scope. `initDb` stays guarded — no schema changes, no migrations
+touched.
+
+**Header updated:** `_layout.tsx`'s own JSDoc `Connections:`/`Edit notes` now list the
+twelve new store imports and describe the loaded-keyed bootstrap effect + the redundant-net
+rationale (replacing the stale "full multi-store bootstrap still deferred" note).
+
+**Verification:** `npx tsc --noEmit` → 2 errors, both the pre-existing
+`app/shopping.tsx` `moreOptions` i18n gaps (standing baseline from the prior sweep entry) —
+**zero** new errors, none in `_layout.tsx`.
