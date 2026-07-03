@@ -1,25 +1,107 @@
 /**
- * useNotesStore.ts — Decision 015 stub: type-only, no store logic.
+ * useNotesStore.ts — free-form notes (Notater), each with a header, a body, and a checkmark.
  *
- * Declares the minimal Note shape Phase 3c's NoteRow needs for its props, ahead
- * of Phase 5's real notes store. NoteRow is a dumb presentational row (app/notes.tsx
- * owns the data and every callback) so this file exports only the Note type —
- * no hook, unlike useTaskStore.ts/useShoppingStore.ts, since nothing here calls
- * a store function directly.
+ * Zustand store for the Notes site: every note has a short header line, a longer
+ * free-text body, and a checkmark-circle. Unchecked notes are "active"; checked
+ * notes sink to the bottom of the list — app/notes.tsx renders the split using this
+ * ordering directly, with no client-side grouping logic.
  *
  * Connections:
- *   Imports → —
- *   Used by → components/NoteRow.tsx (type only)
- *   Data    → none — placeholder for Phase 5's real SQLite-backed store
+ *   Imports → lib/db, lib/dataAccess, lib/id
+ *   Used by → app/notes.tsx, components/NoteRow.tsx (Note type)
+ *   Data    → defines a Zustand store; owns SQLite table notes
  *
  * Edit notes:
- *   - Phase 5 must implement this store to satisfy Note exactly as declared here
- *     (Decision 015). If the real store's needs differ, fix the contract there
- *     and re-typecheck NoteRow — don't diverge silently.
+ *   - load() orders by `checked, sort_order` — checked=0 (active) sorts before
+ *     checked=1, so the active/checked split in app/notes.tsx falls straight out
+ *     of array order (`notes.filter(n => !n.checked)` / `.filter(n => n.checked)`).
+ *   - add() appends to the end of the active notes (sortOrder = current note count)
+ *     so new notes land at the bottom of the active section, not the top.
+ *   - toggleChecked() is a thin wrapper over update() — kept distinct because it's
+ *     the row's checkmark-circle tap target, mirroring useTaskStore's toggle().
+ *   - Note widens the Decision 015 stub (adds sortOrder/createdAt) — additive, so
+ *     NoteRow (which only reads id/header/body/checked) still compiles unchanged.
  */
+import { create } from 'zustand';
+import db from '@/lib/db';
+import { Row, FieldMap, loadAll, insertRow, updateRow, rowValues, readStr, readInt, readBool } from '@/lib/dataAccess';
+import { generateId } from '@/lib/id';
+
 export type Note = {
   id: string;
   header: string;
   body: string;
   checked: boolean;
+  sortOrder: number;
+  createdAt: string;
 };
+
+type NotesStore = {
+  notes: Note[];
+  load: () => void;
+  add: () => Note;
+  update: (id: string, patch: Partial<Omit<Note, 'id'>>) => void;
+  toggleChecked: (id: string) => void;
+  remove: (id: string) => void;
+};
+
+function rowToNote(row: Row): Note {
+  return {
+    id: readStr(row, 'id'),
+    header: readStr(row, 'header'),
+    body: readStr(row, 'body'),
+    checked: readBool(row, 'checked'),
+    sortOrder: readInt(row, 'sort_order'),
+    createdAt: readStr(row, 'created_at'),
+  };
+}
+
+const NOTE_COLUMNS: FieldMap<Note> = {
+  id: { col: 'id' },
+  header: { col: 'header' },
+  body: { col: 'body' },
+  checked: { col: 'checked', to: (v) => (v ? 1 : 0) },
+  sortOrder: { col: 'sort_order' },
+  createdAt: { col: 'created_at' },
+};
+
+export const useNotesStore = create<NotesStore>((set, get) => ({
+  notes: [],
+
+  load() {
+    set({ notes: loadAll('notes', rowToNote, { orderBy: 'checked, sort_order' }) });
+  },
+
+  add() {
+    const note: Note = {
+      id: generateId(),
+      header: '',
+      body: '',
+      checked: false,
+      sortOrder: get().notes.length,
+      createdAt: new Date().toISOString(),
+    };
+    insertRow('notes', rowValues(note, NOTE_COLUMNS));
+    set((s) => ({ notes: [...s.notes, note] }));
+    return note;
+  },
+
+  update(id, patch) {
+    const note = get().notes.find((n) => n.id === id);
+    if (!note) return;
+    const next = { ...note, ...patch };
+    updateRow('notes', rowValues(patch, NOTE_COLUMNS), 'id = ?', [id]);
+    set((s) => ({ notes: s.notes.map((n) => (n.id === id ? next : n)) }));
+  },
+
+  toggleChecked(id) {
+    const note = get().notes.find((n) => n.id === id);
+    if (!note) return;
+    get().update(id, { checked: !note.checked });
+  },
+
+  remove(id) {
+    db.runSync('DELETE FROM notes WHERE id = ?', [id]);
+    set((s) => ({ notes: s.notes.filter((n) => n.id !== id) }));
+  },
+}));
