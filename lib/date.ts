@@ -8,7 +8,9 @@
  * Connections:
  *   Imports → —
  *   Used by → components/QuickAddSheet.tsx, components/ShoppingQuickAddSheet.tsx,
- *             components/SharedRequestsSection.tsx, app/shopping.tsx
+ *             components/SharedRequestsSection.tsx, app/shopping.tsx, app/budget.tsx,
+ *             app/shared.tsx, store/useShoppingListStore.ts
+ *             (formatDisplayDate — Decision 028 — renders stored ISO keys as DD.MM.YYYY in NO)
  *             (Phase 5 stores/screens will add more callers as they're ported)
  *   Data    → none (pure functions)
  *
@@ -76,6 +78,20 @@ export function getWeekRangeContaining(today: string, weeklyResetDay: number): {
   d.setDate(d.getDate() - daysSinceReset);
   const week = getWeekDates(dateStr(d));
   return { startDate: week[0], endDate: week[6] };
+}
+
+/**
+ * Render a stored `YYYY-MM-DD` key as a user-facing date string (Decision 028).
+ * Norwegian convention is DD.MM.YYYY; English keeps the ISO `YYYY-MM-DD` form.
+ * DISPLAY ONLY — never feed the result back into a store/DB key or a comparison;
+ * the ISO string stays the canonical key everywhere else. Malformed input is
+ * returned unchanged so a bad value never crashes a render.
+ */
+export function formatDisplayDate(iso: string, lang: 'en' | 'no'): string {
+  const parts = iso.split('-');
+  if (parts.length !== 3 || parts.some((p) => p === '')) return iso;
+  const [y, m, d] = parts;
+  return lang === 'no' ? `${d}.${m}.${y}` : iso;
 }
 
 /**
