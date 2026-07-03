@@ -6,7 +6,7 @@
  *
  * Connections:
  *   Imports → qrcode-generator
- *   Used by → app/share-modal.tsx (not ported yet — this is a leaf ahead of its screen)
+ *   Used by → app/share-modal.tsx
  *   Data    → none (presentational); encodes the `data` string prop only
  *
  * Edit notes:

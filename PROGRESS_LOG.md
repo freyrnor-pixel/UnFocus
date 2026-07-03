@@ -2586,3 +2586,97 @@ added to both `en` and `no` (TS infers the dictionary type from `en`; `no` mirro
 - A formal decision-log update is still worth filing so Decision 020's "highlight in place"
   leaning text doesn't mislead a cold read now that sub-question (b) resolved to "pull into
   today's view" (already flagged by Session 1; restated here since this session built to it).
+
+## 2026-07-03 — Phase 6: single-purpose screens (capture, notes, share-modal, shared) + their stores
+
+**Status: Complete (code + typecheck); OB-3 copy STILL OPEN — surfaced, not invented.**
+Ported the Phase 6 single-purpose screens named in the brief — `app/capture.tsx`,
+`app/notes.tsx`, `app/share-modal.tsx` — plus `app/shared.tsx` (share-modal's Done
+target, explicitly in the brief's scope item 2), and the three real stores they need
+(Phase 5 pairing rule): `useInboxStore`, `useNotesStore`, `useSharedStore` (all replaced
+their Decision 015 stubs). Also ported `lib/share.ts` (QR payload encode/decode) as a
+foundation gap-fill dependency of share-modal. `useFeedbackStore` was NOT ported — it's
+the debug-overlay store, not consumed by any of these four screens.
+
+**Preconditions verified before coding:** REBUILD_DECISIONS.md (012, OB-3, 006/008/014,
+015/015a), PROGRESS_LOG, both CLAUDE.md/AGENTS.md read. All four DB tables already exist
+in `lib/db.ts` (`inbox_items`, `notes`, `shared_tasks`, `shared_shopping_items`) with
+schemas matching the old stores' reads — **no migration added** (never-drop/recreate
+invariant honoured). All component deps present in this repo (QRCodeDisplay, Surface,
+Button, ScreenScaffold, HintCard, NoteRow, AddFAB, ShoppingQuickAddSheet,
+ConfirmationBanner).
+
+**Stores (real ports, replacing stubs):**
+- `useInboxStore` — verbatim logic from old app; `promoteToTask(id, taskFields: TaskInput)`
+  keeps the existing consumer contract (InboxSection already compiles against `TaskInput`,
+  which is this repo's `add()` param — the old `Omit<Task,'id'|'steps'>` shape is the same
+  thing here). Owns `inbox_items`.
+- `useNotesStore` — verbatim; `Note` widened over the stub (adds `sortOrder`/`createdAt`) —
+  additive, so `NoteRow` (reads only id/header/body/checked) still compiles. Owns `notes`,
+  `load()` orders by `checked, sort_order` so the active/checked split falls out of array
+  order.
+- `useSharedStore` — verbatim in/out shared tasks + shopping; widened over the stub (adds
+  `sourceTaskId`/`sourceItemId`/`date`/`createdAt` + `load`/`addSharedTasks`/
+  `addSharedShopping`) — additive, so `SharedRequestsSection` keeps compiling. Owns
+  `shared_tasks` + `shared_shopping_items`.
+
+**Screens (Decision 001 scaffold + Decision 006 tokens + useT() throughout):**
+- `capture.tsx` — tier='sub' ScreenScaffold; big multiline capture TextInput (hand-rolled,
+  restyled to tokens — `FormControls.Input` is not a forwardRef and capture needs the input
+  ref for stay-open/refocus, same "unlabelled textarea stays hand-rolled" precedent as
+  QuickAddSheet/NoteRow); `Button` primitive for Capture/Save; `ConfirmationBanner` sibling
+  overlay. Dual-mode add/edit via `?id=` preserved (Decision 012 edit affordance target).
+- `notes.tsx` — tier='site' ScreenScaffold (owns BottomNav + header; old SiteSwipeView/
+  BottomNav/ScreenHeader dropped, same as plans.tsx). NoteRow (no `theme` prop),
+  active/checked split + accent divider (`theme.orange`→`theme.accent`), HintCard, AddFAB +
+  ShoppingQuickAddSheet siblings. NO BottomNav tab added (Decision 012 / C1 — intentional).
+  Loads notes+settings on focus (guarded initDb).
+- `share-modal.tsx` — tier='sub' ScreenScaffold; Surface cards, `Button` for Share, QR
+  result via QRCodeDisplay; hand-rolled circular selection checkbox restyled to
+  accent/accentInk (multi-line label+sub row, checkbox precedent). `dismissAll()+push('/shared')`
+  Done flow preserved. Token remap: orange→accent, greenLight/green→goodSoft/good,
+  textLight→textMuted, Colors.white→accentInk.
+- `shared.tsx` — tier='site' ScreenScaffold; tab switcher inlined as first (non-sticky)
+  content row (old fixed-tab bar; scaffold owns chrome). Inline SharedShoppingRow/
+  SharedTaskRow helpers now read `useAppTheme()` internally (dropped the retired
+  `theme: AppColors` prop, same precedent as every other port). Loads shared+tasks+shopping
+  on focus so cross-store mirrors stay fresh.
+
+**i18n:** every visible string already existed in both `en`/`no` (inbox.*, notes.*,
+share*/shared* families) — **no new keys added** for the faithful port (checked before
+adding anything, per token policy).
+
+**OB-3 (per-location share explanation copy) — STILL OPEN, surfaced not invented.**
+The brief required stopping to enumerate the real share locations before drafting copy.
+The built UI exposes these share points:
+  1. Shopping screen → Share → `/share-modal?kind=s` (shares unchecked shopping items)
+  2. Plans screen + Home screen → Share → `/share-modal?kind=t` (shares future undone tasks)
+  3. Post-share QR screen already shows existing `shareInstructions`; `/shared` is the
+     sent/received history landing.
+I asked the user (placement + drafted copy) via AskUserQuestion, but the tool's permission
+stream closed before an answer could be collected, so per "do not invent the copy silently"
+the port ships with ONLY the existing `shareInstructions` string and OB-3 remains open. The
+proposed drafts I surfaced for when the user returns:
+  - Per-kind line under the modal's selection-card title (recommended placement):
+    Shopping — "Pick items to send as a QR code — the other person scans it to add them to
+    their own list."  Plans — "Pick tasks to send as a QR code — the other person scans it
+    to add them to their own plans."
+Wiring is a ~1 i18n-key-pair + one `<Text>` change once the user picks placement/wording.
+
+**Verification:** `npm install --legacy-peer-deps` + `npx tsc --noEmit` → 33 errors,
+**zero in any file this session created or changed** (grep-confirmed clean for
+capture/notes/share-modal/shared/useInboxStore/useNotesStore/useSharedStore/lib/share).
+The 33 are the identical standing baseline every recent session reports (old-token screens
+`_scaffold-demo`/`index`/`BottomNav`/`ScreenBackground`/`ScreenScaffold`/`Surface`/
+`ScreenHeader`/`_layout`, `GradientSwatch`/`HomeHeroBackground` native-lib gaps,
+`app/shopping.tsx` moreOptions/StatusBar). None introduced here.
+
+**Header updates:** new files carry full Connections/Data/Edit-notes headers;
+`QRCodeDisplay.tsx` "Used by" note updated (share-modal now ported, was "not ported yet").
+
+**Unresolved / flagged for future sessions:**
+- OB-3 copy (above) — waiting on user placement/wording decision.
+- No global bootstrap yet — each screen self-loads its stores on focus (guarded initDb),
+  same deferred `_layout` bootstrap precedent as shopping/plans.
+- Share-modal entry points on Home/Plans aren't wired in the rebuild yet (those screens'
+  own future phases); share-modal is reachable by route/kind regardless.

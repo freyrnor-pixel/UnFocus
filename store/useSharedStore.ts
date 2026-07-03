@@ -1,66 +1,172 @@
 /**
- * useSharedStore.ts — Decision 015 stub: typed interface only, no store logic.
+ * useSharedStore.ts — tasks / shopping items shared between users (in & out)
  *
- * Declares the minimal contract components/SharedRequestsSection.tsx needs to
- * list incoming shared shopping-items/tasks and accept/dismiss them, ahead of
- * Phase 5's real shared-inbox store. Every action throws to make accidental
- * real usage fail loudly instead of silently no-op'ing. Reading
- * shoppingItems/tasks is always safe — returns [], so SharedRequestsSection
- * renders nothing (its own `pending.length === 0` early-return) until Phase 5.
+ * Zustand store for items exchanged via the share/scan QR flow: both inbound
+ * (received) and outbound (sent) shared tasks and shopping items, tracked with a
+ * `direction` and the sender's name. Backs the shared screen and share modal.
  *
  * Connections:
- *   Imports → —
- *   Used by → components/SharedRequestsSection.tsx
- *   Data    → none — placeholder for Phase 5's real SQLite-backed store
+ *   Imports → lib/db, lib/dataAccess, lib/id
+ *   Used by → app/share-modal.tsx, app/shared.tsx, components/SharedRequestsSection.tsx
+ *             (app/scan.tsx not ported yet — a future consumer of addShared*)
+ *   Data    → defines a Zustand store; owns SQLite tables shared_tasks and shared_shopping_items
  *
  * Edit notes:
- *   - New file (2026-07-02, Session A2·2, expanded scope — see PROGRESS_LOG). Not part
- *     of Session A2·1's staged surface; this store didn't exist anywhere in this repo
- *     before app/shopping.tsx needed SharedRequestsSection ported. Signatures mirror the
- *     old app's useSharedStore.ts 1:1 for the fields/actions SharedRequestsSection reads
- *     — same minimal-contract precedent as every other Decision 015 stub.
- *   - direction: 'in' rows are incoming shares (from a partner); 'out' rows (sent by this
- *     device) exist in the old app's full history screen but aren't read by
- *     SharedRequestsSection, which only ever filters direction==='in' && !done.
+ *   - `direction` ('in'|'out') is the key distinction — the same table holds both sent and received rows; source_task_id/source_item_id link back to the local origin (may be null).
+ *   - addShared* INSERTs are wrapped in try/catch to silently skip duplicates; these are append-only and pruned past RETENTION_DAYS in lib/db.ts.
+ *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
+ *   - Widens the Decision 015 stub (adds sourceTaskId/sourceItemId/date/createdAt +
+ *     load/addSharedTasks/addSharedShopping actions) — additive, so SharedRequestsSection
+ *     (which only reads shoppingItems/tasks + the toggle/remove actions) keeps compiling.
  */
-export type SharedShoppingItem = {
-  id: string;
-  name: string;
-  amount: string;
-  unit: string;
-  direction: 'in' | 'out';
-  done: boolean;
-  sharedBy: string;
-};
+import { create } from 'zustand';
+import db from '@/lib/db';
+import { Row, loadAll, insertRow, updateRow, readStr, readBool } from '@/lib/dataAccess';
+import { generateId } from '@/lib/id';
+
+export type SharedDirection = 'in' | 'out';
 
 export type SharedTask = {
   id: string;
+  sourceTaskId: string | null;
   title: string;
-  direction: 'in' | 'out';
+  date: string;
   done: boolean;
+  direction: SharedDirection;
   sharedBy: string;
+  createdAt: string;
 };
 
-type SharedStoreState = {
-  shoppingItems: SharedShoppingItem[];
+export type SharedShoppingItem = {
+  id: string;
+  sourceItemId: string | null;
+  name: string;
+  amount: string;
+  unit: string;
+  done: boolean;
+  direction: SharedDirection;
+  sharedBy: string;
+  createdAt: string;
+};
+
+type SharedStore = {
   tasks: SharedTask[];
-  toggleShopping: (id: string) => void;
+  shoppingItems: SharedShoppingItem[];
+  load: () => void;
+  addSharedTasks: (items: Omit<SharedTask, 'id' | 'createdAt' | 'done'>[]) => void;
+  addSharedShopping: (items: Omit<SharedShoppingItem, 'id' | 'createdAt' | 'done'>[]) => void;
   toggleTask: (id: string) => void;
-  removeShopping: (id: string) => void;
+  toggleShopping: (id: string) => void;
   removeTask: (id: string) => void;
+  removeShopping: (id: string) => void;
 };
 
-function notImplemented(): never {
-  throw new Error('useSharedStore is a Phase 5 stub (Decision 015) — not implemented yet');
+function rowToTask(row: Row): SharedTask {
+  return {
+    id: readStr(row, 'id'),
+    sourceTaskId: readStr(row, 'source_task_id') || null,
+    title: readStr(row, 'title'),
+    date: readStr(row, 'date'),
+    done: readBool(row, 'done'),
+    direction: readStr(row, 'direction') as SharedDirection,
+    sharedBy: readStr(row, 'shared_by'),
+    createdAt: readStr(row, 'created_at'),
+  };
 }
 
-export function useSharedStore<T>(selector: (s: SharedStoreState) => T): T {
-  return selector({
-    shoppingItems: [],
-    tasks: [],
-    toggleShopping: notImplemented,
-    toggleTask: notImplemented,
-    removeShopping: notImplemented,
-    removeTask: notImplemented,
-  });
+function rowToShopping(row: Row): SharedShoppingItem {
+  return {
+    id: readStr(row, 'id'),
+    sourceItemId: readStr(row, 'source_item_id') || null,
+    name: readStr(row, 'name'),
+    amount: readStr(row, 'amount') || '1',
+    unit: readStr(row, 'unit'),
+    done: readBool(row, 'done'),
+    direction: readStr(row, 'direction') as SharedDirection,
+    sharedBy: readStr(row, 'shared_by'),
+    createdAt: readStr(row, 'created_at'),
+  };
 }
+
+export const useSharedStore = create<SharedStore>((set, get) => ({
+  tasks: [],
+  shoppingItems: [],
+
+  load() {
+    set({
+      tasks: loadAll('shared_tasks', rowToTask, { orderBy: 'created_at DESC' }),
+      shoppingItems: loadAll('shared_shopping_items', rowToShopping, { orderBy: 'created_at DESC' }),
+    });
+  },
+
+  addSharedTasks(items) {
+    const now = new Date().toISOString();
+    const newItems: SharedTask[] = [];
+    for (const item of items) {
+      const id = generateId();
+      try {
+        insertRow('shared_tasks', {
+          id,
+          source_task_id: item.sourceTaskId ?? null,
+          title: item.title,
+          date: item.date,
+          done: 0,
+          direction: item.direction,
+          shared_by: item.sharedBy,
+          created_at: now,
+        });
+        newItems.push({ ...item, id, done: false, createdAt: now });
+      } catch { /* skip duplicate */ }
+    }
+    set((s) => ({ tasks: [...newItems, ...s.tasks] }));
+  },
+
+  addSharedShopping(items) {
+    const now = new Date().toISOString();
+    const newItems: SharedShoppingItem[] = [];
+    for (const item of items) {
+      const id = generateId();
+      try {
+        insertRow('shared_shopping_items', {
+          id,
+          source_item_id: item.sourceItemId ?? null,
+          name: item.name,
+          amount: item.amount,
+          unit: item.unit,
+          done: 0,
+          direction: item.direction,
+          shared_by: item.sharedBy,
+          created_at: now,
+        });
+        newItems.push({ ...item, id, done: false, createdAt: now });
+      } catch { /* skip duplicate */ }
+    }
+    set((s) => ({ shoppingItems: [...newItems, ...s.shoppingItems] }));
+  },
+
+  toggleTask(id) {
+    const item = get().tasks.find((t) => t.id === id);
+    if (!item) return;
+    const done = !item.done;
+    updateRow('shared_tasks', { done: done ? 1 : 0 }, 'id = ?', [id]);
+    set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, done } : t)) }));
+  },
+
+  toggleShopping(id) {
+    const item = get().shoppingItems.find((i) => i.id === id);
+    if (!item) return;
+    const done = !item.done;
+    updateRow('shared_shopping_items', { done: done ? 1 : 0 }, 'id = ?', [id]);
+    set((s) => ({ shoppingItems: s.shoppingItems.map((i) => (i.id === id ? { ...i, done } : i)) }));
+  },
+
+  removeTask(id) {
+    db.runSync('DELETE FROM shared_tasks WHERE id = ?', [id]);
+    set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) }));
+  },
+
+  removeShopping(id) {
+    db.runSync('DELETE FROM shared_shopping_items WHERE id = ?', [id]);
+    set((s) => ({ shoppingItems: s.shoppingItems.filter((i) => i.id !== id) }));
+  },
+}));
