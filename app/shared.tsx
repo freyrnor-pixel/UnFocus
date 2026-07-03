@@ -6,9 +6,9 @@
  * linked source task/shopping item when one exists (sourceTaskId / sourceItemId).
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/Surface, constants/theme, lib/db,
- *             lib/i18n, lib/useAppTheme, store/useSharedStore, store/useShoppingStore,
- *             store/useTaskStore
+ *   Imports → components/ScreenScaffold, components/Surface, constants/theme, lib/date,
+ *             lib/db, lib/i18n, lib/useAppTheme, store/useSettingsStore, store/useSharedStore,
+ *             store/useShoppingStore, store/useTaskStore
  *   Used by → Expo Router route "/shared" (reached from /share-modal's Done button and
  *             app/scan.tsx's post-scan prompt — scan.tsx not ported yet)
  *   Data    → useSharedStore (shared_tasks + shared_shopping_items tables); mirrors actions
@@ -32,6 +32,8 @@ import { useSharedStore, SharedTask, SharedShoppingItem } from '@/store/useShare
 import { useTaskStore } from '@/store/useTaskStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useT } from '@/lib/i18n';
+import { useSettingsStore } from '@/store/useSettingsStore';
+import { formatDisplayDate } from '@/lib/date';
 import { initDb } from '@/lib/db';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
@@ -238,6 +240,7 @@ function SharedTaskRow({
 }) {
   const theme = useAppTheme();
   const t = useT();
+  const lang = useSettingsStore((s) => s.language);
   const styles = useScaledStyles(baseStyles);
   return (
     <View style={styles.row}>
@@ -252,7 +255,7 @@ function SharedTaskRow({
           {item.title}
         </Text>
         <Text style={[styles.rowMeta, { color: theme.textMuted }]}>
-          {item.date} · {item.direction === 'out' ? t.sharedBySelf : t.sharedFromLabel(item.sharedBy)}
+          {formatDisplayDate(item.date, lang)} · {item.direction === 'out' ? t.sharedBySelf : t.sharedFromLabel(item.sharedBy)}
         </Text>
       </View>
       <Pressable onPress={onRemove} style={styles.removeBtn}>

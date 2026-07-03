@@ -36,7 +36,7 @@ import { useRouter } from 'expo-router';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useT } from '@/lib/i18n';
-import { currentMonthStr, todayStr } from '@/lib/date';
+import { currentMonthStr, todayStr, formatDisplayDate } from '@/lib/date';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
@@ -48,6 +48,7 @@ export default function BudgetScreen() {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
 
+  const lang = useSettingsStore((s) => s.language);
   const monthlyBudgetNok = useSettingsStore((s) => s.monthlyBudgetNok);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const lastMonthlyReset = useSettingsStore((s) => s.lastMonthlyReset);
@@ -184,7 +185,7 @@ export default function BudgetScreen() {
                   <View key={r.id} style={styles.row}>
                     <View style={styles.rowContent}>
                       <Text style={[styles.rowLabel, { color: theme.text }]}>{r.store || t.budget.title}</Text>
-                      <Text style={[styles.rowMeta, { color: theme.textMuted }]}>{r.date}</Text>
+                      <Text style={[styles.rowMeta, { color: theme.textMuted }]}>{formatDisplayDate(r.date, lang)}</Text>
                     </View>
                     <Text style={[styles.rowTotal, { color: theme.text }]}>{r.total.toFixed(2)} kr</Text>
                   </View>
