@@ -61,9 +61,11 @@
  *     opaque. Same constant reused by the "Shopping done" disabled state on the shopping
  *     screen — import `CHECKED_OPACITY` from here (R3) rather than a new literal.
  *   - The inline qty stepper (−/badge/+) renders on 'planned' and 'cart' rows whenever the
- *     parent passes onIncrement/onDecrement (omit both to hide it) AND the row isn't
- *     `locked` — locked hides the stepper entirely rather than disabling it, matching the
- *     old row's behavior. Bounds are 1–99: the − button disables at qty 1, the + button
+ *     parent passes onIncrement/onDecrement (omit both to hide it). **Decision 028:** the
+ *     stepper does NOT read `locked` — adjusting a quantity of an item already on the list is
+ *     neither an add nor a remove (the − floors at 1, so it can never delete a row), so it
+ *     stays live regardless of lock state, same category as the checkbox. `locked` gates only
+ *     the remove affordance (the swipe gesture, below). Bounds are 1–99: the − button disables at qty 1, the + button
  *     disables at qty 99 (the store's adjustAmount clamps at 0 by deleting the row, but the
  *     stepper's own floor is 1 so "delete by stepper" never happens here — removal stays the
  *     swipe gesture's job). Hidden entirely on 'purchased' rows.
@@ -171,7 +173,7 @@ export default function ShoppingRow({
     prevQty.current = safeQty;
   }, [safeQty]);
   const dimmed = variant === 'purchased' || (variant === 'cart' && item.collected) || (variant === 'planned' && item.checked);
-  const showStepper = variant !== 'purchased' && !locked && !!(onIncrement || onDecrement);
+  const showStepper = variant !== 'purchased' && !!(onIncrement || onDecrement);
   const canDecrement = !!onDecrement && safeQty > MIN_QTY;
   const canIncrement = !!onIncrement && safeQty < MAX_QTY;
   const priceTotal = item.price > 0 && isNumeric ? item.price * qty : null;

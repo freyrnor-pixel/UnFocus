@@ -60,10 +60,13 @@
  *   - Decision 011 R3: "Shopping done!" reuses ShoppingRow's exported CHECKED_OPACITY for
  *     its disabled dim instead of a re-declared literal — this button lived inside
  *     WeekListCard in the old app too, so the constant belongs here, not in app/shopping.tsx.
- *   - `list.locked` only gates add/remove/edit: every ShoppingRow gets locked={list.locked}
- *     (dims remove/move/stepper; checkmark/collect/undo stay interactive regardless), and
- *     the AddDivider below "Shopping list" is disabled via its own `disabled` prop — but
- *     "Shopping done!" is NEVER lock-gated (finishing a trip isn't an edit).
+ *   - `list.locked` only gates add/remove/edit (Decision 028): every ShoppingRow gets
+ *     locked={list.locked}, which dims the REMOVE affordance ONLY — within-list reorder,
+ *     the qty stepper, and checkmark/collect/undo all stay interactive regardless of lock
+ *     state (reorder + stepper act on an item already on the list, so they're neither an add
+ *     nor a remove). The AddDivider below "Shopping list" is disabled via its own `disabled`
+ *     prop — but "Shopping done!" is NEVER lock-gated (finishing a trip isn't an edit).
+ *     No lock-derived `disabled` is passed to the reorder wrapper (see app/shopping.tsx).
  *   - Decision 011a/R4 wiring (2026-07-02, Phase 4): each dish-group ExpandableCard now
  *     renders a checkbox in `rightAction` reading `dishGroupAllChecked(groupItems)` (derived,
  *     never stored — 011a decision #2) and calling the new `onToggleDish` prop on tap. The
