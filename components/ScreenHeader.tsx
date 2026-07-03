@@ -14,7 +14,12 @@
  * Edit notes:
  *   - tier='site' is for top-level screens (Shopping, Plans, Home, Health, Scan)
  *   - tier='sub' is for sub-screens (forms, editors, modals)
- *   - Focus-mode state is out of scope for Phase 1; onPressFocus is a no-op placeholder
+ *   - **Focus-mode toggle (Decisions 009 #4 / 001a / 018)**: the right-slot eye is a live
+ *     toggle ONLY when the screen passes `onToggleFocus` (Home does). `focusActive` drives
+ *     the filled ('eye') vs outline ('eye-outline') glyph and the accent tint. Focus mode is
+ *     Home-only + ephemeral, so every other site screen omits both props and the eye stays a
+ *     harmless no-op placeholder (its historical Phase-1 state) rather than showing an active
+ *     control that does nothing.
  *   - Settings press navigates to /settings; flag for resolution in phase 2
  *   - iOS-only back link on sub-screens; Android uses system back
  */
@@ -35,9 +40,12 @@ type Props = {
   onBack?: () => void;
   headerRight?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** Focus-mode toggle (Home only). When provided, the right-slot eye toggles focus. */
+  focusActive?: boolean;
+  onToggleFocus?: () => void;
 };
 
-export default function ScreenHeader({ title, tier, onBack, headerRight, style }: Props) {
+export default function ScreenHeader({ title, tier, onBack, headerRight, style, focusActive, onToggleFocus }: Props) {
   const t = useT();
   const theme = useAppTheme();
   const router = useRouter();
@@ -47,7 +55,8 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style }
   };
 
   const handleFocusPress = () => {
-    // TODO: Resolve in phase 2 — toggle focus-mode state
+    // Live only when a screen wires it (Home, per Decisions 009 #4 / 018). Elsewhere a no-op.
+    onToggleFocus?.();
   };
 
   return (
@@ -70,8 +79,18 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style }
 
       <View style={styles.rightSlot}>
         {tier === 'site' ? (
-          <Pressable onPress={handleFocusPress} hitSlop={8}>
-            <Ionicons name="eye-outline" size={24} color={theme.text} />
+          <Pressable
+            onPress={handleFocusPress}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityState={{ selected: !!focusActive }}
+            accessibilityLabel={focusActive ? t.focusActive : t.focusInactive}
+          >
+            <Ionicons
+              name={focusActive ? 'eye' : 'eye-outline'}
+              size={24}
+              color={focusActive ? theme.accent : theme.text}
+            />
           </Pressable>
         ) : (
           headerRight

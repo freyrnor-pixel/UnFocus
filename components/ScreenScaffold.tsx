@@ -52,6 +52,9 @@ type Props = {
   stickyBelowHeader?: React.ReactNode;
   /** Rendered height of `stickyBelowHeader` — required whenever that prop is passed. */
   stickyBelowHeaderHeight?: number;
+  /** Focus-mode toggle (Home only, Decisions 009 #4 / 018) — forwarded to the header eye. */
+  focusActive?: boolean;
+  onToggleFocus?: () => void;
 };
 
 export default function ScreenScaffold({
@@ -63,6 +66,8 @@ export default function ScreenScaffold({
   headerRight,
   stickyBelowHeader,
   stickyBelowHeaderHeight = 0,
+  focusActive,
+  onToggleFocus,
 }: Props) {
   const theme = useAppTheme();
 
@@ -102,6 +107,8 @@ export default function ScreenScaffold({
           tier={tier}
           onBack={onBack}
           headerRight={headerRight}
+          focusActive={focusActive}
+          onToggleFocus={onToggleFocus}
         />
       </View>
 
