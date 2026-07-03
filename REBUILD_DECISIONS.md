@@ -1633,3 +1633,29 @@ installs on the `preview` OTA channel. Bump `runtimeVersion` → `1.1.0` (to mat
 Version pins for `@bacons/apple-targets` and `react-native-android-widget` are best-effort;
 they were not `npm install`-resolved in the remote session. Confirm SDK 56 / RN 0.85
 compatible versions with `npx expo install` before the first prebuild.
+
+## Decision 029 — Merged task+habit notification toggle (ratify existing code)
+
+**Status:** Resolved
+**Date:** 2026-07-03
+**Numbering note:** Recorded as **029**, not 028. "028" was already consumed on `main` by the
+merged Norwegian-date-display commit (`f9d69c9`, code-only, no ledger heading), and by two other
+parallel-branch commits — a share-modal date-routing change and an earlier draft of this same
+ratification. Renumbered to avoid a same-number-two-meanings collision (the parallel-branch hazard
+AGENTS.md warns about). Content is otherwise the decision as authored.
+**Phase placement:** Phase 6 settings screen (app/settings.tsx). Ratifies behavior already present in the settings.tsx stub; no new code path introduced.
+**Origin:** Decision 016's flagged "Adjacent finding" (keep task+habit notifications merged into one toggle, or split them?) — left open through the habit-notification and Home-screen phases. The merge exists implicitly in the settings.tsx stub (one Switch writing taskNotificationsEnabled AND habitNotificationsEnabled together) but was never recorded as a resolved decision. This entry closes that gap per the "no implicit-in-code decisions" rule.
+
+### Decision
+KEEP MERGED. A single "Plan notifications" toggle drives both `taskNotificationsEnabled` and `habitNotificationsEnabled` together. No separate habit toggle. `taskNotificationsEnabled` is the display/read value for the control.
+
+### Rationale
+Matches the old app's single-toggle model; task and habit reminders are one user-facing concept ("remind me about my plan"). Splitting would add a control users didn't have before and isn't requested by any FEATURE_INVENTORY edit note.
+
+### Consequence / ripple
+- settings.tsx writes both flags from one `onValueChange`; `applyAndSync()` re-syncs both task and habit notifications on that change.
+- The quiet-hours hint copy (Decision 016 Q4) is a separate settings-copy item, resolved there, not here.
+
+### Blocks / unblocks
+- **Unblocks:** Session C (settings screen build) — the merged-vs-split question is now closed and can be applied, not re-decided.
+- No new blocks.
