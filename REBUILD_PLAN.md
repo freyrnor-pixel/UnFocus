@@ -197,6 +197,9 @@ land later as pure OTA/target work without another rebuild:
 ### Build reminder (mirrors AGENTS.md "Builds and updates")
 
 Everything in §1–§3 is a native change → new APK/AAB via `build-android.yml`
-(debug artifact) or EAS `production` profile (signed release). Bump **both**
-`version` and `runtimeVersion` in `app.json` to the same new value so OTA updates
-retarget the new runtime, and keep `slug` = `all-the-small-things`.
+(debug artifact) or EAS `production` profile (signed release). **The build is
+maintainer-run** — land this config on `main`, then hand off; don't cut the build
+from an agent session. Only **after** that build exists, bump **both** `version`
+and `runtimeVersion` in `app.json` to the same new value so OTA updates retarget
+the new runtime. Do not bump `runtimeVersion` ahead of the build, and keep `slug`
+= `all-the-small-things`.
