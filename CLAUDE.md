@@ -20,7 +20,7 @@
 ### Key Rules (Don't Break These)
 | Rule | Why |
 |---|---|
-| `slug` in `app.json` MUST stay `all-the-small-things` | EAS project registration |
+| `slug` in `app.json` MUST stay `unfocus` | EAS project registration (ID: `9c7c7e82-8c6e-4be7-aae1-e588b4ebc495`) |
 | All UI text through `useT()` from `lib/i18n.ts` | Bilingual (EN/NO) |
 | Date format always `YYYY-MM-DD` | Used as keys throughout stores |
 | SQLite file: `unfocus.db` (in `lib/db.ts`) | Fixed name for device storage |

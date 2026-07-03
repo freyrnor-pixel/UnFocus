@@ -1,16 +1,16 @@
 {
   "expo": {
     "name": "UnFocus",
-    "slug": "all-the-small-things",
+    "slug": "unfocus",
     "owner": "freyrnor-pixel",
     "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "unfocus",
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "1.1.0",
     "updates": {
-      "url": "https://u.expo.dev/7ccb5393-f6b8-4a0f-8e45-8c86977d581c",
+      "url": "https://u.expo.dev/9c7c7e82-8c6e-4be7-aae1-e588b4ebc495",
       "channel": "preview"
     },
     "intentFilters": [
@@ -97,7 +97,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "7ccb5393-f6b8-4a0f-8e45-8c86977d581c"
+        "projectId": "9c7c7e82-8c6e-4be7-aae1-e588b4ebc495"
       }
     }
   }

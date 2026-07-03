@@ -4,13 +4,13 @@
 //      this is exactly the bug that made every OTA update silently rejected on-device
 //      in the predecessor app (resolved appVersion != embedded build runtime, no error
 //      surfaced anywhere). See AGENTS.md "Runtime version".
-//   2. slug must stay "all-the-small-things" — EAS project identity; AGENTS.md invariant.
+//   2. slug must stay "unfocus" — EAS project identity; AGENTS.md invariant.
 
 const fs = require('fs');
 const path = require('path');
 
 const APP_JSON_PATH = path.join(__dirname, '..', '..', 'app.json');
-const REQUIRED_SLUG = 'all-the-small-things';
+const REQUIRED_SLUG = 'unfocus';
 
 let raw;
 try {
@@ -45,7 +45,7 @@ if (typeof rv !== 'string' || rv.trim() === '') {
 if (expo.slug !== REQUIRED_SLUG) {
   errors.push(
     `expo.slug must be exactly "${REQUIRED_SLUG}", got: ${JSON.stringify(expo.slug)}. ` +
-    `The EAS project is registered under this slug — changing it breaks builds/updates. ` +
+    `The EAS project is registered under this slug — changing it breaks builds/updates (project ID: 9c7c7e82-8c6e-4be7-aae1-e588b4ebc495). ` +
     `See AGENTS.md key-invariants table.`
   );
 }

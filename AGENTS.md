@@ -53,7 +53,7 @@ Every `.ts`/`.tsx` file starts with a JSDoc header block. **Read it before editi
 
 | Rule | Why |
 |---|---|
-| `slug` in `app.json` MUST stay `all-the-small-things` | EAS project is registered under this slug; changing it breaks builds |
+| `slug` in `app.json` MUST stay `unfocus` | EAS project ID `9c7c7e82-8c6e-4be7-aae1-e588b4ebc495` is registered under this slug; changing it breaks builds |
 | All strings through `useT()` from `lib/i18n.ts` | Bilingual app — never hardcode UI text |
 | Date format is always `YYYY-MM-DD` strings | Used as keys throughout the stores |
 | `todayStr()` / `dateStr(d)` from `lib/date.ts` | Shared helpers — do not re-implement locally |
