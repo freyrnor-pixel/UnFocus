@@ -1489,3 +1489,50 @@ their own UnFocus) and additionally flag that live phone-to-phone sync is a late
 No new keys were added; the placement (in-modal, per kind) is the recommended option the
 user approved. `sharedRequestExplain*` keys remain available for the incoming-share
 surface (`SharedRequestsSection`) if that wants the same treatment later.
+
+## Decision 024 — Functional colour families for habits / health / meals (no-token-equivalent palettes)
+
+**Status:** Resolved
+**Date:** 2026-07-03
+**Depends on:** 006 (colour token layer), 014 (ExpandableCard accentColor → 4px bar only)
+**Resolves:** the Decision 014 downstream to-do (health severity affordance) plus the two
+sibling functional-colour gaps (habit build/break, meal-type tiles) surfaced when porting
+the Phase 6 mid-complexity screens. All three legacy screens relied on `constants/theme.ts`
+functional colours (`green`/`neutral`/`MealColors`) and raw-hex ramps that Decision 006's
+token layer (`constants/colors.ts`) has no equivalent for. Three separate user calls:
+
+### Q1 — Habit build/break colours: TOKEN MAP (option A).
+- build → `good` (green), break → `featTask` (blue), in-progress (ratio>0<1) → `accent`,
+  zero-progress/empty → `border`, rest-day solid dot → `textMuted`.
+- Never red for break (preserved). Done-card soft fill: build → `goodSoft`, break →
+  `surfaceMuted` (no `featTask`-soft token exists; the blue border/icon still carry the
+  break identity). Fully Decision-006-compliant — no raw hex.
+
+### Q2 — Health severity 1–5 ramp: KEEP THE FIXED PURPLE→BLUE RAMP (option A).
+- `SEVERITY_COLORS = ['#C9D4F0','#A9B8E8','#8C9AE0','#7C82D6','#6E6BC8']` is retained as a
+  **documented raw-hex functional data-viz exception** to Decision 006 (like a chart palette).
+  It is deliberately theme-independent and NOT red/green (no alarm connotation) — no token
+  ramp exists, and a semantic good/warn/bad collapse was rejected as reintroducing alarm.
+- Paired inks are also fixed (`SEV_INK_DARK='#2A2A3A'` for severities 1–2, `SEV_INK_LIGHT=
+  '#FFFFFF'` for 3–5) because the fill is theme-blind, so its text must be too.
+- **Decision 014 affordance question — resolved by inspection, not a design call:** the old
+  `health.tsx` never used `accentColor` for severity. It renders severity as a labelled,
+  colour-filled `leadingAction` badge on each log's ExpandableCard (ExpandableCard's own
+  header even documents `leadingAction` as "e.g. a severity badge"). That badge IS the
+  explicit severity affordance, so the 4px-accent-bar reduction from Decision 014 never bit
+  this screen. No `Badge` needed to be added; the labelled leading badge is kept as-is.
+
+### Q3 — Meal-type tile colours: SINGLE `featMeal` ACCENT (option A).
+- All five meal types (breakfast/lunch/dinner/snack/kveldsmat) use the single `featMeal`
+  token; the per-type icon + label already distinguish them. The legacy 5-hue `MealColors`
+  map is dropped. The "Surprise me" button uses the primary `accent` to stay visually
+  distinct from the featMeal tiles. Fully Decision-006-compliant.
+
+**Scope:** the three Phase 6 screens only (`app/habits.tsx`, `app/health.tsx`, `app/meals.tsx`).
+`constants/theme.ts`'s legacy `green`/`neutral`/`MealColors`/`AppColors` stay in-repo (dead
+for these screens) per the never-delete precedent; they are simply no longer referenced by
+the ported screens.
+
+**Supersedes:** the raw-hex `BREAK_BLUE`/`BREAK_BLUE_LIGHT` (habits) and `MealColors`
+(meals) usages in the old sources. The health severity ramp is the one deliberate raw-hex
+carry-over, documented above.

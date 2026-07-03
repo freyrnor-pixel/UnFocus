@@ -2691,3 +2691,86 @@ than overwrite bilingual copy with English-only drafts. Wired a `<Text>` under t
 selection-card title in `share-modal.tsx` (picks the string by `kind`, appends the caveat).
 Filed **Decision 023**, marked OB-3 resolved. No new i18n keys. Typecheck: 33 baseline
 errors, zero in changed files.
+
+## 2026-07-03 — Phase 6: mid-complexity screens (habits, meals, health) + paired stores
+
+**Status: Complete.** Ported the three Phase 6 mid-complexity screens — `app/habits.tsx`,
+`app/meals.tsx`, `app/health.tsx` — plus their paired stores: real `useMealStore` (replacing
+the Decision 015 typed-interface stub) and a new real `useHealthStore`. Read
+REBUILD_DECISIONS.md, PROGRESS_LOG.md, CLAUDE.md/AGENTS.md in full, and the old
+`All-the-small-things` sources (three screens + `useMealStore`/`useHealthStore` + `lib/db.ts`)
+before writing.
+
+**Dependency gate — MET (checked first):** the Phase 5/6 real `useHabitStore` +
+`habit-form.tsx` + habit notifications (Decision 016) is logged complete above (2026-07-02).
+`store/useHabitStore.ts` is a full real port exposing `habits`/`logs`/`increment`/`decrement`/
+`markRestDay` and the `Habit`/`HabitLog` types the habits + health screens consume. No STOP/ASK
+needed for the gate.
+
+**Decision 024 filed + resolved via user (three functional-colour calls).** All three legacy
+screens relied on `constants/theme.ts` functional colours / raw-hex ramps that Decision 006's
+token layer has no equivalent for — an unrecorded decision, so stopped and asked before
+building. User answers (all "recommended"): (Q1) habit build/break = token map (build→`good`,
+break→`featTask`, partial→`accent`, empty→`border`, rest→`textMuted`); (Q2) health severity
+keeps the fixed purple→blue 5-step hex ramp as a documented Decision-006 data-viz exception,
+with fixed paired inks; (Q3) meal tiles use the single `featMeal` accent (drop per-type hues),
+"Surprise me" uses primary `accent`. Full detail in Decision 024.
+
+**Decision 014 consequence (health severity affordance) — resolved by inspection, not a design
+call.** The old `health.tsx` never used `accentColor` for severity; it renders severity as a
+labelled, colour-filled `leadingAction` badge on each log's ExpandableCard (which even
+documents `leadingAction` as "e.g. a severity badge"). So the 4px-accent-bar reduction from
+Decision 014 never applied here — the labelled leading badge is the explicit affordance and is
+kept as-is. No `Badge` added.
+
+**Stores:**
+- `store/useHealthStore.ts` (new, full real port) — `health_logs` table via `lib/dataAccess`
+  (`loadAll`/`insertRow`/`updateRow` + `FieldMap`), `log_date`↔`date` mapping, `add()` returns
+  the created log (health screen seeds its lifted edit state from it). Table/index already
+  existed in `lib/db.ts` — no migration needed.
+- `store/useMealStore.ts` (real port replacing the Decision 015 stub) — `dishes` + `ingredients`
+  tables, ingredients grouped onto dishes in one pass. Richer `Dish` (mealType,
+  estimatedPriceNok, Ingredient.id/dishId) is a superset of the stub `AddDishSheet` consumed
+  (it only reads name/id/ingredients{name,amount,unit}) — verified compatible. Tables +
+  `estimated_price_nok` migration already existed in `lib/db.ts` — no new migration needed.
+
+**Screens (all Decision 001 tier='site' via ScreenScaffold; useAppTheme + useScaledStyles;
+Decision 006 tokens except the Decision 024 severity exception; load stores on focus):**
+- `app/habits.tsx` — today/week/month views, build/break sections, streak/CompletionGlow/rest-day.
+  Profile selector + view tabs now scroll at the top of the scaffold content (the old
+  fixed-below-header placement isn't needed). Sub-component `theme` params typed `ThemePalette`.
+  AddFAB sibling of the scaffold. HintCard added (`hints.habits` already existed).
+- `app/meals.tsx` — category tiles → category dish list, hand-rolled new-dish modal (kept over
+  AddDishSheet, which collects neither mealType nor estimated dish price). Dynamic scaffold
+  title; in-content back/shuffle toolbar replaces the old ScreenHeader back/right slots. New-dish
+  sheet wrapped in `<Surface surfaceContext="overlay">` (Decision 008). HintCard added.
+- `app/health.tsx` — last-30-days overview + severity strip, per-log lifted-edit ExpandableCards,
+  inline habits summary (+/- counts). ConfirmationBanner sibling of the scaffold. HintCard added.
+
+**Nav / entry points:** `health` is a BottomNav tab (site tier correct). `habits` is reached
+via health's inline "see all" (`router.push('/habits')`, preserved). **`meals` has no defined
+entry point yet** — `lib/siteNav.ts` lists it as "removed from nav, route kept" but names no
+access point. Ported ahead of its caller (same precedent as habit-form, notes, etc.); wiring a
+Home/other entry for meals is a later navigation/Home-phase task — flagged, not invented here.
+
+**i18n:** every string these screens use already existed in both `en`/`no` (habits.*,
+severityLabels, mealTypes, dayLabels, hints.{habits,meals,health}, delete/confirm families,
+etc.) — verified before writing; **zero new i18n keys added** (token-policy check).
+
+**Header updates:** `store/useHabitStore.ts` and `components/HabitIcon.tsx` "Used by" lines
+updated (habits.tsx / health.tsx are now real consumers, not "not yet ported"). New store
+headers written for useHealthStore / useMealStore.
+
+**Verification:** `npm install --legacy-peer-deps` + `npx tsc --noEmit` → **33 errors, zero
+touching any file this session created or changed** (grep-confirmed clean for
+`health.tsx|meals.tsx|habits.tsx|useMealStore|useHealthStore`). The 33 are the same known
+pre-existing family every recent session reports (missing `expo-blur`/`expo-linear-gradient`/
+`react-native-svg`; old-token screens `_scaffold-demo`/`index`/`BottomNav`/`ScreenHeader` incl.
+its stray `Platform` import; `_layout.tsx`). None introduced by this session.
+
+**Unresolved / flagged for future sessions:**
+- `app/meals.tsx` entry point (see Nav above) — needs a Home/other surface to be reachable.
+- `constants/theme.ts` legacy `green`/`neutral`/`MealColors`/`AppColors` are now dead for these
+  screens (kept per never-delete precedent).
+- `app/_layout.tsx` startup store-loading for useHealthStore/useMealStore not wired (screens
+  load on focus, same as plans/notes) — a `_layout` startup-load pass is still a future task.
