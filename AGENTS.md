@@ -1,3 +1,16 @@
+# Repo status — UnFocus is the LIVE app (2026-07-03)
+
+**This repo (`UnFocus`) is the current, canonical version of the app. All new
+builds — OTA updates and APKs/AABs — come from here.**
+
+The sibling repo `All-the-small-things` is the **outdated predecessor and is no
+longer in use.** It survives only as a read-only reference for porting old source
+during the rebuild. Its OTA/APK rules, `runtimeVersion`, and "current deployment
+state" notes **no longer apply to anything** — do not target it for builds, do not
+publish OTA updates from it, and do not treat its deployment docs as live.
+
+---
+
 # Expo HAS CHANGED
 
 Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before writing any code.
@@ -108,6 +121,9 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 
 ## Current deployment state
 
+- **UnFocus is the sole source of all live builds** (see the repo-status banner at
+  the top of this file). The retired `All-the-small-things` repo is never a build
+  target; its runtime/OTA rules are dead.
 - OTA updates always publish to the EAS `preview` channel, and target whatever
   `runtimeVersion` is set in `app.json`. A given OTA is only picked up by an
   installed build whose runtime matches.
