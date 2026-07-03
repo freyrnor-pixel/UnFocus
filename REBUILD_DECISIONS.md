@@ -1676,3 +1676,28 @@ Matches the old app's single-toggle model; task and habit reminders are one user
 ### Blocks / unblocks
 - **Unblocks:** Session C (settings screen build) — the merged-vs-split question is now closed and can be applied, not re-decided.
 - No new blocks.
+
+---
+
+## Decision 020a — Addendum to Decision 020: sub-questions (a)/(b)/(c) resolved; (b) inverts the recorded leaning
+
+**Status:** Resolved (supersedes the three open sub-questions in Decision 020)
+**Date:** 2026-07-03
+**Phase:** Recorded in Phase 5 (task-store build) and Phase 6 (day-view build); logged here to correct Decision 020's stale leaning text per the append-only rule (020 itself is never edited in place).
+
+The three sub-questions left open under Decision 020 ("Open sub-questions for the build session") were answered during the Phase 5 `useTaskStore` build and are now also built into `PlanTaskCard.tsx`. Recording them here so a cold read of Decision 020 doesn't act on its superseded leaning.
+
+**(a) Recurrence persistence — RESOLVED: link persists across recurrence instances, no extra code.**
+`follows_task_id` lives on the task-definition row, the same single row a recurring task reuses for every generated occurrence (this schema never materializes per-occurrence rows). The link persists by construction. Matches Decision 020's own leaning.
+
+**(b) Cross-date surfacing — RESOLVED: "pull the follower into today's view." THIS INVERTS Decision 020's recorded leaning ("highlight in place, no date-move").**
+This is a deliberate, user-chosen inversion, logged as such. When a predecessor is done, a pending follower on a different date is pulled into the current day-view (not merely highlighted on its own date). `PlanTaskCard.tsx` takes the full store list (`allTasks`) so cross-date followers resolve. No notification, no rescheduling of the follower's own date/time — it is a view-surfacing behavior only. Build toward this, not the 020 leaning.
+
+**(c) Cycle guard — RESOLVED: walk the chain live, exclude looping candidates from the picker.**
+Implemented as `useTaskStore.followerCycleChain(id)` (walks `followsTaskId` backward from `id`, self included). `task-form.tsx`'s follower picker excludes every id in that chain, so an A→B→…→A cycle can never be selected — prevented at pick time, not caught on save.
+
+**Build status:** all three are already implemented (`useTaskStore.ts`, `task-form.tsx`, `components/PlanTaskCard.tsx`, logged 2026-07-02). This entry is documentation reconciliation only — no code change.
+
+### Blocks / unblocks
+- **Unblocks:** cold reads of Decision 020 — its three open sub-questions are now closed and must not be re-decided from the stale leaning text.
+- No new blocks.
