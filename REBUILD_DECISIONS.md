@@ -1894,8 +1894,8 @@ the flow needs simplifying, not a hint re-added.
   are left in place (harmless, no longer referenced).
 - **Flagged, not fixed:** `SCREEN_UPDATE_TEMPLATE.md` does not exist in this repo, so its
   blanket instruction could not be softened — this decision is the superseding record instead.
-- **Flagged, not fixed:** the `weeklyEmptyTitle` / `weeklyEmptySubtitle` strings that this
-  decision relies on to teach the flow are defined in `lib/i18n.ts` but are **not currently
-  rendered** on the weekly tab. A follow-up should mount that empty-state so the teaching the
-  decision assumes is actually visible; per this decision, the answer is that empty-state
-  (or a simpler flow), not a re-added HintCard.
+- **Empty-state wired (this session):** the `weeklyEmptyTitle` / `weeklyEmptySubtitle` strings
+  this decision relies on to teach the flow were defined in `lib/i18n.ts` but not rendered
+  anywhere. `components/WeekListCard.tsx` now renders them whenever a list has no items
+  (`listProgress().total === 0`), so the catalog→weekly mark-then-confirm teaching is visible
+  on screen — exactly the empty-state (not a re-added HintCard) this decision calls for.

@@ -44,6 +44,11 @@
  *     Both this line and the sticky header call the SAME `listProgress()` helper
  *     (lib/shoppingGroups.ts) on the same computeListGroups() output — "one progress
  *     calculation, two presentations; no fork" (Decision 017 note 3).
+ *   - Decision 030: when the list has no items at all (`listProgress().total === 0`), the body
+ *     shows the `weeklyEmptyTitle` / `weeklyEmptySubtitle` empty-state copy ("Nothing on the
+ *     list yet / Mark items in the catalog to add them here"). This is what teaches the
+ *     catalog→weekly mark-then-confirm flow now that the standalone HintCard is gone — the
+ *     "Shopping list" section header + AddDivider still render below it for a direct add.
  *   - Decision 011 A2-4: the old repo's always-visible "In cart" Surface section is now a
  *     collapsed `t.boughtThisWeekSection(n)` ExpandableCard (uncontrolled, defaultOpen
  *     false) at the bottom of the body, expanding in place — same disclosure idiom the
@@ -234,6 +239,13 @@ export default function WeekListCard({
       </View>
 
       <View style={styles.bodyGap}>
+        {progress.total === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>{t.weeklyEmptyTitle}</Text>
+            <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>{t.weeklyEmptySubtitle}</Text>
+          </View>
+        )}
+
         {dishGroups.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
@@ -377,6 +389,9 @@ const baseStyles = StyleSheet.create({
   compactProgressRow: { paddingVertical: 2 },
   compactProgressText: { fontSize: FontSize.sm },
   bodyGap: { gap: Spacing.md },
+  emptyState: { alignItems: 'center', gap: 4, paddingVertical: Spacing.md },
+  emptyTitle: { fontSize: FontSize.md, fontFamily: Fonts.semibold, textAlign: 'center' },
+  emptySubtitle: { fontSize: FontSize.sm, textAlign: 'center' },
   section: { gap: Spacing.xs },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.sm },
   sectionRule: { flex: 1, height: 2, borderRadius: Radius.full, opacity: 0.4 },

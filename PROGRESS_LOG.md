@@ -3656,11 +3656,13 @@ Decision 011 + 011a + 021 present (028 depends on them); Decision 010 closed by 
   confirms: stepper no longer references `locked`; swipe-remove gate intact; catalogLocked
   toggle still uses the function-form setter; no remaining `HintCard` references in shopping.tsx.
 
+### Empty-state wired (Decision 030 follow-through)
+- `weeklyEmptyTitle` / `weeklyEmptySubtitle` (lib/i18n.ts) existed but were rendered nowhere.
+  `components/WeekListCard.tsx` now shows them whenever a list has no items
+  (`listProgress().total === 0`), so the catalog→weekly mark-then-confirm flow the removed
+  HintCard used to teach is now taught by the empty-state copy — as Decision 030 intends.
+
 ### Open threads / flagged, not fixed
 - `SCREEN_UPDATE_TEMPLATE.md` does not exist in this repo — Decision 030's "soften the
   every-scrollable-screen line" could not be applied to a file; Decision 030 itself is the
-  superseding record.
-- `weeklyEmptyTitle` / `weeklyEmptySubtitle` (lib/i18n.ts) — the empty-state copy Decision 030
-  relies on to teach the catalog→weekly flow — exist but are **not currently rendered** on the
-  weekly tab. Follow-up: mount that empty-state (or simplify the flow) rather than re-adding a
-  hint.
+  superseding record. Nothing to fix.
