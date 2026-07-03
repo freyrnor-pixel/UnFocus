@@ -7,7 +7,8 @@
  *
  * Connections:
  *   Imports → constants/theme, react-native-svg
- *   Used by → app/settings.tsx (colour-theme swatches + custom hue picker)
+ *   Used by → app/settings.tsx (colour-theme swatch previews; RadialSwatch only —
+ *             ConicSwatch/custom-hue picker not wired, see app/settings.tsx header)
  *   Data    → none (pure rendering, colors passed in as props)
  */
 import React from 'react';

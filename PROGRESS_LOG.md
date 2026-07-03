@@ -3347,3 +3347,100 @@ weeklistcard-phase-3c-948hqa.
   so a human can confirm the Phase-3c work is truly superseded before deletion.
 
 Prune command (machine with push rights): `git push origin --delete <name> ...` for every branch above.
+
+## 2026-07-03 — Phase 6: Settings screen built (app/settings.tsx) — the last remaining screen
+
+**Status: Complete.** `app/settings.tsx` did not exist anywhere in this repo or its git
+history before this session (confirmed: the "stub already written" premise in the task
+brief was stale — the real reference stub lives only in the sibling `All-the-small-things`
+repo's `app/settings.tsx`, read-only, never edited). Built the screen fresh in UnFocus
+against that reference, remapped to this repo's actual infrastructure.
+
+**GATE confirmed before starting:** `lib/notifications.ts`, `lib/taskNotifications.ts`,
+`lib/reminders.ts` all present and typecheck-clean (Phase 5 session). `useSettingsStore.ts`
+already exposes `essentialsModeEnabled`, `quietHoursEnabled/Start/End`, `monthlyBudgetNok`,
+`taskNotificationsEnabled`, `habitNotificationsEnabled`, `persistentNotifEnabled` — no
+store changes needed.
+
+**Structure:** 4-tab header (Generelt | Lister | Varsler | Utseende), tab bar rendered via
+`ScreenScaffold`'s `stickyBelowHeader` slot (not a second nested ScrollView). Screen is
+**tier='sub'** (reached via the gear icon from site-tier screens, not a BottomNav site) —
+no `BottomNav`, no `SiteSwipeView` in this port, unlike the old app's `tier`-unaware source.
+
+**Decisions applied, not re-opened (both confirmed non-conflicting with
+REBUILD_DECISIONS.md):**
+- Decision 029 (merged task+habit notification toggle): one switch writes
+  `taskNotificationsEnabled` + `habitNotificationsEnabled` together via `applyAndSync()`.
+- Decision 016 Q4 (quiet hours skip habits, defer tasks): updated
+  `settings.quietHours.hint` in both `en`/`no` in `lib/i18n.ts` — old copy only mentioned
+  task reminders "waiting"; now states habit occurrences inside quiet hours are **skipped**.
+
+**Token remap (Decision 006):** `theme.orange`→`accent`, `theme.grayLight`→`border`/
+`surfaceMuted` (context-dependent, same precedent as every other ported screen),
+`theme.textLight`→`textMuted`, `theme.gray`→`textMuted`, `theme.green`→`good`,
+`theme.white`→ dropped (Surface owns fill), `theme.danger`→`bad`. No raw hex in chrome;
+the two exceptions (pet-colour swatch options, colour-theme swatch preview data pulled from
+`constants/theme.ts`'s `THEMES`) are data, not chrome — same precedent already established
+for swatch-picker call sites elsewhere in this repo.
+
+**TimePickerWheel** was never ported into this repo (confirmed absent from `components/`)
+— every HH:MM field (work hours, weekly reminder time, quiet hours) uses
+`FormControls.Input` as free text, matching the `task-form.tsx`/`habit-form.tsx` precedent.
+
+**Buffered-save pattern dropped:** the old file had per-field dirty-state + a header Save
+pill (name, monthly date, monthly budget, work days, weekly reset day). Replaced with
+immediate `onBlur`/`onChange` application through `applyAndSync()` — matches
+`hints.settings.text` ("Changes apply immediately") and removes ~40 lines of dirty-tracking
+state with no behavior loss.
+
+**Scope cuts (flagged, not silently invented):**
+- **"Reset weekly list" dropped.** This repo's shopping architecture (Decision 011/017)
+  replaced the old single global weekly list with per-week `ShoppingList` rows
+  (`store/useShoppingListStore.ts`, auto-rolling by date via `advanceRecurringLists`) —
+  there is no `resetWeekly()`-equivalent action to bind to anymore. Kept "Reset monthly"
+  (`useShoppingStore.monthlyReset`), "Reset all plans" (`useTaskStore.clearAll`), "Reset
+  onboarding" (`setupComplete` + route), since those store actions do exist unchanged.
+- **Test-data load/clear section dropped.** `lib/seedTestData.ts` does not exist in this
+  repo (confirmed, not just unfound) and the task brief's scope description didn't
+  mention it either — not fabricated.
+- **Debug section**: only the `debugModeEnabled` toggle is wired, per brief. Left a
+  clearly-commented placeholder for `permissionTests.ts` (which also does not exist yet
+  anywhere in this repo — same absence PROGRESS_LOG already flagged in the 027 session).
+
+**Colour-theme picker — pre-existing type mismatch found, NOT fixed (out of this
+session's scope, flagged for whoever owns it next):** `useSettingsStore.ts`'s
+`ColorTheme` type (`'default'|'tech'|'gothic'|'nature'|'fluffy'|'custom'`, matching
+`constants/theme.ts`'s legacy `ThemeName` and `lib/i18n.ts`'s `themeNames` keys) is a
+**different enum** from `constants/colors.ts`'s Decision-006 `ThemeName`
+(`'default'|'summer'|'nature'|'fluffyPink'|'gothic'|'blackWhite'`). `useAppTheme.ts` casts
+`settings.colorTheme as ThemeName` (colors.ts's type) without translating between them, so
+`'tech'`, `'fluffy'`, and `'custom'` don't match any colors.ts key — `getThemePalette()`
+silently falls back to `'default'` for all three (confirmed: no crash, just a no-op
+selection). This screen's colour-theme `SwatchPicker` is built against the
+`useSettingsStore` enum (matching `THEMES`/`t.themeNames`, i.e. what the picker UI and its
+swatch data actually agree on) rather than papering over the mismatch by inventing a
+translation layer — that would be a cross-file fix (store type + `useAppTheme.ts` +
+possibly `constants/colors.ts` new variants) well beyond "build the settings screen."
+`'custom'` is excluded from the picker entirely (not just the mismatch — Decision 006/007
+also explicitly defer the runtime custom theme; no palette variant exists for it to select
+even once the enum mismatch is fixed). `HuePicker` stays unwired for the same reason (its
+own header already said so).
+
+**Verification:** `npm install --legacy-peer-deps` (was a fresh clone, zero `node_modules`)
+then `npx tsc --noEmit` → 21 pre-existing errors, **zero** in `app/settings.tsx` or
+`lib/i18n.ts` (confirmed via direct grep of the output for `settings.tsx` — no hits). All
+21 are the same pre-existing `ThemePalette` migration gaps already catalogued in earlier
+sessions (`app/_scaffold-demo.tsx`, `app/shopping.tsx`'s `moreOptions` i18n key,
+`components/BottomNav.tsx`, `ScreenBackground.tsx`, `ScreenHeader.tsx` incl. its stray
+`Platform`-from-`'react'` import, `ScreenScaffold.tsx`, `Surface.tsx`) — none touched or
+introduced by this session.
+
+**Headers updated:** `components/SwatchPicker.tsx`, `components/GradientSwatch.tsx`,
+`components/HuePicker.tsx` — `Used by →` lines corrected now that `app/settings.tsx` is a
+real, live caller (GradientSwatch/HuePicker's stale "custom hue picker" claims removed
+since this port doesn't wire that path).
+
+**This was the last remaining screen** (previously flagged in the 027-session PROGRESS_LOG
+entry: "Neither `permissionTests.ts` nor an `app/settings.tsx` screen exists anywhere in
+the repo"). `permissionTests.ts` itself remains unbuilt — still blocked on the native
+dev-build prerequisite, unchanged from the 027 finding.
