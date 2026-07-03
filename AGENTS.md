@@ -104,6 +104,7 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 - **`BubbleMenu.tsx` merge risk**: this file has been independently rewritten by parallel `claude/*` branches more than once (see commits `96891b4`, `9b02162`). Always hand-diff this file against the target branch on merge — do not auto-resolve conflicts here.
 - **Materials**: `bubbleMaterial` (settings) + `getMaterialStyle()` in `constants/theme.ts` give the FAB/bubbles a surface finish (glass/metal/rock/paper) independent of colour theme — a bubble's hue and its finish vary separately. Rendered via a two-layer view (outer = border + shadow, inner `overflow:'hidden'` mask = fill + sheen) so shadows aren't clipped.
 - **Animation, button-press, and haptics**: read `ANIMATION_GUIDELINES.md` (repo root) before writing or editing any of these — it has the real timing/easing/spring values and the `lib/haptics.ts` contract this codebase actually uses. Paste its §8 block at the top of any animation/interaction/haptics prompt.
+- **Biometric authentication (future)**: if the design calls for fingerprint/Face ID unlock, `expo-local-authentication` will need to be added to `package.json` and `app.json` `plugins` array. This is a native change, so it requires a new APK/AAB build. See the native build prerequisites in `REBUILD_PLAN.md` for full build checklist.
 
 ## Current deployment state
 
