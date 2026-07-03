@@ -2774,3 +2774,79 @@ its stray `Platform` import; `_layout.tsx`). None introduced by this session.
   screens (kept per never-delete precedent).
 - `app/_layout.tsx` startup store-loading for useHealthStore/useMealStore not wired (screens
   load on focus, same as plans/notes) — a `_layout` startup-load pass is still a future task.
+
+## 2026-07-03 — Phase 6: budget / scan / automations screens + paired stores; scan & automation wiring
+
+**Status: Complete (code + typecheck).** Ported the three remaining Phase 6 screens named in
+the brief — `app/budget.tsx`, `app/scan.tsx`, `app/automations.tsx` — plus their paired stores
+(`store/useReceiptStore.ts`, `store/useAutomationStore.ts`, both real ports, not stubs) and the
+foundation gap-fill `lib/receipt.ts` (pure OCR text→items parser + Levenshtein/fuzzy-match).
+`app/shared.tsx` (4th screen in the brief) was **already ported** in the 2026-07-03 capture/notes/
+share-modal session with OB-3/Decision 023 resolved — no STOP/ASK needed; verified present and
+left untouched.
+
+**Preconditions read in full before coding:** REBUILD_DECISIONS.md (006/008/014, 015/015a, 024),
+PROGRESS_LOG.md, both CLAUDE.md/AGENTS.md; old `All-the-small-things` sources for each screen +
+`useReceiptStore`/`useAutomationStore`/`receipt.ts` + `lib/db.ts`. All three DB tables already
+exist in `lib/db.ts` (`receipts`, `ifttt_rules`, `purchase_log.receipt_id`) — **no migration added**
+(never-drop invariant honoured).
+
+**Decision 025 filed + resolved via user (two no-token-equivalent colour calls, same class as 024):**
+(Q1) budget over-budget bar → `warn` token (gentle amber, no-shame rule; on-track stays `good`);
+(Q2) scan QR-scanner modal → fixed dark camera chrome (`#000` bg + fixed white title/frame,
+theme-independent, since `textInverse` flips dark in dark themes). Both user-confirmed recommended.
+
+**Stores (real ports, verbatim logic against the new-repo lib APIs — dataAccess/id/db/i18n all present):**
+- `useReceiptStore` — owns `receipts`; `addReceipt`/`totalForMonth`/`receiptsForMonth`/`months`/
+  `receiptsByStore`. Consumed by budget.tsx + scan.tsx.
+- `useAutomationStore` — owns `ifttt_rules`; two trigger types (`task_completed`/`shopping_opened`)
+  × two action types (`show_message` via showAppModal / `add_shopping_item` via useShoppingStore.add).
+  `fireTrigger()` is called by the trigger sites, not vice-versa.
+
+**Screens (Decision 001 scaffold + Decision 006 tokens + useT() throughout):**
+- `budget.tsx` — tier='sub' ScreenScaffold (back → Shopping). Month selector, spend-vs-budget bar
+  (over → `warn`, on-track → `good`), receipts list, per-store breakdown, inline budget editor Modal
+  (card via `<Surface surfaceContext="overlay">`). Added 7 budget i18n keys (both en/no): `olderMonth`,
+  `newerMonth`, `editBudget`, `setBudget`, `perStore`, `editorTitle`, `monthlyBudgetLabel` — the old
+  screen had these hardcoded in Norwegian, now routed through useT().
+- `automations.tsx` — tier='sub' + AddFAB. RuleCard (Surface) with active Switch + delete; inline
+  NewRuleForm (trigger/action chip rows + message/item input). Loads rules on focus (guarded initDb).
+  i18n already complete (`automations.*` in both langs) — zero new keys.
+- `scan.tsx` — tier='site' scaffold for idle/result/manual; transient 'scanning' mode is a bare
+  centered SafeAreaView (`theme.bg`). Old ScreenHeader right-slot "Budget" link → in-content top link
+  (site headers render Focus-mode on the right; meals.tsx in-content-toolbar precedent). Four-store
+  write path (shopping + receipt + catalog.recordPurchases + shared) preserved; QR import + custom-store
+  + category-picker modals as siblings. QR modal = fixed dark chrome (Decision 025). i18n already
+  complete (32/32 scan keys in both langs) — zero new keys.
+
+**Scope items 2 & 3 (brief) — WIRED:**
+- (2) `app/shopping.tsx` "Shopping done!" receipt choices: Scan → `/scan?autoCapture=camera`,
+  Upload → `/scan?autoCapture=library` (both commit the trip first); Skip commits + confirms in place.
+  Added `useRouter`. Now that scan.tsx exists the real route is restored.
+- (3) `shopping_opened` automation trigger re-wired in shopping.tsx (mount effect self-loads rules +
+  guards initDb, then `fireTrigger('shopping_opened')`). Also wired the paired `task_completed` trigger
+  in `store/useTaskStore.ts` (toggle-to-done + completeDirect call
+  `useAutomationStore.getState().fireTrigger('task_completed')`), matching the old store — no circular
+  import (useAutomationStore doesn't import useTaskStore). `app/index.tsx` (Home) still owns no automation
+  triggers — none defined there; nothing to wire.
+
+**Header updates (AGENTS.md "update as you go"):** new/ported files carry full Connections/Data/Edit-notes
+headers; `useTaskStore.ts` header updated (Imports → +useAutomationStore, task_completed now WIRED, task
+notifications still the one remaining unported side-effect); `app/shopping.tsx` header note updated
+(scan route + shopping_opened now wired, no longer "dropped").
+
+**Verification:** `npm install --legacy-peer-deps` + `npx tsc --noEmit` → **33 errors, zero in any file
+this session created or changed** (grep-confirmed clean for budget/scan/automations/useReceiptStore/
+useAutomationStore/lib/receipt/useTaskStore; shopping.tsx has only its 2 pre-existing `moreOptions`
+baseline errors, none from the router/automation edits). The 33 are the standing baseline every recent
+session reports (missing `expo-blur`/`expo-linear-gradient`/`react-native-svg`; old-token screens
+`_layout`/`_scaffold-demo`/`index`/`BottomNav`/`ScreenHeader` incl. its stray `Platform` import/
+`ScreenBackground`/`ScreenScaffold`/`Surface`; `shopping.tsx` moreOptions).
+
+**Unresolved / flagged for future sessions:**
+- No global bootstrap yet — budget/scan/automations self-load their stores on focus (guarded initDb),
+  same deferred `_layout` bootstrap precedent as shopping/plans. A `_layout` startup-load pass
+  (incl. useAutomationStore.load() so triggers fire app-wide, not only after visiting a screen that
+  loaded them) is still a future task.
+- Task per-task notification scheduling still unported (`lib/taskNotifications.ts` absent) — see
+  useTaskStore header.
