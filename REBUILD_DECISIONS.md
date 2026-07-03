@@ -1899,3 +1899,79 @@ the flow needs simplifying, not a hint re-added.
   anywhere. `components/WeekListCard.tsx` now renders them whenever a list has no items
   (`listProgress().total === 0`), so the catalog→weekly mark-then-confirm teaching is visible
   on screen — exactly the empty-state (not a re-added HintCard) this decision calls for.
+
+---
+
+## Decision 031 — Onboarding finish() schedules reminders (close the step6 gap)
+
+**Status:** Resolved
+**Date:** 2026-07-03
+**Resolves:** the step6.finish() FLAG from the 2026-07-03 onboarding verification —
+finish() set `setupComplete` + requested OS permission but never scheduled anything,
+even though the scheduling modules now exist. User call: **fix** (schedule), not
+ratify permission-only.
+
+**Context:** `step4` turns `remindersEnabled` + `taskNotificationsEnabled` ON and
+`step6` requests OS notification permission. When onboarding was first ported the
+scheduling modules didn't exist, so finish() correctly omitted them. They exist now:
+`lib/reminders.ts` (`syncReminders`), `lib/taskNotifications.ts`, and
+`useTaskStore.syncAllTaskNotifications()` — ported by the later notifications session.
+finish() calling only `requestPermissions()` was therefore a **silent behavioral gap**:
+a user completing onboarding got no scheduled weekly/monthly reminders or per-task
+notifications until some later re-sync.
+
+**Decision:** `step6.finish()` schedules on completion, mirroring the old app exactly:
+```
+requestPermissions().finally(() => {
+  syncReminders();
+  useTaskStore.getState().syncAllTaskNotifications();
+});
+```
+Permission is requested first; scheduling runs once it resolves (granted or not — the
+schedulers no-op safely without permission, and the reminders become active if the
+user later grants it). `router.replace('/')` still fires immediately; scheduling is
+fire-and-forget.
+
+**Also:** step6's stale header note ("Neither exists in this repo yet … left out") is
+corrected to describe the wired behaviour.
+
+**Not in scope (flagged, separate):** `app/_layout.tsx` startup does not call
+`syncReminders()` / `syncAllTaskNotifications()` either — so reminders are re-armed at
+onboarding finish and after settings changes (settings.tsx already calls them), but not
+on every cold start. Whether cold-start needs its own re-sync (e.g. after an OS reboot
+clears scheduled notifications) is a separate `_layout` bootstrap decision, not opened
+here.
+
+---
+
+## Decision 032 — SiteSwipeView wired via ScreenScaffold (close the deferral)
+
+**Status:** Resolved
+**Date:** 2026-07-03
+**Resolves:** the long-standing "SiteSwipeView deferral, unrecorded" flag (raised by the
+onboarding port and re-confirmed by the 2026-07-03 verification). User call: **fix** —
+wire swipe-between-sites navigation.
+
+**Context:** `components/SiteSwipeView.tsx` (horizontal swipe → neighbouring nav site)
+was ported but mounted nowhere. The onboarding session deferred it as a cross-cutting
+change and recommended per-screen wraps across the 5 nav sites, excluding scan's camera
+overlay. All 5 nav sites (home/shopping/plans/health/scan) already route through
+`components/ScreenScaffold` at `tier="site"`.
+
+**Decision:** Wire it at **ScreenScaffold**, not per-screen. For `tier === 'site'`, the
+scaffold wraps its L3 scroll content in `<SiteSwipeView>`. One wire point covers all
+five sites; the pan gesture yields to vertical scrolling via SiteSwipeView's existing
+`activeOffsetX`/`failOffsetY` thresholds (unchanged, still shared with ShoppingRow's
+swipe-to-remove).
+
+**Camera-overlay contract honoured structurally, not by opt-out:** SiteSwipeView must
+not wrap full-screen camera overlays. scan's camera (`'scanning'` mode) is a bare
+`SafeAreaView` rendered *outside* ScreenScaffold, so it is already excluded — scan's
+scrollable idle/result/manual modes swipe safely and need no opt-out. A `swipeNav?:
+boolean` prop (default true) is added to ScreenScaffold as a documented escape hatch for
+any *future* site screen that renders a full-screen camera/QR/media overlay inside the
+scaffold body; no current screen sets it.
+
+**Scope:** `components/ScreenScaffold.tsx` (wrap + prop), header updates in
+`ScreenScaffold`/`SiteSwipeView`. No change to SiteSwipeView's gesture logic, siteNav,
+or the individual screens. OTA-safe (react-native-gesture-handler already a dependency).

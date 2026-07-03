@@ -3787,3 +3787,48 @@ Expected state; noted, not touched.
    camera overlay), as the onboarding session already recommended. Surfaced, not resolved.
 
 Minor (no routing needed): step2 dead `tipBox`/`tipText` styles.
+
+## 2026-07-03 — Onboarding verification FOLLOW-UP: both flags fixed (Decisions 031, 032)
+
+**Status: Complete (code + clean typecheck).** Acting on the user's "fix both" call
+after the read-only audit. Also recorded the repo-status clarification in both repos.
+
+**Repo status (both repos, AGENTS.md):** UnFocus is the live/canonical app and the sole
+source of all OTA/APK builds; `All-the-small-things` is retired (read-only porting
+reference), its runtime/OTA/APK rules no longer apply. Banner added to the top of each
+AGENTS.md; each repo's "Current deployment state" section updated. Committed on
+`claude/onboarding-flow-verify-mc7dhg` in both repos.
+
+**Fix 1 — step6.finish() now schedules (Decision 031).** `app/onboarding/step6.tsx`:
+imported `syncReminders` (lib/reminders) + `useTaskStore`; finish() now does
+`requestPermissions().finally(() => { syncReminders(); useTaskStore.getState()
+.syncAllTaskNotifications(); })` before `router.replace('/')` — byte-faithful to the old
+app. Closes the silent gap where step4 enabled reminders/task-notifications but nothing
+scheduled them at onboarding finish. step6's stale "neither exists yet" header note
+rewritten to describe the wired behaviour. (`_layout` cold-start re-sync left as a
+separate, flagged non-scope item in Decision 031.)
+
+**Fix 2 — SiteSwipeView wired (Decision 032).** Confirmed first that SiteSwipeView was
+genuinely mounted nowhere (all prior grep hits were header comments). Wired at
+`components/ScreenScaffold.tsx`: for `tier === 'site'` the L3 scroll content is wrapped
+in `<SiteSwipeView>`, covering all 5 nav sites (home/shopping/plans/health/scan) from one
+point. Added `swipeNav?: boolean` (default true) escape hatch for a future in-scaffold
+full-screen overlay; no screen sets it. scan needs no opt-out — its camera `'scanning'`
+mode is a bare SafeAreaView outside the scaffold, so it's already excluded while scan's
+scrollable idle/result/manual modes swipe safely (honours SiteSwipeView's "don't wrap
+camera overlays" contract structurally). Headers updated on ScreenScaffold + SiteSwipeView.
+No change to gesture logic, siteNav, or individual screens. OTA-safe.
+
+**Verification:** `npm install --legacy-peer-deps` (exit 0) → `npx tsc --noEmit` →
+**0 errors** (native libs now installed; baseline old-token errors resolved in earlier
+sessions). Nothing in the touched files errors. Per repo policy: manual review + typecheck
+only, no live-app run.
+
+**Flag status after this session:**
+- step6.finish() scheduling gap — **RESOLVED** (Decision 031).
+- SiteSwipeView deferral — **RESOLVED** (Decision 032).
+- Bootstrap doc drift (onboarding-era "minimal bootstrap" narrative vs the now-full
+  `_layout.tsx`) — still open as documentation-only; the committed `_layout.tsx` + its
+  header are authoritative. Optional cleanup, no decision required.
+- `_layout` cold-start reminder re-sync — newly flagged in Decision 031 as a separate
+  bootstrap question, not opened here.
