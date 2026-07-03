@@ -9,9 +9,10 @@
  *
  * Connections:
  *   Imports → react-native-gesture-handler, react-native-reanimated, lib/siteNav, lib/haptics, lib/useAppTheme
- *   Used by → app/index, app/shopping, and (not yet ported) app/plans, app/meals, app/health,
- *             app/scan, app/budget, app/shared, app/automations, app/habits, app/settings
- *             (wraps each screen's body) — this is a leaf ahead of most of its screens
+ *   Used by → components/ScreenScaffold (Decision 032) — the scaffold wraps every
+ *             tier='site' screen's L3 scroll content in this, so all 5 nav sites
+ *             (home/shopping/plans/health/scan) get swipe from one wire point. Screens
+ *             opt out via ScreenScaffold's swipeNav={false} (none currently do).
  *   Data    → none (pure gesture/navigation wiring)
  *
  * Edit notes:

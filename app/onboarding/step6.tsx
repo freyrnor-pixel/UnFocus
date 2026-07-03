@@ -6,26 +6,27 @@
  * OS notification permission.
  *
  * Connections:
- *   Imports → @/store/useSettingsStore, @/lib/notifications, @/lib/i18n,
- *             @/constants/theme, @/lib/useAppTheme, @/components/Button, @/components/Pet
+ *   Imports → @/store/useSettingsStore, @/store/useTaskStore, @/lib/notifications,
+ *             @/lib/reminders, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
+ *             @/components/Button, @/components/Pet
  *   Used by → Expo Router route "/onboarding/step6"
  *   Data    → useSettingsStore (writes `petEnabled`, `petName`, `petType`,
  *             `petColor`, `setupComplete`, `essentialsModeEnabled`, `showPoints`);
- *             requests notification permission via requestPermissions();
- *             scaled fontSize via useScaledStyles()
+ *             requests notification permission via requestPermissions(), then
+ *             schedules reminders via syncReminders() + useTaskStore
+ *             .syncAllTaskNotifications(); scaled fontSize via useScaledStyles()
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
  *   - finish() sets `setupComplete:true` plus new-user defaults
  *     `essentialsModeEnabled:true` + `showPoints:true`, `petEnabled:true` and the
- *     name chosen here, then requests OS notification permission, then
- *     router.replace "/" to home.
- *   - NOTE (unported deps, flagged): the old app also called syncReminders()
- *     (lib/reminders.ts) and useTaskStore.syncAllTaskNotifications() here to
- *     schedule reminders on finish. Neither exists in this repo yet (weekly/
- *     monthly reminder + per-task notification scheduling is still unported — see
- *     PROGRESS_LOG Phase 6 flags). Left out until those modules are ported;
- *     requestPermissions() (which does exist) is kept so the OS prompt still fires.
+ *     name chosen here, then requests OS notification permission and, once it
+ *     resolves, schedules reminders (syncReminders + syncAllTaskNotifications),
+ *     then router.replace "/" to home.
+ *   - Scheduling wiring (Decision 031): step4 turns remindersEnabled +
+ *     taskNotificationsEnabled ON, so finish() must actually schedule against them.
+ *     `lib/reminders.ts` (syncReminders) and useTaskStore.syncAllTaskNotifications()
+ *     are both ported now, so the earlier "left out until ported" gap is closed.
  *   - Pet preview is live: tapping a type/colour writes straight to
  *     useSettingsStore, and Pet.tsx reads the same store reactively.
  *   - Pet.tsx's root container is `position: 'absolute'` (home-screen corner
@@ -51,7 +52,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore, PetType } from '@/store/useSettingsStore';
+import { useTaskStore } from '@/store/useTaskStore';
 import { requestPermissions } from '@/lib/notifications';
+import { syncReminders } from '@/lib/reminders';
 import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -80,9 +83,12 @@ export default function OnboardingStep6() {
       petEnabled: true,
       petName: petNameInput.trim(),
     });
-    // Reminder/task-notification scheduling is unported (see header note); still
-    // request the OS permission so it's granted for when scheduling lands.
-    void requestPermissions();
+    // Request OS permission, then schedule the weekly/monthly reminders and every
+    // task's per-task notification once permission resolves (mirrors the old app).
+    requestPermissions().finally(() => {
+      syncReminders();
+      useTaskStore.getState().syncAllTaskNotifications();
+    });
     router.replace('/');
   }
 
