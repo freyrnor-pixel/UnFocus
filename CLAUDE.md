@@ -25,7 +25,7 @@
 | SQLite file: `unfocus.db` (in `lib/db.ts`) | Fixed name for device storage |
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations | Runs once; never drop/recreate |
 | Stores use `lib/dataAccess.ts` | 13 of 14 stores rely on this pattern |
-| Runtime version locked to `1.0.0` | Targets APK build 148977ec; do NOT change without new build |
+| New builds go through the maintainer; don't bump `runtimeVersion` ahead of the build | OTA reaches only installs on the matching runtime — bump `runtimeVersion` only *after* the maintainer cuts the new preview build (see AGENTS.md "Runtime version") |
 
 ### Navigation State
 - **BottomNav** (`components/BottomNav.tsx`) — current, only entry point; no redesign needed

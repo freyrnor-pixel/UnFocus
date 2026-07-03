@@ -108,20 +108,27 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 
 ## Current deployment state
 
-- Runtime 1.0.0 is in Preview — all updates deploy here
-- This is the current target for all OTA updates and APK builds going forward
+- OTA updates always publish to the EAS `preview` channel, and target whatever
+  `runtimeVersion` is set in `app.json`. A given OTA is only picked up by an
+  installed build whose runtime matches.
+- **Native builds are human-gated.** When native surface changes (new package,
+  plugin, permission, or an `app.json`/`eas.json` build-config change), do NOT cut
+  a build from an agent session — land the config on `main` and hand off to the
+  maintainer, who cuts the new preview build. Once that build exists, bump
+  `runtimeVersion` to match it so subsequent OTA updates flow to the new preview.
 
 ## Builds and updates
 
 ### OTA updates (normal flow)
 - Workflow: `.github/workflows/update.yml` — triggers on every push to `main` only (deliberately NOT on `claude/**` branches — parallel session branches all publishing to the one shared `preview` channel caused a real incident where a later, older-tree push silently clobbered a newer one; see git history around June 2026). Push your branch and merge into `main` to publish.
 - Runs `eas update --branch preview --message "..."` — always publishes to EAS branch `preview`
-- Runtime version is read from `runtimeVersion` in `app.json` (currently hardcoded `"1.0.0"` to target build 148977ec)
+- Runtime version is read from `runtimeVersion` in `app.json` — an OTA reaches only installs whose runtime matches that value
 - Apps pick it up automatically on next launch — no download needed
 - Takes ~1–2 min on CI
 
 ### New APK build (only when native code changes)
-- Workflow: `.github/workflows/build-android.yml` — **manual trigger only** (`workflow_dispatch`)
+- Workflow: `.github/workflows/build-android.yml` — **manual trigger only** (`workflow_dispatch`), and **maintainer-run** — an agent session prepares the config and lands it on `main`, but does not kick off the build
+- **After the build exists**, bump `runtimeVersion` in `app.json` to that build's value so OTA updates retarget the new preview (see "Runtime version" below)
 - Use when: new native package added, `app.json` plugin changed, `eas.json` build config changed
 - Runs `npx expo prebuild` + a local `./gradlew assembleDebug` on the runner — this is a debug-signed APK, downloadable from the **GitHub Actions run's Artifacts** (not expo.dev; this workflow never calls EAS Build). For a real signed release build, see "Production release" below.
 - Takes ~20–30 min on CI
@@ -144,9 +151,13 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 | Camera/permission changes | Yes |
 
 ### Runtime version
-- `runtimeVersion` in `app.json` is hardcoded to `"1.0.0"` (not derived from `version` via policy)
-- This targets the installed APK (build 148977ec, runtime `1.0.0`) — do NOT change it without a new APK build
-- When native changes require a new APK: bump BOTH `version` AND `runtimeVersion` in `app.json` to the same new value, build the APK, then OTA updates will automatically target the new runtime
+- `runtimeVersion` in `app.json` is set explicitly (not derived from `version` via policy). It names the build that OTA updates target; an OTA only reaches installs on the matching runtime.
+- **New builds go through the maintainer.** Agent sessions may land native-surface changes on `main` and prepare the config, but the actual APK/AAB is cut by the human — not from a session.
+- **Sequencing when native surface changes** (so live installs aren't stranded on a runtime with no matching build):
+  1. Land the native config change on `main` with `runtimeVersion` **unchanged** — the current preview build keeps receiving OTA updates.
+  2. Maintainer cuts the new preview build (its runtime = the intended new value).
+  3. Once that build exists, bump `runtimeVersion` (and usually `version`) in `app.json` to that value — from then on OTA updates flow to the new preview.
+- Do not bump `runtimeVersion` ahead of the build existing; doing so publishes OTA updates to a runtime nothing is installed on yet.
 
 ## Token policy
 
