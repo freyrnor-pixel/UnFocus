@@ -12,8 +12,7 @@
  * Connections:
  *   Imports → components/ExpandableCard, components/PressableScale, constants/theme,
  *             expo-router, lib/date, lib/haptics, lib/i18n, lib/useAppTheme, store/useInboxStore
- *   Used by → app/index.tsx (not ported yet — this is a leaf ahead of its screen,
- *             same "ports ahead of Home assembly" pattern as NextTaskCard/NoteRow)
+ *   Used by → app/index.tsx (Home screen — the Notes preview, Decision 009 #2; hidden in Focus mode)
  *   Data    → reads/writes useInboxStore (inbox_items, Phase 5 stub); promoteToTask()
  *             also writes useTaskStore; Edit routes to /capture?id= to edit a row
  *             (route not ported yet either — out of scope per this component's own port)

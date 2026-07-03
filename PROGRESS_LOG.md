@@ -2775,6 +2775,102 @@ its stray `Platform` import; `_layout.tsx`). None introduced by this session.
 - `app/_layout.tsx` startup store-loading for useHealthStore/useMealStore not wired (screens
   load on focus, same as plans/notes) — a `_layout` startup-load pass is still a future task.
 
+## 2026-07-03 — Phase 6: Home screen (app/index.tsx) — assembled with all three previews + Focus mode
+
+**Status: Complete (code + typecheck).** Replaced the Phase-1 placeholder `app/index.tsx` with
+the real Home hub: the three converged previews (Decision 009 #2), Focus mode (Decisions 009 #4
+/ 018), and Decision 020 follower surfacing (via PlanTaskCard). Read REBUILD_DECISIONS.md
+(006/008/009/009a/009b/014/018/020 + the 016–022 numbering reconciliation), PROGRESS_LOG.md,
+CLAUDE.md/AGENTS.md, and the old `All-the-small-things/app/index.tsx` (reference only) before
+writing.
+
+**Dependency gate — MET (checked first, per prompt):**
+- Plans day-view (Session B / Decision 009a): `components/PlanTaskCard.tsx` logged complete
+  (2026-07-02) with `readOnly`/`allTasks`/`onSeeMore` ready for exactly this mount.
+- Task store (Session 1 / Phase 5): `store/useTaskStore.ts` real port logged complete
+  (2026-07-02) — `tasksForDate`/`toggle`/`completedCount`/`importance`/`followsTaskId` present.
+- Three preview composites: `InboxSection.tsx` (Phase 3e refactor), `WeekListCard.tsx` +
+  `ShoppingRow.tsx` (A2·1/A2·2), `PlanTaskCard.tsx` (Session B) — all logged complete and
+  present in `components/`. Gate satisfied; no STOP/ASK needed.
+
+**What was built (`app/index.tsx`):** site-tier `ScreenScaffold isHome` (owns background,
+particles, header chrome, BottomNav). Content: greeting + date, a daily-progress line, then the
+three previews —
+- **Notes preview = `<InboxSection/>`** (Decision 009 #2; self-contained; hidden in Focus mode).
+- **Plans preview = `<PlanTaskCard/>`** (Decision 009a — the preview IS the day-view). Off-focus:
+  `readOnly` + `onSeeMore → /plans`. In Focus mode: non-readOnly with `onToggleTask` wired but no
+  `onPressTask`/`onSeeMore`, and `tasks` filtered to `importance === 'essential'` (Decision 018) —
+  done-toggle stays live, tap-through/add do not (Decision 009 #4). `allTasks` (full store) is
+  always passed so Decision 020 cross-date followers surface (surfacing logic lives in
+  PlanTaskCard).
+- **Shopping preview** = current week's list (`useShoppingListStore.currentList`) rendered through
+  `ExpandableCard` + `ShoppingRow` (Decision 009 #2 / Session A convergence): dish groups (nested
+  ExpandableCard), ungrouped-unchecked, and cart sections, with tick-to-buy / collect / stepper /
+  catalog-vs-adhoc remove preserved. Reorder deliberately omitted (drag needs the parent screen's
+  hit-testing per Decision 011 R1 — not a Home preview's job). Hidden in Focus mode.
+- Gentle points (`smallThingsCount`) + `AddFAB` + `Pet` — all hidden in Focus mode (points/FAB are
+  a preview/input; FAB explicitly per Decision 009 #4).
+
+**Focus mode (Decisions 009 #4 / 018) — ephemeral, Home-only.** Implemented as local
+`useState(false)`, NOT the persisted `essentialsModeEnabled` the old app used — reset to OFF in the
+`useFocusEffect` cleanup so navigation-away and relaunch both return to unfocused (Decision 009 #4
+"not persisted"). Wired the existing Decision 001a header-eye placeholder: added optional
+`focusActive` + `onToggleFocus` props to `ScreenHeader` (filled `eye`/accent when active, else
+`eye-outline`; a11y state) and threaded them through `ScreenScaffold`. Every other site screen omits
+the props, so the eye stays the harmless no-op it already was there (Focus is Home-only). Not a new
+decision — just executing 001a/009 #4/018.
+
+**Deliberately NOT ported (deps superseded or absent — flagged, not silently dropped):**
+- Old two-section DayTimeline/TaskItem/NextTaskCard Plans stack → superseded by PlanTaskCard (009a).
+- Backlog + Habits Home previews → both rendered via `components/TaskItem.tsx`, which is **not
+  ported into this repo** (only the day-view path was). Re-adding them needs a TaskItem port first.
+- Separate Notes(`useNotesStore`) Home preview → folded into InboxSection by Decision 009 #2.
+- `SharedRequestsSection(kind='task')` → the ported component supports only `kind='shopping'`
+  (Phase 6 narrowed it); the task-kind Home mount has no component to call.
+- Update-ready banner (`useUpdateStore` not ported); work-mode banner (`lib/holidays` /
+  `lib/taskOrder.rankTodayTasks` not ported); CoverScreen / SiteSwipeView chrome.
+
+**Scope item 4 — automation trigger (`shopping_opened`) NOT wired — flagged, not invented.**
+There is **no automation store in this repo** (`store/useAutomationStore.ts` / automation libs were
+never ported; `store/useTaskStore.ts`'s own header already flags the sibling `task_completed` gap).
+Wiring `shopping_opened` would mean building an automation system from scratch — an unrecorded,
+out-of-scope decision — so per the prompt's "any unrecorded decision → STOP and flag" it is left for
+the future notifications/automation port. No stub store was created.
+
+**No new decisions, no new i18n keys, no migrations.** Every visible string already existed in both
+`en`/`no` (greeting/days/months/dailyOverview/shoppingPreview/shoppingEmpty/seeAll/seeEverythingLink/
+inWeeklyListSection/inKurvenSection/ingredientsCount/inStockLabel/smallThingsCount/focusActive/
+focusInactive/nav.home). Decision 006 tokens throughout (no raw hex): progress `good`, accent links
+`accent`, shopping accent `featShop`, muted text `textMuted`, dividers `surfaceMuted`. Decision 014
+honoured — `accentColor` on the shopping ExpandableCards is accent-bar-only.
+
+**Files changed:** `app/index.tsx` (rewritten), `components/ScreenHeader.tsx` +
+`components/ScreenScaffold.tsx` (added `focusActive`/`onToggleFocus` passthrough), and "Used by"
+header updates on `InboxSection.tsx` / `PlanTaskCard.tsx` / `ShoppingRow.tsx` (Home is now a real
+consumer).
+
+**Verification:** `npm install --legacy-peer-deps` + `npx tsc --noEmit` → 27 errors, **zero in
+`app/index.tsx`** and **zero new** from the ScreenHeader/ScreenScaffold edits (my additions use only
+valid `ThemePalette` tokens — `accent`/`text`/`bg`). All 27 are the known standing baseline family
+(old-token screens `_layout`/`_scaffold-demo`/`BottomNav`/`ScreenBackground`/`Surface`/`ScreenHeader`
+`theme.orange`+stray `Platform` import/`ScreenScaffold` `theme.cream`; missing native libs
+`expo-blur`/`expo-linear-gradient`/`react-native-svg`; `app/shopping.tsx` `moreOptions`). Manual
+review only per repo policy (no device/Jest).
+
+**Unresolved / flagged for future sessions:**
+- `shopping_opened` / automation triggers — blocked on an automation-store port (above).
+- Backlog + Habits Home previews — blocked on a `components/TaskItem.tsx` port; re-evaluate whether
+  they belong on the converged Home once TaskItem exists.
+- `SharedRequestsSection` task-kind Home surface — needs the component to regain `kind='task'`.
+- `app/_layout.tsx` still has no global store bootstrap (Home self-loads on focus, guarded initDb —
+  same precedent as plans/notes/shopping); a `_layout` startup-load pass remains a future task.
+- **Cross-session note (resolved by merge with the parallel budget/scan/automations session,
+  2026-07-03): `useAutomationStore` now exists** (`shopping_opened`/`task_completed` triggers wired
+  in `app/shopping.tsx` / `store/useTaskStore.ts`). That session's own log entry confirms Home was
+  explicitly left out ("`app/index.tsx` still owns no automation triggers — none defined there;
+  nothing to wire") — consistent with this entry's flag above. Home mounts no automation trigger;
+  none was scoped to it beyond the already-resolved `shopping_opened` (a shopping-screen concern).
+
 ## 2026-07-03 — Phase 6: budget / scan / automations screens + paired stores; scan & automation wiring
 
 **Status: Complete (code + typecheck).** Ported the three remaining Phase 6 screens named in

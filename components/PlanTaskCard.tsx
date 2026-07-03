@@ -16,7 +16,8 @@
  * Connections:
  *   Imports → components/Surface, constants/theme, lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useTaskStore (Task type only)
- *   Used by → app/plans.tsx (interactive); the Home phase will mount it read-only per Decision 009a
+ *   Used by → app/plans.tsx (interactive); app/index.tsx (Home — read-only preview off-focus per
+ *             Decision 009a, and non-readOnly essential-filtered surface in Focus mode per 009 #4)
  *   Data    → pure presentational; reads no stores. Tasks + callbacks are passed in.
  *             Live "now" marker re-renders on a 60s interval (useNowMinutes).
  *
