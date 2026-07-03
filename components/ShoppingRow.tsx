@@ -77,12 +77,21 @@
  *     `theme.brown`→`accent` precedent already recorded in PROGRESS_LOG.md (Phase 3c).
  *   - `theme` is no longer threaded in as a prop — reads useAppTheme() internally,
  *     consistent with every other ported component.
+ *   - **Re-add highlight (Decision 021, Phase 6 presentational half):** a self-decaying
+ *     `goodSoft` glow flashes over the row whenever `item.amount` increases vs. its previous
+ *     render. This is the transient "just added / amount increased" cue for the store's
+ *     increment-on-re-add behavior — purely local component state (a `useRef` prev-amount +
+ *     a `useSharedValue` opacity), NO persisted flag, no schema, no store action, no new prop.
+ *     Fires for any amount increase the row observes (re-add or the inline stepper's +), which
+ *     is the only local signal available; mount is skipped (ref seeded to the initial amount).
+ *     Respects reducedMotion (fades without the leading pop). Visual-only — no i18n string, so
+ *     it invents none (Decision 021 keeps the three states presentational, not stored data).
  */
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming, runOnJS } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming, withSequence, runOnJS } from 'react-native-reanimated';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -143,6 +152,24 @@ export default function ShoppingRow({
   const qty = parseInt(item.amount, 10);
   const isNumeric = !isNaN(qty) && qty > 0;
   const safeQty = isNumeric ? qty : MIN_QTY;
+
+  // Decision 021 (Phase 6): flash a self-decaying "just added / amount increased" glow whenever
+  // the row's amount grows vs. its previous render (re-add increment, or the stepper's +). Local
+  // state only — no persisted flag, no store involvement. Mount is skipped via the seeded ref.
+  const highlight = useSharedValue(0);
+  const prevQty = useRef(safeQty);
+  useEffect(() => {
+    if (safeQty > prevQty.current) {
+      if (reducedMotion) {
+        // No leading pop under reduced motion — start visible and fade out.
+        highlight.value = 0.9;
+        highlight.value = withTiming(0, { duration: 900 });
+      } else {
+        highlight.value = withSequence(withTiming(1, { duration: 120 }), withTiming(0, { duration: 900 }));
+      }
+    }
+    prevQty.current = safeQty;
+  }, [safeQty]);
   const dimmed = variant === 'purchased' || (variant === 'cart' && item.collected) || (variant === 'planned' && item.checked);
   const showStepper = variant !== 'purchased' && !locked && !!(onIncrement || onDecrement);
   const canDecrement = !!onDecrement && safeQty > MIN_QTY;
@@ -193,6 +220,8 @@ export default function ShoppingRow({
     opacity: Math.min(1, Math.abs(translateX.value) / Math.abs(COMMIT_THRESHOLD)),
   }));
 
+  const highlightStyle = useAnimatedStyle(() => ({ opacity: highlight.value }));
+
   return (
     <View style={styles.wrap}>
       <Animated.View
@@ -203,6 +232,10 @@ export default function ShoppingRow({
 
       <GestureDetector gesture={pan}>
         <Animated.View style={[styles.row, dimmed && styles.rowChecked, contentStyle, { backgroundColor: theme.surface }]}>
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.highlight, { backgroundColor: theme.goodSoft, borderColor: theme.good }, highlightStyle]}
+          />
           <Pressable
             style={[
               styles.check,
@@ -312,6 +345,11 @@ const baseStyles = StyleSheet.create({
     gap: Spacing.sm,
   },
   rowChecked: { opacity: CHECKED_OPACITY },
+  highlight: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+  },
   check: {
     width: 26,
     height: 26,

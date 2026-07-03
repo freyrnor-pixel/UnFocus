@@ -3526,3 +3526,40 @@ i18n gaps already tracked above — zero new errors from this change.
 
 **Header updated:** `app/_layout.tsx` — `Connections:`/`Edit notes:` now list all
 newly-imported stores and describe the two-effect bootstrap sequence.
+
+---
+
+## 2026-07-03 — Decision 021 Phase 6: re-add highlight on ShoppingRow
+
+**Scope:** presentational half of Decision 021 only. The store side (increment-on-re-add
+parity for `add()` / `addToWeeklyFromCatalog`) was already done; this session added the
+transient "just added / amount increased" cue to `components/ShoppingRow.tsx`.
+
+**What changed (`components/ShoppingRow.tsx`, one file):**
+- A self-decaying `goodSoft` glow (border `good`) now flashes over the row whenever the
+  row's parsed `item.amount` increases vs. its previous render. Implemented with a
+  `useSharedValue` opacity + a `useRef` holding the previous amount; mount is skipped by
+  seeding the ref to the initial amount. Full-motion path is a `withSequence` pop-then-fade
+  (120 ms up, 900 ms down); `reducedMotion` starts visible and only fades.
+- Overlay is an `Animated.View` (`pointerEvents="none"`, `absoluteFill`, `Radius.md`) as the
+  first child of the sliding row, so it sits behind the check/text and doesn't intercept the
+  swipe/tap gestures.
+
+**Constraints honoured:**
+- **Local component state only** — no persisted flag, no schema, no store action, no new prop.
+  The row observes the amount change the store already made.
+- **Semantic tokens only** (Decision 006): `goodSoft` / `good`, matching the success meaning
+  of a re-add. `Surface` untouched.
+- **No new i18n key.** The cue is visual-only, so it invents no string — consistent with the
+  string constraint (reuse-or-STOP) and with Decision 021 keeping the three states
+  presentational, not stored data. No existing shopping key was a clean fit for an inline
+  "amount increased" label, so none was forced.
+- Fires for any amount increase the row can observe (re-add or the inline stepper's +), the
+  only local signal available without a new prop/store flag.
+
+**Header updated:** `ShoppingRow.tsx` `Edit notes:` documents the highlight, its local-only
+mechanism, the mount-skip, and the reducedMotion behaviour.
+
+**Verification:** manual code review only (per CLAUDE.md — no Jest, tsc is local-only in this
+remote env). No new props/imports beyond `useEffect`/`useRef`/`withSequence`; no baseline
+TypeScript surface changed.
