@@ -1,0 +1,42 @@
+name: OTA Update
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  update:
+    name: Push OTA update
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      CI: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate app.json (runtimeVersion / slug guardrail)
+        run: node .github/scripts/check-app-config.js
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Push update
+        run: |
+          MSG=$(git log -1 --format=%s)
+          eas update --branch preview --platform android --message "$MSG"
+          eas update --branch preview --platform ios --message "$MSG"
