@@ -3243,6 +3243,78 @@ Returns input unchanged if ISO parse fails (missing segments, empty parts) — n
 - No storage/key logic modified — scope was display layer only
 - All display sites correctly receive language parameter from settings store
 
+## 2026-07-03 — Phase 5: Task notifications + reminders coordinator wired (lib/taskNotifications, lib/reminders, lib/time; useTaskStore)
+
+**Status: Complete.** Ported the per-task and weekly/monthly reminder layers
+from the sibling `All-the-small-things` repo and wired them into `useTaskStore`.
+GATE confirmed first: `lib/habitNotifications.ts` present (2026-07-02 habit
+session) — not re-created.
+
+**Pre-existing (verified, not re-ported):**
+- `lib/notifications.ts` — already ported in full in the habit session
+  (all core helpers: `scheduleDailyReminder`/`cancelDailyReminder`,
+  `scheduleTaskNotification`/`cancelTaskNotification`,
+  `scheduleWeeklyTaskNotifications`, `scheduleWeeklyReminder`/`scheduleMonthlyReminder`
+  + cancels, `pushPastQuietHours`/`isWithinQuietHours`,
+  `refreshPersistentNotification`, `syncNotificationCategories`/`onNotificationAction`,
+  `scheduleReNudge`). Scope item 1 was already satisfied; left untouched. Signatures
+  already match what `useTaskStore` and `lib/habitNotifications.ts` expect.
+- The `task_completed` automation trigger in `useTaskStore` (`toggle`/`completeDirect`
+  → `useAutomationStore.getState().fireTrigger('task_completed')`) was **already
+  wired** (Phase 6, per the store header) — verified, not changed.
+
+**Files ported (verbatim from old app, headers adjusted for rebuild consumer state):**
+- `lib/time.ts` — **new** (was missing; `taskNotifications`/`reminders` depend on it).
+  `parseTimeStrict` (null on bad input → task reminders cancel) and
+  `parseTimeOrDefault` (clamp/fallback 08:00 → weekly/monthly must fire). Pure
+  functions, identical to old source; header `Used by →` updated to the two new
+  callers.
+- `lib/taskNotifications.ts` — **new**. `syncTaskNotification(task, TaskNotifSettings)`
+  + `TaskNotifSettings` subset. One-off tasks fire once (skipped if done/past),
+  weekly-recurring fire per selected weekday, time-box tasks also get an "end"
+  reminder. Quiet hours **SHIFT** the reminder past the window
+  (`deferPastQuietHours`/`deferOccurrencePastQuietHours` over
+  `pushPastQuietHours`) — deliberately different from the habit side, which SKIPs
+  (Decision 016 Q4, unchanged). Byte-identical logic to old source.
+- `lib/reminders.ts` — **new**. `syncReminders()` reads the settings store, builds
+  localised weekly-planning + monthly-reset Content, schedules/cancels via
+  `lib/notifications`. `MONTHLY_OFFSET_MIN = 3` stagger preserved.
+
+**useTaskStore wiring (scope item 4):**
+- Added imports: `useSettingsStore`, `cancelTaskNotification` (lib/notifications),
+  `syncTaskNotification as scheduleTaskReminder` (lib/taskNotifications).
+- Added module-level `syncTaskNotification(task)` → `scheduleTaskReminder(task,
+  useSettingsStore.getState())`, matching old app.
+- `add()`/`update()` now call `syncTaskNotification`; `remove()`/`clearAll()` now
+  `void cancelTaskNotification(id)`; added `syncAllTaskNotifications()` to the store
+  type + impl (re-schedules every task after a settings/language change, since copy
+  is baked in at schedule time). Header edit-note updated from "not ported / flag"
+  to "WIRED".
+
+**Signature divergences from the old app: NONE.** All three ported files and the
+store wiring match the old-app signatures exactly (`syncTaskNotification(task, s)`,
+`TaskNotifSettings`, `syncReminders()`, `parseTimeStrict`/`parseTimeOrDefault`).
+No explicit inversions were needed.
+
+**Left inert (flagged, not this session's scope):** `lib/reminders.ts`'s
+consumers — `app/settings.tsx` (does not exist yet), `app/_layout.tsx`,
+`app/onboarding/step6.tsx` — currently reference `syncReminders`/
+`syncAllTaskNotifications` only in comments/headers as "unported". `syncReminders`
+is thus ported ahead of a live caller (same "port the foundation whole ahead of
+its consumer" precedent as `lib/notifications.ts`). Those screens must call
+`syncReminders()` on startup/finish and `syncAllTaskNotifications()` after
+settings changes when they are ported. `lib/notifications.ts`'s persistent-overview
+and re-nudge/interactive-action helpers remain unconsumed until their phases.
+
+**Verification:** `npm install --legacy-peer-deps` (exit 0) then `npx tsc --noEmit`
+→ 20 errors, all pre-existing old-token-name / `ScreenHeader` `Platform`-import
+issues in `app/_scaffold-demo.tsx`, `app/shopping.tsx`, `components/BottomNav.tsx`,
+`ScreenBackground.tsx`, `ScreenHeader.tsx`, `ScreenScaffold.tsx`, `Surface.tsx`.
+Grep of the tsc output for `notifications|taskNotifications|reminders|useTaskStore|
+lib/time` → **zero hits**: none of the created/changed files produce errors. (Note:
+the native-lib errors from earlier phases — `expo-blur`/`expo-linear-gradient`/
+`react-native-svg` — are now resolved since `npm install` brought them in.)
+No device run possible here; clean typecheck of the touched files is the bar and is met.
 ---
 
 ## Branch audit — dead/merged `claude/*` branches (2026-07-03)
