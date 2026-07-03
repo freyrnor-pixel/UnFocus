@@ -3494,3 +3494,35 @@ of this sweep's file list).
 this sweep and out of its file scope. Grepped all seven target files post-edit for any
 remaining `theme.(white|orange|cream|textLight|gray|grayLight|brown|green|danger)` —
 zero hits.
+
+## 2026-07-03 — Global store bootstrap in app/_layout.tsx
+
+**Status: Complete.** `_layout.tsx` previously only loaded `useSettingsStore` at
+startup; every other store relied on a per-screen guarded focus-load. Added a second
+mount effect, keyed on `loaded` (settings hydrated), that fires `load()` once for
+every remaining store exposing one: `useAutomationStore`, `useCatalogStore`,
+`useHabitStore`, `useHealthStore`, `useInboxStore`, `useMealStore`, `useNotesStore`,
+`useReceiptStore`, `useSharedStore`, `useShoppingListStore`, `useShoppingStore`,
+`useTaskStore`.
+
+**Automation gap closed:** `useAutomationStore.load()` is now in this app-wide list,
+so `shopping_opened`/`task_completed` triggers are registered from launch instead of
+only after the user happens to visit `app/automations.tsx` or `app/shopping.tsx`
+first — the specific gap flagged in the same-day budget/scan/automations log entry.
+
+**Not gated on render:** unlike the Nunito font load (which blocks the initial
+`return null`), these store loads run after first paint — screens already tolerate
+hydrating stores via their own guards, matching the existing settings-load precedent.
+
+**Per-screen focus-loads left in place** as redundant safety nets, per session scope
+— not ripped out.
+
+**`useFeedbackStore` excluded** — it has no `load()` method (the "13 of 14 stores"
+already noted in `AGENTS.md`).
+
+**Verification:** `npm install --legacy-peer-deps` (fresh clone) then
+`npx tsc --noEmit` → 2 errors, both the pre-existing `app/shopping.tsx` `moreOptions`
+i18n gaps already tracked above — zero new errors from this change.
+
+**Header updated:** `app/_layout.tsx` — `Connections:`/`Edit notes:` now list all
+newly-imported stores and describe the two-effect bootstrap sequence.
