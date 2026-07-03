@@ -3103,3 +3103,89 @@ Config-only change; no typecheck/build available in the remote env (per CLAUDE.m
 review: `app.json` is valid JSON and internally consistent (every retained plugin has its dep;
 every removed dep has its plugin/permission/string removed). AGENTS.md already documents the
 native-build → new-APK flow, so no AGENTS.md edit needed beyond the REBUILD_PLAN §1–§3 rewrite.
+
+---
+
+## Session — Native build: dependency resolution + config validation + build prep (2026-07-03, branch claude/native-build-setup-k3sj99)
+
+Executes Decision 027 (native build). GATE note: **Decision 026 does not exist** in
+REBUILD_DECISIONS.md (numbering goes 025 → 027); user directed "proceed on 027 only" —
+027 is self-contained (depends only on REBUILD_PLAN.md §1–§3). Decision 027 confirmed Resolved.
+
+### Native deps added / resolved (`npm install --legacy-peer-deps` clean, 907 pkgs)
+The prior config sweep (PR #30) left **best-effort, unresolved** version pins; two did not exist
+on npm and broke `npm install`. Resolved against SDK 56's `bundledNativeModules.json` (offline —
+the Expo API is blocked by the sandbox proxy, so `npx expo install` could not fetch the map):
+
+| Module | Choice | Note |
+|---|---|---|
+| `react-native-svg` | `15.15.4` | **Added** — imported by ScreenBackground/GradientSwatch but was missing from package.json (would not build). SDK-56 pin. |
+| `expo-blur` | `~56.0.3` | **Added** — imported by Surface (glass material); was missing from package.json. SDK-56 pin. |
+| `expo-linear-gradient` | `~56.0.4` | **Added** — imported by HomeHeroBackground; was missing. SDK-56 pin. |
+| `@bacons/apple-targets` | `^4.0.7` | **DIVERGENCE (flagged):** prior pin `^0.4.0` **does not exist on npm** (versions jump 0.2.1 → 3.0.0; latest 4.0.7). Corrected to latest, which is the current SDK-54+/RN-new-arch line. |
+| `react-native-android-widget` | `^0.20.3` | **DIVERGENCE (flagged):** prior pin `^0.16.0` (exists but old); bumped to current `0.20.3` for RN 0.85 / new-arch compatibility. |
+
+These 3 rendering libs are the "pre-approved adopted set" from the task; they carry **no config
+plugin / no native permission** (autolink only), so no `app.json` change was needed for them.
+
+### OCR library — IDENTIFIED (not guessed)
+`@react-native-ml-kit/text-recognition` (`^2.0.0`), already in package.json and used by
+`parseReceiptText` in `app/scan.tsx`. **On-device native module (Google ML Kit), NOT a cloud
+call.** Backs Camera permission (receipt scan).
+
+### app.json — config fixes needed for resolution
+- `react-native-android-widget` was declared as a **bare string plugin**, which crashed
+  `expo config` (`props.widgets` undefined). Changed to `["react-native-android-widget", { "widgets": [] }]`
+  — empty widget list = plugin/native scaffolding only, no widget contents (per 027 scope boundary).
+- No other permission/plugin edits: PR #30's pruned set was already correct.
+
+### Permission set — resolved & verified against Decision 027 (each maps to a named feature)
+`npx expo config` resolves cleanly (exit 0). Resolved native surface:
+- **Camera** → `expo-camera` (`NSCameraUsageDescription` via plugin at prebuild; `CAMERA`) — receipt scan/OCR.
+- **Notifications** → `expo-notifications` (+ `expo-task-manager`/`expo-background-task`, `FOREGROUND_SERVICE`) — reminders.
+- **Photo library (read)** → `expo-image-picker` + `expo-media-library` (`NSPhotoLibraryUsageDescription`; `READ_MEDIA_IMAGES` et al.) — receipt upload-from-gallery.
+- **Microphone** → `expo-audio` (`NSMicrophoneUsageDescription` = "UnFocus uses the microphone so you can record voice notes."; `RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`) — voice notes.
+- **Widget entitlements** → App Group `group.com.freyrnorpixel.unfocus` + `react-native-android-widget` + `@bacons/apple-targets` (WidgetKit target) — home/lock-screen widgets (scaffolding only).
+- **Rich / lock-screen notification** → `@bacons/apple-targets` (NSE target scaffolding) + `expo-notifications`; Android lockscreen visibility is JS-side (OTA).
+- **Forbidden-permission audit:** resolved Android manifest contains **NO** notification-listener or accessibility-service permissions (grep-checked the resolved config). None declared.
+- **Minor over-declaration (flagged, not blocking):** `expo-media-library` auto-adds `READ_MEDIA_VIDEO`, `READ_MEDIA_AUDIO`, `WRITE_EXTERNAL_STORAGE` beyond the "receipt image read" intent. Module-default surface, not a forbidden permission; narrow later if desired (would need a new build). `NSPhotoLibraryAddUsageDescription` (photo *save*) likewise exceeds strict "read" — retained from PR #30.
+
+### Code fix tied to adopting expo-linear-gradient (in scope: making the installed module usable)
+`components/HomeHeroBackground.tsx`: (1) `import LinearGradient from 'expo-linear-gradient'`
+(default) → `import { LinearGradient }` — SDK 56 exports it as a **named** export only; the
+default import was a latent runtime bug. (2) `sky`/`ground` color arrays given `as const` so they
+satisfy SDK 56's tuple-typed `colors` prop. File now typechecks clean.
+
+### Typecheck — `npx tsc --noEmit`: 20 errors remain, ALL pre-existing & out of native scope
+Every native-touched file (HomeHeroBackground, app.json config) is clean. The 20 remaining
+errors are an **incomplete `ThemePalette` migration** (missing `orange`/`cream`/`white`/`textLight`/
+`grayLight` in `_scaffold-demo`, `BottomNav`, `ScreenBackground`, `ScreenHeader`, `ScreenScaffold`,
+`Surface`), a missing `moreOptions` i18n key (`app/shopping.tsx` ×2), and `ScreenHeader.tsx`
+importing `Platform` from `'react'` instead of `'react-native'`. These are other sessions'
+work-in-progress, do not touch native config, and do NOT block an EAS/Metro build (Metro does not
+typecheck). **GATE DISCREPANCY: the "Sessions A–E typecheck-clean" precondition is not actually
+met on this branch.** Flagged for the owning sessions.
+
+### Item 3 (wire `permissionTests.ts` into settings debug placeholder) — BLOCKED / prerequisite missing
+Neither `permissionTests.ts` **nor an `app/settings.tsx` screen** exists anywhere in the repo or
+its git history (i18n's "Used by" lists `app/settings.tsx` as a port-ahead, but the file was never
+created; the only debug surface that exists is `components/DebugOverlay.tsx`, a notes panel). There
+is no "placeholder left by Session C" to wire into. Not fabricated — reported for Session C to
+produce the utility + placeholder first; wiring is a follow-up once they exist.
+
+### Item 4 (build) — EAS CLI unavailable in sandbox; exact command documented
+`npx eas` cannot be installed here (proxy blocks the fetch; `eas whoami` → "could not determine
+executable"). No Expo credentials in this environment. **Exact build command (run by maintainer
+with Expo auth):**
+```
+# from repo root, after: npm install --legacy-peer-deps
+npx eas-cli@latest build --platform android --profile preview
+```
+`eas.json` `preview` profile = `channel: preview`, `distribution: internal`, `android.buildType: apk`,
+`NPM_CONFIG_LEGACY_PEER_DEPS=true` — matches Decision 027 option A (internal/preview, not store).
+No iOS profile is configured in `eas.json`; add an iOS credentials/profile before an iOS build.
+User tests the internal build before any store promotion.
+
+### Flagged for build time (unchanged from 027)
+- **`runtimeVersion` stays `1.0.0`** in this commit. Bump to `1.1.0` (match `version`) only once the
+  APK actually ships, or current 1.0.0 installs get stranded on the preview OTA channel.

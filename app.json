@@ -57,7 +57,12 @@
           "saveToPhotosPermission": "Allow UnFocus to save images to your photo library."
         }
       ],
-      "react-native-android-widget",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": []
+        }
+      ],
       "@bacons/apple-targets"
     ],
     "ios": {
