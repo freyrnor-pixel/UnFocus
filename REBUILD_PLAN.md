@@ -123,20 +123,27 @@ present in the APK/AAB that ships. Miss one and the feature fails silently at
 runtime (permission denied / module not linked). Source of truth for the
 current native surface is `package.json` + `app.json`.
 
-### 1. Native capability inventory (already declared — carry forward as-is)
+> **Decision 027 (2026-07-03, Session G) narrowed this list.** The
+> expanded-permission build is deliberately scoped to permissions that map to a
+> *named* roadmap feature — "no speculative surface." `expo-location`,
+> `expo-calendar`, `expo-contacts`, `expo-sensors`, and `expo-speech-recognition`
+> were **pruned** (features not on the near-roadmap; re-adding any is a fresh
+> native build). Widgets + a rich/lock-screen Notification Service Extension were
+> **added** as config-plugin scaffolding (modules ship now, features ship later).
+> See `REBUILD_DECISIONS.md` Decision 027 and the Session G entry in `PROGRESS_LOG.md`.
+
+### 1. Native capability inventory (declared in this build)
 
 | Capability | Package(s) | Permission / key | Config plugin in app.json? |
 |---|---|---|---|
-| Microphone / voice input | `expo-speech-recognition`, `expo-audio` | `RECORD_AUDIO`, iOS `NSMicrophoneUsageDescription` | `expo-audio` ✅ / `expo-speech-recognition` ❌ (see §2) |
+| Microphone / voice notes | `expo-audio` | `RECORD_AUDIO`, iOS `NSMicrophoneUsageDescription` | ✅ (`expo-audio`) |
 | OCR / receipt scanning | `@react-native-ml-kit/text-recognition` | — (on-device ML Kit) | autolinked, no plugin |
 | Camera | `expo-camera` | camera perm | ✅ |
-| Photo library / image picker | `expo-image-picker`, `expo-media-library` | photos perm | `expo-image-picker` ✅ / `expo-media-library` ❌ (see §2) |
-| Location (foreground + background) | `expo-location` | `ACCESS_COARSE/FINE/BACKGROUND_LOCATION`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION`, iOS location + `UIBackgroundModes: location` | ✅ |
-| Calendar | `expo-calendar` | `READ/WRITE_CALENDAR`, iOS `NSCalendarsUsageDescription` | ✅ |
-| Contacts | `expo-contacts` | `READ/WRITE_CONTACTS`, iOS `NSContactsUsageDescription` | ❌ perms hand-written (see §2) |
-| Motion / activity / pedometer | `expo-sensors` | `ACTIVITY_RECOGNITION` | ✅ |
+| Photo library / image picker | `expo-image-picker`, `expo-media-library` | photos perm (read + save) | ✅ (both) |
 | Local notifications | `expo-notifications` | — | ✅ |
-| Background tasks / fetch | `expo-background-task`, `expo-task-manager` | iOS `UIBackgroundModes: fetch, processing` | ✅ (both) |
+| Rich / lock-screen notifications | `@bacons/apple-targets` (iOS Notification Service Extension) + `expo-notifications` (Android big-picture) | iOS App Group `group.com.freyrnorpixel.unfocus` | ✅ (scaffolding — extension target ships later) |
+| Home-screen / lock-screen widgets | `react-native-android-widget` (Android), `@bacons/apple-targets` (iOS WidgetKit) | iOS App Group `group.com.freyrnorpixel.unfocus` | ✅ (scaffolding — widget targets ship later) |
+| Background tasks / fetch | `expo-background-task`, `expo-task-manager` | iOS `UIBackgroundModes: fetch, processing`; Android `FOREGROUND_SERVICE` | ✅ (both) |
 | Local database | `expo-sqlite` | — | ✅ |
 | OTA updates | `expo-updates` | — | ✅ |
 | Haptics / vibration | `expo-haptics` | — | autolinked |
@@ -147,41 +154,49 @@ they require the build): `react-native-reanimated` + `react-native-worklets`,
 `react-native-safe-area-context`, plus `expo-font` / `expo-asset` /
 `expo-constants` / `expo-linking` / `expo-status-bar`.
 
-### 2. Config-plugin gaps to fix in app.json before building
+### 2. Pruned in Decision 027 (removed from `package.json` + `app.json`)
 
-Three packages are in `dependencies` but NOT registered in the `plugins` array,
-so a fresh `expo prebuild` may not wire their native permissions correctly:
+Each was declared but maps to no near-roadmap feature; re-adding any is a fresh
+native build, so they are intentionally out of this APK/AAB:
 
-- **`expo-speech-recognition`** — add its config plugin (injects iOS
-  `NSSpeechRecognitionUsageDescription` + the Android speech intents).
-  `RECORD_AUDIO` alone is not enough.
-- **`expo-media-library`** — add the plugin with a permission string, or drop the
-  dep if `expo-image-picker` already covers receipt-photo selection.
-- **`expo-contacts`** — permissions are hand-written into `android.permissions` +
-  `ios.infoPlist` today (works), but adding the plugin is the robust route.
+- **`expo-location`** — location-tied task reminders. Dropped module, its plugin,
+  the three `ACCESS_*_LOCATION` + `FOREGROUND_SERVICE_LOCATION` perms, the two
+  `NSLocation*` strings, and `location` from `UIBackgroundModes`.
+- **`expo-calendar`** — device-calendar sync. Dropped module, `READ/WRITE_CALENDAR`,
+  `NSCalendarsUsageDescription`.
+- **`expo-contacts`** — share-to-contacts suggestions. Dropped module,
+  `READ/WRITE_CONTACTS`, `NSContactsUsageDescription`.
+- **`expo-sensors`** — pedometer / step counting. Dropped module, `ACTIVITY_RECOGNITION`.
+- **`expo-speech-recognition`** — speech-to-text. Distinct from voice-note audio
+  capture (which is `expo-audio`, retained); dropped module + `NSSpeechRecognitionUsageDescription`.
 
-### 3. New capabilities requested — require native additions (future work)
+### 3. Widget + rich-notification scaffolding (added in this build)
 
-All three are native and OTA-incapable; each needs a new build:
+Native and OTA-incapable — they ship as modules/plugins now so the *features* can
+land later as pure OTA/target work without another rebuild:
 
-- **Home-screen widgets** — iOS WidgetKit + Android AppWidget. Requires native
-  targets / a config plugin (e.g. `@bacons/apple-targets` for the iOS widget
-  extension; `react-native-android-widget` for Android). New build; not OTA-able.
-- **Visual / media previews in notifications** — iOS rich media requires a
-  **Notification Service Extension** target (to attach downloaded images);
-  `expo-notifications` `attachments` only render when that extension is present.
-  Android uses big-picture / large-icon notification styling. New build required.
-- **Lock-screen visibility** — two distinct things:
-  - *Notification* on the lock screen — Android via
-    `setNotificationChannelAsync({ lockscreenVisibility })` (JS-configurable at
-    channel creation, so OTA-able); iOS shows notifications on the lock screen by
-    default. This piece does **not** need a native change.
-  - *Lock-screen widgets* (iOS 16+ accessory widget families) — WidgetKit,
-    native, needs a new build (ties into the widgets item above).
+- **Home-screen / lock-screen widgets** — `react-native-android-widget` (Android
+  AppWidget/Glance) + `@bacons/apple-targets` (iOS WidgetKit target). The App Group
+  entitlement (`group.com.freyrnorpixel.unfocus`) is declared so app↔widget data
+  sharing works. The widget *targets* (SwiftUI/Glance layouts, refresh cadence, tap
+  targets) are a later phase with their own design decisions.
+- **Rich / media notifications** — iOS rich media needs a **Notification Service
+  Extension** target (provided via `@bacons/apple-targets`) for `expo-notifications`
+  `attachments` to render; Android uses big-picture / large-icon styling (JS-side).
+  Extension target content ships later.
+- **Lock-screen notification visibility** — Android `setNotificationChannelAsync({
+  lockscreenVisibility })` is JS-configurable (OTA-able, no native change); iOS shows
+  notifications on the lock screen by default. iOS 16+ *lock-screen widgets* ride on
+  the WidgetKit target above.
+
+> **Version pins for the two added packages** (`@bacons/apple-targets`,
+> `react-native-android-widget`) are best-effort and were **not** installed/resolved
+> in the remote session (no network build). Confirm SDK 56 / RN 0.85 compatible
+> versions with `npx expo install` at actual build time before the first prebuild.
 
 ### Build reminder (mirrors AGENTS.md "Builds and updates")
 
-Everything in §2–§3 is a native change → new APK/AAB via `build-android.yml`
+Everything in §1–§3 is a native change → new APK/AAB via `build-android.yml`
 (debug artifact) or EAS `production` profile (signed release). Bump **both**
 `version` and `runtimeVersion` in `app.json` to the same new value so OTA updates
 retarget the new runtime, and keep `slug` = `all-the-small-things`.
