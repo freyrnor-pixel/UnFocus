@@ -175,6 +175,12 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
   3. Once that build exists, bump `runtimeVersion` (and usually `version`) in `app.json` to that value — from then on OTA updates flow to the new preview.
 - Do not bump `runtimeVersion` ahead of the build existing; doing so publishes OTA updates to a runtime nothing is installed on yet.
 
+### Dependency pinning — SDK-bundled versions
+- **Expo SDK is a curated set**, not a normal npm project. SDK 56 ships a specific native binary, and `bundledNativeModules.json` states exactly which JS version of each native package matches that binary. "Newest" JS packages mean *newer than your build's native code* — the failure mode.
+- **Native modules** (gesture-handler, reanimated, camera, sqlite, all `expo-*`) must stay pinned to the SDK's versions. If the bundle says `react-native-gesture-handler 2.31.1`, that's the current + safe version for SDK 56 — never jump to 3.0.2 (JS 3, native 2.31), which causes the exact "major version mismatch" errors you've seen.
+- **To get newer safely**: don't chase individual packages. Upgrade the whole SDK together (SDK 56 → 57), which re-pins every native module to its new matched set, then cut a new native build. That's a deliberate, tested migration.
+- **Ranges**: use `~X.Y.Z` (allows patches) not `^X.Y.Z` (allows minor/major) for native modules and Expo packages, to prevent silent drift between SDK bumps. Pure-JS packages (zustand, qrcode-generator) can stay loose.
+
 ## Token policy
 
 - **Trust the header, don't re-derive it.** Every file's `Connections:` block
