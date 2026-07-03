@@ -11,7 +11,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, constants/theme, lib/date, lib/i18n, lib/useAppTheme, store/useReceiptStore, store/useSettingsStore
  *   Used by → Expo Router route "/budget"; reached via app/shopping.tsx (quick action) or app/scan.tsx (header link)
- *   Data    → reads useReceiptStore (receipts table, months/receiptsForMonth/totalForMonth/receiptsByStore) and useSettingsStore.monthlyBudgetNok; writes via useSettingsStore.update (monthlyBudgetNok)
+ *   Data    → reads useReceiptStore (receipts table, receipts/months/receiptsForMonth/totalForMonth/receiptsByStore) and useSettingsStore (monthlyBudgetNok, monthlyResetDate, lastMonthlyReset); writes via useSettingsStore.update (monthlyBudgetNok)
  *
  * Edit notes:
  *   - Decision 001 tier='sub' ScreenScaffold (no BottomNav; back arrow to Shopping). Old SafeAreaView/
@@ -22,6 +22,11 @@
  *   - Over-budget bar uses the Decision 006 `warn` token (gentle amber, never `bad`/red) per the no-shame
  *     color rule (Decision 025); on-track uses `good`. Old FeatureColors.scan burnt-amber had no token equivalent.
  *   - Budget progress bar always compares against the live monthlyBudgetNok, even when viewing past months.
+ *   - Daily-spend pace (Decision 026): under the progress bar, actualPerDay (spend since lastMonthlyReset ÷
+ *     inclusive days elapsed) vs. budgetedPerDay (monthlyBudgetNok ÷ payday-to-payday periodLength). Over-pace
+ *     tints the figure with the `warn` token (never `bad`/red, no-shame rule); on/under uses `good`. Hidden when
+ *     no budget is set or lastMonthlyReset is empty. Uses live receipts, so it always reflects the current period
+ *     regardless of the selected month.
  *   - No AddFAB — a budget is a single value to edit, not a list. The editor sheet's Cancel/Save
  *     live in a header row at the top (matching app/task-form.tsx's pattern).
  */
@@ -31,7 +36,7 @@ import { useRouter } from 'expo-router';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useT } from '@/lib/i18n';
-import { currentMonthStr } from '@/lib/date';
+import { currentMonthStr, todayStr } from '@/lib/date';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
@@ -44,7 +49,10 @@ export default function BudgetScreen() {
   const styles = useScaledStyles(baseStyles);
 
   const monthlyBudgetNok = useSettingsStore((s) => s.monthlyBudgetNok);
+  const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
+  const lastMonthlyReset = useSettingsStore((s) => s.lastMonthlyReset);
   const updateSettings = useSettingsStore((s) => s.update);
+  const receipts_all = useReceiptStore((s) => s.receipts);
   const totalForMonth = useReceiptStore((s) => s.totalForMonth);
   const receiptsForMonth = useReceiptStore((s) => s.receiptsForMonth);
   const getMonths = useReceiptStore((s) => s.months);
@@ -63,6 +71,30 @@ export default function BudgetScreen() {
   const overBudget = hasBudget && spent > monthlyBudgetNok;
   const pct = hasBudget ? Math.min(100, (spent / monthlyBudgetNok) * 100) : 0;
   const barColor = overBudget ? theme.warn : theme.good;
+
+  // Daily spend vs. daily budget pace (Decision 026). No new DB column — derived
+  // from receipts dated on/after lastMonthlyReset and the payday-to-payday period.
+  // Only shown when a budget is set and a reset boundary exists.
+  const pace = (() => {
+    if (!hasBudget || !lastMonthlyReset) return null;
+    const parse = (s: string) => {
+      const [y, m, d] = s.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    };
+    const MS_PER_DAY = 86400000;
+    const resetD = parse(lastMonthlyReset);
+    const todayD = parse(todayStr());
+    const daysElapsed = Math.max(1, Math.round((todayD.getTime() - resetD.getTime()) / MS_PER_DAY) + 1);
+    // periodLength = payday-to-payday: this reset date → next reset date (option B).
+    const nextResetD = new Date(resetD.getFullYear(), resetD.getMonth() + 1, monthlyResetDate);
+    const periodLength = Math.max(1, Math.round((nextResetD.getTime() - resetD.getTime()) / MS_PER_DAY));
+    const spendSoFar = receipts_all
+      .filter((r) => r.date >= lastMonthlyReset)
+      .reduce((sum, r) => sum + r.total, 0);
+    const actualPerDay = spendSoFar / daysElapsed;
+    const budgetedPerDay = monthlyBudgetNok / periodLength;
+    return { actualPerDay, budgetedPerDay, overPace: actualPerDay > budgetedPerDay };
+  })();
 
   function saveBudget() {
     const newBudget = parseFloat(budgetInput.replace(',', '.')) || 0;
@@ -116,6 +148,16 @@ export default function BudgetScreen() {
                 <Text style={[styles.hintText, { color: theme.textMuted }]}>
                   {overBudget ? t.budget.overBudgetHint : t.budget.onTrackHint}
                 </Text>
+                {pace && (
+                  <View style={styles.paceRow}>
+                    <Text style={[styles.paceFigure, { color: pace.overPace ? theme.warn : theme.good }]}>
+                      {t.budget.perDaySpend(String(Math.round(pace.actualPerDay)), String(Math.round(pace.budgetedPerDay)))}
+                    </Text>
+                    <Text style={[styles.hintText, { color: theme.textMuted }]}>
+                      {pace.overPace ? t.budget.overPaceHint : t.budget.onPaceHint}
+                    </Text>
+                  </View>
+                )}
               </>
             ) : (
               <>
@@ -213,6 +255,8 @@ const baseStyles = StyleSheet.create({
   track: { height: 10, borderRadius: Radius.full, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: Radius.full },
   hintText: { fontSize: FontSize.sm, lineHeight: 20 },
+  paceRow: { gap: 2, marginTop: Spacing.xs },
+  paceFigure: { fontSize: FontSize.md, fontWeight: '700' },
   section: { gap: Spacing.xs },
   sectionLabel: { fontSize: FontSize.sm, fontWeight: '600' },
   emptyText: { fontSize: FontSize.sm, textAlign: 'center', lineHeight: 20 },

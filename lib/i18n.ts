@@ -834,6 +834,9 @@ const en = {
     perStore: 'Per store',
     editorTitle: 'Set budget',
     monthlyBudgetLabel: 'Monthly budget (NOK)',
+    perDaySpend: (actual: string, budget: string) => `${actual} kr/day so far · ${budget} kr/day budgeted`,
+    overPaceHint: 'A little above your daily pace — no worries, just a heads-up.',
+    onPaceHint: 'Nicely within your daily pace.',
   },
   // Notater — free-form notes with shopping/plans quick-action buttons (app/notes.tsx)
   notes: {
@@ -1703,6 +1706,9 @@ const no: typeof en = {
     perStore: 'Per butikk',
     editorTitle: 'Sett budsjett',
     monthlyBudgetLabel: 'Månedlig budsjett (NOK)',
+    perDaySpend: (actual: string, budget: string) => `${actual} kr/dag så langt · ${budget} kr/dag i budsjett`,
+    overPaceHint: 'Litt over dagstakten din — ingen fare, bare en påminnelse.',
+    onPaceHint: 'Fint innenfor dagstakten din.',
   },
   // Notater — frittstående notater med hurtigknapper for handleliste/planer (app/notes.tsx)
   notes: {
