@@ -1,0 +1,55 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: Build message
+        required: false
+        type: string
+
+jobs:
+  build:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Run Expo prebuild
+        run: npx expo prebuild --clean
+
+      - name: Build debug APK
+        run: cd android && ./gradlew assembleDebug
+
+      - name: Upload APK to artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: unfocus-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Create build summary
+        if: always()
+        run: |
+          echo "## Android APK Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "Build message: ${{ inputs.message || 'No message provided' }}" >> $GITHUB_STEP_SUMMARY
+          echo "Version: 1.1.0 (Preview)" >> $GITHUB_STEP_SUMMARY
+          echo "Download APK from Artifacts" >> $GITHUB_STEP_SUMMARY
