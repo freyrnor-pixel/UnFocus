@@ -3315,3 +3315,35 @@ lib/time` → **zero hits**: none of the created/changed files produce errors. (
 the native-lib errors from earlier phases — `expo-blur`/`expo-linear-gradient`/
 `react-native-svg` — are now resolved since `npm install` brought them in.)
 No device run possible here; clean typecheck of the touched files is the bar and is met.
+---
+
+## Branch audit — dead/merged `claude/*` branches (2026-07-03)
+
+Full audit of all 28 `claude/*` branches vs `main`, so future sessions don't re-investigate.
+**Only PR #32 (share-modal `formatDisplayDate` routing) carried genuinely-unmerged, wanted code** —
+now merged to `main` (`b700fd4`). Everything else is already merged or superseded.
+
+**Remote branch deletion is BLOCKED in the agent environment** (proxy returns 403 on delete
+pushes; the GitHub MCP has no delete-branch verb). A maintainer with push rights should prune.
+
+### Safe to delete — fully merged (unique code is byte-identical to `main`, or squash-merged):
+catalog-inventory-store-form-xirt9b, daily-spend-budget-indicator-94rx36,
+decision-011a-checkbox-nesting-ja2nlb, expanded-permission-native-build-jclj62,
+habit-store-form-u5c8ph, home-screen-focus-mode-8ifq6x (code identical to main; only stale log),
+initial-planning-files-1sno8w, native-build-setup-k3sj99 (its share-modal commit recovered via PR #32),
+norwegian-date-display-2dtqk2, onboarding-screens-port-ebkxe8, phase-3e-icons-pickers-c6d9ps,
+phase-4-redesign-sweep-tqrt5m, phase-6-screens-port-12wf2w, phase-6-screens-stores-4qy713,
+plans-redesign-taskcard-build-72tk3u, port-habits-meals-health-sgo31x, port-ungated-components-ahvgg2,
+s2-decisions-018-019-czw6y5, share-modal-date-routing-merge (the PR #32 branch, now merged),
+shopping-item-re-add-increment-m56s1c, shopping-screen-relayout-fz9l44, shopping-store-persistence-ju02hc,
+task-hint-note-field-abpt7i, task-store-form-port-ywn750, task-then-link-design-a9jfen,
+unfocus-app-dependencies-4mvrjr, unfocus-docs-reconcile-j8yetx, unfocus-edits-workflow-f0ynfv,
+weeklistcard-phase-3c-948hqa.
+
+### Review-then-delete (do NOT merge):
+- **unfocus-rebuild-queue-u4ax13** — one unique commit (Phase 3c "ShoppingRow redesign, Decision 011
+  A2-2"), 61 commits behind main. Its unique code is *older* `ShoppingRow`/`useShoppingStore` versions
+  that main has already superseded — **merging would regress main**. Almost certainly dead; kept only
+  so a human can confirm the Phase-3c work is truly superseded before deletion.
+
+Prune command (machine with push rights): `git push origin --delete <name> ...` for every branch above.
