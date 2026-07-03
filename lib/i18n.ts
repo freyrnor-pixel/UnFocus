@@ -293,6 +293,9 @@ const en = {
   itemAddedToList: (name: string) => `${name} added ✓`,
   itemAddedToInventory: (name: string) => `${name} added to inventory ✓`,
   itemsAddedToList: (n: number) => `${n} items added ✓`,
+  // Decision 022 drag-to-merge — transient toast after a same-name merge / dish-join drop
+  mergedIntoDish: (dish: string) => `Combined into ${dish} ✓`,
+  movedToDish: (dish: string) => `Moved into ${dish} ✓`,
   itemPutBackToInventory: (name: string) => `${name} put back in inventory`,
   // --- end W-C additions ---
   addItemTrigger: '+ Add item',
@@ -628,6 +631,8 @@ const en = {
   deleteLogBtn: 'Delete entry',
   healthSeeAllHabits: 'See all habits',
   healthAddHabit: 'Add habit',
+  // Top-level overflow label (shopping.tsx tab-bar "…" menu). Distinct from habits.moreOptions.
+  moreOptions: 'More options',
   // --- end W-D additions ---
   // Habits — shame-free labels (Proposal 5)
   habits: {
@@ -1183,6 +1188,9 @@ const no: typeof en = {
   itemAddedToList: (name: string) => `${name} lagt til ✓`,
   itemAddedToInventory: (name: string) => `${name} lagt til inventar ✓`,
   itemsAddedToList: (n: number) => `${n} varer lagt til ✓`,
+  // Decision 022 drag-to-merge — transient toast after a same-name merge / dish-join drop
+  mergedIntoDish: (dish: string) => `Slått sammen i ${dish} ✓`,
+  movedToDish: (dish: string) => `Flyttet til ${dish} ✓`,
   itemPutBackToInventory: (name: string) => `${name} lagt tilbake i inventar`,
   // --- end W-C additions ---
   addItemTrigger: '+ Legg til vare',
@@ -1649,6 +1657,8 @@ const no: typeof en = {
   deleteLogBtn: 'Slett oppføring',
   healthSeeAllHabits: 'Se alle vaner',
   healthAddHabit: 'Legg til vane',
+  // Top-level overflow label (shopping.tsx tab-bar "…" menu). Distinct from habits.moreOptions.
+  moreOptions: 'Flere valg',
   // --- end W-D additions ---
   cover: {
     tasksToday: 'I dag',
