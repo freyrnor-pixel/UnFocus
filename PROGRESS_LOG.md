@@ -3563,3 +3563,59 @@ mechanism, the mount-skip, and the reducedMotion behaviour.
 **Verification:** manual code review only (per CLAUDE.md — no Jest, tsc is local-only in this
 remote env). No new props/imports beyond `useEffect`/`useRef`/`withSequence`; no baseline
 TypeScript surface changed.
+
+## 2026-07-03 — Decision 022 drag-to-merge BUILT + A2·1 shopping-row drag redesign resumed + moreOptions fix
+
+**Status: Complete.** Resumed the A2·1 shopping-row drag redesign (STOPPED 2026-07-01),
+wired Decision 022 drag-to-merge onto it, and closed the pre-existing `t.moreOptions` i18n
+gap. Hit the Decision 022 STOP-and-ask gate first (cross-section hit-testing is a genuine
+design commitment) — surfaced the three design questions as numbered options; the planning
+layer answered them; recorded as **Decision 030** before building. No guessing.
+
+**The three design answers (now Decision 030):**
+1. Hit-testing = **window coordinates, dish-GROUP granularity** (`measureInWindow` at
+   drag-start into one shared window space; test against dish-group bands, not per ingredient).
+2. No same-name match on a dish drop = **join that dish instance** (adopt `dishName`), NOT
+   snap-back/reorder. This extends Decision 022 item 1 — a planning-layer decision, filed in
+   030. Never edits the dish's base recipe (managed elsewhere).
+3. Valid-target affordance = **highlight the target dish group** during drag.
+
+**Code changes:**
+- `components/DraggableTaskRow.tsx` — now reports live **window** centerY (self-measured via
+  `measureInWindow` at drag-start + translationY), not parent-relative. Added optional
+  `registerNode` (hands its native node up for sibling measurement) and made `onRowLayout`
+  optional. Gesture logic unchanged. Only consumer is shopping.tsx (PlanTaskCard does NOT use
+  it — verified), so the coordinate-contract change is contained.
+- `components/WeekListCard.tsx` — each dish-group card wrapped in a measurable `<View>`;
+  added optional `registerDishGroupNode` (native node up to the parent) and `mergeHighlightDish`
+  (tints the target group `theme.goodSoft` + `good` border). New `dishGroupWrap` style.
+- `app/shopping.tsx` — replaced parent-relative `rowLayouts`/`handleRowLayout` with
+  window-space `rowNodes`/`dishNodes` registration + `dragSnapshotRef`/`dishRectsRef`
+  measured at drag-start. `DragState` now carries `itemName` + `mergeTargetDish` (dropped the
+  in-state `snapshot`). `dragRef` mirrors state so the drop handler reads final drag
+  synchronously. `handleDragMove` marks a dish merge/join target when the window centerY is in
+  a dish band (freezes reorder while targeting), else runs the unchanged R1 reorder preview.
+  `handleDragEnd`: over a dish → same-name ingredient present ⇒ `mergeItems`; else
+  `update(dishName)` to join the instance; transient `ConfirmationBanner`. Added `mergeItems`
+  selector.
+- `lib/i18n.ts` — **fixed the real `moreOptions` gap**: `moreOptions` existed only nested under
+  `habits.moreOptions`, but `shopping.tsx` calls top-level `t.moreOptions` (overflow menu label
+  + IconButton) → undefined key. Added a top-level `moreOptions` to both `en`/`no`. Also added
+  `mergedIntoDish(dish)` / `movedToDish(dish)` toast strings (both locales).
+
+**New i18n keys:** `moreOptions` (top-level, en+no), `mergedIntoDish`, `movedToDish`.
+
+**New decisions:** Decision 030 (cross-section hit-testing model + dish-join semantics;
+resolves the A2·1 STOP gate and Decision 022's deferred design commitment).
+
+**Unresolved / flagged:**
+- **Decision 022 item 3 ephemeral *undo* affordance** is deferred — `ConfirmationBanner` is
+  message-only, so the drop shows a transient confirm toast, not an undo button. Real undo
+  (capture pre-merge state + restore + extend the banner) is a Phase-6 presentational
+  follow-up, consistent with Decision 021's highlight also being deferred. Core merge/join is
+  fully functional without it.
+- **No typecheck/live-app run** (per repo policy: remote env has no node_modules; manual code
+  review only). The `measureInWindow` snapshots are captured once at drag-start (no mid-drag
+  re-measure) — a first-cut approximation, same accepted stance as the original R1 reorder.
+- **Decision 021 ShoppingRow "just added / amount increased" highlight** still Phase-6
+  presentational (unchanged by this session; store side done).

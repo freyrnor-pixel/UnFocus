@@ -54,17 +54,27 @@
  *     "Bought this week" history — see WeekListCard.tsx) → "create new list" card. Monthly
  *     reset is a manual action in the sticky bar's overflow menu, not an automatic
  *     mount-time effect — see the store-stub note below.
- *   - **Decision 011 R1 reorder wiring**: this screen owns row-layout collection
- *     (`rowLayouts` ref, keyed `listId:itemId`), hit-testing (`computeTargetIndex`), live
- *     preview reflow (`LayoutAnimation.configureNext` on every reorder-preview change,
- *     same idiom ExpandableCard.tsx already uses), and persistence (`reorderItem` called
- *     once per index step crossed between drag-start and drag-end, via
- *     useShoppingStore.reorder's existing 'up'/'down' stub shape). Only the "Shopping
- *     list" (ungrouped-unchecked) section is reorderable — dish-group and bought-history
- *     rows never had move affordances either, in the old app or here. The hit-test
- *     snapshot is captured once at drag-start from each row's last-measured layout; it
- *     does not re-measure mid-drag, so it's an approximation, not pixel-perfect —
- *     reasonable for a first cut given no live-app verification is available this session.
+ *   - **Decision 011 R1 reorder + Decision 022 drag-to-merge wiring** (window-coordinate,
+ *     2026-07-03): this screen owns hit-testing/live-reflow/persistence for both. Native
+ *     nodes are registered up from DraggableTaskRow (each ungrouped reorder row, via
+ *     `registerNode`) and WeekListCard (each "From meals" dish-group card, via
+ *     `registerDishGroupNode`), keyed `listId:itemId` / `listId:dishName`. At drag-start
+ *     they're measured with `measureInWindow` into `dragSnapshotRef` / `dishRectsRef` — a
+ *     shared **window** space, the only frame where the ungrouped section and the dish
+ *     cards (different parents) are comparable. The dragged row measures ITSELF inside
+ *     DraggableTaskRow and reports live window centerY. On move: if that centerY falls in a
+ *     dish-group band → mark it the merge/join target (WeekListCard highlights it via
+ *     `mergeHighlightDish`); otherwise run the R1 reorder preview (`computeTargetIndex` +
+ *     `LayoutAnimation`). On drop over a dish (Decision 022): a same-name ingredient in that
+ *     dish → `mergeItems` (sum + adopt dishName, drop the standalone row); no same-name →
+ *     `update(dishName)` so the item joins THIS dish instance (never edits the dish's base
+ *     recipe — that's managed elsewhere; per the 2026-07-03 design answer). Reorder persists
+ *     via `reorderItem` 'up'/'down' as before. Only the ungrouped section is reorderable;
+ *     dish/bought rows still have no move affordance. `dragRef` mirrors `drag` state so the
+ *     drop handler reads the final drag synchronously. measureInWindow snapshots are taken
+ *     once at drag-start (no mid-drag re-measure) — an approximation, no live-app verification
+ *     this session. Decision 022's ephemeral *undo* affordance is deferred (a transient
+ *     ConfirmationBanner confirms the merge for now — see PROGRESS_LOG 2026-07-03).
  *   - **Mount-time store hydration (Phase 5, 2026-07-02):** the on-focus effect now
  *     initialises the DB (idempotent, once per app session via the module-level
  *     `dbBootstrapped` guard — the app still has no global bootstrap; _layout is the
@@ -155,9 +165,12 @@ const STICKY_HEIGHT = 116;
 type DragState = {
   listId: string;
   itemId: string;
+  /** Cached at drag-start so the drop handler can match a same-name dish ingredient. */
+  itemName: string;
   startOrder: string[];
   order: string[];
-  snapshot: Record<string, { y: number; height: number }>;
+  /** Decision 022: dish group currently under the dragged row (valid merge/join target), or null. */
+  mergeTargetDish: string | null;
 };
 
 /** Insertion index for `centerY` against a snapshot of each row's last-measured layout. */
@@ -203,8 +216,26 @@ export default function ShoppingScreen() {
   const [updateItem, setUpdateItem] = useState<ShoppingItem | null>(null);
   const [addDishSheetOpen, setAddDishSheetOpen] = useState(false);
 
+  // ── Decision 011 R1 reorder + Decision 022 drag-to-merge (all window-coordinate based) ──
+  // Native nodes are registered by DraggableTaskRow (reorder rows) and WeekListCard (dish-group
+  // cards) so this screen can measureInWindow() them at drag-start into a shared window space —
+  // the only space where the ungrouped section and the "From meals" dish cards are comparable.
   const [drag, setDrag] = useState<DragState | null>(null);
-  const rowLayouts = useRef<Map<string, { y: number; height: number }>>(new Map());
+  const dragRef = useRef<DragState | null>(null);
+  const rowNodes = useRef<Map<string, any>>(new Map());
+  const dishNodes = useRef<Map<string, any>>(new Map());
+  const dragSnapshotRef = useRef<Record<string, { y: number; height: number }>>({});
+  const dishRectsRef = useRef<Record<string, { y: number; height: number }>>({});
+  const setDragState = useCallback(
+    (next: DragState | null | ((prev: DragState | null) => DragState | null)) => {
+      setDrag((prev) => {
+        const resolved = typeof next === 'function' ? (next as (p: DragState | null) => DragState | null)(prev) : next;
+        dragRef.current = resolved;
+        return resolved;
+      });
+    },
+    []
+  );
 
   const items = useShoppingStore((s) => s.items);
   const trips = useShoppingStore((s) => s.trips);
@@ -235,6 +266,7 @@ export default function ShoppingScreen() {
   const monthlyReset = useShoppingStore((s) => s.monthlyReset);
   const buildMonthlyResetSummary = useShoppingStore((s) => s.buildMonthlyResetSummary);
   const reorderItem = useShoppingStore((s) => s.reorder);
+  const mergeItems = useShoppingStore((s) => s.mergeItems);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
   const dishes = useMealStore((s) => s.dishes);
@@ -454,38 +486,104 @@ export default function ShoppingScreen() {
     ]);
   }
 
-  // ── Decision 011 R1: reorder wiring (screen-owned hit-testing/live-reflow/persistence) ──
+  // ── Decision 011 R1 reorder + Decision 022 drag-to-merge (screen-owned, window-coordinate) ──
 
-  function handleRowLayout(listId: string, itemId: string, layout: { y: number; height: number }) {
-    rowLayouts.current.set(`${listId}:${itemId}`, layout);
+  function handleRegisterRowNode(listId: string, itemId: string, node: any) {
+    const key = `${listId}:${itemId}`;
+    if (node) rowNodes.current.set(key, node);
+    else rowNodes.current.delete(key);
   }
 
-  function handleDragStart(listId: string, itemId: string, order: string[]) {
-    const snapshot: Record<string, { y: number; height: number }> = {};
+  function handleRegisterDishNode(listId: string, dishName: string, node: any) {
+    const key = `${listId}:${dishName}`;
+    if (node) dishNodes.current.set(key, node);
+    else dishNodes.current.delete(key);
+  }
+
+  function handleDragStart(listId: string, itemId: string, itemName: string, order: string[]) {
+    // Measure the sibling reorder rows + this list's dish-group cards in window space (the
+    // dragged row measures itself inside DraggableTaskRow). measureInWindow's callbacks land
+    // within a frame — before the first onDragMove, which only fires once the finger moves
+    // past DraggableTaskRow's threshold — so the snapshots are ready by the time they're read.
+    dragSnapshotRef.current = {};
     for (const id of order) {
-      const l = rowLayouts.current.get(`${listId}:${id}`);
-      if (l) snapshot[id] = l;
+      rowNodes.current.get(`${listId}:${id}`)?.measureInWindow?.((_x: number, y: number, _w: number, h: number) => {
+        dragSnapshotRef.current[id] = { y, height: h };
+      });
     }
-    setDrag({ listId, itemId, startOrder: order, order, snapshot });
+    dishRectsRef.current = {};
+    const prefix = `${listId}:`;
+    for (const [key, node] of dishNodes.current.entries()) {
+      if (!key.startsWith(prefix)) continue;
+      const dishName = key.slice(prefix.length);
+      node?.measureInWindow?.((_x: number, y: number, _w: number, h: number) => {
+        dishRectsRef.current[dishName] = { y, height: h };
+      });
+    }
+    setDragState({ listId, itemId, itemName, startOrder: order, order, mergeTargetDish: null });
   }
 
   function handleDragMove(listId: string, itemId: string, centerY: number) {
-    setDrag((prev) => {
+    setDragState((prev) => {
       if (!prev || prev.listId !== listId || prev.itemId !== itemId) return prev;
-      const targetIndex = computeTargetIndex(centerY, prev.order, prev.snapshot);
+      // 1. Cross-section merge/join target: the dragged row's window centerY inside a dish band.
+      //    Any dish group is a valid drop (same-name → merge, else → join this dish instance).
+      let mergeTargetDish: string | null = null;
+      for (const dishName in dishRectsRef.current) {
+        const r = dishRectsRef.current[dishName];
+        if (centerY >= r.y && centerY <= r.y + r.height) {
+          mergeTargetDish = dishName;
+          break;
+        }
+      }
+      if (mergeTargetDish) {
+        if (prev.mergeTargetDish === mergeTargetDish) return prev;
+        if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        return { ...prev, mergeTargetDish };
+      }
+      // 2. Otherwise, in-section reorder preview (unchanged Decision 011 R1 behavior).
+      const snapshot = dragSnapshotRef.current;
       const currentIndex = prev.order.indexOf(itemId);
-      if (targetIndex === currentIndex) return prev;
-      const nextOrder = [...prev.order];
-      nextOrder.splice(currentIndex, 1);
-      nextOrder.splice(targetIndex, 0, itemId);
-      if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      return { ...prev, order: nextOrder };
+      const targetIndex = Object.keys(snapshot).length ? computeTargetIndex(centerY, prev.order, snapshot) : currentIndex;
+      let order = prev.order;
+      if (targetIndex !== currentIndex && targetIndex >= 0) {
+        order = [...prev.order];
+        order.splice(currentIndex, 1);
+        order.splice(targetIndex, 0, itemId);
+        if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      }
+      if (order === prev.order && prev.mergeTargetDish === null) return prev;
+      return { ...prev, order, mergeTargetDish: null };
     });
   }
 
   function handleDragEnd(listId: string, itemId: string) {
-    setDrag((prev) => {
-      if (prev && prev.listId === listId && prev.itemId === itemId) {
+    const prev = dragRef.current;
+    if (prev && prev.listId === listId && prev.itemId === itemId) {
+      if (prev.mergeTargetDish) {
+        // Decision 022: dropped onto a dish group. If that dish already holds a same-name
+        // ingredient, merge (mergeItems sums amounts + keeps the dish's dishName, drops the
+        // standalone row). Otherwise the item simply joins THIS instance of the dish (adopt
+        // its dishName) — it never edits the dish's base recipe, which is managed elsewhere.
+        const dish = prev.mergeTargetDish;
+        const name = prev.itemName.trim().toLowerCase();
+        const twin = items.find(
+          (i) =>
+            i.status === 'inWeeklyList' &&
+            i.listId === listId &&
+            i.dishName === dish &&
+            i.id !== itemId &&
+            i.name.trim().toLowerCase() === name
+        );
+        if (twin) {
+          mergeItems(itemId, twin.id);
+          setConfirm(t.mergedIntoDish(dish));
+        } else {
+          update(itemId, { dishName: dish });
+          setConfirm(t.movedToDish(dish));
+        }
+        success();
+      } else {
         const fromIndex = prev.startOrder.indexOf(itemId);
         const toIndex = prev.order.indexOf(itemId);
         const delta = toIndex - fromIndex;
@@ -494,8 +592,8 @@ export default function ShoppingScreen() {
           for (let i = 0; i < Math.abs(delta); i++) reorderItem(itemId, direction);
         }
       }
-      return null;
-    });
+    }
+    setDragState(null);
   }
 
   const stickyBelowHeader = (
@@ -695,11 +793,13 @@ export default function ShoppingScreen() {
                   onDecrementItem={(item) => adjustAmount(item.id, -1)}
                   onAddPress={() => setAddSourceChooserListId(list.id)}
                   onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
+                  registerDishGroupNode={(dishName, node) => handleRegisterDishNode(list.id, dishName, node)}
+                  mergeHighlightDish={drag && drag.listId === list.id ? drag.mergeTargetDish : null}
                   renderReorderableRow={(item) => (
                     <DraggableTaskRow
                       isOpen={false}
-                      onRowLayout={(layout) => handleRowLayout(list.id, item.id, layout)}
-                      onDragStart={() => handleDragStart(list.id, item.id, order)}
+                      registerNode={(node) => handleRegisterRowNode(list.id, item.id, node)}
+                      onDragStart={() => handleDragStart(list.id, item.id, item.name, order)}
                       onDragMove={(centerY) => handleDragMove(list.id, item.id, centerY)}
                       onDragEnd={() => handleDragEnd(list.id, item.id)}
                     >

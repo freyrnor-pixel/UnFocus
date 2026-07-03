@@ -74,6 +74,12 @@
  *     parent/child checkbox binding attempted") despite R4 naming this card's dish-group
  *     session as the intended owner — closed here since the wiring only needed this
  *     component + `lib/shoppingGroups.ts`, no new decision.
+ *   - Decision 022 drag-to-merge (2026-07-03): each dish-group card is wrapped in a measurable
+ *     `<View>` whose native node is handed up via `registerDishGroupNode` so the parent screen
+ *     can measureInWindow() it as a drop target at drag-start. When the dragged standalone row
+ *     is over a group, the parent passes its name as `mergeHighlightDish` and this card tints
+ *     that wrapper (theme.goodSoft + good border) so the valid drop is visible before release.
+ *     Both props are optional — the merge/join drop logic itself lives in app/shopping.tsx.
  */
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -116,6 +122,12 @@ type Props = {
   onDoneShopping: () => void;
   /** Renders one reorderable "Shopping list" row — parent wraps it in DraggableTaskRow. */
   renderReorderableRow: (item: ShoppingItem, index: number, total: number) => React.ReactNode;
+  /** Decision 022 drag-to-merge: hand the parent each dish-group card's native node so it can
+   *  measureInWindow() the group as a drop target at drag-start. Optional. */
+  registerDishGroupNode?: (dishName: string, node: any) => void;
+  /** Decision 022 drag-to-merge: name of the dish group currently under the dragged row (a valid
+   *  merge/join target) — highlighted so the user sees the drop will land there. */
+  mergeHighlightDish?: string | null;
 };
 
 export default function WeekListCard({
@@ -140,6 +152,8 @@ export default function WeekListCard({
   onAddPress,
   onDoneShopping,
   renderReorderableRow,
+  registerDishGroupNode,
+  mergeHighlightDish,
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -227,9 +241,17 @@ export default function WeekListCard({
               const dish = dishes.find((d) => d.name === dishName);
               const subtitle = t.ingredientsCount(groupItems.length);
               const allChecked = dishGroupAllChecked(groupItems);
+              const isMergeTarget = mergeHighlightDish === dishName;
               return (
-                <ExpandableCard
+                <View
                   key={dishName}
+                  ref={(node) => registerDishGroupNode?.(dishName, node)}
+                  style={[
+                    styles.dishGroupWrap,
+                    isMergeTarget && { borderColor: theme.good, backgroundColor: theme.goodSoft },
+                  ]}
+                >
+                <ExpandableCard
                   title={dishName}
                   subtitle={subtitle}
                   accentColor={theme.good}
@@ -268,6 +290,7 @@ export default function WeekListCard({
                     </View>
                   ))}
                 </ExpandableCard>
+                </View>
               );
             })}
           </View>
@@ -356,6 +379,9 @@ const baseStyles = StyleSheet.create({
   sectionRule: { flex: 1, height: 2, borderRadius: Radius.full, opacity: 0.4 },
   sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, borderLeftWidth: 3 },
+  // Decision 022: dish-group wrapper is measured as a drop target and tints when a valid
+  // merge target. Transparent border by default so the tinted highlight doesn't shift layout.
+  dishGroupWrap: { borderRadius: Radius.md, borderWidth: 1, borderColor: 'transparent' },
   rowDivider: { height: 1 },
   dishCheck: {
     width: 20,

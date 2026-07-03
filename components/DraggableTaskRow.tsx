@@ -27,10 +27,18 @@
  *     finger via translateY; siblings are NOT animated here — the parent reflows them itself
  *     via LayoutAnimation when the live preview order changes, same idiom ExpandableCard.tsx
  *     already uses for expand/collapse (relies on that file's module-level Android enable).
- *   - onDragMove reports the dragged row's current screen-space center Y, throttled to firing
- *     only once movement exceeds a small pixel delta — the parent does the actual index/
- *     section hit-test and decides whether anything changed; this component only fires
- *     tap() once, on lift.
+ *   - onDragMove reports the dragged row's current **window-space** (absolute screen) center Y,
+ *     throttled to firing only once movement exceeds a small pixel delta — the parent does the
+ *     actual index/section hit-test and decides whether anything changed; this component only
+ *     fires tap() once, on lift. Window coords (measured via measureInWindow at drag-start, plus
+ *     the live translationY) are what make cross-section hit-testing possible: the ungrouped
+ *     reorder rows and the "From meals" dish-group cards live under different parents, so their
+ *     onLayout (parent-relative) coordinates aren't comparable — only absolute window coords are.
+ *     The parent measures its sibling rows + dish-group cards in the same window space at
+ *     drag-start (Decision 022 drag-to-merge; see app/shopping.tsx's header).
+ *   - `registerNode` hands the parent this row's native node so it can measureInWindow() the
+ *     sibling reorder rows at drag-start (the dragged row measures itself here). Optional — a
+ *     consumer that doesn't do cross-section hit-testing can omit it.
  *   - **Generalized from the old repo's version during the port (2026-07-02, Phase 3d):**
  *     the old `DraggableTaskRow.tsx` hardcoded `<PlanTaskCard task={task} {...cardProps} />`
  *     as its rendered child. `PlanTaskCard` doesn't exist in this repo yet — it's a BUILD,
@@ -52,7 +60,8 @@ import { useAccessibility } from '@/lib/useAppTheme';
 type Props = {
   children: React.ReactNode;
   isOpen: boolean;
-  onRowLayout: (layout: { y: number; height: number }) => void;
+  onRowLayout?: (layout: { y: number; height: number }) => void;
+  registerNode?: (node: any) => void;
   onDragStart: () => void;
   onDragMove: (centerY: number) => void;
   onDragEnd: () => void;
@@ -64,6 +73,7 @@ export default function DraggableTaskRow({
   children,
   isOpen,
   onRowLayout,
+  registerNode,
   onDragStart,
   onDragMove,
   onDragEnd,
@@ -72,14 +82,35 @@ export default function DraggableTaskRow({
   const translateY = useSharedValue(0);
   const scale = useSharedValue(1);
   const lifted = useSharedValue(0);
-  const rowYRef = useRef(0);
+  const viewRef = useRef<any>(null);
   const rowHeightRef = useRef(0);
+  const startWinTopRef = useRef(0);
   const lastReportedY = useSharedValue(0);
 
   function handleLayout(e: LayoutChangeEvent) {
-    rowYRef.current = e.nativeEvent.layout.y;
     rowHeightRef.current = e.nativeEvent.layout.height;
-    onRowLayout({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height });
+    onRowLayout?.({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height });
+  }
+
+  // Combined ref: keep our own handle for measureInWindow AND hand it to the parent
+  // so it can measure sibling rows in the same window space.
+  const setViewRef = (node: any) => {
+    viewRef.current = node;
+    registerNode?.(node);
+  };
+
+  // Capture this row's absolute window position at drag-start; onDragMove then reports
+  // window centerY = startWinTop + live translationY + height/2. measureInWindow's callback
+  // runs on the JS thread — safe to read the refs here (not on the UI thread).
+  function captureStart() {
+    viewRef.current?.measureInWindow?.((_x: number, y: number, _w: number, h: number) => {
+      startWinTopRef.current = y;
+      if (h) rowHeightRef.current = h;
+    });
+  }
+
+  function reportMove(translationY: number) {
+    onDragMove(startWinTopRef.current + translationY + rowHeightRef.current / 2);
   }
 
   const pan = Gesture.Pan()
@@ -91,14 +122,14 @@ export default function DraggableTaskRow({
       scale.value = reducedMotion ? 1.03 : withSpring(1.03, { damping: 18, stiffness: 320 });
       lastReportedY.value = 0;
       runOnJS(tap)();
+      runOnJS(captureStart)();
       runOnJS(onDragStart)();
     })
     .onUpdate((e) => {
       translateY.value = e.translationY;
       if (Math.abs(e.translationY - lastReportedY.value) > MOVE_REPORT_THRESHOLD) {
         lastReportedY.value = e.translationY;
-        const centerY = rowYRef.current + e.translationY + rowHeightRef.current / 2;
-        runOnJS(onDragMove)(centerY);
+        runOnJS(reportMove)(e.translationY);
       }
     })
     .onEnd(() => {
@@ -119,7 +150,7 @@ export default function DraggableTaskRow({
 
   return (
     <GestureDetector gesture={pan}>
-      <Animated.View style={[styles.row, animStyle]} onLayout={handleLayout}>
+      <Animated.View ref={setViewRef} style={[styles.row, animStyle]} onLayout={handleLayout}>
         {children}
       </Animated.View>
     </GestureDetector>

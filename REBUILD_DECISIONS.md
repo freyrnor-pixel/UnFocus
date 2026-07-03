@@ -1701,3 +1701,65 @@ Implemented as `useTaskStore.followerCycleChain(id)` (walks `followsTaskId` back
 ### Blocks / unblocks
 - **Unblocks:** cold reads of Decision 020 — its three open sub-questions are now closed and must not be re-decided from the stale leaning text.
 - No new blocks.
+
+---
+
+## Decision 030 — Cross-section drag-to-merge hit-testing model + dish-join semantics
+
+**Status:** Resolved
+**Date:** 2026-07-03
+**Phase:** Phase 6 (shopping-row drag redesign — the A2·1 surface that was STOPPED
+2026-07-01) + wires Decision 022's `mergeItems`.
+**Origin:** The STOP-and-ask gate on the drag-merge session. Decision 022 filed the
+drag-to-merge product behavior but deferred the hit-testing *design commitment* (how a
+drop target is detected across sections, merge-vs-reorder disambiguation, valid-target
+affordance) to the build session. Those questions were surfaced as numbered options and
+answered by the planning layer; recorded here so a later session doesn't re-decide them.
+
+### Context / the real problem
+The Decision 011 R1 drag surface only measured the ungrouped-unchecked "Shopping list"
+section, and did so in a *parent-relative* coordinate space. Dish-group ingredient rows
+render inside separate `ExpandableCard`s under a different parent, so their coordinates
+were never comparable to the dragged row's — dish rows were not drop targets at all. That
+gap is exactly why A2·1 stopped.
+
+### Decisions (answers to the three surfaced questions)
+1. **Hit-testing model — window coordinates, dish-GROUP granularity.** All drop targets
+   are measured with `measureInWindow` at drag-start into one shared window space (the only
+   frame where the ungrouped section and the dish cards are comparable). The dragged row
+   measures itself (inside `DraggableTaskRow`, which now reports live *window* centerY);
+   the screen measures sibling reorder rows + each dish-group *card* (not each ingredient
+   row). A drop is tested against dish-group bands, not individual ingredient rows — coarser
+   but robust, and it needs no per-ingredient measurement plumbing.
+2. **No same-name match on a dish drop → JOIN the dish instance (NOT snap-back, NOT
+   reorder).** This *extends* Decision 022 item 1 (which said different-name → reorder
+   fallback — that fallback applies only to the in-section row-on-row case). The planning
+   layer decided that dropping a standalone item onto a dish group always makes it part of
+   **that instance** of the dish: if a same-name ingredient already exists there, merge
+   (`mergeItems` — sum amounts, adopt `dishName`, drop the standalone row); otherwise the
+   item simply adopts the dish's `dishName` (`update`) and rides along with that instance.
+   **It never edits the dish's base recipe** — adding/removing a dish's canonical
+   ingredients is done elsewhere in shopping, not live via drag. Consequence: same as
+   Decision 022's "joins the dish" note — once joined, the item is indistinguishable from an
+   original dish ingredient (no provenance flag) and rides along for 011a roll-down, dish
+   removal, and monthly reset.
+3. **Valid-target affordance — highlight the target dish group during drag.** While the
+   dragged row is over a dish group, that group's card tints (`theme.goodSoft` + `good`
+   border) so the user sees the drop will land there before releasing. Ephemeral, no schema
+   (same spirit as Decision 021's transient highlight).
+
+### Deferred (flagged, not silently dropped)
+- **Decision 022 item 3's ephemeral *undo* affordance (toast/snackbar with undo)** is NOT
+  built. `ConfirmationBanner` is message-only (no action button); a real undo would need
+  capturing pre-merge state + a restore path + extending the shared banner. For now a
+  transient `ConfirmationBanner` *confirms* the merge/join (`mergedIntoDish` / `movedToDish`).
+  The undo button remains a Phase-6 presentational follow-up — consistent with Decision 021's
+  highlight also being deferred.
+
+### Blocks / unblocks
+- **Resolves** the A2·1 STOP gate (2026-07-01) and the "drag-to-merge UI wiring NOT done"
+  flag from the Phase-5 shopping-store entry (2026-07-02).
+- **Reuses**, does not fork, the Decision 011 R1 drag mechanism (`DraggableTaskRow` +
+  screen-owned hit-testing) — the coordinate model moved from parent-relative to window,
+  which also makes the existing reorder hit-test more correct as a side effect.
+- No new schema (`mergeItems`/`update` already exist); no new blocks.
