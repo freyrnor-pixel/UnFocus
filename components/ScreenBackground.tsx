@@ -10,7 +10,8 @@
  * Surface.tsx is the other half for cards.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, store/useSettingsStore, react-native-svg
+ *   Imports → constants/theme (MaterialName), constants/colors (ThemePalette),
+ *             lib/useAppTheme, store/useSettingsStore, react-native-svg
  *   Used by → most app screens, rendered as the first child inside the SafeAreaView
  *             (app/index.tsx uses components/HomeHeroBackground instead)
  *   Data    → reads bubbleMaterial from useSettingsStore
@@ -18,13 +19,13 @@
  * Edit notes:
  *   - Render this as an absolutely-positioned first child, then let the
  *     screen's SafeAreaView/ScrollView be transparent on top of it — don't
- *     also set backgroundColor: theme.cream on the SafeAreaView or the blobs
+ *     also set backgroundColor: theme.bg on the SafeAreaView or the blobs
  *     get painted over.
  *   - Blobs are intentionally low-opacity (≤ ~0.2 at their core) so body text
  *     rendered directly on the background (not inside a Surface) stays legible.
  *     Decision 008 enriched the backdrop (bigger blobs, a slower mid-falloff, and
  *     a third accent blob for glass) so ambient glass Surfaces have real colour to
- *     frost instead of muddy flat cream — but the ≤~0.2 core-opacity cap is kept,
+ *     frost instead of muddy flat bg — but the ≤~0.2 core-opacity cap is kept,
  *     so exposed-backdrop legibility is unchanged. The concentric-ring fake-blur
  *     blobs are deliberately NOT removed: real blur (under a card) and fake blur
  *     (exposed backdrop) coexist (Decision 008 (3)).
@@ -34,26 +35,27 @@
 import React from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
-import { AppColors, MaterialName } from '@/constants/theme';
+import { MaterialName } from '@/constants/theme';
+import { ThemePalette } from '@/constants/colors';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 type BlobSpec = { size: number; color: string; pos: ViewStyle };
 
-function blobsFor(material: MaterialName, theme: AppColors): BlobSpec[] {
+function blobsFor(material: MaterialName, theme: ThemePalette): BlobSpec[] {
   switch (material) {
     case 'glass':
       // Three saturated accent blobs spanning the screen so ambient glass always
       // has colour underneath it to frost (Decision 008 (3)), not flat cream.
       return [
-        { size: 340, color: theme.orange, pos: { top: -80, right: -80 } },
-        { size: 300, color: theme.green, pos: { bottom: -60, left: -80 } },
-        { size: 240, color: theme.brown, pos: { top: '38%', left: -90 } },
+        { size: 340, color: theme.accent, pos: { top: -80, right: -80 } },
+        { size: 300, color: theme.good, pos: { bottom: -60, left: -80 } },
+        { size: 240, color: theme.accent, pos: { top: '38%', left: -90 } },
       ];
     case 'metal':
       return [
-        { size: 360, color: theme.gray, pos: { top: -120, left: -80 } },
-        { size: 220, color: theme.brown, pos: { bottom: 40, right: -60 } },
+        { size: 360, color: theme.textMuted, pos: { top: -120, left: -80 } },
+        { size: 220, color: theme.accent, pos: { bottom: 40, right: -60 } },
       ];
     case 'rock':
       return [
@@ -61,7 +63,7 @@ function blobsFor(material: MaterialName, theme: AppColors): BlobSpec[] {
         { size: 220, color: theme.text, pos: { bottom: -70, right: -90 } },
       ];
     case 'paper':
-      return [{ size: 220, color: theme.orangeLight, pos: { top: -50, right: -40 } }];
+      return [{ size: 220, color: theme.accentSoft, pos: { top: -50, right: -40 } }];
     case 'plain':
     default:
       return [];
@@ -96,7 +98,7 @@ export default function ScreenBackground() {
   const blobs = blobsFor(material, theme);
 
   return (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.cream, overflow: 'hidden' }]} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.bg, overflow: 'hidden' }]} pointerEvents="none">
       {blobs.map((b, i) => <Blob key={i} {...b} />)}
     </View>
   );
