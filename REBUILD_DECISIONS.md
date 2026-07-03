@@ -1563,6 +1563,13 @@ Everything else in both screens maps cleanly to Decision 006 tokens (orange→ac
 green→good/greenLight→goodSoft, white→surface/accentInk, offWhite/grayLight→surfaceMuted/border,
 textLight→textMuted, gray→textMuted).
 
+## Decision 026 — (unused number — intentionally skipped)
+
+**Status:** N/A — no such decision exists.
+**Reason:** The ledger jumps 025 → 027; no work was ever recorded as Decision 026. This
+placeholder exists so future sessions grepping `Decision 026` find an answer instead of assuming
+a lost entry. Do **not** reuse 026; record new decisions at the next free number at the end of the file.
+
 ## Decision 027 — Expanded-permission native build: scope, module selection & distribution
 
 **Status: Resolved (Session G, 2026-07-03).**
@@ -1633,6 +1640,16 @@ installs on the `preview` OTA channel. Bump `runtimeVersion` → `1.1.0` (to mat
 Version pins for `@bacons/apple-targets` and `react-native-android-widget` are best-effort;
 they were not `npm install`-resolved in the remote session. Confirm SDK 56 / RN 0.85
 compatible versions with `npx expo install` before the first prebuild.
+
+## Decision 028 — (collided number — see Decision 029)
+
+**Status:** Void as a ledger heading — do not reuse.
+**Reason:** "028" was independently claimed by **three** parallel `claude/*` branch commits, none of
+which wrote a ledger entry: the Norwegian-date-display change (merged to `main`, commit `f9d69c9`),
+a share-modal date-routing change (`44ecd22`), and an earlier draft of the task+habit toggle
+ratification. Because the number is ambiguous in git history, the toggle ratification was recorded
+as **Decision 029** instead. The Norwegian-date and share-modal changes are code-only and live in
+git history under their commit messages; they have no ledger heading. Do **not** reuse 028.
 
 ## Decision 029 — Merged task+habit notification toggle (ratify existing code)
 
