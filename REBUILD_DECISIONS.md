@@ -1763,3 +1763,139 @@ gap is exactly why A2·1 stopped.
   screen-owned hit-testing) — the coordinate model moved from parent-relative to window,
   which also makes the existing reorder hit-test more correct as a side effect.
 - No new schema (`mergeItems`/`update` already exist); no new blocks.
+
+## Decision 028 — Padlock scope: lock gates add/remove/edit only; reorder, checkbox, and qty stepper always stay live
+
+**Status:** Resolved
+**Date:** 2026-07-03
+**Depends on:** 011 (padlock-gated Containers), 011a (dish-group bulk check), 021 (stepper increment semantics)
+
+### Context
+WeekListCards and the Monthly catalog are padlock-gated (Decision 011). The lock's intent
+is to prevent *accidental structural changes to the list* — not to freeze the list against
+use during a shopping trip. The as-built `ShoppingRow` gated three things on `locked`:
+remove, move-up/move-down, AND the qty stepper (all dimmed to 0.45 / 0.55). Reviewed against
+the user's stated intent — "the lock is just for not being able to remove or add items; still
+able to move between and press checkbox" — two of those three are wrong.
+
+### Decision
+The padlock gates **exactly three** actions, and no others:
+1. **Add** a new item (AddDivider / inline "+").
+2. **Remove** an item (swipe-left commit + the "×" / InventoryIcon remove affordance).
+3. **Edit** item fields via UpdateSheet (rename / price / target qty / temporary flag).
+
+Everything that acts on an item *already on the list* stays fully interactive regardless of
+lock state:
+- Checkbox / collect / undo. *(already correct)*
+- **Within-list reorder** (move-up/move-down / drag). **← inverted from as-built.**
+- **Qty stepper (−/+).** **← inverted from as-built.**
+
+### Rationale for the stepper (the "most intuitive" call)
+The stepper is bounded 1–99 and cannot create or delete a row (deletion is the dedicated
+"×"; the stepper floors at 1). Adjusting a quantity is therefore neither an add nor a
+remove — it is the same category as ticking the checkbox: acting on an item already present.
+A lock that blocked quantity changes would surprise a user who locked the list only to guard
+against deletion (e.g. couldn't bump milk 1→2). Stepper stays live.
+
+### Explicit inversions recorded (code / edit-notes lose to this decision)
+- `components/ShoppingRow.tsx` edit note *"`locked` dims and disables remove/move-up/
+  move-down at opacity 0.45"* → **`locked` dims/disables the remove affordance ONLY.**
+  Reorder controls and the stepper ignore `locked` entirely.
+- `components/WeekListCard.tsx` edit note *"dims remove/move/stepper"* → **"dims remove only."**
+- `app/shopping.tsx` edit note *"locked already disables the stepper inside ShoppingRow
+  itself, so no extra gating is needed here"* → **premise retired; the stepper is never
+  lock-gated.**
+
+### Consequence for the drag session
+The Phase 6 shopping-row drag work (Decision 011 R1) must NOT pass a lock-derived `disabled`
+into the `DraggableTaskRow` wrapper. Reorder persistence runs irrespective of `list.locked`.
+
+### As-built note (this session)
+`components/ShoppingRow.tsx` only ever gated the swipe-remove gesture (`.enabled(!locked)`)
+and the stepper (`showStepper` read `!locked`); the inline move-chevrons had already been
+retired (Ripple R1), so there was no reorder control on the row to un-gate. The fix removed
+`!locked` from `showStepper`; the swipe-remove gate is kept. `app/shopping.tsx` already
+passed no lock-derived `disabled` to `DraggableTaskRow`, so no change was needed there.
+
+---
+
+## Decision 029 — Catalog lock persists across in-session navigation; re-locks only on fresh app launch
+
+**Status:** Resolved
+**Date:** 2026-07-03
+**Depends on:** 011, 028
+
+### Context
+As-built, the Monthly catalog's lock is `catalogLocked` — non-persisted local component
+state — so it resets to locked on *every* screen focus. A user who unlocks the catalog,
+navigates to Home, and returns finds it re-locked, forcing repeated unlocks within a single
+editing pass.
+
+### Decision
+The catalog lock resets to locked **only on a fresh app launch (cold start)**, not on
+in-session screen focus. Unlock state survives navigating away and back within the same app
+session.
+
+### Implementation note (mechanism is the coding session's call; behavior is the contract)
+Lock state must outlive the shopping screen's mount but NOT the process — e.g. module-level
+or store state rather than `useState`, and specifically **not** a SQLite/persistence column
+(persisting to the DB would wrongly survive app restarts, which contradicts "re-lock on
+launch"). Observable contract: **survives navigation, resets on cold start.**
+
+### As-built note (this session)
+Implemented via a module-level `catalogLockedSession` flag in `app/shopping.tsx`: the
+`catalogLocked` state seeds from it and a wrapping setter mirrors every change back to it.
+A fresh module evaluation on cold start re-seeds it to `true`. No DB column added.
+
+### Not changed
+Week-list locks remain per-row persistent in `shopping_lists.locked` — a durable per-list
+property, distinct from the catalog's session-scoped convenience lock. This decision is
+catalog-only.
+
+---
+
+## Decision 030 — Hints: placement is per-need, not blanket; intuitiveness is the primary target
+
+**Status:** Resolved
+**Date:** 2026-07-03
+**Closes:** the open thread under Decision 010 (HintCard reach).
+**Supersedes:** the "every scrollable screen should have a HintCard" guidance (was slated for
+`SCREEN_UPDATE_TEMPLATE.md`, which does not exist in this repo — see as-built note).
+
+### Context
+Decision 010 was left open on how far `HintCard` should reach. User direction: hints go only
+where genuinely needed, and the real goal is a UI that is intuitive without them.
+
+### Decision
+`HintCard` is **not** mounted blanket-per-screen. It is added only where a screen has a
+genuinely non-obvious interaction that cannot reasonably be made self-evident by the UI
+itself. The primary design target is intuitiveness; a needed hint is also a signal to first
+check whether the underlying interaction can be simplified. The `showHints` global toggle
+behavior is unchanged (hints, where present, still hide when off).
+
+### Closes Decision 010
+HintCard reach is "by demonstrated need," not a fixed screen list.
+
+### Screens to re-evaluate against this rule during their Phase 6 build
+Candidates where a current/planned mount may not meet the "genuinely needed" bar: **shopping**
+(mount removed — see below), **scan**, **notes** (the old app's two other hint sites). Each
+keeps its hint only if the flow can't be made self-evident.
+
+### Shopping hint — specific call
+The shopping screen's non-obvious bits (the mark-then-confirm catalog→weekly flow) are
+intended to be taught by the weekly empty-state copy *"Nothing on the list yet / Mark items
+in the catalog to add them here."* Under this decision the standalone `HintCard` on shopping
+is **removed**; the flow relies on the empty-state copy. If a gap remains, that is evidence
+the flow needs simplifying, not a hint re-added.
+
+### As-built note (this session)
+- Removed the `HintCard` mount + import from `app/shopping.tsx`; updated its header and
+  `HintCard.tsx`'s `Used by →` (now "no current mounts"). The `t.hints.shopping` i18n keys
+  are left in place (harmless, no longer referenced).
+- **Flagged, not fixed:** `SCREEN_UPDATE_TEMPLATE.md` does not exist in this repo, so its
+  blanket instruction could not be softened — this decision is the superseding record instead.
+- **Empty-state wired (this session):** the `weeklyEmptyTitle` / `weeklyEmptySubtitle` strings
+  this decision relies on to teach the flow were defined in `lib/i18n.ts` but not rendered
+  anywhere. `components/WeekListCard.tsx` now renders them whenever a list has no items
+  (`listProgress().total === 0`), so the catalog→weekly mark-then-confirm teaching is visible
+  on screen — exactly the empty-state (not a re-added HintCard) this decision calls for.

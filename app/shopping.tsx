@@ -14,7 +14,7 @@
  *   Imports → components/AddDishSheet, components/AddDivider, components/AddItemSheet,
  *             components/AddSourceChooser, components/AppModal (showAppModal),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
- *             components/ExpandableCard, components/HintCard, components/IconButton,
+ *             components/ExpandableCard, components/IconButton,
  *             components/ListSettingsSheet, components/MonthlyResetSummaryModal,
  *             components/MonthlyTableRow, components/ProgressBar, components/SavedListsModal,
  *             components/ScreenScaffold, components/SharedRequestsSection,
@@ -49,8 +49,8 @@
  *     Falls back to the first list when nothing is explicitly focused yet or the focused
  *     list was deleted. WeekListCard's own compact progress line (non-focused lists only)
  *     calls `onFocus` to switch it — see WeekListCard.tsx's header note.
- *   - **A2-4 body order**: HintCard (inline, first scroll item, not pinned) →
- *     SharedRequestsSection → per-list WeekListCards (each carrying its own collapsed
+ *   - **A2-4 body order**: SharedRequestsSection →
+ *     per-list WeekListCards (each carrying its own collapsed
  *     "Bought this week" history — see WeekListCard.tsx) → "create new list" card. Monthly
  *     reset is a manual action in the sticky bar's overflow menu, not an automatic
  *     mount-time effect — see the store-stub note below.
@@ -136,7 +136,6 @@ import WeekListCard from '@/components/WeekListCard';
 import SavedListsModal from '@/components/SavedListsModal';
 import ListSettingsSheet from '@/components/ListSettingsSheet';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
-import HintCard from '@/components/HintCard';
 import IconButton from '@/components/IconButton';
 import ProgressBar from '@/components/ProgressBar';
 import { success, heavy, warning } from '@/lib/haptics';
@@ -156,6 +155,17 @@ type Tab = 'weekly' | 'catalog';
  * re-running the full CREATE/migrate pass on every screen focus.
  */
 let dbBootstrapped = false;
+
+/**
+ * Decision 029 — catalog lock persistence. The Monthly catalog's lock is a
+ * session-scoped convenience lock (distinct from week-list locks, which are
+ * per-row persisted in `shopping_lists.locked`). Holding it at module level lets
+ * it survive in-session navigation away from and back to this screen, while a
+ * fresh module evaluation on cold start re-locks it. Deliberately NOT a SQLite
+ * column — persisting it would wrongly survive an app restart, contradicting
+ * "re-lock on launch."
+ */
+let catalogLockedSession = true;
 
 /** What a tapped inline "+" should add to: a specific Week list, or the Monthly catalog. */
 type AddItemTarget = { origin: 'weekly'; listId: string } | { origin: 'catalog' };
@@ -212,7 +222,17 @@ export default function ShoppingScreen() {
   const [resetSummary, setResetSummary] = useState<MonthlyResetSummary | null>(null);
   const [savedListsListId, setSavedListsListId] = useState<string | null>(null);
   const [listSettingsListId, setListSettingsListId] = useState<string | null>(null);
-  const [catalogLocked, setCatalogLocked] = useState(true);
+  // Decision 029: seed from the module-level session flag so the lock state survives
+  // navigating away and back; the setter mirrors every change back to it so it outlives
+  // this screen's mount but not the process (cold start re-evaluates the module → locked).
+  const [catalogLocked, setCatalogLockedState] = useState(catalogLockedSession);
+  const setCatalogLocked = useCallback((next: boolean | ((v: boolean) => boolean)) => {
+    setCatalogLockedState((prev) => {
+      const resolved = typeof next === 'function' ? (next as (v: boolean) => boolean)(prev) : next;
+      catalogLockedSession = resolved;
+      return resolved;
+    });
+  }, []);
   const [updateItem, setUpdateItem] = useState<ShoppingItem | null>(null);
   const [addDishSheetOpen, setAddDishSheetOpen] = useState(false);
 
@@ -646,8 +666,6 @@ export default function ShoppingScreen() {
     <>
     <ScreenScaffold title={t.shoppingTitle} tier="site" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={STICKY_HEIGHT}>
       <View style={styles.content}>
-        <HintCard text={t.hints.shopping.text} example={t.hints.shopping.example} />
-
         <SharedRequestsSection kind="shopping" />
 
         {tab === 'catalog' && (

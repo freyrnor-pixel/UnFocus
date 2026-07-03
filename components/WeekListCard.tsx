@@ -44,6 +44,11 @@
  *     Both this line and the sticky header call the SAME `listProgress()` helper
  *     (lib/shoppingGroups.ts) on the same computeListGroups() output — "one progress
  *     calculation, two presentations; no fork" (Decision 017 note 3).
+ *   - Decision 030: when the list has no items at all (`listProgress().total === 0`), the body
+ *     shows the `weeklyEmptyTitle` / `weeklyEmptySubtitle` empty-state copy ("Nothing on the
+ *     list yet / Mark items in the catalog to add them here"). This is what teaches the
+ *     catalog→weekly mark-then-confirm flow now that the standalone HintCard is gone — the
+ *     "Shopping list" section header + AddDivider still render below it for a direct add.
  *   - Decision 011 A2-4: the old repo's always-visible "In cart" Surface section is now a
  *     collapsed `t.boughtThisWeekSection(n)` ExpandableCard (uncontrolled, defaultOpen
  *     false) at the bottom of the body, expanding in place — same disclosure idiom the
@@ -60,10 +65,13 @@
  *   - Decision 011 R3: "Shopping done!" reuses ShoppingRow's exported CHECKED_OPACITY for
  *     its disabled dim instead of a re-declared literal — this button lived inside
  *     WeekListCard in the old app too, so the constant belongs here, not in app/shopping.tsx.
- *   - `list.locked` only gates add/remove/edit: every ShoppingRow gets locked={list.locked}
- *     (dims remove/move/stepper; checkmark/collect/undo stay interactive regardless), and
- *     the AddDivider below "Shopping list" is disabled via its own `disabled` prop — but
- *     "Shopping done!" is NEVER lock-gated (finishing a trip isn't an edit).
+ *   - `list.locked` only gates add/remove/edit (Decision 028): every ShoppingRow gets
+ *     locked={list.locked}, which dims the REMOVE affordance ONLY — within-list reorder,
+ *     the qty stepper, and checkmark/collect/undo all stay interactive regardless of lock
+ *     state (reorder + stepper act on an item already on the list, so they're neither an add
+ *     nor a remove). The AddDivider below "Shopping list" is disabled via its own `disabled`
+ *     prop — but "Shopping done!" is NEVER lock-gated (finishing a trip isn't an edit).
+ *     No lock-derived `disabled` is passed to the reorder wrapper (see app/shopping.tsx).
  *   - Decision 011a/R4 wiring (2026-07-02, Phase 4): each dish-group ExpandableCard now
  *     renders a checkbox in `rightAction` reading `dishGroupAllChecked(groupItems)` (derived,
  *     never stored — 011a decision #2) and calling the new `onToggleDish` prop on tap. The
@@ -231,6 +239,13 @@ export default function WeekListCard({
       </View>
 
       <View style={styles.bodyGap}>
+        {progress.total === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>{t.weeklyEmptyTitle}</Text>
+            <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>{t.weeklyEmptySubtitle}</Text>
+          </View>
+        )}
+
         {dishGroups.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
@@ -374,6 +389,9 @@ const baseStyles = StyleSheet.create({
   compactProgressRow: { paddingVertical: 2 },
   compactProgressText: { fontSize: FontSize.sm },
   bodyGap: { gap: Spacing.md },
+  emptyState: { alignItems: 'center', gap: 4, paddingVertical: Spacing.md },
+  emptyTitle: { fontSize: FontSize.md, fontFamily: Fonts.semibold, textAlign: 'center' },
+  emptySubtitle: { fontSize: FontSize.sm, textAlign: 'center' },
   section: { gap: Spacing.xs },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.sm },
   sectionRule: { flex: 1, height: 2, borderRadius: Radius.full, opacity: 0.4 },

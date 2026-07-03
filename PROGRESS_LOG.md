@@ -3619,3 +3619,50 @@ resolves the A2·1 STOP gate and Decision 022's deferred design commitment).
   re-measure) — a first-cut approximation, same accepted stance as the original R1 reorder.
 - **Decision 021 ShoppingRow "just added / amount increased" highlight** still Phase-6
   presentational (unchanged by this session; store side done).
+
+## 2026-07-03 — Phase 6: Shopping lock scope + catalog lock persistence + hint prune (Decisions 028–030)
+
+**Status: Complete** — backward amendment of already-built files; NOT a new port.
+
+**Scope:** components/ShoppingRow.tsx, components/WeekListCard.tsx, app/shopping.tsx,
+components/HintCard.tsx, plus Decisions 028–030 appended to REBUILD_DECISIONS.md.
+
+**Gates checked first:** Decisions 028, 029, 030 authored + Resolved in REBUILD_DECISIONS.md;
+Decision 011 + 011a + 021 present (028 depends on them); Decision 010 closed by 030.
+
+### Decision 028 — lock scope (ShoppingRow + WeekListCard)
+- ShoppingRow: removed `!locked` from `showStepper`, so the qty stepper (−/+) is now live
+  regardless of lock state. The swipe-remove gesture keeps its `.enabled(!locked)` gate —
+  `locked` now dims/disables the REMOVE affordance ONLY. The inline move-chevrons were
+  already retired (Ripple R1), so there was no reorder control on the row to un-gate.
+- WeekListCard: edit note corrected to "dims remove only; reorder + stepper + checkbox stay
+  live." No lock-derived `disabled` reaches reorder/stepper wiring.
+- app/shopping.tsx already passed no lock-derived `disabled` into DraggableTaskRow — verified,
+  no change needed there.
+
+### Decision 029 — catalog lock persistence (app/shopping.tsx)
+- `catalogLocked` moved off plain `useState(true)` to seed from a module-level
+  `catalogLockedSession` flag; a wrapping setter mirrors every change back to it. Survives
+  in-session navigation; a fresh module eval on cold start re-locks it. No SQLite column
+  (persisting would wrongly survive an app restart).
+
+### Decision 030 — hint prune
+- Removed the standalone HintCard mount + import from app/shopping.tsx; updated its header
+  (Imports/body-order notes) and HintCard.tsx's `Used by →` (now "no current mounts").
+  `t.hints.shopping` i18n keys left in place (harmless).
+
+### Verification
+- No typecheck/live-app run (repo policy: remote env, manual code review only). Read-through
+  confirms: stepper no longer references `locked`; swipe-remove gate intact; catalogLocked
+  toggle still uses the function-form setter; no remaining `HintCard` references in shopping.tsx.
+
+### Empty-state wired (Decision 030 follow-through)
+- `weeklyEmptyTitle` / `weeklyEmptySubtitle` (lib/i18n.ts) existed but were rendered nowhere.
+  `components/WeekListCard.tsx` now shows them whenever a list has no items
+  (`listProgress().total === 0`), so the catalog→weekly mark-then-confirm flow the removed
+  HintCard used to teach is now taught by the empty-state copy — as Decision 030 intends.
+
+### Open threads / flagged, not fixed
+- `SCREEN_UPDATE_TEMPLATE.md` does not exist in this repo — Decision 030's "soften the
+  every-scrollable-screen line" could not be applied to a file; Decision 030 itself is the
+  superseding record. Nothing to fix.

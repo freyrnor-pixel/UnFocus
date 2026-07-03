@@ -8,8 +8,10 @@
  *
  * Connections:
  *   Imports → constants/theme, store/useSettingsStore, lib/useAppTheme
- *   Used by → app/shopping.tsx; Decision 010 still open on further reach — old app also
- *             mounted this on scan.tsx and notes.tsx, neither ported yet
+ *   Used by → (no current mounts) — Decision 030 closed Decision 010: HintCard reach is
+ *             "by demonstrated need," not blanket-per-screen. The shopping mount was dropped
+ *             (its mark-then-confirm flow is taught by the weekly empty-state copy). scan.tsx
+ *             and notes.tsx are candidates only if their flow can't be made self-evident.
  *   Data    → reads showHints from useSettingsStore (no writes); colours from
  *             useAppTheme(); scaled fontSize via useScaledStyles()
  *
