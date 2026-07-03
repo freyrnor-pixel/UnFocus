@@ -718,7 +718,7 @@ const en = {
     // AP-05 — notification quiet hours
     quietHours: {
       label: 'Quiet hours',
-      hint: "Task reminders wait until quiet hours end instead of firing — they're never lost.",
+      hint: 'Task reminders wait until quiet hours end instead of firing — they\'re never lost. Habit reminders inside quiet hours are skipped instead.',
     },
     // AP-06B — monthly grocery budget, compared against receipts in app/budget.tsx
     monthlyBudget: {
@@ -1380,7 +1380,7 @@ const no: typeof en = {
     // AP-05 — varslingsfri (stille) periode
     quietHours: {
       label: 'Stille periode',
-      hint: 'Oppgavepåminnelser venter til den stille perioden er over i stedet for å avbryte — de går ikke tapt.',
+      hint: 'Oppgavepåminnelser venter til den stille perioden er over i stedet for å avbryte — de går ikke tapt. Vane-påminnelser i den stille perioden blir droppet i stedet.',
     },
     // AP-06B — månedlig handlebudsjett, sammenlignet med kvitteringer i app/budget.tsx
     monthlyBudget: {

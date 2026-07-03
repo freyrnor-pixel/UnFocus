@@ -8,8 +8,8 @@
  *
  * Connections:
  *   Imports → constants/theme, react-native-gesture-handler, react-native-reanimated
- *   Used by → app/settings.tsx (custom theme section) — not ported yet; this is a
- *             leaf ahead of its screen, not wired into anything live
+ *   Used by → none. app/settings.tsx now exists but deliberately does not wire this in —
+ *             see its header note (no Decision-006 'custom' ThemePalette variant exists yet)
  *   Data    → none (controlled: value/onChange only)
  *
  * Edit notes:

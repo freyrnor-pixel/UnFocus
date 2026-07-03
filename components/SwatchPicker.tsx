@@ -11,8 +11,8 @@
  *
  * Connections:
  *   Imports → lib/useAppTheme, constants/theme
- *   Used by → app/onboarding/step5.tsx, app/settings.tsx (neither ported yet — this
- *             is a leaf ahead of its screens)
+ *   Used by → app/settings.tsx (colour-theme + bubble-material pickers);
+ *             app/onboarding/step5.tsx (not ported yet)
  *   Data    → none (controlled component; value/onChange only)
  *
  * Edit notes:
