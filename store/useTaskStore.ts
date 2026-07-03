@@ -9,22 +9,22 @@
  * Decision 015 notImplemented stub.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/date
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, store/useAutomationStore
  *   Used by → components/QuickAddSheet.tsx, components/NextTaskCard.tsx, components/DayTimeline.tsx,
  *             components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
  *             app/task-form.tsx, app/plans.tsx
- *   Data    → defines a Zustand store; owns SQLite tables `tasks` and `task_steps`
+ *   Data    → defines a Zustand store; owns SQLite tables `tasks` and `task_steps`; fires the
+ *             'task_completed' automation trigger on toggle-to-done / completeDirect
  *
  * Edit notes:
- *   - **Not yet ported (flag, don't silently build): per-task notification scheduling
- *     and the 'task_completed' automation trigger.** The old app's store wired
- *     `lib/notifications.ts`/`lib/taskNotifications.ts` (syncTaskNotification) and
- *     `store/useAutomationStore.ts` (fireTrigger on toggle/completeDirect) — none of
- *     those three files exist in this repo yet. This store's `add`/`update`/`toggle`/
- *     `completeDirect`/`remove`/`clearAll` are otherwise faithful ports of the old
- *     store's write paths, just without those two side effects. Whichever session
- *     ports notifications/automations next must wire them back in here — don't
- *     rediscover this gap cold.
+ *   - **'task_completed' automation trigger — WIRED (Phase 6).** toggle() (only when the
+ *     task transitions to done) and completeDirect() call
+ *     `useAutomationStore.getState().fireTrigger('task_completed')`, matching the old store.
+ *   - **Still not ported (flag, don't silently build): per-task notification scheduling.**
+ *     The old app's store wired `lib/notifications.ts`/`lib/taskNotifications.ts`
+ *     (syncTaskNotification); `lib/taskNotifications.ts` doesn't exist in this repo yet, so
+ *     `add`/`update`/`remove`/`clearAll` are faithful ports minus that one side effect.
+ *     Whichever session ports task notifications next must wire syncTaskNotification back in.
  *   - `task.steps` persist straight to SQLite on every change (addStep/removeStep/
  *     toggleStep/reorderStep) — no draft/save gate. load() loads all task_steps in
  *     one query and groups them onto their owning task in JS (one query, not N+1).
@@ -68,6 +68,7 @@ import {
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
 import { dayOfWeekMon0 } from '@/lib/date';
+import { useAutomationStore } from '@/store/useAutomationStore';
 
 export type TaskType = 'start-at' | 'time-box';
 export type Recurring = 'none' | 'weekly';
@@ -244,13 +245,18 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   toggle(id) {
     const task = get().tasks.find((t) => t.id === id);
     if (!task) return;
-    get().update(id, { done: !task.done });
+    const willBeDone = !task.done;
+    get().update(id, { done: willBeDone });
+    if (willBeDone) {
+      useAutomationStore.getState().fireTrigger('task_completed');
+    }
   },
 
   completeDirect(id) {
     const task = get().tasks.find((t) => t.id === id);
     if (!task || task.done) return;
     get().update(id, { done: true });
+    useAutomationStore.getState().fireTrigger('task_completed');
   },
 
   remove(id) {

@@ -75,12 +75,13 @@
  *     persists lastMonthlyReset). This replaces the earlier stub-era note that said no
  *     store action is called from a mount-time effect — useShoppingStore /
  *     useShoppingListStore are now real Phase-5 stores, not throwing Decision 015 stubs.
- *   - **Dropped from the old screen, flagged not silently absorbed**: the header's Share
- *     pill (site-tier ScreenHeader has no custom-right slot — only sub-tier does); the
- *     'shopping_opened' automation trigger (useAutomationStore doesn't exist in this repo);
- *     SiteSwipeView's swipe-between-screens wrapper (Phase 3e, not ported, not required by
- *     A2-1/A2-4); routing to /scan from "Shopping done!"'s receipt choice (app/scan.tsx
- *     doesn't exist yet — Scan/Upload/Skip all just call doneShopping() for now).
+ *   - The 'shopping_opened' automation trigger fires once per mount (useAutomationStore is
+ *     now ported — Phase 6); the mount effect self-loads rules + guards initDb first.
+ *     "Shopping done!"'s Scan/Upload choices now route to /scan (autoCapture camera/library);
+ *     Skip commits the trip in place (app/scan.tsx is now ported — Phase 6).
+ *   - **Still dropped, flagged not silently absorbed**: the header's Share pill (site-tier
+ *     ScreenHeader has no custom-right slot — only sub-tier does); SiteSwipeView's
+ *     swipe-between-screens wrapper (Phase 3e, not ported, not required by A2-1/A2-4).
  *   - `ConfirmationBanner` renders as a sibling of `<ScreenScaffold>`, not inside its
  *     children — ScreenScaffold's children render inside its internal ScrollView, and
  *     ConfirmationBanner is a plain absolutely-positioned overlay (not a `<Modal>` like
@@ -99,13 +100,14 @@
  *     unchecked-only, which made the "dish shows checked" roll-up unobservable) — see
  *     lib/shoppingGroups.ts's own header note.
  */
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary } from '@/store/useShoppingStore';
 import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useMealStore } from '@/store/useMealStore';
+import { useAutomationStore } from '@/store/useAutomationStore';
 import ShoppingRow from '@/components/ShoppingRow';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
 import AddItemSheet from '@/components/AddItemSheet';
@@ -172,7 +174,21 @@ function computeTargetIndex(centerY: number, order: string[], snapshot: Record<s
 export default function ShoppingScreen() {
   const theme = useAppTheme();
   const t = useT();
+  const router = useRouter();
   const { reducedMotion } = useAccessibility();
+
+  // Fire the 'shopping_opened' automation trigger once per screen visit (mount).
+  // Ensure the DB is open and rules are loaded first so fireTrigger sees them
+  // (there's no global bootstrap yet — same self-load precedent as the focus effect).
+  useEffect(() => {
+    if (!dbBootstrapped) {
+      initDb();
+      dbBootstrapped = true;
+    }
+    const auto = useAutomationStore.getState();
+    auto.load();
+    auto.fireTrigger('shopping_opened');
+  }, []);
 
   const [tab, setTab] = useState<Tab>('weekly');
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
@@ -353,11 +369,12 @@ export default function ShoppingScreen() {
   function handleDoneShopping(list: ShoppingList, checkedCount: number) {
     if (checkedCount === 0) return;
     const label = t.tripLabel(dateStr(new Date()));
-    // Scan/Upload both just commit the trip for now — app/scan.tsx isn't ported yet
-    // (out of scope this session), so there's nowhere to route to.
+    // Scan/Upload commit the trip, then route to /scan with autoCapture so the scanner
+    // opens the camera/library straight away (app/scan.tsx is now ported). Skip just
+    // commits the trip and confirms in place.
     showAppModal(t.doneShoppingReceiptTitle, t.doneShoppingReceiptBody, [
-      { text: t.scanReceiptBtn, onPress: () => { doneShopping(list.id, label, monthlyResetDate); heavy(); setConfirm(t.doneShoppingSuccessText); } },
-      { text: t.uploadPhotoBtn, onPress: () => { doneShopping(list.id, label, monthlyResetDate); heavy(); setConfirm(t.doneShoppingSuccessText); } },
+      { text: t.scanReceiptBtn, onPress: () => { doneShopping(list.id, label, monthlyResetDate); router.push({ pathname: '/scan', params: { autoCapture: 'camera' } }); } },
+      { text: t.uploadPhotoBtn, onPress: () => { doneShopping(list.id, label, monthlyResetDate); router.push({ pathname: '/scan', params: { autoCapture: 'library' } }); } },
       { text: t.skipBtn, style: 'cancel', onPress: () => { doneShopping(list.id, label, monthlyResetDate); heavy(); setConfirm(t.doneShoppingSuccessText); } },
     ]);
   }

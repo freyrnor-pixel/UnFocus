@@ -1536,3 +1536,29 @@ the ported screens.
 **Supersedes:** the raw-hex `BREAK_BLUE`/`BREAK_BLUE_LIGHT` (habits) and `MealColors`
 (meals) usages in the old sources. The health severity ramp is the one deliberate raw-hex
 carry-over, documented above.
+
+## Decision 025 — Budget over-budget bar & scan QR camera chrome (no-token-equivalent colour calls)
+
+**Status: Resolved (user-confirmed, both recommended options).** Two functional-colour
+calls in the Phase 6 `budget.tsx`/`scan.tsx` port had no clean Decision 006 token; same
+class as Decision 024. Surfaced and confirmed with the user before building.
+
+### Q1 — budget.tsx over-budget progress bar: MAP TO THE `warn` TOKEN.
+The old bar used `FeatureColors.scan` (#D97512 burnt amber) under the documented "no-shame"
+rule (never `bad`/red). Decision 006 has no burnt-amber token. Resolved: over-budget →
+`warn`/`warnSoft` (#EAB308 amber-yellow) — on-palette, semantically "gentle caution", honours
+the no-shame rule; on-track stays `good` (green). No raw-hex exception needed here (unlike
+Decision 024 Q2's health ramp).
+
+### Q2 — scan.tsx QR-scanner modal: FIXED DARK CAMERA CHROME.
+The QR modal is a live camera viewfinder; Decision 006's light-first tokens don't fit it, and
+`textInverse` flips dark in dark themes (invisible on black). Resolved: theme-independent fixed
+chrome — `'#000'` background + fixed white (`#FFFFFF`) title/frame + translucent-white hint,
+same spirit as the `shadowColor` literal exemption. The colored Cancel link stays on `accent`
+(a coloured link reads fine on black across themes). Local constants `QR_BG`/`QR_FG`/`QR_HINT`
+in `scan.tsx` document the exemption.
+
+**Scope:** `app/budget.tsx` (over-budget bar) and `app/scan.tsx` (QR modal chrome) only.
+Everything else in both screens maps cleanly to Decision 006 tokens (orange→accent,
+green→good/greenLight→goodSoft, white→surface/accentInk, offWhite/grayLight→surfaceMuted/border,
+textLight→textMuted, gray→textMuted).

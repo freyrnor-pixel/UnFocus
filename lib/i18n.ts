@@ -827,6 +827,13 @@ const en = {
     noBudgetSet: 'Set a monthly budget in Settings to see how this month compares.',
     receiptsTitle: 'Receipts this month',
     noReceipts: 'No receipts yet this month.',
+    olderMonth: '← Older',
+    newerMonth: 'Newer →',
+    editBudget: 'Edit budget',
+    setBudget: 'Set budget',
+    perStore: 'Per store',
+    editorTitle: 'Set budget',
+    monthlyBudgetLabel: 'Monthly budget (NOK)',
   },
   // Notater — free-form notes with shopping/plans quick-action buttons (app/notes.tsx)
   notes: {
@@ -1689,6 +1696,13 @@ const no: typeof en = {
     noBudgetSet: 'Sett et månedlig budsjett i Innstillinger for å se hvordan denne måneden ligger an.',
     receiptsTitle: 'Kvitteringer denne måneden',
     noReceipts: 'Ingen kvitteringer denne måneden ennå.',
+    olderMonth: '← Eldre',
+    newerMonth: 'Nyere →',
+    editBudget: 'Endre budsjett',
+    setBudget: 'Sett budsjett',
+    perStore: 'Per butikk',
+    editorTitle: 'Sett budsjett',
+    monthlyBudgetLabel: 'Månedlig budsjett (NOK)',
   },
   // Notater — frittstående notater med hurtigknapper for handleliste/planer (app/notes.tsx)
   notes: {
