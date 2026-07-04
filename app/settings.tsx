@@ -8,8 +8,9 @@
  * - Generelt: Focus mode toggle → Profil (name + language) → Jobb-modus (work mode, auto-activate
  *   + hours + work days, Norske helligdager) → Tilgjengelighet (reduced motion, particles, font
  *   size, left-handed) → Motivasjon (points, hints, Følgeven/pet-enable toggle) → Companion Pet
- *   config (shown when pet enabled) → Data group (debug mode toggle, Backup & restore card
- *   (Decision 036, via lib/backup), destructive resets).
+ *   config (shown when pet enabled) → Data group (debug mode toggle, Local account card
+ *   (Decision 039 — device-only profile: name + create date, backup/restore via lib/backup),
+ *   destructive resets).
  * - Lister: shopping list settings (weekly reset weekday, monthly reset date, monthly budget).
  * - Varsler: Ukentlig (weekly reminder + time) → Generelle (merged plan-notifications toggle
  *   driving both task- and habit-notification flags together, persistent daily overview, quiet
@@ -94,6 +95,7 @@ import { syncReminders } from '@/lib/reminders';
 import { syncNotificationCategories } from '@/lib/notifications';
 import { exportBackup, pickAndParseBackup, restoreBackup, reloadApp } from '@/lib/backup';
 import { useT, getTranslations } from '@/lib/i18n';
+import { todayStr } from '@/lib/date';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { selection, warning, heavy } from '@/lib/haptics';
 import {
@@ -127,6 +129,7 @@ export default function SettingsScreen() {
 
   const [tab, setTab] = useState<SettingsTab>('generelt');
   const [name, setName] = useState(settings.userName);
+  const [accountNameInput, setAccountNameInput] = useState(settings.accountName);
   const [petNameInput, setPetNameInput] = useState(settings.petName);
   const [monthlyDateInput, setMonthlyDateInput] = useState(String(settings.monthlyResetDate));
   const [monthlyBudgetInput, setMonthlyBudgetInput] = useState(
@@ -185,6 +188,16 @@ export default function SettingsScreen() {
     } catch {
       showAppModal(t.backup.title, t.backup.exportError);
     }
+  }
+
+  // Local account (Decision 039) — create a device-only profile. No server, no
+  // credentials: this only stamps a name + creation date into the settings row,
+  // which the local backup file already carries.
+  function handleCreateAccount() {
+    selection();
+    const nm = (accountNameInput || settings.userName).trim();
+    setAccountNameInput(nm);
+    applyAndSync({ accountName: nm, accountCreated: todayStr() });
   }
 
   async function handleImport() {
@@ -554,18 +567,38 @@ export default function SettingsScreen() {
               </Surface>
             </View>
 
-            {/* Backup & restore (Decision 036) — device-only data portability */}
+            {/* Local account (Decision 039) — device-only, user-held profile. No server,
+                no credentials; the account rides along in the local backup file below. */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.backup.title}</Text>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.account.title}</Text>
               <Surface style={styles.card}>
-                <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.backup.desc}</Text>
+                <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
+                  {settings.accountCreated ? t.account.descActive : t.account.descNone}
+                </Text>
+                <Input
+                  label={t.account.nameLabel}
+                  value={accountNameInput}
+                  onChangeText={setAccountNameInput}
+                  onBlur={() => { if (settings.accountCreated) applyAndSync({ accountName: accountNameInput.trim() }); }}
+                  placeholder={t.account.namePlaceholder}
+                  returnKeyType="done"
+                />
+                {settings.accountCreated ? (
+                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.account.createdOn(settings.accountCreated)}</Text>
+                ) : (
+                  <Pressable style={styles.dangerBtn} onPress={handleCreateAccount}>
+                    <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.createButton}</Text>
+                  </Pressable>
+                )}
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <Pressable style={styles.dangerBtn} onPress={handleExport}>
-                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.exportButton}</Text>
+                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.backupButton}</Text>
                 </Pressable>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <Pressable style={styles.dangerBtn} onPress={handleImport}>
-                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.importButton}</Text>
+                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.restoreButton}</Text>
                 </Pressable>
+                <Text style={[styles.descText, { color: theme.textMuted, marginBottom: 0 }]}>{t.account.deviceOnlyNote}</Text>
               </Surface>
             </View>
 

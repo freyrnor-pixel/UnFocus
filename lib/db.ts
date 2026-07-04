@@ -447,6 +447,13 @@ export function initDb() {
     "ALTER TABLE habits ADD COLUMN reminder_interval_min INTEGER DEFAULT NULL",
     "ALTER TABLE habits ADD COLUMN reminder_start TEXT DEFAULT NULL",
     "ALTER TABLE habits ADD COLUMN reminder_end TEXT DEFAULT NULL",
+    // Local account (Decision 039) — a device-only, user-held profile. NO server,
+    // NO credentials, NO cloud: account_name is a display label and account_created
+    // stamps when the user created their local account. Both live in the settings
+    // row, so lib/backup.ts already carries them in the local backup file — a backup
+    // IS the account's backup. Empty account_created = no local account created yet.
+    "ALTER TABLE settings ADD COLUMN account_name TEXT DEFAULT ''",
+    "ALTER TABLE settings ADD COLUMN account_created TEXT DEFAULT ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

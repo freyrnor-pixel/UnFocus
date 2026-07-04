@@ -4,8 +4,9 @@
  * Zustand store mirroring the one settings row: user name, language, theme,
  * dark mode, reminder/notification toggles (including quiet hours, task/habit notification toggles), reset cadence,
  * work/essentials modes, onboarding state, accessibility flags, companion pet
- * settings, monthly grocery budget (monthlyBudgetNok), and the debug overlay's
- * enable flag + bubble-wheel tuning values.
+ * settings, monthly grocery budget (monthlyBudgetNok), the local account
+ * (accountName/accountCreated — device-only profile, Decision 039), and the debug
+ * overlay's enable flag + bubble-wheel tuning values.
  * persistentNotifEnabled toggles the always-current "today's overview" notification
  * (refreshed by app/_layout.tsx, see lib/notifications.ts's refreshPersistentNotification).
  * habitNotificationsEnabled gates all habit reminders.
@@ -105,6 +106,12 @@ export type Settings = {
   backgroundLocationEnabled: boolean;
   calendarSyncEnabled: boolean;
   voiceNotesEnabled: boolean;
+  // Local account (Decision 039) — device-only, user-held profile. No server, no
+  // credentials. accountName is a display label; accountCreated (YYYY-MM-DD) is
+  // stamped when the user creates their local account (empty = none yet). Both ride
+  // along in the local backup file via lib/backup.ts (they live in the settings row).
+  accountName: string;
+  accountCreated: string;
 };
 
 type SettingsStore = Settings & {
@@ -178,6 +185,8 @@ function rowToSettings(row: Row): Settings {
     backgroundLocationEnabled: readBool(row, 'background_location_enabled'),
     calendarSyncEnabled: readBool(row, 'calendar_sync_enabled'),
     voiceNotesEnabled: readBool(row, 'voice_notes_enabled'),
+    accountName: readStr(row, 'account_name'),
+    accountCreated: readStr(row, 'account_created'),
   };
 }
 
@@ -232,6 +241,8 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   backgroundLocationEnabled: { col: 'background_location_enabled', to: bool },
   calendarSyncEnabled: { col: 'calendar_sync_enabled', to: bool },
   voiceNotesEnabled: { col: 'voice_notes_enabled', to: bool },
+  accountName: { col: 'account_name' },
+  accountCreated: { col: 'account_created' },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -286,6 +297,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   backgroundLocationEnabled: false,
   calendarSyncEnabled: false,
   voiceNotesEnabled: false,
+  accountName: '',
+  accountCreated: '',
   loaded: false,
   workModeSessionOverride: false,
 
