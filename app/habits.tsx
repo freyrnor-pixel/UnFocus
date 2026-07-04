@@ -12,7 +12,8 @@
  *             components/AddFAB, components/Surface, constants/theme, constants/colors,
  *             lib/date, lib/db, lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useHabitStore, store/useSettingsStore
- *   Used by → Expo Router route "/habits" (BottomNav "Habits" tab)
+ *   Used by → Expo Router route "/habits"; reached via the Health screen's inline
+ *             "Habits →" section header (not a BottomNav tab — Decision 036)
  *   Data    → useHabitStore (habits + habit_logs) via increment/decrement/markRestDay;
  *             colour theme + language + child profiles from useSettingsStore
  *

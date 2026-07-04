@@ -2087,6 +2087,46 @@ a fresh install with no settings row yet.
 
 ---
 
+## Decision 036 — BottomNav set + off-nav screen reachability
+
+**Status:** Resolved
+**Date:** 2026-07-04
+**Context:** The shipped `SITE_ITEMS` (lib/siteNav.ts) is Shopping, Plans, Home,
+**Health**, Scan — a divergence from Decision 001, which named the five tabs as
+Shopping, Plans, Home, **Notes**, Scan. The swap (Notes out, Health in) was made in
+code with no amending decision. A cold-read review (2026-07-04, see PROGRESS_LOG)
+found the swap left three screens with **no entry point anywhere in the app**:
+`/notes` (whose note-editing feature Decision 012 ratified as shipped and "reachable"),
+`/meals` (the Meals→Shopping flow), and `/automations` (a Settings feature per
+FEATURE_INVENTORY). Several file headers also still claimed non-existent "BottomNav
+Meals/Habits/Notes" tabs.
+
+**Decision:**
+1. Ratify the five BottomNav tabs as **Shopping, Plans, Home, Health, Scan.** Health
+   earns a tab (frequent daily surface); Notes does not. This supersedes Decision 001's
+   tab list; Decision 001's scaffold/chrome rules are otherwise unchanged.
+2. Every non-tab screen must have exactly one discoverable, **data-independent** entry:
+   - **Notes** and **Food/Meals** → a "More" chip row on Home (app/index.tsx), always
+     shown off-Focus so the screens are reachable even with no data. (The InboxSection
+     "Notes preview" is the *inbox*, a different store, and self-hides when empty — it is
+     not an entry point to /notes.)
+   - **Automations** → a link in Settings → Varsler tab (app/settings.tsx), matching
+     FEATURE_INVENTORY's "reminders → link to automations."
+   - **Habits** → the existing Health screen inline "Habits →" header (unchanged).
+   - **Budget / Shared / Settings** → already reachable (shopping/scan, share-modal/scan,
+     home gear); left as-is.
+3. Fix the stale headers (BottomNav, siteNav, meals, habits, notes) to state the real
+   tab set and access points.
+
+**Deferred (design-gated, not silently reverted):** the cue-less gestures the same review
+flagged — shopping swipe-to-remove (Decision 011 R2) and drag-to-reorder (011 R1), habit
+long-press-to-edit, and Pet drag-to-feed. Reverting the deliberate 011 R1/R2 gesture
+surfaces is out of scope here. Interim mitigation landed: the Habits hint now teaches
+"tap to expand, hold to edit." A visible-affordance pass for the shopping row and a
+Pet-feeding cue remain open for a dedicated interaction-design session.
+
+---
+
 ## Decision 037 — Cross-device sharing & family/work modes (architecture gate)
 
 **Status:** Gate answered by maintainer (2026-07-04) — resolves onto the highest-complexity

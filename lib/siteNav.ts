@@ -17,13 +17,17 @@
  *
  * Edit notes:
  *   - SITE_ITEMS order is the bottom menu's visual order (left to right).
- *   - Nav bar has 5 items: Shopping, Plans, Home (centre), Health, Scan.
- *   - Removed from nav (routes/screens kept): notes, meals, budget, shared, automations,
- *     settings, habits. Access points: notes via a Home preview card (app/index.tsx),
- *     positioned between the Plans and Shopping preview cards, same "see everything" link
- *     pattern as those two; habits is reached via health's inline summary → /habits;
- *     settings in home screen header (and goToSite(..., '/settings') callers); plans also
- *     keeps its Home "See everything" link alongside its nav tab, same as shopping's preview link.
+ *   - Nav bar has 5 items: Shopping, Plans, Home (centre), Health, Scan (Decision 036).
+ *   - Removed from nav (routes/screens kept), with their access points (all wired — Decision 036):
+ *       notes     → Home "More" link (app/index.tsx)
+ *       meals     → Home "More" link (labelled "Food")
+ *       automations → Settings → Varsler tab "Automatisering" link (app/settings.tsx)
+ *       habits    → Health screen's inline "Habits →" section header (app/health.tsx)
+ *       budget    → app/shopping.tsx done-flow + app/scan.tsx header link
+ *       shared    → app/share-modal.tsx "Done" + app/scan.tsx QR-scan result
+ *       settings  → home screen header gear (and goToSite(..., '/settings') callers)
+ *     plans also keeps its Home "See everything" link alongside its nav tab, same as
+ *     shopping's preview link.
  *   - goToSite() invariant: Home ('/') is always the stack root. Going from Home to
  *     any site pushes (so back() returns to Home). Going from one non-Home site to
  *     another replaces (so the stack never grows past depth 2). Going to Home

@@ -55,6 +55,11 @@
  *     useTaskStore's own header flag for the sibling 'task_completed' gap). Wiring it now would
  *     mean building an automation system from scratch (unrecorded), so it is flagged for the
  *     notifications/automation port, not invented here.
+ *   - **"More" links (Decision 036)**: a small always-visible (off-Focus) row of chips
+ *     linking to the off-nav sites Notes (/notes) and Food (/meals), which have no BottomNav
+ *     tab. Without these, both screens were unreachable. Automations gets its entry from
+ *     Settings, not here. Reachability is data-independent (shown even when those screens are
+ *     empty), unlike the InboxSection preview which self-hides when the inbox is empty.
  *   - All visible strings via useT(); today is todayStr() (YYYY-MM-DD).
  */
 import React, { useCallback, useState } from 'react';
@@ -282,6 +287,31 @@ export default function HomeScreen() {
             </View>
           )}
 
+          {/* More — entry points for the off-nav sites (Decision 036: Notes + Food
+              are reachable but not BottomNav tabs). Always shown off-Focus so these
+              screens have a discoverable home no matter what data exists. */}
+          {!focusMode && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.home.more}</Text>
+              <View style={styles.moreLinks}>
+                <Pressable
+                  style={[styles.moreChip, { backgroundColor: theme.surfaceMuted }]}
+                  onPress={() => goToSite(router, pathname, '/notes')}
+                  hitSlop={6}
+                >
+                  <Text style={[styles.moreChipText, { color: theme.text }]}>{t.notes.title}</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.moreChip, { backgroundColor: theme.surfaceMuted }]}
+                  onPress={() => goToSite(router, pathname, '/meals')}
+                  hitSlop={6}
+                >
+                  <Text style={[styles.moreChipText, { color: theme.text }]}>{t.nav.meals}</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
           {/* Gentle points */}
           {!focusMode && settings.showPoints && completedCount > 0 && (
             <View style={styles.section}>
@@ -315,6 +345,9 @@ const baseStyles = StyleSheet.create({
   sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: Spacing.xs },
   shoppingSection: { gap: Spacing.xs, marginTop: Spacing.sm },
   rowDivider: { height: 1 },
+  moreLinks: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md, flexWrap: 'wrap' },
+  moreChip: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, borderRadius: Radius.full },
+  moreChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   emptyText: { fontSize: FontSize.sm, fontFamily: Fonts.regular, textAlign: 'center', paddingVertical: Spacing.sm },
   pointsText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },
 });

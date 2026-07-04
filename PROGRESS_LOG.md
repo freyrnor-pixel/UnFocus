@@ -4070,3 +4070,36 @@ touched; this entry is the only write.
 `/budget` (from shopping + scan), `/shared` (from share-modal + scan), `/habits` (from health),
 `/health` + `/plans` (nav tabs) are all reachable; energy check-in removal is a recorded decision
 (018), not a gap.
+
+---
+
+## 2026-07-04 — FIX SESSION: off-nav reachability + doc drift (Decision 036)
+
+Acting on the same-day review's findings. Scope: fix the three unreachable screens, the
+nav decision drift, and stale headers; add one low-risk gesture cue. Design-gated gesture
+work (shopping swipe/drag affordances, Pet-feeding cue) deferred per Decision 036.
+
+**Reachability (blockers) — now wired:**
+- **Notes + Food/Meals** → new "More" chip row on Home (`app/index.tsx`), always shown
+  off-Focus (data-independent). Uses `goToSite(router, pathname, '/notes' | '/meals')`.
+  New i18n `home.more` (en `More` / no `Mer`); chips reuse `t.notes.title` / `t.nav.meals`.
+- **Automations** → new link row in Settings → Varsler tab (`app/settings.tsx`),
+  `router.push('/automations')`, using `t.nav.automations` + `t.hints.automations.text`.
+- Verified `/notes`, `/meals`, `/automations` had zero inbound navigation before this.
+
+**Decision drift:** ratified the shipped 5-tab set (Shopping/Plans/Home/Health/Scan) and
+recorded all off-nav access points in **Decision 036** (REBUILD_DECISIONS.md). Supersedes
+Decision 001's tab list only.
+
+**Gesture cue (low-risk):** Habits hint now reads "tap to expand, hold to edit" (en+no).
+Remaining cue-less gestures (011 R1/R2 shopping surfaces, Pet drag-to-feed) left for a
+dedicated interaction-design session, tracked in Decision 036.
+
+**Header/doc drift fixed:** `BottomNav.tsx`, `lib/siteNav.ts`, `app/meals.tsx`,
+`app/habits.tsx`, `app/notes.tsx` — all now state the real tab set + access points.
+
+**Verification:** `tsc` skipped (no node_modules in remote env, per repo policy). Changes
+are type-safe by construction: all new i18n keys added to both locales; all referenced keys
+(`home.more`, `nav.automations`, `nav.meals`, `notes.title`, `hints.automations.text`) exist;
+`/notes` + `/meals` are valid `SiteRoute` members; `Pressable`/`router`/`goToSite` already
+imported in the touched screens. Manual read-through only.
