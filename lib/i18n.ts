@@ -557,6 +557,7 @@ const en = {
   home: {
     todaysPlans: "Today's Plans",
     seeAllPlans: 'See all plans',
+    more: 'More',
   },
   health: {
     habits: 'Habits',
@@ -939,7 +940,7 @@ const en = {
       example: '',
     },
     habits: {
-      text: 'Tap + each time you build or resist a habit.',
+      text: 'Tap + each time you build or resist a habit. Tap a card to expand, hold it to edit.',
       example: '',
     },
     plans: {
@@ -1659,6 +1660,7 @@ const no: typeof en = {
   home: {
     todaysPlans: 'Dagens planer',
     seeAllPlans: 'Se alle planer',
+    more: 'Mer',
   },
   health: {
     habits: 'Vaner',
@@ -1859,7 +1861,7 @@ const no: typeof en = {
       example: '',
     },
     habits: {
-      text: 'Trykk + hver gang du bygger eller motstår en vane.',
+      text: 'Trykk + hver gang du bygger eller motstår en vane. Trykk på et kort for å utvide, hold inne for å redigere.',
       example: '',
     },
     plans: {

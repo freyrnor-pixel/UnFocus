@@ -873,6 +873,20 @@ export default function SettingsScreen() {
                 )}
               </Surface>
             </View>
+
+            {/* AUTOMATISERING — the only entry point to the automations screen (Decision 036). */}
+            <View style={styles.section}>
+              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.nav.automations}</Text>
+              <Surface style={styles.card}>
+                <Pressable style={styles.switchRow} onPress={() => router.push('/automations')}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.nav.automations}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.hints.automations.text}</Text>
+                  </View>
+                  <Text style={[styles.switchLabel, { color: theme.accent }]}>{'→'}</Text>
+                </Pressable>
+              </Surface>
+            </View>
           </>
         )}
 

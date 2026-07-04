@@ -10,7 +10,8 @@
  *             components/ConfirmationBanner, components/ExpandableCard, components/PressableScale,
  *             components/Surface, components/AddFAB, constants/theme, lib/db, lib/haptics,
  *             lib/i18n, lib/useAppTheme, store/useMealStore, store/useShoppingStore, store/useCatalogStore
- *   Used by → Expo Router route "/meals" (BottomNav "Meals" tab)
+ *   Used by → Expo Router route "/meals"; reached via Home's "More → Food" link
+ *             (not a BottomNav tab — Decision 036)
  *   Data    → useMealStore (dishes + ingredients tables); writes to useShoppingStore when
  *             pushing a dish to shopping; useCatalogStore.suggest() for ingredient autocomplete
  *
