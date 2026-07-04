@@ -464,6 +464,19 @@ export function initDb() {
       secret TEXT NOT NULL,
       paired_at TEXT DEFAULT (datetime('now'))
     )`,
+    // Live-sync bookkeeping (Decision 038b) — first cut is tasks + shopping_items only.
+    // `updated_at` drives last-write-wins on receive; `origin_device_id` is the LWW
+    // tiebreak + delegation origin; `deleted_at` is a soft-delete tombstone so a delete
+    // isn't undone by a stale peer copy. Backfill updated_at from created_at for rows that
+    // predate live sync so their first sync timestamp is meaningful.
+    "ALTER TABLE tasks ADD COLUMN updated_at TEXT DEFAULT ''",
+    "ALTER TABLE tasks ADD COLUMN origin_device_id TEXT DEFAULT ''",
+    "ALTER TABLE tasks ADD COLUMN deleted_at TEXT DEFAULT NULL",
+    "UPDATE tasks SET updated_at = created_at WHERE updated_at IS NULL OR updated_at = ''",
+    "ALTER TABLE shopping_items ADD COLUMN updated_at TEXT DEFAULT ''",
+    "ALTER TABLE shopping_items ADD COLUMN origin_device_id TEXT DEFAULT ''",
+    "ALTER TABLE shopping_items ADD COLUMN deleted_at TEXT DEFAULT NULL",
+    "UPDATE shopping_items SET updated_at = created_at WHERE updated_at IS NULL OR updated_at = ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

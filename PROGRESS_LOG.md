@@ -3958,3 +3958,32 @@ mechanics all land here.
 
 Test/logic verified by running the SHA/HMAC vectors and the sign→verify / tamper / wrong-key /
 spoofed-sender / pairing-roundtrip cases through Node. `npx tsc --noEmit` remains local-only.
+
+---
+
+## Decision 038b — Live-sync data model (2026-07-04)
+
+Third of the four Decision 038 sub-gates (order A→D→B→C). Implemented the **recommended
+(★) path**: last-write-wins per row (`updated_at` + `origin_device_id` tiebreak) with
+soft-delete tombstones — rather than field-level merge. First cut = **tasks + shopping_items
+only**. No new native module.
+
+- `lib/db.ts`: migrations add `updated_at` / `origin_device_id` / `deleted_at` to `tasks` and
+  `shopping_items`, with a backfill of `updated_at` from `created_at` for pre-sync rows.
+- `lib/liveSync.ts` (new): `RowDelta` wire type; `incomingWins()` LWW resolver (newer
+  `updated_at` wins; exact tie → lexicographically-greater `origin_device_id`, deterministic +
+  symmetric); `parseDelta()` untrusted-input guard; `applyDelta()` LWW upsert with per-table
+  column whitelist and tombstone handling; `touchRow()` / `softDelete()` to stamp local edits;
+  `buildDelta()` to emit outbound. `lib/__tests__/liveSync.test.ts` covers the pure resolver +
+  parser (verified in Node).
+
+**Delegation:** directed create (parent → child) is carried as `directed: true` on the delta.
+Enforcement ("child can't reassign back") is explicitly deferred to 038c child mode — noted in
+`liveSync.ts`, because `origin_device_id` is the LWW last-writer, not a stable owner, so a
+reassign can't be distinguished at this layer. Child mode gates it by hiding reassignment UI.
+
+**Scope boundaries / wiring left:** the module is the data model + merge policy. Not yet wired:
+(1) the store writes (`useTaskStore` / `useShoppingStore`) must call `touchRow`/`softDelete` on
+every local mutation and filter `deleted_at IS NULL` on read; (2) the socket loop that signs
+deltas via `peerAuth` (038d) and ships them over `lanTransport` (038a), verifying + `applyDelta`
+on receive. Those are app-integration steps on top of this foundation. `tsc` remains local-only.
