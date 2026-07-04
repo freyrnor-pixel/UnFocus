@@ -5,8 +5,9 @@
  * to the OS share sheet (export), and restores such a file back into the local
  * database after an explicit confirm (import). The app never uploads anything —
  * the export's destination and the import's source are entirely the user's
- * choice, outside the app. Keeps the "local-only, no accounts, no servers"
- * invariant intact.
+ * choice, outside the app. Keeps the "local-only, no remote accounts, no servers"
+ * invariant intact (a local account per Decision 039 is device-only and rides along
+ * in this backup via the settings row — it does NOT add any upload or server path).
  *
  * Format is a versioned JSON dump keyed by table (preferred over a raw-file copy
  * for forward-compat across migrations): every table's rows are captured as-is,

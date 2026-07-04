@@ -795,6 +795,20 @@ const en = {
     restoreError: "Couldn't restore the backup — your current data is unchanged.",
     restoreDone: 'Restore complete. The app will reload now.',
   },
+  // Local account (Decision 039) — device-only, user-held profile. No server, no
+  // credentials, no cloud; the account is backed up via the local backup file above.
+  account: {
+    title: 'Local account',
+    descNone: 'Create a local account to keep your data under one profile on this device. No sign-up, no password, no server — it lives only here, and you back it up yourself.',
+    descActive: 'Your local account lives only on this device. Back it up to a file you keep, or restore from one — nothing is ever uploaded.',
+    nameLabel: 'Account name',
+    namePlaceholder: 'Name your local account',
+    createButton: 'Create local account',
+    createdOn: (date: string) => `Local account · created ${date}`,
+    backupButton: 'Back up local account',
+    restoreButton: 'Restore local account',
+    deviceOnlyNote: 'Device-only. No sign-in, no password, no server — ever.',
+  },
   // Toggle on/off labels
   on: 'on',
   off: 'off',
@@ -1471,6 +1485,20 @@ const no: typeof en = {
     importConfirmBtn: 'Gjenopprett',
     restoreError: 'Klarte ikke å gjenopprette sikkerhetskopien — dataene dine er uendret.',
     restoreDone: 'Gjenoppretting fullført. Appen starter på nytt nå.',
+  },
+  // Lokal konto (Decision 039) — kun på enheten, brukereid profil. Ingen server,
+  // ingen pålogging, ingen sky; kontoen sikkerhetskopieres via backup-filen over.
+  account: {
+    title: 'Lokal konto',
+    descNone: 'Opprett en lokal konto for å samle dataene dine i én profil på denne enheten. Ingen registrering, ingen passord, ingen server — den finnes bare her, og du sikkerhetskopierer den selv.',
+    descActive: 'Den lokale kontoen din finnes bare på denne enheten. Sikkerhetskopier den til en fil du beholder, eller gjenopprett fra en — ingenting lastes opp.',
+    nameLabel: 'Kontonavn',
+    namePlaceholder: 'Gi den lokale kontoen et navn',
+    createButton: 'Opprett lokal konto',
+    createdOn: (date: string) => `Lokal konto · opprettet ${date}`,
+    backupButton: 'Sikkerhetskopier lokal konto',
+    restoreButton: 'Gjenopprett lokal konto',
+    deviceOnlyNote: 'Kun på enheten. Ingen innlogging, ingen passord, ingen server — aldri.',
   },
   // Toggle on/off labels
   on: 'på',
