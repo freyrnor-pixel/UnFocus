@@ -40,6 +40,7 @@
  *     settings load and is absent for users who haven't enabled it.
  */
 import React, { useEffect } from 'react';
+import { Text as RNText, TextInput as RNTextInput } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -69,6 +70,16 @@ import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import AppModalHost from '@/components/AppModal';
 import DebugOverlay from '@/components/DebugOverlay';
+
+// Cap OS-level font scaling (Dynamic Type / Android font size) so it can't
+// overflow the app's fixed-height chrome — the header (56px), BottomNav (72px),
+// FAB, chips, etc. The in-app font-size setting (small/default/large, applied
+// via useScaledStyles) still scales text on top of this; the cap only bounds the
+// OS multiplier that stacks over it, which was previously uncapped. 1.4 keeps a
+// meaningful accessibility zoom while preventing the worst clipping/overflow.
+const MAX_FONT_SCALE = 1.4;
+(RNText as any).defaultProps = { ...(RNText as any).defaultProps, maxFontSizeMultiplier: MAX_FONT_SCALE };
+(RNTextInput as any).defaultProps = { ...(RNTextInput as any).defaultProps, maxFontSizeMultiplier: MAX_FONT_SCALE };
 
 export default function RootLayout() {
   const router = useRouter();
