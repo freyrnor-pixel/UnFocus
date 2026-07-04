@@ -7,17 +7,18 @@
  *
  * Connections:
  *   Imports → components/PressableScale, constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, store/useTaskStore
- *   Used by → (not yet mounted — Phase 5: app/index.tsx)
+ *   Used by → app/index.tsx (Home "Up next")
  *   Data    → none directly; takes a Task via props and writes through useTaskStore's toggle() (real store since 2026-07-02, was a Decision 015 stub)
  *
  * Edit notes:
  *   - Uses theme.hintBg/hintBorder/hintAccent (the same "soft card surface" tokens
  *     as HintCard) rather than a new colour — keeps it in tune with the active theme.
  *   - Mark-done calls useTaskStore's toggle() directly and fires success() here for
- *     feedback, but deliberately adds no completion glow/scale animation of its own —
- *     if the same task is also visible as a TaskItem row elsewhere on screen, that
- *     component already animates the rising edge of "done"; a second effect here
- *     would double it up.
+ *     feedback, but deliberately adds no completion glow/scale animation of its own.
+ *     Two reasons: (1) completing this card immediately swaps in the *next* suggestion,
+ *     so there's no lingering "done" rising edge to animate here; (2) the Home PlanTaskCard
+ *     preview below already blooms a card-level CompletionGlow when its done count rises
+ *     (which this toggle causes) — a second effect here would double it up.
  *   - Countdown badge (toMinutes/useNowMinutes, mirrored from DayTimeline.tsx rather
  *     than shared) re-renders every 60s; colour cue escalates textMuted → accent
  *     (≤15min) → bad (now/overdue) so the badge itself signals urgency, not just the

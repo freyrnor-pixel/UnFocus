@@ -53,7 +53,7 @@ export default function BottomNav() {
       return (
         <PressableScale
           key={item.key}
-          scaleTo={0.92}
+          scaleTo={0.90}
           style={[styles.centreButton, { backgroundColor: theme.accent, ...Shadow.fab }]}
           onPress={() => goToSite(router, pathname, item.route)}
           hitSlop={8}
@@ -66,7 +66,7 @@ export default function BottomNav() {
     return (
       <PressableScale
         key={item.key}
-        scaleTo={0.92}
+        scaleTo={0.97}
         style={[styles.item, active && { backgroundColor: theme.surfaceMuted, borderRadius: Radius.sm }]}
         onPress={() => goToSite(router, pathname, item.route)}
         hitSlop={6}

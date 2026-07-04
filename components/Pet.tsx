@@ -11,8 +11,7 @@
  * Connections:
  *   Imports → constants/petData, constants/theme, lib/haptics, lib/useAppTheme,
  *             store/useSettingsStore, store/useShoppingStore
- *   Used by → app/index.tsx, app/onboarding/step6.tsx — neither ported yet; this
- *             is a leaf ahead of its screens
+ *   Used by → app/index.tsx, app/onboarding/step6.tsx
  *   Props   → completedToday: triggers excited animation when it increases
  *
  * Edit notes:
