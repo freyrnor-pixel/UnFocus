@@ -92,6 +92,7 @@ const en = {
   updateRestartBtn: 'Restart',
   // Task form
   newTask: 'New plan',
+  add: 'Add',
   editTask: 'Edit',
   taskTitleLabel: 'Plan',
   taskTitlePlaceholder: 'What needs to be done?',
@@ -1041,6 +1042,7 @@ const no: typeof en = {
   updateReadyBanner: '⬇️ Oppdatering klar',
   updateRestartBtn: 'Start på nytt',
   newTask: 'Ny plan',
+  add: 'Legg til',
   editTask: 'Rediger',
   taskTitleLabel: 'Plan',
   taskTitlePlaceholder: 'Overskrift',

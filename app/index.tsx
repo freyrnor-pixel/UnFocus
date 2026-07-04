@@ -339,7 +339,7 @@ export default function HomeScreen() {
       </ScreenScaffold>
 
       {/* Add a task — a Home input affordance, so hidden in Focus mode (Decision 009 #4). */}
-      {!focusMode && <AddFAB onPress={() => router.push('/task-form')} />}
+      {!focusMode && <AddFAB onPress={() => router.push('/task-form')} accessibilityLabel={t.newTask} />}
       {settings.petEnabled && !focusMode && <Pet completedToday={completedCount} />}
     </>
   );

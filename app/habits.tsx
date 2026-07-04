@@ -741,6 +741,7 @@ export default function HabitsScreen() {
           pathname: '/habit-form',
           params: selectedProfile ? { childName: selectedProfile } : {},
         })}
+        accessibilityLabel={t.health.addHabit}
       />
     </>
   );

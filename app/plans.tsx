@@ -78,7 +78,7 @@ export default function PlansScreen() {
           />
         </View>
       </ScreenScaffold>
-      <AddFAB onPress={() => router.push('/task-form')} />
+      <AddFAB onPress={() => router.push('/task-form')} accessibilityLabel={t.newTask} />
     </>
   );
 }
