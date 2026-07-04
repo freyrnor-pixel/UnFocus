@@ -758,7 +758,7 @@ const en = {
     // Focus mode (settings + onboarding "start simple" choice) — formerly "Essentials Mode"
     essentials: {
       label: 'Focus mode',
-      hint: 'Show only essential plans. Turn off any time to see everything.',
+      hint: 'Start Home showing only essential plans. The eye in the top bar toggles it any time.',
       onboardingTitle: 'Want to start simple?',
       onboardingSub: 'See only the essentials at first. You can switch to the full view whenever you like.',
       optionOn: 'Start simple',
@@ -910,7 +910,7 @@ const en = {
   },
   hints: {
     home: {
-      text: 'Your daily overview — tap ⭐ to focus on essentials only.',
+      text: 'Your daily overview — tap the eye in the top bar to focus on essential plans only.',
       example: '',
     },
     taskForm: {
@@ -1457,7 +1457,7 @@ const no: typeof en = {
     skipForNow: 'Jeg ordner dette senere',
     essentials: {
       label: 'Fokus-modus',
-      hint: 'Vis bare viktige planer. Skru av når som helst for å se alt.',
+      hint: 'Start hjem-skjermen med kun viktige planer. Øyet i topplinjen slår det av og på når du vil.',
       onboardingTitle: 'Vil du starte enkelt?',
       onboardingSub: 'Se bare det viktigste til å begynne med. Du kan bytte til full visning når du vil.',
       optionOn: 'Start enkelt',
@@ -1836,7 +1836,7 @@ const no: typeof en = {
   },
   hints: {
     home: {
-      text: 'Din daglige oversikt — trykk ⭐ for kun det viktigste.',
+      text: 'Din daglige oversikt — trykk på øyet i topplinjen for kun de viktigste planene.',
       example: '',
     },
     taskForm: {
