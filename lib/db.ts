@@ -477,6 +477,12 @@ export function initDb() {
     "ALTER TABLE shopping_items ADD COLUMN origin_device_id TEXT DEFAULT ''",
     "ALTER TABLE shopping_items ADD COLUMN deleted_at TEXT DEFAULT NULL",
     "UPDATE shopping_items SET updated_at = created_at WHERE updated_at IS NULL OR updated_at = ''",
+    // Child-mode variant (Decision 038c) — same binary, a locked mode gated by a
+    // parent password. Only FLAGS live here: `child_mode` (currently locked) and
+    // `child_mode_password_set` (a password exists). The password itself is NEVER
+    // stored in SQLite — it lives in expo-secure-store (lib/childLock.ts).
+    "ALTER TABLE settings ADD COLUMN child_mode INTEGER DEFAULT 0",
+    "ALTER TABLE settings ADD COLUMN child_mode_password_set INTEGER DEFAULT 0",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

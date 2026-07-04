@@ -3987,3 +3987,38 @@ reassign can't be distinguished at this layer. Child mode gates it by hiding rea
 every local mutation and filter `deleted_at IS NULL` on read; (2) the socket loop that signs
 deltas via `peerAuth` (038d) and ships them over `lanTransport` (038a), verifying + `applyDelta`
 on receive. Those are app-integration steps on top of this foundation. `tsc` remains local-only.
+
+---
+
+## Decision 038c — Child-mode variant (2026-07-04)
+
+Last of the four Decision 038 sub-gates (order A→D→B→C). Implemented the **recommended (★)
+path**: same binary + a `childMode` flag (not a separate build); parent password in
+expo-secure-store, only flags in SQLite.
+
+- `package.json` + `app.json`: added `expo-secure-store` `~56.0.0` (+ plugin entry) — native,
+  folds into the Decision 038a/027 consolidated build.
+- `lib/db.ts`: migration adds `child_mode` + `child_mode_password_set` INTEGER flags to the
+  `settings` row. The password is **never** in SQLite.
+- `lib/childLock.ts` (new): `setPassword`/`verifyPassword`/`hasPassword`/`clearPassword` over
+  expo-secure-store, storing a **salted SHA-256 hash** (via lib/hmac), not plaintext.
+- `store/useSettingsStore.ts`: `childMode` + `childModePasswordSet` added to the Settings type,
+  `defaultSettings`, `rowToSettings`, and `SETTINGS_COLUMNS` (the standard add-a-setting steps).
+- `lib/i18n.ts`: `childMode*` keys in both `en` and `no`.
+- `app/settings.tsx`: a "Child mode" card in the Generelt → Data group — set/change parent
+  password, enter child mode (blocked until a password exists so the child can't get stuck),
+  and a password-gated exit flow.
+
+**Scope boundaries / wiring left:** the setting, its secure password, and the enter/exit flow
+land here. The full app-shell locking while `childMode` is on — hiding Settings/sharing and
+blocking navigation away without the password across the whole app — is a shell-level wiring step
+(gate in the scaffold/nav on `settings.childMode`), flagged in the settings card comment.
+Delegation's "child can't reassign back" rule (038b's `directed` flag) is enforced here by child
+mode hiding reassignment affordances. `shareExplainLaterBuild` is kept until live sync actually
+ships (the socket loop isn't wired yet). `tsc` remains local-only per repo policy.
+
+### Decision 038 cluster complete
+All four sub-gates (038a transport, 038d pairing/trust, 038b data model, 038c child mode) are
+implemented on `claude/decision-038-ordering-bbx9dh` as foundations. Remaining cross-cutting
+wiring (the sign/send/verify socket loop tying lanTransport + peerAuth + liveSync together, store
+edit-stamping, and app-shell child-mode locking) is app integration on top of these layers.
