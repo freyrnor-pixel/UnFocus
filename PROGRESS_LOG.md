@@ -4022,3 +4022,51 @@ All four sub-gates (038a transport, 038d pairing/trust, 038b data model, 038c ch
 implemented on `claude/decision-038-ordering-bbx9dh` as foundations. Remaining cross-cutting
 wiring (the sign/send/verify socket loop tying lanTransport + peerAuth + liveSync together, store
 edit-stamping, and app-shell child-mode locking) is app integration on top of these layers.
+
+---
+
+## 2026-07-04 — REVIEW SESSION: cold-user comprehension + code-logic audit (read-only, no code changed)
+
+**Scope:** Walked every top-level screen as if seeing a fresh APK cold (home, plans,
+shopping, health, habits, scan, notes, meals, budget, automations, shared, settings,
+share-modal, onboarding) plus the nav layer (BottomNav / siteNav / ScreenScaffold /
+ScreenHeader) and the gesture components (ShoppingRow, DraggableTaskRow, Pet). Cross-checked
+against FEATURE_INVENTORY.docx + Decisions 001/012 + REBUILD_PLAN. No app/store/lib code
+touched; this entry is the only write.
+
+### Top findings (full prioritized list delivered in the review reply)
+
+**Blockers — features built but unreachable / decision drift:**
+1. **`/notes` unreachable.** notes.tsx (the note-editing feature FEATURE_INVENTORY explicitly
+   asked for) has no entry point. Home renders `<InboxSection/>` (inbox store), with no
+   "see everything → /notes" link. Contradicts Decision 001 & 012, which both assert Notes
+   is reachable. notes.tsx's own header claims a Home preview card that does not exist.
+2. **`/meals` unreachable.** No `router.push`/`Link`/`goToSite` to `/meals` anywhere — the core
+   Meals→Shopping flow is dead. meals.tsx header wrongly claims a "BottomNav Meals tab."
+3. **`/automations` unreachable.** No link from settings (grep: none) or any screen.
+   FEATURE_INVENTORY expects a Settings→automations link.
+4. **Nav set diverged from Decision 001 with no amending decision.** Decision 001 defines the 5
+   tabs as Shopping/Plans/Home/**Notes**/Scan; shipped `SITE_ITEMS` is Shopping/Plans/Home/
+   **Health**/Scan. The Notes→Health swap (and the resulting orphaning of Notes/Meals/
+   Automations) is an implicit in-code decision, unrecorded in REBUILD_DECISIONS.md.
+
+**Confusing — discoverability / hidden gestures (no visible cue, no hint text; i18n has none):**
+5. Habits reachable ONLY via a sub-section at the bottom of the Health screen (below the ailment
+   log) — a cold user won't guess Habits lives inside Health.
+6. Shopping-row remove has NO resting affordance — the trailing remove button was retired
+   (Ripple R2); swipe-left is the sole removal path.
+7. Habit long-press-to-edit and long-press-a-child-chip-to-remove have no cue.
+8. Pet drag-to-feed (food chips from the weekly list) has no cue — and this feeding feature is
+   absent from FEATURE_INVENTORY and unrecorded as a decision (implicit feature).
+9. Shopping drag-to-reorder (long-press-then-drag) has no handle/cue — move chevrons were removed.
+
+**Polish — header/doc drift (harmless but will cost the next session context):**
+10. BottomNav.tsx header claims tabs "Shopping, Plans, Home, Notes, Scan; Health removed" — the
+    code it consumes renders Health, not Notes.
+11. meals.tsx / habits.tsx headers claim non-existent "BottomNav Meals/Habits tab."
+12. notes.tsx header claims a Home preview-card entry that isn't wired.
+
+**Confirmed OK:** empty states exist on notes/shopping/health/automations/home-shopping;
+`/budget` (from shopping + scan), `/shared` (from share-modal + scan), `/habits` (from health),
+`/health` + `/plans` (nav tabs) are all reachable; energy check-in removal is a recorded decision
+(018), not a gap.
