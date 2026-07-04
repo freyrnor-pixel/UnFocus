@@ -80,7 +80,7 @@ export default function OnboardingWelcome() {
 
           <View style={styles.top}>
             <View style={styles.logoShadow}>
-              <Image source={require('@/assets/icon.png')} style={styles.logo} resizeMode="contain" />
+              <Image source={require('../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
             </View>
             <Text style={[styles.heading, { color: theme.text }]}>{t.welcomeHeading}</Text>
             <Text style={[styles.sub, { color: theme.textMuted }]}>{t.welcomeSub}</Text>

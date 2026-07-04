@@ -27,7 +27,7 @@ export default function TreeWatermark({ size, opacity, absolute = true, style }:
   return (
     <View pointerEvents="none" style={absolute && styles.absolute}>
       <Image
-        source={require('@/assets/android-icon-monochrome.png')}
+        source={require('../assets/android-icon-monochrome.png')}
         style={[{ width: size, height: size, opacity }, style]}
         resizeMode="contain"
       />
