@@ -17,10 +17,12 @@
  *   - Next button → router.push "/onboarding/step6" (companion pet naming,
  *     which owns setupComplete + notification scheduling).
  *   - Previous uses router.back().
- *   - The swatch preview reads THEMES[key].orange / .white (legacy AppColors) on
- *     purpose — it renders a live sample of each *other* theme's signature colour,
- *     not the current-theme UI, so those are preview data, not styling tokens. All
- *     chrome that styles this screen uses Decision 006 tokens.
+ *   - The swatch preview reads each theme's accent from the canonical palette
+ *     (getThemePalette(key).accent in constants/colors.ts) — the SAME source that
+ *     drives runtime chrome — so the picker set and the palette can never drift.
+ *     (Previously sourced from the legacy theme.ts AppColors THEMES, whose theme
+ *     set didn't match colors.ts, which is why Tech/Fluffy fell back to Default and
+ *     Black & White couldn't be picked at all.)
  */
 import React from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
@@ -29,7 +31,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useT } from '@/lib/i18n';
-import { FontSize, Fonts, Radius, Shadow, Spacing, THEMES, THEME_ICONS, ThemeName } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Shadow, Spacing, contrastOn } from '@/constants/theme';
+import { getThemePalette, THEMES as COLOR_PALETTES, THEME_ICONS, ThemeName } from '@/constants/colors';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import Button from '@/components/Button';
 import SwatchPicker from '@/components/SwatchPicker';
@@ -57,16 +60,15 @@ export default function OnboardingStep5() {
         </View>
 
         <SwatchPicker
-          items={(Object.keys(THEMES) as ThemeName[])
-            .filter((key) => key !== 'custom')
+          items={(Object.keys(COLOR_PALETTES) as ThemeName[])
             .map((key) => ({ key, label: t.themeNames[key] }))}
           value={settings.colorTheme}
           onChange={(key) => settings.update({ colorTheme: key as ThemeName })}
           renderSwatch={(key) => {
-            const th = THEMES[key as ThemeName];
+            const accent = getThemePalette(key as ThemeName, false).accent;
             return (
-              <View style={[styles.swatchFill, { backgroundColor: th.orange }]}>
-                <Ionicons name={THEME_ICONS[key as ThemeName] as any} size={24} color={th.white} />
+              <View style={[styles.swatchFill, { backgroundColor: accent }]}>
+                <Ionicons name={THEME_ICONS[key as ThemeName] as any} size={24} color={contrastOn(accent)} />
               </View>
             );
           }}

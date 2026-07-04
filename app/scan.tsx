@@ -60,6 +60,7 @@ import { useReceiptStore } from '@/store/useReceiptStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
+import { formatKr } from '@/lib/money';
 import { initDb } from '@/lib/db';
 import HintCard from '@/components/HintCard';
 import Surface from '@/components/Surface';
@@ -580,7 +581,7 @@ export default function ScanScreen() {
                       1 stk
                     </Text>
                     <Text style={[styles.itemPrice, { color: theme.textMuted }, !item.selected && { opacity: 0.42 }]}>
-                      {item.price.toFixed(2)} kr
+                      {formatKr(item.price, 2)}
                     </Text>
                   </Pressable>
                   <Pressable

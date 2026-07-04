@@ -12,9 +12,8 @@
  *   (Decision 039 — device-only profile: name + create date, backup/restore via lib/backup),
  *   destructive resets).
  * - Lister: shopping list settings (weekly reset weekday, monthly reset date, monthly budget).
- * - Varsler: Ukentlig (weekly reminder + time) → Generelle (merged plan-notifications toggle
- *   driving both task- and habit-notification flags together, persistent daily overview, quiet
- *   hours).
+ * - Varsler: Ukentlig (weekly reminder + time) → Generelle (independent plan-notifications and
+ *   habit-reminders toggles, persistent daily overview, quiet hours).
  * - Utseende: Fargetema (colour theme swatches), Materiale (bubble material), Mørk modus (3-way).
  *
  * Every setting applies immediately via applyAndSync() — no buffered/dirty save step (matches
@@ -40,10 +39,10 @@
  *     settings.update() directly. Quiet-hours keys re-sync task notifications; language or
  *     habitNotificationsEnabled changes re-sync habit reminders; a language change also
  *     re-registers the interactive notification action button labels via syncNotificationCategories.
- *   - The "Planvarsler"/Plan notifications toggle writes both taskNotificationsEnabled AND
- *     habitNotificationsEnabled together (Decision 029b) — there is no separate habit-notification
- *     UI; taskNotificationsEnabled is read as the display value for both since they're always
- *     kept equal.
+ *   - Plan notifications (taskNotificationsEnabled) and Habit reminders
+ *     (habitNotificationsEnabled) are now INDEPENDENT toggles — turning one off no longer
+ *     silences the other. (Superseded the Decision 029b merge, which drove both flags from a
+ *     single switch and left no way to keep task reminders while muting habit ones.)
  *   - Quiet-hours hint copy (Decision 016 Q4): habit occurrences inside quiet hours are SKIPPED,
  *     not deferred — task reminders still shift past the window. See lib/i18n.ts's
  *     settings.quietHours.hint.
@@ -51,11 +50,13 @@
  *     (free-text, matching the precedent set by task-form.tsx / habit-form.tsx).
  *   - `essentialsModeEnabled` is the underlying field/DB column name (unchanged) — its user-facing
  *     label is "Focus mode" / "Fokus-modus".
- *   - Colour-theme swatches read colour data from constants/theme.ts's THEMES (legacy static
- *     palette, used here only as swatch-preview data) — NOT from useAppTheme()'s ThemePalette,
- *     which drives actual chrome. All chrome in this screen goes through useAppTheme() tokens
- *     (Decision 006) — no raw hex except the fixed pet-colour swatch options (data, not chrome;
- *     same precedent as the colour-theme swatch data).
+ *   - Colour-theme swatches now read their preview colour from the SAME canonical palette
+ *     that drives chrome — getThemePalette(key).accent in constants/colors.ts — so the
+ *     picker options, the swatch previews, and the runtime chrome can never disagree. (They
+ *     used to be sourced from constants/theme.ts's legacy AppColors THEMES, whose theme set
+ *     — tech/fluffy, no summer/blackWhite — did not match colors.ts, so Tech/Fluffy rendered
+ *     as Default and Black & White was unreachable.) All chrome here goes through useAppTheme()
+ *     tokens (Decision 006) — no raw hex except the fixed pet-colour swatch options.
  *   - 'custom' theme is deliberately excluded from the colour-theme picker: constants/colors.ts's
  *     ThemePalette (Decision 006) has no 'custom' variant yet (Decision 006/007 explicitly defer
  *     it), so offering it would silently render as 'default' via getThemePalette()'s fallback.
@@ -104,16 +105,17 @@ import {
   Fonts,
   Radius,
   Spacing,
-  THEMES,
   MATERIAL_META,
   MaterialName,
   getMaterialStyle,
 } from '@/constants/theme';
+import { getThemePalette } from '@/constants/colors';
 
 const PET_TYPES: PetType[] = ['cat', 'dog', 'bird', 'fox', 'bunny'];
 const PET_EMOJIS: Record<PetType, string> = { cat: '🐱', dog: '🐶', bird: '🐦', fox: '🦊', bunny: '🐰' };
-// 'custom' excluded — see file header (no Decision-006 palette variant for it yet).
-const COLOR_THEME_KEYS: ColorTheme[] = ['default', 'tech', 'gothic', 'nature', 'fluffy'];
+// Canonical colors.ts theme set (see constants/colors.ts ThemeName). 'custom'
+// excluded — no Decision-006 palette variant for it yet (file header).
+const COLOR_THEME_KEYS: ColorTheme[] = ['default', 'summer', 'nature', 'fluffyPink', 'gothic', 'blackWhite'];
 
 type SettingsTab = 'generelt' | 'lister' | 'varsler' | 'utseende';
 const TAB_BAR_HEIGHT = 48;
@@ -827,7 +829,18 @@ export default function SettingsScreen() {
                   </View>
                   <FormSwitch
                     checked={settings.taskNotificationsEnabled}
-                    onChange={(v) => applyAndSync({ taskNotificationsEnabled: v, habitNotificationsEnabled: v })}
+                    onChange={(v) => applyAndSync({ taskNotificationsEnabled: v })}
+                  />
+                </View>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.habitNotifications}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.habitNotificationsHint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.habitNotificationsEnabled}
+                    onChange={(v) => applyAndSync({ habitNotificationsEnabled: v })}
                   />
                 </View>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -900,7 +913,7 @@ export default function SettingsScreen() {
                   items={COLOR_THEME_KEYS.map((key) => ({ key, label: t.themeNames[key] }))}
                   value={settings.colorTheme}
                   onChange={(key) => settings.update({ colorTheme: key as ColorTheme })}
-                  renderSwatch={(key) => <RadialSwatch color={THEMES[key as ColorTheme].orange} size={54} />}
+                  renderSwatch={(key) => <RadialSwatch color={getThemePalette(key as any, false).accent} size={54} />}
                 />
               </Surface>
             </View>

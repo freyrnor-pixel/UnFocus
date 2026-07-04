@@ -315,7 +315,7 @@ export default function MealsScreen() {
         )}
       </ScreenScaffold>
 
-      {activeCategory && <AddFAB onPress={() => openModal(activeCategory)} />}
+      {activeCategory && <AddFAB onPress={() => openModal(activeCategory)} accessibilityLabel={t.addDishBtn} />}
 
       <ConfirmationBanner message={confirm} onDismiss={() => setConfirm(null)} />
 

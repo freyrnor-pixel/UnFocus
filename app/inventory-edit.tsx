@@ -119,7 +119,7 @@ export default function InventoryEditScreen() {
         </View>
       </ScreenScaffold>
 
-      <AddFAB onPress={() => setShowAddSheet(true)} bottom={Spacing.xl} />
+      <AddFAB onPress={() => setShowAddSheet(true)} bottom={Spacing.xl} accessibilityLabel={t.addItemBtn} />
 
       <AddItemSheet
         visible={showAddSheet}

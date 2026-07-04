@@ -10,7 +10,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/InboxSection,
- *             components/ExpandableCard, components/ShoppingRow, components/AddFAB, components/Pet,
+ *             components/ExpandableCard, components/ShoppingRow, components/AddFAB, components/HintCard, components/Pet,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, store/useTaskStore, store/useShoppingStore, store/useShoppingListStore,
  *             store/useSettingsStore
@@ -20,10 +20,12 @@
  *             adjustAmount / putBackToInventory / removeWithSource. Settings via useSettingsStore.
  *
  * Edit notes:
- *   - **Focus mode (Decisions 009 #4 / 018)**: Home-only, EPHEMERAL local state (not the
- *     persisted `essentialsModeEnabled` the old app used) — `useState(false)`, reset to OFF
- *     whenever the screen loses focus (navigation-away) so it never persists across visits or
- *     launches. The header eye toggles it (props threaded through ScreenScaffold → ScreenHeader).
+ *   - **Focus mode (Decisions 009 #4 / 018)**: Home-only, session-ephemeral local state. Its
+ *     DEFAULT is seeded from the persisted `essentialsModeEnabled` "Focus mode" setting on every
+ *     focus-in, and leaving the screen resets it back to that default (not a hardcoded OFF) — so
+ *     the settings toggle (previously inert) and the header eye are ONE feature: a saved default
+ *     plus a live session toggle, not two unrelated things that happened to share the name "Focus".
+ *     The header eye toggles it (props threaded through ScreenScaffold → ScreenHeader).
  *     ON: hides the Notes + Shopping previews + points + FAB (no input affordances), leaving only
  *     the Plans surface filtered to `importance === 'essential'` (Decision 018 — the two-value
  *     `importance` field IS the intensity model; no energy path). The done-toggle stays live in
@@ -71,6 +73,7 @@ import InboxSection from '@/components/InboxSection';
 import ExpandableCard from '@/components/ExpandableCard';
 import ShoppingRow from '@/components/ShoppingRow';
 import AddFAB from '@/components/AddFAB';
+import HintCard from '@/components/HintCard';
 import Pet from '@/components/Pet';
 import { goToSite } from '@/lib/siteNav';
 import { initDb } from '@/lib/db';
@@ -128,8 +131,15 @@ export default function HomeScreen() {
       loadTasks();
       loadShopping();
       loadLists();
-      // Navigation-away resets Focus mode to OFF (Decision 009 #4 — ephemeral, not persisted).
-      return () => setFocusMode(false);
+      // Focus mode's default is the persisted "Focus mode" setting
+      // (essentialsModeEnabled). The header eye still toggles it live for the
+      // session; leaving Home resets it back to that default. This keeps the
+      // toggle ephemeral within a session (Decision 009 #4) while making the
+      // settings toggle — which was otherwise inert — the source of the default,
+      // so the two "Focus mode" surfaces are one coherent feature, not two.
+      const defaultFocus = useSettingsStore.getState().essentialsModeEnabled;
+      setFocusMode(defaultFocus);
+      return () => setFocusMode(defaultFocus);
     }, [loadSettings, loadTasks, loadShopping, loadLists])
   );
 
@@ -199,6 +209,11 @@ export default function HomeScreen() {
         onToggleFocus={() => setFocusMode((v) => !v)}
       >
         <View style={styles.content}>
+          {/* Focus-mode hint — the header eye is a non-obvious affordance, so it
+              qualifies for a HintCard under Decision 030's "demonstrated need"
+              bar. Gated on showHints + hidden in Focus itself. */}
+          {!focusMode && <HintCard text={t.hints.home.text} />}
+
           {/* Greeting */}
           <View style={styles.header}>
             <Text style={[styles.greeting, { color: theme.text }]}>
@@ -324,7 +339,7 @@ export default function HomeScreen() {
       </ScreenScaffold>
 
       {/* Add a task — a Home input affordance, so hidden in Focus mode (Decision 009 #4). */}
-      {!focusMode && <AddFAB onPress={() => router.push('/task-form')} />}
+      {!focusMode && <AddFAB onPress={() => router.push('/task-form')} accessibilityLabel={t.newTask} />}
       {settings.petEnabled && !focusMode && <Pet completedToday={completedCount} />}
     </>
   );

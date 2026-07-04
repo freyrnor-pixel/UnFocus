@@ -26,6 +26,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, ViewStyle, StyleProp } from 'react-native';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { useT } from '@/lib/i18n';
 import { Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
 
@@ -36,6 +37,12 @@ type Props = {
   /** Floating-position override (only applies to size 'lg'); default Spacing.xl + BOTTOM_NAV_HEIGHT. */
   bottom?: number;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Screen-reader label for this icon-only button. Pass the specific action
+   * ("Add task", "Add note", …); falls back to a generic "Add" so the button
+   * is never announced as just its "+" glyph.
+   */
+  accessibilityLabel?: string;
 };
 
 const DIMENSION = { lg: 56, sm: 32 };
@@ -45,13 +52,16 @@ const DEFAULT_BOTTOM = Spacing.xl + BOTTOM_NAV_HEIGHT;
 export const FAB_LG_SIZE = DIMENSION.lg;
 export const FAB_DEFAULT_BOTTOM = DEFAULT_BOTTOM;
 
-export default function AddFAB({ onPress, size = 'lg', bottom, style }: Props) {
+export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibilityLabel }: Props) {
   const theme = useAppTheme();
+  const t = useT();
   const dimension = DIMENSION[size];
 
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? t.add}
       style={[
         styles.base,
         { width: dimension, height: dimension, backgroundColor: theme.accent },

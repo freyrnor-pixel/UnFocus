@@ -252,6 +252,19 @@ export default function ShoppingRow({
             onPress={variant === 'cart' ? onCollect : onToggle}
             disabled={variant === 'purchased'}
             hitSlop={6}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: variant === 'cart' ? !!item.collected : !!item.checked }}
+            accessibilityLabel={item.name}
+            // Swipe-left removes the row, but that gesture is invisible to screen
+            // readers — expose the same destructive action via the a11y rotor so
+            // it's reachable without the swipe. (Put-back vs delete matches the
+            // swipe's own behaviour for catalog vs ad-hoc items.)
+            accessibilityActions={variant === 'purchased' || locked ? undefined : [
+              { name: 'remove', label: isPutBack ? t.putBackItemLabel : t.removeItemLabel },
+            ]}
+            onAccessibilityAction={(e) => {
+              if (e.nativeEvent.actionName === 'remove') onRemove();
+            }}
           >
             {variant === 'planned' && (item.checked
               ? <Ionicons name="checkmark" size={14} color={theme.textInverse} />

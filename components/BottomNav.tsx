@@ -58,6 +58,9 @@ export default function BottomNav() {
           style={[styles.centreButton, { backgroundColor: theme.accent, ...Shadow.fab }]}
           onPress={() => goToSite(router, pathname, item.route)}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t.nav[item.key]}
+          accessibilityState={{ selected: active }}
         >
           <Ionicons name={active ? item.activeIcon : item.icon} size={24} color={theme.accentInk} />
         </PressableScale>
@@ -71,6 +74,9 @@ export default function BottomNav() {
         style={[styles.item, active && { backgroundColor: theme.surfaceMuted, borderRadius: Radius.sm }]}
         onPress={() => goToSite(router, pathname, item.route)}
         hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel={t.nav[item.key]}
+        accessibilityState={{ selected: active }}
       >
         <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={iconColor} />
         <Text style={[styles.label, { color: iconColor }]} numberOfLines={1}>

@@ -92,6 +92,7 @@ const en = {
   updateRestartBtn: 'Restart',
   // Task form
   newTask: 'New plan',
+  add: 'Add',
   editTask: 'Edit',
   taskTitleLabel: 'Plan',
   taskTitlePlaceholder: 'What needs to be done?',
@@ -119,6 +120,7 @@ const en = {
   typeStartAt: 'Start at this time',
   typeTimeBox: 'Time block (duration)',
   durationLabel: 'Duration (minutes)',
+  durationPlaceholder: 'min',
   importanceLabel: 'Mode',
   importanceRegular: 'General',
   importanceEssential: '⭐ Essential',
@@ -386,6 +388,8 @@ const en = {
   moveItemDown: 'Move item down',
   decreaseQty: 'Decrease quantity',
   increaseQty: 'Increase quantity',
+  removeItemLabel: 'Remove item',
+  putBackItemLabel: 'Put back in stock',
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
   boughtThisWeekSection: (n: number) => `Bought this week (${n})`,
   savedListsButtonLabel: 'Saved lists',
@@ -577,7 +581,7 @@ const en = {
   },
   moreItems: (n: number) => `+ ${n} more`,
   errorTitle: 'Something went wrong',
-  themeNames: { default: 'Default', tech: 'Tech', gothic: 'Gothic', nature: 'Nature', fluffy: 'Fluffy pink', custom: 'Custom' },
+  themeNames: { default: 'Default', summer: 'Summer', nature: 'Nature', fluffyPink: 'Fluffy pink', gothic: 'Gothic', blackWhite: 'Black & white', custom: 'Custom' },
   materialNames: { glass: 'Glass', metal: 'Metal', rock: 'Rock', paper: 'Paper', plain: 'Plain' },
   customThemePrimary: 'Primary color',
   customThemeSecondary: 'Secondary color',
@@ -758,7 +762,7 @@ const en = {
     // Focus mode (settings + onboarding "start simple" choice) — formerly "Essentials Mode"
     essentials: {
       label: 'Focus mode',
-      hint: 'Show only essential plans. Turn off any time to see everything.',
+      hint: 'Start Home showing only essential plans. The eye in the top bar toggles it any time.',
       onboardingTitle: 'Want to start simple?',
       onboardingSub: 'See only the essentials at first. You can switch to the full view whenever you like.',
       optionOn: 'Start simple',
@@ -910,7 +914,7 @@ const en = {
   },
   hints: {
     home: {
-      text: 'Your daily overview — tap ⭐ to focus on essentials only.',
+      text: 'Your daily overview — tap the eye in the top bar to focus on essential plans only.',
       example: '',
     },
     taskForm: {
@@ -1040,6 +1044,7 @@ const no: typeof en = {
   updateReadyBanner: '⬇️ Oppdatering klar',
   updateRestartBtn: 'Start på nytt',
   newTask: 'Ny plan',
+  add: 'Legg til',
   editTask: 'Rediger',
   taskTitleLabel: 'Plan',
   taskTitlePlaceholder: 'Overskrift',
@@ -1067,6 +1072,7 @@ const no: typeof en = {
   typeStartAt: 'Start på dette tidspunktet',
   typeTimeBox: 'Fra da til da (timer)',
   durationLabel: 'Varighet (minutter)',
+  durationPlaceholder: 'min',
   importanceLabel: 'Modus',
   importanceRegular: 'Generelt',
   importanceEssential: '⭐ Viktig',
@@ -1116,7 +1122,7 @@ const no: typeof en = {
   foundOnReceipt: 'Funnet på kvittering',
   itemsSelectedCount: (n: number, total: number) => `${n} av ${total} varer valgt. Fjern merket fra varer du ikke vil legge til.`,
   addToListButton: (n: number) => `Legg til i handleliste (${n})`,
-  totalAmount: (sum: number) => `Totalt: ${sum.toFixed(2)} kr`,
+  totalAmount: (sum: number) => `Totalt: ${sum.toFixed(2).replace('.', ',')} kr`,
   manualEntryTitle: 'Skriv inn manuelt',
   manualEntryHint: 'Skriv inn varenavn, én per linje. Vi legger dem til i handlelisten din.',
   manualEntryPlaceholder: 'Melk\nBrød\nEgg\n...',
@@ -1329,6 +1335,8 @@ const no: typeof en = {
   moveItemDown: 'Flytt vare ned',
   decreaseQty: 'Reduser antall',
   increaseQty: 'Øk antall',
+  removeItemLabel: 'Fjern vare',
+  putBackItemLabel: 'Legg tilbake på lager',
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
   boughtThisWeekSection: (n: number) => `Kjøpt denne uken (${n})`,
   savedListsButtonLabel: 'Lagrede lister',
@@ -1457,7 +1465,7 @@ const no: typeof en = {
     skipForNow: 'Jeg ordner dette senere',
     essentials: {
       label: 'Fokus-modus',
-      hint: 'Vis bare viktige planer. Skru av når som helst for å se alt.',
+      hint: 'Start hjem-skjermen med kun viktige planer. Øyet i topplinjen slår det av og på når du vil.',
       onboardingTitle: 'Vil du starte enkelt?',
       onboardingSub: 'Se bare det viktigste til å begynne med. Du kan bytte til full visning når du vil.',
       optionOn: 'Start enkelt',
@@ -1685,7 +1693,7 @@ const no: typeof en = {
   },
   moreItems: (n: number) => `+ ${n} til`,
   errorTitle: 'Noe gikk galt',
-  themeNames: { default: 'Standard', tech: 'Tech', gothic: 'Gotisk', nature: 'Natur', fluffy: 'Fluffy Rosa', custom: 'Egendefinert' },
+  themeNames: { default: 'Standard', summer: 'Sommer', nature: 'Natur', fluffyPink: 'Fluffy Rosa', gothic: 'Gotisk', blackWhite: 'Svart-hvitt', custom: 'Egendefinert' },
   materialNames: { glass: 'Glass', metal: 'Metall', rock: 'Stein', paper: 'Papir', plain: 'Enkel' },
   customThemePrimary: 'Primærfarge',
   customThemeSecondary: 'Sekundærfarge',
@@ -1836,7 +1844,7 @@ const no: typeof en = {
   },
   hints: {
     home: {
-      text: 'Din daglige oversikt — trykk ⭐ for kun det viktigste.',
+      text: 'Din daglige oversikt — trykk på øyet i topplinjen for kun de viktigste planene.',
       example: '',
     },
     taskForm: {

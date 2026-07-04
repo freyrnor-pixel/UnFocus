@@ -353,7 +353,7 @@ export default function TaskFormScreen() {
                   value={duration}
                   onChangeText={setDuration}
                   keyboardType="number-pad"
-                  placeholder="min"
+                  placeholder={t.durationPlaceholder}
                 />
               </View>
             </View>
