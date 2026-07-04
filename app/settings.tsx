@@ -12,9 +12,8 @@
  *   (Decision 039 — device-only profile: name + create date, backup/restore via lib/backup),
  *   destructive resets).
  * - Lister: shopping list settings (weekly reset weekday, monthly reset date, monthly budget).
- * - Varsler: Ukentlig (weekly reminder + time) → Generelle (merged plan-notifications toggle
- *   driving both task- and habit-notification flags together, persistent daily overview, quiet
- *   hours).
+ * - Varsler: Ukentlig (weekly reminder + time) → Generelle (independent plan-notifications and
+ *   habit-reminders toggles, persistent daily overview, quiet hours).
  * - Utseende: Fargetema (colour theme swatches), Materiale (bubble material), Mørk modus (3-way).
  *
  * Every setting applies immediately via applyAndSync() — no buffered/dirty save step (matches
@@ -40,10 +39,10 @@
  *     settings.update() directly. Quiet-hours keys re-sync task notifications; language or
  *     habitNotificationsEnabled changes re-sync habit reminders; a language change also
  *     re-registers the interactive notification action button labels via syncNotificationCategories.
- *   - The "Planvarsler"/Plan notifications toggle writes both taskNotificationsEnabled AND
- *     habitNotificationsEnabled together (Decision 029b) — there is no separate habit-notification
- *     UI; taskNotificationsEnabled is read as the display value for both since they're always
- *     kept equal.
+ *   - Plan notifications (taskNotificationsEnabled) and Habit reminders
+ *     (habitNotificationsEnabled) are now INDEPENDENT toggles — turning one off no longer
+ *     silences the other. (Superseded the Decision 029b merge, which drove both flags from a
+ *     single switch and left no way to keep task reminders while muting habit ones.)
  *   - Quiet-hours hint copy (Decision 016 Q4): habit occurrences inside quiet hours are SKIPPED,
  *     not deferred — task reminders still shift past the window. See lib/i18n.ts's
  *     settings.quietHours.hint.
@@ -830,7 +829,18 @@ export default function SettingsScreen() {
                   </View>
                   <FormSwitch
                     checked={settings.taskNotificationsEnabled}
-                    onChange={(v) => applyAndSync({ taskNotificationsEnabled: v, habitNotificationsEnabled: v })}
+                    onChange={(v) => applyAndSync({ taskNotificationsEnabled: v })}
+                  />
+                </View>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.habitNotifications}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.habitNotificationsHint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.habitNotificationsEnabled}
+                    onChange={(v) => applyAndSync({ habitNotificationsEnabled: v })}
                   />
                 </View>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
