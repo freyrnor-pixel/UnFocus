@@ -1,12 +1,13 @@
 /**
  * ScreenHeader.tsx — the standard screen top bar with tier-aware chrome.
  *
- * Tier 'site': Settings (gear) and Focus-mode (eye) in the two corners, title centered.
- * Which corner each takes follows the `leftHanded` setting — gear top-right by default,
- * top-left when left-handed (eye takes the opposite corner).
- * Tier 'sub': back link left (iOS only), title centered, right slot for
- * screen-specific action. Wrapped in a translucent Surface that picks up
- * the user's bubbleMaterial setting.
+ * Tier 'site' (Decision 034): title left-aligned; Settings (gear) + Focus-mode (eye)
+ * grouped in the opposite corner. Right-handed (default): title upper-left, controls
+ * upper-right (Focus then gear outermost). Left-handed mirrors the whole row — controls
+ * upper-left (gear outermost), title upper-right — so the controls stay thumb-reachable.
+ * Tier 'sub': back link left (iOS only), title immediately right of it and left-aligned,
+ * right slot for the screen-specific action (not mirrored). Wrapped in a translucent
+ * Surface that picks up the user's bubbleMaterial setting.
  *
  * Connections:
  *   Imports → constants/theme, lib/i18n, lib/useAppTheme, store/useSettingsStore,
@@ -23,8 +24,10 @@
  *     Home-only + ephemeral, so every other site screen omits both props and the eye stays a
  *     harmless no-op placeholder (its historical Phase-1 state) rather than showing an active
  *     control that does nothing.
- *   - Settings (gear) press navigates to /settings; gear/eye corner placement is
- *     handedness-aware (reads `leftHanded`) — gear right by default, left when set
+ *   - Settings (gear) press navigates to /settings. Site-tier chrome placement is
+ *     handedness-aware (reads `leftHanded`, Decision 034): title + the grouped gear/eye
+ *     controls swap sides together — controls right (title left) by default, both left
+ *     (title right) when left-handed. gear is always the outermost control.
  *   - iOS-only back link on sub-screens; Android uses system back
  */
 import React from 'react';
@@ -89,29 +92,58 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
     </Pressable>
   );
 
+  const titleNode = (align: 'left' | 'right') => (
+    <Text
+      style={[styles.title, { color: theme.text, textAlign: align }]}
+      numberOfLines={1}
+    >
+      {title}
+    </Text>
+  );
+
+  if (tier === 'site') {
+    // Grouped gear + eye. Order is Focus then gear so gear is outermost on whichever
+    // side the group sits (Decision 034). Left-handed mirrors the whole row.
+    const controls = leftHanded
+      ? [gearButton, focusButton] // group sits left → gear outermost (far left)
+      : [focusButton, gearButton]; // group sits right → gear outermost (far right)
+    const controlsGroup = (
+      <View style={styles.controls}>
+        {controls.map((c, i) => (
+          <View key={i}>{c}</View>
+        ))}
+      </View>
+    );
+    return (
+      <Surface style={[styles.header, style]}>
+        {leftHanded ? (
+          <>
+            {controlsGroup}
+            {titleNode('right')}
+          </>
+        ) : (
+          <>
+            {titleNode('left')}
+            {controlsGroup}
+          </>
+        )}
+      </Surface>
+    );
+  }
+
+  // Sub tier: back link (iOS) leftmost, title immediately right of it and left-aligned,
+  // right slot for the screen-specific action. Not mirrored (back link is platform-fixed).
   return (
     <Surface style={[styles.header, style]}>
-      <View style={styles.leftSlot}>
-        {tier === 'site' ? (
-          leftHanded ? gearButton : focusButton
-        ) : Platform.OS === 'ios' && onBack ? (
-          <Pressable onPress={onBack} hitSlop={8}>
-            <Text style={[styles.back, { color: theme.accent }]}>{t.back}</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      {Platform.OS === 'ios' && onBack ? (
+        <Pressable onPress={onBack} hitSlop={8}>
+          <Text style={[styles.back, { color: theme.accent }]}>{t.back}</Text>
+        </Pressable>
+      ) : null}
 
-      <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
-        {title}
-      </Text>
+      {titleNode('left')}
 
-      <View style={styles.rightSlot}>
-        {tier === 'site' ? (
-          leftHanded ? focusButton : gearButton
-        ) : (
-          headerRight
-        )}
-      </View>
+      <View style={styles.rightSlot}>{headerRight}</View>
     </Surface>
   );
 }
@@ -124,20 +156,19 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     gap: Spacing.md,
   },
-  leftSlot: {
-    width: 32,
+  controls: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: Spacing.md,
   },
   title: {
     flex: 1,
     fontSize: FontSize.xl,
     fontWeight: '700',
-    textAlign: 'center',
   },
   rightSlot: {
-    width: 32,
-    alignItems: 'center',
+    minWidth: 32,
+    alignItems: 'flex-end',
     justifyContent: 'center',
   },
   back: {

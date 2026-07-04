@@ -33,6 +33,8 @@
  *   - Onboarding guard: once settings.loaded is true and setupComplete is false, and we
  *     aren't already under /onboarding, redirect to /onboarding/language. segments are
  *     read inside the effect as a guard, intentionally kept out of its deps.
+ *   - Stack `screenOptions.animation: 'default'` (Decision 033) turns on platform-native
+ *     push/pop transitions; the modal screens keep their explicit `slide_from_bottom`.
  *   - <AppModalHost/> mounted here (Session A2·2) so showAppModal() works from any screen.
  *   - DebugOverlay is gated on `loaded && debugModeEnabled` so it never flashes before
  *     settings load and is absent for users who haven't enabled it.
@@ -132,6 +134,10 @@ export default function RootLayout() {
         screenOptions={{
           contentStyle: { backgroundColor: theme.bg },
           headerShown: false,
+          // Decision 033: platform-default native stack transitions (iOS horizontal push,
+          // Android slide/fade). OS reduce-motion is honoured by the native stack; the in-app
+          // reducedMotion setting does NOT gate this (it governs Reanimated only).
+          animation: 'default',
         }}
       >
         <Stack.Screen name="index" />

@@ -12,6 +12,17 @@ Rules:
 - If you (Claude Code) hit something genuinely undecided while porting, stop
   and ask the user rather than guessing. Then add the answer here.
 
+Numbering conventions:
+- **026 and the bare number 028 are burned — never reuse them.** Both were claimed by
+  parallel `claude/*` commits that wrote no ledger heading; reusing them re-creates the
+  same-number-two-meanings collisions this log keeps having to repair.
+- **Before appending a new decision, grep this file for the candidate number.** Parallel
+  sessions must reserve numbers through the planning thread, not race for them on a branch.
+- When a collision is repaired, **the entry cited in code file headers keeps the bare number;
+  the other gets a letter suffix** (e.g. 029b, 030b) so no header-edit cascade is triggered.
+- Highest bare number in use: **035** (2026-07-04). 031/032 = onboarding-reminders /
+  SiteSwipeView; 033/034/035 = screen transitions / header title / dark-mode default.
+
 ---
 
 ## Decision 006 — Colour token layer (colors.ts)
@@ -1641,25 +1652,18 @@ Version pins for `@bacons/apple-targets` and `react-native-android-widget` are b
 they were not `npm install`-resolved in the remote session. Confirm SDK 56 / RN 0.85
 compatible versions with `npx expo install` before the first prebuild.
 
-## Decision 028 — (collided number — see Decision 029)
-
-**Status:** Void as a ledger heading — do not reuse.
-**Reason:** "028" was independently claimed by **three** parallel `claude/*` branch commits, none of
-which wrote a ledger entry: the Norwegian-date-display change (merged to `main`, commit `f9d69c9`),
-a share-modal date-routing change (`44ecd22`), and an earlier draft of the task+habit toggle
-ratification. Because the number is ambiguous in git history, the toggle ratification was recorded
-as **Decision 029** instead. The Norwegian-date and share-modal changes are code-only and live in
-git history under their commit messages; they have no ledger heading. Do **not** reuse 028.
-
-## Decision 029 — Merged task+habit notification toggle (ratify existing code)
+## Decision 029b — Merged task+habit notification toggle (ratify existing code)
 
 **Status:** Resolved
 **Date:** 2026-07-03
-**Numbering note:** Recorded as **029**, not 028. "028" was already consumed on `main` by the
-merged Norwegian-date-display commit (`f9d69c9`, code-only, no ledger heading), and by two other
-parallel-branch commits — a share-modal date-routing change and an earlier draft of this same
-ratification. Renumbered to avoid a same-number-two-meanings collision (the parallel-branch hazard
-AGENTS.md warns about). Content is otherwise the decision as authored.
+**Numbering note (2026-07-04 repair):** retitled from "Decision 029" to **029b**. Two
+independent entries both claimed 029; the code-referenced entry (catalog-lock persistence,
+cited in `app/shopping.tsx`) keeps the bare number 029, and this merged-toggle ratification
+takes the `b` suffix. Code/prompt references to "Decision 029" that mean the notification
+toggle (`app/settings.tsx`) are updated to 029b. The bare number 028 was separately burned by
+three parallel `claude/*` commits with no ledger heading (Norwegian-date `f9d69c9`, share-modal
+`44ecd22`, an early toggle draft) — that history now lives in Decision 028's own numbering note.
+See the numbering-conventions note near the top of this ledger.
 **Phase placement:** Phase 6 settings screen (app/settings.tsx). Ratifies behavior already present in the settings.tsx stub; no new code path introduced.
 **Origin:** Decision 016's flagged "Adjacent finding" (keep task+habit notifications merged into one toggle, or split them?) — left open through the habit-notification and Home-screen phases. The merge exists implicitly in the settings.tsx stub (one Switch writing taskNotificationsEnabled AND habitNotificationsEnabled together) but was never recorded as a resolved decision. This entry closes that gap per the "no implicit-in-code decisions" rule.
 
@@ -1704,10 +1708,15 @@ Implemented as `useTaskStore.followerCycleChain(id)` (walks `followsTaskId` back
 
 ---
 
-## Decision 030 — Cross-section drag-to-merge hit-testing model + dish-join semantics
+## Decision 030b — Cross-section drag-to-merge hit-testing model + dish-join semantics
 
 **Status:** Resolved
 **Date:** 2026-07-03
+**Numbering note (2026-07-04 repair):** retitled from "Decision 030" to **030b**. 030 was
+claimed by two entries; the code-referenced one (Hints per-need, cited in `components/HintCard.tsx`
+and `components/WeekListCard.tsx` headers) keeps the bare number 030, and this hit-testing entry
+takes the `b` suffix. No code header cites "Decision 030" for hit-testing (the drag surface cites
+Decision 022), so no source edits are needed. See the numbering-conventions note near the top.
 **Phase:** Phase 6 (shopping-row drag redesign — the A2·1 surface that was STOPPED
 2026-07-01) + wires Decision 022's `mergeItems`.
 **Origin:** The STOP-and-ask gate on the drag-merge session. Decision 022 filed the
@@ -1769,6 +1778,14 @@ gap is exactly why A2·1 stopped.
 **Status:** Resolved
 **Date:** 2026-07-03
 **Depends on:** 011 (padlock-gated Containers), 011a (dish-group bulk check), 021 (stepper increment semantics)
+**Numbering note (2026-07-04 repair):** this padlock-scope entry is the canonical **028**
+(cited in `components/ShoppingRow.tsx` and `components/WeekListCard.tsx` headers). The number was
+independently claimed on `main` by three parallel `claude/*` commits that wrote no ledger entry —
+the Norwegian-date-display change (`f9d69c9`), a share-modal date-routing change (`44ecd22`), and
+an early draft of the task+habit toggle (now Decision 029b). The Norwegian-date work is **code-only,
+no ledger number**: its `lib/date.ts` / `app/share-modal.tsx` headers and its `PROGRESS_LOG.md`
+heading are updated to say so, and no longer cite "Decision 028." The prior standalone void-marker
+heading for 028 is removed in favour of this note.
 
 ### Context
 WeekListCards and the Monthly catalog are padlock-gated (Decision 011). The lock's intent
@@ -1824,6 +1841,8 @@ passed no lock-derived `disabled` to `DraggableTaskRow`, so no change was needed
 **Status:** Resolved
 **Date:** 2026-07-03
 **Depends on:** 011, 028
+**Numbering note (2026-07-04 repair):** canonical **029** — code-referenced in `app/shopping.tsx`.
+The merged task+habit notification toggle that also claimed 029 was re-suffixed to Decision 029b.
 
 ### Context
 As-built, the Monthly catalog's lock is `catalogLocked` — non-persisted local component
@@ -1858,6 +1877,9 @@ catalog-only.
 
 **Status:** Resolved
 **Date:** 2026-07-03
+**Numbering note (2026-07-04 repair):** canonical **030** — code-referenced in `components/HintCard.tsx`
+and `components/WeekListCard.tsx`. The cross-section drag-to-merge hit-testing entry that also claimed
+030 was re-suffixed to Decision 030b.
 **Closes:** the open thread under Decision 010 (HintCard reach).
 **Supersedes:** the "every scrollable screen should have a HintCard" guidance (was slated for
 `SCREEN_UPDATE_TEMPLATE.md`, which does not exist in this repo — see as-built note).
@@ -1975,3 +1997,90 @@ scaffold body; no current screen sets it.
 **Scope:** `components/ScreenScaffold.tsx` (wrap + prop), header updates in
 `ScreenScaffold`/`SiteSwipeView`. No change to SiteSwipeView's gesture logic, siteNav,
 or the individual screens. OTA-safe (react-native-gesture-handler already a dependency).
+
+---
+
+> **Numbering note for Decisions 033–035 (2026-07-04):** the build-feedback handoff drafted
+> these three as "031/032/033," but 031 and 032 were already taken on this branch
+> (onboarding-reminders / SiteSwipeView, above). Per the numbering-conventions rule, the
+> already-claimed numbers stand and these new entries take the next free bare numbers —
+> **033 = screen transitions, 034 = header title, 035 = dark-mode default.** Anywhere the
+> handoff prose says 031/032/033 for these three, read 033/034/035.
+
+## Decision 033 — Screen transitions: platform-native stack animations
+
+**Status:** Resolved (user call, 2026-07-04)
+**Context:** The rebuilt app navigates with no native-feeling transition between screens
+(build-feedback item 2). No prior decision covered navigation animation; expo-router's
+Stack was left at whatever the scaffold defaulted to.
+
+### Decision
+Use **platform-default native stack transitions** via expo-router `<Stack>` `screenOptions`
+in `app/_layout.tsx`: standard Android slide/fade and iOS horizontal push — `animation:
+'default'` with the `react-native-screens` native stack. No custom per-tier animation design.
+Sheets/modals that already mount with `presentation: 'modal'` + `slide_from_bottom` are
+unaffected.
+
+### Constraints
+- OS-level reduce-motion is honoured by the native stack automatically; the in-app
+  `reducedMotion` setting does NOT gate stack transitions (it governs in-app Reanimated
+  animations only, per ANIMATION_GUIDELINES §7).
+- `SiteSwipeView` (site-to-site swipe, Decision 032) is separate — this covers push/pop only.
+
+### As-built note (2026-07-04)
+Added `animation: 'default'` to the `<Stack screenOptions>` in `app/_layout.tsx`. The
+per-screen modal overrides (`capture`, `task-form`, `habit-form`, `share-modal`) keep their
+explicit `slide_from_bottom` and are unchanged.
+
+---
+
+## Decision 034 — Header title upper-left (amends Decision 001 chrome layout)
+
+**Status:** Resolved (user call, 2026-07-04)
+**Amends:** Decision 001, which specified "page title centered" in the top block. The build
+was faithful to 001; the record changes, not the build's compliance history.
+
+### Decision
+The screen title is **left-aligned in the top block** on both tiers:
+- **Site tier:** title upper-left; Settings (gear) and the Focus toggle both move to the
+  **right** corner (order: Focus, then gear outermost).
+- **Sub tier:** back link (iOS-only, per 001) leftmost, title immediately right of it,
+  left-aligned; the screen-specific right-action slot is unchanged. On Android (no back link)
+  the title sits flush upper-left.
+
+### Handedness reconciliation (user call, 2026-07-04)
+Decision 034 as drafted said nothing about handedness, but the header gear is
+**handedness-aware** (the `leftHanded` setting, wired in `ScreenHeader.tsx`). Reconciliation:
+**mirror the whole site-tier layout by handedness.** Right-handed (default) is exactly the
+decision above — title upper-left, controls upper-right. Left-handed mirrors it — controls
+upper-**left** (kept reachable), title upper-**right**. This preserves the handedness feature
+rather than neutering it; the only deviation from the literal "title upper-left" is that a
+left-handed user sees the title upper-right, which is the intended trade for reachability.
+Sub-tier is not mirrored (the iOS back link stays leftmost by platform convention).
+
+### Ripple
+`components/ScreenHeader.tsx` layout only. Decision 001's remaining chrome contract
+(translucent material blocks, tier rules, BottomNav) is untouched.
+
+---
+
+## Decision 035 — Dark mode defaults to OFF (light); 'system' is opt-in
+
+**Status:** Resolved (user call, 2026-07-04)
+**Context:** As-built default `darkMode: 'system'` was never a recorded decision. On devices
+with system dark mode, first launch opened dark (build-feedback item 6).
+
+### Decision
+The **fresh-install default is `darkMode: 'off'`** (light). `'system'` and `'on'` remain
+selectable in Settings (existing three-way segmented control, unchanged).
+
+### Migration rule
+Only the default changes. An existing install with a **stored** darkMode value keeps it — do
+not overwrite user-set values; the new default applies solely when no value exists in the
+settings row.
+
+### As-built note (2026-07-04)
+Changed `defaultSettings.darkMode` in `store/useSettingsStore.ts` from `'system'` to `'off'`.
+The `load()` mapping already reads a stored value with an `'off'` fallback (`readStr(row,
+'dark_mode', 'off')`), so stored user choices are preserved — the new default applies only to
+a fresh install with no settings row yet.

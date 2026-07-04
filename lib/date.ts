@@ -10,7 +10,8 @@
  *   Used by → components/QuickAddSheet.tsx, components/ShoppingQuickAddSheet.tsx,
  *             components/SharedRequestsSection.tsx, app/shopping.tsx, app/budget.tsx,
  *             app/shared.tsx, store/useShoppingListStore.ts
- *             (formatDisplayDate — Decision 028 — renders stored ISO keys as DD.MM.YYYY in NO)
+ *             (formatDisplayDate — Norwegian date display, code-only, no ledger number;
+ *             see Decision 028's numbering note — renders stored ISO keys as DD.MM.YYYY in NO)
  *             (Phase 5 stores/screens will add more callers as they're ported)
  *   Data    → none (pure functions)
  *
@@ -81,7 +82,8 @@ export function getWeekRangeContaining(today: string, weeklyResetDay: number): {
 }
 
 /**
- * Render a stored `YYYY-MM-DD` key as a user-facing date string (Decision 028).
+ * Render a stored `YYYY-MM-DD` key as a user-facing date string (Norwegian date
+ * display — code-only, no ledger number; see Decision 028's numbering note).
  * Norwegian convention is DD.MM.YYYY; English keeps the ISO `YYYY-MM-DD` form.
  * DISPLAY ONLY — never feed the result back into a store/DB key or a comparison;
  * the ISO string stays the canonical key everywhere else. Malformed input is

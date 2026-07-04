@@ -3192,8 +3192,12 @@ User tests the internal build before any store promotion.
 
 ---
 
-## 2026-07-03 — Decision 028: Norwegian Date Display Format (DD.MM.YYYY)
+## 2026-07-03 — Norwegian Date Display Format (DD.MM.YYYY) — code-only, no ledger number
 **Status: Complete** — Display-layer date formatting implemented and verified.
+**Numbering note (2026-07-04):** this was originally logged under "Decision 028," but 028 is
+the padlock-scope decision in `REBUILD_DECISIONS.md` (see its numbering note). The Norwegian-date
+work has no ledger number — it lives only in code (`lib/date.ts`, `app/share-modal.tsx`) and this
+log heading. Heading retitled so it no longer claims 028.
 
 ### Scope & Constraint
 **Display layer only** — `formatDisplayDate(iso: string, lang: 'en' | 'no')` added to `lib/date.ts`. Renders stored YYYY-MM-DD keys as DD.MM.YYYY in Norwegian, keeps ISO format in English. All storage keys, DB values, period comparisons remain YYYY-MM-DD (untouched).
@@ -3832,3 +3836,58 @@ only, no live-app run.
   header are authoritative. Optional cleanup, no decision required.
 - `_layout` cold-start reminder re-sync — newly flagged in Decision 031 as a separate
   bootstrap question, not opened here.
+
+---
+
+## 2026-07-04 — Planning: build-feedback triage (7 issues from first UnFocus test build)
+
+Issues reported after installing/updating the test build:
+1. Grey crash after one update → **runtime stranding** (OTA pushed rebuild JS to the
+   runtime-1.0.0 APK, which lacks expo-blur / expo-linear-gradient / react-native-svg).
+   No app-code fix; resolved by cutting the Decision 027 consolidation APK (maintainer-run,
+   still pending — see "Build gate" note below).
+2. No native-feeling screen transitions → Decision 033 (was drafted "031"; renumbered).
+3. Header/BottomNav overlap Android status bar + gesture bar → bug: ScreenScaffold used
+   RN core `SafeAreaView` (iOS-only no-op on Android). Already fixed on this branch
+   (`ScreenScaffold.tsx` now uses `react-native-safe-area-context`'s SafeAreaView).
+4. Headers not upper-left → build matched Decision 001 ("title centered"); record amended
+   by Decision 034 (was drafted "032"; renumbered).
+5. Poor contrast / thin flat text, esp. dark mode → (a) the old-token `ThemePalette` sweep
+   is done (see 2026-07-03 chrome-sweep entry); (b) typography weight/depth deferred by
+   Decision 001 — re-judge on device after the next build; open a decision only if it still
+   reads flat.
+6. Dark default via 'system' → Decision 035 (was drafted "033"; renumbered).
+7. Onboarding doesn't match app → covered by the onboarding verification already logged
+   (Decisions 006/010/016 compliance; see 2026-07-03 verification entries).
+
+### Ledger numbering repair applied (this session)
+The build-feedback handoff assumed 031/032/033 were free, but on this branch they collided:
+- **031** = "Onboarding finish() schedules reminders" and **032** = "SiteSwipeView wired"
+  were already Resolved and code-referenced — they keep their numbers.
+- The three new decisions therefore take the next free bare numbers: **033 = screen
+  transitions, 034 = header title upper-left, 035 = dark-mode default off.**
+- Also repaired the pre-existing 028/029/030 double-claims per the handoff's rule (code-cited
+  entry keeps the bare number, the other gets a `b` suffix): 028 = padlock scope (Norwegian-date
+  demoted to code-only, no number); 029 = catalog-lock (merged-toggle → 029b, `settings.tsx`
+  updated); 030 = hints (hit-testing → 030b). Void 028 marker removed; a numbering-conventions
+  note added near the top of `REBUILD_DECISIONS.md` (026 and bare-028 are burned).
+
+### Chrome session (handoff Part 3) — executed this session
+Gate satisfied (token/ThemePalette sweep + `_layout.tsx` bootstrap both logged complete). Scope:
+1. **Safe-area (item 1):** already fixed on this branch — no change (verified `ScreenScaffold.tsx`).
+2. **Decision 033 — transitions:** added `animation: 'default'` to the `<Stack screenOptions>` in
+   `app/_layout.tsx`; modal screens keep their explicit `slide_from_bottom`. Not gated on the
+   in-app reducedMotion setting (OS reduce-motion is honoured by the native stack).
+3. **Decision 034 — header title upper-left:** `components/ScreenHeader.tsx` now left-aligns the
+   title and groups gear+Focus in the opposite corner (Focus then gear outermost). Reconciled with
+   the handedness feature per user call — the whole site-tier row mirrors when `leftHanded` (controls
+   left, title right) so the controls stay thumb-reachable. Sub-tier unchanged (back link leftmost,
+   title left, right-action slot).
+4. **Decision 035 — dark default off:** `store/useSettingsStore.ts` `defaultSettings.darkMode`
+   `'system'` → `'off'`. Stored values preserved (load() reads with an `'off'` fallback).
+
+No new decisions were opened. Item 5's typography "depth/weight" re-judgement and the Decision 027
+consolidation APK (build gate for issue 1) remain for the maintainer/next on-device retest.
+`npx tsc --noEmit` is local-only (not available in this remote env), per repo policy — changes are
+type-safe by construction (no new imports/types; `animation: 'default'` and `textAlign` are valid
+existing option/style values).

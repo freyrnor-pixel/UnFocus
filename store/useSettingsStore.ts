@@ -253,7 +253,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   showHints: true,
   language: 'no' as Language,
   holidaysEnabled: true,
-  darkMode: 'system' as DarkMode,
+  // Decision 035: fresh-install default is light ('off'); 'system'/'on' are opt-in.
+  // Stored user choices are preserved — load() reads dark_mode with an 'off' fallback,
+  // so this default only applies when there's no settings row yet.
+  darkMode: 'off' as DarkMode,
   childProfiles: [],
   reducedMotion: false,
   particlesEnabled: true,
