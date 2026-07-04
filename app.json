@@ -26,6 +26,7 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
+      "expo-secure-store",
       "expo-updates",
       [
         "expo-notifications",
@@ -75,6 +76,8 @@
         "NSMicrophoneUsageDescription": "UnFocus uses the microphone so you can record voice notes.",
         "NSPhotoLibraryUsageDescription": "UnFocus can add a receipt photo from your library so you can scan it.",
         "NSPhotoLibraryAddUsageDescription": "UnFocus can save receipt photos to your photo library.",
+        "NSLocalNetworkUsageDescription": "UnFocus uses your local network to sync tasks and lists directly with a paired device nearby — nothing leaves your Wi-Fi.",
+        "NSBonjourServices": ["_unfocus._tcp"],
         "UIBackgroundModes": ["fetch", "processing"]
       }
     },
@@ -88,7 +91,11 @@
       "package": "com.freyrnorpixel.unfocus",
       "permissions": [
         "RECORD_AUDIO",
-        "FOREGROUND_SERVICE"
+        "FOREGROUND_SERVICE",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE",
+        "CHANGE_WIFI_MULTICAST_STATE"
       ]
     },
     "web": {

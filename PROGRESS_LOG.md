@@ -3891,3 +3891,134 @@ consolidation APK (build gate for issue 1) remain for the maintainer/next on-dev
 `npx tsc --noEmit` is local-only (not available in this remote env), per repo policy — changes are
 type-safe by construction (no new imports/types; `animation: 'default'` and `textAlign` are valid
 existing option/style values).
+
+---
+
+## Decision 038a — LAN transport foundation (2026-07-04)
+
+First of the four Decision 038 sub-gates (order A→D→B→C). Implemented the **recommended
+(★) path**: mDNS discovery + TCP sockets over shared Wi-Fi — one JS code path, iOS/Android
+parity — rather than platform-split radios.
+
+**Native surface (folds into the Decision 027/038 consolidated build — do NOT cut from a
+session):**
+- `package.json`: added `react-native-tcp-socket` `~6.3.0` + `react-native-zeroconf` `~0.13.8`
+  (pinned with `~` per the native-module range policy; not SDK-bundled).
+- `app.json` iOS `infoPlist`: `NSLocalNetworkUsageDescription` + `NSBonjourServices`
+  `["_unfocus._tcp"]`.
+- `app.json` Android `permissions`: `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE`,
+  `CHANGE_WIFI_MULTICAST_STATE`.
+- `runtimeVersion` left **unchanged** (`1.1.0`) per the sequencing rule — land config →
+  maintainer cuts build → then bump runtime.
+
+**Code:** new `lib/lanTransport.ts` — `LanTransport` class (advertise self, browse peers,
+TCP listener, outbound connect) with newline-delimited JSON envelope framing, plus
+`isTransportAvailable()` feature-detect and exported service constants (`_unfocus._tcp`,
+port 47653). Identity (deviceId/name) is **injected by the caller**, so transport holds no
+persistence.
+
+**Scope boundaries held:** no trust/pairing/HMAC (that is 038d), no LWW/tombstone/data model
+(that is 038b), no child-mode (038c). `payload` is opaque to this layer. Nothing wires
+`LanTransport` yet — it is the foundation 038d/038b consume next.
+
+`npx tsc --noEmit` is local-only (not available in this remote env), per repo policy. New deps
+aren't installed here; the module imports them by name and will typecheck once the build's
+`node_modules` are present.
+
+---
+
+## Decision 038d — Pairing & trust (2026-07-04)
+
+Second of the four Decision 038 sub-gates (order A→D→B→C). Implemented the **recommended
+(★) path**: reuse the QR handshake for a one-time key exchange, then HMAC-verify LAN messages
+against the stored peer key — rather than discovery-time trust-on-first-use.
+
+**No new native module** (per the decision) — the HMAC is pure JS.
+
+- `lib/hmac.ts` (new): self-contained SHA-256 + HMAC-SHA256 over UTF-8 → hex. Verified against
+  Node's `crypto` and RFC-style static vectors (`lib/__tests__/hmac.test.ts`), including empty,
+  multi-block, unicode/surrogate, and oversized-key cases.
+- `lib/peerAuth.ts` (new): `signOutbound(secret, from, body)` → `{ b, m }` wrapper (HMAC over
+  `from + '\n' + bodyString`); `verifyInbound(secret, from, wrapper)` → parsed body or null
+  (length-independent tag compare); `generateSecret()` (Math.random — acceptable for the physical
+  one-time QR exchange; not CSPRNG, flagged for a future crypto-RNG dep).
+- `store/usePeersStore.ts` (new): CRUD over the `peers` table; `addPeer` upserts on device_id
+  (re-pairing rotates the secret); `getSecret(deviceId)` for the verify path.
+- `lib/db.ts`: new `peers` table migration (`device_id` PK, `name`, `secret`, `paired_at`),
+  appended to the migrations array; header `Data →` updated. Config-like → spared by prune.
+- `lib/share.ts`: extended the QR schema with a `'p'` pairing payload
+  (`{ v:1, k:'p', id, nm, s }` = deviceId / name / shared secret); `decodeSharePayload` gains a
+  strict per-kind guard for it.
+
+**Scope boundaries held:** trust/pairing only. No LWW/tombstone/data model (038b), no child-mode
+(038c). The verify layer is not yet wired into `lib/lanTransport.ts` envelopes — 038b consumes
+`peerAuth` + `usePeersStore` on send/receive. The share-modal pairing UI (show/scan the 'p' QR,
+call `usePeersStore.addPeer`) is a thin follow-on wiring; the payload + persistence + trust
+mechanics all land here.
+
+Test/logic verified by running the SHA/HMAC vectors and the sign→verify / tamper / wrong-key /
+spoofed-sender / pairing-roundtrip cases through Node. `npx tsc --noEmit` remains local-only.
+
+---
+
+## Decision 038b — Live-sync data model (2026-07-04)
+
+Third of the four Decision 038 sub-gates (order A→D→B→C). Implemented the **recommended
+(★) path**: last-write-wins per row (`updated_at` + `origin_device_id` tiebreak) with
+soft-delete tombstones — rather than field-level merge. First cut = **tasks + shopping_items
+only**. No new native module.
+
+- `lib/db.ts`: migrations add `updated_at` / `origin_device_id` / `deleted_at` to `tasks` and
+  `shopping_items`, with a backfill of `updated_at` from `created_at` for pre-sync rows.
+- `lib/liveSync.ts` (new): `RowDelta` wire type; `incomingWins()` LWW resolver (newer
+  `updated_at` wins; exact tie → lexicographically-greater `origin_device_id`, deterministic +
+  symmetric); `parseDelta()` untrusted-input guard; `applyDelta()` LWW upsert with per-table
+  column whitelist and tombstone handling; `touchRow()` / `softDelete()` to stamp local edits;
+  `buildDelta()` to emit outbound. `lib/__tests__/liveSync.test.ts` covers the pure resolver +
+  parser (verified in Node).
+
+**Delegation:** directed create (parent → child) is carried as `directed: true` on the delta.
+Enforcement ("child can't reassign back") is explicitly deferred to 038c child mode — noted in
+`liveSync.ts`, because `origin_device_id` is the LWW last-writer, not a stable owner, so a
+reassign can't be distinguished at this layer. Child mode gates it by hiding reassignment UI.
+
+**Scope boundaries / wiring left:** the module is the data model + merge policy. Not yet wired:
+(1) the store writes (`useTaskStore` / `useShoppingStore`) must call `touchRow`/`softDelete` on
+every local mutation and filter `deleted_at IS NULL` on read; (2) the socket loop that signs
+deltas via `peerAuth` (038d) and ships them over `lanTransport` (038a), verifying + `applyDelta`
+on receive. Those are app-integration steps on top of this foundation. `tsc` remains local-only.
+
+---
+
+## Decision 038c — Child-mode variant (2026-07-04)
+
+Last of the four Decision 038 sub-gates (order A→D→B→C). Implemented the **recommended (★)
+path**: same binary + a `childMode` flag (not a separate build); parent password in
+expo-secure-store, only flags in SQLite.
+
+- `package.json` + `app.json`: added `expo-secure-store` `~56.0.0` (+ plugin entry) — native,
+  folds into the Decision 038a/027 consolidated build.
+- `lib/db.ts`: migration adds `child_mode` + `child_mode_password_set` INTEGER flags to the
+  `settings` row. The password is **never** in SQLite.
+- `lib/childLock.ts` (new): `setPassword`/`verifyPassword`/`hasPassword`/`clearPassword` over
+  expo-secure-store, storing a **salted SHA-256 hash** (via lib/hmac), not plaintext.
+- `store/useSettingsStore.ts`: `childMode` + `childModePasswordSet` added to the Settings type,
+  `defaultSettings`, `rowToSettings`, and `SETTINGS_COLUMNS` (the standard add-a-setting steps).
+- `lib/i18n.ts`: `childMode*` keys in both `en` and `no`.
+- `app/settings.tsx`: a "Child mode" card in the Generelt → Data group — set/change parent
+  password, enter child mode (blocked until a password exists so the child can't get stuck),
+  and a password-gated exit flow.
+
+**Scope boundaries / wiring left:** the setting, its secure password, and the enter/exit flow
+land here. The full app-shell locking while `childMode` is on — hiding Settings/sharing and
+blocking navigation away without the password across the whole app — is a shell-level wiring step
+(gate in the scaffold/nav on `settings.childMode`), flagged in the settings card comment.
+Delegation's "child can't reassign back" rule (038b's `directed` flag) is enforced here by child
+mode hiding reassignment affordances. `shareExplainLaterBuild` is kept until live sync actually
+ships (the socket loop isn't wired yet). `tsc` remains local-only per repo policy.
+
+### Decision 038 cluster complete
+All four sub-gates (038a transport, 038d pairing/trust, 038b data model, 038c child mode) are
+implemented on `claude/decision-038-ordering-bbx9dh` as foundations. Remaining cross-cutting
+wiring (the sign/send/verify socket loop tying lanTransport + peerAuth + liveSync together, store
+edit-stamping, and app-shell child-mode locking) is app integration on top of these layers.

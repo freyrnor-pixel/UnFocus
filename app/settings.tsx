@@ -23,8 +23,8 @@
  * Connections:
  *   Imports → components/AppModal, components/FormControls, components/GradientSwatch,
  *             components/ScreenScaffold, components/SectionDivider, components/Surface,
- *             components/SwatchPicker, constants/theme, lib/backup, lib/haptics, lib/i18n,
- *             lib/notifications, lib/reminders, lib/useAppTheme, store/useHabitStore,
+ *             components/SwatchPicker, constants/theme, lib/backup, lib/childLock, lib/haptics,
+ *             lib/i18n, lib/notifications, lib/reminders, lib/useAppTheme, store/useHabitStore,
  *             store/useSettingsStore, store/useShoppingStore, store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
  *   Data    → useSettingsStore (settings table; incl. essentialsModeEnabled, quietHours*,
@@ -94,6 +94,7 @@ import { useHabitStore } from '@/store/useHabitStore';
 import { syncReminders } from '@/lib/reminders';
 import { syncNotificationCategories } from '@/lib/notifications';
 import { exportBackup, pickAndParseBackup, restoreBackup, reloadApp } from '@/lib/backup';
+import { setPassword as setChildPassword, verifyPassword as verifyChildPassword } from '@/lib/childLock';
 import { useT, getTranslations } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -135,6 +136,42 @@ export default function SettingsScreen() {
   const [monthlyBudgetInput, setMonthlyBudgetInput] = useState(
     settings.monthlyBudgetNok > 0 ? String(settings.monthlyBudgetNok) : ''
   );
+  // Child mode (Decision 038c) — local input for the parent password entry/exit.
+  const [childPwInput, setChildPwInput] = useState('');
+
+  // Set (or change) the parent password, then flip the persisted flag. The secret
+  // itself only ever lives in expo-secure-store (lib/childLock), never in settings.
+  async function handleSetChildPassword() {
+    const pw = childPwInput.trim();
+    if (!pw) return;
+    await setChildPassword(pw);
+    settings.update({ childModePasswordSet: true });
+    setChildPwInput('');
+    selection();
+    showAppModal(t.childModeTitle, t.childModeSetPassword);
+  }
+
+  // Enter child mode. Requires a password to exist so the child can't get stuck.
+  function handleEnableChildMode() {
+    if (!settings.childModePasswordSet) {
+      showAppModal(t.childModeTitle, t.childModeNeedPassword);
+      return;
+    }
+    warning();
+    settings.update({ childMode: true });
+  }
+
+  // Exit child mode — gated by the parent password.
+  async function handleExitChildMode() {
+    const ok = await verifyChildPassword(childPwInput.trim());
+    setChildPwInput('');
+    if (!ok) {
+      showAppModal(t.childModeTitle, t.childModeWrongPassword);
+      return;
+    }
+    selection();
+    settings.update({ childMode: false });
+  }
 
   const TABS: { key: SettingsTab; label: string }[] = [
     { key: 'generelt', label: t.config.tabs.general },
@@ -599,6 +636,52 @@ export default function SettingsScreen() {
                   <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.restoreButton}</Text>
                 </Pressable>
                 <Text style={[styles.descText, { color: theme.textMuted, marginBottom: 0 }]}>{t.account.deviceOnlyNote}</Text>
+              </Surface>
+            </View>
+
+            {/* Child mode (Decision 038c) — locked variant gated by a parent password.
+                The password lives in expo-secure-store (lib/childLock); only the flags
+                are in settings. Full app-shell locking (hiding nav/sharing while childMode
+                is on) is wired at the shell level — this card owns set-password + enter/exit. */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.childModeTitle}</Text>
+              <Surface style={styles.card}>
+                <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeDesc}</Text>
+
+                {settings.childMode ? (
+                  <>
+                    <Text style={[styles.descText, { color: theme.bad, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeLockedNotice}</Text>
+                    <Input
+                      value={childPwInput}
+                      onChangeText={setChildPwInput}
+                      secureTextEntry
+                      placeholder={t.childModeEnterPassword}
+                      autoCapitalize="none"
+                    />
+                    <Pressable style={styles.dangerBtn} onPress={handleExitChildMode}>
+                      <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeExit}</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <>
+                    <Input
+                      value={childPwInput}
+                      onChangeText={setChildPwInput}
+                      secureTextEntry
+                      placeholder={t.childModeNewPassword}
+                      autoCapitalize="none"
+                    />
+                    <Pressable style={styles.dangerBtn} onPress={handleSetChildPassword}>
+                      <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
+                        {settings.childModePasswordSet ? t.childModeChangePassword : t.childModeSetPassword}
+                      </Text>
+                    </Pressable>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <Pressable style={styles.dangerBtn} onPress={handleEnableChildMode}>
+                      <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeEnable}</Text>
+                    </Pressable>
+                  </>
+                )}
               </Surface>
             </View>
 

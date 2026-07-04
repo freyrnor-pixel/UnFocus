@@ -10,6 +10,8 @@
  * persistentNotifEnabled toggles the always-current "today's overview" notification
  * (refreshed by app/_layout.tsx, see lib/notifications.ts's refreshPersistentNotification).
  * habitNotificationsEnabled gates all habit reminders.
+ * childMode/childModePasswordSet are Decision 038c FLAGS only — the parent password
+ * itself lives in expo-secure-store (lib/childLock), never in this row.
  *
  * Connections:
  *   Imports → lib/dataAccess
@@ -112,6 +114,11 @@ export type Settings = {
   // along in the local backup file via lib/backup.ts (they live in the settings row).
   accountName: string;
   accountCreated: string;
+  // Child-mode variant (Decision 038c) — locked-down mode gated by a parent
+  // password. Only flags persist here; the password lives in expo-secure-store
+  // (lib/childLock.ts), never in this row.
+  childMode: boolean;
+  childModePasswordSet: boolean;
 };
 
 type SettingsStore = Settings & {
@@ -187,6 +194,8 @@ function rowToSettings(row: Row): Settings {
     voiceNotesEnabled: readBool(row, 'voice_notes_enabled'),
     accountName: readStr(row, 'account_name'),
     accountCreated: readStr(row, 'account_created'),
+    childMode: readBool(row, 'child_mode'),
+    childModePasswordSet: readBool(row, 'child_mode_password_set'),
   };
 }
 
@@ -243,6 +252,8 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   voiceNotesEnabled: { col: 'voice_notes_enabled', to: bool },
   accountName: { col: 'account_name' },
   accountCreated: { col: 'account_created' },
+  childMode: { col: 'child_mode', to: bool },
+  childModePasswordSet: { col: 'child_mode_password_set', to: bool },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -299,6 +310,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   voiceNotesEnabled: false,
   accountName: '',
   accountCreated: '',
+  childMode: false,
+  childModePasswordSet: false,
   loaded: false,
   workModeSessionOverride: false,
 

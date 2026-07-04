@@ -9,7 +9,7 @@
  * Connections:
  *   Imports → lib/date
  *   Used by → app/_layout.tsx, lib/backup.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useInboxStore.ts, store/useMealStore.ts, store/useNotesStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
- *   Data    → owns ALL SQLite tables: settings, tasks, shopping_items, shopping_trips, shopping_lists, dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the energy check-in feature; table/pruning kept per the never-drop-tables rule, no longer written to), inbox_items, receipts, task_drafts, notes, task_steps
+ *   Data    → owns ALL SQLite tables: settings, tasks, shopping_items, shopping_trips, shopping_lists, dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the energy check-in feature; table/pruning kept per the never-drop-tables rule, no longer written to), inbox_items, receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key)
  *
  * Edit notes:
  *   - Add columns via the `migrations` array ONLY — never edit a CREATE TABLE to
@@ -454,6 +454,35 @@ export function initDb() {
     // IS the account's backup. Empty account_created = no local account created yet.
     "ALTER TABLE settings ADD COLUMN account_name TEXT DEFAULT ''",
     "ALTER TABLE settings ADD COLUMN account_created TEXT DEFAULT ''",
+    // Paired LAN peers (Decision 038d) — one row per remembered device from the QR
+    // key-exchange handshake. `secret` is the shared HMAC key used to verify inbound
+    // LAN envelopes (lib/peerAuth.ts); `device_id` is the peer's advertised id from
+    // 038a transport. Config-like table — pruneOldData() leaves it untouched.
+    `CREATE TABLE IF NOT EXISTS peers (
+      device_id TEXT PRIMARY KEY,
+      name TEXT DEFAULT '',
+      secret TEXT NOT NULL,
+      paired_at TEXT DEFAULT (datetime('now'))
+    )`,
+    // Live-sync bookkeeping (Decision 038b) — first cut is tasks + shopping_items only.
+    // `updated_at` drives last-write-wins on receive; `origin_device_id` is the LWW
+    // tiebreak + delegation origin; `deleted_at` is a soft-delete tombstone so a delete
+    // isn't undone by a stale peer copy. Backfill updated_at from created_at for rows that
+    // predate live sync so their first sync timestamp is meaningful.
+    "ALTER TABLE tasks ADD COLUMN updated_at TEXT DEFAULT ''",
+    "ALTER TABLE tasks ADD COLUMN origin_device_id TEXT DEFAULT ''",
+    "ALTER TABLE tasks ADD COLUMN deleted_at TEXT DEFAULT NULL",
+    "UPDATE tasks SET updated_at = created_at WHERE updated_at IS NULL OR updated_at = ''",
+    "ALTER TABLE shopping_items ADD COLUMN updated_at TEXT DEFAULT ''",
+    "ALTER TABLE shopping_items ADD COLUMN origin_device_id TEXT DEFAULT ''",
+    "ALTER TABLE shopping_items ADD COLUMN deleted_at TEXT DEFAULT NULL",
+    "UPDATE shopping_items SET updated_at = created_at WHERE updated_at IS NULL OR updated_at = ''",
+    // Child-mode variant (Decision 038c) — same binary, a locked mode gated by a
+    // parent password. Only FLAGS live here: `child_mode` (currently locked) and
+    // `child_mode_password_set` (a password exists). The password itself is NEVER
+    // stored in SQLite — it lives in expo-secure-store (lib/childLock.ts).
+    "ALTER TABLE settings ADD COLUMN child_mode INTEGER DEFAULT 0",
+    "ALTER TABLE settings ADD COLUMN child_mode_password_set INTEGER DEFAULT 0",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
