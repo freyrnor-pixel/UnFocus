@@ -778,6 +778,23 @@ const en = {
     },
   },
   // --- end W-E Config additions ---
+  // Local backup & restore (Decision 036) — device-only data portability
+  backup: {
+    title: 'Backup & restore',
+    desc: 'Save all your data to a file you keep, or restore it from one. Nothing is uploaded — the file goes wherever you choose.',
+    exportButton: 'Export backup',
+    importButton: 'Restore from backup',
+    exportError: "Couldn't create the backup file.",
+    sharingUnavailable: 'Sharing is not available on this device.',
+    invalidFile: "That doesn't look like an UnFocus backup file.",
+    tooNew: 'This backup was made by a newer version of UnFocus. Update the app first, then restore.',
+    importConfirmTitle: 'Restore this backup?',
+    importConfirmBody: (items: number) =>
+      `This replaces ALL your current data with the backup (${items} items). This cannot be undone.`,
+    importConfirmBtn: 'Restore',
+    restoreError: "Couldn't restore the backup — your current data is unchanged.",
+    restoreDone: 'Restore complete. The app will reload now.',
+  },
   // Toggle on/off labels
   on: 'on',
   off: 'off',
@@ -1438,6 +1455,23 @@ const no: typeof en = {
     },
   },
   // --- end W-E Config additions ---
+  // Local backup & restore (Decision 036) — device-only data portability
+  backup: {
+    title: 'Sikkerhetskopi',
+    desc: 'Lagre alle dataene dine til en fil du beholder, eller gjenopprett fra en. Ingenting lastes opp — filen havner der du velger.',
+    exportButton: 'Eksporter sikkerhetskopi',
+    importButton: 'Gjenopprett fra sikkerhetskopi',
+    exportError: 'Klarte ikke å lage sikkerhetskopifilen.',
+    sharingUnavailable: 'Deling er ikke tilgjengelig på denne enheten.',
+    invalidFile: 'Dette ser ikke ut som en UnFocus-sikkerhetskopi.',
+    tooNew: 'Denne sikkerhetskopien ble laget av en nyere versjon av UnFocus. Oppdater appen først, og gjenopprett deretter.',
+    importConfirmTitle: 'Gjenopprette denne sikkerhetskopien?',
+    importConfirmBody: (items: number) =>
+      `Dette erstatter ALLE dine nåværende data med sikkerhetskopien (${items} elementer). Dette kan ikke angres.`,
+    importConfirmBtn: 'Gjenopprett',
+    restoreError: 'Klarte ikke å gjenopprette sikkerhetskopien — dataene dine er uendret.',
+    restoreDone: 'Gjenoppretting fullført. Appen starter på nytt nå.',
+  },
   // Toggle on/off labels
   on: 'på',
   off: 'av',
