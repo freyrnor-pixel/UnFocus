@@ -7,7 +7,7 @@
  * with a back link (iOS) instead of Settings/Focus buttons.
  *
  * Connections:
- *   Imports → react-native, components/ScreenBackground, components/HomeHeroBackground,
+ *   Imports → react-native, react-native-safe-area-context, components/ScreenBackground, components/HomeHeroBackground,
  *             components/ParticleBackground, components/ScreenHeader, components/BottomNav,
  *             components/SiteSwipeView, lib/useAppTheme
  *   Used by → every app screen (app/index.tsx, app/shopping.tsx, etc.)
@@ -18,7 +18,10 @@
  *     L4.5 optional sticky-below-header block → L5 bottom block
  *   - ParticleBackground gating (particlesEnabled + reducedMotion) happens inside the component
  *   - Top and bottom blocks float above content with translucency — content scrolls behind them
- *   - SafeAreaView handles insets; blocks are positioned absolutely
+ *   - SafeAreaView is the react-native-safe-area-context one (applies top/bottom insets
+ *     on BOTH platforms — the built-in RN SafeAreaView is a no-op on Android, which left
+ *     the header + content under the status bar). The absolutely-positioned header/bottom
+ *     blocks are offset by that padding, so they clear the status bar and home indicator.
  *   - isHome=true mounts HomeHeroBackground; false uses ScreenBackground
  *   - **swipeNav (Decision 032)**: site-tier screens wrap L3 content in SiteSwipeView
  *     for horizontal swipe-between-sites navigation. Default on. Pass swipeNav={false}
@@ -37,7 +40,8 @@
  *     blocks (mirrors the header's own float, which every current screen already accepts).
  */
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/lib/useAppTheme';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
