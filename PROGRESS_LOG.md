@@ -3891,3 +3891,36 @@ consolidation APK (build gate for issue 1) remain for the maintainer/next on-dev
 `npx tsc --noEmit` is local-only (not available in this remote env), per repo policy — changes are
 type-safe by construction (no new imports/types; `animation: 'default'` and `textAlign` are valid
 existing option/style values).
+
+---
+
+## Decision 038a — LAN transport foundation (2026-07-04)
+
+First of the four Decision 038 sub-gates (order A→D→B→C). Implemented the **recommended
+(★) path**: mDNS discovery + TCP sockets over shared Wi-Fi — one JS code path, iOS/Android
+parity — rather than platform-split radios.
+
+**Native surface (folds into the Decision 027/038 consolidated build — do NOT cut from a
+session):**
+- `package.json`: added `react-native-tcp-socket` `~6.3.0` + `react-native-zeroconf` `~0.13.8`
+  (pinned with `~` per the native-module range policy; not SDK-bundled).
+- `app.json` iOS `infoPlist`: `NSLocalNetworkUsageDescription` + `NSBonjourServices`
+  `["_unfocus._tcp"]`.
+- `app.json` Android `permissions`: `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE`,
+  `CHANGE_WIFI_MULTICAST_STATE`.
+- `runtimeVersion` left **unchanged** (`1.1.0`) per the sequencing rule — land config →
+  maintainer cuts build → then bump runtime.
+
+**Code:** new `lib/lanTransport.ts` — `LanTransport` class (advertise self, browse peers,
+TCP listener, outbound connect) with newline-delimited JSON envelope framing, plus
+`isTransportAvailable()` feature-detect and exported service constants (`_unfocus._tcp`,
+port 47653). Identity (deviceId/name) is **injected by the caller**, so transport holds no
+persistence.
+
+**Scope boundaries held:** no trust/pairing/HMAC (that is 038d), no LWW/tombstone/data model
+(that is 038b), no child-mode (038c). `payload` is opaque to this layer. Nothing wires
+`LanTransport` yet — it is the foundation 038d/038b consume next.
+
+`npx tsc --noEmit` is local-only (not available in this remote env), per repo policy. New deps
+aren't installed here; the module imports them by name and will typecheck once the build's
+`node_modules` are present.
