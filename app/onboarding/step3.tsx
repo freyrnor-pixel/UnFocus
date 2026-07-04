@@ -91,7 +91,7 @@ export default function OnboardingStep3() {
               key={i}
               style={[
                 styles.dot,
-                { backgroundColor: theme.surfaceMuted },
+                { backgroundColor: theme.border },
                 i === 2 && { ...styles.dotActive, backgroundColor: theme.accent },
               ]}
             />

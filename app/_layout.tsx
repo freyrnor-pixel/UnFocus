@@ -10,6 +10,8 @@
  *
  * Connections:
  *   Imports → expo-router, expo-status-bar, react-native-gesture-handler,
+ *             react-native-safe-area-context (SafeAreaProvider — supplies insets to every
+ *             screen's SafeAreaView so content clears the status bar on Android too),
  *             @expo-google-fonts/nunito, lib/db, lib/useAppTheme,
  *             store/useSettingsStore, store/useAutomationStore, store/useCatalogStore,
  *             store/useHabitStore, store/useHealthStore, store/useInboxStore,
@@ -39,6 +41,7 @@ import React, { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   useFonts,
   Nunito_400Regular,
@@ -123,6 +126,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
@@ -150,6 +154,7 @@ export default function RootLayout() {
       </Stack>
       {loaded && debugModeEnabled && <DebugOverlay />}
       <AppModalHost />
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

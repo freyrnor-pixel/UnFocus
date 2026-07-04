@@ -11,8 +11,7 @@
  * Connections:
  *   Imports → constants/petData, constants/theme, lib/haptics, lib/useAppTheme,
  *             store/useSettingsStore, store/useShoppingStore
- *   Used by → app/index.tsx, app/onboarding/step6.tsx — neither ported yet; this
- *             is a leaf ahead of its screens
+ *   Used by → app/index.tsx, app/onboarding/step6.tsx
  *   Props   → completedToday: triggers excited animation when it increases
  *
  * Edit notes:
@@ -74,6 +73,7 @@ type FoodProps = {
 };
 
 function DraggableFoodItem({ item, petRef, onFedRef }: FoodProps) {
+  const theme = useAppTheme();
   const translateX  = useSharedValue(0);
   const translateY  = useSharedValue(0);
   const chipScale   = useSharedValue(1);
@@ -128,7 +128,7 @@ function DraggableFoodItem({ item, petRef, onFedRef }: FoodProps) {
     <GestureDetector gesture={panGesture}>
       <Reanimated.View style={[styles.foodWrap, animStyle]}>
         <Text style={styles.foodEmoji}>{item.emoji}</Text>
-        <Text style={styles.foodLabel} numberOfLines={1}>{item.label}</Text>
+        <Text style={[styles.foodLabel, { color: theme.textMuted }]} numberOfLines={1}>{item.label}</Text>
       </Reanimated.View>
     </GestureDetector>
   );
@@ -424,7 +424,6 @@ const styles = StyleSheet.create({
   foodLabel: {
     fontSize: 9,
     textAlign: 'center',
-    color: '#888',
   },
   petAnchor: {
     width: 96,

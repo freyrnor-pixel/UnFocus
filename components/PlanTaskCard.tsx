@@ -14,8 +14,8 @@
  * below the last unfinished task so it isn't jammed against the rail's end.
  *
  * Connections:
- *   Imports → components/Surface, constants/theme, lib/haptics, lib/i18n, lib/useAppTheme,
- *             store/useTaskStore (Task type only)
+ *   Imports → components/Surface, components/CompletionGlow, constants/theme, lib/haptics,
+ *             lib/i18n, lib/useAppTheme, store/useTaskStore (Task type only)
  *   Used by → app/plans.tsx (interactive); app/index.tsx (Home — read-only preview off-focus per
  *             Decision 009a, and non-readOnly essential-filtered surface in Focus mode per 009 #4)
  *   Data    → pure presentational; reads no stores. Tasks + callbacks are passed in.
@@ -42,11 +42,17 @@
  *     `onSeeMore` to show a "See everything →" link routing to the full screen.
  *   - Anytime (untimed) tasks have no rail position; they render as plain dotted rows
  *     above the timed rail (same as DayTimeline). Only timed→timed gaps are proportional.
+ *   - **Completion feedback**: a completed task immediately leaves the pending rail for
+ *     the (collapsed) done zone, so a per-row animation would unmount before it plays.
+ *     Instead a card-level `CompletionGlow` blooms when the done count rises (tracked via
+ *     `completionPulse`) — the card stays mounted, so the "small win" reward shows. This
+ *     mirrors the habit-card glow (app/habits.tsx). The success() haptic is in handleToggle.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
+import CompletionGlow from '@/components/CompletionGlow';
 import { Task } from '@/store/useTaskStore';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -140,6 +146,13 @@ export default function PlanTaskCard({
 
   const [expanded, setExpanded] = useState(false);
   const [doneOpen, setDoneOpen] = useState(false);
+  // Completion reward: a task marked done leaves the pending rail and drops into the
+  // (collapsed) done zone on the same render, so a per-row animation would unmount
+  // before it could play. Instead bloom a card-level CompletionGlow when the done count
+  // rises — the card stays mounted, so the "small win" reward is actually visible.
+  // Mirrors the habit-card glow pattern (app/habits.tsx). success() haptic fires in
+  // handleToggle; the glow self-skips under reduce-motion.
+  const [completionPulse, setCompletionPulse] = useState(0);
 
   // Decision 020 — surfaced followers: for each DONE task, its pending follower is
   // highlighted and (sub-question b) pulled into this view even if it lives on another
@@ -168,6 +181,13 @@ export default function PlanTaskCard({
     [dayTasks]
   );
   const doneTasks = useMemo(() => dayTasks.filter((task) => task.done), [dayTasks]);
+
+  // Pulse the card glow whenever the done count rises (a task was just completed).
+  const prevDoneCount = useRef(doneTasks.length);
+  useEffect(() => {
+    if (doneTasks.length > prevDoneCount.current) setCompletionPulse((n) => n + 1);
+    prevDoneCount.current = doneTasks.length;
+  }, [doneTasks.length]);
 
   const pendingCount = anytimePending.length + timedPending.length;
 
@@ -347,6 +367,7 @@ export default function PlanTaskCard({
     <Surface surfaceContext="ambient" style={[styles.card, styles.cardRow]}>
       <View style={[styles.accent, { backgroundColor: theme.featPlan }]} />
       <View style={styles.cardContent}>
+        <CompletionGlow trigger={completionPulse} color={theme.accent} radius={Radius.md} />
         {showEmpty ? (
           <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.timelineEmpty}</Text>
         ) : allDone ? (
@@ -401,7 +422,7 @@ const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
   cardRow: { flexDirection: 'row' },
   accent: { width: 4, alignSelf: 'stretch' },
-  cardContent: { flex: 1, padding: Spacing.md },
+  cardContent: { flex: 1, padding: Spacing.md, position: 'relative' },
   rail: { paddingVertical: Spacing.xs },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
   row: { flexDirection: 'row', alignItems: 'flex-start' },

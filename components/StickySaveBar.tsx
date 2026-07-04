@@ -63,22 +63,24 @@ export function StickySaveBar({
 
   useEffect(() => {
     if (visible) {
+      // Entrance: slide/opacity in with ease-out (ANIMATION_GUIDELINES §2).
       translateY.value = withTiming(0, {
         duration: ANIMATION_DURATION,
-        easing: Easing.ease,
+        easing: Easing.out(Easing.cubic),
       });
       opacity.value = withTiming(1, {
         duration: ANIMATION_DURATION,
-        easing: Easing.ease,
+        easing: Easing.out(Easing.cubic),
       });
     } else {
+      // Exit: ease-in.
       translateY.value = withTiming(100, {
         duration: ANIMATION_DURATION,
-        easing: Easing.ease,
+        easing: Easing.in(Easing.cubic),
       });
       opacity.value = withTiming(0, {
         duration: ANIMATION_DURATION,
-        easing: Easing.ease,
+        easing: Easing.in(Easing.cubic),
       });
     }
   }, [visible]);

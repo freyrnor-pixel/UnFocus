@@ -50,22 +50,24 @@ export function SaveButton({ visible, onPress, label }: SaveButtonProps) {
 
   useEffect(() => {
     if (visible) {
+      // Entrance: ease-out so it settles in quickly (ANIMATION_GUIDELINES §2).
       opacity.value = withTiming(1, {
         duration: ANIMATION_DURATION,
-        easing: Easing.ease,
+        easing: Easing.out(Easing.cubic),
       });
       scale.value = withTiming(1, {
         duration: ANIMATION_DURATION,
-        easing: Easing.ease,
+        easing: Easing.out(Easing.cubic),
       });
     } else {
+      // Exit: ease-in.
       opacity.value = withTiming(0, {
         duration: ANIMATION_DURATION,
-        easing: Easing.ease,
+        easing: Easing.in(Easing.cubic),
       });
       scale.value = withTiming(0.92, {
         duration: ANIMATION_DURATION,
-        easing: Easing.ease,
+        easing: Easing.in(Easing.cubic),
       });
     }
   }, [visible]);

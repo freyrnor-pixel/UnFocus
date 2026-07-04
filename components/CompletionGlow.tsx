@@ -16,7 +16,7 @@
  *
  * Connections:
  *   Imports → react-native-reanimated, constants/theme, lib/useAppTheme
- *   Used by → (not yet mounted — Phase 3a foundational port; TaskItem/habit completion flows wire this in later)
+ *   Used by → components/PlanTaskCard.tsx (card-level task-completion glow), app/habits.tsx (habit completion)
  *   Data    → reads reducedMotion via useAccessibility(); colour from useAppTheme().good
  *
  * Edit notes:

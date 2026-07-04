@@ -9,12 +9,14 @@
  * (expo-linear-gradient); orb halo and animations stay as concentric circles.
  *
  * Connections:
- *   Imports → lib/useAppTheme (useIsDark), expo-linear-gradient
+ *   Imports → lib/useAppTheme (useIsDark, useAccessibility), expo-linear-gradient
  *   Used by → app/index.tsx, replacing ScreenBackground on the home screen
  *
  * Edit notes:
  *   - Render as the first child inside the SafeAreaView, same contract as
  *     ScreenBackground: absolutely positioned, pointerEvents="none".
+ *   - Looping motion (rising dots + pulse rings) is gated on !reducedMotion per
+ *     ANIMATION_GUIDELINES §6; the static sky/orb/ground always render.
  *   - Sky and ground are now true LinearGradient components (Decision 007).
  *   - The orb is centered at 50%/50%, same anchor as TreeWatermark's
  *     centered wrap in app/index.tsx, so the halo sits behind the tree
@@ -25,7 +27,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useIsDark } from '@/lib/useAppTheme';
+import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
 
 type Percent = `${number}%`;
 
@@ -132,6 +134,10 @@ function OrbHalo({ size, color }: { size: number; color: string }) {
 
 export default function HomeHeroBackground() {
   const isDark = useIsDark();
+  // ANIMATION_GUIDELINES §6 (ADHD): no always-on looping background motion when the
+  // user has asked for reduced motion. The static sky/orb/ground stay; the rising dots
+  // and pulse rings — the only looping pieces — are dropped.
+  const { reducedMotion } = useAccessibility();
 
   const palette = isDark
     ? {
@@ -160,7 +166,7 @@ export default function HomeHeroBackground() {
       />
 
       <OrbHalo size={280} color={palette.orb} />
-      {isDark && (
+      {isDark && !reducedMotion && (
         <>
           <PulseRing delay={0} color={palette.ring} />
           <PulseRing delay={1660} color={palette.ring} />
@@ -168,7 +174,7 @@ export default function HomeHeroBackground() {
         </>
       )}
 
-      {DOTS.map((spec, i) => (
+      {!reducedMotion && DOTS.map((spec, i) => (
         <RisingDot key={i} spec={spec} color={palette.dot} />
       ))}
 

@@ -105,7 +105,7 @@ export default function OnboardingWelcome() {
                 key={i}
                 style={[
                   styles.dot,
-                  { backgroundColor: theme.surfaceMuted },
+                  { backgroundColor: theme.border },
                   i === 0 && { ...styles.dotActive, backgroundColor: theme.accent },
                 ]}
               />

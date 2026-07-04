@@ -3,7 +3,11 @@
  *
  * useAppTheme() reads the user's colorTheme + darkMode from the settings store and
  * the system colour scheme, then returns the matching ThemePalette (Decision 006)
- * via getThemePalette() from constants/colors.ts.
+ * via getThemePalette() from constants/colors.ts. It also re-derives `accentInk` with
+ * contrastOn(accent) so text/icons on an accent fill stay WCAG-legible on every theme
+ * (the palette's literal accentInk is a placeholder — several accents are too light
+ * for white ink); memoized on the palette reference so consumers keep referential
+ * stability.
  * useIsDark() returns just the resolved dark/light boolean.
  * useAccessibility() returns { reducedMotion, getFontSize } for animation and font scaling.
  * useScaledStyles() takes a StyleSheet.create() result and rescales every fontSize per the user's text-size setting.
@@ -27,14 +31,22 @@ import { useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, useColorScheme } from 'react-native';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { getThemePalette, ThemePalette, ThemeName } from '@/constants/colors';
-import { getFontSize, FontSizeScale } from '@/constants/theme';
+import { getFontSize, FontSizeScale, contrastOn } from '@/constants/theme';
 
 export function useAppTheme(): ThemePalette {
   const colorTheme = useSettingsStore((s) => s.colorTheme) as ThemeName;
   const darkMode = useSettingsStore((s) => s.darkMode);
   const systemScheme = useColorScheme();
   const isDark = darkMode === 'on' || (darkMode === 'system' && systemScheme === 'dark');
-  return getThemePalette(colorTheme, isDark);
+  const palette = getThemePalette(colorTheme, isDark);
+  // accentInk must stay legible on `accent`. Several themes ship a light accent
+  // (e.g. summer #E8794F, fluffyPink #E07AA8) where the palette's hardcoded white ink
+  // fails WCAG AA. Re-derive it per-theme with contrastOn(), which picks dark-vs-white
+  // by whichever wins contrast — self-correcting for any future theme.
+  return useMemo(
+    () => ({ ...palette, accentInk: contrastOn(palette.accent) }),
+    [palette],
+  );
 }
 
 export function useIsDark(): boolean {

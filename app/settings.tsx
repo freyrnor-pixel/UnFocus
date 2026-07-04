@@ -254,7 +254,7 @@ export default function SettingsScreen() {
                       <Text style={[
                         styles.langText,
                         { color: theme.text },
-                        settings.language === lang && { color: theme.textInverse },
+                        settings.language === lang && { color: theme.accentInk },
                       ]}>
                         {lang === 'no' ? t.norwegian : t.english}
                       </Text>
@@ -332,7 +332,7 @@ export default function SettingsScreen() {
                         <Text style={[
                           styles.dayText,
                           { color: theme.text },
-                          active && { color: theme.textInverse },
+                          active && { color: theme.accentInk },
                         ]}>
                           {label.slice(0, 3)}
                         </Text>
@@ -553,7 +553,7 @@ export default function SettingsScreen() {
                     <Text style={[
                       styles.dayText,
                       { color: theme.text },
-                      settings.weeklyResetDay === i && { color: theme.textInverse },
+                      settings.weeklyResetDay === i && { color: theme.accentInk },
                     ]}>
                       {label.slice(0, 3)}
                     </Text>

@@ -1,15 +1,18 @@
 /**
  * ScreenHeader.tsx — the standard screen top bar with tier-aware chrome.
  *
- * Tier 'site': Settings (gear) left, title centered, Focus-mode right.
+ * Tier 'site': Settings (gear) and Focus-mode (eye) in the two corners, title centered.
+ * Which corner each takes follows the `leftHanded` setting — gear top-right by default,
+ * top-left when left-handed (eye takes the opposite corner).
  * Tier 'sub': back link left (iOS only), title centered, right slot for
  * screen-specific action. Wrapped in a translucent Surface that picks up
  * the user's bubbleMaterial setting.
  *
  * Connections:
- *   Imports → constants/theme, lib/i18n, lib/useAppTheme, components/Surface, expo-router
+ *   Imports → constants/theme, lib/i18n, lib/useAppTheme, store/useSettingsStore,
+ *             components/Surface, expo-router
  *   Used by → ScreenScaffold (composition layer)
- *   Data    → none (presentational; press handlers navigate)
+ *   Data    → reads `leftHanded` from the settings store to pick gear/eye corners
  *
  * Edit notes:
  *   - tier='site' is for top-level screens (Shopping, Plans, Home, Health, Scan)
@@ -20,7 +23,8 @@
  *     Home-only + ephemeral, so every other site screen omits both props and the eye stays a
  *     harmless no-op placeholder (its historical Phase-1 state) rather than showing an active
  *     control that does nothing.
- *   - Settings press navigates to /settings; flag for resolution in phase 2
+ *   - Settings (gear) press navigates to /settings; gear/eye corner placement is
+ *     handedness-aware (reads `leftHanded`) — gear right by default, left when set
  *   - iOS-only back link on sub-screens; Android uses system back
  */
 import React from 'react';
@@ -30,6 +34,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { FontSize, Spacing } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import Surface from '@/components/Surface';
 
 type Tier = 'site' | 'sub';
@@ -49,6 +54,7 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
   const t = useT();
   const theme = useAppTheme();
   const router = useRouter();
+  const leftHanded = useSettingsStore((s) => s.leftHanded);
 
   const handleSettingsPress = () => {
     router.push('/settings');
@@ -59,13 +65,35 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
     onToggleFocus?.();
   };
 
+  // Site-tier chrome: the settings gear and the Focus-mode eye. Their corners follow
+  // the `leftHanded` setting (whose label promises it "moves the menu button to the
+  // left side"): gear sits top-right by default, and swaps to top-left when left-handed.
+  const gearButton = (
+    <Pressable onPress={handleSettingsPress} hitSlop={8} accessibilityRole="button">
+      <Ionicons name="settings-outline" size={24} color={theme.text} />
+    </Pressable>
+  );
+  const focusButton = (
+    <Pressable
+      onPress={handleFocusPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityState={{ selected: !!focusActive }}
+      accessibilityLabel={focusActive ? t.focusActive : t.focusInactive}
+    >
+      <Ionicons
+        name={focusActive ? 'eye' : 'eye-outline'}
+        size={24}
+        color={focusActive ? theme.accent : theme.text}
+      />
+    </Pressable>
+  );
+
   return (
     <Surface style={[styles.header, style]}>
       <View style={styles.leftSlot}>
         {tier === 'site' ? (
-          <Pressable onPress={handleSettingsPress} hitSlop={8}>
-            <Ionicons name="settings-outline" size={24} color={theme.text} />
-          </Pressable>
+          leftHanded ? gearButton : focusButton
         ) : Platform.OS === 'ios' && onBack ? (
           <Pressable onPress={onBack} hitSlop={8}>
             <Text style={[styles.back, { color: theme.accent }]}>{t.back}</Text>
@@ -79,19 +107,7 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
 
       <View style={styles.rightSlot}>
         {tier === 'site' ? (
-          <Pressable
-            onPress={handleFocusPress}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityState={{ selected: !!focusActive }}
-            accessibilityLabel={focusActive ? t.focusActive : t.focusInactive}
-          >
-            <Ionicons
-              name={focusActive ? 'eye' : 'eye-outline'}
-              size={24}
-              color={focusActive ? theme.accent : theme.text}
-            />
-          </Pressable>
+          leftHanded ? focusButton : gearButton
         ) : (
           headerRight
         )}

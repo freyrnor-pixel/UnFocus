@@ -16,16 +16,23 @@
  *   Hint card: hintBg, hintBorder, hintAccent
  *   Feature accents: featTask, featPlan, featHabit, featShop, featMeal, featBudget, featNote, featHealth
  *
- * Dark-mode constraints:
+ * Contrast constraints (light AND dark):
  *   1. text and textMuted both ≥ 4.5:1 contrast against both bg AND surface
+ *      (light-mode textMuted was darkened in this file for comfortable AA at 12px)
  *   2. border is lighter than surface in dark mode
  *   3. surface is lighter than bg in dark mode
  *   4. accents desaturated ~25% in dark to avoid neon clash
  *
+ * accentInk note:
+ *   The `accentInk` values below are effectively placeholders. `lib/useAppTheme.ts`
+ *   OVERRIDES accentInk at runtime with contrastOn(accent) so text/icons on an accent
+ *   fill are always WCAG-legible (several accents are too light for white ink). Don't
+ *   rely on the literal accentInk here; change `accent` and the ink follows automatically.
+ *
  * Connections:
  *   Imports → —
- *   Used by → lib/useAppTheme.ts
- *   Data    → pure constants (no runtime computation)
+ *   Used by → lib/useAppTheme.ts (which re-derives accentInk via contrastOn)
+ *   Data    → pure constants (accentInk is re-derived downstream in useAppTheme)
  */
 
 export type ThemeName = 'default' | 'summer' | 'nature' | 'fluffyPink' | 'gothic' | 'blackWhite';
@@ -145,7 +152,7 @@ const defaultLight: ThemePalette = {
   surfaceMuted: '#F0F6FB',
   surfaceInset: '#E8F2FE',
   text: '#0F1C2E',
-  textMuted: '#5C7299',
+  textMuted: '#4E6182',
   textInverse: '#FFFFFF',
   border: '#D4E5F8',
   borderStrong: '#E8F0FC',
@@ -215,7 +222,7 @@ const summerLight: ThemePalette = {
   surfaceMuted: '#FDF6EE',
   surfaceInset: '#F5EFE7',
   text: '#3F2817',
-  textMuted: '#7A5F42',
+  textMuted: '#685138',
   textInverse: '#FFFFFF',
   border: '#EDD5C3',
   borderStrong: '#F5E8DC',
@@ -285,7 +292,7 @@ const natureLight: ThemePalette = {
   surfaceMuted: '#F0F8F2',
   surfaceInset: '#E8F5EC',
   text: '#0D3018',
-  textMuted: '#4A7A58',
+  textMuted: '#3F684B',
   textInverse: '#FFFFFF',
   border: '#C0E8CC',
   borderStrong: '#D8F0DC',
@@ -355,7 +362,7 @@ const fluffyPinkLight: ThemePalette = {
   surfaceMuted: '#FFF0F7',
   surfaceInset: '#FDE7F1',
   text: '#4A1530',
-  textMuted: '#9B5E7C',
+  textMuted: '#845069',
   textInverse: '#FFFFFF',
   border: '#F8D3E4',
   borderStrong: '#FBE2EE',
@@ -425,7 +432,7 @@ const gothicLight: ThemePalette = {
   surfaceMuted: '#F3F0FB',
   surfaceInset: '#F0EAFF',
   text: '#200E40',
-  textMuted: '#6B5A8A',
+  textMuted: '#5B4D75',
   textInverse: '#FFFFFF',
   border: '#DDD6FE',
   borderStrong: '#EAE5F8',
@@ -495,7 +502,7 @@ const blackWhiteLight: ThemePalette = {
   surfaceMuted: '#EBEBEB',
   surfaceInset: '#E0E0E0',
   text: '#141414',
-  textMuted: '#5A5A5A',
+  textMuted: '#4D4D4D',
   textInverse: '#FFFFFF',
   border: '#D0D0D0',
   borderStrong: '#E0E0E0',
