@@ -2084,3 +2084,59 @@ Changed `defaultSettings.darkMode` in `store/useSettingsStore.ts` from `'system'
 The `load()` mapping already reads a stored value with an `'off'` fallback (`readStr(row,
 'dark_mode', 'off')`), so stored user choices are preserved — the new default applies only to
 a fresh install with no settings row yet.
+
+---
+
+## Decision 037 — Cross-device sharing & family/work modes (architecture gate)
+
+**Status:** Gate answered by maintainer (2026-07-04) — resolves onto the highest-complexity
+path. **Still NOT code-ready:** the chosen transport is native-build-gated and Q2 opened a new
+sub-decision. No sharing/delegation code proceeds until the follow-on sub-gates below are
+resolved. Part A (work-mode scoping) and Decision 036 backup work are unaffected by this gate.
+
+### Split (unchanged from the gate framing)
+- **Part A — Work mode:** extension of the existing mode, OTA-deliverable, **not gated**. A
+  separate follow-up decision enumerates what "properly" adds (which content types are
+  work-scoped; whether habits/reminders respect the split). No transport involved.
+- **Part B — Sharing & delegation:** the STOP gate. Hard constraint stands — **device-only,
+  between-devices, no accounts, no servers.** Foundation already shipping: `useSharedStore` +
+  `share-modal.tsx` do a one-time QR copy (`direction: 'in'/'out'`); i18n
+  `shareExplainLaterBuild` already promises live sync "in a later build."
+
+### Maintainer decisions
+- **Q1 — Sharing depth: (b) live device-to-device sync, no server.** Sub-transport is
+  **(b)(i) local-network peer sync** (implied by Q3 = adds native modules; (b)(ii) QR-delta
+  and (b)(iii) shared-file are both zero-native and were not chosen). One-time copy stays as
+  the fallback/first-contact path.
+- **Q2 — Delegation & "fairness": BOTH.** (1) A child receives delegated tasks on **their own
+  device** (requires the Q1(b) transport), AND (2) a **setting that converts an install into a
+  child-mode app variant**, with a **password set by the parent** to leave/reconfigure that
+  mode. This is broader than either offered option and introduces new architecture (see
+  sub-gates). Existing on-device child profiles (`habitAddChild` / `useHabitStore`) remain the
+  local building block but do not by themselves satisfy Q2.
+- **Q3 — Native surface: adds native modules → new APK/AAB, build-gated.** Land config on
+  `main`, hand off to the maintainer to cut the build; coordinate with the Decision 027
+  consolidation build. Do NOT bump `runtimeVersion` until that build exists (see AGENTS.md
+  "Runtime version" sequencing).
+
+### Follow-on sub-gates (must be answered before a coding session — still STOP)
+1. **LAN transport tech per platform.** iOS MultipeerConnectivity vs Android Wi-Fi Direct /
+   Nearby Connections — no single cross-platform Expo module covers both cleanly. Decide the
+   library (or config-plugin/native-module) and the iOS/Android parity story. This is the
+   package that forces the new APK.
+2. **Live-sync data model.** Delta format and conflict policy for ongoing shared state with no
+   server truth: last-write-wins per row vs field-level merge; which tables are shareable
+   (tasks, shopping list) and their ownership/`direction` semantics beyond the current
+   one-shot copy.
+3. **Child-mode app variant.** Same binary gated by a mode flag vs a distinct build; what the
+   child variant hides/locks; parent password storage (**`expo-secure-store` → another native
+   dependency**, folds into the same build). Define lock/unlock and re-parenting flow.
+4. **Pairing & trust.** How two devices establish and remember a peer (QR handshake reused for
+   pairing?), and how a delegated task is authenticated as coming from the paired parent
+   device.
+
+### Ripple / not-yet-touched
+No code changed by this entry. Anticipated surfaces when the sub-gates clear: `useSharedStore`,
+`share-modal.tsx`, `useHabitStore` (child profiles), a new transport lib + `app.json` plugins,
+`store/useSettingsStore.ts` (child-mode + password fields, new migration), and `lib/i18n.ts`
+(retire/replace `shareExplainLaterBuild`). All build-gated per Q3.
