@@ -39,7 +39,7 @@
  *     habitNotificationsEnabled changes re-sync habit reminders; a language change also
  *     re-registers the interactive notification action button labels via syncNotificationCategories.
  *   - The "Planvarsler"/Plan notifications toggle writes both taskNotificationsEnabled AND
- *     habitNotificationsEnabled together (Decision 029) — there is no separate habit-notification
+ *     habitNotificationsEnabled together (Decision 029b) — there is no separate habit-notification
  *     UI; taskNotificationsEnabled is read as the display value for both since they're always
  *     kept equal.
  *   - Quiet-hours hint copy (Decision 016 Q4): habit occurrences inside quiet hours are SKIPPED,

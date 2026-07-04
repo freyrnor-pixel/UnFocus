@@ -19,7 +19,8 @@
  * Edit notes:
  *   - All visible strings go through useT(); kind param ('t' = tasks, anything else = shopping) drives the whole sheet.
  *   - Source lists are filtered to unchecked shopping / future-dated undone tasks (today via todayStr()); payload built with encodeSharePayload.
- *   - Task dates in the UI are rendered via formatDisplayDate (Decision 028) — DD.MM.YYYY in Norwegian, ISO in English.
+ *   - Task dates in the UI are rendered via formatDisplayDate (Norwegian date display,
+ *     code-only, no ledger number — see Decision 028's numbering note) — DD.MM.YYYY in Norwegian, ISO in English.
  *   - The post-share "Done" button uses dismissAll() + push('/shared') so the result matches
  *     the app's <=2-deep site-stack invariant regardless of which site screen opened it.
  *   - Decision 001 tier='sub' scaffold; Decision 006 tokens only (accent/good/textMuted).
