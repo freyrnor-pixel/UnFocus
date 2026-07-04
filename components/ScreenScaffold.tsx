@@ -9,7 +9,7 @@
  * Connections:
  *   Imports → react-native, react-native-safe-area-context, components/ScreenBackground, components/HomeHeroBackground,
  *             components/ParticleBackground, components/ScreenHeader, components/BottomNav,
- *             components/SiteSwipeView, lib/useAppTheme
+ *             components/SiteSwipeView, components/SiteSwipeDots, lib/useAppTheme
  *   Used by → every app screen (app/index.tsx, app/shopping.tsx, etc.)
  *   Data    → none (presentational; all logic in child screens)
  *
@@ -49,6 +49,7 @@ import ParticleBackground from '@/components/ParticleBackground';
 import ScreenHeader from '@/components/ScreenHeader';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
 import SiteSwipeView from '@/components/SiteSwipeView';
+import SiteSwipeDots from '@/components/SiteSwipeDots';
 
 type Tier = 'site' | 'sub';
 
@@ -150,6 +151,15 @@ export default function ScreenScaffold({
         </View>
       )}
 
+      {/* L4.8: swipe-between-sites page dots — sits just above BottomNav, signalling
+          the sites form a swipeable strip (Decision 032 had no visual affordance).
+          Only on swipeable site screens; pointer-events off so it never blocks touches. */}
+      {tier === 'site' && swipeNav && (
+        <View style={[styles.swipeDotsBlock, { bottom: BOTTOM_NAV_HEIGHT + 6 }]} pointerEvents="none">
+          <SiteSwipeDots />
+        </View>
+      )}
+
       {/* L5: Bottom block (BottomNav, site-tier only) */}
       {tier === 'site' && (
         <View style={[styles.bottomBlock, { height: BOTTOM_NAV_HEIGHT }]}>
@@ -189,5 +199,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100,
+  },
+  swipeDotsBlock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 99,
   },
 });
