@@ -3924,3 +3924,37 @@ persistence.
 `npx tsc --noEmit` is local-only (not available in this remote env), per repo policy. New deps
 aren't installed here; the module imports them by name and will typecheck once the build's
 `node_modules` are present.
+
+---
+
+## Decision 038d — Pairing & trust (2026-07-04)
+
+Second of the four Decision 038 sub-gates (order A→D→B→C). Implemented the **recommended
+(★) path**: reuse the QR handshake for a one-time key exchange, then HMAC-verify LAN messages
+against the stored peer key — rather than discovery-time trust-on-first-use.
+
+**No new native module** (per the decision) — the HMAC is pure JS.
+
+- `lib/hmac.ts` (new): self-contained SHA-256 + HMAC-SHA256 over UTF-8 → hex. Verified against
+  Node's `crypto` and RFC-style static vectors (`lib/__tests__/hmac.test.ts`), including empty,
+  multi-block, unicode/surrogate, and oversized-key cases.
+- `lib/peerAuth.ts` (new): `signOutbound(secret, from, body)` → `{ b, m }` wrapper (HMAC over
+  `from + '\n' + bodyString`); `verifyInbound(secret, from, wrapper)` → parsed body or null
+  (length-independent tag compare); `generateSecret()` (Math.random — acceptable for the physical
+  one-time QR exchange; not CSPRNG, flagged for a future crypto-RNG dep).
+- `store/usePeersStore.ts` (new): CRUD over the `peers` table; `addPeer` upserts on device_id
+  (re-pairing rotates the secret); `getSecret(deviceId)` for the verify path.
+- `lib/db.ts`: new `peers` table migration (`device_id` PK, `name`, `secret`, `paired_at`),
+  appended to the migrations array; header `Data →` updated. Config-like → spared by prune.
+- `lib/share.ts`: extended the QR schema with a `'p'` pairing payload
+  (`{ v:1, k:'p', id, nm, s }` = deviceId / name / shared secret); `decodeSharePayload` gains a
+  strict per-kind guard for it.
+
+**Scope boundaries held:** trust/pairing only. No LWW/tombstone/data model (038b), no child-mode
+(038c). The verify layer is not yet wired into `lib/lanTransport.ts` envelopes — 038b consumes
+`peerAuth` + `usePeersStore` on send/receive. The share-modal pairing UI (show/scan the 'p' QR,
+call `usePeersStore.addPeer`) is a thin follow-on wiring; the payload + persistence + trust
+mechanics all land here.
+
+Test/logic verified by running the SHA/HMAC vectors and the sign→verify / tamper / wrong-key /
+spoofed-sender / pairing-roundtrip cases through Node. `npx tsc --noEmit` remains local-only.
