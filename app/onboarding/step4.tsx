@@ -1,15 +1,16 @@
 /**
  * step4.tsx — Notification confirmation (guided step 4 of 6)
  *
- * Informs the user that task notifications and weekly shopping reminders are
- * enabled by default. No toggles — they can adjust in Settings later.
- * The actual OS permission request fires in step6 on finish.
+ * Task notifications and the weekly shopping reminder default ON, but each has
+ * a toggle here so the user can opt out during onboarding instead of only later
+ * in Settings. The actual OS permission request fires in step6 on finish.
  *
  * Connections:
  *   Imports → @/store/useSettingsStore, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
  *             @/components/Button
  *   Used by → Expo Router route "/onboarding/step4"
- *   Data    → useSettingsStore (sets remindersEnabled + taskNotificationsEnabled defaults)
+ *   Data    → useSettingsStore (reminderTime seed + user-toggleable remindersEnabled /
+ *             taskNotificationsEnabled)
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
@@ -19,7 +20,7 @@
  *     uses feature accent `featShop`.
  */
 import React, { useEffect } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,13 +37,12 @@ export default function OnboardingStep4() {
   const t = useT();
   const styles = useScaledStyles(baseStyles);
 
-  // Notifications are ON by default; shopping reminder fires Saturday 14:00.
+  // Notifications default ON (shopping reminder fires Saturday 14:00), but the
+  // two toggles below let the user opt out here rather than only later in
+  // Settings. Only seed the reminder time; the enabled flags keep their store
+  // defaults (both true) so a returning user's earlier choice isn't overwritten.
   useEffect(() => {
-    settings.update({
-      remindersEnabled: true,
-      taskNotificationsEnabled: true,
-      reminderTime: '14:00',
-    });
+    settings.update({ reminderTime: '14:00' });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -61,11 +61,23 @@ export default function OnboardingStep4() {
           <View style={styles.infoRow}>
             <Ionicons name="checkmark-circle-outline" size={22} color={theme.good} style={styles.infoIconView} />
             <Text style={[styles.infoText, { color: theme.text }]}>{t.taskNotifications} — {t.taskNotificationsHintOnboarding}</Text>
+            <Switch
+              value={settings.taskNotificationsEnabled}
+              onValueChange={(v) => settings.update({ taskNotificationsEnabled: v })}
+              trackColor={{ false: theme.border, true: theme.accentSoft }}
+              thumbColor={settings.taskNotificationsEnabled ? theme.accent : theme.textMuted}
+            />
           </View>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <View style={styles.infoRow}>
             <Ionicons name="cart-outline" size={22} color={theme.featShop} style={styles.infoIconView} />
             <Text style={[styles.infoText, { color: theme.text }]}>{t.weeklyRemindersOnboarding} — {t.weeklyRemindersHint}</Text>
+            <Switch
+              value={settings.remindersEnabled}
+              onValueChange={(v) => settings.update({ remindersEnabled: v })}
+              trackColor={{ false: theme.border, true: theme.accentSoft }}
+              thumbColor={settings.remindersEnabled ? theme.accent : theme.textMuted}
+            />
           </View>
         </View>
 
@@ -113,8 +125,8 @@ const baseStyles = StyleSheet.create({
   heading: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold, textAlign: 'center' },
   sub: { fontSize: FontSize.md, textAlign: 'center', lineHeight: 24 },
   card: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm, ...Shadow.card },
-  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
-  infoIconView: { marginTop: 1 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  infoIconView: {},
   infoText: { flex: 1, fontSize: FontSize.md, lineHeight: 22 },
   divider: { height: 1, marginVertical: Spacing.xs },
   noteBox: { borderRadius: Radius.md, padding: Spacing.md },
