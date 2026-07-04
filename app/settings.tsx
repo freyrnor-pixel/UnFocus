@@ -51,11 +51,13 @@
  *     (free-text, matching the precedent set by task-form.tsx / habit-form.tsx).
  *   - `essentialsModeEnabled` is the underlying field/DB column name (unchanged) — its user-facing
  *     label is "Focus mode" / "Fokus-modus".
- *   - Colour-theme swatches read colour data from constants/theme.ts's THEMES (legacy static
- *     palette, used here only as swatch-preview data) — NOT from useAppTheme()'s ThemePalette,
- *     which drives actual chrome. All chrome in this screen goes through useAppTheme() tokens
- *     (Decision 006) — no raw hex except the fixed pet-colour swatch options (data, not chrome;
- *     same precedent as the colour-theme swatch data).
+ *   - Colour-theme swatches now read their preview colour from the SAME canonical palette
+ *     that drives chrome — getThemePalette(key).accent in constants/colors.ts — so the
+ *     picker options, the swatch previews, and the runtime chrome can never disagree. (They
+ *     used to be sourced from constants/theme.ts's legacy AppColors THEMES, whose theme set
+ *     — tech/fluffy, no summer/blackWhite — did not match colors.ts, so Tech/Fluffy rendered
+ *     as Default and Black & White was unreachable.) All chrome here goes through useAppTheme()
+ *     tokens (Decision 006) — no raw hex except the fixed pet-colour swatch options.
  *   - 'custom' theme is deliberately excluded from the colour-theme picker: constants/colors.ts's
  *     ThemePalette (Decision 006) has no 'custom' variant yet (Decision 006/007 explicitly defer
  *     it), so offering it would silently render as 'default' via getThemePalette()'s fallback.
@@ -104,16 +106,17 @@ import {
   Fonts,
   Radius,
   Spacing,
-  THEMES,
   MATERIAL_META,
   MaterialName,
   getMaterialStyle,
 } from '@/constants/theme';
+import { getThemePalette } from '@/constants/colors';
 
 const PET_TYPES: PetType[] = ['cat', 'dog', 'bird', 'fox', 'bunny'];
 const PET_EMOJIS: Record<PetType, string> = { cat: '🐱', dog: '🐶', bird: '🐦', fox: '🦊', bunny: '🐰' };
-// 'custom' excluded — see file header (no Decision-006 palette variant for it yet).
-const COLOR_THEME_KEYS: ColorTheme[] = ['default', 'tech', 'gothic', 'nature', 'fluffy'];
+// Canonical colors.ts theme set (see constants/colors.ts ThemeName). 'custom'
+// excluded — no Decision-006 palette variant for it yet (file header).
+const COLOR_THEME_KEYS: ColorTheme[] = ['default', 'summer', 'nature', 'fluffyPink', 'gothic', 'blackWhite'];
 
 type SettingsTab = 'generelt' | 'lister' | 'varsler' | 'utseende';
 const TAB_BAR_HEIGHT = 48;
@@ -900,7 +903,7 @@ export default function SettingsScreen() {
                   items={COLOR_THEME_KEYS.map((key) => ({ key, label: t.themeNames[key] }))}
                   value={settings.colorTheme}
                   onChange={(key) => settings.update({ colorTheme: key as ColorTheme })}
-                  renderSwatch={(key) => <RadialSwatch color={THEMES[key as ColorTheme].orange} size={54} />}
+                  renderSwatch={(key) => <RadialSwatch color={getThemePalette(key as any, false).accent} size={54} />}
                 />
               </Surface>
             </View>

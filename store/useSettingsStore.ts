@@ -38,7 +38,11 @@ import {
   readJson,
 } from '@/lib/dataAccess';
 
-export type ColorTheme = 'default' | 'tech' | 'gothic' | 'nature' | 'fluffy' | 'custom';
+// Canonical theme identity — MUST match ThemeName in constants/colors.ts (the
+// runtime palette module that useAppTheme() reads). 'custom' has no colors.ts
+// palette yet (Decision 006/007 deferred it) so it falls back to Default chrome;
+// it is kept in the union only for the custom-hue plumbing that already exists.
+export type ColorTheme = 'default' | 'summer' | 'nature' | 'fluffyPink' | 'gothic' | 'blackWhite' | 'custom';
 export type Language = 'en' | 'no';
 export type DarkMode = 'system' | 'on' | 'off';
 export type FontSizePref = 'small' | 'default' | 'large';
@@ -130,14 +134,25 @@ type SettingsStore = Settings & {
   setWorkModeSessionOverride: (v: boolean) => void;
 };
 
-/** Maps old theme names (1.0.0) to new ones (1.1.0). Returns null if name is already valid. */
+/**
+ * Migrates any previously-stored theme name to the canonical colors.ts set.
+ * Two legacy vintages need mapping:
+ *   - 1.0.0 names (warm/cool/forest/rose/highcontrast)
+ *   - the interim theme.ts names (tech/fluffy) that never actually rendered in
+ *     the colors.ts chrome — tech had no palette (→ Default, which is what it
+ *     already displayed) and fluffy is now the real fluffyPink palette.
+ * Unknown names fall back to 'default'.
+ */
 function migrateThemeName(name: string | null): ColorTheme {
   if (!name) return 'default';
   const map: Record<string, ColorTheme> = {
-    warm: 'default', cool: 'tech', forest: 'nature', rose: 'nature', highcontrast: 'default',
+    // 1.0.0 legacy names
+    warm: 'default', cool: 'default', forest: 'nature', rose: 'fluffyPink', highcontrast: 'blackWhite',
+    // interim theme.ts names (never had a matching colors.ts palette)
+    tech: 'default', fluffy: 'fluffyPink',
   };
   if (name in map) return map[name];
-  const valid: ColorTheme[] = ['default', 'tech', 'gothic', 'nature', 'fluffy', 'custom'];
+  const valid: ColorTheme[] = ['default', 'summer', 'nature', 'fluffyPink', 'gothic', 'blackWhite', 'custom'];
   return valid.includes(name as ColorTheme) ? (name as ColorTheme) : 'default';
 }
 

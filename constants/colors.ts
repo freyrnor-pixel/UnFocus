@@ -585,6 +585,23 @@ export const THEME_META: Record<ThemeName, { label: string }> = {
 };
 
 /**
+ * Ionicons glyph shown inside each theme's picker swatch (SwatchPicker in
+ * settings + onboarding step 5). Lives here — alongside the canonical palette —
+ * so the swatch previews and the runtime chrome always agree on the theme set
+ * (the old copy in constants/theme.ts was keyed to the legacy AppColors themes,
+ * which caused the picker/palette mismatch: Tech & Fluffy fell back to Default
+ * and Black & White was unreachable).
+ */
+export const THEME_ICONS: Record<ThemeName, string> = {
+  default:     'water-outline',
+  summer:      'sunny-outline',
+  nature:      'leaf-outline',
+  fluffyPink:  'flower-outline',
+  gothic:      'moon-outline',
+  blackWhite:  'contrast-outline',
+};
+
+/**
  * Resolve a theme palette for the given theme name and mode.
  * Returns the light palette for the theme, or dark if isDark is true.
  */
