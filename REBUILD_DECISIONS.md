@@ -2140,3 +2140,111 @@ No code changed by this entry. Anticipated surfaces when the sub-gates clear: `u
 `share-modal.tsx`, `useHabitStore` (child profiles), a new transport lib + `app.json` plugins,
 `store/useSettingsStore.ts` (child-mode + password fields, new migration), and `lib/i18n.ts`
 (retire/replace `shareExplainLaterBuild`). All build-gated per Q3.
+
+---
+
+## Decision 038 — Sharing/delegation sub-gates (follow-on to Decision 037)
+
+**Status:** Drafted for maintainer (2026-07-04). Four discrete sub-gates, each written to be
+handed to **one Claude Code session at a time**. Decision 037's native build is **approved**
+("new build is OK"), so all native deps below fold into a **single consolidated APK/AAB**
+(coordinate with the Decision 027 build). Sequencing rule still holds: land config on `main`
+with `runtimeVersion` unchanged → maintainer cuts the build → then bump `runtimeVersion`.
+**Recommended path is marked (★) per item; still the maintainer's call.**
+
+**Suggested session order:** 038a (transport) → 038d (pairing) → 038b (data model) →
+038c (child mode). Transport and pairing are the native/foundation layer; data model and
+child mode are JS features built on top.
+
+---
+
+### Decision 038a — LAN transport tech (native; the build-forcing choice)
+
+**Problem:** No single first-party Expo/SDK-56 module gives iOS+Android local-network peer
+sync. The raw-radio options are platform-split (iOS MultipeerConnectivity; Android Wi-Fi
+Direct / Nearby Connections), which means two native code paths and a divergent parity story.
+
+**Options:**
+- **(a) ★ mDNS discovery + TCP sockets over shared Wi-Fi.** `react-native-zeroconf` (Bonjour/
+  NSD) to find the peer + `react-native-tcp-socket` for the byte stream. One JS code path,
+  real iOS+Android parity, both are config-pluggable native modules that fold into the one
+  build. Constraint: both phones must be on the same LAN (acceptable for "partners at home").
+- **(b) Platform-native radios.** MultipeerConnectivity (iOS) + Wi-Fi Direct/Nearby (Android).
+  Works without a shared router (true peer-to-peer), but two native paths, two behaviours to
+  test, larger surface. Higher build + maintenance cost.
+- **(c) BLE.** Rejected for this use — throughput too low for task/list payloads and flaky
+  background behaviour; keep as a note only.
+
+**Native/build impact:** (a) adds `react-native-zeroconf` + `react-native-tcp-socket` +
+their `app.json` plugin/permission entries (local-network usage string on iOS, NSD/Wi-Fi
+permissions on Android). Folds into the consolidated build.
+
+---
+
+### Decision 038d — Pairing & trust
+
+**Problem:** Two devices must establish a remembered peer and authenticate that a delegated
+task genuinely came from the paired parent device — with no server as trust anchor.
+
+**Options:**
+- **(a) ★ Reuse the QR handshake for a one-time key exchange.** Extend the existing
+  `share-modal` QR path: instead of copying rows, the QR carries `{ deviceId, publicKey (or
+  shared secret) }`. Both sides persist the peer once. Subsequent LAN messages are
+  HMAC/signature-verified against that stored key. Reuses code users already understand;
+  pairing is deliberate and physical (must be in the same room).
+- **(b) Discovery-time trust-on-first-use.** Auto-trust the first peer found on the LAN. Lower
+  friction, weaker security — a hostile device on the same Wi-Fi could impersonate. Not
+  recommended for a family app that will carry children's data.
+
+**Data:** new `peers` table (deviceId, name, key, pairedAt) — a migration in `lib/db.ts`, read
+via a small store. No new native module beyond 038a.
+
+---
+
+### Decision 038b — Live-sync data model
+
+**Problem:** Ongoing shared state with no server truth needs a defined delta + conflict policy.
+
+**Options:**
+- **(a) ★ Last-write-wins per row, keyed by `updated_at` + `originDeviceId`.** Every shareable
+  row already/also carries an `updated_at`; on receive, newer timestamp wins. Simple,
+  predictable, matches this app's low-stakes data. Deletions propagate as tombstones (soft
+  `deleted_at`) so a delete isn't undone by a stale peer copy.
+- **(b) Field-level merge.** Per-column reconciliation. More "correct" for simultaneous edits
+  but materially more code and test surface; overkill for tasks/shopping items.
+
+**Scope of shareable tables (recommended first cut):** tasks + shopping list only. Habits and
+child profiles come later. `direction` semantics: after pairing, a shared row is **bidirectional
+by default**; delegation is a directed create (parent → child device) that the child cannot
+reassign back.
+
+**Data:** add `updated_at` / `origin_device_id` / `deleted_at` columns where missing
+(migrations), extend `useSharedStore`. No new native module.
+
+---
+
+### Decision 038c — Child-mode app variant
+
+**Problem:** Q2 wants an install that can be **converted into a child-mode variant**, gated by
+a **parent-set password**, distinct from the existing on-device child profiles.
+
+**Options:**
+- **(a) ★ Same binary, mode flag in settings.** A `childMode` setting (+ `childModePasswordSet`)
+  flips the app into a locked variant: hides Settings/sharing config, shows only delegated
+  tasks + assigned habits, blocks leaving without the parent password. One build, one codebase.
+- **(b) Separate child build.** A distinct app/flavour. Doubles the maintainer's build burden
+  and store presence for no functional gain over (a). Not recommended.
+
+**Password storage:** `expo-secure-store` (Keychain/Keystore) — **native dependency**, folds
+into the 038a consolidated build. Never store the password in the SQLite settings row in plain
+text; store only a flag there and the secret in secure-store.
+
+**Data/UI:** `childMode` + `childModePasswordSet` fields in `store/useSettingsStore.ts` (+
+migration), lock/unlock UI, re-parenting (exit) flow behind the password. New i18n keys;
+retire/replace `shareExplainLaterBuild` once live sync ships.
+
+---
+
+### Consolidated native footprint (for the one build)
+`react-native-zeroconf`, `react-native-tcp-socket`, `expo-secure-store` + their `app.json`
+plugin/permission entries. Land on `main`, maintainer cuts the build, then bump `runtimeVersion`.
