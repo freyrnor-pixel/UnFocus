@@ -695,6 +695,23 @@ const en = {
       namePlaceholder: 'Give your pet a name',
     },
   },
+  // Companion pet — home-screen reactions (Decision 039). Emoji-heavy so most
+  // entries read the same in both languages; only the plain-word bits translate.
+  pet: {
+    feedHint: 'Drag a snack to me!',
+    happy: ['Yay! ✨', '♪ ♪', 'Hehe~', '💖'],
+    excited: ['Nice! ⭐', 'Woah!', 'Yesss!', 'You did it!'],
+    reactions: {
+      produce: ['So fresh! 🌿', 'Healthy! 🥗'],
+      dairy:   ['Creamy! 🧀', 'Yum! 🥛'],
+      meat:    ['Tasty! 💪', 'So good!'],
+      fish:    ['Yum! 🐟', 'Tasty! 💪'],
+      bread:   ['So warm! 🍞', 'Toasty!'],
+      snacks:  ['Treat time! 🍿', 'So good!'],
+      drinks:  ['Slurp! 🥤', 'Refreshing!'],
+      other:   ['Nom nom! 😋', 'Yummy! ✨'],
+    },
+  },
   // Accessibility settings (Proposal 4)
   settings: {
     accessibility: {
@@ -1392,6 +1409,21 @@ const no: typeof en = {
       title: 'Møt følgesvennen din',
       subtitle: 'En liten vennen som heier på deg. Gi den et navn og gjør den til din egen.',
       namePlaceholder: 'Gi kjæledyret et navn',
+    },
+  },
+  pet: {
+    feedHint: 'Dra en matbit til meg!',
+    happy: ['Jippi! ✨', '♪ ♪', 'Hehe~', '💖'],
+    excited: ['Fint! ⭐', 'Oi!', 'Jaaa!', 'Du klarte det!'],
+    reactions: {
+      produce: ['Så friskt! 🌿', 'Sunt! 🥗'],
+      dairy:   ['Kremete! 🧀', 'Nam! 🥛'],
+      meat:    ['Godt! 💪', 'Så godt!'],
+      fish:    ['Nam! 🐟', 'Godt! 💪'],
+      bread:   ['Så varmt! 🍞', 'Sprøtt!'],
+      snacks:  ['Kosetid! 🍿', 'Så godt!'],
+      drinks:  ['Slurp! 🥤', 'Forfriskende!'],
+      other:   ['Nam nam! 😋', 'Nydelig! ✨'],
     },
   },
   settings: {

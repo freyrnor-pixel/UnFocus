@@ -20,8 +20,9 @@ Numbering conventions:
   sessions must reserve numbers through the planning thread, not race for them on a branch.
 - When a collision is repaired, **the entry cited in code file headers keeps the bare number;
   the other gets a letter suffix** (e.g. 029b, 030b) so no header-edit cascade is triggered.
-- Highest bare number in use: **035** (2026-07-04). 031/032 = onboarding-reminders /
-  SiteSwipeView; 033/034/035 = screen transitions / header title / dark-mode default.
+- Highest bare number in use: **039** (2026-07-04). 031/032 = onboarding-reminders /
+  SiteSwipeView; 033/034/035 = screen transitions / header title / dark-mode default;
+  037/038(+a–c) = sharing/family-mode architecture; 039 = pet redesign.
 
 ---
 
@@ -2248,3 +2249,62 @@ retire/replace `shareExplainLaterBuild` once live sync ships.
 ### Consolidated native footprint (for the one build)
 `react-native-zeroconf`, `react-native-tcp-socket`, `expo-secure-store` + their `app.json`
 plugin/permission entries. Land on `main`, maintainer cuts the build, then bump `runtimeVersion`.
+
+---
+
+## Decision 039 — Pet redesign: positive-only companion, discoverable feeding, cohesive habitats
+
+**Status:** Resolved
+**Date:** 2026-07-04
+**Numbering:** 039 is the next free bare number (highest in use was 038/038a–c;
+026 and 028 remain burned per the conventions header — not reused here). No
+renumbering of any existing entry.
+**Supersedes:** the roughly-ported `components/Pet.tsx` + `constants/petData.ts`
+from All-the-small-things. The old pet (barely functioning, visually ugly) is
+NOT the target — this decision is the target spec.
+
+### Context
+The pet feature was ported near-verbatim from the retired app. This decision
+records the redesign spec before component code is rewritten, so the
+implementation builds against an explicit target rather than the old code.
+
+### Target design (the spec)
+1. **Emoji + habitat, no image assets.** The pet is an emoji living in a
+   per-type habitat drawn from Views/Text/decorative hex only. No PNG/SVG asset
+   files — keeps maintenance near-zero and stays OTA-friendly.
+2. **Purpose — gentle positive reinforcement.** The primary loop is that the pet
+   visibly celebrates things the user ALREADY does: completing a task or habit
+   (driven by the existing `completedToday` prop) makes it react with an excited
+   wiggle + praise bubble. It adds no new obligation and asks nothing of the user.
+3. **HARD RULE — no negative states.** There is no hunger decay, no sad /
+   neglected / hungry pet, no guilt, no nagging, no timers that "run down." The
+   pet is never a source of pressure (ADHD-first). Concretely: no state that
+   worsens with inaction; the calm night state is a *cozy resting* state (renamed
+   from the old `sleeping`), framed as rest, never as neglect.
+4. **Feeding — KEPT as an optional delight, made discoverable.** Feeding stays
+   (drag a food chip onto the pet → happy eating reaction), but is made
+   discoverable without a manual: (a) food chips render as little rounded
+   "snack" plates directly above the pet so they read as objects, with a subtle
+   periodic wobble (reduced-motion-aware) that signals "grab me"; and (b) a
+   one-time gentle hint bubble ("Drag a snack to me!" / bilingual) shows the
+   first time the pet is seen. Feeding never expires and never has to be done —
+   skipping it costs nothing (consistent with rule 3). Decision: KEEP feeding
+   (it can be made discoverable cleanly), do not cut it.
+5. **Visual polish.** One cohesive habitat per pet type (layered sky + floor +
+   centered pet), consistent sizing across all five types, smooth spring/timing
+   animations that respect `useAccessibility().reducedMotion` (already wired).
+6. **Colours (Decision 006 exemption holds).** Habitat and food colours stay
+   decorative fixed hex (same precedent as `HomeHeroBackground`/`ParticleBackground`
+   art palettes). Only speech-bubble chrome (surface/border/text) uses semantic
+   tokens.
+7. **Strings.** All user-visible pet text (praise, excited, per-category eating
+   reactions, feed hint) routes through `useT()` in both EN and NO — the old
+   hardcoded English message arrays in `Pet.tsx` are removed and re-homed in
+   `lib/i18n.ts` under `pet.*`. Emoji-only reactions stay language-neutral.
+
+### Scope
+`components/Pet.tsx` + `constants/petData.ts` rewrite; new `pet.*` i18n block
+(EN + NO). Three mount sites (`app/index.tsx` home, `app/onboarding/step6.tsx`
+preview, `app/settings.tsx` config) keep working unchanged; the
+`petEnabled`/`petName`/`petType`/`petColor` config surface is untouched. No store
+or DB change.

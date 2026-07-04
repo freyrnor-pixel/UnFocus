@@ -1,31 +1,36 @@
 /**
- * Pet.tsx — animated home-screen companion
+ * Pet.tsx — animated home-screen companion (redesigned, Decision 039)
  *
- * A small pet that lives in the bottom-left corner of the home screen inside
- * its appropriate habitat. It bobs gently at idle, bounces when pressed,
- * wiggles when tasks are completed, sleeps late at night, and can be fed by
- * dragging food chips onto it. Food chips come from the weekly shopping list
- * (falls back to defaults when the list is empty). Different food categories
- * trigger different speech-bubble reactions.
+ * A small emoji pet living in a cohesive per-type habitat in the bottom-left
+ * corner of the home screen. It is a POSITIVE-ONLY companion: it bobs gently at
+ * idle, bounces when pressed, and does an excited wiggle + praise bubble when a
+ * task/habit is completed (via the `completedToday` prop). It has NO negative
+ * states — no hunger decay, no sad/neglected pet, no guilt or nag mechanics;
+ * `resting` is a cozy late-night state, never neglect. Feeding is an OPTIONAL
+ * delight: drag a snack plate onto the pet for a happy eating reaction. Feeding
+ * is made discoverable (subtle wobble on the snack plates + a one-time
+ * "Drag a snack to me!" hint bubble) but never required and never expires.
  *
  * Connections:
- *   Imports → constants/petData, constants/theme, lib/haptics, lib/useAppTheme,
+ *   Imports → constants/petData, lib/haptics, lib/i18n (useT),
+ *             lib/useAppTheme (useAppTheme, useAccessibility),
  *             store/useSettingsStore, store/useShoppingStore
  *   Used by → app/index.tsx, app/onboarding/step6.tsx
  *   Props   → completedToday: triggers excited animation when it increases
  *
  * Edit notes:
- *   - Token remap (Decision 006): only the speech bubble is app chrome —
- *     theme.white→surface, theme.border→border (unchanged name), theme.text→text
- *     (unchanged name). Habitat/food emoji + habitat background colours stay
- *     fixed decorative hex from constants/petData.ts (same precedent as
- *     HomeHeroBackground.tsx's sky/orb palette) — not Decision 006 tokens.
- *   - Weekly-list membership: old app filtered `item.listType === 'weekly'`;
- *     this repo's useShoppingStore stub (Decision 015/Session A2·2) never
- *     carried a `listType` field — weekly rows are `status === 'inWeeklyList'`
- *     instead (see useShoppingStore.ts's own header). `category` is optional
- *     here (re-added for this component, see useShoppingStore.ts edit notes)
- *     so it falls back to 'other' when absent.
+ *   - Token remap (Decision 006 / 039 §6): only the speech bubble is app chrome
+ *     — surface/border/text use semantic tokens. Habitat sky/floor/accent and
+ *     food emoji are fixed decorative hex from constants/petData.ts (same
+ *     precedent as HomeHeroBackground.tsx's sky/orb palette).
+ *   - All user-visible strings route through useT() (`t.pet.*`) in EN + NO
+ *     (Decision 039 §7). Do not reintroduce hardcoded message arrays here.
+ *   - Weekly-list membership: this repo's useShoppingStore marks weekly rows as
+ *     `status === 'inWeeklyList'` (no `listType` field); `category` is optional
+ *     and falls back to 'other'.
+ *   - Legacy `Animated` API (not reanimated) drives the pet body per
+ *     ANIMATION_GUIDELINES §8 "match the existing file's API"; reanimated drives
+ *     only the draggable food chips (gesture-handler requirement).
  */
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
@@ -40,11 +45,15 @@ import Reanimated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
+  withRepeat,
+  withSequence,
+  withDelay,
   runOnJS,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { tap } from '@/lib/haptics';
+import { tap, success, tug } from '@/lib/haptics';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
+import { useT } from '@/lib/i18n';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import {
@@ -54,30 +63,56 @@ import {
   PET_HABITATS,
   DEFAULT_FOOD_ITEMS,
   shoppingItemToFoodChip,
-  reactionForCategory,
+  reactionCategory,
 } from '@/constants/petData';
 
-const HAPPY_MSGS   = ['Yay! ✨', '♪ ♪', 'Hehe~', '💖'];
-const EXCITED_MSGS = ['⭐!', 'Woah!', 'Yesss!', 'Great!'];
-
-function pick<T>(arr: T[]): T {
+function pick<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function isNight(): boolean {
+  const h = new Date().getHours();
+  return h < 7 || h >= 23;
 }
 
 // ─── Draggable food chip ──────────────────────────────────────────────────────
 
 type FoodProps = {
   item: FoodChip;
+  index: number;
   petRef: React.RefObject<View | null>;
   onFedRef: React.MutableRefObject<(category: string) => void>;
+  reducedMotion: boolean;
+  bg: string;
+  border: string;
+  textMuted: string;
 };
 
-function DraggableFoodItem({ item, petRef, onFedRef }: FoodProps) {
-  const theme = useAppTheme();
+function DraggableFoodItem({
+  item, index, petRef, onFedRef, reducedMotion, bg, border, textMuted,
+}: FoodProps) {
   const translateX  = useSharedValue(0);
   const translateY  = useSharedValue(0);
   const chipScale   = useSharedValue(1);
   const chipOpacity = useSharedValue(1);
+  // Subtle idle wobble — the discoverability affordance that says "grab me".
+  const wobble      = useSharedValue(0);
+
+  // Gentle, staggered, low-amplitude tilt loop (reduced-motion aware).
+  useEffect(() => {
+    if (reducedMotion) return;
+    wobble.value = withDelay(
+      index * 260,
+      withRepeat(
+        withSequence(
+          withTiming(1,  { duration: 900 }),
+          withTiming(-1, { duration: 900 }),
+        ),
+        -1,
+        true,
+      ),
+    );
+  }, [reducedMotion, index, wobble]);
 
   function checkHitAndFeed(absX: number, absY: number) {
     petRef.current?.measure((_x, _y, w, h, pageX, pageY) => {
@@ -104,6 +139,7 @@ function DraggableFoodItem({ item, petRef, onFedRef }: FoodProps) {
 
   const panGesture = Gesture.Pan()
     .onStart(() => {
+      runOnJS(tug)();
       chipScale.value = withSpring(1.3, { damping: 10, stiffness: 250 });
     })
     .onUpdate((e) => {
@@ -120,6 +156,7 @@ function DraggableFoodItem({ item, petRef, onFedRef }: FoodProps) {
     transform: [
       { translateX: translateX.value },
       { translateY: translateY.value },
+      { rotate: `${wobble.value * 7}deg` },
       { scale: chipScale.value },
     ],
   }));
@@ -127,8 +164,12 @@ function DraggableFoodItem({ item, petRef, onFedRef }: FoodProps) {
   return (
     <GestureDetector gesture={panGesture}>
       <Reanimated.View style={[styles.foodWrap, animStyle]}>
-        <Text style={styles.foodEmoji}>{item.emoji}</Text>
-        <Text style={[styles.foodLabel, { color: theme.textMuted }]} numberOfLines={1}>{item.label}</Text>
+        <View style={[styles.foodPlate, { backgroundColor: bg, borderColor: border }]}>
+          <Text style={styles.foodEmoji}>{item.emoji}</Text>
+        </View>
+        <Text style={[styles.foodLabel, { color: textMuted }]} numberOfLines={1}>
+          {item.label}
+        </Text>
       </Reanimated.View>
     </GestureDetector>
   );
@@ -140,6 +181,7 @@ type Props = { completedToday: number };
 
 export default function Pet({ completedToday }: Props) {
   const theme    = useAppTheme();
+  const t        = useT();
   const { reducedMotion } = useAccessibility();
   const petType  = useSettingsStore((s) => s.petType);
   const petColor = useSettingsStore((s) => s.petColor);
@@ -152,14 +194,11 @@ export default function Pet({ completedToday }: Props) {
     );
     if (unchecked.length === 0) return DEFAULT_FOOD_ITEMS;
     return unchecked
-      .slice(0, 5)
+      .slice(0, 4)
       .map((i) => shoppingItemToFoodChip({ name: i.name, category: i.category ?? 'other' }));
   }, [shoppingItems]);
 
-  const [petState, setPetState] = useState<PetState>(() => {
-    const h = new Date().getHours();
-    return h < 7 || h >= 23 ? 'sleeping' : 'idle';
-  });
+  const [petState, setPetState] = useState<PetState>(() => (isNight() ? 'resting' : 'idle'));
   const [bubbleText, setBubbleText] = useState('');
   const [showBubble, setShowBubble] = useState(false);
 
@@ -180,9 +219,9 @@ export default function Pet({ completedToday }: Props) {
   const heartScale    = useRef(new Animated.Value(1)).current;
   const bubbleOpacity = useRef(new Animated.Value(0)).current;
 
-  // ── Idle bob (runs forever) ────────────────────────────────────────────────
+  // ── Idle bob (runs forever; skipped when resting or reduced-motion) ────────
   useEffect(() => {
-    if (reducedMotion) return;
+    if (reducedMotion || petState === 'resting') return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(bobAnim, { toValue: -5, duration: 1400, useNativeDriver: true }),
@@ -191,7 +230,16 @@ export default function Pet({ completedToday }: Props) {
     );
     loop.start();
     return () => loop.stop();
-  }, [bobAnim, reducedMotion]);
+  }, [bobAnim, reducedMotion, petState]);
+
+  // ── One-time feeding hint (discoverability) ────────────────────────────────
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!stateTimeout.current) showBubbleMsg(t.pet.feedHint, 2400);
+    }, 900);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── React to completed-task count ─────────────────────────────────────────
   useEffect(() => {
@@ -210,18 +258,18 @@ export default function Pet({ completedToday }: Props) {
   function returnToIdle(ms = 2200) {
     clearState();
     stateTimeout.current = setTimeout(() => {
-      const h = new Date().getHours();
-      setPetState(h < 7 || h >= 23 ? 'sleeping' : 'idle');
+      stateTimeout.current = null;
+      setPetState(isNight() ? 'resting' : 'idle');
     }, ms);
   }
 
-  function showBubbleMsg(text: string) {
+  function showBubbleMsg(text: string, holdMs = 1100) {
     setBubbleText(text);
     setShowBubble(true);
     bubbleOpacity.setValue(0);
     Animated.sequence([
       Animated.timing(bubbleOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
-      Animated.delay(1100),
+      Animated.delay(holdMs),
       Animated.timing(bubbleOpacity, { toValue: 0, duration: 350, useNativeDriver: true }),
     ]).start(() => setShowBubble(false));
   }
@@ -244,7 +292,7 @@ export default function Pet({ completedToday }: Props) {
         Animated.spring(heartScale,   { toValue: 1.6, useNativeDriver: true, tension: 80, friction: 6 }),
       ]).start();
     }
-    showBubbleMsg(pick(HAPPY_MSGS));
+    showBubbleMsg(pick(t.pet.happy));
     returnToIdle(2000);
   }
 
@@ -257,13 +305,14 @@ export default function Pet({ completedToday }: Props) {
       );
       Animated.sequence(steps).start();
     }
-    showBubbleMsg(pick(EXCITED_MSGS));
+    showBubbleMsg(pick(t.pet.excited));
     returnToIdle(2500);
   }
 
   function triggerEating(category: string) {
     clearState();
     setPetState('eating');
+    success();
     if (!reducedMotion) {
       Animated.sequence([
         Animated.timing(scaleAnim, { toValue: 0.82, duration: 80,  useNativeDriver: true }),
@@ -273,11 +322,15 @@ export default function Pet({ completedToday }: Props) {
         Animated.timing(scaleAnim, { toValue: 1,    duration: 120, useNativeDriver: true }),
       ]).start();
     }
-    showBubbleMsg(reactionForCategory(category));
+    const pool = t.pet.reactions[reactionCategory(category)] ?? t.pet.reactions.other;
+    showBubbleMsg(pick(pool));
     returnToIdle(2000);
   }
 
   onFedRef.current = triggerEating;
+
+  // Clean up any pending timer on unmount.
+  useEffect(() => () => clearState(), []);
 
   const currentEmoji = (PET_EMOJIS[petType] ?? PET_EMOJIS.cat)[petState];
 
@@ -298,7 +351,7 @@ export default function Pet({ completedToday }: Props) {
           pointerEvents="none"
         >
           <Text style={[styles.bubbleText, { color: theme.text }]}>{bubbleText}</Text>
-          <View style={[styles.bubbleTail, { borderTopColor: theme.border }]} />
+          <View style={[styles.bubbleTail, { borderTopColor: theme.surface }]} />
         </Animated.View>
       )}
 
@@ -313,14 +366,19 @@ export default function Pet({ completedToday }: Props) {
         💕
       </Animated.Text>
 
-      {/* Food tray — draggable chips from shopping list */}
+      {/* Food tray — draggable snack plates from the weekly shopping list */}
       <View style={styles.foodTray} pointerEvents="box-none">
         {foodChips.map((chip, i) => (
           <DraggableFoodItem
             key={`${chip.emoji}-${chip.label}-${i}`}
             item={chip}
+            index={i}
             petRef={petRef}
             onFedRef={onFedRef}
+            reducedMotion={reducedMotion}
+            bg={theme.surface}
+            border={theme.border}
+            textMuted={theme.textMuted}
           />
         ))}
       </View>
@@ -340,13 +398,11 @@ export default function Pet({ completedToday }: Props) {
             <View
               style={[
                 styles.petHabitat,
-                {
-                  backgroundColor: habitat.bg,
-                  borderRadius: habitat.radius,
-                  borderColor: petColor,
-                },
+                { backgroundColor: habitat.sky, borderRadius: habitat.radius, borderColor: petColor },
               ]}
             >
+              {/* soft accent halo behind the pet */}
+              <View style={[styles.habitatHalo, { backgroundColor: habitat.accent }]} />
               <Text style={styles.petEmoji}>{currentEmoji}</Text>
               <View style={[styles.habitatFloor, { backgroundColor: habitat.floorBg }]}>
                 <Text style={styles.floorEmoji}>{habitat.floor}</Text>
@@ -369,18 +425,18 @@ const styles = StyleSheet.create({
   },
   bubble: {
     position: 'absolute',
-    bottom: 148,
+    bottom: 152,
     alignSelf: 'center',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
     minWidth: 64,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
     elevation: 4,
   },
   bubbleTail: {
@@ -401,53 +457,75 @@ const styles = StyleSheet.create({
   },
   hearts: {
     position: 'absolute',
-    bottom: 130,
+    bottom: 134,
     alignSelf: 'center',
     fontSize: 20,
     zIndex: 11,
   },
   foodTray: {
     flexDirection: 'row',
-    gap: 4,
-    marginBottom: 8,
+    gap: 6,
+    marginBottom: 10,
+    justifyContent: 'center',
   },
   foodWrap: {
     width: 44,
-    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 20,
+  },
+  foodPlate: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
   },
   foodEmoji: {
     fontSize: 20,
   },
   foodLabel: {
     fontSize: 9,
+    marginTop: 2,
     textAlign: 'center',
   },
   petAnchor: {
-    width: 96,
-    height: 106,
+    width: 100,
+    height: 108,
     alignItems: 'center',
     justifyContent: 'center',
   },
   petHabitat: {
-    width: 90,
-    height: 100,
+    width: 94,
+    height: 102,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    paddingTop: 4,
+    paddingTop: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowOpacity: 0.14,
+    shadowRadius: 9,
     elevation: 5,
   },
+  habitatHalo: {
+    position: 'absolute',
+    top: 16,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    opacity: 0.7,
+  },
   petEmoji: {
-    fontSize: 44,
-    lineHeight: 52,
+    fontSize: 46,
+    lineHeight: 54,
   },
   habitatFloor: {
     position: 'absolute',

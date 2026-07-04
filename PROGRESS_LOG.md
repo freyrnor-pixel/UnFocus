@@ -4022,3 +4022,41 @@ All four sub-gates (038a transport, 038d pairing/trust, 038b data model, 038c ch
 implemented on `claude/decision-038-ordering-bbx9dh` as foundations. Remaining cross-cutting
 wiring (the sign/send/verify socket loop tying lanTransport + peerAuth + liveSync together, store
 edit-stamping, and app-shell child-mode locking) is app integration on top of these layers.
+
+---
+
+## 2026-07-04 — Pet redesign (Decision 039)
+
+Filed **Decision 039** (positive-only companion, discoverable feeding, cohesive habitats) —
+next free bare number; 026/028 stay burned, no renumbering. Updated the "highest bare number in
+use" line to 039. Then reworked the roughly-ported pet to that spec.
+
+**What changed (`components/Pet.tsx`, `constants/petData.ts`, `lib/i18n.ts`):**
+- **No negative states.** Renamed the old `sleeping` state to `resting` (cozy night state, framed
+  as rest not neglect); there was already no hunger/decay to remove — kept it that way. Idle bob
+  now pauses while resting.
+- **Positive loop intact.** Task/habit completion (`completedToday` prop increase) still drives the
+  excited wiggle + praise bubble; pressing the pet gives a happy bounce + hearts.
+- **Feeding KEPT + made discoverable** (§4). Food chips now render as little rounded "snack plates"
+  with a subtle staggered idle wobble (reduced-motion aware) so they read as grabbable, plus a
+  one-time "Drag a snack to me!" hint bubble on first mount. Drag-onto-pet → happy eating reaction
+  with `success()` haptic; `tug()` on drag start. Feeding never expires / never required.
+- **Visual polish.** One cohesive habitat per type (sky + soft accent halo behind the pet + floor
+  band), consistent sizing across all five types; kept the legacy `Animated` API for the pet body
+  (per ANIMATION_GUIDELINES §8) and reanimated only for the draggable chips.
+- **Strings.** Removed the hardcoded English `HAPPY_MSGS`/`EXCITED_MSGS`/reaction arrays; all pet
+  copy now routes through `useT()` under a new top-level `pet.*` i18n block (EN + NO):
+  `feedHint`, `happy[]`, `excited[]`, `reactions.{produce,dairy,meat,fish,bread,snacks,drinks,other}`.
+  `petData.ts` is now string-free (emoji art only); `reactionForCategory`/`FOOD_CATEGORY_REACTIONS`
+  replaced by a `reactionCategory()` slug-collapse helper consumed in the component.
+- **Colours.** Habitat/food stay decorative hex (Decision 006 exemption / 039 §6); only the speech
+  bubble uses semantic tokens (surface/border/text) — bubble tail recoloured to the surface fill.
+
+**Feeding call:** KEPT (not cut) — it's cleanly discoverable via the wobbling snack plates + the
+one-time hint bubble, with no hidden mechanic and no obligation.
+
+**Mount-site touch-ups:** none needed. All three mounts (home `app/index.tsx`, onboarding preview
+`app/onboarding/step6.tsx`, settings config `app/settings.tsx`) render `<Pet />` with the same
+props and the unchanged `petEnabled`/`petName`/`petType`/`petColor` surface — verified those files
+don't import any removed petData export. No store/DB change. `tsc` remains local-only per repo
+policy (node_modules not installed in the remote env); change reviewed manually.
