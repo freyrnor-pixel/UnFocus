@@ -8,7 +8,8 @@
  * - Generelt: Focus mode toggle → Profil (name + language) → Jobb-modus (work mode, auto-activate
  *   + hours + work days, Norske helligdager) → Tilgjengelighet (reduced motion, particles, font
  *   size, left-handed) → Motivasjon (points, hints, Følgeven/pet-enable toggle) → Companion Pet
- *   config (shown when pet enabled) → Data group (debug mode toggle, destructive resets).
+ *   config (shown when pet enabled) → Data group (debug mode toggle, Backup & restore card
+ *   (Decision 036, via lib/backup), destructive resets).
  * - Lister: shopping list settings (weekly reset weekday, monthly reset date, monthly budget).
  * - Varsler: Ukentlig (weekly reminder + time) → Generelle (merged plan-notifications toggle
  *   driving both task- and habit-notification flags together, persistent daily overview, quiet
@@ -21,9 +22,9 @@
  * Connections:
  *   Imports → components/AppModal, components/FormControls, components/GradientSwatch,
  *             components/ScreenScaffold, components/SectionDivider, components/Surface,
- *             components/SwatchPicker, constants/theme, lib/haptics, lib/i18n, lib/notifications,
- *             lib/reminders, lib/useAppTheme, store/useHabitStore, store/useSettingsStore,
- *             store/useShoppingStore, store/useTaskStore
+ *             components/SwatchPicker, constants/theme, lib/backup, lib/haptics, lib/i18n,
+ *             lib/notifications, lib/reminders, lib/useAppTheme, store/useHabitStore,
+ *             store/useSettingsStore, store/useShoppingStore, store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
  *   Data    → useSettingsStore (settings table; incl. essentialsModeEnabled, quietHours*,
  *             monthlyBudgetNok, taskNotificationsEnabled, habitNotificationsEnabled,
@@ -91,6 +92,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { syncReminders } from '@/lib/reminders';
 import { syncNotificationCategories } from '@/lib/notifications';
+import { exportBackup, pickAndParseBackup, restoreBackup, reloadApp } from '@/lib/backup';
 import { useT, getTranslations } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { selection, warning, heavy } from '@/lib/haptics';
@@ -170,6 +172,53 @@ export default function SettingsScreen() {
         { text: t.resetConfirmBtn, style: 'destructive', onPress: () => { heavy(); action(); } },
       ]
     );
+  }
+
+  // Local backup & restore (Decision 036) — device-only, no upload.
+  async function handleExport() {
+    selection();
+    try {
+      const result = await exportBackup();
+      if (result === 'unavailable') {
+        showAppModal(t.backup.title, t.backup.sharingUnavailable);
+      }
+    } catch {
+      showAppModal(t.backup.title, t.backup.exportError);
+    }
+  }
+
+  async function handleImport() {
+    selection();
+    const parsed = await pickAndParseBackup();
+    if (parsed.status === 'canceled') return;
+    if (parsed.status === 'invalid') {
+      showAppModal(t.backup.title, t.backup.invalidFile);
+      return;
+    }
+    if (parsed.status === 'tooNew') {
+      showAppModal(t.backup.title, t.backup.tooNew);
+      return;
+    }
+    warning();
+    showAppModal(t.backup.importConfirmTitle, t.backup.importConfirmBody(parsed.rowCount), [
+      { text: t.cancel, style: 'cancel' },
+      {
+        text: t.backup.importConfirmBtn,
+        style: 'destructive',
+        onPress: () => {
+          heavy();
+          try {
+            restoreBackup(parsed.data);
+          } catch {
+            showAppModal(t.backup.title, t.backup.restoreError);
+            return;
+          }
+          showAppModal(t.backup.title, t.backup.restoreDone, [
+            { text: t.ok, onPress: () => { void reloadApp(); } },
+          ]);
+        },
+      },
+    ]);
   }
 
   const tabBar = (
@@ -502,6 +551,21 @@ export default function SettingsScreen() {
                   permission-testing is blocked on a dev/APK build), so nothing is wired below
                   the toggle above. Do not wire this until permissionTests.ts lands.
                 */}
+              </Surface>
+            </View>
+
+            {/* Backup & restore (Decision 036) — device-only data portability */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.backup.title}</Text>
+              <Surface style={styles.card}>
+                <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.backup.desc}</Text>
+                <Pressable style={styles.dangerBtn} onPress={handleExport}>
+                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.exportButton}</Text>
+                </Pressable>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <Pressable style={styles.dangerBtn} onPress={handleImport}>
+                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.importButton}</Text>
+                </Pressable>
               </Surface>
             </View>
 
