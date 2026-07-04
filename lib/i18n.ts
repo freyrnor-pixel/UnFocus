@@ -388,6 +388,8 @@ const en = {
   moveItemDown: 'Move item down',
   decreaseQty: 'Decrease quantity',
   increaseQty: 'Increase quantity',
+  removeItemLabel: 'Remove item',
+  putBackItemLabel: 'Put back in stock',
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
   boughtThisWeekSection: (n: number) => `Bought this week (${n})`,
   savedListsButtonLabel: 'Saved lists',
@@ -1333,6 +1335,8 @@ const no: typeof en = {
   moveItemDown: 'Flytt vare ned',
   decreaseQty: 'Reduser antall',
   increaseQty: 'Øk antall',
+  removeItemLabel: 'Fjern vare',
+  putBackItemLabel: 'Legg tilbake på lager',
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
   boughtThisWeekSection: (n: number) => `Kjøpt denne uken (${n})`,
   savedListsButtonLabel: 'Lagrede lister',
