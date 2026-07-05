@@ -1,17 +1,22 @@
 /**
- * BottomNav.tsx — horizontal bottom navigation bar with 5 buttons.
+ * BottomNav.tsx — bottom navigation bar rendered as the swipeable pager's tab bar.
  *
  * Implements the design system's BottomNav pattern: left items (Shopping, Plans),
  * centre home/menu button, right items (Health, Scan). The centre button is
  * stylized as a gradient FAB. Active tab is highlighted with primary colour.
- * Taps navigate via goToSite() to keep the stack shallow. Wrapped in a
- * translucent Surface that picks up the user's bubbleMaterial setting, using
- * surfaceContext="overlay" (stronger blur) since this bar floats over live
- * scrolling content, not the calm ScreenBackground backdrop.
+ * Primary usage is as app/(tabs)/_layout.tsx's `tabBar` render prop — react-navigation
+ * hands it the pager's `state`/`navigation`, which this component uses both to know
+ * which tab is active and to switch tabs (`navigation.navigate()`, which the pager
+ * animates as a native slide). A standalone `<BottomNav />` (no props) mode is kept
+ * for any hypothetical site-tier screen mounted outside the tabs group — it falls
+ * back to the pre-pager usePathname()/goToSite() routing.
  *
  * Connections:
- *   Imports → constants/theme, lib/i18n, lib/siteNav, lib/useAppTheme, components/PressableScale, components/Surface
- *   Used by → ScreenScaffold (composition layer for site-tier screens)
+ *   Imports → @react-navigation/material-top-tabs (MaterialTopTabBarProps type),
+ *             expo-router, constants/theme, lib/i18n, lib/siteNav, lib/useAppTheme,
+ *             components/PressableScale, components/Surface
+ *   Used by → app/(tabs)/_layout.tsx (as the pager's tabBar); components/ScreenScaffold
+ *             (standalone fallback via bottomNav=true — currently unused by any real screen)
  *   Data    → none (presentational; navigation only)
  *
  * Edit notes:
@@ -23,21 +28,29 @@
  *   - Centre item (index 2, home) is rendered with gradient + shadow (design system style).
  *   - Left items (indices 0–1) and right items (indices 3–4) are simple icon buttons.
  *   - BOTTOM_NAV_HEIGHT is exported for screens needing to offset overlays.
+ *   - Active-tab detection: tab-bar mode reads `state.routes[state.index].name` and
+ *     matches it against SITE_ITEMS via lib/siteNav.ts's TAB_ROUTE_NAME; standalone mode
+ *     falls back to `usePathname() === item.route`.
+ *   - `PressableScale`'s own default (`haptic=true`) already fires a light tap haptic on
+ *     every press — no separate haptic call is needed here.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
 import { FontSize, Radius, Spacing, Shadow } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { goToSite, SITE_ITEMS } from '@/lib/siteNav';
+import { goToSite, SITE_ITEMS, SiteItem, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
 
 export const BOTTOM_NAV_HEIGHT = 72;
 
-export default function BottomNav() {
+type Props = Partial<Pick<MaterialTopTabBarProps, 'state' | 'navigation'>>;
+
+export default function BottomNav({ state, navigation }: Props = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const t = useT();
@@ -48,8 +61,26 @@ export default function BottomNav() {
   const centreItem = SITE_ITEMS[2];
   const rightItems = SITE_ITEMS.slice(3, 5);
 
-  const renderItem = (item: typeof SITE_ITEMS[0], isCentre = false) => {
-    const active = pathname === item.route;
+  // Tab-bar mode (rendered by app/(tabs)/_layout.tsx): the pager's own navigator state
+  // says which site is active. Standalone mode (no state prop) falls back to matching
+  // the current URL, same as before this file became a tab bar.
+  const activeRouteName = state ? state.routes[state.index]?.name : undefined;
+
+  function isActive(item: SiteItem) {
+    return state ? activeRouteName === TAB_ROUTE_NAME[item.route] : pathname === item.route;
+  }
+
+  function handlePress(item: SiteItem) {
+    if (navigation) {
+      const routeName = TAB_ROUTE_NAME[item.route];
+      if (routeName) navigation.navigate(routeName);
+      return;
+    }
+    goToSite(router, pathname, item.route);
+  }
+
+  const renderItem = (item: SiteItem, isCentre = false) => {
+    const active = isActive(item);
     const iconColor = active ? theme.accent : theme.textMuted;
 
     if (isCentre) {
@@ -58,7 +89,7 @@ export default function BottomNav() {
           key={item.key}
           scaleTo={0.90}
           style={[styles.centreButton, { backgroundColor: theme.accent, ...Shadow.fab }]}
-          onPress={() => goToSite(router, pathname, item.route)}
+          onPress={() => handlePress(item)}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={t.nav[item.key]}
@@ -74,7 +105,7 @@ export default function BottomNav() {
         key={item.key}
         scaleTo={0.97}
         style={[styles.item, active && { backgroundColor: theme.surfaceMuted, borderRadius: Radius.sm }]}
-        onPress={() => goToSite(router, pathname, item.route)}
+        onPress={() => handlePress(item)}
         hitSlop={6}
         accessibilityRole="button"
         accessibilityLabel={t.nav[item.key]}

@@ -2377,3 +2377,43 @@ config-only native surface, no JS uses any of the new modules yet, so current in
 receiving OTA updates safely. Maintainer cuts the new preview build next; only after that
 build exists do `runtimeVersion`/`version` bump to the new value, and only then does the
 pager-swipe migration (brief 02) merge.
+
+---
+
+## Decision 041 — 5 nav sites co-mounted in one material-top-tabs pager (supersedes Decision 032's SiteSwipeView)
+
+**Status:** Resolved (implementation on branch; merge gated on Decision 040's build — see
+that decision and the branch's held-back PROGRESS_LOG entry)
+**Date:** 2026-07-05
+
+**Context:** Decision 032 wired `SiteSwipeView` (a per-screen `Gesture.Pan` wrapper) into
+`ScreenScaffold` so swiping between the 5 nav sites felt continuous. It didn't — each site
+was still its own Expo Router stack route, so a committed swipe handed off to a *second*
+motion (native stack push/back, or `router.replace` + a hand-rolled flick) on top of
+SiteSwipeView's own drag-follow, and every hop remounted the destination screen's full
+`ScreenScaffold` (background, particles, header, BottomNav, stores). The double-motion +
+remount read as a "click," not a phone-page swipe — the user's reported complaint.
+
+**Decision:** Stop simulating a continuous swipe across separate routes; make it actually
+continuous by co-mounting all 5 sites as siblings in one native pager. `app/(tabs)/_layout.tsx`
+is an Expo Router material-top-tabs group (`tabBarPosition="bottom"`, backed by
+`react-native-pager-view` — the native module Decision 040 front-loaded for exactly this).
+`components/BottomNav.tsx` becomes the pager's own `tabBar` (a component swap, not a route);
+`components/ScreenScaffold.tsx`'s `swipeNav` prop is replaced by `bottomNav` (tab screens pass
+`false` since the pager now owns the bottom bar); `SiteSwipeView`/`SiteSwipeDots` are deleted
+outright, not kept as an opt-out path — there is nothing left for them to wrap.
+`lib/siteNav.ts`'s `goToSite()` drops its push/replace shallow-stack hack (it existed only
+because the 5 sites used to be separate stack routes) in favor of `router.navigate()` for the
+5 tab sites and a plain `router.push()` for everything else.
+
+**Scope:** `app/(tabs)/_layout.tsx` (new), `app/{index,shopping,plans,health,scan}.tsx` →
+`app/(tabs)/*` (moved, route group — URLs unchanged), `app/_layout.tsx` (5 Stack.Screen
+entries → 1), `components/{ScreenScaffold,BottomNav}.tsx`, `lib/siteNav.ts`,
+`components/{SiteSwipeView,SiteSwipeDots}.tsx` (deleted). See PROGRESS_LOG's 2026-07-05
+pager-migration entry for the full file-by-file breakdown, the scan.tsx swipe-disable
+guard (a lighter mitigation than a full camera-route split — see that entry for why), and
+the merge-gating rationale (needs Decision 040's new build + a `runtimeVersion` bump first).
+
+**Not changed:** `SITE_ITEMS` (still the single source of nav order/icons/routes), the
+5-site set itself (Decision 036), or any individual site screen's content/behavior beyond
+the `bottomNav={false}` prop and (scan only) the swipe-disable guard.
