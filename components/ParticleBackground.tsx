@@ -34,8 +34,8 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 
 // ─── Assets ──────────────────────────────────────────────────────────────────
 
-const BG_DARK = require('@/assets/bg-dark.png');
-const BG_LIGHT = require('@/assets/bg-light.png');
+const BG_DARK = require('../assets/bg-dark.png');
+const BG_LIGHT = require('../assets/bg-light.png');
 
 // ─── Particle specs ───────────────────────────────────────────────────────────
 

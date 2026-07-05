@@ -60,6 +60,7 @@ Every `.ts`/`.tsx` file starts with a JSDoc header block. **Read it before editi
 | SQLite file name: `unfocus.db` | Set in `lib/db.ts` |
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations array | Runs once on upgrade; never drop or recreate tables |
 | Stores read/write rows via `lib/dataAccess.ts` (`loadFirst`/`loadAll`/`updateRow` + `FieldMap`) | Used by 13 of 14 stores; don't hand-roll row mapping in a new store |
+| **To ship a change to users, MERGE it to `main`** | OTA (`.github/workflows/update.yml`) publishes ONLY on push to `main`. A `claude/**` branch push publishes nothing — the fix stays invisible to installed apps until merged. This is the #1 "why isn't my fix live?" cause. See `PUBLISHING.md`. |
 
 ## Architecture at a glance
 
@@ -136,6 +137,7 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 ## Builds and updates
 
 ### OTA updates (normal flow)
+- **⚠️ PUBLISH = MERGE TO `main`.** Nothing reaches users until the change is on `main`. Pushing your `claude/**` branch is only step 1; you must open a PR into `main` and merge it. Full step-by-step: `PUBLISHING.md`.
 - Workflow: `.github/workflows/update.yml` — triggers on every push to `main` only (deliberately NOT on `claude/**` branches — parallel session branches all publishing to the one shared `preview` channel caused a real incident where a later, older-tree push silently clobbered a newer one; see git history around June 2026). Push your branch and merge into `main` to publish.
 - Runs `eas update --branch preview --message "..."` — always publishes to EAS branch `preview`
 - Runtime version is read from `runtimeVersion` in `app.json` — an OTA reaches only installs whose runtime matches that value

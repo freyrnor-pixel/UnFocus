@@ -18,10 +18,15 @@
  *     L4.5 optional sticky-below-header block → L5 bottom block
  *   - ParticleBackground gating (particlesEnabled + reducedMotion) happens inside the component
  *   - Top and bottom blocks float above content with translucency — content scrolls behind them
- *   - SafeAreaView is the react-native-safe-area-context one (applies top/bottom insets
- *     on BOTH platforms — the built-in RN SafeAreaView is a no-op on Android, which left
- *     the header + content under the status bar). The absolutely-positioned header/bottom
- *     blocks are offset by that padding, so they clear the status bar and home indicator.
+ *   - Safe-area handling is SPLIT (Android edge-to-edge is always on in RN 0.85 / Expo 56, so
+ *     content draws behind the status + nav bars):
+ *       • The outer SafeAreaView pads the in-flow ScrollView into the safe area — this confines
+ *         scrolling so content can't slide up behind the status bar.
+ *       • The header/bottom blocks are position:absolute and DON'T inherit that padding (absolute
+ *         children ignore a parent's padding in current Yoga), so they apply the insets themselves:
+ *         header height/paddingTop += topInset, bottom-nav height/paddingBottom += bottomInset.
+ *     topInset floors insets.top with StatusBar.currentHeight on Android as a safety net for the
+ *     brief window where safe-area-context can report 0 before the first insets dispatch.
  *   - isHome=true mounts HomeHeroBackground; false uses ScreenBackground
  *   - **swipeNav (Decision 032)**: site-tier screens wrap L3 content in SiteSwipeView
  *     for horizontal swipe-between-sites navigation. Default on. Pass swipeNav={false}
@@ -40,8 +45,8 @@
  *     blocks (mirrors the header's own float, which every current screen already accepts).
  */
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/lib/useAppTheme';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
@@ -92,9 +97,29 @@ export default function ScreenScaffold({
   swipeNav = true,
 }: Props) {
   const theme = useAppTheme();
+  // Android edge-to-edge (RN 0.85 / Expo 56) draws content behind the status and
+  // navigation bars. The header/bottom blocks are position:absolute, and absolute
+  // children do NOT inherit the SafeAreaView's padding in current Yoga, so top:0 /
+  // bottom:0 land behind the system bars. Apply the insets to the floating chrome
+  // explicitly. (The in-flow ScrollView still gets its inset padding from the
+  // SafeAreaView, so scroll content keeps clearing the bars as before.)
+  const insets = useSafeAreaInsets();
+  // Belt-and-suspenders for Android: if safe-area-context under-reports the top
+  // inset (it can read 0 before the first window-insets dispatch), fall back to
+  // the reliable native status-bar height so the header never sits behind the
+  // notification bar. Math.max avoids double-counting when insets.top is correct.
+  const topInset = Platform.OS === 'android'
+    ? Math.max(insets.top, StatusBar.currentHeight ?? 0)
+    : insets.top;
+  const bottomInset = insets.bottom;
 
   const HEADER_HEIGHT = 56;
 
+  // The outer SafeAreaView pads the in-flow ScrollView into the safe area — this is
+  // what confines scrolling so content can't slide up behind the status bar. So the
+  // content padding here only accounts for the floating chrome (sticky bar + BottomNav),
+  // NOT the insets (adding them here would double-count). The absolute header/bottom
+  // blocks apply the insets themselves, since absolute children ignore SafeAreaView's padding.
   const scrollContent = (
     <ScrollView
       style={styles.scrollView}
@@ -132,8 +157,9 @@ export default function ScreenScaffold({
         scrollContent
       )}
 
-      {/* L4: Top block (ScreenHeader) */}
-      <View style={[styles.headerBlock, { height: HEADER_HEIGHT }]}>
+      {/* L4: Top block (ScreenHeader) — extended up behind the status bar and
+          padded down by the top inset so the bar content clears it. */}
+      <View style={[styles.headerBlock, { height: HEADER_HEIGHT + topInset, paddingTop: topInset }]}>
         <ScreenHeader
           title={title}
           tier={tier}
@@ -146,7 +172,7 @@ export default function ScreenScaffold({
 
       {/* L4.5: optional sticky-below-header block (e.g. a screen-owned summary bar) */}
       {stickyBelowHeader && (
-        <View style={[styles.stickyBlock, { top: HEADER_HEIGHT, height: stickyBelowHeaderHeight }]}>
+        <View style={[styles.stickyBlock, { top: HEADER_HEIGHT + topInset, height: stickyBelowHeaderHeight }]}>
           {stickyBelowHeader}
         </View>
       )}
@@ -155,14 +181,15 @@ export default function ScreenScaffold({
           the sites form a swipeable strip (Decision 032 had no visual affordance).
           Only on swipeable site screens; pointer-events off so it never blocks touches. */}
       {tier === 'site' && swipeNav && (
-        <View style={[styles.swipeDotsBlock, { bottom: BOTTOM_NAV_HEIGHT + 6 }]} pointerEvents="none">
+        <View style={[styles.swipeDotsBlock, { bottom: BOTTOM_NAV_HEIGHT + bottomInset + 6 }]} pointerEvents="none">
           <SiteSwipeDots />
         </View>
       )}
 
-      {/* L5: Bottom block (BottomNav, site-tier only) */}
+      {/* L5: Bottom block (BottomNav, site-tier only) — extended down behind the
+          navigation bar and padded up by the bottom inset. */}
       {tier === 'site' && (
-        <View style={[styles.bottomBlock, { height: BOTTOM_NAV_HEIGHT }]}>
+        <View style={[styles.bottomBlock, { height: BOTTOM_NAV_HEIGHT + bottomInset, paddingBottom: bottomInset }]}>
           <BottomNav />
         </View>
       )}

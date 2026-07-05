@@ -2,6 +2,29 @@
 
 > **Token optimization**: This file is a hygiene checklist only. AGENTS.md is the canonical reference for git workflow, deployment, builds, architecture, and cookbook tasks. Read it first.
 
+## 🚀 Publishing — making changes reach users (READ THIS, it's the #1 gotcha)
+
+**Pushing a `claude/**` branch does NOT publish anything to users.** The OTA
+update workflow (`.github/workflows/update.yml`) runs **only on push to `main`**.
+A fix that lives only on a feature branch is invisible to every installed app.
+
+To make ANY JS/UI/logic change go live (see `PUBLISHING.md` for the full guide):
+
+1. Commit + push your work on the designated `claude/**` branch.
+2. Open a PR from that branch into `main`.
+3. **Merge the PR into `main`.** That push to `main` triggers `update.yml`, which
+   runs `eas update --branch preview` targeting `runtimeVersion` in `app.json`
+   (currently `1.1.0`). Users get it on next launch (~1–2 min).
+
+If the user says "I can't see the update," the cause is almost always: **the
+commit never reached `main`.** Check `git log origin/main` for your commit before
+looking anywhere else. (Runtime must also match: OTA only reaches installs whose
+runtime == `app.json` `runtimeVersion`. Native changes need a new build, not OTA —
+see AGENTS.md.)
+
+**A task that must "go live" is not finished until it is merged to `main`** (or
+you've explicitly handed the merge to the user).
+
 ## Before Starting
 
 - **For ANY build, version bump, or APK work:** Read `OTA_BUILD_WORKFLOW.md` first. It documents the exact sequence to avoid runtime mismatches and broken OTA updates.
@@ -26,6 +49,7 @@
 | SQLite file: `unfocus.db` (in `lib/db.ts`) | Fixed name for device storage |
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations | Runs once; never drop/recreate |
 | Stores use `lib/dataAccess.ts` | 13 of 14 stores rely on this pattern |
+| To publish, MERGE TO `main` | OTA (`update.yml`) fires only on push to `main`; a `claude/**` branch push publishes nothing (see the "Publishing" section above + `PUBLISHING.md`) |
 | New builds go through the maintainer; don't bump `runtimeVersion` ahead of the build | OTA reaches only installs on the matching runtime — bump `runtimeVersion` only *after* the maintainer cuts the new preview build (see AGENTS.md "Runtime version") |
 
 ### Navigation State

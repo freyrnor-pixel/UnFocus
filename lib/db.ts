@@ -249,7 +249,7 @@ export function initDb() {
     "ALTER TABLE settings ADD COLUMN language TEXT DEFAULT 'no'",
     "ALTER TABLE shopping_items ADD COLUMN category TEXT DEFAULT 'other'",
     "ALTER TABLE settings ADD COLUMN holidays_enabled INTEGER DEFAULT 1",
-    "ALTER TABLE settings ADD COLUMN dark_mode TEXT DEFAULT 'system'",
+    "ALTER TABLE settings ADD COLUMN dark_mode TEXT DEFAULT 'off'",
     "ALTER TABLE shopping_items ADD COLUMN monthly_allocated INTEGER DEFAULT 0",
     "ALTER TABLE shopping_items ADD COLUMN monthly_source_id TEXT DEFAULT NULL",
     "ALTER TABLE settings ADD COLUMN work_days TEXT DEFAULT '[0,1,2,3,4]'",
