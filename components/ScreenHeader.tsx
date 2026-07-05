@@ -7,7 +7,9 @@
  * upper-left (gear outermost), title upper-right — so the controls stay thumb-reachable.
  * Tier 'sub': back link left (iOS only), title immediately right of it and left-aligned,
  * right slot for the screen-specific action (not mirrored). Wrapped in a translucent
- * Surface that picks up the user's bubbleMaterial setting.
+ * Surface that picks up the user's bubbleMaterial setting, using surfaceContext="overlay"
+ * (stronger blur) since this header floats over live scrolling content, not the calm
+ * ScreenBackground backdrop — the ambient default let scrolled text read through it.
  *
  * Connections:
  *   Imports → constants/theme, lib/i18n, lib/useAppTheme, store/useSettingsStore,
@@ -135,7 +137,7 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
       </View>
     );
     return (
-      <Surface style={[styles.header, style]}>
+      <Surface surfaceContext="overlay" style={[styles.header, style]}>
         {leftHanded ? (
           <>
             {controlsGroup}
@@ -154,7 +156,7 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
   // Sub tier: back link (iOS) leftmost, title immediately right of it and left-aligned,
   // right slot for the screen-specific action. Not mirrored (back link is platform-fixed).
   return (
-    <Surface style={[styles.header, style]}>
+    <Surface surfaceContext="overlay" style={[styles.header, style]}>
       {Platform.OS === 'ios' && onBack ? (
         <Pressable onPress={onBack} hitSlop={8}>
           <Text style={[styles.back, { color: theme.accent }]}>{t.back}</Text>

@@ -22,15 +22,20 @@
  *     (velocityX past SWIPE_VELOCITY_THRESHOLD); fires tug() instead of navigating past the
  *     first/last site.
  *   - The page follows the finger near 1:1 (FOLLOW_RATIO) with rubber-band resistance past
- *     RESIST_START. On commit: Home↔site navigations go through router.push/back, which the
- *     native stack already animates (Decision 033) — so we navigate immediately and let that
- *     native transition be the only motion (avoids a double/stuttered animation on top of it).
- *     Site↔site navigations go through router.replace, which the native stack does NOT animate
- *     on its own — so for that case we still flick the page fully off-screen ourselves (now
- *     timed to match ANIMATION_GUIDELINES.md's "Screen navigation push" 300ms ease-out) before
- *     navigating, since it's the only visible transition the user gets. All of this is gated
- *     behind useAccessibility().reducedMotion (visual only); the swipe still navigates either
- *     way — it's a gesture, not decorative motion.
+ *     RESIST_START. On commit: Home↔site navigations go through router.push (leaving Home) or
+ *     router.back() (returning to Home), both of which the native stack already animates
+ *     (Decision 033) — so we snap our own transform back to 0 and navigate immediately, letting
+ *     that native transition be the only motion (nativeAnimatedPrev/nativeAnimatedNext each
+ *     check *either* end of that direction's hop against Home, not just the current pathname —
+ *     checking only the current pathname previously missed the "returning to Home" direction
+ *     and caused a real double-animation: our own flick playing, then the native back() pop
+ *     playing again on top of it).
+ *     Site↔site navigations (neither end is Home) go through router.replace, which the native
+ *     stack does NOT animate on its own — so for that case we still flick the page fully
+ *     off-screen ourselves (timed to match ANIMATION_GUIDELINES.md's "Screen navigation push"
+ *     300ms ease-out) before navigating, since it's the only visible transition the user gets.
+ *     All of this is gated behind useAccessibility().reducedMotion (visual only); the swipe
+ *     still navigates either way — it's a gesture, not decorative motion.
  *   - translateX is reset to 0 via useFocusEffect whenever a wrapped screen regains focus —
  *     required because Home is the permanent stack root (goToSite keeps it mounted, never
  *     remounted), so without this reset its content stayed stranded off-screen after a
@@ -75,9 +80,15 @@ export default function SiteSwipeView({ children }: Props) {
   const siteIndex = SITE_ITEMS.findIndex((item) => item.route === pathname);
   const canPrev = siteIndex > 0;
   const canNext = siteIndex >= 0 && siteIndex < SITE_ITEMS.length - 1;
-  // goToSite pushes (native-animated) only when leaving Home; every other site↔site
-  // hop replaces (no native animation) — see that function's own invariant comment.
-  const isPushCase = pathname === '/';
+  // goToSite native-animates (push) when leaving Home, and native-animates (pop via
+  // back()) when *returning* to Home too — router.canGoBack() is true whenever a site
+  // is on screen, since Home is the permanent stack root. Only a site↔site hop (neither
+  // end is Home) goes through router.replace, which has no native transition of its own.
+  // Computed per-direction as plain booleans (not a function) — like canPrev/canNext,
+  // these must be primitives captured by the onEnd worklet's closure below, since a
+  // worklet can't call back into a plain (non-worklet) JS-thread function.
+  const nativeAnimatedPrev = pathname === '/' || (siteIndex - 1 >= 0 && SITE_ITEMS[siteIndex - 1].route === '/');
+  const nativeAnimatedNext = pathname === '/' || (siteIndex + 1 < SITE_ITEMS.length && SITE_ITEMS[siteIndex + 1].route === '/');
 
   // Home is the stack's permanent root (never remounted, only revisited via back()), so
   // its translateX must be snapped back to 0 on every refocus or a committed swipe away
@@ -132,9 +143,10 @@ export default function SiteSwipeView({ children }: Props) {
       }
       if (goPrev || goNext) {
         const direction = goPrev ? -1 : 1;
-        if (isPushCase) {
-          // Home↔site: router.push/back already gets its own native transition
-          // (Decision 033). Snap back to rest (no animation — a bottom-nav tap
+        const isNativeAnimated = goPrev ? nativeAnimatedPrev : nativeAnimatedNext;
+        if (isNativeAnimated) {
+          // Home↔site (either direction): router.push/back already gets its own native
+          // transition (Decision 033). Snap back to rest (no animation — a bottom-nav tap
           // never applies this transform either) and navigate immediately, so
           // the native transition is the only motion the user sees instead of
           // stacking our flick in front of it.
