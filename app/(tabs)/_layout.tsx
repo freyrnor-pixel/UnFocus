@@ -9,10 +9,20 @@
  * (component swap, not a route), wrapped here so it still applies the bottom safe-area
  * inset the way ScreenScaffold's old bottomBlock did.
  *
+ * Also renders ONE shared L1/L2 background (HomeHeroBackground-or-ScreenBackground +
+ * ParticleBackground) behind the whole pager, instead of each of the 5 screens mounting
+ * its own via ScreenScaffold. react-native-pager-view slides each screen's whole subtree
+ * horizontally, so a per-screen background used to slide right along with the content —
+ * reading as "each screen has its own picture" instead of a fixed backdrop. Hoisting it
+ * here decouples it from the swipe: it sits behind TopTabs and only swaps (Home hero vs
+ * plain backdrop) when the focused tab actually changes, not mid-drag. The 5 tab screens
+ * pass ownBackground={false} to ScreenScaffold so they don't ALSO paint their own copy.
+ *
  * Connections:
  *   Imports → expo-router/js-top-tabs (TopTabs — Expo Router's own SDK-56 top-tabs
  *             wrapper, not @react-navigation/material-top-tabs directly; see Edit notes),
- *             react-native-safe-area-context, components/BottomNav
+ *             react-native-safe-area-context, components/BottomNav, components/ScreenBackground,
+ *             components/HomeHeroBackground, components/ParticleBackground, lib/siteNav
  *   Used by → Expo Router route group "(tabs)" — app/_layout.tsx's single
  *             <Stack.Screen name="(tabs)" /> entry
  *   Data    → none (pure navigation composition)
@@ -36,32 +46,72 @@
  *   - `swipeEnabled: true` is the whole point of this migration. app/(tabs)/scan.tsx
  *     temporarily flips it off via `navigation.setOptions` while an OCR scan is
  *     processing or one of its modals is open, so a stray swipe can't abandon that flow.
+ *   - **Active-tab tracking for the shared background**: the pager's own navigator state
+ *     (`state.routes[state.index].name`) is read inside the `tabBar` render prop, same
+ *     place BottomNav reads it to highlight the active icon — there's no other hook that
+ *     exposes the focused route at this layout level. TabBarWithBackgroundSync forwards
+ *     it up via onActiveRouteChange so this component can pick HomeHeroBackground vs
+ *     ScreenBackground. This only fires when the focused route actually changes (not
+ *     continuously while dragging), which is what keeps the swap instant instead of sliding.
+ *   - Both TopTabs and each tab screen's own SafeAreaView (see ScreenScaffold's
+ *     ownBackground=false path) rely on react-navigation's default transparent scene
+ *     background — no explicit transparent styling needed, but if a future
+ *     material-top-tabs upgrade ever paints an opaque scene background, that's the
+ *     first place to look if the shared backdrop stops showing through.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { View } from 'react-native';
 import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
+import ScreenBackground from '@/components/ScreenBackground';
+import HomeHeroBackground from '@/components/HomeHeroBackground';
+import ParticleBackground from '@/components/ParticleBackground';
+import { TAB_ROUTE_NAME } from '@/lib/siteNav';
+
+type TabBarSyncProps = MaterialTopTabBarProps & {
+  insetsBottom: number;
+  onActiveRouteChange: (routeName: string) => void;
+};
+
+function TabBarWithBackgroundSync({ insetsBottom, onActiveRouteChange, ...tabBarProps }: TabBarSyncProps) {
+  const activeRouteName = tabBarProps.state.routes[tabBarProps.state.index]?.name;
+  React.useEffect(() => {
+    if (activeRouteName) onActiveRouteChange(activeRouteName);
+  }, [activeRouteName, onActiveRouteChange]);
+
+  return (
+    <View style={{ height: BOTTOM_NAV_HEIGHT + insetsBottom, paddingBottom: insetsBottom }}>
+      <BottomNav {...tabBarProps} />
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const [activeRouteName, setActiveRouteName] = useState<string>(TAB_ROUTE_NAME['/']!);
+  const isHomeActive = activeRouteName === TAB_ROUTE_NAME['/'];
 
   return (
-    <TopTabs
-      tabBarPosition="bottom"
-      screenOptions={{ swipeEnabled: true, lazy: true }}
-      tabBar={(props: MaterialTopTabBarProps) => (
-        <View style={{ height: BOTTOM_NAV_HEIGHT + insets.bottom, paddingBottom: insets.bottom }}>
-          <BottomNav {...props} />
-        </View>
-      )}
-    >
-      {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, plans, home, health, scan */}
-      <TopTabs.Screen name="shopping" />
-      <TopTabs.Screen name="plans" />
-      <TopTabs.Screen name="index" />
-      <TopTabs.Screen name="health" />
-      <TopTabs.Screen name="scan" />
-    </TopTabs>
+    <View style={{ flex: 1 }}>
+      {/* Shared L1/L2 background, rendered once behind the whole pager (see file header). */}
+      {isHomeActive ? <HomeHeroBackground /> : <ScreenBackground />}
+      <ParticleBackground />
+
+      <TopTabs
+        tabBarPosition="bottom"
+        screenOptions={{ swipeEnabled: true, lazy: true }}
+        tabBar={(props: MaterialTopTabBarProps) => (
+          <TabBarWithBackgroundSync {...props} insetsBottom={insets.bottom} onActiveRouteChange={setActiveRouteName} />
+        )}
+      >
+        {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, plans, home, health, scan */}
+        <TopTabs.Screen name="shopping" />
+        <TopTabs.Screen name="plans" />
+        <TopTabs.Screen name="index" />
+        <TopTabs.Screen name="health" />
+        <TopTabs.Screen name="scan" />
+      </TopTabs>
+    </View>
   );
 }

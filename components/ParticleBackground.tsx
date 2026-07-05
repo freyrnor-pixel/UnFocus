@@ -11,7 +11,9 @@
  *
  * Connections:
  *   Imports → assets/bg-dark.png, assets/bg-light.png, lib/useAppTheme (useIsDark, useAccessibility), store/useSettingsStore
- *   Used by → app/index.tsx (first child inside SafeAreaView, absolutely positioned)
+ *   Used by → components/ScreenScaffold (L2, first child inside SafeAreaView, for
+ *             sub-tier and non-pager site screens); app/(tabs)/_layout.tsx (hoisted,
+ *             one shared instance behind the whole pager — see that file's header)
  *
  * Edit notes:
  *   - Same render contract as ScreenBackground: absolutely positioned, pointerEvents="none".

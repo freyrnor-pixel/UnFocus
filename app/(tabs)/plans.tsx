@@ -67,7 +67,7 @@ export default function PlansScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.plansTitle} tier="site" bottomNav={false}>
+      <ScreenScaffold title={t.plansTitle} tier="site" bottomNav={false} ownBackground={false}>
         <View style={styles.content}>
           <HintCard text={t.hints.plans.text} />
           <PlanTaskCard

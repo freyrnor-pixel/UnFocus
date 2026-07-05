@@ -664,7 +664,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={STICKY_HEIGHT}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={STICKY_HEIGHT}>
       <View style={styles.content}>
         <SharedRequestsSection kind="shopping" />
 

@@ -12,8 +12,10 @@
  * Connections:
  *   Imports → constants/theme (MaterialName), constants/colors (ThemePalette),
  *             lib/useAppTheme, store/useSettingsStore, react-native-svg
- *   Used by → most app screens, rendered as the first child inside the SafeAreaView
- *             (app/index.tsx uses components/HomeHeroBackground instead)
+ *   Used by → components/ScreenScaffold (rendered as its own first child, for sub-tier
+ *             and non-pager site screens); app/(tabs)/_layout.tsx (hoisted, one shared
+ *             instance behind the whole pager, shown when the active tab isn't home —
+ *             see that file's header for why it's hoisted instead of per-screen)
  *   Data    → reads bubbleMaterial from useSettingsStore
  *
  * Edit notes:
