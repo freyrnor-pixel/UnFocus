@@ -23,7 +23,10 @@
  *     the filled ('eye') vs outline ('eye-outline') glyph and the accent tint. Focus mode is
  *     Home-only + ephemeral, so every other site screen omits both props and the eye stays a
  *     harmless no-op placeholder (its historical Phase-1 state) rather than showing an active
- *     control that does nothing.
+ *     control that does nothing. Home additionally gets a "Focus mode" text label next to the
+ *     icon (reuses `t.config.essentials.label`) — the eye alone was too non-obvious an
+ *     affordance; the label is gated on `onToggleFocus` so it never appears on the inert
+ *     placeholder elsewhere.
  *   - Settings (gear) press navigates to /settings. Site-tier chrome placement is
  *     handedness-aware (reads `leftHanded`, Decision 034): title + the grouped gear/eye
  *     controls swap sides together — controls right (title left) by default, both left
@@ -88,12 +91,24 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
       accessibilityRole="button"
       accessibilityState={{ selected: !!focusActive }}
       accessibilityLabel={focusActive ? t.focusActive : t.focusInactive}
+      style={styles.focusButton}
     >
       <Ionicons
         name={focusActive ? 'eye' : 'eye-outline'}
         size={24}
         color={focusActive ? theme.accent : theme.text}
       />
+      {/* Label only where the toggle is live (Home) — elsewhere the eye stays a bare
+          placeholder icon (its historical Phase-1 state) rather than a labeled control
+          that silently does nothing. */}
+      {onToggleFocus && (
+        <Text
+          style={[styles.focusLabel, { color: focusActive ? theme.accent : theme.textMuted }]}
+          numberOfLines={1}
+        >
+          {t.config.essentials.label}
+        </Text>
+      )}
     </Pressable>
   );
 
@@ -165,6 +180,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+  },
+  focusButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  focusLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
   },
   title: {
     flex: 1,

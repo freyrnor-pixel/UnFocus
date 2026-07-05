@@ -19,10 +19,11 @@
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
  *   - finish() sets `setupComplete:true` plus new-user defaults
- *     `essentialsModeEnabled:true` + `showPoints:true`, `petEnabled:true` and the
- *     name chosen here, then requests OS notification permission and, once it
- *     resolves, schedules reminders (syncReminders + syncAllTaskNotifications),
- *     then router.replace "/" to home.
+ *     `essentialsModeEnabled:false` (Focus mode starts OFF so Notes/Shopping previews
+ *     are visible from first launch — users opt in via the header eye or Settings) +
+ *     `showPoints:true`, `petEnabled:true` and the name chosen here, then requests OS
+ *     notification permission and, once it resolves, schedules reminders (syncReminders
+ *     + syncAllTaskNotifications), then router.replace "/" to home.
  *   - Scheduling wiring (Decision 031): step4 turns remindersEnabled +
  *     taskNotificationsEnabled ON, so finish() must actually schedule against them.
  *     `lib/reminders.ts` (syncReminders) and useTaskStore.syncAllTaskNotifications()
@@ -90,7 +91,7 @@ export default function OnboardingStep6() {
   function finish() {
     settings.update({
       setupComplete: true,
-      essentialsModeEnabled: true,
+      essentialsModeEnabled: false,
       showPoints: true,
       petEnabled: true,
       petName: petNameInput.trim(),

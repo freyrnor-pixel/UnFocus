@@ -22,19 +22,28 @@
  *     (velocityX past SWIPE_VELOCITY_THRESHOLD); fires tug() instead of navigating past the
  *     first/last site.
  *   - The page follows the finger near 1:1 (FOLLOW_RATIO) with rubber-band resistance past
- *     RESIST_START, then on commit flicks fully off-screen in the swipe direction before the
- *     router navigates — so it reads like pushing a page away, not a tiny nudge. All of this
- *     is gated behind useAccessibility().reducedMotion (visual only); the swipe still
- *     navigates either way — it's a gesture, not decorative motion.
+ *     RESIST_START. On commit: Home↔site navigations go through router.push/back, which the
+ *     native stack already animates (Decision 033) — so we navigate immediately and let that
+ *     native transition be the only motion (avoids a double/stuttered animation on top of it).
+ *     Site↔site navigations go through router.replace, which the native stack does NOT animate
+ *     on its own — so for that case we still flick the page fully off-screen ourselves (now
+ *     timed to match ANIMATION_GUIDELINES.md's "Screen navigation push" 300ms ease-out) before
+ *     navigating, since it's the only visible transition the user gets. All of this is gated
+ *     behind useAccessibility().reducedMotion (visual only); the swipe still navigates either
+ *     way — it's a gesture, not decorative motion.
+ *   - translateX is reset to 0 via useFocusEffect whenever a wrapped screen regains focus —
+ *     required because Home is the permanent stack root (goToSite keeps it mounted, never
+ *     remounted), so without this reset its content stayed stranded off-screen after a
+ *     committed swipe away and back (visible as "Home is blank except the header").
  *   - Only wrap a screen's normal scrollable content, not full-screen modal/camera overlays
  *     (e.g. app/scan.tsx's QR overlay) — those should sit outside this wrapper.
  *   - The same activeOffsetX/failOffsetY thresholds (and SWIPE_VELOCITY_THRESHOLD = 800) were
  *     already reused for ShoppingRow.tsx's swipe-to-remove gesture — keep both in sync if
  *     either changes (see ShoppingRow.tsx's R2 header note).
  */
-import React from 'react';
+import React, { useCallback } from 'react';
 import { StyleSheet, useWindowDimensions } from 'react-native';
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter, usePathname, useFocusEffect } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS } from 'react-native-reanimated';
 import { goToSite, SITE_ITEMS } from '@/lib/siteNav';
@@ -47,6 +56,10 @@ const SWIPE_VELOCITY_THRESHOLD = 800;
 // pushing the page itself, with resistance kicking in past RESIST_START.
 const FOLLOW_RATIO = 0.85;
 const RESIST_START = 0.16; // fraction of screen width where drag starts to rubber-band
+// Matches ANIMATION_GUIDELINES.md's "Screen navigation push" (300ms, ease-out) — used only
+// for the site↔site (replace) commit flick, since that's the only case with no native
+// transition of its own to hand off to.
+const REPLACE_FLICK_DURATION = 300;
 
 type Props = { children: React.ReactNode };
 
@@ -62,6 +75,19 @@ export default function SiteSwipeView({ children }: Props) {
   const siteIndex = SITE_ITEMS.findIndex((item) => item.route === pathname);
   const canPrev = siteIndex > 0;
   const canNext = siteIndex >= 0 && siteIndex < SITE_ITEMS.length - 1;
+  // goToSite pushes (native-animated) only when leaving Home; every other site↔site
+  // hop replaces (no native animation) — see that function's own invariant comment.
+  const isPushCase = pathname === '/';
+
+  // Home is the stack's permanent root (never remounted, only revisited via back()), so
+  // its translateX must be snapped back to 0 on every refocus or a committed swipe away
+  // leaves it stranded off-screen the next time this screen is shown.
+  useFocusEffect(
+    useCallback(() => {
+      translateX.value = 0;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+  );
 
   function navigate(direction: 1 | -1) {
     if (siteIndex === -1) return;
@@ -104,15 +130,28 @@ export default function SiteSwipeView({ children }: Props) {
         else if (wantPrev || wantNext) runOnJS(tug)(); // hit the edge
         return;
       }
-      if (goPrev) {
-        // Flick the current page off to the right, then navigate.
-        translateX.value = withTiming(width, { duration: 190 }, (done) => {
-          if (done) runOnJS(navigate)(-1);
-        });
-      } else if (goNext) {
-        translateX.value = withTiming(-width, { duration: 190 }, (done) => {
-          if (done) runOnJS(navigate)(1);
-        });
+      if (goPrev || goNext) {
+        const direction = goPrev ? -1 : 1;
+        if (isPushCase) {
+          // Home↔site: router.push/back already gets its own native transition
+          // (Decision 033). Snap back to rest (no animation — a bottom-nav tap
+          // never applies this transform either) and navigate immediately, so
+          // the native transition is the only motion the user sees instead of
+          // stacking our flick in front of it.
+          translateX.value = 0;
+          runOnJS(navigate)(direction);
+        } else {
+          // Site↔site: router.replace has no native transition of its own, so
+          // flick the page fully off-screen ourselves before navigating — this
+          // IS the transition for this case.
+          translateX.value = withTiming(
+            goPrev ? width : -width,
+            { duration: REPLACE_FLICK_DURATION },
+            (done) => {
+              if (done) runOnJS(navigate)(direction);
+            }
+          );
+        }
       } else {
         // Not far enough, or at the first/last site — spring the page back home.
         if (wantPrev || wantNext) runOnJS(tug)();
