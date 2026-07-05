@@ -117,10 +117,9 @@ export default function GuidedScreen() {
 const baseStyles = StyleSheet.create({
   safe: { flex: 1 },
   scrollContent: {
-    flexGrow: 1,
     padding: Spacing.xl,
     gap: Spacing.xl,
-    justifyContent: 'center',
+    paddingBottom: Spacing.md,
   },
   top: { alignItems: 'center', gap: Spacing.md },
   iconBadge: {
