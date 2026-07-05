@@ -55,6 +55,15 @@ Run through this in order:
 5. **Native change?** If the diff touches native surface, OTA won't carry it — a
    new build is required.
 
+## Automation: auto-opened PRs
+
+`.github/workflows/auto-pr.yml` opens (or reuses) a PR from any `claude/**`
+branch into `main` on every push, so a fix is never stranded on a branch just
+because nobody opened the PR. It **never merges** — merging (i.e. publishing the
+OTA) stays a human decision. If it isn't opening PRs, check repo **Settings →
+Actions → General → Workflow permissions → "Allow GitHub Actions to create and
+approve pull requests"** is enabled.
+
 ## For agent sessions (Claude Code)
 
 - Finishing code on a branch is **not** "done" when the user wants it live —
