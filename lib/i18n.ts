@@ -835,6 +835,10 @@ const en = {
     importConfirmBtn: 'Restore',
     restoreError: "Couldn't restore the backup — your current data is unchanged.",
     restoreDone: 'Restore complete. The app will reload now.',
+    saveToDevice: 'Save to device',
+    shareCopy: 'Share a copy',
+    savedToDevice: (location: string) => `Backup saved to ${location}.`,
+    saveUnavailable: 'Saving to device is not available on this device.',
   },
   // Local account (Decision 039) — device-only, user-held profile. No server, no
   // credentials, no cloud; the account is backed up via the local backup file above.
@@ -846,7 +850,6 @@ const en = {
     namePlaceholder: 'Name your local account',
     createButton: 'Create local account',
     createdOn: (date: string) => `Local account · created ${date}`,
-    backupButton: 'Back up local account',
     restoreButton: 'Restore local account',
     deviceOnlyNote: 'Device-only. No sign-in, no password, no server — ever.',
   },
@@ -1553,6 +1556,10 @@ const no: typeof en = {
     importConfirmBtn: 'Gjenopprett',
     restoreError: 'Klarte ikke å gjenopprette sikkerhetskopien — dataene dine er uendret.',
     restoreDone: 'Gjenoppretting fullført. Appen starter på nytt nå.',
+    saveToDevice: 'Lagre på enheten',
+    shareCopy: 'Del en kopi',
+    savedToDevice: (location: string) => `Sikkerhetskopi lagret til ${location}.`,
+    saveUnavailable: 'Lagring til enheten er ikke tilgjengelig på denne enheten.',
   },
   // Lokal konto (Decision 039) — kun på enheten, brukereid profil. Ingen server,
   // ingen pålogging, ingen sky; kontoen sikkerhetskopieres via backup-filen over.
@@ -1564,7 +1571,6 @@ const no: typeof en = {
     namePlaceholder: 'Gi den lokale kontoen et navn',
     createButton: 'Opprett lokal konto',
     createdOn: (date: string) => `Lokal konto · opprettet ${date}`,
-    backupButton: 'Sikkerhetskopier lokal konto',
     restoreButton: 'Gjenopprett lokal konto',
     deviceOnlyNote: 'Kun på enheten. Ingen innlogging, ingen passord, ingen server — aldri.',
   },
