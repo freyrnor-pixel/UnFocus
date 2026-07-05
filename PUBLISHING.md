@@ -30,9 +30,9 @@ That's it. No version bump, no rebuild, for pure JS/style/logic/asset changes.
 ## Runtime must match
 
 An OTA only reaches installs whose **runtime == `app.json` `runtimeVersion`**
-(currently `1.1.0`). If a tester's build is on a different runtime, the update
-won't apply even after merging. Don't bump `runtimeVersion` unless a matching
-native build exists (see AGENTS.md "Runtime version").
+(check `app.json` for the current value). If a tester's build is on a different
+runtime, the update won't apply even after merging. Don't bump `runtimeVersion`
+unless a matching native build exists (see AGENTS.md "Runtime version").
 
 ## When OTA is NOT enough (needs a native build)
 
@@ -81,7 +81,7 @@ updates on (eas.json `preview` profile):
    **Settings → General → Version & updates → Check for updates**.
 5. Only rebuild when a change is **native** (new package/plugin/permission) or you
    bump `runtimeVersion`. Pure JS/UI/logic/styles = OTA only. Keep `runtimeVersion`
-   at the installed build's value (`1.1.0`) or OTAs stop matching.
+   at the installed build's value (see `app.json`) or OTAs stop matching.
 
 ## Automation: auto-opened PRs
 

@@ -223,5 +223,6 @@ Everything in §1–§3 is a native change → new APK/AAB via `build-android.ym
 maintainer-run** — land this config on `main`, then hand off; don't cut the build
 from an agent session. Only **after** that build exists, bump **both** `version`
 and `runtimeVersion` in `app.json` to the same new value so OTA updates retarget
-the new runtime. Do not bump `runtimeVersion` ahead of the build, and keep `slug`
-= `all-the-small-things`.
+the new runtime. Do not bump `runtimeVersion` ahead of the build. (`slug` in
+`app.json` must stay `unfocus` — see AGENTS.md's key invariants table; this repo
+was renamed from the retired `all-the-small-things` predecessor.)

@@ -75,7 +75,7 @@ withSpring(toValue, { damping: 0.82 * Math.sqrt(openStiffness), stiffness: openS
 Animated.spring(value, { toValue: 1.5, tension: 280, friction: 4, useNativeDriver: true });
 ```
 
-`components/Pet.tsx`, `components/TaskItem.tsx`, `components/ExpandableCard.tsx`, and the
+`components/Pet.tsx`, `components/ExpandableCard.tsx`, and the
 habit-card pulse in `app/habits.tsx` still use the legacy `Animated` API with
 `useNativeDriver: true` and `tension`/`friction` instead of `damping`/`stiffness` — they're
 not wrong, just an older API. **New animation code should default to react-native-reanimated**
@@ -143,7 +143,7 @@ Timing matters: fire the haptic at the exact moment of the visual event, on `onP
 | Interaction | Helper | Status |
 |---|---|---|
 | Any `PressableScale` button | `tap()` on press-in | ✅ implemented |
-| Task/habit complete | `success()` | ✅ implemented (`TaskItem.tsx`, `app/habits.tsx`) |
+| Task/habit complete | `success()` | ✅ implemented (`PlanTaskCard.tsx`, `app/habits.tsx`) |
 | BubbleMenu open/close | `tap()` | ✅ implemented |
 | BubbleMenu item tap | `tap()` | ✅ implemented as Light, *not* Medium — already hand-tuned alongside the wheel's spring physics; left as-is rather than risk a regression in `BubbleMenu.tsx` (see that file's merge-risk warning) |
 | Wheel hits rotation boundary | `tug()` | ✅ implemented |
@@ -158,10 +158,12 @@ Timing matters: fire the haptic at the exact moment of the visual event, on `onP
 
 Real implementations in this codebase, with where they differ from generic best-practice:
 
-- **Task completion**: `components/TaskItem.tsx` — checkmark scale-pops to 1.35 then springs
-  back (`friction: 4`) over ~120ms+spring, paired with `success()` and a `CompletionGlow`
-  bloom (180ms fade-in, 760ms fade-out). Total feel is shorter than a generic 500–700ms
-  celebration target — intentional, keeps repeated daily completions snappy rather than slow.
+- **Task completion**: `components/PlanTaskCard.tsx` — a done task leaves the pending rail
+  and drops into the (collapsed) done zone on the same render, so there's no per-row checkmark
+  animation (it would unmount before it could play). The reward is a card-level
+  `CompletionGlow` bloom instead — scale 1→1.05 over 300ms ease-out, opacity 1→0.7→0 over
+  300ms+400ms ease-out (`withSequence`/`withTiming`, ~700ms total) — paired with `success()`
+  fired from `handleToggle`. Mirrors the habit-card glow pattern (`app/habits.tsx`) below.
 - **Habit completion**: same `CompletionGlow` + `success()` on the rising edge of "done today"
   (`app/habits.tsx`), plus an infinite 1300ms scale-pulse (1.0↔1.2) while the day's goal stays
   met. There is **no separate "streak extended" bounce/haptic** — extending a streak and
@@ -252,8 +254,8 @@ SPRINGS (react-native-reanimated, primary pattern in this codebase):
   - Normal/bouncy (BubbleMenu "sprettball" open/close): variable formula with openStiffness=clamp(350*springScale,80,1400) and damping=0.82*√openStiffness, maintaining ζ≈0.41
   - Playful/alive (pet-like): lower damping, lower stiffness
   - Legacy Animated API (speed/bounciness or tension/friction) only exists in
-    components/Pet.tsx, components/TaskItem.tsx, components/ExpandableCard.tsx,
-    app/habits.tsx's pulse — match the existing file's API, don't mix both in one component
+    components/Pet.tsx, components/ExpandableCard.tsx, app/habits.tsx's pulse —
+    match the existing file's API, don't mix both in one component
 
 HAPTICS (always via lib/haptics.ts, never raw expo-haptics):
   - Default taps: tap()

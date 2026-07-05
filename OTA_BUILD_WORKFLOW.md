@@ -103,18 +103,17 @@ Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
 
 ---
 
-## Current State (as of 2026-07-03)
+## Current State
 
-- **EAS Preview runtime:** `1.0.0` (APK build deployed)
-- **Current app.json:** `version: 1.1.0`, `runtimeVersion: 1.0.0`
-- **OTA channel:** `preview` on Expo
-- **Meaning:** v1.1.0 code is available via OTA to devices on runtime 1.0.0
+Don't hardcode `version`/`runtimeVersion` values here — they change on every build
+and a stale number in this doc is worse than no number. **Check `app.json` directly**
+for the live values. OTA channel is always `preview` on Expo.
 
 When native changes are needed:
-1. Make the change, keep `runtimeVersion: 1.0.0`
-2. Maintainer builds new APK (gets new runtime, e.g., `1.1.0`)
-3. Bump `runtimeVersion: 1.1.0` after build exists
-4. OTA updates flow to new runtime
+1. Make the change, leave `runtimeVersion` unchanged
+2. Maintainer builds new APK (gets a new runtime value)
+3. Bump `runtimeVersion` to match, after the build exists
+4. OTA updates flow to the new runtime
 
 ---
 
