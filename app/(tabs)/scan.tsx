@@ -14,8 +14,10 @@
  *
  * Edit notes:
  *   - Decision 001 tier='site' ScreenScaffold (bottomNav={false} — the tabs pager renders
- *     BottomNav itself) for idle/result/manual modes; the transient 'scanning' mode is a
- *     bare centered SafeAreaView, same as before this screen moved under app/(tabs)/.
+ *     BottomNav itself; ownBackground={false} — app/(tabs)/_layout.tsx renders one shared
+ *     backdrop behind the whole pager instead) for idle/result/manual modes; the transient
+ *     'scanning' mode is a bare centered SafeAreaView, same as before this screen moved
+ *     under app/(tabs)/.
  *   - The old ScreenHeader right-slot "Budget" link is now an in-content top link on the idle screen
  *     (site-tier headers render Focus-mode on the right, so a header link can't live there — same
  *     in-content-toolbar precedent as meals.tsx).
@@ -515,7 +517,7 @@ export default function ScanScreen() {
   if (mode === 'idle') {
     return (
       <>
-        <ScreenScaffold title={t.scanReceipt} tier="site" bottomNav={false}>
+        <ScreenScaffold title={t.scanReceipt} tier="site" bottomNav={false} ownBackground={false}>
           <View style={styles.content}>
             <Pressable style={styles.budgetLinkRow} onPress={() => goToSite(router, pathname, '/budget')} hitSlop={6}>
               <Text style={[styles.backLink, { color: theme.accent }]}>{t.budget.title}</Text>
@@ -587,7 +589,7 @@ export default function ScanScreen() {
   if (mode === 'result' && parsedItems.length > 0) {
     return (
       <>
-        <ScreenScaffold title={t.foundOnReceipt} tier="site" bottomNav={false}>
+        <ScreenScaffold title={t.foundOnReceipt} tier="site" bottomNav={false} ownBackground={false}>
           <View style={styles.content}>
             <HintCard text={t.itemsSelectedCount(selectedCount, parsedItems.length)} example="" />
 
@@ -676,7 +678,7 @@ export default function ScanScreen() {
   if (mode === 'manual') {
     return (
       <>
-        <ScreenScaffold title={t.manualEntryTitle} tier="site" bottomNav={false}>
+        <ScreenScaffold title={t.manualEntryTitle} tier="site" bottomNav={false} ownBackground={false}>
           <View style={styles.content}>
             <HintCard text={t.manualEntryHint} example="" />
 

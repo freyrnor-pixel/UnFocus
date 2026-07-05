@@ -26,7 +26,19 @@
  *         header height/paddingTop += topInset, bottom-nav height/paddingBottom += bottomInset.
  *     topInset floors insets.top with StatusBar.currentHeight on Android as a safety net for the
  *     brief window where safe-area-context can report 0 before the first insets dispatch.
- *   - isHome=true mounts HomeHeroBackground; false uses ScreenBackground
+ *   - isHome=true mounts HomeHeroBackground; false uses ScreenBackground — only when
+ *     ownBackground is true (see below)
+ *   - **ownBackground (added for the static-swipe-background fix)**: the 5 pager tab
+ *     sites (app/(tabs)/*) pass ownBackground={false} because each one used to mount
+ *     its own L1/L2 background instance, so swiping the pager visibly slid two
+ *     separate backdrops past each other at the seam. app/(tabs)/_layout.tsx now
+ *     renders one shared L1/L2 pair behind the whole pager instead — it doesn't
+ *     translate with the swipe gesture, only swapping (Home hero vs plain backdrop)
+ *     when the focused tab actually changes. ownBackground=false also drops this
+ *     component's own SafeAreaView backgroundColor so that shared backdrop shows
+ *     through. Sub-tier and non-pager site screens keep ownBackground's default
+ *     (true) — their transitions are stack push/pop, not a swipe, so per-screen
+ *     backgrounds were never the problem.
  *   - **bottomNav (successor to Decision 032's swipeNav)**: the 5 nav sites now live in
  *     app/(tabs)/_layout.tsx's material-top-tabs pager, which owns both the bottom tab
  *     bar and the swipe-between-sites gesture itself (react-native-pager-view — one
@@ -78,6 +90,14 @@ type Props = {
    * without this a tab screen would get two bottom nav bars stacked.
    */
   bottomNav?: boolean;
+  /**
+   * Whether this screen renders its own L1 background + L2 particle overlay.
+   * Default true. The 5 pager tab sites (app/(tabs)/*) pass false, since
+   * app/(tabs)/_layout.tsx already renders one shared instance behind the whole
+   * pager — without this, each swiped tab would carry its own backdrop and the
+   * background would visibly slide with the gesture.
+   */
+  ownBackground?: boolean;
 };
 
 export default function ScreenScaffold({
@@ -92,6 +112,7 @@ export default function ScreenScaffold({
   focusActive,
   onToggleFocus,
   bottomNav = true,
+  ownBackground = true,
 }: Props) {
   const theme = useAppTheme();
   // Android edge-to-edge (RN 0.85 / Expo 56) draws content behind the status and
@@ -141,16 +162,13 @@ export default function ScreenScaffold({
   );
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
-      {/* L1: Background */}
-      {isHome ? (
-        <HomeHeroBackground />
-      ) : (
-        <ScreenBackground />
-      )}
+    <SafeAreaView style={[styles.safeArea, ownBackground && { backgroundColor: theme.bg }]}>
+      {/* L1: Background — skipped when a parent (the tabs pager) already renders a
+          shared instance behind this screen (see ownBackground doc above). */}
+      {ownBackground && (isHome ? <HomeHeroBackground /> : <ScreenBackground />)}
 
-      {/* L2: Particle overlay */}
-      <ParticleBackground />
+      {/* L2: Particle overlay — same ownBackground gating as L1. */}
+      {ownBackground && <ParticleBackground />}
 
       {/* L3: Content — swipe-between-sites navigation now lives one level up, in
           app/(tabs)/_layout.tsx's pager, so tab screens render their scroll content

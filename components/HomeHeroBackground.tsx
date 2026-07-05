@@ -11,7 +11,10 @@
  *
  * Connections:
  *   Imports → lib/useAppTheme (useIsDark, useAccessibility), expo-linear-gradient
- *   Used by → app/index.tsx, replacing ScreenBackground on the home screen
+ *   Used by → app/(tabs)/_layout.tsx (hoisted behind the whole tabs pager, shown when
+ *             the home tab is focused — see that file's header), replacing
+ *             ScreenBackground for that state. components/ScreenScaffold still mounts
+ *             it directly (isHome prop) for any isHome screen with ownBackground=true.
  *
  * Edit notes:
  *   - Render as the first child inside the SafeAreaView, same contract as

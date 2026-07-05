@@ -206,6 +206,7 @@ export default function HomeScreen() {
         tier="site"
         isHome
         bottomNav={false}
+        ownBackground={false}
         focusActive={focusMode}
         onToggleFocus={() => setFocusMode((v) => !v)}
       >

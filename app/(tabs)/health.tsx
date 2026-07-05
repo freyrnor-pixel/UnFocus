@@ -192,7 +192,7 @@ export default function HealthScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.healthTitle} tier="site" bottomNav={false}>
+      <ScreenScaffold title={t.healthTitle} tier="site" bottomNav={false} ownBackground={false}>
         <View style={styles.content}>
           <HintCard text={t.hints.health.text} example={t.hints.health.example} />
 
