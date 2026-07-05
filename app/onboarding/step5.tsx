@@ -1,21 +1,27 @@
 /**
- * step5.tsx — Color theme + handedness (guided step 5 of 6)
+ * step5.tsx — Color theme + handedness (guided step 5 of 5, final step)
  *
- * Pick a color theme and handedness, then continue to the companion-pet step.
- * Finishing onboarding (setup complete + notification scheduling) happens in
- * step6.tsx.
+ * Pick a color theme and handedness, then finish onboarding: marks setup
+ * complete and requests OS notification permission.
  *
  * Connections:
- *   Imports → @/store/useSettingsStore, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
+ *   Imports → @/store/useSettingsStore, @/store/useTaskStore, @/lib/notifications,
+ *             @/lib/reminders, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
  *             @/components/Button, @/components/SwatchPicker
  *   Used by → Expo Router route "/onboarding/step5"
- *   Data    → useSettingsStore (writes `colorTheme`, `leftHanded`); scaled
- *             fontSize via useScaledStyles()
+ *   Data    → useSettingsStore (writes `colorTheme`, `leftHanded`, `setupComplete`,
+ *             `essentialsModeEnabled`, `showPoints`); scaled fontSize via
+ *             useScaledStyles(); requests notification permission via
+ *             requestPermissions(), then schedules reminders via syncReminders() +
+ *             useTaskStore.syncAllTaskNotifications()
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
- *   - Next button → router.push "/onboarding/step6" (companion pet naming,
- *     which owns setupComplete + notification scheduling).
+ *   - Finish button → finish() sets setupComplete + new-user defaults
+ *     (essentialsModeEnabled:false, showPoints:true), requests OS notification
+ *     permission and, once it resolves, schedules reminders (syncReminders +
+ *     syncAllTaskNotifications), then router.replace "/" to home. This used to
+ *     live in step6.tsx (companion-pet naming), which has been removed.
  *   - Previous uses router.back().
  *   - The swatch preview reads each theme's accent from the canonical palette
  *     (getThemePalette(key).accent in constants/colors.ts) — the SAME source that
@@ -30,6 +36,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useTaskStore } from '@/store/useTaskStore';
+import { requestPermissions } from '@/lib/notifications';
+import { syncReminders } from '@/lib/reminders';
 import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Shadow, Spacing, contrastOn } from '@/constants/theme';
 import { getThemePalette, THEMES as COLOR_PALETTES, THEME_ICONS, ThemeName } from '@/constants/colors';
@@ -43,6 +52,21 @@ export default function OnboardingStep5() {
   const theme = useAppTheme();
   const t = useT();
   const styles = useScaledStyles(baseStyles);
+
+  function finish() {
+    settings.update({
+      setupComplete: true,
+      essentialsModeEnabled: false,
+      showPoints: true,
+    });
+    // Request OS permission, then schedule the weekly/monthly reminders and every
+    // task's per-task notification once permission resolves (mirrors the old app).
+    requestPermissions().finally(() => {
+      syncReminders();
+      useTaskStore.getState().syncAllTaskNotifications();
+    });
+    router.replace('/');
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -90,7 +114,7 @@ export default function OnboardingStep5() {
         </View>
 
         <View style={styles.progress}>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <View
               key={i}
               style={[
@@ -111,8 +135,8 @@ export default function OnboardingStep5() {
           size="md"
         />
         <Button
-          label={t.next}
-          onPress={() => router.push('/onboarding/step6')}
+          label={t.finishBtn}
+          onPress={finish}
           variant="primary"
           size="md"
         />
