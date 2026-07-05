@@ -48,8 +48,23 @@ jobs:
             exit 0
           fi
 
-          gh pr create \
+          # Best-effort create. Some repos/orgs disable "Allow GitHub Actions to
+          # create and approve pull requests" — in that case gh fails with
+          # "GitHub Actions is not permitted to create or approve pull requests".
+          # That's a policy choice, not a broken build, so we surface a one-click
+          # compare link and exit cleanly rather than failing the check. Any other
+          # error still fails the job.
+          if err="$(gh pr create \
             --base main \
             --head "$BRANCH" \
             --title "Publish: $BRANCH" \
-            --body $'Auto-opened by the `auto-pr` workflow for branch `'"$BRANCH"$'`.\n\n**Merging this PR into `main` publishes an OTA update** to the `preview` channel (runtime = `app.json` `runtimeVersion`). Review the diff, then merge when ready. See `PUBLISHING.md`.\n\nThis PR is not auto-merged on purpose — the merge is your call.'
+            --body $'Auto-opened by the `auto-pr` workflow for branch `'"$BRANCH"$'`.\n\n**Merging this PR into `main` publishes an OTA update** to the `preview` channel (runtime = `app.json` `runtimeVersion`). Review the diff, then merge when ready. See `PUBLISHING.md`.\n\nThis PR is not auto-merged on purpose — the merge is your call.' 2>&1)"; then
+            echo "$err"
+          else
+            if printf '%s' "$err" | grep -qiE 'not permitted to create|GitHub Actions is not permitted'; then
+              echo "::notice::GitHub Actions can't open PRs in this repo (org/repo setting). Open one manually: https://github.com/${GITHUB_REPOSITORY}/compare/main...${BRANCH}?expand=1"
+              exit 0
+            fi
+            echo "$err" >&2
+            exit 1
+          fi
