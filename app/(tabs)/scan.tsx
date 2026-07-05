@@ -351,7 +351,8 @@ export default function ScanScreen() {
     if (qrScanned) return;
     setQrScanned(true);
     const payload = decodeSharePayload(data);
-    if (!payload) {
+    if (!payload || payload.k === 'p') {
+      // Pairing QR codes ('p') aren't scanned from this screen — only shopping/task shares.
       showAppModal('', t.qrInvalid, [{ text: t.ok, onPress: () => setQrScanned(false) }]);
       return;
     }

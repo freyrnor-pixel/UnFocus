@@ -208,7 +208,7 @@ export class LanTransport {
 
     // Advertise ourselves. TXT record carries the deviceId so a resolved peer is
     // attributable before any connection opens.
-    this.zeroconf.publish(
+    this.zeroconf.publishService(
       SERVICE_TYPE,
       SERVICE_PROTOCOL,
       SERVICE_DOMAIN,
@@ -253,7 +253,7 @@ export class LanTransport {
     this.started = false;
     try {
       this.zeroconf.stop();
-      this.zeroconf.unpublish();
+      this.zeroconf.unpublishService(this.self.name);
       this.zeroconf.removeDeviceListeners();
     } catch {
       /* zeroconf already down */

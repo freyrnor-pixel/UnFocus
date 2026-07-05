@@ -13,7 +13,7 @@
  * still spans the full card).
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, store/useSettingsStore, expo-blur
+ *   Imports → constants/theme, lib/useAppTheme, store/useSettingsStore, expo-blur, expo-linear-gradient
  *   Used by → app screens that render a "card" surface (see grep for `<Surface`)
  *   Data    → reads bubbleMaterial from useSettingsStore when `material` prop is omitted
  *
@@ -28,6 +28,11 @@
  *     caller mounts the Surface, not here. `surfaceContext` is a no-op for
  *     metal/rock/paper/plain — they keep the opaque getMaterialStyle() fill + sheen.
  *     Android wires `experimentalBlurMethod="dimezisBlurView"` (Decision 008 (2)).
+ *   - The top sheen highlight is a single `<LinearGradient>` (expo-linear-gradient)
+ *     fading mat.sheenColor to transparent — a real continuous gradient, not two
+ *     overlapping flat-opacity Views. Two stacked flat rectangles read as a visible
+ *     hard-edged step/band where they overlap instead of a smooth fade; don't
+ *     reintroduce that pattern here.
  *   - `style` is split three ways: padding keys AND content-layout keys
  *     (alignItems/justifyContent/flexDirection/gap...) move to the inner content
  *     view; everything else non-owned (margin, width, flex, borderRadius...) stays
@@ -38,9 +43,9 @@
  *     shadow/elevation in `style` is intentionally dropped — owned by the material.
  *   - shadowColor comes from the active theme's `shadow` token (not a fixed
  *     black), so depth itself shifts hue with the colour theme.
- *   - The top sheen highlight is suppressed in dark mode (useIsDark) — over
- *     near-black surfaces it reads as bright streaks and contradicts sunken wells;
- *     dark depth comes from border + shadow instead. Light mode keeps the sheen.
+ *   - The sheen is suppressed in dark mode (useIsDark) — over near-black surfaces
+ *     it reads as bright streaks and contradicts sunken wells; dark depth comes
+ *     from border + shadow instead. Light mode keeps the sheen.
  *   - Pass `tint` for a non-default base (e.g. theme.offWhite for empty
  *     states, or an accent colour for a coloured card) — material shading is
  *     computed from this base.
@@ -48,6 +53,7 @@
 import React from 'react';
 import { Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getMaterialStyle, MaterialName, Radius } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -121,9 +127,8 @@ export default function Surface({ material, surfaceContext = 'ambient', tint, st
 
   // The raised-material sheen reads as bright streaks over near-black dark surfaces (and
   // contradicts a sunken well), so suppress it in dark mode and lean on border + shadow for
-  // depth. Light mode keeps the full sheen.
-  const sheenOuterOpacity = isDark ? 0 : 0.3;
-  const sheenInnerOpacity = isDark ? 0 : 0.55;
+  // depth. Light mode keeps the sheen.
+  const showSheen = !isDark;
 
   return (
     <View
@@ -159,11 +164,12 @@ export default function Surface({ material, surfaceContext = 'ambient', tint, st
             <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: mat.backgroundColor, opacity: GLASS_WASH_OPACITY }]} />
           </>
         )}
-        {sheenOuterOpacity > 0 && (
-          <View pointerEvents="none" style={[styles.sheenOuter, { backgroundColor: mat.sheenColor, opacity: sheenOuterOpacity, borderTopLeftRadius: radius, borderTopRightRadius: radius }]} />
-        )}
-        {sheenInnerOpacity > 0 && (
-          <View pointerEvents="none" style={[styles.sheenInner, { backgroundColor: mat.sheenColor, opacity: sheenInnerOpacity, borderTopLeftRadius: radius, borderTopRightRadius: radius }]} />
+        {showSheen && (
+          <LinearGradient
+            pointerEvents="none"
+            colors={[mat.sheenColor, 'transparent']}
+            style={[styles.sheen, { borderTopLeftRadius: radius, borderTopRightRadius: radius }]}
+          />
         )}
         <View style={[content, padding]}>{children}</View>
       </View>
@@ -176,6 +182,5 @@ const styles = StyleSheet.create({
   // style centers content on the outer view (otherwise the mask shrink-wraps its children
   // and floats as a narrower box inside the bordered card).
   mask: { overflow: 'hidden', alignSelf: 'stretch' },
-  sheenOuter: { position: 'absolute', top: 0, left: 0, right: 0, height: 30 },
-  sheenInner: { position: 'absolute', top: 0, left: 0, right: 0, height: 14 },
+  sheen: { position: 'absolute', top: 0, left: 0, right: 0, height: 30 },
 });
