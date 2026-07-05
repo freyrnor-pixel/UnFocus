@@ -117,15 +117,22 @@ export default function ScreenScaffold({
 
   // The outer SafeAreaView pads the in-flow ScrollView into the safe area — this is
   // what confines scrolling so content can't slide up behind the status bar. So the
-  // content padding here only accounts for the floating chrome (sticky bar + BottomNav),
-  // NOT the insets (adding them here would double-count). The absolute header/bottom
-  // blocks apply the insets themselves, since absolute children ignore SafeAreaView's padding.
+  // content padding here only accounts for the floating chrome (header + sticky bar +
+  // BottomNav), NOT the insets (adding them here would double-count). The absolute
+  // header/bottom blocks apply the insets themselves, since absolute children ignore
+  // SafeAreaView's padding.
+  //
+  // HEADER_HEIGHT is added to the top so the first content item starts *below* the
+  // translucent glass header instead of scrolling behind it on mount (the header still
+  // floats, so content slides behind it as the user scrolls — it just doesn't overlap
+  // at rest). Without this the greeting/first card renders under the glass header and
+  // reads as "the header overlaps the text".
   const scrollContent = (
     <ScrollView
       style={styles.scrollView}
       contentContainerStyle={[
         styles.contentContainer,
-        !!stickyBelowHeader && { paddingTop: stickyBelowHeaderHeight },
+        { paddingTop: HEADER_HEIGHT + (stickyBelowHeader ? stickyBelowHeaderHeight : 0) },
         tier === 'site' && { paddingBottom: BOTTOM_NAV_HEIGHT },
       ]}
       scrollIndicatorInsets={{

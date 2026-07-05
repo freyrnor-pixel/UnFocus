@@ -7,8 +7,8 @@
  *
  * Connections:
  *   Imports → @/store/useSettingsStore, @/store/useTaskStore, @/lib/notifications,
- *             @/lib/reminders, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
- *             @/components/Button, @/components/Pet
+ *             @/lib/reminders, @/lib/i18n, @/constants/theme, @/constants/petData,
+ *             @/lib/useAppTheme, @/components/Button, @/components/Creature
  *   Used by → Expo Router route "/onboarding/step6"
  *   Data    → useSettingsStore (writes `petEnabled`, `petName`, `petType`,
  *             `petColor`, `setupComplete`, `essentialsModeEnabled`, `showPoints`);
@@ -27,11 +27,13 @@
  *     taskNotificationsEnabled ON, so finish() must actually schedule against them.
  *     `lib/reminders.ts` (syncReminders) and useTaskStore.syncAllTaskNotifications()
  *     are both ported now, so the earlier "left out until ported" gap is closed.
- *   - Pet preview is live: tapping a type/colour writes straight to
- *     useSettingsStore, and Pet.tsx reads the same store reactively.
- *   - Pet.tsx's root container is `position: 'absolute'` (home-screen corner
- *     overlay) — wrapped here in a fixed-height `position: 'relative'` box so it
- *     renders inline as a preview.
+ *   - Preview + type chooser are merged into one card: the drawn Creature sits
+ *     centered in a habitat "stage" (glow from PET_PALETTES, chosen by useIsDark),
+ *     with the type chips directly below. Tapping a type/colour writes straight to
+ *     useSettingsStore; the preview reads petType/petColor reactively and updates in
+ *     place. Creature is used directly (not the full home-screen Pet, whose
+ *     absolute-positioned habitat/treats overlay is designed for the home corner and
+ *     rendered misplaced when embedded inline).
  *   - The pet colour swatches are stored hex values (petColor is a hex string);
  *     theme.accent/theme.good seed the first two, the rest are the fixed palette
  *     shared with the (not-yet-ported) settings pet picker. Decision 006 tokens
@@ -57,9 +59,10 @@ import { requestPermissions } from '@/lib/notifications';
 import { syncReminders } from '@/lib/reminders';
 import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useScaledStyles, useIsDark, useAccessibility } from '@/lib/useAppTheme';
 import Button from '@/components/Button';
-import Pet from '@/components/Pet';
+import Creature from '@/components/Creature';
+import { PET_PALETTES, GLOW_OPACITY, furFor } from '@/constants/petData';
 
 const PET_TYPES: PetType[] = ['cat', 'dog', 'bird', 'fox', 'bunny'];
 const PET_EMOJIS: Record<PetType, string> = { cat: '🐱', dog: '🐶', bird: '🐦', fox: '🦊', bunny: '🐰' };
@@ -69,11 +72,20 @@ export default function OnboardingStep6() {
   const settings = useSettingsStore();
   const t = useT();
   const theme = useAppTheme();
+  const isDark = useIsDark();
+  const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
   const [petNameInput, setPetNameInput] = useState(settings.petName);
 
   // Colour swatches for the pet picker — same fixed palette as settings.tsx's pet colour picker.
   const petSwatches = [theme.accent, theme.good, '#A78BFA', '#F472B6', '#60A5FA', '#34D399'];
+
+  // Live preview: the chosen type's habitat glow behind the actual drawn creature, so
+  // picking a type/colour below updates this single preview (merged preview + chooser).
+  const palette = PET_PALETTES[settings.petType] ?? PET_PALETTES.cat;
+  const habitat = isDark ? palette.dark : palette.light;
+  const previewFur = furFor(settings.petType, settings.petColor);
+  const glowOpacity = isDark ? GLOW_OPACITY.dark : GLOW_OPACITY.light;
 
   function finish() {
     settings.update({
@@ -108,24 +120,23 @@ export default function OnboardingStep6() {
             <Text style={[styles.sub, { color: theme.textMuted }]}>{t.onboarding.step6.subtitle}</Text>
           </View>
 
-          <View style={styles.previewWrap}>
-            <Pet completedToday={0} />
-          </View>
-
+          {/* Merged live preview + type chooser: the drawn creature sits centered in
+              its habitat glow, and the type chips right below update it in place. */}
           <View style={[styles.card, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.pet.name}</Text>
-            <TextInput
-              style={[styles.input, { color: theme.text, borderColor: theme.accent, backgroundColor: theme.surface }]}
-              value={petNameInput}
-              onChangeText={setPetNameInput}
-              onBlur={() => settings.update({ petName: petNameInput.trim() })}
-              placeholder={t.onboarding.step6.namePlaceholder}
-              placeholderTextColor={theme.textMuted}
-              returnKeyType="done"
-            />
-          </View>
+            <View style={[styles.petStage, { backgroundColor: habitat.sky }]}>
+              <View
+                style={[styles.stageGlow, { backgroundColor: habitat.glow, opacity: glowOpacity }]}
+                pointerEvents="none"
+              />
+              <Creature
+                type={settings.petType}
+                mood="happy"
+                fur={previewFur}
+                scale={1.7}
+                reducedMotion={reducedMotion}
+              />
+            </View>
 
-          <View style={[styles.card, { backgroundColor: theme.surface }]}>
             <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.pet.type}</Text>
             <View style={styles.petTypeRow}>
               {PET_TYPES.map((pt) => (
@@ -143,6 +154,19 @@ export default function OnboardingStep6() {
                 </Pressable>
               ))}
             </View>
+          </View>
+
+          <View style={[styles.card, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.pet.name}</Text>
+            <TextInput
+              style={[styles.input, { color: theme.text, borderColor: theme.accent, backgroundColor: theme.surface }]}
+              value={petNameInput}
+              onChangeText={setPetNameInput}
+              onBlur={() => settings.update({ petName: petNameInput.trim() })}
+              placeholder={t.onboarding.step6.namePlaceholder}
+              placeholderTextColor={theme.textMuted}
+              returnKeyType="done"
+            />
           </View>
 
           <View style={[styles.card, { backgroundColor: theme.surface }]}>
@@ -202,8 +226,21 @@ const baseStyles = StyleSheet.create({
   iconBadge: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center' },
   heading: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold, textAlign: 'center' },
   sub: { fontSize: FontSize.md, textAlign: 'center', lineHeight: 24 },
-  previewWrap: { position: 'relative', height: 190, alignItems: 'center' },
   card: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm, ...Shadow.card },
+  petStage: {
+    height: 168,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginBottom: Spacing.xs,
+  },
+  stageGlow: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+  },
   fieldLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   input: { borderRadius: Radius.sm, borderWidth: 2, padding: Spacing.md, fontSize: FontSize.lg },
   petTypeRow: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },

@@ -12,7 +12,7 @@
  * Connections:
  *   Imports → components/Creature, constants/petData, lib/haptics, lib/i18n,
  *             lib/useAppTheme, store/useSettingsStore
- *   Used by → app/index.tsx, app/onboarding/step6.tsx
+ *   Used by → app/index.tsx (onboarding step6 draws Creature directly for its inline preview)
  *   Props   → completedToday: bumping it triggers the celebration/excited moment
  *   Data    → reads petType + petColor from useSettingsStore; no writes
  *

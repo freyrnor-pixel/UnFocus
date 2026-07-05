@@ -7,7 +7,8 @@
  *
  * Connections:
  *   Imports → assets/android-icon-monochrome.png
- *   Used by → app/index.tsx (home watermark), components/SectionDivider.tsx
+ *   Used by → app/onboarding/_layout.tsx (faint centered intro backdrop),
+ *             components/SectionDivider.tsx (tiny inline divider mark)
  *
  * Edit notes:
  *   - Always pointerEvents="none" — purely decorative, must never block taps.

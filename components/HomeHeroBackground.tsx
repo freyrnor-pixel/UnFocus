@@ -6,7 +6,8 @@
  * structure on a navy sky with pulsing rings added around the orb. Both have
  * a sparse field of ink dots that rise and fade, and a ground fade at the
  * bottom so list content stays legible. Sky and ground use true linear gradients
- * (expo-linear-gradient); orb halo and animations stay as concentric circles.
+ * (expo-linear-gradient) and the orb halo is a true SVG radial gradient; only the
+ * pulse-ring animations remain plain circles.
  *
  * Connections:
  *   Imports → lib/useAppTheme (useIsDark, useAccessibility), expo-linear-gradient
@@ -20,13 +21,14 @@
  *   - Sky and ground are now true LinearGradient components (Decision 007).
  *   - The orb is centered at 50%/50%, same anchor as TreeWatermark's
  *     centered wrap in app/index.tsx, so the halo sits behind the tree
- *     rather than floating independently. Faked blur via concentric
- *     same-opacity circles (see ScreenBackground.tsx's Blob for the same
- *     trick), not a single hard-edged circle.
+ *     rather than floating independently. It is a true SVG RadialGradient
+ *     (smooth falloff) — the older concentric-circle fake was replaced so it
+ *     no longer reads as banded color blocks.
  */
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
 
 type Percent = `${number}%`;
@@ -108,26 +110,23 @@ function PulseRing({ delay, color }: { delay: number; color: string }) {
   return <Animated.View style={[styles.ring, { borderColor: color, transform: [{ scale }], opacity }]} />;
 }
 
-/** Concentric same-color circles at decreasing opacity, fading out toward the edge — fakes a soft radial glow without a blur filter. */
+/** Soft radial glow behind the tree — a true SVG radial gradient (smooth falloff),
+ *  replacing the old stacked concentric-circle fake so it reads as a real glow, not
+ *  banded color blocks. */
 function OrbHalo({ size, color }: { size: number; color: string }) {
-  const layers = [1, 0.72, 0.46, 0.24];
   return (
     <View pointerEvents="none" style={[styles.orbWrap, { width: size, height: size, marginLeft: -size / 2, marginTop: -size / 2 }]}>
-      {layers.map((scale, i) => (
-        <View
-          key={i}
-          style={{
-            position: 'absolute',
-            top: (size * (1 - scale)) / 2,
-            left: (size * (1 - scale)) / 2,
-            width: size * scale,
-            height: size * scale,
-            borderRadius: (size * scale) / 2,
-            backgroundColor: color,
-            opacity: 0.14,
-          }}
-        />
-      ))}
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <Defs>
+          <RadialGradient id="orbHalo" cx="50%" cy="50%" rx="50%" ry="50%">
+            <Stop offset="0%" stopColor={color} stopOpacity="0.42" />
+            <Stop offset="45%" stopColor={color} stopOpacity="0.2" />
+            <Stop offset="75%" stopColor={color} stopOpacity="0.06" />
+            <Stop offset="100%" stopColor={color} stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Rect x={0} y={0} width={size} height={size} fill="url(#orbHalo)" />
+      </Svg>
     </View>
   );
 }

@@ -11,7 +11,7 @@
  *
  * Connections:
  *   Imports → constants/petData (part colours), constants/theme (mix)
- *   Used by → components/Pet.tsx
+ *   Used by → components/Pet.tsx, app/onboarding/step6.tsx (inline pet preview)
  *   Data    → none — pure presentational SVG
  *
  * Edit notes:
