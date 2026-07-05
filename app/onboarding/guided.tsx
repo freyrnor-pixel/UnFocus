@@ -45,8 +45,9 @@ export default function GuidedScreen() {
   }
 
   function goExplore() {
-    // W-E: new-user defaults — start with Essentials ON and points visible. Onboarding-only.
-    settings.update({ showHints: true, setupComplete: true, essentialsModeEnabled: true, showPoints: true });
+    // W-E: new-user defaults — start with Focus/Essentials mode OFF (Notes/Shopping
+    // previews visible) and points visible. Onboarding-only.
+    settings.update({ showHints: true, setupComplete: true, essentialsModeEnabled: false, showPoints: true });
     router.replace('/');
   }
 
