@@ -29,6 +29,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
@@ -145,10 +146,10 @@ function PulseRing({ delay, color }: { delay: number; color: string }) {
   );
 }
 
-/** Fakes a soft radial glow via concentric same-color circles at decreasing opacity. */
+/** Soft radial glow at the upper-center focal point — a true SVG radial gradient
+ *  (smooth falloff), not stacked same-color circles that read as banded rings. */
 function OrbHalo({ color }: { color: string }) {
   const SIZE = 260;
-  const layers = [1, 0.7, 0.45, 0.22];
   return (
     <View
       pointerEvents="none"
@@ -162,21 +163,17 @@ function OrbHalo({ color }: { color: string }) {
         marginTop: -SIZE / 2,
       }}
     >
-      {layers.map((scale, i) => (
-        <View
-          key={i}
-          style={{
-            position: 'absolute',
-            top: (SIZE * (1 - scale)) / 2,
-            left: (SIZE * (1 - scale)) / 2,
-            width: SIZE * scale,
-            height: SIZE * scale,
-            borderRadius: (SIZE * scale) / 2,
-            backgroundColor: color,
-            opacity: 0.12,
-          }}
-        />
-      ))}
+      <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+        <Defs>
+          <RadialGradient id="particleOrb" cx="50%" cy="50%" rx="50%" ry="50%">
+            <Stop offset="0%" stopColor={color} stopOpacity="0.34" />
+            <Stop offset="45%" stopColor={color} stopOpacity="0.16" />
+            <Stop offset="75%" stopColor={color} stopOpacity="0.05" />
+            <Stop offset="100%" stopColor={color} stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Rect x={0} y={0} width={SIZE} height={SIZE} fill="url(#particleOrb)" />
+      </Svg>
     </View>
   );
 }

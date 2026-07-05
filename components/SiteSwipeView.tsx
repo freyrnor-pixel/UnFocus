@@ -21,8 +21,11 @@
  *   - Navigates once per swipe past SWIPE_COMMIT_RATIO of screen width, or on a fast flick
  *     (velocityX past SWIPE_VELOCITY_THRESHOLD); fires tug() instead of navigating past the
  *     first/last site.
- *   - The small drag-follow nudge is gated behind useAccessibility().reducedMotion (visual
- *     only); the swipe still navigates either way — it's a gesture, not decorative motion.
+ *   - The page follows the finger near 1:1 (FOLLOW_RATIO) with rubber-band resistance past
+ *     RESIST_START, then on commit flicks fully off-screen in the swipe direction before the
+ *     router navigates — so it reads like pushing a page away, not a tiny nudge. All of this
+ *     is gated behind useAccessibility().reducedMotion (visual only); the swipe still
+ *     navigates either way — it's a gesture, not decorative motion.
  *   - Only wrap a screen's normal scrollable content, not full-screen modal/camera overlays
  *     (e.g. app/scan.tsx's QR overlay) — those should sit outside this wrapper.
  *   - The same activeOffsetX/failOffsetY thresholds (and SWIPE_VELOCITY_THRESHOLD = 800) were
@@ -33,14 +36,17 @@ import React from 'react';
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, runOnJS } from 'react-native-reanimated';
 import { goToSite, SITE_ITEMS } from '@/lib/siteNav';
 import { selection, tug } from '@/lib/haptics';
 import { useAccessibility } from '@/lib/useAppTheme';
 
 const SWIPE_COMMIT_RATIO = 0.22;
 const SWIPE_VELOCITY_THRESHOLD = 800;
-const SWIPE_NUDGE_MAX = 24;
+// How closely the page tracks the finger while dragging. Near-1:1 so it reads as
+// pushing the page itself, with resistance kicking in past RESIST_START.
+const FOLLOW_RATIO = 0.85;
+const RESIST_START = 0.16; // fraction of screen width where drag starts to rubber-band
 
 type Props = { children: React.ReactNode };
 
@@ -51,10 +57,15 @@ export default function SiteSwipeView({ children }: Props) {
   const { reducedMotion } = useAccessibility();
   const translateX = useSharedValue(0);
 
+  // Whether a neighbouring site exists in each direction, computed on the JS side so
+  // the gesture worklet can decide flick-off (real move) vs. rubber-band-back (edge).
+  const siteIndex = SITE_ITEMS.findIndex((item) => item.route === pathname);
+  const canPrev = siteIndex > 0;
+  const canNext = siteIndex >= 0 && siteIndex < SITE_ITEMS.length - 1;
+
   function navigate(direction: 1 | -1) {
-    const index = SITE_ITEMS.findIndex((item) => item.route === pathname);
-    if (index === -1) return;
-    const targetIndex = index + direction;
+    if (siteIndex === -1) return;
+    const targetIndex = siteIndex + direction;
     if (targetIndex < 0 || targetIndex >= SITE_ITEMS.length) {
       tug();
       return;
@@ -68,15 +79,44 @@ export default function SiteSwipeView({ children }: Props) {
     .failOffsetY([-10, 10])
     .onUpdate((e) => {
       if (reducedMotion) return;
-      translateX.value = Math.max(-SWIPE_NUDGE_MAX, Math.min(SWIPE_NUDGE_MAX, e.translationX * 0.25));
+      // Follow the finger nearly 1:1, then rubber-band so long drags don't run
+      // the page clean off — this is what makes it feel like a real page you're
+      // pushing rather than a tiny nudge.
+      const raw = e.translationX * FOLLOW_RATIO;
+      const soft = RESIST_START * width;
+      if (Math.abs(raw) <= soft) {
+        translateX.value = raw;
+      } else {
+        const over = Math.abs(raw) - soft;
+        const damped = soft + over * 0.35;
+        translateX.value = Math.sign(raw) * damped;
+      }
     })
     .onEnd((e) => {
-      if (!reducedMotion) translateX.value = withTiming(0, { duration: 150 });
       const commit = width * SWIPE_COMMIT_RATIO;
-      if (e.translationX > commit || e.velocityX > SWIPE_VELOCITY_THRESHOLD) {
-        runOnJS(navigate)(-1);
-      } else if (e.translationX < -commit || e.velocityX < -SWIPE_VELOCITY_THRESHOLD) {
-        runOnJS(navigate)(1);
+      const wantPrev = e.translationX > commit || e.velocityX > SWIPE_VELOCITY_THRESHOLD;
+      const wantNext = e.translationX < -commit || e.velocityX < -SWIPE_VELOCITY_THRESHOLD;
+      const goPrev = wantPrev && canPrev;
+      const goNext = wantNext && canNext;
+      if (reducedMotion) {
+        if (goPrev) runOnJS(navigate)(-1);
+        else if (goNext) runOnJS(navigate)(1);
+        else if (wantPrev || wantNext) runOnJS(tug)(); // hit the edge
+        return;
+      }
+      if (goPrev) {
+        // Flick the current page off to the right, then navigate.
+        translateX.value = withTiming(width, { duration: 190 }, (done) => {
+          if (done) runOnJS(navigate)(-1);
+        });
+      } else if (goNext) {
+        translateX.value = withTiming(-width, { duration: 190 }, (done) => {
+          if (done) runOnJS(navigate)(1);
+        });
+      } else {
+        // Not far enough, or at the first/last site — spring the page back home.
+        if (wantPrev || wantNext) runOnJS(tug)();
+        translateX.value = withSpring(0, { damping: 20, stiffness: 260 });
       }
     });
 
