@@ -14,7 +14,7 @@
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, store/useTaskStore, store/useShoppingStore, store/useShoppingListStore,
  *             store/useSettingsStore
- *   Used by → Expo Router route "/"
+ *   Used by → Expo Router route "/" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → reads useTaskStore (tasks) + useShoppingStore (items) + useShoppingListStore
  *             (currentList(today)); mutates via toggle / toggleCheck / toggleCollected /
  *             adjustAmount / putBackToInventory / removeWithSource. Settings via useSettingsStore.
@@ -205,6 +205,7 @@ export default function HomeScreen() {
         title={t.nav.home}
         tier="site"
         isHome
+        bottomNav={false}
         focusActive={focusMode}
         onToggleFocus={() => setFocusMode((v) => !v)}
       >

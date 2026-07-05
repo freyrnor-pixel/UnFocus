@@ -36,13 +36,13 @@
  *     as a plain child. The old inline move-up/move-down chevrons are gone entirely, not
  *     kept as a fallback.
  *   - **R2 (swipe-left remove):** implemented as a horizontal `Gesture.Pan`, disambiguated
- *     from vertical scrolling the same way `components/SiteSwipeView.tsx` disambiguates its
- *     horizontal nav swipe (`activeOffsetX([-12, 12])` + `failOffsetY([-10, 10])`) — that's
- *     the only other real horizontal-swipe precedent in this codebase, reused here rather
- *     than inventing new thresholds. A background reveal layer (colored per the catalog/
+ *     from vertical scrolling via `activeOffsetX([-12, 12])` + `failOffsetY([-10, 10])` —
+ *     the same disambiguation idiom the old per-screen SiteSwipeView used before the
+ *     site-pager migration replaced it with a native pager gesture; kept here rather than
+ *     inventing new thresholds. A background reveal layer (colored per the catalog/
  *     ad-hoc branch) fades in as the row slides left; releasing past `COMMIT_THRESHOLD`
- *     (or a fast enough flick, `SWIPE_VELOCITY_THRESHOLD` — same 800 magnitude as
- *     SiteSwipeView) animates the row off-screen and calls `onRemove`; releasing short of
+ *     (or a fast enough flick, `SWIPE_VELOCITY_THRESHOLD`, same 800 magnitude as that old
+ *     precedent) animates the row off-screen and calls `onRemove`; releasing short of
  *     that snaps back to 0. `selection()` fires once on crossing the commit threshold
  *     mid-drag, `heavy()` fires once the swipe actually commits — mirrors the existing
  *     tap/drag haptic-timing contract in ANIMATION_GUIDELINES.md §4 (fire at the moment of

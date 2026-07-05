@@ -24,7 +24,7 @@
  *             heavy, warning), lib/i18n, lib/shoppingGroups (groupByDish, computeListGroups,
  *             listProgress), lib/useAppTheme, store/useMealStore, store/useSettingsStore,
  *             store/useShoppingListStore, store/useShoppingStore
- *   Used by → Expo Router route "/shopping"
+ *   Used by → Expo Router route "/shopping" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → useShoppingStore (items/trips) + useShoppingListStore (lists, incl. each
  *             list's locked/isTemplate state) + useSettingsStore (monthlyResetDate) +
  *             useMealStore (dishes, read-only, dish-group price lookup)
@@ -664,7 +664,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={STICKY_HEIGHT}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={STICKY_HEIGHT}>
       <View style={styles.content}>
         <SharedRequestsSection kind="shopping" />
 

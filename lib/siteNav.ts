@@ -2,37 +2,39 @@
  * siteNav.ts — shared site list + navigation helper for the bottom menu.
  *
  * Single source of truth for "all the app's sites" (the screens reachable from
- * BottomNav), plus goToSite(), which keeps the navigation stack shallow so
- * hardware/gesture "back" always lands on Home instead of whatever site was
- * visited previously. Used by both BottomNav (tab taps) and every cross-site
- * link inside the site screens themselves (header icons, "see all" links,
- * etc.) so the stack-depth invariant holds no matter which UI element
- * triggers the navigation.
+ * BottomNav). The 5 nav sites are siblings inside app/(tabs)/_layout.tsx's
+ * material-top-tabs pager, so moving between them is a tab switch (no stack growth);
+ * goToSite() still exists as the one call site every cross-site link goes through,
+ * but it now just dispatches router.navigate() for those 5 and router.push() for
+ * everything else (settings, meals, notes, budget, automations, shared).
  *
  * Connections:
  *   Imports → lib/i18n (Translations, for the nav label keys)
- *   Used by → components/BottomNav, components/SiteSwipeView, app/index, app/shopping,
- *             and any other screen that links to another site
+ *   Used by → components/BottomNav, app/(tabs)/_layout.tsx, app/(tabs)/index.tsx,
+ *             app/(tabs)/scan.tsx, and any other screen that links to another site
  *   Data    → none (pure navigation logic)
  *
  * Edit notes:
- *   - SITE_ITEMS order is the bottom menu's visual order (left to right).
+ *   - SITE_ITEMS order is the bottom menu's visual order (left to right) AND must match
+ *     app/(tabs)/_layout.tsx's <MaterialTopTabs.Screen> order.
  *   - Nav bar has 5 items: Shopping, Plans, Home (centre), Health, Scan (Decision 036).
  *   - Removed from nav (routes/screens kept), with their access points (all wired — Decision 036):
- *       notes     → Home "More" link (app/index.tsx)
+ *       notes     → Home "More" link (app/(tabs)/index.tsx)
  *       meals     → Home "More" link (labelled "Food")
  *       automations → Settings → Varsler tab "Automatisering" link (app/settings.tsx)
- *       habits    → Health screen's inline "Habits →" section header (app/health.tsx)
- *       budget    → app/shopping.tsx done-flow + app/scan.tsx header link
- *       shared    → app/share-modal.tsx "Done" + app/scan.tsx QR-scan result
+ *       habits    → Health screen's inline "Habits →" section header (app/(tabs)/health.tsx)
+ *       budget    → app/(tabs)/shopping.tsx done-flow + app/(tabs)/scan.tsx header link
+ *       shared    → app/share-modal.tsx "Done" + app/(tabs)/scan.tsx QR-scan result
  *       settings  → home screen header gear (and goToSite(..., '/settings') callers)
  *     plans also keeps its Home "See everything" link alongside its nav tab, same as
  *     shopping's preview link.
- *   - goToSite() invariant: Home ('/') is always the stack root. Going from Home to
- *     any site pushes (so back() returns to Home). Going from one non-Home site to
- *     another replaces (so the stack never grows past depth 2). Going to Home
- *     pops back if possible, otherwise replaces. Do not swap push/replace here
- *     without re-checking bug "back goes to another site instead of menu."
+ *   - **goToSite() invariant (post-pager-migration):** a route in TAB_ROUTE_NAME is one
+ *     of the 5 pager siblings — router.navigate() switches the pager tab in place, no
+ *     stack entry added. Everything else is a genuinely different screen — router.push()
+ *     puts it on top of the (tabs) group; back() pops it and lands wherever the pager was
+ *     left. The old push-from-Home/replace-between-sites shallow-stack hack (pre-pager,
+ *     when the 5 sites were themselves separate stack routes) no longer applies now that
+ *     they aren't stack routes at all.
  */
 import type { ImperativeRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -70,14 +72,26 @@ export const SITE_ITEMS: SiteItem[] = [
   { key: 'scan',   icon: 'camera-outline',   activeIcon: 'camera',   route: '/scan'     },
 ];
 
-/** Navigate between sites while keeping the stack shallow (Home stays the root). */
+/**
+ * SiteRoute → the Expo Router screen name registered inside app/(tabs)/_layout.tsx.
+ * '/' maps to 'index' (the file is app/(tabs)/index.tsx); the rest match their filename.
+ * Used by BottomNav (as the pager's tab bar) to match a pager route to a SITE_ITEMS entry,
+ * and by goToSite() to tell a tab site apart from every other (pushed) site.
+ */
+export const TAB_ROUTE_NAME: Partial<Record<SiteRoute, string>> = {
+  '/': 'index',
+  '/shopping': 'shopping',
+  '/plans': 'plans',
+  '/health': 'health',
+  '/scan': 'scan',
+};
+
+/** Navigate to any site. The 5 tab sites switch the pager in place; everything else pushes. */
 export function goToSite(router: ImperativeRouter, pathname: string, route: SiteRoute) {
   if (route === pathname) return;
-  if (route === '/') {
-    if (router.canGoBack()) router.back();
-    else router.replace('/');
+  if (TAB_ROUTE_NAME[route]) {
+    router.navigate(route);
     return;
   }
-  if (pathname === '/') router.push(route);
-  else router.replace(route);
+  router.push(route);
 }

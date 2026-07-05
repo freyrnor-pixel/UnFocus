@@ -33,6 +33,12 @@
  *   - Onboarding guard: once settings.loaded is true and setupComplete is false, and we
  *     aren't already under /onboarding, redirect to /onboarding/language. segments are
  *     read inside the effect as a guard, intentionally kept out of its deps.
+ *   - The 5 main sites (Home/Shopping/Plans/Health/Scan) are no longer separate
+ *     Stack.Screen entries — they're one <Stack.Screen name="(tabs)" /> covering
+ *     app/(tabs)/_layout.tsx's material-top-tabs pager (see that file + lib/siteNav.ts).
+ *     Everything else (onboarding, inventory-edit, meals, budget, shared, habits,
+ *     automations, notes, the 4 modals) still pushes on top of it exactly as before —
+ *     the pager only replaced how the 5 main sites relate to each other.
  *   - Stack `screenOptions.animation: 'default'` (Decision 033) turns on platform-native
  *     push/pop transitions; the modal screens keep their explicit `slide_from_bottom`.
  *   - <AppModalHost/> mounted here (Session A2·2) so showAppModal() works from any screen.
@@ -151,14 +157,10 @@ export default function RootLayout() {
           animation: 'default',
         }}
       >
-        <Stack.Screen name="index" />
+        <Stack.Screen name="(tabs)" />
         <Stack.Screen name="onboarding" />
-        <Stack.Screen name="plans" />
-        <Stack.Screen name="shopping" />
         <Stack.Screen name="inventory-edit" />
         <Stack.Screen name="meals" />
-        <Stack.Screen name="health" />
-        <Stack.Screen name="scan" />
         <Stack.Screen name="budget" />
         <Stack.Screen name="shared" />
         <Stack.Screen name="habits" />

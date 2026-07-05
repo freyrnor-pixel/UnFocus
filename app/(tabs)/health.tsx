@@ -11,7 +11,7 @@
  *             components/PressableScale, components/Surface, components/AppModal,
  *             constants/theme, lib/date, lib/db, lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useHealthStore, store/useHabitStore, store/useSettingsStore
- *   Used by → Expo Router route "/health" (BottomNav "Health" tab)
+ *   Used by → Expo Router route "/health" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx (BottomNav "Health" tab)
  *   Data    → useHealthStore (health_logs, incl. update()); useHabitStore (habits + habit_logs,
  *             read-only inline summary + increment/decrement)
  *
@@ -192,7 +192,7 @@ export default function HealthScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.healthTitle} tier="site">
+      <ScreenScaffold title={t.healthTitle} tier="site" bottomNav={false}>
         <View style={styles.content}>
           <HintCard text={t.hints.health.text} example={t.hints.health.example} />
 

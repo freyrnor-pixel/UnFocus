@@ -4141,3 +4141,65 @@ validated as parseable JSON; `slug`, `version`, `runtimeVersion`, `android.versi
 `projectId`, and bundle identifiers all left untouched. Next: maintainer cuts the new preview
 build from `main`; only after it exists does `runtimeVersion` bump and brief 02 (pager
 migration) merge.
+
+## 2026-07-05 — Pager-swipe migration (brief 02): 5 sites → one material-top-tabs pager
+
+**NOT MERGED TO `main` YET — held on this branch on purpose.** Brief 01 (native config,
+Decision 040) landed on `main` today with `runtimeVersion` left at `1.1.0`; the maintainer
+has not yet cut the new preview build from it. This migration's JS imports
+`react-native-pager-view` (a native module current `1.1.0` installs don't have) — merging
+before the new build exists and `runtimeVersion` is bumped would crash every live install
+on next OTA. Per the handoff overview's sequencing, this stays on the branch until the
+maintainer confirms the build exists and bumps `runtimeVersion`.
+
+**What changed:** replaced the separate-routes + `SiteSwipeView` swipe (native push/back
+handed off to a second hand-rolled flick — the "click"/jank the user reported) with an
+Expo Router material-top-tabs group (`app/(tabs)/_layout.tsx`, `tabBarPosition="bottom"`,
+backed by `react-native-pager-view` via `react-native-tab-view`'s pager adapter) so all 5
+sites are co-mounted and swiping is one continuous native slide.
+
+- Moved `index/shopping/plans/health/scan.tsx` into `app/(tabs)/` (route group — URLs
+  unchanged). Screen order matches `SITE_ITEMS`.
+- `components/ScreenScaffold.tsx`: `swipeNav` prop replaced by `bottomNav` (default true);
+  tab screens pass `bottomNav={false}` since the pager now owns the bottom bar. Dropped
+  the `SiteSwipeView` content wrap and the `SiteSwipeDots` block entirely (both files
+  deleted, along with the swipe-dots style and any dangling references).
+- `components/BottomNav.tsx` is now the pager's `tabBar` render prop: reads
+  `state`/`navigation` to find the active site and switch tabs
+  (`navigation.navigate()`, animated by the pager). Kept a standalone no-props fallback
+  (falls back to `usePathname()`/`goToSite()`) for any future non-tab site screen.
+- `lib/siteNav.ts`: added `TAB_ROUTE_NAME` (SiteRoute → pager screen name).
+  `goToSite()` simplified — the 5 tab sites now `router.navigate()` (in-place pager
+  switch, no stack growth); everything else `router.push()`. The old
+  push-from-Home/replace-between-sites shallow-stack hack is gone — it existed only
+  because the 5 sites used to be separate stack routes.
+- `app/_layout.tsx`: the five `Stack.Screen` entries collapsed into one
+  `<Stack.Screen name="(tabs)" />`; everything else (onboarding, inventory-edit, meals,
+  budget, shared, habits, automations, notes, the 4 modals) still pushes over it unchanged.
+- `app/(tabs)/scan.tsx`: added a `navigation.setOptions({ swipeEnabled })` guard that
+  disables the pager's swipe while an OCR scan is processing or an overlay (QR modal,
+  custom-store sheet, category picker) is open, so a stray swipe can't abandon that flow.
+  Deliberately did NOT do the brief's literal "extract 'scanning' mode to a pushed
+  `scan-camera` route" — code review found no live-camera-in-a-hidden-pager-page risk to
+  design around: the photo is already captured via `ImagePicker` (an OS-level modal) by
+  the time 'scanning' renders (it's just the OCR-wait pulse animation), and the QR
+  `CameraView` already lives inside a React Native `Modal` (its own native layer). The
+  `setOptions` guard closes the actual UX risk (swiping away mid-flow) without the
+  larger, harder-to-verify-without-a-device route split.
+- Deleted `app/_scaffold-demo.tsx` (dead, unrouted demo file explicitly flagged for
+  deletion many sessions ago; would have needed compat shims to keep working now that
+  `BottomNav` is a tab-bar component).
+
+**Verification:** `npx tsc --noEmit` → same 7 pre-existing errors as the standing baseline
+(onboarding `absoluteFillObject` typo, `scan.tsx` QR payload typing ×4, `Pet.tsx` literal
+union, missing `react-native-zeroconf` types) — zero new errors from this migration,
+confirmed by diffing against a `git stash` baseline run. No live-app verification possible
+in this environment; the gotchas below need a real device on the maintainer's new build.
+
+**Needs testing on the maintainer's new build (cannot verify in this environment):**
+swipe across all 5 tabs is one continuous finger-tracked slide with no click/flash/remount;
+BottomNav highlight follows both taps and swipes; vertical scroll inside each page still
+works; Shopping's window-coordinate drag-reorder doesn't fight the pager's horizontal
+swipe; Scan's swipe-disable guard actually blocks the pager mid-OCR/mid-modal; deep link
+to `/shopping` lands on the right tab; Home's focus-mode reset still fires on swipe-away
+(`useFocusEffect` blur, not just stack blur).

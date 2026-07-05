@@ -8,9 +8,8 @@
  *
  * Connections:
  *   Imports → react-native, react-native-safe-area-context, components/ScreenBackground, components/HomeHeroBackground,
- *             components/ParticleBackground, components/ScreenHeader, components/BottomNav,
- *             components/SiteSwipeView, components/SiteSwipeDots, lib/useAppTheme
- *   Used by → every app screen (app/index.tsx, app/shopping.tsx, etc.)
+ *             components/ParticleBackground, components/ScreenHeader, components/BottomNav, lib/useAppTheme
+ *   Used by → every app screen (app/(tabs)/index.tsx, app/(tabs)/shopping.tsx, etc.)
  *   Data    → none (presentational; all logic in child screens)
  *
  * Edit notes:
@@ -28,12 +27,14 @@
  *     topInset floors insets.top with StatusBar.currentHeight on Android as a safety net for the
  *     brief window where safe-area-context can report 0 before the first insets dispatch.
  *   - isHome=true mounts HomeHeroBackground; false uses ScreenBackground
- *   - **swipeNav (Decision 032)**: site-tier screens wrap L3 content in SiteSwipeView
- *     for horizontal swipe-between-sites navigation. Default on. Pass swipeNav={false}
- *     only for a site screen that renders a full-screen camera/QR/media overlay
- *     *inside* the scaffold body, per SiteSwipeView's "don't wrap camera overlays"
- *     contract. No current screen needs it — scan keeps its camera mode outside the
- *     scaffold (a bare SafeAreaView), so all 5 nav sites swipe. Sub-tier ignores it.
+ *   - **bottomNav (successor to Decision 032's swipeNav)**: the 5 nav sites now live in
+ *     app/(tabs)/_layout.tsx's material-top-tabs pager, which owns both the bottom tab
+ *     bar and the swipe-between-sites gesture itself (react-native-pager-view — one
+ *     continuous native slide, no per-screen SiteSwipeView/SiteSwipeDots wrapper needed
+ *     any more). Tab screens pass bottomNav={false} so ScreenScaffold doesn't ALSO render
+ *     a BottomNav underneath the pager's own tab bar. Default true only for a hypothetical
+ *     site-tier screen mounted outside the tabs group (none currently exist). Sub-tier
+ *     ignores it (sub screens never render BottomNav regardless).
  *   - **stickyBelowHeader (added 2026-07-02, Session A2·2)**: optional screen-owned chrome
  *     pinned directly under the header block, e.g. app/shopping.tsx's Decision 011 A2-1
  *     per-list summary/progress bar. Additive, backward-compatible — omit both props and a
@@ -53,8 +54,6 @@ import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
 import ScreenHeader from '@/components/ScreenHeader';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
-import SiteSwipeView from '@/components/SiteSwipeView';
-import SiteSwipeDots from '@/components/SiteSwipeDots';
 
 type Tier = 'site' | 'sub';
 
@@ -73,14 +72,12 @@ type Props = {
   focusActive?: boolean;
   onToggleFocus?: () => void;
   /**
-   * Enable horizontal swipe-to-neighbouring-site navigation (Decision 032). Only
-   * applies to `tier === 'site'`. Default true. Pass false only for a site screen
-   * that renders a full-screen camera/QR/media overlay *inside* the scaffold body,
-   * per SiteSwipeView's "don't wrap camera overlays" contract. (app/scan.tsx does
-   * NOT need this — its camera 'scanning' mode is a bare SafeAreaView outside the
-   * scaffold, so its scrollable idle/result/manual modes swipe safely.)
+   * Whether this screen renders its own BottomNav block. Only applies to
+   * `tier === 'site'`. Default true. The 5 tab sites (app/(tabs)/*) pass false,
+   * since app/(tabs)/_layout.tsx's pager already renders BottomNav as its tab bar —
+   * without this a tab screen would get two bottom nav bars stacked.
    */
-  swipeNav?: boolean;
+  bottomNav?: boolean;
 };
 
 export default function ScreenScaffold({
@@ -94,7 +91,7 @@ export default function ScreenScaffold({
   stickyBelowHeaderHeight = 0,
   focusActive,
   onToggleFocus,
-  swipeNav = true,
+  bottomNav = true,
 }: Props) {
   const theme = useAppTheme();
   // Android edge-to-edge (RN 0.85 / Expo 56) draws content behind the status and
@@ -155,14 +152,10 @@ export default function ScreenScaffold({
       {/* L2: Particle overlay */}
       <ParticleBackground />
 
-      {/* L3: Content — site-tier screens wrap in SiteSwipeView for swipe-between-sites
-          navigation (Decision 032); the pan gesture yields to vertical ScrollView
-          scrolling via SiteSwipeView's activeOffsetX/failOffsetY thresholds. */}
-      {tier === 'site' && swipeNav ? (
-        <SiteSwipeView>{scrollContent}</SiteSwipeView>
-      ) : (
-        scrollContent
-      )}
+      {/* L3: Content — swipe-between-sites navigation now lives one level up, in
+          app/(tabs)/_layout.tsx's pager, so tab screens render their scroll content
+          directly with no per-screen swipe wrapper. */}
+      {scrollContent}
 
       {/* L4: Top block (ScreenHeader) — extended up behind the status bar and
           padded down by the top inset so the bar content clears it. */}
@@ -184,18 +177,10 @@ export default function ScreenScaffold({
         </View>
       )}
 
-      {/* L4.8: swipe-between-sites page dots — sits just above BottomNav, signalling
-          the sites form a swipeable strip (Decision 032 had no visual affordance).
-          Only on swipeable site screens; pointer-events off so it never blocks touches. */}
-      {tier === 'site' && swipeNav && (
-        <View style={[styles.swipeDotsBlock, { bottom: BOTTOM_NAV_HEIGHT + bottomInset + 6 }]} pointerEvents="none">
-          <SiteSwipeDots />
-        </View>
-      )}
-
       {/* L5: Bottom block (BottomNav, site-tier only) — extended down behind the
-          navigation bar and padded up by the bottom inset. */}
-      {tier === 'site' && (
+          navigation bar and padded up by the bottom inset. Tab screens skip this;
+          app/(tabs)/_layout.tsx's pager already renders BottomNav as its tab bar. */}
+      {tier === 'site' && bottomNav && (
         <View style={[styles.bottomBlock, { height: BOTTOM_NAV_HEIGHT + bottomInset, paddingBottom: bottomInset }]}>
           <BottomNav />
         </View>
@@ -233,12 +218,5 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100,
-  },
-  swipeDotsBlock: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 99,
   },
 });

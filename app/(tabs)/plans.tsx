@@ -11,7 +11,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HintCard,
  *             components/AddFAB, lib/db, lib/date, lib/i18n, store/useTaskStore, store/useSettingsStore
- *   Used by → Expo Router route "/plans" (BottomNav "Plans" tab)
+ *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx (BottomNav "Plans" tab)
  *   Data    → reads/writes useTaskStore (tasks) on toggle; reads useSettingsStore for theme hydration
  *
  * Edit notes:
@@ -67,7 +67,7 @@ export default function PlansScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.plansTitle} tier="site">
+      <ScreenScaffold title={t.plansTitle} tier="site" bottomNav={false}>
         <View style={styles.content}>
           <HintCard text={t.hints.plans.text} />
           <PlanTaskCard
