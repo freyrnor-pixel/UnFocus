@@ -1,0 +1,55 @@
+name: Auto-open PR to main
+
+# Opens (or reuses) a pull request from any claude/** branch into main whenever
+# that branch is pushed. It NEVER merges — merging is the human's decision, and
+# merging to main is what actually publishes an OTA update (see PUBLISHING.md).
+# The goal is purely discoverability: no more fixes stranded on a branch because
+# nobody opened the PR.
+
+on:
+  push:
+    branches:
+      - 'claude/**'
+
+# Least privilege: only what's needed to open a PR.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open-pr:
+    name: Open or reuse PR to main
+    runs-on: ubuntu-latest
+    # Don't act on pushes made by the Actions bot itself (avoids loops).
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Open PR to main (if one isn't already open and the branch is ahead)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          # Nothing to publish if the branch has no commits beyond main.
+          if [ "$(git rev-list --count "origin/main..HEAD")" = "0" ]; then
+            echo "Branch $BRANCH is not ahead of main — no PR needed."
+            exit 0
+          fi
+
+          # Reuse an existing open PR from this branch, if any.
+          existing="$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            echo "PR #$existing is already open for $BRANCH — leaving it for review."
+            exit 0
+          fi
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "Publish: $BRANCH" \
+            --body $'Auto-opened by the `auto-pr` workflow for branch `'"$BRANCH"$'`.\n\n**Merging this PR into `main` publishes an OTA update** to the `preview` channel (runtime = `app.json` `runtimeVersion`). Review the diff, then merge when ready. See `PUBLISHING.md`.\n\nThis PR is not auto-merged on purpose — the merge is your call.'
