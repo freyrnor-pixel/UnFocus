@@ -5,7 +5,9 @@
  * centre home/menu button, right items (Health, Scan). The centre button is
  * stylized as a gradient FAB. Active tab is highlighted with primary colour.
  * Taps navigate via goToSite() to keep the stack shallow. Wrapped in a
- * translucent Surface that picks up the user's bubbleMaterial setting.
+ * translucent Surface that picks up the user's bubbleMaterial setting, using
+ * surfaceContext="overlay" (stronger blur) since this bar floats over live
+ * scrolling content, not the calm ScreenBackground backdrop.
  *
  * Connections:
  *   Imports → constants/theme, lib/i18n, lib/siteNav, lib/useAppTheme, components/PressableScale, components/Surface
@@ -87,7 +89,7 @@ export default function BottomNav() {
   };
 
   return (
-    <Surface style={styles.bar}>
+    <Surface surfaceContext="overlay" style={styles.bar}>
       <View style={styles.leftGroup}>
         {leftItems.map((item) => renderItem(item, false))}
       </View>
