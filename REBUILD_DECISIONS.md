@@ -2288,3 +2288,92 @@ retire/replace `shareExplainLaterBuild` once live sync ships.
 ### Consolidated native footprint (for the one build)
 `react-native-zeroconf`, `react-native-tcp-socket`, `expo-secure-store` + their `app.json`
 plugin/permission entries. Land on `main`, maintainer cuts the build, then bump `runtimeVersion`.
+
+---
+
+## Decision 040 — Front-load ALL plausible native surface into one build (overrides Decision 027's prune)
+
+**Status: Resolved.**
+**Depends on:** Decision 027 (the prune this decision partially reverses) and the seamless-pager
+migration (needs `react-native-pager-view`, a native module).
+
+### Purpose
+User's explicit strategic directive: rather than gate each future feature behind its own
+native rebuild, front-load one build with every module/permission plausibly needed for the
+near-to-mid roadmap, so subsequent feature work ships OTA-only. This **explicitly overrides**
+Decision 027 Q1's "no permission without a shipping feature" rule for the modules listed below
+— the user was told of the tradeoff (larger build, permissions declared ahead of UI) and chose
+to proceed anyway.
+
+### Added this build
+**Used immediately** (the pager-swipe migration, brief 02, lands right after this build exists):
+- `react-native-pager-view` (native; pinned `8.0.1`, matches this repo's Expo SDK-56
+  `bundledNativeModules.json`)
+- `@react-navigation/material-top-tabs` (`^7.6.6`) + its required peer
+  `@react-navigation/native` (`^7.3.7`) — not previously in this project at all (SDK-56
+  `expo-router` no longer bundles `@react-navigation/*` internally, so both had to be added
+  explicitly). `react-native-tab-view` comes in transitively as material-top-tabs' dependency.
+
+**Reserve-only** (module/permission ships now; feature code ships later, OTA, once written):
+- `expo-local-authentication` (`~56.0.4`) — biometric app-lock. Re-adds what Decision 027 never
+  pruned (it wasn't in that build) — new addition.
+- `expo-sensors` (`~56.0.6`), `expo-location` (`~56.0.19`), `expo-calendar` (`~56.0.9`),
+  `expo-contacts` (`~56.0.10`) — **all four were pruned in Decision 027 Q1**; this decision
+  explicitly un-prunes them at the user's direction.
+- `expo-speech-recognition` (`~56.0.1`) — **pruned in Decision 027 Q2**; un-pruned here. Distinct
+  from `expo-audio` (retained voice-note capture); this adds speech-to-text on top of it.
+
+### Explicitly declined (flagged for maintainer, not silently decided)
+- **`react-native-webrtc` + `@config-plugins/react-native-webrtc`** — NOT added. Only needed for
+  internet-wide (cross-network) serverless web companion; same-Wi-Fi companion already works on
+  the existing `react-native-tcp-socket` + `react-native-zeroconf` LAN transport (Decision 038a).
+  Heavy dependency for a capability not yet on the roadmap. **Flagged for confirmation** — add in
+  a future build if cross-network sync becomes a real requirement.
+- **Wear OS connectivity module** — NOT added. No specific package chosen; SDK-56 compatibility
+  unverified. **Flagged for confirmation** — needs its own build-time compatibility check before
+  it's worth adding.
+
+### `app.json` — permission plumbing verified against each plugin's actual source (not hand-guessed)
+Each new module's config plugin was read directly (`node_modules/<pkg>/plugin/build/with*.js`)
+to confirm exact option keys and to avoid declaring permissions the plugin already injects:
+- `expo-local-authentication`'s plugin already adds Android `USE_BIOMETRIC` +
+  `USE_FINGERPRINT` — **not** duplicated in `android.permissions`.
+- `expo-location`'s plugin already adds `ACCESS_FINE_LOCATION` + `ACCESS_COARSE_LOCATION`
+  (background location stays off — `isAndroidBackgroundLocationEnabled` left unset/false, per
+  the "when-in-use only" requirement).
+- `expo-calendar`'s plugin already adds `READ_CALENDAR` + `WRITE_CALENDAR`, and already sets
+  both `NSCalendarsUsageDescription` and `NSCalendarsFullAccessUsageDescription` from the same
+  `calendarPermission` option — both keys are also declared directly in `ios.infoPlist` (belt
+  and suspenders, matching this file's existing convention for camera/photo strings).
+- `expo-contacts`'s plugin already adds `READ_CONTACTS` + `WRITE_CONTACTS`.
+- `expo-sensors`'s plugin does **not** add any Android permission itself — `ACTIVITY_RECOGNITION`
+  is declared manually in `android.permissions`.
+- Manually added to `android.permissions` (no plugin covers these): `ACTIVITY_RECOGNITION`,
+  and, for the alarm/full-screen-intent reminder groundwork mentioned in the brief:
+  `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `USE_FULL_SCREEN_INTENT`.
+- iOS: `NSFaceIDUsageDescription`, `NSLocationWhenInUseUsageDescription`,
+  `NSCalendarsUsageDescription`/`NSCalendarsFullAccessUsageDescription`,
+  `NSContactsUsageDescription`, `NSMotionUsageDescription`, `NSSpeechRecognitionUsageDescription`
+  added to `ios.infoPlist` directly. `UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace`
+  also added (Files-app export target for the local-file backup feature, brief 03 — folded into
+  this build per the handoff overview so backup doesn't need its own native change later).
+
+### Version resolution
+`react-native-pager-view` and all six reserve `expo-*` packages were pinned to the exact
+versions this repo's own `node_modules/expo/bundledNativeModules.json` (or, for
+`expo-speech-recognition`, its published npm `latest`, which tracks the SDK-56 versioning
+scheme) states for SDK 56 / RN 0.85, then installed for real via `npm install --legacy-peer-deps`
+(the `--legacy-peer-deps` flag works around a pre-existing, unrelated peer conflict between
+`jest-expo@56.0.5` — which wants `@react-native/jest-preset@^0.85.0` — and this repo's
+already-pinned devDependency `@react-native/jest-preset@^0.86.0`; not something this decision
+introduces or fixes). `npx expo install`'s own compatibility check could not run in this
+session — its API host (`api.expo.dev`) is blocked by the environment's outbound proxy — so
+versions were cross-checked against the bundled-modules manifest instead of that tool's
+network call. Confirm with a real `npx expo install <pkg>` pass at build time if in doubt.
+
+### Version / runtime handling (unchanged from the standard sequencing)
+`runtimeVersion` and `version` are **left at `1.1.0`** in this commit on purpose — this is
+config-only native surface, no JS uses any of the new modules yet, so current installs keep
+receiving OTA updates safely. Maintainer cuts the new preview build next; only after that
+build exists do `runtimeVersion`/`version` bump to the new value, and only then does the
+pager-swipe migration (brief 02) merge.
