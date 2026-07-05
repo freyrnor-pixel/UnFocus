@@ -4103,3 +4103,41 @@ are type-safe by construction: all new i18n keys added to both locales; all refe
 (`home.more`, `nav.automations`, `nav.meals`, `notes.title`, `hints.automations.text`) exist;
 `/notes` + `/meals` are valid `SiteRoute` members; `Pressable`/`router`/`goToSite` already
 imported in the touched screens. Manual read-through only.
+
+---
+
+## 2026-07-05 — Expanded native build config (Decision 040, brief 01 of the seamless-pager + expanded-build effort)
+
+Config-only native-surface change, `runtimeVersion`/`version` left at `1.1.0` on purpose (see
+Decision 040). Added: `react-native-pager-view` (`8.0.1`) + `@react-navigation/material-top-tabs`
+(`^7.6.6`) + required peer `@react-navigation/native` (`^7.3.7`) — used immediately by the
+pager-swipe migration once the new build exists. Reserve-only (module ships now, feature code
+later, OTA): `expo-local-authentication`, `expo-location`, `expo-calendar`, `expo-contacts`,
+`expo-sensors`, `expo-speech-recognition` — this explicitly un-prunes five of these from
+Decision 027 per the user's explicit front-load-everything directive. Declined (flagged for
+maintainer, not added): `react-native-webrtc`, a Wear OS connectivity module.
+
+All six reserve `expo-*` packages + `pager-view` were pinned against this repo's own
+`node_modules/expo/bundledNativeModules.json` (SDK 56's authoritative version manifest) and
+installed for real via `npm install --legacy-peer-deps` (registry access worked; `expo
+install`'s own compatibility-check network call to `api.expo.dev` is blocked by this
+environment's outbound proxy, so bundledNativeModules.json substituted for it). Each new
+module's actual config-plugin source was read to get exact option keys right and to avoid
+hand-declaring Android permissions (`USE_BIOMETRIC`, `ACCESS_FINE/COARSE_LOCATION`,
+`READ/WRITE_CALENDAR`, `READ/WRITE_CONTACTS`) that the plugin already injects — only
+`ACTIVITY_RECOGNITION` (sensors) plus the alarm/full-screen-intent reminder groundwork
+(`SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `USE_FULL_SCREEN_INTENT`) needed manual entries.
+iOS `UIFileSharingEnabled`/`LSSupportsOpeningDocumentsInPlace` also added (brief 03's backup
+feature, folded into this build per the handoff overview).
+
+Docs updated: `REBUILD_DECISIONS.md` (new Decision 040), `REBUILD_PLAN.md` §1 (new capability
+rows + §2 marked superseded/historical), `AGENTS.md` (biometric note no longer "future").
+
+**Verification:** `npx tsc --noEmit` run for real in this session (network + deps available)
+— zero new errors; the handful of pre-existing errors (onboarding StyleSheet typo, scan.tsx QR
+payload typing, Pet.tsx literal union, missing `react-native-zeroconf` types) are unchanged
+from a `git stash` baseline diff, confirmed identical before/after this change. `app.json`
+validated as parseable JSON; `slug`, `version`, `runtimeVersion`, `android.versionCode`, EAS
+`projectId`, and bundle identifiers all left untouched. Next: maintainer cuts the new preview
+build from `main`; only after it exists does `runtimeVersion` bump and brief 02 (pager
+migration) merge.

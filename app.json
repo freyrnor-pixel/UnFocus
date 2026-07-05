@@ -64,7 +64,44 @@
           "widgets": []
         }
       ],
-      "@bacons/apple-targets"
+      "@bacons/apple-targets",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Unlock UnFocus with Face ID."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow UnFocus to use your location for location-based reminders."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow UnFocus to access your calendar to sync events."
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow UnFocus to access your contacts to share tasks and lists."
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Allow UnFocus to access motion data for step counting."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "UnFocus uses the microphone so you can record voice notes.",
+          "speechRecognitionPermission": "Allow UnFocus to convert your voice notes into text."
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": false,
@@ -78,7 +115,16 @@
         "NSPhotoLibraryAddUsageDescription": "UnFocus can save receipt photos to your photo library.",
         "NSLocalNetworkUsageDescription": "UnFocus uses your local network to sync tasks and lists directly with a paired device nearby — nothing leaves your Wi-Fi.",
         "NSBonjourServices": ["_unfocus._tcp"],
-        "UIBackgroundModes": ["fetch", "processing"]
+        "UIBackgroundModes": ["fetch", "processing"],
+        "NSFaceIDUsageDescription": "Unlock UnFocus with Face ID.",
+        "NSLocationWhenInUseUsageDescription": "Allow UnFocus to use your location for location-based reminders.",
+        "NSCalendarsUsageDescription": "Allow UnFocus to access your calendar to sync events.",
+        "NSCalendarsFullAccessUsageDescription": "Allow UnFocus to access your calendar to sync events.",
+        "NSContactsUsageDescription": "Allow UnFocus to access your contacts to share tasks and lists.",
+        "NSMotionUsageDescription": "Allow UnFocus to access motion data for step counting.",
+        "NSSpeechRecognitionUsageDescription": "Allow UnFocus to convert your voice notes into text.",
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true
       }
     },
     "android": {
@@ -95,7 +141,11 @@
         "INTERNET",
         "ACCESS_NETWORK_STATE",
         "ACCESS_WIFI_STATE",
-        "CHANGE_WIFI_MULTICAST_STATE"
+        "CHANGE_WIFI_MULTICAST_STATE",
+        "ACTIVITY_RECOGNITION",
+        "SCHEDULE_EXACT_ALARM",
+        "USE_EXACT_ALARM",
+        "USE_FULL_SCREEN_INTENT"
       ]
     },
     "web": {
