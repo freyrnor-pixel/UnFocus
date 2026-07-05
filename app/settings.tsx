@@ -74,6 +74,8 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import SectionDivider from '@/components/SectionDivider';
@@ -163,6 +165,32 @@ export default function SettingsScreen() {
     settings.update({ childMode: true });
   }
 
+  // Manually check the EAS preview channel for a newer OTA, fetch it, and reload.
+  // In debug builds Updates.isEnabled is false (expo-updates is off), so this
+  // reports that OTA is unavailable rather than silently doing nothing.
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  async function handleCheckUpdates() {
+    if (!Updates.isEnabled) {
+      showAppModal(t.version.title, t.version.disabled);
+      return;
+    }
+    setCheckingUpdate(true);
+    try {
+      const res = await Updates.checkForUpdateAsync();
+      if (res.isAvailable) {
+        await Updates.fetchUpdateAsync();
+        showAppModal(t.version.title, t.version.downloaded);
+        await Updates.reloadAsync();
+      } else {
+        showAppModal(t.version.title, t.version.upToDate);
+      }
+    } catch {
+      showAppModal(t.version.title, t.version.failed);
+    } finally {
+      setCheckingUpdate(false);
+    }
+  }
+
   // Exit child mode — gated by the parent password.
   async function handleExitChildMode() {
     const ok = await verifyChildPassword(childPwInput.trim());
@@ -185,6 +213,16 @@ export default function SettingsScreen() {
   const DAY_LABELS = t.dayFull;
   // Fixed pet-colour options — data, not chrome (same precedent as colour-theme swatch data).
   const petSwatches = [theme.accent, theme.good, '#A78BFA', '#F472B6', '#60A5FA', '#34D399'];
+
+  // Version / update diagnostics (expo-updates + expo-constants). All are plain
+  // module constants for the running JS, so reading them at render is cheap.
+  const appVersion = Constants.expoConfig?.version ?? '—';
+  const runtimeVersion = String(Updates.runtimeVersion ?? '—');
+  const updateChannel = Updates.channel ?? '—';
+  const runningEmbedded = Updates.isEmbeddedLaunch;
+  const updateSource = runningEmbedded ? t.version.sourceEmbedded : t.version.sourceOta;
+  const updateIdShort = Updates.updateId ? Updates.updateId.slice(0, 8) : t.version.embedded;
+  const updatePublished = Updates.createdAt ? Updates.createdAt.toLocaleString() : '—';
 
   function applyAndSync(patch: Partial<Settings>) {
     settings.update(patch);
@@ -710,6 +748,39 @@ export default function SettingsScreen() {
                   }
                 >
                   <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetOnboarding}</Text>
+                </Pressable>
+              </Surface>
+            </View>
+
+            {/* Version & updates — lets the user see exactly which build/OTA is
+                running and force an OTA check. Runtime + updateId here are the
+                fastest way to diagnose "I haven't received the update". */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.version.title}</Text>
+              <Surface style={styles.card}>
+                {[
+                  [t.version.appVersion, appVersion],
+                  [t.version.runtime, runtimeVersion],
+                  [t.version.channel, updateChannel],
+                  [t.version.source, updateSource],
+                  [t.version.updateId, updateIdShort],
+                  [t.version.published, updatePublished],
+                ].map(([label, value], i) => (
+                  <View key={label} style={[styles.switchRow, i > 0 && { marginTop: Spacing.sm }]}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]} selectable>{value}</Text>
+                  </View>
+                ))}
+                {!Updates.isEnabled && (
+                  <Text style={[styles.descText, { color: theme.warn, marginBottom: Spacing.sm }]}>
+                    {t.version.disabled}
+                  </Text>
+                )}
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <Pressable style={styles.dangerBtn} onPress={handleCheckUpdates} disabled={checkingUpdate}>
+                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
+                    {checkingUpdate ? t.version.checking : t.version.checkButton}
+                  </Text>
                 </Pressable>
               </Surface>
             </View>
