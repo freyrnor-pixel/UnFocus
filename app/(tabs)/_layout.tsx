@@ -10,7 +10,8 @@
  * inset the way ScreenScaffold's old bottomBlock did.
  *
  * Connections:
- *   Imports → expo-router (withLayoutContext), @react-navigation/material-top-tabs,
+ *   Imports → expo-router/js-top-tabs (TopTabs — Expo Router's own SDK-56 top-tabs
+ *             wrapper, not @react-navigation/material-top-tabs directly; see Edit notes),
  *             react-native-safe-area-context, components/BottomNav
  *   Used by → Expo Router route group "(tabs)" — app/_layout.tsx's single
  *             <Stack.Screen name="(tabs)" /> entry
@@ -22,6 +23,12 @@
  *     lib/siteNav.ts's TAB_ROUTE_NAME, so a mismatch here shows the wrong icon/label active.
  *   - `(tabs)` is a route group: URLs stay "/", "/shopping", "/plans", "/health", "/scan" —
  *     unchanged from before this migration.
+ *   - As of SDK 56, expo-router's Metro resolver throws a build error if app code imports
+ *     `@react-navigation/*` directly (https://docs.expo.dev/router/migrate/sdk-55-to-56/).
+ *     This file must import `TopTabs` from `expo-router/js-top-tabs`, not
+ *     `createMaterialTopTabNavigator` from `@react-navigation/material-top-tabs` — the
+ *     latter breaks both `eas update` and `eas build` at the bundling step. `TopTabs`
+ *     wraps the identical react-native-tab-view/-pager-view stack internally.
  *   - `lazy: true` mounts each site on first visit only (not all 5 at launch), but
  *     material-top-tabs keeps a visited site mounted (translated off-screen) afterwards —
  *     that persistence is what makes the swipe instant on repeat visits; watch memory on
@@ -32,20 +39,15 @@
  */
 import React from 'react';
 import { View } from 'react-native';
-import { withLayoutContext } from 'expo-router';
-import { createMaterialTopTabNavigator, MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
+import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
-
-const { Navigator } = createMaterialTopTabNavigator();
-
-const MaterialTopTabs = withLayoutContext(Navigator);
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
 
   return (
-    <MaterialTopTabs
+    <TopTabs
       tabBarPosition="bottom"
       screenOptions={{ swipeEnabled: true, lazy: true }}
       tabBar={(props: MaterialTopTabBarProps) => (
@@ -55,11 +57,11 @@ export default function TabsLayout() {
       )}
     >
       {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, plans, home, health, scan */}
-      <MaterialTopTabs.Screen name="shopping" />
-      <MaterialTopTabs.Screen name="plans" />
-      <MaterialTopTabs.Screen name="index" />
-      <MaterialTopTabs.Screen name="health" />
-      <MaterialTopTabs.Screen name="scan" />
-    </MaterialTopTabs>
+      <TopTabs.Screen name="shopping" />
+      <TopTabs.Screen name="plans" />
+      <TopTabs.Screen name="index" />
+      <TopTabs.Screen name="health" />
+      <TopTabs.Screen name="scan" />
+    </TopTabs>
   );
 }

@@ -4203,3 +4203,40 @@ works; Shopping's window-coordinate drag-reorder doesn't fight the pager's horiz
 swipe; Scan's swipe-disable guard actually blocks the pager mid-OCR/mid-modal; deep link
 to `/shopping` lands on the right tab; Home's focus-mode reset still fires on swipe-away
 (`useFocusEffect` blur, not just stack blur).
+
+## 2026-07-05 — Fix: brief 02's pager crashed both OTA publishes (SDK 56 / react-navigation ban)
+
+**Found while checking whether this branch was ready to hand off for the build-cut step.**
+Both PR #59 (brief 02, pager migration) and PR #60 (backup feature) merges to `main` had
+already triggered `update.yml`, and both **failed** (GitHub Actions runs 28751216330,
+28751408764 — "Push update" step, exit code 1). Root cause was not the
+runtimeVersion/build sequencing the handoff overview warned about — it never got that far.
+`app/(tabs)/_layout.tsx` imported `createMaterialTopTabNavigator` directly from
+`@react-navigation/material-top-tabs`. As of Expo SDK 56, expo-router's Metro resolver
+hard-throws on any direct `@react-navigation/*` import from app code ("As of SDK 56,
+expo-router is no longer compatible with react-navigation" —
+https://docs.expo.dev/router/migrate/sdk-55-to-56/), so `expo export`/`eas update` failed
+during Android bundling every time. **This would have also failed a fresh native build**
+the same way (same bundling step runs during `eas build`) — so the branch was not actually
+ready for "maintainer cuts the build" despite PROGRESS_LOG saying brief 02 was verified.
+
+**Fix:** `app/(tabs)/_layout.tsx` now imports `TopTabs`/`MaterialTopTabBarProps` from
+`expo-router/js-top-tabs` instead of hand-rolling `withLayoutContext(createMaterialTopTabNavigator())`
+from `@react-navigation/material-top-tabs`. `TopTabs` is expo-router's own SDK-56 wrapper —
+it resolves through expo-router's own module path (not the banned `@react-navigation/`
+prefix) but wraps the identical `react-native-tab-view` + `react-native-pager-view` stack
+underneath, so behavior is unchanged. `components/BottomNav.tsx` and `app/(tabs)/scan.tsx`
+still `import type` a couple of `@react-navigation/material-top-tabs`/`@react-navigation/native`
+types — left as-is because `import type` is erased before Metro's resolver runs (confirmed:
+those two files were never in the crash's import stack), so no further change needed there.
+
+**Verification:** `npx tsc --noEmit` — same 7 pre-existing baseline errors, zero new ones.
+Reproduced the actual CI failure locally and confirmed the fix: `npx expo export --platform
+android` (the exact command `update.yml` runs) previously would have thrown the
+react-navigation error; after this fix it completes cleanly and emits a bundled `.hbc`.
+
+**Status:** this fix needs to reach `main` (its own PR/merge) before anyone cuts a new
+preview build or re-attempts an OTA publish — otherwise the same crash repeats. Once this
+merges and a clean `update.yml` run confirms the publish succeeds, the branch is actually
+ready for the "maintainer cuts a new preview build → bump runtimeVersion" step from the
+handoff overview.
