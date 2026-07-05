@@ -96,7 +96,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { syncReminders } from '@/lib/reminders';
 import { syncNotificationCategories } from '@/lib/notifications';
-import { exportBackup, pickAndParseBackup, restoreBackup, reloadApp } from '@/lib/backup';
+import { exportBackup, exportBackupToDevice, pickAndParseBackup, restoreBackup, reloadApp } from '@/lib/backup';
 import { setPassword as setChildPassword, verifyPassword as verifyChildPassword } from '@/lib/childLock';
 import { useT, getTranslations } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
@@ -255,6 +255,21 @@ export default function SettingsScreen() {
   }
 
   // Local backup & restore (Decision 036) — device-only, no upload.
+  async function handleSaveToDevice() {
+    selection();
+    try {
+      const result = await exportBackupToDevice();
+      if (result.status === 'saved') {
+        showAppModal(t.backup.title, t.backup.savedToDevice(result.location));
+      } else if (result.status === 'unavailable') {
+        showAppModal(t.backup.title, t.backup.saveUnavailable);
+      }
+      // 'canceled' → no modal
+    } catch {
+      showAppModal(t.backup.title, t.backup.exportError);
+    }
+  }
+
   async function handleExport() {
     selection();
     try {
@@ -668,8 +683,12 @@ export default function SettingsScreen() {
                   </Pressable>
                 )}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <Pressable style={styles.dangerBtn} onPress={handleSaveToDevice}>
+                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.saveToDevice}</Text>
+                </Pressable>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <Pressable style={styles.dangerBtn} onPress={handleExport}>
-                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.backupButton}</Text>
+                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.shareCopy}</Text>
                 </Pressable>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <Pressable style={styles.dangerBtn} onPress={handleImport}>

@@ -23,9 +23,9 @@
  *
  * Connections:
  *   Imports → lib/db (the shared handle + table set), lib/date (todayStr);
- *             expo-file-system/legacy, expo-sharing, expo-document-picker,
- *             expo-constants, expo-updates
- *   Used by → app/settings.tsx (Data tab → Backup & restore card)
+ *             expo-file-system/legacy (incl. StorageAccessFramework), expo-sharing,
+ *             expo-document-picker, expo-constants, expo-updates, react-native (Platform)
+ *   Used by → app/settings.tsx (Data tab → Local account card's Backup & restore section)
  *   Data    → reads/writes EVERY table in unfocus.db; restore DELETEs then
  *             re-INSERTs all rows inside one transaction (FKs off for the swap)
  *
@@ -36,6 +36,12 @@
  *     that build exists.
  *   - Uses expo-file-system's LEGACY functional API (writeAsStringAsync etc.) on
  *     purpose — stable signatures across the SDK 56 new-API migration.
+ *   - exportBackupToDevice() writes a real local file instead of routing through
+ *     the share sheet: on Android via SAF (`StorageAccessFramework`, user picks a
+ *     folder); on iOS via `documentDirectory`, which Files exposes under
+ *     "On My iPhone/iPad → UnFocus" thanks to the `UIFileSharingEnabled` +
+ *     `LSSupportsOpeningDocumentsInPlace` flags in app.json (falls back to the
+ *     share sheet if that write fails).
  *   - schemaVersion is PRAGMA user_version; keep it in lock-step with lib/db.ts's
  *     migrations array (never reorder/remove entries there — that's what makes an
  *     older backup's rows safe to load into a newer schema).
@@ -43,15 +49,18 @@
  *     they come only from sqlite_master / PRAGMA table_info of the LIVE db and the
  *     backup's keys are intersected against the live columns — never trusted raw.
  */
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   cacheDirectory,
+  documentDirectory,
   writeAsStringAsync,
   readAsStringAsync,
   EncodingType,
+  StorageAccessFramework,
 } from 'expo-file-system/legacy';
 import type { SQLiteBindValue } from 'expo-sqlite';
 import db from '@/lib/db';
@@ -125,6 +134,67 @@ export async function exportBackup(): Promise<'shared' | 'unavailable'> {
     UTI: 'public.json',
   });
   return 'shared';
+}
+
+/** Best-effort human-readable label for a SAF directory URI, e.g. "Download". */
+function safDirectoryLabel(dirUri: string): string {
+  try {
+    const decoded = decodeURIComponent(dirUri);
+    const afterTree = decoded.split('/tree/')[1] ?? decoded;
+    return afterTree.split(':').pop() || decoded;
+  } catch {
+    return dirUri;
+  }
+}
+
+export type SaveToDeviceResult =
+  | { status: 'saved'; location: string }
+  | { status: 'canceled' }
+  | { status: 'unavailable' };
+
+/**
+ * Serialise the whole DB and write it as a real file directly to a
+ * user-visible location, instead of routing through the OS share sheet.
+ * Android: user picks a folder via SAF, file is created there. iOS: written
+ * into the app's document directory (visible under Files → On My iPhone/iPad
+ * → UnFocus), falling back to the share sheet if that write fails. Throws on
+ * unexpected write failure — the caller surfaces that.
+ */
+export async function exportBackupToDevice(): Promise<SaveToDeviceResult> {
+  const json = JSON.stringify(buildBackup());
+  const filename = `unfocus-backup-${todayStr()}`;
+
+  if (Platform.OS === 'android') {
+    const perm = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+    if (!perm.granted) return { status: 'canceled' };
+    const fileUri = await StorageAccessFramework.createFileAsync(
+      perm.directoryUri,
+      filename,
+      'application/json'
+    );
+    await StorageAccessFramework.writeAsStringAsync(fileUri, json, { encoding: EncodingType.UTF8 });
+    return { status: 'saved', location: safDirectoryLabel(perm.directoryUri) };
+  }
+
+  if (Platform.OS === 'ios' && documentDirectory) {
+    try {
+      const uri = `${documentDirectory}${filename}.json`;
+      await writeAsStringAsync(uri, json, { encoding: EncodingType.UTF8 });
+      return { status: 'saved', location: 'Files → On My iPhone/iPad → UnFocus' };
+    } catch {
+      // Fall through to the share sheet below.
+    }
+  }
+
+  if (!(await Sharing.isAvailableAsync())) return { status: 'unavailable' };
+  const uri = `${cacheDirectory}${filename}.json`;
+  await writeAsStringAsync(uri, json, { encoding: EncodingType.UTF8 });
+  await Sharing.shareAsync(uri, {
+    mimeType: 'application/json',
+    dialogTitle: 'UnFocus backup',
+    UTI: 'public.json',
+  });
+  return { status: 'saved', location: 'the location you chose' };
 }
 
 export type ParsedBackup =
