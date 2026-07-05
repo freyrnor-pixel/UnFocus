@@ -225,7 +225,7 @@ export default function Pet({ completedToday }: Props) {
   const leanZ = useSharedValue(0);
   const tiltZ = useSharedValue(0);
   const glowScale = useSharedValue(1);
-  const glowOpacity = useSharedValue(baseGlow);
+  const glowOpacity = useSharedValue<number>(baseGlow);
   const shimmer = useSharedValue(0.15);
   const heartY = useSharedValue(0);
   const heartOpacity = useSharedValue(0);

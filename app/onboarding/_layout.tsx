@@ -44,7 +44,7 @@ export default function OnboardingLayout() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   treeWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
