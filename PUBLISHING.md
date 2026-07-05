@@ -55,6 +55,34 @@ Run through this in order:
 5. **Native change?** If the diff touches native surface, OTA won't carry it — a
    new build is required.
 
+## Test builds that actually receive OTA (phone + friends)
+
+**A debug APK never updates.** `.github/workflows/build-android.yml` (and any
+local `assembleDebug`) produces a build with `expo-updates` disabled — it's
+frozen on the bundle embedded at build time. This is the usual cause of "I
+installed it but no updates arrive." Don't distribute it.
+
+Use an **OTA-capable preview build** instead — release-signed, `channel: preview`,
+updates on (eas.json `preview` profile):
+
+1. **One-time keystore setup (interactive).** The first EAS Android build must run
+   from an Expo login so EAS can generate + store the signing keystore
+   (`--non-interactive` CI can't create one):
+   `eas login` → `eas build -p android --profile preview`. Accept keystore
+   generation. EAS keeps it; you never touch it again.
+2. **After that, build from CI** anytime: Actions → **EAS Build Android (Preview
+   APK)** → Run workflow. (Uses the existing `EXPO_TOKEN` secret.)
+3. **Install** from the EAS build page (link/QR) on the phone — internal
+   distribution, no Play Store. Uninstall any earlier debug APK first (different
+   signing key → Android won't install over it). Friends on Android install the
+   same link; iOS testers need TestFlight instead (APK sideloading is Android-only).
+4. **From then on, pushing updates = merging to `main`** (top of this file). Each
+   OTA reaches every installed preview build on the next launch, or immediately via
+   **Settings → General → Version & updates → Check for updates**.
+5. Only rebuild when a change is **native** (new package/plugin/permission) or you
+   bump `runtimeVersion`. Pure JS/UI/logic/styles = OTA only. Keep `runtimeVersion`
+   at the installed build's value (`1.1.0`) or OTAs stop matching.
+
 ## Automation: auto-opened PRs
 
 `.github/workflows/auto-pr.yml` opens (or reuses) a PR from any `claude/**`
