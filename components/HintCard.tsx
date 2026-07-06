@@ -41,21 +41,29 @@ if (Platform.OS === 'android') {
 type Props = {
   text: string;
   example?: string;
+  /** Controlled open state — when provided, the internal state is bypassed. */
+  open?: boolean;
+  /** Controlled toggle — called instead of internal setState when provided. */
+  onToggle?: () => void;
 };
 
-export default function HintCard({ text, example }: Props) {
+export default function HintCard({ text, example, open: openProp, onToggle: onToggleProp }: Props) {
   const showHints = useSettingsStore((s) => s.showHints);
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
-  const [open, setOpen] = useState(false);
+  const [openInternal, setOpenInternal] = useState(false);
+
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : openInternal;
 
   if (!showHints) return null;
 
   function toggle() {
     if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setOpen((v) => !v);
+    if (isControlled) onToggleProp?.();
+    else setOpenInternal((v) => !v);
   }
 
   return (

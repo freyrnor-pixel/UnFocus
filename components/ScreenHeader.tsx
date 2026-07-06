@@ -53,12 +53,15 @@ type Props = {
   onBack?: () => void;
   headerRight?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
-  /** Focus-mode toggle (Home only). When provided, the right-slot eye toggles focus. */
+  /** Focus-mode toggle (Home only). When provided, the focus button is live. */
   focusActive?: boolean;
   onToggleFocus?: () => void;
+  /** Info/hint toggle (optional). When provided, an ⓘ icon appears left of the focus button. */
+  infoActive?: boolean;
+  onInfoToggle?: () => void;
 };
 
-export default function ScreenHeader({ title, tier, onBack, headerRight, style, focusActive, onToggleFocus }: Props) {
+export default function ScreenHeader({ title, tier, onBack, headerRight, style, focusActive, onToggleFocus, infoActive, onInfoToggle }: Props) {
   const t = useT();
   const theme = useAppTheme();
   const router = useRouter();
@@ -86,6 +89,22 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
       <Ionicons name="settings-outline" size={24} color={theme.text} />
     </Pressable>
   );
+  const infoButton = onInfoToggle ? (
+    <Pressable
+      onPress={onInfoToggle}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={infoActive ? t.hideHint : t.showHint}
+      accessibilityState={{ selected: !!infoActive }}
+    >
+      <Ionicons
+        name={infoActive ? 'information-circle' : 'information-circle-outline'}
+        size={24}
+        color={infoActive ? theme.accent : theme.text}
+      />
+    </Pressable>
+  ) : null;
+
   const focusButton = (
     <Pressable
       onPress={handleFocusPress}
@@ -95,14 +114,7 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
       accessibilityLabel={focusActive ? t.focusActive : t.focusInactive}
       style={styles.focusButton}
     >
-      <Ionicons
-        name={focusActive ? 'eye' : 'eye-outline'}
-        size={24}
-        color={focusActive ? theme.accent : theme.text}
-      />
-      {/* Label only where the toggle is live (Home) — elsewhere the eye stays a bare
-          placeholder icon (its historical Phase-1 state) rather than a labeled control
-          that silently does nothing. */}
+      {/* Label only where the toggle is live (Home) — elsewhere nothing is shown. */}
       {onToggleFocus && (
         <Text
           style={[styles.focusLabel, { color: focusActive ? theme.accent : theme.textMuted }]}
@@ -124,11 +136,12 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
   );
 
   if (tier === 'site') {
-    // Grouped gear + eye. Order is Focus then gear so gear is outermost on whichever
-    // side the group sits (Decision 034). Left-handed mirrors the whole row.
-    const controls = leftHanded
-      ? [gearButton, focusButton] // group sits left → gear outermost (far left)
-      : [focusButton, gearButton]; // group sits right → gear outermost (far right)
+    // Grouped controls. Order (right-handed, left-to-right): [ⓘ info] [Focus mode] [gear].
+    // Gear is outermost on whichever side the group sits (Decision 034).
+    // Left-handed mirrors the whole row. Items that don't apply to this screen are null/filtered.
+    const focusButtonOrNull = onToggleFocus ? focusButton : null;
+    const controlItems = [infoButton, focusButtonOrNull, gearButton].filter(Boolean) as React.ReactNode[];
+    const controls = leftHanded ? [...controlItems].reverse() : controlItems;
     const controlsGroup = (
       <View style={styles.controls}>
         {controls.map((c, i) => (

@@ -83,6 +83,7 @@ export default function HomeScreen() {
 
   // Focus mode: Home-only, ephemeral (Decisions 009 #4 / 018). Reset on blur below.
   const [focusMode, setFocusMode] = useState(false);
+  const [hintOpen, setHintOpen] = useState(false);
 
   const tasks = useTaskStore((s) => s.tasks);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
@@ -126,7 +127,10 @@ export default function HomeScreen() {
       // so the two "Focus mode" surfaces are one coherent feature, not two.
       const defaultFocus = useSettingsStore.getState().essentialsModeEnabled;
       setFocusMode(defaultFocus);
-      return () => setFocusMode(defaultFocus);
+      return () => {
+        setFocusMode(defaultFocus);
+        setHintOpen(false);
+      };
     }, [loadSettings, loadTasks, loadNotes, loadShopping, loadLists])
   );
 
@@ -177,12 +181,14 @@ export default function HomeScreen() {
         ownBackground={false}
         focusActive={focusMode}
         onToggleFocus={() => setFocusMode((v) => !v)}
+        infoActive={hintOpen}
+        onInfoToggle={() => setHintOpen((v) => !v)}
       >
         <View style={styles.content}>
           {/* Focus-mode hint — the header eye is a non-obvious affordance, so it
               qualifies for a HintCard under Decision 030's "demonstrated need"
               bar. Gated on showHints + hidden in Focus itself. */}
-          {!focusMode && <HintCard text={t.hints.home.text} />}
+          {!focusMode && <HintCard text={t.hints.home.text} open={hintOpen} onToggle={() => setHintOpen((v) => !v)} />}
 
           {/* Greeting */}
           <View style={styles.header}>

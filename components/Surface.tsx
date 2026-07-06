@@ -93,8 +93,8 @@ const GLASS_BLUR_INTENSITY: Record<SurfaceContext, number> = {
 // scrolling content, so it leans closer to opaque than ambient (which only
 // frosts the calm, text-free ScreenBackground backdrop).
 const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
-  ambient: 0.8,
-  overlay: 0.94,
+  ambient: 0.92,
+  overlay: 0.97,
 };
 
 // Rewrites the alpha channel of an `rgba(r, g, b, a)` string, keeping its hue.

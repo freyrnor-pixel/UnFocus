@@ -47,7 +47,7 @@ type Props = {
 
 const DIMENSION = { lg: 56, sm: 32 };
 const PLUS_SIZE = { lg: 28, sm: 18 };
-const DEFAULT_BOTTOM = Spacing.xl + BOTTOM_NAV_HEIGHT;
+const DEFAULT_BOTTOM = Spacing.sm + BOTTOM_NAV_HEIGHT;
 
 export const FAB_LG_SIZE = DIMENSION.lg;
 export const FAB_DEFAULT_BOTTOM = DEFAULT_BOTTOM;
