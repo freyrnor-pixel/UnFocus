@@ -53,11 +53,15 @@
  *     it up via onActiveRouteChange so this component can pick HomeHeroBackground vs
  *     ScreenBackground. This only fires when the focused route actually changes (not
  *     continuously while dragging), which is what keeps the swap instant instead of sliding.
- *   - Both TopTabs and each tab screen's own SafeAreaView (see ScreenScaffold's
- *     ownBackground=false path) rely on react-navigation's default transparent scene
- *     background — no explicit transparent styling needed, but if a future
- *     material-top-tabs upgrade ever paints an opaque scene background, that's the
- *     first place to look if the shared backdrop stops showing through.
+ *   - **Scene background must stay transparent**: @react-navigation/material-top-tabs's
+ *     MaterialTopTabView wraps every route in `sceneStyle: { backgroundColor: colors.background }`
+ *     by default (react-navigation theme background, opaque) — that painted over this
+ *     shared L1/L2 backdrop, which is why the 5 tab screens showed a flat colour instead
+ *     of the blobs/hero. `screenOptions.sceneStyle` below forces it back to `'transparent'`
+ *     so the shared background shows through; each tab screen's own SafeAreaView stays
+ *     transparent too (see ScreenScaffold's ownBackground=false path). If the backdrop
+ *     ever goes flat again after a react-navigation/expo-router upgrade, check this
+ *     sceneStyle override first.
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
@@ -100,7 +104,7 @@ export default function TabsLayout() {
 
       <TopTabs
         tabBarPosition="bottom"
-        screenOptions={{ swipeEnabled: true, lazy: true }}
+        screenOptions={{ swipeEnabled: true, lazy: true, sceneStyle: { backgroundColor: 'transparent' } }}
         tabBar={(props: MaterialTopTabBarProps) => (
           <TabBarWithBackgroundSync {...props} insetsBottom={insets.bottom} onActiveRouteChange={setActiveRouteName} />
         )}
