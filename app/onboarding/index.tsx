@@ -1,5 +1,5 @@
 /**
- * index.tsx — Onboarding welcome + name capture (guided step 1 of 6)
+ * index.tsx — Onboarding welcome + name capture (guided step 1 of 5)
  *
  * First guided step after the language/guided choice. Shows feature highlights
  * and a text field for the user's name, then advances into the setup wizard.
@@ -100,7 +100,7 @@ export default function OnboardingWelcome() {
           </View>
 
           <View style={styles.progress}>
-            {[0, 1, 2, 3, 4, 5].map((i) => (
+            {[0, 1, 2, 3, 4].map((i) => (
               <View
                 key={i}
                 style={[

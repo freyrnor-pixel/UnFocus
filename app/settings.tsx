@@ -7,10 +7,9 @@
  *
  * - Generelt: Focus mode toggle → Profil (name + language) → Jobb-modus (work mode, auto-activate
  *   + hours + work days, Norske helligdager) → Tilgjengelighet (reduced motion, particles, font
- *   size, left-handed) → Motivasjon (points, hints, Følgeven/pet-enable toggle) → Companion Pet
- *   config (shown when pet enabled) → Data group (debug mode toggle, Local account card
- *   (Decision 039 — device-only profile: name + create date, backup/restore via lib/backup),
- *   destructive resets).
+ *   size, left-handed) → Motivasjon (points, hints) → Data group (debug mode toggle, Local
+ *   account card (Decision 039 — device-only profile: name + create date, backup/restore via
+ *   lib/backup), destructive resets).
  * - Lister: shopping list settings (weekly reset weekday, monthly reset date, monthly budget).
  * - Varsler: Ukentlig (weekly reminder + time) → Generelle (independent plan-notifications and
  *   habit-reminders toggles, persistent daily overview, quiet hours).
@@ -56,7 +55,7 @@
  *     used to be sourced from constants/theme.ts's legacy AppColors THEMES, whose theme set
  *     — tech/fluffy, no summer/blackWhite — did not match colors.ts, so Tech/Fluffy rendered
  *     as Default and Black & White was unreachable.) All chrome here goes through useAppTheme()
- *     tokens (Decision 006) — no raw hex except the fixed pet-colour swatch options.
+ *     tokens (Decision 006).
  *   - 'custom' theme is deliberately excluded from the colour-theme picker: constants/colors.ts's
  *     ThemePalette (Decision 006) has no 'custom' variant yet (Decision 006/007 explicitly defer
  *     it), so offering it would silently render as 'default' via getThemePalette()'s fallback.
@@ -68,8 +67,6 @@
  *     per-week ShoppingList rows (store/useShoppingListStore.ts, auto-rolling by date), so there
  *     is no equivalent "reset the current weekly list" store action to bind to; lib/seedTestData.ts
  *     also does not exist in this repo. Flagged in PROGRESS_LOG rather than inventing either.
- *   - Companion pet is configured during onboarding step6 by default; this screen lets returning
- *     users change it later.
  */
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -88,7 +85,6 @@ import {
   Settings,
   ColorTheme,
   FontSizePref,
-  PetType,
   DarkMode,
 } from '@/store/useSettingsStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
@@ -113,8 +109,6 @@ import {
 } from '@/constants/theme';
 import { getThemePalette } from '@/constants/colors';
 
-const PET_TYPES: PetType[] = ['cat', 'dog', 'bird', 'fox', 'bunny'];
-const PET_EMOJIS: Record<PetType, string> = { cat: '🐱', dog: '🐶', bird: '🐦', fox: '🦊', bunny: '🐰' };
 // Canonical colors.ts theme set (see constants/colors.ts ThemeName). 'custom'
 // excluded — no Decision-006 palette variant for it yet (file header).
 const COLOR_THEME_KEYS: ColorTheme[] = ['default', 'summer', 'nature', 'fluffyPink', 'gothic', 'blackWhite'];
@@ -135,7 +129,6 @@ export default function SettingsScreen() {
   const [tab, setTab] = useState<SettingsTab>('generelt');
   const [name, setName] = useState(settings.userName);
   const [accountNameInput, setAccountNameInput] = useState(settings.accountName);
-  const [petNameInput, setPetNameInput] = useState(settings.petName);
   const [monthlyDateInput, setMonthlyDateInput] = useState(String(settings.monthlyResetDate));
   const [monthlyBudgetInput, setMonthlyBudgetInput] = useState(
     settings.monthlyBudgetNok > 0 ? String(settings.monthlyBudgetNok) : ''
@@ -211,8 +204,6 @@ export default function SettingsScreen() {
   ];
 
   const DAY_LABELS = t.dayFull;
-  // Fixed pet-colour options — data, not chrome (same precedent as colour-theme swatch data).
-  const petSwatches = [theme.accent, theme.good, '#A78BFA', '#F472B6', '#60A5FA', '#34D399'];
 
   // Version / update diagnostics (expo-updates + expo-constants). All are plain
   // module constants for the running JS, so reading them at render is cheap.
@@ -566,72 +557,8 @@ export default function SettingsScreen() {
                   </View>
                   <FormSwitch checked={settings.showHints} onChange={(v) => settings.update({ showHints: v })} />
                 </View>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.pet.toggle}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.pet.toggleSubtitle}</Text>
-                  </View>
-                  <FormSwitch checked={settings.petEnabled} onChange={(v) => settings.update({ petEnabled: v })} />
-                </View>
               </Surface>
             </View>
-
-            {/* Companion pet config */}
-            {settings.petEnabled && (
-              <View style={styles.section}>
-                <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.settings.pet.toggle}</Text>
-                <Surface style={styles.card}>
-                  <Input
-                    label={t.settings.pet.name}
-                    value={petNameInput}
-                    onChangeText={setPetNameInput}
-                    placeholder={t.settings.pet.namePlaceholder}
-                    onBlur={() => settings.update({ petName: petNameInput.trim() })}
-                    returnKeyType="done"
-                  />
-
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.pet.type}</Text>
-                  <View style={styles.petTypeRow}>
-                    {PET_TYPES.map((pt) => (
-                      <Pressable
-                        key={pt}
-                        style={[
-                          styles.petTypeCard,
-                          { borderColor: settings.petType === pt ? theme.accent : theme.border },
-                          { backgroundColor: settings.petType === pt ? theme.accentSoft : theme.surfaceMuted },
-                        ]}
-                        onPress={() => settings.update({ petType: pt })}
-                      >
-                        <Text style={styles.petTypeEmoji}>{PET_EMOJIS[pt]}</Text>
-                        <Text style={[styles.petTypeLabel, { color: settings.petType === pt ? theme.accent : theme.textMuted }]}>
-                          {t.settings.pet.typeLabels[pt]}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.pet.colour}</Text>
-                  <View style={styles.swatchRow}>
-                    {petSwatches.map((color) => (
-                      <Pressable
-                        key={color}
-                        style={[
-                          styles.petSwatch,
-                          { backgroundColor: color },
-                          settings.petColor === color && [styles.petSwatchActive, { borderColor: theme.text }],
-                        ]}
-                        onPress={() => settings.update({ petColor: color })}
-                      />
-                    ))}
-                  </View>
-                </Surface>
-              </View>
-            )}
 
             {/* ===== DATA ===== */}
             <SectionDivider />
@@ -1120,17 +1047,4 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs, fontFamily: Fonts.semibold, letterSpacing: 0.5,
     textTransform: 'uppercase', marginBottom: Spacing.sm,
   },
-  petTypeRow: { flexDirection: 'row', gap: Spacing.xs, flexWrap: 'wrap' },
-  petTypeCard: {
-    flex: 1, minWidth: 56, borderWidth: 2, borderRadius: Radius.md,
-    padding: Spacing.xs, alignItems: 'center', gap: 2,
-  },
-  petTypeEmoji: { fontSize: 28 },
-  petTypeLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
-  swatchRow: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
-  petSwatch: {
-    width: 36, height: 36, borderRadius: Radius.full, borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  petSwatchActive: { borderWidth: 3 },
 });

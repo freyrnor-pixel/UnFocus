@@ -73,7 +73,7 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 ```
 
 - **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` (Home/Shopping/Meals/Health/Habits); other screens are reached via links/buttons from those 5. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
-- **Onboarding** (`app/onboarding/*`, in file order): language → privacy → guided/explore → index (name) → step2 (work mode) → step3 (shopping days) → step4 (notification confirm) → step5 (theme + handedness) → step6 (pet naming) → home
+- **Onboarding** (`app/onboarding/*`, in file order): language → privacy → guided/explore → index (name) → step2 (work mode) → step3 (shopping days) → step4 (notification confirm) → step5 (theme + handedness, finishes onboarding) → home
 - **i18n**: `const t = useT()` in any component; `t.someKey`; add new keys to both `en` and `no` objects in `lib/i18n.ts`
 
 ## Common tasks

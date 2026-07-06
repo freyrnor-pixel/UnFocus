@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → store/useSettingsStore
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/onboarding/step6.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/SharedRequestsSection.tsx, components/ShoppingQuickAddSheet.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/SharedRequestsSection.tsx, components/ShoppingQuickAddSheet.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
  *   Data    → reads `language` from the settings Zustand store
  *
  * Edit notes:
@@ -28,12 +28,6 @@ export type Lang = 'en' | 'no';
 const en = {
   // Greeting
   greeting: { morning: 'Good morning', day: 'Good day', evening: 'Good evening' },
-  // Home-screen companion reactions (Decision 039) — spoken by Pet.tsx
-  petCompanion: {
-    praise: ['Look at you go! ✨', "That's one down! 🎉", 'Yes! Keep it up! 💪', "You're on a roll! 🌟"],
-    feedHint: "Drag a snack over — I'd love that",
-    feedThanks: 'Mmm, thank you! 🥰',
-  },
   days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
   months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
   // Short month names for date-range labels (lib/date.ts's formatDateRange)
@@ -636,6 +630,9 @@ const en = {
   pickDishSearchPlaceholder: 'Search dishes…',
   noDishesAvailable: 'No saved dishes yet — add one on the Meals screen first.',
   ingredientPricePlaceholder: 'Price (NOK)',
+  ingredientSearchPlaceholder: 'Search catalog for ingredients…',
+  addCustomIngredientOption: (query: string) => `Add "${query}" as a new ingredient`,
+  noCatalogMatches: 'No catalog matches',
   addDishBtn: 'Add dish',
   deleteDish: 'Delete dish',
   noDishesTitle: 'No dishes',
@@ -716,11 +713,6 @@ const en = {
       free: 'UnFocus is free and always will be.',
       cta: 'Got it →',
     },
-    step6: {
-      title: 'Meet your companion',
-      subtitle: 'A small friend that cheers you on. Give it a name and make it yours.',
-      namePlaceholder: 'Give your pet a name',
-    },
   },
   // Accessibility settings (Proposal 4)
   settings: {
@@ -742,22 +734,6 @@ const en = {
       headline: 'Your data stays with you',
       local: 'Everything is stored only on this device — nothing is sent anywhere.',
       free: 'UnFocus is free and always will be.',
-    },
-    // Companion pet (Proposal 6)
-    pet: {
-      toggle: 'Companion pet',
-      toggleSubtitle: 'A small friend that cheers you on',
-      name: 'Pet name',
-      namePlaceholder: 'Give your pet a name',
-      type: 'Pet type',
-      colour: 'Colour',
-      typeLabels: {
-        cat: 'Cat',
-        dog: 'Dog',
-        bird: 'Bird',
-        fox: 'Fox',
-        bunny: 'Bunny',
-      },
     },
     // AP-05 — notification quiet hours
     quietHours: {
@@ -923,15 +899,15 @@ const en = {
   },
   hints: {
     home: {
-      text: 'Your daily overview — tap the eye in the top bar to focus on essential plans only.',
+      text: "1) See today's notes, plans and shopping at a glance.\n2) Tap an item to check it off.\n3) Tap \"See all →\" to open the full screen.\n4) Tap the eye icon (top bar) to show only essential plans.",
       example: '',
     },
     taskForm: {
-      text: 'Just a title and a date — everything else is optional.',
+      text: '1) Type a title.\n2) Pick a date — today is filled in for you.\n3) Optional: set a time, mark it Essential, add steps, or repeat it weekly.\n4) Tap Save.',
       example: '',
     },
     habitForm: {
-      text: 'Just a name — reminders and the cue→craving→response→reward steps are optional.',
+      text: '1) Choose Build (start doing) or Break (do less).\n2) Give it a name.\n3) Optional: set a daily goal, a reminder, or the cue→craving→response→reward steps.\n4) Tap Save.',
       example: '',
     },
     shopping: {
@@ -939,11 +915,11 @@ const en = {
       example: '',
     },
     meals: {
-      text: 'Tap a dish to add its ingredients to your shopping list.',
+      text: '1) Tap a meal-type tile to see its dishes.\n2) Tap a dish to add its ingredients to your shopping list.\n3) Tap + to create a new dish and list its ingredients.',
       example: '',
     },
     health: {
-      text: 'Log symptoms to spot patterns over time.',
+      text: '1) Tap + to log a symptom.\n2) Set the date, severity (1–5) and an optional note.\n3) Save — it appears in the 30-day overview and the log below.',
       example: '',
     },
     scan: {
@@ -959,11 +935,11 @@ const en = {
       example: '',
     },
     habits: {
-      text: 'Tap + each time you build or resist a habit. Tap a card to expand, hold it to edit.',
+      text: '1) Tap + on a habit each time you build it or resist it.\n2) Tap a card to expand its steps and week view.\n3) Hold a card to edit it.\n4) Tap + New to add a habit.',
       example: '',
     },
     plans: {
-      text: "Today's full agenda, anytime plans first.",
+      text: "1) See today's full agenda — anytime plans first, then timed ones.\n2) Tap the dot to check off a plan.\n3) Tap a plan to open and edit it.\n4) Tap + to add a new one.",
       example: '',
     },
     automations: {
@@ -971,7 +947,7 @@ const en = {
       example: '',
     },
     notes: {
-      text: 'Jot a quick note, then send it to shopping or plans when ready.',
+      text: '1) Tap + to jot a quick note.\n2) Use its shopping or plans button to send it onward.\n3) Check it off when done — it moves below.',
       example: '',
     },
   },
@@ -994,11 +970,6 @@ const en = {
 
 const no: typeof en = {
   greeting: { morning: 'God morgen', day: 'God dag', evening: 'God kveld' },
-  petCompanion: {
-    praise: ['Se på deg! ✨', 'Én av veien! 🎉', 'Ja! Fortsett sånn! 💪', 'Du er i flytsonen! 🌟'],
-    feedHint: 'Dra en snacks bort til meg',
-    feedThanks: 'Mmm, takk! 🥰',
-  },
   days: ['søndag', 'mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'],
   months: ['januar', 'februar', 'mars', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'desember'],
   monthsShort: ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'],
@@ -1433,11 +1404,6 @@ const no: typeof en = {
       free: 'UnFocus er gratis og vil alltid være det.',
       cta: 'Skjønner →',
     },
-    step6: {
-      title: 'Møt følgesvennen din',
-      subtitle: 'En liten vennen som heier på deg. Gi den et navn og gjør den til din egen.',
-      namePlaceholder: 'Gi kjæledyret et navn',
-    },
   },
   settings: {
     accessibility: {
@@ -1457,21 +1423,6 @@ const no: typeof en = {
       headline: 'Dataene dine er hos deg',
       local: 'Alt lagres kun på denne enheten — ingenting sendes noe sted.',
       free: 'UnFocus er gratis og vil alltid være det.',
-    },
-    pet: {
-      toggle: 'Følgeven',
-      toggleSubtitle: 'En liten venn som heier på deg',
-      name: 'Navn på kjæledyr',
-      namePlaceholder: 'Gi kjæledyret et navn',
-      type: 'Type kjæledyr',
-      colour: 'Farge',
-      typeLabels: {
-        cat: 'Katt',
-        dog: 'Hund',
-        bird: 'Fugl',
-        fox: 'Rev',
-        bunny: 'Kanin',
-      },
     },
     // AP-05 — varslingsfri (stille) periode
     quietHours: {
@@ -1759,6 +1710,9 @@ const no: typeof en = {
   pickDishSearchPlaceholder: 'Søk retter…',
   noDishesAvailable: 'Ingen lagrede retter ennå — legg til en på Måltider-siden først.',
   ingredientPricePlaceholder: 'Pris (NOK)',
+  ingredientSearchPlaceholder: 'Søk i katalogen etter ingredienser…',
+  addCustomIngredientOption: (query: string) => `Legg til "${query}" som ny ingrediens`,
+  noCatalogMatches: 'Ingen treff i katalogen',
   addDishBtn: 'Legg til rett',
   deleteDish: 'Slett rett',
   noDishesTitle: 'Ingen retter',
@@ -1862,15 +1816,15 @@ const no: typeof en = {
   },
   hints: {
     home: {
-      text: 'Din daglige oversikt — trykk på øyet i topplinjen for kun de viktigste planene.',
+      text: '1) Se dagens notater, planer og handleliste på ett blikk.\n2) Trykk en vare for å hake den av.\n3) Trykk «Se alt →» for å åpne hele skjermen.\n4) Trykk på øyet (topplinjen) for å vise kun de viktigste planene.',
       example: '',
     },
     taskForm: {
-      text: 'Bare tittel og dato — resten er valgfritt.',
+      text: '1) Skriv en tittel.\n2) Velg en dato — i dag er fylt inn for deg.\n3) Valgfritt: sett et tidspunkt, merk som viktig, legg til steg, eller gjenta ukentlig.\n4) Trykk Lagre.',
       example: '',
     },
     habitForm: {
-      text: 'Bare et navn — påminnelser og signal→trang→respons→belønning er valgfritt.',
+      text: '1) Velg Bygg (start å gjøre) eller Bryt (gjør mindre).\n2) Gi den et navn.\n3) Valgfritt: sett et daglig mål, en påminnelse, eller signal→trang→respons→belønning.\n4) Trykk Lagre.',
       example: '',
     },
     shopping: {
@@ -1878,11 +1832,11 @@ const no: typeof en = {
       example: '',
     },
     meals: {
-      text: 'Trykk en rett for å legge ingrediensene til handlelisten.',
+      text: '1) Trykk en måltidskategori for å se rettene.\n2) Trykk en rett for å legge ingrediensene til handlelisten.\n3) Trykk + for å lage en ny rett og liste ingrediensene.',
       example: '',
     },
     health: {
-      text: 'Logg symptomer for å se mønstre over tid.',
+      text: '1) Trykk + for å logge et symptom.\n2) Sett dato, alvorlighetsgrad (1–5) og en valgfri notat.\n3) Lagre — det vises i 30-dagersoversikten og loggen under.',
       example: '',
     },
     scan: {
@@ -1898,11 +1852,11 @@ const no: typeof en = {
       example: '',
     },
     habits: {
-      text: 'Trykk + hver gang du bygger eller motstår en vane. Trykk på et kort for å utvide, hold inne for å redigere.',
+      text: '1) Trykk + på en vane hver gang du bygger den eller motstår den.\n2) Trykk et kort for å utvide steg og ukevisning.\n3) Hold inne et kort for å redigere det.\n4) Trykk + Ny for å legge til en vane.',
       example: '',
     },
     plans: {
-      text: 'Dagens fulle agenda, planer uten tidspunkt først.',
+      text: '1) Se dagens fulle agenda — planer uten tidspunkt først, så de med tidspunkt.\n2) Trykk prikken for å hake av en plan.\n3) Trykk en plan for å åpne og redigere den.\n4) Trykk + for å legge til en ny.',
       example: '',
     },
     automations: {
@@ -1910,7 +1864,7 @@ const no: typeof en = {
       example: '',
     },
     notes: {
-      text: 'Skriv et raskt notat, og send det til handleliste eller planer når du er klar.',
+      text: '1) Trykk + for å skrive et raskt notat.\n2) Bruk handleliste- eller planer-knappen for å sende det videre.\n3) Hak av når du er ferdig — det flyttes ned.',
       example: '',
     },
   },

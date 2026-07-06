@@ -37,7 +37,6 @@ should feel faster (e.g. modal in 350ms, same modal out 250ms).
 | Modal dismiss (exit) | 200–250ms | ease-in | Exit is always faster than enter |
 | Tab switch | 150–200ms | ease-out | Near-instant |
 | Task complete celebration | 500–700ms | spring | Earned, not random |
-| Companion pet reaction | 300–400ms | spring | Bouncy, not mechanical |
 | Loading spinner | continuous | linear | Constant speed — never bouncy |
 | Screen navigation push | 300ms | ease-out | Standard page transition |
 
@@ -48,7 +47,7 @@ Never use linear for interactive UI — it looks mechanical. Use it only for spi
 - **ease-out** (most common) — fast start, slows to stop. Anything entering the screen or responding to a tap.
 - **ease-in** — slow start, fast end. Elements *leaving* the screen. Never for entrances.
 - **ease-in-out** — slow/fast/slow. Elements moving across the screen (drag, reorder).
-- **spring** — physics-based, slight overshoot. Buttons, cards, the pet — anything tactile.
+- **spring** — physics-based, slight overshoot. Buttons, cards — anything tactile.
 - **linear** — constant speed. Only loading spinners and progress bars.
 
 ### Spring presets actually used in this codebase
@@ -60,14 +59,8 @@ values already proven in the app — reuse them instead of inventing new ones:
 ```ts
 // Snappy — button press-release (components/PressableScale.tsx)
 withSpring(1, { damping: 18, stiffness: 320 });
-
-// Playful/bouncy — pet drag-and-drop / celebration hop (components/Pet.tsx)
-withSpring(-18, { damping: 5, stiffness: 220 }); // hop up
-withSpring(0, { damping: 9, stiffness: 180 });   // settle back down
 ```
 
-`components/Pet.tsx` was rewritten under Decision 039 to a pure `react-native-reanimated`
-implementation (`withSpring`/`withTiming` throughout, no legacy `Animated` calls at all).
 `components/ExpandableCard.tsx` and the habit-card pulse in `app/habits.tsx` still use the
 legacy `Animated` API with `useNativeDriver: true` and `tension`/`friction` instead of
 `damping`/`stiffness` — they're not wrong, just an older API. **New animation code should
@@ -102,7 +95,6 @@ primitive: **`components/PressableScale.tsx`**. Use it instead of hand-rolling
 | Secondary / ghost button | 0.97 | Subtler |
 | Icon button / FAB | 0.90 | More dramatic, punchy |
 | List item / card tap | 0.97 | Content shouldn't feel wobbly |
-| Companion pet | 0.85 | Squish — it's alive |
 | Destructive button (delete) | 0.93 | Weighty, deliberate |
 
 (`PressableScale`'s own default of `0.94` is a reasonable generic fallback when none of the
@@ -136,9 +128,7 @@ Timing matters: fire the haptic at the exact moment of the visual event, on `onP
 |---|---|---|
 | Any `PressableScale` button | `tap()` on press-in | ✅ implemented |
 | Task/habit complete | `success()` | ✅ implemented (`PlanTaskCard.tsx`, `app/habits.tsx`) |
-| Wheel hits rotation boundary | `tug()` | ✅ implemented |
 | Destructive confirm dialogs (automations, habit delete, settings resets, remove child) | `warning()` before the dialog, `heavy()` on confirm | ✅ implemented |
-| Companion pet tap | `tap()` | ✅ implemented |
 | Focus mode entry | `confirm()` on screen mount | ✅ implemented |
 | Shopping add-sheet swipe-to-close | `selection()` once crossing the close threshold, `heavy()` on snap-close | ✅ implemented |
 | Error / validation fail | — | ❌ not wired up anywhere yet — no `expo-haptics` Error-style calls exist in the app today |
@@ -159,13 +149,6 @@ Real implementations in this codebase, with where they differ from generic best-
   met. There is **no separate "streak extended" bounce/haptic** — extending a streak and
   finishing today's goal are normally the same user action, so a second celebration would
   double-fire alongside the one above. Don't add one without first checking it can't double-fire.
-- **Companion pet**: idle breathing is an 1800ms-out/1800ms-back loop (3600ms full cycle,
-  slower at rest/faster when excited — see `components/Pet.tsx`'s mood-dependent `breathe`
-  loop); tap triggers a `tiltZ` wobble + a floating heart (`withSpring(1.6, { damping: 8,
-  stiffness: 80 })`) plus a `tap()` haptic; task/habit completion triggers a hop
-  (`withSpring(-18, { damping: 5, stiffness: 220 })` then back down) + glow burst + particles
-  + `success()`; eating is a 3-bounce squish (~720ms total). Pet never renders a
-  negative/sad state — keep it that way (see §6).
 - **Focus mode entry**: fires `confirm()` once on mount (`app/focus.tsx`). There's currently no
   fade-out of "non-relevant" UI on entry — the screen only ever shows one task at a time, so
   there's nothing else on screen to fade.
@@ -189,7 +172,6 @@ Real implementations in this codebase, with where they differ from generic best-
 - Never animate text that needs to be read.
 - No more than a few simultaneous moving elements — causes loss of focus.
 - Keep celebrations short — the dopamine hit should land, then get out of the way.
-- The companion pet must never display a negative state (no sad/angry/punishment) — confirmed already true in `components/Pet.tsx`.
 
 ## 7. Reduce Motion: Always Required
 
@@ -237,8 +219,7 @@ BUTTONS:
 
 SPRINGS (react-native-reanimated, primary pattern in this codebase):
   - Snappy UI: withSpring(v, { damping: 18-40, stiffness: 320-700 })
-  - Playful/alive (pet-like, components/Pet.tsx): lower damping, lower stiffness,
-    e.g. withSpring(-18, { damping: 5, stiffness: 220 }) for a hop
+  - Playful/alive (lower damping, lower stiffness) for anything that should feel bouncy
   - Legacy Animated API (speed/bounciness or tension/friction) only exists in
     components/ExpandableCard.tsx and app/habits.tsx's pulse — match the existing
     file's API, don't mix both in one component

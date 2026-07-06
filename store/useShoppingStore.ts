@@ -39,7 +39,7 @@
  *             components/AddItemSheet.tsx (type), components/AddDishSheet.tsx (add), components/UpdateSheet.tsx (type),
  *             components/MonthlyTableRow.tsx (type), components/ShoppingRow.tsx (type), components/WeekListCard.tsx (type),
  *             components/SharedRequestsSection.tsx (add), components/MonthlyResetSummaryModal.tsx (MonthlyResetSummary),
- *             components/Pet.tsx (type), lib/shoppingGroups.ts (type); app/shopping.tsx hydrates via load() in its on-focus effect (Phase 5 — no global bootstrap yet)
+ *             lib/shoppingGroups.ts (type); app/shopping.tsx hydrates via load() in its on-focus effect (Phase 5 — no global bootstrap yet)
  *   Data    → defines a Zustand store; owns SQLite tables shopping_items + shopping_trips
  *
  * Edit notes:
@@ -104,7 +104,7 @@ export type ShoppingItem = {
   purchasedAt?: string;
   /** Which shopping_trips row this purchase belongs to (status === 'purchased' rows only). */
   shoppingTripId?: string;
-  /** Catalog category slug, used by Pet.tsx's food-chip emoji mapping. */
+  /** Catalog category slug, used for catalog grouping/autocomplete. */
   category?: string;
   // --- Legacy columns kept for backward read/write compatibility (additive; new code paths don't rely on them). ---
   /** Vestigial weekly/monthly split — the status pipeline supersedes it, but the column still exists. */
