@@ -921,7 +921,23 @@ export default function ShoppingScreen() {
                   onRemoveItem={handleRemoveWeeklyItem}
                   onIncrementItem={(item) => adjustAmount(item.id, 1)}
                   onDecrementItem={(item) => adjustAmount(item.id, -1)}
-                  onAddPress={() => setAddSourceChooserListId(list.id)}
+                  onAddInlineItem={(input) => {
+                    add({
+                      name: input.name,
+                      amount: String(input.qty),
+                      unit: '',
+                      listType: 'weekly',
+                      store: '',
+                      price: input.price,
+                      inventoryQty: 0,
+                      isTemporary: false,
+                      targetQuantity: input.qty,
+                      status: 'inWeeklyList',
+                      listId: list.id,
+                    });
+                    success();
+                    setConfirm(t.itemAddedToList(input.name));
+                  }}
                   monthlyItems={catalogItems}
                   onAddMonthlyToWeek={(item) => {
                     addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, list.id);

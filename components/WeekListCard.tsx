@@ -2,30 +2,31 @@
  * WeekListCard.tsx — one per-list container per weekly ShoppingList row.
  *
  * Simplified layout (2026-07-06 redesign): three clean sections — In list
- * (all unchecked items, ungrouped and dish-grouped flattened together),
- * In cart (all checked items), Purchased (completed trip items for this list,
- * collapsed). An optional fourth section — From monthly list — appears when
- * the user opens the monthly add panel and closes when they tap ✓ (save) or
- * × (undo adds). Each section shows a price total footer. Dish groups are
- * no longer rendered as nested ExpandableCards; all items are flat rows.
+ * (all unchecked items, ungrouped and dish-grouped flattened together, plus an
+ * always-visible inline add row when unlocked), In cart (all checked items),
+ * Purchased (completed trip items for this list, collapsed). An optional fourth
+ * section — From monthly list — appears when the user opens the monthly add
+ * panel and closes when they tap ✓ (save) or × (undo adds). Each section shows
+ * a price total footer. Dish groups are no longer rendered as nested
+ * ExpandableCards; all items are flat rows.
  *
  * Connections:
- *   Imports → components/AddDivider, components/ExpandableCard, components/IconButton,
+ *   Imports → components/ExpandableCard, components/IconButton,
  *             components/Surface, components/ShoppingRow (CHECKED_OPACITY), constants/theme,
  *             lib/i18n, lib/money (formatKr), lib/shoppingGroups (listProgress, listTotal),
  *             lib/useAppTheme, lib/haptics,
+ *             store/useCatalogStore (StoreItem, suggest),
  *             store/useShoppingListStore (ShoppingList type), store/useShoppingStore
  *             (ShoppingItem type)
  *   Used by → app/shopping.tsx
  *   Data    → none directly — every item/group/callback is owned by the parent
  *
  * Edit notes:
- *   - 2026-07-06 redesign: removed dish-group ExpandableCards, inline catalogue search,
- *     monthly-preview toggle button. Replaced with flat "In list" / "In cart" / "Purchased"
- *     sections and an ephemeral "From monthly list" panel section.
+ *   - 2026-07-06 redesign: removed AddDivider + lock icon. Replaced with inline add row
+ *     (TextInput + catalog search dropdown + qty controls + price total, visible only
+ *     when unlocked) and a mode-toggle pill button ("Shopping" locked / "Planning" unlocked).
  *   - `dishGroups` prop is kept so this card can flatten dish items into the right section
- *     buckets without the parent having to recompute. The parent still calls
- *     computeListGroups() for drag-reorder state; this card just consumes the output.
+ *     buckets without the parent having to recompute.
  *   - `renderReorderableRow` is still used for ungroupedUnchecked items only (drag reorder).
  *     Dish-grouped unchecked items render as plain ShoppingRow (no drag wrapper).
  *   - Monthly session tracking: `monthlySessionAdds` records item names added while the
@@ -35,9 +36,10 @@
  *     and the "Shopping done!" disabled state — same helper, same data.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
+import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -46,7 +48,6 @@ import { formatKr } from '@/lib/money';
 import Surface from '@/components/Surface';
 import IconButton from '@/components/IconButton';
 import ExpandableCard from '@/components/ExpandableCard';
-import AddDivider from '@/components/AddDivider';
 import PressableScale from '@/components/PressableScale';
 import ShoppingRow, { CHECKED_OPACITY } from '@/components/ShoppingRow';
 import { Ionicons } from '@expo/vector-icons';
@@ -70,7 +71,8 @@ type Props = {
   onRemoveItem: (item: ShoppingItem) => void;
   onIncrementItem: (item: ShoppingItem) => void;
   onDecrementItem: (item: ShoppingItem) => void;
-  onAddPress: () => void;
+  /** Inline add row submission — called when the user confirms adding a new item. */
+  onAddInlineItem: (input: { name: string; price: number; qty: number }) => void;
   /** The curated monthly-list items (status 'catalog') shown in the "add from monthly" panel. */
   monthlyItems: ShoppingItem[];
   /** Move a monthly-list item into this week list (parent → addToWeeklyFromCatalog). */
@@ -103,7 +105,7 @@ export default function WeekListCard({
   onRemoveItem,
   onIncrementItem,
   onDecrementItem,
-  onAddPress,
+  onAddInlineItem,
   monthlyItems,
   onAddMonthlyToWeek,
   onDoneShopping,
@@ -116,8 +118,19 @@ export default function WeekListCard({
   const [nameInput, setNameInput] = useState(list.name);
   const [monthlyPreviewOpen, setMonthlyPreviewOpen] = useState(false);
   const [monthlySearch, setMonthlySearch] = useState('');
-  // Names (lowercased) of monthly items added during this panel session — used for undo.
   const [monthlySessionAdds, setMonthlySessionAdds] = useState<string[]>([]);
+
+  // Inline add row state
+  const [addName, setAddName] = useState('');
+  const [addQty, setAddQty] = useState(1);
+  const [addPrice, setAddPrice] = useState(0);
+  const addInputRef = useRef<TextInput>(null);
+
+  const suggest = useCatalogStore((s) => s.suggest);
+  const addSearchResults = useMemo(
+    () => (addName.trim().length >= 1 ? suggest(addName.trim(), 5) : []),
+    [addName, suggest]
+  );
 
   useEffect(() => {
     setEditing(false);
@@ -138,6 +151,20 @@ export default function WeekListCard({
     setEditing(false);
   }
 
+  function handleSelectSuggestion(result: StoreItem) {
+    setAddName(result.name);
+    setAddPrice(result.price);
+  }
+
+  function handleSubmitAddRow() {
+    const name = addName.trim();
+    if (!name) return;
+    onAddInlineItem({ name, price: addPrice, qty: addQty });
+    setAddName('');
+    setAddQty(1);
+    setAddPrice(0);
+  }
+
   // Flatten dish-grouped items into the appropriate section buckets.
   const dishUnchecked = useMemo(
     () => dishGroups.flatMap(([, items]) => items.filter((i) => !i.checked)),
@@ -147,9 +174,6 @@ export default function WeekListCard({
     () => dishGroups.flatMap(([, items]) => items.filter((i) => i.checked)),
     [dishGroups]
   );
-
-  // All unchecked = ungrouped (draggable, rendered via renderReorderableRow) + dish items (flat ShoppingRow).
-  // All checked = ungrouped checked + dish checked.
   const allChecked = useMemo(() => [...checked, ...dishChecked], [checked, dishChecked]);
 
   const progress = listProgress({ dishGroups, ungroupedUnchecked, checked });
@@ -176,7 +200,6 @@ export default function WeekListCard({
   }
 
   function handleCancelMonthly() {
-    // Try to undo items that were added as fromCatalog flips this session.
     const allWeeklyItems = [...ungroupedUnchecked, ...checked, ...dishUnchecked, ...dishChecked];
     for (const name of monthlySessionAdds) {
       const weeklyItem = allWeeklyItems.find(
@@ -191,10 +214,11 @@ export default function WeekListCard({
 
   const totalInList = ungroupedUnchecked.length + dishUnchecked.length;
   const totalInCart = allChecked.length;
+  const showInListSection = totalInList > 0 || !list.locked;
 
   return (
     <Surface style={styles.card}>
-      {/* ── Card header: title + lock/rename/settings/delete icons ── */}
+      {/* ── Card header: title + mode toggle + rename/settings/delete icons ── */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           {editing ? (
@@ -227,13 +251,17 @@ export default function WeekListCard({
           )}
 
           <View style={styles.iconRow}>
-            <IconButton
-              icon={list.locked ? 'lock-closed' : 'lock-open-outline'}
-              label={list.locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
+            {/* Mode toggle pill — "Shopping" (locked) / "Planning" (unlocked) */}
+            <Pressable
+              style={[styles.modeToggle, { backgroundColor: list.locked ? theme.surfaceMuted : theme.good }]}
               onPress={onToggleLock}
-              size={30}
-              active={list.locked}
-            />
+              accessibilityRole="button"
+              accessibilityLabel={list.locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
+            >
+              <Text style={[styles.modeToggleText, { color: list.locked ? theme.textMuted : theme.textInverse }]}>
+                {list.locked ? t.shoppingModeBtn : t.planningModeBtn}
+              </Text>
+            </Pressable>
             <IconButton icon="bookmark-outline" label={t.savedListsButtonLabel} onPress={onOpenSavedLists} size={30} />
             <IconButton icon="options-outline" label={t.listSettingsButtonLabel} onPress={onOpenListSettings} size={30} />
             <IconButton icon="trash-outline" label={t.deleteListButtonLabel} onPress={onDelete} size={30} color={theme.bad} />
@@ -250,7 +278,7 @@ export default function WeekListCard({
       </View>
 
       <View style={styles.bodyGap}>
-        {progress.total === 0 && (
+        {progress.total === 0 && list.locked && (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyTitle, { color: theme.text }]}>{t.weeklyEmptyTitle}</Text>
             <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>{t.weeklyEmptySubtitle}</Text>
@@ -331,17 +359,18 @@ export default function WeekListCard({
         )}
 
         {/* ── IN LIST section ── */}
-        {totalInList > 0 && (
+        {showInListSection && (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.inListSection(totalInList)}</Text>
               <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />
             </View>
+
             <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.good }]}>
               {ungroupedUnchecked.map((item, idx) => (
                 <View key={item.id}>
                   {renderReorderableRow(item, idx, ungroupedUnchecked.length)}
-                  {(idx < ungroupedUnchecked.length - 1 || dishUnchecked.length > 0) && (
+                  {(idx < ungroupedUnchecked.length - 1 || dishUnchecked.length > 0 || !list.locked) && (
                     <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
                   )}
                 </View>
@@ -358,12 +387,108 @@ export default function WeekListCard({
                     inStockLabel={t.inStockLabel}
                     locked={list.locked}
                   />
-                  {idx < dishUnchecked.length - 1 && (
+                  {(idx < dishUnchecked.length - 1 || !list.locked) && (
                     <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
                   )}
                 </View>
               ))}
+
+              {/* Inline add row — only shown when unlocked (planning mode) */}
+              {!list.locked && (
+                <View>
+                  <View style={styles.inlineAddRow}>
+                    <TextInput
+                      ref={addInputRef}
+                      style={[styles.inlineAddInput, { color: theme.text }]}
+                      value={addName}
+                      onChangeText={(v) => {
+                        setAddName(v);
+                        if (!v.trim()) setAddPrice(0);
+                      }}
+                      placeholder={t.addItemInputPlaceholder}
+                      placeholderTextColor={theme.textMuted}
+                      returnKeyType="done"
+                      onSubmitEditing={handleSubmitAddRow}
+                    />
+                    <View style={styles.inlineQtyGroup}>
+                      <Pressable
+                        style={[styles.inlineQtyBtn, { backgroundColor: theme.surfaceMuted }]}
+                        onPress={() => setAddQty((q) => Math.max(1, q - 1))}
+                        hitSlop={6}
+                      >
+                        <Text style={[styles.inlineQtyBtnText, { color: theme.text }]}>−</Text>
+                      </Pressable>
+                      <Text style={[styles.inlineQtyVal, { color: theme.text }]}>{addQty}</Text>
+                      <Pressable
+                        style={[styles.inlineQtyBtn, { backgroundColor: theme.surfaceMuted }]}
+                        onPress={() => setAddQty((q) => q + 1)}
+                        hitSlop={6}
+                      >
+                        <Text style={[styles.inlineQtyBtnText, { color: theme.text }]}>+</Text>
+                      </Pressable>
+                    </View>
+                    {addPrice > 0 && (
+                      <Text style={[styles.inlineLineTotal, { color: theme.textMuted }]}>
+                        {formatKr(addPrice * addQty, 0)}
+                      </Text>
+                    )}
+                    <Pressable
+                      style={[
+                        styles.inlineAddConfirmBtn,
+                        { backgroundColor: addName.trim() ? theme.good : theme.surfaceMuted },
+                      ]}
+                      onPress={handleSubmitAddRow}
+                      disabled={!addName.trim()}
+                      hitSlop={4}
+                    >
+                      <Ionicons
+                        name="add"
+                        size={18}
+                        color={addName.trim() ? theme.textInverse : theme.textMuted}
+                      />
+                    </Pressable>
+                  </View>
+
+                  {/* Catalog search results */}
+                  {addSearchResults.length > 0 && (
+                    <View style={[styles.addSearchDropdown, { backgroundColor: theme.surfaceMuted }]}>
+                      {addSearchResults.map((result, idx) => (
+                        <View key={result.id}>
+                          <Pressable
+                            style={styles.addSearchRow}
+                            onPress={() => handleSelectSuggestion(result)}
+                          >
+                            <Text style={[styles.addSearchName, { color: theme.text }]} numberOfLines={1}>
+                              {result.name}
+                            </Text>
+                            {result.price > 0 && (
+                              <Text style={[styles.addSearchPrice, { color: theme.textMuted }]}>
+                                {formatKr(result.price, 0)}
+                              </Text>
+                            )}
+                          </Pressable>
+                          {idx < addSearchResults.length - 1 && (
+                            <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
             </View>
+
+            {/* Add from monthly list trigger */}
+            {!list.locked && monthlyItems.length > 0 && !monthlyPreviewOpen && (
+              <Pressable
+                style={[styles.monthlyTrigger, { borderColor: theme.good }]}
+                onPress={() => setMonthlyPreviewOpen(true)}
+              >
+                <Ionicons name="calendar-outline" size={16} color={theme.good} />
+                <Text style={[styles.monthlyTriggerText, { color: theme.good }]}>{t.addFromMonthlyBtn}</Text>
+              </Pressable>
+            )}
+
             {inListTotal > 0 && (
               <Text style={[styles.sectionTotal, { color: theme.textMuted }]}>
                 {t.weekListTotal(formatKr(inListTotal, 0))}
@@ -371,22 +496,6 @@ export default function WeekListCard({
             )}
           </View>
         )}
-
-        {/* Add item + Add from monthly list buttons */}
-        <View style={styles.addRow}>
-          <View style={styles.addDividerWrap}>
-            <AddDivider onPress={onAddPress} disabled={list.locked} />
-          </View>
-          {!list.locked && monthlyItems.length > 0 && !monthlyPreviewOpen && (
-            <Pressable
-              style={[styles.monthlyTrigger, { borderColor: theme.good }]}
-              onPress={() => setMonthlyPreviewOpen(true)}
-            >
-              <Ionicons name="calendar-outline" size={16} color={theme.good} />
-              <Text style={[styles.monthlyTriggerText, { color: theme.good }]}>{t.addFromMonthlyBtn}</Text>
-            </Pressable>
-          )}
-        </View>
 
         {/* ── IN CART section ── */}
         {totalInCart > 0 && (
@@ -486,6 +595,15 @@ const baseStyles = StyleSheet.create({
     flex: 1,
   },
   iconRow: { flexDirection: 'row', alignItems: 'center', gap: 0 },
+  modeToggle: {
+    borderRadius: Radius.full,
+    paddingVertical: 5,
+    paddingHorizontal: Spacing.sm,
+    minHeight: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modeToggleText: { fontSize: FontSize.xs, fontFamily: Fonts.bold, letterSpacing: 0.3 },
   compactProgressRow: { paddingVertical: 2 },
   compactProgressText: { fontSize: FontSize.sm },
   bodyGap: { gap: Spacing.md },
@@ -499,8 +617,52 @@ const baseStyles = StyleSheet.create({
   sectionTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, textAlign: 'right', paddingTop: 2 },
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, borderLeftWidth: 3 },
   rowDivider: { height: 1 },
-  addRow: { gap: Spacing.xs },
-  addDividerWrap: {},
+  // Inline add row
+  inlineAddRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    minHeight: 44,
+  },
+  inlineAddInput: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    fontFamily: Fonts.regular,
+    paddingVertical: 2,
+  },
+  inlineQtyGroup: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  inlineQtyBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineQtyBtnText: { fontSize: FontSize.md, fontFamily: Fonts.bold, lineHeight: 20 },
+  inlineQtyVal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, minWidth: 20, textAlign: 'center' },
+  inlineLineTotal: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, minWidth: 40, textAlign: 'right' },
+  inlineAddConfirmBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addSearchDropdown: {
+    borderRadius: Radius.sm,
+    marginTop: 2,
+    overflow: 'hidden',
+  },
+  addSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  addSearchName: { flex: 1, fontSize: FontSize.sm },
+  addSearchPrice: { fontSize: FontSize.xs },
+  // Monthly panel section styles
   monthlyTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -512,7 +674,6 @@ const baseStyles = StyleSheet.create({
     minHeight: 40,
   },
   monthlyTriggerText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  // Monthly panel section styles
   monthlyActionBtn: { padding: 2 },
   monthlySearch: {
     borderRadius: Radius.sm,
