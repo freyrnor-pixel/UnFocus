@@ -221,7 +221,6 @@ export default function TaskFormScreen() {
             value={title}
             onChangeText={setTitle}
             placeholder={t.taskTitlePlaceholder}
-            autoFocus={!existing}
             returnKeyType="next"
           />
         </View>

@@ -365,7 +365,6 @@ export default function MealsScreen() {
                 onChangeText={setDishName}
                 placeholder={t.dishNamePlaceholder}
                 placeholderTextColor={theme.textMuted}
-                autoFocus
                 returnKeyType="next"
               />
 

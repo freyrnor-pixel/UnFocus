@@ -241,7 +241,6 @@ export default function BudgetScreen() {
               keyboardType="decimal-pad"
               returnKeyType="done"
               onSubmitEditing={saveBudget}
-              autoFocus
             />
           </Surface>
         </KeyboardAvoidingView>
