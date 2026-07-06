@@ -147,6 +147,11 @@ export default function RootLayout() {
   // store self-heals it on load()). No-op (isSyncAvailable() false) outside a real
   // build with the native transport modules linked. Stopped on unmount as a safety
   // net, though the root layout normally lives for the app's whole lifetime.
+  // Deliberately NOT keyed on userName: startSync() is idempotent while already
+  // running, so a rename wouldn't actually re-advertise the new name anyway — the
+  // advertised name only updates on the next real stop/start (toggle off-on or
+  // relaunch), rather than every dependent's name edit dropping every live peer
+  // connection to force a restart that wouldn't have picked up the change either.
   useEffect(() => {
     if (!loaded || !deviceId) return;
     if (lanSyncEnabled) {
@@ -156,7 +161,7 @@ export default function RootLayout() {
     }
     return () => stopSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded, lanSyncEnabled, deviceId, userName]);
+  }, [loaded, lanSyncEnabled, deviceId]);
 
   // Onboarding guard: send new users to the flow until setup is complete.
   useEffect(() => {

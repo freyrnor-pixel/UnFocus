@@ -12,7 +12,8 @@
  *
  * Connections:
  *   Imports → lib/lanTransport, lib/peerAuth, lib/liveSync, store/usePeersStore
- *   Used by → app/_layout.tsx (start/stop on settings.lanSyncEnabled),
+ *   Used by → app/_layout.tsx (start/stop on settings.lanSyncEnabled), app/pair-device.tsx
+ *             + app/settings.tsx (isSyncAvailable, to gate the sync UI on a real build),
  *             store/useTaskStore.ts, store/useShoppingStore.ts (broadcastRow after
  *             every local touchRow/softDelete)
  *   Data    → none directly; drives lib/liveSync's SQLite reads/writes indirectly
@@ -36,6 +37,14 @@ let transport: LanTransport | null = null;
 /** deviceId -> live outbound/inbound connection, for every currently-reachable trusted peer. */
 const connections = new Map<string, LanConnection>();
 
+/** Replace a peer's connection slot, closing whatever was there first so an outbound
+ * connect() and a later inbound onEnvelope() for the same peer can never leak a socket. */
+function setConnection(deviceId: string, conn: LanConnection): void {
+  const existing = connections.get(deviceId);
+  if (existing && existing !== conn) existing.close();
+  connections.set(deviceId, conn);
+}
+
 /** True when the native transport modules are linked (real dev/prod build, not Expo Go/web). */
 export function isSyncAvailable(): boolean {
   return isTransportAvailable();
@@ -54,17 +63,15 @@ export function startSync(self: { deviceId: string; name: string }): void {
       if (!usePeersStore.getState().getSecret(peer.deviceId)) return;
       if (connections.has(peer.deviceId)) return;
       const conn = transport!.connect(peer);
-      connections.set(peer.deviceId, conn);
+      setConnection(peer.deviceId, conn);
     },
     onPeerLost(deviceId: string) {
       connections.get(deviceId)?.close();
       connections.delete(deviceId);
     },
-    onConnection(conn: LanConnection) {
-      // An inbound connection from a peer's own outbound connect(). We don't yet
-      // know which peer this is until its first envelope arrives (onEnvelope keys
-      // it by the verified `from`); nothing to do here ahead of that.
-    },
+    // No onConnection handler: an inbound connection from a peer's own outbound
+    // connect() isn't attributable to a deviceId until its first envelope arrives —
+    // onEnvelope below is what actually keys it via setConnection().
     onEnvelope(envelope, conn) {
       const secret = usePeersStore.getState().getSecret(envelope.from);
       if (!secret) return; // unknown/unpaired sender — reject, never auto-trust
@@ -75,7 +82,7 @@ export function startSync(self: { deviceId: string; name: string }): void {
       if (!parsed) return; // malformed delta body — reject
       // Only now, with a cryptographically verified sender, associate this
       // connection with that peer's deviceId for future broadcastRow() sends.
-      connections.set(envelope.from, conn);
+      setConnection(envelope.from, conn);
       applyDelta(parsed);
     },
   });

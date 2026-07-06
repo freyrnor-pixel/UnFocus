@@ -298,8 +298,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       db.runSync('UPDATE tasks SET follows_task_id = NULL WHERE follows_task_id = ?', [id]);
       // Soft-delete (Decision 038b tombstone), not a hard DELETE: a synced row must
       // stay long enough to tell a peer it's gone, or a stale peer copy would undo
-      // the delete on next sync. pruneOldData() eventually hard-deletes old rows
-      // regardless of this flag, same as any other dated row.
+      // the delete on next sync. pruneOldData() only hard-deletes non-recurring tasks
+      // past task_date (lib/db.ts) — a tombstoned recurring task, or one deleted well
+      // before its own task_date, can sit around longer; harmless (still filtered out
+      // of every read via `deleted_at IS NULL`), just not swept as promptly.
       softDelete('tasks', id, useSettingsStore.getState().deviceId);
     });
     void cancelTaskNotification(id);
@@ -317,9 +319,17 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set((s) => ({
       tasks: s.tasks.map((t) => (order.has(t.id) ? { ...t, sortOrder: order.get(t.id)! } : t)),
     }));
+    // sort_order is a synced field (lib/liveSync's TABLE_COLUMNS) — stamp + broadcast
+    // every reordered row, same as add/update.
+    orderedIds.forEach(syncTaskRow);
   },
 
   setFollower(predecessorId, followerId) {
+    // Capture who (if anyone) currently follows predecessorId BEFORE the writes below,
+    // so both affected rows can be stamped + broadcast — follows_task_id is a synced
+    // field and this can touch two rows (the old follower losing the link, the new one
+    // gaining it), same as remove()'s follower-link cleanup.
+    const previousFollowerId = get().tasks.find((t) => t.followsTaskId === predecessorId)?.id ?? null;
     tx(() => {
       // Enforce the 1:1 invariant: whoever currently follows predecessorId loses
       // the link first (a predecessor has at most one follower at a time).
@@ -335,6 +345,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         return t;
       }),
     }));
+    if (previousFollowerId && previousFollowerId !== followerId) syncTaskRow(previousFollowerId);
+    if (followerId) syncTaskRow(followerId);
   },
 
   followerCycleChain(id) {

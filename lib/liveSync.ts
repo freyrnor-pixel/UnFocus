@@ -41,6 +41,7 @@ const TABLE_COLUMNS: Record<SyncTable, string[]> = {
   tasks: [
     'title', 'task_date', 'task_time', 'task_type', 'duration_minutes', 'done',
     'recurring', 'recurring_days', 'created_at', 'sort_order', 'hint', 'follows_task_id',
+    'importance',
   ],
   shopping_items: [
     'name', 'amount', 'unit', 'list_type', 'checked', 'store', 'price', 'created_at', 'list_id',
@@ -129,8 +130,19 @@ export function applyDelta(delta: RowDelta): boolean {
     }
   }
   const placeholders = cols.map(() => '?').join(', ');
+  // A plain `INSERT OR REPLACE` with a partial column list is NOT a partial update on
+  // conflict — SQLite deletes the whole existing row and inserts a new one with only
+  // the given columns, silently resetting every column outside TABLE_COLUMNS' whitelist
+  // (e.g. a task's `importance`, a shopping item's `status`/`category`) to its schema
+  // default. Upsert instead: a genuine INSERT for a new row (nothing to preserve), or an
+  // UPDATE of only the listed columns on conflict, leaving unlisted columns untouched.
+  const updateAssignments = cols
+    .filter((c) => c !== 'id')
+    .map((c) => `${c} = excluded.${c}`)
+    .join(', ');
   db.runSync(
-    `INSERT OR REPLACE INTO ${delta.table} (${cols.join(', ')}) VALUES (${placeholders})`,
+    `INSERT INTO ${delta.table} (${cols.join(', ')}) VALUES (${placeholders})
+     ON CONFLICT(id) DO UPDATE SET ${updateAssignments}`,
     vals,
   );
   return true;

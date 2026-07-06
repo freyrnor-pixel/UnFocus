@@ -10,7 +10,7 @@
  * Connections:
  *   Imports → components/AppModal, components/Button, components/QRCodeDisplay,
  *             components/ScreenScaffold, components/Surface, components/FormControls
- *             (Switch), constants/theme, expo-camera, lib/i18n, lib/peerAuth
+ *             (Switch), constants/theme, expo-camera, lib/date, lib/i18n, lib/peerAuth
  *             (generateSecret), lib/share (encode/decodeSharePayload), lib/syncService
  *             (isSyncAvailable), lib/useAppTheme, store/usePeersStore, store/useSettingsStore
  *   Used by → Expo Router route "/pair-device" — pushed from app/settings.tsx's
@@ -42,6 +42,7 @@ import { useT } from '@/lib/i18n';
 import { generateSecret } from '@/lib/peerAuth';
 import { encodeSharePayload, decodeSharePayload } from '@/lib/share';
 import { isSyncAvailable } from '@/lib/syncService';
+import { dateStr, formatDisplayDate } from '@/lib/date';
 import { showAppModal } from '@/components/AppModal';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
@@ -71,6 +72,7 @@ export default function PairDeviceScreen() {
 
   const deviceId = useSettingsStore((s) => s.deviceId);
   const userName = useSettingsStore((s) => s.userName);
+  const lang = useSettingsStore((s) => s.language);
   const lanSyncEnabled = useSettingsStore((s) => s.lanSyncEnabled);
   const updateSettings = useSettingsStore((s) => s.update);
 
@@ -194,7 +196,7 @@ export default function PairDeviceScreen() {
                   <View style={styles.peerText}>
                     <Text style={[styles.peerName, { color: theme.text }]}>{peer.name || peer.deviceId}</Text>
                     <Text style={[styles.peerSub, { color: theme.textMuted }]}>
-                      {t.peers.pairedAt(peer.pairedAt.slice(0, 10))}
+                      {t.peers.pairedAt(formatDisplayDate(dateStr(new Date(peer.pairedAt)), lang))}
                     </Text>
                   </View>
                   <Pressable onPress={() => confirmRemove(peer.deviceId)} hitSlop={8}>
@@ -253,14 +255,12 @@ export default function PairDeviceScreen() {
                 <View style={{ width: 60 }} />
               </View>
               <Text style={[styles.qrHint, { color: QR_HINT }]}>{t.peers.scanInstructions}</Text>
-              {step === 'scan' && (
-                <CameraView
-                  style={styles.qrCamera}
-                  facing="back"
-                  barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-                  onBarcodeScanned={handleScanned}
-                />
-              )}
+              <CameraView
+                style={styles.qrCamera}
+                facing="back"
+                barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                onBarcodeScanned={handleScanned}
+              />
               <View style={styles.qrOverlay} pointerEvents="none">
                 <View style={[styles.qrFrame, { borderColor: QR_FG }]} />
               </View>

@@ -32,6 +32,10 @@
  *   - Service type is `_unfocus._tcp`; must match the iOS NSBonjourServices entry
  *     and the Android NSD registration in app.json. Change both together.
  *   - Do not add trust/crypto or row-merge logic here — see SCOPE above.
+ *   - react-native-zeroconf's 'remove' event fires with the mDNS service NAME (the
+ *     display name), not the TXT record's deviceId `onPeerFound` uses — `nameToDeviceId`
+ *     bridges that so `onPeerLost` still reports the right peer to callers keying
+ *     connections by deviceId (e.g. lib/syncService.ts).
  */
 import Zeroconf from 'react-native-zeroconf';
 import TcpSocket from 'react-native-tcp-socket';
@@ -170,6 +174,9 @@ export class LanTransport {
   private readonly self: { deviceId: string; name: string };
   private readonly port: number;
   private started = false;
+  /** mDNS service name -> deviceId, so the 'remove' event (which only carries the
+   * service name, not the TXT record) can still report the right peer to onPeerLost. */
+  private nameToDeviceId = new Map<string, string>();
 
   /**
    * @param opts.deviceId Stable id to advertise. Falls back to an ephemeral id;
@@ -225,6 +232,7 @@ export class LanTransport {
       // Ignore our own advertisement echoing back.
       const peerId = service?.txt?.deviceId ?? service?.name ?? host;
       if (peerId === this.self.deviceId) return;
+      if (service?.name) this.nameToDeviceId.set(service.name, peerId);
       this.listeners.onPeerFound?.({
         deviceId: peerId,
         name: service?.name ?? peerId,
@@ -232,8 +240,14 @@ export class LanTransport {
         port: service?.port ?? this.port,
       });
     });
+    // react-native-zeroconf's 'remove' event fires with the mDNS service NAME (the
+    // display name passed to publishService), not the TXT record's deviceId — translate
+    // it back via the map 'resolved' populated, or onPeerLost would key on the wrong
+    // value and syncService's connections map (keyed by deviceId) would never clean up.
     this.zeroconf.on('remove', (name: string) => {
-      this.listeners.onPeerLost?.(name);
+      const deviceId = this.nameToDeviceId.get(name);
+      this.nameToDeviceId.delete(name);
+      if (deviceId) this.listeners.onPeerLost?.(deviceId);
     });
 
     this.zeroconf.scan(SERVICE_TYPE, SERVICE_PROTOCOL, SERVICE_DOMAIN);
