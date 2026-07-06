@@ -7,7 +7,7 @@
  *
  * Connections:
  *   Imports → expo-haptics
- *   Used by → components/BubbleMenu, components/PressableScale, components/SharedRequestsSection, task/habit
+ *   Used by → components/PressableScale, components/SharedRequestsSection, task/habit
  *             completion flows, app/shopping.tsx (sheet swipe-to-close), destructive
  *             confirmations in app/automations.tsx, app/habit-form.tsx, app/settings.tsx,
  *             app/habits.tsx

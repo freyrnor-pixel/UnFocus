@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → store/useSettingsStore
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/BubbleMenu.tsx, components/DayTimeline.tsx, components/DebugOverlay.tsx, components/QuickAddSheet.tsx, components/SharedRequestsSection.tsx, components/ShoppingQuickAddSheet.tsx, components/TaskItem.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/SharedRequestsSection.tsx, components/ShoppingQuickAddSheet.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
  *   Data    → reads `language` from the settings Zustand store
  *
  * Edit notes:
@@ -35,7 +35,6 @@ const en = {
   // Navigation / common
   back: '← Home',
   cancel: 'Cancel',
-  close: 'Close', // home overhaul: BubbleMenu FAB close affordance label
   save: 'Save',
   undoBtn: 'Undo',
   unsavedDaysLabel: 'Days not saved',
@@ -56,7 +55,6 @@ const en = {
   plansExpand: 'Show full day',
   plansCollapse: 'Show less',
   notesCollapse: 'Show less',
-  nextTaskLabel: 'Next up',
   currentPlansLabel: "Today's plans",
   seeEverythingLink: 'See everything →',
   doneTasksLabel: 'Done today',
@@ -843,16 +841,6 @@ const en = {
     habitsSummary: (done: number, total: number) => `${done}/${total} done`,
     moreTasksHint: (n: number) => `+${n} more`,
   },
-  // AP-04 — "up next" single-task suggestion (components/NextTaskCard.tsx)
-  nextTask: {
-    title: 'Up next',
-    markDone: 'Mark done',
-    empty: "Nothing urgent right now — you're caught up.",
-    now: 'Now',
-    inMinutes: (m: number) => `in ${m} min`,
-    inHours: (h: number) => `in ${h}h`,
-    inHoursMinutes: (h: number, m: number) => `in ${h}h ${m}min`,
-  },
   // AP-02 — quick-capture inbox (app/capture.tsx, components/InboxSection.tsx)
   inbox: {
     title: 'Capture',
@@ -987,7 +975,6 @@ const no: typeof en = {
   monthsShort: ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'],
   back: '← Hjem',
   cancel: 'Avbryt',
-  close: 'Lukk', // home overhaul: BubbleMenu FAB close affordance label
   save: 'Lagre',
   undoBtn: 'Angre',
   unsavedDaysLabel: 'Dagene er ikke lagret',
@@ -1007,7 +994,6 @@ const no: typeof en = {
   plansExpand: 'Vis hele dagen',
   plansCollapse: 'Vis mindre',
   notesCollapse: 'Vis mindre',
-  nextTaskLabel: 'Neste på tur',
   currentPlansLabel: 'Dagens planer',
   seeEverythingLink: 'Se alt →',
   doneTasksLabel: 'Ferdig i dag',
@@ -1771,16 +1757,6 @@ const no: typeof en = {
     habitsToday: 'Vaner',
     habitsSummary: (done: number, total: number) => `${done}/${total} ferdig`,
     moreTasksHint: (n: number) => `+${n} til`,
-  },
-  // AP-04 — forslag til "neste oppgave" (components/NextTaskCard.tsx)
-  nextTask: {
-    title: 'Neste på tur',
-    markDone: 'Merk som gjort',
-    empty: 'Ingenting presserende akkurat nå — du er à jour.',
-    now: 'Nå',
-    inMinutes: (m: number) => `om ${m} min`,
-    inHours: (h: number) => `om ${h}t`,
-    inHoursMinutes: (h: number, m: number) => `om ${h}t ${m}min`,
   },
   // AP-02 — hurtigfangst-innboks (app/capture.tsx, components/InboxSection.tsx)
   inbox: {
