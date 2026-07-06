@@ -22,13 +22,13 @@
  *             components/WeekListCard, constants/theme,
  *             lib/date (todayStr, dateStr, getWeekRangeContaining), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/shoppingGroups (groupByDish, computeListGroups,
- *             listProgress), lib/useAppTheme, store/useCatalogStore, store/useMealStore,
+ *             listProgress), lib/useAppTheme, store/useCatalogStore,
  *             store/useSettingsStore, store/useShoppingListStore, store/useShoppingStore,
  *             @expo/vector-icons (Ionicons)
  *   Used by → Expo Router route "/shopping" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → useShoppingStore (items/trips) + useShoppingListStore (lists, incl. each
  *             list's locked/isTemplate state) + useSettingsStore (monthlyResetDate) +
- *             useMealStore (dishes, read-only, dish-group price lookup) + useCatalogStore
+ *             useCatalogStore
  *             (loaded on focus; its seed items back the Monthly "Catalogue" section here,
  *             the WeekListCard inline search, and the create-grouping screen)
  *
@@ -131,7 +131,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary } from '@/store/useShoppingStore';
 import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { useMealStore } from '@/store/useMealStore';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import ShoppingRow from '@/components/ShoppingRow';
@@ -281,19 +280,6 @@ export default function ShoppingScreen() {
   const update = useShoppingStore((s) => s.update);
   const toggle = useShoppingStore((s) => s.toggleCheck);
   const toggleCollected = useShoppingStore((s) => s.toggleCollected);
-  /** Decision 011a/R4: bulk roll-up/roll-down for a dish group's checkbox — checks every
-   *  unchecked ingredient if not all are checked yet, unchecks every ingredient if all are
-   *  (011a decision #1/#3, no separate un-check case). Reuses the existing per-item
-   *  `toggleCheck` path rather than a new store action. */
-  const toggleDish = useCallback(
-    (dishItems: ShoppingItem[]) => {
-      const target = !dishItems.every((i) => i.checked);
-      dishItems.forEach((i) => {
-        if (i.checked !== target) toggle(i.id);
-      });
-    },
-    [toggle]
-  );
   const addToWeeklyFromCatalog = useShoppingStore((s) => s.addToWeeklyFromCatalog);
   const putBackToInventory = useShoppingStore((s) => s.putBackToInventory);
   const removeWithSource = useShoppingStore((s) => s.removeWithSource);
@@ -307,7 +293,6 @@ export default function ShoppingScreen() {
   const mergeItems = useShoppingStore((s) => s.mergeItems);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
-  const dishes = useMealStore((s) => s.dishes);
   const loadCatalog = useCatalogStore((s) => s.load);
   const seedCatalogItems = useCatalogStore((s) => s.items);
   const [catalogueSearch, setCatalogueSearch] = useState('');
@@ -442,6 +427,17 @@ export default function ShoppingScreen() {
     () => (focusedList ? computeListGroups(items, focusedList.id) : null),
     [items, focusedList]
   );
+
+  const purchasedByListId = useMemo(() => {
+    const map = new Map<string, ShoppingItem[]>();
+    for (const item of items.filter((i) => i.status === 'purchased')) {
+      const key = item.listId ?? '';
+      const arr = map.get(key) ?? [];
+      arr.push(item);
+      map.set(key, arr);
+    }
+    return map;
+  }, [items]);
   const focusedProgress = useMemo(() => (focusedGroups ? listProgress(focusedGroups) : null), [focusedGroups]);
 
   function handleConfirmTray() {
@@ -912,26 +908,20 @@ export default function ShoppingScreen() {
                   focused={focusedList?.id === list.id}
                   onFocus={() => setFocusedListId(list.id)}
                   dishGroups={groups.dishGroups}
-                  dishes={dishes}
                   ungroupedUnchecked={displayUngrouped}
                   checked={groups.checked}
+                  purchased={purchasedByListId.get(list.id) ?? []}
                   onToggleLock={() => toggleListLocked(list.id)}
                   onRename={(name) => renameList(list.id, name)}
                   onOpenSavedLists={() => setSavedListsListId(list.id)}
                   onOpenListSettings={() => setListSettingsListId(list.id)}
                   onDelete={() => handleDeleteList(list.id)}
                   onToggleItem={(item) => toggle(item.id)}
-                  onToggleDish={toggleDish}
                   onCollectItem={(item) => toggleCollected(item.id)}
                   onRemoveItem={handleRemoveWeeklyItem}
                   onIncrementItem={(item) => adjustAmount(item.id, 1)}
                   onDecrementItem={(item) => adjustAmount(item.id, -1)}
                   onAddPress={() => setAddSourceChooserListId(list.id)}
-                  onAddCatalogToWeek={(item) => {
-                    add({ name: item.name, amount: '1', unit: '', listType: 'weekly', store: '', price: item.price, inventoryQty: 0, status: 'inWeeklyList', listId: list.id });
-                    success();
-                    setConfirm(t.itemAddedToList(item.name));
-                  }}
                   monthlyItems={catalogItems}
                   onAddMonthlyToWeek={(item) => {
                     addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, list.id);
@@ -939,8 +929,6 @@ export default function ShoppingScreen() {
                     setConfirm(t.itemAddedToList(item.name));
                   }}
                   onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
-                  registerDishGroupNode={(dishName, node) => handleRegisterDishNode(list.id, dishName, node)}
-                  mergeHighlightDish={drag && drag.listId === list.id ? drag.mergeTargetDish : null}
                   renderReorderableRow={(item) => (
                     <DraggableTaskRow
                       isOpen={false}
