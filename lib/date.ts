@@ -82,6 +82,24 @@ export function getWeekRangeContaining(today: string, weeklyResetDay: number): {
 }
 
 /**
+ * Which week (1–4) of the current monthly cycle `today` falls in, where a cycle
+ * runs from one monthly-reset boundary to the next. `monthlyResetDate` is a
+ * day-of-month (1–28ish); the most recent boundary is that day in the current
+ * month, or in the previous month if today is earlier than it. Week 1 is the
+ * reset day through day 6, week 2 is days 7–13, etc.; clamped to 1–4 so a long
+ * (5-week) cycle still maps its tail into week 4. Used to decide whether a weekly
+ * list scheduled for specific weeks-of-the-month is active this week.
+ */
+export function weekOfMonthlyCycle(today: string, monthlyResetDate: number): number {
+  const d = new Date(today + 'T12:00:00');
+  const boundary = new Date(d);
+  boundary.setDate(monthlyResetDate);
+  if (d.getDate() < monthlyResetDate) boundary.setMonth(boundary.getMonth() - 1);
+  const daysSince = Math.floor((d.getTime() - boundary.getTime()) / 86400000);
+  return Math.min(4, Math.max(1, Math.floor(daysSince / 7) + 1));
+}
+
+/**
  * Render a stored `YYYY-MM-DD` key as a user-facing date string (Norwegian date
  * display — code-only, no ledger number; see Decision 028's numbering note).
  * Norwegian convention is DD.MM.YYYY; English keeps the ISO `YYYY-MM-DD` form.

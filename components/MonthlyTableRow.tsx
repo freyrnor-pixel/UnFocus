@@ -16,8 +16,11 @@
  *   Data    → consumes the ShoppingItem type from useShoppingStore; mutations happen in the parent via onTogglePending/onPress; scaled fontSize via useScaledStyles()
  *
  * Edit notes:
- *   - There is no inline +/- stepper any more — targetQuantity is only ever
- *     edited via the Update Sheet (components/UpdateSheet.tsx).
+ *   - targetQuantity is edited via the Update Sheet (components/UpdateSheet.tsx), OR — in
+ *     the redesigned Monthly-list section (2026-07-06) — via the optional inline stepper
+ *     (onIncrement/onDecrement drive targetQuantity in the parent) and the optional trailing
+ *     × (onRemove). Both are opt-in props; when absent the row stays the plain read-mostly
+ *     ×N display used elsewhere.
  *   - Swipe-to-delete was removed (it offered no other way to delete, and conflicted
  *     with the read-mostly main Katalog view). Deletion now only happens via the
  *     Update Sheet's existing inline 2-step confirm, reached by tapping a row where
@@ -44,12 +47,18 @@ type Props = {
   onTogglePending: () => void;
   onPress?: () => void;
   temporaryLabel?: string;
+  /** When provided, an inline qty stepper (drives targetQuantity) replaces the static ×N meta. */
+  onIncrement?: () => void;
+  onDecrement?: () => void;
+  /** When provided, a trailing × removes the item from the monthly list. */
+  onRemove?: () => void;
 };
 
-export default function MonthlyTableRow({ item, onTogglePending, onPress, temporaryLabel }: Props) {
+export default function MonthlyTableRow({ item, onTogglePending, onPress, temporaryLabel, onIncrement, onDecrement, onRemove }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const total = item.price > 0 ? item.price * item.targetQuantity : null;
+  const hasStepper = !!onIncrement && !!onDecrement;
 
   const Body = (
     <View style={[styles.row, { backgroundColor: theme.surface }]}>
@@ -71,7 +80,19 @@ export default function MonthlyTableRow({ item, onTogglePending, onPress, tempor
               <Text style={[styles.tempPillText, { color: theme.accent }]}>{temporaryLabel}</Text>
             </View>
           )}
-          <Text style={[styles.qtyMeta, { color: theme.textMuted }]}>×{item.targetQuantity}</Text>
+          {hasStepper ? (
+            <View style={styles.stepperRow}>
+              <Pressable style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted }]} onPress={onDecrement} hitSlop={6}>
+                <Text style={[styles.stepText, { color: theme.text }]}>−</Text>
+              </Pressable>
+              <Text style={[styles.qtyMeta, { color: theme.text }]}>×{item.targetQuantity}</Text>
+              <Pressable style={[styles.stepBtn, { backgroundColor: theme.accent }]} onPress={onIncrement} hitSlop={6}>
+                <Text style={[styles.stepText, { color: theme.accentInk }]}>+</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Text style={[styles.qtyMeta, { color: theme.textMuted }]}>×{item.targetQuantity}</Text>
+          )}
         </View>
       </View>
 
@@ -83,6 +104,12 @@ export default function MonthlyTableRow({ item, onTogglePending, onPress, tempor
           <Text style={[styles.totalText, { color: theme.text }]}>{`= ${total.toFixed(0)} kr`}</Text>
         )}
       </View>
+
+      {onRemove && (
+        <Pressable onPress={onRemove} hitSlop={6} style={styles.removeBtn}>
+          <Ionicons name="close" size={18} color={theme.textMuted} />
+        </Pressable>
+      )}
     </View>
   );
 
@@ -102,4 +129,8 @@ const baseStyles = StyleSheet.create({
   priceCol: { alignItems: 'flex-end', minWidth: 60 },
   priceText: { fontSize: FontSize.xs, textAlign: 'right' },
   totalText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, textAlign: 'right', marginTop: 1 },
+  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  stepBtn: { width: 24, height: 24, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  stepText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
+  removeBtn: { paddingLeft: 4 },
 });

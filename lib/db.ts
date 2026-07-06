@@ -491,6 +491,9 @@ export function initDb() {
     // lib/syncService's transport is running at all.
     "ALTER TABLE settings ADD COLUMN device_id TEXT DEFAULT ''",
     "ALTER TABLE settings ADD COLUMN lan_sync_enabled INTEGER DEFAULT 0",
+    // Week-of-monthly-cycle scheduling for weekly lists — comma-joined ints ("1,3");
+    // empty string means "every week" (unchanged behaviour). See store/useShoppingListStore.ts.
+    "ALTER TABLE shopping_lists ADD COLUMN active_weeks TEXT DEFAULT ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

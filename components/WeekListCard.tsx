@@ -13,9 +13,11 @@
  * Connections:
  *   Imports → components/AddDivider, components/ExpandableCard, components/IconButton,
  *             components/Surface, components/ShoppingRow (CHECKED_OPACITY), constants/theme,
- *             lib/i18n, lib/shoppingGroups (listProgress, dishGroupAllChecked), lib/useAppTheme,
- *             lib/haptics, store/useShoppingListStore (ShoppingList type), store/useShoppingStore
- *             (ShoppingItem type), store/useMealStore (Dish type)
+ *             lib/i18n, lib/money (formatKr), lib/shoppingGroups (listProgress, listTotal,
+ *             dishGroupAllChecked), lib/useAppTheme, lib/haptics,
+ *             store/useShoppingListStore (ShoppingList type), store/useShoppingStore
+ *             (ShoppingItem type), store/useCatalogStore (inline-search source),
+ *             store/useMealStore (Dish type)
  *   Used by → app/shopping.tsx
  *   Data    → none directly — every item/group/callback is owned by the parent
  *
@@ -82,6 +84,15 @@
  *     parent/child checkbox binding attempted") despite R4 naming this card's dish-group
  *     session as the intended owner — closed here since the wiring only needed this
  *     component + `lib/shoppingGroups.ts`, no new decision.
+ *   - Shopping redesign (2026-07-06): an unlocked card now shows (a) an inline catalogue
+ *     search that adds a seed-catalogue item straight into this list via onAddCatalogToWeek,
+ *     (b) an "add from monthly list" toggle that expands a compact (~5-row, internally
+ *     scrolling) preview of the curated monthly-list items — its own search box scrolls to
+ *     (not filters) the first match, and each row moves into the week list via
+ *     onAddMonthlyToWeek; an × collapses it — and (c) a running total footer (listTotal +
+ *     formatKr). This card reads useCatalogStore directly for the inline-search source
+ *     (same precedent as AddDishSheet), but the actual writes stay parent-owned handlers.
+ *     All three collapse when the list is locked.
  *   - Decision 022 drag-to-merge (2026-07-03): each dish-group card is wrapped in a measurable
  *     `<View>` whose native node is handed up via `registerDishGroupNode` so the parent screen
  *     can measureInWindow() it as a drop target at drag-start. When the dragged standalone row
@@ -89,15 +100,17 @@
  *     that wrapper (theme.goodSoft + good border) so the valid drop is visible before release.
  *     Both props are optional — the merge/join drop logic itself lives in app/shopping.tsx.
  */
-import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { Dish } from '@/store/useMealStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { listProgress, dishGroupAllChecked } from '@/lib/shoppingGroups';
+import { listProgress, listTotal, dishGroupAllChecked } from '@/lib/shoppingGroups';
+import { formatKr } from '@/lib/money';
+import { useCatalogStore } from '@/store/useCatalogStore';
 import Surface from '@/components/Surface';
 import IconButton from '@/components/IconButton';
 import ExpandableCard from '@/components/ExpandableCard';
@@ -127,6 +140,12 @@ type Props = {
   onIncrementItem: (item: ShoppingItem) => void;
   onDecrementItem: (item: ShoppingItem) => void;
   onAddPress: () => void;
+  /** Inline catalogue search: add a seed-catalogue item straight into this week list. */
+  onAddCatalogToWeek: (item: { name: string; price: number }) => void;
+  /** The curated monthly-list items (status 'catalog') shown in the "add from monthly" preview. */
+  monthlyItems: ShoppingItem[];
+  /** Move a monthly-list item into this week list (parent → addToWeeklyFromCatalog). */
+  onAddMonthlyToWeek: (item: ShoppingItem) => void;
   onDoneShopping: () => void;
   /** Renders one reorderable "Shopping list" row — parent wraps it in DraggableTaskRow. */
   renderReorderableRow: (item: ShoppingItem, index: number, total: number) => React.ReactNode;
@@ -158,6 +177,9 @@ export default function WeekListCard({
   onIncrementItem,
   onDecrementItem,
   onAddPress,
+  onAddCatalogToWeek,
+  monthlyItems,
+  onAddMonthlyToWeek,
   onDoneShopping,
   renderReorderableRow,
   registerDishGroupNode,
@@ -169,10 +191,35 @@ export default function WeekListCard({
   const [editing, setEditing] = useState(false);
   const [nameInput, setNameInput] = useState(list.name);
 
+  // Inline catalogue search (add straight into this list) + "add from monthly list" preview.
+  const catalogItems = useCatalogStore((s) => s.items);
+  const [inlineSearch, setInlineSearch] = useState('');
+  const [monthlyPreviewOpen, setMonthlyPreviewOpen] = useState(false);
+  const [monthlySearch, setMonthlySearch] = useState('');
+  const monthlyScrollRef = useRef<ScrollView>(null);
+  const monthlyRowY = useRef<Record<string, number>>({});
+
   useEffect(() => {
     setEditing(false);
     setNameInput(list.name);
   }, [list.id, list.name]);
+
+  // A locked list can't be edited, so its inline-add affordances collapse.
+  useEffect(() => {
+    if (list.locked) {
+      setInlineSearch('');
+      setMonthlyPreviewOpen(false);
+    }
+  }, [list.locked]);
+
+  const inlineMatches = useMemo(() => {
+    const q = inlineSearch.trim().toLowerCase();
+    if (!q) return [];
+    return [...catalogItems]
+      .filter((i) => i.name.toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 6);
+  }, [catalogItems, inlineSearch]);
 
   function commitRename() {
     const trimmed = nameInput.trim();
@@ -181,6 +228,23 @@ export default function WeekListCard({
   }
 
   const progress = listProgress({ dishGroups, ungroupedUnchecked, checked });
+  const total = listTotal({ dishGroups, ungroupedUnchecked, checked });
+
+  // Monthly-preview search scrolls to (not filters) the first matching row, keeping the
+  // compact ~5-row preview intact while jumping the user to what they typed.
+  useEffect(() => {
+    const q = monthlySearch.trim().toLowerCase();
+    if (!q || !monthlyPreviewOpen) return;
+    const hit = monthlyItems.find((i) => i.name.toLowerCase().includes(q));
+    if (hit && monthlyRowY.current[hit.id] !== undefined) {
+      monthlyScrollRef.current?.scrollTo({ y: monthlyRowY.current[hit.id], animated: true });
+    }
+  }, [monthlySearch, monthlyPreviewOpen, monthlyItems]);
+
+  function handleInlineAdd(item: { name: string; price: number }) {
+    onAddCatalogToWeek(item);
+    setInlineSearch('');
+  }
 
   return (
     <Surface style={styles.card}>
@@ -243,6 +307,79 @@ export default function WeekListCard({
           <View style={styles.emptyState}>
             <Text style={[styles.emptyTitle, { color: theme.text }]}>{t.weeklyEmptyTitle}</Text>
             <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>{t.weeklyEmptySubtitle}</Text>
+          </View>
+        )}
+
+        {!list.locked && (
+          <View style={styles.section}>
+            <TextInput
+              style={[styles.inlineSearch, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+              value={inlineSearch}
+              onChangeText={setInlineSearch}
+              placeholder={t.inlineSearchPlaceholder}
+              placeholderTextColor={theme.textMuted}
+            />
+            {inlineMatches.length > 0 && (
+              <View style={[styles.inlineResults, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                {inlineMatches.map((item) => (
+                  <Pressable key={item.id} style={styles.inlineResultRow} onPress={() => handleInlineAdd(item)}>
+                    <Text style={[styles.inlineResultName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+                    {item.price > 0 && (
+                      <Text style={[styles.inlineResultPrice, { color: theme.textMuted }]}>{formatKr(item.price, 0)}</Text>
+                    )}
+                    <View style={[styles.inlineAddBtn, { backgroundColor: theme.good }]}>
+                      <Ionicons name="add" size={16} color={theme.textInverse} />
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            <Pressable
+              style={[styles.monthlyToggleBtn, { borderColor: theme.good }]}
+              onPress={() => setMonthlyPreviewOpen((v) => !v)}
+            >
+              <Ionicons name={monthlyPreviewOpen ? 'chevron-up' : 'calendar-outline'} size={16} color={theme.good} />
+              <Text style={[styles.monthlyToggleText, { color: theme.good }]}>{t.addFromMonthlyBtn}</Text>
+            </Pressable>
+
+            {monthlyPreviewOpen && (
+              <View style={[styles.monthlyPreview, { backgroundColor: theme.surface, borderColor: theme.good }]}>
+                <View style={styles.monthlyPreviewHeader}>
+                  <TextInput
+                    style={[styles.monthlyPreviewSearch, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                    value={monthlySearch}
+                    onChangeText={setMonthlySearch}
+                    placeholder={t.monthlyPreviewSearchPlaceholder}
+                    placeholderTextColor={theme.textMuted}
+                  />
+                  <Pressable onPress={() => { setMonthlyPreviewOpen(false); setMonthlySearch(''); }} hitSlop={8}>
+                    <Ionicons name="close" size={20} color={theme.textMuted} />
+                  </Pressable>
+                </View>
+                {monthlyItems.length === 0 ? (
+                  <Text style={[styles.monthlyPreviewEmpty, { color: theme.textMuted }]}>{t.monthlyPreviewEmpty}</Text>
+                ) : (
+                  <ScrollView ref={monthlyScrollRef} style={styles.monthlyPreviewScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                    {monthlyItems.map((item, idx) => (
+                      <View
+                        key={item.id}
+                        onLayout={(e) => { monthlyRowY.current[item.id] = e.nativeEvent.layout.y; }}
+                        style={[styles.monthlyPreviewRow, idx < monthlyItems.length - 1 && { borderBottomColor: theme.border, borderBottomWidth: 1 }]}
+                      >
+                        <Text style={[styles.monthlyPreviewName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+                        {item.price > 0 && (
+                          <Text style={[styles.inlineResultPrice, { color: theme.textMuted }]}>{formatKr(item.price, 0)}</Text>
+                        )}
+                        <Pressable style={[styles.monthlyAddBtn, { backgroundColor: theme.good }]} onPress={() => onAddMonthlyToWeek(item)}>
+                          <Text style={[styles.monthlyAddBtnText, { color: theme.textInverse }]}>{t.moveToWeekBtn}</Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+            )}
           </View>
         )}
 
@@ -353,6 +490,10 @@ export default function WeekListCard({
           </ExpandableCard>
         )}
 
+        {total > 0 && (
+          <Text style={[styles.totalLine, { color: theme.text }]}>{t.weekListTotal(formatKr(total, 0))}</Text>
+        )}
+
         <PressableScale
           style={[
             styles.doneShoppingBtn,
@@ -411,4 +552,24 @@ const baseStyles = StyleSheet.create({
   },
   doneShoppingBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', minHeight: 44 },
   doneShoppingText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
+  // Inline catalogue search + monthly preview (Phase 3 redesign)
+  inlineSearch: { borderRadius: Radius.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, fontSize: FontSize.md },
+  inlineResults: { borderRadius: Radius.sm, borderWidth: 1, overflow: 'hidden' },
+  inlineResultRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm },
+  inlineResultName: { flex: 1, fontSize: FontSize.sm },
+  inlineResultPrice: { fontSize: FontSize.xs },
+  inlineAddBtn: { width: 26, height: 26, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  monthlyToggleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, borderWidth: 1, borderRadius: Radius.md, paddingVertical: Spacing.sm, minHeight: 40 },
+  monthlyToggleText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  monthlyPreview: { borderRadius: Radius.md, borderWidth: 1, padding: Spacing.sm, gap: Spacing.xs },
+  monthlyPreviewHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  monthlyPreviewSearch: { flex: 1, borderRadius: Radius.sm, paddingVertical: 6, paddingHorizontal: Spacing.sm, fontSize: FontSize.sm },
+  // ~5 rows tall so the preview stays compact and scrolls internally.
+  monthlyPreviewScroll: { maxHeight: 200 },
+  monthlyPreviewRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
+  monthlyPreviewName: { flex: 1, fontSize: FontSize.sm },
+  monthlyPreviewEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm, textAlign: 'center' },
+  monthlyAddBtn: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4, minHeight: 28, justifyContent: 'center' },
+  monthlyAddBtnText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  totalLine: { fontSize: FontSize.md, fontFamily: Fonts.bold, textAlign: 'right' },
 });

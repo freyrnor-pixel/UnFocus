@@ -192,6 +192,7 @@ export default function RootLayout() {
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="inventory-edit" />
         <Stack.Screen name="meals" />
+        <Stack.Screen name="create-grouping" />
         <Stack.Screen name="budget" />
         <Stack.Screen name="shared" />
         <Stack.Screen name="pair-device" />

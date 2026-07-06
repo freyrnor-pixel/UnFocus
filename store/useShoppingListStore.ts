@@ -41,6 +41,11 @@
  *     advanceRecurringLists()/instantiateTemplate(), since those write shopping_items
  *     rows directly via this store rather than through useShoppingStore. app/shopping.tsx
  *     does exactly this in its on-focus effect.
+ *   - `activeWeeks` (number[] 1–4, persisted as the comma-joined `active_weeks` column)
+ *     scopes a recurring list to specific weeks of the monthly reset cycle. Empty = every
+ *     week (default). advanceRecurringLists() skips regenerating an overdue list whose
+ *     activeWeeks doesn't include the current weekOfMonthlyCycle(today, monthlyResetDate).
+ *     Edited via setActiveWeeks() from components/ListSettingsSheet.tsx's multi-select.
  *   - `locked` is the padlock state for this list's card in app/shopping.tsx — gates
  *     add/remove/edit only, never the checkmark. Every constructor of a ShoppingList
  *     (add/advanceRecurringLists/saveAsTemplate/instantiateTemplate/backfillOrphanedItems)
@@ -60,7 +65,7 @@ import {
   readBool,
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
-import { dateStr, todayStr, getWeekRangeContaining, formatDateRange } from '@/lib/date';
+import { dateStr, todayStr, getWeekRangeContaining, formatDateRange, weekOfMonthlyCycle } from '@/lib/date';
 import { getTranslations } from '@/lib/i18n';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
@@ -72,6 +77,12 @@ export type ShoppingList = {
   isRecurring: boolean;
   /** 1-4 weeks; also the list's own span in weeks (a "2 weeks" list covers 14 days). */
   recurrenceIntervalWeeks: number;
+  /**
+   * Which weeks (1–4) of the monthly reset cycle this list is active on (multi-select).
+   * Empty array = every week (the default, unchanged behaviour). Persisted as a
+   * comma-joined string in `active_weeks`. See weekOfMonthlyCycle() in lib/date.ts.
+   */
+  activeWeeks: number[];
   /** Freezes auto-rename once the user has edited the name. */
   isCustomName: boolean;
   /** Saved-for-later list, accessed via the "saved lists" popup — never the active list. */
@@ -101,6 +112,8 @@ type ShoppingListStore = {
   remove: (id: string) => void;
   rename: (id: string, name: string) => void;
   setRecurring: (id: string, isRecurring: boolean, intervalWeeks?: number) => void;
+  /** Set which weeks (1–4) of the monthly cycle this list is active on; [] = every week. */
+  setActiveWeeks: (id: string, weeks: number[]) => void;
   toggleLocked: (id: string) => void;
   /** The active (non-template) list whose [startDate, endDate] contains `today`. */
   currentList: (today: string) => ShoppingList | undefined;
@@ -111,6 +124,17 @@ type ShoppingListStore = {
   instantiateTemplate: (id: string, today: string) => string | undefined;
 };
 
+/** Parse the `active_weeks` CSV ("1,3") into a sorted, de-duped 1–4 int array. */
+function parseActiveWeeks(csv: string): number[] {
+  if (!csv) return [];
+  const set = new Set<number>();
+  for (const part of csv.split(',')) {
+    const n = parseInt(part, 10);
+    if (n >= 1 && n <= 4) set.add(n);
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
 function rowToList(row: Row): ShoppingList {
   return {
     id: readStr(row, 'id'),
@@ -119,6 +143,7 @@ function rowToList(row: Row): ShoppingList {
     endDate: readStr(row, 'end_date'),
     isRecurring: readBool(row, 'is_recurring'),
     recurrenceIntervalWeeks: readInt(row, 'recurrence_interval_weeks', 1),
+    activeWeeks: parseActiveWeeks(readStr(row, 'active_weeks')),
     isCustomName: readBool(row, 'is_custom_name'),
     isTemplate: readBool(row, 'is_template'),
     locked: readBool(row, 'locked'),
@@ -134,6 +159,7 @@ const LIST_COLUMNS: FieldMap<ShoppingList> = {
   endDate: { col: 'end_date' },
   isRecurring: { col: 'is_recurring', to: (v) => (v ? 1 : 0) },
   recurrenceIntervalWeeks: { col: 'recurrence_interval_weeks' },
+  activeWeeks: { col: 'active_weeks', to: (v) => ((v as number[]) ?? []).join(',') },
   isCustomName: { col: 'is_custom_name', to: (v) => (v ? 1 : 0) },
   isTemplate: { col: 'is_template', to: (v) => (v ? 1 : 0) },
   locked: { col: 'locked', to: (v) => (v ? 1 : 0) },
@@ -199,6 +225,7 @@ function backfillOrphanedItems(lists: ShoppingList[]): ShoppingList[] {
     endDate,
     isRecurring: false,
     recurrenceIntervalWeeks: 1,
+    activeWeeks: [],
     isCustomName: false,
     isTemplate: false,
     locked: false,
@@ -230,6 +257,7 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
       endDate: input.endDate,
       isRecurring: input.isRecurring ?? false,
       recurrenceIntervalWeeks: input.recurrenceIntervalWeeks ?? 1,
+      activeWeeks: [],
       isCustomName: input.isCustomName ?? !!input.name,
       isTemplate: input.isTemplate ?? false,
       locked: false,
@@ -267,6 +295,13 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
     });
   },
 
+  setActiveWeeks(id, weeks) {
+    const list = get().lists.find((l) => l.id === id);
+    if (!list) return;
+    const normalized = [...new Set(weeks.filter((n) => n >= 1 && n <= 4))].sort((a, b) => a - b);
+    get().update(id, { activeWeeks: normalized });
+  },
+
   toggleLocked(id) {
     const list = get().lists.find((l) => l.id === id);
     if (!list) return;
@@ -284,7 +319,13 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
     const overdue = get().lists.filter((l) => l.isRecurring && !l.isTemplate && l.endDate < today);
     if (overdue.length === 0) return;
 
+    // A list scoped to specific weeks-of-the-monthly-cycle only regenerates when the
+    // week `today` falls in is one of them; an empty activeWeeks means "every week".
+    const monthlyResetDate = useSettingsStore.getState().monthlyResetDate;
+    const currentWeek = weekOfMonthlyCycle(today, monthlyResetDate);
+
     for (const old of overdue) {
+      if (old.activeWeeks.length > 0 && !old.activeWeeks.includes(currentWeek)) continue;
       const intervalDays = old.recurrenceIntervalWeeks * 7;
       const start = new Date(old.startDate + 'T12:00:00');
       const end = new Date(today + 'T12:00:00');
@@ -305,6 +346,7 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
         endDate,
         isRecurring: true,
         recurrenceIntervalWeeks: old.recurrenceIntervalWeeks,
+        activeWeeks: old.activeWeeks,
         isCustomName: old.isCustomName,
         isTemplate: false,
         locked: false,
@@ -348,6 +390,7 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
       endDate,
       isRecurring: false,
       recurrenceIntervalWeeks: 1,
+      activeWeeks: template.activeWeeks,
       isCustomName: template.isCustomName,
       isTemplate: false,
       locked: false,
