@@ -50,7 +50,7 @@
  *   - All visible strings via useT(); today is todayStr() (YYYY-MM-DD).
  */
 import React, { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useRouter, usePathname, useFocusEffect } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PlanTaskCard from '@/components/PlanTaskCard';
@@ -205,8 +205,8 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* Notes preview — HomeNotesCard (real Notes / useNotesStore). Hidden in Focus mode. */}
-          {!focusMode && <HomeNotesCard />}
+          {/* Notes preview — HomeNotesCard (real Notes / useNotesStore). Always visible. */}
+          <HomeNotesCard />
 
           {/* Plans preview = the shared PlanTaskCard day-view (Decision 009a). */}
           <View style={styles.section}>
@@ -226,53 +226,26 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Shopping preview — HomeShoppingCard. Hidden in Focus mode. */}
-          {!focusMode && (
-            <View style={styles.section}>
-              {!currentShoppingList ? (
-                <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.shoppingEmpty}</Text>
-              ) : (
-                <HomeShoppingCard
-                  list={currentShoppingList}
-                  dishGroups={dishGroups}
-                  ungroupedUnchecked={ungroupedUnchecked}
-                  checked={checked}
-                  onToggle={(id) => toggleShoppingItem(id)}
-                  onCollect={(id) => toggleShoppingCollected(id)}
-                  onRemove={handleRemoveShoppingItem}
-                  onIncrement={(id) => adjustAmount(id, 1)}
-                  onDecrement={(id) => adjustAmount(id, -1)}
-                  onSeeAll={() => goToSite(router, pathname, '/shopping')}
-                  inStockLabel={t.inStockLabel}
-                />
-              )}
-            </View>
-          )}
-
-          {/* More — entry points for the off-nav sites (Decision 036: Notes + Food
-              are reachable but not BottomNav tabs). Always shown off-Focus so these
-              screens have a discoverable home no matter what data exists. */}
-          {!focusMode && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.home.more}</Text>
-              <View style={styles.moreLinks}>
-                <Pressable
-                  style={[styles.moreChip, { backgroundColor: theme.surfaceMuted }]}
-                  onPress={() => goToSite(router, pathname, '/notes')}
-                  hitSlop={6}
-                >
-                  <Text style={[styles.moreChipText, { color: theme.text }]}>{t.notes.title}</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.moreChip, { backgroundColor: theme.surfaceMuted }]}
-                  onPress={() => goToSite(router, pathname, '/meals')}
-                  hitSlop={6}
-                >
-                  <Text style={[styles.moreChipText, { color: theme.text }]}>{t.nav.meals}</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
+          {/* Shopping preview — HomeShoppingCard. Always visible. */}
+          <View style={styles.section}>
+            {!currentShoppingList ? (
+              <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.shoppingEmpty}</Text>
+            ) : (
+              <HomeShoppingCard
+                list={currentShoppingList}
+                dishGroups={dishGroups}
+                ungroupedUnchecked={ungroupedUnchecked}
+                checked={checked}
+                onToggle={(id) => toggleShoppingItem(id)}
+                onCollect={(id) => toggleShoppingCollected(id)}
+                onRemove={handleRemoveShoppingItem}
+                onIncrement={(id) => adjustAmount(id, 1)}
+                onDecrement={(id) => adjustAmount(id, -1)}
+                onSeeAll={() => goToSite(router, pathname, '/shopping')}
+                inStockLabel={t.inStockLabel}
+              />
+            )}
+          </View>
 
           {/* Gentle points */}
           {!focusMode && settings.showPoints && completedCount > 0 && (
@@ -300,10 +273,6 @@ const baseStyles = StyleSheet.create({
   progressTrack: { height: 4, borderRadius: Radius.full, marginBottom: Spacing.lg, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: Radius.full },
   section: { marginBottom: Spacing.lg },
-  sectionTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
-  moreLinks: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md, flexWrap: 'wrap' },
-  moreChip: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, borderRadius: Radius.full },
-  moreChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   emptyText: { fontSize: FontSize.sm, fontFamily: Fonts.regular, textAlign: 'center', paddingVertical: Spacing.sm },
   pointsText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },
 });

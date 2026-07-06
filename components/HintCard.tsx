@@ -47,7 +47,7 @@ type Props = {
   onToggle?: () => void;
 };
 
-export default function HintCard({ text, example, open: openProp, onToggle: onToggleProp }: Props) {
+export default function HintCard({ text, example, open: openProp }: Props) {
   const showHints = useSettingsStore((s) => s.showHints);
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
@@ -60,10 +60,25 @@ export default function HintCard({ text, example, open: openProp, onToggle: onTo
 
   if (!showHints) return null;
 
+  // Controlled mode: the header ⓘ button drives open/close, so skip the inline toggle pill.
+  if (isControlled) {
+    if (!open) return null;
+    return (
+      <View style={styles.wrap}>
+        <View style={[styles.card, { backgroundColor: theme.hintBg, borderColor: theme.hintBorder }]}>
+          <View style={[styles.accentBar, { backgroundColor: theme.hintAccent }]} />
+          <View style={styles.body}>
+            <Text style={[styles.text, { color: theme.text }]}>{text}</Text>
+            {example ? <Text style={[styles.example, { color: theme.textMuted }]}>{example}</Text> : null}
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   function toggle() {
     if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    if (isControlled) onToggleProp?.();
-    else setOpenInternal((v) => !v);
+    setOpenInternal((v) => !v);
   }
 
   return (

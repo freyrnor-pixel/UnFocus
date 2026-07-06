@@ -89,7 +89,7 @@ import { setPassword as setChildPassword, verifyPassword as verifyChildPassword 
 import { isSyncAvailable } from '@/lib/syncService';
 import { useT, getTranslations } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { selection, warning, heavy } from '@/lib/haptics';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 
@@ -100,6 +100,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const settings = useSettingsStore();
   const theme = useAppTheme();
+  const styles = useScaledStyles(baseStyles);
   const t = useT();
   const syncTaskNotifs = useTaskStore((s) => s.syncAllTaskNotifications);
   const syncHabitNotifs = useHabitStore((s) => s.syncAllHabitReminders);
@@ -947,7 +948,7 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.lg },
   section: { gap: Spacing.sm },
   sectionTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
