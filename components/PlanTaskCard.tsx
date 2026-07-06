@@ -54,7 +54,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import CompletionGlow from '@/components/CompletionGlow';
 import { Task } from '@/store/useTaskStore';
-import { FontSize, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -68,7 +68,7 @@ type Props = {
   readOnly?: boolean;
   onPressTask?: (task: Task) => void;
   onToggleTask?: (task: Task) => void;
-  /** Read-only preview: shows a "See everything →" link routing to the full screen. */
+  /** Read-only preview: shows a "See everything →" link in the section header. */
   onSeeMore?: () => void;
   /** Test/preview override for the live clock (minutes since midnight). */
   now?: number;
@@ -368,6 +368,26 @@ export default function PlanTaskCard({
       <View style={[styles.accent, { backgroundColor: theme.featPlan }]} />
       <View style={styles.cardContent}>
         <CompletionGlow trigger={completionPulse} color={theme.accent} radius={Radius.md} />
+
+        {/* Section header — only in read-only (Home preview) mode */}
+        {readOnly && (
+          <View style={styles.headerRow}>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>{t.home.todaysPlans}</Text>
+            {pendingCount > 0 && (
+              <View style={[styles.badge, { backgroundColor: theme.accentSoft }]}>
+                <Text style={[styles.badgeText, { color: theme.accent }]}>{pendingCount}</Text>
+              </View>
+            )}
+            {onSeeMore && (
+              <View style={styles.headerRight}>
+                <Pressable onPress={onSeeMore} hitSlop={8}>
+                  <Text style={[styles.seeAllText, { color: theme.accent }]}>{t.seeAll}</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        )}
+
         {showEmpty ? (
           <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.timelineEmpty}</Text>
         ) : allDone ? (
@@ -408,11 +428,6 @@ export default function PlanTaskCard({
           </Pressable>
         ) : null}
 
-        {readOnly && onSeeMore ? (
-          <Pressable style={styles.footerBtn} onPress={onSeeMore}>
-            <Text style={[styles.footerBtnText, { color: theme.accent }]}>{t.seeEverythingLink}</Text>
-          </Pressable>
-        ) : null}
       </View>
     </Surface>
   );
@@ -450,4 +465,10 @@ const baseStyles = StyleSheet.create({
   doneHeaderText: { fontSize: FontSize.sm, fontWeight: '600' },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   footerBtnText: { fontSize: FontSize.sm, fontWeight: '700' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm, gap: Spacing.sm },
+  headerTitle: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
+  badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  headerRight: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: Spacing.md },
+  seeAllText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
 });
