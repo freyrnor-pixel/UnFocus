@@ -1,21 +1,20 @@
 /**
  * settings.tsx — app settings
  *
- * Tabbed settings screen (Decision 001 tier='sub') — a tab bar (Generelt | Lister | Varsler |
- * Utseende) sits directly under the header as ScreenScaffold's `stickyBelowHeader`; each tab is
- * its own scroll of cards (local `tab` state, no router routes).
+ * Tabbed settings screen (Decision 001 tier='sub') — a horizontally-scrollable tab bar
+ * (Generelt | Planer | Handle | Varsler) sits directly under the header as
+ * ScreenScaffold's `stickyBelowHeader`; each tab is its own scroll of cards
+ * (local `tab` state, no router routes).
  *
- * - Generelt: Focus mode toggle → Profil (name + language) → Jobb-modus (work mode, auto-activate
- *   + hours + work days, Norske helligdager) → Tilgjengelighet (reduced motion, particles, font
- *   size, left-handed) → Motivasjon (points, hints) → Data group (debug mode toggle, Local
- *   account card (Decision 039 — device-only profile: name + create date, backup/restore via
- *   lib/backup), destructive resets).
- * - Lister: shopping list settings (weekly reset weekday, monthly reset date, monthly budget).
+ * - Generelt: Focus mode toggle → Profil (name + language) → Utseende (dark mode) →
+ *   Tilgjengelighet (reduced motion, particles, font size, left-handed) → Motivasjon
+ *   (points, hints) → Data group (debug mode toggle, Local account card (Decision 039 —
+ *   device-only profile: name + create date, backup/restore via lib/backup), LAN sync,
+ *   Child mode, destructive resets, version & updates).
+ * - Planer: Jobb-modus (work mode, auto-activate + hours + work days, Norske helligdager).
+ * - Handle: shopping list settings (weekly reset weekday, monthly reset date, monthly budget).
  * - Varsler: Ukentlig (weekly reminder + time) → Generelle (independent plan-notifications and
  *   habit-reminders toggles, persistent daily overview, quiet hours).
- * - Utseende: Mørk modus (3-way). Colour theme is locked to 'default' and bubble material to
- *   'glass' app-wide (see constants/theme.ts / store/useSettingsStore.ts) — their pickers were
- *   removed from this tab; no other value is reachable from the UI.
  *
  * Every setting applies immediately via applyAndSync() — no buffered/dirty save step (matches
  * hints.settings.text: "Changes apply immediately.").
@@ -49,7 +48,7 @@
  *     settings.quietHours.hint.
  *   - TimePickerWheel was never ported into this repo — all HH:MM entry uses FormControls.Input
  *     (free-text, matching the precedent set by task-form.tsx / habit-form.tsx).
- *   - `essentialsModeEnabled` is the underlying field/DB column name (unchanged) — its user-facing
+ *   - essentialsModeEnabled is the underlying field/DB column name (unchanged) — its user-facing
  *     label is "Focus mode" / "Fokus-modus".
  *   - Colour-theme and bubble-material pickers were removed from the Utseende tab: the app now
  *     only ships 'default'/'glass' (see store/useSettingsStore.ts defaults and
@@ -69,7 +68,7 @@
  *     the native transport modules aren't linked outside a real build.
  */
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
@@ -98,7 +97,7 @@ import { useAppTheme } from '@/lib/useAppTheme';
 import { selection, warning, heavy } from '@/lib/haptics';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 
-type SettingsTab = 'generelt' | 'lister' | 'varsler' | 'utseende';
+type SettingsTab = 'generelt' | 'planer' | 'handle' | 'varsler';
 const TAB_BAR_HEIGHT = 48;
 
 export default function SettingsScreen() {
@@ -184,9 +183,9 @@ export default function SettingsScreen() {
 
   const TABS: { key: SettingsTab; label: string }[] = [
     { key: 'generelt', label: t.config.tabs.general },
-    { key: 'lister', label: t.config.tabs.lists },
+    { key: 'planer', label: t.nav.plans },
+    { key: 'handle', label: t.nav.shop },
     { key: 'varsler', label: t.config.tabs.notifications },
-    { key: 'utseende', label: t.config.tabs.appearance },
   ];
 
   const DAY_LABELS = t.dayFull;
@@ -304,7 +303,12 @@ export default function SettingsScreen() {
   }
 
   const tabBar = (
-    <View style={[styles.tabsRow, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={[styles.tabsScroll, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}
+      contentContainerStyle={styles.tabsRow}
+    >
       {TABS.map((tb) => {
         const active = tab === tb.key;
         return (
@@ -323,7 +327,7 @@ export default function SettingsScreen() {
           </Pressable>
         );
       })}
-    </View>
+    </ScrollView>
   );
 
   return (
@@ -396,90 +400,20 @@ export default function SettingsScreen() {
               </Surface>
             </View>
 
-            {/* JOBB-MODUS */}
+            {/* UTSEENDE */}
             <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.sections.workMode}</Text>
+              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.sections.appearance}</Text>
               <Surface style={styles.card}>
-                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.workModeDesc}</Text>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <Text style={[styles.switchLabel, { color: theme.text }]}>{t.workModeActive}</Text>
-                  <FormSwitch checked={settings.workModeEnabled} onChange={(v) => settings.update({ workModeEnabled: v })} />
-                </View>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.autoActivate}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.autoActivateHint}</Text>
-                  </View>
-                  <FormSwitch checked={settings.enforceWorkHours} onChange={(v) => settings.update({ enforceWorkHours: v })} />
-                </View>
-                {settings.enforceWorkHours && (
-                  <>
-                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <View style={styles.workHoursRow}>
-                      <View style={styles.workHoursCol}>
-                        <Input
-                          label={t.workHoursFrom}
-                          value={settings.workHoursStart}
-                          onChangeText={(v) => settings.update({ workHoursStart: v })}
-                          placeholder="09:00"
-                          keyboardType="numbers-and-punctuation"
-                        />
-                      </View>
-                      <View style={styles.workHoursCol}>
-                        <Input
-                          label={t.workHoursTo}
-                          value={settings.workHoursEnd}
-                          onChangeText={(v) => settings.update({ workHoursEnd: v })}
-                          placeholder="17:00"
-                          keyboardType="numbers-and-punctuation"
-                        />
-                      </View>
-                    </View>
-                  </>
-                )}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.workDaysLabel}</Text>
-                <View style={[styles.dayRow, styles.workDayRow]}>
-                  {DAY_LABELS.map((label, i) => {
-                    const active = settings.workDays.includes(i);
-                    return (
-                      <Pressable
-                        key={i}
-                        style={[
-                          styles.dayChip,
-                          styles.workDayChip,
-                          { backgroundColor: theme.surfaceMuted },
-                          active && { backgroundColor: theme.accent },
-                        ]}
-                        onPress={() => {
-                          const next = active
-                            ? settings.workDays.filter((d) => d !== i)
-                            : [...settings.workDays, i].sort();
-                          settings.update({ workDays: next });
-                        }}
-                      >
-                        <Text style={[
-                          styles.dayText,
-                          { color: theme.text },
-                          active && { color: theme.accentInk },
-                        ]}>
-                          {label.slice(0, 3)}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.holidaysEnabledLabel}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.holidaysHint}</Text>
-                  </View>
-                  <FormSwitch checked={settings.holidaysEnabled} onChange={(v) => settings.update({ holidaysEnabled: v })} />
-                </View>
+                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.lightDarkModeLabel}</Text>
+                <SegmentedControl
+                  value={settings.darkMode}
+                  onChange={(v) => settings.update({ darkMode: v as DarkMode })}
+                  options={[
+                    { value: 'off', label: t.darkModeOff },
+                    { value: 'system', label: t.darkModeSystem },
+                    { value: 'on', label: t.darkModeOn },
+                  ]}
+                />
               </Surface>
             </View>
 
@@ -733,7 +667,98 @@ export default function SettingsScreen() {
           </>
         )}
 
-        {tab === 'lister' && (
+        {tab === 'planer' && (
+          <>
+            {/* JOBB-MODUS */}
+            <View style={styles.section}>
+              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.sections.workMode}</Text>
+              <Surface style={styles.card}>
+                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.workModeDesc}</Text>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.switchRow}>
+                  <Text style={[styles.switchLabel, { color: theme.text }]}>{t.workModeActive}</Text>
+                  <FormSwitch checked={settings.workModeEnabled} onChange={(v) => settings.update({ workModeEnabled: v })} />
+                </View>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.autoActivate}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.autoActivateHint}</Text>
+                  </View>
+                  <FormSwitch checked={settings.enforceWorkHours} onChange={(v) => settings.update({ enforceWorkHours: v })} />
+                </View>
+                {settings.enforceWorkHours && (
+                  <>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <View style={styles.workHoursRow}>
+                      <View style={styles.workHoursCol}>
+                        <Input
+                          label={t.workHoursFrom}
+                          value={settings.workHoursStart}
+                          onChangeText={(v) => settings.update({ workHoursStart: v })}
+                          placeholder="09:00"
+                          keyboardType="numbers-and-punctuation"
+                        />
+                      </View>
+                      <View style={styles.workHoursCol}>
+                        <Input
+                          label={t.workHoursTo}
+                          value={settings.workHoursEnd}
+                          onChangeText={(v) => settings.update({ workHoursEnd: v })}
+                          placeholder="17:00"
+                          keyboardType="numbers-and-punctuation"
+                        />
+                      </View>
+                    </View>
+                  </>
+                )}
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.workDaysLabel}</Text>
+                <View style={[styles.dayRow, styles.workDayRow]}>
+                  {DAY_LABELS.map((label, i) => {
+                    const active = settings.workDays.includes(i);
+                    return (
+                      <Pressable
+                        key={i}
+                        style={[
+                          styles.dayChip,
+                          styles.workDayChip,
+                          { backgroundColor: theme.surfaceMuted },
+                          active && { backgroundColor: theme.accent },
+                        ]}
+                        onPress={() => {
+                          const next = active
+                            ? settings.workDays.filter((d) => d !== i)
+                            : [...settings.workDays, i].sort();
+                          settings.update({ workDays: next });
+                        }}
+                      >
+                        <Text style={[
+                          styles.dayText,
+                          { color: theme.text },
+                          active && { color: theme.accentInk },
+                        ]}>
+                          {label.slice(0, 3)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.holidaysEnabledLabel}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.holidaysHint}</Text>
+                  </View>
+                  <FormSwitch checked={settings.holidaysEnabled} onChange={(v) => settings.update({ holidaysEnabled: v })} />
+                </View>
+              </Surface>
+            </View>
+          </>
+        )}
+
+        {tab === 'handle' && (
           <View style={styles.section}>
             <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.sectionShopping}</Text>
             <Surface style={styles.card}>
@@ -920,27 +945,6 @@ export default function SettingsScreen() {
           </>
         )}
 
-        {tab === 'utseende' && (
-          <>
-            {/* LIGHT/DARK MODE — colour theme + bubble material pickers removed (Glass/Default
-                are now the only supported values); see file header. */}
-            <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.lightDarkModeLabel}</Text>
-              <Surface style={styles.card}>
-                <SegmentedControl
-                  value={settings.darkMode}
-                  onChange={(v) => settings.update({ darkMode: v as DarkMode })}
-                  options={[
-                    { value: 'off', label: t.darkModeOff },
-                    { value: 'system', label: t.darkModeSystem },
-                    { value: 'on', label: t.darkModeOn },
-                  ]}
-                />
-              </Surface>
-            </View>
-          </>
-        )}
-
         <View style={{ height: 40 }} />
       </View>
     </ScreenScaffold>
@@ -987,8 +991,11 @@ const styles = StyleSheet.create({
   },
   langFlag: { fontSize: 24 },
   langText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  tabsScroll: {
+    borderBottomWidth: 1,
+  },
   tabsRow: {
-    flexDirection: 'row', borderBottomWidth: 1, paddingHorizontal: Spacing.md,
+    flexDirection: 'row', paddingHorizontal: Spacing.md,
   },
   tabItem: {
     paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
