@@ -9,8 +9,8 @@
  * inside PlanTaskCard.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HintCard,
- *             components/AddFAB, lib/db, lib/date, lib/i18n, store/useTaskStore, store/useSettingsStore
+ *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/AddFAB,
+ *             lib/db, lib/date, lib/i18n, store/useTaskStore, store/useSettingsStore
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx (BottomNav "Plans" tab)
  *   Data    → reads/writes useTaskStore (tasks) on toggle; reads useSettingsStore for theme hydration
  *
@@ -27,7 +27,6 @@ import { StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PlanTaskCard from '@/components/PlanTaskCard';
-import HintCard from '@/components/HintCard';
 import AddFAB from '@/components/AddFAB';
 import { initDb } from '@/lib/db';
 import { todayStr } from '@/lib/date';
@@ -69,7 +68,6 @@ export default function PlansScreen() {
     <>
       <ScreenScaffold title={t.plansTitle} tier="site" bottomNav={false} ownBackground={false}>
         <View style={styles.content}>
-          <HintCard text={t.hints.plans.text} />
           <PlanTaskCard
             tasks={todayTasks}
             allTasks={tasks}
