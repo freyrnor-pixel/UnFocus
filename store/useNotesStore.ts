@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id
- *   Used by → app/notes.tsx, components/NoteRow.tsx (Note type)
+ *   Used by → app/notes.tsx, components/NoteRow.tsx (Note type), components/HomeNotesCard.tsx
  *   Data    → defines a Zustand store; owns SQLite table notes
  *
  * Edit notes:

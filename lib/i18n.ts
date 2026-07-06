@@ -605,6 +605,10 @@ const en = {
     todaysPlans: "Today's Plans",
     seeAllPlans: 'See all plans',
     more: 'More',
+    notesExpand: 'Show all notes',
+    notesCollapse: 'Show less',
+    shoppingExpand: 'Show full list',
+    shoppingCollapse: 'Show less',
   },
   health: {
     habits: 'Habits',
@@ -1708,6 +1712,10 @@ const no: typeof en = {
     todaysPlans: 'Dagens planer',
     seeAllPlans: 'Se alle planer',
     more: 'Mer',
+    notesExpand: 'Vis alle notater',
+    notesCollapse: 'Vis mindre',
+    shoppingExpand: 'Vis full liste',
+    shoppingCollapse: 'Vis mindre',
   },
   health: {
     habits: 'Vaner',
