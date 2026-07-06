@@ -12,7 +12,8 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme
- *   Used by → components/WeekListCard.tsx, app/shopping.tsx (Monthly catalog add-item/add-dish spots)
+ *   Used by → components/WeekListCard.tsx, app/shopping.tsx (Monthly catalog's "add item" spot —
+ *             "add dish" moved to a standalone top button, see shopping.tsx's header)
  *   Data    → none — purely presentational, fires onPress
  */
 import React from 'react';

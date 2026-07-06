@@ -22,14 +22,26 @@
  *             components/WeekListCard, constants/theme,
  *             lib/date (todayStr, dateStr, getWeekRangeContaining), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/shoppingGroups (groupByDish, computeListGroups,
- *             listProgress), lib/useAppTheme, store/useMealStore, store/useSettingsStore,
- *             store/useShoppingListStore, store/useShoppingStore
+ *             listProgress), lib/useAppTheme, store/useCatalogStore, store/useMealStore,
+ *             store/useSettingsStore, store/useShoppingListStore, store/useShoppingStore,
+ *             @expo/vector-icons (Ionicons)
  *   Used by → Expo Router route "/shopping" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → useShoppingStore (items/trips) + useShoppingListStore (lists, incl. each
  *             list's locked/isTemplate state) + useSettingsStore (monthlyResetDate) +
- *             useMealStore (dishes, read-only, dish-group price lookup)
+ *             useMealStore (dishes, read-only, dish-group price lookup) + useCatalogStore
+ *             (loaded on focus so AddDishSheet's ingredient picker has real data — this
+ *             screen doesn't read useCatalogStore's items itself)
  *
  * Edit notes:
+ *   - **Dish creation moved to the top (2026-07-05)**: the Monthly card's "create a dish"
+ *     entry point is now a standalone button right under catalogHeaderRow, always
+ *     rendered (even when catalogItems is empty). It replaces the old bottom AddDivider
+ *     that opened AddDishSheet, which lived inside the `catalogItems.length > 0` block —
+ *     meaning dish creation was literally impossible from an empty catalog before this
+ *     change. The "add item" AddDivider stays where it is (still a natural continuation
+ *     of the item list). See AddDishSheet.tsx's own header for its ingredient-picker
+ *     redesign (catalog search + stepper, reusing AddSourceChooser's inventory-picker
+ *     pattern) that went with this move.
  *   - New file (2026-07-02, Session A2·2). app/shopping.tsx never existed in this repo
  *     before this session — this is a from-scratch build against Decision 011 (A2-1,
  *     A2-4) and Decision 017, using the old repo's app/shopping.tsx only as a reference
@@ -113,10 +125,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary } from '@/store/useShoppingStore';
 import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useMealStore } from '@/store/useMealStore';
+import { useCatalogStore } from '@/store/useCatalogStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import ShoppingRow from '@/components/ShoppingRow';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
@@ -290,6 +304,7 @@ export default function ShoppingScreen() {
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
   const dishes = useMealStore((s) => s.dishes);
+  const loadCatalog = useCatalogStore((s) => s.load);
 
   const lists = useShoppingListStore((s) => s.lists);
   const renameList = useShoppingListStore((s) => s.rename);
@@ -328,6 +343,9 @@ export default function ShoppingScreen() {
       loadSettings();
       loadShopping();
       loadLists();
+      // AddDishSheet's ingredient picker reads this store directly (not via props),
+      // so it must be populated before the sheet can open with real catalog items.
+      loadCatalog();
 
       // Roll any overdue recurring list forward to the period containing today.
       // A no-op once every recurring list is already current, so it's safe to run
@@ -361,6 +379,7 @@ export default function ShoppingScreen() {
       loadSettings,
       loadShopping,
       loadLists,
+      loadCatalog,
       advanceRecurringLists,
       buildMonthlyResetSummary,
       monthlyReset,
@@ -680,6 +699,15 @@ export default function ShoppingScreen() {
               />
             </View>
 
+            <Pressable
+              style={[styles.createDishBtn, { backgroundColor: theme.accent }, catalogLocked && styles.createDishBtnDisabled]}
+              onPress={() => setAddDishSheetOpen(true)}
+              disabled={catalogLocked}
+            >
+              <Ionicons name="restaurant-outline" size={18} color={theme.accentInk} />
+              <Text style={[styles.createDishBtnText, { color: theme.accentInk }]}>{t.newDishTrigger}</Text>
+            </Pressable>
+
             <View style={styles.bodyGap}>
               {stagedItems.length > 0 && (
                 <View style={[styles.trayCard, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
@@ -737,7 +765,6 @@ export default function ShoppingScreen() {
                     ))}
                   </View>
                   <AddDivider onPress={() => setAddItemTarget({ origin: 'catalog' })} disabled={catalogLocked} />
-                  <AddDivider onPress={() => setAddDishSheetOpen(true)} disabled={catalogLocked} />
                 </View>
               )}
 
@@ -945,6 +972,9 @@ const styles = StyleSheet.create({
   catalogCard: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.md },
   catalogHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   catalogTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
+  createDishBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, borderRadius: Radius.md, paddingVertical: Spacing.sm, minHeight: 44 },
+  createDishBtnDisabled: { opacity: 0.4 },
+  createDishBtnText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
 
   unsavedBanner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, borderRadius: Radius.md, padding: Spacing.sm },
   unsavedBannerText: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },

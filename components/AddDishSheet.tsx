@@ -2,13 +2,19 @@
  * AddDishSheet.tsx — floating modal for adding a dish (and its ingredients) to the
  * Monthly catalog in one step.
  *
- * Opened from Monthly's second AddDivider in app/shopping.tsx. Two entry modes,
- * switched by a small toggle at the top: "New dish" (blank dish name + manually
- * typed ingredients, same field set as app/meals.tsx's dish modal) or "From Meals"
- * (pick an existing useMealStore dish; its name and ingredients seed the draft,
- * still editable/removable before saving). Each draft ingredient row also carries a
- * price, since Meals' Ingredient type has none — defaults to 0 when prefilled from a
- * Meals dish.
+ * Opened from a prominent button at the top of the Monthly card in app/shopping.tsx
+ * (moved there from a bottom AddDivider so it's visible without scrolling, and even
+ * when the catalog is empty). Two entry modes, switched by a small toggle at the
+ * top: "New dish" (blank dish name) or "From Meals" (pick an existing useMealStore
+ * dish; its name and ingredients seed the draft, still editable/removable before
+ * saving). Regardless of mode, ingredients are primarily added by searching the
+ * product catalog (useCatalogStore) and tapping "+"/a qty stepper — the same
+ * search-list-stepper interaction as components/AddSourceChooser.tsx's inventory
+ * picker (the weekly shopping list's "+ → From inventory" flow) — so building a
+ * dish reuses the exact pattern users already know from the shopping list. A
+ * "custom ingredient" fallback (typed name, no catalog match required) covers items
+ * not in the catalog. Each draft ingredient row also carries a price — catalog picks
+ * get their catalog price; Meals' Ingredient type has none, so those default to 0.
  *
  * Renders as a centered, scale+fade card over a dimmed backdrop — same animation
  * scaffolding as components/AddItemSheet.tsx.
@@ -17,23 +23,29 @@
  *   Imports → components/PressableScale, components/Surface, constants/theme,
  *             lib/i18n, lib/useAppTheme, store/useCatalogStore, store/useMealStore,
  *             react-native-reanimated
- *   Used by → app/shopping.tsx (Monthly tab's "add a whole dish" divider)
+ *   Used by → app/shopping.tsx (Monthly tab's top "create a dish" button)
  *   Data    → none directly — onSave hands the parent a dishName + ingredient list; the
  *             parent loops useShoppingStore.add() once per ingredient (status:'catalog',
  *             listType:'monthly', dishName). Reads useMealStore.dishes (read-only, "From
- *             Meals" picker) and useCatalogStore.suggest() (read-only, ingredient-name
- *             autocomplete in "New dish" mode) — both Phase 5 stubs per Decision 015/015a.
+ *             Meals" picker) and useCatalogStore.items (read-only, ingredient search list —
+ *             app/shopping.tsx's focus effect loads this store so it's populated by the time
+ *             this sheet opens).
  *
  * Edit notes:
  *   - Tracks its own `mounted` state decoupled from `visible` so Cancel/backdrop-tap can
  *     play the exit animation before unmounting — same pattern as AddItemSheet/AppModal.
  *     Don't pass `visible` straight to <Modal visible={...}>.
- *   - Resets all fields (mode, dishName, draftIngredients, search) on every open via the
- *     useEffect keyed on `visible`.
+ *   - Resets all fields (mode, dishName, draftIngredients, picks, searches) on every open
+ *     via the useEffect keyed on `visible`.
  *   - Picking a "From Meals" dish seeds draftIngredients with price '0' for every row
  *     (Ingredient has no price) — still editable before save, matching
  *     MonthlyTableRow's existing price===0 → '—' display for whatever isn't filled in.
- *   - Save is gated on a non-empty trimmed dishName AND at least one draft ingredient.
+ *   - `picks` (catalog item id → qty) mirrors AddSourceChooser's inventory-picker state
+ *     shape exactly (select sets qty 1, +/− steps it, 0 removes) — kept as a separate map
+ *     rather than merged into `draftIngredients` so the stepper can look up each row by id
+ *     without a linear scan; both are merged into one ingredient list only at save time.
+ *   - Save is gated on a non-empty trimmed dishName AND at least one ingredient across
+ *     draftIngredients + picks.
  *   - Decision 008: the card is a glass Surface in `overlay` context. Blur comes from
  *     Surface's BlurView; this file never imports expo-blur directly.
  */
@@ -69,18 +81,16 @@ export default function AddDishSheet({ visible, onClose, onSave }: Props) {
   const styles = useScaledStyles(baseStyles);
   const t = useT();
   const { reducedMotion } = useAccessibility();
-  const catalogSuggest = useCatalogStore((s) => s.suggest);
+  const catalogItems = useCatalogStore((s) => s.items);
   const dishes = useMealStore((s) => s.dishes);
 
   const [mode, setMode] = useState<Mode>('new');
   const [dishName, setDishName] = useState('');
   const [dishSearch, setDishSearch] = useState('');
   const [draftIngredients, setDraftIngredients] = useState<DraftIngredient[]>([]);
-  const [ingName, setIngName] = useState('');
-  const [ingAmount, setIngAmount] = useState('1');
-  const [ingUnit, setIngUnit] = useState('');
-  const [ingPrice, setIngPrice] = useState('');
-  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const [ingredientSearch, setIngredientSearch] = useState('');
+  /** Catalog item id → qty, same shape/behavior as AddSourceChooser's inventory picker. */
+  const [picks, setPicks] = useState<Record<string, number>>({});
 
   const [mounted, setMounted] = useState(visible);
   const opacity = useSharedValue(visible ? 1 : 0);
@@ -92,11 +102,8 @@ export default function AddDishSheet({ visible, onClose, onSave }: Props) {
       setDishName('');
       setDishSearch('');
       setDraftIngredients([]);
-      setIngName('');
-      setIngAmount('1');
-      setIngUnit('');
-      setIngPrice('');
-      setSuggestionsDismissed(false);
+      setIngredientSearch('');
+      setPicks({});
       setMounted(true);
       if (reducedMotion) {
         opacity.value = 1;
@@ -125,15 +132,18 @@ export default function AddDishSheet({ visible, onClose, onSave }: Props) {
     transform: [{ scale: scale.value }],
   }));
 
-  const ingredientSuggestions = useMemo(
-    () => (suggestionsDismissed ? [] : catalogSuggest(ingName, 5)),
-    [catalogSuggest, ingName, suggestionsDismissed]
-  );
-
   const dishMatches = useMemo(() => {
     const q = dishSearch.trim().toLowerCase();
     return q ? dishes.filter((d) => d.name.toLowerCase().includes(q)) : dishes;
   }, [dishes, dishSearch]);
+
+  // Same filter logic as AddSourceChooser's inventory picker: sorted A-Z, substring match.
+  const filteredCatalogItems = useMemo(() => {
+    const q = ingredientSearch.trim().toLowerCase();
+    const sorted = [...catalogItems].sort((a, b) => a.name.localeCompare(b.name));
+    if (!q) return sorted;
+    return sorted.filter((i) => i.name.toLowerCase().includes(q));
+  }, [catalogItems, ingredientSearch]);
 
   function pickMealsDish(dishId: string) {
     const dish = dishes.find((d) => d.id === dishId);
@@ -142,39 +152,67 @@ export default function AddDishSheet({ visible, onClose, onSave }: Props) {
     setDraftIngredients(dish.ingredients.map((ing) => ({ name: ing.name, amount: ing.amount, unit: ing.unit, price: '0' })));
   }
 
-  function addDraftIngredient() {
-    if (!ingName.trim()) return;
-    setDraftIngredients((prev) => [
-      ...prev,
-      { name: ingName.trim(), amount: ingAmount, unit: ingUnit, price: ingPrice },
-    ]);
-    setIngName('');
-    setIngAmount('1');
-    setIngUnit('');
-    setIngPrice('');
-    setSuggestionsDismissed(false);
-  }
-
   function removeDraftIngredient(idx: number) {
     setDraftIngredients((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  function handleSave() {
-    if (!dishName.trim() || draftIngredients.length === 0) return;
-    onSave({
-      dishName: dishName.trim(),
-      ingredients: draftIngredients.map((ing) => ({
-        name: ing.name,
-        amount: ing.amount,
-        unit: ing.unit,
-        price: parseFloat(ing.price.replace(',', '.')) || 0,
-      })),
+  function selectIngredient(id: string) {
+    setPicks((p) => ({ ...p, [id]: 1 }));
+  }
+
+  function incrementIngredient(id: string) {
+    setPicks((p) => ({ ...p, [id]: (p[id] ?? 1) + 1 }));
+  }
+
+  function decrementIngredient(id: string) {
+    setPicks((p) => {
+      const next = (p[id] ?? 1) - 1;
+      if (next <= 0) {
+        const { [id]: _removed, ...rest } = p;
+        return rest;
+      }
+      return { ...p, [id]: next };
     });
+  }
+
+  function removePick(id: string) {
+    setPicks((p) => {
+      const { [id]: _removed, ...rest } = p;
+      return rest;
+    });
+  }
+
+  function addCustomIngredient() {
+    const name = ingredientSearch.trim();
+    if (!name) return;
+    setDraftIngredients((prev) => [...prev, { name, amount: '1', unit: '', price: '0' }]);
+    setIngredientSearch('');
+  }
+
+  const pickCount = Object.keys(picks).length;
+
+  function handleSave() {
+    if (!dishName.trim()) return;
+    const manualIngredients = draftIngredients.map((ing) => ({
+      name: ing.name,
+      amount: ing.amount,
+      unit: ing.unit,
+      price: parseFloat(ing.price.replace(',', '.')) || 0,
+    }));
+    const pickedIngredients = Object.entries(picks)
+      .map(([id, qty]) => {
+        const item = catalogItems.find((i) => i.id === id);
+        return item ? { name: item.name, amount: String(qty), unit: '', price: item.price } : null;
+      })
+      .filter((ing): ing is { name: string; amount: string; unit: string; price: number } => ing !== null);
+    const ingredients = [...manualIngredients, ...pickedIngredients];
+    if (ingredients.length === 0) return;
+    onSave({ dishName: dishName.trim(), ingredients });
   }
 
   if (!mounted) return null;
 
-  const canSave = !!dishName.trim() && draftIngredients.length > 0;
+  const canSave = !!dishName.trim() && (draftIngredients.length > 0 || pickCount > 0);
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose}>
@@ -242,7 +280,7 @@ export default function AddDishSheet({ visible, onClose, onSave }: Props) {
               />
 
               {draftIngredients.map((ing, idx) => (
-                <View key={idx} style={[styles.draftRow, { borderBottomColor: theme.border }]}>
+                <View key={`manual-${idx}`} style={[styles.draftRow, { borderBottomColor: theme.border }]}>
                   <Text style={[styles.draftText, { color: theme.text }]} numberOfLines={1}>
                     {ing.amount} {ing.unit} {ing.name}
                     {parseFloat(ing.price) > 0 ? ` · ${ing.price} kr` : ''}
@@ -252,62 +290,92 @@ export default function AddDishSheet({ visible, onClose, onSave }: Props) {
                   </Pressable>
                 </View>
               ))}
+              {Object.entries(picks).map(([id, qty]) => {
+                const item = catalogItems.find((i) => i.id === id);
+                if (!item) return null;
+                return (
+                  <View key={`pick-${id}`} style={[styles.draftRow, { borderBottomColor: theme.border }]}>
+                    <Text style={[styles.draftText, { color: theme.text }]} numberOfLines={1}>
+                      {qty} × {item.name}
+                      {item.price > 0 ? ` · ${item.price.toFixed(0)} kr` : ''}
+                    </Text>
+                    <Pressable onPress={() => removePick(id)} hitSlop={8}>
+                      <Text style={[styles.removeText, { color: theme.textMuted }]}>−</Text>
+                    </Pressable>
+                  </View>
+                );
+              })}
 
-              <View style={styles.ingAddRow}>
-                <TextInput
-                  style={[styles.amountInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                  value={ingAmount}
-                  onChangeText={setIngAmount}
-                  keyboardType="decimal-pad"
-                  placeholder="1"
-                  placeholderTextColor={theme.textMuted}
-                />
-                <TextInput
-                  style={[styles.unitInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                  value={ingUnit}
-                  onChangeText={setIngUnit}
-                  placeholder={t.shoppingUnitPlaceholder}
-                  placeholderTextColor={theme.textMuted}
-                />
-                <TextInput
-                  style={[styles.ingNameInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                  value={ingName}
-                  onChangeText={(v) => { setIngName(v); setSuggestionsDismissed(false); }}
-                  placeholder={t.ingredientPlaceholder}
-                  placeholderTextColor={theme.textMuted}
-                />
-              </View>
-              <View style={styles.ingAddRow}>
-                <TextInput
-                  style={[styles.priceInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                  value={ingPrice}
-                  onChangeText={setIngPrice}
-                  keyboardType="decimal-pad"
-                  placeholder={t.ingredientPricePlaceholder}
-                  placeholderTextColor={theme.textMuted}
-                />
-                <PressableScale style={[styles.addIngBtn, { backgroundColor: theme.accent }]} onPress={addDraftIngredient}>
-                  <Text style={[styles.addIngBtnText, { color: theme.accentInk }]}>+</Text>
-                </PressableScale>
+              {/* Ingredient search: same search-list-stepper interaction as
+                  AddSourceChooser's inventory picker (weekly list's "+ → From
+                  inventory" flow) — tap "+" to add, stepper to adjust qty. */}
+              <Text style={[styles.label, { color: theme.textMuted }]}>{t.ingredientPlaceholder}</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                value={ingredientSearch}
+                onChangeText={setIngredientSearch}
+                placeholder={t.ingredientSearchPlaceholder}
+                placeholderTextColor={theme.textMuted}
+              />
+              <View style={[styles.catalogPickBox, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+                <ScrollView keyboardShouldPersistTaps="handled" style={styles.catalogPickScroll}>
+                  {filteredCatalogItems.length === 0 ? (
+                    <Text style={[styles.emptyDishesText, { color: theme.textMuted }]}>{t.noCatalogMatches}</Text>
+                  ) : (
+                    filteredCatalogItems.map((item) => {
+                      const qty = picks[item.id];
+                      const isSelected = qty !== undefined;
+                      return (
+                        <View
+                          key={item.id}
+                          style={[styles.catalogPickRow, isSelected && { backgroundColor: theme.accentSoft }]}
+                        >
+                          <View style={styles.catalogPickNameWrap}>
+                            <Text style={[styles.dishPickName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+                            {item.price > 0 && (
+                              <Text style={[styles.dishPickMeta, { color: theme.textMuted }]}>{item.price.toFixed(0)} kr</Text>
+                            )}
+                          </View>
+                          {isSelected ? (
+                            <View style={styles.stepperRowSm}>
+                              <Pressable
+                                style={[styles.stepBtnSm, { backgroundColor: theme.surface }]}
+                                onPress={() => decrementIngredient(item.id)}
+                                hitSlop={6}
+                              >
+                                <Text style={[styles.stepTextSm, { color: theme.text }]}>−</Text>
+                              </Pressable>
+                              <Text style={[styles.qtyTextSm, { color: theme.text }]}>{qty}</Text>
+                              <Pressable
+                                style={[styles.stepBtnSm, { backgroundColor: theme.accent }]}
+                                onPress={() => incrementIngredient(item.id)}
+                                hitSlop={6}
+                              >
+                                <Text style={[styles.stepTextSm, { color: theme.accentInk }]}>+</Text>
+                              </Pressable>
+                            </View>
+                          ) : (
+                            <Pressable
+                              style={[styles.catalogAddBtn, { backgroundColor: theme.accentSoft }]}
+                              onPress={() => selectIngredient(item.id)}
+                              hitSlop={6}
+                            >
+                              <Text style={[styles.catalogAddBtnText, { color: theme.accent }]}>+</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      );
+                    })
+                  )}
+                </ScrollView>
               </View>
 
-              {ingredientSuggestions.length > 0 && (
-                <View style={[styles.suggestionsBox, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-                  <ScrollView keyboardShouldPersistTaps="handled" style={styles.suggestionsScroll}>
-                    {ingredientSuggestions.map((s) => (
-                      <Pressable
-                        key={s.id}
-                        style={styles.suggestionRow}
-                        onPress={() => { setIngName(s.name); setSuggestionsDismissed(true); }}
-                      >
-                        <Text style={[styles.suggestionName, { color: theme.text }]} numberOfLines={1}>{s.name}</Text>
-                        {s.price > 0 && (
-                          <Text style={[styles.suggestionPrice, { color: theme.textMuted }]}>{s.price.toFixed(0)} kr</Text>
-                        )}
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                </View>
+              {ingredientSearch.trim().length > 0 && (
+                <Pressable style={styles.addCustomRow} onPress={addCustomIngredient} hitSlop={4}>
+                  <Text style={[styles.addCustomText, { color: theme.accent }]}>
+                    {t.addCustomIngredientOption(ingredientSearch.trim())}
+                  </Text>
+                </Pressable>
               )}
 
               <View style={styles.actionsRow}>
@@ -350,18 +418,20 @@ const baseStyles = StyleSheet.create({
   draftRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.xs, borderBottomWidth: 1 },
   draftText: { flex: 1, fontSize: FontSize.sm },
   removeText: { fontSize: 20 },
-  ingAddRow: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.xs, alignItems: 'center' },
-  amountInput: { width: 50, borderRadius: Radius.sm, padding: Spacing.sm, fontSize: FontSize.sm },
-  unitInput: { width: 70, borderRadius: Radius.sm, padding: Spacing.sm, fontSize: FontSize.sm },
-  ingNameInput: { flex: 1, borderRadius: Radius.sm, padding: Spacing.sm, fontSize: FontSize.sm },
-  priceInput: { flex: 1, borderRadius: Radius.sm, padding: Spacing.sm, fontSize: FontSize.sm },
-  addIngBtn: { width: 36, height: 36, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
-  addIngBtnText: { fontSize: FontSize.lg, fontFamily: Fonts.bold, lineHeight: 22 },
-  suggestionsBox: { borderRadius: Radius.sm, borderWidth: 1, marginTop: 4, overflow: 'hidden' },
-  suggestionsScroll: { maxHeight: 160 },
-  suggestionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm },
-  suggestionName: { flex: 1, fontSize: FontSize.sm },
-  suggestionPrice: { fontSize: FontSize.xs },
+  // Catalog ingredient picker — same shapes as AddSourceChooser's inventory picker
+  // (pickerRow/pickerStepperRow/pickerAddBtn) so the interaction reads as one system.
+  catalogPickBox: { borderRadius: Radius.sm, borderWidth: 1, marginBottom: Spacing.xs, overflow: 'hidden' },
+  catalogPickScroll: { maxHeight: 200 },
+  catalogPickRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm },
+  catalogPickNameWrap: { flex: 1, minWidth: 0, marginRight: Spacing.sm },
+  catalogAddBtn: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  catalogAddBtnText: { fontSize: FontSize.md, fontFamily: Fonts.bold, lineHeight: 20 },
+  stepperRowSm: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  stepBtnSm: { width: 26, height: 26, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  stepTextSm: { fontSize: FontSize.md, fontFamily: Fonts.bold },
+  qtyTextSm: { fontSize: FontSize.sm, fontFamily: Fonts.bold, minWidth: 20, textAlign: 'center' },
+  addCustomRow: { paddingVertical: Spacing.sm },
+  addCustomText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   actionsRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.lg, marginBottom: Spacing.sm },
   ghostBtn: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: Radius.md },
   ghostBtnText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
