@@ -54,7 +54,7 @@ you've explicitly handed the merge to the user).
 
 ### Navigation State
 - **BottomNav** (`components/BottomNav.tsx`) — current, only entry point; no redesign needed
-- **BubbleMenu** (radial FAB) — explicitly **deferred**; do NOT touch unless asked
+- **BubbleMenu** (radial FAB from the pre-rebuild spec) — dropped before porting (Decision 008 #5); `components/BubbleMenu.tsx` does not exist in this repo, don't look for it
 
 ### Testing
 - **No Jest required** until further notice (no test runs, no live-app verification)

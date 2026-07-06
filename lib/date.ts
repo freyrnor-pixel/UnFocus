@@ -7,7 +7,7 @@
  *
  * Connections:
  *   Imports → —
- *   Used by → components/QuickAddSheet.tsx, components/ShoppingQuickAddSheet.tsx,
+ *   Used by → components/ShoppingQuickAddSheet.tsx,
  *             components/SharedRequestsSection.tsx, app/shopping.tsx, app/budget.tsx,
  *             app/shared.tsx, store/useShoppingListStore.ts
  *             (formatDisplayDate — Norwegian date display, code-only, no ledger number;
