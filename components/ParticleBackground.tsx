@@ -1,9 +1,8 @@
 /**
  * ParticleBackground.tsx — theme-adaptive background image with animated particle overlay.
  *
- * Renders one of the per-theme watercolor-tree backgrounds (assets/bg-light-*.png /
- * assets/bg-dark-*.png, one recolored pair per ColorTheme) as a full-screen
- * ImageBackground, picked by the user's active colour theme + dark/light mode, then
+ * Renders the watercolor-tree background (assets/bg-light.png / assets/bg-dark.png)
+ * as a full-screen ImageBackground, switched by dark/light mode, then
  * layers animated particles on top:
  *   - Rising dots that float upward and fade out
  *   - Pulsing ring halos centered at screen mid-height (dark mode only)
@@ -12,7 +11,7 @@
  * `settings.particlesEnabled` is false or `reducedMotion` is true.
  *
  * Connections:
- *   Imports → assets/bg-dark(-*).png, assets/bg-light(-*).png, lib/useAppTheme (useIsDark, useAccessibility), store/useSettingsStore
+ *   Imports → assets/bg-dark.png, assets/bg-light.png, lib/useAppTheme (useIsDark, useAccessibility), store/useSettingsStore
  *   Used by → components/ScreenScaffold (L2, first child inside SafeAreaView, for
  *             sub-tier and non-pager site screens); app/(tabs)/_layout.tsx (hoisted,
  *             one shared instance behind the whole pager — see that file's header)
@@ -21,9 +20,7 @@
  *   - Same render contract as ScreenBackground: absolutely positioned, pointerEvents="none".
  *     Add as the very first child inside the SafeAreaView, before TreeWatermark.
  *   - Uses native driver for all transforms/opacity — no layout animation.
- *   - BG_BY_THEME keys must match ColorTheme (store/useSettingsStore.ts) exactly.
- *     'custom' has no colors.ts palette yet (same deferral as useAppTheme()) so it
- *     reuses the 'default' pair. require() paths must stay static string literals —
+ *   - require() paths must stay static string literals —
  *     the RN bundler can't resolve a dynamically built path.
  *   - Particle dot/ring/orb colours stay the fixed blue-white/blue-violet pair
  *     regardless of theme — they're a light sparkle effect, not a palette token,
@@ -41,21 +38,11 @@ import {
 } from 'react-native';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
-import { useSettingsStore, ColorTheme } from '@/store/useSettingsStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 // ─── Assets ──────────────────────────────────────────────────────────────────
-// One recolored light/dark pair per ColorTheme (constants/colors.ts palette).
 
-const BG_BY_THEME: Record<ColorTheme, { light: number; dark: number }> = {
-  default: { light: require('../assets/bg-light.png'), dark: require('../assets/bg-dark.png') },
-  summer: { light: require('../assets/bg-light-summer.png'), dark: require('../assets/bg-dark-summer.png') },
-  nature: { light: require('../assets/bg-light-nature.png'), dark: require('../assets/bg-dark-nature.png') },
-  fluffyPink: { light: require('../assets/bg-light-fluffyPink.png'), dark: require('../assets/bg-dark-fluffyPink.png') },
-  gothic: { light: require('../assets/bg-light-gothic.png'), dark: require('../assets/bg-dark-gothic.png') },
-  blackWhite: { light: require('../assets/bg-light-blackWhite.png'), dark: require('../assets/bg-dark-blackWhite.png') },
-  // No colors.ts palette yet — same deferral as useAppTheme(), reuse Default chrome.
-  custom: { light: require('../assets/bg-light.png'), dark: require('../assets/bg-dark.png') },
-};
+const BG_DEFAULT = { light: require('../assets/bg-light.png'), dark: require('../assets/bg-dark.png') };
 
 // ─── Particle specs ───────────────────────────────────────────────────────────
 
@@ -203,10 +190,9 @@ export default function ParticleBackground() {
   const isDark = useIsDark();
   const { reducedMotion } = useAccessibility();
   const particlesEnabled = useSettingsStore((s) => s.particlesEnabled);
-  const colorTheme = useSettingsStore((s) => s.colorTheme);
 
   const showParticles = particlesEnabled && !reducedMotion;
-  const bgPair = BG_BY_THEME[colorTheme] ?? BG_BY_THEME.default;
+  const bgPair = BG_DEFAULT;
 
   const palette = isDark
     ? {

@@ -1,12 +1,12 @@
 /**
  * useSettingsStore.ts — single-row app settings / preferences
  *
- * Zustand store mirroring the one settings row: user name, language, theme,
+ * Zustand store mirroring the one settings row: user name, language,
  * dark mode, reminder/notification toggles (including quiet hours, task/habit notification toggles), reset cadence,
  * work/essentials modes, onboarding state, accessibility flags, monthly
  * grocery budget (monthlyBudgetNok), the local account
  * (accountName/accountCreated — device-only profile, Decision 039), and the debug
- * overlay's enable flag + bubble-wheel tuning values.
+ * overlay's enable flag.
  * persistentNotifEnabled toggles the always-current "today's overview" notification
  * (refreshed by app/_layout.tsx, see lib/notifications.ts's refreshPersistentNotification).
  * habitNotificationsEnabled gates all habit reminders.
@@ -41,16 +41,9 @@ import {
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
 
-// Canonical theme identity — MUST match ThemeName in constants/colors.ts (the
-// runtime palette module that useAppTheme() reads). 'custom' has no colors.ts
-// palette yet (Decision 006/007 deferred it) so it falls back to Default chrome;
-// it is kept in the union only for the custom-hue plumbing that already exists.
-export type ColorTheme = 'default' | 'summer' | 'nature' | 'fluffyPink' | 'gothic' | 'blackWhite' | 'custom';
 export type Language = 'en' | 'no';
 export type DarkMode = 'system' | 'on' | 'off';
 export type FontSizePref = 'small' | 'default' | 'large';
-/** Surface finish for bubbles/FAB and, via Surface/ScreenBackground, cards and screen backdrops app-wide — see getMaterialStyle() in constants/theme.ts. */
-export type BubbleMaterial = 'glass' | 'metal' | 'rock' | 'paper' | 'plain';
 
 export type Settings = {
   userName: string;
@@ -60,7 +53,6 @@ export type Settings = {
   reminderTime: string;
   taskNotificationsEnabled: boolean;
   setupComplete: boolean;
-  colorTheme: ColorTheme;
   workModeEnabled: boolean;
   workHoursStart: string;
   workHoursEnd: string;
@@ -79,13 +71,6 @@ export type Settings = {
   fontSize: FontSizePref;
   // Left-handed mode
   leftHanded: boolean;
-  // Custom theme colors
-  customPrimaryColor: string;
-  customSecondaryColor: string;
-  // Custom theme accent hue (0-360); primary/secondary colors above are derived from this
-  customHue: number;
-  // Bubble menu surface finish
-  bubbleMaterial: BubbleMaterial;
   // Persistent "today's overview" notification
   persistentNotifEnabled: boolean;
   // Notification quiet hours (AP-05)
@@ -94,12 +79,8 @@ export type Settings = {
   quietHoursEnd: string;
   // Monthly grocery budget (AP-06B), shown against receipts in app/budget.tsx
   monthlyBudgetNok: number;
-  // Debug mode — feedback pins + bubble-wheel tuning overlay
+  // Debug mode — feedback pins
   debugModeEnabled: boolean;
-  bubbleSize: number;
-  bubbleSpacing: number;
-  bubbleSpringIntensity: number;
-  bubbleAnimSpeed: number;
   // Last payday-boundary monthly reset, as YYYY-MM-DD; drives the automatic reset check in app/shopping.tsx
   lastMonthlyReset: string;
   // Habit reminders toggle
@@ -146,9 +127,6 @@ function rowToSettings(row: Row): Settings {
     reminderTime: readStr(row, 'reminder_time', '08:00'),
     taskNotificationsEnabled: readBool(row, 'task_notifications_enabled'),
     setupComplete: readBool(row, 'setup_complete'),
-    // Locked to 'default' — the colour-theme picker was removed app-wide (settings +
-    // onboarding); any other value previously stored on-device is ignored on load.
-    colorTheme: 'default',
     workModeEnabled: readBool(row, 'work_mode_enabled'),
     workHoursStart: readStr(row, 'work_hours_start', '07:00'),
     workHoursEnd: readStr(row, 'work_hours_end', '17:00'),
@@ -165,22 +143,12 @@ function rowToSettings(row: Row): Settings {
     particlesEnabled: readInt(row, 'particles_enabled', 1) !== 0,
     fontSize: readStr(row, 'font_size', 'default') as FontSizePref,
     leftHanded: readBool(row, 'left_handed'),
-    customPrimaryColor: readStr(row, 'custom_primary_color', '#3B82F6'),
-    customSecondaryColor: readStr(row, 'custom_secondary_color', '#10B981'),
-    customHue: readInt(row, 'custom_hue', 217),
-    // Locked to 'glass' — the material picker was removed from settings; any other
-    // value previously stored on-device is ignored on load.
-    bubbleMaterial: 'glass' as BubbleMaterial,
     persistentNotifEnabled: readBool(row, 'persistent_notif_enabled'),
     quietHoursEnabled: readBool(row, 'quiet_hours_enabled'),
     quietHoursStart: readStr(row, 'quiet_hours_start', '21:00'),
     quietHoursEnd: readStr(row, 'quiet_hours_end', '08:00'),
     monthlyBudgetNok: readReal(row, 'monthly_budget_nok'),
     debugModeEnabled: readBool(row, 'debug_mode_enabled'),
-    bubbleSize: readReal(row, 'bubble_size', 50),
-    bubbleSpacing: readReal(row, 'bubble_spacing', 78),
-    bubbleSpringIntensity: readReal(row, 'bubble_spring_intensity', 50),
-    bubbleAnimSpeed: readReal(row, 'bubble_anim_speed', 50),
     lastMonthlyReset: readStr(row, 'last_monthly_reset'),
     habitNotificationsEnabled: readBool(row, 'habit_notifications_enabled'),
     locationEnabled: readBool(row, 'location_enabled'),
@@ -206,7 +174,6 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   reminderTime: { col: 'reminder_time' },
   taskNotificationsEnabled: { col: 'task_notifications_enabled', to: bool },
   setupComplete: { col: 'setup_complete', to: bool },
-  colorTheme: { col: 'color_theme' },
   workModeEnabled: { col: 'work_mode_enabled', to: bool },
   workHoursStart: { col: 'work_hours_start' },
   workHoursEnd: { col: 'work_hours_end' },
@@ -223,20 +190,12 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   particlesEnabled: { col: 'particles_enabled', to: bool },
   fontSize: { col: 'font_size' },
   leftHanded: { col: 'left_handed', to: bool },
-  customPrimaryColor: { col: 'custom_primary_color' },
-  customSecondaryColor: { col: 'custom_secondary_color' },
-  customHue: { col: 'custom_hue' },
-  bubbleMaterial: { col: 'bubble_material' },
   persistentNotifEnabled: { col: 'persistent_notif_enabled', to: bool },
   quietHoursEnabled: { col: 'quiet_hours_enabled', to: bool },
   quietHoursStart: { col: 'quiet_hours_start' },
   quietHoursEnd: { col: 'quiet_hours_end' },
   monthlyBudgetNok: { col: 'monthly_budget_nok' },
   debugModeEnabled: { col: 'debug_mode_enabled', to: bool },
-  bubbleSize: { col: 'bubble_size' },
-  bubbleSpacing: { col: 'bubble_spacing' },
-  bubbleSpringIntensity: { col: 'bubble_spring_intensity' },
-  bubbleAnimSpeed: { col: 'bubble_anim_speed' },
   lastMonthlyReset: { col: 'last_monthly_reset' },
   habitNotificationsEnabled: { col: 'habit_notifications_enabled', to: bool },
   locationEnabled: { col: 'location_enabled', to: bool },
@@ -259,7 +218,6 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   reminderTime: '08:00',
   taskNotificationsEnabled: true,
   setupComplete: false,
-  colorTheme: 'default',
   workModeEnabled: false,
   workHoursStart: '07:00',
   workHoursEnd: '17:00',
@@ -279,20 +237,12 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   particlesEnabled: true,
   fontSize: 'default' as FontSizePref,
   leftHanded: false,
-  customPrimaryColor: '#3B82F6',
-  customSecondaryColor: '#10B981',
-  customHue: 217,
-  bubbleMaterial: 'glass' as BubbleMaterial,
   persistentNotifEnabled: false,
   quietHoursEnabled: false,
   quietHoursStart: '21:00',
   quietHoursEnd: '08:00',
   monthlyBudgetNok: 0,
   debugModeEnabled: false,
-  bubbleSize: 50,
-  bubbleSpacing: 78,
-  bubbleSpringIntensity: 50,
-  bubbleAnimSpeed: 50,
   lastMonthlyReset: '',
   habitNotificationsEnabled: true,
   locationEnabled: false,

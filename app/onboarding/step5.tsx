@@ -23,8 +23,7 @@
  *   - Finish button → finish() sets setupComplete + new-user defaults
  *     (essentialsModeEnabled:false, showPoints:true), requests OS notification
  *     permission and, once it resolves, schedules reminders (syncReminders +
- *     syncAllTaskNotifications), then router.replace "/" to home. This used to
- *     live in step6.tsx (companion-pet naming), which has been removed.
+ *     syncAllTaskNotifications), then router.replace "/" to home.
  *   - Previous uses router.back().
  */
 import React from 'react';

@@ -22,26 +22,16 @@
  *   - `leadingAction` renders before the title/subtitle stack inside headerLeft (same
  *     stopPropagation-wrapped Pressable pattern as `rightAction`) — e.g. a severity badge
  *     needs to sit leading rather than trailing, where a checkbox lives on the right.
- *   - Decision 008: the card face is a `<Surface surfaceContext="ambient">` (default —
- *     override by passing `material` through, same as before) rather than a hand-rolled
- *     two-layer getMaterialStyle() mask. This is a deliberate change from the old source,
- *     which built its own mask/sheen/border directly: Surface now owns that rendering
- *     (fill, sheen, border, shadow, and blur-when-glass) so this composite doesn't
- *     duplicate Decision 008's blur logic. One behavioural difference from old source:
- *     `accentColor` now only tints the left accent bar, not the mask border/shadow — the
- *     old code computed getMaterialStyle(accentColor, finish) for border/shadow but still
- *     hard-coded the mask fill to theme.white regardless, so the border-tint effect was
- *     already inconsistent with the fill; Surface's `tint` prop doesn't support "tint
- *     border only, not fill", so that inconsistent effect is dropped rather than ported.
+ *   - Decision 008: the card face is a `<Surface surfaceContext="ambient">` rather than a
+ *     hand-rolled two-layer getMaterialStyle() mask. Surface owns that rendering
+ *     (fill, sheen, border, shadow, and blur) so this composite doesn't duplicate that logic.
+ *     `accentColor` only tints the left accent bar, not the mask border/shadow.
  *   - Optional controlled mode: pass both `open` and `onToggle` to let the parent own the
  *     open/closed state (needed when a screen must aggregate state across many instances,
  *     e.g. per-task dirty tracking). Omit both and it behaves exactly as before (internal
  *     useState).
  *   - `rightAction` is wrapped in its own Pressable that calls `e.stopPropagation()` so taps on
  *     a checkbox/save-pill passed as rightAction don't also toggle the header.
- *   - `material` is forwarded straight to Surface — when omitted, Surface itself falls back
- *     to the user's `bubbleMaterial` setting, so this component doesn't need its own
- *     useSettingsStore read.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -56,7 +46,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
-import { Radius, Spacing, FontSize, MaterialName } from '@/constants/theme';
+import { Radius, Spacing, FontSize } from '@/constants/theme';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
 
 if (Platform.OS === 'android') {
@@ -74,7 +64,6 @@ type Props = {
   open?: boolean;
   onToggle?: () => void;
   accentColor?: string;
-  material?: MaterialName;
 };
 
 export default function ExpandableCard({
@@ -88,7 +77,6 @@ export default function ExpandableCard({
   open: controlledOpen,
   onToggle,
   accentColor,
-  material,
 }: Props) {
   const isControlled = controlledOpen !== undefined;
   const [openState, setOpenState] = useState(defaultOpen);
@@ -138,7 +126,7 @@ export default function ExpandableCard({
   });
 
   return (
-    <Surface material={material} surfaceContext="ambient" style={[styles.card, styles.cardRow]}>
+    <Surface surfaceContext="ambient" style={[styles.card, styles.cardRow]}>
       {accentColor ? <View style={[styles.accent, { backgroundColor: accentColor }]} /> : null}
       <View style={styles.cardContent}>
         <Pressable style={styles.header} onPress={toggle}>

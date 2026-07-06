@@ -31,9 +31,7 @@
  *     each row in its own Surface would double up the material treatment.
  *   - Checkmark circle is a hand-rolled circular Pressable (not FormControls' square
  *     Checkbox) to match NoteRow's and TaskItem's shared circular "done" affordance.
- *   - `theme` is no longer threaded in as a prop (dropped the old `theme: AppColors`
- *     prop) — reads useAppTheme() internally, consistent with every other ported
- *     component.
+ *   - Theming reads useAppTheme() internally.
  */
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';

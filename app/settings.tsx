@@ -13,9 +13,7 @@
  * - Lister: shopping list settings (weekly reset weekday, monthly reset date, monthly budget).
  * - Varsler: Ukentlig (weekly reminder + time) → Generelle (independent plan-notifications and
  *   habit-reminders toggles, persistent daily overview, quiet hours).
- * - Utseende: Mørk modus (3-way). Colour theme is locked to 'default' and bubble material to
- *   'glass' app-wide (see constants/theme.ts / store/useSettingsStore.ts) — their pickers were
- *   removed from this tab; no other value is reachable from the UI.
+ * - Utseende: Mørk modus (3-way).
  *
  * Every setting applies immediately via applyAndSync() — no buffered/dirty save step (matches
  * hints.settings.text: "Changes apply immediately.").
@@ -51,10 +49,6 @@
  *     (free-text, matching the precedent set by task-form.tsx / habit-form.tsx).
  *   - `essentialsModeEnabled` is the underlying field/DB column name (unchanged) — its user-facing
  *     label is "Focus mode" / "Fokus-modus".
- *   - Colour-theme and bubble-material pickers were removed from the Utseende tab: the app now
- *     only ships 'default'/'glass' (see store/useSettingsStore.ts defaults and
- *     constants/theme.ts's getMaterialStyle), so there is nothing left to pick. All chrome here
- *     still goes through useAppTheme() tokens (Decision 006).
  *   - Debug section only exposes the debugModeEnabled toggle. permissionTests.ts does not exist
  *     in this repo yet — its buttons are NOT wired here; see the commented placeholder below.
  *   - "Reset weekly list" and the Test-data load/clear actions from the pre-rebuild app are NOT
@@ -922,8 +916,6 @@ export default function SettingsScreen() {
 
         {tab === 'utseende' && (
           <>
-            {/* LIGHT/DARK MODE — colour theme + bubble material pickers removed (Glass/Default
-                are now the only supported values); see file header. */}
             <View style={styles.section}>
               <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.lightDarkModeLabel}</Text>
               <Surface style={styles.card}>

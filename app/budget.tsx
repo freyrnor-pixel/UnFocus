@@ -20,7 +20,7 @@
  *   - No budget set (monthlyBudgetNok <= 0) shows "Set budget" button inline; hasBudget shows "Edit budget" link.
  *   - Per-store breakdown sums receipts by store for the selected month, sorted by amount descending.
  *   - Over-budget bar uses the Decision 006 `warn` token (gentle amber, never `bad`/red) per the no-shame
- *     color rule (Decision 025); on-track uses `good`. Old FeatureColors.scan burnt-amber had no token equivalent.
+ *     color rule (Decision 025); on-track uses `good`.
  *   - Budget progress bar always compares against the live monthlyBudgetNok, even when viewing past months.
  *   - Daily-spend pace (Decision 026): under the progress bar, actualPerDay (spend since lastMonthlyReset ÷
  *     inclusive days elapsed) vs. budgetedPerDay (monthlyBudgetNok ÷ payday-to-payday periodLength). Over-pace

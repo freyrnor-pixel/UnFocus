@@ -2,19 +2,17 @@
  * Surface.tsx — material-aware card surface.
  *
  * Wraps children in a two-layer pattern (outer view carries border +
- * shadow, inner overflow:hidden mask carries fill + sheen) so any card can
- * pick up the user's chosen glass/metal/rock/paper/plain finish instead of a
- * flat fill — this is what makes "backgrounds and the material things are
- * made of" actually track the Settings → Material choice app-wide.
+ * shadow, inner overflow:hidden mask carries fill + sheen) so any card uses
+ * the glass surface finish — frosted glass over the ambient ScreenBackground.
  * Drop-in replacement for `<View style={[styles.card, {backgroundColor:
  * theme.surface}]}>` — pass the same `style` (radius/margin/padding all still
  * work; padding is automatically moved to the inner content so the sheen
  * still spans the full card).
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, store/useSettingsStore, expo-blur, expo-linear-gradient
+ *   Imports → constants/theme, lib/useAppTheme, expo-blur, expo-linear-gradient
  *   Used by → app screens that render a "card" surface (see grep for `<Surface`)
- *   Data    → reads bubbleMaterial from useSettingsStore when `material` prop is omitted
+ *   Data    → —
  *
  * Edit notes:
  *   - Glass (and only glass) is built around a real `<BlurView>` (expo-blur) per
@@ -26,8 +24,7 @@
  *     selects the blur intensity AND the wash alpha — one shared code path; what sits
  *     *behind* the card (ScreenBackground backdrop for ambient, live scrolling content
  *     for overlay) is decided by where the caller mounts the Surface, not here.
- *     `surfaceContext` is a no-op for metal/rock/paper/plain — they keep the opaque
- *     getMaterialStyle() fill + sheen. Android wires
+ *     Android wires
  *     `experimentalBlurMethod="dimezisBlurView"` (Decision 008 (2)).
  *   - The top sheen highlight is a single `<LinearGradient>` (expo-linear-gradient)
  *     fading mat.sheenColor to transparent — a real continuous gradient, not two
@@ -55,20 +52,18 @@ import React from 'react';
 import { Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getMaterialStyle, MaterialName, Radius } from '@/constants/theme';
+import { getMaterialStyle, Radius } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
-import { useSettingsStore } from '@/store/useSettingsStore';
 
 /**
  * Which backdrop a glass Surface frosts (Decision 008). 'ambient' (default) sits
  * over the calm ScreenBackground backdrop and uses a lighter blur; 'overlay' sits
  * over live scrolling content (sticky headers, sheets, nav bar) and blurs harder so
- * the moving content behind stays unreadable-but-present. No-op for non-glass.
+ * the moving content behind stays unreadable-but-present.
  */
 export type SurfaceContext = 'ambient' | 'overlay';
 
 type Props = {
-  material?: MaterialName;
   surfaceContext?: SurfaceContext;
   tint?: string;
   style?: StyleProp<ViewStyle>;
@@ -124,14 +119,12 @@ const OWNED_KEYS = new Set([
   'shadowColor', 'shadowOpacity', 'shadowRadius', 'shadowOffset', 'elevation',
 ]);
 
-export default function Surface({ material, surfaceContext = 'ambient', tint, style, children }: Props) {
+export default function Surface({ surfaceContext = 'ambient', tint, style, children }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
-  const settingsMaterial = useSettingsStore((s) => s.bubbleMaterial);
-  const finish = material ?? settingsMaterial;
   const base = tint ?? theme.surface;
-  const mat = getMaterialStyle(base, finish);
-  const isGlass = finish === 'glass';
+  const mat = getMaterialStyle(base);
+  const isGlass = true;
 
   const flat = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
   const outer: Record<string, unknown> = {};

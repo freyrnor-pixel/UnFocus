@@ -20,8 +20,7 @@
  *   - Decision 001 tier='site' scaffold (BottomNav + header chrome). The tab switcher renders
  *     as the first (non-sticky) row of the scroll content — the old fixed-tab bar is inlined,
  *     since ScreenScaffold owns the header/nav chrome.
- *   - Decision 006 tokens only. The inline row helpers read useAppTheme() directly rather than
- *     taking the retired `theme: AppColors` prop (same precedent as every other ported screen).
+ *   - Decision 006 tokens only; reads useAppTheme() internally.
  *   - Loads shared + source stores on focus so cross-store mirrors stay fresh; initDb() is
  *     idempotent but guarded by a module flag.
  */

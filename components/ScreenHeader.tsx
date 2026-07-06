@@ -7,9 +7,9 @@
  * upper-left (gear outermost), title upper-right — so the controls stay thumb-reachable.
  * Tier 'sub': back link left (iOS only), title immediately right of it and left-aligned,
  * right slot for the screen-specific action (not mirrored). Wrapped in a translucent
- * Surface that picks up the user's bubbleMaterial setting, using surfaceContext="overlay"
- * (stronger blur) since this header floats over live scrolling content, not the calm
- * ScreenBackground backdrop — the ambient default let scrolled text read through it.
+ * Surface using surfaceContext="overlay" (stronger blur) since this header floats over
+ * live scrolling content, not the calm ScreenBackground backdrop — the ambient default
+ * let scrolled text read through it.
  *
  * Connections:
  *   Imports → constants/theme, lib/i18n, lib/useAppTheme, store/useSettingsStore,
