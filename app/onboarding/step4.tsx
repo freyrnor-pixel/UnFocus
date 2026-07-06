@@ -1,9 +1,9 @@
 /**
- * step4.tsx — Notification confirmation (guided step 4 of 6)
+ * step4.tsx — Notification confirmation (guided step 4 of 5)
  *
  * Task notifications and the weekly shopping reminder default ON, but each has
  * a toggle here so the user can opt out during onboarding instead of only later
- * in Settings. The actual OS permission request fires in step6 on finish.
+ * in Settings. The actual OS permission request fires in step5 on finish.
  *
  * Connections:
  *   Imports → @/store/useSettingsStore, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
@@ -14,7 +14,7 @@
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
- *   - No OS permission prompt or scheduling here — step6.finish() does that.
+ *   - No OS permission prompt or scheduling here — step5.finish() does that.
  *   - next() → router.push "/onboarding/step5"; Previous uses router.back().
  *   - Decision 006 tokens throughout — task check icon uses `good`, shopping icon
  *     uses feature accent `featShop`.
@@ -86,7 +86,7 @@ export default function OnboardingStep4() {
         </View>
 
         <View style={styles.progress}>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <View
               key={i}
               style={[

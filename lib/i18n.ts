@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → store/useSettingsStore
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/onboarding/step6.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/BubbleMenu.tsx, components/DayTimeline.tsx, components/DebugOverlay.tsx, components/QuickAddSheet.tsx, components/SharedRequestsSection.tsx, components/ShoppingQuickAddSheet.tsx, components/TaskItem.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/BubbleMenu.tsx, components/DayTimeline.tsx, components/DebugOverlay.tsx, components/QuickAddSheet.tsx, components/SharedRequestsSection.tsx, components/ShoppingQuickAddSheet.tsx, components/TaskItem.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
  *   Data    → reads `language` from the settings Zustand store
  *
  * Edit notes:
@@ -28,12 +28,6 @@ export type Lang = 'en' | 'no';
 const en = {
   // Greeting
   greeting: { morning: 'Good morning', day: 'Good day', evening: 'Good evening' },
-  // Home-screen companion reactions (Decision 039) — spoken by Pet.tsx
-  petCompanion: {
-    praise: ['Look at you go! ✨', "That's one down! 🎉", 'Yes! Keep it up! 💪', "You're on a roll! 🌟"],
-    feedHint: "Drag a snack over — I'd love that",
-    feedThanks: 'Mmm, thank you! 🥰',
-  },
   days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
   months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
   // Short month names for date-range labels (lib/date.ts's formatDateRange)
@@ -721,11 +715,6 @@ const en = {
       free: 'UnFocus is free and always will be.',
       cta: 'Got it →',
     },
-    step6: {
-      title: 'Meet your companion',
-      subtitle: 'A small friend that cheers you on. Give it a name and make it yours.',
-      namePlaceholder: 'Give your pet a name',
-    },
   },
   // Accessibility settings (Proposal 4)
   settings: {
@@ -747,22 +736,6 @@ const en = {
       headline: 'Your data stays with you',
       local: 'Everything is stored only on this device — nothing is sent anywhere.',
       free: 'UnFocus is free and always will be.',
-    },
-    // Companion pet (Proposal 6)
-    pet: {
-      toggle: 'Companion pet',
-      toggleSubtitle: 'A small friend that cheers you on',
-      name: 'Pet name',
-      namePlaceholder: 'Give your pet a name',
-      type: 'Pet type',
-      colour: 'Colour',
-      typeLabels: {
-        cat: 'Cat',
-        dog: 'Dog',
-        bird: 'Bird',
-        fox: 'Fox',
-        bunny: 'Bunny',
-      },
     },
     // AP-05 — notification quiet hours
     quietHours: {
@@ -1009,11 +982,6 @@ const en = {
 
 const no: typeof en = {
   greeting: { morning: 'God morgen', day: 'God dag', evening: 'God kveld' },
-  petCompanion: {
-    praise: ['Se på deg! ✨', 'Én av veien! 🎉', 'Ja! Fortsett sånn! 💪', 'Du er i flytsonen! 🌟'],
-    feedHint: 'Dra en snacks bort til meg',
-    feedThanks: 'Mmm, takk! 🥰',
-  },
   days: ['søndag', 'mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'],
   months: ['januar', 'februar', 'mars', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'desember'],
   monthsShort: ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'],
@@ -1450,11 +1418,6 @@ const no: typeof en = {
       free: 'UnFocus er gratis og vil alltid være det.',
       cta: 'Skjønner →',
     },
-    step6: {
-      title: 'Møt følgesvennen din',
-      subtitle: 'En liten vennen som heier på deg. Gi den et navn og gjør den til din egen.',
-      namePlaceholder: 'Gi kjæledyret et navn',
-    },
   },
   settings: {
     accessibility: {
@@ -1474,21 +1437,6 @@ const no: typeof en = {
       headline: 'Dataene dine er hos deg',
       local: 'Alt lagres kun på denne enheten — ingenting sendes noe sted.',
       free: 'UnFocus er gratis og vil alltid være det.',
-    },
-    pet: {
-      toggle: 'Følgeven',
-      toggleSubtitle: 'En liten venn som heier på deg',
-      name: 'Navn på kjæledyr',
-      namePlaceholder: 'Gi kjæledyret et navn',
-      type: 'Type kjæledyr',
-      colour: 'Farge',
-      typeLabels: {
-        cat: 'Katt',
-        dog: 'Hund',
-        bird: 'Fugl',
-        fox: 'Rev',
-        bunny: 'Kanin',
-      },
     },
     // AP-05 — varslingsfri (stille) periode
     quietHours: {

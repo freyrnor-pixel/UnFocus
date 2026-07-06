@@ -3,8 +3,8 @@
  *
  * Zustand store mirroring the one settings row: user name, language, theme,
  * dark mode, reminder/notification toggles (including quiet hours, task/habit notification toggles), reset cadence,
- * work/essentials modes, onboarding state, accessibility flags, companion pet
- * settings, monthly grocery budget (monthlyBudgetNok), the local account
+ * work/essentials modes, onboarding state, accessibility flags, monthly
+ * grocery budget (monthlyBudgetNok), the local account
  * (accountName/accountCreated — device-only profile, Decision 039), and the debug
  * overlay's enable flag + bubble-wheel tuning values.
  * persistentNotifEnabled toggles the always-current "today's overview" notification
@@ -46,7 +46,6 @@ export type ColorTheme = 'default' | 'summer' | 'nature' | 'fluffyPink' | 'gothi
 export type Language = 'en' | 'no';
 export type DarkMode = 'system' | 'on' | 'off';
 export type FontSizePref = 'small' | 'default' | 'large';
-export type PetType = 'cat' | 'dog' | 'bird' | 'fox' | 'bunny';
 /** Surface finish for bubbles/FAB and, via Surface/ScreenBackground, cards and screen backdrops app-wide — see getMaterialStyle() in constants/theme.ts. */
 export type BubbleMaterial = 'glass' | 'metal' | 'rock' | 'paper' | 'plain';
 
@@ -75,11 +74,6 @@ export type Settings = {
   reducedMotion: boolean;
   particlesEnabled: boolean;
   fontSize: FontSizePref;
-  // Companion pet (Proposal 6)
-  petEnabled: boolean;
-  petName: string;
-  petType: PetType;
-  petColor: string;
   // Left-handed mode
   leftHanded: boolean;
   // Custom theme colors
@@ -182,10 +176,6 @@ function rowToSettings(row: Row): Settings {
     reducedMotion: readBool(row, 'reduced_motion'),
     particlesEnabled: readInt(row, 'particles_enabled', 1) !== 0,
     fontSize: readStr(row, 'font_size', 'default') as FontSizePref,
-    petEnabled: readBool(row, 'pet_enabled'),
-    petName: readStr(row, 'pet_name'),
-    petType: readStr(row, 'pet_type', 'cat') as PetType,
-    petColor: readStr(row, 'pet_color', '#A78BFA'),
     leftHanded: readBool(row, 'left_handed'),
     customPrimaryColor: readStr(row, 'custom_primary_color', '#3B82F6'),
     customSecondaryColor: readStr(row, 'custom_secondary_color', '#10B981'),
@@ -240,10 +230,6 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   reducedMotion: { col: 'reduced_motion', to: bool },
   particlesEnabled: { col: 'particles_enabled', to: bool },
   fontSize: { col: 'font_size' },
-  petEnabled: { col: 'pet_enabled', to: bool },
-  petName: { col: 'pet_name' },
-  petType: { col: 'pet_type' },
-  petColor: { col: 'pet_color' },
   leftHanded: { col: 'left_handed', to: bool },
   customPrimaryColor: { col: 'custom_primary_color' },
   customSecondaryColor: { col: 'custom_secondary_color' },
@@ -298,10 +284,6 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   reducedMotion: false,
   particlesEnabled: true,
   fontSize: 'default' as FontSizePref,
-  petEnabled: false,
-  petName: '',
-  petType: 'cat' as PetType,
-  petColor: '#A78BFA',
   leftHanded: false,
   customPrimaryColor: '#3B82F6',
   customSecondaryColor: '#10B981',
