@@ -1,35 +1,42 @@
 /**
- * HintCard.tsx — dismissible inline helper card shown on most screens.
+ * HintCard.tsx — collapsible instructions button shown on most screens.
  *
- * Renders a flat, bordered hint with an info icon and a left accent bar —
- * deliberately flatter than the elevated/material function cards so hints
- * read as "explanation", not "content". Returns null when the user has
- * disabled hints, so screens can mount it unconditionally.
+ * Renders as a small pill button (info icon + chevron) that expands, on tap,
+ * into the flat bordered hint body with a left accent bar. Collapsed by
+ * default — instructions are opt-in, not always-on chrome. Returns null when
+ * the user has disabled hints, so screens can mount it unconditionally.
  *
  * Connections:
- *   Imports → constants/theme, store/useSettingsStore, lib/useAppTheme
+ *   Imports → constants/theme, store/useSettingsStore, lib/useAppTheme,
+ *             lib/i18n (useT), components/PressableScale
  *   Used by → app/(tabs)/index.tsx, app/(tabs)/plans.tsx, app/(tabs)/health.tsx,
  *             app/(tabs)/scan.tsx, app/habits.tsx, app/task-form.tsx, app/meals.tsx,
  *             app/habit-form.tsx, app/notes.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx
- *             — Decision 030 closed Decision 010: HintCard reach is "by demonstrated need," not
- *             blanket-per-screen. The shopping mount stays dropped (its mark-then-confirm flow
- *             is taught by the weekly empty-state copy). The mounted screens' `hints.*` copy in
- *             lib/i18n.ts is a numbered start-to-finish how-to, not a one-line blurb.
  *   Data    → reads showHints from useSettingsStore (no writes); colours from
  *             useAppTheme(); scaled fontSize via useScaledStyles()
  *
  * Edit notes:
  *   - Gated on showHints; renders nothing when hints are off — callers should still pass text/example.
- *   - text/example are passed in already-localized; this component does not call useT() itself.
+ *   - text/example are passed in already-localized; this component does not call useT() itself
+ *     except for the toggle button's own label (t.showHint/t.hideHint).
  *   - Uses theme.hintBg/hintBorder/hintAccent (Decision 006 token layer) —
  *     theme-tuned per palette, not a fixed hue.
+ *   - Expand/collapse uses LayoutAnimation (same pattern as ExpandableCard), gated on
+ *     reducedMotion per ANIMATION_GUIDELINES §7; toggle button is PressableScale so it
+ *     gets the standard tap haptic + press-scale for free.
  */
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { LayoutAnimation, Platform, StyleSheet, Text, UIManager, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
+import { useT } from '@/lib/i18n';
+import PressableScale from '@/components/PressableScale';
+
+if (Platform.OS === 'android') {
+  UIManager.setLayoutAnimationEnabledExperimental?.(true);
+}
 
 type Props = {
   text: string;
@@ -39,23 +46,58 @@ type Props = {
 export default function HintCard({ text, example }: Props) {
   const showHints = useSettingsStore((s) => s.showHints);
   const theme = useAppTheme();
+  const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
+  const t = useT();
+  const [open, setOpen] = useState(false);
 
   if (!showHints) return null;
 
+  function toggle() {
+    if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setOpen((v) => !v);
+  }
+
   return (
-    <View style={[styles.card, { backgroundColor: theme.hintBg, borderColor: theme.hintBorder }]}>
-      <View style={[styles.accentBar, { backgroundColor: theme.hintAccent }]} />
-      <Ionicons name="information-circle-outline" size={16} color={theme.hintAccent} style={styles.icon} />
-      <View style={styles.body}>
-        <Text style={[styles.text, { color: theme.text }]}>{text}</Text>
-        {example ? <Text style={[styles.example, { color: theme.textMuted }]}>{example}</Text> : null}
-      </View>
+    <View style={styles.wrap}>
+      <PressableScale
+        onPress={toggle}
+        scaleTo={0.95}
+        accessibilityRole="button"
+        accessibilityLabel={open ? t.hideHint : t.showHint}
+        accessibilityState={{ expanded: open }}
+        style={[styles.toggle, { backgroundColor: theme.hintBg, borderColor: theme.hintBorder }]}
+      >
+        <Ionicons name="information-circle-outline" size={18} color={theme.hintAccent} />
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color={theme.hintAccent} />
+      </PressableScale>
+      {open && (
+        <View style={[styles.card, { backgroundColor: theme.hintBg, borderColor: theme.hintBorder }]}>
+          <View style={[styles.accentBar, { backgroundColor: theme.hintAccent }]} />
+          <View style={styles.body}>
+            <Text style={[styles.text, { color: theme.text }]}>{text}</Text>
+            {example ? <Text style={[styles.example, { color: theme.textMuted }]}>{example}</Text> : null}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
 const baseStyles = StyleSheet.create({
+  wrap: {
+    marginBottom: Spacing.sm,
+  },
+  toggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -64,20 +106,17 @@ const baseStyles = StyleSheet.create({
     overflow: 'hidden',
     paddingVertical: Spacing.sm,
     paddingRight: Spacing.md,
-    marginBottom: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   accentBar: {
     width: 3,
     alignSelf: 'stretch',
     marginRight: Spacing.sm,
   },
-  icon: {
-    marginTop: 2,
-    marginRight: Spacing.xs,
-  },
   body: {
     flex: 1,
     gap: Spacing.xs,
+    paddingLeft: Spacing.xs,
   },
   text: {
     fontSize: FontSize.sm,

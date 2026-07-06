@@ -84,6 +84,8 @@ const en = {
   switchModeConfirm: 'Switch anyway',
   updateReadyBanner: '⬇️ Update ready',
   updateRestartBtn: 'Restart',
+  showHint: 'How this works',
+  hideHint: 'Hide instructions',
   // Task form
   newTask: 'New plan',
   add: 'Add',
@@ -1041,6 +1043,8 @@ const no: typeof en = {
   switchMode: 'Bytt modus',
   switchModeTitle: 'Bytt til personlig modus?',
   switchModeBody: 'Husk å fokusere på det som er foran deg! Jobb-modus vil deaktiveres frem til du åpner appen på nytt.',
+  showHint: 'Slik fungerer det',
+  hideHint: 'Skjul instruksjoner',
   switchModeConfirm: 'Bytt likevel',
   updateReadyBanner: '⬇️ Oppdatering klar',
   updateRestartBtn: 'Start på nytt',
