@@ -2,22 +2,23 @@
  * index.tsx — Home screen (the daily landing hub).
  *
  * The app's calm daily overview: a low-weight greeting, then the three converged
- * previews (Decision 009 #2) — Notes (InboxSection), Plans (the shared PlanTaskCard
- * day-view), and Shopping (current week's list, ShoppingRow family on ExpandableCard) —
- * plus gentle completed-count points. Mounts via ScreenScaffold (Decision 001): the
- * scaffold owns the background, particles, header chrome (Settings gear + Focus eye),
- * and BottomNav; this screen only supplies content and wires Focus mode.
+ * previews — Notes (HomeNotesCard), Plans (the shared PlanTaskCard day-view), and
+ * Shopping (HomeShoppingCard) — plus gentle completed-count points. Mounts via
+ * ScreenScaffold (Decision 001): the scaffold owns the background, particles, header
+ * chrome (Settings gear + Focus eye), and BottomNav; this screen only supplies
+ * content and wires Focus mode.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/InboxSection,
- *             components/ExpandableCard, components/ShoppingRow, components/AddFAB, components/HintCard,
+ *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HomeNotesCard,
+ *             components/HomeShoppingCard, components/AddFAB, components/HintCard,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
- *             lib/useAppTheme, store/useTaskStore, store/useShoppingStore, store/useShoppingListStore,
- *             store/useSettingsStore
+ *             lib/useAppTheme, store/useTaskStore, store/useNotesStore, store/useShoppingStore,
+ *             store/useShoppingListStore, store/useSettingsStore
  *   Used by → Expo Router route "/" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
- *   Data    → reads useTaskStore (tasks) + useShoppingStore (items) + useShoppingListStore
- *             (currentList(today)); mutates via toggle / toggleCheck / toggleCollected /
- *             adjustAmount / putBackToInventory / removeWithSource. Settings via useSettingsStore.
+ *   Data    → reads useTaskStore (tasks) + useNotesStore (notes) + useShoppingStore (items) +
+ *             useShoppingListStore (currentList(today)); mutates via toggle / toggleCheck /
+ *             toggleCollected / adjustAmount / putBackToInventory / removeWithSource.
+ *             Settings via useSettingsStore.
  *
  * Edit notes:
  *   - **Focus mode (Decisions 009 #4 / 018)**: Home-only, session-ephemeral local state. Its
@@ -35,33 +36,17 @@
  *     `dayViewAllDone` state (Decision 009 #4 "gentle done-state, not an empty screen").
  *   - **Plans preview = PlanTaskCard read-only (Decision 009a)**: OFF-focus, the preview IS the
  *     day-view rendered read-only, with a "See everything →" link to /plans. Not a bespoke card.
- *     `allTasks` (full store) is passed so Decision 020 cross-date followers surface (the
- *     surfacing itself lives inside PlanTaskCard; this screen only feeds it the data).
- *   - **Notes preview = InboxSection (Decision 009 #2)**: self-contained (reads its own store),
- *     renders nothing when the inbox is empty; the separate old useNotesStore Home preview is
- *     folded away by the convergence (Notes preview → InboxSection).
- *   - **Shopping preview**: the current week's list only (useShoppingListStore.currentList), its
- *     rows converged onto ExpandableCard + ShoppingRow (Decision 009 #2 / Session A). Reorder is
- *     intentionally omitted here — drag-reorder needs the parent screen's hit-testing (Decision
- *     011 R1), which is app/shopping.tsx's job, not a lightweight Home preview's. Tick-to-buy,
- *     cart-collect, stepper, and catalog-vs-adhoc remove are all preserved.
- *   - **Deliberately NOT ported (deps superseded or absent — flagged, not silently dropped):**
- *     the old two-section DayTimeline/TaskItem/NextTaskCard Plans stack (superseded by
- *     PlanTaskCard per 009a); the Backlog + Habits previews (both rendered via `TaskItem`, which
- *     is not ported to this repo); the separate Notes(useNotesStore) preview (folded into
- *     InboxSection by 009 #2); SharedRequestsSection(kind='task') (the ported component supports
- *     only kind='shopping'); the update-ready banner (useUpdateStore not ported); the work-mode
- *     banner (lib/holidays / rankTodayTasks not ported); CoverScreen / SiteSwipeView chrome.
- *   - **Scope item 4 — automation trigger ('shopping_opened') NOT wired: no automation store
- *     exists in this repo** (useAutomationStore / lib automations were never ported — see
- *     useTaskStore's own header flag for the sibling 'task_completed' gap). Wiring it now would
- *     mean building an automation system from scratch (unrecorded), so it is flagged for the
- *     notifications/automation port, not invented here.
- *   - **"More" links (Decision 036)**: a small always-visible (off-Focus) row of chips
- *     linking to the off-nav sites Notes (/notes) and Food (/meals), which have no BottomNav
- *     tab. Without these, both screens were unreachable. Automations gets its entry from
- *     Settings, not here. Reachability is data-independent (shown even when those screens are
- *     empty), unlike the InboxSection preview which self-hides when the inbox is empty.
+ *     `allTasks` (full store) is passed so Decision 020 cross-date followers surface.
+ *   - **Notes preview = HomeNotesCard**: reads useNotesStore, shows first 3 active notes with
+ *     inline toggle-checked, quick-add (→ /notes), and "See all →" link. Self-hides when empty.
+ *   - **Shopping preview = HomeShoppingCard**: shows first 4 items flat when collapsed; full
+ *     nested dish-group ExpandableCard structure when expanded. Reorder intentionally omitted
+ *     (Decision 011 R1). Tick-to-buy, cart-collect, stepper, and catalog-vs-adhoc remove preserved.
+ *   - **Deliberately NOT ported**: DayTimeline/TaskItem/NextTaskCard Plans stack, Backlog + Habits
+ *     previews, SharedRequestsSection(kind='task'), update-ready banner, work-mode banner,
+ *     CoverScreen / SiteSwipeView chrome, automation trigger ('shopping_opened').
+ *   - **"More" links (Decision 036)**: off-Focus chips to /notes and /meals. Reachability is
+ *     data-independent — shown even if HomeNotesCard self-hides (notes empty on first launch).
  *   - All visible strings via useT(); today is todayStr() (YYYY-MM-DD).
  */
 import React, { useCallback, useState } from 'react';
@@ -69,9 +54,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter, usePathname, useFocusEffect } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PlanTaskCard from '@/components/PlanTaskCard';
-import InboxSection from '@/components/InboxSection';
-import ExpandableCard from '@/components/ExpandableCard';
-import ShoppingRow from '@/components/ShoppingRow';
+import HomeNotesCard from '@/components/HomeNotesCard';
+import HomeShoppingCard from '@/components/HomeShoppingCard';
 import AddFAB from '@/components/AddFAB';
 import HintCard from '@/components/HintCard';
 import { goToSite } from '@/lib/siteNav';
@@ -82,6 +66,7 @@ import { computeListGroups } from '@/lib/shoppingGroups';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { Task, useTaskStore } from '@/store/useTaskStore';
+import { useNotesStore } from '@/store/useNotesStore';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import { useShoppingListStore } from '@/store/useShoppingListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -104,6 +89,8 @@ export default function HomeScreen() {
   const toggleTask = useTaskStore((s) => s.toggle);
   const completedCountFn = useTaskStore((s) => s.completedCount);
   const loadTasks = useTaskStore((s) => s.load);
+
+  const loadNotes = useNotesStore((s) => s.load);
 
   const shoppingItems = useShoppingStore((s) => s.items);
   const toggleShoppingItem = useShoppingStore((s) => s.toggleCheck);
@@ -128,6 +115,7 @@ export default function HomeScreen() {
       }
       loadSettings();
       loadTasks();
+      loadNotes();
       loadShopping();
       loadLists();
       // Focus mode's default is the persisted "Focus mode" setting
@@ -139,7 +127,7 @@ export default function HomeScreen() {
       const defaultFocus = useSettingsStore.getState().essentialsModeEnabled;
       setFocusMode(defaultFocus);
       return () => setFocusMode(defaultFocus);
-    }, [loadSettings, loadTasks, loadShopping, loadLists])
+    }, [loadSettings, loadTasks, loadNotes, loadShopping, loadLists])
   );
 
   const todayTasks = tasksForDate(today);
@@ -158,9 +146,6 @@ export default function HomeScreen() {
   const { dishGroups, ungroupedUnchecked, checked } = currentShoppingList
     ? computeListGroups(shoppingItems, currentShoppingList.id)
     : { dishGroups: [], ungroupedUnchecked: [], checked: [] };
-  const shoppingItemCount =
-    dishGroups.reduce((n, [, g]) => n + g.length, 0) + ungroupedUnchecked.length + checked.length;
-
   if (!settings.loaded || !settings.setupComplete) {
     return <View style={[styles.blank, { backgroundColor: theme.bg }]} />;
   }
@@ -181,22 +166,6 @@ export default function HomeScreen() {
       removeWithSource(item.id);
     }
   }
-
-  const renderShoppingRow = (item: ShoppingItem, idx: number, total: number, variant: 'planned' | 'cart') => (
-    <View key={item.id}>
-      <ShoppingRow
-        item={item}
-        variant={variant}
-        onToggle={() => toggleShoppingItem(item.id)}
-        onCollect={variant === 'cart' ? () => toggleShoppingCollected(item.id) : undefined}
-        onRemove={() => handleRemoveShoppingItem(item)}
-        onIncrement={() => adjustAmount(item.id, 1)}
-        onDecrement={() => adjustAmount(item.id, -1)}
-        inStockLabel={t.inStockLabel}
-      />
-      {idx < total - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.surfaceMuted }]} />}
-    </View>
-  );
 
   return (
     <>
@@ -230,8 +199,8 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* Notes preview (Decision 009 #2 — InboxSection). Hidden in Focus mode. */}
-          {!focusMode && <InboxSection />}
+          {/* Notes preview — HomeNotesCard (real Notes / useNotesStore). Hidden in Focus mode. */}
+          {!focusMode && <HomeNotesCard />}
 
           {/* Plans preview = the shared PlanTaskCard day-view (Decision 009a). */}
           <View style={styles.section}>
@@ -251,54 +220,25 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Shopping preview (Decision 009 #2 — current week's list). Hidden in Focus mode. */}
+          {/* Shopping preview — HomeShoppingCard. Hidden in Focus mode. */}
           {!focusMode && (
             <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.shoppingPreview}</Text>
-                <Pressable onPress={() => goToSite(router, pathname, '/shopping')} hitSlop={8}>
-                  <Text style={[styles.seeAll, { color: theme.accent }]}>{t.seeAll}</Text>
-                </Pressable>
-              </View>
               {!currentShoppingList ? (
                 <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.shoppingEmpty}</Text>
               ) : (
-                <ExpandableCard
-                  title={currentShoppingList.name}
-                  badge={shoppingItemCount > 0 ? String(shoppingItemCount) : undefined}
-                  accentColor={theme.featShop}
-                  defaultOpen={false}
-                >
-                  {dishGroups.map(([dishName, groupItems]) => (
-                    <ExpandableCard
-                      key={dishName}
-                      title={dishName}
-                      subtitle={t.ingredientsCount(groupItems.length)}
-                      accentColor={theme.featShop}
-                      defaultOpen={false}
-                    >
-                      {groupItems.map((item, idx) => renderShoppingRow(item, idx, groupItems.length, 'planned'))}
-                    </ExpandableCard>
-                  ))}
-
-                  {ungroupedUnchecked.length > 0 && (
-                    <View style={styles.shoppingSection}>
-                      <Text style={[styles.sectionLabel, { color: theme.featShop }]}>{t.inWeeklyListSection}</Text>
-                      {ungroupedUnchecked.map((item, idx) => renderShoppingRow(item, idx, ungroupedUnchecked.length, 'planned'))}
-                    </View>
-                  )}
-
-                  {checked.length > 0 && (
-                    <View style={styles.shoppingSection}>
-                      <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.inKurvenSection(checked.length)}</Text>
-                      {checked.map((item, idx) => renderShoppingRow(item, idx, checked.length, 'cart'))}
-                    </View>
-                  )}
-
-                  {shoppingItemCount === 0 && (
-                    <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.shoppingEmpty}</Text>
-                  )}
-                </ExpandableCard>
+                <HomeShoppingCard
+                  list={currentShoppingList}
+                  dishGroups={dishGroups}
+                  ungroupedUnchecked={ungroupedUnchecked}
+                  checked={checked}
+                  onToggle={(id) => toggleShoppingItem(id)}
+                  onCollect={(id) => toggleShoppingCollected(id)}
+                  onRemove={handleRemoveShoppingItem}
+                  onIncrement={(id) => adjustAmount(id, 1)}
+                  onDecrement={(id) => adjustAmount(id, -1)}
+                  onSeeAll={() => goToSite(router, pathname, '/shopping')}
+                  inStockLabel={t.inStockLabel}
+                />
               )}
             </View>
           )}
@@ -354,12 +294,7 @@ const baseStyles = StyleSheet.create({
   progressTrack: { height: 4, borderRadius: Radius.full, marginBottom: Spacing.lg, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: Radius.full },
   section: { marginBottom: Spacing.lg },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
   sectionTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
-  seeAll: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: Spacing.xs },
-  shoppingSection: { gap: Spacing.xs, marginTop: Spacing.sm },
-  rowDivider: { height: 1 },
   moreLinks: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md, flexWrap: 'wrap' },
   moreChip: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, borderRadius: Radius.full },
   moreChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },

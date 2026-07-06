@@ -12,7 +12,7 @@
  * Connections:
  *   Imports → components/ExpandableCard, components/PressableScale, constants/theme,
  *             expo-router, lib/date, lib/haptics, lib/i18n, lib/useAppTheme, store/useInboxStore
- *   Used by → app/index.tsx (Home screen — the Notes preview, Decision 009 #2; hidden in Focus mode)
+ *   Used by → (no longer mounted on Home — replaced by components/HomeNotesCard which reads useNotesStore)
  *   Data    → reads/writes useInboxStore (inbox_items, Phase 5 stub); promoteToTask()
  *             also writes useTaskStore; Edit routes to /capture?id= to edit a row
  *             (route not ported yet either — out of scope per this component's own port)
