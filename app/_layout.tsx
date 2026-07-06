@@ -9,10 +9,10 @@
  * settings.debugModeEnabled).
  *
  * Connections:
- *   Imports → expo-router, expo-status-bar, react-native-gesture-handler,
+ *   Imports → expo-router, expo-status-bar, react-native (AppState), react-native-gesture-handler,
  *             react-native-safe-area-context (SafeAreaProvider — supplies insets to every
  *             screen's SafeAreaView so content clears the status bar on Android too),
- *             @expo-google-fonts/nunito, lib/db, lib/syncService, lib/useAppTheme,
+ *             @expo-google-fonts/nunito, lib/backup (saveAutoBackup), lib/db, lib/syncService, lib/useAppTheme,
  *             store/useSettingsStore, store/useAutomationStore, store/useCatalogStore,
  *             store/useHabitStore, store/useHealthStore, store/useInboxStore,
  *             store/useMealStore, store/useNotesStore, store/usePeersStore, store/useReceiptStore,
@@ -49,8 +49,8 @@
  *   - DebugOverlay is gated on `loaded && debugModeEnabled` so it never flashes before
  *     settings load and is absent for users who haven't enabled it.
  */
-import React, { useEffect } from 'react';
-import { Text as RNText, TextInput as RNTextInput } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { AppState, Text as RNText, TextInput as RNTextInput } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -64,6 +64,7 @@ import {
   Nunito_800ExtraBold,
 } from '@expo-google-fonts/nunito';
 import { initDb } from '@/lib/db';
+import { saveAutoBackup } from '@/lib/backup';
 import { startSync, stopSync } from '@/lib/syncService';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -105,6 +106,9 @@ export default function RootLayout() {
   const lanSyncEnabled = useSettingsStore((s) => s.lanSyncEnabled);
   const deviceId = useSettingsStore((s) => s.deviceId);
   const userName = useSettingsStore((s) => s.userName);
+  const autoBackupEnabled = useSettingsStore((s) => s.autoBackupEnabled);
+  const autoBackupRef = useRef(autoBackupEnabled);
+  autoBackupRef.current = autoBackupEnabled;
 
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
@@ -162,6 +166,16 @@ export default function RootLayout() {
     return () => stopSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, lanSyncEnabled, deviceId]);
+
+  // Auto-backup: save to the fixed local path whenever the app goes to background.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background' && autoBackupRef.current) {
+        void saveAutoBackup();
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   // Onboarding guard: send new users to the flow until setup is complete.
   useEffect(() => {

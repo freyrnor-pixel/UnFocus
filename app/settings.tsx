@@ -7,11 +7,12 @@
  * (local `tab` state, no router routes).
  *
  * - Generelt: Focus mode toggle → Profil (name + language) → Utseende (dark mode) →
- *   Tilgjengelighet (reduced motion, particles, font size, left-handed) → Motivasjon
- *   (points, hints) → Data group (debug mode toggle, Local account card (Decision 039 —
- *   device-only profile: name + create date, backup/restore via lib/backup), LAN sync,
- *   Child mode, destructive resets, version & updates).
- * - Planer: Jobb-modus (work mode, auto-activate + hours + work days, Norske helligdager).
+ *   Tilgjengelighet (reduced motion, particles, font size, left-handed) →
+ *   Data group (debug mode toggle, Local account card (Decision 039 —
+ *   device-only profile: name + create date, auto-backup toggle, backup/restore via
+ *   lib/backup [share excludes user name]), LAN sync, destructive resets, version & updates).
+ * - Modi (Additional modes): Jobb-modus (work mode, auto-activate + hours + work days,
+ *   Norske helligdager) → Foreldremodus (child-mode, password, enter/exit) → Skolemodus toggle.
  * - Handle: shopping list settings (weekly reset weekday, monthly reset date, monthly budget).
  * - Varsler: Ukentlig (weekly reminder + time) → Generelle (independent plan-notifications and
  *   habit-reminders toggles, persistent daily overview, quiet hours).
@@ -21,10 +22,11 @@
  *
  * Connections:
  *   Imports → components/AppModal, components/FormControls, components/ScreenScaffold,
- *             components/SectionDivider, components/Surface, constants/theme, lib/backup,
- *             lib/childLock, lib/haptics, lib/i18n, lib/notifications, lib/reminders,
- *             lib/syncService, lib/useAppTheme, store/useHabitStore, store/useSettingsStore,
- *             store/useShoppingStore, store/useTaskStore
+ *             components/SectionDivider, components/Surface, constants/theme, lib/backup
+ *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
+ *             getAutoBackupLabel/saveAutoBackup), lib/childLock, lib/haptics, lib/i18n,
+ *             lib/notifications, lib/reminders, lib/syncService, lib/useAppTheme,
+ *             store/useHabitStore, store/useSettingsStore, store/useShoppingStore, store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
  *   Data    → useSettingsStore (settings table; incl. essentialsModeEnabled, quietHours*,
  *             monthlyBudgetNok, taskNotificationsEnabled, habitNotificationsEnabled,
@@ -84,7 +86,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { syncReminders } from '@/lib/reminders';
 import { syncNotificationCategories } from '@/lib/notifications';
-import { exportBackup, exportBackupToDevice, pickAndParseBackup, restoreBackup, reloadApp } from '@/lib/backup';
+import { exportBackup, exportBackupToDevice, pickAndParseBackup, restoreBackup, reloadApp, getAutoBackupLabel, saveAutoBackup } from '@/lib/backup';
 import { setPassword as setChildPassword, verifyPassword as verifyChildPassword } from '@/lib/childLock';
 import { isSyncAvailable } from '@/lib/syncService';
 import { useT, getTranslations } from '@/lib/i18n';
@@ -93,7 +95,7 @@ import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { selection, warning, heavy } from '@/lib/haptics';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 
-type SettingsTab = 'generelt' | 'planer' | 'handle' | 'varsler';
+type SettingsTab = 'generelt' | 'handle' | 'varsler' | 'moduser';
 const TAB_BAR_HEIGHT = 48;
 
 export default function SettingsScreen() {
@@ -180,9 +182,9 @@ export default function SettingsScreen() {
 
   const TABS: { key: SettingsTab; label: string }[] = [
     { key: 'generelt', label: t.config.tabs.general },
-    { key: 'planer', label: t.nav.plans },
     { key: 'handle', label: t.nav.shop },
     { key: 'varsler', label: t.config.tabs.notifications },
+    { key: 'moduser', label: t.config.tabs.additionalModes },
   ];
 
   const DAY_LABELS = t.dayFull;
@@ -455,28 +457,6 @@ export default function SettingsScreen() {
               </Surface>
             </View>
 
-            {/* MOTIVASJON */}
-            <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.sectionMotivation}</Text>
-              <Surface style={styles.card}>
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.showPointsLabel}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.desc.points}</Text>
-                  </View>
-                  <FormSwitch checked={settings.showPoints} onChange={(v) => settings.update({ showPoints: v })} />
-                </View>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.showHintsLabel}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.desc.hints}</Text>
-                  </View>
-                  <FormSwitch checked={settings.showHints} onChange={(v) => settings.update({ showHints: v })} />
-                </View>
-              </Surface>
-            </View>
-
             {/* ===== DATA ===== */}
             <SectionDivider />
             <Text style={[styles.groupHeader, { color: theme.bad }]}>{t.config.sections.data}</Text>
@@ -527,6 +507,27 @@ export default function SettingsScreen() {
                   </Pressable>
                 )}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                {/* Auto-backup toggle */}
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.autoBackup.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.autoBackup.hint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.autoBackupEnabled}
+                    onChange={(v) => {
+                      selection();
+                      applyAndSync({ autoBackupEnabled: v });
+                      if (v) void saveAutoBackup();
+                    }}
+                  />
+                </View>
+                {settings.autoBackupEnabled && (
+                  <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs, marginBottom: 0 }]}>
+                    {t.config.autoBackup.pathLabel} {getAutoBackupLabel()}
+                  </Text>
+                )}
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <Pressable style={styles.dangerBtn} onPress={handleSaveToDevice}>
                   <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.saveToDevice}</Text>
                 </Pressable>
@@ -534,57 +535,14 @@ export default function SettingsScreen() {
                 <Pressable style={styles.dangerBtn} onPress={handleExport}>
                   <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.shareCopy}</Text>
                 </Pressable>
+                <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs, marginBottom: 0 }]}>
+                  {t.config.autoBackup.shareNote}
+                </Text>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <Pressable style={styles.dangerBtn} onPress={handleImport}>
                   <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.restoreButton}</Text>
                 </Pressable>
                 <Text style={[styles.descText, { color: theme.textMuted, marginBottom: 0 }]}>{t.account.deviceOnlyNote}</Text>
-              </Surface>
-            </View>
-
-            {/* Child mode (Decision 038c) — locked variant gated by a parent password.
-                The password lives in expo-secure-store (lib/childLock); only the flags
-                are in settings. Full app-shell locking (hiding nav/sharing while childMode
-                is on) is wired at the shell level — this card owns set-password + enter/exit. */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.childModeTitle}</Text>
-              <Surface style={styles.card}>
-                <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeDesc}</Text>
-
-                {settings.childMode ? (
-                  <>
-                    <Text style={[styles.descText, { color: theme.bad, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeLockedNotice}</Text>
-                    <Input
-                      value={childPwInput}
-                      onChangeText={setChildPwInput}
-                      secureTextEntry
-                      placeholder={t.childModeEnterPassword}
-                      autoCapitalize="none"
-                    />
-                    <Pressable style={styles.dangerBtn} onPress={handleExitChildMode}>
-                      <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeExit}</Text>
-                    </Pressable>
-                  </>
-                ) : (
-                  <>
-                    <Input
-                      value={childPwInput}
-                      onChangeText={setChildPwInput}
-                      secureTextEntry
-                      placeholder={t.childModeNewPassword}
-                      autoCapitalize="none"
-                    />
-                    <Pressable style={styles.dangerBtn} onPress={handleSetChildPassword}>
-                      <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
-                        {settings.childModePasswordSet ? t.childModeChangePassword : t.childModeSetPassword}
-                      </Text>
-                    </Pressable>
-                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <Pressable style={styles.dangerBtn} onPress={handleEnableChildMode}>
-                      <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeEnable}</Text>
-                    </Pressable>
-                  </>
-                )}
               </Surface>
             </View>
 
@@ -664,7 +622,7 @@ export default function SettingsScreen() {
           </>
         )}
 
-        {tab === 'planer' && (
+        {tab === 'moduser' && (
           <>
             {/* JOBB-MODUS */}
             <View style={styles.section}>
@@ -749,6 +707,65 @@ export default function SettingsScreen() {
                     <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.holidaysHint}</Text>
                   </View>
                   <FormSwitch checked={settings.holidaysEnabled} onChange={(v) => settings.update({ holidaysEnabled: v })} />
+                </View>
+              </Surface>
+            </View>
+
+            {/* FORELDREMODUS (Parent mode / Child mode) */}
+            <View style={styles.section}>
+              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.childModeTitle}</Text>
+              <Surface style={styles.card}>
+                <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeDesc}</Text>
+                {settings.childMode ? (
+                  <>
+                    <Text style={[styles.descText, { color: theme.bad, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeLockedNotice}</Text>
+                    <Input
+                      value={childPwInput}
+                      onChangeText={setChildPwInput}
+                      secureTextEntry
+                      placeholder={t.childModeEnterPassword}
+                      autoCapitalize="none"
+                    />
+                    <Pressable style={styles.dangerBtn} onPress={handleExitChildMode}>
+                      <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeExit}</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <>
+                    <Input
+                      value={childPwInput}
+                      onChangeText={setChildPwInput}
+                      secureTextEntry
+                      placeholder={t.childModeNewPassword}
+                      autoCapitalize="none"
+                    />
+                    <Pressable style={styles.dangerBtn} onPress={handleSetChildPassword}>
+                      <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
+                        {settings.childModePasswordSet ? t.childModeChangePassword : t.childModeSetPassword}
+                      </Text>
+                    </Pressable>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <Pressable style={styles.dangerBtn} onPress={handleEnableChildMode}>
+                      <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeEnable}</Text>
+                    </Pressable>
+                  </>
+                )}
+              </Surface>
+            </View>
+
+            {/* SKOLEMODUS */}
+            <View style={styles.section}>
+              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.schoolMode.label}</Text>
+              <Surface style={styles.card}>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.schoolMode.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.schoolMode.hint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.schoolModeEnabled}
+                    onChange={(v) => { selection(); settings.update({ schoolModeEnabled: v }); }}
+                  />
                 </View>
               </Surface>
             </View>

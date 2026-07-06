@@ -248,7 +248,7 @@ export default function HomeScreen() {
           </View>
 
           {/* Gentle points */}
-          {!focusMode && settings.showPoints && completedCount > 0 && (
+          {!focusMode && completedCount > 0 && (
             <View style={styles.section}>
               <Text style={[styles.pointsText, { color: theme.textMuted }]}>
                 {t.smallThingsCount(completedCount)}

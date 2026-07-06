@@ -813,6 +813,7 @@ const en = {
       notifications: 'Notifications',
       workMode: 'Work Mode',
       data: 'Data',
+      additionalModes: 'Additional modes',
     },
     // Settings screen top-level tab labels
     tabs: {
@@ -820,6 +821,19 @@ const en = {
       lists: 'Lists',
       notifications: 'Notifications',
       appearance: 'Appearance',
+      additionalModes: 'Modes',
+    },
+    // School mode (Additional modes tab) — placeholder, no logic wired yet
+    schoolMode: {
+      label: 'School mode',
+      hint: 'Focus on school tasks — more features can be enabled here later.',
+    },
+    // Auto-backup to a fixed device path
+    autoBackup: {
+      label: 'Auto-backup',
+      hint: 'Automatically save a local backup whenever changes are made. Nothing is uploaded.',
+      pathLabel: 'Backup location:',
+      shareNote: 'Sharing a copy does not include your name.',
     },
     // One-sentence descriptions under each setting
     desc: {
@@ -1514,12 +1528,24 @@ const no: typeof en = {
       notifications: 'Varsler',
       workMode: 'Jobb-modus',
       data: 'Data',
+      additionalModes: 'Tilleggsmoduser',
     },
     tabs: {
       general: 'Generelt',
       lists: 'Lister',
       notifications: 'Varsler',
       appearance: 'Utseende',
+      additionalModes: 'Modi',
+    },
+    schoolMode: {
+      label: 'Skolemodus',
+      hint: 'Fokuser på skolearbeid — flere funksjoner kan aktiveres her senere.',
+    },
+    autoBackup: {
+      label: 'Automatisk sikkerhetskopiering',
+      hint: 'Lagrer automatisk en lokal sikkerhetskopi ved endringer. Ingenting lastes opp.',
+      pathLabel: 'Lagres til:',
+      shareNote: 'Deling av en kopi inkluderer ikke ditt navn.',
     },
     desc: {
       language: 'Velg språk for alt i appen.',

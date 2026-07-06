@@ -494,6 +494,9 @@ export function initDb() {
     // Week-of-monthly-cycle scheduling for weekly lists — comma-joined ints ("1,3");
     // empty string means "every week" (unchanged behaviour). See store/useShoppingListStore.ts.
     "ALTER TABLE shopping_lists ADD COLUMN active_weeks TEXT DEFAULT ''",
+    // Auto-backup to a fixed local path (settings UI toggle); school mode toggle placeholder.
+    "ALTER TABLE settings ADD COLUMN auto_backup_enabled INTEGER DEFAULT 0",
+    "ALTER TABLE settings ADD COLUMN school_mode_enabled INTEGER DEFAULT 0",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

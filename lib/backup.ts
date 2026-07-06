@@ -102,10 +102,14 @@ function tableColumns(table: string): Set<string> {
   );
 }
 
-function buildBackup(): BackupFile {
+function buildBackup(opts: { redactName?: boolean } = {}): BackupFile {
   const tables: Record<string, Row[]> = {};
   for (const table of listTables()) {
-    tables[table] = db.getAllSync<Row>(`SELECT * FROM "${table}"`);
+    let rows = db.getAllSync<Row>(`SELECT * FROM "${table}"`);
+    if (opts.redactName && table === 'settings') {
+      rows = rows.map((r) => ({ ...r, user_name: '' }));
+    }
+    tables[table] = rows;
   }
   return {
     magic: BACKUP_MAGIC,
@@ -116,6 +120,34 @@ function buildBackup(): BackupFile {
   };
 }
 
+/** Fixed path where auto-backup writes on this platform (null if no suitable location). */
+export function getAutoBackupPath(): string | null {
+  if (Platform.OS === 'ios' && documentDirectory) return `${documentDirectory}unfocus-auto-backup.json`;
+  if (cacheDirectory) return `${cacheDirectory}unfocus-auto-backup.json`;
+  return null;
+}
+
+/** Human-readable description of the auto-backup location shown in settings. */
+export function getAutoBackupLabel(): string {
+  if (Platform.OS === 'ios') return 'Files → On My iPhone/iPad → UnFocus';
+  return 'App internal storage';
+}
+
+/**
+ * Write a full backup (including name) to the fixed auto-backup path.
+ * Silent on failure — never throws. Called automatically when autoBackupEnabled is on.
+ */
+export async function saveAutoBackup(): Promise<void> {
+  const path = getAutoBackupPath();
+  if (!path) return;
+  try {
+    const json = JSON.stringify(buildBackup());
+    await writeAsStringAsync(path, json, { encoding: EncodingType.UTF8 });
+  } catch {
+    // Best-effort — a failed write is not surfaced to the user
+  }
+}
+
 /**
  * Serialise the whole DB to a JSON file in the cache dir and open the OS share
  * sheet so the user can save it wherever they like. Returns 'unavailable' when
@@ -123,7 +155,7 @@ function buildBackup(): BackupFile {
  * failure — the caller surfaces that.
  */
 export async function exportBackup(): Promise<'shared' | 'unavailable'> {
-  const json = JSON.stringify(buildBackup());
+  const json = JSON.stringify(buildBackup({ redactName: true }));
   const uri = `${cacheDirectory}unfocus-backup-${todayStr()}.json`;
   await writeAsStringAsync(uri, json, { encoding: EncodingType.UTF8 });
 
