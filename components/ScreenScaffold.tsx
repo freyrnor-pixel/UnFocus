@@ -80,9 +80,12 @@ type Props = {
   stickyBelowHeader?: React.ReactNode;
   /** Rendered height of `stickyBelowHeader` — required whenever that prop is passed. */
   stickyBelowHeaderHeight?: number;
-  /** Focus-mode toggle (Home only, Decisions 009 #4 / 018) — forwarded to the header eye. */
+  /** Focus-mode toggle (Home only, Decisions 009 #4 / 018) — forwarded to the header. */
   focusActive?: boolean;
   onToggleFocus?: () => void;
+  /** Info/hint toggle — forwarded to the header ⓘ button. */
+  infoActive?: boolean;
+  onInfoToggle?: () => void;
   /**
    * Whether this screen renders its own BottomNav block. Only applies to
    * `tier === 'site'`. Default true. The 5 tab sites (app/(tabs)/*) pass false,
@@ -111,6 +114,8 @@ export default function ScreenScaffold({
   stickyBelowHeaderHeight = 0,
   focusActive,
   onToggleFocus,
+  infoActive,
+  onInfoToggle,
   bottomNav = true,
   ownBackground = true,
 }: Props) {
@@ -185,6 +190,8 @@ export default function ScreenScaffold({
           headerRight={headerRight}
           focusActive={focusActive}
           onToggleFocus={onToggleFocus}
+          infoActive={infoActive}
+          onInfoToggle={onInfoToggle}
         />
       </View>
 
