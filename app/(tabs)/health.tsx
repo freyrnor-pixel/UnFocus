@@ -6,7 +6,7 @@
  * strip) above the chronological log list, plus an inline habits summary.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/HintCard, components/ConfirmationBanner,
+ *   Imports → components/ScreenScaffold, components/ConfirmationBanner,
  *             components/ExpandableCard, components/AddDivider, components/HabitIcon,
  *             components/PressableScale, components/Surface, components/AppModal,
  *             constants/theme, lib/date, lib/db, lib/haptics, lib/i18n, lib/useAppTheme,
@@ -39,7 +39,6 @@ import { useHealthStore, HealthLog } from '@/store/useHealthStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
-import HintCard from '@/components/HintCard';
 import HabitIcon from '@/components/HabitIcon';
 import PressableScale from '@/components/PressableScale';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
@@ -194,8 +193,6 @@ export default function HealthScreen() {
     <>
       <ScreenScaffold title={t.healthTitle} tier="site" bottomNav={false} ownBackground={false}>
         <View style={styles.content}>
-          <HintCard text={t.hints.health.text} example={t.hints.health.example} />
-
           {/* Overview */}
           {topAilments.length > 0 && (
             <Surface style={styles.overviewCard}>

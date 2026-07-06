@@ -10,7 +10,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HomeNotesCard,
- *             components/HomeShoppingCard, components/AddFAB, components/HintCard,
+ *             components/HomeShoppingCard, components/AddFAB,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, store/useTaskStore, store/useNotesStore, store/useShoppingStore,
  *             store/useShoppingListStore, store/useSettingsStore
@@ -57,7 +57,6 @@ import PlanTaskCard from '@/components/PlanTaskCard';
 import HomeNotesCard from '@/components/HomeNotesCard';
 import HomeShoppingCard from '@/components/HomeShoppingCard';
 import AddFAB from '@/components/AddFAB';
-import HintCard from '@/components/HintCard';
 import { goToSite } from '@/lib/siteNav';
 import { initDb } from '@/lib/db';
 import { todayStr } from '@/lib/date';
@@ -83,7 +82,6 @@ export default function HomeScreen() {
 
   // Focus mode: Home-only, ephemeral (Decisions 009 #4 / 018). Reset on blur below.
   const [focusMode, setFocusMode] = useState(false);
-  const [hintOpen, setHintOpen] = useState(false);
 
   const tasks = useTaskStore((s) => s.tasks);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
@@ -129,7 +127,6 @@ export default function HomeScreen() {
       setFocusMode(defaultFocus);
       return () => {
         setFocusMode(defaultFocus);
-        setHintOpen(false);
       };
     }, [loadSettings, loadTasks, loadNotes, loadShopping, loadLists])
   );
@@ -181,15 +178,8 @@ export default function HomeScreen() {
         ownBackground={false}
         focusActive={focusMode}
         onToggleFocus={() => setFocusMode((v) => !v)}
-        infoActive={hintOpen}
-        onInfoToggle={() => setHintOpen((v) => !v)}
       >
         <View style={styles.content}>
-          {/* Focus-mode hint — the header eye is a non-obvious affordance, so it
-              qualifies for a HintCard under Decision 030's "demonstrated need"
-              bar. Gated on showHints + hidden in Focus itself. */}
-          {!focusMode && <HintCard text={t.hints.home.text} open={hintOpen} onToggle={() => setHintOpen((v) => !v)} />}
-
           {/* Greeting */}
           <View style={styles.header}>
             <Text style={[styles.greeting, { color: theme.text }]}>
