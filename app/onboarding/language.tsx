@@ -5,7 +5,8 @@
  * persisting the choice so all subsequent strings render in that language.
  *
  * Connections:
- *   Imports → @expo/vector-icons, @/store/useSettingsStore, @/lib/i18n, @/constants/theme, @/lib/useAppTheme
+ *   Imports → assets/icon.png, @expo/vector-icons, @/store/useSettingsStore, @/lib/i18n,
+ *             @/constants/theme, @/lib/useAppTheme
  *   Used by → Expo Router route "/onboarding/language"
  *   Data    → useSettingsStore (writes `language`); scaled fontSize via useScaledStyles()
  *
@@ -14,9 +15,12 @@
  *   - choose() writes `language` to settings, then router.push to "/onboarding/privacy".
  *   - OPTIONS labels are intentionally literal language names (not translated).
  *   - Decision 006 tokens throughout — no raw hex, no legacy theme.* names.
+ *   - Top hero image is the real app icon (assets/icon.png, the watercolor tree mark),
+ *     not an Ionicons badge — this is the first thing a new user sees. Same
+ *     logoShadow/logo pattern as app/onboarding/index.tsx's welcome logo, for consistency.
  */
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,8 +58,8 @@ export default function LanguageScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.content}>
         <View style={styles.top}>
-          <View style={[styles.iconBadge, { backgroundColor: theme.surfaceMuted }]}>
-            <Ionicons name="globe-outline" size={36} color={theme.accent} />
+          <View style={styles.logoShadow}>
+            <Image source={require('../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
           </View>
           <Text style={[styles.heading, { color: theme.text }]}>{t.chooseLanguage}</Text>
           <Text style={[styles.sub, { color: theme.textMuted }]}>{t.chooseLanguageSub}</Text>
@@ -97,9 +101,8 @@ const baseStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   top: { alignItems: 'center', gap: Spacing.md },
-  iconBadge: {
-    width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center',
-  },
+  logoShadow: { borderRadius: Radius.lg, ...Shadow.card },
+  logo: { width: 110, height: 110, borderRadius: Radius.lg, overflow: 'hidden' },
   heading: {
     fontSize: FontSize.xxl,
     fontFamily: Fonts.semibold,

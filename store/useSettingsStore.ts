@@ -128,28 +128,6 @@ type SettingsStore = Settings & {
   setWorkModeSessionOverride: (v: boolean) => void;
 };
 
-/**
- * Migrates any previously-stored theme name to the canonical colors.ts set.
- * Two legacy vintages need mapping:
- *   - 1.0.0 names (warm/cool/forest/rose/highcontrast)
- *   - the interim theme.ts names (tech/fluffy) that never actually rendered in
- *     the colors.ts chrome — tech had no palette (→ Default, which is what it
- *     already displayed) and fluffy is now the real fluffyPink palette.
- * Unknown names fall back to 'default'.
- */
-function migrateThemeName(name: string | null): ColorTheme {
-  if (!name) return 'default';
-  const map: Record<string, ColorTheme> = {
-    // 1.0.0 legacy names
-    warm: 'default', cool: 'default', forest: 'nature', rose: 'fluffyPink', highcontrast: 'blackWhite',
-    // interim theme.ts names (never had a matching colors.ts palette)
-    tech: 'default', fluffy: 'fluffyPink',
-  };
-  if (name in map) return map[name];
-  const valid: ColorTheme[] = ['default', 'summer', 'nature', 'fluffyPink', 'gothic', 'blackWhite', 'custom'];
-  return valid.includes(name as ColorTheme) ? (name as ColorTheme) : 'default';
-}
-
 /** Map the single settings row to the persisted Settings (defaults mirror the old load()). */
 function rowToSettings(row: Row): Settings {
   return {
@@ -160,7 +138,9 @@ function rowToSettings(row: Row): Settings {
     reminderTime: readStr(row, 'reminder_time', '08:00'),
     taskNotificationsEnabled: readBool(row, 'task_notifications_enabled'),
     setupComplete: readBool(row, 'setup_complete'),
-    colorTheme: migrateThemeName(readStr(row, 'color_theme') || null),
+    // Locked to 'default' — the colour-theme picker was removed app-wide (settings +
+    // onboarding); any other value previously stored on-device is ignored on load.
+    colorTheme: 'default',
     workModeEnabled: readBool(row, 'work_mode_enabled'),
     workHoursStart: readStr(row, 'work_hours_start', '07:00'),
     workHoursEnd: readStr(row, 'work_hours_end', '17:00'),
@@ -180,7 +160,9 @@ function rowToSettings(row: Row): Settings {
     customPrimaryColor: readStr(row, 'custom_primary_color', '#3B82F6'),
     customSecondaryColor: readStr(row, 'custom_secondary_color', '#10B981'),
     customHue: readInt(row, 'custom_hue', 217),
-    bubbleMaterial: readStr(row, 'bubble_material', 'glass') as BubbleMaterial,
+    // Locked to 'glass' — the material picker was removed from settings; any other
+    // value previously stored on-device is ignored on load.
+    bubbleMaterial: 'glass' as BubbleMaterial,
     persistentNotifEnabled: readBool(row, 'persistent_notif_enabled'),
     quietHoursEnabled: readBool(row, 'quiet_hours_enabled'),
     quietHoursStart: readStr(row, 'quiet_hours_start', '21:00'),
