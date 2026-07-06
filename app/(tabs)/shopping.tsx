@@ -125,7 +125,7 @@
  *     lib/shoppingGroups.ts's own header note.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutAnimation, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { LayoutAnimation, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary } from '@/store/useShoppingStore';
@@ -252,6 +252,7 @@ export default function ShoppingScreen() {
     });
   }, []);
   const [updateItem, setUpdateItem] = useState<ShoppingItem | null>(null);
+  const [resetConfirmVisible, setResetConfirmVisible] = useState(false);
 
   // ── Decision 011 R1 reorder + Decision 022 drag-to-merge (all window-coordinate based) ──
   // Native nodes are registered by DraggableTaskRow (reorder rows) and WeekListCard (dish-group
@@ -537,24 +538,13 @@ export default function ShoppingScreen() {
 
   function handleManualMonthlyReset() {
     warning();
-    showAppModal(t.resetMonthlyListConfirmTitle, t.resetMonthlyListConfirmBody, [
-      { text: t.cancel, style: 'cancel' },
-      {
-        text: t.resetMonthlyListAction,
-        style: 'destructive',
-        onPress: () => {
-          setResetSummary(buildMonthlyResetSummary());
-          monthlyReset();
-        },
-      },
-    ]);
+    setResetConfirmVisible(true);
   }
 
-  function handleOpenOverflow() {
-    showAppModal(t.moreOptions, undefined, [
-      { text: t.resetMonthlyListAction, onPress: handleManualMonthlyReset },
-      { text: t.cancel, style: 'cancel' },
-    ]);
+  function handleConfirmReset() {
+    setResetConfirmVisible(false);
+    setResetSummary(buildMonthlyResetSummary());
+    monthlyReset();
   }
 
   // ── Decision 011 R1 reorder + Decision 022 drag-to-merge (screen-owned, window-coordinate) ──
@@ -668,7 +658,7 @@ export default function ShoppingScreen() {
   }
 
   const stickyBelowHeader = (
-    <Surface surfaceContext="overlay" style={styles.stickyBar}>
+    <View style={[styles.stickyBar, { backgroundColor: theme.bg }]}>
       <View style={styles.tabsRow}>
         {(['weekly', 'catalog'] as Tab[]).map((tabOption) => {
           const isActive = tab === tabOption;
@@ -691,7 +681,6 @@ export default function ShoppingScreen() {
             </Pressable>
           );
         })}
-        <IconButton icon="ellipsis-horizontal" label={t.moreOptions} onPress={handleOpenOverflow} size={30} />
       </View>
 
       {tab === 'weekly' && focusedList && focusedProgress ? (
@@ -710,7 +699,7 @@ export default function ShoppingScreen() {
           )}
         </View>
       ) : null}
-    </Surface>
+    </View>
   );
 
   return (
@@ -724,12 +713,22 @@ export default function ShoppingScreen() {
           <Surface style={styles.catalogCard}>
             <View style={styles.catalogHeaderRow}>
               <Text style={[styles.catalogTitle, { color: theme.text }]}>{t.monthlyTabLabel}</Text>
-              <IconButton
-                icon={catalogLocked ? 'lock-closed' : 'lock-open-outline'}
-                label={catalogLocked ? t.unlockListButtonLabel : t.lockListButtonLabel}
-                onPress={() => setCatalogLocked((v) => !v)}
-                active={catalogLocked}
-              />
+              <View style={styles.catalogHeaderActions}>
+                <Pressable
+                  style={styles.resetIconBtn}
+                  onPress={handleManualMonthlyReset}
+                  hitSlop={6}
+                  accessibilityLabel={t.resetMonthlyListAction}
+                >
+                  <Ionicons name="refresh-circle" size={32} color="#E53935" />
+                </Pressable>
+                <IconButton
+                  icon={catalogLocked ? 'lock-closed' : 'lock-open-outline'}
+                  label={catalogLocked ? t.unlockListButtonLabel : t.lockListButtonLabel}
+                  onPress={() => setCatalogLocked((v) => !v)}
+                  active={catalogLocked}
+                />
+              </View>
             </View>
 
             <View style={styles.bodyGap}>
@@ -1053,6 +1052,22 @@ export default function ShoppingScreen() {
       <Text style={[styles.fabText, { color: theme.textInverse }]}>{t.createGroupingBtn}</Text>
     </Pressable>
     <ConfirmationBanner message={confirm} onDismiss={() => setConfirm(null)} />
+
+    <Modal visible={resetConfirmVisible} transparent animationType="fade" onRequestClose={() => setResetConfirmVisible(false)}>
+      <View style={styles.dialogOverlay}>
+        <View style={[styles.dialogBox, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.dialogMessage, { color: theme.text }]}>{t.resetMonthlyListConfirmTitle}</Text>
+          <View style={styles.dialogBtns}>
+            <Pressable style={[styles.dialogBtn, styles.dialogBtnNo]} onPress={() => setResetConfirmVisible(false)}>
+              <Text style={styles.dialogBtnText}>{t.no}</Text>
+            </Pressable>
+            <Pressable style={[styles.dialogBtn, styles.dialogBtnYes]} onPress={handleConfirmReset}>
+              <Text style={styles.dialogBtnText}>{t.yes}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
     </>
   );
 }
@@ -1103,7 +1118,18 @@ const styles = StyleSheet.create({
 
   catalogCard: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.md },
   catalogHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  catalogHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  resetIconBtn: { alignItems: 'center', justifyContent: 'center' },
   catalogTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
+
+  dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: Spacing.lg },
+  dialogBox: { borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', maxWidth: 340, gap: Spacing.lg },
+  dialogMessage: { fontSize: FontSize.md, fontFamily: Fonts.semibold, textAlign: 'center' },
+  dialogBtns: { flexDirection: 'row', gap: Spacing.sm },
+  dialogBtn: { flex: 1, borderRadius: Radius.md, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.sm },
+  dialogBtnNo: { backgroundColor: '#1E3A5F' },
+  dialogBtnYes: { backgroundColor: '#4A90D9' },
+  dialogBtnText: { color: '#FFFFFF', fontFamily: Fonts.bold, fontSize: FontSize.sm, textAlign: 'center' },
   createDishBtnDisabled: { opacity: 0.4 },
   sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm },
   totalLine: { fontSize: FontSize.md, fontFamily: Fonts.bold, textAlign: 'right', marginTop: 4 },

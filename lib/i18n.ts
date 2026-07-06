@@ -37,6 +37,8 @@ const en = {
   // Navigation / common
   back: '← Home',
   cancel: 'Cancel',
+  yes: 'Yes',
+  no: 'No',
   save: 'Save',
   undoBtn: 'Undo',
   unsavedDaysLabel: 'Days not saved',
@@ -1034,6 +1036,8 @@ const no: typeof en = {
   monthsShort: ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'],
   back: '← Hjem',
   cancel: 'Avbryt',
+  yes: 'Ja',
+  no: 'Nei',
   save: 'Lagre',
   undoBtn: 'Angre',
   unsavedDaysLabel: 'Dagene er ikke lagret',
