@@ -6,7 +6,7 @@
  * strip) above the chronological log list, plus an inline habits summary.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/ConfirmationBanner,
+ *   Imports → components/ScreenScaffold, components/HintCard, components/ConfirmationBanner,
  *             components/ExpandableCard, components/AddDivider, components/HabitIcon,
  *             components/PressableScale, components/Surface, components/AppModal,
  *             constants/theme, lib/date, lib/db, lib/haptics, lib/i18n, lib/useAppTheme,
@@ -39,6 +39,7 @@ import { useHealthStore, HealthLog } from '@/store/useHealthStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
+import HintCard from '@/components/HintCard';
 import HabitIcon from '@/components/HabitIcon';
 import PressableScale from '@/components/PressableScale';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
@@ -91,6 +92,7 @@ export default function HealthScreen() {
   const [edits, setEdits] = useState<Record<string, HealthEditState>>({});
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
   const [confirm, setConfirm] = useState<string | null>(null);
+  const [hintOpen, setHintOpen] = useState(false);
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -106,6 +108,7 @@ export default function HealthScreen() {
       loadSettings();
       loadLogs();
       loadHabits();
+      return () => { setHintOpen(false); };
     }, [loadSettings, loadLogs, loadHabits])
   );
 
@@ -191,8 +194,9 @@ export default function HealthScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.healthTitle} tier="site" bottomNav={false} ownBackground={false}>
+      <ScreenScaffold title={t.healthTitle} tier="site" bottomNav={false} ownBackground={false} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)}>
         <View style={styles.content}>
+          <HintCard text={t.hints.health.text} open={hintOpen} noPill />
           {/* Overview */}
           {topAilments.length > 0 && (
             <Surface style={styles.overviewCard}>

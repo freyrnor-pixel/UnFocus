@@ -11,7 +11,7 @@
  * menu for the monthly reset action (A2-4).
  *
  * Connections:
- *   Imports → components/AddDivider, components/AddItemSheet,
+ *   Imports → components/AddDivider, components/AddItemSheet, components/HintCard,
  *             components/AddSourceChooser, components/AppModal (showAppModal),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
  *             components/ExpandableCard, components/IconButton,
@@ -153,6 +153,7 @@ import ListSettingsSheet from '@/components/ListSettingsSheet';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
 import ProgressBar from '@/components/ProgressBar';
+import HintCard from '@/components/HintCard';
 import { success, heavy, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining } from '@/lib/date';
@@ -230,6 +231,7 @@ export default function ShoppingScreen() {
   }, []);
 
   const [tab, setTab] = useState<Tab>('weekly');
+  const [hintOpen, setHintOpen] = useState(false);
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
   const [addItemTarget, setAddItemTarget] = useState<AddItemTarget | null>(null);
   const [addSourceChooserListId, setAddSourceChooserListId] = useState<string | null>(null);
@@ -378,6 +380,7 @@ export default function ShoppingScreen() {
       return () => {
         setAddItemTarget(null);
         setAddSourceChooserListId(null);
+        setHintOpen(false);
       };
     }, [
       loadSettings,
@@ -712,8 +715,9 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={STICKY_HEIGHT}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={STICKY_HEIGHT} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)}>
       <View style={styles.content}>
+        <HintCard text={t.hints.shopping.text} open={hintOpen} noPill />
         <SharedRequestsSection kind="shopping" />
 
         {tab === 'catalog' && (
