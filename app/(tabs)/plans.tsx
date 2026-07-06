@@ -9,8 +9,8 @@
  * inside PlanTaskCard.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/AddFAB,
- *             lib/db, lib/date, lib/i18n, store/useTaskStore, store/useSettingsStore
+ *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HintCard,
+ *             components/AddFAB, lib/db, lib/date, lib/i18n, store/useTaskStore, store/useSettingsStore
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx (BottomNav "Plans" tab)
  *   Data    → reads/writes useTaskStore (tasks) on toggle; reads useSettingsStore for theme hydration
  *
@@ -22,11 +22,12 @@
  *   - Loads the store on focus (useFocusEffect) so edits made in task-form are reflected
  *     on return; initDb() is idempotent but guarded by a module flag like other screens.
  */
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PlanTaskCard from '@/components/PlanTaskCard';
+import HintCard from '@/components/HintCard';
 import AddFAB from '@/components/AddFAB';
 import { initDb } from '@/lib/db';
 import { todayStr } from '@/lib/date';
@@ -45,6 +46,7 @@ export default function PlansScreen() {
   const toggle = useTaskStore((s) => s.toggle);
   const loadTasks = useTaskStore((s) => s.load);
   const loadSettings = useSettingsStore((s) => s.load);
+  const [hintOpen, setHintOpen] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -54,6 +56,7 @@ export default function PlansScreen() {
       }
       loadSettings();
       loadTasks();
+      return () => { setHintOpen(false); };
     }, [loadSettings, loadTasks])
   );
 
@@ -66,8 +69,9 @@ export default function PlansScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.plansTitle} tier="site" bottomNav={false} ownBackground={false}>
+      <ScreenScaffold title={t.plansTitle} tier="site" bottomNav={false} ownBackground={false} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)}>
         <View style={styles.content}>
+          <HintCard text={t.hints.plans.text} open={hintOpen} noPill />
           <PlanTaskCard
             tasks={todayTasks}
             allTasks={tasks}

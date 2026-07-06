@@ -10,7 +10,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HomeNotesCard,
- *             components/HomeShoppingCard, components/AddFAB, components/HintCard,
+ *             components/HomeShoppingCard, components/AddFAB,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, store/useTaskStore, store/useNotesStore, store/useShoppingStore,
  *             store/useShoppingListStore, store/useSettingsStore
@@ -185,10 +185,7 @@ export default function HomeScreen() {
         onInfoToggle={() => setHintOpen((v) => !v)}
       >
         <View style={styles.content}>
-          {/* Focus-mode hint — the header eye is a non-obvious affordance, so it
-              qualifies for a HintCard under Decision 030's "demonstrated need"
-              bar. Gated on showHints + hidden in Focus itself. */}
-          {!focusMode && <HintCard text={t.hints.home.text} open={hintOpen} onToggle={() => setHintOpen((v) => !v)} />}
+          {!focusMode && <HintCard text={t.hints.home.text} open={hintOpen} noPill />}
 
           {/* Greeting */}
           <View style={styles.header}>

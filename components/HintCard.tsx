@@ -44,9 +44,16 @@ type Props = {
   open?: boolean;
   /** Controlled toggle — called instead of internal setState when provided. */
   onToggle?: () => void;
+  /**
+   * Header-driven mode: suppress the in-content pill entirely and only
+   * render the card body (controlled by `open`). Use when the screen
+   * wires the ScreenScaffold infoActive/onInfoToggle props to drive the
+   * hint — the header ⓘ button IS the toggle, so the pill is redundant.
+   */
+  noPill?: boolean;
 };
 
-export default function HintCard({ text, example, open: openProp, onToggle: onToggleProp }: Props) {
+export default function HintCard({ text, example, open: openProp, onToggle: onToggleProp, noPill }: Props) {
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
@@ -60,6 +67,20 @@ export default function HintCard({ text, example, open: openProp, onToggle: onTo
     if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     if (isControlled) onToggleProp?.();
     else setOpenInternal((v) => !v);
+  }
+
+  // Header-driven mode: no pill, just the card body when open.
+  if (noPill) {
+    if (!openProp) return null;
+    return (
+      <View style={[styles.wrap, styles.card, { backgroundColor: theme.hintBg, borderColor: theme.hintBorder }]}>
+        <View style={[styles.accentBar, { backgroundColor: theme.hintAccent }]} />
+        <View style={styles.body}>
+          <Text style={[styles.text, { color: theme.text }]}>{text}</Text>
+          {example ? <Text style={[styles.example, { color: theme.textMuted }]}>{example}</Text> : null}
+        </View>
+      </View>
+    );
   }
 
   return (

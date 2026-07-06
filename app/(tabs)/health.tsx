@@ -92,6 +92,7 @@ export default function HealthScreen() {
   const [edits, setEdits] = useState<Record<string, HealthEditState>>({});
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
   const [confirm, setConfirm] = useState<string | null>(null);
+  const [hintOpen, setHintOpen] = useState(false);
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -107,6 +108,7 @@ export default function HealthScreen() {
       loadSettings();
       loadLogs();
       loadHabits();
+      return () => { setHintOpen(false); };
     }, [loadSettings, loadLogs, loadHabits])
   );
 
@@ -192,10 +194,9 @@ export default function HealthScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.healthTitle} tier="site" bottomNav={false} ownBackground={false}>
+      <ScreenScaffold title={t.healthTitle} tier="site" bottomNav={false} ownBackground={false} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)}>
         <View style={styles.content}>
-          <HintCard text={t.hints.health.text} example={t.hints.health.example} />
-
+          <HintCard text={t.hints.health.text} open={hintOpen} noPill />
           {/* Overview */}
           {topAilments.length > 0 && (
             <Surface style={styles.overviewCard}>
