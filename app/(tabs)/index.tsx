@@ -27,8 +27,8 @@
  *     the settings toggle (previously inert) and the header eye are ONE feature: a saved default
  *     plus a live session toggle, not two unrelated things that happened to share the name "Focus".
  *     The header eye toggles it (props threaded through ScreenScaffold → ScreenHeader).
- *     ON: hides the Notes + Shopping previews + points + FAB (no input affordances), leaving only
- *     the Plans surface filtered to `importance === 'essential'` (Decision 018 — the two-value
+ *     ON: hides the points + FAB (no input affordances); Notes and Shopping previews remain visible.
+ *     Plans surface is filtered to `importance === 'essential'` (Decision 018 — the two-value
  *     `importance` field IS the intensity model; no energy path). The done-toggle stays live in
  *     focus (completing a task is "doing the thing", not input), so PlanTaskCard is mounted
  *     non-readOnly but WITHOUT `onPressTask`/`onSeeMore` — the row done-dot works, tap-through to
@@ -45,8 +45,8 @@
  *   - **Deliberately NOT ported**: DayTimeline/TaskItem/NextTaskCard Plans stack, Backlog + Habits
  *     previews, SharedRequestsSection(kind='task'), update-ready banner, work-mode banner,
  *     CoverScreen / SiteSwipeView chrome, automation trigger ('shopping_opened').
- *   - **"More" links (Decision 036)**: off-Focus chips to /notes and /meals. Reachability is
- *     data-independent — shown even if HomeNotesCard self-hides (notes empty on first launch).
+ *   - **"More" links (Decision 036)**: removed. Notes/Food chips dropped; all three preview
+ *     cards (Notes, Plans, Shopping) are now always visible regardless of Focus mode.
  *   - All visible strings via useT(); today is todayStr() (YYYY-MM-DD).
  */
 import React, { useCallback, useState } from 'react';
@@ -199,8 +199,8 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* Notes preview — HomeNotesCard (real Notes / useNotesStore). Hidden in Focus mode. */}
-          {!focusMode && <HomeNotesCard />}
+          {/* Notes preview — HomeNotesCard (real Notes / useNotesStore). Always visible. */}
+          <HomeNotesCard />
 
           {/* Plans preview = the shared PlanTaskCard day-view (Decision 009a). */}
           <View style={styles.section}>
@@ -220,59 +220,32 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Shopping preview — HomeShoppingCard. Hidden in Focus mode. */}
-          {!focusMode && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.shoppingPreview}</Text>
-                <Pressable onPress={() => goToSite(router, pathname, '/shopping')} hitSlop={8}>
-                  <Text style={[styles.seeAll, { color: theme.accent }]}>{t.seeAll}</Text>
-                </Pressable>
-              </View>
-              {!currentShoppingList ? (
-                <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.shoppingEmpty}</Text>
-              ) : (
-                <HomeShoppingCard
-                  list={currentShoppingList}
-                  dishGroups={dishGroups}
-                  ungroupedUnchecked={ungroupedUnchecked}
-                  checked={checked}
-                  onToggle={(id) => toggleShoppingItem(id)}
-                  onCollect={(id) => toggleShoppingCollected(id)}
-                  onRemove={handleRemoveShoppingItem}
-                  onIncrement={(id) => adjustAmount(id, 1)}
-                  onDecrement={(id) => adjustAmount(id, -1)}
-                  onSeeAll={() => goToSite(router, pathname, '/shopping')}
-                  inStockLabel={t.inStockLabel}
-                />
-              )}
+          {/* Shopping preview — HomeShoppingCard. Always visible. */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.shoppingPreview}</Text>
+              <Pressable onPress={() => goToSite(router, pathname, '/shopping')} hitSlop={8}>
+                <Text style={[styles.seeAll, { color: theme.accent }]}>{t.seeAll}</Text>
+              </Pressable>
             </View>
-          )}
-
-          {/* More — entry points for the off-nav sites (Decision 036: Notes + Food
-              are reachable but not BottomNav tabs). Always shown off-Focus so these
-              screens have a discoverable home no matter what data exists. */}
-          {!focusMode && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.home.more}</Text>
-              <View style={styles.moreLinks}>
-                <Pressable
-                  style={[styles.moreChip, { backgroundColor: theme.surfaceMuted }]}
-                  onPress={() => goToSite(router, pathname, '/notes')}
-                  hitSlop={6}
-                >
-                  <Text style={[styles.moreChipText, { color: theme.text }]}>{t.notes.title}</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.moreChip, { backgroundColor: theme.surfaceMuted }]}
-                  onPress={() => goToSite(router, pathname, '/meals')}
-                  hitSlop={6}
-                >
-                  <Text style={[styles.moreChipText, { color: theme.text }]}>{t.nav.meals}</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
+            {!currentShoppingList ? (
+              <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.shoppingEmpty}</Text>
+            ) : (
+              <HomeShoppingCard
+                list={currentShoppingList}
+                dishGroups={dishGroups}
+                ungroupedUnchecked={ungroupedUnchecked}
+                checked={checked}
+                onToggle={(id) => toggleShoppingItem(id)}
+                onCollect={(id) => toggleShoppingCollected(id)}
+                onRemove={handleRemoveShoppingItem}
+                onIncrement={(id) => adjustAmount(id, 1)}
+                onDecrement={(id) => adjustAmount(id, -1)}
+                onSeeAll={() => goToSite(router, pathname, '/shopping')}
+                inStockLabel={t.inStockLabel}
+              />
+            )}
+          </View>
 
           {/* Gentle points */}
           {!focusMode && settings.showPoints && completedCount > 0 && (
@@ -303,9 +276,6 @@ const baseStyles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
   sectionTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   seeAll: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  moreLinks: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md, flexWrap: 'wrap' },
-  moreChip: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, borderRadius: Radius.full },
-  moreChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   emptyText: { fontSize: FontSize.sm, fontFamily: Fonts.regular, textAlign: 'center', paddingVertical: Spacing.sm },
   pointsText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },
 });
