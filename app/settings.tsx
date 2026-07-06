@@ -13,17 +13,19 @@
  * - Lister: shopping list settings (weekly reset weekday, monthly reset date, monthly budget).
  * - Varsler: Ukentlig (weekly reminder + time) → Generelle (independent plan-notifications and
  *   habit-reminders toggles, persistent daily overview, quiet hours).
- * - Utseende: Fargetema (colour theme swatches), Materiale (bubble material), Mørk modus (3-way).
+ * - Utseende: Mørk modus (3-way). Colour theme is locked to 'default' and bubble material to
+ *   'glass' app-wide (see constants/theme.ts / store/useSettingsStore.ts) — their pickers were
+ *   removed from this tab; no other value is reachable from the UI.
  *
  * Every setting applies immediately via applyAndSync() — no buffered/dirty save step (matches
  * hints.settings.text: "Changes apply immediately.").
  *
  * Connections:
- *   Imports → components/AppModal, components/FormControls, components/GradientSwatch,
- *             components/ScreenScaffold, components/SectionDivider, components/Surface,
- *             components/SwatchPicker, constants/theme, lib/backup, lib/childLock, lib/haptics,
- *             lib/i18n, lib/notifications, lib/reminders, lib/useAppTheme, store/useHabitStore,
- *             store/useSettingsStore, store/useShoppingStore, store/useTaskStore
+ *   Imports → components/AppModal, components/FormControls, components/ScreenScaffold,
+ *             components/SectionDivider, components/Surface, constants/theme, lib/backup,
+ *             lib/childLock, lib/haptics, lib/i18n, lib/notifications, lib/reminders,
+ *             lib/useAppTheme, store/useHabitStore, store/useSettingsStore, store/useShoppingStore,
+ *             store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
  *   Data    → useSettingsStore (settings table; incl. essentialsModeEnabled, quietHours*,
  *             monthlyBudgetNok, taskNotificationsEnabled, habitNotificationsEnabled,
@@ -49,17 +51,10 @@
  *     (free-text, matching the precedent set by task-form.tsx / habit-form.tsx).
  *   - `essentialsModeEnabled` is the underlying field/DB column name (unchanged) — its user-facing
  *     label is "Focus mode" / "Fokus-modus".
- *   - Colour-theme swatches now read their preview colour from the SAME canonical palette
- *     that drives chrome — getThemePalette(key).accent in constants/colors.ts — so the
- *     picker options, the swatch previews, and the runtime chrome can never disagree. (They
- *     used to be sourced from constants/theme.ts's legacy AppColors THEMES, whose theme set
- *     — tech/fluffy, no summer/blackWhite — did not match colors.ts, so Tech/Fluffy rendered
- *     as Default and Black & White was unreachable.) All chrome here goes through useAppTheme()
- *     tokens (Decision 006).
- *   - 'custom' theme is deliberately excluded from the colour-theme picker: constants/colors.ts's
- *     ThemePalette (Decision 006) has no 'custom' variant yet (Decision 006/007 explicitly defer
- *     it), so offering it would silently render as 'default' via getThemePalette()'s fallback.
- *     HuePicker is not wired for the same reason (see its own header note).
+ *   - Colour-theme and bubble-material pickers were removed from the Utseende tab: the app now
+ *     only ships 'default'/'glass' (see store/useSettingsStore.ts defaults and
+ *     constants/theme.ts's getMaterialStyle), so there is nothing left to pick. All chrome here
+ *     still goes through useAppTheme() tokens (Decision 006).
  *   - Debug section only exposes the debugModeEnabled toggle. permissionTests.ts does not exist
  *     in this repo yet — its buttons are NOT wired here; see the commented placeholder below.
  *   - "Reset weekly list" and the Test-data load/clear actions from the pre-rebuild app are NOT
@@ -76,14 +71,11 @@ import * as Updates from 'expo-updates';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import SectionDivider from '@/components/SectionDivider';
-import SwatchPicker from '@/components/SwatchPicker';
-import { RadialSwatch } from '@/components/GradientSwatch';
 import { Input, Switch as FormSwitch, SegmentedControl } from '@/components/FormControls';
 import { showAppModal } from '@/components/AppModal';
 import {
   useSettingsStore,
   Settings,
-  ColorTheme,
   FontSizePref,
   DarkMode,
 } from '@/store/useSettingsStore';
@@ -98,20 +90,7 @@ import { useT, getTranslations } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { selection, warning, heavy } from '@/lib/haptics';
-import {
-  FontSize,
-  Fonts,
-  Radius,
-  Spacing,
-  MATERIAL_META,
-  MaterialName,
-  getMaterialStyle,
-} from '@/constants/theme';
-import { getThemePalette } from '@/constants/colors';
-
-// Canonical colors.ts theme set (see constants/colors.ts ThemeName). 'custom'
-// excluded — no Decision-006 palette variant for it yet (file header).
-const COLOR_THEME_KEYS: ColorTheme[] = ['default', 'summer', 'nature', 'fluffyPink', 'gothic', 'blackWhite'];
+import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 
 type SettingsTab = 'generelt' | 'lister' | 'varsler' | 'utseende';
 const TAB_BAR_HEIGHT = 48;
@@ -922,54 +901,8 @@ export default function SettingsScreen() {
 
         {tab === 'utseende' && (
           <>
-            {/* FARGETEMA */}
-            <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.sectionColorTheme}</Text>
-              <Surface style={styles.card}>
-                <SwatchPicker
-                  items={COLOR_THEME_KEYS.map((key) => ({ key, label: t.themeNames[key] }))}
-                  value={settings.colorTheme}
-                  onChange={(key) => settings.update({ colorTheme: key as ColorTheme })}
-                  renderSwatch={(key) => <RadialSwatch color={getThemePalette(key as any, false).accent} size={54} />}
-                />
-              </Surface>
-            </View>
-
-            {/* MATERIALE */}
-            <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.sectionBubbleMaterial}</Text>
-              <Surface style={styles.card}>
-                <SwatchPicker
-                  items={(Object.keys(MATERIAL_META) as MaterialName[]).map((key) => ({ key, label: t.materialNames[key] }))}
-                  value={settings.bubbleMaterial}
-                  onChange={(key) => settings.update({ bubbleMaterial: key as MaterialName })}
-                  renderSwatch={(key) => {
-                    const preview = getMaterialStyle(theme.accent, key as MaterialName);
-                    return (
-                      <View
-                        style={[
-                          styles.materialSwatch,
-                          {
-                            backgroundColor: preview.backgroundColor,
-                            borderWidth: preview.borderWidth,
-                            borderColor: preview.borderColor,
-                            borderTopColor: preview.borderTopColor,
-                            borderBottomColor: preview.borderBottomColor,
-                            shadowOpacity: preview.shadowOpacity,
-                            shadowRadius: preview.shadowRadius,
-                            elevation: preview.elevation,
-                          },
-                        ]}
-                      >
-                        <View style={[styles.materialSheen, { backgroundColor: preview.sheenColor }]} />
-                      </View>
-                    );
-                  }}
-                />
-              </Surface>
-            </View>
-
-            {/* LIGHT/DARK MODE */}
+            {/* LIGHT/DARK MODE — colour theme + bubble material pickers removed (Glass/Default
+                are now the only supported values); see file header. */}
             <View style={styles.section}>
               <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.lightDarkModeLabel}</Text>
               <Surface style={styles.card}>
@@ -1026,8 +959,6 @@ const styles = StyleSheet.create({
   switchHint: { fontSize: FontSize.xs, marginTop: 2 },
   dangerBtn: { paddingVertical: Spacing.sm },
   dangerBtnText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
-  materialSwatch: { width: '100%', height: '100%', borderRadius: Radius.full, overflow: 'hidden' },
-  materialSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '40%', borderRadius: Radius.full },
   langRow: { flexDirection: 'row', gap: Spacing.md },
   langChip: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
