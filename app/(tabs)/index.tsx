@@ -223,6 +223,12 @@ export default function HomeScreen() {
           {/* Shopping preview — HomeShoppingCard. Hidden in Focus mode. */}
           {!focusMode && (
             <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.shoppingPreview}</Text>
+                <Pressable onPress={() => goToSite(router, pathname, '/shopping')} hitSlop={8}>
+                  <Text style={[styles.seeAll, { color: theme.accent }]}>{t.seeAll}</Text>
+                </Pressable>
+              </View>
               {!currentShoppingList ? (
                 <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.shoppingEmpty}</Text>
               ) : (
@@ -294,7 +300,9 @@ const baseStyles = StyleSheet.create({
   progressTrack: { height: 4, borderRadius: Radius.full, marginBottom: Spacing.lg, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: Radius.full },
   section: { marginBottom: Spacing.lg },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
   sectionTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
+  seeAll: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   moreLinks: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md, flexWrap: 'wrap' },
   moreChip: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, borderRadius: Radius.full },
   moreChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
