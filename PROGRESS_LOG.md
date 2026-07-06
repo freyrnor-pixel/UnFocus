@@ -4240,3 +4240,116 @@ preview build or re-attempts an OTA publish — otherwise the same crash repeats
 merges and a clean `update.yml` run confirms the publish succeeds, the branch is actually
 ready for the "maintainer cuts a new preview build → bump runtimeVersion" step from the
 handoff overview.
+
+---
+
+## 2026-07-06 — Decision 038 app integration: wiring LAN live-sync end to end
+
+Six components/modules had been flagged as "unwired ahead of their consuming feature":
+`HuePicker.tsx`, `SaveButton.tsx`, `StickySaveBar.tsx`, `lib/lanTransport.ts`,
+`lib/peerAuth.ts`, `store/usePeersStore.ts`. Reviewed each against its own header and the
+decision docs before touching anything:
+
+- **HuePicker** needs a whole new "custom" `ThemePalette` runtime (Decision 006/007
+  explicitly deferred it — no `hueToCustomColors()`, no `'custom'` entry in colors.ts).
+  Left unwired at the user's direction; it's a real product decision, not a wiring gap.
+- **SaveButton/StickySaveBar** imply a buffered "dirty → Save/Undo" UX, but `settings.tsx`'s
+  own header says every setting now applies immediately (matching the user-facing
+  "Changes apply immediately" hint). Wiring them in would reverse that UX decision for
+  specific fields. Left unwired at the user's direction.
+- **lanTransport/peerAuth/usePeersStore** — these three ARE now fully wired end to end,
+  per the user's explicit choice to build the complete cross-device sync feature.
+
+### What shipped
+- **`lib/syncService.ts`** (new): orchestrates `lanTransport` + `peerAuth` + `liveSync` +
+  `usePeersStore` into one running sync loop. Discovery never implies trust — `onPeerFound`
+  only connects to a peer already present in `usePeersStore`. Inbound envelopes are
+  HMAC-verified BEFORE the connection is associated with the claimed sender's deviceId
+  (caught and fixed a self-review bug: verifying-after-keying would have let a spoofed
+  `from` hijack a real peer's connection slot for future broadcasts).
+- **`app/pair-device.tsx`** (new): sync on/off toggle, paired-devices list with remove, and
+  a two-role QR pairing wizard (Decision 038d). One phone ("Show my code") generates the
+  shared secret; the other ("Scan a code") adopts that exact secret and shows it back —
+  both sides must end up holding the SAME secret or verification would never match (two
+  independently-generated secrets was the initial design and is wrong; caught during design,
+  not left in code).
+- **`store/useTaskStore.ts` / `store/useShoppingStore.ts`**: `add`/`update` now stamp
+  (`touchRow`) and broadcast every mutation; `remove` (and `removeWithSource`) soft-delete
+  (tombstone) instead of hard `DELETE`, so a peer sees the delete instead of a stale copy
+  reviving it; `load()` filters `deleted_at IS NULL`. Scoped narrowly: `useShoppingStore`'s
+  bulk status-machine transitions (`confirmStagingTray`, `doneShopping`, `monthlyReset`) are
+  deliberately left untouched — they bypass `update()` and don't touch any column in
+  `liveSync`'s sync whitelist anyway. `useTaskStore.clearAll()` (bulk local reset) is
+  deliberately NOT broadcast, since propagating it would wipe a paired partner's tasks.
+- **`store/useSettingsStore.ts`** + `lib/db.ts` migration: new `deviceId` (self-healed once,
+  generated on first `load()` if empty) and `lanSyncEnabled` fields.
+- **`app/_layout.tsx`**: starts/stops `syncService` off `lanSyncEnabled`; added
+  `usePeersStore.load()` to the app-wide bootstrap (required — `syncService`'s trust check
+  reads the store synchronously, so peers must be hydrated before a peer can be discovered).
+- **`app/settings.tsx`**: thin entry-point card (Data group) linking to `/pair-device`,
+  gated on `lib/syncService`'s `isSyncAvailable()`.
+- `lib/i18n.ts`: new `peers.*` key group, en + no.
+- Updated `Connections:` headers on every touched/newly-wired file.
+
+**Verification:** `npx tsc --noEmit` clean (0 errors). No Jest/live-app verification per
+repo policy (CLAUDE.md) — this needs an on-device pairing test between two phones on the
+same Wi-Fi before it's considered proven, since the native transport modules (already in
+`package.json`/`app.json` since Decision 038a/040) require a real build to exercise; this
+session's remote environment can't run one.
+
+### Post-implementation code review — 7 fixes
+
+Ran an 8-angle review pass against the diff above before pushing. One CRITICAL finding and
+several real (if lower-severity) ones came back; fixed all before pushing:
+
+- **`lib/liveSync.ts` `applyDelta()` (critical):** was `INSERT OR REPLACE` with a partial
+  column list — SQLite's REPLACE conflict resolution deletes the whole existing row and
+  reinserts only the given columns, so EVERY column outside the sync whitelist (a task's
+  `importance`, a shopping item's `status`/`category`/`collected`/etc.) would silently reset
+  to its schema default on every single incoming delta. This was dead code until this
+  session's wiring made it reachable. Fixed: proper `INSERT ... ON CONFLICT(id) DO UPDATE
+  SET col = excluded.col` upsert — a genuine insert for a new row, a targeted update of only
+  the synced columns on conflict, leaving everything else untouched. Also added `importance`
+  to the tasks whitelist (a live Task field that had no principled reason to be excluded,
+  unlike shopping's deliberately-excluded `status`).
+- **`lib/lanTransport.ts` `onPeerLost` mis-keyed:** verified against `react-native-zeroconf`'s
+  source — its `remove` event fires with the mDNS service NAME, not the TXT record's
+  deviceId `onPeerFound`/`onEnvelope` key connections by. A lost peer was never actually
+  cleaned from `syncService`'s connections map, permanently blocking reconnection after a
+  Wi-Fi drop. Fixed with a `nameToDeviceId` map populated on `resolved`, consulted on `remove`.
+- **`lib/syncService.ts` connection-slot overwrite leaked sockets:** an outbound `connect()`
+  and a later inbound `onEnvelope()` for the same peer both call `connections.set(deviceId,
+  conn)` — the second silently evicted the first without closing it. Added `setConnection()`
+  to close whatever was there first.
+- **`store/useShoppingListStore.ts` could resurrect soft-deleted items:** `copyOpenItemsToList`
+  and `backfillOrphanedItems` read `shopping_items` with raw SQL that never learned about
+  Decision 038b's `deleted_at` tombstone column — a soft-deleted `inWeeklyList` item would get
+  copied into the next list, or trigger a spurious backfill list, as if it were still live.
+  Added `deleted_at IS NULL` to all three affected queries.
+- **`store/useTaskStore.ts` `reorderTasks`/`setFollower` silently skipped sync:** both write
+  columns (`sort_order`, `follows_task_id`) that ARE in `liveSync`'s sync whitelist, but
+  neither called `touchRow`/`broadcastRow` — drag-reordering or setting a "then" follower
+  link never reached a paired device. Fixed by stamping+broadcasting the affected row(s).
+- **`app/_layout.tsx` sync effect restarted on every username edit:** `userName` was in the
+  effect's deps, and the cleanup unconditionally calls `stopSync()` on every dependency
+  change (not just unmount) — editing your display name while paired dropped every live
+  connection to rebuild a transport that (since `startSync` is idempotent while already
+  running) wouldn't even have picked up the new name anyway. Removed `userName` from deps.
+- Minor cleanup: dropped a no-op `onConnection` handler and a redundant `step === 'scan'`
+  check (angle already narrowed it) in `app/pair-device.tsx`; switched its paired-at date
+  display from a raw UTC `.slice(0,10)` to `lib/date.ts`'s local-time `dateStr`/
+  `formatDisplayDate` (the UTC slice could show the wrong calendar day near midnight,
+  exactly the bug class `lib/date.ts`'s own header warns against); tightened a
+  `pruneOldData()` accuracy comment in `useTaskStore.remove()`; fixed two stale
+  `Connections:` "Used by" lists (`lib/db.ts`, `lib/syncService.ts`).
+
+**Not fixed, judged out of scope/acceptable:** `lib/peerAuth.ts`'s `Math.random()`-based
+secret generation is a pre-existing, explicitly-documented Decision 038d tradeoff, not
+something this session introduced. `lib/lanTransport.ts`'s peer-id fallback collision (two
+devices both on the default name AND missing a TXT record) is a narrow pre-existing edge
+case in foundation code outside this session's three target files. A few non-atomic
+touch-then-broadcast call pairs (flagged as low-severity, no realistic interruption window
+in synchronous single-threaded JS) were left as-is rather than wrapping every write in a
+transaction.
+
+`npx tsc --noEmit` re-verified clean after all fixes.

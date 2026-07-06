@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → lib/date
- *   Used by → app/_layout.tsx, lib/backup.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useInboxStore.ts, store/useMealStore.ts, store/useNotesStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
+ *   Used by → app/_layout.tsx, lib/backup.ts, lib/liveSync.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useInboxStore.ts, store/useMealStore.ts, store/useNotesStore.ts, store/usePeersStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
  *   Data    → owns ALL SQLite tables: settings, tasks, shopping_items, shopping_trips, shopping_lists, dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the energy check-in feature; table/pruning kept per the never-drop-tables rule, no longer written to), inbox_items, receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key)
  *
  * Edit notes:
@@ -483,6 +483,14 @@ export function initDb() {
     // stored in SQLite — it lives in expo-secure-store (lib/childLock.ts).
     "ALTER TABLE settings ADD COLUMN child_mode INTEGER DEFAULT 0",
     "ALTER TABLE settings ADD COLUMN child_mode_password_set INTEGER DEFAULT 0",
+    // LAN live-sync app integration (Decision 038, wiring the 038a/038d/038b
+    // foundations together): device_id is THIS install's stable identity, used as
+    // both the lanTransport advertised id and the liveSync origin_device_id — generated
+    // once (useSettingsStore.load() self-heals an empty value) and persisted so peers
+    // recognise this device across relaunches. lan_sync_enabled gates whether
+    // lib/syncService's transport is running at all.
+    "ALTER TABLE settings ADD COLUMN device_id TEXT DEFAULT ''",
+    "ALTER TABLE settings ADD COLUMN lan_sync_enabled INTEGER DEFAULT 0",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

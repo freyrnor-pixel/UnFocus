@@ -24,8 +24,8 @@
  *   Imports → components/AppModal, components/FormControls, components/ScreenScaffold,
  *             components/SectionDivider, components/Surface, constants/theme, lib/backup,
  *             lib/childLock, lib/haptics, lib/i18n, lib/notifications, lib/reminders,
- *             lib/useAppTheme, store/useHabitStore, store/useSettingsStore, store/useShoppingStore,
- *             store/useTaskStore
+ *             lib/syncService, lib/useAppTheme, store/useHabitStore, store/useSettingsStore,
+ *             store/useShoppingStore, store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
  *   Data    → useSettingsStore (settings table; incl. essentialsModeEnabled, quietHours*,
  *             monthlyBudgetNok, taskNotificationsEnabled, habitNotificationsEnabled,
@@ -62,6 +62,11 @@
  *     per-week ShoppingList rows (store/useShoppingListStore.ts, auto-rolling by date), so there
  *     is no equivalent "reset the current weekly list" store action to bind to; lib/seedTestData.ts
  *     also does not exist in this repo. Flagged in PROGRESS_LOG rather than inventing either.
+ *   - LAN live sync (Decision 038 app integration): this screen only owns the entry-point card
+ *     (description + link) in the Data group — the sync toggle, QR pairing wizard, and paired-
+ *     devices list all live on app/pair-device.tsx. syncAvailable (lib/syncService's
+ *     isSyncAvailable()) gates whether the card shows the link or an "unavailable" note, since
+ *     the native transport modules aren't linked outside a real build.
  */
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -86,6 +91,7 @@ import { syncReminders } from '@/lib/reminders';
 import { syncNotificationCategories } from '@/lib/notifications';
 import { exportBackup, exportBackupToDevice, pickAndParseBackup, restoreBackup, reloadApp } from '@/lib/backup';
 import { setPassword as setChildPassword, verifyPassword as verifyChildPassword } from '@/lib/childLock';
+import { isSyncAvailable } from '@/lib/syncService';
 import { useT, getTranslations } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -104,6 +110,7 @@ export default function SettingsScreen() {
   const syncHabitNotifs = useHabitStore((s) => s.syncAllHabitReminders);
   const clearTasks = useTaskStore((s) => s.clearAll);
   const monthlyReset = useShoppingStore((s) => s.monthlyReset);
+  const syncAvailable = isSyncAvailable();
 
   const [tab, setTab] = useState<SettingsTab>('generelt');
   const [name, setName] = useState(settings.userName);
@@ -647,6 +654,20 @@ export default function SettingsScreen() {
                     </Pressable>
                   </>
                 )}
+              </Surface>
+            </View>
+
+            {/* LAN live sync (Decision 038 app integration) — pairing lives on its own
+                screen (app/pair-device.tsx); this card is just the entry point + toggle. */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.peers.title}</Text>
+              <Surface style={styles.card}>
+                <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
+                  {syncAvailable ? t.peers.settingsCardDesc : t.peers.syncUnavailable}
+                </Text>
+                <Pressable style={styles.dangerBtn} onPress={() => router.push('/pair-device')}>
+                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.peers.manageLink}</Text>
+                </Pressable>
               </Surface>
             </View>
 

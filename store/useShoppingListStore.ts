@@ -154,8 +154,10 @@ function defaultListName(startDate: string, endDate: string): string {
  * The source rows are left untouched — they remain that list's history.
  */
 function copyOpenItemsToList(sourceListId: string, targetListId: string): void {
+  // deleted_at IS NULL: a soft-deleted (Decision 038b tombstone) item must not get
+  // resurrected as a fresh live row in the next list — see lib/liveSync.ts's header.
   const openItemIds = db.getAllSync<{ id: string }>(
-    "SELECT id FROM shopping_items WHERE list_id = ? AND status = 'inWeeklyList'",
+    "SELECT id FROM shopping_items WHERE list_id = ? AND status = 'inWeeklyList' AND deleted_at IS NULL",
     [sourceListId]
   );
   for (const { id: sourceItemId } of openItemIds) {
@@ -179,8 +181,10 @@ function copyOpenItemsToList(sourceListId: string, targetListId: string): void {
 
 /** One-time bootstrap: any pre-migration inWeeklyList item with no list_id gets a fresh current-week list. */
 function backfillOrphanedItems(lists: ShoppingList[]): ShoppingList[] {
+  // deleted_at IS NULL: same tombstone guard as copyOpenItemsToList — a soft-deleted
+  // orphaned item must not trigger (or be swept into) a spurious backfill list.
   const orphaned = db.getFirstSync<{ c: number }>(
-    "SELECT COUNT(*) as c FROM shopping_items WHERE status = 'inWeeklyList' AND list_id IS NULL"
+    "SELECT COUNT(*) as c FROM shopping_items WHERE status = 'inWeeklyList' AND list_id IS NULL AND deleted_at IS NULL"
   );
   if (!orphaned || orphaned.c === 0) return lists;
 
@@ -202,7 +206,10 @@ function backfillOrphanedItems(lists: ShoppingList[]): ShoppingList[] {
     createdAt: new Date().toISOString(),
   };
   insertRow('shopping_lists', rowValues(list, LIST_COLUMNS));
-  db.runSync("UPDATE shopping_items SET list_id = ? WHERE status = 'inWeeklyList' AND list_id IS NULL", [id]);
+  db.runSync(
+    "UPDATE shopping_items SET list_id = ? WHERE status = 'inWeeklyList' AND list_id IS NULL AND deleted_at IS NULL",
+    [id]
+  );
   return [...lists, list];
 }
 

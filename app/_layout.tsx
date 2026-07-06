@@ -12,10 +12,10 @@
  *   Imports → expo-router, expo-status-bar, react-native-gesture-handler,
  *             react-native-safe-area-context (SafeAreaProvider — supplies insets to every
  *             screen's SafeAreaView so content clears the status bar on Android too),
- *             @expo-google-fonts/nunito, lib/db, lib/useAppTheme,
+ *             @expo-google-fonts/nunito, lib/db, lib/syncService, lib/useAppTheme,
  *             store/useSettingsStore, store/useAutomationStore, store/useCatalogStore,
  *             store/useHabitStore, store/useHealthStore, store/useInboxStore,
- *             store/useMealStore, store/useNotesStore, store/useReceiptStore,
+ *             store/useMealStore, store/useNotesStore, store/usePeersStore, store/useReceiptStore,
  *             store/useSharedStore, store/useShoppingListStore, store/useShoppingStore,
  *             store/useTaskStore, components/AppModal, components/DebugOverlay
  *   Used by → router layout — defines the Stack
@@ -33,6 +33,10 @@
  *   - Onboarding guard: once settings.loaded is true and setupComplete is false, and we
  *     aren't already under /onboarding, redirect to /onboarding/language. segments are
  *     read inside the effect as a guard, intentionally kept out of its deps.
+ *   - LAN live-sync (Decision 038 app integration): a dedicated effect starts/stops
+ *     lib/syncService's transport as settings.lanSyncEnabled flips, once settings have
+ *     hydrated a deviceId. See app/pair-device.tsx for the pairing UI and
+ *     app/settings.tsx's Data group for the on/off toggle.
  *   - The 5 main sites (Home/Shopping/Plans/Health/Scan) are no longer separate
  *     Stack.Screen entries — they're one <Stack.Screen name="(tabs)" /> covering
  *     app/(tabs)/_layout.tsx's material-top-tabs pager (see that file + lib/siteNav.ts).
@@ -60,6 +64,7 @@ import {
   Nunito_800ExtraBold,
 } from '@expo-google-fonts/nunito';
 import { initDb } from '@/lib/db';
+import { startSync, stopSync } from '@/lib/syncService';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
@@ -69,6 +74,7 @@ import { useHealthStore } from '@/store/useHealthStore';
 import { useInboxStore } from '@/store/useInboxStore';
 import { useMealStore } from '@/store/useMealStore';
 import { useNotesStore } from '@/store/useNotesStore';
+import { usePeersStore } from '@/store/usePeersStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useSharedStore } from '@/store/useSharedStore';
 import { useShoppingListStore } from '@/store/useShoppingListStore';
@@ -96,6 +102,9 @@ export default function RootLayout() {
   const loaded = useSettingsStore((s) => s.loaded);
   const setupComplete = useSettingsStore((s) => s.setupComplete);
   const debugModeEnabled = useSettingsStore((s) => s.debugModeEnabled);
+  const lanSyncEnabled = useSettingsStore((s) => s.lanSyncEnabled);
+  const deviceId = useSettingsStore((s) => s.deviceId);
+  const userName = useSettingsStore((s) => s.userName);
 
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
@@ -124,6 +133,7 @@ export default function RootLayout() {
     useInboxStore.getState().load();
     useMealStore.getState().load();
     useNotesStore.getState().load();
+    usePeersStore.getState().load();
     useReceiptStore.getState().load();
     useSharedStore.getState().load();
     useShoppingListStore.getState().load();
@@ -131,6 +141,27 @@ export default function RootLayout() {
     useTaskStore.getState().load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
+
+  // LAN live-sync (Decision 038 app integration): start/stop lib/syncService's
+  // transport as the settings toggle flips, once a stable deviceId exists (settings
+  // store self-heals it on load()). No-op (isSyncAvailable() false) outside a real
+  // build with the native transport modules linked. Stopped on unmount as a safety
+  // net, though the root layout normally lives for the app's whole lifetime.
+  // Deliberately NOT keyed on userName: startSync() is idempotent while already
+  // running, so a rename wouldn't actually re-advertise the new name anyway — the
+  // advertised name only updates on the next real stop/start (toggle off-on or
+  // relaunch), rather than every dependent's name edit dropping every live peer
+  // connection to force a restart that wouldn't have picked up the change either.
+  useEffect(() => {
+    if (!loaded || !deviceId) return;
+    if (lanSyncEnabled) {
+      startSync({ deviceId, name: userName || 'UnFocus' });
+    } else {
+      stopSync();
+    }
+    return () => stopSync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, lanSyncEnabled, deviceId]);
 
   // Onboarding guard: send new users to the flow until setup is complete.
   useEffect(() => {
@@ -163,6 +194,7 @@ export default function RootLayout() {
         <Stack.Screen name="meals" />
         <Stack.Screen name="budget" />
         <Stack.Screen name="shared" />
+        <Stack.Screen name="pair-device" />
         <Stack.Screen name="habits" />
         <Stack.Screen name="automations" />
         <Stack.Screen name="notes" />
