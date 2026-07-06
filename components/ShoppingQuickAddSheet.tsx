@@ -26,7 +26,7 @@
  *   - Decision 008: the sheet is a glass Surface in `overlay` context. Blur comes from
  *     Surface's BlurView; this file never imports expo-blur directly.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -63,13 +63,11 @@ export default function ShoppingQuickAddSheet({ visible, onClose }: Props) {
 
   const [name, setName] = useState('');
   const [confirm, setConfirm] = useState<string | null>(null);
-  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (visible) {
       setName('');
       setConfirm(null);
-      setTimeout(() => inputRef.current?.focus(), 80);
     }
   }, [visible]);
 
@@ -108,7 +106,6 @@ export default function ShoppingQuickAddSheet({ visible, onClose }: Props) {
           <Text style={[styles.title, { color: theme.text }]}>{t.notes.shoppingQuickAddTitle}</Text>
 
           <TextInput
-            ref={inputRef}
             style={[styles.nameInput, { color: theme.text, borderBottomColor: theme.border }]}
             placeholder={t.shoppingItemPlaceholder}
             placeholderTextColor={theme.textMuted}
