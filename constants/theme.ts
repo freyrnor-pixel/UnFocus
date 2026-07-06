@@ -18,7 +18,16 @@
  *
  * Connections:
  *   Imports → —
- *   Used by → app/_layout.tsx, app/budget.tsx, app/capture.tsx, app/focus.tsx, app/habit-form.tsx, app/habits.tsx, app/health.tsx, app/index.tsx, app/meals.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/onboarding/step6.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/BubbleMenu.tsx, components/DatePickerCalendar.tsx, components/DayTimeline.tsx, components/ExpandableCard.tsx, components/HintCard.tsx, components/QuickAddSheet.tsx, components/ShoppingRow.tsx, components/TaskItem.tsx, components/TimePickerWheel.tsx, lib/useAppTheme.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/capture.tsx, app/focus.tsx, app/habit-form.tsx, app/habits.tsx, app/health.tsx, app/index.tsx, app/meals.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DatePickerCalendar.tsx, components/ExpandableCard.tsx, components/HintCard.tsx, components/ShoppingRow.tsx, components/TimePickerWheel.tsx, lib/useAppTheme.ts
+ *
+ *   NOTE: this file also still exports a legacy pre-Decision-006 colour system
+ *   (ThemeName/AppColors/THEMES/DARK_THEMES/THEME_META/getTheme/getSoftTheme/Colors/
+ *   THEME_ICONS/CUSTOM_COLOR_PRESETS/hueToCustomColors/buildCustomTheme/contrastOnAll/
+ *   FeatureColors/MealColors/tintToTheme) with zero live importers anywhere in the repo
+ *   — fully superseded by constants/colors.ts's ThemePalette (Decision 006). Kept
+ *   in-repo per the documented "never-delete precedent" (see REBUILD_DECISIONS.md
+ *   Decision 024, PROGRESS_LOG.md 2026-07-03 entry) rather than deleted — flag for the
+ *   maintainer if that precedent should be revisited for this file specifically.
  *   Data    → none (pure constants)
  *
  * Edit notes:

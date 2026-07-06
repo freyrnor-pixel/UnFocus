@@ -11,8 +11,7 @@
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, lib/notifications, lib/taskNotifications,
  *             lib/liveSync, lib/syncService, store/useAutomationStore, store/useSettingsStore
- *   Used by → components/QuickAddSheet.tsx, components/NextTaskCard.tsx, components/DayTimeline.tsx,
- *             components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
+ *   Used by → components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
  *             app/task-form.tsx, app/plans.tsx
  *   Data    → defines a Zustand store; owns SQLite tables `tasks` and `task_steps`; fires the
  *             'task_completed' automation trigger on toggle-to-done / completeDirect

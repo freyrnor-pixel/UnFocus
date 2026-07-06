@@ -13,8 +13,8 @@ To make ANY JS/UI/logic change go live (see `PUBLISHING.md` for the full guide):
 1. Commit + push your work on the designated `claude/**` branch.
 2. Open a PR from that branch into `main`.
 3. **Merge the PR into `main`.** That push to `main` triggers `update.yml`, which
-   runs `eas update --branch preview` targeting `runtimeVersion` in `app.json`
-   (currently `1.1.0`). Users get it on next launch (~1–2 min).
+   runs `eas update --branch preview` targeting whatever `runtimeVersion` is
+   currently set in `app.json`. Users get it on next launch (~1–2 min).
 
 If the user says "I can't see the update," the cause is almost always: **the
 commit never reached `main`.** Check `git log origin/main` for your commit before
@@ -54,7 +54,7 @@ you've explicitly handed the merge to the user).
 
 ### Navigation State
 - **BottomNav** (`components/BottomNav.tsx`) — current, only entry point; no redesign needed
-- **BubbleMenu** (radial FAB) — explicitly **deferred**; do NOT touch unless asked
+- **BubbleMenu** (radial FAB from the pre-rebuild spec) — dropped before porting (Decision 008 #5); `components/BubbleMenu.tsx` does not exist in this repo, don't look for it
 
 ### Testing
 - **No Jest required** until further notice (no test runs, no live-app verification)

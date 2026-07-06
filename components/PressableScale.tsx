@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → react-native-reanimated, lib/haptics, lib/useAppTheme
- *   Used by → BubbleMenu + any screen button wanting press feedback
+ *   Used by → any screen button wanting press feedback
  *   Data    → reads reducedMotion via useAccessibility()
  *
  * Edit notes:

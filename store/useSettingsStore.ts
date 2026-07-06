@@ -3,8 +3,8 @@
  *
  * Zustand store mirroring the one settings row: user name, language, theme,
  * dark mode, reminder/notification toggles (including quiet hours, task/habit notification toggles), reset cadence,
- * work/essentials modes, onboarding state, accessibility flags, companion pet
- * settings, monthly grocery budget (monthlyBudgetNok), the local account
+ * work/essentials modes, onboarding state, accessibility flags, monthly
+ * grocery budget (monthlyBudgetNok), the local account
  * (accountName/accountCreated — device-only profile, Decision 039), and the debug
  * overlay's enable flag + bubble-wheel tuning values.
  * persistentNotifEnabled toggles the always-current "today's overview" notification
@@ -17,7 +17,7 @@
  *
  * Connections:
  *   Imports → lib/dataAccess, lib/id
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/index.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, components/BubbleMenu.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/ParticleBackground.tsx, components/QuickAddSheet.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/index.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/ParticleBackground.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns the single-row SQLite table settings (id = 1)
  *
  * Edit notes:
@@ -49,7 +49,6 @@ export type ColorTheme = 'default' | 'summer' | 'nature' | 'fluffyPink' | 'gothi
 export type Language = 'en' | 'no';
 export type DarkMode = 'system' | 'on' | 'off';
 export type FontSizePref = 'small' | 'default' | 'large';
-export type PetType = 'cat' | 'dog' | 'bird' | 'fox' | 'bunny';
 /** Surface finish for bubbles/FAB and, via Surface/ScreenBackground, cards and screen backdrops app-wide — see getMaterialStyle() in constants/theme.ts. */
 export type BubbleMaterial = 'glass' | 'metal' | 'rock' | 'paper' | 'plain';
 
@@ -78,11 +77,6 @@ export type Settings = {
   reducedMotion: boolean;
   particlesEnabled: boolean;
   fontSize: FontSizePref;
-  // Companion pet (Proposal 6)
-  petEnabled: boolean;
-  petName: string;
-  petType: PetType;
-  petColor: string;
   // Left-handed mode
   leftHanded: boolean;
   // Custom theme colors
@@ -142,28 +136,6 @@ type SettingsStore = Settings & {
   setWorkModeSessionOverride: (v: boolean) => void;
 };
 
-/**
- * Migrates any previously-stored theme name to the canonical colors.ts set.
- * Two legacy vintages need mapping:
- *   - 1.0.0 names (warm/cool/forest/rose/highcontrast)
- *   - the interim theme.ts names (tech/fluffy) that never actually rendered in
- *     the colors.ts chrome — tech had no palette (→ Default, which is what it
- *     already displayed) and fluffy is now the real fluffyPink palette.
- * Unknown names fall back to 'default'.
- */
-function migrateThemeName(name: string | null): ColorTheme {
-  if (!name) return 'default';
-  const map: Record<string, ColorTheme> = {
-    // 1.0.0 legacy names
-    warm: 'default', cool: 'default', forest: 'nature', rose: 'fluffyPink', highcontrast: 'blackWhite',
-    // interim theme.ts names (never had a matching colors.ts palette)
-    tech: 'default', fluffy: 'fluffyPink',
-  };
-  if (name in map) return map[name];
-  const valid: ColorTheme[] = ['default', 'summer', 'nature', 'fluffyPink', 'gothic', 'blackWhite', 'custom'];
-  return valid.includes(name as ColorTheme) ? (name as ColorTheme) : 'default';
-}
-
 /** Map the single settings row to the persisted Settings (defaults mirror the old load()). */
 function rowToSettings(row: Row): Settings {
   return {
@@ -174,7 +146,9 @@ function rowToSettings(row: Row): Settings {
     reminderTime: readStr(row, 'reminder_time', '08:00'),
     taskNotificationsEnabled: readBool(row, 'task_notifications_enabled'),
     setupComplete: readBool(row, 'setup_complete'),
-    colorTheme: migrateThemeName(readStr(row, 'color_theme') || null),
+    // Locked to 'default' — the colour-theme picker was removed app-wide (settings +
+    // onboarding); any other value previously stored on-device is ignored on load.
+    colorTheme: 'default',
     workModeEnabled: readBool(row, 'work_mode_enabled'),
     workHoursStart: readStr(row, 'work_hours_start', '07:00'),
     workHoursEnd: readStr(row, 'work_hours_end', '17:00'),
@@ -190,15 +164,13 @@ function rowToSettings(row: Row): Settings {
     reducedMotion: readBool(row, 'reduced_motion'),
     particlesEnabled: readInt(row, 'particles_enabled', 1) !== 0,
     fontSize: readStr(row, 'font_size', 'default') as FontSizePref,
-    petEnabled: readBool(row, 'pet_enabled'),
-    petName: readStr(row, 'pet_name'),
-    petType: readStr(row, 'pet_type', 'cat') as PetType,
-    petColor: readStr(row, 'pet_color', '#A78BFA'),
     leftHanded: readBool(row, 'left_handed'),
     customPrimaryColor: readStr(row, 'custom_primary_color', '#3B82F6'),
     customSecondaryColor: readStr(row, 'custom_secondary_color', '#10B981'),
     customHue: readInt(row, 'custom_hue', 217),
-    bubbleMaterial: readStr(row, 'bubble_material', 'glass') as BubbleMaterial,
+    // Locked to 'glass' — the material picker was removed from settings; any other
+    // value previously stored on-device is ignored on load.
+    bubbleMaterial: 'glass' as BubbleMaterial,
     persistentNotifEnabled: readBool(row, 'persistent_notif_enabled'),
     quietHoursEnabled: readBool(row, 'quiet_hours_enabled'),
     quietHoursStart: readStr(row, 'quiet_hours_start', '21:00'),
@@ -250,10 +222,6 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   reducedMotion: { col: 'reduced_motion', to: bool },
   particlesEnabled: { col: 'particles_enabled', to: bool },
   fontSize: { col: 'font_size' },
-  petEnabled: { col: 'pet_enabled', to: bool },
-  petName: { col: 'pet_name' },
-  petType: { col: 'pet_type' },
-  petColor: { col: 'pet_color' },
   leftHanded: { col: 'left_handed', to: bool },
   customPrimaryColor: { col: 'custom_primary_color' },
   customSecondaryColor: { col: 'custom_secondary_color' },
@@ -310,10 +278,6 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   reducedMotion: false,
   particlesEnabled: true,
   fontSize: 'default' as FontSizePref,
-  petEnabled: false,
-  petName: '',
-  petType: 'cat' as PetType,
-  petColor: '#A78BFA',
   leftHanded: false,
   customPrimaryColor: '#3B82F6',
   customSecondaryColor: '#10B981',

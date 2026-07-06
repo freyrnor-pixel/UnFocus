@@ -8,10 +8,7 @@
  *
  * Connections:
  *   Imports → lib/date, lib/time, lib/i18n, lib/notifications, store/useSettingsStore
- *   Used by → app/_layout.tsx, app/onboarding/step6.tsx, app/settings.tsx (all three
- *             flagged as unported in this rebuild — currently referenced only in their
- *             headers/comments; this coordinator is ported ahead of those consumers,
- *             same precedent as lib/notifications.ts)
+ *   Used by → app/_layout.tsx, app/onboarding/step5.tsx, app/settings.tsx
  *   Data    → reads settings store; schedules OS notifications
  *
  * Edit notes:

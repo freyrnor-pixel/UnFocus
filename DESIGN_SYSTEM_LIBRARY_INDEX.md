@@ -38,4 +38,9 @@
 
 ---
 
-**Related docs**: ANIMATION_GUIDELINES.md, AGENTS.md, DESIGN_SYSTEM_IMPLEMENTATION.md
+**Related docs**: ANIMATION_GUIDELINES.md, AGENTS.md
+
+> `DESIGN_SYSTEM_IMPLEMENTATION.md` is a frozen 2026-06-25 checklist from an earlier,
+> now-superseded design pass (references a "5 colour schemes" system and a
+> `components/TaskItem.tsx` that no longer exist) — not a live reference. See the
+> session summary for details; flagged for the maintainer to confirm deletion.

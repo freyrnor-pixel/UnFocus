@@ -1,13 +1,12 @@
 /**
- * Surface.tsx — material-aware card surface, the general-purpose sibling of
- * BubbleMenu's bubble/FAB rendering.
+ * Surface.tsx — material-aware card surface.
  *
- * Wraps children in the same two-layer pattern (outer view carries border +
+ * Wraps children in a two-layer pattern (outer view carries border +
  * shadow, inner overflow:hidden mask carries fill + sheen) so any card can
  * pick up the user's chosen glass/metal/rock/paper/plain finish instead of a
  * flat fill — this is what makes "backgrounds and the material things are
- * made of" actually track the Settings → Material choice outside the bubble
- * menu. Drop-in replacement for `<View style={[styles.card, {backgroundColor:
+ * made of" actually track the Settings → Material choice app-wide.
+ * Drop-in replacement for `<View style={[styles.card, {backgroundColor:
  * theme.surface}]}>` — pass the same `style` (radius/margin/padding all still
  * work; padding is automatically moved to the inner content so the sheen
  * still spans the full card).

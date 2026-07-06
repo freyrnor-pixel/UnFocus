@@ -1,5 +1,5 @@
 /**
- * step2.tsx — Work mode setup (guided step 2 of 6)
+ * step2.tsx — Work mode setup (guided step 2 of 5)
  *
  * Lets the user toggle work mode, auto-activation by work hours, and enter the
  * start/end work-hour strings used to switch the app's mode automatically.
@@ -126,7 +126,7 @@ export default function OnboardingStep2() {
         <HintCard text={t.tipWorkMode} />
 
         <View style={styles.progress}>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <View
               key={i}
               style={[

@@ -10,7 +10,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/InboxSection,
- *             components/ExpandableCard, components/ShoppingRow, components/AddFAB, components/HintCard, components/Pet,
+ *             components/ExpandableCard, components/ShoppingRow, components/AddFAB, components/HintCard,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, store/useTaskStore, store/useShoppingStore, store/useShoppingListStore,
  *             store/useSettingsStore
@@ -74,7 +74,6 @@ import ExpandableCard from '@/components/ExpandableCard';
 import ShoppingRow from '@/components/ShoppingRow';
 import AddFAB from '@/components/AddFAB';
 import HintCard from '@/components/HintCard';
-import Pet from '@/components/Pet';
 import { goToSite } from '@/lib/siteNav';
 import { initDb } from '@/lib/db';
 import { todayStr } from '@/lib/date';
@@ -342,7 +341,6 @@ export default function HomeScreen() {
 
       {/* Add a task — a Home input affordance, so hidden in Focus mode (Decision 009 #4). */}
       {!focusMode && <AddFAB onPress={() => router.push('/task-form')} accessibilityLabel={t.newTask} />}
-      {settings.petEnabled && !focusMode && <Pet completedToday={completedCount} />}
     </>
   );
 }
