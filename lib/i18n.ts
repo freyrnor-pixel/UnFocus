@@ -935,15 +935,15 @@ const en = {
   },
   hints: {
     home: {
-      text: 'Your daily overview — tap the eye in the top bar to focus on essential plans only.',
+      text: "1) See today's notes, plans and shopping at a glance.\n2) Tap an item to check it off.\n3) Tap \"See all →\" to open the full screen.\n4) Tap the eye icon (top bar) to show only essential plans.",
       example: '',
     },
     taskForm: {
-      text: 'Just a title and a date — everything else is optional.',
+      text: '1) Type a title.\n2) Pick a date — today is filled in for you.\n3) Optional: set a time, mark it Essential, add steps, or repeat it weekly.\n4) Tap Save.',
       example: '',
     },
     habitForm: {
-      text: 'Just a name — reminders and the cue→craving→response→reward steps are optional.',
+      text: '1) Choose Build (start doing) or Break (do less).\n2) Give it a name.\n3) Optional: set a daily goal, a reminder, or the cue→craving→response→reward steps.\n4) Tap Save.',
       example: '',
     },
     shopping: {
@@ -951,11 +951,11 @@ const en = {
       example: '',
     },
     meals: {
-      text: 'Tap a dish to add its ingredients to your shopping list.',
+      text: '1) Tap a meal-type tile to see its dishes.\n2) Tap a dish to add its ingredients to your shopping list.\n3) Tap + to create a new dish and list its ingredients.',
       example: '',
     },
     health: {
-      text: 'Log symptoms to spot patterns over time.',
+      text: '1) Tap + to log a symptom.\n2) Set the date, severity (1–5) and an optional note.\n3) Save — it appears in the 30-day overview and the log below.',
       example: '',
     },
     scan: {
@@ -971,11 +971,11 @@ const en = {
       example: '',
     },
     habits: {
-      text: 'Tap + each time you build or resist a habit. Tap a card to expand, hold it to edit.',
+      text: '1) Tap + on a habit each time you build it or resist it.\n2) Tap a card to expand its steps and week view.\n3) Hold a card to edit it.\n4) Tap + New to add a habit.',
       example: '',
     },
     plans: {
-      text: "Today's full agenda, anytime plans first.",
+      text: "1) See today's full agenda — anytime plans first, then timed ones.\n2) Tap the dot to check off a plan.\n3) Tap a plan to open and edit it.\n4) Tap + to add a new one.",
       example: '',
     },
     automations: {
@@ -983,7 +983,7 @@ const en = {
       example: '',
     },
     notes: {
-      text: 'Jot a quick note, then send it to shopping or plans when ready.',
+      text: '1) Tap + to jot a quick note.\n2) Use its shopping or plans button to send it onward.\n3) Check it off when done — it moves below.',
       example: '',
     },
   },
@@ -1886,15 +1886,15 @@ const no: typeof en = {
   },
   hints: {
     home: {
-      text: 'Din daglige oversikt — trykk på øyet i topplinjen for kun de viktigste planene.',
+      text: '1) Se dagens notater, planer og handleliste på ett blikk.\n2) Trykk en vare for å hake den av.\n3) Trykk «Se alt →» for å åpne hele skjermen.\n4) Trykk på øyet (topplinjen) for å vise kun de viktigste planene.',
       example: '',
     },
     taskForm: {
-      text: 'Bare tittel og dato — resten er valgfritt.',
+      text: '1) Skriv en tittel.\n2) Velg en dato — i dag er fylt inn for deg.\n3) Valgfritt: sett et tidspunkt, merk som viktig, legg til steg, eller gjenta ukentlig.\n4) Trykk Lagre.',
       example: '',
     },
     habitForm: {
-      text: 'Bare et navn — påminnelser og signal→trang→respons→belønning er valgfritt.',
+      text: '1) Velg Bygg (start å gjøre) eller Bryt (gjør mindre).\n2) Gi den et navn.\n3) Valgfritt: sett et daglig mål, en påminnelse, eller signal→trang→respons→belønning.\n4) Trykk Lagre.',
       example: '',
     },
     shopping: {
@@ -1902,11 +1902,11 @@ const no: typeof en = {
       example: '',
     },
     meals: {
-      text: 'Trykk en rett for å legge ingrediensene til handlelisten.',
+      text: '1) Trykk en måltidskategori for å se rettene.\n2) Trykk en rett for å legge ingrediensene til handlelisten.\n3) Trykk + for å lage en ny rett og liste ingrediensene.',
       example: '',
     },
     health: {
-      text: 'Logg symptomer for å se mønstre over tid.',
+      text: '1) Trykk + for å logge et symptom.\n2) Sett dato, alvorlighetsgrad (1–5) og en valgfri notat.\n3) Lagre — det vises i 30-dagersoversikten og loggen under.',
       example: '',
     },
     scan: {
@@ -1922,11 +1922,11 @@ const no: typeof en = {
       example: '',
     },
     habits: {
-      text: 'Trykk + hver gang du bygger eller motstår en vane. Trykk på et kort for å utvide, hold inne for å redigere.',
+      text: '1) Trykk + på en vane hver gang du bygger den eller motstår den.\n2) Trykk et kort for å utvide steg og ukevisning.\n3) Hold inne et kort for å redigere det.\n4) Trykk + Ny for å legge til en vane.',
       example: '',
     },
     plans: {
-      text: 'Dagens fulle agenda, planer uten tidspunkt først.',
+      text: '1) Se dagens fulle agenda — planer uten tidspunkt først, så de med tidspunkt.\n2) Trykk prikken for å hake av en plan.\n3) Trykk en plan for å åpne og redigere den.\n4) Trykk + for å legge til en ny.',
       example: '',
     },
     automations: {
@@ -1934,7 +1934,7 @@ const no: typeof en = {
       example: '',
     },
     notes: {
-      text: 'Skriv et raskt notat, og send det til handleliste eller planer når du er klar.',
+      text: '1) Trykk + for å skrive et raskt notat.\n2) Bruk handleliste- eller planer-knappen for å sende det videre.\n3) Hak av når du er ferdig — det flyttes ned.',
       example: '',
     },
   },
