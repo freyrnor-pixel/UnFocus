@@ -49,8 +49,6 @@ export default function HomeNotesCard() {
   const activeNotes = notes.filter((n) => !n.checked);
   const checkedNotes = notes.filter((n) => n.checked);
 
-  if (notes.length === 0) return null;
-
   const visibleActive = expanded ? activeNotes : activeNotes.slice(0, COLLAPSED_COUNT);
   const showToggle = activeNotes.length > COLLAPSED_COUNT;
 

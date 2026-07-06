@@ -963,7 +963,7 @@ export default function ShoppingScreen() {
             })}
 
             <Pressable
-              style={[styles.newListCard, { borderColor: theme.border }]}
+              style={[styles.newListCard, { borderColor: theme.border, backgroundColor: theme.surface }]}
               onPress={() =>
                 showAppModal(t.newWeeklyListTitle, '', [
                   { text: t.startEmptyList, onPress: handleCreateNewWeeklyList },

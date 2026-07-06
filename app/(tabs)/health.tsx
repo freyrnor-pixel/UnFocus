@@ -368,7 +368,9 @@ export default function HealthScreen() {
             </Pressable>
 
             {habits.length === 0 ? (
-              <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
+              <Surface style={styles.emptyCard}>
+                <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
+              </Surface>
             ) : (
               habits.map((habit) => {
                 const log = habitLogs.find((l) => l.habitId === habit.id && l.logDate === today);
