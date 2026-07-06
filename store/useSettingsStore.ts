@@ -106,6 +106,10 @@ export type Settings = {
   // whether lib/syncService's transport runs.
   deviceId: string;
   lanSyncEnabled: boolean;
+  // Auto-backup to a fixed local path, updated on every change when enabled.
+  autoBackupEnabled: boolean;
+  // School mode placeholder — no feature logic yet, toggle persisted for future use.
+  schoolModeEnabled: boolean;
 };
 
 type SettingsStore = Settings & {
@@ -161,6 +165,8 @@ function rowToSettings(row: Row): Settings {
     childModePasswordSet: readBool(row, 'child_mode_password_set'),
     deviceId: readStr(row, 'device_id'),
     lanSyncEnabled: readBool(row, 'lan_sync_enabled'),
+    autoBackupEnabled: readBool(row, 'auto_backup_enabled'),
+    schoolModeEnabled: readBool(row, 'school_mode_enabled'),
   };
 }
 
@@ -208,6 +214,8 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   childModePasswordSet: { col: 'child_mode_password_set', to: bool },
   deviceId: { col: 'device_id' },
   lanSyncEnabled: { col: 'lan_sync_enabled', to: bool },
+  autoBackupEnabled: { col: 'auto_backup_enabled', to: bool },
+  schoolModeEnabled: { col: 'school_mode_enabled', to: bool },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -255,6 +263,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   childModePasswordSet: false,
   deviceId: '',
   lanSyncEnabled: false,
+  autoBackupEnabled: false,
+  schoolModeEnabled: false,
   loaded: false,
   workModeSessionOverride: false,
 

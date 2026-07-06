@@ -3,20 +3,20 @@
  *
  * Renders as a small pill button (info icon + chevron) that expands, on tap,
  * into the flat bordered hint body with a left accent bar. Collapsed by
- * default — instructions are opt-in, not always-on chrome. Returns null when
- * the user has disabled hints, so screens can mount it unconditionally.
+ * default — instructions are opt-in, not always-on chrome. Always renders
+ * (showHints setting removed — the pill is always available, just collapsed).
  *
  * Connections:
- *   Imports → constants/theme, store/useSettingsStore, lib/useAppTheme,
+ *   Imports → constants/theme, lib/useAppTheme,
  *             lib/i18n (useT), components/PressableScale
  *   Used by → app/(tabs)/index.tsx, app/(tabs)/plans.tsx, app/(tabs)/health.tsx,
  *             app/(tabs)/scan.tsx, app/habits.tsx, app/task-form.tsx, app/meals.tsx,
  *             app/habit-form.tsx, app/notes.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx
- *   Data    → reads showHints from useSettingsStore (no writes); colours from
+ *   Data    → reads colours from
  *             useAppTheme(); scaled fontSize via useScaledStyles()
  *
  * Edit notes:
- *   - Gated on showHints; renders nothing when hints are off — callers should still pass text/example.
+ *   - Always renders the how-to button (collapsed by default) — callers should still pass text/example.
  *   - text/example are passed in already-localized; this component does not call useT() itself
  *     except for the toggle button's own label (t.showHint/t.hideHint).
  *   - Uses theme.hintBg/hintBorder/hintAccent (Decision 006 token layer) —
@@ -29,7 +29,6 @@ import React, { useState } from 'react';
 import { LayoutAnimation, Platform, StyleSheet, Text, UIManager, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
-import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import PressableScale from '@/components/PressableScale';
@@ -47,8 +46,7 @@ type Props = {
   onToggle?: () => void;
 };
 
-export default function HintCard({ text, example, open: openProp }: Props) {
-  const showHints = useSettingsStore((s) => s.showHints);
+export default function HintCard({ text, example, open: openProp, onToggle: onToggleProp }: Props) {
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
@@ -58,27 +56,10 @@ export default function HintCard({ text, example, open: openProp }: Props) {
   const isControlled = openProp !== undefined;
   const open = isControlled ? openProp : openInternal;
 
-  if (!showHints) return null;
-
-  // Controlled mode: the header ⓘ button drives open/close, so skip the inline toggle pill.
-  if (isControlled) {
-    if (!open) return null;
-    return (
-      <View style={styles.wrap}>
-        <View style={[styles.card, { backgroundColor: theme.hintBg, borderColor: theme.hintBorder }]}>
-          <View style={[styles.accentBar, { backgroundColor: theme.hintAccent }]} />
-          <View style={styles.body}>
-            <Text style={[styles.text, { color: theme.text }]}>{text}</Text>
-            {example ? <Text style={[styles.example, { color: theme.textMuted }]}>{example}</Text> : null}
-          </View>
-        </View>
-      </View>
-    );
-  }
-
   function toggle() {
     if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setOpenInternal((v) => !v);
+    if (isControlled) onToggleProp?.();
+    else setOpenInternal((v) => !v);
   }
 
   return (
