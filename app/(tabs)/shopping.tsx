@@ -1065,7 +1065,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: Spacing.md,
-    bottom: 84,
+    bottom: 76,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,

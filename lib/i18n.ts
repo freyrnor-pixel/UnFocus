@@ -1395,7 +1395,7 @@ const no: typeof en = {
   weekListTotal: (kr: string) => `Totalt: ${kr}`,
   inlineSearchPlaceholder: 'Søk i katalogen for å legge til…',
   createGroupingTitle: 'Lag gruppe',
-  createGroupingBtn: 'Lag gruppe',
+  createGroupingBtn: 'Ny gruppering',
   savedListsTitle: 'Lagrede lister',
   saveListAsTemplateBtn: 'Lagre som mal',
   savedListsEmpty: 'Ingen lagrede lister ennå.',

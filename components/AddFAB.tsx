@@ -47,7 +47,7 @@ type Props = {
 
 const DIMENSION = { lg: 56, sm: 32 };
 const PLUS_SIZE = { lg: 28, sm: 18 };
-const DEFAULT_BOTTOM = Spacing.sm + BOTTOM_NAV_HEIGHT;
+const DEFAULT_BOTTOM = Spacing.xs + BOTTOM_NAV_HEIGHT;
 
 export const FAB_LG_SIZE = DIMENSION.lg;
 export const FAB_DEFAULT_BOTTOM = DEFAULT_BOTTOM;
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   },
   floating: {
     position: 'absolute',
-    right: Spacing.xl,
+    right: Spacing.md,
   },
   plus: {
     fontFamily: Fonts.bold,
