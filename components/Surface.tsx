@@ -19,14 +19,16 @@
  * Edit notes:
  *   - Glass (and only glass) is built around a real `<BlurView>` (expo-blur) per
  *     Decision 008: the fill is an absolutely-positioned BlurView frosting whatever
- *     sits behind the card, plus a thin colour wash (mat.backgroundColor at reduced
- *     opacity) so the surface still carries the theme hue. The `surfaceContext` prop
- *     (`'ambient'` default | `'overlay'`) selects ONLY the blur intensity/tint —
- *     one shared code path; what sits *behind* the card (ScreenBackground backdrop
- *     for ambient, live scrolling content for overlay) is decided by where the
- *     caller mounts the Surface, not here. `surfaceContext` is a no-op for
- *     metal/rock/paper/plain — they keep the opaque getMaterialStyle() fill + sheen.
- *     Android wires `experimentalBlurMethod="dimezisBlurView"` (Decision 008 (2)).
+ *     sits behind the card, plus a colour wash (mat.backgroundColor's hue re-applied
+ *     at GLASS_WASH_ALPHA, context-specific and close to opaque) so text on the card
+ *     keeps the same contrast guarantees as every other material regardless of what's
+ *     blurred behind it. The `surfaceContext` prop (`'ambient'` default | `'overlay'`)
+ *     selects the blur intensity AND the wash alpha — one shared code path; what sits
+ *     *behind* the card (ScreenBackground backdrop for ambient, live scrolling content
+ *     for overlay) is decided by where the caller mounts the Surface, not here.
+ *     `surfaceContext` is a no-op for metal/rock/paper/plain — they keep the opaque
+ *     getMaterialStyle() fill + sheen. Android wires
+ *     `experimentalBlurMethod="dimezisBlurView"` (Decision 008 (2)).
  *   - The top sheen highlight is a single `<LinearGradient>` (expo-linear-gradient)
  *     fading mat.sheenColor to transparent — a real continuous gradient, not two
  *     overlapping flat-opacity Views. Two stacked flat rectangles read as a visible
@@ -80,10 +82,28 @@ const GLASS_BLUR_INTENSITY: Record<SurfaceContext, number> = {
   overlay: 45,
 };
 
-// The glass colour wash sits on top of the BlurView to keep the theme hue. Its
-// own token (mat.backgroundColor) is rgba(tinted, 0.84) — tuned for the old
-// fake (no real blur behind), so dim it here or it would hide the frost.
-const GLASS_WASH_OPACITY = 0.5;
+// The glass colour wash sits on top of the BlurView to keep the theme hue and
+// block the blurred backdrop from reading as legible shapes/text through the
+// card. Expressed as the *final* alpha the wash renders at (not multiplied
+// against mat.backgroundColor's own 0.84 — that compounding used to land
+// around 0.42 effective alpha, translucent enough that scrolled text (under
+// ScreenHeader/BottomNav/sheets) and busy backdrops (under content cards)
+// stayed legible through the card, breaking the app's validated text/surface
+// contrast guarantees (see constants/colors.ts). Overlay sits over live
+// scrolling content, so it leans closer to opaque than ambient (which only
+// frosts the calm, text-free ScreenBackground backdrop).
+const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
+  ambient: 0.8,
+  overlay: 0.94,
+};
+
+// Rewrites the alpha channel of an `rgba(r, g, b, a)` string, keeping its hue.
+function withAlpha(color: string, alpha: number): string {
+  const match = color.match(/rgba?\(([^)]+)\)/);
+  if (!match) return color;
+  const [r, g, b] = match[1].split(',').map((p) => p.trim());
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 const PADDING_KEYS = new Set([
   'padding', 'paddingHorizontal', 'paddingVertical',
@@ -159,8 +179,10 @@ export default function Surface({ material, surfaceContext = 'ambient', tint, st
               experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
               style={StyleSheet.absoluteFill}
             />
-            {/* Thin colour wash so the glass still carries the theme/tint hue. */}
-            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: mat.backgroundColor, opacity: GLASS_WASH_OPACITY }]} />
+            {/* Colour wash so the glass carries the theme/tint hue while staying opaque
+                enough for the card's text to hit the same contrast ratios as every
+                other material (see GLASS_WASH_ALPHA above). */}
+            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(mat.backgroundColor, GLASS_WASH_ALPHA[surfaceContext]) }]} />
           </>
         )}
         {showSheen && (
