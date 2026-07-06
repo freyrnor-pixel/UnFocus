@@ -21,15 +21,14 @@
  *             toggleCheck/toggleCollected/adjustAmount/putBackToInventory/removeWithSource.
  *
  * Edit notes:
- *   - `variant` drives the leading button: 'planned' shows a checkbox — unchecked is an
- *     outlined "+" (calls onToggle, which flips item.checked in the parent — no separate
- *     confirm step); once checked it renders filled/checked with the name struck through +
- *     dimmed, same look as the other "in cart" states below, and tapping again unchecks it.
- *     'cart' shows the "collected" checkbox (filled checkmark + strikethrough + dim when
- *     item.collected, calls onCollect) — moving a cart item back to planned is the separate
- *     trailing "undo" icon (calls onToggle), so collecting and un-cart-ing don't share a
- *     button. 'purchased' shows a static checkmark (read-only — purchased/history rows only
- *     leave via swipe-remove, never onToggle).
+ *   - `variant` drives the leading button: 'planned' shows an outlined "+" when unchecked
+ *     (calls onToggle — flips item.checked, moves the item to "In cart"); once checked, renders
+ *     filled green with strikethrough + dim. 'cart' shows a filled green checkmark (always —
+ *     items are checked by definition); tapping calls onToggle to uncheck and move the item back
+ *     to "In list". A trailing × delete button (close-outline icon) appears on planned/cart rows
+ *     for direct removal. The old separate "undo" arrow and "collected" state are removed;
+ *     onCollect is kept as an optional prop for backward compat but is no longer called.
+ *     'purchased' shows a static checkmark (read-only).
  *   - **R1 (drag reorder):** this component does NOT wrap itself in DraggableTaskRow — the
  *     parent (Session A2·2's screen) does that, passing this row as DraggableTaskRow's
  *     `children`. ShoppingRow has no drag-related props; it only needs to render cleanly
@@ -172,9 +171,12 @@ export default function ShoppingRow({
     }
     prevQty.current = safeQty;
   }, [safeQty]);
-  const dimmed = variant === 'purchased' || (variant === 'cart' && item.collected) || (variant === 'planned' && item.checked);
+  const dimmed = variant === 'purchased' || (variant === 'planned' && item.checked);
   const showStepper = variant !== 'purchased' && !!(onIncrement || onDecrement);
-  const canDecrement = !!onDecrement && safeQty > MIN_QTY;
+  // Cart items allow decrement at qty=1 — the parent's onDecrement will handle the
+  // move-back-to-list logic for the 1→0 case (qty never actually stores as 0; the
+  // handler unchecks the item instead).
+  const canDecrement = !!onDecrement && (variant === 'cart' ? safeQty >= MIN_QTY : safeQty > MIN_QTY);
   const canIncrement = !!onIncrement && safeQty < MAX_QTY;
   const priceTotal = item.price > 0 && isNumeric ? item.price * qty : null;
   const isPutBack = item.fromCatalog && variant !== 'purchased';
@@ -244,16 +246,14 @@ export default function ShoppingRow({
               variant === 'planned' && (item.checked
                 ? { backgroundColor: theme.good, borderColor: theme.good }
                 : { borderColor: theme.good }),
-              variant === 'cart' && (item.collected
-                ? { backgroundColor: theme.good, borderColor: theme.good }
-                : { borderColor: theme.accent }),
+              variant === 'cart' && { backgroundColor: theme.good, borderColor: theme.good },
               variant === 'purchased' && { backgroundColor: theme.good, borderColor: theme.good },
             ]}
-            onPress={variant === 'cart' ? onCollect : onToggle}
+            onPress={onToggle}
             disabled={variant === 'purchased'}
             hitSlop={6}
             accessibilityRole="checkbox"
-            accessibilityState={{ checked: variant === 'cart' ? !!item.collected : !!item.checked }}
+            accessibilityState={{ checked: !!item.checked }}
             accessibilityLabel={item.name}
             // Swipe-left removes the row, but that gesture is invisible to screen
             // readers — expose the same destructive action via the a11y rotor so
@@ -269,7 +269,7 @@ export default function ShoppingRow({
             {variant === 'planned' && (item.checked
               ? <Ionicons name="checkmark" size={14} color={theme.textInverse} />
               : <Ionicons name="add" size={16} color={theme.good} />)}
-            {variant === 'cart' && item.collected && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
+            {variant === 'cart' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
             {variant === 'purchased' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
           </Pressable>
 
@@ -333,9 +333,9 @@ export default function ShoppingRow({
             </View>
           </View>
 
-          {variant === 'cart' && (
-            <Pressable style={styles.undo} onPress={onToggle} hitSlop={8}>
-              <Ionicons name="arrow-undo" size={18} color={theme.textMuted} />
+          {variant !== 'purchased' && (
+            <Pressable style={styles.deleteBtn} onPress={onRemove} hitSlop={8} accessibilityLabel={t.removeItemLabel}>
+              <Ionicons name="close-outline" size={18} color={theme.textMuted} />
             </Pressable>
           )}
         </Animated.View>
@@ -389,5 +389,5 @@ const baseStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepBadge: { minWidth: 22, alignItems: 'center' },
-  undo: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  deleteBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
 });

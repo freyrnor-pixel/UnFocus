@@ -67,12 +67,13 @@ type Props = {
   onOpenListSettings: () => void;
   onDelete: () => void;
   onToggleItem: (item: ShoppingItem) => void;
-  onCollectItem: (item: ShoppingItem) => void;
   onRemoveItem: (item: ShoppingItem) => void;
   onIncrementItem: (item: ShoppingItem) => void;
   onDecrementItem: (item: ShoppingItem) => void;
   /** Inline add row submission — called when the user confirms adding a new item. */
   onAddInlineItem: (input: { name: string; price: number; qty: number }) => void;
+  /** Decrement a cart item — at qty=1 moves it back to "In list"; at qty>1 splits one unit back. */
+  onDecrementCartItem: (item: ShoppingItem) => void;
   /** The curated monthly-list items (status 'catalog') shown in the "add from monthly" panel. */
   monthlyItems: ShoppingItem[];
   /** Move a monthly-list item into this week list (parent → addToWeeklyFromCatalog). */
@@ -101,11 +102,11 @@ export default function WeekListCard({
   onOpenListSettings,
   onDelete,
   onToggleItem,
-  onCollectItem,
   onRemoveItem,
   onIncrementItem,
   onDecrementItem,
   onAddInlineItem,
+  onDecrementCartItem,
   monthlyItems,
   onAddMonthlyToWeek,
   onDoneShopping,
@@ -478,8 +479,8 @@ export default function WeekListCard({
               )}
             </View>
 
-            {/* Add from monthly list trigger */}
-            {!list.locked && monthlyItems.length > 0 && !monthlyPreviewOpen && (
+            {/* Add from monthly list trigger — always visible in planning mode */}
+            {!list.locked && !monthlyPreviewOpen && (
               <Pressable
                 style={[styles.monthlyTrigger, { borderColor: theme.good }]}
                 onPress={() => setMonthlyPreviewOpen(true)}
@@ -511,10 +512,9 @@ export default function WeekListCard({
                     item={item}
                     variant="cart"
                     onToggle={() => onToggleItem(item)}
-                    onCollect={() => onCollectItem(item)}
                     onRemove={() => onRemoveItem(item)}
                     onIncrement={() => onIncrementItem(item)}
-                    onDecrement={() => onDecrementItem(item)}
+                    onDecrement={() => onDecrementCartItem(item)}
                     locked={list.locked}
                   />
                   {idx < allChecked.length - 1 && (

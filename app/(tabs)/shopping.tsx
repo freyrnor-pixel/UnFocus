@@ -279,7 +279,6 @@ export default function ShoppingScreen() {
   const add = useShoppingStore((s) => s.add);
   const update = useShoppingStore((s) => s.update);
   const toggle = useShoppingStore((s) => s.toggleCheck);
-  const toggleCollected = useShoppingStore((s) => s.toggleCollected);
   const addToWeeklyFromCatalog = useShoppingStore((s) => s.addToWeeklyFromCatalog);
   const putBackToInventory = useShoppingStore((s) => s.putBackToInventory);
   const removeWithSource = useShoppingStore((s) => s.removeWithSource);
@@ -517,6 +516,43 @@ export default function ShoppingScreen() {
       update(item.id, { targetQuantity: next });
     }
   }
+
+  const handleDecrementCartItem = useCallback(
+    (item: ShoppingItem) => {
+      const qty = parseInt(item.amount, 10) || 1;
+      if (qty <= 1) {
+        // Move item back to "In list" by unchecking it
+        toggle(item.id);
+        return;
+      }
+      // Reduce cart item qty by 1
+      adjustAmount(item.id, -1);
+      // Find or create an "In list" unchecked copy of this item and add 1 there
+      const existing = items.find(
+        (i) =>
+          i.status === 'inWeeklyList' &&
+          i.listId === item.listId &&
+          !i.checked &&
+          i.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+      );
+      if (existing) {
+        adjustAmount(existing.id, 1);
+      } else {
+        add({
+          name: item.name,
+          amount: '1',
+          unit: item.unit ?? '',
+          listType: 'weekly',
+          store: item.store ?? '',
+          price: item.price,
+          inventoryQty: 0,
+          status: 'inWeeklyList',
+          listId: item.listId,
+        });
+      }
+    },
+    [items, toggle, adjustAmount, add]
+  );
 
   function handleCreateNewWeeklyList() {
     const { startDate, endDate } = getWeekRangeContaining(todayStr(), weeklyResetDay);
@@ -917,10 +953,10 @@ export default function ShoppingScreen() {
                   onOpenListSettings={() => setListSettingsListId(list.id)}
                   onDelete={() => handleDeleteList(list.id)}
                   onToggleItem={(item) => toggle(item.id)}
-                  onCollectItem={(item) => toggleCollected(item.id)}
                   onRemoveItem={handleRemoveWeeklyItem}
                   onIncrementItem={(item) => adjustAmount(item.id, 1)}
                   onDecrementItem={(item) => adjustAmount(item.id, -1)}
+                  onDecrementCartItem={handleDecrementCartItem}
                   onAddInlineItem={(input) => {
                     add({
                       name: input.name,
