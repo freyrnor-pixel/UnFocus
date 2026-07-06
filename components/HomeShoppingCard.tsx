@@ -45,6 +45,7 @@ type Props = {
   onRemove: (item: ShoppingItem) => void;
   onIncrement: (id: string) => void;
   onDecrement: (id: string) => void;
+  onAdd?: () => void;
   onSeeAll: () => void;
   inStockLabel: string;
 };
@@ -59,6 +60,7 @@ export default function HomeShoppingCard({
   onRemove,
   onIncrement,
   onDecrement,
+  onAdd,
   onSeeAll,
   inStockLabel,
 }: Props) {
@@ -113,9 +115,16 @@ export default function HomeShoppingCard({
               <Text style={[styles.badgeText, { color: theme.accent }]}>{totalCount}</Text>
             </View>
           )}
-          <Pressable onPress={onSeeAll} hitSlop={8} style={styles.seeAllBtn}>
-            <Text style={[styles.seeAll, { color: theme.accent }]}>{t.seeAll}</Text>
-          </Pressable>
+          <View style={styles.titleRight}>
+            {onAdd && (
+              <Pressable onPress={onAdd} hitSlop={8} accessibilityLabel={t.add}>
+                <Ionicons name="add" size={20} color={theme.accent} />
+              </Pressable>
+            )}
+            <Pressable onPress={onSeeAll} hitSlop={8}>
+              <Text style={[styles.seeAll, { color: theme.accent }]}>{t.seeAll}</Text>
+            </Pressable>
+          </View>
         </View>
 
         {totalCount === 0 ? (
@@ -213,7 +222,7 @@ const baseStyles = StyleSheet.create({
   title: { fontSize: FontSize.md, fontFamily: Fonts.semibold, flexShrink: 1 },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-  seeAllBtn: { marginLeft: 'auto' },
+  titleRight: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: Spacing.md },
   seeAll: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   rows: {},
   previewRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm, gap: Spacing.sm },

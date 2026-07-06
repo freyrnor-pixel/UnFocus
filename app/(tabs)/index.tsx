@@ -203,7 +203,9 @@ export default function HomeScreen() {
           )}
 
           {/* Notes preview — HomeNotesCard (real Notes / useNotesStore). Always visible. */}
-          <HomeNotesCard />
+          <View style={styles.section}>
+            <HomeNotesCard />
+          </View>
 
           {/* Plans preview = the shared PlanTaskCard day-view (Decision 009a). */}
           <View style={styles.section}>
@@ -238,6 +240,7 @@ export default function HomeScreen() {
                 onRemove={handleRemoveShoppingItem}
                 onIncrement={(id) => adjustAmount(id, 1)}
                 onDecrement={(id) => adjustAmount(id, -1)}
+                onAdd={() => goToSite(router, pathname, '/shopping')}
                 onSeeAll={() => goToSite(router, pathname, '/shopping')}
                 inStockLabel={t.inStockLabel}
               />
