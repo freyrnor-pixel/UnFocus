@@ -941,28 +941,6 @@ export default function SettingsScreen() {
           </>
         )}
 
-<<<<<<< HEAD
-        {tab === 'utseende' && (
-          <>
-            <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.lightDarkModeLabel}</Text>
-              <Surface style={styles.card}>
-                <SegmentedControl
-                  value={settings.darkMode}
-                  onChange={(v) => settings.update({ darkMode: v as DarkMode })}
-                  options={[
-                    { value: 'off', label: t.darkModeOff },
-                    { value: 'system', label: t.darkModeSystem },
-                    { value: 'on', label: t.darkModeOn },
-                  ]}
-                />
-              </Surface>
-            </View>
-          </>
-        )}
-
-=======
->>>>>>> origin/main
         <View style={{ height: 40 }} />
       </View>
     </ScreenScaffold>
