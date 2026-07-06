@@ -14,10 +14,9 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess
- *   Used by → (future) the sync loop: it stamps local edits (touchRow/softDelete),
- *             builds deltas, signs them via lib/peerAuth, sends over lib/lanTransport,
- *             and on receive verifies then calls applyDelta. Nothing wires the socket
- *             loop yet — this is the data-model foundation 038c/app integration build on.
+ *   Used by → store/useTaskStore.ts + store/useShoppingStore.ts (touchRow/softDelete
+ *             on every local add/update/remove), lib/syncService.ts (buildDelta on
+ *             broadcast, parseDelta + applyDelta on receive)
  *   Data    → reads/writes the sync-meta columns (updated_at, origin_device_id,
  *             deleted_at) on the `tasks` and `shopping_items` tables (Decision 038b migration)
  *

@@ -11,11 +11,13 @@
  * (refreshed by app/_layout.tsx, see lib/notifications.ts's refreshPersistentNotification).
  * habitNotificationsEnabled gates all habit reminders.
  * childMode/childModePasswordSet are Decision 038c FLAGS only — the parent password
- * itself lives in expo-secure-store (lib/childLock), never in this row.
+ * itself lives in expo-secure-store (lib/childLock), never in this row. deviceId is
+ * this install's stable identity for LAN live-sync (self-healed on load() if empty);
+ * lanSyncEnabled gates whether lib/syncService's transport runs (Decision 038 wiring).
  *
  * Connections:
- *   Imports → lib/dataAccess
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/index.tsx, app/onboarding/* , app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, components/BubbleMenu.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/ParticleBackground.tsx, components/QuickAddSheet.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useTaskStore.ts
+ *   Imports → lib/dataAccess, lib/id
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/index.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, components/BubbleMenu.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/ParticleBackground.tsx, components/QuickAddSheet.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns the single-row SQLite table settings (id = 1)
  *
  * Edit notes:
@@ -37,6 +39,7 @@ import {
   readBool,
   readJson,
 } from '@/lib/dataAccess';
+import { generateId } from '@/lib/id';
 
 // Canonical theme identity — MUST match ThemeName in constants/colors.ts (the
 // runtime palette module that useAppTheme() reads). 'custom' has no colors.ts
@@ -123,6 +126,11 @@ export type Settings = {
   // (lib/childLock.ts), never in this row.
   childMode: boolean;
   childModePasswordSet: boolean;
+  // LAN live-sync (Decision 038 app integration). deviceId is this install's stable
+  // identity (self-healed by load() if empty — see below); lanSyncEnabled gates
+  // whether lib/syncService's transport runs.
+  deviceId: string;
+  lanSyncEnabled: boolean;
 };
 
 type SettingsStore = Settings & {
@@ -211,6 +219,8 @@ function rowToSettings(row: Row): Settings {
     accountCreated: readStr(row, 'account_created'),
     childMode: readBool(row, 'child_mode'),
     childModePasswordSet: readBool(row, 'child_mode_password_set'),
+    deviceId: readStr(row, 'device_id'),
+    lanSyncEnabled: readBool(row, 'lan_sync_enabled'),
   };
 }
 
@@ -269,6 +279,8 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   accountCreated: { col: 'account_created' },
   childMode: { col: 'child_mode', to: bool },
   childModePasswordSet: { col: 'child_mode_password_set', to: bool },
+  deviceId: { col: 'device_id' },
+  lanSyncEnabled: { col: 'lan_sync_enabled', to: bool },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -327,12 +339,26 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   accountCreated: '',
   childMode: false,
   childModePasswordSet: false,
+  deviceId: '',
+  lanSyncEnabled: false,
   loaded: false,
   workModeSessionOverride: false,
 
   load() {
     const settings = loadFirst('settings', rowToSettings, { where: 'id = 1' });
     set(settings ? { ...settings, loaded: true } : { loaded: true });
+    // Self-heal: a fresh install (or one that predates Decision 038 wiring) has no
+    // device_id yet. Generate one once and persist it immediately so it's stable
+    // across relaunches — every peer that pairs with this install remembers THIS id.
+    if (settings && !settings.deviceId) {
+      const deviceId = generateId();
+      set({ deviceId });
+      try {
+        updateRow('settings', rowValues({ deviceId }, SETTINGS_COLUMNS), 'id = 1');
+      } catch {
+        // DB write failed — deviceId still set in memory for this session
+      }
+    }
   },
 
   update(patch) {

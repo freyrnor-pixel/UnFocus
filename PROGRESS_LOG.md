@@ -4240,3 +4240,59 @@ preview build or re-attempts an OTA publish — otherwise the same crash repeats
 merges and a clean `update.yml` run confirms the publish succeeds, the branch is actually
 ready for the "maintainer cuts a new preview build → bump runtimeVersion" step from the
 handoff overview.
+
+---
+
+## 2026-07-06 — Decision 038 app integration: wiring LAN live-sync end to end
+
+Six components/modules had been flagged as "unwired ahead of their consuming feature":
+`HuePicker.tsx`, `SaveButton.tsx`, `StickySaveBar.tsx`, `lib/lanTransport.ts`,
+`lib/peerAuth.ts`, `store/usePeersStore.ts`. Reviewed each against its own header and the
+decision docs before touching anything:
+
+- **HuePicker** needs a whole new "custom" `ThemePalette` runtime (Decision 006/007
+  explicitly deferred it — no `hueToCustomColors()`, no `'custom'` entry in colors.ts).
+  Left unwired at the user's direction; it's a real product decision, not a wiring gap.
+- **SaveButton/StickySaveBar** imply a buffered "dirty → Save/Undo" UX, but `settings.tsx`'s
+  own header says every setting now applies immediately (matching the user-facing
+  "Changes apply immediately" hint). Wiring them in would reverse that UX decision for
+  specific fields. Left unwired at the user's direction.
+- **lanTransport/peerAuth/usePeersStore** — these three ARE now fully wired end to end,
+  per the user's explicit choice to build the complete cross-device sync feature.
+
+### What shipped
+- **`lib/syncService.ts`** (new): orchestrates `lanTransport` + `peerAuth` + `liveSync` +
+  `usePeersStore` into one running sync loop. Discovery never implies trust — `onPeerFound`
+  only connects to a peer already present in `usePeersStore`. Inbound envelopes are
+  HMAC-verified BEFORE the connection is associated with the claimed sender's deviceId
+  (caught and fixed a self-review bug: verifying-after-keying would have let a spoofed
+  `from` hijack a real peer's connection slot for future broadcasts).
+- **`app/pair-device.tsx`** (new): sync on/off toggle, paired-devices list with remove, and
+  a two-role QR pairing wizard (Decision 038d). One phone ("Show my code") generates the
+  shared secret; the other ("Scan a code") adopts that exact secret and shows it back —
+  both sides must end up holding the SAME secret or verification would never match (two
+  independently-generated secrets was the initial design and is wrong; caught during design,
+  not left in code).
+- **`store/useTaskStore.ts` / `store/useShoppingStore.ts`**: `add`/`update` now stamp
+  (`touchRow`) and broadcast every mutation; `remove` (and `removeWithSource`) soft-delete
+  (tombstone) instead of hard `DELETE`, so a peer sees the delete instead of a stale copy
+  reviving it; `load()` filters `deleted_at IS NULL`. Scoped narrowly: `useShoppingStore`'s
+  bulk status-machine transitions (`confirmStagingTray`, `doneShopping`, `monthlyReset`) are
+  deliberately left untouched — they bypass `update()` and don't touch any column in
+  `liveSync`'s sync whitelist anyway. `useTaskStore.clearAll()` (bulk local reset) is
+  deliberately NOT broadcast, since propagating it would wipe a paired partner's tasks.
+- **`store/useSettingsStore.ts`** + `lib/db.ts` migration: new `deviceId` (self-healed once,
+  generated on first `load()` if empty) and `lanSyncEnabled` fields.
+- **`app/_layout.tsx`**: starts/stops `syncService` off `lanSyncEnabled`; added
+  `usePeersStore.load()` to the app-wide bootstrap (required — `syncService`'s trust check
+  reads the store synchronously, so peers must be hydrated before a peer can be discovered).
+- **`app/settings.tsx`**: thin entry-point card (Data group) linking to `/pair-device`,
+  gated on `lib/syncService`'s `isSyncAvailable()`.
+- `lib/i18n.ts`: new `peers.*` key group, en + no.
+- Updated `Connections:` headers on every touched/newly-wired file.
+
+**Verification:** `npx tsc --noEmit` clean (0 errors). No Jest/live-app verification per
+repo policy (CLAUDE.md) — this needs an on-device pairing test between two phones on the
+same Wi-Fi before it's considered proven, since the native transport modules (already in
+`package.json`/`app.json` since Decision 038a/040) require a real build to exercise; this
+session's remote environment can't run one.

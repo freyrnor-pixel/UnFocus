@@ -483,6 +483,14 @@ export function initDb() {
     // stored in SQLite — it lives in expo-secure-store (lib/childLock.ts).
     "ALTER TABLE settings ADD COLUMN child_mode INTEGER DEFAULT 0",
     "ALTER TABLE settings ADD COLUMN child_mode_password_set INTEGER DEFAULT 0",
+    // LAN live-sync app integration (Decision 038, wiring the 038a/038d/038b
+    // foundations together): device_id is THIS install's stable identity, used as
+    // both the lanTransport advertised id and the liveSync origin_device_id — generated
+    // once (useSettingsStore.load() self-heals an empty value) and persisted so peers
+    // recognise this device across relaunches. lan_sync_enabled gates whether
+    // lib/syncService's transport is running at all.
+    "ALTER TABLE settings ADD COLUMN device_id TEXT DEFAULT ''",
+    "ALTER TABLE settings ADD COLUMN lan_sync_enabled INTEGER DEFAULT 0",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

@@ -16,8 +16,10 @@
  * Connections:
  *   Imports → react-native-zeroconf, react-native-tcp-socket (both native — land
  *             in the Decision 038a/027 consolidated build), lib/id
- *   Used by → (future) Decision 038d pairing layer + 038b live-sync store; nothing
- *             wires this yet — it is the foundation those sessions build on.
+ *   Used by → lib/syncService.ts, which owns the single running LanTransport
+ *             instance (start/stop gated by settings.lanSyncEnabled from
+ *             app/_layout.tsx) and only ever connects to already-paired peers
+ *             (store/usePeersStore)
  *   Data    → none. Holds no SQLite state; identity (deviceId/name) is injected by
  *             the caller so persistence stays a 038d concern.
  *

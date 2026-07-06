@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → store/useSettingsStore
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/onboarding/step6.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/BubbleMenu.tsx, components/DayTimeline.tsx, components/DebugOverlay.tsx, components/QuickAddSheet.tsx, components/SharedRequestsSection.tsx, components/ShoppingQuickAddSheet.tsx, components/TaskItem.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/onboarding/step6.tsx, app/pair-device.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/BubbleMenu.tsx, components/DayTimeline.tsx, components/DebugOverlay.tsx, components/QuickAddSheet.tsx, components/SharedRequestsSection.tsx, components/ShoppingQuickAddSheet.tsx, components/TaskItem.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
  *   Data    → reads `language` from the settings Zustand store
  *
  * Edit notes:
@@ -20,6 +20,8 @@
  *   - Added keys: nav.settingsLabel, home.todaysPlans, home.seeAllPlans,
  *     health.habits, health.seeAllHabits, health.noHabits, health.addHabit,
  *     shopping.scan, shopping.budget, notes.*, hints.notes.
+ *   - Added keys: peers.* (Decision 038 LAN live-sync wiring — app/pair-device.tsx,
+ *     app/settings.tsx's sync toggle card).
  */
 import { useSettingsStore } from '@/store/useSettingsStore';
 
@@ -549,6 +551,31 @@ const en = {
   deselectAll: 'Deselect all',
   sharedTasksTab: 'Plans',
   sharedShoppingTab: 'Shopping',
+  // LAN live-sync (Decision 038 app integration) — pairing + sync toggle
+  peers: {
+    title: 'Paired devices',
+    settingsCardDesc: 'Keep tasks and the shopping list in sync automatically with a paired phone on the same Wi-Fi.',
+    syncToggleLabel: 'Sync over Wi-Fi',
+    syncUnavailable: 'Live sync needs a build with the network modules installed — not available in this app version yet.',
+    manageLink: 'Paired devices →',
+    noPeers: 'No paired devices yet.',
+    pairedAt: (date: string) => `Paired ${date}`,
+    addDevice: 'Pair a device',
+    removeDevice: 'Remove',
+    removeConfirmTitle: 'Remove this device?',
+    removeConfirmBody: 'It will stop syncing with this phone. You can pair it again later.',
+    chooseRoleTitle: 'Pairing a device',
+    chooseRoleExplain: 'Both phones need to be in the same room. On ONE phone, tap "Show my code" — on the OTHER, tap "Scan a code".',
+    showMyCode: 'Show my code',
+    scanACode: 'Scan a code',
+    showCodeInstructions: 'Have the other phone scan this code.',
+    showCodeNext: 'Next: scan their code',
+    showCodeDone: 'Done',
+    scanInstructions: "Point your camera at the other phone's code.",
+    pairInvalid: 'That does not look like an UnFocus pairing code.',
+    pairedSuccessTitle: 'Paired!',
+    pairedSuccessBody: (name: string) => `You're now paired with ${name}.`,
+  },
   // Notifications (shown to the user in their chosen language)
   notif: {
     // W-F: friendlier, non-urgent weekly nudge ("want to?" energy, no pressure)
@@ -1687,6 +1714,30 @@ const no: typeof en = {
   deselectAll: 'Fjern alle',
   sharedTasksTab: 'Planer',
   sharedShoppingTab: 'Handlelist',
+  peers: {
+    title: 'Sammenkoblede enheter',
+    settingsCardDesc: 'Hold planer og handleliste automatisk synkronisert med en sammenkoblet telefon på samme Wi-Fi.',
+    syncToggleLabel: 'Synkroniser over Wi-Fi',
+    syncUnavailable: 'Sanntidssynk krever en versjon med nettverksmodulene installert — ikke tilgjengelig i denne appversjonen ennå.',
+    manageLink: 'Sammenkoblede enheter →',
+    noPeers: 'Ingen sammenkoblede enheter ennå.',
+    pairedAt: (date: string) => `Sammenkoblet ${date}`,
+    addDevice: 'Koble sammen en enhet',
+    removeDevice: 'Fjern',
+    removeConfirmTitle: 'Fjerne denne enheten?',
+    removeConfirmBody: 'Den slutter å synkronisere med denne telefonen. Du kan koble den sammen igjen senere.',
+    chooseRoleTitle: 'Sammenkobling av enhet',
+    chooseRoleExplain: 'Begge telefonene må være i samme rom. Trykk «Vis min kode» på DEN ENE telefonen — trykk «Skann en kode» på DEN ANDRE.',
+    showMyCode: 'Vis min kode',
+    scanACode: 'Skann en kode',
+    showCodeInstructions: 'La den andre telefonen skanne denne koden.',
+    showCodeNext: 'Neste: skann deres kode',
+    showCodeDone: 'Ferdig',
+    scanInstructions: 'Pek kameraet mot den andre telefonens kode.',
+    pairInvalid: 'Dette ser ikke ut som en UnFocus-sammenkoblingskode.',
+    pairedSuccessTitle: 'Sammenkoblet!',
+    pairedSuccessBody: (name: string) => `Du er nå sammenkoblet med ${name}.`,
+  },
   notif: {
     // W-F: vennligere, ikke-stressende ukentlig påminnelse ("har du lyst?"-tone)
     weeklyTitle: 'Lyst til å planlegge uken?',

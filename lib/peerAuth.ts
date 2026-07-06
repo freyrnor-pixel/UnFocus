@@ -10,9 +10,10 @@
  *
  * Connections:
  *   Imports → lib/hmac
- *   Used by → (future) the 038b live-sync layer, which signs on send and verifies
- *             on receive; peer secrets come from store/usePeersStore. Nothing wires
- *             it yet — trust foundation the sync gate builds on.
+ *   Used by → lib/syncService.ts (signOutbound on every broadcastRow, verifyInbound
+ *             on every received envelope; peer secrets come from store/usePeersStore),
+ *             app/pair-device.tsx (generateSecret() when a user starts the QR
+ *             pairing handshake as the initiator)
  *   Data    → none directly (secrets are supplied by usePeersStore at the call site)
  *
  * Edit notes:
