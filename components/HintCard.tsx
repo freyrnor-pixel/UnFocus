@@ -8,10 +8,13 @@
  *
  * Connections:
  *   Imports → constants/theme, store/useSettingsStore, lib/useAppTheme
- *   Used by → (no current mounts) — Decision 030 closed Decision 010: HintCard reach is
- *             "by demonstrated need," not blanket-per-screen. The shopping mount was dropped
- *             (its mark-then-confirm flow is taught by the weekly empty-state copy). scan.tsx
- *             and notes.tsx are candidates only if their flow can't be made self-evident.
+ *   Used by → app/(tabs)/index.tsx, app/(tabs)/plans.tsx, app/(tabs)/health.tsx,
+ *             app/(tabs)/scan.tsx, app/habits.tsx, app/task-form.tsx, app/meals.tsx,
+ *             app/habit-form.tsx, app/notes.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx
+ *             — Decision 030 closed Decision 010: HintCard reach is "by demonstrated need," not
+ *             blanket-per-screen. The shopping mount stays dropped (its mark-then-confirm flow
+ *             is taught by the weekly empty-state copy). The mounted screens' `hints.*` copy in
+ *             lib/i18n.ts is a numbered start-to-finish how-to, not a one-line blurb.
  *   Data    → reads showHints from useSettingsStore (no writes); colours from
  *             useAppTheme(); scaled fontSize via useScaledStyles()
  *
