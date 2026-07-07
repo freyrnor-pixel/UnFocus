@@ -36,7 +36,7 @@ import { ShoppingList } from '@/store/useShoppingListStore';
 const COLLAPSED_COUNT = 4;
 
 type Props = {
-  list: ShoppingList;
+  list?: ShoppingList | null;
   dishGroups: [string, ShoppingItem[]][];
   ungroupedUnchecked: ShoppingItem[];
   checked: ShoppingItem[];
@@ -108,7 +108,7 @@ export default function HomeShoppingCard({
         {/* Title row */}
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
-            {list.name}
+            {list?.name ?? t.shoppingTitle}
           </Text>
           {totalCount > 0 && (
             <View style={[styles.badge, { backgroundColor: theme.accentSoft }]}>

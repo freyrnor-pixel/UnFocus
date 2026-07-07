@@ -227,24 +227,20 @@ export default function HomeScreen() {
 
           {/* Shopping preview — HomeShoppingCard. Always visible. */}
           <View style={styles.section}>
-            {!currentShoppingList ? (
-              <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.shoppingEmpty}</Text>
-            ) : (
-              <HomeShoppingCard
-                list={currentShoppingList}
-                dishGroups={dishGroups}
-                ungroupedUnchecked={ungroupedUnchecked}
-                checked={checked}
-                onToggle={(id) => toggleShoppingItem(id)}
-                onCollect={(id) => toggleShoppingCollected(id)}
-                onRemove={handleRemoveShoppingItem}
-                onIncrement={(id) => adjustAmount(id, 1)}
-                onDecrement={(id) => adjustAmount(id, -1)}
-                onAdd={() => goToSite(router, pathname, '/shopping')}
-                onSeeAll={() => goToSite(router, pathname, '/shopping')}
-                inStockLabel={t.inStockLabel}
-              />
-            )}
+            <HomeShoppingCard
+              list={currentShoppingList}
+              dishGroups={dishGroups}
+              ungroupedUnchecked={ungroupedUnchecked}
+              checked={checked}
+              onToggle={(id) => toggleShoppingItem(id)}
+              onCollect={(id) => toggleShoppingCollected(id)}
+              onRemove={handleRemoveShoppingItem}
+              onIncrement={(id) => adjustAmount(id, 1)}
+              onDecrement={(id) => adjustAmount(id, -1)}
+              onAdd={() => goToSite(router, pathname, '/shopping')}
+              onSeeAll={() => goToSite(router, pathname, '/shopping')}
+              inStockLabel={t.inStockLabel}
+            />
           </View>
 
           {/* Gentle points */}
@@ -273,6 +269,5 @@ const baseStyles = StyleSheet.create({
   progressTrack: { height: 4, borderRadius: Radius.full, marginBottom: Spacing.lg, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: Radius.full },
   section: { marginBottom: Spacing.lg },
-  emptyText: { fontSize: FontSize.sm, fontFamily: Fonts.regular, textAlign: 'center', paddingVertical: Spacing.sm },
   pointsText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },
 });
