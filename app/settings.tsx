@@ -51,15 +51,10 @@
  *     (free-text, matching the precedent set by task-form.tsx / habit-form.tsx).
  *   - `essentialsModeEnabled` is the underlying field/DB column name (unchanged) — its user-facing
  *     label is "Focus mode" / "Fokus-modus".
- *   - Colour-theme swatches read colour data from constants/theme.ts's THEMES (legacy static
- *     palette, used here only as swatch-preview data) — NOT from useAppTheme()'s ThemePalette,
- *     which drives actual chrome. All chrome in this screen goes through useAppTheme() tokens
- *     (Decision 006) — no raw hex except the fixed pet-colour swatch options (data, not chrome;
- *     same precedent as the colour-theme swatch data).
- *   - 'custom' theme is deliberately excluded from the colour-theme picker: constants/colors.ts's
- *     ThemePalette (Decision 006) has no 'custom' variant yet (Decision 006/007 explicitly defer
- *     it), so offering it would silently render as 'default' via getThemePalette()'s fallback.
- *     HuePicker is not wired for the same reason (see its own header note).
+ *   - The colour-theme picker was removed: the app ships a single "Default" palette. All chrome
+ *     in this screen goes through useAppTheme() tokens (Decision 006) — no raw hex except the
+ *     fixed pet-colour swatch options (data, not chrome). The Utseende tab now only exposes the
+ *     material finish + dark-mode/font controls.
  *   - Debug section only exposes the debugModeEnabled toggle. permissionTests.ts does not exist
  *     in this repo yet — its buttons are NOT wired here; see the commented placeholder below.
  *   - "Reset weekly list" and the Test-data load/clear actions from the pre-rebuild app are NOT
@@ -77,13 +72,11 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import SectionDivider from '@/components/SectionDivider';
 import SwatchPicker from '@/components/SwatchPicker';
-import { RadialSwatch } from '@/components/GradientSwatch';
 import { Input, Switch as FormSwitch, SegmentedControl } from '@/components/FormControls';
 import { showAppModal } from '@/components/AppModal';
 import {
   useSettingsStore,
   Settings,
-  ColorTheme,
   FontSizePref,
   PetType,
   DarkMode,
@@ -104,7 +97,6 @@ import {
   Fonts,
   Radius,
   Spacing,
-  THEMES,
   MATERIAL_META,
   MaterialName,
   getMaterialStyle,
@@ -112,8 +104,6 @@ import {
 
 const PET_TYPES: PetType[] = ['cat', 'dog', 'bird', 'fox', 'bunny'];
 const PET_EMOJIS: Record<PetType, string> = { cat: '🐱', dog: '🐶', bird: '🐦', fox: '🦊', bunny: '🐰' };
-// 'custom' excluded — see file header (no Decision-006 palette variant for it yet).
-const COLOR_THEME_KEYS: ColorTheme[] = ['default', 'tech', 'gothic', 'nature', 'fluffy'];
 
 type SettingsTab = 'generelt' | 'lister' | 'varsler' | 'utseende';
 const TAB_BAR_HEIGHT = 48;
@@ -892,19 +882,6 @@ export default function SettingsScreen() {
 
         {tab === 'utseende' && (
           <>
-            {/* FARGETEMA */}
-            <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.sectionColorTheme}</Text>
-              <Surface style={styles.card}>
-                <SwatchPicker
-                  items={COLOR_THEME_KEYS.map((key) => ({ key, label: t.themeNames[key] }))}
-                  value={settings.colorTheme}
-                  onChange={(key) => settings.update({ colorTheme: key as ColorTheme })}
-                  renderSwatch={(key) => <RadialSwatch color={THEMES[key as ColorTheme].orange} size={54} />}
-                />
-              </Surface>
-            </View>
-
             {/* MATERIALE */}
             <View style={styles.section}>
               <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.sectionBubbleMaterial}</Text>

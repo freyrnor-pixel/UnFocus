@@ -38,7 +38,9 @@ import {
   readJson,
 } from '@/lib/dataAccess';
 
-export type ColorTheme = 'default' | 'tech' | 'gothic' | 'nature' | 'fluffy' | 'custom';
+// The app ships a single palette ("Default"). The union is kept as a type so
+// existing casts (`as ColorTheme`) still compile; only 'default' is ever stored.
+export type ColorTheme = 'default';
 export type Language = 'en' | 'no';
 export type DarkMode = 'system' | 'on' | 'off';
 export type FontSizePref = 'small' | 'default' | 'large';
@@ -130,15 +132,13 @@ type SettingsStore = Settings & {
   setWorkModeSessionOverride: (v: boolean) => void;
 };
 
-/** Maps old theme names (1.0.0) to new ones (1.1.0). Returns null if name is already valid. */
-function migrateThemeName(name: string | null): ColorTheme {
-  if (!name) return 'default';
-  const map: Record<string, ColorTheme> = {
-    warm: 'default', cool: 'tech', forest: 'nature', rose: 'nature', highcontrast: 'default',
-  };
-  if (name in map) return map[name];
-  const valid: ColorTheme[] = ['default', 'tech', 'gothic', 'nature', 'fluffy', 'custom'];
-  return valid.includes(name as ColorTheme) ? (name as ColorTheme) : 'default';
+/**
+ * The app now ships a single "Default" palette. Any previously-stored theme name
+ * (tech/gothic/nature/fluffy/custom or the older 1.0.0 names) collapses to
+ * 'default' so persisted values from removed themes don't linger.
+ */
+function migrateThemeName(_name: string | null): ColorTheme {
+  return 'default';
 }
 
 /** Map the single settings row to the persisted Settings (defaults mirror the old load()). */
