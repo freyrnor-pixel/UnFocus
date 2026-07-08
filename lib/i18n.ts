@@ -84,6 +84,7 @@ const en = {
   // (config.essentials). Named "Calm view" to avoid the two colliding (Point 2).
   calmViewActive: 'Calm view on',
   calmViewInactive: 'Calm view off',
+  a11yAdd: 'Add',
   focusBanner: '⭐ Essential plans only — tap to see all',
   workBanner: '💼 Work mode active',
   switchMode: 'Switch mode',
@@ -1035,6 +1036,7 @@ const no: typeof en = {
   smallThingsCount: (n: number) => `Du har fullført ${n} ting — småting teller!`,
   calmViewActive: 'Ro-visning på',
   calmViewInactive: 'Ro-visning av',
+  a11yAdd: 'Legg til',
   focusBanner: '⭐ Kun viktige planer — trykk for å se alle',
   workBanner: '💼 Jobb-modus aktiv',
   switchMode: 'Bytt modus',

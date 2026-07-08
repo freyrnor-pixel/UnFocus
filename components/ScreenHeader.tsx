@@ -74,7 +74,7 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
   // the `leftHanded` setting (whose label promises it "moves the menu button to the
   // left side"): gear sits top-right by default, and swaps to top-left when left-handed.
   const gearButton = (
-    <Pressable onPress={handleSettingsPress} hitSlop={8} accessibilityRole="button">
+    <Pressable onPress={handleSettingsPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.settingsTitle}>
       <Ionicons name="settings-outline" size={24} color={theme.text} />
     </Pressable>
   );

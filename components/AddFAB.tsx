@@ -8,7 +8,7 @@
  * so "add new" reads the same on every site.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, components/BottomNav (BOTTOM_NAV_HEIGHT)
+ *   Imports → constants/theme, lib/useAppTheme, lib/i18n, components/BottomNav (BOTTOM_NAV_HEIGHT)
  *   Used by → (not yet mounted — ported ahead of its screen call sites per REBUILD_PLAN.md 3d)
  *   Data    → none (presentational)
  *
@@ -26,6 +26,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, ViewStyle, StyleProp } from 'react-native';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { useT } from '@/lib/i18n';
 import { Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
 
@@ -35,6 +36,8 @@ type Props = {
   size?: 'lg' | 'sm';
   /** Floating-position override (only applies to size 'lg'); default Spacing.xl + BOTTOM_NAV_HEIGHT. */
   bottom?: number;
+  /** Accessibility label (defaults to the localized "Add"). Pass a specific one where the entity is known. */
+  accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -45,13 +48,18 @@ const DEFAULT_BOTTOM = Spacing.xl + BOTTOM_NAV_HEIGHT;
 export const FAB_LG_SIZE = DIMENSION.lg;
 export const FAB_DEFAULT_BOTTOM = DEFAULT_BOTTOM;
 
-export default function AddFAB({ onPress, size = 'lg', bottom, style }: Props) {
+export default function AddFAB({ onPress, size = 'lg', bottom, accessibilityLabel, style }: Props) {
   const theme = useAppTheme();
+  const t = useT();
   const dimension = DIMENSION[size];
 
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? t.a11yAdd}
+      // 'sm' is 32px — below the 44px minimum touch target, so pad the tap area out.
+      hitSlop={size === 'sm' ? 6 : undefined}
       style={[
         styles.base,
         { width: dimension, height: dimension, backgroundColor: theme.accent },

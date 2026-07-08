@@ -67,6 +67,9 @@ export default function Button({
     <PressableScale
       onPress={onPress}
       disabled={disabled || loading}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}
       scaleTo={variant === 'danger' ? 0.93 : size === 'sm' ? 0.97 : 0.95}
       style={[
         styles.base,

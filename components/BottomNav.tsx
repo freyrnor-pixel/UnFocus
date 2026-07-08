@@ -55,6 +55,9 @@ export default function BottomNav() {
         <PressableScale
           key={item.key}
           scaleTo={0.90}
+          accessibilityRole="button"
+          accessibilityLabel={t.nav[item.key]}
+          accessibilityState={{ selected: active }}
           style={[styles.centreButton, { backgroundColor: theme.accent, ...Shadow.fab }]}
           onPress={() => goToSite(router, pathname, item.route)}
           hitSlop={8}
@@ -68,6 +71,9 @@ export default function BottomNav() {
       <PressableScale
         key={item.key}
         scaleTo={0.97}
+        accessibilityRole="button"
+        accessibilityLabel={t.nav[item.key]}
+        accessibilityState={{ selected: active }}
         style={[styles.item, active && { backgroundColor: theme.surfaceMuted, borderRadius: Radius.sm }]}
         onPress={() => goToSite(router, pathname, item.route)}
         hitSlop={6}
