@@ -41,6 +41,9 @@ import {
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
 
+// The app ships a single palette ("Default"). The union is kept as a type so
+// existing casts (`as ColorTheme`) still compile; only 'default' is ever stored.
+export type ColorTheme = 'default';
 export type Language = 'en' | 'no';
 export type DarkMode = 'system' | 'on' | 'off';
 export type FontSizePref = 'small' | 'default' | 'large';

@@ -21,7 +21,7 @@
  *
  * Connections:
  *   Imports → components/PressableScale, components/Surface, constants/theme,
- *             lib/i18n, lib/useAppTheme, store/useCatalogStore, store/useMealStore,
+ *             lib/date, lib/i18n, lib/useAppTheme, store/useCatalogStore, store/useMealStore,
  *             react-native-reanimated
  *   Used by → app/shopping.tsx (Monthly tab's top "create a dish" button)
  *   Data    → none directly — onSave hands the parent a dishName + ingredient list; the
@@ -62,6 +62,7 @@ import Animated, {
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useScaledStyles, useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
+import { formatKr } from '@/lib/money';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { useMealStore } from '@/store/useMealStore';
 import Surface from '@/components/Surface';
@@ -283,7 +284,7 @@ export default function AddDishSheet({ visible, onClose, onSave }: Props) {
                 <View key={`manual-${idx}`} style={[styles.draftRow, { borderBottomColor: theme.border }]}>
                   <Text style={[styles.draftText, { color: theme.text }]} numberOfLines={1}>
                     {ing.amount} {ing.unit} {ing.name}
-                    {parseFloat(ing.price) > 0 ? ` · ${ing.price} kr` : ''}
+                    {parseFloat(ing.price) > 0 ? ` · ${formatKr(parseFloat(ing.price), 0)}` : ''}
                   </Text>
                   <Pressable onPress={() => removeDraftIngredient(idx)} hitSlop={8}>
                     <Text style={[styles.removeText, { color: theme.textMuted }]}>−</Text>

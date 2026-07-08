@@ -302,7 +302,7 @@ export default function TaskFormScreen() {
               }}
             />
             {timeEnabled ? (
-              <Input value={time} onChangeText={setTime} placeholder="HH:MM" keyboardType="numbers-and-punctuation" />
+              <Input value={time} onChangeText={setTime} placeholder={t.timeInputPlaceholder} keyboardType="numbers-and-punctuation" />
             ) : (
               <Text style={[styles.wheneverHint, { color: theme.textMuted }]}>{t.wheneverHint}</Text>
             )}

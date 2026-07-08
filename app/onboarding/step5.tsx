@@ -73,8 +73,8 @@ export default function OnboardingStep5() {
           <View style={[styles.iconBadge, { backgroundColor: theme.surfaceMuted }]}>
             <Ionicons name="hand-left-outline" size={36} color={theme.accent} />
           </View>
-          <Text style={[styles.heading, { color: theme.text }]}>{t.themeOnboarding}</Text>
-          <Text style={[styles.sub, { color: theme.textMuted }]}>{t.themeSub}</Text>
+          <Text style={[styles.heading, { color: theme.text }]}>{t.handednessOnboarding}</Text>
+          <Text style={[styles.sub, { color: theme.textMuted }]}>{t.handednessOnboardingSub}</Text>
         </View>
 
         <View style={[styles.handednessCard, { backgroundColor: theme.surface }]}>

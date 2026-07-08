@@ -622,7 +622,7 @@ export default function ScanScreen() {
               ))}
 
               <View style={[styles.totalRow, { borderTopColor: theme.border, borderTopWidth: 1 }]}>
-                <Text style={[styles.totalText, { color: theme.textMuted }]}>{t.totalAmount(totalPrice)}</Text>
+                <Text style={[styles.totalText, { color: theme.textMuted }]}>{t.totalAmount(formatKr(totalPrice, 2))}</Text>
               </View>
             </Surface>
 

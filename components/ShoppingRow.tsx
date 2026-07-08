@@ -10,7 +10,7 @@
  * trailing button (Ripple R2) — both replaced by gesture surfaces.
  *
  * Connections:
- *   Imports → components/Badge, components/InventoryIcon, constants/theme, lib/haptics,
+ *   Imports → components/Badge, components/InventoryIcon, constants/theme, lib/date, lib/haptics,
  *             lib/i18n, lib/useAppTheme, react-native-gesture-handler, react-native-reanimated,
  *             store/useShoppingStore (ShoppingItem type only)
  *   Used by → components/WeekListCard.tsx, app/shopping.tsx (weekly rows + purchased-history rows),
@@ -97,6 +97,7 @@ import { ShoppingItem } from '@/store/useShoppingStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
+import { formatKr } from '@/lib/money';
 import { selection, heavy } from '@/lib/haptics';
 import InventoryIcon from '@/components/InventoryIcon';
 import { Badge } from '@/components/Badge';
@@ -283,7 +284,7 @@ export default function ShoppingRow({
               </Text>
               {priceTotal !== null && (
                 <Text style={[styles.priceTotal, { color: dimmed ? theme.textMuted : theme.text }]}>
-                  {priceTotal.toFixed(0)} kr
+                  {formatKr(priceTotal, 0)}
                 </Text>
               )}
             </View>

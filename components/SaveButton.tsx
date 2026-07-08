@@ -82,7 +82,11 @@ export function SaveButton({ visible, onPress, label }: SaveButtonProps) {
       style={[styles.button, animatedStyle, { backgroundColor: theme.accent }]}
       onPress={onPress}
       disabled={!visible}
-      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !visible }}
+      // Button is 34px tall — pad the tap area to clear the 44px minimum target.
+      hitSlop={8}
     >
       <Text style={[styles.text, { color: theme.accentInk }]}>{label}</Text>
     </AnimatedPressable>

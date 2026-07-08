@@ -8,7 +8,7 @@
  * so "add new" reads the same on every site.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, components/BottomNav (BOTTOM_NAV_HEIGHT)
+ *   Imports → constants/theme, lib/useAppTheme, lib/i18n, components/BottomNav (BOTTOM_NAV_HEIGHT)
  *   Used by → (not yet mounted — ported ahead of its screen call sites per REBUILD_PLAN.md 3d)
  *   Data    → none (presentational)
  *
@@ -61,7 +61,9 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? t.add}
+      accessibilityLabel={accessibilityLabel ?? t.a11yAdd}
+      // 'sm' is 32px — below the 44px minimum touch target, so pad the tap area out.
+      hitSlop={size === 'sm' ? 6 : undefined}
       style={[
         styles.base,
         { width: dimension, height: dimension, backgroundColor: theme.accent },

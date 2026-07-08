@@ -4,6 +4,7 @@
  * Tiny utilities for formatting a Date as a local `YYYY-MM-DD` string, the
  * canonical date format used across the app's SQLite date columns and UI.
  * Uses local time (getFullYear/getMonth/getDate), never UTC.
+ * Currency formatting lives separately in lib/money.ts (formatKr).
  *
  * Connections:
  *   Imports → —
@@ -12,8 +13,7 @@
  *             app/shared.tsx, store/useShoppingListStore.ts
  *             (formatDisplayDate — Norwegian date display, code-only, no ledger number;
  *             see Decision 028's numbering note — renders stored ISO keys as DD.MM.YYYY in NO)
- *             (Phase 5 stores/screens will add more callers as they're ported)
- *   Data    → none (pure functions)
+ *   Data    → none
  *
  * Edit notes:
  *   - These are LOCAL-time formatters; do not switch to toISOString() (UTC) or

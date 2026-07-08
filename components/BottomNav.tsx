@@ -88,6 +88,9 @@ export default function BottomNav({ state, navigation }: Props = {}) {
         <PressableScale
           key={item.key}
           scaleTo={0.90}
+          accessibilityRole="button"
+          accessibilityLabel={t.nav[item.key]}
+          accessibilityState={{ selected: active }}
           style={[styles.centreButton, { backgroundColor: theme.accent, ...Shadow.fab }]}
           onPress={() => handlePress(item)}
           hitSlop={8}
@@ -104,6 +107,9 @@ export default function BottomNav({ state, navigation }: Props = {}) {
       <PressableScale
         key={item.key}
         scaleTo={0.97}
+        accessibilityRole="button"
+        accessibilityLabel={t.nav[item.key]}
+        accessibilityState={{ selected: active }}
         style={[styles.item, active && { backgroundColor: theme.surfaceMuted, borderRadius: Radius.sm }]}
         onPress={() => handlePress(item)}
         hitSlop={6}
