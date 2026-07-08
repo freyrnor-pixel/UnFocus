@@ -817,7 +817,18 @@ export default function SettingsScreen() {
                   </View>
                   <FormSwitch
                     checked={settings.taskNotificationsEnabled}
-                    onChange={(v) => applyAndSync({ taskNotificationsEnabled: v, habitNotificationsEnabled: v })}
+                    onChange={(v) => applyAndSync({ taskNotificationsEnabled: v })}
+                  />
+                </View>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.habitNotifications}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.habitNotificationsHint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.habitNotificationsEnabled}
+                    onChange={(v) => applyAndSync({ habitNotificationsEnabled: v })}
                   />
                 </View>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
