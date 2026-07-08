@@ -21,8 +21,9 @@
  * hints.settings.text: "Changes apply immediately.").
  *
  * Connections:
- *   Imports → components/AppModal, components/FormControls, components/ScreenScaffold,
- *             components/SectionDivider, components/Surface, constants/theme, lib/backup
+ *   Imports → components/AppModal, components/ConfirmationBanner, components/FormControls,
+ *             components/ScreenScaffold, components/SectionDivider, components/Surface,
+ *             constants/theme, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
  *             getAutoBackupLabel/saveAutoBackup), lib/childLock, lib/haptics, lib/i18n,
  *             lib/notifications, lib/reminders, lib/syncService, lib/useAppTheme,
@@ -75,6 +76,7 @@ import Surface from '@/components/Surface';
 import SectionDivider from '@/components/SectionDivider';
 import { Input, Switch as FormSwitch, SegmentedControl } from '@/components/FormControls';
 import { showAppModal } from '@/components/AppModal';
+import ConfirmationBanner from '@/components/ConfirmationBanner';
 import {
   useSettingsStore,
   Settings,
@@ -119,6 +121,7 @@ export default function SettingsScreen() {
   );
   // Child mode (Decision 038c) — local input for the parent password entry/exit.
   const [childPwInput, setChildPwInput] = useState('');
+  const [inputWarning, setInputWarning] = useState<string | null>(null);
 
   // Set (or change) the parent password, then flip the persisted flag. The secret
   // itself only ever lives in expo-secure-store (lib/childLock), never in settings.
@@ -330,6 +333,7 @@ export default function SettingsScreen() {
   );
 
   return (
+    <>
     <ScreenScaffold
       title={t.settingsTitle}
       tier="sub"
@@ -811,6 +815,7 @@ export default function SettingsScreen() {
                     applyAndSync({ monthlyResetDate: n });
                   } else {
                     setMonthlyDateInput(String(settings.monthlyResetDate));
+                    setInputWarning(t.invalidMonthlyDateMsg);
                   }
                 }}
                 keyboardType="number-pad"
@@ -835,6 +840,7 @@ export default function SettingsScreen() {
                     settings.update({ monthlyBudgetNok: n });
                   } else {
                     setMonthlyBudgetInput(settings.monthlyBudgetNok > 0 ? String(settings.monthlyBudgetNok) : '');
+                    setInputWarning(t.invalidMonthlyBudgetMsg);
                   }
                 }}
                 keyboardType="number-pad"
@@ -962,6 +968,8 @@ export default function SettingsScreen() {
         <View style={{ height: 40 }} />
       </View>
     </ScreenScaffold>
+    <ConfirmationBanner message={inputWarning} onDismiss={() => setInputWarning(null)} variant="warn" />
+    </>
   );
 }
 

@@ -244,20 +244,26 @@ with the OS prompt shown at opt-in time.
 
 ---
 
-## Point 12 — Empty states, input feedback, material contrast (P4, polish)
+## Point 12 — Empty states, input feedback, material contrast (P4, polish) ✅ done
 
 **Steps:**
-1. Standardize ad-hoc empty states on `components/EmptyState.tsx` with a CTA. Priority:
-   Habits empty (`app/habits.tsx:386,472`) currently passes title-only and dead-ends —
-   add an "Add habit" action button.
-2. Settings invalid-input silent revert (`app/settings.tsx:750-757,770-781`): show a
-   brief `ConfirmationBanner`/message on rejected numeric input.
-3. Re-check `textMuted` contrast on rock/metal/glass material finishes
-   (`components/Surface.tsx:107-108,159`, `constants/theme.ts:859-917`) — text tokens
-   are tuned against the plain surface only. Adjust muted token per finish if <4.5:1.
+1. ✅ Habits Week/Month empty states (`app/habits.tsx` `WeekView`/`MonthView`) now pass
+   an `action={{ label: t.health.addHabit, onPress: onAddHabit }}` into `EmptyState`
+   instead of title-only, navigating to `/habit-form` (carrying `selectedProfile` as
+   `childName` when set). The Today-tab empty state already had a tappable dashed-add
+   CTA, so it was left as-is.
+2. ✅ `app/settings.tsx` monthly-reset-date and monthly-budget inputs now call
+   `setInputWarning(...)` on rejected input (new `invalidMonthlyDateMsg`/
+   `invalidMonthlyBudgetMsg` i18n keys, EN+NO) alongside the existing silent revert,
+   rendered via a `variant="warn"` `ConfirmationBanner` mounted as a sibling of
+   `ScreenScaffold`.
+3. **Skipped — stale.** The rock/metal/paper `bubbleMaterial` finish system referenced
+   by this step no longer exists in this repo; `constants/theme.ts`'s `getMaterialStyle`
+   now computes a single glass finish from the base colour, so there's no per-finish
+   `textMuted` contrast to re-tune.
 
-**Verify:** habits empty state has a working CTA; rejected settings input shows feedback;
-text stays legible on all material finishes.
+**Verify:** habits Week/Month empty states have a working "Add habit" CTA; rejected
+settings input (monthly date/budget) shows a warn banner and reverts the field.
 
 ---
 
