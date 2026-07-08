@@ -218,39 +218,52 @@ hygiene section. Confirm direction before removing code.
 
 ---
 
-## Point 11 — Onboarding consistency (P2)
+## Point 11 — Onboarding consistency (P2) ✅ done
 
 **Steps:**
-1. Add a "Skip for now" affordance to steps 4, 5, 6 to match steps 2–3
-   (`app/onboarding/step2.tsx:156`, `step3.tsx:116` are the pattern).
-2. Step 4 (`app/onboarding/step4.tsx:40-47`): make notifications an explicit opt-in
-   toggle instead of silent auto-enable, and request the OS permission at that moment
-   (currently only at step 6 finish, `step6.tsx:88`).
-3. Step 3 (`step3.tsx:41-45`): surface the weekly-reset-day choice instead of silently
-   forcing Monday.
-4. Explore branch (`app/onboarding/guided.tsx:42-51`): after skipping, either introduce
-   the pet later or add a one-time Home nudge that the pet/theme features exist.
-5. Consider a time picker for the free-text `HH:MM` fields (step2/step3) — optional.
+1. ✅ Added a "Skip for now" affordance to step 4 (only remaining step missing it —
+   the wizard is 5 steps total, `step2`–`step5`; there is no `step6`, that reference
+   was stale). `step5` is the final "Finish" step, which already serves as the
+   skip-equivalent action.
+2. ✅ Step 4 (`app/onboarding/step4.tsx`) notifications are now explicit opt-in:
+   `remindersEnabled`/`taskNotificationsEnabled` default to `false` (`lib/db.ts`,
+   `store/useSettingsStore.ts`), and each toggle calls `requestPermissions()` the
+   moment it's switched on. `step5.tsx`'s finish() keeps a guarded fallback request
+   (only if either flag ended up true) instead of an unconditional prompt.
+3. ✅ Step 3 (`step3.tsx`) now surfaces a weekly-reset-day chip row (same pattern as
+   the Handle tab in `settings.tsx`) instead of silently forcing Monday via a mount
+   effect. Default is still Monday (index 0) for a fresh install.
+4. **Skipped — stale.** `guided.tsx`'s Explore branch and the referenced "pet"
+   feature (`components/Pet.tsx`) and swatch/theme picker no longer exist in this
+   repo (colour theme is now locked to `default`, no picker anywhere). Nothing to
+   nudge users toward.
+5. Skipped — optional, free-text `HH:MM` fields left as-is.
 
 **Verify:** every onboarding step past the first is skippable; notifications are opt-in
 with the OS prompt shown at opt-in time.
 
 ---
 
-## Point 12 — Empty states, input feedback, material contrast (P4, polish)
+## Point 12 — Empty states, input feedback, material contrast (P4, polish) ✅ done
 
 **Steps:**
-1. Standardize ad-hoc empty states on `components/EmptyState.tsx` with a CTA. Priority:
-   Habits empty (`app/habits.tsx:386,472`) currently passes title-only and dead-ends —
-   add an "Add habit" action button.
-2. Settings invalid-input silent revert (`app/settings.tsx:750-757,770-781`): show a
-   brief `ConfirmationBanner`/message on rejected numeric input.
-3. Re-check `textMuted` contrast on rock/metal/glass material finishes
-   (`components/Surface.tsx:107-108,159`, `constants/theme.ts:859-917`) — text tokens
-   are tuned against the plain surface only. Adjust muted token per finish if <4.5:1.
+1. ✅ Habits Week/Month empty states (`app/habits.tsx` `WeekView`/`MonthView`) now pass
+   an `action={{ label: t.health.addHabit, onPress: onAddHabit }}` into `EmptyState`
+   instead of title-only, navigating to `/habit-form` (carrying `selectedProfile` as
+   `childName` when set). The Today-tab empty state already had a tappable dashed-add
+   CTA, so it was left as-is.
+2. ✅ `app/settings.tsx` monthly-reset-date and monthly-budget inputs now call
+   `setInputWarning(...)` on rejected input (new `invalidMonthlyDateMsg`/
+   `invalidMonthlyBudgetMsg` i18n keys, EN+NO) alongside the existing silent revert,
+   rendered via a `variant="warn"` `ConfirmationBanner` mounted as a sibling of
+   `ScreenScaffold`.
+3. **Skipped — stale.** The rock/metal/paper `bubbleMaterial` finish system referenced
+   by this step no longer exists in this repo; `constants/theme.ts`'s `getMaterialStyle`
+   now computes a single glass finish from the base colour, so there's no per-finish
+   `textMuted` contrast to re-tune.
 
-**Verify:** habits empty state has a working CTA; rejected settings input shows feedback;
-text stays legible on all material finishes.
+**Verify:** habits Week/Month empty states have a working "Add habit" CTA; rejected
+settings input (monthly date/budget) shows a warn banner and reverts the field.
 
 ---
 

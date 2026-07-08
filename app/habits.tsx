@@ -356,9 +356,9 @@ function HabitCard({
 // ─── Week overview ───────────────────────────────────────────────────────────
 
 function WeekView({
-  habits, today, lang, theme,
+  habits, today, lang, theme, onAddHabit,
 }: {
-  habits: Habit[]; today: string; lang: string; theme: ThemePalette;
+  habits: Habit[]; today: string; lang: string; theme: ThemePalette; onAddHabit: () => void;
 }) {
   const logs = useHabitStore((s) => s.logs);
   const weekDates = useMemo(() => getWeekDates(today), [today]);
@@ -374,7 +374,7 @@ function WeekView({
   if (visibleHabits.length === 0) {
     return (
       <Surface style={styles.emptyCard}>
-        <EmptyState title={t.noHabitsYet} />
+        <EmptyState title={t.noHabitsYet} action={{ label: t.health.addHabit, onPress: onAddHabit }} />
       </Surface>
     );
   }
@@ -425,9 +425,9 @@ function WeekView({
 // ─── Month overview ───────────────────────────────────────────────────────────
 
 function MonthView({
-  habits, today, theme,
+  habits, today, theme, onAddHabit,
 }: {
-  habits: Habit[]; today: string; theme: ThemePalette;
+  habits: Habit[]; today: string; theme: ThemePalette; onAddHabit: () => void;
 }) {
   const logs = useHabitStore((s) => s.logs);
   const t = useT();
@@ -460,7 +460,7 @@ function MonthView({
   if (visibleHabits.length === 0) {
     return (
       <Surface style={styles.emptyCard}>
-        <EmptyState title={t.noHabitsYet} />
+        <EmptyState title={t.noHabitsYet} action={{ label: t.health.addHabit, onPress: onAddHabit }} />
       </Surface>
     );
   }
@@ -702,8 +702,23 @@ export default function HabitsScreen() {
             </>
           )}
 
-          {tab === 'week' && <WeekView habits={profileHabits} today={today} lang={lang} theme={theme} />}
-          {tab === 'month' && <MonthView habits={profileHabits} today={today} theme={theme} />}
+          {tab === 'week' && (
+            <WeekView
+              habits={profileHabits}
+              today={today}
+              lang={lang}
+              theme={theme}
+              onAddHabit={() => router.push({ pathname: '/habit-form', params: selectedProfile ? { childName: selectedProfile } : {} })}
+            />
+          )}
+          {tab === 'month' && (
+            <MonthView
+              habits={profileHabits}
+              today={today}
+              theme={theme}
+              onAddHabit={() => router.push({ pathname: '/habit-form', params: selectedProfile ? { childName: selectedProfile } : {} })}
+            />
+          )}
 
           <View style={{ height: 80 }} />
         </View>

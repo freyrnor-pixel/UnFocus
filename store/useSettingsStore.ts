@@ -128,7 +128,7 @@ type SettingsStore = Settings & {
 function rowToSettings(row: Row): Settings {
   return {
     userName: readStr(row, 'user_name'),
-    weeklyResetDay: readInt(row, 'weekly_reset_day', 1),
+    weeklyResetDay: readInt(row, 'weekly_reset_day', 0),
     monthlyResetDate: readInt(row, 'monthly_reset_date', 1),
     remindersEnabled: readBool(row, 'reminders_enabled'),
     reminderTime: readStr(row, 'reminder_time', '08:00'),
@@ -223,11 +223,11 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
   userName: '',
-  weeklyResetDay: 1,
+  weeklyResetDay: 0,
   monthlyResetDate: 1,
-  remindersEnabled: true,
+  remindersEnabled: false,
   reminderTime: '08:00',
-  taskNotificationsEnabled: true,
+  taskNotificationsEnabled: false,
   setupComplete: false,
   workModeEnabled: false,
   workHoursStart: '07:00',

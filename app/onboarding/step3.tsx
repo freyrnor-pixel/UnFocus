@@ -13,13 +13,16 @@
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
  *   - monthlyResetDate is committed live on valid input (1–31); onBlur reverts bad input.
+ *   - weeklyResetDay is a day-chip row (same `t.weeklyResetDay` / `t.dayFull` labels and
+ *     chip styling as the Handle tab in settings.tsx) defaulting to Monday (index 0) —
+ *     user can change it here instead of it being silently forced.
  *   - Next button → router.push "/onboarding/step4"; Previous uses router.back().
  *   - `dateInput` is local edit state seeded from settings.monthlyResetDate.
  *   - The payday tip is a HintCard (Decision 010). Decision 006 tokens throughout —
  *     shopping cart icon uses theme.featShop (feature accent).
  */
-import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useState } from 'react';
+import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,12 +41,6 @@ export default function OnboardingStep3() {
   const styles = useScaledStyles(baseStyles);
   const [dateInput, setDateInput] = useState(String(settings.monthlyResetDate));
 
-  // Weekly reset defaults to Monday (index 0) — no user choice needed in onboarding.
-  useEffect(() => {
-    settings.update({ weeklyResetDay: 0 });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView behavior="padding" style={styles.flex}>
@@ -57,6 +54,31 @@ export default function OnboardingStep3() {
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.cardTitle, { color: theme.text }]}>{t.weeklyResetDay}</Text>
+          <View style={styles.dayRow}>
+            {t.dayFull.map((label, i) => (
+              <Pressable
+                key={i}
+                style={[
+                  styles.dayChip,
+                  { backgroundColor: theme.surfaceMuted },
+                  settings.weeklyResetDay === i && { backgroundColor: theme.accent },
+                ]}
+                onPress={() => settings.update({ weeklyResetDay: i })}
+              >
+                <Text style={[
+                  styles.dayText,
+                  { color: theme.text },
+                  settings.weeklyResetDay === i && { color: theme.accentInk },
+                ]}>
+                  {label.slice(0, 3)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
           <Text style={[styles.cardTitle, { color: theme.text }]}>{t.monthlyResetDateQuestion}</Text>
           <TextInput
             style={[styles.dateInput, { color: theme.text, borderColor: theme.accent, backgroundColor: theme.surface }]}
@@ -137,6 +159,18 @@ const baseStyles = StyleSheet.create({
   sub: { fontSize: FontSize.md, textAlign: 'center', lineHeight: 24 },
   card: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md, ...Shadow.card },
   cardTitle: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  divider: { height: 1 },
+  dayRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  dayChip: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+  },
+  dayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   hint: { fontSize: FontSize.sm, fontStyle: 'italic' },
   dateInput: { borderRadius: Radius.sm, borderWidth: 2, padding: Spacing.md, fontSize: FontSize.xl, textAlign: 'center' },
   progress: { flexDirection: 'row', gap: Spacing.sm, justifyContent: 'center' },
