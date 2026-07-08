@@ -1,27 +1,37 @@
 /**
- * TaskCard.tsx — one task as an expandable, inline-editable row (Tasks/Oppgaver screen).
+ * TaskCard.tsx — one task as an expandable row for the Tasks/Oppgaver screen.
  *
- * Collapsed: a circle checkbox, the title, a read-only start-time label, and a
- * recurring-toggle icon. Tapping the body expands an inline editor (gated by the
- * section's `editable` flag): importance, a steps checklist, a "Start specific date"
- * toggle with calendar, an optional Start/Finish time-box pair, and — when the task
- * recurs — a Day/Week/Month selector with per-mode options (weekday multi-select +
- * week-interval, or day-of-month / nth-weekday). All edits persist immediately via
- * useTaskStore; there is no separate save step (mirrors the Shopping inline pattern).
+ * Two variants:
+ *   - variant="full" (All-tasks): tap the row to open an inline editor. While the
+ *     editor is open the card is in *edit mode* — a Discard / Save bar sits ABOVE the
+ *     card and edits are buffered in a local draft (nothing persists until Save). The
+ *     editor holds: an editable title, importance, a "Repeat" switch + per-mode
+ *     recurrence options, a "Start specific date" toggle + calendar, and an optional
+ *     Start/Finish time-box pair. Steps and the Shared-out / Delete affordances persist
+ *     immediately (they are not part of the draft). A card with `isNew` starts expanded
+ *     and, on Save, calls `onCommitNew(draft)` instead of writing straight to the store;
+ *     Discard on a new card calls `onDiscardNew()`.
+ *   - variant="steps" (Today / This week): the row expands to show ONLY the steps
+ *     checklist — no settings. A task with no steps has a card but no expand arrow.
+ *
+ * Every task and every step carries a checkmark circle. The task ↔ steps done-cascade
+ * lives in useTaskStore (toggle / toggleStep), so tapping a circle here keeps them in
+ * lockstep automatically.
  *
  * Connections:
  *   Imports → components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
- *             components/IconButton, components/FormControls (Switch, Checkbox), components/AppModal,
+ *             components/IconButton, components/FormControls (Switch), components/AppModal,
  *             constants/theme, lib/date, lib/haptics, lib/i18n, lib/useAppTheme, store/useTaskStore
  *   Used by → app/(tabs)/plans.tsx
  *   Data    → reads the passed `task`; writes via useTaskStore (update/steps/remove/setSharedOut)
+ *             for committed tasks; a new (draft) card writes nothing until onCommitNew fires.
  *
  * Edit notes:
+ *   - There is no lock and no per-field immediate save for settings: the Discard/Save bar
+ *     is the commit point. Only steps, Shared-out and Delete bypass the draft.
  *   - Day↔Week promote/demote: selecting all 7 weekdays promotes Week→Day; unselecting any
- *     weekday in Day demotes to Week with the remaining days (store stays the source of truth).
- *   - Start/Finish only appears once the task is dated or recurring (a pure "Whenever" task has
- *     no fixed time). Setting a Finish flips taskType to 'time-box'; the store derives duration.
- *   - `editable` is the lock/tab gate; `showDelete`/`showShareOut` are All-tasks-only affordances.
+ *     weekday in Day demotes to Week with the remaining days (all in the draft).
+ *   - Save is disabled while the title is blank, so blank tasks can't be created.
  */
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -29,7 +39,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { todayStr, dayOfWeekMon0 } from '@/lib/date';
+import { dayOfWeekMon0 } from '@/lib/date';
 import { tap, warning } from '@/lib/haptics';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import SlideSelector from '@/components/SlideSelector';
@@ -43,26 +53,32 @@ const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
 type Props = {
   task: Task;
-  /** Lock/tab gate — when false the expanded editors are read-only. */
-  editable: boolean;
-  /** Whether the row can expand to the inline editor (default true). */
-  expandable?: boolean;
+  /** "full" = All-tasks settings editor (Discard/Save); "steps" = Today/Week steps-only. */
+  variant?: 'full' | 'steps';
   /** All-tasks-only: show the delete action in the editor. */
   showDelete?: boolean;
   /** All-tasks-only: show the "Shared out" toggle in the editor. */
   showShareOut?: boolean;
   /** Shared color cue (Today / This week views). */
   tinted?: boolean;
+  /** Draft card for a not-yet-created task: starts expanded; Save → onCommitNew. */
+  isNew?: boolean;
+  /** New-card Save: hand the assembled draft back to the parent to persist. */
+  onCommitNew?: (draft: Task) => void;
+  /** New-card Discard: drop the draft in the parent. */
+  onDiscardNew?: () => void;
   onToggleDone: (task: Task) => void;
 };
 
 export default function TaskCard({
   task,
-  editable,
-  expandable = true,
+  variant = 'full',
   showDelete,
   showShareOut,
   tinted,
+  isNew,
+  onCommitNew,
+  onDiscardNew,
   onToggleDone,
 }: Props) {
   const theme = useAppTheme();
@@ -74,52 +90,113 @@ export default function TaskCard({
   const removeStep = useTaskStore((s) => s.removeStep);
   const setSharedOut = useTaskStore((s) => s.setSharedOut);
 
-  const [expanded, setExpanded] = useState(false);
+  const stepsOnly = variant === 'steps';
+  const sortedSteps = [...task.steps].sort((a, b) => a.orderIndex - b.orderIndex);
+  const hasSteps = sortedSteps.length > 0;
+  // Steps variant only expands when there ARE steps (no arrow otherwise); full always can.
+  const canExpand = stepsOnly ? hasSteps : true;
+
+  const [expanded, setExpanded] = useState(!!isNew);
   const [showCalendar, setShowCalendar] = useState(false);
   const [newStep, setNewStep] = useState('');
+  // Buffered edits (full variant only). Initialised from the task on first expand.
+  const [draft, setDraft] = useState<Task>(task);
 
-  const recurring = task.recurring;
+  const editing = !stepsOnly && expanded;
+  const recurring = draft.recurring;
   const isRecurring = recurring !== 'none';
-  const showTimes = task.hasStartDate || isRecurring;
-  const sortedSteps = [...task.steps].sort((a, b) => a.orderIndex - b.orderIndex);
+  const showTimes = draft.hasStartDate || isRecurring;
+  const modeValue = recurring === 'daily' ? 'daily' : recurring === 'monthly' ? 'monthly' : 'weekly';
+  const canSave = draft.title.trim().length > 0;
 
-  function toggleRecurring() {
-    if (!editable) return;
-    tap();
-    if (recurring === 'none') {
-      update(task.id, { recurring: 'weekly', recurringDays: [dayOfWeekMon0(new Date())] });
-    } else {
-      update(task.id, { recurring: 'none' });
+  function patch(next: Partial<Task>) {
+    setDraft((d) => ({ ...d, ...next }));
+  }
+
+  function openEditor() {
+    if (!canExpand) return;
+    if (stepsOnly) {
+      setExpanded((v) => !v);
+      return;
     }
+    // Collapsing an open editor is a Discard (revert / drop the draft), so the only way
+    // to keep edits is the Save button — never a silent partial write.
+    if (expanded) {
+      handleDiscard();
+      return;
+    }
+    setDraft(task); // re-seed the draft from the latest persisted task
+    setExpanded(true);
+  }
+
+  function handleSave() {
+    tap();
+    const trimmed = draft.title.trim();
+    if (!trimmed) return;
+    const taskType = draft.time && draft.finishTime ? 'time-box' : 'start-at';
+    const committed: Task = { ...draft, title: trimmed, taskType };
+    if (isNew) {
+      onCommitNew?.(committed);
+      return;
+    }
+    update(task.id, {
+      title: trimmed,
+      importance: draft.importance,
+      hasStartDate: draft.hasStartDate,
+      date: draft.date,
+      time: draft.time,
+      finishTime: draft.finishTime,
+      taskType,
+      recurring: draft.recurring,
+      recurringDays: draft.recurringDays,
+      weekInterval: draft.weekInterval,
+      monthlyMode: draft.monthlyMode,
+      monthDay: draft.monthDay,
+      monthOrdinal: draft.monthOrdinal,
+      monthWeekday: draft.monthWeekday,
+    });
+    setExpanded(false);
+    setShowCalendar(false);
+  }
+
+  function handleDiscard() {
+    tap();
+    if (isNew) {
+      onDiscardNew?.();
+      return;
+    }
+    setDraft(task);
+    setExpanded(false);
+    setShowCalendar(false);
+  }
+
+  function toggleRepeat(on: boolean) {
+    if (on) patch({ recurring: 'weekly', recurringDays: draft.recurringDays.length ? draft.recurringDays : [dayOfWeekMon0(new Date())] });
+    else patch({ recurring: 'none' });
   }
 
   function setMode(mode: string) {
-    if (!editable) return;
-    if (mode === 'daily') update(task.id, { recurring: 'daily' });
+    if (mode === 'daily') patch({ recurring: 'daily' });
     else if (mode === 'weekly') {
-      const days = task.recurringDays.length ? task.recurringDays : [dayOfWeekMon0(new Date())];
-      update(task.id, { recurring: 'weekly', recurringDays: days });
-    } else {
-      update(task.id, { recurring: 'monthly' });
-    }
+      const days = draft.recurringDays.length ? draft.recurringDays : [dayOfWeekMon0(new Date())];
+      patch({ recurring: 'weekly', recurringDays: days });
+    } else patch({ recurring: 'monthly' });
   }
 
   function toggleWeekday(i: number) {
-    if (!editable) return;
     if (recurring === 'daily') {
-      // Unselecting a day in "Day" demotes to "Week" with the remaining days.
-      update(task.id, { recurring: 'weekly', recurringDays: ALL_DAYS.filter((d) => d !== i) });
+      patch({ recurring: 'weekly', recurringDays: ALL_DAYS.filter((d) => d !== i) });
       return;
     }
-    const has = task.recurringDays.includes(i);
-    let days = has ? task.recurringDays.filter((d) => d !== i) : [...task.recurringDays, i];
+    const has = draft.recurringDays.includes(i);
+    let days = has ? draft.recurringDays.filter((d) => d !== i) : [...draft.recurringDays, i];
     if (days.length === 0) return; // keep at least one weekday
     days = days.sort((a, b) => a - b);
     if (days.length === 7) {
-      update(task.id, { recurring: 'daily', recurringDays: days });
+      patch({ recurring: 'daily', recurringDays: days });
       return;
     }
-    update(task.id, { recurringDays: days });
+    patch({ recurringDays: days });
   }
 
   function handleAddStep() {
@@ -137,346 +214,366 @@ export default function TaskCard({
     ]);
   }
 
-  const modeValue = recurring === 'daily' ? 'daily' : recurring === 'monthly' ? 'monthly' : 'weekly';
-
   return (
-    <View style={[styles.card, { backgroundColor: tinted ? theme.accentSoft : theme.surface, borderColor: theme.border }]}>
-      {/* ── Collapsed row ── */}
-      <View style={styles.row}>
-        <Pressable
-          hitSlop={8}
-          onPress={() => onToggleDone(task)}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: task.done }}
-        >
-          <View
-            style={[
-              styles.circle,
-              { borderColor: theme.border },
-              task.done && { backgroundColor: theme.accent, borderColor: theme.accent },
-            ]}
+    <View style={styles.wrap}>
+      {/* ── Discard / Save bar (edit mode, above the card) ── */}
+      {editing && (
+        <View style={styles.saveBar}>
+          <Pressable
+            style={[styles.saveBtn, { backgroundColor: theme.surfaceMuted }]}
+            onPress={handleDiscard}
+            accessibilityRole="button"
           >
-            {task.done && <Ionicons name="checkmark" size={14} color={theme.accentInk} />}
-          </View>
-        </Pressable>
-
-        <Pressable
-          style={styles.titleTap}
-          onPress={() => expandable && setExpanded((v) => !v)}
-          disabled={!expandable}
-        >
-          <Text
-            style={[
-              styles.title,
-              { color: theme.text },
-              task.done && { textDecorationLine: 'line-through', color: theme.textMuted },
-            ]}
-            numberOfLines={1}
-          >
-            {task.title}
-          </Text>
-        </Pressable>
-
-        {task.time ? (
-          <Text style={[styles.timeLabel, { color: theme.textMuted }]}>
-            {task.finishTime ? `${task.time}–${task.finishTime}` : task.time}
-          </Text>
-        ) : null}
-
-        <IconButton
-          icon="repeat"
-          label={t.taskRecurringToggle}
-          onPress={toggleRecurring}
-          size={30}
-          active={isRecurring}
-          disabled={!editable}
-        />
-
-        {expandable && (
-          <Pressable hitSlop={6} onPress={() => setExpanded((v) => !v)} style={styles.chevronBtn}>
-            <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textMuted} />
+            <Text style={[styles.saveBtnText, { color: theme.textMuted }]}>{t.taskDiscard}</Text>
           </Pressable>
-        )}
-      </View>
+          <Pressable
+            style={[styles.saveBtn, { backgroundColor: canSave ? theme.accent : theme.surfaceMuted, opacity: canSave ? 1 : 0.6 }]}
+            onPress={handleSave}
+            disabled={!canSave}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.saveBtnText, { color: canSave ? theme.accentInk : theme.textMuted }]}>{t.taskSave}</Text>
+          </Pressable>
+        </View>
+      )}
 
-      {/* ── Expanded editor ── */}
-      {expanded && expandable && (
-        <View style={styles.editor}>
-          {/* Importance */}
-          <SlideSelector
-            options={[
-              { value: 'regular', label: t.taskNormal },
-              { value: 'essential', label: t.taskImportant },
-            ]}
-            value={task.importance}
-            onChange={(v) => editable && update(task.id, { importance: v as Task['importance'] })}
-            disabled={!editable}
-          />
-
-          {/* Steps */}
-          {sortedSteps.length > 0 && (
-            <View style={styles.stepsWrap}>
-              {sortedSteps.map((step) => (
-                <View key={step.id} style={styles.stepRow}>
-                  <Pressable hitSlop={6} onPress={() => toggleStep(step.id)} style={styles.stepCheckTap}>
-                    <View
-                      style={[
-                        styles.stepCheck,
-                        { borderColor: theme.border },
-                        step.done && { backgroundColor: theme.accent, borderColor: theme.accent },
-                      ]}
-                    >
-                      {step.done && <Ionicons name="checkmark" size={12} color={theme.accentInk} />}
-                    </View>
-                    <Text
-                      style={[
-                        styles.stepText,
-                        { color: theme.text },
-                        step.done && { textDecorationLine: 'line-through', color: theme.textMuted },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {step.title}
-                    </Text>
-                  </Pressable>
-                  {editable && (
-                    <Pressable hitSlop={6} onPress={() => removeStep(step.id)}>
-                      <Ionicons name="close" size={16} color={theme.textMuted} />
-                    </Pressable>
-                  )}
-                </View>
-              ))}
+      <View style={[styles.card, { backgroundColor: tinted ? theme.accentSoft : theme.surface, borderColor: editing ? theme.accent : theme.border }]}>
+        {/* ── Collapsed row ── */}
+        <View style={styles.row}>
+          <Pressable
+            hitSlop={8}
+            onPress={() => onToggleDone(task)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: task.done }}
+          >
+            <View
+              style={[
+                styles.circle,
+                { borderColor: theme.border },
+                task.done && { backgroundColor: theme.accent, borderColor: theme.accent },
+              ]}
+            >
+              {task.done && <Ionicons name="checkmark" size={14} color={theme.accentInk} />}
             </View>
-          )}
-          {editable && (
-            <View style={styles.addStepRow}>
-              <TextInput
-                style={[styles.addStepInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
-                value={newStep}
-                onChangeText={setNewStep}
-                placeholder={t.stepPlaceholder}
-                placeholderTextColor={theme.textMuted}
-                returnKeyType="done"
-                onSubmitEditing={handleAddStep}
-              />
-              <IconButton icon="add" label={t.stepPlaceholder} onPress={handleAddStep} size={30} />
-            </View>
-          )}
+          </Pressable>
 
-          {/* Start specific date */}
-          <View style={styles.toggleRow}>
-            <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskStartSpecificDate}</Text>
-            <Switch
-              checked={task.hasStartDate}
-              onChange={(on) => editable && update(task.id, { hasStartDate: on })}
-              disabled={!editable}
-            />
-          </View>
-          {task.hasStartDate && (
-            <View style={styles.dateWrap}>
-              <IconButton
-                icon="calendar-outline"
-                label={t.dateLabel}
-                active={showCalendar}
-                onPress={() => setShowCalendar((v) => !v)}
-              />
-              {showCalendar && (
-                <DatePickerCalendar
-                  value={task.date}
-                  onChange={(d) => {
-                    if (editable) update(task.id, { date: d });
-                    setShowCalendar(false);
-                  }}
-                  dayLabels={t.dayLabels}
-                  monthLabels={t.months}
-                  calendarLabels={t.calendar}
-                />
-              )}
-            </View>
-          )}
+          <Pressable style={styles.titleTap} onPress={openEditor} disabled={!canExpand}>
+            <Text
+              style={[
+                styles.title,
+                { color: theme.text },
+                task.done && { textDecorationLine: 'line-through', color: theme.textMuted },
+              ]}
+              numberOfLines={1}
+            >
+              {task.title || t.taskTitlePlaceholder}
+            </Text>
+          </Pressable>
 
-          {/* Start / Finish */}
-          {showTimes && (
-            <View style={styles.timeRow}>
-              <View style={styles.timeCol}>
-                <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskStartLabel}</Text>
-                <TimeBoxInput
-                  value={task.time}
-                  readOnly={!editable}
-                  onChange={(v) =>
-                    update(task.id, {
-                      time: v || undefined,
-                      taskType: task.finishTime && v ? 'time-box' : 'start-at',
-                    })
-                  }
-                />
-              </View>
-              <View style={styles.timeCol}>
-                <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskFinishLabel}</Text>
-                <TimeBoxInput
-                  value={task.finishTime}
-                  readOnly={!editable}
-                  onChange={(v) =>
-                    update(task.id, {
-                      finishTime: v || undefined,
-                      taskType: v ? 'time-box' : 'start-at',
-                    })
-                  }
-                />
-              </View>
-            </View>
-          )}
+          {task.time ? (
+            <Text style={[styles.timeLabel, { color: theme.textMuted }]}>
+              {task.finishTime ? `${task.time}–${task.finishTime}` : task.time}
+            </Text>
+          ) : null}
 
-          {/* Recurrence editor */}
-          {isRecurring && (
-            <View style={styles.recurWrap}>
-              <SlideSelector
-                options={[
-                  { value: 'daily', label: t.taskRecurDay },
-                  { value: 'weekly', label: t.taskRecurWeek },
-                  { value: 'monthly', label: t.taskRecurMonth },
-                ]}
-                value={modeValue}
-                onChange={setMode}
-                disabled={!editable}
-              />
-
-              {/* Day / Week → weekday multi-select */}
-              {(recurring === 'daily' || recurring === 'weekly') && (
-                <View style={styles.weekdayRow}>
-                  {t.dayLabels.map((label, i) => {
-                    const active = recurring === 'daily' || task.recurringDays.includes(i);
-                    return (
-                      <Pressable
-                        key={i}
-                        style={[
-                          styles.weekdayChip,
-                          { backgroundColor: active ? theme.accent : theme.surfaceMuted },
-                        ]}
-                        onPress={() => toggleWeekday(i)}
-                        disabled={!editable}
-                      >
-                        <Text style={[styles.weekdayText, { color: active ? theme.accentInk : theme.textMuted }]}>
-                          {label.slice(0, 2)}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-
-              {/* Week → interval */}
-              {recurring === 'weekly' && (
-                <SlideSelector
-                  compact
-                  options={[
-                    { value: '1', label: t.taskWeekInterval1 },
-                    { value: '2', label: t.taskWeekInterval2 },
-                    { value: '3', label: t.taskWeekInterval3 },
-                  ]}
-                  value={String(task.weekInterval || 1)}
-                  onChange={(v) => editable && update(task.id, { weekInterval: Number(v) })}
-                  disabled={!editable}
-                />
-              )}
-
-              {/* Month → day-of-month or nth-weekday */}
-              {recurring === 'monthly' && (
-                <View style={styles.monthWrap}>
-                  <SlideSelector
-                    compact
-                    options={[
-                      { value: 'day', label: t.taskMonthlyByDay },
-                      { value: 'ordinal', label: t.taskMonthlyByWeekday },
-                    ]}
-                    value={task.monthlyMode}
-                    onChange={(v) => editable && update(task.id, { monthlyMode: v as Task['monthlyMode'] })}
-                    disabled={!editable}
-                  />
-                  {task.monthlyMode === 'day' ? (
-                    <View style={styles.monthDayRow}>
-                      <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskMonthDayLabel}</Text>
-                      <TextInput
-                        style={[styles.monthDayInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
-                        value={String(task.monthDay)}
-                        onChangeText={(txt) => {
-                          if (!editable) return;
-                          const n = Math.min(31, Math.max(1, parseInt(txt.replace(/\D/g, ''), 10) || 1));
-                          update(task.id, { monthDay: n });
-                        }}
-                        keyboardType="number-pad"
-                        maxLength={2}
-                        editable={editable}
-                      />
-                    </View>
-                  ) : (
-                    <>
-                      <SlideSelector
-                        compact
-                        options={[
-                          { value: 'first', label: t.taskOrdFirst },
-                          { value: 'second', label: t.taskOrdSecond },
-                          { value: 'third', label: t.taskOrdThird },
-                          { value: 'fourth', label: t.taskOrdFourth },
-                          { value: 'last', label: t.taskOrdLast },
-                        ]}
-                        value={task.monthOrdinal}
-                        onChange={(v) => editable && update(task.id, { monthOrdinal: v as Task['monthOrdinal'] })}
-                        disabled={!editable}
-                      />
-                      <View style={styles.weekdayRow}>
-                        {t.dayLabels.map((label, i) => {
-                          const active = task.monthWeekday === i;
-                          return (
-                            <Pressable
-                              key={i}
-                              style={[
-                                styles.weekdayChip,
-                                { backgroundColor: active ? theme.accent : theme.surfaceMuted },
-                              ]}
-                              onPress={() => editable && update(task.id, { monthWeekday: i })}
-                              disabled={!editable}
-                            >
-                              <Text style={[styles.weekdayText, { color: active ? theme.accentInk : theme.textMuted }]}>
-                                {label.slice(0, 2)}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </>
-                  )}
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Shared out toggle (All tasks) */}
-          {showShareOut && (
-            <View style={styles.toggleRow}>
-              <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskSharedOut}</Text>
-              <Switch
-                checked={task.sharedOut}
-                onChange={(on) => editable && setSharedOut(task.id, on)}
-                disabled={!editable}
-              />
-            </View>
-          )}
-
-          {/* Delete (All tasks) */}
-          {showDelete && editable && (
-            <Pressable style={styles.deleteRow} onPress={handleDelete}>
-              <Ionicons name="trash-outline" size={16} color={theme.bad} />
-              <Text style={[styles.deleteText, { color: theme.bad }]}>{t.deleteTask}</Text>
+          {canExpand && (
+            <Pressable hitSlop={6} onPress={openEditor} style={styles.chevronBtn}>
+              <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textMuted} />
             </Pressable>
           )}
         </View>
-      )}
+
+        {/* ── Steps-only expansion (Today / This week) ── */}
+        {stepsOnly && expanded && hasSteps && (
+          <View style={styles.stepsWrap}>
+            {sortedSteps.map((step) => (
+              <Pressable key={step.id} hitSlop={6} onPress={() => toggleStep(step.id)} style={styles.stepCheckTap}>
+                <View
+                  style={[
+                    styles.stepCheck,
+                    { borderColor: theme.border },
+                    step.done && { backgroundColor: theme.accent, borderColor: theme.accent },
+                  ]}
+                >
+                  {step.done && <Ionicons name="checkmark" size={12} color={theme.accentInk} />}
+                </View>
+                <Text
+                  style={[
+                    styles.stepText,
+                    { color: theme.text },
+                    step.done && { textDecorationLine: 'line-through', color: theme.textMuted },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {step.title}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {/* ── Full editor (All tasks) ── */}
+        {editing && (
+          <View style={styles.editor}>
+            {/* Editable title */}
+            <TextInput
+              style={[styles.titleInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+              value={draft.title}
+              onChangeText={(v) => patch({ title: v })}
+              placeholder={t.taskTitlePlaceholder}
+              placeholderTextColor={theme.textMuted}
+              autoFocus={isNew}
+              returnKeyType="done"
+            />
+
+            {/* Importance */}
+            <SlideSelector
+              options={[
+                { value: 'regular', label: t.taskNormal },
+                { value: 'essential', label: t.taskImportant },
+              ]}
+              value={draft.importance}
+              onChange={(v) => patch({ importance: v as Task['importance'] })}
+            />
+
+            {/* Steps (persist immediately — not part of the draft; new cards get them after Save) */}
+            {!isNew && (
+              <>
+                {hasSteps && (
+                  <View style={styles.stepsWrap}>
+                    {sortedSteps.map((step) => (
+                      <View key={step.id} style={styles.stepRow}>
+                        <Pressable hitSlop={6} onPress={() => toggleStep(step.id)} style={styles.stepCheckTap}>
+                          <View
+                            style={[
+                              styles.stepCheck,
+                              { borderColor: theme.border },
+                              step.done && { backgroundColor: theme.accent, borderColor: theme.accent },
+                            ]}
+                          >
+                            {step.done && <Ionicons name="checkmark" size={12} color={theme.accentInk} />}
+                          </View>
+                          <Text
+                            style={[
+                              styles.stepText,
+                              { color: theme.text },
+                              step.done && { textDecorationLine: 'line-through', color: theme.textMuted },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {step.title}
+                          </Text>
+                        </Pressable>
+                        <Pressable hitSlop={6} onPress={() => removeStep(step.id)}>
+                          <Ionicons name="close" size={16} color={theme.textMuted} />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                <View style={styles.addStepRow}>
+                  <TextInput
+                    style={[styles.addStepInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                    value={newStep}
+                    onChangeText={setNewStep}
+                    placeholder={t.stepPlaceholder}
+                    placeholderTextColor={theme.textMuted}
+                    returnKeyType="done"
+                    onSubmitEditing={handleAddStep}
+                  />
+                  <IconButton icon="add" label={t.stepPlaceholder} onPress={handleAddStep} size={30} />
+                </View>
+              </>
+            )}
+
+            {/* Repeat */}
+            <View style={styles.toggleRow}>
+              <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskRecurringToggle}</Text>
+              <Switch checked={isRecurring} onChange={toggleRepeat} />
+            </View>
+
+            {/* Recurrence options */}
+            {isRecurring && (
+              <View style={styles.recurWrap}>
+                <SlideSelector
+                  options={[
+                    { value: 'daily', label: t.taskRecurDay },
+                    { value: 'weekly', label: t.taskRecurWeek },
+                    { value: 'monthly', label: t.taskRecurMonth },
+                  ]}
+                  value={modeValue}
+                  onChange={setMode}
+                />
+
+                {(recurring === 'daily' || recurring === 'weekly') && (
+                  <View style={styles.weekdayRow}>
+                    {t.dayLabels.map((label, i) => {
+                      const active = recurring === 'daily' || draft.recurringDays.includes(i);
+                      return (
+                        <Pressable
+                          key={i}
+                          style={[styles.weekdayChip, { backgroundColor: active ? theme.accent : theme.surfaceMuted }]}
+                          onPress={() => toggleWeekday(i)}
+                        >
+                          <Text style={[styles.weekdayText, { color: active ? theme.accentInk : theme.textMuted }]}>
+                            {label.slice(0, 2)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {recurring === 'weekly' && (
+                  <SlideSelector
+                    compact
+                    options={[
+                      { value: '1', label: t.taskWeekInterval1 },
+                      { value: '2', label: t.taskWeekInterval2 },
+                      { value: '3', label: t.taskWeekInterval3 },
+                    ]}
+                    value={String(draft.weekInterval || 1)}
+                    onChange={(v) => patch({ weekInterval: Number(v) })}
+                  />
+                )}
+
+                {recurring === 'monthly' && (
+                  <View style={styles.monthWrap}>
+                    <SlideSelector
+                      compact
+                      options={[
+                        { value: 'day', label: t.taskMonthlyByDay },
+                        { value: 'ordinal', label: t.taskMonthlyByWeekday },
+                      ]}
+                      value={draft.monthlyMode}
+                      onChange={(v) => patch({ monthlyMode: v as Task['monthlyMode'] })}
+                    />
+                    {draft.monthlyMode === 'day' ? (
+                      <View style={styles.monthDayRow}>
+                        <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskMonthDayLabel}</Text>
+                        <TextInput
+                          style={[styles.monthDayInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                          value={String(draft.monthDay)}
+                          onChangeText={(txt) => {
+                            const n = Math.min(31, Math.max(1, parseInt(txt.replace(/\D/g, ''), 10) || 1));
+                            patch({ monthDay: n });
+                          }}
+                          keyboardType="number-pad"
+                          maxLength={2}
+                        />
+                      </View>
+                    ) : (
+                      <>
+                        <SlideSelector
+                          compact
+                          options={[
+                            { value: 'first', label: t.taskOrdFirst },
+                            { value: 'second', label: t.taskOrdSecond },
+                            { value: 'third', label: t.taskOrdThird },
+                            { value: 'fourth', label: t.taskOrdFourth },
+                            { value: 'last', label: t.taskOrdLast },
+                          ]}
+                          value={draft.monthOrdinal}
+                          onChange={(v) => patch({ monthOrdinal: v as Task['monthOrdinal'] })}
+                        />
+                        <View style={styles.weekdayRow}>
+                          {t.dayLabels.map((label, i) => {
+                            const active = draft.monthWeekday === i;
+                            return (
+                              <Pressable
+                                key={i}
+                                style={[styles.weekdayChip, { backgroundColor: active ? theme.accent : theme.surfaceMuted }]}
+                                onPress={() => patch({ monthWeekday: i })}
+                              >
+                                <Text style={[styles.weekdayText, { color: active ? theme.accentInk : theme.textMuted }]}>
+                                  {label.slice(0, 2)}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </>
+                    )}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Start specific date */}
+            <View style={styles.toggleRow}>
+              <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskStartSpecificDate}</Text>
+              <Switch checked={draft.hasStartDate} onChange={(on) => patch({ hasStartDate: on })} />
+            </View>
+            {draft.hasStartDate && (
+              <View style={styles.dateWrap}>
+                <IconButton
+                  icon="calendar-outline"
+                  label={t.dateLabel}
+                  active={showCalendar}
+                  onPress={() => setShowCalendar((v) => !v)}
+                />
+                {showCalendar && (
+                  <DatePickerCalendar
+                    value={draft.date}
+                    onChange={(d) => {
+                      patch({ date: d });
+                      setShowCalendar(false);
+                    }}
+                    dayLabels={t.dayLabels}
+                    monthLabels={t.months}
+                    calendarLabels={t.calendar}
+                  />
+                )}
+              </View>
+            )}
+
+            {/* Start / Finish */}
+            {showTimes && (
+              <View style={styles.timeRow}>
+                <View style={styles.timeCol}>
+                  <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskStartLabel}</Text>
+                  <TimeBoxInput value={draft.time} onChange={(v) => patch({ time: v || undefined })} />
+                </View>
+                <View style={styles.timeCol}>
+                  <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskFinishLabel}</Text>
+                  <TimeBoxInput value={draft.finishTime} onChange={(v) => patch({ finishTime: v || undefined })} />
+                </View>
+              </View>
+            )}
+
+            {/* Shared out toggle (persists immediately — emits an outgoing shared row) */}
+            {showShareOut && !isNew && (
+              <View style={styles.toggleRow}>
+                <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskSharedOut}</Text>
+                <Switch checked={task.sharedOut} onChange={(on) => setSharedOut(task.id, on)} />
+              </View>
+            )}
+
+            {/* Delete (All tasks) */}
+            {showDelete && !isNew && (
+              <Pressable style={styles.deleteRow} onPress={handleDelete}>
+                <Ionicons name="trash-outline" size={16} color={theme.bad} />
+                <Text style={[styles.deleteText, { color: theme.bad }]}>{t.deleteTask}</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: { gap: Spacing.xs },
+  saveBar: { flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.sm },
+  saveBtn: {
+    minHeight: 36,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   card: { borderRadius: Radius.md, borderWidth: 1, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 40 },
   circle: {
@@ -492,7 +589,14 @@ const styles = StyleSheet.create({
   timeLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   chevronBtn: { padding: 2 },
   editor: { gap: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.xs },
-  stepsWrap: { gap: Spacing.xs },
+  titleInput: {
+    minHeight: 44,
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.md,
+    fontSize: FontSize.md,
+    fontFamily: Fonts.semibold,
+  },
+  stepsWrap: { gap: Spacing.xs, paddingTop: Spacing.sm },
   stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
   stepCheckTap: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
   stepCheck: {
