@@ -713,6 +713,20 @@ export default function ShoppingScreen() {
             </Pressable>
           );
         })}
+        {/* Third tab: Meals/Food. Unlike weekly/catalog it navigates to the /meals screen
+            (its own site) rather than switching content in place — it's the discoverable
+            home for Meals (Point 9), which otherwise has no entry point anywhere in the app.
+            Never shows as the active tab since `tab` stays weekly|catalog; the chevron
+            signals it opens a screen rather than swapping this screen's content. */}
+        <Pressable
+          style={styles.tab}
+          onPress={() => router.push('/meals')}
+          accessibilityRole="button"
+          accessibilityLabel={t.nav.meals}
+        >
+          <Text style={[styles.tabText, { color: theme.textMuted }]}>{t.nav.meals}</Text>
+          <Ionicons name="chevron-forward" size={14} color={theme.textMuted} />
+        </Pressable>
       </View>
 
       {tab === 'weekly' && focusedList && focusedProgress ? (

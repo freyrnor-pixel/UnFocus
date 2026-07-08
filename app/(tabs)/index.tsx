@@ -10,12 +10,13 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HomeNotesCard,
- *             components/HomeShoppingCard, components/AddFAB,
+ *             components/HomeSharedCard, components/HomeShoppingCard, components/AddFAB,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
- *             lib/useAppTheme, store/useTaskStore, store/useNotesStore, store/useShoppingStore,
- *             store/useShoppingListStore, store/useSettingsStore
+ *             lib/useAppTheme, store/useTaskStore, store/useNotesStore, store/useSharedStore,
+ *             store/useShoppingStore, store/useShoppingListStore, store/useSettingsStore
  *   Used by → Expo Router route "/" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
- *   Data    → reads useTaskStore (tasks) + useNotesStore (notes) + useShoppingStore (items) +
+ *   Data    → reads useTaskStore (tasks) + useNotesStore (notes) + useSharedStore (incoming
+ *             shared tasks/shopping) + useShoppingStore (items) +
  *             useShoppingListStore (currentList(today)); mutates via toggle / toggleCheck /
  *             toggleCollected / adjustAmount / putBackToInventory / removeWithSource.
  *             Settings via useSettingsStore.
@@ -55,6 +56,7 @@ import { useRouter, usePathname, useFocusEffect } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PlanTaskCard from '@/components/PlanTaskCard';
 import HomeNotesCard from '@/components/HomeNotesCard';
+import HomeSharedCard from '@/components/HomeSharedCard';
 import HomeShoppingCard from '@/components/HomeShoppingCard';
 import AddFAB from '@/components/AddFAB';
 import HintCard from '@/components/HintCard';
@@ -67,6 +69,7 @@ import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useNotesStore } from '@/store/useNotesStore';
+import { useSharedStore } from '@/store/useSharedStore';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import { useShoppingListStore } from '@/store/useShoppingListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -93,6 +96,8 @@ export default function HomeScreen() {
 
   const loadNotes = useNotesStore((s) => s.load);
 
+  const loadShared = useSharedStore((s) => s.load);
+
   const shoppingItems = useShoppingStore((s) => s.items);
   const toggleShoppingItem = useShoppingStore((s) => s.toggleCheck);
   const toggleShoppingCollected = useShoppingStore((s) => s.toggleCollected);
@@ -117,6 +122,7 @@ export default function HomeScreen() {
       loadSettings();
       loadTasks();
       loadNotes();
+      loadShared();
       loadShopping();
       loadLists();
       // Focus mode's default is the persisted "Focus mode" setting
@@ -131,7 +137,7 @@ export default function HomeScreen() {
         setFocusMode(defaultFocus);
         setHintOpen(false);
       };
-    }, [loadSettings, loadTasks, loadNotes, loadShopping, loadLists])
+    }, [loadSettings, loadTasks, loadNotes, loadShared, loadShopping, loadLists])
   );
 
   const todayTasks = tasksForDate(today);
@@ -206,6 +212,14 @@ export default function HomeScreen() {
           <View style={styles.section}>
             <HomeNotesCard />
           </View>
+
+          {/* Shared preview — HomeSharedCard (incoming shared tasks + shopping). Self-hides
+              when nothing is incoming. Hidden in Focus mode (an input/triage surface). */}
+          {!focusMode && (
+            <View style={styles.section}>
+              <HomeSharedCard />
+            </View>
+          )}
 
           {/* Plans preview = the shared PlanTaskCard day-view (Decision 009a). */}
           <View style={styles.section}>
