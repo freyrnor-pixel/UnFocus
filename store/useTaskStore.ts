@@ -43,6 +43,9 @@
  *   - `task.steps` persist straight to SQLite on every change (addStep/removeStep/
  *     toggleStep/reorderStep) — no draft/save gate. load() loads all task_steps in
  *     one query and groups them onto their owning task in JS (one query, not N+1).
+ *   - **Task ↔ steps done-cascade**: toggle()/completeDirect() set every step to match
+ *     the task (cascadeStepsDone); toggleStep() auto-completes the task once all steps
+ *     are done and re-opens it when any is unchecked. The two flags never disagree.
  *   - **Decision 019 (`hint`)**: freeform optional note, display-only. Part of the
  *     regular add/update payload like any other field — no separate write path.
  *   - **Decision 020 (`followsTaskId` / `then` link)**: one-to-one, surfacing-only,
@@ -412,6 +415,16 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const task = get().tasks.find((t) => t.id === id);
     if (!task) return;
     const willBeDone = !task.done;
+    // Cascade (task ↔ steps): marking a task done/undone marks all its steps to
+    // match, so the two never disagree. Persist the steps first, then the task row via
+    // update() (which keeps notification + live-sync wiring intact and preserves the
+    // just-updated step state, since update() re-reads the task from current state).
+    db.runSync('UPDATE task_steps SET done = ? WHERE task_id = ?', [willBeDone ? 1 : 0, id]);
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        t.id === id ? { ...t, steps: t.steps.map((st) => ({ ...st, done: willBeDone })) } : t
+      ),
+    }));
     get().update(id, { done: willBeDone });
     if (willBeDone) {
       useAutomationStore.getState().fireTrigger('task_completed');
@@ -421,6 +434,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   completeDirect(id) {
     const task = get().tasks.find((t) => t.id === id);
     if (!task || task.done) return;
+    db.runSync('UPDATE task_steps SET done = 1 WHERE task_id = ?', [id]);
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        t.id === id ? { ...t, steps: t.steps.map((st) => ({ ...st, done: true })) } : t
+      ),
+    }));
     get().update(id, { done: true });
     useAutomationStore.getState().fireTrigger('task_completed');
   },
@@ -524,6 +543,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         t.id === owner.id ? { ...t, steps: t.steps.map((st) => (st.id === id ? { ...st, done } : st)) } : t
       ),
     }));
+    // Reverse cascade: once every step is done the task auto-completes; unchecking any
+    // step re-opens it. Only writes when the derived state actually differs from now.
+    const nextSteps = owner.steps.map((st) => (st.id === id ? { ...st, done } : st));
+    const allDone = nextSteps.length > 0 && nextSteps.every((st) => st.done);
+    if (allDone !== owner.done) {
+      get().update(owner.id, { done: allDone });
+      if (allDone) useAutomationStore.getState().fireTrigger('task_completed');
+    }
   },
 
   reorderStep(id, direction) {

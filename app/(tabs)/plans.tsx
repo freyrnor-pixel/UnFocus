@@ -1,38 +1,41 @@
 /**
- * plans.tsx — the "Tasks" / "Oppgaver" screen: a tabbed, lock-gated, inline-editable list.
+ * plans.tsx — the "Tasks" / "Oppgaver" screen: a tabbed, inline-editable list.
  *
- * Rebuilt (2026-07-08) from the old day-view rail into a Shopping-style screen: a sticky
- * tab bar (All tasks · Today · This week) with a global edit lock, sectioned lists, and
- * inline expand-to-edit task cards (no pop-up editor, no "+" FAB). The Home "Today's plans"
- * preview keeps rendering the unchanged PlanTaskCard day-view — only this screen changed.
+ * A sticky tab bar (All tasks · Today · This week) over sectioned lists. Editing is
+ * always available (no lock): tapping a task in the All-tasks tab opens its inline
+ * editor with a Discard / Save bar (see TaskCard). New tasks are made through blank
+ * *draft* cards — a "+" bubble sits under every task, and brand-new users start with one
+ * empty draft row already open — and only become real store rows on Save. Today / This
+ * week expand a task to its steps only (no settings); the Today section sits inside its
+ * own card. The Home "Today's plans" preview keeps the unchanged PlanTaskCard day-view.
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedRequestsSection,
- *             components/TaskCard, components/IconButton, constants/theme, lib/db, lib/date,
+ *             components/TaskCard, components/AddDivider, constants/theme, lib/db, lib/date,
  *             lib/i18n, lib/useAppTheme, store/useTaskStore, store/useSettingsStore, store/useSharedStore
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → reads/writes useTaskStore (tasks/steps); reads useSharedStore (incoming shares);
  *             reads useSettingsStore for theme hydration
  *
  * Edit notes:
- *   - Lock: `taskLockedSession` is a module-level session lock (mirrors shopping.tsx's
- *     catalogLockedSession) — survives in-session navigation, re-locks on cold start. It gates
- *     editing in the All-tasks tab only; Today / This week stay expand-to-edit.
+ *   - No lock: the old module-session `taskLockedSession` is gone. TaskCard's Discard/Save
+ *     bar is the commit point for edits; creation goes through local `drafts` (temp ids),
+ *     persisted via addTask() only on Save.
  *   - Section selectors: Whenever = recurring 'none' & !sharedOut (All tab includes dated
  *     one-offs); Recurring = recurring !== 'none' & !sharedOut; Shared out = sharedOut. In
  *     Today / This week the "Whenever" section is undated tasks only, and shared tasks are
  *     tinted instead of getting their own section.
- *   - New tasks are always created in Whenever (undated, non-recurring).
+ *   - New tasks are always created in Whenever (undated, non-recurring); the editor can
+ *     then promote them (date / repeat).
  */
-import React, { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import SharedRequestsSection from '@/components/SharedRequestsSection';
 import TaskCard from '@/components/TaskCard';
-import IconButton from '@/components/IconButton';
+import AddDivider from '@/components/AddDivider';
 import { initDb } from '@/lib/db';
 import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
@@ -40,17 +43,10 @@ import { useAppTheme } from '@/lib/useAppTheme';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useSharedStore } from '@/store/useSharedStore';
+import { generateId } from '@/lib/id';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 
 let dbBootstrapped = false;
-
-/**
- * Module-session edit lock (Decision 029 pattern, mirrors shopping.tsx's
- * catalogLockedSession): survives navigating away and back within a session, but a
- * fresh module evaluation on cold start re-locks it. Not persisted to SQLite on
- * purpose — a persisted lock would wrongly survive an app restart.
- */
-let taskLockedSession = true;
 
 type Tab = 'all' | 'today' | 'week';
 
@@ -60,6 +56,31 @@ function byTime(a: Task, b: Task): number {
   if (a.time) return -1;
   if (b.time) return 1;
   return a.title.localeCompare(b.title);
+}
+
+/** A blank, undated, non-recurring "Whenever" draft — a local editing card, not yet a store row. */
+function blankDraft(date: string): Task {
+  return {
+    id: 'draft-' + generateId(),
+    title: '',
+    date,
+    taskType: 'start-at',
+    done: false,
+    recurring: 'none',
+    recurringDays: [],
+    weekInterval: 1,
+    monthlyMode: 'day',
+    monthDay: 1,
+    monthOrdinal: 'first',
+    monthWeekday: 0,
+    importance: 'regular',
+    sortOrder: 0,
+    hint: '',
+    followsTaskId: null,
+    hasStartDate: false,
+    sharedOut: false,
+    steps: [],
+  };
 }
 
 const STICKY_HEIGHT = 56;
@@ -79,15 +100,11 @@ export default function TasksScreen() {
 
   const [tab, setTab] = useState<Tab>('all');
   const [hintOpen, setHintOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [locked, setLockedState] = useState(taskLockedSession);
-  const setLocked = useCallback((next: boolean | ((v: boolean) => boolean)) => {
-    setLockedState((prev) => {
-      const resolved = typeof next === 'function' ? (next as (v: boolean) => boolean)(prev) : next;
-      taskLockedSession = resolved;
-      return resolved;
-    });
-  }, []);
+  // Local blank draft cards awaiting a first Save (creation flow — no store row yet).
+  const [drafts, setDrafts] = useState<Task[]>([]);
+  const didSeedRef = useRef(false);
+
+  const today = todayStr();
 
   useFocusEffect(
     useCallback(() => {
@@ -98,11 +115,16 @@ export default function TasksScreen() {
       loadSettings();
       loadTasks();
       loadShared();
+      // "Empty row to begin with": brand-new users (no tasks after load) get one open
+      // draft. Seed at most once per mount so discarding it doesn't loop it back.
+      if (!didSeedRef.current && useTaskStore.getState().tasks.length === 0) {
+        didSeedRef.current = true;
+        setDrafts([blankDraft(todayStr())]);
+      }
       return () => setHintOpen(false);
     }, [loadSettings, loadTasks, loadShared])
   );
 
-  const today = todayStr();
   const weekDates = useMemo(() => getWeekDates(today), [today]);
   const weekStart = weekDates[0];
 
@@ -127,24 +149,32 @@ export default function TasksScreen() {
   );
   const weekGroups = useMemo(() => tasksForWeek(weekStart), [tasksForWeek, weekStart, tasks]);
 
-  const editable = tab === 'all' ? !locked : true;
-
-  function handleAddWhenever() {
-    const title = newTitle.trim();
-    if (!title) return;
-    addTask({
-      title,
-      date: today,
-      taskType: 'start-at',
-      done: false,
-      recurring: 'none',
-      recurringDays: [],
-      importance: 'regular',
-      sortOrder: 0,
-      hasStartDate: false,
-    });
-    setNewTitle('');
-  }
+  const addDraft = useCallback(() => setDrafts((d) => [...d, blankDraft(today)]), [today]);
+  const discardDraft = useCallback((id: string) => setDrafts((d) => d.filter((x) => x.id !== id)), []);
+  const commitDraft = useCallback(
+    (committed: Task) => {
+      addTask({
+        title: committed.title,
+        date: committed.date,
+        time: committed.time,
+        finishTime: committed.finishTime,
+        taskType: committed.taskType,
+        done: false,
+        recurring: committed.recurring,
+        recurringDays: committed.recurringDays,
+        weekInterval: committed.weekInterval,
+        monthlyMode: committed.monthlyMode,
+        monthDay: committed.monthDay,
+        monthOrdinal: committed.monthOrdinal,
+        monthWeekday: committed.monthWeekday,
+        importance: committed.importance,
+        sortOrder: 0,
+        hasStartDate: committed.hasStartDate,
+      });
+      setDrafts((d) => d.filter((x) => x.id !== committed.id));
+    },
+    [addTask]
+  );
 
   function sectionHeader(label: string, color: string) {
     return (
@@ -172,20 +202,9 @@ export default function TasksScreen() {
             </Pressable>
           );
         })}
-        {tab === 'all' && (
-          <IconButton
-            icon={locked ? 'lock-closed' : 'lock-open-outline'}
-            label={locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
-            onPress={() => setLocked((v) => !v)}
-            active={locked}
-            size={30}
-          />
-        )}
       </View>
     </View>
   );
-
-  const isEmpty = tasks.length === 0;
 
   return (
     <ScreenScaffold
@@ -201,13 +220,6 @@ export default function TasksScreen() {
       <View style={styles.content}>
         <HintCard text={t.hints.plans.text} open={hintOpen} noPill />
 
-        {isEmpty ? (
-          <View style={[styles.emptyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={[styles.emptyTitle, { color: theme.text }]}>{t.tasksEmptyTitle}</Text>
-            <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>{t.tasksEmptySubtitle}</Text>
-          </View>
-        ) : null}
-
         {/* ── ALL TASKS ── */}
         {tab === 'all' && (
           <>
@@ -218,57 +230,43 @@ export default function TasksScreen() {
                 {sectionHeader(t.tasksSectionSharedOut, theme.textMuted)}
                 <View style={styles.cardStack}>
                   {sharedOutAll.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} editable={editable} tinted onToggleDone={(x) => toggle(x.id)} />
+                    <TaskCard key={tk.id} task={tk} tinted onToggleDone={(x) => toggle(x.id)} />
                   ))}
                 </View>
               </View>
             )}
 
-            {!isEmpty && (
-              <View style={styles.section}>
-                {sectionHeader(t.tasksSectionWhenever, theme.good)}
-                <View style={styles.cardStack}>
-                  {wheneverAll.map((tk) => (
-                    <TaskCard
-                      key={tk.id}
-                      task={tk}
-                      editable={editable}
-                      showDelete
-                      showShareOut
-                      onToggleDone={(x) => toggle(x.id)}
-                    />
-                  ))}
-                </View>
-                {!locked && (
-                  <View style={styles.addRow}>
-                    <TextInput
-                      style={[styles.addInput, { color: theme.text, backgroundColor: theme.surface, borderColor: theme.border }]}
-                      value={newTitle}
-                      onChangeText={setNewTitle}
-                      placeholder={t.tasksAddPlaceholder}
-                      placeholderTextColor={theme.textMuted}
-                      returnKeyType="done"
-                      onSubmitEditing={handleAddWhenever}
-                    />
-                    <IconButton icon="add" label={t.newTask} onPress={handleAddWhenever} size={34} />
+            <View style={styles.section}>
+              {sectionHeader(t.tasksSectionWhenever, theme.good)}
+              <View style={styles.cardStack}>
+                {wheneverAll.map((tk) => (
+                  <View key={tk.id}>
+                    <TaskCard task={tk} showDelete showShareOut onToggleDone={(x) => toggle(x.id)} />
+                    <AddDivider onPress={addDraft} />
                   </View>
+                ))}
+                {drafts.map((d) => (
+                  <TaskCard
+                    key={d.id}
+                    task={d}
+                    isNew
+                    onCommitNew={commitDraft}
+                    onDiscardNew={() => discardDraft(d.id)}
+                    onToggleDone={() => {}}
+                  />
+                ))}
+                {wheneverAll.length === 0 && drafts.length === 0 && (
+                  <AddDivider label={t.newTask} onPress={addDraft} />
                 )}
               </View>
-            )}
+            </View>
 
             {recurringAll.length > 0 && (
               <View style={styles.section}>
                 {sectionHeader(t.tasksSectionRecurring, theme.accent)}
                 <View style={styles.cardStack}>
                   {recurringAll.map((tk) => (
-                    <TaskCard
-                      key={tk.id}
-                      task={tk}
-                      editable={editable}
-                      showDelete
-                      showShareOut
-                      onToggleDone={(x) => toggle(x.id)}
-                    />
+                    <TaskCard key={tk.id} task={tk} showDelete showShareOut onToggleDone={(x) => toggle(x.id)} />
                   ))}
                 </View>
               </View>
@@ -279,20 +277,14 @@ export default function TasksScreen() {
         {/* ── TODAY ── */}
         {tab === 'today' && (
           <>
-            <View style={styles.section}>
+            <View style={[styles.todayCard, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
               {sectionHeader(t.tasksTabToday, theme.accent)}
               {todayList.length === 0 ? (
                 <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.noPlansToday}</Text>
               ) : (
                 <View style={styles.cardStack}>
                   {todayList.map((tk) => (
-                    <TaskCard
-                      key={tk.id}
-                      task={tk}
-                      editable={editable}
-                      tinted={tk.sharedOut}
-                      onToggleDone={(x) => toggle(x.id)}
-                    />
+                    <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={(x) => toggle(x.id)} />
                   ))}
                 </View>
               )}
@@ -303,7 +295,7 @@ export default function TasksScreen() {
                 {sectionHeader(t.tasksSectionWhenever, theme.good)}
                 <View style={styles.cardStack}>
                   {undatedWhenever.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} editable={editable} onToggleDone={(x) => toggle(x.id)} />
+                    <TaskCard key={tk.id} task={tk} variant="steps" onToggleDone={(x) => toggle(x.id)} />
                   ))}
                 </View>
               </View>
@@ -320,13 +312,7 @@ export default function TasksScreen() {
                   {sectionHeader(t.dayFull[i], theme.accent)}
                   <View style={styles.cardStack}>
                     {group.tasks.sort(byTime).map((tk) => (
-                      <TaskCard
-                        key={tk.id + group.date}
-                        task={tk}
-                        editable={editable}
-                        tinted={tk.sharedOut}
-                        onToggleDone={(x) => toggle(x.id)}
-                      />
+                      <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={(x) => toggle(x.id)} />
                     ))}
                   </View>
                 </View>
@@ -338,7 +324,7 @@ export default function TasksScreen() {
                 {sectionHeader(t.tasksSectionWhenever, theme.good)}
                 <View style={styles.cardStack}>
                   {undatedWhenever.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} editable={editable} onToggleDone={(x) => toggle(x.id)} />
+                    <TaskCard key={tk.id} task={tk} variant="steps" onToggleDone={(x) => toggle(x.id)} />
                   ))}
                 </View>
               </View>
@@ -369,23 +355,10 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
   sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm },
   cardStack: { gap: Spacing.sm },
-  addRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: Spacing.xs },
-  addInput: {
-    flex: 1,
-    minHeight: 44,
+  todayCard: {
     borderWidth: 1,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    fontSize: FontSize.sm,
-  },
-  emptyCard: {
-    borderWidth: 1,
-    borderStyle: 'dashed',
     borderRadius: Radius.lg,
-    paddingVertical: Spacing.lg,
-    alignItems: 'center',
-    gap: 4,
+    padding: Spacing.md,
+    gap: Spacing.sm,
   },
-  emptyTitle: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
-  emptySubtitle: { fontSize: FontSize.sm, textAlign: 'center' },
 });
