@@ -52,6 +52,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import CompletionGlow from '@/components/CompletionGlow';
@@ -129,7 +130,7 @@ function useNowMinutes(): number {
   return now;
 }
 
-const COLLAPSED_COUNT = 4; // current + next + 2 after (Decision 009a)
+const COLLAPSED_COUNT = 5; // current + next + 3 after (Decision 009a)
 
 export default function PlanTaskCard({
   tasks,
@@ -140,6 +141,7 @@ export default function PlanTaskCard({
   onSeeMore,
   now: nowOverride,
 }: Props) {
+  const router = useRouter();
   const theme = useAppTheme();
   const t = useT();
   const styles = useScaledStyles(baseStyles);
@@ -373,21 +375,16 @@ export default function PlanTaskCard({
 
         {/* Section header — only in read-only (Home preview) mode */}
         {readOnly && (
-          <View style={styles.headerRow}>
-            <Text style={[styles.headerTitle, { color: theme.text }]}>{t.home.todaysPlans}</Text>
-            {pendingCount > 0 && (
-              <View style={[styles.badge, { backgroundColor: theme.accentSoft }]}>
-                <Text style={[styles.badgeText, { color: theme.accent }]}>{pendingCount}</Text>
-              </View>
-            )}
-            {onSeeMore && (
-              <View style={styles.headerRight}>
-                <Pressable onPress={onSeeMore} hitSlop={8}>
-                  <Text style={[styles.seeAllText, { color: theme.accent }]}>{t.seeAll}</Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
+          <Pressable onPress={() => router.push('/plans')} style={styles.headerRowPressable}>
+            <View style={styles.headerRow}>
+              <Text style={[styles.headerTitle, { color: theme.text }]}>{t.home.todaysPlans}</Text>
+              {pendingCount > 0 && (
+                <View style={[styles.badge, { backgroundColor: theme.accentSoft }]}>
+                  <Text style={[styles.badgeText, { color: theme.accent }]}>{pendingCount}</Text>
+                </View>
+              )}
+            </View>
+          </Pressable>
         )}
 
         {showEmpty ? (
@@ -467,10 +464,9 @@ const baseStyles = StyleSheet.create({
   doneHeaderText: { fontSize: FontSize.sm, fontWeight: '600' },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   footerBtnText: { fontSize: FontSize.sm, fontWeight: '700' },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm, gap: Spacing.sm },
+  headerRowPressable: { marginBottom: Spacing.sm },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   headerTitle: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-  headerRight: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: Spacing.md },
-  seeAllText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
 });
