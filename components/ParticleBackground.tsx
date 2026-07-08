@@ -1,8 +1,9 @@
 /**
  * ParticleBackground.tsx — theme-adaptive background image with animated particle overlay.
  *
- * Renders assets/bg-light.png (light mode) or assets/bg-dark.png (dark mode) as a
- * full-screen ImageBackground, then layers animated particles on top:
+ * Renders the watercolor-tree background (assets/bg-light.png / assets/bg-dark.png)
+ * as a full-screen ImageBackground, switched by dark/light mode, then
+ * layers animated particles on top:
  *   - Rising dots that float upward and fade out
  *   - Pulsing ring halos centered at screen mid-height (dark mode only)
  *   - Soft radial orb glow at the upper-center focal point
@@ -11,13 +12,19 @@
  *
  * Connections:
  *   Imports → assets/bg-dark.png, assets/bg-light.png, lib/useAppTheme (useIsDark, useAccessibility), store/useSettingsStore
- *   Used by → app/index.tsx (first child inside SafeAreaView, absolutely positioned)
+ *   Used by → components/ScreenScaffold (L2, first child inside SafeAreaView, for
+ *             sub-tier and non-pager site screens); app/(tabs)/_layout.tsx (hoisted,
+ *             one shared instance behind the whole pager — see that file's header)
  *
  * Edit notes:
  *   - Same render contract as ScreenBackground: absolutely positioned, pointerEvents="none".
  *     Add as the very first child inside the SafeAreaView, before TreeWatermark.
  *   - Uses native driver for all transforms/opacity — no layout animation.
- *   - Particle colours match the bg image tones: blue-white for light, blue-violet for dark.
+ *   - require() paths must stay static string literals —
+ *     the RN bundler can't resolve a dynamically built path.
+ *   - Particle dot/ring/orb colours stay the fixed blue-white/blue-violet pair
+ *     regardless of theme — they're a light sparkle effect, not a palette token,
+ *     and read fine layered over every recoloured background.
  *   - `particlesEnabled` defaults to true in the settings store — users see particles from
  *     first launch and can opt out in Settings → Accessibility.
  */
@@ -29,13 +36,13 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 // ─── Assets ──────────────────────────────────────────────────────────────────
 
-const BG_DARK = require('@/assets/bg-dark.png');
-const BG_LIGHT = require('@/assets/bg-light.png');
+const BG_DEFAULT = { light: require('../assets/bg-light.png'), dark: require('../assets/bg-dark.png') };
 
 // ─── Particle specs ───────────────────────────────────────────────────────────
 
@@ -145,10 +152,10 @@ function PulseRing({ delay, color }: { delay: number; color: string }) {
   );
 }
 
-/** Fakes a soft radial glow via concentric same-color circles at decreasing opacity. */
+/** Soft radial glow at the upper-center focal point — a true SVG radial gradient
+ *  (smooth falloff), not stacked same-color circles that read as banded rings. */
 function OrbHalo({ color }: { color: string }) {
   const SIZE = 260;
-  const layers = [1, 0.7, 0.45, 0.22];
   return (
     <View
       pointerEvents="none"
@@ -162,21 +169,17 @@ function OrbHalo({ color }: { color: string }) {
         marginTop: -SIZE / 2,
       }}
     >
-      {layers.map((scale, i) => (
-        <View
-          key={i}
-          style={{
-            position: 'absolute',
-            top: (SIZE * (1 - scale)) / 2,
-            left: (SIZE * (1 - scale)) / 2,
-            width: SIZE * scale,
-            height: SIZE * scale,
-            borderRadius: (SIZE * scale) / 2,
-            backgroundColor: color,
-            opacity: 0.12,
-          }}
-        />
-      ))}
+      <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+        <Defs>
+          <RadialGradient id="particleOrb" cx="50%" cy="50%" rx="50%" ry="50%">
+            <Stop offset="0%" stopColor={color} stopOpacity="0.34" />
+            <Stop offset="45%" stopColor={color} stopOpacity="0.16" />
+            <Stop offset="75%" stopColor={color} stopOpacity="0.05" />
+            <Stop offset="100%" stopColor={color} stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Rect x={0} y={0} width={SIZE} height={SIZE} fill="url(#particleOrb)" />
+      </Svg>
     </View>
   );
 }
@@ -189,6 +192,7 @@ export default function ParticleBackground() {
   const particlesEnabled = useSettingsStore((s) => s.particlesEnabled);
 
   const showParticles = particlesEnabled && !reducedMotion;
+  const bgPair = BG_DEFAULT;
 
   const palette = isDark
     ? {
@@ -205,7 +209,7 @@ export default function ParticleBackground() {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <ImageBackground
-        source={isDark ? BG_DARK : BG_LIGHT}
+        source={isDark ? bgPair.dark : bgPair.light}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
       >

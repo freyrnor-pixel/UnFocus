@@ -382,9 +382,9 @@ function WeekView({
 
   if (visibleHabits.length === 0) {
     return (
-      <View style={styles.emptyCard}>
+      <Surface style={styles.emptyCard}>
         <EmptyState title={t.noHabitsYet} />
-      </View>
+      </Surface>
     );
   }
 
@@ -468,9 +468,9 @@ function MonthView({
 
   if (visibleHabits.length === 0) {
     return (
-      <View style={styles.emptyCard}>
+      <Surface style={styles.emptyCard}>
         <EmptyState title={t.noHabitsYet} />
-      </View>
+      </Surface>
     );
   }
 
@@ -695,36 +695,40 @@ export default function HabitsScreen() {
 
               {/* Building section */}
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.habitBuilding}</Text>
-                {buildHabits.length === 0 ? (
-                  <Pressable
-                    style={[styles.dashedAdd, { borderColor: theme.border }]}
-                    onPress={() => router.push({ pathname: '/habit-form', params: { kind: 'build', ...(selectedProfile ? { childName: selectedProfile } : {}) } })}
-                  >
-                    <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsInSection}</Text>
-                  </Pressable>
-                ) : (
-                  buildHabits.map((h) => (
-                    <HabitCard key={h.id} habit={h} today={today} onEdit={onEdit} lang={lang} theme={theme} />
-                  ))
-                )}
+                <Surface style={styles.sectionCard}>
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.habitBuilding}</Text>
+                  {buildHabits.length === 0 ? (
+                    <Pressable
+                      style={[styles.dashedAdd, { borderColor: theme.border }]}
+                      onPress={() => router.push({ pathname: '/habit-form', params: { kind: 'build', ...(selectedProfile ? { childName: selectedProfile } : {}) } })}
+                    >
+                      <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsInSection}</Text>
+                    </Pressable>
+                  ) : (
+                    buildHabits.map((h) => (
+                      <HabitCard key={h.id} habit={h} today={today} onEdit={onEdit} lang={lang} theme={theme} />
+                    ))
+                  )}
+                </Surface>
               </View>
 
               {/* Breaking section */}
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.habitBreaking}</Text>
-                {breakHabits.length === 0 ? (
-                  <Pressable
-                    style={[styles.dashedAdd, { borderColor: theme.border }]}
-                    onPress={() => router.push({ pathname: '/habit-form', params: { kind: 'break', ...(selectedProfile ? { childName: selectedProfile } : {}) } })}
-                  >
-                    <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsInSection}</Text>
-                  </Pressable>
-                ) : (
-                  breakHabits.map((h) => (
-                    <HabitCard key={h.id} habit={h} today={today} onEdit={onEdit} lang={lang} theme={theme} />
-                  ))
-                )}
+                <Surface style={styles.sectionCard}>
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.habitBreaking}</Text>
+                  {breakHabits.length === 0 ? (
+                    <Pressable
+                      style={[styles.dashedAdd, { borderColor: theme.border }]}
+                      onPress={() => router.push({ pathname: '/habit-form', params: { kind: 'break', ...(selectedProfile ? { childName: selectedProfile } : {}) } })}
+                    >
+                      <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsInSection}</Text>
+                    </Pressable>
+                  ) : (
+                    breakHabits.map((h) => (
+                      <HabitCard key={h.id} habit={h} today={today} onEdit={onEdit} lang={lang} theme={theme} />
+                    ))
+                  )}
+                </Surface>
               </View>
             </>
           )}
@@ -741,6 +745,7 @@ export default function HabitsScreen() {
           pathname: '/habit-form',
           params: selectedProfile ? { childName: selectedProfile } : {},
         })}
+        accessibilityLabel={t.health.addHabit}
       />
     </>
   );
@@ -775,7 +780,8 @@ const baseStyles = StyleSheet.create({
   tabText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   section: { gap: Spacing.sm },
   sectionTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
-  emptyCard: { borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center' },
+  emptyCard: { borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', justifyContent: 'center' },
+  sectionCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   summaryChip: {
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.md,
@@ -797,7 +803,6 @@ const baseStyles = StyleSheet.create({
     borderRadius: Radius.md,
     borderLeftWidth: 5,
     padding: Spacing.md,
-    marginBottom: Spacing.sm,
     position: 'relative',
     overflow: 'hidden',
   },

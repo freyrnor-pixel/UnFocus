@@ -8,9 +8,8 @@
  *
  * Connections:
  *   Imports → react-native, react-native-safe-area-context, components/ScreenBackground, components/HomeHeroBackground,
- *             components/ParticleBackground, components/ScreenHeader, components/BottomNav,
- *             components/SiteSwipeView, lib/useAppTheme
- *   Used by → every app screen (app/index.tsx, app/shopping.tsx, etc.)
+ *             components/ParticleBackground, components/ScreenHeader, components/BottomNav, lib/useAppTheme
+ *   Used by → every app screen (app/(tabs)/index.tsx, app/(tabs)/shopping.tsx, etc.)
  *   Data    → none (presentational; all logic in child screens)
  *
  * Edit notes:
@@ -18,17 +17,36 @@
  *     L4.5 optional sticky-below-header block → L5 bottom block
  *   - ParticleBackground gating (particlesEnabled + reducedMotion) happens inside the component
  *   - Top and bottom blocks float above content with translucency — content scrolls behind them
- *   - SafeAreaView is the react-native-safe-area-context one (applies top/bottom insets
- *     on BOTH platforms — the built-in RN SafeAreaView is a no-op on Android, which left
- *     the header + content under the status bar). The absolutely-positioned header/bottom
- *     blocks are offset by that padding, so they clear the status bar and home indicator.
- *   - isHome=true mounts HomeHeroBackground; false uses ScreenBackground
- *   - **swipeNav (Decision 032)**: site-tier screens wrap L3 content in SiteSwipeView
- *     for horizontal swipe-between-sites navigation. Default on. Pass swipeNav={false}
- *     only for a site screen that renders a full-screen camera/QR/media overlay
- *     *inside* the scaffold body, per SiteSwipeView's "don't wrap camera overlays"
- *     contract. No current screen needs it — scan keeps its camera mode outside the
- *     scaffold (a bare SafeAreaView), so all 5 nav sites swipe. Sub-tier ignores it.
+ *   - Safe-area handling is SPLIT (Android edge-to-edge is always on in RN 0.85 / Expo 56, so
+ *     content draws behind the status + nav bars):
+ *       • The outer SafeAreaView pads the in-flow ScrollView into the safe area — this confines
+ *         scrolling so content can't slide up behind the status bar.
+ *       • The header/bottom blocks are position:absolute and DON'T inherit that padding (absolute
+ *         children ignore a parent's padding in current Yoga), so they apply the insets themselves:
+ *         header height/paddingTop += topInset, bottom-nav height/paddingBottom += bottomInset.
+ *     topInset floors insets.top with StatusBar.currentHeight on Android as a safety net for the
+ *     brief window where safe-area-context can report 0 before the first insets dispatch.
+ *   - isHome=true mounts HomeHeroBackground; false uses ScreenBackground — only when
+ *     ownBackground is true (see below)
+ *   - **ownBackground (added for the static-swipe-background fix)**: the 5 pager tab
+ *     sites (app/(tabs)/*) pass ownBackground={false} because each one used to mount
+ *     its own L1/L2 background instance, so swiping the pager visibly slid two
+ *     separate backdrops past each other at the seam. app/(tabs)/_layout.tsx now
+ *     renders one shared L1/L2 pair behind the whole pager instead — it doesn't
+ *     translate with the swipe gesture, only swapping (Home hero vs plain backdrop)
+ *     when the focused tab actually changes. ownBackground=false also drops this
+ *     component's own SafeAreaView backgroundColor so that shared backdrop shows
+ *     through. Sub-tier and non-pager site screens keep ownBackground's default
+ *     (true) — their transitions are stack push/pop, not a swipe, so per-screen
+ *     backgrounds were never the problem.
+ *   - **bottomNav (successor to Decision 032's swipeNav)**: the 5 nav sites now live in
+ *     app/(tabs)/_layout.tsx's material-top-tabs pager, which owns both the bottom tab
+ *     bar and the swipe-between-sites gesture itself (react-native-pager-view — one
+ *     continuous native slide, no per-screen SiteSwipeView/SiteSwipeDots wrapper needed
+ *     any more). Tab screens pass bottomNav={false} so ScreenScaffold doesn't ALSO render
+ *     a BottomNav underneath the pager's own tab bar. Default true only for a hypothetical
+ *     site-tier screen mounted outside the tabs group (none currently exist). Sub-tier
+ *     ignores it (sub screens never render BottomNav regardless).
  *   - **stickyBelowHeader (added 2026-07-02, Session A2·2)**: optional screen-owned chrome
  *     pinned directly under the header block, e.g. app/shopping.tsx's Decision 011 A2-1
  *     per-list summary/progress bar. Additive, backward-compatible — omit both props and a
@@ -40,15 +58,14 @@
  *     blocks (mirrors the header's own float, which every current screen already accepts).
  */
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/lib/useAppTheme';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
 import ScreenHeader from '@/components/ScreenHeader';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
-import SiteSwipeView from '@/components/SiteSwipeView';
 
 type Tier = 'site' | 'sub';
 
@@ -63,18 +80,27 @@ type Props = {
   stickyBelowHeader?: React.ReactNode;
   /** Rendered height of `stickyBelowHeader` — required whenever that prop is passed. */
   stickyBelowHeaderHeight?: number;
-  /** Focus-mode toggle (Home only, Decisions 009 #4 / 018) — forwarded to the header eye. */
+  /** Focus-mode toggle (Home only, Decisions 009 #4 / 018) — forwarded to the header. */
   focusActive?: boolean;
   onToggleFocus?: () => void;
+  /** Info/hint toggle — forwarded to the header ⓘ button. */
+  infoActive?: boolean;
+  onInfoToggle?: () => void;
   /**
-   * Enable horizontal swipe-to-neighbouring-site navigation (Decision 032). Only
-   * applies to `tier === 'site'`. Default true. Pass false only for a site screen
-   * that renders a full-screen camera/QR/media overlay *inside* the scaffold body,
-   * per SiteSwipeView's "don't wrap camera overlays" contract. (app/scan.tsx does
-   * NOT need this — its camera 'scanning' mode is a bare SafeAreaView outside the
-   * scaffold, so its scrollable idle/result/manual modes swipe safely.)
+   * Whether this screen renders its own BottomNav block. Only applies to
+   * `tier === 'site'`. Default true. The 5 tab sites (app/(tabs)/*) pass false,
+   * since app/(tabs)/_layout.tsx's pager already renders BottomNav as its tab bar —
+   * without this a tab screen would get two bottom nav bars stacked.
    */
-  swipeNav?: boolean;
+  bottomNav?: boolean;
+  /**
+   * Whether this screen renders its own L1 background + L2 particle overlay.
+   * Default true. The 5 pager tab sites (app/(tabs)/*) pass false, since
+   * app/(tabs)/_layout.tsx already renders one shared instance behind the whole
+   * pager — without this, each swiped tab would carry its own backdrop and the
+   * background would visibly slide with the gesture.
+   */
+  ownBackground?: boolean;
 };
 
 export default function ScreenScaffold({
@@ -88,18 +114,48 @@ export default function ScreenScaffold({
   stickyBelowHeaderHeight = 0,
   focusActive,
   onToggleFocus,
-  swipeNav = true,
+  infoActive,
+  onInfoToggle,
+  bottomNav = true,
+  ownBackground = true,
 }: Props) {
   const theme = useAppTheme();
+  // Android edge-to-edge (RN 0.85 / Expo 56) draws content behind the status and
+  // navigation bars. The header/bottom blocks are position:absolute, and absolute
+  // children do NOT inherit the SafeAreaView's padding in current Yoga, so top:0 /
+  // bottom:0 land behind the system bars. Apply the insets to the floating chrome
+  // explicitly. (The in-flow ScrollView still gets its inset padding from the
+  // SafeAreaView, so scroll content keeps clearing the bars as before.)
+  const insets = useSafeAreaInsets();
+  // Belt-and-suspenders for Android: if safe-area-context under-reports the top
+  // inset (it can read 0 before the first window-insets dispatch), fall back to
+  // the reliable native status-bar height so the header never sits behind the
+  // notification bar. Math.max avoids double-counting when insets.top is correct.
+  const topInset = Platform.OS === 'android'
+    ? Math.max(insets.top, StatusBar.currentHeight ?? 0)
+    : insets.top;
+  const bottomInset = insets.bottom;
 
   const HEADER_HEIGHT = 56;
 
+  // The outer SafeAreaView pads the in-flow ScrollView into the safe area — this is
+  // what confines scrolling so content can't slide up behind the status bar. So the
+  // content padding here only accounts for the floating chrome (header + sticky bar +
+  // BottomNav), NOT the insets (adding them here would double-count). The absolute
+  // header/bottom blocks apply the insets themselves, since absolute children ignore
+  // SafeAreaView's padding.
+  //
+  // HEADER_HEIGHT is added to the top so the first content item starts *below* the
+  // translucent glass header instead of scrolling behind it on mount (the header still
+  // floats, so content slides behind it as the user scrolls — it just doesn't overlap
+  // at rest). Without this the greeting/first card renders under the glass header and
+  // reads as "the header overlaps the text".
   const scrollContent = (
     <ScrollView
       style={styles.scrollView}
       contentContainerStyle={[
         styles.contentContainer,
-        !!stickyBelowHeader && { paddingTop: stickyBelowHeaderHeight },
+        { paddingTop: HEADER_HEIGHT + (stickyBelowHeader ? stickyBelowHeaderHeight : 0) },
         tier === 'site' && { paddingBottom: BOTTOM_NAV_HEIGHT },
       ]}
       scrollIndicatorInsets={{
@@ -111,28 +167,22 @@ export default function ScreenScaffold({
   );
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
-      {/* L1: Background */}
-      {isHome ? (
-        <HomeHeroBackground />
-      ) : (
-        <ScreenBackground />
-      )}
+    <SafeAreaView style={[styles.safeArea, ownBackground && { backgroundColor: theme.bg }]}>
+      {/* L1: Background — skipped when a parent (the tabs pager) already renders a
+          shared instance behind this screen (see ownBackground doc above). */}
+      {ownBackground && (isHome ? <HomeHeroBackground /> : <ScreenBackground />)}
 
-      {/* L2: Particle overlay */}
-      <ParticleBackground />
+      {/* L2: Particle overlay — same ownBackground gating as L1. */}
+      {ownBackground && <ParticleBackground />}
 
-      {/* L3: Content — site-tier screens wrap in SiteSwipeView for swipe-between-sites
-          navigation (Decision 032); the pan gesture yields to vertical ScrollView
-          scrolling via SiteSwipeView's activeOffsetX/failOffsetY thresholds. */}
-      {tier === 'site' && swipeNav ? (
-        <SiteSwipeView>{scrollContent}</SiteSwipeView>
-      ) : (
-        scrollContent
-      )}
+      {/* L3: Content — swipe-between-sites navigation now lives one level up, in
+          app/(tabs)/_layout.tsx's pager, so tab screens render their scroll content
+          directly with no per-screen swipe wrapper. */}
+      {scrollContent}
 
-      {/* L4: Top block (ScreenHeader) */}
-      <View style={[styles.headerBlock, { height: HEADER_HEIGHT }]}>
+      {/* L4: Top block (ScreenHeader) — extended up behind the status bar and
+          padded down by the top inset so the bar content clears it. */}
+      <View style={[styles.headerBlock, { height: HEADER_HEIGHT + topInset, paddingTop: topInset }]}>
         <ScreenHeader
           title={title}
           tier={tier}
@@ -140,19 +190,23 @@ export default function ScreenScaffold({
           headerRight={headerRight}
           focusActive={focusActive}
           onToggleFocus={onToggleFocus}
+          infoActive={infoActive}
+          onInfoToggle={onInfoToggle}
         />
       </View>
 
       {/* L4.5: optional sticky-below-header block (e.g. a screen-owned summary bar) */}
       {stickyBelowHeader && (
-        <View style={[styles.stickyBlock, { top: HEADER_HEIGHT, height: stickyBelowHeaderHeight }]}>
+        <View style={[styles.stickyBlock, { top: HEADER_HEIGHT + topInset, height: stickyBelowHeaderHeight }]}>
           {stickyBelowHeader}
         </View>
       )}
 
-      {/* L5: Bottom block (BottomNav, site-tier only) */}
-      {tier === 'site' && (
-        <View style={[styles.bottomBlock, { height: BOTTOM_NAV_HEIGHT }]}>
+      {/* L5: Bottom block (BottomNav, site-tier only) — extended down behind the
+          navigation bar and padded up by the bottom inset. Tab screens skip this;
+          app/(tabs)/_layout.tsx's pager already renders BottomNav as its tab bar. */}
+      {tier === 'site' && bottomNav && (
+        <View style={[styles.bottomBlock, { height: BOTTOM_NAV_HEIGHT + bottomInset, paddingBottom: bottomInset }]}>
           <BottomNav />
         </View>
       )}

@@ -89,3 +89,23 @@ export function listProgress(groups: {
   const total = remaining + inCart;
   return { remaining, inCart, total, pct: total > 0 ? inCart / total : 0 };
 }
+
+/**
+ * Running cost of every item in a list's three buckets: `price × amount` summed
+ * across dish-group, ungrouped-unchecked, and checked rows (amount parsed as an
+ * int, defaulting to 1 for blank/NaN). Used for the WeekListCard footer total —
+ * shares the same computeListGroups() output as listProgress() so the total and
+ * the progress line never disagree about which rows belong to the list.
+ */
+export function listTotal(groups: {
+  dishGroups: [string, ShoppingItem[]][];
+  ungroupedUnchecked: ShoppingItem[];
+  checked: ShoppingItem[];
+}): number {
+  const all = [
+    ...groups.dishGroups.flatMap(([, dishItems]) => dishItems),
+    ...groups.ungroupedUnchecked,
+    ...groups.checked,
+  ];
+  return all.reduce((sum, i) => sum + i.price * (parseInt(i.amount, 10) || 1), 0);
+}

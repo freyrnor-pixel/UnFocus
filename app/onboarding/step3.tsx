@@ -1,5 +1,5 @@
 /**
- * step3.tsx — Shopping reset days (guided step 3 of 6)
+ * step3.tsx — Shopping reset days (guided step 3 of 5)
  *
  * Captures the weekly shopping/reset day and the monthly reset date that drive
  * the shopping list's recurring resets.
@@ -86,7 +86,7 @@ export default function OnboardingStep3() {
         <HintCard text={t.monthlyPaydayHint} />
 
         <View style={styles.progress}>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <View
               key={i}
               style={[

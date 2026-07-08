@@ -9,9 +9,11 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess
- *   Used by → (future) lib/peerAuth.ts callers + the 038b live-sync layer; the
- *             share-modal pairing UI persists peers here after a scan. Nothing
- *             wires it yet — trust foundation for the next gates.
+ *   Used by → lib/syncService.ts (getSecret on every inbound/outbound envelope),
+ *             app/pair-device.tsx (addPeer/removePeer from the QR pairing wizard,
+ *             renders the paired-devices list), app/_layout.tsx (load() in the
+ *             app-wide bootstrap, so peers are hydrated before syncService can
+ *             discover anyone)
  *   Data    → owns reads/writes of the `peers` table (device_id, name, secret, paired_at)
  *
  * Edit notes:

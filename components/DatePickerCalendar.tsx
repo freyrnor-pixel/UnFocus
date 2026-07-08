@@ -18,10 +18,9 @@
  *     screen-reader support and the "jump to today" button (see lib/i18n.ts's `calendar` block for usage).
  *   - "jump to today" only re-centers the visible month; it never calls onChange itself, so it
  *     can't silently overwrite a date the user already picked while browsing other months.
- *   - The old app threaded `theme: AppColors` in as a prop — dropped during the port
- *     (2026-07-02, Phase 3d); reads useAppTheme() internally instead, consistent with every
- *     other ported component. Token remap: white→surface, orange→accent, text→text,
- *     textLight→textMuted, selected-day text '#FFFFFF'→accentInk.
+ *   - Theming reads useAppTheme() internally (token remap: white→surface, orange→accent,
+ *     text→text, textLight→textMuted, selected-day text '#FFFFFF'→accentInk).
+'#FFFFFF'→accentInk.
  */
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';

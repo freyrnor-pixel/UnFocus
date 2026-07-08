@@ -1,22 +1,29 @@
 /**
- * step5.tsx — Handedness (guided step 5 of 6)
+ * step5.tsx — Handedness (guided step 5 of 5, final step)
  *
- * Pick a handedness preference, then continue to the companion-pet step.
- * Finishing onboarding (setup complete + notification scheduling) happens in
- * step6.tsx.
+ * Pick left/right-handed layout, then finish onboarding: marks setup
+ * complete and requests OS notification permission. Colour theme (locked to
+ * 'default') and bubble material (locked to 'glass') are no longer
+ * user-selectable anywhere in the app, so the swatch picker previously here
+ * was removed.
  *
  * Connections:
- *   Imports → @/store/useSettingsStore, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
+ *   Imports → @/store/useSettingsStore, @/store/useTaskStore, @/lib/notifications,
+ *             @/lib/reminders, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
  *             @/components/Button
  *   Used by → Expo Router route "/onboarding/step5"
- *   Data    → useSettingsStore (writes `leftHanded`); scaled
- *             fontSize via useScaledStyles()
+ *   Data    → useSettingsStore (writes `leftHanded`, `setupComplete`,
+ *             `essentialsModeEnabled`, `showPoints`); scaled fontSize via
+ *             useScaledStyles(); requests notification permission via
+ *             requestPermissions(), then schedules reminders via syncReminders() +
+ *             useTaskStore.syncAllTaskNotifications()
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
- *   - The colour-theme picker was removed: the app ships a single "Default" palette.
- *   - Next button → router.push "/onboarding/step6" (companion pet naming,
- *     which owns setupComplete + notification scheduling).
+ *   - Finish button → finish() sets setupComplete + new-user defaults
+ *     (essentialsModeEnabled:false, showPoints:true), requests OS notification
+ *     permission and, once it resolves, schedules reminders (syncReminders +
+ *     syncAllTaskNotifications), then router.replace "/" to home.
  *   - Previous uses router.back().
  */
 import React from 'react';
@@ -25,6 +32,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useTaskStore } from '@/store/useTaskStore';
+import { requestPermissions } from '@/lib/notifications';
+import { syncReminders } from '@/lib/reminders';
 import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -36,6 +46,21 @@ export default function OnboardingStep5() {
   const theme = useAppTheme();
   const t = useT();
   const styles = useScaledStyles(baseStyles);
+
+  function finish() {
+    settings.update({
+      setupComplete: true,
+      essentialsModeEnabled: false,
+      showPoints: true,
+    });
+    // Request OS permission, then schedule the weekly/monthly reminders and every
+    // task's per-task notification once permission resolves (mirrors the old app).
+    requestPermissions().finally(() => {
+      syncReminders();
+      useTaskStore.getState().syncAllTaskNotifications();
+    });
+    router.replace('/');
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -68,7 +93,7 @@ export default function OnboardingStep5() {
         </View>
 
         <View style={styles.progress}>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <View
               key={i}
               style={[
@@ -89,8 +114,8 @@ export default function OnboardingStep5() {
           size="md"
         />
         <Button
-          label={t.next}
-          onPress={() => router.push('/onboarding/step6')}
+          label={t.finishBtn}
+          onPress={finish}
           variant="primary"
           size="md"
         />

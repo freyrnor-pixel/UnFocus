@@ -1,8 +1,8 @@
 /**
  * useAppTheme.ts — React hooks resolving the active colour palette + dark-mode state.
  *
- * useAppTheme() reads the user's colorTheme + darkMode from the settings store and
- * the system colour scheme, then returns the matching ThemePalette (Decision 006)
+ * useAppTheme() reads the user's darkMode from the settings store and
+ * the system colour scheme, then returns the default ThemePalette (Decision 006)
  * via getThemePalette() from constants/colors.ts. It also re-derives `accentInk` with
  * contrastOn(accent) so text/icons on an accent fill stay WCAG-legible on every theme
  * (the palette's literal accentInk is a placeholder — several accents are too light
@@ -15,7 +15,7 @@
  * Connections:
  *   Imports → constants/colors, constants/theme, store/useSettingsStore
  *   Used by → components (will be ported to use new ThemePalette token names)
- *   Data    → reads `colorTheme`, `darkMode`, `reducedMotion`, `fontSize` from the settings Zustand
+ *   Data    → reads `darkMode`, `reducedMotion`, `fontSize` from the settings Zustand
  *             store; reducedMotion is OR'd with the live OS-level AccessibilityInfo setting
  *
  * Edit notes:
@@ -30,15 +30,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, useColorScheme } from 'react-native';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { getThemePalette, ThemePalette, ThemeName } from '@/constants/colors';
+import { getThemePalette, ThemePalette } from '@/constants/colors';
 import { getFontSize, FontSizeScale, contrastOn } from '@/constants/theme';
 
 export function useAppTheme(): ThemePalette {
-  const colorTheme = useSettingsStore((s) => s.colorTheme) as ThemeName;
   const darkMode = useSettingsStore((s) => s.darkMode);
   const systemScheme = useColorScheme();
   const isDark = darkMode === 'on' || (darkMode === 'system' && systemScheme === 'dark');
-  const palette = getThemePalette(colorTheme, isDark);
+  const palette = getThemePalette('default', isDark);
   // accentInk must stay legible on `accent`. Several themes ship a light accent
   // (e.g. summer #E8794F, fluffyPink #E07AA8) where the palette's hardcoded white ink
   // fails WCAG AA. Re-derive it per-theme with contrastOn(), which picks dark-vs-white

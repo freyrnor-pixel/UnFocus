@@ -1,0 +1,102 @@
+# PUBLISHING.md — how a change actually reaches users
+
+> TL;DR: **A change is only live once it is merged to `main`.** Pushing a
+> `claude/**` branch publishes **nothing**. This is the single most common
+> "why isn't my fix showing up?" mistake — check this file first.
+
+## Why
+
+The OTA update workflow `.github/workflows/update.yml` is configured to run
+**only on push to `main`** (`on: push: branches: [main]`). This is deliberate:
+letting every `claude/**` session branch publish to the one shared EAS `preview`
+channel once caused an incident where an older tree clobbered a newer OTA. So:
+
+- Push to a `claude/**` branch → **no OTA**, users see nothing.
+- Merge/push to `main` → workflow runs `eas update --branch preview` targeting
+  `runtimeVersion` in `app.json` → users get it on next launch (~1–2 min).
+
+## The publish flow (JS / UI / logic changes — the normal case)
+
+1. Commit your work on the designated `claude/**` branch and push it.
+2. Open a PR from that branch into `main`.
+3. **Merge the PR into `main`.** The merge is a push to `main`, which triggers
+   `update.yml`.
+4. Confirm the run succeeded: GitHub → Actions → "OTA Update" → the run for your
+   merge commit should be green. (`eas update` on the `preview` branch.)
+5. On the device, fully close and reopen the app — the OTA applies on next launch.
+
+That's it. No version bump, no rebuild, for pure JS/style/logic/asset changes.
+
+## Runtime must match
+
+An OTA only reaches installs whose **runtime == `app.json` `runtimeVersion`**
+(check `app.json` for the current value). If a tester's build is on a different
+runtime, the update won't apply even after merging. Don't bump `runtimeVersion`
+unless a matching native build exists (see AGENTS.md "Runtime version").
+
+## When OTA is NOT enough (needs a native build)
+
+Adding a native package, changing `app.json` plugins/permissions, or `eas.json`
+build config requires a new APK/AAB — OTA can't ship native code. These are
+human-gated: land the config on `main` and hand off to the maintainer. See
+AGENTS.md "New APK build" / "Runtime version".
+
+## Diagnosing "I can't see the update"
+
+Run through this in order:
+
+1. **Is the commit on `main`?** `git log origin/main --oneline | head` — if your
+   commit isn't there, it was never published. Merge the branch to `main`.
+2. **Did the OTA workflow run and pass?** GitHub → Actions → "OTA Update" for the
+   `main` commit. Red = publish failed (read the logs); absent = nothing pushed
+   to `main`.
+3. **Runtime match?** Device build runtime must equal `app.json` `runtimeVersion`.
+4. **Did the app relaunch?** OTA applies on next cold start, not mid-session.
+5. **Native change?** If the diff touches native surface, OTA won't carry it — a
+   new build is required.
+
+## Test builds that actually receive OTA (phone + friends)
+
+**A debug APK never updates.** `.github/workflows/build-android.yml` (and any
+local `assembleDebug`) produces a build with `expo-updates` disabled — it's
+frozen on the bundle embedded at build time. This is the usual cause of "I
+installed it but no updates arrive." Don't distribute it.
+
+Use an **OTA-capable preview build** instead — release-signed, `channel: preview`,
+updates on (eas.json `preview` profile):
+
+1. **One-time keystore setup (interactive).** The first EAS Android build must run
+   from an Expo login so EAS can generate + store the signing keystore
+   (`--non-interactive` CI can't create one):
+   `eas login` → `eas build -p android --profile preview`. Accept keystore
+   generation. EAS keeps it; you never touch it again.
+2. **After that, build from CI** anytime: Actions → **EAS Build Android (Preview
+   APK)** → Run workflow. (Uses the existing `EXPO_TOKEN` secret.)
+3. **Install** from the EAS build page (link/QR) on the phone — internal
+   distribution, no Play Store. Uninstall any earlier debug APK first (different
+   signing key → Android won't install over it). Friends on Android install the
+   same link; iOS testers need TestFlight instead (APK sideloading is Android-only).
+4. **From then on, pushing updates = merging to `main`** (top of this file). Each
+   OTA reaches every installed preview build on the next launch, or immediately via
+   **Settings → General → Version & updates → Check for updates**.
+5. Only rebuild when a change is **native** (new package/plugin/permission) or you
+   bump `runtimeVersion`. Pure JS/UI/logic/styles = OTA only. Keep `runtimeVersion`
+   at the installed build's value (see `app.json`) or OTAs stop matching.
+
+## Automation: auto-opened PRs
+
+`.github/workflows/auto-pr.yml` opens (or reuses) a PR from any `claude/**`
+branch into `main` on every push, so a fix is never stranded on a branch just
+because nobody opened the PR. It **never merges** — merging (i.e. publishing the
+OTA) stays a human decision. If it isn't opening PRs, check repo **Settings →
+Actions → General → Workflow permissions → "Allow GitHub Actions to create and
+approve pull requests"** is enabled.
+
+## For agent sessions (Claude Code)
+
+- Finishing code on a branch is **not** "done" when the user wants it live —
+  driving it to `main` (open PR + merge) is part of the task unless the user asks
+  to hold.
+- If asked to publish/merge to `main`: that is a production OTA to all preview
+  users. Confirm intent, then open the PR and merge it, and verify the OTA run
+  goes green.

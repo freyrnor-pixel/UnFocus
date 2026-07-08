@@ -8,14 +8,16 @@
  * shopping/task payloads into the shared store.
  *
  * Connections:
- *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, store/useCatalogStore, store/useReceiptStore, store/useSettingsStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons)
- *   Used by → Expo Router route "/scan"; reached from app/shopping.tsx's post-trip receipt pop-up (autoCapture) and app/budget.tsx header link
+ *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, store/useCatalogStore, store/useReceiptStore, store/useSettingsStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons), @react-navigation/material-top-tabs + @react-navigation/native (types only, for the swipeEnabled guard)
+ *   Used by → Expo Router route "/scan" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx; reached from app/(tabs)/shopping.tsx's post-trip receipt pop-up (autoCapture) and app/budget.tsx header link
  *   Data    → confirmed items write to FOUR stores: useShoppingStore (shopping_items) + useReceiptStore.addReceipt (receipts) + useCatalogStore.recordPurchases (purchase_log, linked via receipt_id, + store_items); QR import writes useSharedStore (shared_shopping_items / shared_tasks); scaled fontSize via useScaledStyles()
  *
  * Edit notes:
- *   - Decision 001 tier='site' ScreenScaffold (BottomNav via scaffold) for idle/result/manual modes;
- *     the transient 'scanning' mode is a bare centered SafeAreaView. Old SafeAreaView/ScreenHeader/
- *     SiteSwipeView/BottomNav chrome dropped — the scaffold owns it.
+ *   - Decision 001 tier='site' ScreenScaffold (bottomNav={false} — the tabs pager renders
+ *     BottomNav itself; ownBackground={false} — app/(tabs)/_layout.tsx renders one shared
+ *     backdrop behind the whole pager instead) for idle/result/manual modes; the transient
+ *     'scanning' mode is a bare centered SafeAreaView, same as before this screen moved
+ *     under app/(tabs)/.
  *   - The old ScreenHeader right-slot "Budget" link is now an in-content top link on the idle screen
  *     (site-tier headers render Focus-mode on the right, so a header link can't live there — same
  *     in-content-toolbar precedent as meals.tsx).
@@ -33,6 +35,17 @@
  *   - addManualItems() creates a receipt only when a price is entered with a store selected.
  *   - Both add paths create shopping_items rows with status='inWeeklyList' (not 'catalog').
  *   - Loads its stores on focus (guarded initDb), same self-load precedent as shopping/plans.
+ *   - **Pager-swipe guard:** this screen is one of the tabs pager's 5 co-mounted sites, so a
+ *     horizontal swipe is always live over it. While mode==='scanning' (OCR in flight) or any
+ *     overlay (QR modal, custom-store sheet, category picker) is open, an effect flips the
+ *     pager's swipeEnabled off via navigation.setOptions so a stray swipe can't abandon that
+ *     flow — reverted the instant the mode/overlay clears. Deliberately NOT a full route split
+ *     (e.g. a pushed app/scan-camera.tsx): 'scanning' holds no live camera resource (the photo
+ *     is already captured via ImagePicker by the time this mode renders — it's just the
+ *     OCR-wait pulse animation), and the QR CameraView already lives inside a React Native
+ *     Modal (its own native layer, unaffected by the pager underneath) — so there's no
+ *     persistent-camera-in-a-hidden-pager-page risk to design around, only the UX risk this
+ *     guard closes.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated } from 'react-native';
@@ -52,14 +65,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter, usePathname, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useNavigation, useRouter, usePathname, useLocalSearchParams } from 'expo-router';
+import type { MaterialTopTabNavigationProp } from '@react-navigation/material-top-tabs';
+import type { ParamListBase } from '@react-navigation/native';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useSharedStore } from '@/store/useSharedStore';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useT } from '@/lib/i18n';
-import { todayStr, formatCurrency } from '@/lib/date';
+import { todayStr } from '@/lib/date';
+import { formatKr } from '@/lib/money';
 import { initDb } from '@/lib/db';
 import HintCard from '@/components/HintCard';
 import Surface from '@/components/Surface';
@@ -89,6 +105,7 @@ type ScreenMode = 'idle' | 'scanning' | 'result' | 'manual';
 export default function ScanScreen() {
   const router = useRouter();
   const pathname = usePathname();
+  const navigation = useNavigation<MaterialTopTabNavigationProp<ParamListBase>>();
   const { autoCapture } = useLocalSearchParams<{ autoCapture?: 'camera' | 'library' }>();
   const addShopping = useShoppingStore((s) => s.add);
   const updateShoppingItem = useShoppingStore((s) => s.update);
@@ -143,6 +160,17 @@ export default function ScanScreen() {
     if (autoCapture === 'camera') takePhoto();
     else if (autoCapture === 'library') pickImage();
   }, [autoCapture]);
+
+  // This screen is one of the pager's 5 co-mounted tabs (app/(tabs)/_layout.tsx). A stray
+  // horizontal swipe mid-OCR or with an overlay sheet open would abandon that flow with no
+  // way back to it (the pager just shows another tab) — briefly disable the pager's own
+  // swipe for the duration instead. `scanning` has no camera hardware held open (the photo
+  // is already captured via ImagePicker by this point; this mode is just the OCR wait
+  // screen), so this is a UX guard, not a resource-safety one.
+  useEffect(() => {
+    const disableSwipe = mode === 'scanning' || qrScanVisible || customStoreVisible || categoryPickerVisible;
+    navigation.setOptions({ swipeEnabled: !disableSwipe });
+  }, [navigation, mode, qrScanVisible, customStoreVisible, categoryPickerVisible]);
 
   // Pulsing animation for scanning state.
   useEffect(() => {
@@ -325,7 +353,8 @@ export default function ScanScreen() {
     if (qrScanned) return;
     setQrScanned(true);
     const payload = decodeSharePayload(data);
-    if (!payload) {
+    if (!payload || payload.k === 'p') {
+      // Pairing QR codes ('p') aren't scanned from this screen — only shopping/task shares.
       showAppModal('', t.qrInvalid, [{ text: t.ok, onPress: () => setQrScanned(false) }]);
       return;
     }
@@ -488,7 +517,7 @@ export default function ScanScreen() {
   if (mode === 'idle') {
     return (
       <>
-        <ScreenScaffold title={t.scanReceipt} tier="site">
+        <ScreenScaffold title={t.scanReceipt} tier="site" bottomNav={false} ownBackground={false}>
           <View style={styles.content}>
             <Pressable style={styles.budgetLinkRow} onPress={() => goToSite(router, pathname, '/budget')} hitSlop={6}>
               <Text style={[styles.backLink, { color: theme.accent }]}>{t.budget.title}</Text>
@@ -560,7 +589,7 @@ export default function ScanScreen() {
   if (mode === 'result' && parsedItems.length > 0) {
     return (
       <>
-        <ScreenScaffold title={t.foundOnReceipt} tier="site">
+        <ScreenScaffold title={t.foundOnReceipt} tier="site" bottomNav={false} ownBackground={false}>
           <View style={styles.content}>
             <HintCard text={t.itemsSelectedCount(selectedCount, parsedItems.length)} example="" />
 
@@ -580,7 +609,7 @@ export default function ScanScreen() {
                       1 stk
                     </Text>
                     <Text style={[styles.itemPrice, { color: theme.textMuted }, !item.selected && { opacity: 0.42 }]}>
-                      {formatCurrency(item.price)}
+                      {formatKr(item.price, 2)}
                     </Text>
                   </Pressable>
                   <Pressable
@@ -593,7 +622,7 @@ export default function ScanScreen() {
               ))}
 
               <View style={[styles.totalRow, { borderTopColor: theme.border, borderTopWidth: 1 }]}>
-                <Text style={[styles.totalText, { color: theme.textMuted }]}>{t.totalAmount(formatCurrency(totalPrice))}</Text>
+                <Text style={[styles.totalText, { color: theme.textMuted }]}>{t.totalAmount(formatKr(totalPrice, 2))}</Text>
               </View>
             </Surface>
 
@@ -649,7 +678,7 @@ export default function ScanScreen() {
   if (mode === 'manual') {
     return (
       <>
-        <ScreenScaffold title={t.manualEntryTitle} tier="site">
+        <ScreenScaffold title={t.manualEntryTitle} tier="site" bottomNav={false} ownBackground={false}>
           <View style={styles.content}>
             <HintCard text={t.manualEntryHint} example="" />
 

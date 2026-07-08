@@ -1,10 +1,12 @@
 /**
- * ListSettingsSheet.tsx — per-list recurring toggle + interval picker.
+ * ListSettingsSheet.tsx — per-list recurring toggle + active-weeks multi-select.
  *
  * Opened from WeekListCard's settings icon (Ukeliste tab). Lets the user
- * turn "repeat this list" on/off and, when on, pick the cadence (1-4 weeks) —
- * mirrors app/settings.tsx's weeklyResetDay chip-row look. Changes apply
- * immediately via onSetRecurring (useShoppingListStore.setRecurring), no
+ * turn "repeat this list" on/off and, when on, pick which weeks (1–4) of the
+ * monthly reset cycle the list is active on (multi-select, one or more) —
+ * mirrors app/settings.tsx's weeklyResetDay chip-row look. The recurring toggle
+ * applies via onSetRecurring (useShoppingListStore.setRecurring); the week chips
+ * apply via onSetActiveWeeks (useShoppingListStore.setActiveWeeks). No
  * separate save step — same immediate-apply pattern as every other Switch in
  * app/settings.tsx.
  *
@@ -30,16 +32,18 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import { Switch } from '@/components/FormControls';
 
-const INTERVAL_OPTIONS = [1, 2, 3, 4];
+const WEEK_OPTIONS = [1, 2, 3, 4];
 
 type Props = {
   visible: boolean;
   list: ShoppingList | undefined;
   onClose: () => void;
   onSetRecurring: (isRecurring: boolean, intervalWeeks?: number) => void;
+  /** Toggle which weeks (1–4) of the monthly cycle this list is active on; [] = every week. */
+  onSetActiveWeeks: (weeks: number[]) => void;
 };
 
-export default function ListSettingsSheet({ visible, list, onClose, onSetRecurring }: Props) {
+export default function ListSettingsSheet({ visible, list, onClose, onSetRecurring, onSetActiveWeeks }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
@@ -63,10 +67,10 @@ export default function ListSettingsSheet({ visible, list, onClose, onSetRecurri
 
         {list.isRecurring && (
           <View style={styles.intervalBlock}>
-            <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.listRecurringIntervalLabel}</Text>
+            <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.listActiveWeeksLabel}</Text>
             <View style={styles.chipRow}>
-              {INTERVAL_OPTIONS.map((n) => {
-                const active = list.recurrenceIntervalWeeks === n;
+              {WEEK_OPTIONS.map((n) => {
+                const active = list.activeWeeks.includes(n);
                 return (
                   <PressableScale
                     key={n}
@@ -74,10 +78,15 @@ export default function ListSettingsSheet({ visible, list, onClose, onSetRecurri
                       styles.chip,
                       { backgroundColor: active ? theme.accent : theme.surfaceMuted },
                     ]}
-                    onPress={() => onSetRecurring(true, n)}
+                    onPress={() => {
+                      const next = active
+                        ? list.activeWeeks.filter((w) => w !== n)
+                        : [...list.activeWeeks, n];
+                      onSetActiveWeeks(next);
+                    }}
                   >
                     <Text style={[styles.chipText, { color: active ? theme.accentInk : theme.text }]}>
-                      {t.listRecurringWeeksOption(n)}
+                      {t.weekNumberChip(n)}
                     </Text>
                   </PressableScale>
                 );

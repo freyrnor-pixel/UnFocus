@@ -7,7 +7,9 @@
  * upper-left (gear outermost), title upper-right — so the controls stay thumb-reachable.
  * Tier 'sub': back link left (iOS only), title immediately right of it and left-aligned,
  * right slot for the screen-specific action (not mirrored). Wrapped in a translucent
- * Surface that picks up the user's bubbleMaterial setting.
+ * Surface using surfaceContext="overlay" (stronger blur) since this header floats over
+ * live scrolling content, not the calm ScreenBackground backdrop — the ambient default
+ * let scrolled text read through it.
  *
  * Connections:
  *   Imports → constants/theme, lib/i18n, lib/useAppTheme, store/useSettingsStore,
@@ -25,7 +27,10 @@
  *     the filled ('eye') vs outline ('eye-outline') glyph and the accent tint. Focus mode is
  *     Home-only + ephemeral, so every other site screen omits both props and the eye stays a
  *     harmless no-op placeholder (its historical Phase-1 state) rather than showing an active
- *     control that does nothing.
+ *     control that does nothing. Home additionally gets a "Focus mode" text label next to the
+ *     icon (reuses `t.config.essentials.label`) — the eye alone was too non-obvious an
+ *     affordance; the label is gated on `onToggleFocus` so it never appears on the inert
+ *     placeholder elsewhere.
  *   - Settings (gear) press navigates to /settings. Site-tier chrome placement is
  *     handedness-aware (reads `leftHanded`, Decision 034): title + the grouped gear/eye
  *     controls swap sides together — controls right (title left) by default, both left
@@ -50,12 +55,15 @@ type Props = {
   onBack?: () => void;
   headerRight?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
-  /** Focus-mode toggle (Home only). When provided, the right-slot eye toggles focus. */
+  /** Focus-mode toggle (Home only). When provided, the focus button is live. */
   focusActive?: boolean;
   onToggleFocus?: () => void;
+  /** Info/hint toggle (optional). When provided, an ⓘ icon appears left of the focus button. */
+  infoActive?: boolean;
+  onInfoToggle?: () => void;
 };
 
-export default function ScreenHeader({ title, tier, onBack, headerRight, style, focusActive, onToggleFocus }: Props) {
+export default function ScreenHeader({ title, tier, onBack, headerRight, style, focusActive, onToggleFocus, infoActive, onInfoToggle }: Props) {
   const t = useT();
   const theme = useAppTheme();
   const router = useRouter();
@@ -74,10 +82,31 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
   // the `leftHanded` setting (whose label promises it "moves the menu button to the
   // left side"): gear sits top-right by default, and swaps to top-left when left-handed.
   const gearButton = (
-    <Pressable onPress={handleSettingsPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.settingsTitle}>
+    <Pressable
+      onPress={handleSettingsPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={t.settingsTitle}
+    >
       <Ionicons name="settings-outline" size={24} color={theme.text} />
     </Pressable>
   );
+  const infoButton = onInfoToggle ? (
+    <Pressable
+      onPress={onInfoToggle}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={infoActive ? t.hideHint : t.showHint}
+      accessibilityState={{ selected: !!infoActive }}
+    >
+      <Ionicons
+        name={infoActive ? 'information-circle' : 'information-circle-outline'}
+        size={24}
+        color={infoActive ? theme.accent : theme.text}
+      />
+    </Pressable>
+  ) : null;
+
   const focusButton = (
     <Pressable
       onPress={handleFocusPress}
@@ -85,12 +114,17 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
       accessibilityRole="button"
       accessibilityState={{ selected: !!focusActive }}
       accessibilityLabel={focusActive ? t.calmViewActive : t.calmViewInactive}
+      style={styles.focusButton}
     >
-      <Ionicons
-        name={focusActive ? 'eye' : 'eye-outline'}
-        size={24}
-        color={focusActive ? theme.accent : theme.text}
-      />
+      {/* Label only where the toggle is live (Home) — elsewhere nothing is shown. */}
+      {onToggleFocus && (
+        <Text
+          style={[styles.focusLabel, { color: focusActive ? theme.accent : theme.textMuted }]}
+          numberOfLines={1}
+        >
+          {t.config.essentials.label}
+        </Text>
+      )}
     </Pressable>
   );
 
@@ -104,11 +138,12 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
   );
 
   if (tier === 'site') {
-    // Grouped gear + eye. Order is Focus then gear so gear is outermost on whichever
-    // side the group sits (Decision 034). Left-handed mirrors the whole row.
-    const controls = leftHanded
-      ? [gearButton, focusButton] // group sits left → gear outermost (far left)
-      : [focusButton, gearButton]; // group sits right → gear outermost (far right)
+    // Grouped controls. Order (right-handed, left-to-right): [ⓘ info] [Focus mode] [gear].
+    // Gear is outermost on whichever side the group sits (Decision 034).
+    // Left-handed mirrors the whole row. Items that don't apply to this screen are null/filtered.
+    const focusButtonOrNull = onToggleFocus ? focusButton : null;
+    const controlItems = [infoButton, focusButtonOrNull, gearButton].filter(Boolean) as React.ReactNode[];
+    const controls = leftHanded ? [...controlItems].reverse() : controlItems;
     const controlsGroup = (
       <View style={styles.controls}>
         {controls.map((c, i) => (
@@ -117,7 +152,7 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
       </View>
     );
     return (
-      <Surface style={[styles.header, style]}>
+      <Surface surfaceContext="overlay" style={[styles.header, style]}>
         {leftHanded ? (
           <>
             {controlsGroup}
@@ -136,7 +171,7 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
   // Sub tier: back link (iOS) leftmost, title immediately right of it and left-aligned,
   // right slot for the screen-specific action. Not mirrored (back link is platform-fixed).
   return (
-    <Surface style={[styles.header, style]}>
+    <Surface surfaceContext="overlay" style={[styles.header, style]}>
       {Platform.OS === 'ios' && onBack ? (
         <Pressable onPress={onBack} hitSlop={8}>
           <Text style={[styles.back, { color: theme.accent }]}>{t.back}</Text>
@@ -162,6 +197,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+  },
+  focusButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  focusLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
   },
   title: {
     flex: 1,

@@ -60,6 +60,7 @@ Every `.ts`/`.tsx` file starts with a JSDoc header block. **Read it before editi
 | SQLite file name: `unfocus.db` | Set in `lib/db.ts` |
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations array | Runs once on upgrade; never drop or recreate tables |
 | Stores read/write rows via `lib/dataAccess.ts` (`loadFirst`/`loadAll`/`updateRow` + `FieldMap`) | Used by 13 of 14 stores; don't hand-roll row mapping in a new store |
+| **To ship a change to users, MERGE it to `main`** | OTA (`.github/workflows/update.yml`) publishes ONLY on push to `main`. A `claude/**` branch push publishes nothing — the fix stays invisible to installed apps until merged. This is the #1 "why isn't my fix live?" cause. See `PUBLISHING.md`. |
 
 ## Architecture at a glance
 
@@ -71,15 +72,15 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
                        constants/theme.ts (getTheme, Colors)
 ```
 
-- **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` (Home/Shopping/Meals/Health/Habits); other screens are reached via links/buttons from those 5. `BubbleMenu` (radial FAB) is currently disabled — commented out at its mount in `app/index.tsx`, code kept intact for a future redesign. Don't wire new screens through it; see its header before touching either file.
-- **Onboarding** (`app/onboarding/*`, in file order): language → privacy → guided/explore → index (name) → step2 (work mode) → step3 (shopping days) → step4 (notification confirm) → step5 (theme + handedness) → step6 (pet naming) → home
+- **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` (Home/Shopping/Meals/Health/Habits); other screens are reached via links/buttons from those 5. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
+- **Onboarding** (`app/onboarding/*`, in file order): language → privacy → guided/explore → index (name) → step2 (work mode) → step3 (shopping days) → step4 (notification confirm) → step5 (theme + handedness, finishes onboarding) → home
 - **i18n**: `const t = useT()` in any component; `t.someKey`; add new keys to both `en` and `no` objects in `lib/i18n.ts`
 
 ## Common tasks
 
 ### Add a new screen
 1. Create `app/my-screen.tsx`
-2. Add an entry point: a tab in `components/BottomNav.tsx` if it's a main section, otherwise a link/button from whichever screen owns it (`BubbleMenu`'s `WHEEL_ITEMS` is disabled — don't add new screens there)
+2. Add an entry point: a tab in `components/BottomNav.tsx` if it's a main section, otherwise a link/button from whichever screen owns it
 3. Add hint strings to `lib/i18n.ts` under `hints.myScreen`
 4. Add `HintCard` at the top of the scroll content
 
@@ -107,17 +108,15 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 
 - **`StyleSheet.absoluteFill`** (not `.absoluteFillObject`) for full-screen overlays
 - `useT()` depends on `useSettingsStore`, so it re-renders when language changes — this is intentional. Outside components (stores, schedulers) use `getTranslations(lang?)` instead — it reads the current language from the store when no arg is given.
-- `QuickAddSheet` day options are memoized on `t.today`/`t.tomorrow` — they'll update when language changes
 - The scan uses on-device OCR via `@react-native-ml-kit/text-recognition` (`parseReceiptText` in `app/scan.tsx`). Confirmed items are added to the shopping list, logged to `purchase_log`, and upserted into the `store_items` catalog (powers shopping autocomplete).
-- `BubbleMenu` and `BottomNav` labels both read from `t.nav` — add new entries there when adding a bubble or tab.
+- `BottomNav` labels read from `t.nav` — add new entries there when adding a tab.
 - `completedCount` in `useTaskStore` counts all-time done tasks (intentional — cumulative "small things add up" philosophy)
 - `backlogTasks(today)` only returns non-recurring tasks; recurring tasks reappear by date schedule
 - **Notifications**: `lib/notifications.ts` only takes already-localised content. Per-task reminders live in `useTaskStore` and cover both kinds — one-off tasks fire once (skipped if done/past), weekly-recurring tasks fire on every selected weekday (via `scheduleWeeklyTaskNotifications`); time-box tasks also get an "end" reminder. Habit daily reminders in `useHabitStore`; weekly/monthly reminders in `lib/reminders.ts` (`syncReminders`). `settings.tsx` re-syncs on relevant changes; `_layout.tsx` and onboarding step 6 sync on startup/finish.
 - **Retention**: `pruneOldData()` in `lib/db.ts` trims dated history to the last `RETENTION_DAYS` (365) on startup; config tables are left untouched.
-- **`BubbleMenu.tsx` merge risk**: this file has been independently rewritten by parallel `claude/*` branches more than once (see commits `96891b4`, `9b02162`). Always hand-diff this file against the target branch on merge — do not auto-resolve conflicts here.
 - **Materials**: `bubbleMaterial` (settings) + `getMaterialStyle()` in `constants/theme.ts` give the FAB/bubbles a surface finish (glass/metal/rock/paper) independent of colour theme — a bubble's hue and its finish vary separately. Rendered via a two-layer view (outer = border + shadow, inner `overflow:'hidden'` mask = fill + sheen) so shadows aren't clipped.
 - **Animation, button-press, and haptics**: read `ANIMATION_GUIDELINES.md` (repo root) before writing or editing any of these — it has the real timing/easing/spring values and the `lib/haptics.ts` contract this codebase actually uses. Paste its §8 block at the top of any animation/interaction/haptics prompt.
-- **Biometric authentication (future)**: if the design calls for fingerprint/Face ID unlock, `expo-local-authentication` will need to be added to `package.json` and `app.json` `plugins` array. This is a native change, so it requires a new APK/AAB build. See the native build prerequisites in `REBUILD_PLAN.md` for full build checklist.
+- **Biometric authentication**: `expo-local-authentication` is already in `package.json` and `app.json`'s `plugins` array (Decision 040, reserve-only — module ships in the build, no feature code uses it yet). Once the maintainer cuts the build with this dependency, the lock/unlock UI can ship as a normal OTA change — no further native work needed for that feature. See `REBUILD_DECISIONS.md` Decision 040 and `REBUILD_PLAN.md` §1 for the rest of the reserve-only native surface (`expo-location`, `expo-calendar`, `expo-contacts`, `expo-sensors`, `expo-speech-recognition`) that's ready the same way.
 
 ## Current deployment state
 
@@ -136,6 +135,7 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 ## Builds and updates
 
 ### OTA updates (normal flow)
+- **⚠️ PUBLISH = MERGE TO `main`.** Nothing reaches users until the change is on `main`. Pushing your `claude/**` branch is only step 1; you must open a PR into `main` and merge it. Full step-by-step: `PUBLISHING.md`.
 - Workflow: `.github/workflows/update.yml` — triggers on every push to `main` only (deliberately NOT on `claude/**` branches — parallel session branches all publishing to the one shared `preview` channel caused a real incident where a later, older-tree push silently clobbered a newer one; see git history around June 2026). Push your branch and merge into `main` to publish.
 - Runs `eas update --branch preview --message "..."` — always publishes to EAS branch `preview`
 - Runtime version is read from `runtimeVersion` in `app.json` — an OTA reaches only installs whose runtime matches that value

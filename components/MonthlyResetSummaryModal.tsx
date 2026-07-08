@@ -30,7 +30,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { formatCurrency } from '@/lib/date';
+import { formatKr } from '@/lib/money';
 import Surface from '@/components/Surface';
 import { MonthlyResetSummary } from '@/store/useShoppingStore';
 
@@ -63,10 +63,10 @@ export default function MonthlyResetSummaryModal({ visible, summary, onClose }: 
               <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.monthlyResetSummaryInventorySection}</Text>
               <View style={styles.totalsRow}>
                 <Text style={[styles.spentText, { color: theme.text }]}>
-                  {t.monthlyResetSummarySpentLabel(formatCurrency(summary.inventorySpent, undefined, 0))}
+                  {t.monthlyResetSummarySpentLabel(formatKr(summary.inventorySpent, 0))}
                 </Text>
                 <Text style={[styles.ofTotalText, { color: theme.textMuted }]}>
-                  {t.monthlyResetSummaryOfTotalLabel(formatCurrency(summary.inventoryTotalValue, undefined, 0))}
+                  {t.monthlyResetSummaryOfTotalLabel(formatKr(summary.inventoryTotalValue, 0))}
                 </Text>
               </View>
               {summary.inventoryItems.map((item) => (
@@ -74,7 +74,7 @@ export default function MonthlyResetSummaryModal({ visible, summary, onClose }: 
                   <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
                   <Text style={[styles.itemMeta, { color: theme.textMuted }]}>{(item.purchasedAt ?? '').slice(0, 10)}</Text>
                   {item.price > 0 && (
-                    <Text style={[styles.itemPrice, { color: theme.textMuted }]}>{formatCurrency(item.price, undefined, 0)}</Text>
+                    <Text style={[styles.itemPrice, { color: theme.textMuted }]}>{formatKr(item.price, 0)}</Text>
                   )}
                 </View>
               ))}
@@ -88,7 +88,7 @@ export default function MonthlyResetSummaryModal({ visible, summary, onClose }: 
                     <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
                     <Text style={[styles.itemMeta, { color: theme.textMuted }]}>{(item.purchasedAt ?? '').slice(0, 10)}</Text>
                     {item.price > 0 && (
-                      <Text style={[styles.itemPrice, { color: theme.textMuted }]}>{formatCurrency(item.price, undefined, 0)}</Text>
+                      <Text style={[styles.itemPrice, { color: theme.textMuted }]}>{formatKr(item.price, 0)}</Text>
                     )}
                   </View>
                 ))}

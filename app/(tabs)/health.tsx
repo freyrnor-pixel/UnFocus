@@ -11,7 +11,7 @@
  *             components/PressableScale, components/Surface, components/AppModal,
  *             constants/theme, lib/date, lib/db, lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useHealthStore, store/useHabitStore, store/useSettingsStore
- *   Used by → Expo Router route "/health" (BottomNav "Health" tab)
+ *   Used by → Expo Router route "/health" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx (BottomNav "Health" tab)
  *   Data    → useHealthStore (health_logs, incl. update()); useHabitStore (habits + habit_logs,
  *             read-only inline summary + increment/decrement)
  *
@@ -92,6 +92,7 @@ export default function HealthScreen() {
   const [edits, setEdits] = useState<Record<string, HealthEditState>>({});
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
   const [confirm, setConfirm] = useState<string | null>(null);
+  const [hintOpen, setHintOpen] = useState(false);
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -107,6 +108,7 @@ export default function HealthScreen() {
       loadSettings();
       loadLogs();
       loadHabits();
+      return () => { setHintOpen(false); };
     }, [loadSettings, loadLogs, loadHabits])
   );
 
@@ -192,10 +194,9 @@ export default function HealthScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.healthTitle} tier="site">
+      <ScreenScaffold title={t.healthTitle} tier="site" bottomNav={false} ownBackground={false} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)}>
         <View style={styles.content}>
-          <HintCard text={t.hints.health.text} example={t.hints.health.example} />
-
+          <HintCard text={t.hints.health.text} open={hintOpen} noPill />
           {/* Overview */}
           {topAilments.length > 0 && (
             <Surface style={styles.overviewCard}>
@@ -368,7 +369,9 @@ export default function HealthScreen() {
             </Pressable>
 
             {habits.length === 0 ? (
-              <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
+              <Surface style={styles.emptyCard}>
+                <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
+              </Surface>
             ) : (
               habits.map((habit) => {
                 const log = habitLogs.find((l) => l.habitId === habit.id && l.logDate === today);

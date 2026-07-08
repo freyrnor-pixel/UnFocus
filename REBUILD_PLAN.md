@@ -147,6 +147,22 @@ current native surface is `package.json` + `app.json`.
 | Local database | `expo-sqlite` | — | ✅ |
 | OTA updates | `expo-updates` | — | ✅ |
 | Haptics / vibration | `expo-haptics` | — | autolinked |
+| Swipeable site pager | `react-native-pager-view`, `@react-navigation/material-top-tabs` (+ peer `@react-navigation/native`) | — | autolinked (pager-view); no plugin (JS nav packages) |
+| Biometric app-lock *(reserve)* | `expo-local-authentication` | `USE_BIOMETRIC`/`USE_FINGERPRINT` (Android, plugin-added), iOS `NSFaceIDUsageDescription` | ✅ |
+| Location reminders *(reserve)* | `expo-location` | `ACCESS_FINE/COARSE_LOCATION` (Android, plugin-added, when-in-use only), iOS `NSLocationWhenInUseUsageDescription` | ✅ |
+| Calendar sync *(reserve)* | `expo-calendar` | `READ/WRITE_CALENDAR` (Android, plugin-added), iOS `NSCalendarsUsageDescription`/`NSCalendarsFullAccessUsageDescription` | ✅ |
+| Share-to-contacts *(reserve)* | `expo-contacts` | `READ/WRITE_CONTACTS` (Android, plugin-added), iOS `NSContactsUsageDescription` | ✅ |
+| Step counting / pedometer *(reserve)* | `expo-sensors` | Android `ACTIVITY_RECOGNITION` (declared manually — plugin doesn't add it), iOS `NSMotionUsageDescription` | ✅ |
+| Voice-note → text *(reserve)* | `expo-speech-recognition` | Android `RECORD_AUDIO` (plugin-added), iOS `NSSpeechRecognitionUsageDescription` + `NSMicrophoneUsageDescription` | ✅ |
+| Alarm / full-screen reminder groundwork *(reserve)* | — (JS-only, no package yet) | Android `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `USE_FULL_SCREEN_INTENT` | — |
+| Local-file backup export (iOS Files app) | — (uses existing `expo-file-system`/`expo-document-picker`/`expo-sharing`) | iOS `UIFileSharingEnabled`, `LSSupportsOpeningDocumentsInPlace` | — |
+
+> **Decision 040 (2026-07-05)** front-loaded the reserve rows above, explicitly overriding
+> Decision 027's "no permission without a shipping feature" prune for `expo-location`,
+> `expo-calendar`, `expo-contacts`, `expo-sensors`, `expo-speech-recognition` — see that
+> decision for the full rationale, the two explicitly-declined items (`react-native-webrtc`,
+> a Wear OS module), and why each Android permission was or wasn't hand-declared (some are
+> already injected by their own config plugin).
 
 Standard native runtime deps also compiled in (no permissions, but native — so
 they require the build): `react-native-reanimated` + `react-native-worklets`,
@@ -154,10 +170,16 @@ they require the build): `react-native-reanimated` + `react-native-worklets`,
 `react-native-safe-area-context`, plus `expo-font` / `expo-asset` /
 `expo-constants` / `expo-linking` / `expo-status-bar`.
 
-### 2. Pruned in Decision 027 (removed from `package.json` + `app.json`)
+### 2. Pruned in Decision 027, un-pruned in Decision 040 (historical — no longer out of the build)
 
-Each was declared but maps to no near-roadmap feature; re-adding any is a fresh
-native build, so they are intentionally out of this APK/AAB:
+> **This entire section is superseded by Decision 040.** All five packages below were
+> re-added — see §1's reserve rows and `REBUILD_DECISIONS.md` Decision 040. Left here for
+> the historical record of *why* they were dropped once; do not use this section as current
+> native-surface state.
+
+Each was declared but mapped to no near-roadmap feature at the time; re-adding any was
+understood as forcing a fresh native build — which is exactly what Decision 040 chose to do,
+front-loading them into this one build instead of waiting for each feature individually:
 
 - **`expo-location`** — location-tied task reminders. Dropped module, its plugin,
   the three `ACCESS_*_LOCATION` + `FOREGROUND_SERVICE_LOCATION` perms, the two
@@ -201,5 +223,6 @@ Everything in §1–§3 is a native change → new APK/AAB via `build-android.ym
 maintainer-run** — land this config on `main`, then hand off; don't cut the build
 from an agent session. Only **after** that build exists, bump **both** `version`
 and `runtimeVersion` in `app.json` to the same new value so OTA updates retarget
-the new runtime. Do not bump `runtimeVersion` ahead of the build, and keep `slug`
-= `all-the-small-things`.
+the new runtime. Do not bump `runtimeVersion` ahead of the build. (`slug` in
+`app.json` must stay `unfocus` — see AGENTS.md's key invariants table; this repo
+was renamed from the retired `all-the-small-things` predecessor.)

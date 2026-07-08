@@ -8,8 +8,10 @@
  *
  * Connections:
  *   Imports → —
- *   Used by → app/share-modal.tsx (app/scan.tsx not ported yet — this is a leaf ahead of that screen);
- *             the 038d pairing flow encodes/scans the 'p' payload, persisting the peer via store/usePeersStore
+ *   Used by → app/share-modal.tsx + app/scan.tsx ('s'/'t' kinds); app/pair-device.tsx
+ *             encodes/decodes the 'p' pairing payload (038d), persisting the peer via
+ *             store/usePeersStore — scan.tsx's own QR scanner deliberately still
+ *             rejects 'p' payloads, pairing only ever scans from pair-device.tsx
  *   Data    → none (serialises in-memory items / pairing tokens to/from QR strings)
  *
  * Edit notes:

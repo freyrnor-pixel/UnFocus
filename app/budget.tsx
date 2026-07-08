@@ -20,7 +20,7 @@
  *   - No budget set (monthlyBudgetNok <= 0) shows "Set budget" button inline; hasBudget shows "Edit budget" link.
  *   - Per-store breakdown sums receipts by store for the selected month, sorted by amount descending.
  *   - Over-budget bar uses the Decision 006 `warn` token (gentle amber, never `bad`/red) per the no-shame
- *     color rule (Decision 025); on-track uses `good`. Old FeatureColors.scan burnt-amber had no token equivalent.
+ *     color rule (Decision 025); on-track uses `good`.
  *   - Budget progress bar always compares against the live monthlyBudgetNok, even when viewing past months.
  *   - Daily-spend pace (Decision 026): under the progress bar, actualPerDay (spend since lastMonthlyReset ÷
  *     inclusive days elapsed) vs. budgetedPerDay (monthlyBudgetNok ÷ payday-to-payday periodLength). Over-pace
@@ -36,7 +36,8 @@ import { useRouter } from 'expo-router';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useT } from '@/lib/i18n';
-import { currentMonthStr, todayStr, formatDisplayDate, formatCurrency } from '@/lib/date';
+import { currentMonthStr, todayStr, formatDisplayDate } from '@/lib/date';
+import { formatKr } from '@/lib/money';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
@@ -187,7 +188,7 @@ export default function BudgetScreen() {
                       <Text style={[styles.rowLabel, { color: theme.text }]}>{r.store || t.budget.title}</Text>
                       <Text style={[styles.rowMeta, { color: theme.textMuted }]}>{formatDisplayDate(r.date, lang)}</Text>
                     </View>
-                    <Text style={[styles.rowTotal, { color: theme.text }]}>{formatCurrency(r.total, lang)}</Text>
+                    <Text style={[styles.rowTotal, { color: theme.text }]}>{formatKr(r.total, 2, lang)}</Text>
                   </View>
                 ))}
               </Surface>
@@ -206,7 +207,7 @@ export default function BudgetScreen() {
                       <View style={styles.rowContent}>
                         <Text style={[styles.rowLabel, { color: theme.text }]}>{store || t.budget.title}</Text>
                       </View>
-                      <Text style={[styles.rowTotal, { color: theme.text }]}>{formatCurrency(total, lang)}</Text>
+                      <Text style={[styles.rowTotal, { color: theme.text }]}>{formatKr(total, 2, lang)}</Text>
                     </View>
                   ))}
               </Surface>
@@ -240,7 +241,6 @@ export default function BudgetScreen() {
               keyboardType="decimal-pad"
               returnKeyType="done"
               onSubmitEditing={saveBudget}
-              autoFocus
             />
           </Surface>
         </KeyboardAvoidingView>

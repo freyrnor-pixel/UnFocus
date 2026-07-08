@@ -4103,3 +4103,253 @@ are type-safe by construction: all new i18n keys added to both locales; all refe
 (`home.more`, `nav.automations`, `nav.meals`, `notes.title`, `hints.automations.text`) exist;
 `/notes` + `/meals` are valid `SiteRoute` members; `Pressable`/`router`/`goToSite` already
 imported in the touched screens. Manual read-through only.
+
+---
+
+## 2026-07-05 — Expanded native build config (Decision 040, brief 01 of the seamless-pager + expanded-build effort)
+
+Config-only native-surface change, `runtimeVersion`/`version` left at `1.1.0` on purpose (see
+Decision 040). Added: `react-native-pager-view` (`8.0.1`) + `@react-navigation/material-top-tabs`
+(`^7.6.6`) + required peer `@react-navigation/native` (`^7.3.7`) — used immediately by the
+pager-swipe migration once the new build exists. Reserve-only (module ships now, feature code
+later, OTA): `expo-local-authentication`, `expo-location`, `expo-calendar`, `expo-contacts`,
+`expo-sensors`, `expo-speech-recognition` — this explicitly un-prunes five of these from
+Decision 027 per the user's explicit front-load-everything directive. Declined (flagged for
+maintainer, not added): `react-native-webrtc`, a Wear OS connectivity module.
+
+All six reserve `expo-*` packages + `pager-view` were pinned against this repo's own
+`node_modules/expo/bundledNativeModules.json` (SDK 56's authoritative version manifest) and
+installed for real via `npm install --legacy-peer-deps` (registry access worked; `expo
+install`'s own compatibility-check network call to `api.expo.dev` is blocked by this
+environment's outbound proxy, so bundledNativeModules.json substituted for it). Each new
+module's actual config-plugin source was read to get exact option keys right and to avoid
+hand-declaring Android permissions (`USE_BIOMETRIC`, `ACCESS_FINE/COARSE_LOCATION`,
+`READ/WRITE_CALENDAR`, `READ/WRITE_CONTACTS`) that the plugin already injects — only
+`ACTIVITY_RECOGNITION` (sensors) plus the alarm/full-screen-intent reminder groundwork
+(`SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `USE_FULL_SCREEN_INTENT`) needed manual entries.
+iOS `UIFileSharingEnabled`/`LSSupportsOpeningDocumentsInPlace` also added (brief 03's backup
+feature, folded into this build per the handoff overview).
+
+Docs updated: `REBUILD_DECISIONS.md` (new Decision 040), `REBUILD_PLAN.md` §1 (new capability
+rows + §2 marked superseded/historical), `AGENTS.md` (biometric note no longer "future").
+
+**Verification:** `npx tsc --noEmit` run for real in this session (network + deps available)
+— zero new errors; the handful of pre-existing errors (onboarding StyleSheet typo, scan.tsx QR
+payload typing, Pet.tsx literal union, missing `react-native-zeroconf` types) are unchanged
+from a `git stash` baseline diff, confirmed identical before/after this change. `app.json`
+validated as parseable JSON; `slug`, `version`, `runtimeVersion`, `android.versionCode`, EAS
+`projectId`, and bundle identifiers all left untouched. Next: maintainer cuts the new preview
+build from `main`; only after it exists does `runtimeVersion` bump and brief 02 (pager
+migration) merge.
+
+## 2026-07-05 — Pager-swipe migration (brief 02): 5 sites → one material-top-tabs pager
+
+**NOT MERGED TO `main` YET — held on this branch on purpose.** Brief 01 (native config,
+Decision 040) landed on `main` today with `runtimeVersion` left at `1.1.0`; the maintainer
+has not yet cut the new preview build from it. This migration's JS imports
+`react-native-pager-view` (a native module current `1.1.0` installs don't have) — merging
+before the new build exists and `runtimeVersion` is bumped would crash every live install
+on next OTA. Per the handoff overview's sequencing, this stays on the branch until the
+maintainer confirms the build exists and bumps `runtimeVersion`.
+
+**What changed:** replaced the separate-routes + `SiteSwipeView` swipe (native push/back
+handed off to a second hand-rolled flick — the "click"/jank the user reported) with an
+Expo Router material-top-tabs group (`app/(tabs)/_layout.tsx`, `tabBarPosition="bottom"`,
+backed by `react-native-pager-view` via `react-native-tab-view`'s pager adapter) so all 5
+sites are co-mounted and swiping is one continuous native slide.
+
+- Moved `index/shopping/plans/health/scan.tsx` into `app/(tabs)/` (route group — URLs
+  unchanged). Screen order matches `SITE_ITEMS`.
+- `components/ScreenScaffold.tsx`: `swipeNav` prop replaced by `bottomNav` (default true);
+  tab screens pass `bottomNav={false}` since the pager now owns the bottom bar. Dropped
+  the `SiteSwipeView` content wrap and the `SiteSwipeDots` block entirely (both files
+  deleted, along with the swipe-dots style and any dangling references).
+- `components/BottomNav.tsx` is now the pager's `tabBar` render prop: reads
+  `state`/`navigation` to find the active site and switch tabs
+  (`navigation.navigate()`, animated by the pager). Kept a standalone no-props fallback
+  (falls back to `usePathname()`/`goToSite()`) for any future non-tab site screen.
+- `lib/siteNav.ts`: added `TAB_ROUTE_NAME` (SiteRoute → pager screen name).
+  `goToSite()` simplified — the 5 tab sites now `router.navigate()` (in-place pager
+  switch, no stack growth); everything else `router.push()`. The old
+  push-from-Home/replace-between-sites shallow-stack hack is gone — it existed only
+  because the 5 sites used to be separate stack routes.
+- `app/_layout.tsx`: the five `Stack.Screen` entries collapsed into one
+  `<Stack.Screen name="(tabs)" />`; everything else (onboarding, inventory-edit, meals,
+  budget, shared, habits, automations, notes, the 4 modals) still pushes over it unchanged.
+- `app/(tabs)/scan.tsx`: added a `navigation.setOptions({ swipeEnabled })` guard that
+  disables the pager's swipe while an OCR scan is processing or an overlay (QR modal,
+  custom-store sheet, category picker) is open, so a stray swipe can't abandon that flow.
+  Deliberately did NOT do the brief's literal "extract 'scanning' mode to a pushed
+  `scan-camera` route" — code review found no live-camera-in-a-hidden-pager-page risk to
+  design around: the photo is already captured via `ImagePicker` (an OS-level modal) by
+  the time 'scanning' renders (it's just the OCR-wait pulse animation), and the QR
+  `CameraView` already lives inside a React Native `Modal` (its own native layer). The
+  `setOptions` guard closes the actual UX risk (swiping away mid-flow) without the
+  larger, harder-to-verify-without-a-device route split.
+- Deleted `app/_scaffold-demo.tsx` (dead, unrouted demo file explicitly flagged for
+  deletion many sessions ago; would have needed compat shims to keep working now that
+  `BottomNav` is a tab-bar component).
+
+**Verification:** `npx tsc --noEmit` → same 7 pre-existing errors as the standing baseline
+(onboarding `absoluteFillObject` typo, `scan.tsx` QR payload typing ×4, `Pet.tsx` literal
+union, missing `react-native-zeroconf` types) — zero new errors from this migration,
+confirmed by diffing against a `git stash` baseline run. No live-app verification possible
+in this environment; the gotchas below need a real device on the maintainer's new build.
+
+**Needs testing on the maintainer's new build (cannot verify in this environment):**
+swipe across all 5 tabs is one continuous finger-tracked slide with no click/flash/remount;
+BottomNav highlight follows both taps and swipes; vertical scroll inside each page still
+works; Shopping's window-coordinate drag-reorder doesn't fight the pager's horizontal
+swipe; Scan's swipe-disable guard actually blocks the pager mid-OCR/mid-modal; deep link
+to `/shopping` lands on the right tab; Home's focus-mode reset still fires on swipe-away
+(`useFocusEffect` blur, not just stack blur).
+
+## 2026-07-05 — Fix: brief 02's pager crashed both OTA publishes (SDK 56 / react-navigation ban)
+
+**Found while checking whether this branch was ready to hand off for the build-cut step.**
+Both PR #59 (brief 02, pager migration) and PR #60 (backup feature) merges to `main` had
+already triggered `update.yml`, and both **failed** (GitHub Actions runs 28751216330,
+28751408764 — "Push update" step, exit code 1). Root cause was not the
+runtimeVersion/build sequencing the handoff overview warned about — it never got that far.
+`app/(tabs)/_layout.tsx` imported `createMaterialTopTabNavigator` directly from
+`@react-navigation/material-top-tabs`. As of Expo SDK 56, expo-router's Metro resolver
+hard-throws on any direct `@react-navigation/*` import from app code ("As of SDK 56,
+expo-router is no longer compatible with react-navigation" —
+https://docs.expo.dev/router/migrate/sdk-55-to-56/), so `expo export`/`eas update` failed
+during Android bundling every time. **This would have also failed a fresh native build**
+the same way (same bundling step runs during `eas build`) — so the branch was not actually
+ready for "maintainer cuts the build" despite PROGRESS_LOG saying brief 02 was verified.
+
+**Fix:** `app/(tabs)/_layout.tsx` now imports `TopTabs`/`MaterialTopTabBarProps` from
+`expo-router/js-top-tabs` instead of hand-rolling `withLayoutContext(createMaterialTopTabNavigator())`
+from `@react-navigation/material-top-tabs`. `TopTabs` is expo-router's own SDK-56 wrapper —
+it resolves through expo-router's own module path (not the banned `@react-navigation/`
+prefix) but wraps the identical `react-native-tab-view` + `react-native-pager-view` stack
+underneath, so behavior is unchanged. `components/BottomNav.tsx` and `app/(tabs)/scan.tsx`
+still `import type` a couple of `@react-navigation/material-top-tabs`/`@react-navigation/native`
+types — left as-is because `import type` is erased before Metro's resolver runs (confirmed:
+those two files were never in the crash's import stack), so no further change needed there.
+
+**Verification:** `npx tsc --noEmit` — same 7 pre-existing baseline errors, zero new ones.
+Reproduced the actual CI failure locally and confirmed the fix: `npx expo export --platform
+android` (the exact command `update.yml` runs) previously would have thrown the
+react-navigation error; after this fix it completes cleanly and emits a bundled `.hbc`.
+
+**Status:** this fix needs to reach `main` (its own PR/merge) before anyone cuts a new
+preview build or re-attempts an OTA publish — otherwise the same crash repeats. Once this
+merges and a clean `update.yml` run confirms the publish succeeds, the branch is actually
+ready for the "maintainer cuts a new preview build → bump runtimeVersion" step from the
+handoff overview.
+
+---
+
+## 2026-07-06 — Decision 038 app integration: wiring LAN live-sync end to end
+
+Six components/modules had been flagged as "unwired ahead of their consuming feature":
+`HuePicker.tsx`, `SaveButton.tsx`, `StickySaveBar.tsx`, `lib/lanTransport.ts`,
+`lib/peerAuth.ts`, `store/usePeersStore.ts`. Reviewed each against its own header and the
+decision docs before touching anything:
+
+- **HuePicker** needs a whole new "custom" `ThemePalette` runtime (Decision 006/007
+  explicitly deferred it — no `hueToCustomColors()`, no `'custom'` entry in colors.ts).
+  Left unwired at the user's direction; it's a real product decision, not a wiring gap.
+- **SaveButton/StickySaveBar** imply a buffered "dirty → Save/Undo" UX, but `settings.tsx`'s
+  own header says every setting now applies immediately (matching the user-facing
+  "Changes apply immediately" hint). Wiring them in would reverse that UX decision for
+  specific fields. Left unwired at the user's direction.
+- **lanTransport/peerAuth/usePeersStore** — these three ARE now fully wired end to end,
+  per the user's explicit choice to build the complete cross-device sync feature.
+
+### What shipped
+- **`lib/syncService.ts`** (new): orchestrates `lanTransport` + `peerAuth` + `liveSync` +
+  `usePeersStore` into one running sync loop. Discovery never implies trust — `onPeerFound`
+  only connects to a peer already present in `usePeersStore`. Inbound envelopes are
+  HMAC-verified BEFORE the connection is associated with the claimed sender's deviceId
+  (caught and fixed a self-review bug: verifying-after-keying would have let a spoofed
+  `from` hijack a real peer's connection slot for future broadcasts).
+- **`app/pair-device.tsx`** (new): sync on/off toggle, paired-devices list with remove, and
+  a two-role QR pairing wizard (Decision 038d). One phone ("Show my code") generates the
+  shared secret; the other ("Scan a code") adopts that exact secret and shows it back —
+  both sides must end up holding the SAME secret or verification would never match (two
+  independently-generated secrets was the initial design and is wrong; caught during design,
+  not left in code).
+- **`store/useTaskStore.ts` / `store/useShoppingStore.ts`**: `add`/`update` now stamp
+  (`touchRow`) and broadcast every mutation; `remove` (and `removeWithSource`) soft-delete
+  (tombstone) instead of hard `DELETE`, so a peer sees the delete instead of a stale copy
+  reviving it; `load()` filters `deleted_at IS NULL`. Scoped narrowly: `useShoppingStore`'s
+  bulk status-machine transitions (`confirmStagingTray`, `doneShopping`, `monthlyReset`) are
+  deliberately left untouched — they bypass `update()` and don't touch any column in
+  `liveSync`'s sync whitelist anyway. `useTaskStore.clearAll()` (bulk local reset) is
+  deliberately NOT broadcast, since propagating it would wipe a paired partner's tasks.
+- **`store/useSettingsStore.ts`** + `lib/db.ts` migration: new `deviceId` (self-healed once,
+  generated on first `load()` if empty) and `lanSyncEnabled` fields.
+- **`app/_layout.tsx`**: starts/stops `syncService` off `lanSyncEnabled`; added
+  `usePeersStore.load()` to the app-wide bootstrap (required — `syncService`'s trust check
+  reads the store synchronously, so peers must be hydrated before a peer can be discovered).
+- **`app/settings.tsx`**: thin entry-point card (Data group) linking to `/pair-device`,
+  gated on `lib/syncService`'s `isSyncAvailable()`.
+- `lib/i18n.ts`: new `peers.*` key group, en + no.
+- Updated `Connections:` headers on every touched/newly-wired file.
+
+**Verification:** `npx tsc --noEmit` clean (0 errors). No Jest/live-app verification per
+repo policy (CLAUDE.md) — this needs an on-device pairing test between two phones on the
+same Wi-Fi before it's considered proven, since the native transport modules (already in
+`package.json`/`app.json` since Decision 038a/040) require a real build to exercise; this
+session's remote environment can't run one.
+
+### Post-implementation code review — 7 fixes
+
+Ran an 8-angle review pass against the diff above before pushing. One CRITICAL finding and
+several real (if lower-severity) ones came back; fixed all before pushing:
+
+- **`lib/liveSync.ts` `applyDelta()` (critical):** was `INSERT OR REPLACE` with a partial
+  column list — SQLite's REPLACE conflict resolution deletes the whole existing row and
+  reinserts only the given columns, so EVERY column outside the sync whitelist (a task's
+  `importance`, a shopping item's `status`/`category`/`collected`/etc.) would silently reset
+  to its schema default on every single incoming delta. This was dead code until this
+  session's wiring made it reachable. Fixed: proper `INSERT ... ON CONFLICT(id) DO UPDATE
+  SET col = excluded.col` upsert — a genuine insert for a new row, a targeted update of only
+  the synced columns on conflict, leaving everything else untouched. Also added `importance`
+  to the tasks whitelist (a live Task field that had no principled reason to be excluded,
+  unlike shopping's deliberately-excluded `status`).
+- **`lib/lanTransport.ts` `onPeerLost` mis-keyed:** verified against `react-native-zeroconf`'s
+  source — its `remove` event fires with the mDNS service NAME, not the TXT record's
+  deviceId `onPeerFound`/`onEnvelope` key connections by. A lost peer was never actually
+  cleaned from `syncService`'s connections map, permanently blocking reconnection after a
+  Wi-Fi drop. Fixed with a `nameToDeviceId` map populated on `resolved`, consulted on `remove`.
+- **`lib/syncService.ts` connection-slot overwrite leaked sockets:** an outbound `connect()`
+  and a later inbound `onEnvelope()` for the same peer both call `connections.set(deviceId,
+  conn)` — the second silently evicted the first without closing it. Added `setConnection()`
+  to close whatever was there first.
+- **`store/useShoppingListStore.ts` could resurrect soft-deleted items:** `copyOpenItemsToList`
+  and `backfillOrphanedItems` read `shopping_items` with raw SQL that never learned about
+  Decision 038b's `deleted_at` tombstone column — a soft-deleted `inWeeklyList` item would get
+  copied into the next list, or trigger a spurious backfill list, as if it were still live.
+  Added `deleted_at IS NULL` to all three affected queries.
+- **`store/useTaskStore.ts` `reorderTasks`/`setFollower` silently skipped sync:** both write
+  columns (`sort_order`, `follows_task_id`) that ARE in `liveSync`'s sync whitelist, but
+  neither called `touchRow`/`broadcastRow` — drag-reordering or setting a "then" follower
+  link never reached a paired device. Fixed by stamping+broadcasting the affected row(s).
+- **`app/_layout.tsx` sync effect restarted on every username edit:** `userName` was in the
+  effect's deps, and the cleanup unconditionally calls `stopSync()` on every dependency
+  change (not just unmount) — editing your display name while paired dropped every live
+  connection to rebuild a transport that (since `startSync` is idempotent while already
+  running) wouldn't even have picked up the new name anyway. Removed `userName` from deps.
+- Minor cleanup: dropped a no-op `onConnection` handler and a redundant `step === 'scan'`
+  check (angle already narrowed it) in `app/pair-device.tsx`; switched its paired-at date
+  display from a raw UTC `.slice(0,10)` to `lib/date.ts`'s local-time `dateStr`/
+  `formatDisplayDate` (the UTC slice could show the wrong calendar day near midnight,
+  exactly the bug class `lib/date.ts`'s own header warns against); tightened a
+  `pruneOldData()` accuracy comment in `useTaskStore.remove()`; fixed two stale
+  `Connections:` "Used by" lists (`lib/db.ts`, `lib/syncService.ts`).
+
+**Not fixed, judged out of scope/acceptable:** `lib/peerAuth.ts`'s `Math.random()`-based
+secret generation is a pre-existing, explicitly-documented Decision 038d tradeoff, not
+something this session introduced. `lib/lanTransport.ts`'s peer-id fallback collision (two
+devices both on the default name AND missing a TXT record) is a narrow pre-existing edge
+case in foundation code outside this session's three target files. A few non-atomic
+touch-then-broadcast call pairs (flagged as low-severity, no realistic interruption window
+in synchronous single-threaded JS) were left as-is rather than wrapping every write in a
+transaction.
+
+`npx tsc --noEmit` re-verified clean after all fixes.

@@ -1,7 +1,7 @@
 /**
  * guided.tsx — Guided-setup vs Explore choice (after language)
  *
- * Branch point: "Guided" enters the 6-step wizard; "Explore" skips it and jumps
+ * Branch point: "Guided" enters the 5-step wizard; "Explore" skips it and jumps
  * straight to the home screen, marking setup complete. Both enable showHints.
  *
  * Connections:
@@ -14,9 +14,7 @@
  *   - All user-facing strings go through useT() — no hardcoded text.
  *   - goGuided() → router.push "/onboarding" (continues wizard, leaves setupComplete unset).
  *   - goExplore() sets setupComplete:true and router.replace "/" — this is the onboarding
- *     completion flag; the wizard's own completion is set later in step6.tsx. Explore
- *     skips the companion-pet step too, so petEnabled stays at its default (false) until
- *     the user turns it on in Settings.
+ *     completion flag; the wizard's own completion is set later in step5.tsx.
  *   - Guided option card uses <Surface tint={theme.accent}> (Decision 008 material); its
  *     label/icon read theme.accentInk (text-on-accent-fill). Decision 006 tokens throughout.
  */
@@ -45,8 +43,9 @@ export default function GuidedScreen() {
   }
 
   function goExplore() {
-    // W-E: new-user defaults — start with Essentials ON and points visible. Onboarding-only.
-    settings.update({ showHints: true, setupComplete: true, essentialsModeEnabled: true, showPoints: true });
+    // W-E: new-user defaults — start with Focus/Essentials mode OFF (Notes/Shopping
+    // previews visible) and points visible. Onboarding-only.
+    settings.update({ showHints: true, setupComplete: true, essentialsModeEnabled: false, showPoints: true });
     router.replace('/');
   }
 
@@ -116,10 +115,9 @@ export default function GuidedScreen() {
 const baseStyles = StyleSheet.create({
   safe: { flex: 1 },
   scrollContent: {
-    flexGrow: 1,
     padding: Spacing.xl,
     gap: Spacing.xl,
-    justifyContent: 'center',
+    paddingBottom: Spacing.md,
   },
   top: { alignItems: 'center', gap: Spacing.md },
   iconBadge: {

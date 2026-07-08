@@ -1,12 +1,10 @@
 /**
  * colors.ts — Decision 006 colour theme token layer
  *
- * Six named themes (Default, Summer, Nature, Fluffy Pink, Gothic, Black & White),
- * each with complete light and dark palettes. Theme choice and dark-mode choice
- * are NOT independent: the dark-mode toggle selects the dark side of the
- * currently active theme. Token names are semantic, not color-based.
+ * Single named theme (Default) with complete light and dark palettes.
+ * Token names are semantic, not color-based.
  *
- * Token list (closed set — every theme provides all of these, ×2 modes):
+ * Token list (closed set — both modes provide all of these):
  *   Surfaces: bg, surface, surfaceMuted, surfaceInset
  *   Text: text, textMuted, textInverse
  *   Borders: border, borderStrong
@@ -16,26 +14,13 @@
  *   Hint card: hintBg, hintBorder, hintAccent
  *   Feature accents: featTask, featPlan, featHabit, featShop, featMeal, featBudget, featNote, featHealth
  *
- * Contrast constraints (light AND dark):
- *   1. text and textMuted both ≥ 4.5:1 contrast against both bg AND surface
- *      (light-mode textMuted was darkened in this file for comfortable AA at 12px)
- *   2. border is lighter than surface in dark mode
- *   3. surface is lighter than bg in dark mode
- *   4. accents desaturated ~25% in dark to avoid neon clash
- *
- * accentInk note:
- *   The `accentInk` values below are effectively placeholders. `lib/useAppTheme.ts`
- *   OVERRIDES accentInk at runtime with contrastOn(accent) so text/icons on an accent
- *   fill are always WCAG-legible (several accents are too light for white ink). Don't
- *   rely on the literal accentInk here; change `accent` and the ink follows automatically.
- *
  * Connections:
  *   Imports → —
  *   Used by → lib/useAppTheme.ts (which re-derives accentInk via contrastOn)
  *   Data    → pure constants (accentInk is re-derived downstream in useAppTheme)
  */
 
-export type ThemeName = 'default' | 'summer' | 'nature' | 'fluffyPink' | 'gothic' | 'blackWhite';
+export type ThemeName = 'default';
 
 /**
  * Complete palette for a single theme mode (light or dark).
@@ -63,9 +48,9 @@ export interface ThemePalette {
   accentInk: string;       // Text/icon colour on accent backgrounds
 
   // ── Semantic state ───────────────────────────────────────────────────────
-  good: string;            // Success (chromatic in all themes, including Black & White)
+  good: string;            // Success (chromatic)
   goodSoft: string;        // Success background
-  bad: string;             // Error/destructive (chromatic in all themes, including Black & White)
+  bad: string;             // Error/destructive
   badSoft: string;         // Error background
   warn: string;            // Warning
   warnSoft: string;        // Warning background
@@ -103,28 +88,6 @@ function hexToRgb(hex: string): [number, number, number] {
   return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
 }
 
-function rgbToHex(r: number, g: number, b: number): string {
-  return '#' + [r, g, b]
-    .map((v) => Math.min(255, Math.max(0, Math.round(v))).toString(16).padStart(2, '0'))
-    .join('');
-}
-
-function lighten(hex: string, amount: number): string {
-  const [r, g, b] = hexToRgb(hex);
-  return rgbToHex(r + (255 - r) * amount, g + (255 - g) * amount, b + (255 - b) * amount);
-}
-
-function darken(hex: string, amount: number): string {
-  const [r, g, b] = hexToRgb(hex);
-  return rgbToHex(r * (1 - amount), g * (1 - amount), b * (1 - amount));
-}
-
-function desaturate(hex: string, amount: number): string {
-  const [r, g, b] = hexToRgb(hex);
-  const gray = (r + g + b) / 3;
-  return rgbToHex(r + (gray - r) * amount, g + (gray - g) * amount, b + (gray - b) * amount);
-}
-
 function relLuminance(hex: string): number {
   const lin = (c: number) => {
     const v = c / 255;
@@ -154,27 +117,27 @@ const defaultLight: ThemePalette = {
   text: '#0F1C2E',
   textMuted: '#4E6182',
   textInverse: '#FFFFFF',
-  border: '#D4E5F8',
-  borderStrong: '#E8F0FC',
-  accent: '#3B82F6',
+  border: '#B0CFF2',
+  borderStrong: '#5590E9',
+  accent: '#0B62F2',
   accentSoft: '#DBEAFE',
   accentInk: '#FFFFFF',
-  good: '#16A34A',
+  good: '#107636',
   goodSoft: '#DCEADE',
   bad: '#DC2626',
   badSoft: '#FEE2E2',
-  warn: '#EAB308',
+  warn: '#976306',
   warnSoft: '#FEFCE8',
   shadow: 'rgba(15,28,46,0.12)',
   overlay: 'rgba(0,0,0,0.5)',
   hintBg: '#E9EFFD',
   hintBorder: '#B3C8F8',
-  hintAccent: '#3B82F6',
+  hintAccent: '#0B62F2',
   featTask: '#2563EB',
   featPlan: '#7C3AED',
-  featHabit: '#16A34A',
+  featHabit: '#107636',
   featShop: '#0891B2',
-  featMeal: '#D97706',
+  featMeal: '#A55A05',
   featBudget: '#8B5CF6',
   featNote: '#DB2777',
   featHealth: '#DC2626',
@@ -214,374 +177,10 @@ const defaultDark: ThemePalette = {
   featHealth: '#F87171',
 };
 
-// ── Summer Theme (Warm cream + slate, orange) ────────────────────────────────
-
-const summerLight: ThemePalette = {
-  bg: '#FFFAF5',
-  surface: '#FFFFFF',
-  surfaceMuted: '#FDF6EE',
-  surfaceInset: '#F5EFE7',
-  text: '#3F2817',
-  textMuted: '#685138',
-  textInverse: '#FFFFFF',
-  border: '#EDD5C3',
-  borderStrong: '#F5E8DC',
-  accent: '#E8794F',
-  accentSoft: '#FDD7BA',
-  accentInk: '#FFFFFF',
-  good: '#16A34A',
-  goodSoft: '#DCEADE',
-  bad: '#DC2626',
-  badSoft: '#FEE2E2',
-  warn: '#EAB308',
-  warnSoft: '#FEFCE8',
-  shadow: 'rgba(63,40,23,0.12)',
-  overlay: 'rgba(0,0,0,0.5)',
-  hintBg: '#FDF0E7',
-  hintBorder: '#F5C4A3',
-  hintAccent: '#E8794F',
-  featTask: '#EA580C',
-  featPlan: '#D97706',
-  featHabit: '#16A34A',
-  featShop: '#0891B2',
-  featMeal: '#F59E0B',
-  featBudget: '#8B5CF6',
-  featNote: '#DB2777',
-  featHealth: '#DC2626',
-};
-
-const summerDark: ThemePalette = {
-  bg: '#1A140C',
-  surface: '#2A1F18',
-  surfaceMuted: '#15110A',
-  surfaceInset: '#0C0905',
-  text: '#EFE4D9',
-  textMuted: '#B8956F',
-  textInverse: '#1A140C',
-  border: '#4A3428',
-  borderStrong: '#5A4438',
-  accent: '#F08A5D',
-  accentSoft: '#3A2818',
-  accentInk: '#1A140C',
-  good: '#34D399',
-  goodSoft: '#0D2A1A',
-  bad: '#F87171',
-  badSoft: '#220A0A',
-  warn: '#FCD34D',
-  warnSoft: '#1A1400',
-  shadow: 'rgba(0,0,0,0.6)',
-  overlay: 'rgba(0,0,0,0.7)',
-  hintBg: '#24190E',
-  hintBorder: '#5A3F30',
-  hintAccent: '#F08A5D',
-  featTask: '#FB923C',
-  featPlan: '#FBBF24',
-  featHabit: '#34D399',
-  featShop: '#22D3EE',
-  featMeal: '#FCD34D',
-  featBudget: '#E879F9',
-  featNote: '#F472B6',
-  featHealth: '#F87171',
-};
-
-// ── Nature Theme (Parchment + olive, forest green) ──────────────────────────
-
-const natureLight: ThemePalette = {
-  bg: '#F2FAF4',
-  surface: '#FFFFFF',
-  surfaceMuted: '#F0F8F2',
-  surfaceInset: '#E8F5EC',
-  text: '#0D3018',
-  textMuted: '#3F684B',
-  textInverse: '#FFFFFF',
-  border: '#C0E8CC',
-  borderStrong: '#D8F0DC',
-  accent: '#4A7C3F',
-  accentSoft: '#C6E8B9',
-  accentInk: '#FFFFFF',
-  good: '#16A34A',
-  goodSoft: '#DCEADE',
-  bad: '#DC2626',
-  badSoft: '#FEE2E2',
-  warn: '#EAB308',
-  warnSoft: '#FEFCE8',
-  shadow: 'rgba(13,48,24,0.12)',
-  overlay: 'rgba(0,0,0,0.5)',
-  hintBg: '#E8F8EC',
-  hintBorder: '#C2EDCE',
-  hintAccent: '#4A7C3F',
-  featTask: '#2563EB',
-  featPlan: '#7C3AED',
-  featHabit: '#16A34A',
-  featShop: '#0891B2',
-  featMeal: '#D97706',
-  featBudget: '#8B5CF6',
-  featNote: '#DB2777',
-  featHealth: '#DC2626',
-};
-
-const natureDark: ThemePalette = {
-  bg: '#08140A',
-  surface: '#16261C',
-  surfaceMuted: '#0F1E16',
-  surfaceInset: '#080D0A',
-  text: '#D0F0D8',
-  textMuted: '#6AB87A',
-  textInverse: '#08140A',
-  border: '#285038',
-  borderStrong: '#3A6A4A',
-  accent: '#82A86A',
-  accentSoft: '#1A3520',
-  accentInk: '#08140A',
-  good: '#34D399',
-  goodSoft: '#0D2A1A',
-  bad: '#F87171',
-  badSoft: '#220A0A',
-  warn: '#FCD34D',
-  warnSoft: '#1A1400',
-  shadow: 'rgba(5,15,10,0.6)',
-  overlay: 'rgba(0,0,0,0.7)',
-  hintBg: '#0A1A10',
-  hintBorder: '#1A3820',
-  hintAccent: '#82A86A',
-  featTask: '#60A5FA',
-  featPlan: '#C084FC',
-  featHabit: '#34D399',
-  featShop: '#22D3EE',
-  featMeal: '#FBBF24',
-  featBudget: '#E879F9',
-  featNote: '#F472B6',
-  featHealth: '#F87171',
-};
-
-// ── Fluffy Pink Theme (Powder + plum, dusty rose) ─────────────────────────
-
-const fluffyPinkLight: ThemePalette = {
-  bg: '#FFF5F9',
-  surface: '#FFFFFF',
-  surfaceMuted: '#FFF0F7',
-  surfaceInset: '#FDE7F1',
-  text: '#4A1530',
-  textMuted: '#845069',
-  textInverse: '#FFFFFF',
-  border: '#F8D3E4',
-  borderStrong: '#FBE2EE',
-  accent: '#E07AA8',
-  accentSoft: '#F8D0E0',
-  accentInk: '#FFFFFF',
-  good: '#16A34A',
-  goodSoft: '#DCEADE',
-  bad: '#DC2626',
-  badSoft: '#FEE2E2',
-  warn: '#EAB308',
-  warnSoft: '#FEFCE8',
-  shadow: 'rgba(74,21,48,0.13)',
-  overlay: 'rgba(0,0,0,0.5)',
-  hintBg: '#FDEAF3',
-  hintBorder: '#F8C6DF',
-  hintAccent: '#E07AA8',
-  featTask: '#EC4899',
-  featPlan: '#A855F7',
-  featHabit: '#16A34A',
-  featShop: '#0891B2',
-  featMeal: '#F59E0B',
-  featBudget: '#8B5CF6',
-  featNote: '#DB2777',
-  featHealth: '#DC2626',
-};
-
-const fluffyPinkDark: ThemePalette = {
-  bg: '#1A0612',
-  surface: '#2C1322',
-  surfaceMuted: '#14080E',
-  surfaceInset: '#0A0406',
-  text: '#FCE7F3',
-  textMuted: '#E0A0C0',
-  textInverse: '#1A0612',
-  border: '#3E2030',
-  borderStrong: '#5A3848',
-  accent: '#F09BC2',
-  accentSoft: '#3A1828',
-  accentInk: '#1A0612',
-  good: '#34D399',
-  goodSoft: '#0D2A1A',
-  bad: '#F87171',
-  badSoft: '#220A0A',
-  warn: '#FCD34D',
-  warnSoft: '#1A1400',
-  shadow: 'rgba(25,5,15,0.6)',
-  overlay: 'rgba(0,0,0,0.7)',
-  hintBg: '#1A0A16',
-  hintBorder: '#2A1428',
-  hintAccent: '#F09BC2',
-  featTask: '#F472B6',
-  featPlan: '#E879F9',
-  featHabit: '#34D399',
-  featShop: '#22D3EE',
-  featMeal: '#FBBF24',
-  featBudget: '#E879F9',
-  featNote: '#F472B6',
-  featHealth: '#F87171',
-};
-
-// ── Gothic Theme (Ivory→near-black, aubergine) ────────────────────────────
-
-const gothicLight: ThemePalette = {
-  bg: '#F5F0FF',
-  surface: '#FFFFFF',
-  surfaceMuted: '#F3F0FB',
-  surfaceInset: '#F0EAFF',
-  text: '#200E40',
-  textMuted: '#5B4D75',
-  textInverse: '#FFFFFF',
-  border: '#DDD6FE',
-  borderStrong: '#EAE5F8',
-  accent: '#5C2A50',
-  accentSoft: '#E5D4E0',
-  accentInk: '#FFFFFF',
-  good: '#16A34A',
-  goodSoft: '#DCEADE',
-  bad: '#DC2626',
-  badSoft: '#FEE2E2',
-  warn: '#EAB308',
-  warnSoft: '#FEFCE8',
-  shadow: 'rgba(32,14,64,0.12)',
-  overlay: 'rgba(0,0,0,0.5)',
-  hintBg: '#F1ECFE',
-  hintBorder: '#D2C4FB',
-  hintAccent: '#5C2A50',
-  featTask: '#7C3AED',
-  featPlan: '#7C3AED',
-  featHabit: '#16A34A',
-  featShop: '#0891B2',
-  featMeal: '#D97706',
-  featBudget: '#8B5CF6',
-  featNote: '#DB2777',
-  featHealth: '#DC2626',
-};
-
-const gothicDark: ThemePalette = {
-  bg: '#0E0818',
-  surface: '#241C30',
-  surfaceMuted: '#17101F',
-  surfaceInset: '#0E0812',
-  text: '#F3E8FF',
-  textMuted: '#C4A0E8',
-  textInverse: '#0E0818',
-  border: '#3C2C58',
-  borderStrong: '#4E3E70',
-  accent: '#A06FA8',
-  accentSoft: '#2A1860',
-  accentInk: '#0E0818',
-  good: '#34D399',
-  goodSoft: '#0D2A1A',
-  bad: '#F87171',
-  badSoft: '#220A0A',
-  warn: '#FCD34D',
-  warnSoft: '#1A1400',
-  shadow: 'rgba(20,10,30,0.7)',
-  overlay: 'rgba(0,0,0,0.7)',
-  hintBg: '#1A0F2A',
-  hintBorder: '#2A1450',
-  hintAccent: '#A06FA8',
-  featTask: '#C084FC',
-  featPlan: '#C084FC',
-  featHabit: '#34D399',
-  featShop: '#22D3EE',
-  featMeal: '#FBBF24',
-  featBudget: '#E879F9',
-  featNote: '#F472B6',
-  featHealth: '#F87171',
-};
-
-// ── Black & White Theme (Mono: black-on-white / white-on-black) ─────────────
-
-const blackWhiteLight: ThemePalette = {
-  bg: '#FFFFFF',
-  surface: '#F5F5F5',
-  surfaceMuted: '#EBEBEB',
-  surfaceInset: '#E0E0E0',
-  text: '#141414',
-  textMuted: '#4D4D4D',
-  textInverse: '#FFFFFF',
-  border: '#D0D0D0',
-  borderStrong: '#E0E0E0',
-  accent: '#141414',
-  accentSoft: '#E8E8E8',
-  accentInk: '#FFFFFF',
-  good: '#16A34A',        // Chromatic: green check (instant recognition as positive)
-  goodSoft: '#F0F8F4',
-  bad: '#DC2626',         // Chromatic: red cross (instant recognition as negative)
-  badSoft: '#FEF6F6',
-  warn: '#8B7A0E',        // Chromatic: dark amber (warning)
-  warnSoft: '#FEFCE8',
-  shadow: 'rgba(0,0,0,0.12)',
-  overlay: 'rgba(0,0,0,0.5)',
-  hintBg: '#F8F8F8',
-  hintBorder: '#C0C0C0',
-  hintAccent: '#141414',
-  featTask: '#2563EB',    // Chromatic feature colors for differentiation
-  featPlan: '#7C3AED',
-  featHabit: '#16A34A',
-  featShop: '#0891B2',
-  featMeal: '#D97706',
-  featBudget: '#8B5CF6',
-  featNote: '#DB2777',
-  featHealth: '#DC2626',
-};
-
-const blackWhiteDark: ThemePalette = {
-  bg: '#141414',
-  surface: '#2A2A2A',
-  surfaceMuted: '#1F1F1F',
-  surfaceInset: '#0A0A0A',
-  text: '#F0F0F0',
-  textMuted: '#A5A5A5',
-  textInverse: '#141414',
-  border: '#4A4A4A',
-  borderStrong: '#5A5A5A',
-  accent: '#F0F0F0',
-  accentSoft: '#2A2A2A',
-  accentInk: '#141414',
-  good: '#34D399',        // Chromatic: green check
-  goodSoft: '#0D2A1A',
-  bad: '#F87171',         // Chromatic: red cross
-  badSoft: '#2A0A0A',
-  warn: '#FCD34D',        // Chromatic: yellow warning
-  warnSoft: '#1A1400',
-  shadow: 'rgba(0,0,0,0.6)',
-  overlay: 'rgba(0,0,0,0.7)',
-  hintBg: '#1F1F1F',
-  hintBorder: '#4A4A4A',
-  hintAccent: '#F0F0F0',
-  featTask: '#60A5FA',    // Chromatic feature colors
-  featPlan: '#C084FC',
-  featHabit: '#34D399',
-  featShop: '#22D3EE',
-  featMeal: '#FBBF24',
-  featBudget: '#E879F9',
-  featNote: '#F472B6',
-  featHealth: '#F87171',
-};
-
 // ── Theme registry ───────────────────────────────────────────────────────────
 
 export const THEMES: Record<ThemeName, ThemeVariant> = {
-  default:     { light: defaultLight,     dark: defaultDark },
-  summer:      { light: summerLight,      dark: summerDark },
-  nature:      { light: natureLight,      dark: natureDark },
-  fluffyPink:  { light: fluffyPinkLight,  dark: fluffyPinkDark },
-  gothic:      { light: gothicLight,      dark: gothicDark },
-  blackWhite:  { light: blackWhiteLight,  dark: blackWhiteDark },
-};
-
-export const THEME_META: Record<ThemeName, { label: string }> = {
-  default:     { label: 'Default' },
-  summer:      { label: 'Summer' },
-  nature:      { label: 'Nature' },
-  fluffyPink:  { label: 'Fluffy Pink' },
-  gothic:      { label: 'Gothic' },
-  blackWhite:  { label: 'Black & White' },
+  default: { light: defaultLight, dark: defaultDark },
 };
 
 /**

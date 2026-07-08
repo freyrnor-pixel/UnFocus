@@ -10,14 +10,20 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, lib/notifications, lib/taskNotifications,
- *             store/useAutomationStore, store/useSettingsStore
- *   Used by → components/QuickAddSheet.tsx, components/NextTaskCard.tsx, components/DayTimeline.tsx,
- *             components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
+ *             lib/liveSync, lib/syncService, store/useAutomationStore, store/useSettingsStore
+ *   Used by → components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
  *             app/task-form.tsx, app/plans.tsx
  *   Data    → defines a Zustand store; owns SQLite tables `tasks` and `task_steps`; fires the
  *             'task_completed' automation trigger on toggle-to-done / completeDirect
  *
  * Edit notes:
+ *   - **LAN live-sync wiring (Decision 038, app integration) — WIRED.** `add`/`update`
+ *     stamp the row via lib/liveSync's touchRow then lib/syncService's broadcastRow;
+ *     `remove` soft-deletes (tombstone) instead of a hard DELETE so a peer sees the
+ *     delete instead of a stale copy reviving it. `load()` filters `deleted_at IS
+ *     NULL`. `clearAll()` (bulk local reset) is deliberately NOT broadcast — see its
+ *     own comment. Both no-op safely when sync isn't running (broadcastRow) or a
+ *     peer isn't connected.
  *   - **'task_completed' automation trigger — WIRED (Phase 6).** toggle() (only when the
  *     task transitions to done) and completeDirect() call
  *     `useAutomationStore.getState().fireTrigger('task_completed')`, matching the old store.
@@ -75,6 +81,8 @@ import { useAutomationStore } from '@/store/useAutomationStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { cancelTaskNotification } from '@/lib/notifications';
 import { syncTaskNotification as scheduleTaskReminder } from '@/lib/taskNotifications';
+import { touchRow, softDelete } from '@/lib/liveSync';
+import { broadcastRow } from '@/lib/syncService';
 
 export type TaskType = 'start-at' | 'time-box';
 export type Recurring = 'none' | 'weekly';
@@ -154,6 +162,12 @@ function syncTaskNotification(task: Task): void {
   scheduleTaskReminder(task, useSettingsStore.getState());
 }
 
+/** Stamp + broadcast a local mutation (Decision 038b/038 wiring) — call after every write. */
+function syncTaskRow(id: string): void {
+  touchRow('tasks', id, useSettingsStore.getState().deviceId);
+  broadcastRow('tasks', id);
+}
+
 function rowToTask(row: Row): Task {
   return {
     id: readStr(row, 'id'),
@@ -219,7 +233,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
 
   load() {
-    const tasks = loadAll('tasks', rowToTask, { orderBy: 'task_date, task_time' });
+    const tasks = loadAll('tasks', rowToTask, { orderBy: 'task_date, task_time', where: 'deleted_at IS NULL' });
 
     // Group steps onto their owning task in a single pass (one query, not N+1).
     const byTask = new Map<string, TaskStep[]>();
@@ -245,6 +259,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     insertRow('tasks', rowValues(task, TASK_COLUMNS));
     set((s) => ({ tasks: [...s.tasks, task] }));
     syncTaskNotification(task);
+    syncTaskRow(id);
     return task;
   },
 
@@ -255,6 +270,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     updateRow('tasks', rowValues(patch, TASK_COLUMNS), 'id = ?', [id]);
     set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? next : t)) }));
     syncTaskNotification(next);
+    syncTaskRow(id);
   },
 
   toggle(id) {
@@ -279,9 +295,16 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       // Decision 020 ON DELETE SET NULL, enforced here since SQLite can't ALTER
       // TABLE to add a real FK: any row that followed this task loses the link.
       db.runSync('UPDATE tasks SET follows_task_id = NULL WHERE follows_task_id = ?', [id]);
-      db.runSync('DELETE FROM tasks WHERE id = ?', [id]);
+      // Soft-delete (Decision 038b tombstone), not a hard DELETE: a synced row must
+      // stay long enough to tell a peer it's gone, or a stale peer copy would undo
+      // the delete on next sync. pruneOldData() only hard-deletes non-recurring tasks
+      // past task_date (lib/db.ts) — a tombstoned recurring task, or one deleted well
+      // before its own task_date, can sit around longer; harmless (still filtered out
+      // of every read via `deleted_at IS NULL`), just not swept as promptly.
+      softDelete('tasks', id, useSettingsStore.getState().deviceId);
     });
     void cancelTaskNotification(id);
+    broadcastRow('tasks', id);
     set((s) => ({
       tasks: s.tasks
         .filter((t) => t.id !== id)
@@ -295,9 +318,17 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set((s) => ({
       tasks: s.tasks.map((t) => (order.has(t.id) ? { ...t, sortOrder: order.get(t.id)! } : t)),
     }));
+    // sort_order is a synced field (lib/liveSync's TABLE_COLUMNS) — stamp + broadcast
+    // every reordered row, same as add/update.
+    orderedIds.forEach(syncTaskRow);
   },
 
   setFollower(predecessorId, followerId) {
+    // Capture who (if anyone) currently follows predecessorId BEFORE the writes below,
+    // so both affected rows can be stamped + broadcast — follows_task_id is a synced
+    // field and this can touch two rows (the old follower losing the link, the new one
+    // gaining it), same as remove()'s follower-link cleanup.
+    const previousFollowerId = get().tasks.find((t) => t.followsTaskId === predecessorId)?.id ?? null;
     tx(() => {
       // Enforce the 1:1 invariant: whoever currently follows predecessorId loses
       // the link first (a predecessor has at most one follower at a time).
@@ -313,6 +344,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         return t;
       }),
     }));
+    if (previousFollowerId && previousFollowerId !== followerId) syncTaskRow(previousFollowerId);
+    if (followerId) syncTaskRow(followerId);
   },
 
   followerCycleChain(id) {
@@ -387,6 +420,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   clearAll() {
+    // Deliberately NOT broadcast: this is a local bulk reset (settings.tsx "Reset
+    // tasks"), not a per-row user delete — propagating it would wipe a paired
+    // partner's tasks too, which Decision 038b never asked for.
     const ids = get().tasks.map((t) => t.id);
     db.runSync('DELETE FROM tasks');
     ids.forEach((id) => void cancelTaskNotification(id));

@@ -221,7 +221,6 @@ export default function TaskFormScreen() {
             value={title}
             onChangeText={setTitle}
             placeholder={t.taskTitlePlaceholder}
-            autoFocus={!existing}
             returnKeyType="next"
           />
         </View>
@@ -353,7 +352,7 @@ export default function TaskFormScreen() {
                   value={duration}
                   onChangeText={setDuration}
                   keyboardType="number-pad"
-                  placeholder={t.minutesPlaceholder}
+                  placeholder={t.durationPlaceholder}
                 />
               </View>
             </View>

@@ -79,7 +79,6 @@ export default function CaptureScreen() {
             placeholder={t.inbox.placeholder}
             placeholderTextColor={theme.textMuted}
             multiline
-            autoFocus
             returnKeyType="done"
             onSubmitEditing={capture}
           />

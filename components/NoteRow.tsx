@@ -27,8 +27,7 @@
  *   - The whole card renders via <Surface surfaceContext="ambient"> (default) per Decision
  *     008 — this row IS the card unit (one Surface per note), unlike MonthlyTableRow which
  *     is a sub-row inside a parent-owned Surface.
- *   - `theme` is no longer threaded in as a prop (dropped the old `theme: AppColors` prop) —
- *     reads useAppTheme() internally, consistent with every other ported component.
+ *   - Theming reads useAppTheme() internally.
  */
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';

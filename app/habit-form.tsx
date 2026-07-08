@@ -250,7 +250,6 @@ export default function HabitForm() {
             value={title}
             onChangeText={setTitle}
             placeholder={t.habitTitlePlaceholder}
-            autoFocus={!isEdit}
             returnKeyType="next"
           />
         </View>

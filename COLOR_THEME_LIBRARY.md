@@ -2,6 +2,14 @@
 
 Complete reference for UnFocus's color palettes, theming system, and when to use each colour. This guides consistent visual decision-making across all screens.
 
+> ⚠️ **STALE — flagged, not yet reconciled.** The theme table below (Default/Tech/
+> Gothic/Nature/Fluffy/Custom) predates the Decision 006 colour token rebuild and
+> does not match the current 6 named themes in `constants/colors.ts` (Default,
+> Summer, Nature, Fluffy Pink, Gothic, Black & White — no "Custom" theme exists;
+> `HuePicker.tsx` is an inert, unwired leaf reserved for a future custom-theme
+> decision). Treat `constants/colors.ts` as the source of truth until this file
+> gets a full reconciliation pass.
+
 ---
 
 ## 🎨 Theme Overview

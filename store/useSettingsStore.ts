@@ -1,21 +1,23 @@
 /**
  * useSettingsStore.ts — single-row app settings / preferences
  *
- * Zustand store mirroring the one settings row: user name, language, theme,
+ * Zustand store mirroring the one settings row: user name, language,
  * dark mode, reminder/notification toggles (including quiet hours, task/habit notification toggles), reset cadence,
- * work/essentials modes, onboarding state, accessibility flags, companion pet
- * settings, monthly grocery budget (monthlyBudgetNok), the local account
+ * work/essentials modes, onboarding state, accessibility flags, monthly
+ * grocery budget (monthlyBudgetNok), the local account
  * (accountName/accountCreated — device-only profile, Decision 039), and the debug
- * overlay's enable flag + bubble-wheel tuning values.
+ * overlay's enable flag.
  * persistentNotifEnabled toggles the always-current "today's overview" notification
  * (refreshed by app/_layout.tsx, see lib/notifications.ts's refreshPersistentNotification).
  * habitNotificationsEnabled gates all habit reminders.
  * childMode/childModePasswordSet are Decision 038c FLAGS only — the parent password
- * itself lives in expo-secure-store (lib/childLock), never in this row.
+ * itself lives in expo-secure-store (lib/childLock), never in this row. deviceId is
+ * this install's stable identity for LAN live-sync (self-healed on load() if empty);
+ * lanSyncEnabled gates whether lib/syncService's transport runs (Decision 038 wiring).
  *
  * Connections:
- *   Imports → lib/dataAccess
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/index.tsx, app/onboarding/* , app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, components/BubbleMenu.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/ParticleBackground.tsx, components/QuickAddSheet.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useTaskStore.ts
+ *   Imports → lib/dataAccess, lib/id
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/index.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/ParticleBackground.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns the single-row SQLite table settings (id = 1)
  *
  * Edit notes:
@@ -37,6 +39,7 @@ import {
   readBool,
   readJson,
 } from '@/lib/dataAccess';
+import { generateId } from '@/lib/id';
 
 // The app ships a single palette ("Default"). The union is kept as a type so
 // existing casts (`as ColorTheme`) still compile; only 'default' is ever stored.
@@ -44,9 +47,6 @@ export type ColorTheme = 'default';
 export type Language = 'en' | 'no';
 export type DarkMode = 'system' | 'on' | 'off';
 export type FontSizePref = 'small' | 'default' | 'large';
-export type PetType = 'cat' | 'dog' | 'bird' | 'fox' | 'bunny';
-/** Surface finish for bubbles/FAB and, via Surface/ScreenBackground, cards and screen backdrops app-wide — see getMaterialStyle() in constants/theme.ts. */
-export type BubbleMaterial = 'glass' | 'metal' | 'rock' | 'paper' | 'plain';
 
 export type Settings = {
   userName: string;
@@ -56,7 +56,6 @@ export type Settings = {
   reminderTime: string;
   taskNotificationsEnabled: boolean;
   setupComplete: boolean;
-  colorTheme: ColorTheme;
   workModeEnabled: boolean;
   workHoursStart: string;
   workHoursEnd: string;
@@ -73,20 +72,8 @@ export type Settings = {
   reducedMotion: boolean;
   particlesEnabled: boolean;
   fontSize: FontSizePref;
-  // Companion pet (Proposal 6)
-  petEnabled: boolean;
-  petName: string;
-  petType: PetType;
-  petColor: string;
   // Left-handed mode
   leftHanded: boolean;
-  // Custom theme colors
-  customPrimaryColor: string;
-  customSecondaryColor: string;
-  // Custom theme accent hue (0-360); primary/secondary colors above are derived from this
-  customHue: number;
-  // Bubble menu surface finish
-  bubbleMaterial: BubbleMaterial;
   // Persistent "today's overview" notification
   persistentNotifEnabled: boolean;
   // Notification quiet hours (AP-05)
@@ -95,12 +82,8 @@ export type Settings = {
   quietHoursEnd: string;
   // Monthly grocery budget (AP-06B), shown against receipts in app/budget.tsx
   monthlyBudgetNok: number;
-  // Debug mode — feedback pins + bubble-wheel tuning overlay
+  // Debug mode — feedback pins
   debugModeEnabled: boolean;
-  bubbleSize: number;
-  bubbleSpacing: number;
-  bubbleSpringIntensity: number;
-  bubbleAnimSpeed: number;
   // Last payday-boundary monthly reset, as YYYY-MM-DD; drives the automatic reset check in app/shopping.tsx
   lastMonthlyReset: string;
   // Habit reminders toggle
@@ -121,6 +104,15 @@ export type Settings = {
   // (lib/childLock.ts), never in this row.
   childMode: boolean;
   childModePasswordSet: boolean;
+  // LAN live-sync (Decision 038 app integration). deviceId is this install's stable
+  // identity (self-healed by load() if empty — see below); lanSyncEnabled gates
+  // whether lib/syncService's transport runs.
+  deviceId: string;
+  lanSyncEnabled: boolean;
+  // Auto-backup to a fixed local path, updated on every change when enabled.
+  autoBackupEnabled: boolean;
+  // School mode placeholder — no feature logic yet, toggle persisted for future use.
+  schoolModeEnabled: boolean;
 };
 
 type SettingsStore = Settings & {
@@ -132,15 +124,6 @@ type SettingsStore = Settings & {
   setWorkModeSessionOverride: (v: boolean) => void;
 };
 
-/**
- * The app now ships a single "Default" palette. Any previously-stored theme name
- * (tech/gothic/nature/fluffy/custom or the older 1.0.0 names) collapses to
- * 'default' so persisted values from removed themes don't linger.
- */
-function migrateThemeName(_name: string | null): ColorTheme {
-  return 'default';
-}
-
 /** Map the single settings row to the persisted Settings (defaults mirror the old load()). */
 function rowToSettings(row: Row): Settings {
   return {
@@ -151,7 +134,6 @@ function rowToSettings(row: Row): Settings {
     reminderTime: readStr(row, 'reminder_time', '08:00'),
     taskNotificationsEnabled: readBool(row, 'task_notifications_enabled'),
     setupComplete: readBool(row, 'setup_complete'),
-    colorTheme: migrateThemeName(readStr(row, 'color_theme') || null),
     workModeEnabled: readBool(row, 'work_mode_enabled'),
     workHoursStart: readStr(row, 'work_hours_start', '07:00'),
     workHoursEnd: readStr(row, 'work_hours_end', '17:00'),
@@ -167,25 +149,13 @@ function rowToSettings(row: Row): Settings {
     reducedMotion: readBool(row, 'reduced_motion'),
     particlesEnabled: readInt(row, 'particles_enabled', 1) !== 0,
     fontSize: readStr(row, 'font_size', 'default') as FontSizePref,
-    petEnabled: readBool(row, 'pet_enabled'),
-    petName: readStr(row, 'pet_name'),
-    petType: readStr(row, 'pet_type', 'cat') as PetType,
-    petColor: readStr(row, 'pet_color', '#A78BFA'),
     leftHanded: readBool(row, 'left_handed'),
-    customPrimaryColor: readStr(row, 'custom_primary_color', '#3B82F6'),
-    customSecondaryColor: readStr(row, 'custom_secondary_color', '#10B981'),
-    customHue: readInt(row, 'custom_hue', 217),
-    bubbleMaterial: readStr(row, 'bubble_material', 'glass') as BubbleMaterial,
     persistentNotifEnabled: readBool(row, 'persistent_notif_enabled'),
     quietHoursEnabled: readBool(row, 'quiet_hours_enabled'),
     quietHoursStart: readStr(row, 'quiet_hours_start', '21:00'),
     quietHoursEnd: readStr(row, 'quiet_hours_end', '08:00'),
     monthlyBudgetNok: readReal(row, 'monthly_budget_nok'),
     debugModeEnabled: readBool(row, 'debug_mode_enabled'),
-    bubbleSize: readReal(row, 'bubble_size', 50),
-    bubbleSpacing: readReal(row, 'bubble_spacing', 78),
-    bubbleSpringIntensity: readReal(row, 'bubble_spring_intensity', 50),
-    bubbleAnimSpeed: readReal(row, 'bubble_anim_speed', 50),
     lastMonthlyReset: readStr(row, 'last_monthly_reset'),
     habitNotificationsEnabled: readBool(row, 'habit_notifications_enabled'),
     locationEnabled: readBool(row, 'location_enabled'),
@@ -196,6 +166,10 @@ function rowToSettings(row: Row): Settings {
     accountCreated: readStr(row, 'account_created'),
     childMode: readBool(row, 'child_mode'),
     childModePasswordSet: readBool(row, 'child_mode_password_set'),
+    deviceId: readStr(row, 'device_id'),
+    lanSyncEnabled: readBool(row, 'lan_sync_enabled'),
+    autoBackupEnabled: readBool(row, 'auto_backup_enabled'),
+    schoolModeEnabled: readBool(row, 'school_mode_enabled'),
   };
 }
 
@@ -209,7 +183,6 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   reminderTime: { col: 'reminder_time' },
   taskNotificationsEnabled: { col: 'task_notifications_enabled', to: bool },
   setupComplete: { col: 'setup_complete', to: bool },
-  colorTheme: { col: 'color_theme' },
   workModeEnabled: { col: 'work_mode_enabled', to: bool },
   workHoursStart: { col: 'work_hours_start' },
   workHoursEnd: { col: 'work_hours_end' },
@@ -225,25 +198,13 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   reducedMotion: { col: 'reduced_motion', to: bool },
   particlesEnabled: { col: 'particles_enabled', to: bool },
   fontSize: { col: 'font_size' },
-  petEnabled: { col: 'pet_enabled', to: bool },
-  petName: { col: 'pet_name' },
-  petType: { col: 'pet_type' },
-  petColor: { col: 'pet_color' },
   leftHanded: { col: 'left_handed', to: bool },
-  customPrimaryColor: { col: 'custom_primary_color' },
-  customSecondaryColor: { col: 'custom_secondary_color' },
-  customHue: { col: 'custom_hue' },
-  bubbleMaterial: { col: 'bubble_material' },
   persistentNotifEnabled: { col: 'persistent_notif_enabled', to: bool },
   quietHoursEnabled: { col: 'quiet_hours_enabled', to: bool },
   quietHoursStart: { col: 'quiet_hours_start' },
   quietHoursEnd: { col: 'quiet_hours_end' },
   monthlyBudgetNok: { col: 'monthly_budget_nok' },
   debugModeEnabled: { col: 'debug_mode_enabled', to: bool },
-  bubbleSize: { col: 'bubble_size' },
-  bubbleSpacing: { col: 'bubble_spacing' },
-  bubbleSpringIntensity: { col: 'bubble_spring_intensity' },
-  bubbleAnimSpeed: { col: 'bubble_anim_speed' },
   lastMonthlyReset: { col: 'last_monthly_reset' },
   habitNotificationsEnabled: { col: 'habit_notifications_enabled', to: bool },
   locationEnabled: { col: 'location_enabled', to: bool },
@@ -254,6 +215,10 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   accountCreated: { col: 'account_created' },
   childMode: { col: 'child_mode', to: bool },
   childModePasswordSet: { col: 'child_mode_password_set', to: bool },
+  deviceId: { col: 'device_id' },
+  lanSyncEnabled: { col: 'lan_sync_enabled', to: bool },
+  autoBackupEnabled: { col: 'auto_backup_enabled', to: bool },
+  schoolModeEnabled: { col: 'school_mode_enabled', to: bool },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -264,7 +229,6 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   reminderTime: '08:00',
   taskNotificationsEnabled: true,
   setupComplete: false,
-  colorTheme: 'default',
   workModeEnabled: false,
   workHoursStart: '07:00',
   workHoursEnd: '17:00',
@@ -283,25 +247,13 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   reducedMotion: false,
   particlesEnabled: true,
   fontSize: 'default' as FontSizePref,
-  petEnabled: false,
-  petName: '',
-  petType: 'cat' as PetType,
-  petColor: '#A78BFA',
   leftHanded: false,
-  customPrimaryColor: '#3B82F6',
-  customSecondaryColor: '#10B981',
-  customHue: 217,
-  bubbleMaterial: 'glass' as BubbleMaterial,
   persistentNotifEnabled: false,
   quietHoursEnabled: false,
   quietHoursStart: '21:00',
   quietHoursEnd: '08:00',
   monthlyBudgetNok: 0,
   debugModeEnabled: false,
-  bubbleSize: 50,
-  bubbleSpacing: 78,
-  bubbleSpringIntensity: 50,
-  bubbleAnimSpeed: 50,
   lastMonthlyReset: '',
   habitNotificationsEnabled: true,
   locationEnabled: false,
@@ -312,12 +264,28 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   accountCreated: '',
   childMode: false,
   childModePasswordSet: false,
+  deviceId: '',
+  lanSyncEnabled: false,
+  autoBackupEnabled: false,
+  schoolModeEnabled: false,
   loaded: false,
   workModeSessionOverride: false,
 
   load() {
     const settings = loadFirst('settings', rowToSettings, { where: 'id = 1' });
     set(settings ? { ...settings, loaded: true } : { loaded: true });
+    // Self-heal: a fresh install (or one that predates Decision 038 wiring) has no
+    // device_id yet. Generate one once and persist it immediately so it's stable
+    // across relaunches — every peer that pairs with this install remembers THIS id.
+    if (settings && !settings.deviceId) {
+      const deviceId = generateId();
+      set({ deviceId });
+      try {
+        updateRow('settings', rowValues({ deviceId }, SETTINGS_COLUMNS), 'id = 1');
+      } catch {
+        // DB write failed — deviceId still set in memory for this session
+      }
+    }
   },
 
   update(patch) {

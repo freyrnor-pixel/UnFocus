@@ -32,12 +32,7 @@
  *     keeps the bottom-sheet look (`sheet`/`handle`, `animationType="slide"`); 'inventory'
  *     is a centered card (`centerWrap`/`pickerCard`, `animationType="fade"`, no `handle`,
  *     no `autoFocus` on the search input — keyboard stays down until the user taps it).
- *   - The old app threaded `theme: AppColors` in as a prop — dropped during the port
- *     (2026-07-02, Phase 3d); reads useAppTheme() internally instead, consistent with every
- *     other ported component. Token remap: white→surface, grayLight→surfaceMuted,
- *     offWhite→surfaceMuted (search input), gray→textMuted (placeholder),
- *     green/greenLight→good/goodSoft, orange/orangeLight→accent/accentSoft,
- *     text/textLight→text/textMuted, hardcoded '#fff' button text→textInverse.
+ *   - Theming reads useAppTheme() internally.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -46,7 +41,7 @@ import { ShoppingItem } from '@/store/useShoppingStore';
 import { FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { formatCurrency } from '@/lib/date';
+import { formatKr } from '@/lib/money';
 
 type Props = {
   visible: boolean;
@@ -177,7 +172,7 @@ export default function AddSourceChooser({ visible, catalogItems, onClose, onCon
                       <View style={styles.pickerNameWrap}>
                         <Text style={[styles.pickerName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
                         {item.price > 0 && (
-                          <Text style={[styles.pickerPrice, { color: theme.textMuted }]}>{formatCurrency(item.price, undefined, 0)}</Text>
+                          <Text style={[styles.pickerPrice, { color: theme.textMuted }]}>{formatKr(item.price, 0)}</Text>
                         )}
                       </View>
                       {isSelected ? (

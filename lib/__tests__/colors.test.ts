@@ -2,15 +2,14 @@
  * colors.test.ts — Tests for Decision 006 colour theme token layer
  *
  * Verifies:
- * (a) All six themes expose the full token set in both light and dark modes
- *     (no missing keys)
+ * (a) Default theme exposes the full token set in both light and dark modes
  * (b) WCAG AA contrast compliance: text and textMuted ≥ 4.5:1 against both bg and surface
  * (c) Dark-mode depth ordering: border > surface > bg (lighter values)
  */
 
 import { THEMES, ThemeName, contrastRatio, getThemePalette } from '@/constants/colors';
 
-const THEME_NAMES: ThemeName[] = ['default', 'summer', 'nature', 'fluffyPink', 'gothic', 'blackWhite'];
+const THEME_NAMES: ThemeName[] = ['default'];
 
 const REQUIRED_TOKENS = [
   'bg', 'surface', 'surfaceMuted', 'surfaceInset',

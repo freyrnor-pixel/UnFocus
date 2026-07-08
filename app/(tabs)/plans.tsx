@@ -11,7 +11,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HintCard,
  *             components/AddFAB, lib/db, lib/date, lib/i18n, store/useTaskStore, store/useSettingsStore
- *   Used by → Expo Router route "/plans" (BottomNav "Plans" tab)
+ *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx (BottomNav "Plans" tab)
  *   Data    → reads/writes useTaskStore (tasks) on toggle; reads useSettingsStore for theme hydration
  *
  * Edit notes:
@@ -22,7 +22,7 @@
  *   - Loads the store on focus (useFocusEffect) so edits made in task-form are reflected
  *     on return; initDb() is idempotent but guarded by a module flag like other screens.
  */
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
@@ -46,6 +46,7 @@ export default function PlansScreen() {
   const toggle = useTaskStore((s) => s.toggle);
   const loadTasks = useTaskStore((s) => s.load);
   const loadSettings = useSettingsStore((s) => s.load);
+  const [hintOpen, setHintOpen] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -55,6 +56,7 @@ export default function PlansScreen() {
       }
       loadSettings();
       loadTasks();
+      return () => { setHintOpen(false); };
     }, [loadSettings, loadTasks])
   );
 
@@ -67,9 +69,9 @@ export default function PlansScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.plansTitle} tier="site">
+      <ScreenScaffold title={t.plansTitle} tier="site" bottomNav={false} ownBackground={false} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)}>
         <View style={styles.content}>
-          <HintCard text={t.hints.plans.text} />
+          <HintCard text={t.hints.plans.text} open={hintOpen} noPill />
           <PlanTaskCard
             tasks={todayTasks}
             allTasks={tasks}
@@ -78,7 +80,7 @@ export default function PlansScreen() {
           />
         </View>
       </ScreenScaffold>
-      <AddFAB onPress={() => router.push('/task-form')} />
+      <AddFAB onPress={() => router.push('/task-form')} accessibilityLabel={t.newTask} />
     </>
   );
 }

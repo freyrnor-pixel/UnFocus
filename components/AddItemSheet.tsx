@@ -54,7 +54,7 @@ import Animated, {
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { formatCurrency } from '@/lib/date';
+import { formatKr } from '@/lib/money';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
@@ -176,7 +176,7 @@ export default function AddItemSheet({ visible, origin, onClose, onAdd }: Props)
                       <Pressable key={s.id} style={styles.suggestionRow} onPress={() => handlePickSuggestion(s)}>
                         <Text style={[styles.suggestionName, { color: theme.text }]} numberOfLines={1}>{s.name}</Text>
                         {s.price > 0 && (
-                          <Text style={[styles.suggestionPrice, { color: theme.textMuted }]}>{formatCurrency(s.price, undefined, 0)}</Text>
+                          <Text style={[styles.suggestionPrice, { color: theme.textMuted }]}>{formatKr(s.price, 0)}</Text>
                         )}
                       </Pressable>
                     ))}

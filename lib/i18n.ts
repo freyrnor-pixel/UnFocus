@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → store/useSettingsStore
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/onboarding/step6.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/BubbleMenu.tsx, components/DayTimeline.tsx, components/DebugOverlay.tsx, components/QuickAddSheet.tsx, components/SharedRequestsSection.tsx, components/ShoppingQuickAddSheet.tsx, components/TaskItem.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/habits.tsx, app/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/pair-device.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/SharedRequestsSection.tsx, components/ShoppingQuickAddSheet.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
  *   Data    → reads `language` from the settings Zustand store
  *
  * Edit notes:
@@ -20,6 +20,8 @@
  *   - Added keys: nav.settingsLabel, home.todaysPlans, home.seeAllPlans,
  *     health.habits, health.seeAllHabits, health.noHabits, health.addHabit,
  *     shopping.scan, shopping.budget, notes.*, hints.notes.
+ *   - Added keys: peers.* (Decision 038 LAN live-sync wiring — app/pair-device.tsx,
+ *     app/settings.tsx's sync toggle card).
  */
 import { useSettingsStore } from '@/store/useSettingsStore';
 
@@ -28,12 +30,6 @@ export type Lang = 'en' | 'no';
 const en = {
   // Greeting
   greeting: { morning: 'Good morning', day: 'Good day', evening: 'Good evening' },
-  // Home-screen companion reactions (Decision 039) — spoken by Pet.tsx
-  petCompanion: {
-    praise: ['Look at you go! ✨', "That's one down! 🎉", 'Yes! Keep it up! 💪', "You're on a roll! 🌟"],
-    feedHint: "Drag a snack over — I'd love that",
-    feedThanks: 'Mmm, thank you! 🥰',
-  },
   days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
   months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
   // Short month names for date-range labels (lib/date.ts's formatDateRange)
@@ -41,7 +37,8 @@ const en = {
   // Navigation / common
   back: '← Home',
   cancel: 'Cancel',
-  close: 'Close', // home overhaul: BubbleMenu FAB close affordance label
+  yes: 'Yes',
+  no: 'No',
   save: 'Save',
   undoBtn: 'Undo',
   unsavedDaysLabel: 'Days not saved',
@@ -62,7 +59,6 @@ const en = {
   plansExpand: 'Show full day',
   plansCollapse: 'Show less',
   notesCollapse: 'Show less',
-  nextTaskLabel: 'Next up',
   currentPlansLabel: "Today's plans",
   seeEverythingLink: 'See everything →',
   doneTasksLabel: 'Done today',
@@ -93,8 +89,11 @@ const en = {
   switchModeConfirm: 'Switch anyway',
   updateReadyBanner: '⬇️ Update ready',
   updateRestartBtn: 'Restart',
+  showHint: 'How this works',
+  hideHint: 'Hide instructions',
   // Task form
   newTask: 'New plan',
+  add: 'Add',
   editTask: 'Edit',
   taskTitleLabel: 'Plan',
   taskTitlePlaceholder: 'What needs to be done?',
@@ -122,6 +121,7 @@ const en = {
   typeStartAt: 'Start at this time',
   typeTimeBox: 'Time block (duration)',
   durationLabel: 'Duration (minutes)',
+  durationPlaceholder: 'min',
   importanceLabel: 'Mode',
   importanceRegular: 'General',
   importanceEssential: '⭐ Essential',
@@ -183,6 +183,24 @@ const en = {
   addItemBtn: 'Add item',
   // Settings
   settingsTitle: 'Settings',
+  version: {
+    title: 'Version & updates',
+    appVersion: 'App version',
+    runtime: 'Runtime',
+    channel: 'Channel',
+    source: 'Running',
+    sourceEmbedded: 'Built-in bundle',
+    sourceOta: 'OTA update',
+    updateId: 'Update ID',
+    published: 'Published',
+    embedded: 'built-in',
+    checkButton: 'Check for updates',
+    checking: 'Checking…',
+    upToDate: 'You’re on the latest update.',
+    downloaded: 'Update downloaded — restarting…',
+    failed: 'Could not check for updates. Check your connection and try again.',
+    disabled: 'This build has over-the-air updates turned off (it’s a debug build). Install a release build to receive OTA updates.',
+  },
   sectionProfile: 'Profile',
   yourName: 'Your name',
   namePlaceholder: 'First name (optional)',
@@ -194,15 +212,12 @@ const en = {
   reminderTimePlaceholder: 'HH:MM',
   reminderTimeLabel: 'Reminder time (HH:MM)',
   timeInputPlaceholder: 'HH:MM',
-  minutesPlaceholder: 'min',
   taskNotifications: 'Plan notifications',
   taskNotificationsHint: 'Reminder when a plan starts',
   persistentNotifLabel: "Today's overview notification",
   persistentNotifHint: "Keeps one notification up to date with today's remaining tasks and shopping items",
   habitNotifications: 'Habit reminders',
   habitNotificationsHint: "Reminder when it's time for a habit",
-  sectionColorTheme: 'Colour theme',
-  sectionBubbleMaterial: 'Material',
   workModeDesc: 'Work mode hides personal plans so you can focus.',
   workModeActive: 'Enable work mode',
   autoActivate: 'Auto-activate',
@@ -384,6 +399,22 @@ const en = {
   listRecurringToggleLabel: 'Repeat this list',
   listRecurringIntervalLabel: 'Repeat every',
   listRecurringWeeksOption: (n: number) => (n === 1 ? '1 week' : `${n} weeks`),
+  listActiveWeeksLabel: 'Active weeks of the month',
+  weekNumberChip: (n: number) => `Week ${n}`,
+  // Shopping redesign — monthly two-section + weekly inline/preview + grouping screen
+  monthlyListSection: 'Monthly list',
+  catalogueSection: 'Catalogue',
+  catalogueSearchPlaceholder: 'Search the catalogue…',
+  monthlyListTotal: (kr: string) => `Total: ${kr}`,
+  monthlyListEmpty: 'Nothing added yet — pick from the catalogue below.',
+  addFromMonthlyBtn: 'Add from monthly list',
+  monthlyPreviewSearchPlaceholder: 'Search monthly list…',
+  monthlyPreviewEmpty: 'Your monthly list is empty.',
+  moveToWeekBtn: 'Add',
+  weekListTotal: (kr: string) => `Total: ${kr}`,
+  inlineSearchPlaceholder: 'Search catalogue to add…',
+  createGroupingTitle: 'Create grouping',
+  createGroupingBtn: 'Create grouping',
   savedListsTitle: 'Saved lists',
   saveListAsTemplateBtn: 'Save as template',
   savedListsEmpty: 'No saved lists yet.',
@@ -393,8 +424,19 @@ const en = {
   moveItemDown: 'Move item down',
   decreaseQty: 'Decrease quantity',
   increaseQty: 'Increase quantity',
+  removeItemLabel: 'Remove item',
+  putBackItemLabel: 'Put back in stock',
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
   boughtThisWeekSection: (n: number) => `Bought this week (${n})`,
+  inListSection: (n: number) => `In list (${n})`,
+  inCartSection: (n: number) => `In cart (${n})`,
+  purchasedSection: (n: number) => `Purchased (${n})`,
+  fromMonthlySection: 'From monthly list',
+  saveMonthlyAddsLabel: 'Save additions',
+  removeMonthlyAddsLabel: 'Undo additions',
+  planningModeBtn: 'Planning',
+  shoppingModeBtn: 'Shopping',
+  addItemInputPlaceholder: 'Add item…',
   savedListsButtonLabel: 'Saved lists',
   deleteListButtonLabel: 'Delete list',
   listSettingsButtonLabel: 'List settings',
@@ -534,6 +576,31 @@ const en = {
   deselectAll: 'Deselect all',
   sharedTasksTab: 'Plans',
   sharedShoppingTab: 'Shopping',
+  // LAN live-sync (Decision 038 app integration) — pairing + sync toggle
+  peers: {
+    title: 'Paired devices',
+    settingsCardDesc: 'Keep tasks and the shopping list in sync automatically with a paired phone on the same Wi-Fi.',
+    syncToggleLabel: 'Sync over Wi-Fi',
+    syncUnavailable: 'Live sync needs a build with the network modules installed — not available in this app version yet.',
+    manageLink: 'Paired devices →',
+    noPeers: 'No paired devices yet.',
+    pairedAt: (date: string) => `Paired ${date}`,
+    addDevice: 'Pair a device',
+    removeDevice: 'Remove',
+    removeConfirmTitle: 'Remove this device?',
+    removeConfirmBody: 'It will stop syncing with this phone. You can pair it again later.',
+    chooseRoleTitle: 'Pairing a device',
+    chooseRoleExplain: 'Both phones need to be in the same room. On ONE phone, tap "Show my code" — on the OTHER, tap "Scan a code".',
+    showMyCode: 'Show my code',
+    scanACode: 'Scan a code',
+    showCodeInstructions: 'Have the other phone scan this code.',
+    showCodeNext: 'Next: scan their code',
+    showCodeDone: 'Done',
+    scanInstructions: "Point your camera at the other phone's code.",
+    pairInvalid: 'That does not look like an UnFocus pairing code.',
+    pairedSuccessTitle: 'Paired!',
+    pairedSuccessBody: (name: string) => `You're now paired with ${name}.`,
+  },
   // Notifications (shown to the user in their chosen language)
   notif: {
     // W-F: friendlier, non-urgent weekly nudge ("want to?" energy, no pressure)
@@ -571,6 +638,10 @@ const en = {
     todaysPlans: "Today's Plans",
     seeAllPlans: 'See all plans',
     more: 'More',
+    notesExpand: 'Show all notes',
+    notesCollapse: 'Show less',
+    shoppingExpand: 'Show full list',
+    shoppingCollapse: 'Show less',
   },
   health: {
     habits: 'Habits',
@@ -584,8 +655,6 @@ const en = {
   },
   moreItems: (n: number) => `+ ${n} more`,
   errorTitle: 'Something went wrong',
-  themeNames: { default: 'Default', tech: 'Tech', gothic: 'Gothic', nature: 'Nature', fluffy: 'Fluffy pink', custom: 'Custom' },
-  materialNames: { glass: 'Glass', metal: 'Metal', rock: 'Rock', paper: 'Paper', plain: 'Plain' },
   customThemePrimary: 'Primary color',
   customThemeSecondary: 'Secondary color',
   customThemeHue: 'Accent hue',
@@ -623,6 +692,9 @@ const en = {
   pickDishSearchPlaceholder: 'Search dishes…',
   noDishesAvailable: 'No saved dishes yet — add one on the Meals screen first.',
   ingredientPricePlaceholder: 'Price (NOK)',
+  ingredientSearchPlaceholder: 'Search catalog for ingredients…',
+  addCustomIngredientOption: (query: string) => `Add "${query}" as a new ingredient`,
+  noCatalogMatches: 'No catalog matches',
   addDishBtn: 'Add dish',
   deleteDish: 'Delete dish',
   noDishesTitle: 'No dishes',
@@ -703,11 +775,6 @@ const en = {
       free: 'UnFocus is free and always will be.',
       cta: 'Got it →',
     },
-    step6: {
-      title: 'Meet your companion',
-      subtitle: 'A small friend that cheers you on. Give it a name and make it yours.',
-      namePlaceholder: 'Give your pet a name',
-    },
   },
   // Accessibility settings (Proposal 4)
   settings: {
@@ -730,22 +797,6 @@ const en = {
       local: 'Everything is stored only on this device — nothing is sent anywhere.',
       free: 'UnFocus is free and always will be.',
     },
-    // Companion pet (Proposal 6)
-    pet: {
-      toggle: 'Companion pet',
-      toggleSubtitle: 'A small friend that cheers you on',
-      name: 'Pet name',
-      namePlaceholder: 'Give your pet a name',
-      type: 'Pet type',
-      colour: 'Colour',
-      typeLabels: {
-        cat: 'Cat',
-        dog: 'Dog',
-        bird: 'Bird',
-        fox: 'Fox',
-        bunny: 'Bunny',
-      },
-    },
     // AP-05 — notification quiet hours
     quietHours: {
       label: 'Quiet hours',
@@ -765,7 +816,7 @@ const en = {
     // Focus mode (settings + onboarding "start simple" choice) — formerly "Essentials Mode"
     essentials: {
       label: 'Focus mode',
-      hint: 'Show only essential plans. Turn off any time to see everything.',
+      hint: 'Start Home showing only essential plans. The eye in the top bar toggles it any time.',
       onboardingTitle: 'Want to start simple?',
       onboardingSub: 'See only the essentials at first. You can switch to the full view whenever you like.',
       optionOn: 'Start simple',
@@ -779,6 +830,7 @@ const en = {
       notifications: 'Notifications',
       workMode: 'Work Mode',
       data: 'Data',
+      additionalModes: 'Additional modes',
     },
     // Settings screen top-level tab labels
     tabs: {
@@ -786,6 +838,19 @@ const en = {
       lists: 'Lists',
       notifications: 'Notifications',
       appearance: 'Appearance',
+      additionalModes: 'Modes',
+    },
+    // School mode (Additional modes tab) — placeholder, no logic wired yet
+    schoolMode: {
+      label: 'School mode',
+      hint: 'Focus on school tasks — more features can be enabled here later.',
+    },
+    // Auto-backup to a fixed device path
+    autoBackup: {
+      label: 'Auto-backup',
+      hint: 'Automatically save a local backup whenever changes are made. Nothing is uploaded.',
+      pathLabel: 'Backup location:',
+      shareNote: 'Sharing a copy does not include your name.',
     },
     // One-sentence descriptions under each setting
     desc: {
@@ -820,6 +885,10 @@ const en = {
     importConfirmBtn: 'Restore',
     restoreError: "Couldn't restore the backup — your current data is unchanged.",
     restoreDone: 'Restore complete. The app will reload now.',
+    saveToDevice: 'Save to device',
+    shareCopy: 'Share a copy',
+    savedToDevice: (location: string) => `Backup saved to ${location}.`,
+    saveUnavailable: 'Saving to device is not available on this device.',
   },
   // Local account (Decision 039) — device-only, user-held profile. No server, no
   // credentials, no cloud; the account is backed up via the local backup file above.
@@ -831,7 +900,6 @@ const en = {
     namePlaceholder: 'Name your local account',
     createButton: 'Create local account',
     createdOn: (date: string) => `Local account · created ${date}`,
-    backupButton: 'Back up local account',
     restoreButton: 'Restore local account',
     deviceOnlyNote: 'Device-only. No sign-in, no password, no server — ever.',
   },
@@ -848,16 +916,6 @@ const en = {
     habitsToday: 'Habits',
     habitsSummary: (done: number, total: number) => `${done}/${total} done`,
     moreTasksHint: (n: number) => `+${n} more`,
-  },
-  // AP-04 — "up next" single-task suggestion (components/NextTaskCard.tsx)
-  nextTask: {
-    title: 'Up next',
-    markDone: 'Mark done',
-    empty: "Nothing urgent right now — you're caught up.",
-    now: 'Now',
-    inMinutes: (m: number) => `in ${m} min`,
-    inHours: (h: number) => `in ${h}h`,
-    inHoursMinutes: (h: number, m: number) => `in ${h}h ${m}min`,
   },
   // AP-02 — quick-capture inbox (app/capture.tsx, components/InboxSection.tsx)
   inbox: {
@@ -917,15 +975,15 @@ const en = {
   },
   hints: {
     home: {
-      text: 'Your daily overview — tap ⭐ to focus on essentials only.',
+      text: "1) See today's notes, plans and shopping at a glance.\n2) Tap an item to check it off.\n3) Tap \"See all →\" to open the full screen.\n4) Tap the eye icon (top bar) to show only essential plans.",
       example: '',
     },
     taskForm: {
-      text: 'Just a title and a date — everything else is optional.',
+      text: '1) Type a title.\n2) Pick a date — today is filled in for you.\n3) Optional: set a time, mark it Essential, add steps, or repeat it weekly.\n4) Tap Save.',
       example: '',
     },
     habitForm: {
-      text: 'Just a name — reminders and the cue→craving→response→reward steps are optional.',
+      text: '1) Choose Build (start doing) or Break (do less).\n2) Give it a name.\n3) Optional: set a daily goal, a reminder, or the cue→craving→response→reward steps.\n4) Tap Save.',
       example: '',
     },
     shopping: {
@@ -933,11 +991,11 @@ const en = {
       example: '',
     },
     meals: {
-      text: 'Tap a dish to add its ingredients to your shopping list.',
+      text: '1) Tap a meal-type tile to see its dishes.\n2) Tap a dish to add its ingredients to your shopping list.\n3) Tap + to create a new dish and list its ingredients.',
       example: '',
     },
     health: {
-      text: 'Log symptoms to spot patterns over time.',
+      text: '1) Tap + to log a symptom.\n2) Set the date, severity (1–5) and an optional note.\n3) Save — it appears in the 30-day overview and the log below.',
       example: '',
     },
     scan: {
@@ -953,11 +1011,11 @@ const en = {
       example: '',
     },
     habits: {
-      text: 'Tap + each time you build or resist a habit. Tap a card to expand, hold it to edit.',
+      text: '1) Tap + on a habit each time you build it or resist it.\n2) Tap a card to expand its steps and week view.\n3) Hold a card to edit it.\n4) Tap + New to add a habit.',
       example: '',
     },
     plans: {
-      text: "Today's full agenda, anytime plans first.",
+      text: "1) See today's full agenda — anytime plans first, then timed ones.\n2) Tap the dot to check off a plan.\n3) Tap a plan to open and edit it.\n4) Tap + to add a new one.",
       example: '',
     },
     automations: {
@@ -965,7 +1023,7 @@ const en = {
       example: '',
     },
     notes: {
-      text: 'Jot a quick note, then send it to shopping or plans when ready.',
+      text: '1) Tap + to jot a quick note.\n2) Use its shopping or plans button to send it onward.\n3) Check it off when done — it moves below.',
       example: '',
     },
   },
@@ -988,17 +1046,13 @@ const en = {
 
 const no: typeof en = {
   greeting: { morning: 'God morgen', day: 'God dag', evening: 'God kveld' },
-  petCompanion: {
-    praise: ['Se på deg! ✨', 'Én av veien! 🎉', 'Ja! Fortsett sånn! 💪', 'Du er i flytsonen! 🌟'],
-    feedHint: 'Dra en snacks bort til meg',
-    feedThanks: 'Mmm, takk! 🥰',
-  },
   days: ['søndag', 'mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'],
   months: ['januar', 'februar', 'mars', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'desember'],
   monthsShort: ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'],
   back: '← Hjem',
   cancel: 'Avbryt',
-  close: 'Lukk', // home overhaul: BubbleMenu FAB close affordance label
+  yes: 'Ja',
+  no: 'Nei',
   save: 'Lagre',
   undoBtn: 'Angre',
   unsavedDaysLabel: 'Dagene er ikke lagret',
@@ -1018,7 +1072,6 @@ const no: typeof en = {
   plansExpand: 'Vis hele dagen',
   plansCollapse: 'Vis mindre',
   notesCollapse: 'Vis mindre',
-  nextTaskLabel: 'Neste på tur',
   currentPlansLabel: 'Dagens planer',
   seeEverythingLink: 'Se alt →',
   doneTasksLabel: 'Ferdig i dag',
@@ -1044,10 +1097,13 @@ const no: typeof en = {
   switchMode: 'Bytt modus',
   switchModeTitle: 'Bytt til personlig modus?',
   switchModeBody: 'Husk å fokusere på det som er foran deg! Jobb-modus vil deaktiveres frem til du åpner appen på nytt.',
+  showHint: 'Slik fungerer det',
+  hideHint: 'Skjul instruksjoner',
   switchModeConfirm: 'Bytt likevel',
   updateReadyBanner: '⬇️ Oppdatering klar',
   updateRestartBtn: 'Start på nytt',
   newTask: 'Ny plan',
+  add: 'Legg til',
   editTask: 'Rediger',
   taskTitleLabel: 'Plan',
   taskTitlePlaceholder: 'Overskrift',
@@ -1075,6 +1131,7 @@ const no: typeof en = {
   typeStartAt: 'Start på dette tidspunktet',
   typeTimeBox: 'Fra da til da (timer)',
   durationLabel: 'Varighet (minutter)',
+  durationPlaceholder: 'min',
   importanceLabel: 'Modus',
   importanceRegular: 'Generelt',
   importanceEssential: '⭐ Viktig',
@@ -1134,6 +1191,24 @@ const no: typeof en = {
   manualItemPlaceholder: 'F.eks. Melk 1L',
   addItemBtn: 'Legg til vare',
   settingsTitle: 'Innstillinger',
+  version: {
+    title: 'Versjon og oppdateringer',
+    appVersion: 'App-versjon',
+    runtime: 'Kjøretid',
+    channel: 'Kanal',
+    source: 'Kjører',
+    sourceEmbedded: 'Innebygd pakke',
+    sourceOta: 'OTA-oppdatering',
+    updateId: 'Oppdaterings-ID',
+    published: 'Publisert',
+    embedded: 'innebygd',
+    checkButton: 'Se etter oppdateringer',
+    checking: 'Sjekker…',
+    upToDate: 'Du har den nyeste oppdateringen.',
+    downloaded: 'Oppdatering lastet ned — starter på nytt…',
+    failed: 'Kunne ikke se etter oppdateringer. Sjekk tilkoblingen og prøv igjen.',
+    disabled: 'Denne bygget har trådløse oppdateringer avslått (det er et debug-bygg). Installer et release-bygg for å motta OTA-oppdateringer.',
+  },
   sectionProfile: 'Profil',
   yourName: 'Ditt navn',
   namePlaceholder: 'Fornavn (valgfritt)',
@@ -1145,15 +1220,12 @@ const no: typeof en = {
   reminderTimePlaceholder: '08:00',
   reminderTimeLabel: 'Påminnelsestidspunkt (HH:MM)',
   timeInputPlaceholder: 'TT:MM',
-  minutesPlaceholder: 'min',
   taskNotifications: 'Planvarsler',
   taskNotificationsHint: 'Påminnelse når en plan begynner',
   persistentNotifLabel: 'Dagens oversikt-varsel',
   persistentNotifHint: 'Holder ett varsel oppdatert med dagens gjenstående oppgaver og varer på handlelisten',
   habitNotifications: 'Varslinger for vaner',
   habitNotificationsHint: 'Påminnelse når det er tid for en vane',
-  sectionColorTheme: 'Fargetema',
-  sectionBubbleMaterial: 'Materiale',
   workModeDesc: 'Jobb-modus skjuler private planer og lar deg fokusere.',
   workModeActive: 'Aktiver jobb-modus',
   autoActivate: 'Aktiver automatisk',
@@ -1332,6 +1404,21 @@ const no: typeof en = {
   listRecurringToggleLabel: 'Gjenta denne listen',
   listRecurringIntervalLabel: 'Gjenta hver',
   listRecurringWeeksOption: (n: number) => (n === 1 ? '1 uke' : `${n} uker`),
+  listActiveWeeksLabel: 'Aktive uker i måneden',
+  weekNumberChip: (n: number) => `Uke ${n}`,
+  monthlyListSection: 'Månedsliste',
+  catalogueSection: 'Katalog',
+  catalogueSearchPlaceholder: 'Søk i katalogen…',
+  monthlyListTotal: (kr: string) => `Totalt: ${kr}`,
+  monthlyListEmpty: 'Ingenting lagt til ennå — velg fra katalogen under.',
+  addFromMonthlyBtn: 'Legg til fra månedsliste',
+  monthlyPreviewSearchPlaceholder: 'Søk i månedslisten…',
+  monthlyPreviewEmpty: 'Månedslisten din er tom.',
+  moveToWeekBtn: 'Legg til',
+  weekListTotal: (kr: string) => `Totalt: ${kr}`,
+  inlineSearchPlaceholder: 'Søk i katalogen for å legge til…',
+  createGroupingTitle: 'Lag gruppe',
+  createGroupingBtn: 'Ny gruppering',
   savedListsTitle: 'Lagrede lister',
   saveListAsTemplateBtn: 'Lagre som mal',
   savedListsEmpty: 'Ingen lagrede lister ennå.',
@@ -1341,8 +1428,19 @@ const no: typeof en = {
   moveItemDown: 'Flytt vare ned',
   decreaseQty: 'Reduser antall',
   increaseQty: 'Øk antall',
+  removeItemLabel: 'Fjern vare',
+  putBackItemLabel: 'Legg tilbake på lager',
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
   boughtThisWeekSection: (n: number) => `Kjøpt denne uken (${n})`,
+  inListSection: (n: number) => `I listen (${n})`,
+  inCartSection: (n: number) => `I kurven (${n})`,
+  purchasedSection: (n: number) => `Kjøpt (${n})`,
+  fromMonthlySection: 'Fra månedsliste',
+  saveMonthlyAddsLabel: 'Behold tillegg',
+  removeMonthlyAddsLabel: 'Angre tillegg',
+  planningModeBtn: 'Planlegging',
+  shoppingModeBtn: 'Handle',
+  addItemInputPlaceholder: 'Legg til vare…',
   savedListsButtonLabel: 'Lagrede lister',
   deleteListButtonLabel: 'Slett liste',
   listSettingsButtonLabel: 'Listeinnstillinger',
@@ -1412,11 +1510,6 @@ const no: typeof en = {
       free: 'UnFocus er gratis og vil alltid være det.',
       cta: 'Skjønner →',
     },
-    step6: {
-      title: 'Møt følgesvennen din',
-      subtitle: 'En liten vennen som heier på deg. Gi den et navn og gjør den til din egen.',
-      namePlaceholder: 'Gi kjæledyret et navn',
-    },
   },
   settings: {
     accessibility: {
@@ -1437,21 +1530,6 @@ const no: typeof en = {
       local: 'Alt lagres kun på denne enheten — ingenting sendes noe sted.',
       free: 'UnFocus er gratis og vil alltid være det.',
     },
-    pet: {
-      toggle: 'Følgeven',
-      toggleSubtitle: 'En liten venn som heier på deg',
-      name: 'Navn på kjæledyr',
-      namePlaceholder: 'Gi kjæledyret et navn',
-      type: 'Type kjæledyr',
-      colour: 'Farge',
-      typeLabels: {
-        cat: 'Katt',
-        dog: 'Hund',
-        bird: 'Fugl',
-        fox: 'Rev',
-        bunny: 'Kanin',
-      },
-    },
     // AP-05 — varslingsfri (stille) periode
     quietHours: {
       label: 'Stille periode',
@@ -1469,7 +1547,7 @@ const no: typeof en = {
     skipForNow: 'Jeg ordner dette senere',
     essentials: {
       label: 'Fokus-modus',
-      hint: 'Vis bare viktige planer. Skru av når som helst for å se alt.',
+      hint: 'Start hjem-skjermen med kun viktige planer. Øyet i topplinjen slår det av og på når du vil.',
       onboardingTitle: 'Vil du starte enkelt?',
       onboardingSub: 'Se bare det viktigste til å begynne med. Du kan bytte til full visning når du vil.',
       optionOn: 'Start enkelt',
@@ -1482,12 +1560,24 @@ const no: typeof en = {
       notifications: 'Varsler',
       workMode: 'Jobb-modus',
       data: 'Data',
+      additionalModes: 'Tilleggsmoduser',
     },
     tabs: {
       general: 'Generelt',
       lists: 'Lister',
       notifications: 'Varsler',
       appearance: 'Utseende',
+      additionalModes: 'Modi',
+    },
+    schoolMode: {
+      label: 'Skolemodus',
+      hint: 'Fokuser på skolearbeid — flere funksjoner kan aktiveres her senere.',
+    },
+    autoBackup: {
+      label: 'Automatisk sikkerhetskopiering',
+      hint: 'Lagrer automatisk en lokal sikkerhetskopi ved endringer. Ingenting lastes opp.',
+      pathLabel: 'Lagres til:',
+      shareNote: 'Deling av en kopi inkluderer ikke ditt navn.',
     },
     desc: {
       language: 'Velg språk for alt i appen.',
@@ -1521,6 +1611,10 @@ const no: typeof en = {
     importConfirmBtn: 'Gjenopprett',
     restoreError: 'Klarte ikke å gjenopprette sikkerhetskopien — dataene dine er uendret.',
     restoreDone: 'Gjenoppretting fullført. Appen starter på nytt nå.',
+    saveToDevice: 'Lagre på enheten',
+    shareCopy: 'Del en kopi',
+    savedToDevice: (location: string) => `Sikkerhetskopi lagret til ${location}.`,
+    saveUnavailable: 'Lagring til enheten er ikke tilgjengelig på denne enheten.',
   },
   // Lokal konto (Decision 039) — kun på enheten, brukereid profil. Ingen server,
   // ingen pålogging, ingen sky; kontoen sikkerhetskopieres via backup-filen over.
@@ -1532,7 +1626,6 @@ const no: typeof en = {
     namePlaceholder: 'Gi den lokale kontoen et navn',
     createButton: 'Opprett lokal konto',
     createdOn: (date: string) => `Lokal konto · opprettet ${date}`,
-    backupButton: 'Sikkerhetskopier lokal konto',
     restoreButton: 'Gjenopprett lokal konto',
     deviceOnlyNote: 'Kun på enheten. Ingen innlogging, ingen passord, ingen server — aldri.',
   },
@@ -1649,6 +1742,30 @@ const no: typeof en = {
   deselectAll: 'Fjern alle',
   sharedTasksTab: 'Planer',
   sharedShoppingTab: 'Handlelist',
+  peers: {
+    title: 'Sammenkoblede enheter',
+    settingsCardDesc: 'Hold planer og handleliste automatisk synkronisert med en sammenkoblet telefon på samme Wi-Fi.',
+    syncToggleLabel: 'Synkroniser over Wi-Fi',
+    syncUnavailable: 'Sanntidssynk krever en versjon med nettverksmodulene installert — ikke tilgjengelig i denne appversjonen ennå.',
+    manageLink: 'Sammenkoblede enheter →',
+    noPeers: 'Ingen sammenkoblede enheter ennå.',
+    pairedAt: (date: string) => `Sammenkoblet ${date}`,
+    addDevice: 'Koble sammen en enhet',
+    removeDevice: 'Fjern',
+    removeConfirmTitle: 'Fjerne denne enheten?',
+    removeConfirmBody: 'Den slutter å synkronisere med denne telefonen. Du kan koble den sammen igjen senere.',
+    chooseRoleTitle: 'Sammenkobling av enhet',
+    chooseRoleExplain: 'Begge telefonene må være i samme rom. Trykk «Vis min kode» på DEN ENE telefonen — trykk «Skann en kode» på DEN ANDRE.',
+    showMyCode: 'Vis min kode',
+    scanACode: 'Skann en kode',
+    showCodeInstructions: 'La den andre telefonen skanne denne koden.',
+    showCodeNext: 'Neste: skann deres kode',
+    showCodeDone: 'Ferdig',
+    scanInstructions: 'Pek kameraet mot den andre telefonens kode.',
+    pairInvalid: 'Dette ser ikke ut som en UnFocus-sammenkoblingskode.',
+    pairedSuccessTitle: 'Sammenkoblet!',
+    pairedSuccessBody: (name: string) => `Du er nå sammenkoblet med ${name}.`,
+  },
   notif: {
     // W-F: vennligere, ikke-stressende ukentlig påminnelse ("har du lyst?"-tone)
     weeklyTitle: 'Lyst til å planlegge uken?',
@@ -1684,6 +1801,10 @@ const no: typeof en = {
     todaysPlans: 'Dagens planer',
     seeAllPlans: 'Se alle planer',
     more: 'Mer',
+    notesExpand: 'Vis alle notater',
+    notesCollapse: 'Vis mindre',
+    shoppingExpand: 'Vis full liste',
+    shoppingCollapse: 'Vis mindre',
   },
   health: {
     habits: 'Vaner',
@@ -1697,8 +1818,6 @@ const no: typeof en = {
   },
   moreItems: (n: number) => `+ ${n} til`,
   errorTitle: 'Noe gikk galt',
-  themeNames: { default: 'Standard', tech: 'Tech', gothic: 'Gotisk', nature: 'Natur', fluffy: 'Fluffy Rosa', custom: 'Egendefinert' },
-  materialNames: { glass: 'Glass', metal: 'Metall', rock: 'Stein', paper: 'Papir', plain: 'Enkel' },
   customThemePrimary: 'Primærfarge',
   customThemeSecondary: 'Sekundærfarge',
   customThemeHue: 'Aksentfarge (nyanse)',
@@ -1735,6 +1854,9 @@ const no: typeof en = {
   pickDishSearchPlaceholder: 'Søk retter…',
   noDishesAvailable: 'Ingen lagrede retter ennå — legg til en på Måltider-siden først.',
   ingredientPricePlaceholder: 'Pris (NOK)',
+  ingredientSearchPlaceholder: 'Søk i katalogen etter ingredienser…',
+  addCustomIngredientOption: (query: string) => `Legg til "${query}" som ny ingrediens`,
+  noCatalogMatches: 'Ingen treff i katalogen',
   addDishBtn: 'Legg til rett',
   deleteDish: 'Slett rett',
   noDishesTitle: 'Ingen retter',
@@ -1779,16 +1901,6 @@ const no: typeof en = {
     habitsToday: 'Vaner',
     habitsSummary: (done: number, total: number) => `${done}/${total} ferdig`,
     moreTasksHint: (n: number) => `+${n} til`,
-  },
-  // AP-04 — forslag til "neste oppgave" (components/NextTaskCard.tsx)
-  nextTask: {
-    title: 'Neste på tur',
-    markDone: 'Merk som gjort',
-    empty: 'Ingenting presserende akkurat nå — du er à jour.',
-    now: 'Nå',
-    inMinutes: (m: number) => `om ${m} min`,
-    inHours: (h: number) => `om ${h}t`,
-    inHoursMinutes: (h: number, m: number) => `om ${h}t ${m}min`,
   },
   // AP-02 — hurtigfangst-innboks (app/capture.tsx, components/InboxSection.tsx)
   inbox: {
@@ -1848,15 +1960,15 @@ const no: typeof en = {
   },
   hints: {
     home: {
-      text: 'Din daglige oversikt — trykk ⭐ for kun det viktigste.',
+      text: '1) Se dagens notater, planer og handleliste på ett blikk.\n2) Trykk en vare for å hake den av.\n3) Trykk «Se alt →» for å åpne hele skjermen.\n4) Trykk på øyet (topplinjen) for å vise kun de viktigste planene.',
       example: '',
     },
     taskForm: {
-      text: 'Bare tittel og dato — resten er valgfritt.',
+      text: '1) Skriv en tittel.\n2) Velg en dato — i dag er fylt inn for deg.\n3) Valgfritt: sett et tidspunkt, merk som viktig, legg til steg, eller gjenta ukentlig.\n4) Trykk Lagre.',
       example: '',
     },
     habitForm: {
-      text: 'Bare et navn — påminnelser og signal→trang→respons→belønning er valgfritt.',
+      text: '1) Velg Bygg (start å gjøre) eller Bryt (gjør mindre).\n2) Gi den et navn.\n3) Valgfritt: sett et daglig mål, en påminnelse, eller signal→trang→respons→belønning.\n4) Trykk Lagre.',
       example: '',
     },
     shopping: {
@@ -1864,11 +1976,11 @@ const no: typeof en = {
       example: '',
     },
     meals: {
-      text: 'Trykk en rett for å legge ingrediensene til handlelisten.',
+      text: '1) Trykk en måltidskategori for å se rettene.\n2) Trykk en rett for å legge ingrediensene til handlelisten.\n3) Trykk + for å lage en ny rett og liste ingrediensene.',
       example: '',
     },
     health: {
-      text: 'Logg symptomer for å se mønstre over tid.',
+      text: '1) Trykk + for å logge et symptom.\n2) Sett dato, alvorlighetsgrad (1–5) og en valgfri notat.\n3) Lagre — det vises i 30-dagersoversikten og loggen under.',
       example: '',
     },
     scan: {
@@ -1884,11 +1996,11 @@ const no: typeof en = {
       example: '',
     },
     habits: {
-      text: 'Trykk + hver gang du bygger eller motstår en vane. Trykk på et kort for å utvide, hold inne for å redigere.',
+      text: '1) Trykk + på en vane hver gang du bygger den eller motstår den.\n2) Trykk et kort for å utvide steg og ukevisning.\n3) Hold inne et kort for å redigere det.\n4) Trykk + Ny for å legge til en vane.',
       example: '',
     },
     plans: {
-      text: 'Dagens fulle agenda, planer uten tidspunkt først.',
+      text: '1) Se dagens fulle agenda — planer uten tidspunkt først, så de med tidspunkt.\n2) Trykk prikken for å hake av en plan.\n3) Trykk en plan for å åpne og redigere den.\n4) Trykk + for å legge til en ny.',
       example: '',
     },
     automations: {
@@ -1896,7 +2008,7 @@ const no: typeof en = {
       example: '',
     },
     notes: {
-      text: 'Skriv et raskt notat, og send det til handleliste eller planer når du er klar.',
+      text: '1) Trykk + for å skrive et raskt notat.\n2) Bruk handleliste- eller planer-knappen for å sende det videre.\n3) Hak av når du er ferdig — det flyttes ned.',
       example: '',
     },
   },

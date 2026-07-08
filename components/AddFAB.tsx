@@ -36,19 +36,23 @@ type Props = {
   size?: 'lg' | 'sm';
   /** Floating-position override (only applies to size 'lg'); default Spacing.xl + BOTTOM_NAV_HEIGHT. */
   bottom?: number;
-  /** Accessibility label (defaults to the localized "Add"). Pass a specific one where the entity is known. */
-  accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Screen-reader label for this icon-only button. Pass the specific action
+   * ("Add task", "Add note", …); falls back to a generic "Add" so the button
+   * is never announced as just its "+" glyph.
+   */
+  accessibilityLabel?: string;
 };
 
 const DIMENSION = { lg: 56, sm: 32 };
 const PLUS_SIZE = { lg: 28, sm: 18 };
-const DEFAULT_BOTTOM = Spacing.xl + BOTTOM_NAV_HEIGHT;
+const DEFAULT_BOTTOM = Spacing.xs + BOTTOM_NAV_HEIGHT;
 
 export const FAB_LG_SIZE = DIMENSION.lg;
 export const FAB_DEFAULT_BOTTOM = DEFAULT_BOTTOM;
 
-export default function AddFAB({ onPress, size = 'lg', bottom, accessibilityLabel, style }: Props) {
+export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibilityLabel }: Props) {
   const theme = useAppTheme();
   const t = useT();
   const dimension = DIMENSION[size];
@@ -81,7 +85,7 @@ const styles = StyleSheet.create({
   },
   floating: {
     position: 'absolute',
-    right: Spacing.xl,
+    right: Spacing.md,
   },
   plus: {
     fontFamily: Fonts.bold,

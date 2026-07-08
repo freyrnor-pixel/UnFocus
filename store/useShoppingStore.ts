@@ -34,15 +34,28 @@
  *     wiring is the future shopping-row drag session's Phase-6 concern, not here.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/liveSync, lib/syncService, store/useSettingsStore
  *   Used by → app/inventory-edit.tsx, app/shopping.tsx, components/ShoppingQuickAddSheet.tsx,
  *             components/AddItemSheet.tsx (type), components/AddDishSheet.tsx (add), components/UpdateSheet.tsx (type),
  *             components/MonthlyTableRow.tsx (type), components/ShoppingRow.tsx (type), components/WeekListCard.tsx (type),
  *             components/SharedRequestsSection.tsx (add), components/MonthlyResetSummaryModal.tsx (MonthlyResetSummary),
- *             components/Pet.tsx (type), lib/shoppingGroups.ts (type); app/shopping.tsx hydrates via load() in its on-focus effect (Phase 5 — no global bootstrap yet)
+ *             lib/shoppingGroups.ts (type); app/shopping.tsx hydrates via load() in its on-focus effect (Phase 5 — no global bootstrap yet)
  *   Data    → defines a Zustand store; owns SQLite tables shopping_items + shopping_trips
  *
  * Edit notes:
+ *   - **LAN live-sync wiring (Decision 038, app integration) — WIRED, narrow scope.**
+ *     `add`/`update` (the sole write path for toggleCheck/toggleCollected/adjustAmount/
+ *     putBackToInventory/addToWeeklyFromCatalog/setPendingRestock — everything routes
+ *     through `update()`) stamp + broadcast via lib/liveSync/lib/syncService.
+ *     `remove`/`removeWithSource` soft-delete (tombstone) instead of a hard DELETE.
+ *     `load()` filters `deleted_at IS NULL`. Only the columns in lib/liveSync's
+ *     shopping_items whitelist (name/amount/unit/list_type/checked/store/price/
+ *     created_at/list_id) actually cross the wire — `status` and the rest of the
+ *     catalog/purchase-trip state machine are NOT synced fields, so confirmStagingTray/
+ *     doneShopping/monthlyReset's raw-SQL bulk transitions are deliberately left
+ *     untouched (they bypass update() and don't write whitelisted columns anyway).
+ *     mergeDuplicateItems' one-time self-heal DELETE is also left as a hard delete —
+ *     it repairs pre-existing accidental dupes, not a user delete action.
  *   - add() consolidates duplicates: same status+listId+name+dishName bumps the
  *     existing row's targetQuantity (catalog) or amount (weekly) instead of
  *     inserting — never assume add() creates a fresh row.
@@ -76,6 +89,9 @@ import {
   readBool,
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
+import { touchRow, softDelete } from '@/lib/liveSync';
+import { broadcastRow } from '@/lib/syncService';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 export type ShoppingStatus = 'catalog' | 'staged' /* vestigial: never written by new code; kept for old row compatibility */ | 'inWeeklyList' | 'purchased';
 
@@ -104,7 +120,7 @@ export type ShoppingItem = {
   purchasedAt?: string;
   /** Which shopping_trips row this purchase belongs to (status === 'purchased' rows only). */
   shoppingTripId?: string;
-  /** Catalog category slug, used by Pet.tsx's food-chip emoji mapping. */
+  /** Catalog category slug, used for catalog grouping/autocomplete. */
   category?: string;
   // --- Legacy columns kept for backward read/write compatibility (additive; new code paths don't rely on them). ---
   /** Vestigial weekly/monthly split — the status pipeline supersedes it, but the column still exists. */
@@ -284,12 +300,18 @@ function mergeDuplicateItems(items: ShoppingItem[]): ShoppingItem[] {
   return result;
 }
 
+/** Stamp + broadcast a local mutation (Decision 038b/038 wiring) — call after every write. */
+function syncItemRow(id: string): void {
+  touchRow('shopping_items', id, useSettingsStore.getState().deviceId);
+  broadcastRow('shopping_items', id);
+}
+
 export const useShoppingStore = create<ShoppingStore>((set, get) => ({
   items: [],
   trips: [],
 
   load() {
-    const items = loadAll('shopping_items', rowToItem, { orderBy: 'status, name' });
+    const items = loadAll('shopping_items', rowToItem, { orderBy: 'status, name', where: 'deleted_at IS NULL' });
     set({
       items: mergeDuplicateItems(items),
       trips: loadAll('shopping_trips', rowToTrip, { orderBy: 'completed_at DESC' }),
@@ -353,6 +375,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     };
     insertRow('shopping_items', rowValues(newItem, ITEM_COLUMNS));
     set((s) => ({ items: [...s.items, newItem] }));
+    syncItemRow(id);
     return id;
   },
 
@@ -362,6 +385,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     const next = { ...item, ...patch };
     updateRow('shopping_items', rowValues(patch, ITEM_COLUMNS), 'id = ?', [id]);
     set((s) => ({ items: s.items.map((i) => (i.id === id ? next : i)) }));
+    syncItemRow(id);
   },
 
   toggleCheck(id) {
@@ -399,7 +423,12 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
   },
 
   remove(id) {
-    db.runSync('DELETE FROM shopping_items WHERE id = ?', [id]);
+    // Soft-delete (Decision 038b tombstone), not a hard DELETE: a synced row must
+    // stay long enough to tell a peer it's gone, or a stale peer copy would undo
+    // the delete on next sync. pruneOldData() doesn't currently prune shopping_items
+    // by date (config-like lifecycle), so tombstones persist until re-added/reset.
+    softDelete('shopping_items', id, useSettingsStore.getState().deviceId);
+    broadcastRow('shopping_items', id);
     set((s) => ({ items: s.items.filter((i) => i.id !== id) }));
   },
 
@@ -424,7 +453,9 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
       }));
     }
 
-    db.runSync('DELETE FROM shopping_items WHERE id = ?', [id]);
+    // Soft-delete (Decision 038b tombstone) — see remove()'s comment.
+    softDelete('shopping_items', id, useSettingsStore.getState().deviceId);
+    broadcastRow('shopping_items', id);
     set((s) => ({ items: s.items.filter((i) => i.id !== id) }));
   },
 

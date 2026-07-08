@@ -130,7 +130,7 @@ export default function NotesScreen() {
         </View>
       </ScreenScaffold>
 
-      <AddFAB onPress={() => addNote()} />
+      <AddFAB onPress={() => addNote()} accessibilityLabel={t.notes.addNote} />
       <ShoppingQuickAddSheet visible={shoppingSheetVisible} onClose={() => setShoppingSheetVisible(false)} />
     </>
   );

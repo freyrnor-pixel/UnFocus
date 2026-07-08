@@ -7,7 +7,8 @@
  *
  * Connections:
  *   Imports → assets/android-icon-monochrome.png
- *   Used by → app/index.tsx (home watermark), components/SectionDivider.tsx
+ *   Used by → app/onboarding/_layout.tsx (faint centered intro backdrop),
+ *             components/SectionDivider.tsx (tiny inline divider mark)
  *
  * Edit notes:
  *   - Always pointerEvents="none" — purely decorative, must never block taps.
@@ -27,7 +28,7 @@ export default function TreeWatermark({ size, opacity, absolute = true, style }:
   return (
     <View pointerEvents="none" style={absolute && styles.absolute}>
       <Image
-        source={require('@/assets/android-icon-monochrome.png')}
+        source={require('../assets/android-icon-monochrome.png')}
         style={[{ width: size, height: size, opacity }, style]}
         resizeMode="contain"
       />
