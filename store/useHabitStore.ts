@@ -1,9 +1,12 @@
 /**
  * useHabitStore.ts — habits and their daily completion logs
  *
- * Zustand store for build/break habits (with optional per-habit daily reminders)
- * and the per-day count logs that drive streaks. Schedules each habit's
- * notification when added/updated and exposes syncAllHabitReminders for re-scheduling.
+ * Zustand store for habits (with optional per-habit daily reminders) and the per-day
+ * count logs that drive streaks. Schedules each habit's notification when added/updated
+ * and exposes syncAllHabitReminders for re-scheduling. NOTE: the build/break `kind`
+ * distinction and the cue/craving/response/reward fields are no longer used by the UI
+ * (habits are now simple/task-shaped) — the columns and type members are retained for
+ * back-compat, but new habits are written with kind='neutral' and empty step fields.
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/habitNotifications, store/useSettingsStore

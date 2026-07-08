@@ -512,6 +512,17 @@ export function initDb() {
     "ALTER TABLE tasks ADD COLUMN finish_time TEXT DEFAULT NULL",
     "ALTER TABLE tasks ADD COLUMN has_start_date INTEGER DEFAULT 0",
     "ALTER TABLE tasks ADD COLUMN shared_out INTEGER DEFAULT 0",
+    // Health redesign — a symptom catalog (predefined + custom, mirrors store_items)
+    // so every health log links to a stable symptom id for reliable trend review,
+    // instead of drifting free-text ailment strings ('headache' vs 'Headache').
+    `CREATE TABLE IF NOT EXISTS symptoms (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT DEFAULT 'other',
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
+    // Link each health log to its catalog symptom (NULL = legacy/free-text-only row).
+    "ALTER TABLE health_logs ADD COLUMN symptom_id TEXT DEFAULT NULL",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
