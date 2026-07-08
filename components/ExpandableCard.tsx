@@ -2,11 +2,12 @@
  * ExpandableCard.tsx — collapsible card with animated header chevron.
  *
  * Generic accordion container: shows a title/subtitle/badge row that toggles a
- * body section with a LayoutAnimation expand and a rotating arrow. Content,
- * labels, and optional right action are all passed in as children/props.
+ * body section with a smooth measured-height reveal (Reanimated) and a rotating
+ * arrow. Content, labels, and optional right action are all passed in as
+ * children/props.
  *
  * Connections:
- *   Imports → components/Surface, constants/theme, lib/useAppTheme
+ *   Imports → react-native-reanimated, components/Surface, constants/theme, lib/useAppTheme
  *   Used by → components/WeekListCard.tsx (dish groups + collapsed "bought this week"
  *             history, uncontrolled), app/shopping.tsx (Monthly catalog dish groups);
  *             later Phase 3/6 sessions may also wire this into InboxSection/meals/health
@@ -18,7 +19,17 @@
  *   Data    → driven by props; reads reducedMotion + scaled fontSize via useAccessibility()/useScaledStyles()
  *
  * Edit notes:
- *   - LayoutAnimation is enabled on Android via UIManager at module load — keep that guard if refactoring imports.
+ *   - Animation is react-native-reanimated (imperative shared values), matching the
+ *     codebase default (ANIMATION_GUIDELINES.md §2). The body reveal animates a measured
+ *     content height (the RN-correct equivalent of a web `layout` animation): an always-
+ *     laid-out inner view reports its natural height via onLayout into `contentH`, and the
+ *     outer clip view interpolates 0→contentH as `progress` runs. Content also fades and
+ *     slides up ~8px on reveal. Timing follows §1: ~220ms ease-out open, ~200ms ease-in close.
+ *   - The body stays mounted through the close animation, then unmounts (`rendered` flips
+ *     false in the withTiming completion callback) — so a collapsed card renders no body,
+ *     preserving the old lazy-mount behaviour for long lists (e.g. WeekListCard history).
+ *   - reducedMotion is honoured by running the same timings with duration 0 (instant snap);
+ *     the code path stays single so there's no divergent static branch to keep in sync.
  *   - `leadingAction` renders before the title/subtitle stack inside headerLeft (same
  *     stopPropagation-wrapped Pressable pattern as `rightAction`) — e.g. a severity badge
  *     needs to sit leading rather than trailing, where a checkbox lives on the right.
@@ -34,24 +45,23 @@
  *     a checkbox/save-pill passed as rightAction don't also toggle the header.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  LayoutAnimation,
-  Platform,
-  UIManager,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View, LayoutChangeEvent } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolate,
+  runOnJS,
+  Easing,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import { Radius, Spacing, FontSize } from '@/constants/theme';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
 
-if (Platform.OS === 'android') {
-  UIManager.setLayoutAnimationEnabledExperimental?.(true);
-}
+// §1 card expand/collapse timings — exit is faster than enter (ANIMATION_GUIDELINES.md §1).
+const OPEN_MS = 220;
+const CLOSE_MS = 200;
 
 type Props = {
   title: string;
@@ -81,49 +91,68 @@ export default function ExpandableCard({
   const isControlled = controlledOpen !== undefined;
   const [openState, setOpenState] = useState(defaultOpen);
   const open = isControlled ? controlledOpen : openState;
-  const rotate = useRef(new Animated.Value(open ? 1 : 0)).current;
-  const mountedRef = useRef(false);
+
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
 
-  function animateTo(next: boolean) {
-    if (reducedMotion) {
-      rotate.setValue(next ? 1 : 0);
-    } else {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      Animated.timing(rotate, {
-        toValue: next ? 1 : 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
-  }
+  // 0 = collapsed, 1 = expanded. Drives chevron rotation, body height, opacity, slide.
+  const progress = useSharedValue(open ? 1 : 0);
+  // Natural height of the body content, reported by the inner view's onLayout.
+  const contentH = useSharedValue(0);
+  // Keep the body mounted while collapsing so the height can animate back to 0,
+  // then unmount it (a collapsed card renders no body — preserves lazy mount).
+  const [rendered, setRendered] = useState(open);
+  const mountedRef = useRef(false);
 
-  // In controlled mode, the parent owns `open` — react to it changing externally
-  // instead of animating on mount.
   useEffect(() => {
-    if (!isControlled) return;
+    // Skip the first run: `progress`/`rendered` already reflect the initial `open`,
+    // so mounting (incl. controlled mode) should not animate.
     if (!mountedRef.current) {
       mountedRef.current = true;
       return;
     }
-    animateTo(open);
-  }, [open, isControlled]);
+    if (open) {
+      setRendered(true);
+      progress.value = withTiming(1, {
+        duration: reducedMotion ? 0 : OPEN_MS,
+        easing: Easing.out(Easing.cubic),
+      });
+    } else {
+      progress.value = withTiming(
+        0,
+        { duration: reducedMotion ? 0 : CLOSE_MS, easing: Easing.in(Easing.cubic) },
+        (finished) => {
+          if (finished) runOnJS(setRendered)(false);
+        },
+      );
+    }
+  }, [open, reducedMotion]);
 
   function toggle() {
     if (isControlled) {
       onToggle?.();
       return;
     }
-    animateTo(!openState);
     setOpenState((v) => !v);
   }
 
-  const arrow = rotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '180deg'],
-  });
+  function onBodyLayout(e: LayoutChangeEvent) {
+    contentH.value = e.nativeEvent.layout.height;
+  }
+
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${interpolate(progress.value, [0, 1], [0, 180])}deg` }],
+  }));
+
+  const bodyStyle = useAnimatedStyle(() => ({
+    height: interpolate(progress.value, [0, 1], [0, contentH.value]),
+    opacity: progress.value,
+  }));
+
+  const bodyInnerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(progress.value, [0, 1], [-8, 0]) }],
+  }));
 
   return (
     <Surface surfaceContext="ambient" style={[styles.card, styles.cardRow]}>
@@ -146,12 +175,18 @@ export default function ExpandableCard({
               </View>
             ) : null}
             {rightAction ? <Pressable onPress={(e) => e.stopPropagation()}>{rightAction}</Pressable> : null}
-            <Animated.View style={{ transform: [{ rotate: arrow }] }}>
+            <Animated.View style={chevronStyle}>
               <Ionicons name="chevron-down" size={16} color={theme.textMuted} />
             </Animated.View>
           </View>
         </Pressable>
-        {open ? <View style={[styles.body, { borderTopColor: theme.border }]}>{children}</View> : null}
+        {rendered ? (
+          <Animated.View style={[styles.bodyClip, bodyStyle]}>
+            <Animated.View style={bodyInnerStyle} onLayout={onBodyLayout}>
+              <View style={[styles.body, { borderTopColor: theme.border }]}>{children}</View>
+            </Animated.View>
+          </Animated.View>
+        ) : null}
       </View>
     </Surface>
   );
@@ -200,6 +235,11 @@ const baseStyles = StyleSheet.create({
   badgeText: {
     fontSize: FontSize.xs,
     fontWeight: '600',
+  },
+  // Outer clip: its animated `height` reveals/hides the body; overflow hidden so the
+  // always-laid-out inner content is masked while collapsed/animating.
+  bodyClip: {
+    overflow: 'hidden',
   },
   body: {
     paddingHorizontal: Spacing.md,
