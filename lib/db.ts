@@ -48,12 +48,12 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS settings (
       id INTEGER PRIMARY KEY,
       user_name TEXT DEFAULT '',
-      weekly_reset_day INTEGER DEFAULT 1,
+      weekly_reset_day INTEGER DEFAULT 0,
       monthly_reset_date INTEGER DEFAULT 1,
       shopping_list_mode TEXT DEFAULT 'weekly',
-      reminders_enabled INTEGER DEFAULT 1,
+      reminders_enabled INTEGER DEFAULT 0,
       reminder_time TEXT DEFAULT '08:00',
-      task_notifications_enabled INTEGER DEFAULT 1,
+      task_notifications_enabled INTEGER DEFAULT 0,
       setup_complete INTEGER DEFAULT 0,
       holidays_enabled INTEGER DEFAULT 1
     );

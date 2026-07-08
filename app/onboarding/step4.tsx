@@ -1,21 +1,24 @@
 /**
  * step4.tsx — Notification confirmation (guided step 4 of 5)
  *
- * Task notifications and the weekly shopping reminder default ON, but each has
- * a toggle here so the user can opt out during onboarding instead of only later
- * in Settings. The actual OS permission request fires in step5 on finish.
+ * Task notifications and the weekly shopping reminder default OFF — explicit
+ * opt-in toggles here, each requesting the OS notification permission the
+ * moment it's switched on (instead of a silent auto-enable resolved later).
  *
  * Connections:
- *   Imports → @/store/useSettingsStore, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
- *             @/components/Button
+ *   Imports → @/store/useSettingsStore, @/lib/notifications, @/lib/i18n,
+ *             @/constants/theme, @/lib/useAppTheme, @/components/Button
  *   Used by → Expo Router route "/onboarding/step4"
  *   Data    → useSettingsStore (reminderTime seed + user-toggleable remindersEnabled /
  *             taskNotificationsEnabled)
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
- *   - No OS permission prompt or scheduling here — step5.finish() does that.
- *   - next() → router.push "/onboarding/step5"; Previous uses router.back().
+ *   - Turning either switch on calls requestPermissions() right there; step5.finish()
+ *     still calls it too (guarded on either flag) as a safety net for a user who
+ *     enabled one, disabled it, then re-enabled without the prompt re-firing.
+ *   - next() → router.push "/onboarding/step5"; Previous uses router.back();
+ *     "Skip for now" (matching step2/step3) also advances to step5 unchanged.
  *   - Decision 006 tokens throughout — task check icon uses `good`, shopping icon
  *     uses feature accent `featShop`.
  */
@@ -25,6 +28,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { requestPermissions } from '@/lib/notifications';
 import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -37,14 +41,22 @@ export default function OnboardingStep4() {
   const t = useT();
   const styles = useScaledStyles(baseStyles);
 
-  // Notifications default ON (shopping reminder fires Saturday 14:00), but the
-  // two toggles below let the user opt out here rather than only later in
-  // Settings. Only seed the reminder time; the enabled flags keep their store
-  // defaults (both true) so a returning user's earlier choice isn't overwritten.
+  // Notifications default OFF; only seed the reminder time so it's sane
+  // whenever the user opts in (here or later in Settings).
   useEffect(() => {
     settings.update({ reminderTime: '14:00' });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function toggleTaskNotifications(v: boolean) {
+    settings.update({ taskNotificationsEnabled: v });
+    if (v) requestPermissions();
+  }
+
+  function toggleReminders(v: boolean) {
+    settings.update({ remindersEnabled: v });
+    if (v) requestPermissions();
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -63,7 +75,7 @@ export default function OnboardingStep4() {
             <Text style={[styles.infoText, { color: theme.text }]}>{t.taskNotifications} — {t.taskNotificationsHintOnboarding}</Text>
             <Switch
               value={settings.taskNotificationsEnabled}
-              onValueChange={(v) => settings.update({ taskNotificationsEnabled: v })}
+              onValueChange={toggleTaskNotifications}
               trackColor={{ false: theme.border, true: theme.accentSoft }}
               thumbColor={settings.taskNotificationsEnabled ? theme.accent : theme.textMuted}
             />
@@ -74,7 +86,7 @@ export default function OnboardingStep4() {
             <Text style={[styles.infoText, { color: theme.text }]}>{t.weeklyRemindersOnboarding} — {t.weeklyRemindersHint}</Text>
             <Switch
               value={settings.remindersEnabled}
-              onValueChange={(v) => settings.update({ remindersEnabled: v })}
+              onValueChange={toggleReminders}
               trackColor={{ false: theme.border, true: theme.accentSoft }}
               thumbColor={settings.remindersEnabled ? theme.accent : theme.textMuted}
             />
@@ -113,12 +125,21 @@ export default function OnboardingStep4() {
           size="md"
         />
       </View>
+      {/* W-E: gentle, always-visible skip so no step feels mandatory */}
+      <Button
+        label={t.config.skipForNow}
+        onPress={() => router.push('/onboarding/step5')}
+        variant="ghost"
+        size="sm"
+        style={styles.skipLink}
+      />
     </SafeAreaView>
   );
 }
 
 const baseStyles = StyleSheet.create({
   safe: { flex: 1 },
+  skipLink: { alignItems: 'center', paddingBottom: Spacing.lg, paddingHorizontal: Spacing.xl },
   content: { padding: Spacing.xl, gap: Spacing.xl, paddingBottom: Spacing.md },
   top: { alignItems: 'center', gap: Spacing.md },
   iconBadge: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center' },

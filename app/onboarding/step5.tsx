@@ -2,7 +2,8 @@
  * step5.tsx — Handedness (guided step 5 of 5, final step)
  *
  * Pick left/right-handed layout, then finish onboarding: marks setup
- * complete and requests OS notification permission. Colour theme (locked to
+ * complete and, if the user opted into notifications on step4, requests the
+ * OS notification permission as a safety net. Colour theme (locked to
  * 'default') and bubble material (locked to 'glass') are no longer
  * user-selectable anywhere in the app, so the swatch picker previously here
  * was removed.
@@ -21,9 +22,11 @@
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
  *   - Finish button → finish() sets setupComplete + new-user defaults
- *     (essentialsModeEnabled:false, showPoints:true), requests OS notification
- *     permission and, once it resolves, schedules reminders (syncReminders +
- *     syncAllTaskNotifications), then router.replace "/" to home.
+ *     (essentialsModeEnabled:false, showPoints:true). If either notification flag
+ *     is on (set via step4's opt-in toggles, which already requested the OS
+ *     permission there) it re-requests as a safety net; either way it schedules
+ *     reminders (syncReminders + syncAllTaskNotifications), then router.replace
+ *     "/" to home.
  *   - Previous uses router.back().
  */
 import React from 'react';
@@ -53,12 +56,18 @@ export default function OnboardingStep5() {
       essentialsModeEnabled: false,
       showPoints: true,
     });
-    // Request OS permission, then schedule the weekly/monthly reminders and every
-    // task's per-task notification once permission resolves (mirrors the old app).
-    requestPermissions().finally(() => {
+    // step4 already requests the OS permission the moment a toggle is switched
+    // on; this is a safety net for a flag that ended up enabled without that
+    // prompt firing. Skip the prompt entirely if the user opted out of both.
+    if (settings.taskNotificationsEnabled || settings.remindersEnabled) {
+      requestPermissions().finally(() => {
+        syncReminders();
+        useTaskStore.getState().syncAllTaskNotifications();
+      });
+    } else {
       syncReminders();
       useTaskStore.getState().syncAllTaskNotifications();
-    });
+    }
     router.replace('/');
   }
 
