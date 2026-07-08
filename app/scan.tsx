@@ -59,7 +59,7 @@ import { useCatalogStore } from '@/store/useCatalogStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useT } from '@/lib/i18n';
-import { todayStr } from '@/lib/date';
+import { todayStr, formatCurrency } from '@/lib/date';
 import { initDb } from '@/lib/db';
 import HintCard from '@/components/HintCard';
 import Surface from '@/components/Surface';
@@ -580,7 +580,7 @@ export default function ScanScreen() {
                       1 stk
                     </Text>
                     <Text style={[styles.itemPrice, { color: theme.textMuted }, !item.selected && { opacity: 0.42 }]}>
-                      {item.price.toFixed(2)} kr
+                      {formatCurrency(item.price)}
                     </Text>
                   </Pressable>
                   <Pressable
@@ -593,7 +593,7 @@ export default function ScanScreen() {
               ))}
 
               <View style={[styles.totalRow, { borderTopColor: theme.border, borderTopWidth: 1 }]}>
-                <Text style={[styles.totalText, { color: theme.textMuted }]}>{t.totalAmount(totalPrice)}</Text>
+                <Text style={[styles.totalText, { color: theme.textMuted }]}>{t.totalAmount(formatCurrency(totalPrice))}</Text>
               </View>
             </Surface>
 

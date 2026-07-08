@@ -15,7 +15,7 @@
  *
  * Connections:
  *   Imports → components/PressableScale, components/Surface, constants/theme,
- *             lib/i18n, lib/useAppTheme, store/useCatalogStore, store/useMealStore,
+ *             lib/date, lib/i18n, lib/useAppTheme, store/useCatalogStore, store/useMealStore,
  *             react-native-reanimated
  *   Used by → app/shopping.tsx (Monthly tab's "add a whole dish" divider)
  *   Data    → none directly — onSave hands the parent a dishName + ingredient list; the
@@ -50,6 +50,7 @@ import Animated, {
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useScaledStyles, useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
+import { formatCurrency } from '@/lib/date';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { useMealStore } from '@/store/useMealStore';
 import Surface from '@/components/Surface';
@@ -245,7 +246,7 @@ export default function AddDishSheet({ visible, onClose, onSave }: Props) {
                 <View key={idx} style={[styles.draftRow, { borderBottomColor: theme.border }]}>
                   <Text style={[styles.draftText, { color: theme.text }]} numberOfLines={1}>
                     {ing.amount} {ing.unit} {ing.name}
-                    {parseFloat(ing.price) > 0 ? ` · ${ing.price} kr` : ''}
+                    {parseFloat(ing.price) > 0 ? ` · ${formatCurrency(parseFloat(ing.price), undefined, 0)}` : ''}
                   </Text>
                   <Pressable onPress={() => removeDraftIngredient(idx)} hitSlop={8}>
                     <Text style={[styles.removeText, { color: theme.textMuted }]}>−</Text>
@@ -302,7 +303,7 @@ export default function AddDishSheet({ visible, onClose, onSave }: Props) {
                       >
                         <Text style={[styles.suggestionName, { color: theme.text }]} numberOfLines={1}>{s.name}</Text>
                         {s.price > 0 && (
-                          <Text style={[styles.suggestionPrice, { color: theme.textMuted }]}>{s.price.toFixed(0)} kr</Text>
+                          <Text style={[styles.suggestionPrice, { color: theme.textMuted }]}>{formatCurrency(s.price, undefined, 0)}</Text>
                         )}
                       </Pressable>
                     ))}

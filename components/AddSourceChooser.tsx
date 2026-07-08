@@ -13,7 +13,7 @@
  * source (the product catalog), so its "+" opens AddItemSheet directly.
  *
  * Connections:
- *   Imports → constants/theme, lib/i18n, lib/useAppTheme, store/useShoppingStore (ShoppingItem type only)
+ *   Imports → constants/theme, lib/date, lib/i18n, lib/useAppTheme, store/useShoppingStore (ShoppingItem type only)
  *   Used by → app/shopping.tsx (weekly list's "+" source picker)
  *   Data    → none directly — catalogItems/callbacks are passed in by the parent
  *
@@ -46,6 +46,7 @@ import { ShoppingItem } from '@/store/useShoppingStore';
 import { FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
+import { formatCurrency } from '@/lib/date';
 
 type Props = {
   visible: boolean;
@@ -176,7 +177,7 @@ export default function AddSourceChooser({ visible, catalogItems, onClose, onCon
                       <View style={styles.pickerNameWrap}>
                         <Text style={[styles.pickerName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
                         {item.price > 0 && (
-                          <Text style={[styles.pickerPrice, { color: theme.textMuted }]}>{item.price.toFixed(0)} kr</Text>
+                          <Text style={[styles.pickerPrice, { color: theme.textMuted }]}>{formatCurrency(item.price, undefined, 0)}</Text>
                         )}
                       </View>
                       {isSelected ? (

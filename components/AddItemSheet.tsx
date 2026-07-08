@@ -14,7 +14,7 @@
  *
  * Connections:
  *   Imports → components/FormControls, components/PressableScale, components/Surface,
- *             constants/theme, lib/i18n, lib/useAppTheme, store/useCatalogStore,
+ *             constants/theme, lib/date, lib/i18n, lib/useAppTheme, store/useCatalogStore,
  *             react-native-reanimated
  *   Used by → app/shopping.tsx (catalog + weekly add); app/inventory-edit.tsx not yet ported
  *   Data    → none directly — creation flows out via onAdd; the parent calls
@@ -54,6 +54,7 @@ import Animated, {
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
+import { formatCurrency } from '@/lib/date';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
@@ -175,7 +176,7 @@ export default function AddItemSheet({ visible, origin, onClose, onAdd }: Props)
                       <Pressable key={s.id} style={styles.suggestionRow} onPress={() => handlePickSuggestion(s)}>
                         <Text style={[styles.suggestionName, { color: theme.text }]} numberOfLines={1}>{s.name}</Text>
                         {s.price > 0 && (
-                          <Text style={[styles.suggestionPrice, { color: theme.textMuted }]}>{s.price.toFixed(0)} kr</Text>
+                          <Text style={[styles.suggestionPrice, { color: theme.textMuted }]}>{formatCurrency(s.price, undefined, 0)}</Text>
                         )}
                       </Pressable>
                     ))}

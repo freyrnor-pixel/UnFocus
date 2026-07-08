@@ -11,7 +11,7 @@
  * the standalone inventory-edit screen) wires `onPress` and rows become tappable.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, store/useShoppingStore
+ *   Imports → constants/theme, lib/date, lib/useAppTheme, store/useShoppingStore
  *   Used by → app/shopping.tsx (Monthly catalog tab); app/inventory-edit.tsx not yet ported
  *   Data    → consumes the ShoppingItem type from useShoppingStore; mutations happen in the parent via onTogglePending/onPress; scaled fontSize via useScaledStyles()
  *
@@ -38,6 +38,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { formatCurrency } from '@/lib/date';
 
 type Props = {
   item: ShoppingItem;
@@ -77,10 +78,10 @@ export default function MonthlyTableRow({ item, onTogglePending, onPress, tempor
 
       <View style={styles.priceCol}>
         <Text style={[styles.priceText, { color: theme.textMuted }]}>
-          {item.price > 0 ? `${item.price.toFixed(0)} kr` : '—'}
+          {item.price > 0 ? formatCurrency(item.price, undefined, 0) : '—'}
         </Text>
         {total !== null && (
-          <Text style={[styles.totalText, { color: theme.text }]}>{`= ${total.toFixed(0)} kr`}</Text>
+          <Text style={[styles.totalText, { color: theme.text }]}>{`= ${formatCurrency(total, undefined, 0)}`}</Text>
         )}
       </View>
     </View>

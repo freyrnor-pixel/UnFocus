@@ -1,24 +1,29 @@
 /**
- * date.ts — local-date string helpers (YYYY-MM-DD).
+ * date.ts — local-date string helpers (YYYY-MM-DD) + locale currency formatting.
  *
  * Tiny utilities for formatting a Date as a local `YYYY-MM-DD` string, the
  * canonical date format used across the app's SQLite date columns and UI.
- * Uses local time (getFullYear/getMonth/getDate), never UTC.
+ * Uses local time (getFullYear/getMonth/getDate), never UTC. Also holds
+ * `formatCurrency`, the shared NOK/locale-aware money formatter.
  *
  * Connections:
- *   Imports → —
+ *   Imports → store/useSettingsStore (formatCurrency's language fallback only)
  *   Used by → components/QuickAddSheet.tsx, components/ShoppingQuickAddSheet.tsx,
  *             components/SharedRequestsSection.tsx, app/shopping.tsx, app/budget.tsx,
  *             app/shared.tsx, store/useShoppingListStore.ts
  *             (formatDisplayDate — Norwegian date display, code-only, no ledger number;
  *             see Decision 028's numbering note — renders stored ISO keys as DD.MM.YYYY in NO)
- *             (Phase 5 stores/screens will add more callers as they're ported)
- *   Data    → none (pure functions)
+ *             (formatCurrency — used by app/budget.tsx, app/scan.tsx, lib/i18n.ts,
+ *             components/ShoppingRow.tsx, components/MonthlyResetSummaryModal.tsx,
+ *             components/MonthlyTableRow.tsx, components/AddItemSheet.tsx,
+ *             components/AddDishSheet.tsx, components/AddSourceChooser.tsx)
+ *   Data    → formatCurrency reads `language` from the settings store when `lang` is omitted
  *
  * Edit notes:
  *   - These are LOCAL-time formatters; do not switch to toISOString() (UTC) or
  *     off-by-one-day bugs appear around midnight / timezone boundaries.
  */
+import { useSettingsStore } from '@/store/useSettingsStore';
 export function todayStr(): string {
   const d = new Date();
   return dateStr(d);
@@ -113,4 +118,20 @@ export function formatDateRange(startDate: string, endDate: string, monthsShort:
     return sameMonth ? `${sDay}.–${eDay}. ${sMonth}` : `${sDay}. ${sMonth}–${eDay}. ${eMonth}`;
   }
   return sameMonth ? `${sMonth} ${sDay} – ${eDay}` : `${sMonth} ${sDay} – ${eMonth} ${eDay}`;
+}
+
+/**
+ * Formats a money amount for display, e.g. `1 234,50 kr` (NO, comma decimal +
+ * non-breaking-space thousands grouping) or `1234.50 kr` (EN, plain `.` decimal).
+ * `decimals` defaults to 2; pass 0 for call sites that only show whole kroner.
+ * `lang` defaults to the current language from the settings store (mirrors
+ * `getTranslations()` in lib/i18n.ts) — pass it explicitly outside React if needed.
+ */
+export function formatCurrency(amount: number, lang?: 'en' | 'no', decimals: number = 2): string {
+  const resolvedLang = lang ?? useSettingsStore.getState().language;
+  const fixed = amount.toFixed(decimals);
+  if (resolvedLang !== 'no') return `${fixed} kr`;
+  const [intPart, decPart] = fixed.split('.');
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return decPart !== undefined ? `${grouped},${decPart} kr` : `${grouped} kr`;
 }
