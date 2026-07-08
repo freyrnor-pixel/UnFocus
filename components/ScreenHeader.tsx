@@ -19,7 +19,9 @@
  *   - tier='site' is for top-level screens (Shopping, Plans, Home, Health, Scan)
  *   - tier='sub' is for sub-screens (forms, editors, modals)
  *   - **Focus-mode toggle (Decisions 009 #4 / 001a / 018)**: the right-slot eye is a live
- *     toggle ONLY when the screen passes `onToggleFocus` (Home does). `focusActive` drives
+ *     toggle ONLY when the screen passes `onToggleFocus` (Home does). Its user-facing label
+ *     is "Calm view" (`t.calmView*`) — deliberately distinct from the persisted Settings
+ *     "Focus mode" (`config.essentials`) so the two names don't collide (Point 2). `focusActive` drives
  *     the filled ('eye') vs outline ('eye-outline') glyph and the accent tint. Focus mode is
  *     Home-only + ephemeral, so every other site screen omits both props and the eye stays a
  *     harmless no-op placeholder (its historical Phase-1 state) rather than showing an active
@@ -82,7 +84,7 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
       hitSlop={8}
       accessibilityRole="button"
       accessibilityState={{ selected: !!focusActive }}
-      accessibilityLabel={focusActive ? t.focusActive : t.focusInactive}
+      accessibilityLabel={focusActive ? t.calmViewActive : t.calmViewInactive}
     >
       <Ionicons
         name={focusActive ? 'eye' : 'eye-outline'}

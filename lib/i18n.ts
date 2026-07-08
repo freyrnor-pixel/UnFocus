@@ -80,8 +80,10 @@ const en = {
   emptyWeeklyList: 'Nothing here yet — add your first item.',
   emptyMonthlyList: 'Nothing here yet — add your first staple item.',
   smallThingsCount: (n: number) => `You've done ${n} thing${n !== 1 ? 's' : ''} — small things add up!`,
-  focusActive: '⭐ Focus',
-  focusInactive: '☆ Focus',
+  // Home-only ephemeral eye toggle — distinct from the persisted Settings "Focus mode"
+  // (config.essentials). Named "Calm view" to avoid the two colliding (Point 2).
+  calmViewActive: 'Calm view on',
+  calmViewInactive: 'Calm view off',
   focusBanner: '⭐ Essential plans only — tap to see all',
   workBanner: '💼 Work mode active',
   switchMode: 'Switch mode',
@@ -1031,8 +1033,8 @@ const no: typeof en = {
   emptyWeeklyList: 'Ingenting her ennå — legg til din første vare.',
   emptyMonthlyList: 'Ingenting her ennå — legg til din første faste vare.',
   smallThingsCount: (n: number) => `Du har fullført ${n} ting — småting teller!`,
-  focusActive: '⭐ Fokus',
-  focusInactive: '☆ Fokus',
+  calmViewActive: 'Ro-visning på',
+  calmViewInactive: 'Ro-visning av',
   focusBanner: '⭐ Kun viktige planer — trykk for å se alle',
   workBanner: '💼 Jobb-modus aktiv',
   switchMode: 'Bytt modus',
