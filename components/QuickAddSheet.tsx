@@ -179,7 +179,7 @@ export default function QuickAddSheet({ visible, onClose }: Props) {
             <View style={styles.timeRow}>
               <TextInput
                 style={[styles.timeInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
-                placeholder="HH:MM"
+                placeholder={t.timeInputPlaceholder}
                 placeholderTextColor={theme.textMuted}
                 value={time}
                 onChangeText={setTime}

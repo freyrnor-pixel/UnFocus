@@ -310,7 +310,7 @@ export default function HabitForm() {
                   label={t.habitNotification}
                   value={singleTime}
                   onChangeText={setSingleTime}
-                  placeholder="HH:MM"
+                  placeholder={t.timeInputPlaceholder}
                   keyboardType="numbers-and-punctuation"
                 />
               </View>
@@ -372,14 +372,14 @@ export default function HabitForm() {
                   label={t.habitReminderStartLabel}
                   value={reminderStart}
                   onChangeText={setReminderStart}
-                  placeholder="HH:MM"
+                  placeholder={t.timeInputPlaceholder}
                   keyboardType="numbers-and-punctuation"
                 />
                 <Input
                   label={t.habitReminderEndLabel}
                   value={reminderEnd}
                   onChangeText={setReminderEnd}
-                  placeholder="HH:MM"
+                  placeholder={t.timeInputPlaceholder}
                   keyboardType="numbers-and-punctuation"
                 />
                 <Text style={[styles.reminderPreview, { color: theme.textMuted }]}>
