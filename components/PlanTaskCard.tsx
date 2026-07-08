@@ -16,8 +16,10 @@
  * Connections:
  *   Imports → components/Surface, components/CompletionGlow, constants/theme, lib/haptics,
  *             lib/i18n, lib/useAppTheme, store/useTaskStore (Task type only)
- *   Used by → app/plans.tsx (interactive); app/index.tsx (Home — read-only preview off-focus per
- *             Decision 009a, and non-readOnly essential-filtered surface in Focus mode per 009 #4)
+ *   Used by → app/(tabs)/index.tsx (Home — read-only preview off-focus per Decision 009a, and
+ *             non-readOnly essential-filtered surface in Focus mode per 009 #4). NOTE: the full
+ *             /plans (Tasks/Oppgaver) screen no longer renders this day-view — it was rebuilt into
+ *             a tabbed inline-list (2026-07-08); Home is now the sole caller.
  *   Data    → pure presentational; reads no stores. Tasks + callbacks are passed in.
  *             Live "now" marker re-renders on a 60s interval (useNowMinutes).
  *

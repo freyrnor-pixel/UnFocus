@@ -10,9 +10,15 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, lib/notifications, lib/taskNotifications,
- *             lib/liveSync, lib/syncService, store/useAutomationStore, store/useSettingsStore
+ *             lib/liveSync, lib/syncService, store/useAutomationStore, store/useSettingsStore,
+ *             store/useSharedStore (setSharedOut emits an outgoing shared_tasks row)
  *   Used by → components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
- *             app/task-form.tsx, app/plans.tsx
+ *             components/TaskCard.tsx, app/task-form.tsx, app/(tabs)/plans.tsx
+ *
+ *   Recurrence (Tasks/Oppgaver redesign): `recurring` is 'none'|'daily'|'weekly'|'monthly';
+ *   taskOccursOn(task, date) resolves an occurrence (weekly week-interval parity, monthly
+ *   day-of-month clamp or nth/last weekday, has_start_date as a start boundary). Start/Finish
+ *   time-box → duration_minutes is derived on save so PlanTaskCard is unchanged.
  *   Data    → defines a Zustand store; owns SQLite tables `tasks` and `task_steps`; fires the
  *             'task_completed' automation trigger on toggle-to-done / completeDirect
  *
@@ -76,17 +82,21 @@ import {
   tx,
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
-import { dayOfWeekMon0 } from '@/lib/date';
+import { dayOfWeekMon0, dateStr } from '@/lib/date';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useSharedStore } from '@/store/useSharedStore';
 import { cancelTaskNotification } from '@/lib/notifications';
 import { syncTaskNotification as scheduleTaskReminder } from '@/lib/taskNotifications';
 import { touchRow, softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
 
 export type TaskType = 'start-at' | 'time-box';
-export type Recurring = 'none' | 'weekly';
+export type Recurring = 'none' | 'daily' | 'weekly' | 'monthly';
 export type Importance = 'regular' | 'essential';
+/** Monthly recurrence: pinned to a day-of-month, or an nth/last weekday. */
+export type MonthlyMode = 'day' | 'ordinal';
+export type MonthOrdinal = 'first' | 'second' | 'third' | 'fourth' | 'last';
 
 export type TaskStep = { id: string; taskId: string; title: string; done: boolean; orderIndex: number };
 
@@ -94,12 +104,21 @@ export type Task = {
   id: string;
   title: string;
   date: string; // YYYY-MM-DD
-  time?: string; // HH:MM
+  time?: string; // HH:MM — Start time
+  /** HH:MM — Finish time for a non-Whenever time-box; Start stays `time`. */
+  finishTime?: string;
   taskType: TaskType;
   durationMinutes?: number;
   done: boolean;
   recurring: Recurring;
-  recurringDays: number[]; // 0=Mon … 6=Sun
+  recurringDays: number[]; // 0=Mon … 6=Sun (weekly)
+  /** Weekly interval: 1 = every week, 2 = every 2nd, 3 = every 3rd. */
+  weekInterval: number;
+  /** Monthly: pin to a day-of-month ('day') or an nth/last weekday ('ordinal'). */
+  monthlyMode: MonthlyMode;
+  monthDay: number; // 1–31 (monthlyMode 'day')
+  monthOrdinal: MonthOrdinal; // (monthlyMode 'ordinal')
+  monthWeekday: number; // 0=Mon … 6=Sun (monthlyMode 'ordinal')
   importance: Importance;
   /** Manual drag-sort position within the task's Important/General section. */
   sortOrder: number;
@@ -107,6 +126,10 @@ export type Task = {
   hint: string;
   /** Decision 020 — id of the task THIS task follows (its predecessor), or null. */
   followsTaskId: string | null;
+  /** "Start specific date" toggle; when false the task is undated / Whenever-anchored. */
+  hasStartDate: boolean;
+  /** "Shared out" flag — an outgoing shared_tasks row exists for this task. */
+  sharedOut: boolean;
   steps: TaskStep[];
 };
 
@@ -114,16 +137,92 @@ export type TaskInput = {
   title: string;
   date: string;
   time?: string;
+  finishTime?: string;
   taskType: TaskType;
   durationMinutes?: number;
   done: boolean;
   recurring: Recurring;
   recurringDays: number[];
+  weekInterval?: number;
+  monthlyMode?: MonthlyMode;
+  monthDay?: number;
+  monthOrdinal?: MonthOrdinal;
+  monthWeekday?: number;
   importance: Importance;
   sortOrder: number;
   hint?: string;
   followsTaskId?: string | null;
+  hasStartDate?: boolean;
+  sharedOut?: boolean;
 };
+
+const ORDINAL_NUM: Record<Exclude<MonthOrdinal, 'last'>, number> = {
+  first: 1,
+  second: 2,
+  third: 3,
+  fourth: 4,
+};
+
+/** Local Monday (00:00, noon-anchored) of the week containing `dateStr`. */
+function mondayOf(date: string): Date {
+  const d = new Date(date + 'T12:00:00');
+  d.setDate(d.getDate() - dayOfWeekMon0(d));
+  return d;
+}
+
+/** Whole weeks between the Mondays of two dates (b − a); can be negative. */
+function weeksBetweenMondays(a: string, b: string): number {
+  return Math.round((mondayOf(b).getTime() - mondayOf(a).getTime()) / (7 * 86400000));
+}
+
+/**
+ * Does `task` have an occurrence on `date` (YYYY-MM-DD)?
+ *  - none    → only its own date (a dated one-off; undated Whenever tasks never match a date)
+ *  - daily   → every day (from the start boundary, if any)
+ *  - weekly  → selected weekday AND on-parity with `weekInterval`, anchored on the
+ *              start date (or an epoch Monday when undated)
+ *  - monthly → day-of-month (clamped when the month is shorter) OR nth/last weekday
+ * `hasStartDate` acts as a start boundary for recurring tasks (no earlier occurrences).
+ */
+export function taskOccursOn(task: Task, date: string): boolean {
+  if (task.recurring === 'none') return task.date === date;
+  if (task.hasStartDate && date < task.date) return false;
+
+  const d = new Date(date + 'T12:00:00');
+  const mon0 = dayOfWeekMon0(d);
+
+  if (task.recurring === 'daily') return true;
+
+  if (task.recurring === 'weekly') {
+    if (!task.recurringDays.includes(mon0)) return false;
+    const interval = task.weekInterval > 0 ? task.weekInterval : 1;
+    if (interval === 1) return true;
+    const anchor = task.hasStartDate ? task.date : '1970-01-05'; // a Monday
+    const weeks = weeksBetweenMondays(anchor, date);
+    return ((weeks % interval) + interval) % interval === 0;
+  }
+
+  // monthly
+  const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  if (task.monthlyMode === 'ordinal') {
+    if (mon0 !== task.monthWeekday) return false;
+    const dom = d.getDate();
+    if (task.monthOrdinal === 'last') return dom + 7 > daysInMonth;
+    return Math.floor((dom - 1) / 7) + 1 === ORDINAL_NUM[task.monthOrdinal];
+  }
+  const target = Math.min(Math.max(1, task.monthDay), daysInMonth);
+  return d.getDate() === target;
+}
+
+/** Derive time-box duration (minutes) from Start→Finish; undefined when either is unset or the span is non-positive. */
+function deriveDurationMinutes(time?: string, finishTime?: string): number | undefined {
+  if (!time || !finishTime) return undefined;
+  const [h1, m1] = time.split(':').map((n) => parseInt(n, 10));
+  const [h2, m2] = finishTime.split(':').map((n) => parseInt(n, 10));
+  if ([h1, m1, h2, m2].some((n) => !Number.isFinite(n))) return undefined;
+  const diff = h2 * 60 + m2 - (h1 * 60 + m1);
+  return diff > 0 ? diff : undefined;
+}
 
 type TaskStore = {
   tasks: Task[];
@@ -138,6 +237,10 @@ type TaskStore = {
   remove: (id: string) => void;
   clearAll: () => void;
   tasksForDate: (date: string) => Task[];
+  /** Per-weekday occurrences for the 7 days from `weekStartDate` (Mon), excluding undated Whenever tasks. */
+  tasksForWeek: (weekStartDate: string) => { date: string; tasks: Task[] }[];
+  /** Toggle the "shared out" flag; turning it on also emits an outgoing shared_tasks row. */
+  setSharedOut: (id: string, on: boolean) => void;
   backlogTasks: (today: string) => Task[];
   completedCount: () => number;
   /** First pending task for the focus view, respecting work-mode filter. */
@@ -174,15 +277,23 @@ function rowToTask(row: Row): Task {
     title: readStr(row, 'title'),
     date: readStr(row, 'task_date'),
     time: readStr(row, 'task_time') || undefined,
+    finishTime: readStr(row, 'finish_time') || undefined,
     taskType: readStr(row, 'task_type', 'start-at') as TaskType,
     durationMinutes: readInt(row, 'duration_minutes') || undefined,
     done: readBool(row, 'done'),
     recurring: readStr(row, 'recurring', 'none') as Recurring,
     recurringDays: readJson<number[]>(row, 'recurring_days', []),
+    weekInterval: readInt(row, 'recurring_week_interval', 1) || 1,
+    monthlyMode: readStr(row, 'recurring_monthly_mode', 'day') as MonthlyMode,
+    monthDay: readInt(row, 'recurring_month_day', 1) || 1,
+    monthOrdinal: readStr(row, 'recurring_month_ordinal', 'first') as MonthOrdinal,
+    monthWeekday: readInt(row, 'recurring_month_weekday', 0),
     importance: readStr(row, 'importance', 'regular') as Importance,
     sortOrder: readInt(row, 'sort_order'),
     hint: readStr(row, 'hint', ''),
     followsTaskId: readStr(row, 'follows_task_id') || null,
+    hasStartDate: readBool(row, 'has_start_date'),
+    sharedOut: readBool(row, 'shared_out'),
     steps: [],
   };
 }
@@ -193,14 +304,22 @@ const TASK_COLUMNS: FieldMap<Task> = {
   title: { col: 'title' },
   date: { col: 'task_date' },
   time: { col: 'task_time', to: (v) => v ?? null },
+  finishTime: { col: 'finish_time', to: (v) => v ?? null },
   taskType: { col: 'task_type' },
   durationMinutes: { col: 'duration_minutes', to: (v) => v ?? null },
   done: { col: 'done', to: (v) => (v ? 1 : 0) },
   recurring: { col: 'recurring' },
   recurringDays: { col: 'recurring_days', to: (v) => JSON.stringify(v ?? []) },
+  weekInterval: { col: 'recurring_week_interval', to: (v) => v ?? 1 },
+  monthlyMode: { col: 'recurring_monthly_mode', to: (v) => v ?? 'day' },
+  monthDay: { col: 'recurring_month_day', to: (v) => v ?? 1 },
+  monthOrdinal: { col: 'recurring_month_ordinal', to: (v) => v ?? 'first' },
+  monthWeekday: { col: 'recurring_month_weekday', to: (v) => v ?? 0 },
   importance: { col: 'importance', to: (v) => v ?? 'regular' },
   sortOrder: { col: 'sort_order', to: (v) => v ?? 0 },
   hint: { col: 'hint', to: (v) => v ?? '' },
+  hasStartDate: { col: 'has_start_date', to: (v) => (v ? 1 : 0) },
+  sharedOut: { col: 'shared_out', to: (v) => (v ? 1 : 0) },
   // followsTaskId is deliberately ABSENT from this map — rowValues() only ever
   // serialises keys present in the map, so neither add()'s insertRow nor update()'s
   // patch can accidentally write follows_task_id. All writes to it go through
@@ -254,6 +373,15 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       done: false,
       hint: t.hint ?? '',
       followsTaskId: t.followsTaskId ?? null,
+      weekInterval: t.weekInterval ?? 1,
+      monthlyMode: t.monthlyMode ?? 'day',
+      monthDay: t.monthDay ?? 1,
+      monthOrdinal: t.monthOrdinal ?? 'first',
+      monthWeekday: t.monthWeekday ?? 0,
+      hasStartDate: t.hasStartDate ?? false,
+      sharedOut: t.sharedOut ?? false,
+      // duration_minutes is derived from Start→Finish so the Home day-view keeps working.
+      durationMinutes: deriveDurationMinutes(t.time, t.finishTime) ?? t.durationMinutes,
       steps: [],
     };
     insertRow('tasks', rowValues(task, TASK_COLUMNS));
@@ -267,7 +395,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const task = get().tasks.find((t) => t.id === id);
     if (!task) return;
     const next = { ...task, ...patch };
-    updateRow('tasks', rowValues(patch, TASK_COLUMNS), 'id = ?', [id]);
+    // Re-derive duration whenever Start or Finish changed, and persist it alongside
+    // the patch so the Home day-view's start–end rendering stays in sync.
+    const writePatch: Partial<Omit<Task, 'id' | 'followsTaskId'>> = { ...patch };
+    if ('time' in patch || 'finishTime' in patch) {
+      next.durationMinutes = deriveDurationMinutes(next.time, next.finishTime) ?? next.durationMinutes;
+      writePatch.durationMinutes = next.durationMinutes;
+    }
+    updateRow('tasks', rowValues(writePatch, TASK_COLUMNS), 'id = ?', [id]);
     set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? next : t)) }));
     syncTaskNotification(next);
     syncTaskRow(id);
@@ -430,13 +565,36 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   tasksForDate(date) {
+    return get().tasks.filter((t) => taskOccursOn(t, date));
+  },
+
+  tasksForWeek(weekStartDate) {
+    const start = new Date(weekStartDate + 'T12:00:00');
     const { tasks } = get();
-    const mon0 = dayOfWeekMon0(new Date(date + 'T12:00:00'));
-    return tasks.filter((t) => {
-      if (t.date === date) return true;
-      if (t.recurring === 'weekly' && t.recurringDays.includes(mon0)) return true;
-      return false;
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const ds = dateStr(d);
+      // Group only dated / recurring occurrences per weekday; undated Whenever tasks
+      // are surfaced by the screen's own Whenever section instead.
+      return {
+        date: ds,
+        tasks: tasks.filter((t) => taskOccursOn(t, ds) && (t.hasStartDate || t.recurring !== 'none')),
+      };
     });
+  },
+
+  setSharedOut(id, on) {
+    const task = get().tasks.find((t) => t.id === id);
+    if (!task) return;
+    updateRow('tasks', { shared_out: on ? 1 : 0 }, 'id = ?', [id]);
+    set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, sharedOut: on } : t)) }));
+    syncTaskRow(id);
+    if (on) {
+      useSharedStore.getState().addSharedTasks([
+        { direction: 'out', sourceTaskId: id, title: task.title, date: task.date, sharedBy: '' },
+      ]);
+    }
   },
 
   backlogTasks(today) {
