@@ -61,12 +61,13 @@ values already proven in the app — reuse them instead of inventing new ones:
 withSpring(1, { damping: 18, stiffness: 320 });
 ```
 
-`components/ExpandableCard.tsx` and the habit-card pulse in `app/habits.tsx` still use the
-legacy `Animated` API with `useNativeDriver: true` and `tension`/`friction` instead of
-`damping`/`stiffness` — they're not wrong, just an older API. **New animation code should
-default to react-native-reanimated** (`withSpring`/`withTiming`) unless it's extending one of
-those existing components, in which
-case match the file's existing API rather than mixing both inside one component.
+The habit-card pulse in `app/habits.tsx` still uses the legacy `Animated` API with
+`useNativeDriver: true` and `tension`/`friction` instead of `damping`/`stiffness` — it's not
+wrong, just an older API. **New animation code should default to react-native-reanimated**
+(`withSpring`/`withTiming`) unless it's extending that existing component, in which case match
+the file's existing API rather than mixing both inside one component. (`components/ExpandableCard.tsx`
+was migrated off the legacy API — its expand/collapse now animates a measured content height with
+Reanimated shared values; use it as the reference for a smooth height reveal.)
 
 Always set `useNativeDriver: true` (legacy API) — Reanimated's shared values run off the JS
 thread by default, so there's no equivalent flag to set there.
@@ -221,8 +222,7 @@ SPRINGS (react-native-reanimated, primary pattern in this codebase):
   - Snappy UI: withSpring(v, { damping: 18-40, stiffness: 320-700 })
   - Playful/alive (lower damping, lower stiffness) for anything that should feel bouncy
   - Legacy Animated API (speed/bounciness or tension/friction) only exists in
-    components/ExpandableCard.tsx and app/habits.tsx's pulse — match the existing
-    file's API, don't mix both in one component
+    app/habits.tsx's pulse — match the existing file's API, don't mix both in one component
 
 HAPTICS (always via lib/haptics.ts, never raw expo-haptics):
   - Default taps: tap()
