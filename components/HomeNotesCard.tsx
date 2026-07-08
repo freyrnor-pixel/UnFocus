@@ -31,7 +31,7 @@ import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useNotesStore } from '@/store/useNotesStore';
 
-const COLLAPSED_COUNT = 3;
+const COLLAPSED_COUNT = 5;
 
 export default function HomeNotesCard() {
   const t = useT();
@@ -41,7 +41,6 @@ export default function HomeNotesCard() {
 
   const notes = useNotesStore((s) => s.notes);
   const toggleChecked = useNotesStore((s) => s.toggleChecked);
-  const addNote = useNotesStore((s) => s.add);
 
   const [expanded, setExpanded] = useState(false);
   const [checkedOpen, setCheckedOpen] = useState(false);
@@ -52,15 +51,13 @@ export default function HomeNotesCard() {
   const visibleActive = expanded ? activeNotes : activeNotes.slice(0, COLLAPSED_COUNT);
   const showToggle = activeNotes.length > COLLAPSED_COUNT;
 
-  function handleAdd() {
-    success();
-    addNote();
-    router.push('/notes');
-  }
-
   function handleToggle(id: string) {
     tap();
     toggleChecked(id);
+  }
+
+  function handleTitlePress() {
+    router.push('/notes');
   }
 
   return (
@@ -69,59 +66,57 @@ export default function HomeNotesCard() {
       <View style={styles.cardContent}>
 
         {/* Title row */}
-        <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: theme.text }]}>{t.notes.title}</Text>
-          {activeNotes.length > 0 && (
-            <View style={[styles.badge, { backgroundColor: theme.accentSoft }]}>
-              <Text style={[styles.badgeText, { color: theme.accent }]}>{activeNotes.length}</Text>
-            </View>
-          )}
-          <View style={styles.titleRight}>
-            <Pressable onPress={handleAdd} hitSlop={8} accessibilityLabel={t.notes.addNote}>
-              <Ionicons name="add" size={20} color={theme.accent} />
-            </Pressable>
-            <Pressable onPress={() => router.push('/notes')} hitSlop={8}>
-              <Text style={[styles.seeAll, { color: theme.accent }]}>{t.seeAll}</Text>
-            </Pressable>
+        <Pressable onPress={handleTitlePress} style={styles.titleRowPressable}>
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, { color: theme.text }]}>{t.notes.title}</Text>
+            {activeNotes.length > 0 && (
+              <View style={[styles.badge, { backgroundColor: theme.accentSoft }]}>
+                <Text style={[styles.badgeText, { color: theme.accent }]}>{activeNotes.length}</Text>
+              </View>
+            )}
           </View>
-        </View>
+        </Pressable>
 
         {/* Active note rows */}
         {activeNotes.length === 0 ? (
-          <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.notes.emptyState}</Text>
+          <View style={[styles.rowsContainer, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+            <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.notes.emptyState}</Text>
+          </View>
         ) : (
-          <View style={styles.rows}>
-            {visibleActive.map((note, idx) => (
-              <View key={note.id}>
-                {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.surfaceMuted }]} />}
-                <View style={styles.noteRow}>
-                  <Pressable
-                    style={[styles.check, { borderColor: theme.featNote }]}
-                    onPress={() => handleToggle(note.id)}
-                    hitSlop={8}
-                    accessibilityLabel={t.notes.checkedLabel}
-                  >
-                    {/* circle only — tap marks it checked and it moves to the done section */}
-                  </Pressable>
-                  <View style={styles.noteText}>
-                    <Text
-                      style={[styles.noteHeader, { color: theme.text }]}
-                      numberOfLines={1}
+          <View style={[styles.rowsContainer, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+            <View style={styles.rows}>
+              {visibleActive.map((note, idx) => (
+                <View key={note.id}>
+                  {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
+                  <View style={styles.noteRow}>
+                    <Pressable
+                      style={[styles.check, { borderColor: theme.featNote }]}
+                      onPress={() => handleToggle(note.id)}
+                      hitSlop={8}
+                      accessibilityLabel={t.notes.checkedLabel}
                     >
-                      {note.header || t.notes.headerPlaceholder}
-                    </Text>
-                    {!!note.body && (
+                      {/* circle only — tap marks it checked and it moves to the done section */}
+                    </Pressable>
+                    <View style={styles.noteText}>
                       <Text
-                        style={[styles.noteBody, { color: theme.textMuted }]}
+                        style={[styles.noteHeader, { color: theme.text }]}
                         numberOfLines={1}
                       >
-                        {note.body}
+                        {note.header || t.notes.headerPlaceholder}
                       </Text>
-                    )}
+                      {!!note.body && (
+                        <Text
+                          style={[styles.noteBody, { color: theme.textMuted }]}
+                          numberOfLines={1}
+                        >
+                          {note.body}
+                        </Text>
+                      )}
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
         )}
 
@@ -139,7 +134,7 @@ export default function HomeNotesCard() {
 
         {/* Checked/done zone — only shown when expanded, mirroring PlanTaskCard done zone */}
         {expanded && checkedNotes.length > 0 && (
-          <View style={[styles.doneZone, { borderTopColor: theme.border }]}>
+          <View style={[styles.rowsContainer, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
             <Pressable
               style={styles.doneHeader}
               onPress={() => { tap(); setCheckedOpen((v) => !v); }}
@@ -155,7 +150,7 @@ export default function HomeNotesCard() {
             </Pressable>
             {checkedOpen && checkedNotes.map((note, idx) => (
               <View key={note.id}>
-                {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.surfaceMuted }]} />}
+                {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
                 <View style={styles.noteRow}>
                   <Pressable
                     style={[styles.check, { borderColor: theme.featNote, backgroundColor: theme.featNote }]}
@@ -187,12 +182,12 @@ const baseStyles = StyleSheet.create({
   cardRow: { flexDirection: 'row' },
   accent: { width: 4, alignSelf: 'stretch', borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
   cardContent: { flex: 1, padding: Spacing.md },
-  titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm, gap: Spacing.sm },
+  titleRowPressable: { marginBottom: Spacing.sm },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   title: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-  titleRight: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: Spacing.md },
-  seeAll: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  rowsContainer: { borderRadius: Radius.sm, borderWidth: 1, padding: Spacing.sm, marginBottom: Spacing.sm },
   rows: { gap: 0 },
   noteRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: Spacing.sm, gap: Spacing.sm },
   check: {
@@ -211,7 +206,6 @@ const baseStyles = StyleSheet.create({
   emptyText: { fontSize: FontSize.sm, fontFamily: Fonts.regular, textAlign: 'center', paddingVertical: Spacing.sm },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
-  doneZone: { marginTop: Spacing.xs, borderTopWidth: 1 },
   doneHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
   doneHeaderText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
 });

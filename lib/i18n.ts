@@ -671,7 +671,7 @@ const en = {
     shared: 'Shared', settingsLabel: 'Settings',
   },
   home: {
-    todaysPlans: "Today's Plans",
+    todaysPlans: "Today's tasks",
     seeAllPlans: 'See all plans',
     more: 'More',
     notesExpand: 'Show all notes',
@@ -1886,7 +1886,7 @@ const no: typeof en = {
     shared: 'Delt', settingsLabel: 'Innstillinger',
   },
   home: {
-    todaysPlans: 'Dagens planer',
+    todaysPlans: 'Dagens oppgaver',
     seeAllPlans: 'Se alle planer',
     more: 'Mer',
     notesExpand: 'Vis alle notater',
