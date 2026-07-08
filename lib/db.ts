@@ -497,6 +497,21 @@ export function initDb() {
     // Auto-backup to a fixed local path (settings UI toggle); school mode toggle placeholder.
     "ALTER TABLE settings ADD COLUMN auto_backup_enabled INTEGER DEFAULT 0",
     "ALTER TABLE settings ADD COLUMN school_mode_enabled INTEGER DEFAULT 0",
+    // Tasks → "Oppgaver" redesign: richer recurrence (daily/weekly/monthly) + a
+    // Start/Finish time-box, an explicit "has a start date" flag (undated =
+    // Whenever-anchored), and a "shared out" flag. `recurring` (already TEXT) now
+    // accepts 'none' | 'daily' | 'weekly' | 'monthly'. duration_minutes stays and is
+    // derived from task_time → finish_time on save so the Home PlanTaskCard day-view
+    // keeps working unchanged. See store/useTaskStore.ts (taskOccursOn) for the
+    // recurrence semantics these columns drive.
+    "ALTER TABLE tasks ADD COLUMN recurring_week_interval INTEGER DEFAULT 1",
+    "ALTER TABLE tasks ADD COLUMN recurring_monthly_mode TEXT DEFAULT 'day'",
+    "ALTER TABLE tasks ADD COLUMN recurring_month_day INTEGER DEFAULT 1",
+    "ALTER TABLE tasks ADD COLUMN recurring_month_ordinal TEXT DEFAULT 'first'",
+    "ALTER TABLE tasks ADD COLUMN recurring_month_weekday INTEGER DEFAULT 0",
+    "ALTER TABLE tasks ADD COLUMN finish_time TEXT DEFAULT NULL",
+    "ALTER TABLE tasks ADD COLUMN has_start_date INTEGER DEFAULT 0",
+    "ALTER TABLE tasks ADD COLUMN shared_out INTEGER DEFAULT 0",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

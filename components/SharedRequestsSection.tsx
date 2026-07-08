@@ -11,21 +11,21 @@
  *   Imports → components/PressableScale, components/Surface, constants/theme, lib/haptics,
  *             lib/i18n, lib/date, lib/useAppTheme, store/useSharedStore, store/useShoppingStore,
  *             store/useTaskStore
- *   Used by → app/shopping.tsx (kind='shopping')
+ *   Used by → app/(tabs)/shopping.tsx (kind='shopping'), app/(tabs)/plans.tsx (kind='task')
  *   Data    → reads/removes useSharedStore rows; writes useShoppingStore/useTaskStore on accept
  *
  * Edit notes:
  *   - This is the per-screen replacement for the old "Shared" bubble — full history (sent +
  *     received, done or not) would live at a future app/shared.tsx; out of scope here.
- *   - Accept defaults are deliberately minimal (today's date / weekly list) so there's no
- *     intermediate form, same rationale as InboxSection's task-promotion defaults.
+ *   - Accept defaults are deliberately minimal (today's date / weekly list / undated Whenever
+ *     task) so there's no intermediate form, same rationale as InboxSection's task defaults.
  *   - Ported (2026-07-02, Session A2·2, expanded scope — see PROGRESS_LOG) from the old repo's
  *     SharedRequestsSection.tsx. Token remap (Decision 006): theme.offWhite (Surface tint) →
  *     surfaceMuted, orange/orangeLight → accent/accentSoft, grayLight → surfaceMuted, textLight
  *     → textMuted, hardcoded fontWeight → Fonts.semibold/bold. `theme` prop dropped in favor of
- *     internal useAppTheme(), matching the established Phase 3c/3d convention. `kind='task'`
- *     branch dropped (app/index.tsx doesn't exist yet in this repo — out of scope; re-add when
- *     Home is ported in Phase 6).
+ *     internal useAppTheme(), matching the established Phase 3c/3d convention. The `kind='task'`
+ *     branch was re-added with the Tasks/Oppgaver redesign (2026-07-08): Accept creates a local
+ *     Whenever task; Dismiss removes the shared row.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -38,9 +38,10 @@ import Surface from '@/components/Surface';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useSharedStore } from '@/store/useSharedStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
+import { useTaskStore } from '@/store/useTaskStore';
 
 type Props = {
-  kind: 'shopping';
+  kind: 'shopping' | 'task';
 };
 
 export default function SharedRequestsSection({ kind }: Props) {
@@ -48,11 +49,18 @@ export default function SharedRequestsSection({ kind }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const sharedShoppingItems = useSharedStore((s) => s.shoppingItems);
+  const sharedTasks = useSharedStore((s) => s.tasks);
   const toggleShopping = useSharedStore((s) => s.toggleShopping);
   const removeShopping = useSharedStore((s) => s.removeShopping);
+  const toggleTask = useSharedStore((s) => s.toggleTask);
+  const removeTask = useSharedStore((s) => s.removeTask);
   const addShoppingItem = useShoppingStore((s) => s.add);
+  const addTask = useTaskStore((s) => s.add);
 
-  const pending = sharedShoppingItems.filter((i) => i.direction === 'in' && !i.done);
+  const pending =
+    kind === 'shopping'
+      ? sharedShoppingItems.filter((i) => i.direction === 'in' && !i.done)
+      : sharedTasks.filter((i) => i.direction === 'in' && !i.done);
 
   if (pending.length === 0) return null;
 
@@ -62,32 +70,57 @@ export default function SharedRequestsSection({ kind }: Props) {
     toggleShopping(id);
   }
 
+  function acceptTask(id: string, title: string) {
+    success();
+    addTask({
+      title,
+      date: todayStr(),
+      taskType: 'start-at',
+      done: false,
+      recurring: 'none',
+      recurringDays: [],
+      importance: 'regular',
+      sortOrder: 0,
+      hasStartDate: false,
+    });
+    toggleTask(id);
+  }
+
   return (
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.sharedRequests.sectionTitle}</Text>
       <Surface tint={theme.surfaceMuted} style={styles.card}>
-        {pending.map((item, i) => (
-          <View key={item.id} style={[styles.row, i > 0 && { borderTopColor: theme.border, borderTopWidth: 1, paddingTop: Spacing.sm }]}>
-            <Text style={[styles.itemText, { color: theme.text }]} numberOfLines={2}>
-              {t.sharedRequests.fromLabel(item.sharedBy)} {item.name}
-            </Text>
-            <View style={styles.actions}>
-              <PressableScale
-                style={[styles.actionBtn, { backgroundColor: theme.accentSoft }]}
-                onPress={() => acceptShopping(item.id, item.name, item.amount, item.unit)}
-                haptic={false}
-              >
-                <Text style={[styles.actionBtnText, { color: theme.accent }]}>{t.sharedRequests.accept}</Text>
-              </PressableScale>
-              <PressableScale
-                style={[styles.actionBtn, { backgroundColor: theme.surfaceMuted }]}
-                onPress={() => removeShopping(item.id)}
-              >
-                <Text style={[styles.actionBtnText, { color: theme.textMuted }]}>{t.sharedRequests.dismiss}</Text>
-              </PressableScale>
+        {pending.map((item, i) => {
+          const label = kind === 'shopping'
+            ? (item as { name: string }).name
+            : (item as { title: string }).title;
+          return (
+            <View key={item.id} style={[styles.row, i > 0 && { borderTopColor: theme.border, borderTopWidth: 1, paddingTop: Spacing.sm }]}>
+              <Text style={[styles.itemText, { color: theme.text }]} numberOfLines={2}>
+                {t.sharedRequests.fromLabel(item.sharedBy)} {label}
+              </Text>
+              <View style={styles.actions}>
+                <PressableScale
+                  style={[styles.actionBtn, { backgroundColor: theme.accentSoft }]}
+                  onPress={() =>
+                    kind === 'shopping'
+                      ? acceptShopping(item.id, (item as { name: string }).name, (item as { amount: string }).amount, (item as { unit: string }).unit)
+                      : acceptTask(item.id, (item as { title: string }).title)
+                  }
+                  haptic={false}
+                >
+                  <Text style={[styles.actionBtnText, { color: theme.accent }]}>{t.sharedRequests.accept}</Text>
+                </PressableScale>
+                <PressableScale
+                  style={[styles.actionBtn, { backgroundColor: theme.surfaceMuted }]}
+                  onPress={() => (kind === 'shopping' ? removeShopping(item.id) : removeTask(item.id))}
+                >
+                  <Text style={[styles.actionBtnText, { color: theme.textMuted }]}>{t.sharedRequests.dismiss}</Text>
+                </PressableScale>
+              </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </Surface>
     </View>
   );
