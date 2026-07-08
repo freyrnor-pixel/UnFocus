@@ -20,7 +20,8 @@
  *   - Nav bar has 5 items: Shopping, Plans, Home (centre), Health, Scan (Decision 036).
  *   - Removed from nav (routes/screens kept), with their access points (all wired — Decision 036):
  *       notes     → Home "More" link (app/(tabs)/index.tsx)
- *       meals     → Home "More" link (labelled "Food")
+ *       meals     → "Food" tab in the Shopping screen's tab row (app/(tabs)/shopping.tsx) — Point 9
+ *                   (the earlier Home "More → Food" link was dropped in the pager migration)
  *       automations → Settings → Varsler tab "Automatisering" link (app/settings.tsx)
  *       habits    → Health screen's inline "Habits →" section header (app/(tabs)/health.tsx)
  *       budget    → app/(tabs)/shopping.tsx done-flow + app/(tabs)/scan.tsx header link

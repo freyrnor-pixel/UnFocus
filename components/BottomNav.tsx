@@ -94,9 +94,6 @@ export default function BottomNav({ state, navigation }: Props = {}) {
           style={[styles.centreButton, { backgroundColor: theme.accent, ...Shadow.fab }]}
           onPress={() => handlePress(item)}
           hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={t.nav[item.key]}
-          accessibilityState={{ selected: active }}
         >
           <Ionicons name={active ? item.activeIcon : item.icon} size={24} color={theme.accentInk} />
         </PressableScale>
@@ -113,9 +110,6 @@ export default function BottomNav({ state, navigation }: Props = {}) {
         style={[styles.item, active && { backgroundColor: theme.surfaceMuted, borderRadius: Radius.sm }]}
         onPress={() => handlePress(item)}
         hitSlop={6}
-        accessibilityRole="button"
-        accessibilityLabel={t.nav[item.key]}
-        accessibilityState={{ selected: active }}
       >
         <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={iconColor} />
         <Text style={[styles.label, { color: iconColor }]} numberOfLines={1}>
