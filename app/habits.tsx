@@ -1,10 +1,10 @@
 /**
  * habits.tsx — habit tracker
  *
- * Tracks build/break habits with daily-goal counters and three views (today /
- * week grid / month grid). Today view groups habits into Building and Breaking
- * sections; tapping a card expands the cue→craving→response→reward steps plus a
- * week strip. Long-press (or the per-habit edit) opens the habit form.
+ * Tracks simple habits with daily-goal counters and three views (today / week grid
+ * / month grid). Today view is a single unified list (build/break split removed);
+ * tapping a card expands a week strip + rest-day toggle. Long-press opens the habit
+ * form. The cue→craving→response→reward "atomic habits" steps were removed.
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/AppModal,
@@ -20,10 +20,10 @@
  * Edit notes:
  *   - Decision 001 tier='site' scaffold. The profile selector + view tabs scroll at the top of
  *     the content (the old fixed-below-header placement isn't needed under the scaffold).
- *   - **Decision 024 — habit colours (token map):** build → `good`, break → `featTask`,
+ *   - **Habit colours:** single calm palette (build/break removed) — met → `good`,
  *     in-progress → `accent`, empty/zero-progress → `border`, rest-day solid → `textMuted`.
- *     Never red for break. Done-card soft fill: build → `goodSoft`, break → `surfaceMuted`
- *     (no featTask-soft token exists; the blue border/icon still carry the break identity).
+ *     Done-card soft fill → `goodSoft`. Never red. `habitColor()`/`progressColor()` keep a
+ *     `kind` param for call-site compatibility but no longer branch on it.
  *   - Several sub-components share one module baseStyles; each calls useScaledStyles itself.
  *   - increment/decrement key off (habitId, today); counts clamp against dailyGoal for ratio.
  *   - No-shame: past zero-progress days show an empty circle in `border`; rest days a solid
@@ -62,13 +62,15 @@ import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppThem
 
 let dbBootstrapped = false;
 
-// Decision 024 token map: build = good (green), break = featTask (blue) — never red.
-function habitColor(kind: HabitKind, theme: ThemePalette): string {
-  return kind === 'break' ? theme.featTask : theme.good;
+// Habits are no longer split into build/break — a single calm "met" colour (good),
+// with accent for in-progress and a neutral border for not-yet-started. The `kind`
+// param is retained only so existing call sites compile; it no longer affects colour.
+function habitColor(_kind: HabitKind, theme: ThemePalette): string {
+  return theme.good;
 }
 
-function progressColor(ratio: number, kind: HabitKind, theme: ThemePalette): string {
-  if (ratio >= 1) return habitColor(kind, theme);
+function progressColor(ratio: number, _kind: HabitKind, theme: ThemePalette): string {
+  if (ratio >= 1) return theme.good;
   if (ratio > 0) return theme.accent;
   // No-shame: zero progress uses a calm neutral border — no red punishment colour.
   return theme.border;
@@ -228,7 +230,7 @@ function HabitCard({
   const isDone = ratio >= 1;
 
   const accent = habitColor(habit.kind, theme);
-  const doneFill = habit.kind === 'break' ? theme.surfaceMuted : theme.goodSoft;
+  const doneFill = theme.goodSoft;
   const streak = useMemo(
     () => computeStreak(habit.id, habit.dailyGoal, today, logs),
     [habit.id, habit.dailyGoal, today, logs],
@@ -264,8 +266,6 @@ function HabitCard({
   }, [isDone, reducedMotion]);
 
   const borderColor = progressColor(ratio, habit.kind, theme);
-  const stepLabels = [t.habitCue, t.habitCraving, t.habitResponse, t.habitReward];
-  const stepValues = [habit.cue, habit.craving, habit.response, habit.reward];
 
   return (
     <Pressable
@@ -317,15 +317,6 @@ function HabitCard({
 
         {expanded && (
           <View style={styles.expanded}>
-            {stepLabels.map((label, i) =>
-              stepValues[i] ? (
-                <View key={i} style={styles.stepRow}>
-                  <Text style={[styles.stepLabel, { color: theme.textMuted }]}>{label}</Text>
-                  <Text style={[styles.stepArrow, { color: theme.textMuted }]}>→</Text>
-                  <Text style={[styles.stepValue, { color: theme.text }]}>{stepValues[i]}</Text>
-                </View>
-              ) : null
-            )}
             <View style={[styles.weekStripWrap, { borderTopColor: theme.border }]}>
               <WeekStrip
                 habitId={habit.id}
@@ -561,9 +552,7 @@ export default function HabitsScreen() {
   );
 
   const profileHabits = habits.filter((h) => h.childName === selectedProfile);
-  const buildHabits = profileHabits.filter((h) => h.kind === 'build' && shouldShowHabitOnDate(h, today));
-  const breakHabits = profileHabits.filter((h) => h.kind === 'break' && shouldShowHabitOnDate(h, today));
-  const visibleHabits = profileHabits.filter((h) => h.kind !== 'neutral' && shouldShowHabitOnDate(h, today));
+  const visibleHabits = profileHabits.filter((h) => shouldShowHabitOnDate(h, today));
 
   const metCount = visibleHabits.filter((h) => {
     const log = logs.find((l) => l.habitId === h.id && l.logDate === today);
@@ -693,42 +682,22 @@ export default function HabitsScreen() {
                 </Surface>
               )}
 
-              {/* Building section */}
+              {/* Single unified habit list (build/break split removed) */}
               <View style={styles.section}>
-                <Surface style={styles.sectionCard}>
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.habitBuilding}</Text>
-                  {buildHabits.length === 0 ? (
+                {visibleHabits.length === 0 ? (
+                  <Surface style={styles.sectionCard}>
                     <Pressable
                       style={[styles.dashedAdd, { borderColor: theme.border }]}
-                      onPress={() => router.push({ pathname: '/habit-form', params: { kind: 'build', ...(selectedProfile ? { childName: selectedProfile } : {}) } })}
+                      onPress={() => router.push({ pathname: '/habit-form', params: { ...(selectedProfile ? { childName: selectedProfile } : {}) } })}
                     >
-                      <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsInSection}</Text>
+                      <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
                     </Pressable>
-                  ) : (
-                    buildHabits.map((h) => (
-                      <HabitCard key={h.id} habit={h} today={today} onEdit={onEdit} lang={lang} theme={theme} />
-                    ))
-                  )}
-                </Surface>
-              </View>
-
-              {/* Breaking section */}
-              <View style={styles.section}>
-                <Surface style={styles.sectionCard}>
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.habitBreaking}</Text>
-                  {breakHabits.length === 0 ? (
-                    <Pressable
-                      style={[styles.dashedAdd, { borderColor: theme.border }]}
-                      onPress={() => router.push({ pathname: '/habit-form', params: { kind: 'break', ...(selectedProfile ? { childName: selectedProfile } : {}) } })}
-                    >
-                      <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsInSection}</Text>
-                    </Pressable>
-                  ) : (
-                    breakHabits.map((h) => (
-                      <HabitCard key={h.id} habit={h} today={today} onEdit={onEdit} lang={lang} theme={theme} />
-                    ))
-                  )}
-                </Surface>
+                  </Surface>
+                ) : (
+                  visibleHabits.map((h) => (
+                    <HabitCard key={h.id} habit={h} today={today} onEdit={onEdit} lang={lang} theme={theme} />
+                  ))
+                )}
               </View>
             </>
           )}

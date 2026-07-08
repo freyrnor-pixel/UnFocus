@@ -1,11 +1,14 @@
 /**
  * habit-form.tsx — add / edit a habit
  *
- * Sub-screen (Decision 001 tier='sub') for one habit: build/break kind, icon, title,
- * category, the four cue→craving→response→reward steps, daily goal, recurrence, an
- * optional child-profile assignment, and the three-mode daily reminder picker (Once /
- * Several times / Every…, Decision 016). An `id` route param switches it to edit mode
- * (with delete); a `kind` param pre-seeds build vs. break for new habits.
+ * Sub-screen (Decision 001 tier='sub') for one habit: icon, title, category, daily
+ * goal, recurrence, an optional child-profile assignment, and the three-mode daily
+ * reminder picker (Once / Several times / Every…, Decision 016). An `id` route param
+ * switches it to edit mode (with delete).
+ *
+ * Build/break kind and the cue→craving→response→reward "atomic habits" steps were
+ * removed (habits are now simple, task-shaped) — `kind` is written as 'neutral' and the
+ * step columns are saved empty; the DB columns are retained (never dropped).
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
@@ -31,10 +34,8 @@
  *     fields relevant to the current mode are persisted (others null) — see save().
  *     Legacy habits (or ones saved before this session) have `reminderMode === null` and
  *     fall back to the old length-based inference.
- *   - Essentials shown by default: Kind → Title → Notification. Icon, category, the four
- *     cue→craving→response→reward steps, daily goal, and recurrence live behind a "more
- *     options" disclosure (t.habits.moreOptions/fewerOptions) — same disclosure pattern
- *     as the old app.
+ *   - Essentials shown by default: Title → Notification. Icon, category, daily goal, and
+ *     recurrence live behind a "more options" disclosure (t.habits.moreOptions/fewerOptions).
  *   - No TimePickerWheel (never ported into this repo, same precedent as task-form.tsx) —
  *     every time field is a plain FormControls.Input (HH:MM text).
  */
@@ -44,7 +45,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   useHabitStore,
-  HabitKind,
   HabitCategory,
   HabitReminderMode,
 } from '@/store/useHabitStore';
@@ -107,7 +107,7 @@ function computeReminderTimes(
 
 export default function HabitForm() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string; kind?: string; childName?: string }>();
+  const params = useLocalSearchParams<{ id?: string; childName?: string }>();
   const isEdit = !!params.id;
 
   const habits = useHabitStore((s) => s.habits);
@@ -124,12 +124,7 @@ export default function HabitForm() {
 
   const [title, setTitle] = useState(existing?.title ?? '');
   const [icon, setIcon] = useState(existing?.icon ?? 'star-outline');
-  const [kind, setKind] = useState<HabitKind>(existing?.kind ?? (params.kind === 'break' ? 'break' : 'build'));
   const [category, setCategory] = useState<HabitCategory>(existing?.category ?? 'other');
-  const [cue, setCue] = useState(existing?.cue ?? '');
-  const [craving, setCraving] = useState(existing?.craving ?? '');
-  const [response, setResponse] = useState(existing?.response ?? '');
-  const [reward, setReward] = useState(existing?.reward ?? '');
   const [dailyGoal, setDailyGoal] = useState(existing?.dailyGoal ?? 1);
   const [childName, setChildName] = useState(existing?.childName ?? (params.childName ?? ''));
 
@@ -165,7 +160,7 @@ export default function HabitForm() {
 
   // Advanced fields start collapsed; open by default in edit mode if any already hold a value.
   const [showMore, setShowMore] = useState<boolean>(
-    isEdit && !!(existing && (existing.cue || existing.craving || existing.response || existing.reward || existing.dailyGoal > 1 || existing.category !== 'other'))
+    isEdit && !!(existing && (existing.dailyGoal > 1 || existing.category !== 'other'))
   );
 
   function save() {
@@ -174,12 +169,13 @@ export default function HabitForm() {
     const payload = {
       title: title.trim(),
       icon,
-      kind,
+      // build/break removed — habits are a single neutral kind now.
+      kind: 'neutral' as const,
       category,
-      cue,
-      craving,
-      response,
-      reward,
+      cue: '',
+      craving: '',
+      response: '',
+      reward: '',
       dailyGoal,
       recurrence: 'daily' as const,
       recurrenceDays: [],
@@ -230,18 +226,6 @@ export default function HabitForm() {
     >
       <View style={styles.content}>
         <HintCard text={t.hints.habitForm.text} example={t.hints.habitForm.example} />
-
-        {/* Kind */}
-        <View style={styles.field}>
-          <SegmentedControl
-            options={[
-              { value: 'build', label: `${t.habitKindBuild} ↑` },
-              { value: 'break', label: `${t.habitKindBreak} ↓` },
-            ]}
-            value={kind}
-            onChange={(v) => setKind(v as HabitKind)}
-          />
-        </View>
 
         {/* Title */}
         <View style={styles.field}>
@@ -467,18 +451,6 @@ export default function HabitForm() {
               <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitRecurrence}</Text>
               <SegmentedControl options={[{ value: 'daily', label: t.habitRecurrenceDaily }]} value="daily" onChange={() => {}} />
             </View>
-
-            {/* Four steps: cue → craving → response → reward */}
-            {([
-              { key: 'cue', label: t.habitCue, placeholder: t.habitCuePlaceholder, value: cue, set: setCue },
-              { key: 'craving', label: t.habitCraving, placeholder: t.habitCravingPlaceholder, value: craving, set: setCraving },
-              { key: 'response', label: t.habitResponse, placeholder: t.habitResponsePlaceholder, value: response, set: setResponse },
-              { key: 'reward', label: t.habitReward, placeholder: t.habitRewardPlaceholder, value: reward, set: setReward },
-            ] as const).map(({ key, label, placeholder, value, set }) => (
-              <View key={key} style={styles.field}>
-                <Input label={label} value={value} onChangeText={set} placeholder={placeholder} returnKeyType="next" />
-              </View>
-            ))}
 
             {/* Daily goal stepper */}
             <View style={styles.field}>

@@ -761,6 +761,22 @@ const en = {
   deleteLogBtn: 'Delete entry',
   healthSeeAllHabits: 'See all habits',
   healthAddHabit: 'Add habit',
+  // --- Symptom catalog + trend drill-down (Health redesign) ---
+  symptomSearchPlaceholder: 'Search or add a symptom…',
+  recentSymptoms: 'Recent',
+  addSymptomOption: (name: string) => `Add “${name}”`,
+  symptomHistoryTitle: (name: string) => `${name} — history`,
+  symptomEntriesCount: (n: number) => (n === 1 ? '1 entry' : `${n} entries`),
+  last90Days: 'Last 90 days',
+  backToLog: 'Back to log',
+  symptomCategories: {
+    physical: 'Physical',
+    mental: 'Mental',
+    sleep: 'Sleep',
+    digestive: 'Digestive',
+    nutrition: 'Nutrition',
+    other: 'Other',
+  } as Record<string, string>,
   // Top-level overflow label (shopping.tsx tab-bar "…" menu). Distinct from habits.moreOptions.
   moreOptions: 'More options',
   // --- end W-D additions ---
@@ -1954,6 +1970,22 @@ const no: typeof en = {
   deleteLogBtn: 'Slett oppføring',
   healthSeeAllHabits: 'Se alle vaner',
   healthAddHabit: 'Legg til vane',
+  // --- Symptom catalog + trend drill-down (Health redesign) ---
+  symptomSearchPlaceholder: 'Søk eller legg til et symptom…',
+  recentSymptoms: 'Nylige',
+  addSymptomOption: (name: string) => `Legg til «${name}»`,
+  symptomHistoryTitle: (name: string) => `${name} — historikk`,
+  symptomEntriesCount: (n: number) => (n === 1 ? '1 oppføring' : `${n} oppføringer`),
+  last90Days: 'Siste 90 dager',
+  backToLog: 'Tilbake til logg',
+  symptomCategories: {
+    physical: 'Fysisk',
+    mental: 'Psykisk',
+    sleep: 'Søvn',
+    digestive: 'Fordøyelse',
+    nutrition: 'Ernæring',
+    other: 'Annet',
+  } as Record<string, string>,
   // Top-level overflow label (shopping.tsx tab-bar "…" menu). Distinct from habits.moreOptions.
   moreOptions: 'Flere valg',
   // --- end W-D additions ---
