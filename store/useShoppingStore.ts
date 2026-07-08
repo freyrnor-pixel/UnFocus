@@ -48,6 +48,10 @@
  *     putBackToInventory/addToWeeklyFromCatalog/setPendingRestock — everything routes
  *     through `update()`) stamp + broadcast via lib/liveSync/lib/syncService.
  *     `remove`/`removeWithSource` soft-delete (tombstone) instead of a hard DELETE.
+ *     `restoreItem(item)` is the Undo counterpart — clears the tombstone on the same
+ *     id and re-inserts the given in-memory snapshot; only used from the shopping
+ *     screen's swipe-delete Undo action (call it with the pre-removal item, not a
+ *     freshly reconstructed one, since monthlySourceId reallocation depends on it).
  *     `load()` filters `deleted_at IS NULL`. Only the columns in lib/liveSync's
  *     shopping_items whitelist (name/amount/unit/list_type/checked/store/price/
  *     created_at/list_id) actually cross the wire — `status` and the rest of the
@@ -174,6 +178,8 @@ type ShoppingStore = {
   putBackToInventory: (id: string) => void;
   remove: (id: string) => void;
   removeWithSource: (id: string) => void;
+  /** Undo for removeWithSource — clears the tombstone and re-adds the given snapshot back into state. */
+  restoreItem: (item: ShoppingItem) => void;
   /** Swaps orderIndex with the adjacent item sharing the same listId (mirrors useHabitStore.reorder). */
   reorder: (id: string, direction: 'up' | 'down') => void;
   /** Decision 022 — merge the source row into the target (dish) row: sum amounts, adopt target group, delete source. */
@@ -457,6 +463,29 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     softDelete('shopping_items', id, useSettingsStore.getState().deviceId);
     broadcastRow('shopping_items', id);
     set((s) => ({ items: s.items.filter((i) => i.id !== id) }));
+  },
+
+  restoreItem(item) {
+    if (get().items.some((i) => i.id === item.id)) return;
+    db.runSync('UPDATE shopping_items SET deleted_at = NULL WHERE id = ?', [item.id]);
+    if (item.monthlySourceId) {
+      const qty = parseInt(item.amount, 10) || 1;
+      try {
+        db.runSync(
+          'UPDATE shopping_items SET monthly_allocated = monthly_allocated + ? WHERE id = ?',
+          [qty, item.monthlySourceId]
+        );
+      } catch { /* ignore */ }
+      set((s) => ({
+        items: s.items.map((i) =>
+          i.id === item.monthlySourceId
+            ? { ...i, monthlyAllocated: (i.monthlyAllocated ?? 0) + qty }
+            : i
+        ),
+      }));
+    }
+    set((s) => ({ items: [...s.items, item] }));
+    syncItemRow(item.id);
   },
 
   reorder(id, direction) {

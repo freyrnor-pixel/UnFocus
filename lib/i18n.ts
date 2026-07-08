@@ -325,6 +325,8 @@ const en = {
   mergedIntoDish: (dish: string) => `Combined into ${dish} ✓`,
   movedToDish: (dish: string) => `Moved into ${dish} ✓`,
   itemPutBackToInventory: (name: string) => `${name} put back in inventory`,
+  itemRemoved: (name: string) => `${name} removed`,
+  undoBtn: 'Undo',
   // --- end W-C additions ---
   addItemTrigger: '+ Add item',
   weeklyItemsSection: 'Weekly list',
@@ -1331,6 +1333,8 @@ const no: typeof en = {
   mergedIntoDish: (dish: string) => `Slått sammen i ${dish} ✓`,
   movedToDish: (dish: string) => `Flyttet til ${dish} ✓`,
   itemPutBackToInventory: (name: string) => `${name} lagt tilbake i inventar`,
+  itemRemoved: (name: string) => `${name} fjernet`,
+  undoBtn: 'Angre',
   // --- end W-C additions ---
   addItemTrigger: '+ Legg til vare',
   weeklyItemsSection: 'Ukeliste',

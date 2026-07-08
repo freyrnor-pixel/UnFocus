@@ -78,6 +78,12 @@
  *     `theme.brown`→`accent` precedent already recorded in PROGRESS_LOG.md (Phase 3c).
  *   - `theme` is no longer threaded in as a prop — reads useAppTheme() internally,
  *     consistent with every other ported component.
+ *   - **Drag handle affordance (Point 8):** `showDragHandle` renders a faint
+ *     `reorder-three` glyph before the check circle — real flex space, not an absolute
+ *     overlay, so it can't collide with the checkbox/delete button. Only the caller
+ *     that actually wraps this row in DraggableTaskRow (app/shopping.tsx's weekly
+ *     reorderable rows) should pass it; other renders (Home preview, purchased
+ *     history, cart) omit it since those aren't drag-reorderable.
  *   - **Re-add highlight (Decision 021, Phase 6 presentational half):** a self-decaying
  *     `goodSoft` glow flashes over the row whenever `item.amount` increases vs. its previous
  *     render. This is the transient "just added / amount increased" cue for the store's
@@ -129,6 +135,10 @@ type Props = {
   onDecrement?: () => void;
   inStockLabel?: string;
   locked?: boolean;
+  /** Renders a faint drag-handle glyph before the checkbox (Point 8) — pass true only
+   * when the parent actually wraps this row in DraggableTaskRow, so the cue isn't shown
+   * on non-reorderable renders (Home preview, purchased history, cart). */
+  showDragHandle?: boolean;
 };
 
 export default function ShoppingRow({
@@ -141,6 +151,7 @@ export default function ShoppingRow({
   onDecrement,
   inStockLabel,
   locked,
+  showDragHandle,
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -241,6 +252,10 @@ export default function ShoppingRow({
             pointerEvents="none"
             style={[styles.highlight, { backgroundColor: theme.goodSoft, borderColor: theme.good }, highlightStyle]}
           />
+          {showDragHandle && (
+            <Ionicons name="reorder-three" size={16} color={theme.textMuted} style={styles.dragHandle} />
+          )}
+
           <Pressable
             style={[
               styles.check,
@@ -391,4 +406,5 @@ const baseStyles = StyleSheet.create({
   },
   stepBadge: { minWidth: 22, alignItems: 'center' },
   deleteBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  dragHandle: { opacity: 0.4 },
 });

@@ -166,7 +166,24 @@ buttons announce a name + role + state.
 
 ---
 
-## Point 8 — Gesture affordances + Undo (P1, larger)
+## Point 8 — Gesture affordances + Undo (P1, larger) ✅ done
+
+**Done:** Undo built (user confirmed) — `useShoppingStore.restoreItem()` clears the
+tombstone + re-adds the pre-removal snapshot; `ConfirmationBanner` gained an optional
+`actionLabel`/`onAction` slot; `app/(tabs)/shopping.tsx`'s `removeItemWithUndo()` wires
+it for every destructive shopping-item removal (weekly ad-hoc rows, Monthly/Katalog
+rows, the update-sheet delete, targetQuantity-to-zero). Drag-reorder rows get a faint
+`reorder-three` handle glyph via `ShoppingRow`'s new `showDragHandle` prop (real flex
+space, not an overlay, to avoid colliding with the checkbox/delete button). Habits
+long-press-to-edit hint was already mounted and already says "Hold a card to edit it" —
+no change needed there. Swipe-between-sites is a native pager now (Decision 041,
+supersedes the SiteSwipeView this point originally referenced) with the BottomNav's
+highlighted tab as its position indicator — no separate dot indicator added; the stale
+"SiteSwipeView...not ported" comment in `app/(tabs)/shopping.tsx` was corrected to
+describe the pager instead.
+
+<details><summary>Original plan</summary>
+
 
 **Problem:** Swipe-nav, swipe-delete (destructive, no undo), long-press-drag reorder,
 long-press-edit, and the pet feed mechanic have no visible affordance.
@@ -188,6 +205,8 @@ long-press-edit, and the pet feed mechanic have no visible affordance.
    and clearly states "hold to edit".
 
 **Verify:** each gesture has a discoverable cue; swipe-delete offers a working Undo.
+
+</details>
 
 ---
 

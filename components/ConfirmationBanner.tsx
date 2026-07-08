@@ -14,7 +14,7 @@
  *
  * Connections:
  *   Imports → react-native-reanimated, react-native-safe-area-context, constants/theme, lib/useAppTheme
- *   Used by → app/task-form, app/meals, app/shopping (save/add confirmations)
+ *   Used by → app/task-form, app/meals, app/shopping (save/add confirmations, remove-with-Undo)
  *   Data    → reads reducedMotion via useAccessibility(); colours from useAppTheme(); scaled fontSize via useScaledStyles()
  *
  * Edit notes:
@@ -22,6 +22,9 @@
  *   - Render once near the root of a screen so it overlays content (zIndex high).
  *   - variant default 'success' keeps existing callers unchanged (no churn).
  *   - shadowColor stays '#000' — a shadow treatment, not a themed fill.
+ *   - Optional `actionLabel`/`onAction` render a trailing text button (e.g. "Undo").
+ *     Tapping it calls onAction() then dismisses immediately; the auto-dismiss timer
+ *     still fires normally if the user doesn't tap it.
  */
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, Pressable } from 'react-native';
@@ -46,6 +49,10 @@ type Props = {
   duration?: number;
   /** Feedback tone. Default 'success'. */
   variant?: Variant;
+  /** Label for an optional trailing action button (e.g. "Undo"). Omit to hide it. */
+  actionLabel?: string;
+  /** Called when the action button is tapped; the banner dismisses right after. */
+  onAction?: () => void;
 };
 
 const VARIANT_ICON: Record<Variant, keyof typeof Ionicons.glyphMap> = {
@@ -54,7 +61,7 @@ const VARIANT_ICON: Record<Variant, keyof typeof Ionicons.glyphMap> = {
   warn: 'warning',
 };
 
-export default function ConfirmationBanner({ message, onDismiss, duration = 2200, variant = 'success' }: Props) {
+export default function ConfirmationBanner({ message, onDismiss, duration = 2200, variant = 'success', actionLabel, onAction }: Props) {
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
@@ -98,6 +105,17 @@ export default function ConfirmationBanner({ message, onDismiss, duration = 2200
         <Text style={[styles.text, { color: theme.textInverse }]} numberOfLines={2}>
           {message}
         </Text>
+        {actionLabel && onAction && (
+          <Pressable
+            onPress={() => { onAction(); onDismiss(); }}
+            hitSlop={8}
+            style={styles.actionBtn}
+            accessibilityRole="button"
+            accessibilityLabel={actionLabel}
+          >
+            <Text style={[styles.actionText, { color: theme.textInverse }]}>{actionLabel}</Text>
+          </Pressable>
+        )}
       </Pressable>
     </Animated.View>
   );
@@ -125,5 +143,14 @@ const baseStyles = StyleSheet.create({
     flex: 1,
     fontSize: FontSize.md,
     fontFamily: Fonts.bold,
+  },
+  actionBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: Spacing.sm,
+  },
+  actionText: {
+    fontSize: FontSize.md,
+    fontFamily: Fonts.bold,
+    textDecorationLine: 'underline',
   },
 });

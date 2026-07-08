@@ -104,8 +104,10 @@
  *     "Shopping done!"'s Scan/Upload choices now route to /scan (autoCapture camera/library);
  *     Skip commits the trip in place (app/scan.tsx is now ported — Phase 6).
  *   - **Still dropped, flagged not silently absorbed**: the header's Share pill (site-tier
- *     ScreenHeader has no custom-right slot — only sub-tier does); SiteSwipeView's
- *     swipe-between-screens wrapper (Phase 3e, not ported, not required by A2-1/A2-4).
+ *     ScreenHeader has no custom-right slot — only sub-tier does). Swipe-between-sites is now
+ *     the native `app/(tabs)/_layout.tsx` pager (Decision 041) — the per-screen SiteSwipeView
+ *     wrapper this note used to flag as "not ported" was wired once (Decision 032) then
+ *     deleted outright when the pager superseded it; there is nothing left to port here.
  *   - `ConfirmationBanner` renders as a sibling of `<ScreenScaffold>`, not inside its
  *     children — ScreenScaffold's children render inside its internal ScrollView, and
  *     ConfirmationBanner is a plain absolutely-positioned overlay (not a `<Modal>` like
@@ -235,6 +237,10 @@ export default function ShoppingScreen() {
   const [addItemTarget, setAddItemTarget] = useState<AddItemTarget | null>(null);
   const [addSourceChooserListId, setAddSourceChooserListId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
+  // Set alongside `confirm` only for a destructive removal — lets the banner offer
+  // an "Undo" action (Point 8, swipe-delete affordance). Cleared on dismiss and by
+  // every non-removal setConfirm call so a stale Undo never lingers onto an unrelated toast.
+  const [confirmUndo, setConfirmUndo] = useState<(() => void) | null>(null);
   const [purchasedExpanded, setPurchasedExpanded] = useState<string | null>(null);
   const [resetSummary, setResetSummary] = useState<MonthlyResetSummary | null>(null);
   const [savedListsListId, setSavedListsListId] = useState<string | null>(null);
@@ -282,6 +288,7 @@ export default function ShoppingScreen() {
   const addToWeeklyFromCatalog = useShoppingStore((s) => s.addToWeeklyFromCatalog);
   const putBackToInventory = useShoppingStore((s) => s.putBackToInventory);
   const removeWithSource = useShoppingStore((s) => s.removeWithSource);
+  const restoreItem = useShoppingStore((s) => s.restoreItem);
   const adjustAmount = useShoppingStore((s) => s.adjustAmount);
   const setPendingRestock = useShoppingStore((s) => s.setPendingRestock);
   const confirmStagingTray = useShoppingStore((s) => s.confirmStagingTray);
@@ -443,7 +450,25 @@ export default function ShoppingScreen() {
     if (stagedItems.length === 0) return;
     confirmStagingTray();
     success();
-    setConfirm(t.confirmStagingBtn(stagedItems.length));
+    showConfirm(t.confirmStagingBtn(stagedItems.length));
+  }
+
+  // Every non-removal toast goes through this so a stale Undo action never lingers
+  // onto an unrelated confirmation banner.
+  function showConfirm(message: string) {
+    setConfirmUndo(null);
+    setConfirm(message);
+  }
+
+  // Destructive removal (ad-hoc rows, no catalog entry to fall back to) — offers
+  // Undo via the ConfirmationBanner's action slot. removeWithSource soft-deletes
+  // (tombstone), so restoreItem(item) just clears the tombstone and re-adds the
+  // pre-removal snapshot; capture `item` before calling removeWithSource.
+  function removeItemWithUndo(item: ShoppingItem) {
+    removeWithSource(item.id);
+    heavy();
+    setConfirmUndo(() => () => restoreItem(item));
+    setConfirm(t.itemRemoved(item.name));
   }
 
   // Weekly/cart rows that came from the Monthly list go back to inventory instead of
@@ -452,9 +477,9 @@ export default function ShoppingScreen() {
     if (item.fromCatalog) {
       putBackToInventory(item.id);
       success();
-      setConfirm(t.itemPutBackToInventory(item.name));
+      showConfirm(t.itemPutBackToInventory(item.name));
     } else {
-      removeWithSource(item.id);
+      removeItemWithUndo(item);
     }
   }
 
@@ -467,7 +492,7 @@ export default function ShoppingScreen() {
     showAppModal(t.doneShoppingReceiptTitle, t.doneShoppingReceiptBody, [
       { text: t.scanReceiptBtn, onPress: () => { doneShopping(list.id, label, monthlyResetDate); router.push({ pathname: '/scan', params: { autoCapture: 'camera' } }); } },
       { text: t.uploadPhotoBtn, onPress: () => { doneShopping(list.id, label, monthlyResetDate); router.push({ pathname: '/scan', params: { autoCapture: 'library' } }); } },
-      { text: t.skipBtn, style: 'cancel', onPress: () => { doneShopping(list.id, label, monthlyResetDate); heavy(); setConfirm(t.doneShoppingSuccessText); } },
+      { text: t.skipBtn, style: 'cancel', onPress: () => { doneShopping(list.id, label, monthlyResetDate); heavy(); showConfirm(t.doneShoppingSuccessText); } },
     ]);
   }
 
@@ -484,7 +509,7 @@ export default function ShoppingScreen() {
     const origin = addItemTarget.origin;
     setAddItemTarget(null);
     success();
-    setConfirm(origin === 'catalog' ? t.itemAddedToInventory(input.name) : t.itemAddedToList(input.name));
+    showConfirm(origin === 'catalog' ? t.itemAddedToInventory(input.name) : t.itemAddedToList(input.name));
   }
 
   function handleUpdateSave(patch: { name: string; price: number; targetQuantity: number; isTemporary: boolean }) {
@@ -496,9 +521,8 @@ export default function ShoppingScreen() {
 
   function handleUpdateDelete() {
     if (!updateItem) return;
-    removeWithSource(updateItem.id);
+    removeItemWithUndo(updateItem);
     setUpdateItem(null);
-    heavy();
   }
 
   // ── Monthly two-section wiring (Phase 2) ──
@@ -511,7 +535,7 @@ export default function ShoppingScreen() {
   function handleMonthlyQty(item: ShoppingItem, delta: number) {
     const next = item.targetQuantity + delta;
     if (next <= 0) {
-      removeWithSource(item.id);
+      removeItemWithUndo(item);
     } else {
       update(item.id, { targetQuantity: next });
     }
@@ -670,10 +694,10 @@ export default function ShoppingScreen() {
         );
         if (twin) {
           mergeItems(itemId, twin.id);
-          setConfirm(t.mergedIntoDish(dish));
+          showConfirm(t.mergedIntoDish(dish));
         } else {
           update(itemId, { dishName: dish });
-          setConfirm(t.movedToDish(dish));
+          showConfirm(t.movedToDish(dish));
         }
         success();
       } else {
@@ -803,7 +827,7 @@ export default function ShoppingScreen() {
                                   onPress={!catalogLocked ? () => setUpdateItem(item) : undefined}
                                   onIncrement={!catalogLocked ? () => handleMonthlyQty(item, 1) : undefined}
                                   onDecrement={!catalogLocked ? () => handleMonthlyQty(item, -1) : undefined}
-                                  onRemove={!catalogLocked ? () => removeWithSource(item.id) : undefined}
+                                  onRemove={!catalogLocked ? () => removeItemWithUndo(item) : undefined}
                                   temporaryLabel={t.temporaryBadge}
                                 />
                                 {idx < groupItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
@@ -823,7 +847,7 @@ export default function ShoppingScreen() {
                               onPress={!catalogLocked ? () => setUpdateItem(item) : undefined}
                               onIncrement={!catalogLocked ? () => handleMonthlyQty(item, 1) : undefined}
                               onDecrement={!catalogLocked ? () => handleMonthlyQty(item, -1) : undefined}
-                              onRemove={!catalogLocked ? () => removeWithSource(item.id) : undefined}
+                              onRemove={!catalogLocked ? () => removeItemWithUndo(item) : undefined}
                               temporaryLabel={t.temporaryBadge}
                             />
                             {idx < ungroupedRestItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
@@ -972,13 +996,13 @@ export default function ShoppingScreen() {
                       listId: list.id,
                     });
                     success();
-                    setConfirm(t.itemAddedToList(input.name));
+                    showConfirm(t.itemAddedToList(input.name));
                   }}
                   monthlyItems={catalogItems}
                   onAddMonthlyToWeek={(item) => {
                     addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, list.id);
                     success();
-                    setConfirm(t.itemAddedToList(item.name));
+                    showConfirm(t.itemAddedToList(item.name));
                   }}
                   onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
                   renderReorderableRow={(item) => (
@@ -998,6 +1022,7 @@ export default function ShoppingScreen() {
                         onDecrement={() => adjustAmount(item.id, -1)}
                         inStockLabel={t.inStockLabel}
                         locked={list.locked}
+                        showDragHandle
                       />
                     </DraggableTaskRow>
                   )}
@@ -1038,8 +1063,8 @@ export default function ShoppingScreen() {
           const pickNames = picks.map((p) => items.find((i) => i.id === p.id)?.name);
           for (const pick of picks) addToWeeklyFromCatalog(pick.id, pick.quantity, addSourceChooserListId);
           success();
-          if (picks.length === 1 && pickNames[0]) setConfirm(t.itemAddedToList(pickNames[0]));
-          else if (picks.length > 1) setConfirm(t.itemsAddedToList(picks.length));
+          if (picks.length === 1 && pickNames[0]) showConfirm(t.itemAddedToList(pickNames[0]));
+          else if (picks.length > 1) showConfirm(t.itemsAddedToList(picks.length));
         }}
         onOpenAddSheet={() => {
           if (addSourceChooserListId) setAddItemTarget({ origin: 'weekly', listId: addSourceChooserListId });
@@ -1058,14 +1083,14 @@ export default function ShoppingScreen() {
           const newId = instantiateTemplate(id, todayStr());
           if (newId) {
             success();
-            setConfirm(t.templateAppliedToast);
+            showConfirm(t.templateAppliedToast);
           }
         }}
         onSaveCurrentAsTemplate={() => {
           if (!savedListsListId) return;
           saveListAsTemplate(savedListsListId);
           success();
-          setConfirm(t.listSavedAsTemplateToast);
+          showConfirm(t.listSavedAsTemplateToast);
         }}
       />
 
@@ -1091,7 +1116,14 @@ export default function ShoppingScreen() {
       <Ionicons name="add" size={20} color={theme.textInverse} />
       <Text style={[styles.fabText, { color: theme.textInverse }]}>{t.createGroupingBtn}</Text>
     </Pressable>
-    <ConfirmationBanner message={confirm} onDismiss={() => setConfirm(null)} />
+    <ConfirmationBanner
+      message={confirm}
+      onDismiss={() => { setConfirm(null); setConfirmUndo(null); }}
+      variant={confirmUndo ? 'danger' : 'success'}
+      actionLabel={confirmUndo ? t.undoBtn : undefined}
+      onAction={confirmUndo ?? undefined}
+      duration={confirmUndo ? 4000 : 2200}
+    />
 
     <Modal visible={resetConfirmVisible} transparent animationType="fade" onRequestClose={() => setResetConfirmVisible(false)}>
       <View style={styles.dialogOverlay}>
