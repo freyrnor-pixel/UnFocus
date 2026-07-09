@@ -4368,3 +4368,32 @@ Fix-session prompt listed three known bugs; the repo had moved past most of them
 - **`#transparent` invalid color:** repo-wide grep → no hits in code; nothing to fix.
 
 No file-header changes needed (only removed two unused i18n key entries).
+
+## 2026-07-09 — Store/data-layer robustness: log swallowed DB errors, guard unchecked enum casts
+
+Scope: `store/useSettingsStore.ts`, `store/useSharedStore.ts`, `lib/dataAccess.ts`. No
+schema changes.
+
+- **`useSettingsStore.update()`:** the DB-write try/catch stayed silent on failure, so a
+  setting could diverge from disk (lost on restart) with no trace. Kept the
+  UI-stays-responsive behavior (in-memory state still updates even if the write throws)
+  but now calls `logDbError` with the patch's changed keys as context. Also corrected the
+  file header, which claimed "update() always rewrites every column" — `updateRow` has
+  written only the columns present in the patch since the `dataAccess.ts` refactor;
+  the header now says so.
+- **`useSharedStore` `addSharedTasks`/`addSharedShopping`:** both wrapped every INSERT
+  error as "skip duplicate," but `shared_tasks`/`shared_shopping_items` only have a
+  PRIMARY KEY on `id` (a fresh `generateId()` per row) — a real PK clash is rare, so most
+  caught errors were actually being hidden, not deduped. Added `isConstraintError` to
+  `lib/dataAccess.ts` (matches `/constraint/i` in the thrown message) so only genuine
+  constraint violations are skipped silently; anything else now goes through
+  `logDbError`.
+- **Unchecked enum casts:** `readStr(row, 'direction') as SharedDirection` (both row
+  mappers in `useSharedStore.ts`) and three casts in `useSettingsStore.ts`'s
+  `rowToSettings` (`language`, `darkMode`, `fontSize`) trusted the DB column blindly.
+  Added `readEnum<T>(row, col, allowed, fallback)` to `lib/dataAccess.ts` — a generic
+  guard that falls back to a safe default instead of casting an unexpected string —
+  and swapped all five call sites to use it.
+- Updated the `Edit notes` header blocks in all three files to describe the new
+  behavior.
+- `npx tsc --noEmit`: 0 errors.

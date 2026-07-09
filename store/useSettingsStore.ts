@@ -27,9 +27,14 @@
  *   Data    → defines a Zustand store; owns the single-row SQLite table settings (id = 1)
  *
  * Edit notes:
- *   - Settings live in ONE row (id = 1, inserted by initDb); update() always rewrites every column WHERE id = 1.
+ *   - Settings live in ONE row (id = 1, inserted by initDb); update() writes only the
+ *     columns present in its patch (via rowValues + SETTINGS_COLUMNS) WHERE id = 1 —
+ *     NOT a full-row rewrite.
  *   - `loaded` and `workModeSessionOverride` are session-only (never persisted to SQLite).
- *   - update() updates in-memory state even if the DB write throws (e.g. column not yet migrated), so the UI stays responsive.
+ *   - update() updates in-memory state even if the DB write throws (e.g. column not yet
+ *     migrated), so the UI stays responsive — but the failure is now surfaced via
+ *     logDbError so a silently-lost-on-restart setting shows up in logs instead of
+ *     vanishing unnoticed.
  *   - New settings columns go through the migrations array in lib/db.ts; add to Settings type, load() mapping, and update()'s column list.
  */
 import { create } from 'zustand';
@@ -44,6 +49,8 @@ import {
   readReal,
   readBool,
   readJson,
+  readEnum,
+  logDbError,
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
 
@@ -156,13 +163,13 @@ function rowToSettings(row: Row): Settings {
     essentialsModeEnabled: readBool(row, 'essentials_mode_enabled'),
     showPoints: readBool(row, 'show_points'),
     showHints: readInt(row, 'show_hints', 1) !== 0,
-    language: readStr(row, 'language', 'no') as Language,
+    language: readEnum<Language>(row, 'language', ['en', 'no'], 'no'),
     holidaysEnabled: readInt(row, 'holidays_enabled', 1) !== 0,
-    darkMode: readStr(row, 'dark_mode', 'off') as DarkMode,
+    darkMode: readEnum<DarkMode>(row, 'dark_mode', ['system', 'on', 'off'], 'off'),
     childProfiles: readJson<string[]>(row, 'child_profiles', []),
     reducedMotion: readBool(row, 'reduced_motion'),
     particlesEnabled: readInt(row, 'particles_enabled', 1) !== 0,
-    fontSize: readStr(row, 'font_size', 'default') as FontSizePref,
+    fontSize: readEnum<FontSizePref>(row, 'font_size', ['small', 'default', 'large'], 'default'),
     leftHanded: readBool(row, 'left_handed'),
     persistentNotifEnabled: readBool(row, 'persistent_notif_enabled'),
     quietHoursEnabled: readBool(row, 'quiet_hours_enabled'),
@@ -317,8 +324,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       try {
         // Writes only the columns present in `patch` (was a 43-column rewrite per call).
         updateRow('settings', rowValues(patch, SETTINGS_COLUMNS), 'id = 1');
-      } catch {
-        // DB write failed (e.g. column not yet migrated) — state still updates in memory
+      } catch (e) {
+        // DB write failed (e.g. column not yet migrated) — state still updates in memory,
+        // but log so a setting silently lost on restart is visible instead of invisible.
+        logDbError(`useSettingsStore.update(${Object.keys(patch).join(',')})`, e);
       }
       return next;
     });

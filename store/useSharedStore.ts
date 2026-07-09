@@ -14,7 +14,13 @@
  *
  * Edit notes:
  *   - `direction` ('in'|'out') is the key distinction — the same table holds both sent and received rows; source_task_id/source_item_id link back to the local origin (may be null).
- *   - addShared* INSERTs are wrapped in try/catch to silently skip duplicates; these are append-only and pruned past RETENTION_DAYS in lib/db.ts.
+ *   - addShared* INSERTs are wrapped in try/catch: a constraint violation (PK clash
+ *     on `id`) is skipped silently as an expected duplicate, but any other error is
+ *     surfaced via logDbError instead of being swallowed — see isConstraintError in
+ *     lib/dataAccess.ts. These rows are append-only and pruned past RETENTION_DAYS
+ *     in lib/db.ts.
+ *   - rowToTask/rowToShopping read `direction` via readEnum (falls back to 'in' on an
+ *     unexpected value) instead of an unchecked `as SharedDirection` cast.
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
  *   - Widens the Decision 015 stub (adds sourceTaskId/sourceItemId/date/createdAt +
  *     load/addSharedTasks/addSharedShopping actions) — additive, so SharedRequestsSection
@@ -22,7 +28,7 @@
  */
 import { create } from 'zustand';
 import db from '@/lib/db';
-import { Row, loadAll, insertRow, updateRow, readStr, readBool } from '@/lib/dataAccess';
+import { Row, loadAll, insertRow, updateRow, readStr, readBool, readEnum, logDbError, isConstraintError } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
 
 export type SharedDirection = 'in' | 'out';
@@ -69,7 +75,7 @@ function rowToTask(row: Row): SharedTask {
     title: readStr(row, 'title'),
     date: readStr(row, 'date'),
     done: readBool(row, 'done'),
-    direction: readStr(row, 'direction') as SharedDirection,
+    direction: readEnum<SharedDirection>(row, 'direction', ['in', 'out'], 'in'),
     sharedBy: readStr(row, 'shared_by'),
     createdAt: readStr(row, 'created_at'),
   };
@@ -83,7 +89,7 @@ function rowToShopping(row: Row): SharedShoppingItem {
     amount: readStr(row, 'amount') || '1',
     unit: readStr(row, 'unit'),
     done: readBool(row, 'done'),
-    direction: readStr(row, 'direction') as SharedDirection,
+    direction: readEnum<SharedDirection>(row, 'direction', ['in', 'out'], 'in'),
     sharedBy: readStr(row, 'shared_by'),
     createdAt: readStr(row, 'created_at'),
   };
@@ -117,7 +123,9 @@ export const useSharedStore = create<SharedStore>((set, get) => ({
           created_at: now,
         });
         newItems.push({ ...item, id, done: false, createdAt: now });
-      } catch { /* skip duplicate */ }
+      } catch (e) {
+        if (!isConstraintError(e)) logDbError(`addSharedTasks insert(${id})`, e);
+      }
     }
     set((s) => ({ tasks: [...newItems, ...s.tasks] }));
   },
@@ -140,7 +148,9 @@ export const useSharedStore = create<SharedStore>((set, get) => ({
           created_at: now,
         });
         newItems.push({ ...item, id, done: false, createdAt: now });
-      } catch { /* skip duplicate */ }
+      } catch (e) {
+        if (!isConstraintError(e)) logDbError(`addSharedShopping insert(${id})`, e);
+      }
     }
     set((s) => ({ shoppingItems: [...newItems, ...s.shoppingItems] }));
   },
