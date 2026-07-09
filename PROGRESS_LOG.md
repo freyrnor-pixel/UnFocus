@@ -4353,3 +4353,18 @@ in synchronous single-threaded JS) were left as-is rather than wrapping every wr
 transaction.
 
 `npx tsc --noEmit` re-verified clean after all fixes.
+
+## 2026-07-09 — Small known bugs sweep: mostly already resolved; dead i18n key removed
+
+Fix-session prompt listed three known bugs; the repo had moved past most of them:
+
+- **`t.moreOptions` gap in shopping.tsx:** already resolved before this session — the
+  2026-07-03 session added a top-level `moreOptions` key, and the subsequent shopping
+  redesign removed the call sites entirely. That left the top-level `moreOptions`
+  (en + no, `lib/i18n.ts`) dead — nothing references it (only `t.habits.moreOptions`
+  is used, by `app/habit-form.tsx`). Removed both dead top-level entries so the string
+  lives only at the nested key, per the prompt's intent.
+- **`npx tsc --noEmit`:** 0 errors before and after the change.
+- **`#transparent` invalid color:** repo-wide grep → no hits in code; nothing to fix.
+
+No file-header changes needed (only removed two unused i18n key entries).

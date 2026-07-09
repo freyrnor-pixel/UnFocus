@@ -832,8 +832,6 @@ const en = {
     nutrition: 'Nutrition',
     other: 'Other',
   } as Record<string, string>,
-  // Top-level overflow label (shopping.tsx tab-bar "…" menu). Distinct from habits.moreOptions.
-  moreOptions: 'More options',
   // --- end W-D additions ---
   // Habits — shame-free labels (Proposal 5)
   habits: {
@@ -2113,8 +2111,6 @@ const no: typeof en = {
     nutrition: 'Ernæring',
     other: 'Annet',
   } as Record<string, string>,
-  // Top-level overflow label (shopping.tsx tab-bar "…" menu). Distinct from habits.moreOptions.
-  moreOptions: 'Flere valg',
   // --- end W-D additions ---
   cover: {
     tasksToday: 'I dag',
