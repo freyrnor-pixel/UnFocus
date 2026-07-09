@@ -129,6 +129,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
@@ -277,6 +278,7 @@ export default function ShoppingScreen() {
   const buildMonthlyResetSummary = useShoppingStore((s) => s.buildMonthlyResetSummary);
   const reorderItem = useShoppingStore((s) => s.reorder);
   const mergeItems = useShoppingStore((s) => s.mergeItems);
+  const recentlyAddedIds = useShoppingStore((s) => s.recentlyAddedIds);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
 
@@ -378,6 +380,16 @@ export default function ShoppingScreen() {
           (i.listId === UNALLOCATED_LIST_ID || nonTemplateLists.some((l) => l.id === i.listId))
       ).length,
     [items, nonTemplateLists]
+  );
+
+  // Decision 044b — cross-tab cue: true while at least one item just landed in the weekly
+  // list (Monthly checkbox, Food "Add to week list") and the user isn't looking at Weekly
+  // already. Derived straight from the store's self-expiring recentlyAddedIds map, so it
+  // clears itself both on tab switch (this expression goes false) and after ~1.8s (the
+  // map entry expires) — no extra effect/timer needed here.
+  const weeklyAddCue = useMemo(
+    () => tab !== 'weekly' && items.some((i) => i.status === 'inWeeklyList' && recentlyAddedIds[i.id]),
+    [tab, items, recentlyAddedIds]
   );
   const unlockedListCount = useMemo(() => nonTemplateLists.filter((l) => !l.locked).length, [nonTemplateLists]);
 
@@ -686,6 +698,17 @@ export default function ShoppingScreen() {
                 <View style={[styles.tabBadge, { backgroundColor: isActive ? accent : theme.surfaceMuted }]}>
                   <Text style={[styles.tabBadgeText, { color: isActive ? theme.accentInk : theme.textMuted }]}>{count}</Text>
                 </View>
+              )}
+              {/* Decision 044b — cross-tab cue: a small tick pops onto the Weekly tab when an
+                  add from Monthly/Food just landed there while the user is looking elsewhere. */}
+              {value === 'weekly' && weeklyAddCue && (
+                <Animated.View
+                  entering={reducedMotion ? undefined : ZoomIn.duration(200)}
+                  exiting={reducedMotion ? undefined : ZoomOut.duration(150)}
+                  style={[styles.tabCue, { backgroundColor: theme.good }]}
+                >
+                  <Ionicons name="checkmark" size={10} color={theme.textInverse} />
+                </Animated.View>
               )}
             </Pressable>
           );
@@ -1085,6 +1108,7 @@ const styles = StyleSheet.create({
   tabText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold },
+  tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   stickySummaryRow: { gap: 4, paddingBottom: Spacing.xs },
   stickyListName: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   stickyProgressText: { fontSize: FontSize.xs },

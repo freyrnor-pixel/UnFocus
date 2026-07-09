@@ -8,12 +8,17 @@
  * template (useShoppingListStore.saveAsTemplate).
  *
  * Connections:
- *   Imports → components/Surface, constants/theme, lib/i18n, lib/useAppTheme,
- *             store/useShoppingListStore (ShoppingList type only)
- *   Used by → app/shopping.tsx
+ *   Imports → components/AnimatedBottomSheet, components/Surface, constants/theme, lib/i18n,
+ *             lib/useAppTheme, store/useShoppingListStore (ShoppingList type only)
+ *   Used by → app/(tabs)/shopping.tsx
  *   Data    → none directly — `templates` and both callbacks are owned by the parent
  *
  * Edit notes:
+ *   - **Decision 044b (2026-07-09):** the backdrop+slide-up shell now comes from
+ *     components/AnimatedBottomSheet.tsx instead of a raw `<Modal animationType="slide">`
+ *     — that native animation only ever played on open (see that component's header for
+ *     why); this one plays a real timed exit too. No nullable "which item" prop here, so
+ *     no last-known-value cache is needed on this file's side.
  *   - Structurally copies AddSourceChooser.tsx's single-step bottom sheet (backdrop +
  *     slide-up sheet with a handle) — no second "step" here, just one scrollable list.
  *   - Ported (2026-07-02, Session A2·2, expanded scope — see PROGRESS_LOG). Rebuilt on
@@ -26,13 +31,14 @@
  *     orange(save btn)→accent, hardcoded '#fff'→textInverse.
  */
 import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import Surface from '@/components/Surface';
+import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 
 type Props = {
   visible: boolean;
@@ -58,8 +64,7 @@ export default function SavedListsModal({ visible, templates, onClose, onSelectT
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={[styles.backdrop, { backgroundColor: theme.overlay }]} onPress={onClose} />
+    <AnimatedBottomSheet visible={visible} onClose={onClose}>
       <Surface surfaceContext="overlay" style={styles.sheet}>
         <View style={[styles.handle, { backgroundColor: theme.border }]} />
         <Text style={[styles.title, { color: theme.text }]}>{t.savedListsTitle}</Text>
@@ -84,12 +89,11 @@ export default function SavedListsModal({ visible, templates, onClose, onSelectT
           <Text style={[styles.saveBtnText, { color: theme.accentInk }]}>{t.saveListAsTemplateBtn}</Text>
         </Pressable>
       </Surface>
-    </Modal>
+    </AnimatedBottomSheet>
   );
 }
 
 const baseStyles = StyleSheet.create({
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   sheet: {
     position: 'absolute',
     left: 0, right: 0, bottom: 0,

@@ -74,6 +74,14 @@
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
  *   - isTemporary purges on monthly reset; permanent catalog items are never
  *     deleted by reset, only their status/pendingRestock move.
+ *   - **Decision 044b — `recentlyAddedIds`**: ephemeral (non-persisted, non-synced) map of
+ *     ids added or moved-to-weekly in the last 1.8s, set by `markRecentlyAdded()` and
+ *     self-clearing via `setTimeout`. `add()` and `addToWeeklyFromCatalog()` call it on
+ *     every insert/dedup-increment. Consumed by components/ShoppingRow.tsx (entrance +
+ *     highlight animation) and app/(tabs)/shopping.tsx (Weekly tab cross-tab cue) — both
+ *     read it rather than owning their own "just added" state, so the cue survives a tab
+ *     switch and Food tab's direct `add()` calls (UNALLOCATED_LIST_ID rows) are covered
+ *     for free without FoodTab needing to know about it.
  */
 import { create } from 'zustand';
 import db from '@/lib/db';
@@ -173,9 +181,17 @@ export type MonthlyResetSummary = {
   adHocItems: ShoppingItem[];
 };
 
+/** Decision 044b — how long a row stays flagged "just added" for entrance/highlight motion. */
+const RECENT_ADD_MS = 1800;
+
 type ShoppingStore = {
   items: ShoppingItem[];
   trips: ShoppingTrip[];
+  /** Decision 044b — ids added/moved-to-weekly within the last RECENT_ADD_MS, for
+   *  ShoppingRow's entrance+highlight animation and the Weekly tab's cross-tab cue.
+   *  Ephemeral UI state only — never persisted, never synced. */
+  recentlyAddedIds: Record<string, boolean>;
+  markRecentlyAdded: (id: string) => void;
   load: () => void;
   add: (item: ShoppingItemInput) => string;
   update: (id: string, patch: Partial<Omit<ShoppingItem, 'id'>>) => void;
@@ -319,6 +335,19 @@ function syncItemRow(id: string): void {
 export const useShoppingStore = create<ShoppingStore>((set, get) => ({
   items: [],
   trips: [],
+  recentlyAddedIds: {},
+
+  markRecentlyAdded(id) {
+    set((s) => ({ recentlyAddedIds: { ...s.recentlyAddedIds, [id]: true } }));
+    setTimeout(() => {
+      set((s) => {
+        if (!s.recentlyAddedIds[id]) return s;
+        const next = { ...s.recentlyAddedIds };
+        delete next[id];
+        return { recentlyAddedIds: next };
+      });
+    }, RECENT_ADD_MS);
+  },
 
   load() {
     const items = loadAll('shopping_items', rowToItem, { orderBy: 'status, name', where: 'deleted_at IS NULL' });
@@ -350,6 +379,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
           : { amount: String((parseInt(existing.amount, 10) || 1) + (parseInt(item.amount, 10) || 1)) };
       if (item.price > 0) patch.price = item.price;
       get().update(existing.id, patch);
+      get().markRecentlyAdded(existing.id);
       return existing.id;
     }
 
@@ -386,6 +416,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     insertRow('shopping_items', rowValues(newItem, ITEM_COLUMNS));
     set((s) => ({ items: [...s.items, newItem] }));
     syncItemRow(id);
+    get().markRecentlyAdded(id);
     return id;
   },
 
@@ -530,9 +561,11 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
       get().update(existingWeekly.id, {
         amount: String((parseInt(existingWeekly.amount, 10) || 1) + qty),
       });
+      get().markRecentlyAdded(existingWeekly.id);
       return;
     }
     get().update(id, { status: 'inWeeklyList', pendingRestock: false, amount: String(qty), listId });
+    get().markRecentlyAdded(id);
   },
 
   /** Vestigial (Decision 044a) — inventory-edit.tsx's standalone Katalog screen still
