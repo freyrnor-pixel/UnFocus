@@ -12,7 +12,9 @@
  *   Imports → expo-router, expo-status-bar, react-native (AppState), react-native-gesture-handler,
  *             react-native-safe-area-context (SafeAreaProvider — supplies insets to every
  *             screen's SafeAreaView so content clears the status bar on Android too),
- *             @expo-google-fonts/nunito, lib/backup (saveAutoBackup), lib/db, lib/syncService, lib/useAppTheme,
+ *             @expo-google-fonts/nunito, lib/backup (saveAutoBackup), lib/db, lib/syncService,
+ *             lib/widgets/sync (syncWidgetsAndOverview — pushes today to the home-screen widgets
+ *             + persistent overview notification), lib/useAppTheme,
  *             store/useSettingsStore, store/useAutomationStore, store/useCatalogStore,
  *             store/useHabitStore, store/useHealthStore, store/useInboxStore,
  *             store/useMealStore, store/useNotesStore, store/usePeersStore, store/useReceiptStore,
@@ -65,6 +67,7 @@ import {
 } from '@expo-google-fonts/nunito';
 import { initDb } from '@/lib/db';
 import { saveAutoBackup } from '@/lib/backup';
+import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
 import { startSync, stopSync } from '@/lib/syncService';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -143,6 +146,9 @@ export default function RootLayout() {
     useShoppingListStore.getState().load();
     useShoppingStore.getState().load();
     useTaskStore.getState().load();
+    // Stores hydrate synchronously above, so today's tasks/shopping are ready:
+    // push them to the home-screen widgets + the persistent overview notification.
+    void syncWidgetsAndOverview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
 
@@ -167,11 +173,16 @@ export default function RootLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, lanSyncEnabled, deviceId]);
 
-  // Auto-backup: save to the fixed local path whenever the app goes to background.
+  // Auto-backup on background; keep the widgets + persistent overview notification
+  // current on every foreground/background transition (they show "today", which the
+  // user may have changed elsewhere or which may have rolled over to a new day).
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background' && autoBackupRef.current) {
         void saveAutoBackup();
+      }
+      if (state === 'active' || state === 'background') {
+        void syncWidgetsAndOverview();
       }
     });
     return () => sub.remove();

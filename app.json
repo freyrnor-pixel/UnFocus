@@ -61,7 +61,41 @@
       [
         "react-native-android-widget",
         {
-          "widgets": []
+          "widgets": [
+            {
+              "name": "Shopping",
+              "label": "UnFocus Shopping",
+              "description": "This week's shopping list",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "Tasks",
+              "label": "UnFocus Tasks",
+              "description": "Today's tasks",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "Overview",
+              "label": "UnFocus Overview",
+              "description": "Today's overview",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
         }
       ],
       "@bacons/apple-targets",
