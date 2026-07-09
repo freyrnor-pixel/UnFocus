@@ -3,11 +3,10 @@
  *
  * Renders the watercolor-tree background (assets/bg-light.png / assets/bg-dark.png)
  * as a full-screen ImageBackground, switched by dark/light mode, then
- * layers animated particles on top:
- *   - Rising dots that float upward and fade out
- *   - Pulsing ring halos centered at screen mid-height (dark mode only)
- *   - Soft radial orb glow at the upper-center focal point
- * All animations loop indefinitely. Particles skip entirely when
+ * layers a thin animated particle field on top:
+ *   - A few (5) rising dots that float upward and fade out
+ *   - Soft radial orb glow at the upper-center focal point (static)
+ * The dot animations loop indefinitely. Particles skip entirely when
  * `settings.particlesEnabled` is false or `reducedMotion` is true.
  *
  * Connections:
@@ -22,9 +21,15 @@
  *   - Uses native driver for all transforms/opacity — no layout animation.
  *   - require() paths must stay static string literals —
  *     the RN bundler can't resolve a dynamically built path.
- *   - Particle dot/ring/orb colours stay the fixed blue-white/blue-violet pair
+ *   - Particle dot/orb colours stay the fixed blue-white/blue-violet pair
  *     regardless of theme — they're a light sparkle effect, not a palette token,
  *     and read fine layered over every recoloured background.
+ *   - **Kept intentionally sparse (5 dots, no pulse rings).** This is the app's ONE
+ *     ambient particle layer, always mounted behind the tabs pager, so each dot is a
+ *     full-screen-overlay view the pager composites on every swipe frame. The old
+ *     10-dot + 3-ring field (plus HomeHeroBackground's own now-removed dots) was overdraw
+ *     that made swiping between the 5 tabs hitch, and it broke ANIMATION_GUIDELINES §6
+ *     ("no more than a few simultaneous moving elements"). Don't grow this back.
  *   - `particlesEnabled` defaults to true in the settings store — users see particles from
  *     first launch and can opt out in Settings → Accessibility.
  */
@@ -55,17 +60,18 @@ type DotSpec = {
   rise: number; // how far upward (px) the dot travels before resetting
 };
 
+// Kept deliberately small (5): this field is the app's ONE ambient particle layer,
+// always mounted behind the whole tabs pager, so every one of these is a full-screen-
+// overlay view the pager composites on each swipe frame. ANIMATION_GUIDELINES §6 wants
+// "no more than a few simultaneous moving elements" — the old 10-dot + 3-ring field was
+// overdraw that made swiping between screens hitch. Spread across the width so the thinner
+// set still reads as an even, gentle drift.
 const DOTS: DotSpec[] = [
   { size: 5,  left: '12%', bottom: '20%', duration: 7000,  delay: 0,    rise: 200 },
-  { size: 3,  left: '28%', bottom: '35%', duration: 9500,  delay: 1200, rise: 180 },
-  { size: 4,  left: '45%', bottom: '18%', duration: 8000,  delay: 2800, rise: 220 },
-  { size: 3,  left: '62%', bottom: '42%', duration: 10000, delay: 500,  rise: 160 },
-  { size: 5,  left: '74%', bottom: '28%', duration: 7500,  delay: 3500, rise: 200 },
-  { size: 2,  left: '85%', bottom: '50%', duration: 11000, delay: 1800, rise: 140 },
-  { size: 4,  left: '34%', bottom: '58%', duration: 8800,  delay: 4200, rise: 170 },
-  { size: 3,  left: '55%', bottom: '14%', duration: 9200,  delay: 600,  rise: 210 },
-  { size: 2,  left: '20%', bottom: '65%', duration: 12000, delay: 3000, rise: 130 },
-  { size: 4,  left: '90%', bottom: '32%', duration: 8200,  delay: 2100, rise: 190 },
+  { size: 3,  left: '38%', bottom: '35%', duration: 9500,  delay: 1800, rise: 180 },
+  { size: 4,  left: '62%', bottom: '18%', duration: 8000,  delay: 3400, rise: 220 },
+  { size: 3,  left: '80%', bottom: '46%', duration: 10500, delay: 900,  rise: 160 },
+  { size: 4,  left: '50%', bottom: '58%', duration: 8800,  delay: 2600, rise: 170 },
 ];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -122,36 +128,6 @@ function RisingDot({ spec, color }: { spec: DotSpec; color: string }) {
   );
 }
 
-function PulseRing({ delay, color }: { delay: number; color: string }) {
-  const progress = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.timing(progress, {
-          toValue: 1,
-          duration: 5500,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(progress, { toValue: 0, duration: 0, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [progress, delay]);
-
-  const scale = progress.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1.2] });
-  const opacity = progress.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 0.45, 0] });
-
-  return (
-    <Animated.View
-      style={[styles.ring, { borderColor: color, transform: [{ scale }], opacity }]}
-    />
-  );
-}
-
 /** Soft radial glow at the upper-center focal point — a true SVG radial gradient
  *  (smooth falloff), not stacked same-color circles that read as banded rings. */
 function OrbHalo({ color }: { color: string }) {
@@ -197,12 +173,10 @@ export default function ParticleBackground() {
   const palette = isDark
     ? {
         dot: '#8ab4ff',
-        ring: 'rgba(130,170,255,0.18)',
         orb: '#5580d8',
       }
     : {
         dot: '#2a5fc4',
-        ring: 'rgba(80,140,230,0.16)',
         orb: '#90bef5',
       };
 
@@ -216,14 +190,6 @@ export default function ParticleBackground() {
         {showParticles && (
           <>
             <OrbHalo color={palette.orb} />
-
-            {isDark && (
-              <>
-                <PulseRing delay={0}    color={palette.ring} />
-                <PulseRing delay={1833} color={palette.ring} />
-                <PulseRing delay={3666} color={palette.ring} />
-              </>
-            )}
 
             {DOTS.map((spec, i) => (
               <RisingDot key={i} spec={spec} color={palette.dot} />
@@ -240,16 +206,5 @@ export default function ParticleBackground() {
 const styles = StyleSheet.create({
   dot: {
     position: 'absolute',
-  },
-  ring: {
-    position: 'absolute',
-    top: '30%',
-    left: '50%',
-    width: 240,
-    height: 240,
-    marginLeft: -120,
-    marginTop: -120,
-    borderRadius: 120,
-    borderWidth: 1.5,
   },
 });

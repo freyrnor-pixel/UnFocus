@@ -9,14 +9,19 @@
  * (component swap, not a route), wrapped here so it still applies the bottom safe-area
  * inset the way ScreenScaffold's old bottomBlock did.
  *
- * Also renders ONE shared L1/L2 background (HomeHeroBackground-or-ScreenBackground +
- * ParticleBackground) behind the whole pager, instead of each of the 5 screens mounting
- * its own via ScreenScaffold. react-native-pager-view slides each screen's whole subtree
- * horizontally, so a per-screen background used to slide right along with the content —
- * reading as "each screen has its own picture" instead of a fixed backdrop. Hoisting it
- * here decouples it from the swipe: it sits behind TopTabs and only swaps (Home hero vs
- * plain backdrop) when the focused tab actually changes, not mid-drag. The 5 tab screens
- * pass ownBackground={false} to ScreenScaffold so they don't ALSO paint their own copy.
+ * Also renders ONE shared L1/L2 background (ScreenBackground + a cross-faded
+ * HomeHeroBackground + ParticleBackground) behind the whole pager, instead of each of the
+ * 5 screens mounting its own via ScreenScaffold. react-native-pager-view slides each
+ * screen's whole subtree horizontally, so a per-screen background used to slide right
+ * along with the content — reading as "each screen has its own picture" instead of a fixed
+ * backdrop. Hoisting it here decouples it from the swipe: it sits behind TopTabs. Both L1
+ * layers stay mounted; the Home hero is overlaid in an Animated.View whose opacity
+ * cross-fades in on Home / out elsewhere (Home is the centre tab, so this fires on most
+ * swipes). This replaced an earlier `isHomeActive ? <HomeHeroBackground/> : <ScreenBackground/>`
+ * MOUNT SWAP, which created/destroyed react-native-svg + gradient views (and restarted the
+ * hero's Animated loops) on the exact frame a swipe settled — a per-swipe hitch that read
+ * as laggy swiping. The 5 tab screens pass ownBackground={false} to ScreenScaffold so they
+ * don't ALSO paint their own copy.
  *
  * Connections:
  *   Imports → expo-router/js-top-tabs (TopTabs — Expo Router's own SDK-56 top-tabs
@@ -50,9 +55,10 @@
  *     (`state.routes[state.index].name`) is read inside the `tabBar` render prop, same
  *     place BottomNav reads it to highlight the active icon — there's no other hook that
  *     exposes the focused route at this layout level. TabBarWithBackgroundSync forwards
- *     it up via onActiveRouteChange so this component can pick HomeHeroBackground vs
- *     ScreenBackground. This only fires when the focused route actually changes (not
- *     continuously while dragging), which is what keeps the swap instant instead of sliding.
+ *     it up via onActiveRouteChange so this component can cross-fade the HomeHeroBackground
+ *     overlay's opacity (both L1 layers stay mounted — no remount). This only fires when the
+ *     focused route actually changes (not continuously while dragging), so the fade starts at
+ *     the swipe boundary rather than sliding with the drag. reducedMotion snaps instead.
  *   - **Scene background must stay transparent**: @react-navigation/material-top-tabs's
  *     MaterialTopTabView wraps every route in `sceneStyle: { backgroundColor: colors.background }`
  *     by default (react-navigation theme background, opaque) — that painted over this
@@ -63,14 +69,15 @@
  *     ever goes flat again after a react-navigation/expo-router upgrade, check this
  *     sceneStyle override first.
  */
-import React, { useState } from 'react';
-import { View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
+import { useAccessibility } from '@/lib/useAppTheme';
 import { TAB_ROUTE_NAME } from '@/lib/siteNav';
 
 type TabBarSyncProps = MaterialTopTabBarProps & {
@@ -93,13 +100,39 @@ function TabBarWithBackgroundSync({ insetsBottom, onActiveRouteChange, ...tabBar
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { reducedMotion } = useAccessibility();
   const [activeRouteName, setActiveRouteName] = useState<string>(TAB_ROUTE_NAME['/']!);
   const isHomeActive = activeRouteName === TAB_ROUTE_NAME['/'];
 
+  // Both backgrounds stay mounted; we cross-fade the hero layer's opacity instead of
+  // swapping which one is mounted (see file header). ScreenBackground sits underneath at
+  // full opacity; HomeHeroBackground overlays it and fades in on Home, out elsewhere — so
+  // no SVG/gradient view is created or destroyed at the frame a swipe settles (the old
+  // remount was a per-swipe hitch). reducedMotion snaps instead of animating (§7).
+  const heroOpacity = useRef(new Animated.Value(isHomeActive ? 1 : 0)).current;
+  useEffect(() => {
+    const to = isHomeActive ? 1 : 0;
+    if (reducedMotion) {
+      heroOpacity.setValue(to);
+      return;
+    }
+    const anim = Animated.timing(heroOpacity, {
+      toValue: to,
+      duration: 220,
+      useNativeDriver: true,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [isHomeActive, reducedMotion, heroOpacity]);
+
   return (
     <View style={{ flex: 1 }}>
-      {/* Shared L1/L2 background, rendered once behind the whole pager (see file header). */}
-      {isHomeActive ? <HomeHeroBackground /> : <ScreenBackground />}
+      {/* Shared L1/L2 background, rendered once behind the whole pager (see file header).
+          Both L1 layers stay mounted; the hero cross-fades over the plain backdrop. */}
+      <ScreenBackground />
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: heroOpacity }]} pointerEvents="none">
+        <HomeHeroBackground />
+      </Animated.View>
       <ParticleBackground />
 
       <TopTabs
