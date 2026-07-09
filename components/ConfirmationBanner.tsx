@@ -23,9 +23,14 @@
  *   - Render once near the root of a screen so it overlays content (zIndex high).
  *   - variant default 'success' keeps existing callers unchanged (no churn).
  *   - shadowColor stays '#000' — a shadow treatment, not a themed fill.
+ *   - **Decision 044a (2026-07-09):** added optional `actionLabel`/`onAction` — an
+ *     inline "Undo" button rendered beside the message, its own Pressable so it
+ *     doesn't trigger the message's dismiss-on-tap. Both optional; existing callers
+ *     with neither are unaffected. First use: app/(tabs)/shopping.tsx's Monthly-tab
+ *     "add to weekly" toast (undoes via putBackToInventory).
  */
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, Pressable } from 'react-native';
+import { StyleSheet, Text, Pressable, View } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -47,6 +52,10 @@ type Props = {
   duration?: number;
   /** Feedback tone. Default 'success'. */
   variant?: Variant;
+  /** Optional inline action button label (e.g. "Undo"). Renders only when both this and `onAction` are set. */
+  actionLabel?: string;
+  /** Fires when the action button is tapped; the banner then dismisses immediately. */
+  onAction?: () => void;
 };
 
 const VARIANT_ICON: Record<Variant, keyof typeof Ionicons.glyphMap> = {
@@ -55,7 +64,7 @@ const VARIANT_ICON: Record<Variant, keyof typeof Ionicons.glyphMap> = {
   warn: 'warning',
 };
 
-export default function ConfirmationBanner({ message, onDismiss, duration = 2200, variant = 'success' }: Props) {
+export default function ConfirmationBanner({ message, onDismiss, duration = 2200, variant = 'success', actionLabel, onAction }: Props) {
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
@@ -86,20 +95,33 @@ export default function ConfirmationBanner({ message, onDismiss, duration = 2200
 
   const fill = variant === 'danger' ? theme.bad : variant === 'warn' ? theme.warn : theme.good;
 
+  const showAction = !!actionLabel && !!onAction;
+
   return (
     <Animated.View
       pointerEvents="box-none"
       style={[styles.wrap, { top: insets.top + Spacing.sm }, animStyle]}
     >
-      <Pressable
-        onPress={onDismiss}
-        style={[styles.banner, { backgroundColor: fill, shadowColor: '#000' }]}
-      >
-        <Ionicons name={VARIANT_ICON[variant]} size={22} color={theme.textInverse} />
-        <Text style={[styles.text, { color: theme.textInverse }]} numberOfLines={2}>
-          {message}
-        </Text>
-      </Pressable>
+      <View style={[styles.banner, { backgroundColor: fill, shadowColor: '#000' }]}>
+        <Pressable onPress={onDismiss} style={styles.bannerMain}>
+          <Ionicons name={VARIANT_ICON[variant]} size={22} color={theme.textInverse} />
+          <Text style={[styles.text, { color: theme.textInverse }]} numberOfLines={2}>
+            {message}
+          </Text>
+        </Pressable>
+        {showAction && (
+          <Pressable
+            onPress={() => {
+              onAction!();
+              onDismiss();
+            }}
+            hitSlop={8}
+            style={styles.actionBtn}
+          >
+            <Text style={[styles.actionText, { color: theme.textInverse }]}>{actionLabel}</Text>
+          </Pressable>
+        )}
+      </View>
     </Animated.View>
   );
 }
@@ -115,16 +137,30 @@ const baseStyles = StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
     paddingVertical: 14,
     paddingHorizontal: Spacing.md,
     borderRadius: Radius.md,
     maxWidth: 520,
     ...Shadow.card,
   },
+  bannerMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   text: {
     flex: 1,
     fontSize: FontSize.md,
     fontFamily: Fonts.bold,
+  },
+  actionBtn: {
+    paddingLeft: Spacing.md,
+    paddingVertical: 4,
+  },
+  actionText: {
+    fontSize: FontSize.sm,
+    fontFamily: Fonts.bold,
+    textDecorationLine: 'underline',
   },
 });
