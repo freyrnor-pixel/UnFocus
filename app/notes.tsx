@@ -10,7 +10,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/NoteRow,
- *             components/AddFAB, components/ShoppingQuickAddSheet, constants/theme,
+ *             components/VoiceNoteFAB, components/ShoppingQuickAddSheet, constants/theme,
  *             lib/db, lib/i18n, lib/useAppTheme, store/useNotesStore, store/useSettingsStore
  *   Used by → Expo Router route "/notes", reached via Home's "More → Notes" link
  *             (no BottomNav tab by design — Decision 036; note editing itself is Decision 012)
@@ -25,8 +25,10 @@
  *     so it reads as "the active colour theme", not a fixed hue.
  *   - Only rendered when both sections are non-empty — an all-active or all-checked list has
  *     nothing to visually separate.
- *   - Decision 001 tier='site' scaffold (BottomNav + header chrome). AddFAB + the sheet
+ *   - Decision 001 tier='site' scaffold (BottomNav + header chrome). VoiceNoteFAB + the sheet
  *     render as siblings of ScreenScaffold. Decision 006 tokens only (accent/textMuted).
+ *   - No manual "add blank note" affordance — VoiceNoteFAB both creates the note and fills
+ *     its body from the transcript; the header is left for the user to type (see NoteRow).
  *   - Loads the store on focus so edits made in /capture (edit affordance) or /task-form
  *     are reflected on return; initDb() is idempotent but guarded by a module flag.
  */
@@ -38,7 +40,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import NoteRow from '@/components/NoteRow';
-import AddFAB from '@/components/AddFAB';
+import VoiceNoteFAB from '@/components/VoiceNoteFAB';
 import ShoppingQuickAddSheet from '@/components/ShoppingQuickAddSheet';
 import { useT } from '@/lib/i18n';
 import { initDb } from '@/lib/db';
@@ -130,7 +132,12 @@ export default function NotesScreen() {
         </View>
       </ScreenScaffold>
 
-      <AddFAB onPress={() => addNote()} accessibilityLabel={t.notes.addNote} />
+      <VoiceNoteFAB
+        onTranscript={(text) => {
+          const note = addNote();
+          updateNote(note.id, { body: text });
+        }}
+      />
       <ShoppingQuickAddSheet visible={shoppingSheetVisible} onClose={() => setShoppingSheetVisible(false)} />
     </>
   );

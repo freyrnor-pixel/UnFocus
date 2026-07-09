@@ -1042,8 +1042,7 @@ const en = {
   notes: {
     title: 'Notes',
     navLabel: 'Notes',
-    addNote: 'Add note',
-    emptyState: 'No notes yet — tap + to add one.',
+    emptyState: 'No notes yet — tap the mic to add one.',
     headerPlaceholder: 'Note title',
     bodyPlaceholder: 'Add more detail…',
     addToShoppingLabel: 'Add to shopping list',
@@ -1052,6 +1051,10 @@ const en = {
     shoppingQuickAddTitle: 'Add to shopping list',
     activeLabel: 'Active',
     checkedLabel: 'Checked off',
+    recordVoiceNote: 'Record voice note',
+    stopRecording: 'Stop recording',
+    micPermissionBody: 'Microphone access is required to add a voice note.',
+    micErrorBody: "Couldn't catch that — try again.",
   },
   hints: {
     home: {
@@ -1103,7 +1106,7 @@ const en = {
       example: '',
     },
     notes: {
-      text: '1) Tap + to jot a quick note.\n2) Use its shopping or plans button to send it onward.\n3) Check it off when done — it moves below.',
+      text: '1) Tap the mic and say your note — it lands in the text box.\n2) Use its shopping or plans button to send it onward.\n3) Check it off when done — it moves below.',
       example: '',
     },
   },
@@ -2107,8 +2110,7 @@ const no: typeof en = {
   notes: {
     title: 'Notater',
     navLabel: 'Notater',
-    addNote: 'Legg til notat',
-    emptyState: 'Ingen notater ennå — trykk + for å legge til.',
+    emptyState: 'Ingen notater ennå — trykk på mikrofonen for å legge til.',
     headerPlaceholder: 'Notattittel',
     bodyPlaceholder: 'Legg til mer detaljer…',
     addToShoppingLabel: 'Legg til i handleliste',
@@ -2117,6 +2119,10 @@ const no: typeof en = {
     shoppingQuickAddTitle: 'Legg til i handleliste',
     activeLabel: 'Aktive',
     checkedLabel: 'Avkrysset',
+    recordVoiceNote: 'Ta opp talenotat',
+    stopRecording: 'Stopp opptak',
+    micPermissionBody: 'Mikrofontilgang er nødvendig for å legge til et talenotat.',
+    micErrorBody: 'Fikk ikke med det — prøv igjen.',
   },
   hints: {
     home: {
@@ -2168,7 +2174,7 @@ const no: typeof en = {
       example: '',
     },
     notes: {
-      text: '1) Trykk + for å skrive et raskt notat.\n2) Bruk handleliste- eller planer-knappen for å sende det videre.\n3) Hak av når du er ferdig — det flyttes ned.',
+      text: '1) Trykk på mikrofonen og si notatet — det legges rett i tekstboksen.\n2) Bruk handleliste- eller planer-knappen for å sende det videre.\n3) Hak av når du er ferdig — det flyttes ned.',
       example: '',
     },
   },
