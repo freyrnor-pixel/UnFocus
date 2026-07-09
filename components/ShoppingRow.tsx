@@ -367,8 +367,8 @@ const baseStyles = StyleSheet.create({
     borderWidth: 1,
   },
   check: {
-    width: 26,
-    height: 26,
+    width: 22,
+    height: 22,
     borderRadius: Radius.full,
     borderWidth: 2,
     alignItems: 'center',

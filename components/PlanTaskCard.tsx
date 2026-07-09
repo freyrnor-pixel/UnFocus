@@ -57,7 +57,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import CompletionGlow from '@/components/CompletionGlow';
 import { Task } from '@/store/useTaskStore';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -294,8 +294,8 @@ export default function PlanTaskCard({
             </Text>
             {task.importance === 'essential' && !task.done && <Ionicons name="star" size={12} color={theme.accent} />}
             {surfaced && !task.done ? (
-              <View style={[styles.followerBadge, { backgroundColor: theme.accentSoft }]}>
-                <Text style={[styles.followerBadgeText, { color: theme.accent }]}>{t.dayViewFollowerBadge}</Text>
+              <View style={[styles.followerBadge, { backgroundColor: rgba(theme.featPlan, 0.16) }]}>
+                <Text style={[styles.followerBadgeText, { color: theme.featPlan }]}>{t.dayViewFollowerBadge}</Text>
               </View>
             ) : null}
           </View>
@@ -379,8 +379,8 @@ export default function PlanTaskCard({
             <View style={styles.headerRow}>
               <Text style={[styles.headerTitle, { color: theme.text }]}>{t.home.todaysPlans}</Text>
               {pendingCount > 0 && (
-                <View style={[styles.badge, { backgroundColor: theme.accentSoft }]}>
-                  <Text style={[styles.badgeText, { color: theme.accent }]}>{pendingCount}</Text>
+                <View style={[styles.badge, { backgroundColor: rgba(theme.featPlan, 0.16) }]}>
+                  <Text style={[styles.badgeText, { color: theme.featPlan }]}>{pendingCount}</Text>
                 </View>
               )}
             </View>

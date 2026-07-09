@@ -84,7 +84,7 @@ import { goToSite } from '@/lib/siteNav';
 import { showAppModal } from '@/components/AppModal';
 import { decodeSharePayload } from '@/lib/share';
 import { parseReceiptText, findFuzzyMatch, ParsedReceiptItem as ParsedItem } from '@/lib/receipt';
-import { FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
+import { FontSize, Radius, Shadow, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 // Fixed camera-chrome colours (Decision 025) — theme-independent, always white-on-black.
@@ -519,8 +519,12 @@ export default function ScanScreen() {
       <>
         <ScreenScaffold title={t.scanReceipt} tier="site" bottomNav={false} ownBackground={false}>
           <View style={styles.content}>
-            <Pressable style={styles.budgetLinkRow} onPress={() => goToSite(router, pathname, '/budget')} hitSlop={6}>
-              <Text style={[styles.backLink, { color: theme.accent }]}>{t.budget.title}</Text>
+            <Pressable
+              style={[styles.budgetPill, { backgroundColor: rgba(theme.featBudget, 0.16) }]}
+              onPress={() => goToSite(router, pathname, '/budget')}
+              hitSlop={6}
+            >
+              <Text style={[styles.budgetPillText, { color: theme.featBudget }]}>{t.budget.title}</Text>
             </Pressable>
 
             <View style={[styles.tipBox, { backgroundColor: theme.goodSoft }]}>
@@ -747,7 +751,13 @@ const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.md },
 
   // IDLE MODE
-  budgetLinkRow: { alignSelf: 'flex-end' },
+  budgetPill: {
+    alignSelf: 'flex-end',
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  budgetPillText: { fontSize: FontSize.xs, fontWeight: '700' },
   backLink: { fontSize: FontSize.sm, fontWeight: '700' },
   tipBox: { borderRadius: Radius.md, paddingVertical: 13, paddingHorizontal: 16 },
   tipText: { fontSize: FontSize.sm, lineHeight: 20 },

@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   cardStack: { gap: Spacing.sm },
   todayCard: {
     borderWidth: 1,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.md,
     padding: Spacing.md,
     gap: Spacing.sm,
   },

@@ -25,7 +25,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -70,8 +70,8 @@ export default function HomeNotesCard() {
           <View style={styles.titleRow}>
             <Text style={[styles.title, { color: theme.text }]}>{t.notes.title}</Text>
             {activeNotes.length > 0 && (
-              <View style={[styles.badge, { backgroundColor: theme.accentSoft }]}>
-                <Text style={[styles.badgeText, { color: theme.accent }]}>{activeNotes.length}</Text>
+              <View style={[styles.badge, { backgroundColor: rgba(theme.featNote, 0.16) }]}>
+                <Text style={[styles.badgeText, { color: theme.featNote }]}>{activeNotes.length}</Text>
               </View>
             )}
           </View>
@@ -157,7 +157,7 @@ export default function HomeNotesCard() {
                     onPress={() => handleToggle(note.id)}
                     hitSlop={8}
                   >
-                    <Ionicons name="checkmark" size={12} color={theme.bg} />
+                    <Ionicons name="checkmark" size={12} color={theme.accentInk} />
                   </Pressable>
                   <View style={styles.noteText}>
                     <Text
@@ -191,8 +191,8 @@ const baseStyles = StyleSheet.create({
   rows: { gap: 0 },
   noteRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: Spacing.sm, gap: Spacing.sm },
   check: {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     borderRadius: Radius.full,
     borderWidth: 2,
     alignItems: 'center',
