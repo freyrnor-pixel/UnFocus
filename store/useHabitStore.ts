@@ -9,9 +9,11 @@
  * back-compat, but new habits are written with kind='neutral' and empty step fields.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/habitNotifications, store/useSettingsStore
- *   Used by → app/habit-form.tsx, app/habits.tsx, app/health.tsx (inline summary);
- *             app/_layout.tsx, app/settings.tsx not yet ported (future phases)
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/habitNotifications, store/useSettingsStore,
+ *             store/useTaskStore (Importance type only)
+ *   Used by → app/habit-form.tsx, app/(tabs)/health.tsx (embedded Habits section — the former
+ *             standalone app/habits.tsx was folded directly into it, no separate route anymore);
+ *             app/_layout.tsx, app/settings.tsx
  *   Data    → defines a Zustand store; owns SQLite tables habits and habit_logs; schedules per-habit daily notifications
  *
  * Edit notes:
@@ -20,8 +22,12 @@
  *   - User-facing notification strings go through getTranslations(useSettingsStore.getState().language), NOT useT.
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
  *   - markRestDay() toggles the rest_day flag on a habit_logs row (upserting one if it doesn't
- *     exist yet) — a no-shame opt-out, framed as "Resting today" in app/habits.tsx, never "skipped".
- *     computeStreak() in app/habits.tsx treats a rest day like a met day so the streak survives it.
+ *     exist yet) — a no-shame opt-out, framed as "Resting today" in app/(tabs)/health.tsx, never
+ *     "skipped". computeStreak() there treats a rest day like a met day so the streak survives it.
+ *   - **`importance`** (`'regular'|'essential'`) mirrors Task's Decision 018 field exactly (same
+ *     type, imported from useTaskStore). Gates both Focus-mode visibility (health.tsx filters the
+ *     embedded Habits section to essential habits when focus is on) and notification scheduling
+ *     (syncHabitReminder → lib/habitNotifications.ts, same `essentialsModeEnabled` gate as tasks).
  *   - **Decision 016 Q2 — no legacy `notificationTime` field.** `notificationTimes` is the
  *     sole live source of truth; the `notification_time` DB column is dead (never read/written
  *     here — see lib/db.ts's header for the precedent).
@@ -48,6 +54,7 @@ import {
 import { generateId } from '@/lib/id';
 import { dateStr } from '@/lib/date';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import type { Importance } from '@/store/useTaskStore';
 import { syncHabitReminder as scheduleHabitReminder, cancelHabitReminders } from '@/lib/habitNotifications';
 
 export type HabitKind = 'build' | 'break' | 'neutral';
@@ -84,6 +91,8 @@ export type Habit = {
   active: boolean;
   createdAt: string;
   childName: string;
+  /** General/Essential (mirrors Task's importance, Decision 018) — gates Focus-mode visibility + notifications. */
+  importance: Importance;
 };
 
 export type HabitLog = {
@@ -119,6 +128,7 @@ function syncHabitReminder(habit: Habit): void {
     quietHoursEnabled: s.quietHoursEnabled,
     quietHoursStart: s.quietHoursStart,
     quietHoursEnd: s.quietHoursEnd,
+    essentialsModeEnabled: s.essentialsModeEnabled,
   });
 }
 
@@ -149,6 +159,7 @@ function rowToHabit(row: Row): Habit {
     active: readInt(row, 'active', 1) !== 0,
     createdAt: readStr(row, 'created_at'),
     childName: readStr(row, 'child_name'),
+    importance: (readStr(row, 'importance') || 'regular') as Importance,
   };
 }
 
@@ -187,6 +198,7 @@ const HABIT_COLUMNS: FieldMap<Habit> = {
   active: { col: 'active', to: (v) => (v ? 1 : 0) },
   createdAt: { col: 'created_at' },
   childName: { col: 'child_name', to: (v) => v || '' },
+  importance: { col: 'importance', to: (v) => v ?? 'regular' },
 };
 
 export const useHabitStore = create<HabitStore>((set, get) => ({

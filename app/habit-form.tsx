@@ -1,10 +1,11 @@
 /**
  * habit-form.tsx — add / edit a habit
  *
- * Sub-screen (Decision 001 tier='sub') for one habit: icon, title, category, daily
- * goal, recurrence, an optional child-profile assignment, and the three-mode daily
- * reminder picker (Once / Several times / Every…, Decision 016). An `id` route param
- * switches it to edit mode (with delete).
+ * Sub-screen (Decision 001 tier='sub') for one habit: icon, title, General/Essential
+ * importance (mirrors Task's Decision 018 field), category, daily goal, recurrence, an
+ * optional child-profile assignment, and the three-mode daily reminder picker (Once /
+ * Several times / Every…, Decision 016). An `id` route param switches it to edit mode
+ * (with delete).
  *
  * Build/break kind and the cue→craving→response→reward "atomic habits" steps were
  * removed (habits are now simple, task-shaped) — `kind` is written as 'neutral' and the
@@ -14,9 +15,8 @@
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
  *             components/HintCard, components/HabitIcon, components/Button, components/AppModal,
  *             lib/haptics, lib/i18n, lib/useAppTheme, store/useHabitStore, store/useSettingsStore
- *   Used by → Expo Router route "/habit-form"; no caller wired yet (ported ahead of its
- *             mount, same pattern as every other Phase 5/6 screen so far — a future
- *             app/habits.tsx "+" affordance is the eventual entry point)
+ *   Used by → Expo Router route "/habit-form"; reached from app/(tabs)/health.tsx's
+ *             embedded Habits section (AddFAB "+" and long-press-to-edit on a habit card)
  *   Data    → useHabitStore (habits table) via add/update/remove; toggling the notification
  *             (or editing its recipe) reschedules the habit's reminders through the store
  *
@@ -48,6 +48,7 @@ import {
   HabitCategory,
   HabitReminderMode,
 } from '@/store/useHabitStore';
+import type { Importance } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -127,6 +128,7 @@ export default function HabitForm() {
   const [category, setCategory] = useState<HabitCategory>(existing?.category ?? 'other');
   const [dailyGoal, setDailyGoal] = useState(existing?.dailyGoal ?? 1);
   const [childName, setChildName] = useState(existing?.childName ?? (params.childName ?? ''));
+  const [importance, setImportance] = useState<Importance>(existing?.importance ?? 'regular');
 
   const [notificationEnabled, setNotificationEnabled] = useState(existing?.notificationEnabled ?? false);
   // Recipe fields: prefer the persisted recipe (Decision 016 Q3); fall back to the old
@@ -187,6 +189,7 @@ export default function HabitForm() {
       reminderStart: notificationEnabled && reminderMode !== 'single' ? reminderStart : null,
       reminderEnd: notificationEnabled && reminderMode !== 'single' ? reminderEnd : null,
       childName,
+      importance,
     };
     if (isEdit && params.id) {
       updateHabit(params.id, payload);
@@ -235,6 +238,19 @@ export default function HabitForm() {
             onChangeText={setTitle}
             placeholder={t.habitTitlePlaceholder}
             returnKeyType="next"
+          />
+        </View>
+
+        {/* Mode — Decision 018 (General/Essential, no energy picker), mirrors task-form.tsx */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: theme.textMuted }]}>{t.importanceLabel}</Text>
+          <SegmentedControl
+            options={[
+              { value: 'regular', label: t.importanceRegular },
+              { value: 'essential', label: t.importanceEssential },
+            ]}
+            value={importance}
+            onChange={(v) => setImportance(v as Importance)}
           />
         </View>
 

@@ -48,7 +48,7 @@
  *     the (collapsed) done zone, so a per-row animation would unmount before it plays.
  *     Instead a card-level `CompletionGlow` blooms when the done count rises (tracked via
  *     `completionPulse`) — the card stays mounted, so the "small win" reward shows. This
- *     mirrors the habit-card glow (app/habits.tsx). The success() haptic is in handleToggle.
+ *     mirrors the habit-card glow (app/(tabs)/health.tsx). The success() haptic is in handleToggle.
  *   - `styles.dot` is a checkmark circle (matches TaskCard.tsx's row circle, sized down for
  *     the rail) — it renders an Ionicons checkmark when `task.done`, not just a filled dot.
  */
@@ -157,7 +157,7 @@ export default function PlanTaskCard({
   // (collapsed) done zone on the same render, so a per-row animation would unmount
   // before it could play. Instead bloom a card-level CompletionGlow when the done count
   // rises — the card stays mounted, so the "small win" reward is actually visible.
-  // Mirrors the habit-card glow pattern (app/habits.tsx). success() haptic fires in
+  // Mirrors the habit-card glow pattern (app/(tabs)/health.tsx). success() haptic fires in
   // handleToggle; the glow self-skips under reduce-motion.
   const [completionPulse, setCompletionPulse] = useState(0);
 

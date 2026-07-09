@@ -111,6 +111,7 @@ export function seedFreyrMode(): FreyrSeedIds {
     reminderEnd: '22:00',
     routineOrder: 0,
     childName: '',
+    importance: 'regular',
   });
 
   const noteIds = [

@@ -22,6 +22,10 @@
  *     occurrences (and any legacy `habit-<id>` key) don't linger.
  *   - Decision 016 Q2: no fallback to a legacy single `notificationTime` here —
  *     `notificationTimes` is the sole live source of truth (empty ⇒ no reminders).
+ *   - **Focus mode gating**: `essentialsModeEnabled` (the persisted "Focus mode" default)
+ *     suppresses reminders for any habit whose `importance !== 'essential'` — mirrors
+ *     lib/taskNotifications.ts's identical gate and app/(tabs)/health.tsx's Focus-mode
+ *     visibility filtering of the embedded Habits section.
  */
 import type { Habit } from '@/store/useHabitStore';
 import type { Language } from '@/store/useSettingsStore';
@@ -38,6 +42,8 @@ export type HabitNotifSettings = {
   quietHoursEnabled: boolean;
   quietHoursStart: string;
   quietHoursEnd: string;
+  /** Focus mode's persisted default — when on, only essential habits get notified (mirrors visibility filtering). */
+  essentialsModeEnabled: boolean;
 };
 
 /** Cancel every reminder occurrence for a habit (indexed keys + the legacy single key). */
@@ -58,6 +64,8 @@ export function syncHabitReminder(habit: Habit, s: HabitNotifSettings): void {
   void cancelHabitReminders(habit.id);
   if (!s.habitNotificationsEnabled || !habit.notificationEnabled || !habit.active) return;
   if (habit.notificationTimes.length === 0) return;
+  // Focus mode (persisted default): only essential habits get notified.
+  if (s.essentialsModeEnabled && habit.importance !== 'essential') return;
 
   const t = getTranslations(s.language);
   habit.notificationTimes.slice(0, MAX_HABIT_REMINDERS).forEach((time, i) => {

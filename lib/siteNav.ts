@@ -18,6 +18,9 @@
  *   - SITE_ITEMS order is the bottom menu's visual order (left to right) AND must match
  *     app/(tabs)/_layout.tsx's <MaterialTopTabs.Screen> order.
  *   - Nav bar has 5 items: Shopping, Plans, Home (centre), Health, Scan (Decision 036).
+ *   - `/habits` is GONE (not just removed from nav) — its screen was folded directly into
+ *     app/(tabs)/health.tsx as an embedded section (no more "another site" to link to for
+ *     habits). `SiteRoute` no longer lists it.
  *   - Removed from nav (routes/screens kept), with their access points (all wired — Decision 036):
  *       notes     → Home "More" link (app/(tabs)/index.tsx)
  *       meals     → NO route anymore. "Food" is now an in-place tab inside the Shopping
@@ -25,7 +28,6 @@
  *                   /meals screen was removed in the Shopping/Food redesign. `nav.meals`
  *                   ("Food") is kept only as the tab label source.
  *       automations → Settings → Varsler tab "Automatisering" link (app/settings.tsx)
- *       habits    → Health screen's inline "Habits →" section header (app/(tabs)/health.tsx)
  *       budget    → app/(tabs)/shopping.tsx done-flow + app/(tabs)/scan.tsx header link
  *       shared    → app/share-modal.tsx "Done" + app/(tabs)/scan.tsx QR-scan result
  *       settings  → home screen header gear (and goToSite(..., '/settings') callers)
@@ -51,7 +53,6 @@ export type SiteRoute =
   | '/shopping'
   | '/health'
   | '/plans'
-  | '/habits'
   | '/notes'
   | '/scan'
   | '/budget'
