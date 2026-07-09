@@ -130,10 +130,10 @@ const en = {
   showHint: 'How this works',
   hideHint: 'Hide instructions',
   // Task form
-  newTask: 'New plan',
+  newTask: 'New task',
   add: 'Add',
   editTask: 'Edit',
-  taskTitleLabel: 'Plan',
+  taskTitleLabel: 'Task',
   taskTitlePlaceholder: 'What needs to be done?',
   dateLabel: 'Date',
   calendar: {
@@ -1234,11 +1234,11 @@ const no: typeof en = {
   switchModeConfirm: 'Bytt likevel',
   updateReadyBanner: '⬇️ Oppdatering klar',
   updateRestartBtn: 'Start på nytt',
-  newTask: 'Ny plan',
+  newTask: 'Ny oppgave',
   add: 'Legg til',
   editTask: 'Rediger',
-  taskTitleLabel: 'Plan',
-  taskTitlePlaceholder: 'Overskrift',
+  taskTitleLabel: 'Oppgave',
+  taskTitlePlaceholder: 'Oppgave',
   dateLabel: 'Dato',
   calendar: {
     prevMonth: 'Forrige måned',

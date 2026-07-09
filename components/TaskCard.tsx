@@ -5,30 +5,34 @@
  *   - variant="full" (All-tasks): tap the row to open an inline editor. While the
  *     editor is open the card is in *edit mode* — a Discard / Save bar sits ABOVE the
  *     card and edits are buffered in a local draft (nothing persists until Save). The
- *     editor holds: an editable title, importance, a "Repeat" switch + per-mode
- *     recurrence options, a "Start specific date" toggle + calendar, and an optional
- *     Start/Finish time-box pair. Steps and the Shared-out / Delete affordances persist
- *     immediately (they are not part of the draft). A card with `isNew` starts expanded
- *     and, on Save, calls `onCommitNew(draft)` instead of writing straight to the store;
- *     Discard on a new card calls `onDiscardNew()`.
+ *     editor holds: an editable title, importance, a steps checklist, a "Repeat" switch
+ *     + per-mode recurrence options, a "Start specific date" toggle + calendar, and an
+ *     optional Start/Finish time-box pair. For an existing task, Steps and the
+ *     Shared-out / Delete affordances persist immediately (they bypass the draft). A
+ *     card with `isNew` starts expanded, has no title autoFocus (keeps the keyboard down
+ *     on creation), and its steps live on `draft.steps` instead — there's no store row
+ *     yet to write them to — until Save calls `onCommitNew(draft)`, whose caller
+ *     (plans.tsx) creates the task then replays the buffered steps via `addStep`.
+ *     Discard on a new card calls `onDiscardNew()` and drops any buffered steps.
  *   - variant="steps" (Today / This week): the row expands to show ONLY the steps
  *     checklist — no settings. A task with no steps has a card but no expand arrow.
  *
  * Every task and every step carries a checkmark circle. The task ↔ steps done-cascade
  * lives in useTaskStore (toggle / toggleStep), so tapping a circle here keeps them in
- * lockstep automatically.
+ * lockstep automatically for an existing task; a new card's steps just toggle in the draft.
  *
  * Connections:
  *   Imports → components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
  *             components/IconButton, components/FormControls (Switch), components/AppModal,
- *             constants/theme, lib/date, lib/haptics, lib/i18n, lib/useAppTheme, store/useTaskStore
+ *             constants/theme, lib/date, lib/haptics, lib/i18n, lib/id, lib/useAppTheme, store/useTaskStore
  *   Used by → app/(tabs)/plans.tsx
  *   Data    → reads the passed `task`; writes via useTaskStore (update/steps/remove/setSharedOut)
  *             for committed tasks; a new (draft) card writes nothing until onCommitNew fires.
  *
  * Edit notes:
  *   - There is no lock and no per-field immediate save for settings: the Discard/Save bar
- *     is the commit point. Only steps, Shared-out and Delete bypass the draft.
+ *     is the commit point. Only Shared-out and Delete bypass the draft outright; Steps
+ *     bypass the draft for an existing task but are draft-buffered for `isNew`.
  *   - Day↔Week promote/demote: selecting all 7 weekdays promotes Week→Day; unselecting any
  *     weekday in Day demotes to Week with the remaining days (all in the draft).
  *   - Save is disabled while the title is blank, so blank tasks can't be created.
@@ -41,7 +45,8 @@ import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0 } from '@/lib/date';
 import { tap, warning } from '@/lib/haptics';
-import { Task, useTaskStore } from '@/store/useTaskStore';
+import { generateId } from '@/lib/id';
+import { Task, TaskStep, useTaskStore } from '@/store/useTaskStore';
 import SlideSelector from '@/components/SlideSelector';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import DatePickerCalendar from '@/components/DatePickerCalendar';
@@ -91,16 +96,19 @@ export default function TaskCard({
   const setSharedOut = useTaskStore((s) => s.setSharedOut);
 
   const stepsOnly = variant === 'steps';
-  const sortedSteps = [...task.steps].sort((a, b) => a.orderIndex - b.orderIndex);
-  const hasSteps = sortedSteps.length > 0;
-  // Steps variant only expands when there ARE steps (no arrow otherwise); full always can.
-  const canExpand = stepsOnly ? hasSteps : true;
 
   const [expanded, setExpanded] = useState(!!isNew);
   const [showCalendar, setShowCalendar] = useState(false);
   const [newStep, setNewStep] = useState('');
   // Buffered edits (full variant only). Initialised from the task on first expand.
   const [draft, setDraft] = useState<Task>(task);
+
+  // A new (unsaved) card has no store row yet, so its steps live on the local draft
+  // (buffered into task_steps by the parent's onCommitNew, alongside the task itself).
+  const sortedSteps = [...(isNew ? draft.steps : task.steps)].sort((a, b) => a.orderIndex - b.orderIndex);
+  const hasSteps = sortedSteps.length > 0;
+  // Steps variant only expands when there ARE steps (no arrow otherwise); full always can.
+  const canExpand = stepsOnly ? hasSteps : true;
 
   const editing = !stepsOnly && expanded;
   const recurring = draft.recurring;
@@ -202,8 +210,30 @@ export default function TaskCard({
   function handleAddStep() {
     const title = newStep.trim();
     if (!title) return;
-    addStep(task.id, title);
+    if (isNew) {
+      const orderIndex = draft.steps.length === 0 ? 0 : Math.max(...draft.steps.map((s) => s.orderIndex)) + 1;
+      const step: TaskStep = { id: generateId(), taskId: draft.id, title, done: false, orderIndex };
+      patch({ steps: [...draft.steps, step] });
+    } else {
+      addStep(task.id, title);
+    }
     setNewStep('');
+  }
+
+  function handleToggleStep(id: string) {
+    if (isNew) {
+      patch({ steps: draft.steps.map((s) => (s.id === id ? { ...s, done: !s.done } : s)) });
+    } else {
+      toggleStep(id);
+    }
+  }
+
+  function handleRemoveStep(id: string) {
+    if (isNew) {
+      patch({ steps: draft.steps.filter((s) => s.id !== id) });
+    } else {
+      removeStep(id);
+    }
   }
 
   function handleDelete() {
@@ -322,7 +352,6 @@ export default function TaskCard({
               onChangeText={(v) => patch({ title: v })}
               placeholder={t.taskTitlePlaceholder}
               placeholderTextColor={theme.textMuted}
-              autoFocus={isNew}
               returnKeyType="done"
             />
 
@@ -336,55 +365,52 @@ export default function TaskCard({
               onChange={(v) => patch({ importance: v as Task['importance'] })}
             />
 
-            {/* Steps (persist immediately — not part of the draft; new cards get them after Save) */}
-            {!isNew && (
-              <>
-                {hasSteps && (
-                  <View style={styles.stepsWrap}>
-                    {sortedSteps.map((step) => (
-                      <View key={step.id} style={styles.stepRow}>
-                        <Pressable hitSlop={6} onPress={() => toggleStep(step.id)} style={styles.stepCheckTap}>
-                          <View
-                            style={[
-                              styles.stepCheck,
-                              { borderColor: theme.border },
-                              step.done && { backgroundColor: theme.accent, borderColor: theme.accent },
-                            ]}
-                          >
-                            {step.done && <Ionicons name="checkmark" size={12} color={theme.accentInk} />}
-                          </View>
-                          <Text
-                            style={[
-                              styles.stepText,
-                              { color: theme.text },
-                              step.done && { textDecorationLine: 'line-through', color: theme.textMuted },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {step.title}
-                          </Text>
-                        </Pressable>
-                        <Pressable hitSlop={6} onPress={() => removeStep(step.id)}>
-                          <Ionicons name="close" size={16} color={theme.textMuted} />
-                        </Pressable>
+            {/* Steps — persist immediately for existing tasks; buffered on the local draft
+                for a new (isNew) card until Save creates the real task row. */}
+            {hasSteps && (
+              <View style={styles.stepsWrap}>
+                {sortedSteps.map((step) => (
+                  <View key={step.id} style={styles.stepRow}>
+                    <Pressable hitSlop={6} onPress={() => handleToggleStep(step.id)} style={styles.stepCheckTap}>
+                      <View
+                        style={[
+                          styles.stepCheck,
+                          { borderColor: theme.border },
+                          step.done && { backgroundColor: theme.accent, borderColor: theme.accent },
+                        ]}
+                      >
+                        {step.done && <Ionicons name="checkmark" size={12} color={theme.accentInk} />}
                       </View>
-                    ))}
+                      <Text
+                        style={[
+                          styles.stepText,
+                          { color: theme.text },
+                          step.done && { textDecorationLine: 'line-through', color: theme.textMuted },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {step.title}
+                      </Text>
+                    </Pressable>
+                    <Pressable hitSlop={6} onPress={() => handleRemoveStep(step.id)}>
+                      <Ionicons name="close" size={16} color={theme.textMuted} />
+                    </Pressable>
                   </View>
-                )}
-                <View style={styles.addStepRow}>
-                  <TextInput
-                    style={[styles.addStepInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
-                    value={newStep}
-                    onChangeText={setNewStep}
-                    placeholder={t.stepPlaceholder}
-                    placeholderTextColor={theme.textMuted}
-                    returnKeyType="done"
-                    onSubmitEditing={handleAddStep}
-                  />
-                  <IconButton icon="add" label={t.stepPlaceholder} onPress={handleAddStep} size={30} />
-                </View>
-              </>
+                ))}
+              </View>
             )}
+            <View style={styles.addStepRow}>
+              <TextInput
+                style={[styles.addStepInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                value={newStep}
+                onChangeText={setNewStep}
+                placeholder={t.stepPlaceholder}
+                placeholderTextColor={theme.textMuted}
+                returnKeyType="done"
+                onSubmitEditing={handleAddStep}
+              />
+              <IconButton icon="add" label={t.stepPlaceholder} onPress={handleAddStep} size={30} />
+            </View>
 
             {/* Repeat */}
             <View style={styles.toggleRow}>

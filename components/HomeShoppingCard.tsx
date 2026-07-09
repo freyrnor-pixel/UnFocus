@@ -8,8 +8,9 @@
  *
  * Connections:
  *   Imports → components/Surface, components/ExpandableCard, components/ShoppingRow,
- *             constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, expo-router,
- *             store/useShoppingStore (ShoppingItem type), store/useShoppingListStore (ShoppingList type)
+ *             components/ProgressBar, constants/theme, lib/haptics, lib/i18n, lib/shoppingGroups
+ *             (listProgress), lib/useAppTheme, expo-router, store/useShoppingStore (ShoppingItem
+ *             type), store/useShoppingListStore (ShoppingList type)
  *   Used by → app/(tabs)/index.tsx (Home shopping preview)
  *   Data    → pure presentational; all mutations bubbled up via callbacks (parent owns the stores)
  *
@@ -19,6 +20,10 @@
  *     "In cart" (checked items), and "Purchased" sections.
  *   - Title click navigates to /shopping; no "See all →" button.
  *   - Drag-reorder is intentionally absent (needs parent screen hit-testing — Decision 011 R1).
+ *   - `totalCount` comes from `listProgress()`'s `total` (matches the old ad-hoc sum) — reuse
+ *     that helper rather than re-deriving it, since it's also the only correct way to count
+ *     dish-group items as checked/unchecked (Decision 011a items don't live wholly in one
+ *     bucket). The title row's progress bar uses the same call's `pct`, tinted `featShop`.
  */
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -27,12 +32,14 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import ExpandableCard from '@/components/ExpandableCard';
 import ShoppingRow from '@/components/ShoppingRow';
+import ProgressBar from '@/components/ProgressBar';
 import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { ShoppingList } from '@/store/useShoppingListStore';
+import { listProgress } from '@/lib/shoppingGroups';
 
 const COLLAPSED_COUNT = 5;
 
@@ -69,10 +76,8 @@ export default function HomeShoppingCard({
   const styles = useScaledStyles(baseStyles);
   const [expanded, setExpanded] = useState(false);
 
-  const totalCount =
-    dishGroups.reduce((n, [, g]) => n + g.length, 0) +
-    ungroupedUnchecked.length +
-    checked.length;
+  const progress = listProgress({ dishGroups, ungroupedUnchecked, checked });
+  const totalCount = progress.total;
 
   const previewItems = ungroupedUnchecked.slice(0, COLLAPSED_COUNT);
   const showToggle = ungroupedUnchecked.length > COLLAPSED_COUNT || checked.length > 0;
@@ -116,6 +121,14 @@ export default function HomeShoppingCard({
               </View>
             )}
           </View>
+          {totalCount > 0 && (
+            <ProgressBar
+              value={progress.pct}
+              color={theme.featShop}
+              height={4}
+              style={styles.progressBar}
+            />
+          )}
         </Pressable>
 
         {totalCount === 0 ? (
@@ -217,6 +230,7 @@ const baseStyles = StyleSheet.create({
   cardContent: { flex: 1, padding: Spacing.md },
   titleRowPressable: { marginBottom: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  progressBar: { marginTop: Spacing.xs },
   title: { fontSize: FontSize.md, fontFamily: Fonts.semibold, flexShrink: 1 },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },

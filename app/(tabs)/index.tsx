@@ -66,7 +66,7 @@ import { todayStr } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { computeListGroups } from '@/lib/shoppingGroups';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Spacing } from '@/constants/theme';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useNotesStore } from '@/store/useNotesStore';
 import { useSharedStore } from '@/store/useSharedStore';
@@ -145,9 +145,6 @@ export default function HomeScreen() {
     ? todayTasks.filter((task) => task.importance === 'essential')
     : todayTasks;
 
-  const totalToday = todayTasks.length;
-  const completedToday = todayTasks.filter((task) => task.done).length;
-  const progressRatio = totalToday > 0 ? completedToday / totalToday : 0;
   const completedCount = completedCountFn();
 
   const currentShoppingList = currentListFn(today);
@@ -200,13 +197,6 @@ export default function HomeScreen() {
             </Text>
             <Text style={[styles.dateLabel, { color: theme.textMuted }]}>{dateLabel}</Text>
           </View>
-
-          {/* Daily progress line */}
-          {totalToday > 0 && (
-            <View style={[styles.progressTrack, { backgroundColor: theme.surfaceMuted }]}>
-              <View style={[styles.progressFill, { backgroundColor: theme.good, width: `${Math.round(progressRatio * 100)}%` }]} />
-            </View>
-          )}
 
           {/* Notes preview — HomeNotesCard (real Notes / useNotesStore). Always visible. */}
           <View style={styles.section}>
@@ -278,8 +268,6 @@ const baseStyles = StyleSheet.create({
   header: { marginBottom: Spacing.lg },
   greeting: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold },
   dateLabel: { fontSize: FontSize.sm, marginTop: Spacing.xs, textTransform: 'capitalize', fontFamily: Fonts.regular },
-  progressTrack: { height: 4, borderRadius: Radius.full, marginBottom: Spacing.lg, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: Radius.full },
   section: { marginBottom: Spacing.lg },
   pointsText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },
 });

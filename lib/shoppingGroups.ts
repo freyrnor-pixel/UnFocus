@@ -6,7 +6,8 @@
  *
  * Connections:
  *   Imports → store/useShoppingStore (ShoppingItem type)
- *   Used by → app/shopping.tsx, components/WeekListCard.tsx (dishGroupAllChecked)
+ *   Used by → app/shopping.tsx, components/WeekListCard.tsx (dishGroupAllChecked),
+ *             components/HomeShoppingCard.tsx (listProgress)
  *   Data    → none — pure functions over arrays passed in by the caller
  *
  * Edit notes:

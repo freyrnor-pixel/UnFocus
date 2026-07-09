@@ -814,7 +814,7 @@ export default function ShoppingScreen() {
 
               {/* SECTION 1 — Monthly list (things the user has added) */}
               <View style={styles.section}>
-                <View style={styles.sectionHeaderRow}>
+                <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
                   <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.monthlyListSection}</Text>
                   <View style={[styles.sectionRule, { backgroundColor: theme.accent }]} />
                 </View>
@@ -880,7 +880,7 @@ export default function ShoppingScreen() {
                     const expanded = purchasedExpanded === trip.id;
                     return (
                       <View key={trip.id}>
-                        <Pressable style={styles.sectionHeaderRow} onPress={() => setPurchasedExpanded(expanded ? null : trip.id)}>
+                        <Pressable style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]} onPress={() => setPurchasedExpanded(expanded ? null : trip.id)}>
                           <Text style={[styles.weekLabel, { color: theme.textMuted }]}>{trip.label}</Text>
                           <Text style={[styles.disclosureChevron, { color: theme.textMuted }]}>{expanded ? '▲' : '▼'}</Text>
                         </Pressable>
@@ -1215,7 +1215,8 @@ const styles = StyleSheet.create({
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md },
   rowDivider: { height: 1 },
   section: { gap: Spacing.xs },
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.sm },
+  // Card behind the label + rule so section dividers stay legible over busy backgrounds.
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: Radius.sm },
   sectionRule: { flex: 1, height: 2, borderRadius: Radius.full, opacity: 0.4 },
   sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
 

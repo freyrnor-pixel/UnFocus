@@ -49,6 +49,8 @@
  *     Instead a card-level `CompletionGlow` blooms when the done count rises (tracked via
  *     `completionPulse`) — the card stays mounted, so the "small win" reward shows. This
  *     mirrors the habit-card glow (app/habits.tsx). The success() haptic is in handleToggle.
+ *   - `styles.dot` is a checkmark circle (matches TaskCard.tsx's row circle, sized down for
+ *     the rail) — it renders an Ionicons checkmark when `task.done`, not just a filled dot.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -56,6 +58,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import CompletionGlow from '@/components/CompletionGlow';
+import ProgressBar from '@/components/ProgressBar';
 import { Task } from '@/store/useTaskStore';
 import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -268,6 +271,8 @@ export default function PlanTaskCard({
             disabled={readOnly || !onToggleTask}
             hitSlop={8}
             onPress={() => handleToggle(task)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: task.done }}
           >
             <View
               style={[
@@ -276,7 +281,9 @@ export default function PlanTaskCard({
                 (isHappeningNow || task.done) && { backgroundColor: theme.accent },
                 surfaced && !task.done && { borderColor: theme.accent, borderWidth: 3 },
               ]}
-            />
+            >
+              {task.done && <Ionicons name="checkmark" size={10} color={theme.accentInk} />}
+            </View>
           </Pressable>
           {showConnector && <View style={[styles.connector, { height: connectorPx, backgroundColor: theme.border }]} />}
         </View>
@@ -384,6 +391,14 @@ export default function PlanTaskCard({
                 </View>
               )}
             </View>
+            {dayTasks.length > 0 && (
+              <ProgressBar
+                value={doneTasks.length / dayTasks.length}
+                color={theme.featPlan}
+                height={4}
+                style={styles.progressBar}
+              />
+            )}
           </Pressable>
         )}
 
@@ -442,8 +457,8 @@ const baseStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'flex-start' },
   timeCol: { width: 68, alignItems: 'flex-end', paddingTop: 1, paddingRight: Spacing.sm },
   timeText: { fontSize: FontSize.sm, fontWeight: '700' },
-  lineCol: { alignItems: 'center', width: 16 },
-  dot: { width: 10, height: 10, borderRadius: Radius.full, borderWidth: 2 },
+  lineCol: { alignItems: 'center', width: 20 },
+  dot: { width: 16, height: 16, borderRadius: Radius.full, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   connector: { width: 2, marginVertical: 2 },
   contentCol: { flex: 1, paddingLeft: Spacing.sm, paddingBottom: Spacing.md },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
@@ -466,6 +481,7 @@ const baseStyles = StyleSheet.create({
   footerBtnText: { fontSize: FontSize.sm, fontWeight: '700' },
   headerRowPressable: { marginBottom: Spacing.sm },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  progressBar: { marginTop: Spacing.xs },
   headerTitle: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
