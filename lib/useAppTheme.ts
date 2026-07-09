@@ -38,10 +38,9 @@ export function useAppTheme(): ThemePalette {
   const systemScheme = useColorScheme();
   const isDark = darkMode === 'on' || (darkMode === 'system' && systemScheme === 'dark');
   const palette = getThemePalette('default', isDark);
-  // accentInk must stay legible on `accent`. Several themes ship a light accent
-  // (e.g. summer #E8794F, fluffyPink #E07AA8) where the palette's hardcoded white ink
-  // fails WCAG AA. Re-derive it per-theme with contrastOn(), which picks dark-vs-white
-  // by whichever wins contrast — self-correcting for any future theme.
+  // accentInk must stay legible on `accent`. Re-derive it with contrastOn(),
+  // which picks dark-vs-white by whichever wins contrast, rather than trust
+  // the palette's hardcoded white ink.
   return useMemo(
     () => ({ ...palette, accentInk: contrastOn(palette.accent) }),
     [palette],
