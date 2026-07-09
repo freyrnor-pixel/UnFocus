@@ -4353,3 +4353,33 @@ in synchronous single-threaded JS) were left as-is rather than wrapping every wr
 transaction.
 
 `npx tsc --noEmit` re-verified clean after all fixes.
+
+## 2026-07-09 — LAN sync hardening follow-up: peerAuth CSPRNG + lanTransport fallback collision
+**Status: Complete** — closes both items the previous session flagged as "not fixed."
+
+- **`lib/peerAuth.ts` `generateSecret()` now uses `expo-crypto`'s `getRandomBytes`** (native
+  CSPRNG) instead of `Math.random()`, superseding Decision 038d's tradeoff note. Same hex
+  output format/length (32 bytes → 64 hex chars), so existing paired secrets stay compatible.
+  Added `expo-crypto` (`~56.0.4`, matching SDK 56's `bundledNativeModules.json`) as a new
+  native dependency — **this requires a new native build before installs actually get the
+  CSPRNG** (OTA can't add native modules to an already-installed binary). `generateSecret()`
+  catches the resulting `UnavailabilityError` on installs still running an older native
+  binary and falls back to the old `Math.random()` path, so pairing doesn't break for them
+  in the meantime — same reserve-only sequencing pattern as Decision 040.
+- **`lib/lanTransport.ts` peer-id fallback collision fixed:** two devices left on the default
+  name, when `react-native-zeroconf` fails to deliver the TXT record, used to both fall back
+  to the identical `service.name`, colliding in `syncService`'s connections/secret lookups.
+  The advertised mDNS name is now `${name}#${deviceId.slice(-8)}` (self.deviceId is already a
+  stable per-install id, injected from `useSettingsStore` by the caller) — `splitAdvertisedName`
+  recovers the display name and the suffix, so the fallback (`txt.deviceId ?? suffix ?? rawName
+  ?? host`) is collision-safe even without the TXT record. Updated both `publishService` and
+  `unpublishService` call sites to use the same advertised name.
+- Updated both files' headers (`peerAuth.ts` supersedes-038d note; `lanTransport.ts` new edit
+  note on the suffix scheme).
+
+`npx tsc --noEmit` clean (0 errors) after `npm install expo-crypto@~56.0.4 --legacy-peer-deps`.
+
+**Follow-up for the maintainer:** `expo-crypto` is a new native dependency — per AGENTS.md's
+native-build gating, land this on `main` with `runtimeVersion` unchanged, then cut a new
+preview build so installs actually pick up the CSPRNG path (until then they silently use the
+Math.random fallback, which is safe but not the intended improvement).
