@@ -4352,4 +4352,60 @@ touch-then-broadcast call pairs (flagged as low-severity, no realistic interrupt
 in synchronous single-threaded JS) were left as-is rather than wrapping every write in a
 transaction.
 
+## 2026-07-09 — Decision 042: PlanTaskCard rail geometry fix (row-owned segments)
+
+**Status: Complete.** `components/PlanTaskCard.tsx` only, per scope.
+
+**Precondition gates:** both verified before coding — Decision 042 present
+(Resolved, 2026-07-09) in REBUILD_DECISIONS.md; base branch carries the Decision 041
+pager migration (2026-07-05 PROGRESS_LOG entry present, `app/(tabs)/index.tsx` exists).
+
+**What changed:** the vertical rail's connector was previously drawn *inside* the
+preceding task row (`lineCol`'s `connector` view, sized purely from the proportional
+time-gap computation) with the row itself using `alignItems: 'flex-start'` — so a row
+taller than its nominal connector height (long title, hint under the "up" task, follower
+badge) pushed its own time-box/checkmark out of line with where the connector expected
+the next dot to be. Fixed per Decision 042(a) — **row-owned segments**:
+- Each task row (`renderRow`) is now `alignItems: 'stretch'`; its `lineCol` holds two
+  `flex:1` `railLine` segments (transparent or `theme.border`, depending on whether a
+  line should connect to a neighbor) surrounding the marker, so the marker centers
+  itself against the row's real content height by flexbox construction — no
+  measurement pass. `doneCol` (the checkmark toggle) got the same treatment
+  (`justifyContent: 'center'` under the stretched row instead of a fixed `paddingTop`).
+- The proportional time-gap between two rows is now a dedicated `renderSpacer` element
+  (own `minHeight` = the existing clamped `PX_PER_MIN` computation, unchanged) inserted
+  between rows, never squeezed inside one. The now-marker renders as that spacer's
+  `content` (previously an extra sibling row appended after the connector, silently
+  adding dangling space beyond the computed gap — now it lives inside the gap it
+  describes). The leading "Nothing until HH:MM" gap marker was already a self-contained,
+  correctly-positioned element with no preceding line to reconcile against, so it was
+  left unchanged.
+- Done-zone rows keep calling `renderRow` (still the vertical layout, per Decision
+  009a/009b) with `hasTopLine`/`hasBottomLine` both `false` — no rail line between
+  history rows, matching prior behavior (`showConnector: false`).
+
+**Both orientations:** horizontal (`renderColumn`) already used fixed-height columns
+(`H_RAIL_HEIGHT`/`H_CONTENT_HEIGHT`, not content-driven) and already rendered its
+connector (`hConnectorWrap`) as a sibling rather than embedded in the column — so it
+did not have the vertical rail's misalignment bug and did not need the row-owned
+restructure. Applied the same connector-extraction pattern for consistency
+(`renderHSpacer`, mirroring `renderSpacer`) and moved the horizontal now-marker inside
+the connector wrap (absolute-positioned overlay) instead of appending it as an extra
+sibling column that widened the gap beyond its computed proportional width. No
+conflict encountered — the row-owned-segment model applies cleanly to both; no STOP.
+
+**Header drift (ripple item):** checked whether `app/(tabs)/index.tsx` still described
+the Plans widget as routing through `DayTimeline` — it does not; its header already
+correctly names `PlanTaskCard` as the sole live mount, and `DayTimeline.tsx` does not
+exist in the repo. This was already accurate (resolved before this session, likely
+during the 2026-07-05 pager migration); no header edit was needed.
+
+**Verification:** `npx tsc --noEmit` — zero errors (confirmed runnable in this session's
+remote environment, despite AGENTS.md's "local-only" note). Both `renderRow`/
+`renderColumn` read-through against the Decision 042 scope list: collapse window
+(current+next+2), Done zone, rail tail (009b), 4px accent bar only (014), Decision 019
+hint display, Decision 020 follower badge + cross-date pull-in, `readOnly` semantics
+(009a — done-toggle/tap-through disabled only), 60s now-marker interval — all preserved,
+no store/schema/i18n changes, no new dependencies, Decision 006 tokens only (no raw hex).
+
 `npx tsc --noEmit` re-verified clean after all fixes.

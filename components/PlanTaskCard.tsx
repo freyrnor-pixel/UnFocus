@@ -23,6 +23,19 @@
  * proportional gaps, now/gap markers, follower surfacing) — only `renderRow` vs
  * `renderColumn` (and the gap/now marker JSX) differ.
  *
+ * **Rail geometry (Decision 042a)**: each task row/column *owns* its own rail segment —
+ * the marker (time box / anytime dot) sits between two `railLine` segments (top+bottom
+ * in the vertical rail) that are `flex:1`, so they stretch to fill exactly this row's
+ * real content height and the marker lands dead-center by flexbox construction, not
+ * measurement. The proportional time-gap between two rows is a separate `renderSpacer`
+ * element inserted between them (own fixed/min height = the clamped `PX_PER_MIN` gap) —
+ * it never has to be squeezed inside a row of variable height. The now-marker and
+ * "Nothing until HH:MM" gap marker render as that spacer's content. This replaced an
+ * earlier version where the connector was drawn *inside* the preceding row, sized from
+ * the time gap alone with no reconciliation against that row's actual (variable) height
+ * — the mismatch pushed dots/lines out of alignment on tall rows (long titles, hints,
+ * follower badges).
+ *
  * Connections:
  *   Imports → components/Surface, components/CompletionGlow, constants/theme, lib/haptics,
  *             lib/i18n, lib/useAppTheme, store/useTaskStore (Task type only)
@@ -131,6 +144,17 @@ function minutesToLabel(mins: number): string {
 }
 
 type TimedEntry = { task: Task; start: number; end: number };
+
+// Decision 042(a) — shared opts for both renderRow (vertical) and renderColumn
+// (horizontal); hasTopLine/hasBottomLine are vertical-only (ignored by renderColumn,
+// which has no rail-line-through-the-row concept since its rail rows are fixed height).
+type RailItemOpts = {
+  timed?: TimedEntry;
+  isHappeningNow?: boolean;
+  isPast?: boolean;
+  hasTopLine?: boolean;
+  hasBottomLine?: boolean;
+};
 
 function timedEntryOf(task: Task): TimedEntry {
   const start = toMinutes(task.time!) ?? 0;
@@ -319,11 +343,8 @@ export default function PlanTaskCard({
     );
   }
 
-  function renderRow(
-    task: Task,
-    opts: { timed?: TimedEntry; isHappeningNow?: boolean; isPast?: boolean; showConnector: boolean; connectorPx: number }
-  ) {
-    const { timed, isHappeningNow, isPast, showConnector, connectorPx } = opts;
+  function renderRow(task: Task, opts: RailItemOpts) {
+    const { timed, isHappeningNow, isPast, hasTopLine, hasBottomLine } = opts;
     const dimmed = !!(task.done || isPast);
     const surfaced = surfacedIds.has(task.id);
     const isUp = task.id === upNextId;
@@ -332,8 +353,9 @@ export default function PlanTaskCard({
     return (
       <View key={task.id} style={styles.row}>
         <View style={styles.lineCol}>
+          <View style={[styles.railLine, { backgroundColor: hasTopLine ? theme.border : 'transparent' }]} />
           {timeMarker(task, timed, dimmed, isHappeningNow, surfaced)}
-          {showConnector && <View style={[styles.connector, { height: connectorPx, backgroundColor: theme.border }]} />}
+          <View style={[styles.railLine, { backgroundColor: hasBottomLine ? theme.border : 'transparent' }]} />
         </View>
         <Pressable style={styles.contentCol} onPress={() => handlePress(task)} disabled={readOnly || !onPressTask}>
           <View style={styles.titleRow}>
@@ -371,49 +393,66 @@ export default function PlanTaskCard({
     );
   }
 
-  function renderColumn(
-    task: Task,
-    opts: { timed?: TimedEntry; isHappeningNow?: boolean; isPast?: boolean; showConnector: boolean; connectorPx: number }
-  ) {
-    const { timed, isHappeningNow, isPast, showConnector, connectorPx } = opts;
+  function renderColumn(task: Task, opts: RailItemOpts) {
+    const { timed, isHappeningNow, isPast } = opts;
     const dimmed = !!(task.done || isPast);
     const surfaced = surfacedIds.has(task.id);
 
     return (
-      <React.Fragment key={task.id}>
-        <Pressable
-          style={styles.hColumn}
-          onPress={() => handlePress(task)}
-          disabled={readOnly || !onPressTask}
-        >
-          <View style={styles.hRailRow}>{timeMarker(task, timed, dimmed, isHappeningNow, surfaced)}</View>
-          <View style={styles.hContent}>
-            <Text
-              numberOfLines={2}
-              style={[
-                styles.hTitle,
-                { color: dimmed ? theme.textMuted : theme.text },
-                task.done && { textDecorationLine: 'line-through' },
-              ]}
-            >
-              {task.title}
-            </Text>
-            {task.importance === 'essential' && !task.done && (
-              <Ionicons name="star" size={11} color={theme.accent} style={styles.hStar} />
-            )}
-          </View>
-          <View style={styles.hDoneRow}>{doneToggle(task, isHappeningNow)}</View>
-        </Pressable>
-        {showConnector && (
-          <View style={styles.hConnectorWrap}>
-            <View style={[styles.hConnector, { width: connectorPx, backgroundColor: theme.border }]} />
-          </View>
-        )}
-      </React.Fragment>
+      <Pressable
+        key={task.id}
+        style={styles.hColumn}
+        onPress={() => handlePress(task)}
+        disabled={readOnly || !onPressTask}
+      >
+        <View style={styles.hRailRow}>{timeMarker(task, timed, dimmed, isHappeningNow, surfaced)}</View>
+        <View style={styles.hContent}>
+          <Text
+            numberOfLines={2}
+            style={[
+              styles.hTitle,
+              { color: dimmed ? theme.textMuted : theme.text },
+              task.done && { textDecorationLine: 'line-through' },
+            ]}
+          >
+            {task.title}
+          </Text>
+          {task.importance === 'essential' && !task.done && (
+            <Ionicons name="star" size={11} color={theme.accent} style={styles.hStar} />
+          )}
+        </View>
+        <View style={styles.hDoneRow}>{doneToggle(task, isHappeningNow)}</View>
+      </Pressable>
     );
   }
 
-  const renderItem = horizontal ? renderColumn : renderRow;
+  /** Decision 042(a) — the connector between two rows/columns is its own dedicated
+   * spacer element (never embedded inside a row/column of variable content height),
+   * so its size never has to fight a neighbor's real content height. */
+  function renderSpacer(key: string, sizePx: number, content?: React.ReactNode) {
+    return (
+      <View key={key} style={[styles.spacerRow, { minHeight: sizePx }]}>
+        <View style={styles.lineCol}>
+          <View style={[styles.railLine, { backgroundColor: theme.border }]} />
+        </View>
+        {content ? <View style={styles.spacerContent}>{content}</View> : null}
+      </View>
+    );
+  }
+
+  function renderHSpacer(key: string, sizePx: number, content?: React.ReactNode) {
+    return (
+      <View key={key} style={[styles.hConnectorWrap, { minWidth: sizePx }]}>
+        <View style={[styles.hConnector, { width: sizePx, backgroundColor: theme.border }]} />
+        {content ? <View style={styles.hSpacerContent}>{content}</View> : null}
+      </View>
+    );
+  }
+
+  const renderItem: (task: Task, opts: RailItemOpts) => React.ReactNode = horizontal ? renderColumn : renderRow;
+  const renderSpacerItem: (key: string, sizePx: number, content?: React.ReactNode) => React.ReactNode = horizontal
+    ? renderHSpacer
+    : renderSpacer;
 
   const nowMarker = (
     <View style={styles.nowRow}>
@@ -452,35 +491,42 @@ export default function PlanTaskCard({
     </View>
   ) : null;
 
-  const anytimeItems = anytimePending
-    .filter((task) => isVisible(task.id))
-    .map((task, idx, arr) =>
-      renderItem(task, { showConnector: idx < arr.length - 1 || timedPending.length > 0, connectorPx: MIN_GAP })
-    );
+  // Decision 042(a) — a single "is this the first rail item overall" flag tracked
+  // across both loops, since anytime rows (if any) always precede timed rows: the
+  // very first visible row gets no line above it, every row after gets one.
+  let isFirstItem = true;
+
+  const visibleAnytime = anytimePending.filter((task) => isVisible(task.id));
+  const visibleTimed = timedPending.filter((e) => isVisible(e.task.id));
+
+  const anytimeItems: React.ReactNode[] = [];
+  visibleAnytime.forEach((task, idx) => {
+    const hasTopLine = !isFirstItem;
+    isFirstItem = false;
+    const hasNext = idx < visibleAnytime.length - 1 || timedPending.length > 0;
+    anytimeItems.push(renderItem(task, { hasTopLine, hasBottomLine: hasNext }));
+    if (hasNext) anytimeItems.push(renderSpacerItem(`gap-any-${task.id}`, MIN_GAP));
+  });
 
   const timedItems: React.ReactNode[] = [];
-  const visibleTimed = timedPending.filter((e) => isVisible(e.task.id));
   visibleTimed.forEach((entry, idx) => {
+    const hasTopLine = !isFirstItem;
+    isFirstItem = false;
     const isHappeningNow = now >= entry.start && now < entry.end;
     const isPast = !isHappeningNow && now >= entry.end;
     const isLast = idx === visibleTimed.length - 1;
     const nextEntry = visibleTimed[idx + 1];
     const gapMin = nextEntry ? nextEntry.start - entry.end : 0;
     const connectorPx = nextEntry ? clamp(gapMin * PX_PER_MIN, MIN_GAP, MAX_GAP) : tailPx;
-    // Insert the live "now" marker into the connector whose time-window contains it.
-    const nowInThisGap = nextEntry && now >= entry.end && now < nextEntry.start;
-    timedItems.push(
-      <React.Fragment key={entry.task.id}>
-        {renderItem(entry.task, {
-          timed: entry,
-          isHappeningNow,
-          isPast,
-          showConnector: !isLast || tailPx > 0,
-          connectorPx,
-        })}
-        {nowInThisGap ? (horizontal ? hNowMarker : nowMarker) : null}
-      </React.Fragment>
-    );
+    const hasBottomLine = !isLast || tailPx > 0;
+    timedItems.push(renderItem(entry.task, { timed: entry, isHappeningNow, isPast, hasTopLine, hasBottomLine }));
+    if (hasBottomLine) {
+      // Insert the live "now" marker into the connector whose time-window contains it —
+      // it renders as the spacer's content, not a dangling extra sibling row.
+      const nowInThisGap = !!nextEntry && now >= entry.end && now < nextEntry.start;
+      const marker = nowInThisGap ? (horizontal ? hNowMarker : nowMarker) : undefined;
+      timedItems.push(renderSpacerItem(`gap-${entry.task.id}`, connectorPx, marker));
+    }
   });
 
   const showEmpty = pendingCount === 0 && doneTasks.length === 0;
@@ -546,8 +592,8 @@ export default function PlanTaskCard({
                   renderRow(task, {
                     timed: task.time ? timedEntryOf(task) : undefined,
                     isPast: true,
-                    showConnector: false,
-                    connectorPx: 0,
+                    hasTopLine: false,
+                    hasBottomLine: false,
                   })
                 )
               : null}
@@ -575,11 +621,13 @@ const baseStyles = StyleSheet.create({
   rail: { paddingVertical: Spacing.xs },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
 
-  // Vertical rail row: [lineCol][contentCol][doneCol] — the line sits at the row's
-  // left edge, the checkmark-circle toggle in a fixed-width column at the right edge,
-  // so it lines up across every row regardless of title length.
-  row: { flexDirection: 'row', alignItems: 'flex-start' },
-  lineCol: { width: LINE_COL_WIDTH, alignItems: 'center', paddingTop: 1 },
+  // Vertical rail row: [lineCol][contentCol][doneCol], alignItems 'stretch' so each
+  // column's height matches the row's real (content-driven) height. lineCol's own
+  // top/bottom rail-line segments are flex:1 either side of the marker, so the marker
+  // (and doneCol's toggle, also flex-centered) land at the row's true vertical center
+  // by construction — no measurement pass needed (Decision 042a).
+  row: { flexDirection: 'row', alignItems: 'stretch' },
+  lineCol: { width: LINE_COL_WIDTH, alignItems: 'center' },
   timeBox: {
     minWidth: 44,
     paddingHorizontal: 6,
@@ -592,9 +640,16 @@ const baseStyles = StyleSheet.create({
   timeBoxText: { fontSize: FontSize.xs, fontWeight: '700' },
   anytimeDot: { width: 10, height: 10, borderRadius: Radius.full, borderWidth: 2, borderStyle: 'dashed' },
   dot: { width: 16, height: 16, borderRadius: Radius.full, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  connector: { width: 2, marginVertical: 2 },
+  // The rail line: flex:1 so it stretches to fill whatever space lineCol/spacerRow's
+  // stretched height gives it — either half of a row (above/below its marker) or the
+  // whole of a spacer row (Decision 042a).
+  railLine: { width: 2, flex: 1 },
   contentCol: { flex: 1, paddingHorizontal: Spacing.sm, paddingBottom: Spacing.md },
-  doneCol: { width: DONE_COL_WIDTH, alignItems: 'center', paddingTop: 3 },
+  doneCol: { width: DONE_COL_WIDTH, alignItems: 'center', justifyContent: 'center' },
+  // Dedicated connector row between two task rows — owns the proportional time-gap
+  // height so it never has to be squeezed inside a row of variable content height.
+  spacerRow: { flexDirection: 'row', alignItems: 'stretch' },
+  spacerContent: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   title: { fontSize: FontSize.md, fontWeight: '500', flexShrink: 1 },
   durationText: { fontSize: FontSize.xs },
@@ -602,7 +657,7 @@ const baseStyles = StyleSheet.create({
   followerBadgeText: { fontSize: FontSize.xs, fontWeight: '700' },
   hintRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.xs, marginTop: 2 },
   hintText: { fontSize: FontSize.xs, flexShrink: 1, fontStyle: 'italic' },
-  nowRow: { flexDirection: 'row', alignItems: 'center', marginLeft: LINE_COL_WIDTH, marginVertical: 2 },
+  nowRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 2 },
   nowDot: { width: 6, height: 6, borderRadius: Radius.full, marginRight: 6 },
   nowLine: { flex: 1, height: 1.5, opacity: 0.6 },
   nowLabel: { fontSize: FontSize.xs, fontWeight: '700', marginLeft: 6 },
@@ -622,6 +677,10 @@ const baseStyles = StyleSheet.create({
   hDoneRow: { paddingTop: Spacing.xs },
   hConnectorWrap: { height: H_RAIL_HEIGHT, justifyContent: 'center' },
   hConnector: { height: 2 },
+  // Now-marker overlay for a horizontal connector — absolute so it doesn't force the
+  // connector wider than its proportional width (Decision 042a: marker lives inside
+  // the spacer, not as an extra sibling that dangled the rail further apart).
+  hSpacerContent: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   hNowMarker: { width: 44, height: H_RAIL_HEIGHT, alignItems: 'center', justifyContent: 'center' },
   hNowLine: { width: 1.5, height: '100%', opacity: 0.6 },
   hNowLabel: { fontSize: FontSize.xs, fontWeight: '700', position: 'absolute', top: -2 },
