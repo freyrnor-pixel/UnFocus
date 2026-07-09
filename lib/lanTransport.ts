@@ -36,6 +36,15 @@
  *     display name), not the TXT record's deviceId `onPeerFound` uses — `nameToDeviceId`
  *     bridges that so `onPeerLost` still reports the right peer to callers keying
  *     connections by deviceId (e.g. lib/syncService.ts).
+ *   - The advertised mDNS name is `${name}#${last 8 chars of deviceId}`, not the raw
+ *     display name. react-native-zeroconf doesn't reliably deliver the TXT record on
+ *     every platform/timing, and `resolved`'s peer-id fallback used to drop straight to
+ *     `service.name` when TXT was missing — two devices left on their default name would
+ *     then resolve to the *same* peerId and stomp each other's connection/secret lookup.
+ *     Baking the deviceId suffix into the name itself (self.deviceId is already a stable
+ *     per-install id, injected by the caller from useSettingsStore) means the fallback is
+ *     collision-safe even without the TXT record. `splitAdvertisedName` strips the suffix
+ *     back off for the human-facing `name` field.
  */
 import Zeroconf from 'react-native-zeroconf';
 import TcpSocket from 'react-native-tcp-socket';
@@ -96,6 +105,23 @@ type Listeners = {
  */
 export function isTransportAvailable(): boolean {
   return !!Zeroconf && !!TcpSocket;
+}
+
+/** Separator between the human-facing name and the per-install deviceId suffix in the
+ * advertised mDNS name (see the header edit note on the peer-id fallback). */
+const NAME_SUFFIX_SEP = '#';
+
+/** Build the mDNS instance name we actually publish: display name + stable suffix. */
+function buildAdvertisedName(name: string, deviceId: string): string {
+  return `${name}${NAME_SUFFIX_SEP}${deviceId.slice(-8)}`;
+}
+
+/** Reverse buildAdvertisedName: recover the display name and the deviceId suffix (if any)
+ * from a raw mDNS service name — used as the TXT-record fallback for peer identity. */
+function splitAdvertisedName(rawName: string): { name: string; suffix: string | null } {
+  const i = rawName.lastIndexOf(NAME_SUFFIX_SEP);
+  if (i < 0) return { name: rawName, suffix: null };
+  return { name: rawName.slice(0, i), suffix: rawName.slice(i + 1) };
 }
 
 /**
@@ -195,6 +221,11 @@ export class LanTransport {
     return this.self.deviceId;
   }
 
+  /** The mDNS instance name actually published — display name + deviceId suffix. */
+  private get advertisedName(): string {
+    return buildAdvertisedName(this.self.name, this.self.deviceId);
+  }
+
   on(listeners: Listeners): void {
     this.listeners = { ...this.listeners, ...listeners };
   }
@@ -216,12 +247,14 @@ export class LanTransport {
     this.server.listen({ port: this.port, host: '0.0.0.0' });
 
     // Advertise ourselves. TXT record carries the deviceId so a resolved peer is
-    // attributable before any connection opens.
+    // attributable before any connection opens; the deviceId suffix baked into the
+    // advertised name itself keeps the fallback below collision-safe when the TXT
+    // record doesn't make it across (see header edit note).
     this.zeroconf.publishService(
       SERVICE_TYPE,
       SERVICE_PROTOCOL,
       SERVICE_DOMAIN,
-      this.self.name,
+      this.advertisedName,
       this.port,
       { deviceId: this.self.deviceId },
     );
@@ -229,13 +262,17 @@ export class LanTransport {
     this.zeroconf.on('resolved', (service: any) => {
       const host: string | undefined = service?.addresses?.[0] ?? service?.host;
       if (!host) return;
+      const rawName: string | undefined = service?.name;
+      const { name: displayName, suffix } = rawName
+        ? splitAdvertisedName(rawName)
+        : { name: undefined, suffix: null };
       // Ignore our own advertisement echoing back.
-      const peerId = service?.txt?.deviceId ?? service?.name ?? host;
+      const peerId = service?.txt?.deviceId ?? suffix ?? rawName ?? host;
       if (peerId === this.self.deviceId) return;
-      if (service?.name) this.nameToDeviceId.set(service.name, peerId);
+      if (rawName) this.nameToDeviceId.set(rawName, peerId);
       this.listeners.onPeerFound?.({
         deviceId: peerId,
-        name: service?.name ?? peerId,
+        name: displayName ?? peerId,
         host,
         port: service?.port ?? this.port,
       });
@@ -269,7 +306,7 @@ export class LanTransport {
     this.started = false;
     try {
       this.zeroconf.stop();
-      this.zeroconf.unpublishService(this.self.name);
+      this.zeroconf.unpublishService(this.advertisedName);
       this.zeroconf.removeDeviceListeners();
     } catch {
       /* zeroconf already down */

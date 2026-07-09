@@ -9,7 +9,7 @@
  * paired partner (the risk called out in 038d option (b)).
  *
  * Connections:
- *   Imports → lib/hmac
+ *   Imports → lib/hmac, expo-crypto
  *   Used by → lib/syncService.ts (signOutbound on every broadcastRow, verifyInbound
  *             on every received envelope; peer secrets come from store/usePeersStore),
  *             app/pair-device.tsx (generateSecret() when a user starts the QR
@@ -22,10 +22,15 @@
  *     or key-order differences would break the tag. That's why the wire body `b`
  *     is a string, not a nested object.
  *   - HMAC authenticates, it does NOT encrypt. Bodies cross the LAN in cleartext.
- *   - Secret generation uses Math.random (no CSPRNG without a native dep, per
- *     038d's "no new native module"). Acceptable because pairing is a physical,
- *     one-time QR exchange in the same room; revisit if a crypto RNG dep is added.
+ *   - Secret generation now uses expo-crypto's getRandomBytes (native CSPRNG), same
+ *     hex format/length as before so existing stored secrets stay compatible. This
+ *     supersedes 038d's "Math.random, no new native module" tradeoff note — expo-crypto
+ *     landed as a dependency for this. getRandomBytes() throws on installs whose native
+ *     binary predates this dependency (OTA can't add native modules); generateSecret()
+ *     catches that and falls back to the old Math.random path so pairing keeps working
+ *     (with the old, weaker guarantee) until those installs get a new native build.
  */
+import * as Crypto from 'expo-crypto';
 import { hmacSha256 } from '@/lib/hmac';
 
 /** Signed wire wrapper carried as the 038a envelope `payload`. */
@@ -40,14 +45,19 @@ export type SignedWrapper = {
 const SECRET_BYTES = 32;
 
 /**
- * Generate a shared pairing secret (hex). NOT cryptographically strong — see the
- * header edit note; sufficient for the physical one-time QR exchange in 038d.
+ * Generate a shared pairing secret (hex). Uses expo-crypto's native CSPRNG; falls
+ * back to Math.random (see header edit note) if the native module isn't linked yet.
  */
 export function generateSecret(): string {
-  let s = '';
-  for (let i = 0; i < SECRET_BYTES; i++) {
-    s += Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
+  let bytes: Uint8Array;
+  try {
+    bytes = Crypto.getRandomBytes(SECRET_BYTES);
+  } catch {
+    bytes = new Uint8Array(SECRET_BYTES);
+    for (let i = 0; i < SECRET_BYTES; i++) bytes[i] = Math.floor(Math.random() * 256);
   }
+  let s = '';
+  for (let i = 0; i < bytes.length; i++) s += bytes[i].toString(16).padStart(2, '0');
   return s;
 }
 
