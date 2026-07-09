@@ -12,7 +12,8 @@
  *   device-only profile: name + create date, auto-backup toggle, backup/restore via
  *   lib/backup [share excludes user name]), LAN sync, destructive resets, version & updates).
  * - Modi (Additional modes): Jobb-modus (work mode, auto-activate + hours + work days,
- *   Norske helligdager) → Foreldremodus (child-mode, password, enter/exit) → Skolemodus toggle.
+ *   Norske helligdager) → Foreldremodus (child-mode, password, enter/exit) → Skolemodus toggle →
+ *   Freyr-modus toggle (seeds/unseeds a starter data set via lib/freyrModeSeed.ts).
  * - Handle: shopping list settings (weekly reset weekday, monthly reset date, monthly budget).
  * - Varsler: Ukentlig (weekly reminder + time) → Generelle (independent plan-notifications and
  *   habit-reminders toggles, persistent daily overview, quiet hours).
@@ -25,8 +26,8 @@
  *             components/ScreenScaffold, components/SectionDivider, components/Surface,
  *             constants/theme, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
- *             getAutoBackupLabel/saveAutoBackup), lib/childLock, lib/haptics, lib/i18n,
- *             lib/notifications, lib/reminders, lib/syncService, lib/useAppTheme,
+ *             getAutoBackupLabel/saveAutoBackup), lib/childLock, lib/freyrModeSeed, lib/haptics,
+ *             lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/useAppTheme,
  *             store/useHabitStore, store/useSettingsStore, store/useShoppingStore, store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
  *   Data    → useSettingsStore (settings table; incl. essentialsModeEnabled, quietHours*,
@@ -88,6 +89,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { syncReminders } from '@/lib/reminders';
 import { syncNotificationCategories } from '@/lib/notifications';
+import { seedFreyrMode, unseedFreyrMode, parseFreyrSeedIds } from '@/lib/freyrModeSeed';
 import { exportBackup, exportBackupToDevice, pickAndParseBackup, restoreBackup, reloadApp, getAutoBackupLabel, saveAutoBackup } from '@/lib/backup';
 import { setPassword as setChildPassword, verifyPassword as verifyChildPassword } from '@/lib/childLock';
 import { isSyncAvailable } from '@/lib/syncService';
@@ -143,6 +145,19 @@ export default function SettingsScreen() {
     }
     warning();
     settings.update({ childMode: true });
+  }
+
+  // Freyr-mode toggle — on: seed a starter set of rows and remember exactly which
+  // ids it created; off: remove only those ids (never anything the user added).
+  function handleToggleFreyrMode(v: boolean) {
+    selection();
+    if (v) {
+      const ids = seedFreyrMode();
+      settings.update({ freyrModeEnabled: true, freyrSeedIds: JSON.stringify(ids) });
+    } else {
+      unseedFreyrMode(parseFreyrSeedIds(settings.freyrSeedIds));
+      settings.update({ freyrModeEnabled: false, freyrSeedIds: '' });
+    }
   }
 
   // Manually check the EAS preview channel for a newer OTA, fetch it, and reload.
@@ -770,6 +785,20 @@ export default function SettingsScreen() {
                     checked={settings.schoolModeEnabled}
                     onChange={(v) => { selection(); settings.update({ schoolModeEnabled: v }); }}
                   />
+                </View>
+              </Surface>
+            </View>
+
+            {/* FREYR-MODUS */}
+            <View style={styles.section}>
+              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.freyrMode.label}</Text>
+              <Surface style={styles.card}>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.freyrMode.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.freyrMode.hint}</Text>
+                  </View>
+                  <FormSwitch checked={settings.freyrModeEnabled} onChange={handleToggleFreyrMode} />
                 </View>
               </Surface>
             </View>
