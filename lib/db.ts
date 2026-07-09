@@ -532,6 +532,11 @@ export function initDb() {
     // next focus. A `deleted` tombstone keeps the row (so it isn't re-seeded) while
     // hiding it from the catalogue. See store/useCatalogStore.ts.
     "ALTER TABLE store_items ADD COLUMN deleted INTEGER DEFAULT 0",
+    // Freyr-mode (Additional modes tab) — one-tap seed/unseed of a starter set of
+    // shopping/task/habit/note rows. freyr_seed_ids stores the exact ids created by
+    // the seed so toggling off removes precisely those rows. See lib/freyrModeSeed.ts.
+    "ALTER TABLE settings ADD COLUMN freyr_mode_enabled INTEGER DEFAULT 0",
+    "ALTER TABLE settings ADD COLUMN freyr_seed_ids TEXT DEFAULT ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

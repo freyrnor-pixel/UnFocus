@@ -14,6 +14,9 @@
  * itself lives in expo-secure-store (lib/childLock), never in this row. deviceId is
  * this install's stable identity for LAN live-sync (self-healed on load() if empty);
  * lanSyncEnabled gates whether lib/syncService's transport runs (Decision 038 wiring).
+ * freyrModeEnabled/freyrSeedIds back the Additional-modes-tab "Freyr-mode" toggle —
+ * see lib/freyrModeSeed.ts for the seed/unseed logic; freyrSeedIds is a JSON blob,
+ * not read/written by anything in this file beyond passthrough.
  *
  * Connections:
  *   Imports → lib/dataAccess, lib/id
@@ -113,6 +116,11 @@ export type Settings = {
   autoBackupEnabled: boolean;
   // School mode placeholder — no feature logic yet, toggle persisted for future use.
   schoolModeEnabled: boolean;
+  // Freyr-mode (Additional modes tab) — one-tap seed/unseed of a starter set of
+  // shopping/task/habit/note rows via lib/freyrModeSeed.ts. freyrSeedIds is the JSON
+  // record of exactly which rows the seed created, so disabling removes only those.
+  freyrModeEnabled: boolean;
+  freyrSeedIds: string;
 };
 
 type SettingsStore = Settings & {
@@ -170,6 +178,8 @@ function rowToSettings(row: Row): Settings {
     lanSyncEnabled: readBool(row, 'lan_sync_enabled'),
     autoBackupEnabled: readBool(row, 'auto_backup_enabled'),
     schoolModeEnabled: readBool(row, 'school_mode_enabled'),
+    freyrModeEnabled: readBool(row, 'freyr_mode_enabled'),
+    freyrSeedIds: readStr(row, 'freyr_seed_ids'),
   };
 }
 
@@ -219,6 +229,8 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   lanSyncEnabled: { col: 'lan_sync_enabled', to: bool },
   autoBackupEnabled: { col: 'auto_backup_enabled', to: bool },
   schoolModeEnabled: { col: 'school_mode_enabled', to: bool },
+  freyrModeEnabled: { col: 'freyr_mode_enabled', to: bool },
+  freyrSeedIds: { col: 'freyr_seed_ids' },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -268,6 +280,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   lanSyncEnabled: false,
   autoBackupEnabled: false,
   schoolModeEnabled: false,
+  freyrModeEnabled: false,
+  freyrSeedIds: '',
   loaded: false,
   workModeSessionOverride: false,
 

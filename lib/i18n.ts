@@ -925,6 +925,13 @@ const en = {
       label: 'School mode',
       hint: 'Focus on school tasks — more features can be enabled here later.',
     },
+    // Freyr-mode (Additional modes tab) — one-tap seed/unseed of a starter set of
+    // shopping/task/habit/note rows (lib/freyrModeSeed.ts). Turning it off removes
+    // only the rows it added.
+    freyrMode: {
+      label: 'Freyr-mode',
+      hint: 'Adds a starter set of shopping items, tasks, a habit, and notes. Turning this off removes only what it added.',
+    },
     // Auto-backup to a fixed device path
     autoBackup: {
       label: 'Auto-backup',
@@ -1719,6 +1726,10 @@ const no: typeof en = {
     schoolMode: {
       label: 'Skolemodus',
       hint: 'Fokuser på skolearbeid — flere funksjoner kan aktiveres her senere.',
+    },
+    freyrMode: {
+      label: 'Freyr-modus',
+      hint: 'Legger til en startpakke med handleliste-varer, oppgaver, en vane og notater. Slår du den av igjen, fjernes kun det den la til.',
     },
     autoBackup: {
       label: 'Automatisk sikkerhetskopiering',
