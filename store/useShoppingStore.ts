@@ -95,6 +95,16 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 
 export type ShoppingStatus = 'catalog' | 'staged' /* vestigial: never written by new code; kept for old row compatibility */ | 'inWeeklyList' | 'purchased';
 
+/**
+ * Sentinel list_id for the weekly "Unallocated" bucket. Rows with status='inWeeklyList'
+ * and this list_id are dish ingredients the user added to "the week" from the Food tab
+ * before assigning them to a specific dated week list. It is a real (non-null) id so
+ * useShoppingListStore.backfillOrphanedItems() (which only claims list_id IS NULL rows)
+ * never sweeps it into a dated list, and no shopping_lists row exists for it — the
+ * Shopping screen renders it as its own card. Allocating an item moves it to a real list_id.
+ */
+export const UNALLOCATED_LIST_ID = '__unallocated__';
+
 export type ShoppingItem = {
   id: string;
   name: string;

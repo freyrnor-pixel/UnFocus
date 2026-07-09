@@ -8,17 +8,19 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id
- *   Used by → app/meals.tsx, components/AddDishSheet.tsx (read-only "From Meals" picker),
- *             app/shopping.tsx (read-only, dishes prop into WeekListCard groups)
+ *   Used by → components/FoodTab.tsx (the Shopping screen's in-place "Food" tab — dish CRUD +
+ *             push-to-list), app/(tabs)/shopping.tsx (indirect, via FoodTab)
  *   Data    → defines a Zustand store; owns SQLite tables dishes and ingredients (1-to-many)
  *
  * Edit notes:
  *   - ingredients are loaded in one query and grouped onto dishes in JS (loadDishes), not via a JOIN.
  *   - dishes/ingredients are configuration, not dated history — they are NOT pruned by RETENTION_DAYS; deleting a dish cascades to its ingredients (FK ON DELETE CASCADE).
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
- *   - Decision 015/015a: AddDishSheet only reads `dishes` + each dish's `id`/`name`/
- *     `ingredients[].name/amount/unit` — the richer Dish type here (mealType,
- *     estimatedPriceNok, Ingredient.id/dishId) is a superset of the stub it consumed.
+ *   - `Ingredient.priceNok` (column `price_nok`, Shopping/Food redesign) is the per-ingredient
+ *     line price. `dishTotalPrice(dish)` sums these — that's the "total price" shown on a dish
+ *     row in FoodTab, and the price carried onto the shopping_items rows a dish push creates.
+ *     `estimatedPriceNok` on the dish itself is legacy/display-only and no longer the source of
+ *     the shown total.
  */
 import { create } from 'zustand';
 import db from '@/lib/db';
@@ -33,6 +35,8 @@ export type Ingredient = {
   name: string;
   amount: string;
   unit: string;
+  /** Line price for this ingredient in NOK (a dish's total price is the sum of these). */
+  priceNok: number;
 };
 
 export type Dish = {
@@ -42,6 +46,11 @@ export type Dish = {
   estimatedPriceNok: number;
   ingredients: Ingredient[];
 };
+
+/** A dish's total price = the sum of its ingredients' line prices. */
+export function dishTotalPrice(dish: Dish): number {
+  return dish.ingredients.reduce((sum, i) => sum + (i.priceNok || 0), 0);
+}
 
 type MealStore = {
   dishes: Dish[];
@@ -61,6 +70,7 @@ function rowToIngredient(row: Row): Ingredient {
     name: readStr(row, 'name'),
     amount: readStr(row, 'amount'),
     unit: readStr(row, 'unit'),
+    priceNok: readReal(row, 'price_nok'),
   };
 }
 
@@ -122,8 +132,8 @@ export const useMealStore = create<MealStore>((set, get) => ({
 
   addIngredient(i) {
     const id = generateId();
-    insertRow('ingredients', { id, dish_id: i.dishId, name: i.name, amount: i.amount, unit: i.unit });
-    const ingredient: Ingredient = { ...i, id };
+    insertRow('ingredients', { id, dish_id: i.dishId, name: i.name, amount: i.amount, unit: i.unit, price_nok: i.priceNok ?? 0 });
+    const ingredient: Ingredient = { ...i, id, priceNok: i.priceNok ?? 0 };
     set((s) => ({
       dishes: s.dishes.map((d) =>
         d.id === i.dishId
