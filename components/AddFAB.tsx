@@ -9,7 +9,10 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme, lib/i18n, components/BottomNav (BOTTOM_NAV_HEIGHT)
- *   Used by → (not yet mounted — ported ahead of its screen call sites per REBUILD_PLAN.md 3d)
+ *   Used by → app/habits.tsx, app/(tabs)/health.tsx, app/(tabs)/index.tsx, app/automations.tsx,
+ *             app/inventory-edit.tsx; also components/VoiceNoteFAB.tsx (FAB_LG_SIZE/FAB_DEFAULT_BOTTOM
+ *             constants only, not the component itself — app/notes.tsx dropped AddFAB in favour of
+ *             VoiceNoteFAB, see that file's header)
  *   Data    → none (presentational)
  *
  * Edit notes:
