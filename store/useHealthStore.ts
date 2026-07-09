@@ -8,11 +8,14 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/symptomSeed
- *   Used by → app/health.tsx
+ *   Used by → app/(tabs)/health.tsx, app/health-form.tsx, app/health-log.tsx, app/health-detail.tsx
  *   Data    → defines a Zustand store; owns SQLite tables health_logs and symptoms
  *
  * Edit notes:
  *   - DB column is log_date but the in-memory field is `date`; map both directions in load()/add()/update().
+ *   - `date`/`startTime` are when the issue started; `endDate`/`endTime` are when it finished
+ *     (`endDate === ''` means still ongoing). Added for the dedicated health-form.tsx (Issue/
+ *     Severity/When started/When finished/Note) that replaced the old inline "+" log button.
  *   - `ailment` stays the display name (free text); `symptomId` links to a `symptoms` row when the
  *     user picks/creates a catalog symptom. Legacy rows have symptomId = '' (null) — grouping falls
  *     back to the ailment string for those.
@@ -32,7 +35,10 @@ import { SYMPTOM_SEED } from '@/lib/symptomSeed';
 
 export type HealthLog = {
   id: string;
-  date: string; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD — when the issue started
+  startTime: string; // HH:MM, optional — '' = no specific time recorded
+  endDate: string; // YYYY-MM-DD, optional — '' = still ongoing
+  endTime: string; // HH:MM, optional
   ailment: string;
   symptomId: string; // links to a `symptoms` row; '' for legacy/free-text-only entries
   severity: number; // 1-5
@@ -64,6 +70,9 @@ function rowToHealthLog(row: Row): HealthLog {
   return {
     id: readStr(row, 'id'),
     date: readStr(row, 'log_date'),
+    startTime: readStr(row, 'start_time'),
+    endDate: readStr(row, 'end_date'),
+    endTime: readStr(row, 'end_time'),
     ailment: readStr(row, 'ailment'),
     symptomId: readStr(row, 'symptom_id'),
     severity: readInt(row, 'severity', 3),
@@ -81,6 +90,9 @@ function rowToSymptom(row: Row): Symptom {
 
 const HEALTH_LOG_FIELDS: FieldMap<HealthLog> = {
   date: { col: 'log_date' },
+  startTime: { col: 'start_time' },
+  endDate: { col: 'end_date' },
+  endTime: { col: 'end_time' },
   ailment: { col: 'ailment' },
   symptomId: { col: 'symptom_id' },
   severity: { col: 'severity' },
@@ -122,6 +134,9 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
     insertRow('health_logs', {
       id,
       log_date: entry.date,
+      start_time: entry.startTime,
+      end_date: entry.endDate,
+      end_time: entry.endTime,
       ailment: entry.ailment,
       symptom_id: entry.symptomId || null,
       severity: entry.severity,
