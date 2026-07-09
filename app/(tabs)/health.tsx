@@ -29,6 +29,11 @@
  *   - `detail` state swaps the whole content for a single-symptom 90-day history + entry list.
  *   - The date field is a free-text TextInput (no picker) — trusts the YYYY-MM-DD string entered.
  *   - Loads its store on focus; initDb() is idempotent, guarded by a module flag.
+ *   - "Last 30 days" overview card has a 4px `theme.featHealth` left accent stripe
+ *     (Surface split into `overviewCardRow`/`overviewAccent`/`overviewCardContent`),
+ *     matching the same pattern used by Home's preview cards and Shopping's weekly
+ *     card. Section labels ("Last 30/90 days", "Log") render as plain semibold text
+ *     (`sectionLabel`), not a pill/chip — kept consistent with Home/Shopping headers.
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -256,9 +261,7 @@ export default function HealthScreen() {
 
         {/* 90-day severity sparkline */}
         <Surface style={styles.overviewCard}>
-          <View style={[styles.sectionLabelBox, { backgroundColor: theme.surfaceMuted }]}>
-            <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.last90Days}</Text>
-          </View>
+          <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.last90Days}</Text>
           <View style={styles.sparkRow}>
             {data.days.map((day) => {
               const color = day.sev ? SEVERITY_COLORS[day.sev - 1] : 'transparent';
@@ -306,10 +309,10 @@ export default function HealthScreen() {
           <HintCard text={t.hints.health.text} open={hintOpen} noPill />
           {/* Overview */}
           {topSymptoms.length > 0 && (
-            <Surface style={styles.overviewCard}>
-              <View style={[styles.sectionLabelBox, { backgroundColor: theme.surfaceMuted }]}>
-                <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.last30Days}</Text>
-              </View>
+            <Surface style={styles.overviewCardRow}>
+              <View style={[styles.overviewAccent, { backgroundColor: theme.featHealth }]} />
+              <View style={styles.overviewCardContent}>
+              <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.last30Days}</Text>
               {topSymptoms.map((s) => {
                 const weekSeverities = weekDates.map((d) => severityAt(s.key, d));
                 const maxCount = topSymptoms[0]?.count ?? 1;
@@ -357,13 +360,12 @@ export default function HealthScreen() {
                   </Pressable>
                 );
               })}
+              </View>
             </Surface>
           )}
 
           {/* Log list */}
-          <View style={[styles.sectionLabelBox, { backgroundColor: theme.surfaceMuted }]}>
-            <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.logSection}</Text>
-          </View>
+          <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.logSection}</Text>
           {logs.length === 0 && (
             <Surface tint={theme.surfaceMuted} style={styles.emptyCard}>
               <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.noLogsGentle}</Text>
@@ -516,12 +518,14 @@ export default function HealthScreen() {
 
 const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.md },
+  overviewCardRow: { borderRadius: Radius.md, flexDirection: 'row' },
+  overviewAccent: { width: 4, alignSelf: 'stretch', borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
+  overviewCardContent: { flex: 1, padding: Spacing.md },
   overviewCard: {
     borderRadius: Radius.md,
     padding: Spacing.md,
   },
-  sectionLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, marginBottom: Spacing.xs },
-  sectionLabelBox: { borderRadius: Radius.md, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, alignSelf: 'flex-start' },
+  sectionLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold, marginBottom: Spacing.xs },
   overviewAilment: { marginTop: Spacing.sm },
   overviewRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   ailmentWeekStrip: {

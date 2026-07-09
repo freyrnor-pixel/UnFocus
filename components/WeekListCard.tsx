@@ -34,6 +34,9 @@
  *     every fromCatalog weekly item whose name was tracked, then clears and closes.
  *   - listProgress() is still called here for the compact progress line on non-focused lists
  *     and the "Shopping done!" disabled state — same helper, same data.
+ *   - Outer card has a 4px `theme.featShop` left accent stripe (Surface split into
+ *     `cardRow`/`accent`/`cardContent`), matching Home's preview-card treatment so the
+ *     card reads as the same object when tapping through from Home into full Shopping.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -218,7 +221,9 @@ export default function WeekListCard({
   const showInListSection = totalInList > 0 || !list.locked;
 
   return (
-    <Surface style={styles.card}>
+    <Surface style={styles.cardRow}>
+      <View style={[styles.accent, { backgroundColor: theme.featShop }]} />
+      <View style={styles.cardContent}>
       {/* ── Card header: title + mode toggle + rename/settings/delete icons ── */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
@@ -574,12 +579,15 @@ export default function WeekListCard({
           <Text style={[styles.doneShoppingText, { color: theme.textInverse }]}>{t.doneShoppingBtn}</Text>
         </PressableScale>
       </View>
+      </View>
     </Surface>
   );
 }
 
 const baseStyles = StyleSheet.create({
-  card: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.md },
+  cardRow: { borderRadius: Radius.lg, flexDirection: 'row' },
+  accent: { width: 4, alignSelf: 'stretch', borderTopLeftRadius: Radius.lg, borderBottomLeftRadius: Radius.lg },
+  cardContent: { flex: 1, padding: Spacing.md, gap: Spacing.md },
   header: { gap: 4 },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
   nameTapTarget: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },

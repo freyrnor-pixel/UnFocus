@@ -52,7 +52,7 @@ function relLuminance(hex: string): number {
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
-function rgba(hex: string, alpha: number): string {
+export function rgba(hex: string, alpha: number): string {
   const [r, g, b] = hexToRgb(hex);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }

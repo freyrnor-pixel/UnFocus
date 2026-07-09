@@ -27,7 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import ExpandableCard from '@/components/ExpandableCard';
 import ShoppingRow from '@/components/ShoppingRow';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -111,8 +111,8 @@ export default function HomeShoppingCard({
               {list?.name ?? t.shoppingTitle}
             </Text>
             {totalCount > 0 && (
-              <View style={[styles.badge, { backgroundColor: theme.accentSoft }]}>
-                <Text style={[styles.badgeText, { color: theme.accent }]}>{totalCount}</Text>
+              <View style={[styles.badge, { backgroundColor: rgba(theme.featShop, 0.16) }]}>
+                <Text style={[styles.badgeText, { color: theme.featShop }]}>{totalCount}</Text>
               </View>
             )}
           </View>
@@ -170,7 +170,7 @@ export default function HomeShoppingCard({
                       onPress={() => onToggle(item.id)}
                       hitSlop={8}
                     >
-                      {item.checked && <Ionicons name="checkmark" size={12} color={theme.bg} />}
+                      {item.checked && <Ionicons name="checkmark" size={12} color={theme.accentInk} />}
                     </Pressable>
                     <Text
                       style={[
@@ -224,8 +224,8 @@ const baseStyles = StyleSheet.create({
   rows: {},
   previewRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm, gap: Spacing.sm },
   check: {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     borderRadius: Radius.full,
     borderWidth: 2,
     alignItems: 'center',

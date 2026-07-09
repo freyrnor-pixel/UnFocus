@@ -577,8 +577,8 @@ const styles = StyleSheet.create({
   card: { borderRadius: Radius.md, borderWidth: 1, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 40 },
   circle: {
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
     borderRadius: Radius.full,
     borderWidth: 2,
     alignItems: 'center',
