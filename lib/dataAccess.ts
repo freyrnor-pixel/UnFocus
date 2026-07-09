@@ -23,6 +23,11 @@
  *     same observable result.
  *   - readJson falls back instead of throwing on corrupt JSON, so one bad column
  *     can't blank an entire load() — matches the defensive parse settings already used.
+ *   - readEnum guards row→type mappers that used to do an unchecked `as SomeUnion`
+ *     cast (e.g. `readStr(row, 'direction') as SharedDirection`); use it whenever a
+ *     column backs a string union type. isConstraintError lets INSERT call sites
+ *     distinguish an expected PK/UNIQUE clash (skip silently) from a real DB error
+ *     (should go through logDbError).
  */
 import db from '@/lib/db';
 
@@ -67,6 +72,18 @@ export function readJson<T>(row: Row, col: string, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+/** Read a string column, falling back to `fallback` if the value isn't one of `allowed` — guards unchecked `as SomeUnion` casts against corrupt/legacy rows. */
+export function readEnum<T extends string>(row: Row, col: string, allowed: readonly T[], fallback: T): T {
+  const v = readStr(row, col, fallback);
+  return (allowed as readonly string[]).includes(v) ? (v as T) : fallback;
+}
+
+/** True if `error` looks like a SQLite constraint violation (e.g. UNIQUE/PRIMARY KEY clash) rather than a real failure worth logging. */
+export function isConstraintError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return /constraint/i.test(msg);
 }
 
 // ── Field → column mapping (for INSERT/partial UPDATE) ───────────────────────

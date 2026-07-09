@@ -16,11 +16,11 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedRequestsSection,
- *             components/TaskCard, components/AddDivider, constants/theme, lib/db, lib/date,
- *             lib/i18n, lib/useAppTheme, store/useTaskStore, store/useSettingsStore, store/useSharedStore
+ *             components/TaskCard, components/AddDivider, constants/theme, lib/date,
+ *             lib/i18n, lib/useAppTheme, store/useTaskStore
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
- *   Data    → reads/writes useTaskStore (tasks/steps); reads useSharedStore (incoming shares);
- *             reads useSettingsStore for theme hydration
+ *   Data    → reads/writes useTaskStore (tasks/steps); SharedRequestsSection reads
+ *             useSharedStore internally for incoming shares
  *
  * Edit notes:
  *   - No lock: the old module-session `taskLockedSession` is gone. TaskCard's Discard/Save
@@ -43,6 +43,8 @@
  *   - **Section header cards**: `sectionHeader()`'s row now sits on a `theme.surfaceMuted`
  *     card (padding + radius) so the label/rule stay legible over the particle background —
  *     matches the same fix in app/(tabs)/shopping.tsx.
+ *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus effect
+ *     only seeds the first-run blank draft (see below).
  */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -52,17 +54,12 @@ import HintCard from '@/components/HintCard';
 import SharedRequestsSection from '@/components/SharedRequestsSection';
 import TaskCard from '@/components/TaskCard';
 import AddDivider from '@/components/AddDivider';
-import { initDb } from '@/lib/db';
 import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { Task, useTaskStore } from '@/store/useTaskStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
-import { useSharedStore } from '@/store/useSharedStore';
 import { generateId } from '@/lib/id';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
-
-let dbBootstrapped = false;
 
 type Tab = 'all' | 'today' | 'week';
 
@@ -111,9 +108,6 @@ export default function TasksScreen() {
   const toggle = useTaskStore((s) => s.toggle);
   const addTask = useTaskStore((s) => s.add);
   const addStep = useTaskStore((s) => s.addStep);
-  const loadTasks = useTaskStore((s) => s.load);
-  const loadShared = useSharedStore((s) => s.load);
-  const loadSettings = useSettingsStore((s) => s.load);
 
   const [tab, setTab] = useState<Tab>('all');
   const [hintOpen, setHintOpen] = useState(false);
@@ -125,13 +119,6 @@ export default function TasksScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!dbBootstrapped) {
-        initDb();
-        dbBootstrapped = true;
-      }
-      loadSettings();
-      loadTasks();
-      loadShared();
       // "Empty row to begin with": brand-new users (no tasks after load) get one open
       // draft. Seed at most once per mount so discarding it doesn't loop it back.
       if (!didSeedRef.current && useTaskStore.getState().tasks.length === 0) {
@@ -139,7 +126,7 @@ export default function TasksScreen() {
         setDrafts([blankDraft(todayStr())]);
       }
       return () => setHintOpen(false);
-    }, [loadSettings, loadTasks, loadShared])
+    }, [])
   );
 
   const weekDates = useMemo(() => getWeekDates(today), [today]);

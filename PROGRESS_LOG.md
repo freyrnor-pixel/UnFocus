@@ -4354,6 +4354,89 @@ transaction.
 
 `npx tsc --noEmit` re-verified clean after all fixes.
 
+## 2026-07-09 — Small known bugs sweep: mostly already resolved; dead i18n key removed
+
+Fix-session prompt listed three known bugs; the repo had moved past most of them:
+
+- **`t.moreOptions` gap in shopping.tsx:** already resolved before this session — the
+  2026-07-03 session added a top-level `moreOptions` key, and the subsequent shopping
+  redesign removed the call sites entirely. That left the top-level `moreOptions`
+  (en + no, `lib/i18n.ts`) dead — nothing references it (only `t.habits.moreOptions`
+  is used, by `app/habit-form.tsx`). Removed both dead top-level entries so the string
+  lives only at the nested key, per the prompt's intent.
+- **`npx tsc --noEmit`:** 0 errors before and after the change.
+- **`#transparent` invalid color:** repo-wide grep → no hits in code; nothing to fix.
+
+No file-header changes needed (only removed two unused i18n key entries).
+
+## 2026-07-09 — Store/data-layer robustness: log swallowed DB errors, guard unchecked enum casts
+
+Scope: `store/useSettingsStore.ts`, `store/useSharedStore.ts`, `lib/dataAccess.ts`. No
+schema changes.
+
+- **`useSettingsStore.update()`:** the DB-write try/catch stayed silent on failure, so a
+  setting could diverge from disk (lost on restart) with no trace. Kept the
+  UI-stays-responsive behavior (in-memory state still updates even if the write throws)
+  but now calls `logDbError` with the patch's changed keys as context. Also corrected the
+  file header, which claimed "update() always rewrites every column" — `updateRow` has
+  written only the columns present in the patch since the `dataAccess.ts` refactor;
+  the header now says so.
+- **`useSharedStore` `addSharedTasks`/`addSharedShopping`:** both wrapped every INSERT
+  error as "skip duplicate," but `shared_tasks`/`shared_shopping_items` only have a
+  PRIMARY KEY on `id` (a fresh `generateId()` per row) — a real PK clash is rare, so most
+  caught errors were actually being hidden, not deduped. Added `isConstraintError` to
+  `lib/dataAccess.ts` (matches `/constraint/i` in the thrown message) so only genuine
+  constraint violations are skipped silently; anything else now goes through
+  `logDbError`.
+- **Unchecked enum casts:** `readStr(row, 'direction') as SharedDirection` (both row
+  mappers in `useSharedStore.ts`) and three casts in `useSettingsStore.ts`'s
+  `rowToSettings` (`language`, `darkMode`, `fontSize`) trusted the DB column blindly.
+  Added `readEnum<T>(row, col, allowed, fallback)` to `lib/dataAccess.ts` — a generic
+  guard that falls back to a safe default instead of casting an unexpected string —
+  and swapped all five call sites to use it.
+- Updated the `Edit notes` header blocks in all three files to describe the new
+  behavior.
+- `npx tsc --noEmit`: 0 errors.
+
+## 2026-07-09 — Cleanup: remove redundant per-screen focus-load / dbBootstrapped guards
+
+Scope: `app/(tabs)/index.tsx`, `app/(tabs)/shopping.tsx`, `app/(tabs)/health.tsx`,
+`app/(tabs)/plans.tsx`, `app/(tabs)/scan.tsx`, `app/shared.tsx`, `app/health-log.tsx`,
+`app/notes.tsx`, `app/automations.tsx`, `app/pair-device.tsx`. `app/_layout.tsx`,
+`components/ScreenHeader.tsx`, `components/BottomNav.tsx`, `components/Surface.tsx`
+read-only reference.
+
+- `app/_layout.tsx` already runs `initDb()` + every store's `load()` once at startup
+  (its `loaded`-keyed effect). The 10 screens above still carried leftover per-screen
+  `initDb()`/module-level `dbBootstrapped` guards and duplicate `load()` calls from
+  before that startup bootstrap existed — removed all of them.
+- Screens whose focus effect did nothing but hydrate (`app/(tabs)/scan.tsx`,
+  `app/shared.tsx`, `app/health-log.tsx`, `app/notes.tsx`, `app/automations.tsx`,
+  `app/pair-device.tsx` — the last had no `dbBootstrapped` guard but still redundantly
+  reloaded `usePeersStore`) had the whole focus effect deleted, along with now-unused
+  `load*` selectors and `useFocusEffect`/`useCallback` imports where nothing else used
+  them.
+- Screens whose focus effect does more than hydrate kept that behavior, with only the
+  redundant `initDb`/`load()` calls stripped:
+  - `app/(tabs)/index.tsx` / `app/(tabs)/health.tsx`: kept the Focus-mode
+    ephemeral-default reseed (seeds from `essentialsModeEnabled` on focus, resets on
+    blur).
+  - `app/(tabs)/plans.tsx`: kept the brand-new-user blank-draft seed.
+  - `app/(tabs)/shopping.tsx`: kept `advanceRecurringLists(today)` + its post-write
+    `loadShopping()` refresh, and the payday-boundary monthly-reset detection; also
+    stripped the separate mount-time `useEffect`'s `initDb`/`auto.load()` (rules are
+    already loaded at startup) while keeping the `'shopping_opened'` trigger fire.
+- Removed now-dead imports (`initDb`, and store `load` selectors/hooks with no other
+  call site — e.g. `useSettingsStore`/`useSharedStore` became fully unused in
+  `app/(tabs)/plans.tsx`, `useCatalogStore`/`useSettingsStore` in
+  `app/(tabs)/scan.tsx` and `app/(tabs)/shopping.tsx`) and updated each file's header
+  `Connections:`/`Edit notes:` blocks to match.
+- `components/ScreenHeader.tsx` and `components/BottomNav.tsx` were already passing
+  `surfaceContext="overlay"` to `Surface` (not the `ambient` default) — no change
+  needed; the doc-vs-source inconsistency flagged in an earlier session's
+  `shopping.tsx` note had already been fixed by the time of this sweep.
+- `npx tsc --noEmit`: 0 errors.
+
 ## 2026-07-09 — LAN sync hardening follow-up: peerAuth CSPRNG + lanTransport fallback collision
 **Status: Complete** — closes both items the previous session flagged as "not fixed."
 

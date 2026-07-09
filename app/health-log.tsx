@@ -13,6 +13,8 @@
  *   Imports → components/ScreenScaffold, components/HintCard, components/EmptyState,
  *             components/Surface, components/AddFAB, lib/i18n, lib/severity, lib/useAppTheme,
  *             store/useHealthStore
+ *   Note    → store hydration happens once at startup in app/_layout.tsx; this screen has
+ *             no per-screen focus-load
  *   Used by → Expo Router route "/health-log"; pushed from app/(tabs)/health.tsx's
  *             "Health-log" link
  *   Data    → useHealthStore.logs (read-only; add/edit/delete happen in app/health-form.tsx)
@@ -24,46 +26,29 @@
  *     or count — the point is a quick way back into whatever's been going on lately, same
  *     spirit as the old flat newest-first log list this screen replaces.
  */
-import React, { useCallback, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore, HealthLog } from '@/store/useHealthStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import EmptyState from '@/components/EmptyState';
 import Surface from '@/components/Surface';
 import AddFAB from '@/components/AddFAB';
 import { useT } from '@/lib/i18n';
-import { initDb } from '@/lib/db';
 import { severities, severityInk } from '@/lib/severity';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
-let dbBootstrapped = false;
-
 export default function HealthLogScreen() {
   const router = useRouter();
   const logs = useHealthStore((s) => s.logs);
-  const loadLogs = useHealthStore((s) => s.load);
-  const loadSettings = useSettingsStore((s) => s.load);
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const SEVERITIES = severities();
   const severityLabel = (value: number) => t.severityLabels[value - 1] ?? '';
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!dbBootstrapped) {
-        initDb();
-        dbBootstrapped = true;
-      }
-      loadSettings();
-      loadLogs();
-    }, [loadSettings, loadLogs])
-  );
 
   const sections = useMemo(() => {
     const groups: Record<string, {
