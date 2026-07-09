@@ -21,27 +21,24 @@
  *     as the first (non-sticky) row of the scroll content — the old fixed-tab bar is inlined,
  *     since ScreenScaffold owns the header/nav chrome.
  *   - Decision 006 tokens only; reads useAppTheme() internally.
- *   - Loads shared + source stores on focus so cross-store mirrors stay fresh; initDb() is
- *     idempotent but guarded by a module flag.
+ *   - Store hydration happens once at startup in app/_layout.tsx; this screen has no
+ *     per-screen focus-load.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSharedStore, SharedTask, SharedShoppingItem } from '@/store/useSharedStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useT } from '@/lib/i18n';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { formatDisplayDate } from '@/lib/date';
-import { initDb } from '@/lib/db';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 type Tab = 'tasks' | 'shopping';
-
-let dbBootstrapped = false;
 
 export default function SharedScreen() {
   const router = useRouter();
@@ -57,24 +54,9 @@ export default function SharedScreen() {
   const toggleSharedShopping = useSharedStore((s) => s.toggleShopping);
   const removeSharedTask = useSharedStore((s) => s.removeTask);
   const removeSharedShopping = useSharedStore((s) => s.removeShopping);
-  const loadShared = useSharedStore((s) => s.load);
 
   const toggleSourceTask = useTaskStore((s) => s.toggle);
-  const loadTasks = useTaskStore((s) => s.load);
   const removeSourceShopping = useShoppingStore((s) => s.remove);
-  const loadShopping = useShoppingStore((s) => s.load);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!dbBootstrapped) {
-        initDb();
-        dbBootstrapped = true;
-      }
-      loadShared();
-      loadTasks();
-      loadShopping();
-    }, [loadShared, loadTasks, loadShopping])
-  );
 
   function handleToggleTask(item: SharedTask) {
     toggleSharedTask(item.id);

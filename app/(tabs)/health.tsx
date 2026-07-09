@@ -36,7 +36,8 @@
  *   - Add/edit/delete + the per-symptom 90-day history view live in app/health-form.tsx and
  *     app/health-detail.tsx respectively, so the symptom half of this screen is a pure
  *     read-only weekly summary.
- *   - Loads its stores on focus; initDb() is idempotent, guarded by a module flag.
+ *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus
+ *     effect only reseeds Focus mode's ephemeral default (see below).
  *   - **Habits section (ported from the removed app/habits.tsx)**: today/week/month view
  *     tabs, an optional child-profile selector, and per-habit cards (streak, progress dots,
  *     week strip, rest-day toggle) — the same sub-components/helpers habits.tsx used
@@ -73,15 +74,12 @@ import HabitIcon from '@/components/HabitIcon';
 import EmptyState from '@/components/EmptyState';
 import { showAppModal } from '@/components/AppModal';
 import { useT } from '@/lib/i18n';
-import { initDb } from '@/lib/db';
 import { todayStr, dateStr, getWeekDates, getMonthDates } from '@/lib/date';
 import { SEVERITY_COLORS, severities } from '@/lib/severity';
 import { FontSize, Radius, Spacing, Fonts } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
 import { warning, success, heavy, selection } from '@/lib/haptics';
-
-let dbBootstrapped = false;
 
 // ─── Habits (ported from the removed app/habits.tsx) ──────────────────────────
 
@@ -546,12 +544,9 @@ type HabitViewTab = 'today' | 'week' | 'month';
 export default function HealthScreen() {
   const router = useRouter();
   const logs = useHealthStore((s) => s.logs);
-  const loadLogs = useHealthStore((s) => s.load);
-  const loadSettings = useSettingsStore((s) => s.load);
 
   const habits = useHabitStore((s) => s.habits);
   const habitLogs = useHabitStore((s) => s.logs);
-  const loadHabits = useHabitStore((s) => s.load);
 
   const lang = useSettingsStore((s) => s.language);
   const childProfiles = useSettingsStore((s) => s.childProfiles);
@@ -574,19 +569,12 @@ export default function HealthScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!dbBootstrapped) {
-        initDb();
-        dbBootstrapped = true;
-      }
-      loadSettings();
-      loadLogs();
-      loadHabits();
       // Focus mode's default is the persisted "Focus mode" setting (essentialsModeEnabled),
       // same seeding pattern as Home (app/(tabs)/index.tsx).
       const defaultFocus = useSettingsStore.getState().essentialsModeEnabled;
       setFocusMode(defaultFocus);
       return () => { setHintOpen(false); setFocusMode(defaultFocus); };
-    }, [loadSettings, loadLogs, loadHabits])
+    }, [])
   );
 
   const today = todayStr();

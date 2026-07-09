@@ -30,11 +30,13 @@
  *     viewfinder doesn't fit the light-first token set).
  *   - Does not touch app/scan.tsx's own QR scanner, which deliberately rejects 'p'
  *     (pairing) payloads — pairing scans only ever happen from this screen.
+ *   - Store hydration happens once at startup in app/_layout.tsx; this screen has no
+ *     per-screen focus-load.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { usePeersStore } from '@/store/usePeersStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -66,7 +68,6 @@ export default function PairDeviceScreen() {
   const styles = useScaledStyles(baseStyles);
 
   const peers = usePeersStore((s) => s.peers);
-  const loadPeers = usePeersStore((s) => s.load);
   const addPeer = usePeersStore((s) => s.addPeer);
   const removePeer = usePeersStore((s) => s.removePeer);
 
@@ -82,12 +83,6 @@ export default function PairDeviceScreen() {
   const [role, setRole] = useState<Role>(null);
   const [sessionSecret, setSessionSecret] = useState<string | null>(null);
   const [scanned, setScanned] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadPeers();
-    }, [loadPeers])
-  );
 
   const syncAvailable = isSyncAvailable();
 

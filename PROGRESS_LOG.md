@@ -4397,3 +4397,42 @@ schema changes.
 - Updated the `Edit notes` header blocks in all three files to describe the new
   behavior.
 - `npx tsc --noEmit`: 0 errors.
+
+## 2026-07-09 — Cleanup: remove redundant per-screen focus-load / dbBootstrapped guards
+
+Scope: `app/(tabs)/index.tsx`, `app/(tabs)/shopping.tsx`, `app/(tabs)/health.tsx`,
+`app/(tabs)/plans.tsx`, `app/(tabs)/scan.tsx`, `app/shared.tsx`, `app/health-log.tsx`,
+`app/notes.tsx`, `app/automations.tsx`, `app/pair-device.tsx`. `app/_layout.tsx`,
+`components/ScreenHeader.tsx`, `components/BottomNav.tsx`, `components/Surface.tsx`
+read-only reference.
+
+- `app/_layout.tsx` already runs `initDb()` + every store's `load()` once at startup
+  (its `loaded`-keyed effect). The 10 screens above still carried leftover per-screen
+  `initDb()`/module-level `dbBootstrapped` guards and duplicate `load()` calls from
+  before that startup bootstrap existed — removed all of them.
+- Screens whose focus effect did nothing but hydrate (`app/(tabs)/scan.tsx`,
+  `app/shared.tsx`, `app/health-log.tsx`, `app/notes.tsx`, `app/automations.tsx`,
+  `app/pair-device.tsx` — the last had no `dbBootstrapped` guard but still redundantly
+  reloaded `usePeersStore`) had the whole focus effect deleted, along with now-unused
+  `load*` selectors and `useFocusEffect`/`useCallback` imports where nothing else used
+  them.
+- Screens whose focus effect does more than hydrate kept that behavior, with only the
+  redundant `initDb`/`load()` calls stripped:
+  - `app/(tabs)/index.tsx` / `app/(tabs)/health.tsx`: kept the Focus-mode
+    ephemeral-default reseed (seeds from `essentialsModeEnabled` on focus, resets on
+    blur).
+  - `app/(tabs)/plans.tsx`: kept the brand-new-user blank-draft seed.
+  - `app/(tabs)/shopping.tsx`: kept `advanceRecurringLists(today)` + its post-write
+    `loadShopping()` refresh, and the payday-boundary monthly-reset detection; also
+    stripped the separate mount-time `useEffect`'s `initDb`/`auto.load()` (rules are
+    already loaded at startup) while keeping the `'shopping_opened'` trigger fire.
+- Removed now-dead imports (`initDb`, and store `load` selectors/hooks with no other
+  call site — e.g. `useSettingsStore`/`useSharedStore` became fully unused in
+  `app/(tabs)/plans.tsx`, `useCatalogStore`/`useSettingsStore` in
+  `app/(tabs)/scan.tsx` and `app/(tabs)/shopping.tsx`) and updated each file's header
+  `Connections:`/`Edit notes:` blocks to match.
+- `components/ScreenHeader.tsx` and `components/BottomNav.tsx` were already passing
+  `surfaceContext="overlay"` to `Surface` (not the `ambient` default) — no change
+  needed; the doc-vs-source inconsistency flagged in an earlier session's
+  `shopping.tsx` note had already been fixed by the time of this sweep.
+- `npx tsc --noEmit`: 0 errors.

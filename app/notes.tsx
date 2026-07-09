@@ -11,7 +11,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/NoteRow,
  *             components/VoiceNoteFAB, components/ShoppingQuickAddSheet, constants/theme,
- *             lib/db, lib/i18n, lib/useAppTheme, store/useNotesStore, store/useSettingsStore
+ *             lib/i18n, lib/useAppTheme, store/useNotesStore
  *   Used by → Expo Router route "/notes", reached via Home's "More → Notes" link
  *             (no BottomNav tab by design — Decision 036; note editing itself is Decision 012)
  *   Data    → reads/writes useNotesStore (notes table) directly — no draft buffer, since a
@@ -29,25 +29,22 @@
  *     render as siblings of ScreenScaffold. Decision 006 tokens only (accent/textMuted).
  *   - No manual "add blank note" affordance — VoiceNoteFAB both creates the note and fills
  *     its body from the transcript; the header is left for the user to type (see NoteRow).
- *   - Loads the store on focus so edits made in /capture (edit affordance) or /task-form
- *     are reflected on return; initDb() is idempotent but guarded by a module flag.
+ *   - Store hydration happens once at startup in app/_layout.tsx; edits made in /capture
+ *     (edit affordance) or /task-form land in the same shared store, so they're reflected
+ *     on return without a per-screen focus-load.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useNotesStore } from '@/store/useNotesStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import NoteRow from '@/components/NoteRow';
 import VoiceNoteFAB from '@/components/VoiceNoteFAB';
 import ShoppingQuickAddSheet from '@/components/ShoppingQuickAddSheet';
 import { useT } from '@/lib/i18n';
-import { initDb } from '@/lib/db';
 import { FontSize, Fonts, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-
-let dbBootstrapped = false;
 
 export default function NotesScreen() {
   const router = useRouter();
@@ -60,21 +57,8 @@ export default function NotesScreen() {
   const updateNote = useNotesStore((s) => s.update);
   const toggleChecked = useNotesStore((s) => s.toggleChecked);
   const removeNote = useNotesStore((s) => s.remove);
-  const loadNotes = useNotesStore((s) => s.load);
-  const loadSettings = useSettingsStore((s) => s.load);
 
   const [shoppingSheetVisible, setShoppingSheetVisible] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!dbBootstrapped) {
-        initDb();
-        dbBootstrapped = true;
-      }
-      loadSettings();
-      loadNotes();
-    }, [loadSettings, loadNotes])
-  );
 
   const activeNotes = notes.filter((n) => !n.checked);
   const checkedNotes = notes.filter((n) => n.checked);
