@@ -9,10 +9,11 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme, lib/i18n, components/BottomNav (BOTTOM_NAV_HEIGHT)
- *   Used by → app/habits.tsx, app/(tabs)/health.tsx, app/(tabs)/index.tsx, app/automations.tsx,
+ *   Used by → app/habits.tsx, app/health-log.tsx, app/(tabs)/index.tsx, app/automations.tsx,
  *             app/inventory-edit.tsx; also components/VoiceNoteFAB.tsx (FAB_LG_SIZE/FAB_DEFAULT_BOTTOM
  *             constants only, not the component itself — app/notes.tsx dropped AddFAB in favour of
- *             VoiceNoteFAB, see that file's header)
+ *             VoiceNoteFAB, see that file's header). app/(tabs)/health.tsx no longer uses this —
+ *             "add" now lives on app/health-log.tsx (see that screen's header).
  *   Data    → none (presentational)
  *
  * Edit notes:

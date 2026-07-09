@@ -7,7 +7,7 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/date, lib/useAppTheme
- *   Used by → (not yet mounted — ported ahead of app/task-form.tsx per REBUILD_PLAN.md 3d)
+ *   Used by → app/task-form.tsx, app/health-form.tsx
  *   Data    → none (presentational); value/onChange/labels all come from props; scaled fontSize via useScaledStyles()
  *
  * Edit notes:
