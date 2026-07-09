@@ -9,7 +9,7 @@
  * Connections:
  *   Imports → lib/date
  *   Used by → app/_layout.tsx, lib/backup.ts, lib/liveSync.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useInboxStore.ts, store/useMealStore.ts, store/useNotesStore.ts, store/usePeersStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
- *   Data    → owns ALL SQLite tables: settings, tasks, shopping_items, shopping_trips, shopping_lists, dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the energy check-in feature; table/pruning kept per the never-drop-tables rule, no longer written to), inbox_items, receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key)
+ *   Data    → owns ALL SQLite tables: settings, tasks, shopping_items, shopping_trips, shopping_lists, dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the energy check-in feature; table/pruning kept per the never-drop-tables rule, no longer written to), inbox_items, receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key), widget_snapshot (single-row localised cache for the Android home-screen widgets — lib/widgets/snapshot.ts)
  *
  * Edit notes:
  *   - Add columns via the `migrations` array ONLY — never edit a CREATE TABLE to
@@ -216,6 +216,15 @@ export function initDb() {
       category TEXT DEFAULT 'other',
       month TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Single-row cache of the fully-localised home-screen-widget snapshot
+    -- (lib/widgets/snapshot.ts). Written by the app whenever today's tasks /
+    -- shopping change; read by the headless widget task handler so it can render
+    -- without re-deriving store logic. CREATE-only, never pruned (config-like).
+    CREATE TABLE IF NOT EXISTS widget_snapshot (
+      id INTEGER PRIMARY KEY,
+      payload TEXT
     );
 
     -- Indexes for the columns we filter / sort / join on most often.

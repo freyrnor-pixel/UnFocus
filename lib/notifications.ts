@@ -22,9 +22,11 @@
  *
  * Connections:
  *   Imports → —
- *   Used by → lib/habitNotifications.ts (store/useHabitStore.ts); everything else
- *             (task/weekly/monthly/persistent/re-nudge helpers) is unconsumed until
- *             a future task-notifications phase wires it up
+ *   Used by → lib/habitNotifications.ts (store/useHabitStore.ts);
+ *             lib/widgets/sync.ts (refreshPersistentNotification / cancelPersistentNotification —
+ *             the persistent "today's overview" notification, gated on the persistentNotifEnabled
+ *             setting); the remaining task/weekly/monthly/re-nudge helpers are unconsumed until
+ *             a future task-notifications phase wires them up
  *   Data    → schedules OS notifications (no SQLite/store)
  *
  * Edit notes:
