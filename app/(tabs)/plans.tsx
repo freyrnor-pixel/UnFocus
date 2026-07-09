@@ -8,6 +8,11 @@
  * empty draft row already open — and only become real store rows on Save. Today / This
  * week expand a task to its steps only (no settings); the Today section sits inside its
  * own card. The Home "Today's plans" preview keeps the unchanged PlanTaskCard day-view.
+ * Every section (Shared out / Whenever / Recurring on All tasks; Whenever on Today/This
+ * week; each weekday on This week) always renders, showing an empty message instead of
+ * disappearing when it has no tasks — kept consistent with Shopping's always-visible
+ * list layout (app/(tabs)/shopping.tsx). The Whenever section also carries a dashed
+ * "Make New" card matching Shopping's styles.newListCard look.
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedRequestsSection,
@@ -27,6 +32,13 @@
  *     tinted instead of getting their own section.
  *   - New tasks are always created in Whenever (undated, non-recurring); the editor can
  *     then promote them (date / repeat).
+ *   - **Always-visible sections + Make New card (2026-07-09)**: sections used to
+ *     conditionally hide when empty (`.length > 0 && ...`); now every named section
+ *     always renders with a `styles.sectionEmpty` placeholder (new i18n keys
+ *     `tasksSection*Empty` / `tasksDayEmpty`). The Whenever section's bottom "+ New plan"
+ *     dashed card (`styles.newTaskCard`) duplicates Shopping's `styles.newListCard` byte-
+ *     for-byte on purpose — no shared component exists yet, so keep both in sync if the
+ *     Shopping card's look changes.
  */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -225,19 +237,24 @@ export default function TasksScreen() {
           <>
             <SharedRequestsSection kind="task" />
 
-            {sharedOutAll.length > 0 && (
-              <View style={styles.section}>
-                {sectionHeader(t.tasksSectionSharedOut, theme.textMuted)}
+            <View style={styles.section}>
+              {sectionHeader(t.tasksSectionSharedOut, theme.textMuted)}
+              {sharedOutAll.length === 0 ? (
+                <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.tasksSectionSharedOutEmpty}</Text>
+              ) : (
                 <View style={styles.cardStack}>
                   {sharedOutAll.map((tk) => (
                     <TaskCard key={tk.id} task={tk} tinted onToggleDone={(x) => toggle(x.id)} />
                   ))}
                 </View>
-              </View>
-            )}
+              )}
+            </View>
 
             <View style={styles.section}>
               {sectionHeader(t.tasksSectionWhenever, theme.good)}
+              {wheneverAll.length === 0 && drafts.length === 0 && (
+                <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.tasksSectionWheneverEmpty}</Text>
+              )}
               <View style={styles.cardStack}>
                 {wheneverAll.map((tk) => (
                   <View key={tk.id}>
@@ -255,22 +272,31 @@ export default function TasksScreen() {
                     onToggleDone={() => {}}
                   />
                 ))}
-                {wheneverAll.length === 0 && drafts.length === 0 && (
-                  <AddDivider label={t.newTask} onPress={addDraft} />
-                )}
               </View>
+              {/* "Make New" card — same dashed-card affordance as Shopping's "Create a new
+                  list" (app/(tabs)/shopping.tsx styles.newListCard), always visible so the
+                  two list-style screens stay consistent. */}
+              <Pressable
+                style={[styles.newTaskCard, { borderColor: theme.border, backgroundColor: theme.surface }]}
+                onPress={addDraft}
+              >
+                <Text style={[styles.newTaskPlus, { color: theme.textMuted }]}>+</Text>
+                <Text style={[styles.newTaskText, { color: theme.textMuted }]}>{t.newTask}</Text>
+              </Pressable>
             </View>
 
-            {recurringAll.length > 0 && (
-              <View style={styles.section}>
-                {sectionHeader(t.tasksSectionRecurring, theme.accent)}
+            <View style={styles.section}>
+              {sectionHeader(t.tasksSectionRecurring, theme.accent)}
+              {recurringAll.length === 0 ? (
+                <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.tasksSectionRecurringEmpty}</Text>
+              ) : (
                 <View style={styles.cardStack}>
                   {recurringAll.map((tk) => (
                     <TaskCard key={tk.id} task={tk} showDelete showShareOut onToggleDone={(x) => toggle(x.id)} />
                   ))}
                 </View>
-              </View>
-            )}
+              )}
+            </View>
           </>
         )}
 
@@ -290,45 +316,51 @@ export default function TasksScreen() {
               )}
             </View>
 
-            {undatedWhenever.length > 0 && (
-              <View style={styles.section}>
-                {sectionHeader(t.tasksSectionWhenever, theme.good)}
+            <View style={styles.section}>
+              {sectionHeader(t.tasksSectionWhenever, theme.good)}
+              {undatedWhenever.length === 0 ? (
+                <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.tasksSectionWheneverEmpty}</Text>
+              ) : (
                 <View style={styles.cardStack}>
                   {undatedWhenever.map((tk) => (
                     <TaskCard key={tk.id} task={tk} variant="steps" onToggleDone={(x) => toggle(x.id)} />
                   ))}
                 </View>
-              </View>
-            )}
+              )}
+            </View>
           </>
         )}
 
         {/* ── THIS WEEK ── */}
         {tab === 'week' && (
           <>
-            {weekGroups.map((group, i) =>
-              group.tasks.length > 0 ? (
-                <View key={group.date} style={styles.section}>
-                  {sectionHeader(t.dayFull[i], theme.accent)}
+            {weekGroups.map((group, i) => (
+              <View key={group.date} style={styles.section}>
+                {sectionHeader(t.dayFull[i], theme.accent)}
+                {group.tasks.length === 0 ? (
+                  <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.tasksDayEmpty}</Text>
+                ) : (
                   <View style={styles.cardStack}>
                     {group.tasks.sort(byTime).map((tk) => (
                       <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={(x) => toggle(x.id)} />
                     ))}
                   </View>
-                </View>
-              ) : null
-            )}
+                )}
+              </View>
+            ))}
 
-            {undatedWhenever.length > 0 && (
-              <View style={styles.section}>
-                {sectionHeader(t.tasksSectionWhenever, theme.good)}
+            <View style={styles.section}>
+              {sectionHeader(t.tasksSectionWhenever, theme.good)}
+              {undatedWhenever.length === 0 ? (
+                <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.tasksSectionWheneverEmpty}</Text>
+              ) : (
                 <View style={styles.cardStack}>
                   {undatedWhenever.map((tk) => (
                     <TaskCard key={tk.id} task={tk} variant="steps" onToggleDone={(x) => toggle(x.id)} />
                   ))}
                 </View>
-              </View>
-            )}
+              )}
+            </View>
           </>
         )}
       </View>
@@ -355,6 +387,11 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
   sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm },
   cardStack: { gap: Spacing.sm },
+  // Matches app/(tabs)/shopping.tsx styles.newListCard/newListPlus/newListText exactly —
+  // the shared "Make New" dashed-card look, kept local since neither screen exports it.
+  newTaskCard: { borderWidth: 1, borderStyle: 'dashed', borderRadius: Radius.lg, paddingVertical: Spacing.lg, alignItems: 'center', gap: 4 },
+  newTaskPlus: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
+  newTaskText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   todayCard: {
     borderWidth: 1,
     borderRadius: Radius.md,
