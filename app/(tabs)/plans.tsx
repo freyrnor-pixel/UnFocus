@@ -35,10 +35,14 @@
  *   - **Always-visible sections + Make New card (2026-07-09)**: sections used to
  *     conditionally hide when empty (`.length > 0 && ...`); now every named section
  *     always renders with a `styles.sectionEmpty` placeholder (new i18n keys
- *     `tasksSection*Empty` / `tasksDayEmpty`). The Whenever section's bottom "+ New plan"
- *     dashed card (`styles.newTaskCard`) duplicates Shopping's `styles.newListCard` byte-
- *     for-byte on purpose — no shared component exists yet, so keep both in sync if the
- *     Shopping card's look changes.
+ *     `tasksSection*Empty` / `tasksDayEmpty`). The Whenever section's bottom "+ New task"
+ *     dashed card (`styles.newTaskCard`) started as a byte-for-byte match of Shopping's
+ *     `styles.newListCard`; it now has a shorter `paddingVertical` (2/3 the height) per the
+ *     "New task" card resize — border/radius/font sizes are unchanged, so it still reads as
+ *     the same dashed-card family. Shopping's card is untouched.
+ *   - **Section header cards**: `sectionHeader()`'s row now sits on a `theme.surfaceMuted`
+ *     card (padding + radius) so the label/rule stay legible over the particle background —
+ *     matches the same fix in app/(tabs)/shopping.tsx.
  */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -106,6 +110,7 @@ export default function TasksScreen() {
   const tasksForWeek = useTaskStore((s) => s.tasksForWeek);
   const toggle = useTaskStore((s) => s.toggle);
   const addTask = useTaskStore((s) => s.add);
+  const addStep = useTaskStore((s) => s.addStep);
   const loadTasks = useTaskStore((s) => s.load);
   const loadShared = useSharedStore((s) => s.load);
   const loadSettings = useSettingsStore((s) => s.load);
@@ -165,7 +170,7 @@ export default function TasksScreen() {
   const discardDraft = useCallback((id: string) => setDrafts((d) => d.filter((x) => x.id !== id)), []);
   const commitDraft = useCallback(
     (committed: Task) => {
-      addTask({
+      const created = addTask({
         title: committed.title,
         date: committed.date,
         time: committed.time,
@@ -183,14 +188,17 @@ export default function TasksScreen() {
         sortOrder: 0,
         hasStartDate: committed.hasStartDate,
       });
+      // Steps added while the draft was still local (isNew) buffer onto committed.steps —
+      // they can't hit SQLite until the real task row (with a real id) exists.
+      committed.steps.forEach((step) => addStep(created.id, step.title));
       setDrafts((d) => d.filter((x) => x.id !== committed.id));
     },
-    [addTask]
+    [addTask, addStep]
   );
 
   function sectionHeader(label: string, color: string) {
     return (
-      <View style={styles.sectionHeaderRow}>
+      <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
         <Text style={[styles.sectionLabel, { color }]}>{label}</Text>
         <View style={[styles.sectionRule, { backgroundColor: color }]} />
       </View>
@@ -382,14 +390,16 @@ const styles = StyleSheet.create({
   },
   tabText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   section: { gap: Spacing.xs },
-  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  // Card behind the label + rule so section dividers stay legible over busy backgrounds.
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: Radius.sm },
   sectionRule: { flex: 1, height: 2, borderRadius: Radius.full, opacity: 0.4 },
   sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
   sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm },
   cardStack: { gap: Spacing.sm },
-  // Matches app/(tabs)/shopping.tsx styles.newListCard/newListPlus/newListText exactly —
-  // the shared "Make New" dashed-card look, kept local since neither screen exports it.
-  newTaskCard: { borderWidth: 1, borderStyle: 'dashed', borderRadius: Radius.lg, paddingVertical: Spacing.lg, alignItems: 'center', gap: 4 },
+  // 2/3 the height of shopping.tsx's styles.newListCard (padding only — same border/radius/
+  // font sizes) — intentionally diverges from the old byte-for-byte match per the "New task"
+  // card resize; keep shopping's newListCard untouched.
+  newTaskCard: { borderWidth: 1, borderStyle: 'dashed', borderRadius: Radius.lg, paddingVertical: Spacing.sm, alignItems: 'center', gap: 4 },
   newTaskPlus: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
   newTaskText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   todayCard: {
