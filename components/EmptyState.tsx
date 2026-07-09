@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme, components/Button
- *   Used by → app/shopping.tsx, app/habits.tsx
+ *   Used by → app/shopping.tsx, app/habits.tsx, app/health-log.tsx
  *
  * Edit notes:
  *   - `action` delegates entirely to Button (variant/size chosen by caller via extra props

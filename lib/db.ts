@@ -537,6 +537,12 @@ export function initDb() {
     // the seed so toggling off removes precisely those rows. See lib/freyrModeSeed.ts.
     "ALTER TABLE settings ADD COLUMN freyr_mode_enabled INTEGER DEFAULT 0",
     "ALTER TABLE settings ADD COLUMN freyr_seed_ids TEXT DEFAULT ''",
+    // Health redesign — a dedicated add/edit form (app/health-form.tsx) replaces the
+    // inline "+" log button; a log now tracks when the issue started AND finished,
+    // not just a single log_date. end_date = '' means still ongoing.
+    "ALTER TABLE health_logs ADD COLUMN start_time TEXT DEFAULT ''",
+    "ALTER TABLE health_logs ADD COLUMN end_date TEXT DEFAULT ''",
+    "ALTER TABLE health_logs ADD COLUMN end_time TEXT DEFAULT ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

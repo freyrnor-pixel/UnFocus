@@ -15,7 +15,7 @@
  * Connections:
  *   Imports → react-native-reanimated, react-native-safe-area-context, constants/theme, lib/useAppTheme
  *   Used by → app/task-form, app/meals, app/shopping (save/add confirmations), app/settings
- *             (rejected numeric input, variant='warn')
+ *             (rejected numeric input, variant='warn'), app/health-form
  *   Data    → reads reducedMotion via useAccessibility(); colours from useAppTheme(); scaled fontSize via useScaledStyles()
  *
  * Edit notes:
