@@ -61,7 +61,7 @@ export default function InventoryEditScreen() {
     [items]
   );
 
-  function handleAddItem(input: { name: string; price: number; targetQuantity: number; isTemporary: boolean; alsoAddToCatalog: boolean }) {
+  function handleAddItem(input: { name: string; price: number; targetQuantity: number; isTemporary: boolean }) {
     add({
       name: input.name,
       amount: '1',
@@ -104,7 +104,7 @@ export default function InventoryEditScreen() {
                 <View key={item.id}>
                   <MonthlyTableRow
                     item={item}
-                    onTogglePending={() => setPendingRestock(item.id, !item.pendingRestock)}
+                    onCheckboxPress={() => setPendingRestock(item.id, !item.pendingRestock)}
                     onPress={() => setUpdateItem(item)}
                     temporaryLabel={t.temporaryBadge}
                   />
@@ -123,7 +123,6 @@ export default function InventoryEditScreen() {
 
       <AddItemSheet
         visible={showAddSheet}
-        origin="catalog"
         onClose={() => setShowAddSheet(false)}
         onAdd={handleAddItem}
       />

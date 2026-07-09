@@ -4409,3 +4409,87 @@ hint display, Decision 020 follower badge + cross-date pull-in, `readOnly` seman
 no store/schema/i18n changes, no new dependencies, Decision 006 tokens only (no raw hex).
 
 `npx tsc --noEmit` re-verified clean after all fixes.
+
+## 2026-07-09 — Decision 044a: shopping add-flow restructure
+
+**Status: Complete, with a scope correction found during implementation.** Precondition
+gates verified: Decision 044 (Resolved, 2026-07-09) with the 044a sub-section present in
+REBUILD_DECISIONS.md; base branch carries the Decision 041 pager migration and the
+2026-07-08 Shopping/Food redesign (`app/(tabs)/shopping.tsx` four-tab layout, FoodTab/
+CatalogueTab).
+
+**Scope correction (flagged to the user, confirmed before proceeding):** Decision 044's
+diagnosis assumed the weekly "+" opened `AddSourceChooser`. That was already stale —
+a 2026-07-06 redesign (`WeekListCard.tsx`, predating Decision 044) replaced it with an
+always-visible inline add row (text field + live catalog suggestions + qty stepper) and
+an inline "From monthly" search panel. `AddSourceChooser` and shopping.tsx's
+`addSourceChooserListId` state were verified unreachable — nothing in the repo ever set
+`addSourceChooserListId` to a real id, only reset it to null. User chose "clean up only":
+delete the dead component and its wiring rather than rebuild the already-working inline
+flow to match 044a's now-outdated wording (e.g. it explicitly asked for no qty stepper —
+left the working stepper in place since it isn't the thing that was actually broken).
+
+**What changed:**
+1. **Staging tray removed** (Monthly tab, `app/(tabs)/shopping.tsx`). `MonthlyTableRow`'s
+   checkbox (renamed prop `onTogglePending` → `onCheckboxPress`) now calls a new
+   `handleAddToWeeklyFromMonthly` handler that runs `addToWeeklyFromCatalog(item.id, 1,
+   focusedList.id)` immediately — no stage-then-confirm step. Falls back to
+   `t.noWeekListsYet` if no week list exists yet (same guard `handleAllocate` already
+   used). Deleted the tray card, its header/×-per-item/confirm button, and the Monthly
+   tab's count badge (sticky bar + tab pill) since `pendingRestock` is never set to true
+   by new code. Removed the now-fully-dead `confirmStagingTray` store action from
+   `useShoppingStore.ts` (type + implementation) — `setPendingRestock` stays, since
+   `app/inventory-edit.tsx` (an orphaned standalone Katalog screen, out of 044a's named
+   scope) still calls it for its own checkbox; that screen never had a tray to react to
+   the flag, so leaving its behavior untouched is harmless.
+2. **Undo affordance added to `ConfirmationBanner`** (Decision 044a's "undo in the
+   confirmation toast" requirement): new optional `actionLabel`/`onAction` props render
+   an inline "Undo" button beside the message, in its own `Pressable` so it doesn't
+   trigger the message's dismiss-on-tap. Fully backward compatible — the other four
+   callers (task-form, meals, settings, health-form) pass neither and are unaffected.
+   `app/(tabs)/shopping.tsx` now tracks `confirmMessage`/`confirmUndo` (split out of the
+   old single `confirm` string) behind a `setConfirm(message, undo?)` wrapper, so all ~15
+   pre-existing `setConfirm(...)` call sites needed no changes — only the JSX and the new
+   monthly-checkbox handler pass an `undo` callback (`() => putBackToInventory(item.id)`).
+3. **`AddSourceChooser.tsx` deleted**, along with `shopping.tsx`'s `addSourceChooserListId`
+   state and the dead weekly-origin path through `AddItemSheet`/`addItemTarget`. Simplified
+   `addItemTarget` (a two-variant union for catalog-vs-weekly targets) down to a single
+   `addToCatalogOpen: boolean`, since only the Monthly tab's `AddDivider` ever opened the
+   sheet. `AddItemSheet.tsx` lost its `origin` prop entirely (was `'catalog' | 'weekly'`,
+   now catalog-only) and the "Legg også til i katalog" toggle that only applied to the
+   dead weekly path; `temporary` now defaults to `false` unconditionally (previously
+   `origin !== 'catalog'`, which was already `false` for the only origin left).
+   `app/inventory-edit.tsx` (AddItemSheet's other caller) updated to match — dropped its
+   `origin="catalog"` prop and the now-unused `alsoAddToCatalog` field from its
+   `handleAddItem` signature.
+4. **Destination/quantity semantics** — verified already correct, no change needed: each
+   `WeekListCard`'s inline add row already targets its own `list.id` directly (no
+   list-picker step) and defaults qty to 1, with `adjustAmount` as the row-level
+   correction path.
+5. **i18n (both locales):** removed `stagingTrayHeader`, `confirmStagingBtn`,
+   `addSourceChooserTitle`, `addFromInventoryOption`, `searchOrTypeOption`,
+   `inventoryPickerTitle`, `inventoryPickerSearchPlaceholder`,
+   `addSourceChooserInventoryEmpty`, `addAlsoToCatalogToggle` (all had zero remaining
+   callers after the above). Rewrote `weeklyEmptySubtitle` from "Mark items in the
+   catalog to add them here" (described the removed tray) to "Switch to Planning to add
+   items" (matches the current locked/unlocked mode toggle). Added
+   `itemAddedToNamedList(name, listName)` for the new monthly-checkbox toast (Decision
+   044a bullet 3: "destination... named in the toast"). Audited the shopping HintCard
+   copy (`hints.shopping.text`) — it never referenced the tray, no change needed. Kept
+   `itemAddedToList`/`itemsAddedToList`/undo strings (`undoBtn`, pre-existing and
+   previously unused, now wired into the new banner action).
+
+**Store/header updates:** `useShoppingStore.ts`'s top-of-file doc and its LAN-sync edit
+note updated to drop the "staging tray"/`confirmStagingTray` framing; `pendingRestock`'s
+type comment already called it vestigial-adjacent, left as-is. `shopping.tsx`,
+`MonthlyTableRow.tsx`, `AddItemSheet.tsx`, `ConfirmationBanner.tsx` headers updated in the
+same edits that changed their imports/props, per the repo's own token-policy convention.
+
+**Not touched:** Decision 011 R1/R2 gesture surfaces, `putBackToInventory` semantics
+(reused, not changed), `fromCatalog` attribution, doneShopping/receipt flow, Unallocated
+bucket, monthly reset. `app/inventory-edit.tsx` beyond the two compile-compat edits above
+(orphaned screen, no in-app entry point, out of scope).
+
+`npx tsc --noEmit` — zero errors.
+
+Blocks Decision 044b (same files) per Decision 044's own sequencing note.

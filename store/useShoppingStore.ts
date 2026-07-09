@@ -4,11 +4,12 @@
  * Zustand store for shopping items, all living in the single `shopping_items`
  * table, driven by a single `status` pipeline:
  *   'catalog' -> 'inWeeklyList' -> 'purchased'
- * ('staged' is vestigial — staging is now tracked via the `pendingRestock` flag
- * while status stays 'catalog'.) Katalog is the permanent household inventory;
- * confirming the staging tray moves items to 'inWeeklyList'; doneShopping marks
- * them 'purchased' and records a shopping_trips row; monthlyReset reverts
- * non-temporary items to 'catalog' and purges trips + temporary rows.
+ * ('staged' and `pendingRestock` are both vestigial — Decision 044a removed the
+ * Monthly tab's staging tray; addToWeeklyFromCatalog now runs immediately from the
+ * Monthly checkbox, no separate confirm step.) Katalog is the permanent household
+ * inventory; doneShopping marks weekly items 'purchased' and records a
+ * shopping_trips row; monthlyReset reverts non-temporary items to 'catalog' and
+ * purges trips + temporary rows.
  *
  * Phase 5 real port (2026-07-02) — replaces the Decision 015 typed-only stub.
  * The port keeps the old app's logic but reconciles its EXPORTED shape to the
@@ -51,9 +52,9 @@
  *     `load()` filters `deleted_at IS NULL`. Only the columns in lib/liveSync's
  *     shopping_items whitelist (name/amount/unit/list_type/checked/store/price/
  *     created_at/list_id) actually cross the wire — `status` and the rest of the
- *     catalog/purchase-trip state machine are NOT synced fields, so confirmStagingTray/
- *     doneShopping/monthlyReset's raw-SQL bulk transitions are deliberately left
- *     untouched (they bypass update() and don't write whitelisted columns anyway).
+ *     catalog/purchase-trip state machine are NOT synced fields, so doneShopping/
+ *     monthlyReset's raw-SQL bulk transitions are deliberately left untouched (they
+ *     bypass update() and don't write whitelisted columns anyway).
  *     mergeDuplicateItems' one-time self-heal DELETE is also left as a hard delete —
  *     it repairs pre-existing accidental dupes, not a user delete action.
  *   - add() consolidates duplicates: same status+listId+name+dishName bumps the
@@ -190,7 +191,6 @@ type ShoppingStore = {
   mergeItems: (sourceId: string, targetId: string) => void;
   addToWeeklyFromCatalog: (id: string, quantity?: number, listId?: string) => void;
   setPendingRestock: (id: string, pending: boolean) => void;
-  confirmStagingTray: () => void;
   doneShopping: (listId: string, label: string, monthResetDate: number) => string;
   monthlyReset: () => void;
   buildMonthlyResetSummary: () => MonthlyResetSummary;
@@ -535,25 +535,11 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     get().update(id, { status: 'inWeeklyList', pendingRestock: false, amount: String(qty), listId });
   },
 
-  /** Catalog checkbox press: flags an item for the staging tray without changing status. */
+  /** Vestigial (Decision 044a) — inventory-edit.tsx's standalone Katalog screen still
+   *  calls this for its checkbox; the Monthly tab no longer does (it calls
+   *  addToWeeklyFromCatalog directly). Kept for that one caller; no UI reads the flag. */
   setPendingRestock(id, pending) {
     get().update(id, { pendingRestock: pending });
-  },
-
-  /** Staging tray "Legg til i ukeliste" — commits every staged (pendingRestock) catalog item to the weekly list. */
-  confirmStagingTray() {
-    const staged = get().items.filter((i) => i.pendingRestock && i.status === 'catalog');
-    if (staged.length === 0) return;
-    db.runSync(
-      "UPDATE shopping_items SET status = 'inWeeklyList', pending_restock = 0 WHERE pending_restock = 1 AND status = 'catalog'"
-    );
-    set((s) => ({
-      items: s.items.map((i) =>
-        i.pendingRestock && i.status === 'catalog'
-          ? { ...i, status: 'inWeeklyList' as const, pendingRestock: false }
-          : i
-      ),
-    }));
   },
 
   /** "Handlingen fullført" — creates a shopping_trips row and marks every inWeeklyList item in `listId` purchased. */

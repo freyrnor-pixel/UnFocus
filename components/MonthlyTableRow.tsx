@@ -2,20 +2,28 @@
  * MonthlyTableRow.tsx — Katalog row (permanent inventory item).
  *
  * Renders one Katalog item in the consolidated "Item | Price per unit | x Amount |
- * Total cost" format: a leading checkbox that flags pendingRestock (stages it into
- * the weekly staging tray, independent of `status`), the name (with a "Midlertidig"
- * pill badge when isTemporary), the target quantity, the per-unit price, and the
- * computed total (price × quantity). Tapping the row body opens the Update Sheet
- * when `onPress` is given — `onPress` is undefined while the Monthly Container
- * (app/shopping.tsx) is locked, so rows are inert in that state; unlocking it (or
- * the standalone inventory-edit screen) wires `onPress` and rows become tappable.
+ * Total cost" format: a leading checkbox (`onCheckboxPress`), the name (with a
+ * "Midlertidig" pill badge when isTemporary), the target quantity, the per-unit
+ * price, and the computed total (price × quantity). Tapping the row body opens the
+ * Update Sheet when `onPress` is given — `onPress` is undefined while the Monthly
+ * Container (app/(tabs)/shopping.tsx) is locked, so rows are inert in that state;
+ * unlocking it (or the standalone inventory-edit screen) wires `onPress` and rows
+ * become tappable.
  *
  * Connections:
  *   Imports → constants/theme, lib/date, lib/useAppTheme, store/useShoppingStore
- *   Used by → app/shopping.tsx (Monthly catalog tab); app/inventory-edit.tsx not yet ported
- *   Data    → consumes the ShoppingItem type from useShoppingStore; mutations happen in the parent via onTogglePending/onPress; scaled fontSize via useScaledStyles()
+ *   Used by → app/(tabs)/shopping.tsx (Monthly catalog tab), app/inventory-edit.tsx
+ *   Data    → consumes the ShoppingItem type from useShoppingStore; mutations happen in the parent via onCheckboxPress/onPress; scaled fontSize via useScaledStyles()
  *
  * Edit notes:
+ *   - **Decision 044a (2026-07-09):** renamed `onTogglePending` → `onCheckboxPress`.
+ *     app/(tabs)/shopping.tsx's Monthly tab now wires it to move the item straight to
+ *     the focused weekly list (addToWeeklyFromCatalog), replacing the old
+ *     stage-then-confirm tray flow — the checkbox no longer reflects a lingering
+ *     pendingRestock state since the row leaves the Monthly list on tap.
+ *     app/inventory-edit.tsx (an orphaned standalone screen, out of 044a's scope)
+ *     still wires it to the old setPendingRestock toggle — harmless, since that
+ *     screen never rendered a tray to react to the flag.
  *   - targetQuantity is edited via the Update Sheet (components/UpdateSheet.tsx), OR — in
  *     the redesigned Monthly-list section (2026-07-06) — via the optional inline stepper
  *     (onIncrement/onDecrement drive targetQuantity in the parent) and the optional trailing
@@ -43,7 +51,7 @@ import { formatKr } from '@/lib/money';
 
 type Props = {
   item: ShoppingItem;
-  onTogglePending: () => void;
+  onCheckboxPress: () => void;
   onPress?: () => void;
   temporaryLabel?: string;
   /** When provided, an inline qty stepper (drives targetQuantity) replaces the static ×N meta. */
@@ -53,7 +61,7 @@ type Props = {
   onRemove?: () => void;
 };
 
-export default function MonthlyTableRow({ item, onTogglePending, onPress, temporaryLabel, onIncrement, onDecrement, onRemove }: Props) {
+export default function MonthlyTableRow({ item, onCheckboxPress, onPress, temporaryLabel, onIncrement, onDecrement, onRemove }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const total = item.price > 0 ? item.price * item.targetQuantity : null;
@@ -63,7 +71,7 @@ export default function MonthlyTableRow({ item, onTogglePending, onPress, tempor
     <View style={[styles.row, { backgroundColor: theme.surface }]}>
       <Pressable
         style={[styles.check, { borderColor: theme.accent }, item.pendingRestock && { backgroundColor: theme.accent, borderColor: theme.accent }]}
-        onPress={onTogglePending}
+        onPress={onCheckboxPress}
         hitSlop={6}
       >
         {item.pendingRestock && <Ionicons name="checkmark" size={14} color={theme.accentInk} />}

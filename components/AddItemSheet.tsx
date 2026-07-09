@@ -1,13 +1,12 @@
 /**
- * AddItemSheet.tsx — shared floating modal for free-adding an item to Katalog or Ukeliste.
+ * AddItemSheet.tsx — floating modal for free-adding a new item straight to Katalog.
  *
- * Opened from the FAB on either the Katalog screen (creates a catalog item) or
- * the Ukeliste screen (creates a weekly working-list item, with an extra
- * "Legg også til i katalog" toggle so the user can optionally persist it as a
- * permanent catalog item too). Fields: Varenavn (required, with a live
- * catalog-search dropdown), Estimert pris (optional, auto-filled when a
- * suggestion is picked), Ønsket antall (stepper, default 1), and a "Midlertidig"
- * toggle (defaults to true on both screens — most free-adds are one-off needs).
+ * Opened from the "+" affordance on the Katalog screen (app/inventory-edit.tsx) and
+ * the Monthly tab's AddDivider (app/(tabs)/shopping.tsx) — both create a catalog
+ * item. Fields: Varenavn (required, with a live catalog-search dropdown), Estimert
+ * pris (optional, auto-filled when a suggestion is picked), Ønsket antall (stepper,
+ * default 1), and a "Midlertidig" toggle (defaults to false — catalog adds are
+ * permanent staples by default).
  *
  * Renders as a centered, scale+fade card over a dimmed backdrop (not a bottom
  * sheet) — see Edit notes.
@@ -16,14 +15,16 @@
  *   Imports → components/FormControls, components/PressableScale, components/Surface,
  *             constants/theme, lib/date, lib/i18n, lib/useAppTheme, store/useCatalogStore,
  *             react-native-reanimated
- *   Used by → app/shopping.tsx (catalog + weekly add); app/inventory-edit.tsx not yet ported
+ *   Used by → app/(tabs)/shopping.tsx (Monthly tab catalog add), app/inventory-edit.tsx
  *   Data    → none directly — creation flows out via onAdd; the parent calls
  *             useShoppingStore.add(). Reads useCatalogStore.suggest() (read-only,
  *             Phase 5 stub per Decision 015/015a) for the name-field autocomplete.
  *
  * Edit notes:
- *   - `origin` controls whether the "Legg også til i katalog" toggle renders at all
- *     (only meaningful when adding from the weekly/Ukeliste screen).
+ *   - **Decision 044a (2026-07-09):** dropped the `origin`/"weekly" mode and its
+ *     "Legg også til i katalog" toggle — that path was already dead (only reachable
+ *     via the retired AddSourceChooser). This sheet is catalog-only now; weekly adds
+ *     go through WeekListCard's own inline add row + "From monthly" panel.
  *   - Resets all fields on close via the useEffect keyed on `visible`.
  *   - Tracks its own `mounted` state (decoupled from `visible`) so Cancel/backdrop-tap/
  *     Android-back can play the exit animation before unmounting — same pattern as
@@ -62,18 +63,16 @@ import { Input, Switch } from '@/components/FormControls';
 
 type Props = {
   visible: boolean;
-  origin: 'catalog' | 'weekly';
   onClose: () => void;
   onAdd: (input: {
     name: string;
     price: number;
     targetQuantity: number;
     isTemporary: boolean;
-    alsoAddToCatalog: boolean;
   }) => void;
 };
 
-export default function AddItemSheet({ visible, origin, onClose, onAdd }: Props) {
+export default function AddItemSheet({ visible, onClose, onAdd }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
@@ -82,8 +81,7 @@ export default function AddItemSheet({ visible, origin, onClose, onAdd }: Props)
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [targetQty, setTargetQty] = useState(1);
-  const [temporary, setTemporary] = useState(origin !== 'catalog');
-  const [alsoAddToCatalog, setAlsoAddToCatalog] = useState(false);
+  const [temporary, setTemporary] = useState(false);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
 
   const [mounted, setMounted] = useState(visible);
@@ -95,8 +93,7 @@ export default function AddItemSheet({ visible, origin, onClose, onAdd }: Props)
       setName('');
       setPrice('');
       setTargetQty(1);
-      setTemporary(origin !== 'catalog');
-      setAlsoAddToCatalog(false);
+      setTemporary(false);
       setSuggestionsDismissed(false);
       setMounted(true);
       if (reducedMotion) {
@@ -118,7 +115,7 @@ export default function AddItemSheet({ visible, origin, onClose, onAdd }: Props)
         });
       }
     }
-  }, [visible, origin, reducedMotion]);
+  }, [visible, reducedMotion]);
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
   const cardStyle = useAnimatedStyle(() => ({
@@ -144,7 +141,6 @@ export default function AddItemSheet({ visible, origin, onClose, onAdd }: Props)
       price: parseFloat(price.replace(',', '.')) || 0,
       targetQuantity: Math.max(1, targetQty),
       isTemporary: temporary,
-      alsoAddToCatalog,
     });
   }
 
@@ -216,13 +212,6 @@ export default function AddItemSheet({ visible, origin, onClose, onAdd }: Props)
                 <Text style={[styles.label, { color: theme.textMuted, marginBottom: 0 }]}>{t.midlertidigToggleLabel}</Text>
                 <Switch checked={temporary} onChange={setTemporary} />
               </View>
-
-              {origin === 'weekly' && (
-                <View style={styles.toggleRow}>
-                  <Text style={[styles.label, { color: theme.textMuted, marginBottom: 0 }]}>{t.addAlsoToCatalogToggle}</Text>
-                  <Switch checked={alsoAddToCatalog} onChange={setAlsoAddToCatalog} />
-                </View>
-              )}
 
               <View style={styles.actionsRow}>
                 <PressableScale style={styles.ghostBtn} onPress={onClose}>
