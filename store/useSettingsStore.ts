@@ -17,6 +17,9 @@
  * freyrModeEnabled/freyrSeedIds back the Additional-modes-tab "Freyr-mode" toggle —
  * see lib/freyrModeSeed.ts for the seed/unseed logic; freyrSeedIds is a JSON blob,
  * not read/written by anything in this file beyond passthrough.
+ * planTimelineHorizontal switches the Plans day-view rail (components/PlanTaskCard.tsx)
+ * between the default vertical rail and a horizontal one; read by app/(tabs)/index.tsx
+ * and passed down as a prop (PlanTaskCard itself stays store-free/presentational).
  *
  * Connections:
  *   Imports → lib/dataAccess, lib/id
@@ -121,6 +124,9 @@ export type Settings = {
   // record of exactly which rows the seed created, so disabling removes only those.
   freyrModeEnabled: boolean;
   freyrSeedIds: string;
+  // Plans day-view rail orientation (Home preview + Focus mode) — see
+  // components/PlanTaskCard.tsx. false = vertical rail (default), true = horizontal.
+  planTimelineHorizontal: boolean;
 };
 
 type SettingsStore = Settings & {
@@ -180,6 +186,7 @@ function rowToSettings(row: Row): Settings {
     schoolModeEnabled: readBool(row, 'school_mode_enabled'),
     freyrModeEnabled: readBool(row, 'freyr_mode_enabled'),
     freyrSeedIds: readStr(row, 'freyr_seed_ids'),
+    planTimelineHorizontal: readBool(row, 'plan_timeline_horizontal'),
   };
 }
 
@@ -231,6 +238,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   schoolModeEnabled: { col: 'school_mode_enabled', to: bool },
   freyrModeEnabled: { col: 'freyr_mode_enabled', to: bool },
   freyrSeedIds: { col: 'freyr_seed_ids' },
+  planTimelineHorizontal: { col: 'plan_timeline_horizontal', to: bool },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -282,6 +290,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   schoolModeEnabled: false,
   freyrModeEnabled: false,
   freyrSeedIds: '',
+  planTimelineHorizontal: false,
   loaded: false,
   workModeSessionOverride: false,
 

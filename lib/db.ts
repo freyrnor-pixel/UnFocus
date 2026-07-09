@@ -543,6 +543,8 @@ export function initDb() {
     "ALTER TABLE health_logs ADD COLUMN start_time TEXT DEFAULT ''",
     "ALTER TABLE health_logs ADD COLUMN end_date TEXT DEFAULT ''",
     "ALTER TABLE health_logs ADD COLUMN end_time TEXT DEFAULT ''",
+    // Plans day-view rail orientation toggle — see components/PlanTaskCard.tsx.
+    "ALTER TABLE settings ADD COLUMN plan_timeline_horizontal INTEGER DEFAULT 0",
     // Habits: General/Essential importance, mirroring tasks.importance (Decision 018) —
     // gates Focus-mode visibility/notifications the same way for both entities.
     "ALTER TABLE habits ADD COLUMN importance TEXT DEFAULT 'regular'",

@@ -7,7 +7,7 @@
  * (local `tab` state, no router routes).
  *
  * - Generelt: Focus mode toggle → Profil (name + language) → Utseende (dark mode) →
- *   Tilgjengelighet (reduced motion, particles, font size, left-handed) →
+ *   Tilgjengelighet (reduced motion, particles, font size, left-handed, horizontal plans timeline) →
  *   Data group (debug mode toggle, Local account card (Decision 039 —
  *   device-only profile: name + create date, auto-backup toggle, backup/restore via
  *   lib/backup [share excludes user name]), LAN sync, destructive resets, version & updates).
@@ -472,6 +472,14 @@ export default function SettingsScreen() {
                     <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.leftHandedHint}</Text>
                   </View>
                   <FormSwitch checked={settings.leftHanded} onChange={(v) => settings.update({ leftHanded: v })} />
+                </View>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.timelineHorizontal}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.timelineHorizontalHint}</Text>
+                  </View>
+                  <FormSwitch checked={settings.planTimelineHorizontal} onChange={(v) => settings.update({ planTimelineHorizontal: v })} />
                 </View>
               </Surface>
             </View>
