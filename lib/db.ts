@@ -537,6 +537,8 @@ export function initDb() {
     // the seed so toggling off removes precisely those rows. See lib/freyrModeSeed.ts.
     "ALTER TABLE settings ADD COLUMN freyr_mode_enabled INTEGER DEFAULT 0",
     "ALTER TABLE settings ADD COLUMN freyr_seed_ids TEXT DEFAULT ''",
+    // Plans day-view rail orientation toggle — see components/PlanTaskCard.tsx.
+    "ALTER TABLE settings ADD COLUMN plan_timeline_horizontal INTEGER DEFAULT 0",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

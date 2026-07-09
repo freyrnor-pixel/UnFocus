@@ -874,6 +874,8 @@ const en = {
       fontSizeLarge: 'Large',
       leftHanded: 'Left-handed mode',
       leftHandedHint: 'Moves the menu button to the left side',
+      timelineHorizontal: 'Horizontal plans timeline',
+      timelineHorizontalHint: "Shows today's plans as a left-to-right timeline instead of top-to-bottom",
     },
     // Privacy hint card shown in settings (Proposal 3)
     privacy: {
@@ -1686,6 +1688,8 @@ const no: typeof en = {
       fontSizeLarge: 'Stor',
       leftHanded: 'Venstrehendt modus',
       leftHandedHint: 'Flytter menyknappen til venstre side',
+      timelineHorizontal: 'Horisontal plantidslinje',
+      timelineHorizontalHint: 'Viser dagens planer som en tidslinje fra venstre til høyre i stedet for ovenfra og ned',
     },
     privacy: {
       headline: 'Dataene dine er hos deg',
