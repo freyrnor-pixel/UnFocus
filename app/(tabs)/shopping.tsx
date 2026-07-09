@@ -1,14 +1,14 @@
 /**
- * shopping.tsx — Weekly shopping lists & Monthly catalog, Decision 011 target layout.
+ * shopping.tsx — Shopping hub with four in-place tabs: Weekly, Monthly, Food, Catalogue.
  *
- * Tabbed shopping screen. The "Week lists" tab renders one WeekListCard per
- * non-template shopping_lists row plus an empty "create new list" card. The
- * "Monthly list" tab is a single lock-gated catalog card (staging tray,
- * dish-grouped + ungrouped items, purchased-this-month history). A
- * screen-level sticky bar (Decision 011 A2-1) sits under the standard header
- * and never scrolls away — it holds the tab switcher, the focused weekly
- * list's summary/progress (or the catalog's staged count), and an overflow
- * menu for the monthly reset action (A2-4).
+ * Tabbed shopping screen. The "Week lists" tab renders an "Unallocated" card (dish
+ * ingredients pushed to the week from the Food tab, sentinel listId UNALLOCATED_LIST_ID)
+ * then one WeekListCard per non-template shopping_lists row plus an empty "create new
+ * list" card. The "Monthly list" tab is a single lock-gated card (staging tray,
+ * dish-grouped + ungrouped curated items, an add-to-monthly divider, purchased-this-month
+ * history). "Food" renders components/FoodTab (dish library + push-to-list) and
+ * "Catalogue" renders components/CatalogueTab (the master item catalogue). A screen-level
+ * sticky bar (Decision 011 A2-1) holds the 4-tab switcher plus a per-tab summary line.
  *
  * Connections:
  *   Imports → components/AddDivider, components/AddItemSheet, components/HintCard,
@@ -19,31 +19,30 @@
  *             components/MonthlyTableRow, components/ProgressBar, components/SavedListsModal,
  *             components/ScreenScaffold, components/SharedRequestsSection,
  *             components/ShoppingRow, components/Surface, components/UpdateSheet,
- *             components/WeekListCard, constants/theme,
+ *             components/WeekListCard, components/FoodTab, components/CatalogueTab, constants/theme,
  *             lib/date (todayStr, dateStr, getWeekRangeContaining), lib/haptics (success,
- *             heavy, warning), lib/i18n, lib/shoppingGroups (groupByDish, computeListGroups,
- *             listProgress), lib/useAppTheme, store/useCatalogStore,
- *             store/useSettingsStore, store/useShoppingListStore, store/useShoppingStore,
- *             @expo/vector-icons (Ionicons)
+ *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
+ *             computeListGroups, listProgress), lib/useAppTheme, store/useCatalogStore,
+ *             store/useSettingsStore, store/useShoppingListStore,
+ *             store/useShoppingStore (incl. UNALLOCATED_LIST_ID), @expo/vector-icons (Ionicons)
  *   Used by → Expo Router route "/shopping" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → useShoppingStore (items/trips) + useShoppingListStore (lists, incl. each
  *             list's locked/isTemplate state) + useSettingsStore (monthlyResetDate) +
- *             useCatalogStore
- *             (loaded on focus; its seed items back the Monthly "Catalogue" section here,
- *             the WeekListCard inline search, and the create-grouping screen)
+ *             useCatalogStore (loaded on focus; backs the Catalogue tab + WeekListCard/FoodTab
+ *             autocomplete). FoodTab additionally drives useMealStore.
  *
  * Edit notes:
- *   - **Shopping redesign (2026-07-06)**: the Monthly/catalog tab is now TWO sections —
- *     "Monthly list" (the status:'catalog' items the user has curated, dish-grouped +
- *     ungrouped, each with an inline qty stepper + remove ×, plus a running total) and
- *     "Catalogue" (the full seed catalog from useCatalogStore, searchable; tap "+" to add a
- *     seed item to the Monthly list, or a stepper when it's already there). Dish creation
- *     is no longer an in-tab button/modal — it moved to its own screen, app/create-grouping.tsx,
- *     reached by the floating "Create grouping" FAB rendered on BOTH tabs (bottom-right,
- *     above BottomNav). AddDishSheet is no longer used by this screen. The weekly WeekListCard
- *     gained an inline catalogue search, an "add from monthly list" preview, and a running
- *     total (see WeekListCard.tsx). List recurrence is now "active weeks of the month" (1–4,
- *     multi-select) via ListSettingsSheet → setActiveWeeks.
+ *   - **Shopping/Food redesign (2026-07-08)**: four in-place tabs now — Weekly, Monthly,
+ *     Food, Catalogue (all switch content in place; none navigate to a separate screen).
+ *     The old /meals and /create-grouping screens were DELETED; the "Create grouping" FAB
+ *     is gone. Food (components/FoodTab) is where dishes are made now — meal-type sections
+ *     (glass-tinted per meal colour), each dish a collapsed row (name · total price · "+"),
+ *     "+" opening a popup with "Add to week list" (→ weekly Unallocated bucket) / "Add to
+ *     monthly list" (→ status:'catalog'), expandable to ingredient rows. Catalogue
+ *     (components/CatalogueTab) is the master item list, sectioned by type, with add/edit/
+ *     delete. The Monthly tab dropped its embedded seed-catalogue section (moved to the
+ *     Catalogue tab) and keeps a direct add-to-monthly AddDivider. Weekly gained the
+ *     Unallocated card; each unallocated dish/item can be allocated into a real dated list.
  *   - New file (2026-07-02, Session A2·2). app/shopping.tsx never existed in this repo
  *     before this session — this is a from-scratch build against Decision 011 (A2-1,
  *     A2-4) and Decision 017, using the old repo's app/shopping.tsx only as a reference
@@ -125,10 +124,10 @@
  *     lib/shoppingGroups.ts's own header note.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutAnimation, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { LayoutAnimation, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useShoppingStore, ShoppingItem, MonthlyResetSummary } from '@/store/useShoppingStore';
+import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useCatalogStore } from '@/store/useCatalogStore';
@@ -147,6 +146,8 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import AddDivider from '@/components/AddDivider';
 import ExpandableCard from '@/components/ExpandableCard';
 import WeekListCard from '@/components/WeekListCard';
+import FoodTab from '@/components/FoodTab';
+import CatalogueTab from '@/components/CatalogueTab';
 import SavedListsModal from '@/components/SavedListsModal';
 import ListSettingsSheet from '@/components/ListSettingsSheet';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
@@ -162,7 +163,7 @@ import { groupByDish, computeListGroups, listProgress } from '@/lib/shoppingGrou
 import { formatKr } from '@/lib/money';
 import { initDb } from '@/lib/db';
 
-type Tab = 'weekly' | 'catalog';
+type Tab = 'weekly' | 'monthly' | 'food' | 'catalogue';
 
 /**
  * One-time-per-app-session DB init guard. The app has no global bootstrap yet
@@ -293,8 +294,6 @@ export default function ShoppingScreen() {
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
   const loadCatalog = useCatalogStore((s) => s.load);
-  const seedCatalogItems = useCatalogStore((s) => s.items);
-  const [catalogueSearch, setCatalogueSearch] = useState('');
 
   const lists = useShoppingListStore((s) => s.lists);
   const renameList = useShoppingListStore((s) => s.rename);
@@ -334,8 +333,8 @@ export default function ShoppingScreen() {
       loadSettings();
       loadShopping();
       loadLists();
-      // The Catalogue section, the WeekListCard inline search, and the create-grouping
-      // screen all read this store directly, so it must be populated on focus.
+      // The Catalogue tab, the WeekListCard inline search, and the Food tab's ingredient
+      // autocomplete all read this store directly, so it must be populated on focus.
       loadCatalog();
 
       // Roll any overdue recurring list forward to the period containing today.
@@ -395,18 +394,16 @@ export default function ShoppingScreen() {
     () => catalogItems.reduce((sum, i) => sum + i.price * i.targetQuantity, 0),
     [catalogItems]
   );
-  // Lowercased name → its Monthly-list row, so the Catalogue picker can show a stepper
-  // for items already added and a "+" for the rest.
-  const monthlyByName = useMemo(() => {
-    const map = new Map<string, ShoppingItem>();
-    for (const i of catalogItems) map.set(i.name.trim().toLowerCase(), i);
-    return map;
-  }, [catalogItems]);
-  const filteredSeedCatalog = useMemo(() => {
-    const q = catalogueSearch.trim().toLowerCase();
-    const sorted = [...seedCatalogItems].sort((a, b) => a.name.localeCompare(b.name));
-    return q ? sorted.filter((i) => i.name.toLowerCase().includes(q)) : sorted;
-  }, [seedCatalogItems, catalogueSearch]);
+  // Weekly "Unallocated" bucket — dish ingredients pushed to the week from the Food tab
+  // that haven't been assigned to a dated list yet (status inWeeklyList, sentinel listId).
+  const unallocatedItems = useMemo(
+    () => items.filter((i) => i.status === 'inWeeklyList' && i.listId === UNALLOCATED_LIST_ID && !i.checked),
+    [items]
+  );
+  const { dishGroups: unallocatedDishGroups, ungrouped: unallocatedUngrouped } = useMemo(
+    () => groupByDish(unallocatedItems),
+    [unallocatedItems]
+  );
 
   const purchasedByTrip = useMemo(() => {
     const purchased = items.filter((i) => i.status === 'purchased' && i.shoppingTripId);
@@ -417,7 +414,13 @@ export default function ShoppingScreen() {
 
   const katalogBadge = stagedItems.length;
   const ukelisteBadge = useMemo(
-    () => items.filter((i) => i.status === 'inWeeklyList' && !i.checked && nonTemplateLists.some((l) => l.id === i.listId)).length,
+    () =>
+      items.filter(
+        (i) =>
+          i.status === 'inWeeklyList' &&
+          !i.checked &&
+          (i.listId === UNALLOCATED_LIST_ID || nonTemplateLists.some((l) => l.id === i.listId))
+      ).length,
     [items, nonTemplateLists]
   );
   const unlockedListCount = useMemo(() => nonTemplateLists.filter((l) => !l.locked).length, [nonTemplateLists]);
@@ -501,13 +504,28 @@ export default function ShoppingScreen() {
     heavy();
   }
 
-  // ── Monthly two-section wiring (Phase 2) ──
-  // Tapping a seed-catalogue item adds it to the Monthly list (status 'catalog'); add()'s
-  // dedup bumps targetQuantity if it's already there, so repeated taps raise the quantity.
-  function handleAddSeedToMonthly(seed: { name: string; price: number }) {
-    add({ name: seed.name, amount: '1', unit: '', listType: 'monthly', store: '', price: seed.price, inventoryQty: 0, status: 'catalog', targetQuantity: 1 });
-    success();
+  // ── Weekly "Unallocated" allocation ──
+  // Move an unallocated ingredient (or a whole dish's worth) into a real dated week list.
+  // Offers one button per existing non-template list; nothing to do if none exist yet.
+  function handleAllocate(itemsToMove: ShoppingItem[]) {
+    if (itemsToMove.length === 0) return;
+    if (nonTemplateLists.length === 0) {
+      setConfirm(t.noWeekListsYet);
+      return;
+    }
+    showAppModal(t.allocateToListTitle, '', [
+      ...nonTemplateLists.map((l) => ({
+        text: l.name,
+        onPress: () => {
+          for (const it of itemsToMove) update(it.id, { listId: l.id });
+          success();
+          setConfirm(t.itemsAddedToList(itemsToMove.length));
+        },
+      })),
+      { text: t.cancel, style: 'cancel' as const },
+    ]);
   }
+
   function handleMonthlyQty(item: ShoppingItem, delta: number) {
     const next = item.targetQuantity + delta;
     if (next <= 0) {
@@ -689,21 +707,28 @@ export default function ShoppingScreen() {
     setDragState(null);
   }
 
+  const TAB_META: { value: Tab; label: string; accent: string; count: number }[] = [
+    { value: 'weekly', label: t.weeklyTabLabel, accent: theme.good, count: ukelisteBadge },
+    { value: 'monthly', label: t.monthlyTabLabel, accent: theme.accent, count: katalogBadge },
+    { value: 'food', label: t.foodTabLabel, accent: theme.featMeal, count: 0 },
+    { value: 'catalogue', label: t.catalogueTabLabel, accent: theme.featShop, count: 0 },
+  ];
+
   const stickyBelowHeader = (
     <View style={[styles.stickyBar, { backgroundColor: theme.bg }]}>
       <View style={styles.tabsRow}>
-        {(['weekly', 'catalog'] as Tab[]).map((tabOption) => {
-          const isActive = tab === tabOption;
-          const accent = tabOption === 'weekly' ? theme.good : theme.accent;
-          const count = tabOption === 'weekly' ? ukelisteBadge : katalogBadge;
+        {TAB_META.map(({ value, label, accent, count }) => {
+          const isActive = tab === value;
           return (
             <Pressable
-              key={tabOption}
+              key={value}
               style={[styles.tab, isActive && { borderBottomColor: accent, borderBottomWidth: 2 }]}
-              onPress={() => setTab(tabOption)}
+              onPress={() => setTab(value)}
+              accessibilityRole="button"
+              accessibilityLabel={label}
             >
-              <Text style={[styles.tabText, { color: isActive ? accent : theme.textMuted }]}>
-                {tabOption === 'weekly' ? t.weeklyTabLabel : t.monthlyTabLabel}
+              <Text style={[styles.tabText, { color: isActive ? accent : theme.textMuted }]} numberOfLines={1}>
+                {label}
               </Text>
               {count > 0 && (
                 <View style={[styles.tabBadge, { backgroundColor: isActive ? accent : theme.surfaceMuted }]}>
@@ -713,20 +738,6 @@ export default function ShoppingScreen() {
             </Pressable>
           );
         })}
-        {/* Third tab: Meals/Food. Unlike weekly/catalog it navigates to the /meals screen
-            (its own site) rather than switching content in place — it's the discoverable
-            home for Meals (Point 9), which otherwise has no entry point anywhere in the app.
-            Never shows as the active tab since `tab` stays weekly|catalog; the chevron
-            signals it opens a screen rather than swapping this screen's content. */}
-        <Pressable
-          style={styles.tab}
-          onPress={() => router.push('/meals')}
-          accessibilityRole="button"
-          accessibilityLabel={t.nav.meals}
-        >
-          <Text style={[styles.tabText, { color: theme.textMuted }]}>{t.nav.meals}</Text>
-          <Ionicons name="chevron-forward" size={14} color={theme.textMuted} />
-        </Pressable>
       </View>
 
       {tab === 'weekly' && focusedList && focusedProgress ? (
@@ -737,14 +748,20 @@ export default function ShoppingScreen() {
           </Text>
           <ProgressBar value={focusedProgress.pct} state="good" height={6} style={styles.stickyProgressBar} />
         </View>
-      ) : tab === 'catalog' ? (
+      ) : tab === 'monthly' ? (
         <View style={styles.stickySummaryRow}>
           <Text style={[styles.stickyListName, { color: theme.text }]} numberOfLines={1}>{t.monthlyTabLabel}</Text>
           {katalogBadge > 0 && (
             <Text style={[styles.stickyProgressText, { color: theme.textMuted }]}>{t.stagingTrayHeader(katalogBadge)}</Text>
           )}
         </View>
-      ) : null}
+      ) : (
+        <View style={styles.stickySummaryRow}>
+          <Text style={[styles.stickyListName, { color: theme.text }]} numberOfLines={1}>
+            {tab === 'food' ? t.foodTabLabel : t.catalogueTabLabel}
+          </Text>
+        </View>
+      )}
     </View>
   );
 
@@ -755,7 +772,7 @@ export default function ShoppingScreen() {
         <HintCard text={t.hints.shopping.text} open={hintOpen} noPill />
         <SharedRequestsSection kind="shopping" />
 
-        {tab === 'catalog' && (
+        {tab === 'monthly' && (
           <Surface style={styles.catalogCard}>
             <View style={styles.catalogHeaderRow}>
               <Text style={[styles.catalogTitle, { color: theme.text }]}>{t.monthlyTabLabel}</Text>
@@ -850,57 +867,9 @@ export default function ShoppingScreen() {
                     )}
                   </>
                 )}
-              </View>
-
-              {/* SECTION 2 — Catalogue (full seed catalog to pick from) */}
-              <View style={styles.section}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.catalogueSection}</Text>
-                  <View style={[styles.sectionRule, { backgroundColor: theme.textMuted }]} />
-                </View>
-                <TextInput
-                  style={[styles.catalogueSearch, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                  value={catalogueSearch}
-                  onChangeText={setCatalogueSearch}
-                  placeholder={t.catalogueSearchPlaceholder}
-                  placeholderTextColor={theme.textMuted}
-                  editable={!catalogLocked}
-                />
-                <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                  {filteredSeedCatalog.map((seed, idx) => {
-                    const inMonthly = monthlyByName.get(seed.name.trim().toLowerCase());
-                    return (
-                      <View key={seed.id}>
-                        <View style={styles.catalogueRow}>
-                          <Text style={[styles.catalogueName, { color: theme.text }]} numberOfLines={1}>{seed.name}</Text>
-                          {seed.price > 0 && (
-                            <Text style={[styles.cataloguePrice, { color: theme.textMuted }]}>{formatKr(seed.price, 0)}</Text>
-                          )}
-                          {inMonthly ? (
-                            <View style={styles.catalogueStepper}>
-                              <Pressable style={[styles.catalogueStepBtn, { backgroundColor: theme.surfaceMuted }]} onPress={() => !catalogLocked && handleMonthlyQty(inMonthly, -1)} hitSlop={6}>
-                                <Text style={[styles.catalogueStepText, { color: theme.text }]}>−</Text>
-                              </Pressable>
-                              <Text style={[styles.catalogueQty, { color: theme.text }]}>{inMonthly.targetQuantity}</Text>
-                              <Pressable style={[styles.catalogueStepBtn, { backgroundColor: theme.accent }]} onPress={() => !catalogLocked && handleMonthlyQty(inMonthly, 1)} hitSlop={6}>
-                                <Text style={[styles.catalogueStepText, { color: theme.accentInk }]}>+</Text>
-                              </Pressable>
-                            </View>
-                          ) : (
-                            <Pressable
-                              style={[styles.catalogueAddBtn, { backgroundColor: theme.accent }, catalogLocked && styles.createDishBtnDisabled]}
-                              onPress={() => !catalogLocked && handleAddSeedToMonthly(seed)}
-                              hitSlop={6}
-                            >
-                              <Ionicons name="add" size={16} color={theme.accentInk} />
-                            </Pressable>
-                          )}
-                        </View>
-                        {idx < filteredSeedCatalog.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
-                      </View>
-                    );
-                  })}
-                </View>
+                {/* Add an item straight to the Monthly list. The full item catalogue now
+                    lives in its own "Catalogue" tab (CatalogueTab); this keeps a direct
+                    add-to-monthly affordance where the catalogue section used to sit. */}
                 <AddDivider onPress={() => setAddItemTarget({ origin: 'catalog' })} disabled={catalogLocked} />
               </View>
 
@@ -940,6 +909,61 @@ export default function ShoppingScreen() {
               <View style={[styles.unsavedBanner, { backgroundColor: theme.accentSoft }]}>
                 <Text style={[styles.unsavedBannerText, { color: theme.accent }]}>{t.unsavedShoppingBanner(unlockedListCount)}</Text>
               </View>
+            )}
+
+            {/* ── Unallocated: dishes added "to the week" from the Food tab, not yet in a dated list ── */}
+            {unallocatedItems.length > 0 && (
+              <Surface tint={theme.featMeal} style={styles.unallocatedCard}>
+                <View style={styles.unallocatedHeader}>
+                  <Ionicons name="fast-food-outline" size={18} color={theme.text} />
+                  <Text style={[styles.unallocatedTitle, { color: theme.text }]}>{t.unallocatedSection}</Text>
+                </View>
+                <Text style={[styles.unallocatedHint, { color: theme.textMuted }]}>{t.unallocatedHint}</Text>
+
+                {unallocatedDishGroups.map(([dishName, groupItems]) => (
+                  <View key={dishName} style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                    <View style={styles.unallocatedGroupHeader}>
+                      <Text style={[styles.unallocatedGroupName, { color: theme.text }]} numberOfLines={1}>{dishName}</Text>
+                      <Pressable style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate(groupItems)} hitSlop={6}>
+                        <Ionicons name="arrow-forward" size={14} color={theme.textInverse} />
+                        <Text style={[styles.allocateBtnText, { color: theme.textInverse }]}>{t.allocateItemLabel}</Text>
+                      </Pressable>
+                    </View>
+                    {groupItems.map((item, idx) => (
+                      <View key={item.id}>
+                        <View style={[styles.unallocatedRow, { borderTopColor: theme.border }, idx > 0 && styles.unallocatedRowBorder]}>
+                          <Text style={[styles.unallocatedItemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+                          <Text style={[styles.unallocatedItemMeta, { color: theme.textMuted }]}>
+                            {item.amount}{item.unit ? ` ${item.unit}` : ''}{item.price > 0 ? ` · ${formatKr(item.price, 0)}` : ''}
+                          </Text>
+                          <Pressable onPress={() => removeWithSource(item.id)} hitSlop={8} accessibilityLabel={t.removeItemLabel}>
+                            <Ionicons name="close" size={18} color={theme.textMuted} />
+                          </Pressable>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ))}
+
+                {unallocatedUngrouped.length > 0 && (
+                  <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                    {unallocatedUngrouped.map((item, idx) => (
+                      <View key={item.id} style={[styles.unallocatedRow, idx > 0 && styles.unallocatedRowBorder, { borderTopColor: theme.border }]}>
+                        <Text style={[styles.unallocatedItemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+                        <Text style={[styles.unallocatedItemMeta, { color: theme.textMuted }]}>
+                          {item.amount}{item.unit ? ` ${item.unit}` : ''}{item.price > 0 ? ` · ${formatKr(item.price, 0)}` : ''}
+                        </Text>
+                        <Pressable style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate([item])} hitSlop={6}>
+                          <Ionicons name="arrow-forward" size={14} color={theme.textInverse} />
+                        </Pressable>
+                        <Pressable onPress={() => removeWithSource(item.id)} hitSlop={8} accessibilityLabel={t.removeItemLabel}>
+                          <Ionicons name="close" size={18} color={theme.textMuted} />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </Surface>
             )}
 
             {nonTemplateLists.map((list) => {
@@ -1034,6 +1058,12 @@ export default function ShoppingScreen() {
             </Pressable>
           </>
         )}
+
+        {/* Food — dishes, in place (Point: "Food is just another tab, not another screen") */}
+        {tab === 'food' && <FoodTab onNotify={setConfirm} />}
+
+        {/* Catalogue — master item list, sectioned by type, with add/edit/delete */}
+        {tab === 'catalogue' && <CatalogueTab onNotify={setConfirm} />}
       </View>
 
       <AddItemSheet
@@ -1095,16 +1125,6 @@ export default function ShoppingScreen() {
         }}
       />
     </ScreenScaffold>
-    {/* "Create grouping" FAB — bottom-right on both tabs; opens the full dish-builder screen. */}
-    <Pressable
-      style={[styles.fab, { backgroundColor: theme.good }]}
-      onPress={() => router.push('/create-grouping')}
-      accessibilityRole="button"
-      accessibilityLabel={t.createGroupingBtn}
-    >
-      <Ionicons name="add" size={20} color={theme.textInverse} />
-      <Text style={[styles.fabText, { color: theme.textInverse }]}>{t.createGroupingBtn}</Text>
-    </Pressable>
     <ConfirmationBanner message={confirm} onDismiss={() => setConfirm(null)} />
 
     <Modal visible={resetConfirmVisible} transparent animationType="fade" onRequestClose={() => setResetConfirmVisible(false)}>
@@ -1130,25 +1150,6 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.md },
   bodyGap: { gap: Spacing.md },
   dishGroupsWrap: { gap: Spacing.xs },
-  // Floating "Create grouping" button — sits above BottomNav in the bottom-right corner.
-  fab: {
-    position: 'absolute',
-    right: Spacing.md,
-    bottom: 76,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.full,
-    minHeight: 48,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  fabText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
 
   stickyBar: { flex: 1, paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, gap: 2 },
   tabsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
@@ -1184,21 +1185,25 @@ const styles = StyleSheet.create({
   dialogBtnNo: { backgroundColor: '#1E3A5F' },
   dialogBtnYes: { backgroundColor: '#4A90D9' },
   dialogBtnText: { color: '#FFFFFF', fontFamily: Fonts.bold, fontSize: FontSize.sm, textAlign: 'center' },
-  createDishBtnDisabled: { opacity: 0.4 },
   sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm },
   totalLine: { fontSize: FontSize.md, fontFamily: Fonts.bold, textAlign: 'right', marginTop: 4 },
-  catalogueSearch: { borderRadius: Radius.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, fontSize: FontSize.md },
-  catalogueRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
-  catalogueName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  cataloguePrice: { fontSize: FontSize.xs },
-  catalogueAddBtn: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
-  catalogueStepper: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  catalogueStepBtn: { width: 26, height: 26, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
-  catalogueStepText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
-  catalogueQty: { fontSize: FontSize.sm, fontFamily: Fonts.bold, minWidth: 20, textAlign: 'center' },
 
   unsavedBanner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, borderRadius: Radius.md, padding: Spacing.sm },
   unsavedBannerText: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+
+  // Weekly "Unallocated" card
+  unallocatedCard: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
+  unallocatedHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  unallocatedTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
+  unallocatedHint: { fontSize: FontSize.xs },
+  unallocatedGroupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm, paddingTop: Spacing.sm, paddingBottom: 4 },
+  unallocatedGroupName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.bold },
+  unallocatedRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
+  unallocatedRowBorder: { borderTopWidth: StyleSheet.hairlineWidth },
+  unallocatedItemName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  unallocatedItemMeta: { fontSize: FontSize.xs },
+  allocateBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4, minHeight: 28 },
+  allocateBtnText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
 
   trayCard: { borderRadius: Radius.md, borderWidth: 2, padding: Spacing.md, gap: Spacing.xs },
   trayHeader: { fontSize: FontSize.sm, fontFamily: Fonts.bold, marginBottom: Spacing.xs },

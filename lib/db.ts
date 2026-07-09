@@ -523,6 +523,15 @@ export function initDb() {
     )`,
     // Link each health log to its catalog symptom (NULL = legacy/free-text-only row).
     "ALTER TABLE health_logs ADD COLUMN symptom_id TEXT DEFAULT NULL",
+    // Shopping/Food redesign — per-ingredient line price (NOK). A dish's total price is
+    // the sum of its ingredients' price_nok; also carried onto the shopping_items rows
+    // created when a dish is pushed to the week/monthly list. See store/useMealStore.ts.
+    "ALTER TABLE ingredients ADD COLUMN price_nok REAL DEFAULT 0",
+    // Catalogue tab soft-delete: seedCatalog() re-inserts every seed row on each load
+    // (INSERT OR IGNORE, stable ids), so a hard DELETE of a seed item would reappear on
+    // next focus. A `deleted` tombstone keeps the row (so it isn't re-seeded) while
+    // hiding it from the catalogue. See store/useCatalogStore.ts.
+    "ALTER TABLE store_items ADD COLUMN deleted INTEGER DEFAULT 0",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

@@ -13,7 +13,10 @@
  *
  * Connections:
  *   Imports → lib/catalogSeed, lib/db, lib/dataAccess, lib/id
- *   Used by → components/AddItemSheet.tsx, components/AddDishSheet.tsx (suggest); app/scan.tsx + app/_layout.tsx (future — startup load / purchase logging, not wired yet)
+ *   Used by → components/AddItemSheet.tsx, components/AddDishSheet.tsx (suggest),
+ *             components/CatalogueTab.tsx (the Shopping screen's "Catalogue" tab — addItem/
+ *             updateItem/removeItem CRUD), components/FoodTab.tsx + components/WeekListCard.tsx
+ *             (suggest); app/scan.tsx + app/_layout.tsx (future — startup load / purchase logging)
  *   Data    → defines a Zustand store; owns SQLite tables store_items (catalog) and purchase_log (append-only history, optionally linked to a receipts row via receipt_id)
  *
  * Edit notes:
@@ -22,6 +25,10 @@
  *   - purchase_log is append-only and pruned by RETENTION_DAYS in lib/db.ts; recordPurchases() also upserts the catalog row's store/category, but only raises price — a new purchase price below the existing catalog price never lowers it (store/category still update unconditionally).
  *   - recordPurchases()'s optional receiptId links each purchase_log row to a receipts row (purchase_log.receipt_id) for a future budget screen — pass it whenever a receipt was already created; omit it for purchases with no receipt (e.g. manual catalog edits).
  *   - resetItemPrice(id, newPrice) directly updates a store_items row's price and sets price_source = 'purchase' — escape hatch for correcting misread OCR prices.
+ *   - addItem/updateItem/removeItem back the Catalogue tab's manual CRUD. removeItem SOFT-deletes
+ *     (sets `deleted = 1`) rather than DELETEing, because seedCatalog() re-inserts every seed row
+ *     on each load(); load() filters `deleted = 0`. User-added rows use generateId() (not the
+ *     'cat_<name>' seed id) so re-adding a deleted seed name creates a fresh live row.
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
  */
 import { create } from 'zustand';
@@ -52,6 +59,12 @@ type CatalogStore = {
   suggest: (query: string, limit?: number) => StoreItem[];
   recordPurchases: (purchases: PurchaseInput[], receiptId?: string) => void;
   resetItemPrice: (id: string, newPrice: number) => void;
+  /** Add a user-authored catalogue item (the Catalogue tab's "+"). Returns the new row id. */
+  addItem: (input: { name: string; price?: number; category?: string; store?: string }) => string;
+  /** Edit a catalogue item's name/price/category (Catalogue tab inline edit). */
+  updateItem: (id: string, patch: { name?: string; price?: number; category?: string; store?: string }) => void;
+  /** Delete a catalogue item (Catalogue tab delete button). */
+  removeItem: (id: string) => void;
 };
 
 function rowToItem(row: Row): StoreItem {
@@ -93,7 +106,7 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
 
   load() {
     seedCatalog();
-    set({ items: loadAll('store_items', rowToItem, { orderBy: 'name' }) });
+    set({ items: loadAll('store_items', rowToItem, { orderBy: 'name', where: 'deleted = 0' }) });
   },
 
   suggest(query, limit = 8) {
@@ -180,6 +193,60 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
 
     next.sort((a, b) => a.name.localeCompare(b.name, 'no'));
     set({ items: next });
+  },
+
+  addItem({ name, price = 0, category = 'other', store = '' }) {
+    const trimmed = name.trim();
+    const id = generateId();
+    const now = new Date().toISOString();
+    const item: StoreItem = { id, name: trimmed, category, store, price };
+    try {
+      insertRow('store_items', {
+        id,
+        name: trimmed,
+        category,
+        store,
+        price,
+        last_updated: now,
+        price_source: 'purchase',
+      });
+    } catch { /* ignore */ }
+    const next = [...get().items, item].sort((a, b) => a.name.localeCompare(b.name, 'no'));
+    set({ items: next });
+    return id;
+  },
+
+  updateItem(id, patch) {
+    const idx = get().items.findIndex((i) => i.id === id);
+    if (idx < 0) return;
+    const now = new Date().toISOString();
+    const updated: StoreItem = {
+      ...get().items[idx],
+      ...(patch.name !== undefined ? { name: patch.name.trim() } : {}),
+      ...(patch.price !== undefined ? { price: patch.price } : {}),
+      ...(patch.category !== undefined ? { category: patch.category } : {}),
+      ...(patch.store !== undefined ? { store: patch.store } : {}),
+    };
+    try {
+      db.runSync(
+        "UPDATE store_items SET name = ?, price = ?, category = ?, store = ?, price_source = 'purchase', last_updated = ? WHERE id = ?",
+        [updated.name, updated.price, updated.category, updated.store, now, id]
+      );
+    } catch { /* ignore */ }
+    const next = [...get().items];
+    next[idx] = updated;
+    next.sort((a, b) => a.name.localeCompare(b.name, 'no'));
+    set({ items: next });
+  },
+
+  removeItem(id) {
+    // Soft-delete: seedCatalog() re-inserts seed rows on every load(), so a hard DELETE
+    // of a seed item would resurrect on next focus. Tombstoning the row keeps it out of
+    // both the seed re-insert (row still exists) and the catalogue (load() filters deleted=0).
+    try {
+      db.runSync('UPDATE store_items SET deleted = 1 WHERE id = ?', [id]);
+    } catch { /* ignore */ }
+    set({ items: get().items.filter((i) => i.id !== id) });
   },
 
   resetItemPrice(id, newPrice) {
