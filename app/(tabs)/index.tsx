@@ -38,6 +38,8 @@
  *   - **Plans preview = PlanTaskCard read-only (Decision 009a)**: OFF-focus, the preview IS the
  *     day-view rendered read-only, with a "See everything →" link to /plans. Not a bespoke card.
  *     `allTasks` (full store) is passed so Decision 020 cross-date followers surface.
+ *     `horizontal={settings.planTimelineHorizontal}` is threaded to both PlanTaskCard mounts
+ *     (Focus + preview) so the rail-orientation setting applies in both modes.
  *   - **Notes preview = HomeNotesCard**: reads useNotesStore, shows first 3 active notes with
  *     inline toggle-checked, quick-add (→ /notes), and "See all →" link. Self-hides when empty.
  *   - **Shopping preview = HomeShoppingCard**: shows first 4 items flat when collapsed; full
@@ -218,12 +220,14 @@ export default function HomeScreen() {
                 tasks={visibleTasks}
                 allTasks={tasks}
                 onToggleTask={(task: Task) => toggleTask(task.id)}
+                horizontal={settings.planTimelineHorizontal}
               />
             ) : (
               <PlanTaskCard
                 tasks={todayTasks}
                 allTasks={tasks}
                 readOnly
+                horizontal={settings.planTimelineHorizontal}
               />
             )}
           </View>
