@@ -223,10 +223,10 @@ export default function SettingsScreen() {
     if (keys.some((k) => ['remindersEnabled', 'reminderTime', 'weeklyResetDay', 'monthlyResetDate', 'language'].includes(k))) {
       void syncReminders();
     }
-    if (keys.some((k) => ['taskNotificationsEnabled', 'language', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd'].includes(k))) {
+    if (keys.some((k) => ['taskNotificationsEnabled', 'language', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'essentialsModeEnabled'].includes(k))) {
       syncTaskNotifs();
     }
-    if (keys.includes('language') || keys.includes('habitNotificationsEnabled')) {
+    if (keys.includes('language') || keys.includes('habitNotificationsEnabled') || keys.includes('essentialsModeEnabled')) {
       syncHabitNotifs();
       if (keys.includes('language')) {
         const tNew = getTranslations(useSettingsStore.getState().language);

@@ -16,7 +16,7 @@
  *
  * Connections:
  *   Imports → react-native-reanimated, constants/theme, lib/useAppTheme
- *   Used by → components/PlanTaskCard.tsx (card-level task-completion glow), app/habits.tsx (habit completion)
+ *   Used by → components/PlanTaskCard.tsx (card-level task-completion glow), app/(tabs)/health.tsx (habit completion, embedded Habits section)
  *   Data    → reads reducedMotion via useAccessibility(); colour from useAppTheme().good
  *
  * Edit notes:
