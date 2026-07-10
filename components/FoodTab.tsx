@@ -26,23 +26,32 @@
  *     ScrollView. The new-dish + "add to list" popups are RN <Modal>s (own layers).
  *   - A dish's total price is dishTotalPrice() = Σ ingredient.priceNok (NOT dish.estimatedPriceNok).
  *   - Pushes carry dishName so the Unallocated card and the Monthly list can group by dish.
+ *   - **Decision 044b (2026-07-09):** `handleAddToWeek` now collects the ids `shoppingAdd`
+ *     returns and reports them via the optional `onAddedToWeek` prop, so the parent screen
+ *     can play the new-row entrance/highlight on the Weekly tab's Unallocated card and
+ *     pulse the Weekly tab label — the push itself never navigates the user there.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import { useMealStore, MealType, Dish, dishTotalPrice } from '@/store/useMealStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { getMaterialStyle, contrastOn, Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
+import { useMountedTransition } from '@/lib/useMountedTransition';
 import { success, heavy } from '@/lib/haptics';
 import { formatKr } from '@/lib/money';
 
 type Props = {
   /** Show a transient confirmation banner in the parent screen. */
   onNotify: (msg: string) => void;
+  /** Decision 044b — reports the ids just pushed to the weekly Unallocated bucket, so the
+   *  parent can play their entrance/highlight animation and pulse the Weekly tab. */
+  onAddedToWeek?: (ids: string[]) => void;
 };
 
 const MEAL_ORDER: { value: MealType; icon: keyof typeof Ionicons.glyphMap }[] = [
@@ -64,10 +73,11 @@ const MEAL_COLORS: Record<MealType, string> = {
 
 type DraftIngredient = { name: string; amount: string; unit: string; price: number };
 
-export default function FoodTab({ onNotify }: Props) {
+export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
+  const { reducedMotion } = useAccessibility();
 
   const dishes = useMealStore((s) => s.dishes);
   const loadDishes = useMealStore((s) => s.load);
@@ -80,9 +90,23 @@ export default function FoodTab({ onNotify }: Props) {
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [popupDish, setPopupDish] = useState<Dish | null>(null);
+  // Decision 044b — mounted-state/exit-animation pattern (both popups already read their
+  // nullable state via `?.`/`&&` guards, so no value-caching is needed, unlike ListSettingsSheet).
+  const popupTransition = useMountedTransition(popupDish !== null, reducedMotion);
+  const popupBackdropStyle = useAnimatedStyle(() => ({ opacity: popupTransition.progress.value }));
+  const popupCardStyle = useAnimatedStyle(() => ({
+    opacity: popupTransition.progress.value,
+    transform: [{ scale: 0.92 + popupTransition.progress.value * 0.08 }],
+  }));
 
   // New-dish modal state
   const [modalMealType, setModalMealType] = useState<MealType | null>(null);
+  const dishModalTransition = useMountedTransition(modalMealType !== null, reducedMotion);
+  const dishModalBackdropStyle = useAnimatedStyle(() => ({ opacity: dishModalTransition.progress.value }));
+  const dishModalSheetStyle = useAnimatedStyle(() => ({
+    opacity: dishModalTransition.progress.value,
+    transform: [{ translateY: (1 - dishModalTransition.progress.value) * 24 }],
+  }));
   const [dishName, setDishName] = useState('');
   const [draftIngredients, setDraftIngredients] = useState<DraftIngredient[]>([]);
   const [ingName, setIngName] = useState('');
@@ -170,8 +194,9 @@ export default function FoodTab({ onNotify }: Props) {
       setPopupDish(null);
       return;
     }
+    const addedIds: string[] = [];
     for (const ing of dish.ingredients) {
-      shoppingAdd({
+      addedIds.push(shoppingAdd({
         name: ing.name,
         amount: ing.amount || '1',
         unit: ing.unit,
@@ -182,11 +207,12 @@ export default function FoodTab({ onNotify }: Props) {
         status: 'inWeeklyList',
         listId: UNALLOCATED_LIST_ID,
         dishName: dish.name,
-      });
+      }));
     }
     success();
     setPopupDish(null);
     onNotify(t.dishAddedToWeek(dish.name));
+    onAddedToWeek?.(addedIds);
   }
 
   function handleAddToMonthly(dish: Dish) {
@@ -337,38 +363,50 @@ export default function FoodTab({ onNotify }: Props) {
       })}
 
       {/* ── Dish "+" popup: Add to week list / Add to monthly list, X to close ── */}
-      <Modal visible={popupDish !== null} transparent animationType="fade" onRequestClose={() => setPopupDish(null)}>
-        <Pressable style={[styles.popupOverlay, { backgroundColor: theme.overlay }]} onPress={() => setPopupDish(null)} />
-        <View style={styles.popupWrapper} pointerEvents="box-none">
-          <Surface surfaceContext="overlay" style={styles.popupCard}>
-            <View style={styles.popupHeader}>
-              <Text style={[styles.popupTitle, { color: theme.text }]} numberOfLines={1}>{popupDish?.name}</Text>
-              <Pressable onPress={() => setPopupDish(null)} hitSlop={8} accessibilityLabel={t.closePopupLabel}>
-                <Ionicons name="close" size={22} color={theme.textMuted} />
+      {/* Decision 044b: mounted-state pattern (see popupTransition above) — was a bare
+          animationType="fade" with no exit animation. */}
+      {popupTransition.mounted && (
+        <Modal visible transparent animationType="none" onRequestClose={() => setPopupDish(null)}>
+          <Pressable style={styles.popupOverlay} onPress={() => setPopupDish(null)}>
+            <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: theme.overlay }, popupBackdropStyle]} />
+          </Pressable>
+          <Animated.View style={[styles.popupWrapper, popupCardStyle]} pointerEvents="box-none">
+            <Surface surfaceContext="overlay" style={styles.popupCard}>
+              <View style={styles.popupHeader}>
+                <Text style={[styles.popupTitle, { color: theme.text }]} numberOfLines={1}>{popupDish?.name}</Text>
+                <Pressable onPress={() => setPopupDish(null)} hitSlop={8} accessibilityLabel={t.closePopupLabel}>
+                  <Ionicons name="close" size={22} color={theme.textMuted} />
+                </Pressable>
+              </View>
+              <Pressable
+                style={[styles.popupBtn, { backgroundColor: theme.good }]}
+                onPress={() => popupDish && handleAddToWeek(popupDish)}
+              >
+                <Ionicons name="cart-outline" size={18} color={theme.textInverse} />
+                <Text style={[styles.popupBtnText, { color: theme.textInverse }]}>{t.addToWeekListBtn}</Text>
               </Pressable>
-            </View>
-            <Pressable
-              style={[styles.popupBtn, { backgroundColor: theme.good }]}
-              onPress={() => popupDish && handleAddToWeek(popupDish)}
-            >
-              <Ionicons name="cart-outline" size={18} color={theme.textInverse} />
-              <Text style={[styles.popupBtnText, { color: theme.textInverse }]}>{t.addToWeekListBtn}</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.popupBtn, { backgroundColor: theme.accent }]}
-              onPress={() => popupDish && handleAddToMonthly(popupDish)}
-            >
-              <Ionicons name="calendar-outline" size={18} color={theme.accentInk} />
-              <Text style={[styles.popupBtnText, { color: theme.accentInk }]}>{t.addToMonthlyListBtn}</Text>
-            </Pressable>
-          </Surface>
-        </View>
-      </Modal>
+              <Pressable
+                style={[styles.popupBtn, { backgroundColor: theme.accent }]}
+                onPress={() => popupDish && handleAddToMonthly(popupDish)}
+              >
+                <Ionicons name="calendar-outline" size={18} color={theme.accentInk} />
+                <Text style={[styles.popupBtnText, { color: theme.accentInk }]}>{t.addToMonthlyListBtn}</Text>
+              </Pressable>
+            </Surface>
+          </Animated.View>
+        </Modal>
+      )}
 
       {/* ── New-dish modal ── */}
-      <Modal visible={modalMealType !== null} transparent animationType="slide" presentationStyle="overFullScreen" onRequestClose={() => setModalMealType(null)}>
-        <Pressable style={[styles.popupOverlay, { backgroundColor: theme.overlay }]} onPress={() => setModalMealType(null)} />
+      {/* Decision 044b: mounted-state pattern (see dishModalTransition above) — was a bare
+          animationType="slide" with no exit animation. */}
+      {dishModalTransition.mounted && (
+      <Modal visible transparent animationType="none" presentationStyle="overFullScreen" onRequestClose={() => setModalMealType(null)}>
+        <Pressable style={styles.popupOverlay} onPress={() => setModalMealType(null)}>
+          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: theme.overlay }, dishModalBackdropStyle]} />
+        </Pressable>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.sheetWrapper}>
+          <Animated.View style={dishModalSheetStyle}>
           <Surface surfaceContext="overlay" style={styles.sheet}>
             <View style={[styles.sheetHandle, { backgroundColor: theme.border }]} />
             <View style={[styles.sheetHeader, { borderBottomColor: theme.border }]}>
@@ -461,8 +499,10 @@ export default function FoodTab({ onNotify }: Props) {
               )}
             </ScrollView>
           </Surface>
+          </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
+      )}
     </View>
   );
 }

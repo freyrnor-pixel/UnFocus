@@ -37,6 +37,9 @@
  *   - Outer card has a 4px `theme.featShop` left accent stripe (Surface split into
  *     `cardRow`/`accent`/`cardContent`), matching Home's preview-card treatment so the
  *     card reads as the same object when tapping through from Home into full Shopping.
+ *   - **Decision 044b (2026-07-09):** entrance/highlight animation for just-added rows is
+ *     handled by ShoppingRow reading recentlyAddedIds directly from useShoppingStore — no
+ *     prop threading needed through WeekListCard.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';

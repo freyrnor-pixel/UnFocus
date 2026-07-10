@@ -4606,3 +4606,88 @@ bucket, monthly reset. `app/inventory-edit.tsx` beyond the two compile-compat ed
 `npx tsc --noEmit` — zero errors.
 
 Blocks Decision 044b (same files) per Decision 044's own sequencing note.
+
+## 2026-07-09 — Decision 044b: shopping added-item feedback & motion
+
+**Status: Complete.** Precondition gates verified: Decision 044 (including the 044b
+sub-section) present in REBUILD_DECISIONS.md; the Decision 044a PROGRESS_LOG entry above
+is present (staging tray removed, `AddSourceChooser` deleted, confirmed against the
+actual code, not just the log entry); base branch carries the pager migration + 2026-07-08
+Shopping/Food redesign (same as 044a).
+
+**What changed:**
+1. **New-row entrance + highlight** (`components/ShoppingRow.tsx`): new optional
+   `justAdded` prop. On mount only (a dedicated one-time effect, separate from the
+   pre-existing Decision 021 amount-increase highlight effect) it fires the same
+   `goodSoft` glow — `withSequence(withTiming(1, 120ms), withTiming(0, 900ms))`, or under
+   reducedMotion a static start-at-0.9-and-fade (no leading pop) — and the row's wrapping
+   `Animated.View` gets `entering={FadeInDown.duration(250)}` (skipped under
+   reducedMotion) plus `layout={Layout.springify()...}` so sibling rows reflow instead of
+   teleporting when one is inserted (also serves bullet 4). `app/(tabs)/shopping.tsx` now
+   tracks a screen-level `justAddedIds: Set<string>` (`markJustAdded(ids)` adds then
+   auto-clears after 1.8s — pure view state, not persisted) and threads it through
+   `components/WeekListCard.tsx`'s new `justAddedIds` prop to dish-grouped/cart rows, and
+   directly to the ungrouped rows it renders itself via `renderReorderableRow`. Wired at
+   every weekly add surface: the Monthly-tab checkbox (`handleAddToWeeklyFromMonthly`),
+   `WeekListCard`'s inline add row and "From monthly" panel (`onAddInlineItem`/
+   `onAddMonthlyToWeek`), and Food-tab pushes (see bullet 2). The Unallocated card's rows
+   are bespoke JSX, not `ShoppingRow` — left without entrance animation, a known scope gap
+   noted below rather than silently absorbed.
+2. **Cross-tab cue**: `components/FoodTab.tsx`'s `handleAddToWeek` now collects the ids
+   `shoppingAdd` returns and reports them via a new optional `onAddedToWeek` prop — the
+   push itself never navigated tabs, so this was the missing half. `shopping.tsx` wires
+   both this and the Monthly checkbox to `markJustAdded` (highlight) and a new
+   `pulseWeeklyTabIfElsewhere()` (only pulses when the add lands while the user is on a
+   different tab). The Weekly tab label gets a small `WeeklyTabPulseDot` — an opacity
+   loop (`withRepeat`/`withSequence`, 500ms each way) next to the label, auto-clearing
+   after 1.8s; reducedMotion shows a plain static dot, no loop. The existing toasts
+   (`itemAddedToNamedList`/`itemAddedToList`) already name the destination list/item, so
+   no new string was needed for the cue itself.
+3. **Unified modal motion audit** — extracted a shared `lib/useMountedTransition.ts` hook
+   (the mounted-state/exit-animation pattern AddItemSheet/AppModal each hand-rolled) so
+   the four audited components share one implementation instead of four near-copies:
+   - `UpdateSheet.tsx`: was gated by `if (!item) return null` — closing nulled `item` the
+     same tick `visible` went false, unmounting the whole tree (Modal included) before
+     RN's own native slide-out could play. Switched the guard to `mounted`; safe with no
+     value-caching since its JSX never reads `item.*` directly (only local state seeded
+     from it).
+   - `ListSettingsSheet.tsx`: same `if (!list) return null` bug, but its JSX *does* read
+     `list.isRecurring`/`list.activeWeeks`/`list.recurrenceIntervalWeeks` directly — added
+     a `cachedList` (last non-null value) so those reads stay valid through the exit
+     animation.
+   - `SavedListsModal.tsx`: no nullable-prop bug (no `if (!x) return null` guard), but was
+     still a bare `animationType="slide"` with no custom exit — converted for consistency.
+   - `components/FoodTab.tsx`'s two `<Modal>`s (the dish "+" popup and the new-dish sheet
+     — there is no literal `AddDishSheet.tsx` file; these are what Decision 044b's
+     wording referred to) — both already read their nullable state (`popupDish`,
+     `modalMealType`) via `?.`/`&&` guards so no crash risk, but were bare
+     `animationType="fade"`/`"slide"` with no exit animation. Converted the same way
+     (scale+fade for the popup, slide+fade for the sheet).
+   All five now use `animationType="none"` on the native `<Modal>` and drive their own
+   Reanimated backdrop-fade + card transform (scale for centered popups, translateY for
+   bottom sheets), 320ms ease-out in / 220ms ease-in out per ANIMATION_GUIDELINES.md §1.
+4. **Section-move layout animations** (`app/(tabs)/shopping.tsx`): `LayoutAnimation.
+   configureNext(LayoutAnimation.Presets.easeInEaseOut)` (gated by `!reducedMotion`, same
+   idiom the file's existing drag-reorder code already used) now fires before
+   `handleRemoveWeeklyItem` (put-back-to-inventory / delete), the new
+   `handleToggleWeeklyItem` wrapper (list ↔ cart, replacing raw `toggle(item.id)` calls at
+   all three call sites: `WeekListCard`'s `onToggleItem`, the reorderable-row `onToggle`,
+   and inside `handleDecrementCartItem`'s cart→list branch). `ShoppingRow`'s own
+   `layout={Layout.springify()...}` (bullet 1) complements this by animating the
+   individual row's position, not just the section's overall height. `CHECKED_OPACITY`
+   dimming semantics (Decision 011 R3) untouched.
+5. **Reduced motion**: every new animation reads `reducedMotion` — `ShoppingRow`'s
+   `entering`/`layout` props go `undefined`, `WeeklyTabPulseDot` skips the loop, all five
+   `useMountedTransition` modals skip the tween, and the section-move `LayoutAnimation.
+   configureNext` calls are skipped outright (matching the file's pre-existing
+   drag-reorder gating). No new haptics were added (all four this session reuses is
+   already-existing `success()`).
+
+**Not touched / known gaps:** the Unallocated card's rows (bespoke JSX, not
+`ShoppingRow`) don't get entrance highlighting — flagged rather than silently absorbed,
+follow-up if it turns out to matter on-device. Decision 011 R1/R2 gesture surfaces beyond
+the layout animations named above; other screens' motion; tab structure (Decision 045
+reserved). No store/schema changes; no new strings beyond none needed (existing toast
+copy already names items/lists).
+
+`npx tsc --noEmit` — zero errors.
