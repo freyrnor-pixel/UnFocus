@@ -87,12 +87,28 @@
  *     is the only local signal available; mount is skipped (ref seeded to the initial amount).
  *     Respects reducedMotion (fades without the leading pop). Visual-only — no i18n string, so
  *     it invents none (Decision 021 keeps the three states presentational, not stored data).
+ *   - **Decision 044b (2026-07-09) — new-row entrance:** optional `justAdded` prop, set by the
+ *     parent screen for ids it just created (any add surface — inline add row, "From monthly"
+ *     panel, Monthly-tab checkbox, Food-tab push). On mount only, if true: plays a Reanimated
+ *     `entering` slide+fade (skipped under reducedMotion — the row just appears) AND fires the
+ *     same `highlight` glow as the re-add case above (reducedMotion already makes that one
+ *     static-fade-only, matching the "no pulse" reduced-motion contract). `layout` uses
+ *     Reanimated's default spring so sibling rows visibly reflow instead of teleporting when
+ *     one is inserted/removed (Decision 044b bullet 4) — skipped under reducedMotion.
  */
 import React, { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming, withSequence, runOnJS } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  withSequence,
+  runOnJS,
+  FadeInDown,
+  Layout,
+} from 'react-native-reanimated';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -129,6 +145,8 @@ type Props = {
   onDecrement?: () => void;
   inStockLabel?: string;
   locked?: boolean;
+  /** Decision 044b — plays an entrance animation + highlight glow once on mount. */
+  justAdded?: boolean;
 };
 
 export default function ShoppingRow({
@@ -141,6 +159,7 @@ export default function ShoppingRow({
   onDecrement,
   inStockLabel,
   locked,
+  justAdded,
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -172,6 +191,20 @@ export default function ShoppingRow({
     }
     prevQty.current = safeQty;
   }, [safeQty]);
+
+  // Decision 044b — new-row entrance highlight. Separate one-time effect (empty deps)
+  // so it fires once on mount only, independent of the amount-increase effect above.
+  useEffect(() => {
+    if (!justAdded) return;
+    if (reducedMotion) {
+      highlight.value = 0.9;
+      highlight.value = withTiming(0, { duration: 900 });
+    } else {
+      highlight.value = withSequence(withTiming(1, { duration: 120 }), withTiming(0, { duration: 900 }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const dimmed = variant === 'purchased' || (variant === 'planned' && item.checked);
   const showStepper = variant !== 'purchased' && !!(onIncrement || onDecrement);
   // Cart items allow decrement at qty=1 — the parent's onDecrement will handle the
@@ -236,7 +269,11 @@ export default function ShoppingRow({
       </Animated.View>
 
       <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.row, dimmed && styles.rowChecked, contentStyle, { backgroundColor: theme.surface }]}>
+        <Animated.View
+          entering={!reducedMotion && justAdded ? FadeInDown.duration(250) : undefined}
+          layout={reducedMotion ? undefined : Layout.springify().damping(18).stiffness(200)}
+          style={[styles.row, dimmed && styles.rowChecked, contentStyle, { backgroundColor: theme.surface }]}
+        >
           <Animated.View
             pointerEvents="none"
             style={[styles.highlight, { backgroundColor: theme.goodSoft, borderColor: theme.good }, highlightStyle]}

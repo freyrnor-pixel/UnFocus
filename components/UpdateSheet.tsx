@@ -22,14 +22,24 @@
  *     the name input on short screens.
  *   - Decision 008: the sheet is a glass Surface in `overlay` context. Blur comes from
  *     Surface's BlurView; this file never imports expo-blur directly.
+ *   - **Decision 044b (2026-07-09):** was a bare `<Modal animationType="slide">` gated by
+ *     `if (!item) return null` — closing set `item` to null in the same tick `visible`
+ *     went false, so the whole tree (including the Modal) unmounted instantly, skipping
+ *     even RN's own native slide-out. Switched to `lib/useMountedTransition` (the
+ *     AddItemSheet/AppModal mounted-state pattern): `mounted` now gates the early return
+ *     instead of `item`, and a Reanimated backdrop-fade + sheet-slide plays both ways.
+ *     Safe to keep reading `item` only inside the field-reset effect (never in JSX) since
+ *     nothing here renders `item.*` directly.
  */
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
+import { useMountedTransition } from '@/lib/useMountedTransition';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import { Switch } from '@/components/FormControls';
@@ -47,6 +57,8 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
   const { bottom: bottomInset } = useSafeAreaInsets();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
+  const { reducedMotion } = useAccessibility();
+  const { mounted, progress } = useMountedTransition(visible, reducedMotion);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('0');
   const [targetQty, setTargetQty] = useState(1);
@@ -81,12 +93,21 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
     }
   }
 
-  if (!item) return null;
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
+  const sheetStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ translateY: (1 - progress.value) * 24 }],
+  }));
+
+  if (!mounted) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible transparent animationType="none" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flexFill}>
-        <Pressable style={[styles.backdrop, { backgroundColor: theme.overlay }]} onPress={onClose} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
+          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: theme.overlay }, backdropStyle]} />
+        </Pressable>
+        <Animated.View style={[styles.sheetPositioner, sheetStyle]}>
         <Surface
           surfaceContext="overlay"
           style={[styles.sheet, { paddingBottom: Math.max(Spacing.xl, bottomInset + Spacing.md) }]}
@@ -154,6 +175,7 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
             </Text>
           </PressableScale>
         </Surface>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -161,10 +183,8 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
 
 const baseStyles = StyleSheet.create({
   flexFill: { flex: 1 },
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  sheetPositioner: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   sheet: {
-    position: 'absolute',
-    left: 0, right: 0, bottom: 0,
     maxHeight: '85%',
     borderTopLeftRadius: Radius.lg,
     borderTopRightRadius: Radius.lg,

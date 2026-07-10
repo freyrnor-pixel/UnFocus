@@ -37,6 +37,12 @@
  *   - Outer card has a 4px `theme.featShop` left accent stripe (Surface split into
  *     `cardRow`/`accent`/`cardContent`), matching Home's preview-card treatment so the
  *     card reads as the same object when tapping through from Home into full Shopping.
+ *   - **Decision 044b (2026-07-09):** new optional `justAddedIds` prop (a `Set<string>`
+ *     owned by the parent screen) — forwarded to each `ShoppingRow` as `justAdded` so
+ *     rows the parent just created play their entrance/highlight animation. Purchased
+ *     rows don't take it (they're never "just added"). The ungrouped "In list" rows are
+ *     rendered by the parent via `renderReorderableRow`, so the parent passes `justAdded`
+ *     directly there instead of through this prop.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -84,6 +90,8 @@ type Props = {
   onDoneShopping: () => void;
   /** Renders one reorderable "In list" ungrouped row — parent wraps it in DraggableTaskRow. */
   renderReorderableRow: (item: ShoppingItem, index: number, total: number) => React.ReactNode;
+  /** Decision 044b — ids that should play their entrance/highlight animation right now. */
+  justAddedIds?: Set<string>;
 };
 
 /** Price × amount total for a set of items. */
@@ -114,6 +122,7 @@ export default function WeekListCard({
   onAddMonthlyToWeek,
   onDoneShopping,
   renderReorderableRow,
+  justAddedIds,
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -390,6 +399,7 @@ export default function WeekListCard({
                     onRemove={() => onRemoveItem(item)}
                     onIncrement={() => onIncrementItem(item)}
                     onDecrement={() => onDecrementItem(item)}
+                    justAdded={justAddedIds?.has(item.id)}
                     inStockLabel={t.inStockLabel}
                     locked={list.locked}
                   />
@@ -520,6 +530,7 @@ export default function WeekListCard({
                     onRemove={() => onRemoveItem(item)}
                     onIncrement={() => onIncrementItem(item)}
                     onDecrement={() => onDecrementCartItem(item)}
+                    justAdded={justAddedIds?.has(item.id)}
                     locked={list.locked}
                   />
                   {idx < allChecked.length - 1 && (

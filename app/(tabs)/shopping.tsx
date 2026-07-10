@@ -134,6 +134,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
@@ -205,6 +206,26 @@ type DragState = {
   mergeTargetDish: string | null;
 };
 
+/** Decision 044b — cross-tab cue: a small pulsing dot on the Weekly tab label when an
+ *  add lands there while the user is looking at a different tab. Reduced-motion shows a
+ *  plain static dot (no pulse loop) per ANIMATION_GUIDELINES §7. */
+function WeeklyTabPulseDot({ color, reducedMotion }: { color: string; reducedMotion: boolean }) {
+  const opacity = useSharedValue(1);
+  useEffect(() => {
+    if (reducedMotion) {
+      opacity.value = 1;
+      return;
+    }
+    opacity.value = withRepeat(withSequence(withTiming(0.35, { duration: 500 }), withTiming(1, { duration: 500 })), -1, true);
+  }, [reducedMotion, opacity]);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return <Animated.View style={[pulseDotStyle.dot, { backgroundColor: color }, style]} />;
+}
+
+const pulseDotStyle = StyleSheet.create({
+  dot: { width: 7, height: 7, borderRadius: 4, marginLeft: 4 },
+});
+
 /** Insertion index for `centerY` against a snapshot of each row's last-measured layout. */
 function computeTargetIndex(centerY: number, order: string[], snapshot: Record<string, { y: number; height: number }>): number {
   for (let i = 0; i < order.length; i++) {
@@ -245,6 +266,26 @@ export default function ShoppingScreen() {
   const setConfirm = useCallback((message: string | null, undo?: () => void) => {
     setConfirmMessage(message);
     setConfirmUndo(() => undo ?? null);
+  }, []);
+  // Decision 044b — transient "just added" tracking for row entrance/highlight + the
+  // Weekly tab's cross-tab pulse. Pure screen-level view state, not persisted.
+  const [justAddedIds, setJustAddedIds] = useState<Set<string>>(new Set());
+  const [weeklyTabPulse, setWeeklyTabPulse] = useState(false);
+  const markJustAdded = useCallback((ids: string | string[]) => {
+    const list = Array.isArray(ids) ? ids : [ids];
+    if (list.length === 0) return;
+    setJustAddedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of list) next.add(id);
+      return next;
+    });
+    setTimeout(() => {
+      setJustAddedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of list) next.delete(id);
+        return next;
+      });
+    }, 1800);
   }, []);
   const [purchasedExpanded, setPurchasedExpanded] = useState<string | null>(null);
   const [resetSummary, setResetSummary] = useState<MonthlyResetSummary | null>(null);
@@ -446,6 +487,15 @@ export default function ShoppingScreen() {
   }, [items]);
   const focusedProgress = useMemo(() => (focusedGroups ? listProgress(focusedGroups) : null), [focusedGroups]);
 
+  // Decision 044b — pulses the Weekly tab label when an add lands there while the
+  // user is looking at a different tab (Monthly checkbox, Food-tab push).
+  function pulseWeeklyTabIfElsewhere() {
+    if (tab !== 'weekly') {
+      setWeeklyTabPulse(true);
+      setTimeout(() => setWeeklyTabPulse(false), 1800);
+    }
+  }
+
   // Monthly checkbox (Decision 044a): moves the item straight to the focused weekly
   // list instead of staging it for a separate confirm step. Undoable via the toast.
   function handleAddToWeeklyFromMonthly(item: ShoppingItem) {
@@ -456,11 +506,15 @@ export default function ShoppingScreen() {
     addToWeeklyFromCatalog(item.id, 1, focusedList.id);
     success();
     setConfirm(t.itemAddedToNamedList(item.name, focusedList.name), () => putBackToInventory(item.id));
+    markJustAdded(item.id);
+    pulseWeeklyTabIfElsewhere();
   }
 
   // Weekly/cart rows that came from the Monthly list go back to inventory instead of
   // being deleted outright (their single row IS the standing catalog entry).
   function handleRemoveWeeklyItem(item: ShoppingItem) {
+    // Decision 044b — animate the row leaving instead of a teleport-style disappearance.
+    if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     if (item.fromCatalog) {
       putBackToInventory(item.id);
       success();
@@ -468,6 +522,13 @@ export default function ShoppingScreen() {
     } else {
       removeWithSource(item.id);
     }
+  }
+
+  // Decision 044b — list↔cart section moves (toggleCheck) and the undo path animate via
+  // layout instead of teleporting between sections.
+  function handleToggleWeeklyItem(item: ShoppingItem) {
+    if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    toggle(item.id);
   }
 
   function handleDoneShopping(list: ShoppingList, checkedCount: number) {
@@ -537,6 +598,8 @@ export default function ShoppingScreen() {
 
   const handleDecrementCartItem = useCallback(
     (item: ShoppingItem) => {
+      // Decision 044b — animate the section move (cart → list) instead of a teleport.
+      if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       const qty = parseInt(item.amount, 10) || 1;
       if (qty <= 1) {
         // Move item back to "In list" by unchecking it
@@ -569,7 +632,7 @@ export default function ShoppingScreen() {
         });
       }
     },
-    [items, toggle, adjustAmount, add]
+    [items, toggle, adjustAmount, add, reducedMotion]
   );
 
   function handleCreateNewWeeklyList() {
@@ -730,6 +793,9 @@ export default function ShoppingScreen() {
               <Text style={[styles.tabText, { color: isActive ? accent : theme.textMuted }]} numberOfLines={1}>
                 {label}
               </Text>
+              {value === 'weekly' && weeklyTabPulse && (
+                <WeeklyTabPulseDot color={accent} reducedMotion={reducedMotion} />
+              )}
               {count > 0 && (
                 <View style={[styles.tabBadge, { backgroundColor: isActive ? accent : theme.surfaceMuted }]}>
                   <Text style={[styles.tabBadgeText, { color: isActive ? theme.accentInk : theme.textMuted }]}>{count}</Text>
@@ -970,13 +1036,13 @@ export default function ShoppingScreen() {
                   onOpenSavedLists={() => setSavedListsListId(list.id)}
                   onOpenListSettings={() => setListSettingsListId(list.id)}
                   onDelete={() => handleDeleteList(list.id)}
-                  onToggleItem={(item) => toggle(item.id)}
+                  onToggleItem={handleToggleWeeklyItem}
                   onRemoveItem={handleRemoveWeeklyItem}
                   onIncrementItem={(item) => adjustAmount(item.id, 1)}
                   onDecrementItem={(item) => adjustAmount(item.id, -1)}
                   onDecrementCartItem={handleDecrementCartItem}
                   onAddInlineItem={(input) => {
-                    add({
+                    const id = add({
                       name: input.name,
                       amount: String(input.qty),
                       unit: '',
@@ -991,13 +1057,16 @@ export default function ShoppingScreen() {
                     });
                     success();
                     setConfirm(t.itemAddedToList(input.name));
+                    markJustAdded(id);
                   }}
                   monthlyItems={catalogItems}
                   onAddMonthlyToWeek={(item) => {
                     addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, list.id);
                     success();
                     setConfirm(t.itemAddedToList(item.name));
+                    markJustAdded(item.id);
                   }}
+                  justAddedIds={justAddedIds}
                   onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
                   renderReorderableRow={(item) => (
                     <DraggableTaskRow
@@ -1010,10 +1079,11 @@ export default function ShoppingScreen() {
                       <ShoppingRow
                         item={item}
                         variant="planned"
-                        onToggle={() => toggle(item.id)}
+                        onToggle={() => handleToggleWeeklyItem(item)}
                         onRemove={() => handleRemoveWeeklyItem(item)}
                         onIncrement={() => adjustAmount(item.id, 1)}
                         onDecrement={() => adjustAmount(item.id, -1)}
+                        justAdded={justAddedIds.has(item.id)}
                         inStockLabel={t.inStockLabel}
                         locked={list.locked}
                       />
@@ -1040,7 +1110,15 @@ export default function ShoppingScreen() {
         )}
 
         {/* Food — dishes, in place (Point: "Food is just another tab, not another screen") */}
-        {tab === 'food' && <FoodTab onNotify={setConfirm} />}
+        {tab === 'food' && (
+          <FoodTab
+            onNotify={setConfirm}
+            onAddedToWeek={(ids) => {
+              markJustAdded(ids);
+              pulseWeeklyTabIfElsewhere();
+            }}
+          />
+        )}
 
         {/* Catalogue — master item list, sectioned by type, with add/edit/delete */}
         {tab === 'catalogue' && <CatalogueTab onNotify={setConfirm} />}

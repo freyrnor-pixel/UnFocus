@@ -21,13 +21,23 @@
  *   - Decision 008: the sheet is a glass Surface in `overlay` context. Blur comes from
  *     Surface's BlurView; this file never imports expo-blur directly.
  *   - Governs list settings, not shopping row layout — not entangled with Decision 011.
+ *   - **Decision 044b (2026-07-09):** was a bare `<Modal animationType="slide">` gated by
+ *     `if (!list) return null` — closing sets the parent's `listSettingsListId` to null in
+ *     the same tick `visible` goes false, so `list` (a `.find()` result) goes undefined and
+ *     the whole tree unmounted instantly, skipping RN's own native slide-out. Switched to
+ *     `lib/useMountedTransition`; since this component's JSX reads `list.isRecurring`/
+ *     `list.activeWeeks`/`list.recurrenceIntervalWeeks` directly (unlike UpdateSheet, which
+ *     only reads its item through local state), it caches the last non-null `list` in
+ *     `cachedList` so those reads stay valid while the exit animation plays.
  */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
+import { useMountedTransition } from '@/lib/useMountedTransition';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import { Switch } from '@/components/FormControls';
@@ -47,12 +57,31 @@ export default function ListSettingsSheet({ visible, list, onClose, onSetRecurri
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
+  const { reducedMotion } = useAccessibility();
+  const { mounted, progress } = useMountedTransition(visible, reducedMotion);
 
-  if (!list) return null;
+  // Decision 044b — `list` goes undefined the instant the parent closes this sheet
+  // (a `.find()` result), but the exit animation needs valid fields to keep rendering
+  // for another ~220ms, so cache the last non-null value.
+  const [cachedList, setCachedList] = useState(list);
+  useEffect(() => {
+    if (list) setCachedList(list);
+  }, [list]);
+
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
+  const sheetStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ translateY: (1 - progress.value) * 24 }],
+  }));
+
+  if (!mounted || !cachedList) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={[styles.backdrop, { backgroundColor: theme.overlay }]} onPress={onClose} />
+    <Modal visible transparent animationType="none" onRequestClose={onClose}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: theme.overlay }, backdropStyle]} />
+      </Pressable>
+      <Animated.View style={[styles.sheetPositioner, sheetStyle]}>
       <Surface surfaceContext="overlay" style={styles.sheet}>
         <View style={[styles.handle, { backgroundColor: theme.border }]} />
         <Text style={[styles.title, { color: theme.text }]}>{t.listSettingsTitle}</Text>
@@ -60,17 +89,17 @@ export default function ListSettingsSheet({ visible, list, onClose, onSetRecurri
         <View style={styles.switchRow}>
           <Text style={[styles.switchLabel, { color: theme.text }]}>{t.listRecurringToggleLabel}</Text>
           <Switch
-            checked={list.isRecurring}
-            onChange={(v) => onSetRecurring(v, list.recurrenceIntervalWeeks)}
+            checked={cachedList.isRecurring}
+            onChange={(v) => onSetRecurring(v, cachedList.recurrenceIntervalWeeks)}
           />
         </View>
 
-        {list.isRecurring && (
+        {cachedList.isRecurring && (
           <View style={styles.intervalBlock}>
             <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.listActiveWeeksLabel}</Text>
             <View style={styles.chipRow}>
               {WEEK_OPTIONS.map((n) => {
-                const active = list.activeWeeks.includes(n);
+                const active = cachedList.activeWeeks.includes(n);
                 return (
                   <PressableScale
                     key={n}
@@ -80,8 +109,8 @@ export default function ListSettingsSheet({ visible, list, onClose, onSetRecurri
                     ]}
                     onPress={() => {
                       const next = active
-                        ? list.activeWeeks.filter((w) => w !== n)
-                        : [...list.activeWeeks, n];
+                        ? cachedList.activeWeeks.filter((w) => w !== n)
+                        : [...cachedList.activeWeeks, n];
                       onSetActiveWeeks(next);
                     }}
                   >
@@ -99,15 +128,14 @@ export default function ListSettingsSheet({ visible, list, onClose, onSetRecurri
           <Text style={[styles.doneBtnText, { color: theme.accentInk }]}>{t.save}</Text>
         </PressableScale>
       </Surface>
+      </Animated.View>
     </Modal>
   );
 }
 
 const baseStyles = StyleSheet.create({
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  sheetPositioner: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   sheet: {
-    position: 'absolute',
-    left: 0, right: 0, bottom: 0,
     borderTopLeftRadius: Radius.lg,
     borderTopRightRadius: Radius.lg,
     paddingHorizontal: Spacing.md,
