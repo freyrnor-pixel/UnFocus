@@ -12,13 +12,16 @@
  * Connections:
  *   Imports → components/Badge, components/InventoryIcon, constants/theme, lib/date, lib/haptics,
  *             lib/i18n, lib/useAppTheme, react-native-gesture-handler, react-native-reanimated,
- *             store/useShoppingStore (ShoppingItem type only)
- *   Used by → components/WeekListCard.tsx, app/shopping.tsx (weekly rows + purchased-history rows),
- *             app/index.tsx (Home shopping preview — planned + cart rows, no drag reorder)
- *   Data    → none directly — all mutations are bubbled up via onToggle/onCollect/onRemove/
- *             onIncrement/onDecrement callbacks, same dumb-row pattern as NoteRow/MonthlyTableRow.
- *             The parent screen (Session A2·2) is what actually calls
- *             toggleCheck/toggleCollected/adjustAmount/putBackToInventory/removeWithSource.
+ *             store/useShoppingStore (ShoppingItem type + recentlyAddedIds, see Decision 044b note)
+ *   Used by → components/WeekListCard.tsx, app/(tabs)/shopping.tsx (weekly rows +
+ *             purchased-history rows), components/HomeShoppingCard.tsx (Home shopping
+ *             preview — planned + cart rows, no drag reorder)
+ *   Data    → mutations still bubble up via onToggle/onCollect/onRemove/onIncrement/onDecrement
+ *             callbacks (the parent screen calls toggleCheck/toggleCollected/adjustAmount/
+ *             putBackToInventory/removeWithSource) — but this is no longer a fully "dumb"
+ *             row: it reads `useShoppingStore(s => s.recentlyAddedIds[item.id])` directly
+ *             (Decision 044b) to drive its own entrance/highlight animation, since that's
+ *             ephemeral UI state the store already owns for free (see that store's header).
  *
  * Edit notes:
  *   - `variant` drives the leading button: 'planned' shows an outlined "+" when unchecked
@@ -87,13 +90,32 @@
  *     is the only local signal available; mount is skipped (ref seeded to the initial amount).
  *     Respects reducedMotion (fades without the leading pop). Visual-only — no i18n string, so
  *     it invents none (Decision 021 keeps the three states presentational, not stored data).
+ *   - **New-row entrance + motion (Decision 044b):** `isNew` reads the store's
+ *     `recentlyAddedIds` map (set by `add()`/`addToWeeklyFromCatalog()`, self-clears after
+ *     ~1.8s). A row that mounts already flagged `isNew` (captured once via `wasNewOnMount`,
+ *     a plain ref — re-renders after mount never retrigger it) plays the same Decision 021
+ *     highlight glow immediately instead of skipping it, and the whole row plays
+ *     `FadeInDown` on mount. Every row (new or not) now also carries `exiting={FadeOut}` and
+ *     `layout={LinearTransition}` so removals fade instead of popping and sibling rows
+ *     resettle smoothly when the list above them changes height — this is what makes
+ *     list→cart moves (a different section = unmount+remount, not a true shared-element
+ *     transition) read as "travel" rather than a teleport. All three respect reducedMotion.
  */
 import React, { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming, withSequence, runOnJS } from 'react-native-reanimated';
-import { ShoppingItem } from '@/store/useShoppingStore';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  withSequence,
+  runOnJS,
+  FadeInDown,
+  FadeOut,
+  LinearTransition,
+} from 'react-native-reanimated';
+import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -155,11 +177,30 @@ export default function ShoppingRow({
   const isNumeric = !isNaN(qty) && qty > 0;
   const safeQty = isNumeric ? qty : MIN_QTY;
 
-  // Decision 021 (Phase 6): flash a self-decaying "just added / amount increased" glow whenever
-  // the row's amount grows vs. its previous render (re-add increment, or the stepper's +). Local
-  // state only — no persisted flag, no store involvement. Mount is skipped via the seeded ref.
+  // Decision 044b: the store flags an id for ~1.8s right after add()/addToWeeklyFromCatalog()
+  // creates or lands it — this is the "just added" signal the entrance animation + highlight
+  // below key off, distinct from Decision 021's amount-increase glow (still handled below too).
+  const isNew = useShoppingStore((s) => variant !== 'purchased' && !!s.recentlyAddedIds[item.id]);
+  const wasNewOnMount = useRef(isNew).current;
+
+  // Decision 021 (Phase 6) + Decision 044b: flash a self-decaying "just added / amount
+  // increased" glow whenever the row's amount grows vs. its previous render (re-add increment,
+  // stepper's +), OR the row mounts already flagged "just added" by the store (044b's new-row
+  // case, which has no prior render to compare amounts against). Local shared-value animation
+  // only — the store owns the underlying "is this new" fact, not this component.
   const highlight = useSharedValue(0);
   const prevQty = useRef(safeQty);
+  useEffect(() => {
+    if (wasNewOnMount) {
+      if (reducedMotion) {
+        highlight.value = 0.9;
+        highlight.value = withTiming(0, { duration: 900 });
+      } else {
+        highlight.value = withSequence(withTiming(1, { duration: 120 }), withTiming(0, { duration: 900 }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     if (safeQty > prevQty.current) {
       if (reducedMotion) {
@@ -228,7 +269,12 @@ export default function ShoppingRow({
   const highlightStyle = useAnimatedStyle(() => ({ opacity: highlight.value }));
 
   return (
-    <View style={styles.wrap}>
+    <Animated.View
+      style={styles.wrap}
+      entering={!reducedMotion && wasNewOnMount ? FadeInDown.duration(250) : undefined}
+      exiting={reducedMotion ? undefined : FadeOut.duration(200)}
+      layout={reducedMotion ? undefined : LinearTransition.duration(220)}
+    >
       <Animated.View
         style={[styles.reveal, { backgroundColor: isPutBack ? theme.badSoft : theme.surfaceMuted }, revealStyle]}
       >
@@ -341,7 +387,7 @@ export default function ShoppingRow({
           )}
         </Animated.View>
       </GestureDetector>
-    </View>
+    </Animated.View>
   );
 }
 

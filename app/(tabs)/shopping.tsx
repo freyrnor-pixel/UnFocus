@@ -12,7 +12,7 @@
  *
  * Connections:
  *   Imports → components/AddDivider, components/AddItemSheet, components/HintCard,
- *             components/AddSourceChooser, components/AppModal (showAppModal),
+ *             components/AppModal (showAppModal),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
  *             components/ExpandableCard, components/IconButton,
  *             components/ListSettingsSheet, components/MonthlyResetSummaryModal,
@@ -32,6 +32,15 @@
  *             startup by app/_layout.tsx). FoodTab additionally drives useMealStore.
  *
  * Edit notes:
+ *   - **Decision 044a (2026-07-09):** removed the Monthly tab's staging tray
+ *     (per-item pendingRestock checkbox → confirm button); MonthlyTableRow's checkbox
+ *     now calls addToWeeklyFromCatalog directly, with undo via putBackToInventory in
+ *     the confirmation toast. `pendingRestock` stays in the type/DB as vestigial.
+ *     Also deleted `components/AddSourceChooser.tsx` and its `addSourceChooserListId`
+ *     wiring here — both were already dead code (the weekly "+" flow it served was
+ *     superseded by WeekListCard's inline add row back on 2026-07-06; nothing ever
+ *     set `addSourceChooserListId` to a real id). `AddItemSheet` is catalog-only now
+ *     — see its own header.
  *   - **Shopping/Food redesign (2026-07-08)**: four in-place tabs now — Weekly, Monthly,
  *     Food, Catalogue (all switch content in place; none navigate to a separate screen).
  *     The old /meals and /create-grouping screens were DELETED; the "Create grouping" FAB
@@ -120,6 +129,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
@@ -129,7 +139,6 @@ import { useAutomationStore } from '@/store/useAutomationStore';
 import ShoppingRow from '@/components/ShoppingRow';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
 import AddItemSheet from '@/components/AddItemSheet';
-import AddSourceChooser from '@/components/AddSourceChooser';
 import UpdateSheet from '@/components/UpdateSheet';
 import MonthlyResetSummaryModal from '@/components/MonthlyResetSummaryModal';
 import SharedRequestsSection from '@/components/SharedRequestsSection';
@@ -168,9 +177,6 @@ type Tab = 'weekly' | 'monthly' | 'food' | 'catalogue';
  * "re-lock on launch."
  */
 let catalogLockedSession = true;
-
-/** What a tapped inline "+" should add to: a specific Week list, or the Monthly catalog. */
-type AddItemTarget = { origin: 'weekly'; listId: string } | { origin: 'catalog' };
 
 const STICKY_HEIGHT = 116;
 
@@ -211,9 +217,14 @@ export default function ShoppingScreen() {
   const [tab, setTab] = useState<Tab>('weekly');
   const [hintOpen, setHintOpen] = useState(false);
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
-  const [addItemTarget, setAddItemTarget] = useState<AddItemTarget | null>(null);
-  const [addSourceChooserListId, setAddSourceChooserListId] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<string | null>(null);
+  const [addToCatalogOpen, setAddToCatalogOpen] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
+  const [confirmUndo, setConfirmUndo] = useState<(() => void) | null>(null);
+  /** Shows a toast; pass `undo` to add an inline "Undo" action (Decision 044a). */
+  const setConfirm = useCallback((message: string | null, undo?: () => void) => {
+    setConfirmMessage(message);
+    setConfirmUndo(() => undo ?? null);
+  }, []);
   const [purchasedExpanded, setPurchasedExpanded] = useState<string | null>(null);
   const [resetSummary, setResetSummary] = useState<MonthlyResetSummary | null>(null);
   const [savedListsListId, setSavedListsListId] = useState<string | null>(null);
@@ -262,13 +273,12 @@ export default function ShoppingScreen() {
   const putBackToInventory = useShoppingStore((s) => s.putBackToInventory);
   const removeWithSource = useShoppingStore((s) => s.removeWithSource);
   const adjustAmount = useShoppingStore((s) => s.adjustAmount);
-  const setPendingRestock = useShoppingStore((s) => s.setPendingRestock);
-  const confirmStagingTray = useShoppingStore((s) => s.confirmStagingTray);
   const doneShopping = useShoppingStore((s) => s.doneShopping);
   const monthlyReset = useShoppingStore((s) => s.monthlyReset);
   const buildMonthlyResetSummary = useShoppingStore((s) => s.buildMonthlyResetSummary);
   const reorderItem = useShoppingStore((s) => s.reorder);
   const mergeItems = useShoppingStore((s) => s.mergeItems);
+  const recentlyAddedIds = useShoppingStore((s) => s.recentlyAddedIds);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
 
@@ -323,8 +333,7 @@ export default function ShoppingScreen() {
       }
 
       return () => {
-        setAddItemTarget(null);
-        setAddSourceChooserListId(null);
+        setAddToCatalogOpen(false);
         setHintOpen(false);
       };
     }, [loadShopping, advanceRecurringLists, buildMonthlyResetSummary, monthlyReset, updateSettings])
@@ -334,11 +343,9 @@ export default function ShoppingScreen() {
     () => items.filter((i) => i.status === 'catalog').sort((a, b) => a.name.localeCompare(b.name)),
     [items]
   );
-  const stagedItems = useMemo(() => catalogItems.filter((i) => i.pendingRestock), [catalogItems]);
-  const restItems = useMemo(() => catalogItems.filter((i) => !i.pendingRestock), [catalogItems]);
   const { dishGroups: catalogDishGroups, ungrouped: ungroupedRestItems } = useMemo(
-    () => groupByDish(restItems),
-    [restItems]
+    () => groupByDish(catalogItems),
+    [catalogItems]
   );
 
   // Running total of the curated Monthly list (price × targetQuantity per row).
@@ -364,7 +371,6 @@ export default function ShoppingScreen() {
       .filter((g) => g.tripItems.length > 0);
   }, [items, trips]);
 
-  const katalogBadge = stagedItems.length;
   const ukelisteBadge = useMemo(
     () =>
       items.filter(
@@ -374,6 +380,16 @@ export default function ShoppingScreen() {
           (i.listId === UNALLOCATED_LIST_ID || nonTemplateLists.some((l) => l.id === i.listId))
       ).length,
     [items, nonTemplateLists]
+  );
+
+  // Decision 044b — cross-tab cue: true while at least one item just landed in the weekly
+  // list (Monthly checkbox, Food "Add to week list") and the user isn't looking at Weekly
+  // already. Derived straight from the store's self-expiring recentlyAddedIds map, so it
+  // clears itself both on tab switch (this expression goes false) and after ~1.8s (the
+  // map entry expires) — no extra effect/timer needed here.
+  const weeklyAddCue = useMemo(
+    () => tab !== 'weekly' && items.some((i) => i.status === 'inWeeklyList' && recentlyAddedIds[i.id]),
+    [tab, items, recentlyAddedIds]
   );
   const unlockedListCount = useMemo(() => nonTemplateLists.filter((l) => !l.locked).length, [nonTemplateLists]);
 
@@ -394,11 +410,16 @@ export default function ShoppingScreen() {
   }, [items]);
   const focusedProgress = useMemo(() => (focusedGroups ? listProgress(focusedGroups) : null), [focusedGroups]);
 
-  function handleConfirmTray() {
-    if (stagedItems.length === 0) return;
-    confirmStagingTray();
+  // Monthly checkbox (Decision 044a): moves the item straight to the focused weekly
+  // list instead of staging it for a separate confirm step. Undoable via the toast.
+  function handleAddToWeeklyFromMonthly(item: ShoppingItem) {
+    if (!focusedList) {
+      setConfirm(t.noWeekListsYet);
+      return;
+    }
+    addToWeeklyFromCatalog(item.id, 1, focusedList.id);
     success();
-    setConfirm(t.confirmStagingBtn(stagedItems.length));
+    setConfirm(t.itemAddedToNamedList(item.name, focusedList.name), () => putBackToInventory(item.id));
   }
 
   // Weekly/cart rows that came from the Monthly list go back to inventory instead of
@@ -426,20 +447,11 @@ export default function ShoppingScreen() {
     ]);
   }
 
-  function handleAddItem(input: { name: string; price: number; targetQuantity: number; isTemporary: boolean; alsoAddToCatalog: boolean }) {
-    if (!addItemTarget) return;
-    if (addItemTarget.origin === 'catalog') {
-      add({ name: input.name, amount: '1', unit: '', listType: 'monthly', store: '', price: input.price, inventoryQty: 0, isTemporary: input.isTemporary, targetQuantity: input.targetQuantity, status: 'catalog' });
-    } else {
-      add({ name: input.name, amount: '1', unit: '', listType: 'weekly', store: '', price: input.price, inventoryQty: 0, isTemporary: input.isTemporary, targetQuantity: input.targetQuantity, status: 'inWeeklyList', listId: addItemTarget.listId });
-      if (input.alsoAddToCatalog) {
-        add({ name: input.name, amount: '1', unit: '', listType: 'monthly', store: '', price: input.price, inventoryQty: 0, isTemporary: input.isTemporary, targetQuantity: input.targetQuantity, status: 'catalog' });
-      }
-    }
-    const origin = addItemTarget.origin;
-    setAddItemTarget(null);
+  function handleAddItem(input: { name: string; price: number; targetQuantity: number; isTemporary: boolean }) {
+    add({ name: input.name, amount: '1', unit: '', listType: 'monthly', store: '', price: input.price, inventoryQty: 0, isTemporary: input.isTemporary, targetQuantity: input.targetQuantity, status: 'catalog' });
+    setAddToCatalogOpen(false);
     success();
-    setConfirm(origin === 'catalog' ? t.itemAddedToInventory(input.name) : t.itemAddedToList(input.name));
+    setConfirm(t.itemAddedToInventory(input.name));
   }
 
   function handleUpdateSave(patch: { name: string; price: number; targetQuantity: number; isTemporary: boolean }) {
@@ -661,7 +673,7 @@ export default function ShoppingScreen() {
 
   const TAB_META: { value: Tab; label: string; accent: string; count: number }[] = [
     { value: 'weekly', label: t.weeklyTabLabel, accent: theme.good, count: ukelisteBadge },
-    { value: 'monthly', label: t.monthlyTabLabel, accent: theme.accent, count: katalogBadge },
+    { value: 'monthly', label: t.monthlyTabLabel, accent: theme.accent, count: 0 },
     { value: 'food', label: t.foodTabLabel, accent: theme.featMeal, count: 0 },
     { value: 'catalogue', label: t.catalogueTabLabel, accent: theme.featShop, count: 0 },
   ];
@@ -687,6 +699,17 @@ export default function ShoppingScreen() {
                   <Text style={[styles.tabBadgeText, { color: isActive ? theme.accentInk : theme.textMuted }]}>{count}</Text>
                 </View>
               )}
+              {/* Decision 044b — cross-tab cue: a small tick pops onto the Weekly tab when an
+                  add from Monthly/Food just landed there while the user is looking elsewhere. */}
+              {value === 'weekly' && weeklyAddCue && (
+                <Animated.View
+                  entering={reducedMotion ? undefined : ZoomIn.duration(200)}
+                  exiting={reducedMotion ? undefined : ZoomOut.duration(150)}
+                  style={[styles.tabCue, { backgroundColor: theme.good }]}
+                >
+                  <Ionicons name="checkmark" size={10} color={theme.textInverse} />
+                </Animated.View>
+              )}
             </Pressable>
           );
         })}
@@ -703,9 +726,6 @@ export default function ShoppingScreen() {
       ) : tab === 'monthly' ? (
         <View style={styles.stickySummaryRow}>
           <Text style={[styles.stickyListName, { color: theme.text }]} numberOfLines={1}>{t.monthlyTabLabel}</Text>
-          {katalogBadge > 0 && (
-            <Text style={[styles.stickyProgressText, { color: theme.textMuted }]}>{t.stagingTrayHeader(katalogBadge)}</Text>
-          )}
         </View>
       ) : (
         <View style={styles.stickySummaryRow}>
@@ -747,23 +767,6 @@ export default function ShoppingScreen() {
             </View>
 
             <View style={styles.bodyGap}>
-              {stagedItems.length > 0 && (
-                <View style={[styles.trayCard, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
-                  <Text style={[styles.trayHeader, { color: theme.accent }]}>{t.stagingTrayHeader(stagedItems.length)}</Text>
-                  {stagedItems.map((item) => (
-                    <View key={item.id} style={styles.trayRow}>
-                      <Text style={[styles.trayItemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
-                      <Pressable onPress={() => setPendingRestock(item.id, false)} hitSlop={6}>
-                        <Text style={{ color: theme.textMuted, fontSize: FontSize.md }}>×</Text>
-                      </Pressable>
-                    </View>
-                  ))}
-                  <Pressable style={[styles.trayConfirmBtn, { backgroundColor: theme.accent }]} onPress={handleConfirmTray}>
-                    <Text style={[styles.trayConfirmText, { color: theme.accentInk }]}>{t.confirmStagingBtn(stagedItems.length)}</Text>
-                  </Pressable>
-                </View>
-              )}
-
               {/* SECTION 1 — Monthly list (things the user has added) */}
               <View style={styles.section}>
                 <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
@@ -782,7 +785,7 @@ export default function ShoppingScreen() {
                               <View key={item.id}>
                                 <MonthlyTableRow
                                   item={item}
-                                  onTogglePending={() => setPendingRestock(item.id, !item.pendingRestock)}
+                                  onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
                                   onPress={!catalogLocked ? () => setUpdateItem(item) : undefined}
                                   onIncrement={!catalogLocked ? () => handleMonthlyQty(item, 1) : undefined}
                                   onDecrement={!catalogLocked ? () => handleMonthlyQty(item, -1) : undefined}
@@ -802,7 +805,7 @@ export default function ShoppingScreen() {
                           <View key={item.id}>
                             <MonthlyTableRow
                               item={item}
-                              onTogglePending={() => setPendingRestock(item.id, !item.pendingRestock)}
+                              onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
                               onPress={!catalogLocked ? () => setUpdateItem(item) : undefined}
                               onIncrement={!catalogLocked ? () => handleMonthlyQty(item, 1) : undefined}
                               onDecrement={!catalogLocked ? () => handleMonthlyQty(item, -1) : undefined}
@@ -822,7 +825,7 @@ export default function ShoppingScreen() {
                 {/* Add an item straight to the Monthly list. The full item catalogue now
                     lives in its own "Catalogue" tab (CatalogueTab); this keeps a direct
                     add-to-monthly affordance where the catalogue section used to sit. */}
-                <AddDivider onPress={() => setAddItemTarget({ origin: 'catalog' })} disabled={catalogLocked} />
+                <AddDivider onPress={() => setAddToCatalogOpen(true)} disabled={catalogLocked} />
               </View>
 
               {purchasedByTrip.length > 0 && (
@@ -1019,27 +1022,9 @@ export default function ShoppingScreen() {
       </View>
 
       <AddItemSheet
-        visible={addItemTarget !== null}
-        origin={addItemTarget?.origin ?? 'weekly'}
-        onClose={() => setAddItemTarget(null)}
+        visible={addToCatalogOpen}
+        onClose={() => setAddToCatalogOpen(false)}
         onAdd={handleAddItem}
-      />
-
-      <AddSourceChooser
-        visible={addSourceChooserListId !== null}
-        catalogItems={catalogItems}
-        onClose={() => setAddSourceChooserListId(null)}
-        onConfirmInventoryPicks={(picks) => {
-          if (!addSourceChooserListId) return;
-          const pickNames = picks.map((p) => items.find((i) => i.id === p.id)?.name);
-          for (const pick of picks) addToWeeklyFromCatalog(pick.id, pick.quantity, addSourceChooserListId);
-          success();
-          if (picks.length === 1 && pickNames[0]) setConfirm(t.itemAddedToList(pickNames[0]));
-          else if (picks.length > 1) setConfirm(t.itemsAddedToList(picks.length));
-        }}
-        onOpenAddSheet={() => {
-          if (addSourceChooserListId) setAddItemTarget({ origin: 'weekly', listId: addSourceChooserListId });
-        }}
       />
 
       <UpdateSheet visible={updateItem !== null} item={updateItem} onClose={() => setUpdateItem(null)} onSave={handleUpdateSave} onDelete={handleUpdateDelete} />
@@ -1077,7 +1062,12 @@ export default function ShoppingScreen() {
         }}
       />
     </ScreenScaffold>
-    <ConfirmationBanner message={confirm} onDismiss={() => setConfirm(null)} />
+    <ConfirmationBanner
+      message={confirmMessage}
+      onDismiss={() => setConfirm(null)}
+      actionLabel={confirmUndo ? t.undoBtn : undefined}
+      onAction={confirmUndo ?? undefined}
+    />
 
     <Modal visible={resetConfirmVisible} transparent animationType="fade" onRequestClose={() => setResetConfirmVisible(false)}>
       <View style={styles.dialogOverlay}>
@@ -1118,6 +1108,7 @@ const styles = StyleSheet.create({
   tabText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold },
+  tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   stickySummaryRow: { gap: 4, paddingBottom: Spacing.xs },
   stickyListName: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   stickyProgressText: { fontSize: FontSize.xs },
@@ -1156,13 +1147,6 @@ const styles = StyleSheet.create({
   unallocatedItemMeta: { fontSize: FontSize.xs },
   allocateBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4, minHeight: 28 },
   allocateBtnText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-
-  trayCard: { borderRadius: Radius.md, borderWidth: 2, padding: Spacing.md, gap: Spacing.xs },
-  trayHeader: { fontSize: FontSize.sm, fontFamily: Fonts.bold, marginBottom: Spacing.xs },
-  trayRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
-  trayItemName: { flex: 1, fontSize: FontSize.sm },
-  trayConfirmBtn: { borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center', marginTop: Spacing.sm, minHeight: 44, justifyContent: 'center' },
-  trayConfirmText: { fontFamily: Fonts.bold, fontSize: FontSize.sm },
 
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md },
   rowDivider: { height: 1 },

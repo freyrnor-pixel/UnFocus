@@ -8,12 +8,16 @@
  * delete/edit affordances, this is a recap, not a list to manage.
  *
  * Connections:
- *   Imports → components/Surface, constants/theme, lib/date, lib/i18n, lib/useAppTheme,
- *             store/useShoppingStore (types only)
- *   Used by → app/shopping.tsx
+ *   Imports → components/AnimatedBottomSheet, components/Surface, constants/theme, lib/date,
+ *             lib/i18n, lib/useAppTheme, store/useShoppingStore (types only)
+ *   Used by → app/(tabs)/shopping.tsx
  *   Data    → none directly — renders the MonthlyResetSummary object passed in by the parent
  *
  * Edit notes:
+ *   - **Decision 044b (2026-07-09):** shell moved to components/AnimatedBottomSheet.tsx
+ *     for a real timed exit animation (see that component's header). `lastSummary` caches
+ *     the last non-null `summary` prop so the sheet still has content to render while it
+ *     plays that exit animation after the parent nulls `summary` on close.
  *   - Both inventoryItems and adHocItems arrive already sorted chronologically by
  *     purchasedAt (oldest first) from the store — don't re-sort here.
  *   - purchasedAt is a full ISO datetime (doneShopping stamps it via `new Date().toISOString()`),
@@ -25,13 +29,14 @@
  *     textLight→textMuted, orange(section label/close btn)→accent, hardcoded fontWeight
  *     → Fonts tokens.
  */
-import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
 import Surface from '@/components/Surface';
+import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 import { MonthlyResetSummary } from '@/store/useShoppingStore';
 
 type Props = {
@@ -45,12 +50,19 @@ export default function MonthlyResetSummaryModal({ visible, summary, onClose }: 
   const styles = useScaledStyles(baseStyles);
   const t = useT();
 
-  if (!summary) return null;
-  const isEmpty = summary.inventoryItems.length === 0 && summary.adHocItems.length === 0;
+  // Decision 044b: cache the last non-null summary so the sheet still has content while
+  // it plays its exit animation after the parent nulls `summary` on close (same reasoning
+  // as ListSettingsSheet.tsx's `lastList`).
+  const [lastSummary, setLastSummary] = useState(summary);
+  useEffect(() => {
+    if (summary) setLastSummary(summary);
+  }, [summary]);
+
+  if (!lastSummary) return null;
+  const isEmpty = lastSummary.inventoryItems.length === 0 && lastSummary.adHocItems.length === 0;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={[styles.backdrop, { backgroundColor: theme.overlay }]} onPress={onClose} />
+    <AnimatedBottomSheet visible={visible} onClose={onClose}>
       <Surface surfaceContext="overlay" style={styles.sheet}>
         <View style={[styles.handle, { backgroundColor: theme.border }]} />
         <Text style={[styles.title, { color: theme.text }]}>{t.monthlyResetSummaryTitle}</Text>
@@ -63,13 +75,13 @@ export default function MonthlyResetSummaryModal({ visible, summary, onClose }: 
               <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.monthlyResetSummaryInventorySection}</Text>
               <View style={styles.totalsRow}>
                 <Text style={[styles.spentText, { color: theme.text }]}>
-                  {t.monthlyResetSummarySpentLabel(formatKr(summary.inventorySpent, 0))}
+                  {t.monthlyResetSummarySpentLabel(formatKr(lastSummary.inventorySpent, 0))}
                 </Text>
                 <Text style={[styles.ofTotalText, { color: theme.textMuted }]}>
-                  {t.monthlyResetSummaryOfTotalLabel(formatKr(summary.inventoryTotalValue, 0))}
+                  {t.monthlyResetSummaryOfTotalLabel(formatKr(lastSummary.inventoryTotalValue, 0))}
                 </Text>
               </View>
-              {summary.inventoryItems.map((item) => (
+              {lastSummary.inventoryItems.map((item) => (
                 <View key={item.id} style={styles.itemRow}>
                   <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
                   <Text style={[styles.itemMeta, { color: theme.textMuted }]}>{(item.purchasedAt ?? '').slice(0, 10)}</Text>
@@ -80,10 +92,10 @@ export default function MonthlyResetSummaryModal({ visible, summary, onClose }: 
               ))}
             </View>
 
-            {summary.adHocItems.length > 0 && (
+            {lastSummary.adHocItems.length > 0 && (
               <View style={styles.section}>
                 <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.monthlyResetSummaryAdHocSection}</Text>
-                {summary.adHocItems.map((item) => (
+                {lastSummary.adHocItems.map((item) => (
                   <View key={item.id} style={styles.itemRow}>
                     <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
                     <Text style={[styles.itemMeta, { color: theme.textMuted }]}>{(item.purchasedAt ?? '').slice(0, 10)}</Text>
@@ -101,12 +113,11 @@ export default function MonthlyResetSummaryModal({ visible, summary, onClose }: 
           <Text style={[styles.closeBtnText, { color: theme.accentInk }]}>{t.monthlyResetSummaryCloseBtn}</Text>
         </Pressable>
       </Surface>
-    </Modal>
+    </AnimatedBottomSheet>
   );
 }
 
 const baseStyles = StyleSheet.create({
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   sheet: {
     position: 'absolute',
     left: 0, right: 0, bottom: 0,

@@ -357,6 +357,7 @@ const en = {
   weeklyResetsOnShort: (day: string) => `Resets ${day}`,
   clearCheckedItems: (n: number) => `Clear ${n} checked ${n === 1 ? 'item' : 'items'}`,
   itemAddedToList: (name: string) => `${name} added ✓`,
+  itemAddedToNamedList: (name: string, listName: string) => `${name} added to ${listName} ✓`,
   itemAddedToInventory: (name: string) => `${name} added to inventory ✓`,
   itemsAddedToList: (n: number) => `${n} items added ✓`,
   // Decision 022 drag-to-merge — transient toast after a same-name merge / dish-join drop
@@ -371,8 +372,6 @@ const en = {
   weeklyTabLabel: 'Week lists',
   monthlyTabLabel: 'Monthly list',
   // --- Katalog/Ukeliste redesign ---
-  stagingTrayHeader: (n: number) => `${n} marked for weekly list`,
-  confirmStagingBtn: (n: number) => `Add to weekly list (${n})`,
   inWeeklyListSection: 'Shopping list',
   purchasedThisMonthSection: 'Purchased this month',
   tripLabel: (date: string) => `Shopped ${date}`,
@@ -397,18 +396,10 @@ const en = {
   skipBtn: 'Skip',
   doneShoppingSuccessText: 'Nice work!',
   weeklyEmptyTitle: 'Nothing on the list yet',
-  weeklyEmptySubtitle: 'Mark items in the catalog to add them here',
-  addAlsoToCatalogToggle: 'Also add to catalog',
+  weeklyEmptySubtitle: 'Switch to Planning to add items',
   unsavedShoppingBanner: (n: number) => `Unsaved: ${n} list${n === 1 ? '' : 's'} still unlocked`,
   unsavedTasksSection: 'Unsaved',
   unsavedTasksBanner: (n: number) => `${n} task${n === 1 ? '' : 's'} with unsaved changes`,
-  // Weekly "+" source chooser (Katalog/Ukeliste redesign)
-  addSourceChooserTitle: 'Add item',
-  addFromInventoryOption: 'From inventory',
-  searchOrTypeOption: 'Search or type',
-  addSourceChooserInventoryEmpty: 'No matching items in your catalog.',
-  inventoryPickerTitle: 'Pick from inventory',
-  inventoryPickerSearchPlaceholder: 'Search catalog…',
   // Empty containers in shopping screen
   newWeeklyListTitle: 'Create a new list',
   startEmptyList: 'Start empty',
@@ -1476,6 +1467,7 @@ const no: typeof en = {
   weeklyResetsOnShort: (day: string) => `Nullstilles ${day}`,
   clearCheckedItems: (n: number) => `Fjern ${n} avkrysset${n === 1 ? '' : 'e'}`,
   itemAddedToList: (name: string) => `${name} lagt til ✓`,
+  itemAddedToNamedList: (name: string, listName: string) => `${name} lagt til i ${listName} ✓`,
   itemAddedToInventory: (name: string) => `${name} lagt til inventar ✓`,
   itemsAddedToList: (n: number) => `${n} varer lagt til ✓`,
   // Decision 022 drag-to-merge — transient toast after a same-name merge / dish-join drop
@@ -1490,8 +1482,6 @@ const no: typeof en = {
   weeklyTabLabel: 'Ukelister',
   monthlyTabLabel: 'Månedsliste',
   // --- Katalog/Ukeliste redesign ---
-  stagingTrayHeader: (n: number) => `${n} markert for ukeliste`,
-  confirmStagingBtn: (n: number) => `Legg til i ukeliste (${n})`,
   inWeeklyListSection: 'Handleliste',
   purchasedThisMonthSection: 'Kjøpt denne måneden',
   tripLabel: (date: string) => `Handlet ${date}`,
@@ -1516,18 +1506,10 @@ const no: typeof en = {
   skipBtn: 'Hopp over',
   doneShoppingSuccessText: 'Bra jobbet!',
   weeklyEmptyTitle: 'Ingenting på listen ennå',
-  weeklyEmptySubtitle: 'Merk varer i katalogen for å legge dem til',
-  addAlsoToCatalogToggle: 'Legg også til i katalog',
+  weeklyEmptySubtitle: 'Bytt til Planlegging for å legge til varer',
   unsavedShoppingBanner: (n: number) => `Ulagret: ${n} liste${n === 1 ? '' : 'r'} fortsatt ulåst`,
   unsavedTasksSection: 'Ulagret',
   unsavedTasksBanner: (n: number) => `${n} oppgave${n === 1 ? '' : 'r'} med ulagrede endringer`,
-  // Ukeliste "+"-kilde-velger (Katalog/Ukeliste-redesign)
-  addSourceChooserTitle: 'Legg til vare',
-  addFromInventoryOption: 'Fra inventar',
-  searchOrTypeOption: 'Søk eller skriv inn',
-  addSourceChooserInventoryEmpty: 'Ingen treff i katalogen din.',
-  inventoryPickerTitle: 'Velg fra inventar',
-  inventoryPickerSearchPlaceholder: 'Søk i katalog…',
   // Tomme beholdere i handlelisten
   newWeeklyListTitle: 'Lag en ny liste',
   startEmptyList: 'Start tom',

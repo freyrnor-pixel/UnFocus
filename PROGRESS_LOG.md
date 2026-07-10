@@ -4352,6 +4352,62 @@ touch-then-broadcast call pairs (flagged as low-severity, no realistic interrupt
 in synchronous single-threaded JS) were left as-is rather than wrapping every write in a
 transaction.
 
+## 2026-07-09 — Decision 042: PlanTaskCard rail geometry fix (row-owned segments)
+
+**Status: Complete.** `components/PlanTaskCard.tsx` only, per scope.
+
+**Precondition gates:** both verified before coding — Decision 042 present
+(Resolved, 2026-07-09) in REBUILD_DECISIONS.md; base branch carries the Decision 041
+pager migration (2026-07-05 PROGRESS_LOG entry present, `app/(tabs)/index.tsx` exists).
+
+**What changed:** the vertical rail's connector was previously drawn *inside* the
+preceding task row (`lineCol`'s `connector` view, sized purely from the proportional
+time-gap computation) with the row itself using `alignItems: 'flex-start'` — so a row
+taller than its nominal connector height (long title, hint under the "up" task, follower
+badge) pushed its own time-box/checkmark out of line with where the connector expected
+the next dot to be. Fixed per Decision 042(a) — **row-owned segments**:
+- Each task row (`renderRow`) is now `alignItems: 'stretch'`; its `lineCol` holds two
+  `flex:1` `railLine` segments (transparent or `theme.border`, depending on whether a
+  line should connect to a neighbor) surrounding the marker, so the marker centers
+  itself against the row's real content height by flexbox construction — no
+  measurement pass. `doneCol` (the checkmark toggle) got the same treatment
+  (`justifyContent: 'center'` under the stretched row instead of a fixed `paddingTop`).
+- The proportional time-gap between two rows is now a dedicated `renderSpacer` element
+  (own `minHeight` = the existing clamped `PX_PER_MIN` computation, unchanged) inserted
+  between rows, never squeezed inside one. The now-marker renders as that spacer's
+  `content` (previously an extra sibling row appended after the connector, silently
+  adding dangling space beyond the computed gap — now it lives inside the gap it
+  describes). The leading "Nothing until HH:MM" gap marker was already a self-contained,
+  correctly-positioned element with no preceding line to reconcile against, so it was
+  left unchanged.
+- Done-zone rows keep calling `renderRow` (still the vertical layout, per Decision
+  009a/009b) with `hasTopLine`/`hasBottomLine` both `false` — no rail line between
+  history rows, matching prior behavior (`showConnector: false`).
+
+**Both orientations:** horizontal (`renderColumn`) already used fixed-height columns
+(`H_RAIL_HEIGHT`/`H_CONTENT_HEIGHT`, not content-driven) and already rendered its
+connector (`hConnectorWrap`) as a sibling rather than embedded in the column — so it
+did not have the vertical rail's misalignment bug and did not need the row-owned
+restructure. Applied the same connector-extraction pattern for consistency
+(`renderHSpacer`, mirroring `renderSpacer`) and moved the horizontal now-marker inside
+the connector wrap (absolute-positioned overlay) instead of appending it as an extra
+sibling column that widened the gap beyond its computed proportional width. No
+conflict encountered — the row-owned-segment model applies cleanly to both; no STOP.
+
+**Header drift (ripple item):** checked whether `app/(tabs)/index.tsx` still described
+the Plans widget as routing through `DayTimeline` — it does not; its header already
+correctly names `PlanTaskCard` as the sole live mount, and `DayTimeline.tsx` does not
+exist in the repo. This was already accurate (resolved before this session, likely
+during the 2026-07-05 pager migration); no header edit was needed.
+
+**Verification:** `npx tsc --noEmit` — zero errors (confirmed runnable in this session's
+remote environment, despite AGENTS.md's "local-only" note). Both `renderRow`/
+`renderColumn` read-through against the Decision 042 scope list: collapse window
+(current+next+2), Done zone, rail tail (009b), 4px accent bar only (014), Decision 019
+hint display, Decision 020 follower badge + cross-date pull-in, `readOnly` semantics
+(009a — done-toggle/tap-through disabled only), 60s now-marker interval — all preserved,
+no store/schema/i18n changes, no new dependencies, Decision 006 tokens only (no raw hex).
+
 `npx tsc --noEmit` re-verified clean after all fixes.
 
 ## 2026-07-09 — Small known bugs sweep: mostly already resolved; dead i18n key removed
@@ -4466,3 +4522,87 @@ read-only reference.
 native-build gating, land this on `main` with `runtimeVersion` unchanged, then cut a new
 preview build so installs actually pick up the CSPRNG path (until then they silently use the
 Math.random fallback, which is safe but not the intended improvement).
+
+## 2026-07-09 — Decision 044a: shopping add-flow restructure
+
+**Status: Complete, with a scope correction found during implementation.** Precondition
+gates verified: Decision 044 (Resolved, 2026-07-09) with the 044a sub-section present in
+REBUILD_DECISIONS.md; base branch carries the Decision 041 pager migration and the
+2026-07-08 Shopping/Food redesign (`app/(tabs)/shopping.tsx` four-tab layout, FoodTab/
+CatalogueTab).
+
+**Scope correction (flagged to the user, confirmed before proceeding):** Decision 044's
+diagnosis assumed the weekly "+" opened `AddSourceChooser`. That was already stale —
+a 2026-07-06 redesign (`WeekListCard.tsx`, predating Decision 044) replaced it with an
+always-visible inline add row (text field + live catalog suggestions + qty stepper) and
+an inline "From monthly" search panel. `AddSourceChooser` and shopping.tsx's
+`addSourceChooserListId` state were verified unreachable — nothing in the repo ever set
+`addSourceChooserListId` to a real id, only reset it to null. User chose "clean up only":
+delete the dead component and its wiring rather than rebuild the already-working inline
+flow to match 044a's now-outdated wording (e.g. it explicitly asked for no qty stepper —
+left the working stepper in place since it isn't the thing that was actually broken).
+
+**What changed:**
+1. **Staging tray removed** (Monthly tab, `app/(tabs)/shopping.tsx`). `MonthlyTableRow`'s
+   checkbox (renamed prop `onTogglePending` → `onCheckboxPress`) now calls a new
+   `handleAddToWeeklyFromMonthly` handler that runs `addToWeeklyFromCatalog(item.id, 1,
+   focusedList.id)` immediately — no stage-then-confirm step. Falls back to
+   `t.noWeekListsYet` if no week list exists yet (same guard `handleAllocate` already
+   used). Deleted the tray card, its header/×-per-item/confirm button, and the Monthly
+   tab's count badge (sticky bar + tab pill) since `pendingRestock` is never set to true
+   by new code. Removed the now-fully-dead `confirmStagingTray` store action from
+   `useShoppingStore.ts` (type + implementation) — `setPendingRestock` stays, since
+   `app/inventory-edit.tsx` (an orphaned standalone Katalog screen, out of 044a's named
+   scope) still calls it for its own checkbox; that screen never had a tray to react to
+   the flag, so leaving its behavior untouched is harmless.
+2. **Undo affordance added to `ConfirmationBanner`** (Decision 044a's "undo in the
+   confirmation toast" requirement): new optional `actionLabel`/`onAction` props render
+   an inline "Undo" button beside the message, in its own `Pressable` so it doesn't
+   trigger the message's dismiss-on-tap. Fully backward compatible — the other four
+   callers (task-form, meals, settings, health-form) pass neither and are unaffected.
+   `app/(tabs)/shopping.tsx` now tracks `confirmMessage`/`confirmUndo` (split out of the
+   old single `confirm` string) behind a `setConfirm(message, undo?)` wrapper, so all ~15
+   pre-existing `setConfirm(...)` call sites needed no changes — only the JSX and the new
+   monthly-checkbox handler pass an `undo` callback (`() => putBackToInventory(item.id)`).
+3. **`AddSourceChooser.tsx` deleted**, along with `shopping.tsx`'s `addSourceChooserListId`
+   state and the dead weekly-origin path through `AddItemSheet`/`addItemTarget`. Simplified
+   `addItemTarget` (a two-variant union for catalog-vs-weekly targets) down to a single
+   `addToCatalogOpen: boolean`, since only the Monthly tab's `AddDivider` ever opened the
+   sheet. `AddItemSheet.tsx` lost its `origin` prop entirely (was `'catalog' | 'weekly'`,
+   now catalog-only) and the "Legg også til i katalog" toggle that only applied to the
+   dead weekly path; `temporary` now defaults to `false` unconditionally (previously
+   `origin !== 'catalog'`, which was already `false` for the only origin left).
+   `app/inventory-edit.tsx` (AddItemSheet's other caller) updated to match — dropped its
+   `origin="catalog"` prop and the now-unused `alsoAddToCatalog` field from its
+   `handleAddItem` signature.
+4. **Destination/quantity semantics** — verified already correct, no change needed: each
+   `WeekListCard`'s inline add row already targets its own `list.id` directly (no
+   list-picker step) and defaults qty to 1, with `adjustAmount` as the row-level
+   correction path.
+5. **i18n (both locales):** removed `stagingTrayHeader`, `confirmStagingBtn`,
+   `addSourceChooserTitle`, `addFromInventoryOption`, `searchOrTypeOption`,
+   `inventoryPickerTitle`, `inventoryPickerSearchPlaceholder`,
+   `addSourceChooserInventoryEmpty`, `addAlsoToCatalogToggle` (all had zero remaining
+   callers after the above). Rewrote `weeklyEmptySubtitle` from "Mark items in the
+   catalog to add them here" (described the removed tray) to "Switch to Planning to add
+   items" (matches the current locked/unlocked mode toggle). Added
+   `itemAddedToNamedList(name, listName)` for the new monthly-checkbox toast (Decision
+   044a bullet 3: "destination... named in the toast"). Audited the shopping HintCard
+   copy (`hints.shopping.text`) — it never referenced the tray, no change needed. Kept
+   `itemAddedToList`/`itemsAddedToList`/undo strings (`undoBtn`, pre-existing and
+   previously unused, now wired into the new banner action).
+
+**Store/header updates:** `useShoppingStore.ts`'s top-of-file doc and its LAN-sync edit
+note updated to drop the "staging tray"/`confirmStagingTray` framing; `pendingRestock`'s
+type comment already called it vestigial-adjacent, left as-is. `shopping.tsx`,
+`MonthlyTableRow.tsx`, `AddItemSheet.tsx`, `ConfirmationBanner.tsx` headers updated in the
+same edits that changed their imports/props, per the repo's own token-policy convention.
+
+**Not touched:** Decision 011 R1/R2 gesture surfaces, `putBackToInventory` semantics
+(reused, not changed), `fromCatalog` attribution, doneShopping/receipt flow, Unallocated
+bucket, monthly reset. `app/inventory-edit.tsx` beyond the two compile-compat edits above
+(orphaned screen, no in-app entry point, out of scope).
+
+`npx tsc --noEmit` — zero errors.
+
+Blocks Decision 044b (same files) per Decision 044's own sequencing note.

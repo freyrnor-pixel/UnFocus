@@ -2417,3 +2417,194 @@ the merge-gating rationale (needs Decision 040's new build + a `runtimeVersion` 
 **Not changed:** `SITE_ITEMS` (still the single source of nav order/icons/routes), the
 5-site set itself (Decision 036), or any individual site screen's content/behavior beyond
 the `bottomNav={false}` prop and (scan only) the swipe-disable guard.
+
+---
+
+## Decision 042 — Day-view rail geometry: row-owned segments (fixes "line and circles are off")
+
+**Status:** Resolved (planning thread, 2026-07-09)
+**Phase:** Visual-fix pass, session 1 of 5. OTA-safe (JS only).
+
+### Problem
+`components/PlanTaskCard.tsx`'s vertical rail renders three parallel columns — time boxes
+(left), task content (middle), checkmark circles (right) — that must share per-row vertical
+centers. Row content height is variable (hint under the "up" task per Decision 019, "Then"
+follower chips per Decision 020, title wrapping, font scaling), but the proportional
+connector heights between rows are computed purely from time gaps (`PX_PER_MIN`, clamped
+`MIN_GAP`…`MAX_GAP`) with no reconciliation against actual row heights. Tall rows push their
+own dot/circle out of line with the connector sized for a nominal row. User-confirmed on
+device: the Home preview (readOnly mount) shows misaligned line and circles.
+
+### Decision
+**Option (a) — row-owned rail segments.** Each task row becomes a single flex row that
+*contains* its own rail elements: the time box, a line segment above and below the dot drawn
+within the row's own bounds, and the check circle — all vertically centered against the row's
+real content by construction. Proportional time gaps become dedicated spacer rows (pure
+connector segments, height = the existing clamped gap computation) inserted between task
+rows. The now-marker and gap-marker ("Nothing until HH:MM") render inside these spacer rows.
+
+Rejected: (b) measured overlay (onLayout-measure rows, absolutely position a continuous
+line + dots) — pixel-exact but adds a measure→render pass, flickers on font-scale change,
+fragile under the horizontal orientation.
+
+### Constraints
+- Applies to **both** orientations (`horizontal` prop / "Horizontal plans timeline"
+  accessibility toggle). Shared computations (collapse window, proportional gaps, follower
+  surfacing, tail per 009b) stay shared; only `renderRow`/`renderColumn` restructure.
+- All existing behavior contracts unchanged: 009/009a (one component, Home readOnly mount),
+  009b (rail tail), 014 (4px accent bar only), 019 (hint), 020 (follower surfacing).
+- No new i18n keys, no store changes.
+
+### Ripple (same session)
+`app/(tabs)/index.tsx`'s header still describes the Plans widget as "3-item preview via
+DayTimeline"; `PlanTaskCard.tsx` records Home as its sole caller post-2026-07-08. Verify
+which is true in code and fix the stale header (AGENTS.md "update as you go").
+
+---
+
+## Decision 043 — Sectioning & depth grammar (ND-readability pass)
+
+**Status:** Resolved (planning thread, 2026-07-09)
+**Phase:** Visual-fix pass, sessions 4–5 (after Decision 042's session merges — both touch
+what Home mounts). OTA-safe. Works entirely *within* Decisions 006/008 — no token, Surface,
+or ScreenBackground changes.
+
+### Decision — four recorded rules, applied everywhere
+1. **One glass level per screen region.** Never Surface-inside-Surface. Inner grouping uses
+   spacing + hairline dividers (`theme.border`-family token), not a second material.
+2. **Fixed section-header anatomy:** title (`Fonts.semibold`, `FontSize.lg`) + optional
+   right-aligned link; `Spacing.xl` above, `Spacing.sm` below. Applies to every section on
+   every site screen.
+3. **Accent bars are the only per-feature color on cards** (extends Decision 014's contract
+   app-wide): `featPlan`/`featShop`/etc. tint the 4px left bar only, never card
+   body/border/sheen.
+4. **Empty/hide rules recorded per section.** Always-render-header: Plans, Shopping, Notes
+   previews. Hide-entirely-when-empty: Backlog, Inbox, SharedRequests. No other pattern;
+   any new section must be assigned to one of the two.
+
+### Packaging
+- **Session 043·1 — Home** (`app/(tabs)/index.tsx` + its preview card components' *usage*,
+  not internals). Runs after Decision 042's session merges.
+- **Session 043·2 — sweep** (Plans, Health, Scan, Settings, and the shopping screen's
+  non-044 chrome) against the same four rules. Runs after 043·1 and 044a/044b merge (044
+  owns shopping's interaction surfaces; 043·2 only harmonizes headers/spacing there).
+
+---
+
+## Decision 044 — Shopping add-flow restructure + added-item feedback
+
+**Status:** Resolved (maintainer answered the gate 2026-07-09: Q1 = (b) restructure —
+"tested as-is, confusing to add items". Q2 trace, recorded verbatim as origin: "Add from
+monthly just pops up, no animation, no visual cues what was added and is new, no animation
+there either.")
+**Phase:** Visual-fix pass, sessions 2 (044a) and 3 (044b, sequential — same files).
+OTA-safe: no schema change, no native modules.
+
+### Diagnosis (from code, against the trace)
+Two compounding layers on `app/(tabs)/shopping.tsx`:
+1. **Too many decision points to add an item.** Weekly "+" → AddSourceChooser (choose
+   source) → inventory picker (select + qty per item) → sticky Save; OR Monthly tab →
+   flag `pendingRestock` (staging tray) → separate confirm button. Four add surfaces exist
+   (AddSourceChooser two-step, AddItemSheet, Food-tab dish "+", AddDishSheet).
+2. **Results are invisible.** AddSourceChooser's inventory step is a bare
+   `animationType="fade"` modal (no mount/exit animation, unlike AddItemSheet's
+   scale+fade+exit pattern); committed items materialize in the destination list with only
+   a text toast — no insertion animation, no new-row highlight, no cross-tab cue.
+
+### Decision 044a — flow restructure
+1. **Staging tray removed.** In the Monthly tab, the per-item add control moves the item to
+   the weekly list **immediately** (status → `inWeeklyList`), with an undo affordance in the
+   confirmation toast. `pendingRestock` becomes vestigial (kept in type/DB like `'staged'`
+   — no schema drop, per standing constraint; no migration needed). The tray header,
+   confirm button, and the Monthly tab's pendingRestock badge are removed.
+2. **AddSourceChooser retired.** The weekly "+" opens **one** unified add sheet: a single
+   search field querying the catalog/inventory live (reuse `useCatalogStore.suggest()` +
+   the AddItemSheet autocomplete pattern); a matched inventory item is one-tap-added;
+   unmatched free text creates a new item (keeping the "also add to catalog" toggle).
+   `AddSourceChooser.tsx` is deleted; `AddItemSheet` is extended or a successor built on
+   its mount/exit-animation pattern — one modal pattern for all add surfaces.
+3. **Destination = the focused list** (the one the Decision 017 sticky bar tracks), named
+   in the toast, undoable. No "which list?" prompt. Cross-list moves stay a row-level
+   action afterwards. ★ default, maintainer may veto before handoff 02 runs.
+4. **Quantity defaults to 1** on one-tap adds; adjusted on the row afterwards
+   (`adjustAmount` already exists). The per-item qty stepper inside the picker goes away
+   with the picker. ★ default.
+5. **Tabs unchanged** — still Weekly · Monthly · Food · Catalogue. Tab consolidation is
+   explicitly out of scope here (see reserved Decision 045).
+
+**i18n ripple (both locales):** retire `stagingTrayHeader`, `confirmStagingBtn`,
+`addSourceChooserTitle`, `addFromInventoryOption`, `searchOrTypeOption`,
+`inventoryPickerTitle`, `inventoryPickerSearchPlaceholder`,
+`addSourceChooserInventoryEmpty` (remove keys once no caller remains); update
+`weeklyEmptySubtitle` ("Mark items in the catalog to add them here" describes the removed
+tray flow); audit shopping HintCard copy for tray references. Keep
+`itemAddedToList`/`itemsAddedToList`/undo strings.
+
+**Not touched:** Decision 011 R1/R2 gesture surfaces (drag reorder, swipe/put-back
+branching), `putBackToInventory` semantics, `fromCatalog` attribution, doneShopping/receipt
+flow, Unallocated bucket, monthly reset.
+
+### Decision 044b — added-item feedback & motion (after 044a, same files)
+1. **New-row entrance:** newly added rows animate in (Reanimated entering, e.g.
+   FadeInDown + Layout) and carry a temporary highlight (`accentSoft`-family tint pulsing
+   out over ~1.5–2s). Track recently-added ids + timestamps in screen state.
+2. **Cross-tab cue:** adds targeting another tab (Monthly→Weekly, Food→Weekly) do NOT yank
+   the user to the destination; the Weekly tab label gets a badge tick/pulse and the toast
+   names the destination list. Highlights persist so the rows still read as new when the
+   user switches tabs.
+3. **Unified modal motion:** every add/edit sheet on the shopping screen uses the
+   AddItemSheet/AppModal mounted-state + exit-animation pattern — nothing "just pops."
+4. **Section moves animate:** list → cart (`toggleCheck`) and undo transitions use layout
+   animation so items visibly travel rather than teleport.
+5. **All motion respects the reduced-motion setting** and follows `ANIMATION_GUIDELINES.md`
+   (durations/easings from that doc, not invented).
+
+### Blocks / unblocks
+044a blocks 044b (same files). 044a+044b block Session 043·2's shopping pass. Independent
+of Decision 042.
+
+### Implementation (2026-07-09) — both 044a and 044b complete
+
+**044a** shipped as planned, with the scope correction the session flagged and the user
+confirmed before proceeding: the diagnosis's "AddSourceChooser" step was already stale — a
+2026-07-06 redesign (`WeekListCard.tsx`'s inline add row) had superseded it and left it
+dead code (`addSourceChooserListId` was set nowhere in the repo). Rather than rebuild the
+already-working inline flow to match 044a's now-outdated wording, the session deleted the
+dead component/wiring and left the working inline add row + qty stepper in place. Monthly's
+staging tray removal, the undo-toast affordance, and the i18n retirements all landed as
+specified. See PROGRESS_LOG's "Decision 044a" entry for the full file-by-file breakdown.
+
+**044b** shipped against the same four points, with two implementation choices worth
+recording since they differ from the plan's exact wording:
+1. **New-row entrance + highlight** — tracked in `useShoppingStore`'s `recentlyAddedIds`
+   (an ephemeral, non-persisted map keyed by id, self-clearing after ~1.8s) rather than
+   screen-local state as originally sketched. `add()`/`addToWeeklyFromCatalog()` mark ids
+   automatically, so Food tab's direct `add()` calls (pushing dish ingredients into the
+   weekly Unallocated bucket) get entrance/highlight treatment for free, with no wiring
+   inside `FoodTab.tsx` itself. `components/ShoppingRow.tsx` reads the map directly and
+   plays `FadeInDown` + the existing Decision 021 highlight glow on mount.
+2. **Cross-tab cue** — a small checkmark badge (not a numeric pulse) pops onto the Weekly
+   tab label via the same store map, filtered to `status === 'inWeeklyList'` items, and
+   only while the user isn't already on the Weekly tab; it clears itself both on tab switch
+   and via the map's own TTL, so no separate effect/timer was needed in `shopping.tsx`.
+3. **Unified modal motion** — `ListSettingsSheet`, `SavedListsModal`,
+   `MonthlyResetSummaryModal`, and `UpdateSheet` all used a raw
+   `<Modal transparent animationType="slide">`, and since every caller nulls its "which
+   item" state in the same update that flips `visible` false, React unmounted the whole
+   subtree before the native close transition ever ran — opens animated, closes didn't.
+   Fixed by extracting a shared `components/AnimatedBottomSheet.tsx` (the AddItemSheet/
+   AppModal mounted-state + timed-exit pattern, generalized) and switching all four sheets
+   to it; the three with a nullable data prop (`list`/`summary`/`item`) each cache the last
+   non-null value locally so their content survives the exit animation after the parent
+   nulls the prop.
+4. **Section moves** — true shared-element "travel" across sections (list → cart is a
+   different JSX block, so a real move is actually an unmount+remount) was judged too heavy
+   for an OTA-safe JS-only pass. Approximated instead with `exiting={FadeOut}` +
+   `layout={LinearTransition}` on every `ShoppingRow`, so removals fade and sibling rows
+   resettle smoothly rather than teleporting — a real improvement on "just pops," short of
+   a full shared-element transition.
+
+All motion reads `useAccessibility().reducedMotion` per point 5. `npx tsc --noEmit` — zero
+errors. The Decision 045 stub (Monthly/Catalogue tab consolidation) stays out of scope and
+unopened by this session, exactly as reserved — it isn't recorded as its own decision
+number here since nothing was decided about it.
