@@ -10,7 +10,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HomeNotesCard,
- *             components/HomeSharedCard, components/HomeShoppingCard, components/AddFAB,
+ *             components/HomeSharedCard, components/HomeShoppingCard,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, store/useTaskStore, store/useNotesStore, store/useSharedStore,
  *             store/useShoppingStore, store/useShoppingListStore, store/useSettingsStore
@@ -30,7 +30,7 @@
  *     the settings toggle (previously inert) and the header eye are ONE feature: a saved default
  *     plus a live session toggle, not two unrelated things that happened to share the name "Focus".
  *     The header eye toggles it (props threaded through ScreenScaffold → ScreenHeader).
- *     ON: hides the Notes + Shopping previews + points + FAB (no input affordances), leaving only
+ *     ON: hides the Notes + Shopping previews + points (no input affordances), leaving only
  *     the Plans surface filtered to `importance === 'essential'` (Decision 018 — the two-value
  *     `importance` field IS the intensity model; no energy path). The done-toggle stays live in
  *     focus (completing a task is "doing the thing", not input), so PlanTaskCard is mounted
@@ -62,7 +62,6 @@ import PlanTaskCard from '@/components/PlanTaskCard';
 import HomeNotesCard from '@/components/HomeNotesCard';
 import HomeSharedCard from '@/components/HomeSharedCard';
 import HomeShoppingCard from '@/components/HomeShoppingCard';
-import AddFAB from '@/components/AddFAB';
 import HintCard from '@/components/HintCard';
 import { goToSite } from '@/lib/siteNav';
 import { todayStr } from '@/lib/date';
@@ -240,9 +239,6 @@ export default function HomeScreen() {
           )}
         </View>
       </ScreenScaffold>
-
-      {/* Add a task — a Home input affordance, so hidden in Focus mode (Decision 009 #4). */}
-      {!focusMode && <AddFAB onPress={() => router.push('/task-form')} accessibilityLabel={t.newTask} />}
     </>
   );
 }

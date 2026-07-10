@@ -11,7 +11,7 @@
  *   Imports → constants/theme, lib/useAppTheme, lib/i18n, components/BottomNav (BOTTOM_NAV_HEIGHT)
  *   Used by → app/health-log.tsx (symptom log FAB), app/(tabs)/health.tsx (embedded Habits
  *             section's inline "sm" add — the former app/habits.tsx's own AddFAB),
- *             app/(tabs)/index.tsx, app/automations.tsx,
+ *             app/automations.tsx,
  *             app/inventory-edit.tsx; also components/VoiceNoteFAB.tsx (FAB_LG_SIZE/FAB_DEFAULT_BOTTOM
  *             constants only, not the component itself — app/notes.tsx dropped AddFAB in favour of
  *             VoiceNoteFAB, see that file's header).
