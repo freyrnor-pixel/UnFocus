@@ -249,10 +249,10 @@ export default function HomeScreen() {
 
 const baseStyles = StyleSheet.create({
   blank: { flex: 1 },
-  content: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md },
-  header: { marginBottom: Spacing.lg },
+  content: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.xl },
+  header: { marginBottom: 0 },
   greeting: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold },
   dateLabel: { fontSize: FontSize.sm, marginTop: Spacing.xs, textTransform: 'capitalize', fontFamily: Fonts.regular },
-  section: { marginBottom: Spacing.lg },
+  section: { marginTop: Spacing.xl },
   pointsText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },
 });
