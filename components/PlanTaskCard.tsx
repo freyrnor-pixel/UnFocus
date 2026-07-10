@@ -696,7 +696,7 @@ const baseStyles = StyleSheet.create({
   headerRowPressable: { marginBottom: Spacing.sm },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   progressBar: { marginTop: Spacing.xs },
-  headerTitle: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  headerTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
 });

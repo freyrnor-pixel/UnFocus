@@ -5,7 +5,8 @@
  * preview of the first COLLAPSED_COUNT active notes, with a footer toggle to reveal
  * the rest. Inline checkbox taps mark notes checked/unchecked; a "+" header action
  * creates a blank note and routes to /notes; a "See all →" footer link opens the full
- * Notes screen. Renders nothing when the notes list is empty.
+ * Notes screen. Shows an empty-state message inline when the notes list is empty
+ * (always-render-header per Decision 043 rule 4) — it does not render nothing/null.
  *
  * Connections:
  *   Imports → components/Surface, constants/theme, lib/haptics, lib/i18n, lib/useAppTheme,
@@ -184,7 +185,7 @@ const baseStyles = StyleSheet.create({
   cardContent: { flex: 1, padding: Spacing.md },
   titleRowPressable: { marginBottom: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  title: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  title: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   rowsContainer: { borderRadius: Radius.sm, borderWidth: 1, padding: Spacing.sm, marginBottom: Spacing.sm },

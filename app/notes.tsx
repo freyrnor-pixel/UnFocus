@@ -128,9 +128,11 @@ export default function NotesScreen() {
 }
 
 const baseStyles = StyleSheet.create({
-  content: { padding: Spacing.md, gap: Spacing.sm },
-  section: { gap: Spacing.sm },
-  sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  content: { padding: Spacing.md },
+  // Decision 043 rule 2: Spacing.xl above every section; Spacing.sm below the header
+  // comes from this same gap (header + note rows are the section's only two "slots").
+  section: { gap: Spacing.sm, marginTop: Spacing.xl },
+  sectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   divider: { height: 2, borderRadius: 999, marginVertical: Spacing.md },
   emptyText: { fontSize: FontSize.sm, fontFamily: Fonts.regular, textAlign: 'center', marginTop: Spacing.xl },
 });

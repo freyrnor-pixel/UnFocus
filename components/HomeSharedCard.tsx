@@ -131,7 +131,7 @@ const baseStyles = StyleSheet.create({
   accent: { width: 4, alignSelf: 'stretch', borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
   cardContent: { flex: 1, padding: Spacing.md },
   titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm, gap: Spacing.sm },
-  title: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  title: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   titleRight: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: Spacing.md },

@@ -231,7 +231,7 @@ const baseStyles = StyleSheet.create({
   titleRowPressable: { marginBottom: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   progressBar: { marginTop: Spacing.xs },
-  title: { fontSize: FontSize.md, fontFamily: Fonts.semibold, flexShrink: 1 },
+  title: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, flexShrink: 1 },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   rowsContainer: { borderRadius: Radius.sm, borderWidth: 1, padding: Spacing.sm, marginBottom: Spacing.sm },

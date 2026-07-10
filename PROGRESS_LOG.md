@@ -4757,4 +4757,133 @@ No unassigned sections found. No STOP triggered.
 
 ---
 
+## 2026-07-10 — Decision 043·2: Sectioning & depth grammar, sweep (closes the visual-fix pass)
+
+**Status: Complete.** This session ran the four Decision 043 grammar rules over the
+remaining screens (Plans, Health, Scan, Settings, Shopping's section chrome, plus Notes as a
+trivial add). **This closes the visual-fix pass** started at Decision 042.
+
+**Precondition gates — all verified:** Decision 043 (four rules) present in
+REBUILD_DECISIONS.md; PROGRESS_LOG has completion entries for 042, 044a, 044b, and 043·1
+(including 043·1's list of component-internal violations, used as direct input below).
+
+### Component-internal violations flagged by 043·1 — all resolved
+
+- **`ExpandableCard.tsx` Surface-inside-Surface** (nested inside `HomeShoppingCard`,
+  `WeekListCard`, and shopping.tsx's Monthly catalog card — all three of its call sites
+  turned out to already sit inside an outer Surface, not just the flagged Home case):
+  removed its own `<Surface surfaceContext="ambient">` card face entirely; the row is now a
+  plain `View` with a hairline top divider (`theme.border`) for inner grouping, per rule 1's
+  "spacing + hairline dividers, not a second material." `accentColor` still tints the left
+  accent bar only. This also incidentally cleared a second, previously-unflagged
+  Surface-in-Surface in shopping.tsx's Monthly tab (its `ExpandableCard` dish groups sit
+  inside `catalogCard`'s own Surface) — no separate fix needed there once the shared
+  component changed.
+- **`FontSize.md` → `FontSize.lg` on section-header titles**: fixed in `HomeNotesCard.tsx`,
+  `HomeShoppingCard.tsx`, `HomeSharedCard.tsx` (all `styles.title`), and `PlanTaskCard.tsx`
+  (`styles.headerTitle`). `PlanTaskCard`'s header `marginBottom: Spacing.sm` was already
+  correct — verified, not changed.
+- **Rule 3 badge-background note** (043·1 asked 043·2 to confirm scope): the
+  `rgba(theme.featXxx, 0.16)` count-badge backgrounds in `HomeNotesCard`/`HomeShoppingCard`/
+  `PlanTaskCard` headers are content elements (pills), not card body/border/sheen — confirmed
+  in-scope of Rule 3's intent, left unchanged.
+- **`HomeNotesCard.tsx` stale header comment** ("Renders nothing when the notes list is
+  empty") corrected to describe the actual always-render + empty-state behaviour.
+
+### Per-screen rule application
+
+**`app/(tabs)/plans.tsx`** — `sectionHeader()` helper rewritten: title now
+`Fonts.semibold`/`FontSize.lg` (was `FontSize.xs` bold-uppercase-caps with a colored rule
+bar — both dropped, not part of the fixed anatomy). Added a `bare` param so the Today tab's
+`todayCard` (which already provides an opaque background) doesn't get a redundant nested
+pill. Spacing: `styles.content`'s blanket `gap` removed in favor of `styles.section {
+marginTop: Spacing.xl }`; header's own `marginBottom: Spacing.sm` (non-bare) or the caller's
+own card gap (bare, todayCard) supplies the below-spacing so neither doubles up. Rule 3: no
+card body/border tinting found (no Surface calls in this screen). Rule 4: `SharedRequestsSection`
+confirmed self-hiding (`if (pending.length === 0) return null`); the screen's own tab-internal
+sections (Shared out/Whenever/Recurring/day groups) aren't part of Decision 043's named list
+(that list is Home's Plans/Shopping/Notes/Backlog/Inbox/SharedRequests) — their
+always-render-with-empty-placeholder behaviour predates this pass (2026-07-09) and was left
+as-is, not re-litigated. No STOP.
+
+**`app/(tabs)/health.tsx`** — `sectionLabel` ("This week" / "Habits" titles):
+`FontSize.md`→`lg`, `marginBottom` `Spacing.xs`→`sm`. Spacing: `overviewCardRow` and
+`habitsSection` both got `marginTop: Spacing.xl`; `content`'s blanket `gap` removed. **Rule 3
+fix on `HabitCard`** (closes Decision 014's own downstream to-do for this exact file): the
+card used to hand-roll `borderLeftWidth`/`borderLeftColor` for progress state AND recolor the
+whole card body (`backgroundColor: doneFill`) when done. Restructured into a
+Surface-independent but Rule-3-compliant row: a 4px `habitAccent` bar carries all progress/
+done coloring (`barColor` — `accent` when done, else the existing `progressColor()`); the
+card body stays `theme.surface` unconditionally. The existing `donePill`/checkmark icon/
+`ProgressDots`/`StreakBadge` already carry the "done" signal, so nothing was lost. Removed the
+now-unused `doneFill` local. Rule 4: no Home-named sections present; no STOP.
+
+**`app/(tabs)/scan.tsx`** — reviewed against all four rules; **no changes made**. No Surface
+nesting; no repeated section-header pattern (its "STORE" label is a form-field caption, not a
+card-level section title, so Rule 2's anatomy doesn't apply); its `featBudget`/`goodSoft`
+colors sit on pills/buttons, not card body/border/sheen; no Home-named sections. Already
+compliant.
+
+**`app/settings.tsx`** — unified the two pre-existing header styles (`tabSectionLabel`,
+previously `FontSize.xs` bold-uppercase-caps, and `sectionTitle`, previously
+`FontSize.lg`/`Fonts.bold`) to the fixed anatomy: both now `FontSize.lg`/`Fonts.semibold`,
+letting every section on every tab (Generelt/Handle/Varsler/Moduser) read consistently.
+Removed `tabSectionLabel`'s own `marginBottom` (the shared `section` wrapper's
+`gap: Spacing.sm` already supplies the below-spacing, so it no longer doubles up).
+`content`'s blanket gap bumped `Spacing.lg`→`Spacing.xl` for the above-spacing (uniform across
+this screen's many stacked sections rather than per-section edits). `groupHeader` ("DATA",
+`FontSize.xl`, `theme.bad`) left untouched — it's a super-section/danger-zone divider above
+several sections, not a section header itself. Rule 3: no `featXxx` tokens used anywhere in
+this screen (verified by grep) — no violations. Rule 4: no Home-named sections; tab structure
+and toggle behavior untouched, per the session brief. No STOP.
+
+**`app/(tabs)/shopping.tsx` — section chrome only** (044a/044b's interaction/motion/tab/flow
+surfaces untouched): 
+- Rule 1 fix: the Monthly tab's "Purchased this month" per-trip expanded row used
+  `<Surface style={styles.rowsCard}>` **nested inside** the tab's own outer `catalogCard`
+  Surface — genuine Surface-in-Surface, inconsistent with every sibling `rowsCard` usage
+  elsewhere in the same file (which are all plain `View`s). Converted to match: plain `View`
+  + `theme.surface` fill.
+- Rule 3 fix: the Weekly tab's "Unallocated" card passed `tint={theme.featMeal}` to `Surface`,
+  recoloring the entire card material (fill/sheen) with a feature hue — exactly what Rule 3
+  (and Decision 014's tint contract) forbids. Restructured into the same accent-bar-row
+  pattern used elsewhere (`unallocatedAccent`, 4px, `featMeal`) with the existing content
+  moved into a padded `unallocatedContent` wrapper; `unallocatedTitle` also bumped
+  `Fonts.bold`→`semibold` to match the anatomy.
+- Rule 2 fix: Monthly tab's "Monthly list" section header dropped its `sectionHeaderRow`
+  pill + colored rule bar (not part of the fixed anatomy) down to a bare
+  `Fonts.semibold`/`FontSize.lg` title, matching "Purchased this month"'s already-bare
+  pattern for free. `catalogTitle` (the tab's own card title) bumped `Fonts.bold`→`semibold`.
+  `bodyGap` (space between the Monthly tab's two named sections) bumped
+  `Spacing.md`→`Spacing.xl`; `section`'s internal gap bumped `Spacing.xs`→`Spacing.sm` for
+  the below-header spacing. The per-trip disclosure toggle (`sectionHeaderRow`, a repeatable
+  foldout control, not a page-level section header) was deliberately left alone.
+- Rule 4: `SharedRequestsSection` confirmed self-hiding; no other Home-named sections present.
+  No STOP.
+
+**`app/notes.tsx`** (secondary screen, trivially in reach) — same Rule 2 treatment: `section`
+now carries `marginTop: Spacing.xl`; `sectionLabel` (Active/Checked headers) bumped
+`FontSize.xs` bold-uppercase-caps → `FontSize.lg`/`Fonts.semibold`; `content`'s blanket gap
+removed (HintCard/empty-state already carry their own margins).
+
+**Deferred, not forced in**: `app/budget.tsx` (298 lines), `app/shared.tsx` (276 lines),
+`app/automations.tsx` (265 lines) — none were trivially in reach within this session's
+remaining scope; listed here as remaining for a future pass rather than rushed.
+
+### Verification
+
+- `npx tsc --noEmit` — clean, zero errors (confirms zero net-new TypeScript errors across
+  every file touched).
+- No `Surface.tsx` edits. No new dependencies. No store changes. All strings already existed
+  via `useT()` — no new i18n keys needed (no copy changed, only chrome/typography/spacing).
+- Behavior freeze respected: no navigation, data, ordering, lock, interaction, or motion
+  changes anywhere; `PlanTaskCard.tsx` internals (beyond the flagged `headerTitle` font size)
+  untouched; Settings' tab structure and toggle behavior unchanged; shopping.tsx's add
+  sheet/toasts/animations/tab structure/flow logic untouched (044a/044b own those).
+
+**This closes the visual-fix pass** (Decisions 042 → 044a/044b → 043·1 → 043·2). No STOP was
+encountered in this session.
+
+---
+
 **Behavior preserved:** no navigation, data, ordering, Focus-mode, store, or interaction changes. Greeting styling unchanged (FontSize.xxl / Fonts.semibold as recorded). `PlanTaskCard.tsx` internals not touched. Zero new TypeScript errors expected (style-only change). No new dependencies; no Surface.tsx edits; all strings via `useT()` (no new strings).
