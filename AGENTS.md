@@ -149,6 +149,13 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 - Runs `npx expo prebuild` + a local `./gradlew assembleDebug` on the runner — this is a debug-signed APK, downloadable from the **GitHub Actions run's Artifacts** (not expo.dev; this workflow never calls EAS Build). For a real signed release build, see "Production release" below.
 - Takes ~20–30 min on CI
 
+### iOS preview build (EAS)
+- Workflow: `.github/workflows/eas-build-ios.yml` — **manual trigger only** (`workflow_dispatch`), mirrors `eas-build-android.yml` but runs `eas build --platform ios --profile preview` (the `preview` profile in `eas.json` now has an `ios` block, `simulator: false`, alongside the existing `android` one).
+- **One-time prerequisite, maintainer-run**: Apple Developer Program membership + `eas credentials -p ios --profile preview` (interactive, not from an agent session) to generate/attach the distribution certificate and provisioning profile. Without this the workflow fails at the EAS Build step.
+- Produces an internal-distribution `.ipa` on expo.dev, installable via EAS's ad-hoc/TestFlight-less internal distribution (register the test device UDID with EAS first — ad-hoc provisioning, same as Android's APK-via-link but Apple requires the device to be pre-registered).
+- Same OTA/runtime rules as Android: this profile targets the `preview` channel and whatever `runtimeVersion` is in `app.json` at build time.
+- iOS home-screen widgets are **not yet implemented** — `@bacons/apple-targets` is installed and registered as a plugin, and the `group.com.freyrnorpixel.unfocus` App Group entitlement is declared (Decision Q3, `REBUILD_DECISIONS.md`), but no actual WidgetKit/SwiftUI target exists yet. That's scaffolding only; building the real widget UI is a separate, larger task requiring Xcode to verify.
+
 ### Production release (Play Store AAB)
 - This is a managed Expo project — there is no checked-in `android/` folder and no hand-edited Gradle signing config. Release signing and building is handled entirely by **EAS Build**, via `eas.json`'s `production` profile (`buildType: app-bundle`, `distribution: store`, `autoIncrement: true`).
 - **Upload keystore (one-time, Play App Signing)**: run interactively from your own Expo account session, not from an agent session — `eas credentials -p android --profile production` → "Set up a new keystore" → let EAS generate and store it. Google holds the actual app signing key (Play App Signing); this upload key can be re-issued by Google's account-recovery process if lost.
