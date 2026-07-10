@@ -183,11 +183,19 @@ export default function TasksScreen() {
     [addTask, addStep]
   );
 
-  function sectionHeader(label: string, color: string) {
+  // Decision 043 rule 2 fixed anatomy: Fonts.semibold/FontSize.lg title, Spacing.xl above
+  // (styles.section's marginTop) / Spacing.sm below (sectionHeaderRow's marginBottom).
+  // `bare` skips the legibility pill when the caller already sits on an opaque card
+  // (Today tab's todayCard) — two overlapping flat-color backgrounds would be redundant.
+  function sectionHeader(label: string, color: string, bare = false) {
     return (
-      <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
+      <View
+        style={[
+          styles.sectionHeaderRow,
+          !bare && { backgroundColor: theme.surfaceMuted, marginBottom: Spacing.sm },
+        ]}
+      >
         <Text style={[styles.sectionLabel, { color }]}>{label}</Text>
-        <View style={[styles.sectionRule, { backgroundColor: color }]} />
       </View>
     );
   }
@@ -299,7 +307,7 @@ export default function TasksScreen() {
         {tab === 'today' && (
           <>
             <View style={[styles.todayCard, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-              {sectionHeader(t.tasksTabToday, theme.accent)}
+              {sectionHeader(t.tasksTabToday, theme.accent, true)}
               {todayList.length === 0 ? (
                 <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.noPlansToday}</Text>
               ) : (
@@ -364,7 +372,7 @@ export default function TasksScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: Spacing.md, gap: Spacing.md },
+  content: { padding: Spacing.md, paddingBottom: Spacing.xl },
   stickyBar: { flex: 1, paddingHorizontal: Spacing.md, justifyContent: 'center' },
   tabsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   tab: {
@@ -376,17 +384,20 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  section: { gap: Spacing.xs },
-  // Card behind the label + rule so section dividers stay legible over busy backgrounds.
+  // Decision 043 rule 2: Spacing.xl above every section; below-header spacing comes from
+  // sectionHeader()'s own marginBottom (non-bare) or the caller's card gap (bare), so this
+  // wrapper carries no gap of its own (avoids doubling up with either).
+  section: { marginTop: Spacing.xl },
+  // Card behind the label so it stays legible over the busy background (skipped via
+  // `bare` when the caller already provides an opaque card, e.g. todayCard).
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: Radius.sm },
-  sectionRule: { flex: 1, height: 2, borderRadius: Radius.full, opacity: 0.4 },
-  sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm },
   cardStack: { gap: Spacing.sm },
   // 2/3 the height of shopping.tsx's styles.newListCard (padding only — same border/radius/
   // font sizes) — intentionally diverges from the old byte-for-byte match per the "New task"
   // card resize; keep shopping's newListCard untouched.
-  newTaskCard: { borderWidth: 1, borderStyle: 'dashed', borderRadius: Radius.lg, paddingVertical: Spacing.sm, alignItems: 'center', gap: 4 },
+  newTaskCard: { borderWidth: 1, borderStyle: 'dashed', borderRadius: Radius.lg, paddingVertical: Spacing.sm, alignItems: 'center', gap: 4, marginTop: Spacing.sm },
   newTaskPlus: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
   newTaskText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   todayCard: {

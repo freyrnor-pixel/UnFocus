@@ -769,10 +769,7 @@ export default function ShoppingScreen() {
             <View style={styles.bodyGap}>
               {/* SECTION 1 — Monthly list (things the user has added) */}
               <View style={styles.section}>
-                <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
-                  <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.monthlyListSection}</Text>
-                  <View style={[styles.sectionRule, { backgroundColor: theme.accent }]} />
-                </View>
+                <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.monthlyListSection}</Text>
                 {catalogItems.length === 0 ? (
                   <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.monthlyListEmpty}</Text>
                 ) : (
@@ -840,14 +837,17 @@ export default function ShoppingScreen() {
                           <Text style={[styles.disclosureChevron, { color: theme.textMuted }]}>{expanded ? '▲' : '▼'}</Text>
                         </Pressable>
                         {expanded && (
-                          <Surface style={styles.rowsCard}>
+                          // Decision 043 rule 1: this already sits inside the Monthly tab's
+                          // outer Surface (catalogCard) — plain View + theme.surface fill,
+                          // matching every sibling rowsCard, instead of a second glass layer.
+                          <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
                             {tripItems.map((item, idx) => (
                               <View key={item.id}>
                                 <ShoppingRow item={item} variant="purchased" onToggle={() => {}} onRemove={() => removeWithSource(item.id)} />
                                 {idx < tripItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
                               </View>
                             ))}
-                          </Surface>
+                          </View>
                         )}
                       </View>
                     );
@@ -866,9 +866,13 @@ export default function ShoppingScreen() {
               </View>
             )}
 
-            {/* ── Unallocated: dishes added "to the week" from the Food tab, not yet in a dated list ── */}
+            {/* ── Unallocated: dishes added "to the week" from the Food tab, not yet in a dated list ──
+                Decision 043 rule 3: featMeal lives on the 4px accent bar only, not the whole
+                card's material (a Surface `tint` used to recolor the entire fill/sheen). */}
             {unallocatedItems.length > 0 && (
-              <Surface tint={theme.featMeal} style={styles.unallocatedCard}>
+              <Surface style={[styles.unallocatedCard, styles.unallocatedCardRow]}>
+                <View style={[styles.unallocatedAccent, { backgroundColor: theme.featMeal }]} />
+                <View style={styles.unallocatedContent}>
                 <View style={styles.unallocatedHeader}>
                   <Ionicons name="fast-food-outline" size={18} color={theme.text} />
                   <Text style={[styles.unallocatedTitle, { color: theme.text }]}>{t.unallocatedSection}</Text>
@@ -918,6 +922,7 @@ export default function ShoppingScreen() {
                     ))}
                   </View>
                 )}
+                </View>
               </Surface>
             )}
 
@@ -1090,7 +1095,8 @@ export default function ShoppingScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.md },
-  bodyGap: { gap: Spacing.md },
+  // Decision 043 rule 2: Spacing.xl above each of the Monthly tab's two named sections.
+  bodyGap: { gap: Spacing.xl },
   dishGroupsWrap: { gap: Spacing.xs },
 
   stickyBar: { flex: 1, paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, gap: 2 },
@@ -1118,7 +1124,7 @@ const styles = StyleSheet.create({
   catalogHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   catalogHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   resetIconBtn: { alignItems: 'center', justifyContent: 'center' },
-  catalogTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
+  catalogTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
 
   dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: Spacing.lg },
   dialogBox: { borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', maxWidth: 340, gap: Spacing.lg },
@@ -1135,9 +1141,12 @@ const styles = StyleSheet.create({
   unsavedBannerText: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
 
   // Weekly "Unallocated" card
-  unallocatedCard: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
+  unallocatedCard: { borderRadius: Radius.lg },
+  unallocatedCardRow: { flexDirection: 'row' },
+  unallocatedAccent: { width: 4, alignSelf: 'stretch' },
+  unallocatedContent: { flex: 1, padding: Spacing.md, gap: Spacing.sm },
   unallocatedHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  unallocatedTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
+  unallocatedTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   unallocatedHint: { fontSize: FontSize.xs },
   unallocatedGroupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm, paddingTop: Spacing.sm, paddingBottom: 4 },
   unallocatedGroupName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.bold },
@@ -1150,11 +1159,12 @@ const styles = StyleSheet.create({
 
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md },
   rowDivider: { height: 1 },
-  section: { gap: Spacing.xs },
-  // Card behind the label + rule so section dividers stay legible over busy backgrounds.
+  section: { gap: Spacing.sm },
+  // Pill background so the per-trip disclosure toggle stays legible over busy backgrounds
+  // (Decision 043 rule 2's fixed anatomy — Fonts.semibold/FontSize.lg — is only for the
+  // section title itself, sectionLabel below; this row is a repeatable foldout control).
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: Radius.sm },
-  sectionRule: { flex: 1, height: 2, borderRadius: Radius.full, opacity: 0.4 },
-  sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
 
   disclosureChevron: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   weekLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },

@@ -1014,9 +1014,12 @@ export default function SettingsScreen() {
 }
 
 const baseStyles = StyleSheet.create({
-  content: { padding: Spacing.md, gap: Spacing.lg },
+  // Decision 043 rule 2: Spacing.xl above every section.
+  content: { padding: Spacing.md, gap: Spacing.xl },
   section: { gap: Spacing.sm },
-  sectionTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
+  // Decision 043 rule 2 fixed anatomy: Fonts.semibold/FontSize.lg; below-spacing comes
+  // from `section`'s own gap:Spacing.sm, so neither header style carries its own margin.
+  sectionTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   groupHeader: { fontSize: FontSize.xl, fontFamily: Fonts.bold, marginTop: Spacing.sm },
   descText: { fontSize: FontSize.xs, marginTop: Spacing.sm, lineHeight: 18 },
   essentialsCard: { padding: Spacing.md, borderWidth: 2 },
@@ -1064,8 +1067,5 @@ const baseStyles = StyleSheet.create({
     borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
   tabLabel: { fontSize: FontSize.sm },
-  tabSectionLabel: {
-    fontSize: FontSize.xs, fontFamily: Fonts.semibold, letterSpacing: 0.5,
-    textTransform: 'uppercase', marginBottom: Spacing.sm,
-  },
+  tabSectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
 });

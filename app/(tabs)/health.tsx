@@ -249,7 +249,6 @@ function HabitCard({
   const isDone = ratio >= 1;
 
   const accent = habitColor(habit.kind, theme);
-  const doneFill = theme.goodSoft;
   const streak = useMemo(
     () => computeStreak(habit.id, habit.dailyGoal, today, logs),
     [habit.id, habit.dailyGoal, today, logs],
@@ -284,20 +283,19 @@ function HabitCard({
     return () => { pulseRef.current?.stop(); };
   }, [isDone, reducedMotion]);
 
-  const borderColor = progressColor(ratio, habit.kind, theme);
+  // Decision 043 rule 3 / Decision 014 downstream to-do: progress/done state reads from
+  // the 4px accent bar only — the card body stays theme.surface regardless of state
+  // (donePill/checkmark/ProgressDots/StreakBadge already carry the "done" signal).
+  const barColor = isDone ? accent : progressColor(ratio, habit.kind, theme);
 
   return (
     <Pressable
       onPress={() => setExpanded((v) => !v)}
       onLongPress={() => onEdit(habit.id)}
     >
-      <View
-        style={[
-          styles.habitCard,
-          { borderLeftColor: borderColor, backgroundColor: theme.surface },
-          isDone && { backgroundColor: doneFill, borderLeftColor: accent },
-        ]}
-      >
+      <View style={[styles.habitCard, { backgroundColor: theme.surface }]}>
+        <View style={[styles.habitAccent, { backgroundColor: barColor }]} />
+        <View style={styles.habitCardContent}>
         <CompletionGlow trigger={glow} color={accent} />
 
         <View style={styles.cardHeader}>
@@ -329,7 +327,7 @@ function HabitCard({
             <Text style={[styles.adjBtnText, { color: theme.textMuted }]}>−</Text>
           </Pressable>
           <Pressable
-            style={[styles.adjBtn, styles.adjBtnPlus, { backgroundColor: borderColor }]}
+            style={[styles.adjBtn, styles.adjBtnPlus, { backgroundColor: barColor }]}
             onPress={() => increment(habit.id, today)}
             hitSlop={8}
           >
@@ -370,6 +368,7 @@ function HabitCard({
             )}
           </View>
         )}
+        </View>
       </View>
     </Pressable>
   );
@@ -881,11 +880,12 @@ export default function HealthScreen() {
 }
 
 const baseStyles = StyleSheet.create({
-  content: { padding: Spacing.md, gap: Spacing.md },
-  overviewCardRow: { borderRadius: Radius.md, flexDirection: 'row' },
+  content: { padding: Spacing.md },
+  // Decision 043 rule 2: Spacing.xl above every section (This week / Habits).
+  overviewCardRow: { borderRadius: Radius.md, flexDirection: 'row', marginTop: Spacing.xl },
   overviewAccent: { width: 4, alignSelf: 'stretch', borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
   overviewCardContent: { flex: 1, padding: Spacing.md },
-  sectionLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold, marginBottom: Spacing.xs },
+  sectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, marginBottom: Spacing.sm },
   overviewAilment: { marginTop: Spacing.sm },
   overviewRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   ailmentWeekStrip: {
@@ -918,7 +918,8 @@ const baseStyles = StyleSheet.create({
   navLinkText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
 
   // ─── Habits section (ported from the removed app/habits.tsx) ─────────────────
-  habitsSection: { gap: Spacing.md, marginTop: Spacing.sm },
+  // Decision 043 rule 2: Spacing.xl above (marginTop replaces the old Spacing.sm).
+  habitsSection: { gap: Spacing.md, marginTop: Spacing.xl },
   habitsSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   profileRow: {
     paddingBottom: Spacing.sm,
@@ -964,14 +965,16 @@ const baseStyles = StyleSheet.create({
   },
   dashedAddText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
 
-  // Habit card
+  // Habit card — Decision 043 rule 3: progress/done state lives on the 4px accent bar
+  // only (habitAccent); the card body/border never recolors (see barColor in HabitCard).
   habitCard: {
     borderRadius: Radius.md,
-    borderLeftWidth: 5,
-    padding: Spacing.md,
-    position: 'relative',
+    flexDirection: 'row',
     overflow: 'hidden',
   },
+  habitAccent: { width: 4, alignSelf: 'stretch' },
+  // CompletionGlow (a direct child) absolute-fills this, so it must stay position:relative.
+  habitCardContent: { flex: 1, padding: Spacing.md, position: 'relative' },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',

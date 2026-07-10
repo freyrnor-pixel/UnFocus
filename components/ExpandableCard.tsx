@@ -7,7 +7,7 @@
  * children/props.
  *
  * Connections:
- *   Imports → react-native-reanimated, components/Surface, constants/theme, lib/useAppTheme
+ *   Imports → react-native-reanimated, constants/theme, lib/useAppTheme
  *   Used by → components/WeekListCard.tsx (dish groups + collapsed "bought this week"
  *             history, uncontrolled), app/shopping.tsx (Monthly catalog dish groups);
  *             later Phase 3/6 sessions may also wire this into InboxSection/meals/health
@@ -33,10 +33,11 @@
  *   - `leadingAction` renders before the title/subtitle stack inside headerLeft (same
  *     stopPropagation-wrapped Pressable pattern as `rightAction`) — e.g. a severity badge
  *     needs to sit leading rather than trailing, where a checkbox lives on the right.
- *   - Decision 008: the card face is a `<Surface surfaceContext="ambient">` rather than a
- *     hand-rolled two-layer getMaterialStyle() mask. Surface owns that rendering
- *     (fill, sheen, border, shadow, and blur) so this composite doesn't duplicate that logic.
- *     `accentColor` only tints the left accent bar, not the mask border/shadow.
+ *   - Decision 043 rule 1: every caller mounts this inside its own Surface-backed card
+ *     region (WeekListCard, HomeShoppingCard, shopping.tsx's Monthly catalog card), so this
+ *     component does NOT render its own Surface — that would be Surface-inside-Surface.
+ *     The row is a plain View with a hairline top divider (`theme.border`) for grouping;
+ *     `accentColor` still tints the left accent bar only.
  *   - Optional controlled mode: pass both `open` and `onToggle` to let the parent own the
  *     open/closed state (needed when a screen must aggregate state across many instances,
  *     e.g. per-task dirty tracking). Omit both and it behaves exactly as before (internal
@@ -55,7 +56,6 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import Surface from '@/components/Surface';
 import { Radius, Spacing, FontSize } from '@/constants/theme';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
 
@@ -155,7 +155,7 @@ export default function ExpandableCard({
   }));
 
   return (
-    <Surface surfaceContext="ambient" style={[styles.card, styles.cardRow]}>
+    <View style={[styles.card, styles.cardRow, { borderTopColor: theme.border }]}>
       {accentColor ? <View style={[styles.accent, { backgroundColor: accentColor }]} /> : null}
       <View style={styles.cardContent}>
         <Pressable style={styles.header} onPress={toggle}>
@@ -188,13 +188,13 @@ export default function ExpandableCard({
           </Animated.View>
         ) : null}
       </View>
-    </Surface>
+    </View>
   );
 }
 
 const baseStyles = StyleSheet.create({
   card: {
-    borderRadius: Radius.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
     marginBottom: Spacing.sm,
   },
   cardRow: {
