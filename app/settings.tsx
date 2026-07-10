@@ -28,7 +28,8 @@
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
  *             getAutoBackupLabel/saveAutoBackup), lib/childLock, lib/freyrModeSeed, lib/haptics,
  *             lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
- *             (syncWidgetsAndOverview — the persistent-overview toggle refreshes/cancels it here),
+ *             (syncWidgetsAndOverview — the persistent-overview toggle refreshes/cancels it, and
+ *             the Freyr-mode toggle re-syncs after seeding/unseeding today's tasks + shopping),
  *             lib/useAppTheme, store/useHabitStore, store/useSettingsStore, store/useShoppingStore,
  *             store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
@@ -161,6 +162,10 @@ export default function SettingsScreen() {
       unseedFreyrMode(parseFreyrSeedIds(settings.freyrSeedIds));
       settings.update({ freyrModeEnabled: false, freyrSeedIds: '' });
     }
+    // Seeding/unseeding mutates today's tasks + shopping — refresh the home-screen
+    // widgets + persistent overview immediately, rather than waiting for the next
+    // app foreground/background sync (otherwise the widget shows stale/empty content).
+    void syncWidgetsAndOverview();
   }
 
   // Manually check the EAS preview channel for a newer OTA, fetch it, and reload.
