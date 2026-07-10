@@ -17,11 +17,12 @@
  *   - Saving is disabled until the action's required field (message / item name) is non-empty.
  *   - "New automation" is a floating AddFAB toggling showForm. NewRuleForm's own Cancel/Save
  *     footer stays put (it's a quick inline form, not worth lifting to the header).
- *   - Loads rules on focus (guarded initDb), same self-load precedent as plans/notes.
+ *   - Store hydration happens once at startup in app/_layout.tsx; this screen has no
+ *     per-screen focus-load.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAutomationStore, AutomationRule, TriggerType, ActionType } from '@/store/useAutomationStore';
 import Surface from '@/components/Surface';
@@ -30,11 +31,8 @@ import { showAppModal } from '@/components/AppModal';
 import AddFAB from '@/components/AddFAB';
 import { useT } from '@/lib/i18n';
 import { warning, heavy } from '@/lib/haptics';
-import { initDb } from '@/lib/db';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-
-let dbBootstrapped = false;
 
 function triggerLabel(t: ReturnType<typeof useT>, type: TriggerType): string {
   return type === 'task_completed' ? t.automations.triggerTaskCompleted : t.automations.triggerShoppingOpened;
@@ -193,18 +191,7 @@ export default function AutomationsScreen() {
   const addRule = useAutomationStore((s) => s.add);
   const toggleActive = useAutomationStore((s) => s.toggleActive);
   const removeRule = useAutomationStore((s) => s.remove);
-  const loadRules = useAutomationStore((s) => s.load);
   const [showForm, setShowForm] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!dbBootstrapped) {
-        initDb();
-        dbBootstrapped = true;
-      }
-      loadRules();
-    }, [loadRules])
-  );
 
   function save(triggerType: TriggerType, actionType: ActionType, params: Record<string, string>) {
     addRule(triggerType, actionType, params);

@@ -22,6 +22,8 @@
  *             Settings via useSettingsStore.
  *
  * Edit notes:
+ *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus effect
+ *     only reseeds Focus mode's ephemeral default (see below) — no per-screen initDb/load.
  *   - **Focus mode (Decisions 009 #4 / 018)**: Home-only, session-ephemeral local state. Its
  *     DEFAULT is seeded from the persisted `essentialsModeEnabled` "Focus mode" setting on every
  *     focus-in, and leaving the screen resets it back to that default (not a hardcoded OFF) — so
@@ -63,7 +65,6 @@ import HomeShoppingCard from '@/components/HomeShoppingCard';
 import AddFAB from '@/components/AddFAB';
 import HintCard from '@/components/HintCard';
 import { goToSite } from '@/lib/siteNav';
-import { initDb } from '@/lib/db';
 import { todayStr } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { computeListGroups } from '@/lib/shoppingGroups';
@@ -75,8 +76,6 @@ import { useSharedStore } from '@/store/useSharedStore';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import { useShoppingListStore } from '@/store/useShoppingListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
-
-let dbBootstrapped = false;
 
 export default function HomeScreen() {
   const t = useT();
@@ -94,11 +93,6 @@ export default function HomeScreen() {
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
   const toggleTask = useTaskStore((s) => s.toggle);
   const completedCountFn = useTaskStore((s) => s.completedCount);
-  const loadTasks = useTaskStore((s) => s.load);
-
-  const loadNotes = useNotesStore((s) => s.load);
-
-  const loadShared = useSharedStore((s) => s.load);
 
   const shoppingItems = useShoppingStore((s) => s.items);
   const toggleShoppingItem = useShoppingStore((s) => s.toggleCheck);
@@ -106,27 +100,14 @@ export default function HomeScreen() {
   const putBackToInventory = useShoppingStore((s) => s.putBackToInventory);
   const removeWithSource = useShoppingStore((s) => s.removeWithSource);
   const adjustAmount = useShoppingStore((s) => s.adjustAmount);
-  const loadShopping = useShoppingStore((s) => s.load);
 
   const shoppingLists = useShoppingListStore((s) => s.lists);
   const currentListFn = useShoppingListStore((s) => s.currentList);
-  const loadLists = useShoppingListStore((s) => s.load);
 
   const settings = useSettingsStore();
-  const loadSettings = useSettingsStore((s) => s.load);
 
   useFocusEffect(
     useCallback(() => {
-      if (!dbBootstrapped) {
-        initDb();
-        dbBootstrapped = true;
-      }
-      loadSettings();
-      loadTasks();
-      loadNotes();
-      loadShared();
-      loadShopping();
-      loadLists();
       // Focus mode's default is the persisted "Focus mode" setting
       // (essentialsModeEnabled). The header eye still toggles it live for the
       // session; leaving Home resets it back to that default. This keeps the
@@ -139,7 +120,7 @@ export default function HomeScreen() {
         setFocusMode(defaultFocus);
         setHintOpen(false);
       };
-    }, [loadSettings, loadTasks, loadNotes, loadShared, loadShopping, loadLists])
+    }, [])
   );
 
   const todayTasks = tasksForDate(today);

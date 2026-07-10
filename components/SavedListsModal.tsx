@@ -8,16 +8,19 @@
  * template (useShoppingListStore.saveAsTemplate).
  *
  * Connections:
- *   Imports → components/Surface, constants/theme, lib/i18n, lib/useAppTheme,
- *             store/useShoppingListStore (ShoppingList type only)
- *   Used by → app/shopping.tsx
+ *   Imports → components/AnimatedBottomSheet, components/Surface, constants/theme, lib/i18n,
+ *             lib/useAppTheme, store/useShoppingListStore (ShoppingList type only)
+ *   Used by → app/(tabs)/shopping.tsx
  *   Data    → none directly — `templates` and both callbacks are owned by the parent
  *
  * Edit notes:
+ *   - **Decision 044b (2026-07-09):** the backdrop+slide-up shell now comes from
+ *     components/AnimatedBottomSheet.tsx instead of a raw `<Modal animationType="slide">`
+ *     — that native animation only ever played on open (see that component's header for
+ *     why); this one plays a real timed exit too. No nullable "which item" prop here, so
+ *     no last-known-value cache is needed on this file's side.
  *   - Structurally copies AddSourceChooser.tsx's single-step bottom sheet (backdrop +
  *     slide-up sheet with a handle) — no second "step" here, just one scrollable list.
- *     (AddSourceChooser itself was retired in Decision 044a — this note only describes
- *     where the original layout idea came from.)
  *   - Ported (2026-07-02, Session A2·2, expanded scope — see PROGRESS_LOG). Rebuilt on
  *     `<Surface surfaceContext="overlay">` (this repo's established sheet pattern — see
  *     ListSettingsSheet.tsx/UpdateSheet.tsx) instead of the old repo's bare `View` +
@@ -26,21 +29,16 @@
  *     (Decision 006): white→surface (n/a, Surface owns fill now), grayLight(handle)→border,
  *     text→text, textLight→textMuted, greenLight/green(bookmark icon)→goodSoft/good,
  *     orange(save btn)→accent, hardcoded '#fff'→textInverse.
- *   - **Decision 044b (2026-07-09):** was a bare `<Modal animationType="slide">` with no
- *     custom exit — switched to `lib/useMountedTransition` (the AddItemSheet/AppModal
- *     mounted-state pattern) so a backdrop-fade + sheet-slide plays on both open and close.
- *     No nullable prop here (`templates` is always an array), so no value-caching needed.
  */
 import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
-import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
+import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { useMountedTransition } from '@/lib/useMountedTransition';
 import Surface from '@/components/Surface';
+import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 
 type Props = {
   visible: boolean;
@@ -54,8 +52,6 @@ export default function SavedListsModal({ visible, templates, onClose, onSelectT
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
-  const { reducedMotion } = useAccessibility();
-  const { mounted, progress } = useMountedTransition(visible, reducedMotion);
 
   function handleSelect(id: string) {
     onSelectTemplate(id);
@@ -67,20 +63,8 @@ export default function SavedListsModal({ visible, templates, onClose, onSelectT
     onClose();
   }
 
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
-  const sheetStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [{ translateY: (1 - progress.value) * 24 }],
-  }));
-
-  if (!mounted) return null;
-
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: theme.overlay }, backdropStyle]} />
-      </Pressable>
-      <Animated.View style={[styles.sheetPositioner, sheetStyle]}>
+    <AnimatedBottomSheet visible={visible} onClose={onClose}>
       <Surface surfaceContext="overlay" style={styles.sheet}>
         <View style={[styles.handle, { backgroundColor: theme.border }]} />
         <Text style={[styles.title, { color: theme.text }]}>{t.savedListsTitle}</Text>
@@ -105,14 +89,14 @@ export default function SavedListsModal({ visible, templates, onClose, onSelectT
           <Text style={[styles.saveBtnText, { color: theme.accentInk }]}>{t.saveListAsTemplateBtn}</Text>
         </Pressable>
       </Surface>
-      </Animated.View>
-    </Modal>
+    </AnimatedBottomSheet>
   );
 }
 
 const baseStyles = StyleSheet.create({
-  sheetPositioner: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   sheet: {
+    position: 'absolute',
+    left: 0, right: 0, bottom: 0,
     maxHeight: '70%',
     borderTopLeftRadius: Radius.lg,
     borderTopRightRadius: Radius.lg,

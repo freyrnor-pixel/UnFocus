@@ -22,14 +22,14 @@
  *             components/WeekListCard, components/FoodTab, components/CatalogueTab, constants/theme,
  *             lib/date (todayStr, dateStr, getWeekRangeContaining), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
- *             computeListGroups, listProgress), lib/useAppTheme, store/useCatalogStore,
+ *             computeListGroups, listProgress), lib/useAppTheme,
  *             store/useSettingsStore, store/useShoppingListStore,
  *             store/useShoppingStore (incl. UNALLOCATED_LIST_ID), @expo/vector-icons (Ionicons)
  *   Used by → Expo Router route "/shopping" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → useShoppingStore (items/trips) + useShoppingListStore (lists, incl. each
- *             list's locked/isTemplate state) + useSettingsStore (monthlyResetDate) +
- *             useCatalogStore (loaded on focus; backs the Catalogue tab + WeekListCard/FoodTab
- *             autocomplete). FoodTab additionally drives useMealStore.
+ *             list's locked/isTemplate state) + useSettingsStore (monthlyResetDate).
+ *             CatalogueTab/WeekListCard/FoodTab read useCatalogStore internally (loaded at
+ *             startup by app/_layout.tsx). FoodTab additionally drives useMealStore.
  *
  * Edit notes:
  *   - **Decision 044a (2026-07-09):** removed the Monthly tab's staging tray
@@ -62,8 +62,8 @@
  *   - **A2-1 sticky bar**: uses ScreenScaffold's new `stickyBelowHeader` slot (added this
  *     session). Surface `surfaceContext="overlay"` per Surface.tsx's own docstring, which
  *     names "sticky headers... nav bar" as the overlay use case — `ScreenHeader`/`BottomNav`
- *     still use the ambient default; flagged as a doc-vs-source inconsistency in
- *     PROGRESS_LOG, not fixed here (out of scope, those are shared foundation files).
+ *     also use `overlay` (the earlier doc-vs-source inconsistency flagged here has since
+ *     been fixed in both files).
  *     `STICKY_HEIGHT` is a fixed estimate (tab row + summary row), not measured — good
  *     enough for a stub-data screen with no live-app verification available.
  *   - **A2-1 focused list**: `focusedListId` picks which non-template list's summary the
@@ -97,20 +97,15 @@
  *     once at drag-start (no mid-drag re-measure) — an approximation, no live-app verification
  *     this session. Decision 022's ephemeral *undo* affordance is deferred (a transient
  *     ConfirmationBanner confirms the merge for now — see PROGRESS_LOG 2026-07-03).
- *   - **Mount-time store hydration (Phase 5, 2026-07-02):** the on-focus effect now
- *     initialises the DB (idempotent, once per app session via the module-level
- *     `dbBootstrapped` guard — the app still has no global bootstrap; _layout is the
- *     Phase 1 scaffold), hydrates the settings/shopping/list stores, runs
+ *   - **Mount-time store hydration**: app/_layout.tsx loads every store at startup now, so
+ *     this screen's focus effect no longer re-initialises the DB or re-hydrates
+ *     settings/shopping/list/catalog — it only runs the behavior that's more than hydration:
  *     advanceRecurringLists(today) (re-loading shopping items after, since it writes
- *     shopping_items rows directly), and performs the automatic payday-boundary
- *     monthly-reset detection (buildMonthlyResetSummary BEFORE monthlyReset, then
- *     persists lastMonthlyReset). This replaces the earlier stub-era note that said no
- *     store action is called from a mount-time effect — useShoppingStore /
- *     useShoppingListStore are now real Phase-5 stores, not throwing Decision 015 stubs.
- *   - The 'shopping_opened' automation trigger fires once per mount (useAutomationStore is
- *     now ported — Phase 6); the mount effect self-loads rules + guards initDb first.
- *     "Shopping done!"'s Scan/Upload choices now route to /scan (autoCapture camera/library);
- *     Skip commits the trip in place (app/scan.tsx is now ported — Phase 6).
+ *     shopping_items rows directly) and the automatic payday-boundary monthly-reset detection
+ *     (buildMonthlyResetSummary BEFORE monthlyReset, then persists lastMonthlyReset).
+ *   - The 'shopping_opened' automation trigger fires once per mount; rules are already loaded
+ *     by _layout's startup bootstrap. "Shopping done!"'s Scan/Upload choices route to /scan
+ *     (autoCapture camera/library); Skip commits the trip in place.
  *   - **Still dropped, flagged not silently absorbed**: the header's Share pill (site-tier
  *     ScreenHeader has no custom-right slot — only sub-tier does); SiteSwipeView's
  *     swipe-between-screens wrapper (Phase 3e, not ported, not required by A2-1/A2-4).
@@ -134,13 +129,12 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { useCatalogStore } from '@/store/useCatalogStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import ShoppingRow from '@/components/ShoppingRow';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
@@ -170,17 +164,8 @@ import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { groupByDish, computeListGroups, listProgress } from '@/lib/shoppingGroups';
 import { formatKr } from '@/lib/money';
-import { initDb } from '@/lib/db';
 
 type Tab = 'weekly' | 'monthly' | 'food' | 'catalogue';
-
-/**
- * One-time-per-app-session DB init guard. The app has no global bootstrap yet
- * (_layout.tsx is still the Phase 1 scaffold), so the first screen that needs
- * persistence initialises the schema. initDb() is idempotent, but this avoids
- * re-running the full CREATE/migrate pass on every screen focus.
- */
-let dbBootstrapped = false;
 
 /**
  * Decision 029 — catalog lock persistence. The Monthly catalog's lock is a
@@ -206,26 +191,6 @@ type DragState = {
   mergeTargetDish: string | null;
 };
 
-/** Decision 044b — cross-tab cue: a small pulsing dot on the Weekly tab label when an
- *  add lands there while the user is looking at a different tab. Reduced-motion shows a
- *  plain static dot (no pulse loop) per ANIMATION_GUIDELINES §7. */
-function WeeklyTabPulseDot({ color, reducedMotion }: { color: string; reducedMotion: boolean }) {
-  const opacity = useSharedValue(1);
-  useEffect(() => {
-    if (reducedMotion) {
-      opacity.value = 1;
-      return;
-    }
-    opacity.value = withRepeat(withSequence(withTiming(0.35, { duration: 500 }), withTiming(1, { duration: 500 })), -1, true);
-  }, [reducedMotion, opacity]);
-  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  return <Animated.View style={[pulseDotStyle.dot, { backgroundColor: color }, style]} />;
-}
-
-const pulseDotStyle = StyleSheet.create({
-  dot: { width: 7, height: 7, borderRadius: 4, marginLeft: 4 },
-});
-
 /** Insertion index for `centerY` against a snapshot of each row's last-measured layout. */
 function computeTargetIndex(centerY: number, order: string[], snapshot: Record<string, { y: number; height: number }>): number {
   for (let i = 0; i < order.length; i++) {
@@ -244,16 +209,9 @@ export default function ShoppingScreen() {
   const { reducedMotion } = useAccessibility();
 
   // Fire the 'shopping_opened' automation trigger once per screen visit (mount).
-  // Ensure the DB is open and rules are loaded first so fireTrigger sees them
-  // (there's no global bootstrap yet — same self-load precedent as the focus effect).
+  // Rules are already loaded by app/_layout.tsx's startup bootstrap.
   useEffect(() => {
-    if (!dbBootstrapped) {
-      initDb();
-      dbBootstrapped = true;
-    }
-    const auto = useAutomationStore.getState();
-    auto.load();
-    auto.fireTrigger('shopping_opened');
+    useAutomationStore.getState().fireTrigger('shopping_opened');
   }, []);
 
   const [tab, setTab] = useState<Tab>('weekly');
@@ -266,26 +224,6 @@ export default function ShoppingScreen() {
   const setConfirm = useCallback((message: string | null, undo?: () => void) => {
     setConfirmMessage(message);
     setConfirmUndo(() => undo ?? null);
-  }, []);
-  // Decision 044b — transient "just added" tracking for row entrance/highlight + the
-  // Weekly tab's cross-tab pulse. Pure screen-level view state, not persisted.
-  const [justAddedIds, setJustAddedIds] = useState<Set<string>>(new Set());
-  const [weeklyTabPulse, setWeeklyTabPulse] = useState(false);
-  const markJustAdded = useCallback((ids: string | string[]) => {
-    const list = Array.isArray(ids) ? ids : [ids];
-    if (list.length === 0) return;
-    setJustAddedIds((prev) => {
-      const next = new Set(prev);
-      for (const id of list) next.add(id);
-      return next;
-    });
-    setTimeout(() => {
-      setJustAddedIds((prev) => {
-        const next = new Set(prev);
-        for (const id of list) next.delete(id);
-        return next;
-      });
-    }, 1800);
   }, []);
   const [purchasedExpanded, setPurchasedExpanded] = useState<string | null>(null);
   const [resetSummary, setResetSummary] = useState<MonthlyResetSummary | null>(null);
@@ -340,9 +278,9 @@ export default function ShoppingScreen() {
   const buildMonthlyResetSummary = useShoppingStore((s) => s.buildMonthlyResetSummary);
   const reorderItem = useShoppingStore((s) => s.reorder);
   const mergeItems = useShoppingStore((s) => s.mergeItems);
+  const recentlyAddedIds = useShoppingStore((s) => s.recentlyAddedIds);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
-  const loadCatalog = useCatalogStore((s) => s.load);
 
   const lists = useShoppingListStore((s) => s.lists);
   const renameList = useShoppingListStore((s) => s.rename);
@@ -354,9 +292,7 @@ export default function ShoppingScreen() {
   const addList = useShoppingListStore((s) => s.add);
   const removeList = useShoppingListStore((s) => s.remove);
   const advanceRecurringLists = useShoppingListStore((s) => s.advanceRecurringLists);
-  const loadLists = useShoppingListStore((s) => s.load);
   const loadShopping = useShoppingStore((s) => s.load);
-  const loadSettings = useSettingsStore((s) => s.load);
   const updateSettings = useSettingsStore((s) => s.update);
 
   const nonTemplateLists = useMemo(() => lists.filter((l) => !l.isTemplate), [lists]);
@@ -366,26 +302,12 @@ export default function ShoppingScreen() {
     [nonTemplateLists, focusedListId]
   );
 
-  // Persistence bootstrap + mount-time store hydration (Phase 5). Runs on every
-  // focus; also closes both add sheets on blur (mirrors the old app: the receipt
+  // Recurring-list roll-forward + payday reset detection. Runs on every focus;
+  // also closes both add sheets on blur (mirrors the old app: the receipt
   // pop-up's Scan/Upload choices would otherwise leave a sheet open behind
-  // whatever screen it pushed to — no /scan push exists yet, but the reset is
-  // still correct for any other bypass of the normal close path).
+  // whatever screen it pushed to).
   useFocusEffect(
     useCallback(() => {
-      if (!dbBootstrapped) {
-        initDb();
-        dbBootstrapped = true;
-      }
-      // Hydrate every store this screen reads. Settings first, since the list
-      // store's default-name / week-range helpers read weeklyResetDay + language.
-      loadSettings();
-      loadShopping();
-      loadLists();
-      // The Catalogue tab, the WeekListCard inline search, and the Food tab's ingredient
-      // autocomplete all read this store directly, so it must be populated on focus.
-      loadCatalog();
-
       // Roll any overdue recurring list forward to the period containing today.
       // A no-op once every recurring list is already current, so it's safe to run
       // on every focus rather than gating it behind a once-per-period flag like
@@ -398,9 +320,9 @@ export default function ShoppingScreen() {
 
       // Automatic payday-boundary reset: once per period, when today's day-of-month
       // has reached monthlyResetDate and we haven't already reset for this period.
-      // Read settings via getState() (not the render-time selectors) so we see the
-      // values loadSettings() just wrote this same tick. buildMonthlyResetSummary()
-      // must run BEFORE monthlyReset() clears the purchased rows it reads.
+      // Read settings via getState() (not a render-time selector) so we see the latest
+      // persisted values. buildMonthlyResetSummary() must run BEFORE monthlyReset()
+      // clears the purchased rows it reads.
       const periodKey = today.slice(0, 7); // YYYY-MM
       const settings = useSettingsStore.getState();
       const alreadyResetThisPeriod = settings.lastMonthlyReset.slice(0, 7) === periodKey;
@@ -414,16 +336,7 @@ export default function ShoppingScreen() {
         setAddToCatalogOpen(false);
         setHintOpen(false);
       };
-    }, [
-      loadSettings,
-      loadShopping,
-      loadLists,
-      loadCatalog,
-      advanceRecurringLists,
-      buildMonthlyResetSummary,
-      monthlyReset,
-      updateSettings,
-    ])
+    }, [loadShopping, advanceRecurringLists, buildMonthlyResetSummary, monthlyReset, updateSettings])
   );
 
   const catalogItems = useMemo(
@@ -468,6 +381,16 @@ export default function ShoppingScreen() {
       ).length,
     [items, nonTemplateLists]
   );
+
+  // Decision 044b — cross-tab cue: true while at least one item just landed in the weekly
+  // list (Monthly checkbox, Food "Add to week list") and the user isn't looking at Weekly
+  // already. Derived straight from the store's self-expiring recentlyAddedIds map, so it
+  // clears itself both on tab switch (this expression goes false) and after ~1.8s (the
+  // map entry expires) — no extra effect/timer needed here.
+  const weeklyAddCue = useMemo(
+    () => tab !== 'weekly' && items.some((i) => i.status === 'inWeeklyList' && recentlyAddedIds[i.id]),
+    [tab, items, recentlyAddedIds]
+  );
   const unlockedListCount = useMemo(() => nonTemplateLists.filter((l) => !l.locked).length, [nonTemplateLists]);
 
   const focusedGroups = useMemo(
@@ -487,15 +410,6 @@ export default function ShoppingScreen() {
   }, [items]);
   const focusedProgress = useMemo(() => (focusedGroups ? listProgress(focusedGroups) : null), [focusedGroups]);
 
-  // Decision 044b — pulses the Weekly tab label when an add lands there while the
-  // user is looking at a different tab (Monthly checkbox, Food-tab push).
-  function pulseWeeklyTabIfElsewhere() {
-    if (tab !== 'weekly') {
-      setWeeklyTabPulse(true);
-      setTimeout(() => setWeeklyTabPulse(false), 1800);
-    }
-  }
-
   // Monthly checkbox (Decision 044a): moves the item straight to the focused weekly
   // list instead of staging it for a separate confirm step. Undoable via the toast.
   function handleAddToWeeklyFromMonthly(item: ShoppingItem) {
@@ -506,15 +420,11 @@ export default function ShoppingScreen() {
     addToWeeklyFromCatalog(item.id, 1, focusedList.id);
     success();
     setConfirm(t.itemAddedToNamedList(item.name, focusedList.name), () => putBackToInventory(item.id));
-    markJustAdded(item.id);
-    pulseWeeklyTabIfElsewhere();
   }
 
   // Weekly/cart rows that came from the Monthly list go back to inventory instead of
   // being deleted outright (their single row IS the standing catalog entry).
   function handleRemoveWeeklyItem(item: ShoppingItem) {
-    // Decision 044b — animate the row leaving instead of a teleport-style disappearance.
-    if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     if (item.fromCatalog) {
       putBackToInventory(item.id);
       success();
@@ -522,13 +432,6 @@ export default function ShoppingScreen() {
     } else {
       removeWithSource(item.id);
     }
-  }
-
-  // Decision 044b — list↔cart section moves (toggleCheck) and the undo path animate via
-  // layout instead of teleporting between sections.
-  function handleToggleWeeklyItem(item: ShoppingItem) {
-    if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    toggle(item.id);
   }
 
   function handleDoneShopping(list: ShoppingList, checkedCount: number) {
@@ -598,8 +501,6 @@ export default function ShoppingScreen() {
 
   const handleDecrementCartItem = useCallback(
     (item: ShoppingItem) => {
-      // Decision 044b — animate the section move (cart → list) instead of a teleport.
-      if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       const qty = parseInt(item.amount, 10) || 1;
       if (qty <= 1) {
         // Move item back to "In list" by unchecking it
@@ -632,7 +533,7 @@ export default function ShoppingScreen() {
         });
       }
     },
-    [items, toggle, adjustAmount, add, reducedMotion]
+    [items, toggle, adjustAmount, add]
   );
 
   function handleCreateNewWeeklyList() {
@@ -793,13 +694,21 @@ export default function ShoppingScreen() {
               <Text style={[styles.tabText, { color: isActive ? accent : theme.textMuted }]} numberOfLines={1}>
                 {label}
               </Text>
-              {value === 'weekly' && weeklyTabPulse && (
-                <WeeklyTabPulseDot color={accent} reducedMotion={reducedMotion} />
-              )}
               {count > 0 && (
                 <View style={[styles.tabBadge, { backgroundColor: isActive ? accent : theme.surfaceMuted }]}>
                   <Text style={[styles.tabBadgeText, { color: isActive ? theme.accentInk : theme.textMuted }]}>{count}</Text>
                 </View>
+              )}
+              {/* Decision 044b — cross-tab cue: a small tick pops onto the Weekly tab when an
+                  add from Monthly/Food just landed there while the user is looking elsewhere. */}
+              {value === 'weekly' && weeklyAddCue && (
+                <Animated.View
+                  entering={reducedMotion ? undefined : ZoomIn.duration(200)}
+                  exiting={reducedMotion ? undefined : ZoomOut.duration(150)}
+                  style={[styles.tabCue, { backgroundColor: theme.good }]}
+                >
+                  <Ionicons name="checkmark" size={10} color={theme.textInverse} />
+                </Animated.View>
               )}
             </Pressable>
           );
@@ -1036,13 +945,13 @@ export default function ShoppingScreen() {
                   onOpenSavedLists={() => setSavedListsListId(list.id)}
                   onOpenListSettings={() => setListSettingsListId(list.id)}
                   onDelete={() => handleDeleteList(list.id)}
-                  onToggleItem={handleToggleWeeklyItem}
+                  onToggleItem={(item) => toggle(item.id)}
                   onRemoveItem={handleRemoveWeeklyItem}
                   onIncrementItem={(item) => adjustAmount(item.id, 1)}
                   onDecrementItem={(item) => adjustAmount(item.id, -1)}
                   onDecrementCartItem={handleDecrementCartItem}
                   onAddInlineItem={(input) => {
-                    const id = add({
+                    add({
                       name: input.name,
                       amount: String(input.qty),
                       unit: '',
@@ -1057,16 +966,13 @@ export default function ShoppingScreen() {
                     });
                     success();
                     setConfirm(t.itemAddedToList(input.name));
-                    markJustAdded(id);
                   }}
                   monthlyItems={catalogItems}
                   onAddMonthlyToWeek={(item) => {
                     addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, list.id);
                     success();
                     setConfirm(t.itemAddedToList(item.name));
-                    markJustAdded(item.id);
                   }}
-                  justAddedIds={justAddedIds}
                   onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
                   renderReorderableRow={(item) => (
                     <DraggableTaskRow
@@ -1079,11 +985,10 @@ export default function ShoppingScreen() {
                       <ShoppingRow
                         item={item}
                         variant="planned"
-                        onToggle={() => handleToggleWeeklyItem(item)}
+                        onToggle={() => toggle(item.id)}
                         onRemove={() => handleRemoveWeeklyItem(item)}
                         onIncrement={() => adjustAmount(item.id, 1)}
                         onDecrement={() => adjustAmount(item.id, -1)}
-                        justAdded={justAddedIds.has(item.id)}
                         inStockLabel={t.inStockLabel}
                         locked={list.locked}
                       />
@@ -1110,15 +1015,7 @@ export default function ShoppingScreen() {
         )}
 
         {/* Food — dishes, in place (Point: "Food is just another tab, not another screen") */}
-        {tab === 'food' && (
-          <FoodTab
-            onNotify={setConfirm}
-            onAddedToWeek={(ids) => {
-              markJustAdded(ids);
-              pulseWeeklyTabIfElsewhere();
-            }}
-          />
-        )}
+        {tab === 'food' && <FoodTab onNotify={setConfirm} />}
 
         {/* Catalogue — master item list, sectioned by type, with add/edit/delete */}
         {tab === 'catalogue' && <CatalogueTab onNotify={setConfirm} />}
@@ -1211,6 +1108,7 @@ const styles = StyleSheet.create({
   tabText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold },
+  tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   stickySummaryRow: { gap: 4, paddingBottom: Spacing.xs },
   stickyListName: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   stickyProgressText: { fontSize: FontSize.xs },

@@ -8,7 +8,7 @@
  * shopping/task payloads into the shared store.
  *
  * Connections:
- *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, store/useCatalogStore, store/useReceiptStore, store/useSettingsStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons), @react-navigation/material-top-tabs + @react-navigation/native (types only, for the swipeEnabled guard)
+ *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, store/useCatalogStore, store/useReceiptStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons), @react-navigation/material-top-tabs + @react-navigation/native (types only, for the swipeEnabled guard)
  *   Used by → Expo Router route "/scan" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx; reached from app/(tabs)/shopping.tsx's post-trip receipt pop-up (autoCapture) and app/budget.tsx header link
  *   Data    → confirmed items write to FOUR stores: useShoppingStore (shopping_items) + useReceiptStore.addReceipt (receipts) + useCatalogStore.recordPurchases (purchase_log, linked via receipt_id, + store_items); QR import writes useSharedStore (shared_shopping_items / shared_tasks); scaled fontSize via useScaledStyles()
  *
@@ -34,7 +34,8 @@
  *     against Katalog shopping_items and raises that item's price if higher (only ever raises).
  *   - addManualItems() creates a receipt only when a price is entered with a store selected.
  *   - Both add paths create shopping_items rows with status='inWeeklyList' (not 'catalog').
- *   - Loads its stores on focus (guarded initDb), same self-load precedent as shopping/plans.
+ *   - Store hydration happens once at startup in app/_layout.tsx; this screen has no
+ *     per-screen focus-load.
  *   - **Pager-swipe guard:** this screen is one of the tabs pager's 5 co-mounted sites, so a
  *     horizontal swipe is always live over it. While mode==='scanning' (OCR in flight) or any
  *     overlay (QR modal, custom-store sheet, category picker) is open, an effect flips the
@@ -47,7 +48,7 @@
  *     persistent-camera-in-a-hidden-pager-page risk to design around, only the UX risk this
  *     guard closes.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated } from 'react-native';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import {
@@ -65,18 +66,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation, useRouter, usePathname, useLocalSearchParams } from 'expo-router';
+import { useNavigation, useRouter, usePathname, useLocalSearchParams } from 'expo-router';
 import type { MaterialTopTabNavigationProp } from '@react-navigation/material-top-tabs';
 import type { ParamListBase } from '@react-navigation/native';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useSharedStore } from '@/store/useSharedStore';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { formatKr } from '@/lib/money';
-import { initDb } from '@/lib/db';
 import HintCard from '@/components/HintCard';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
@@ -91,8 +90,6 @@ import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 const QR_BG = '#000000';
 const QR_FG = '#FFFFFF';
 const QR_HINT = 'rgba(255,255,255,0.6)';
-
-let dbBootstrapped = false;
 
 const NORWEGIAN_STORES = [
   'REMA 1000', 'Kiwi', 'Coop Extra', 'Coop Mega', 'Meny', 'Spar', 'Bunnpris', 'Joker', 'Prix',
@@ -136,21 +133,6 @@ export default function ScanScreen() {
   const customStoreRef = useRef<TextInput>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const autoCaptureFired = useRef(false);
-
-  // Hydrate the stores this screen reads on focus (guarded initDb).
-  useFocusEffect(
-    useCallback(() => {
-      if (!dbBootstrapped) {
-        initDb();
-        dbBootstrapped = true;
-      }
-      useSettingsStore.getState().load();
-      useShoppingStore.getState().load();
-      useCatalogStore.getState().load();
-      useReceiptStore.getState().load();
-      useSharedStore.getState().load();
-    }, [])
-  );
 
   // Shopping's post-trip receipt pop-up routes here with autoCapture to go straight into the
   // camera/library picker — guarded so a remount never re-fires the same auto-capture.

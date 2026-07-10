@@ -27,8 +27,10 @@
  *             constants/theme, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
  *             getAutoBackupLabel/saveAutoBackup), lib/childLock, lib/freyrModeSeed, lib/haptics,
- *             lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/useAppTheme,
- *             store/useHabitStore, store/useSettingsStore, store/useShoppingStore, store/useTaskStore
+ *             lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
+ *             (syncWidgetsAndOverview — the persistent-overview toggle refreshes/cancels it here),
+ *             lib/useAppTheme, store/useHabitStore, store/useSettingsStore, store/useShoppingStore,
+ *             store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
  *   Data    → useSettingsStore (settings table; incl. essentialsModeEnabled, quietHours*,
  *             monthlyBudgetNok, taskNotificationsEnabled, habitNotificationsEnabled,
@@ -89,6 +91,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { syncReminders } from '@/lib/reminders';
 import { syncNotificationCategories } from '@/lib/notifications';
+import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
 import { seedFreyrMode, unseedFreyrMode, parseFreyrSeedIds } from '@/lib/freyrModeSeed';
 import { exportBackup, exportBackupToDevice, pickAndParseBackup, restoreBackup, reloadApp, getAutoBackupLabel, saveAutoBackup } from '@/lib/backup';
 import { setPassword as setChildPassword, verifyPassword as verifyChildPassword } from '@/lib/childLock';
@@ -948,7 +951,7 @@ export default function SettingsScreen() {
                     <Text style={[styles.switchLabel, { color: theme.text }]}>{t.persistentNotifLabel}</Text>
                     <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.persistentNotifHint}</Text>
                   </View>
-                  <FormSwitch checked={settings.persistentNotifEnabled} onChange={(v) => settings.update({ persistentNotifEnabled: v })} />
+                  <FormSwitch checked={settings.persistentNotifEnabled} onChange={(v) => { settings.update({ persistentNotifEnabled: v }); void syncWidgetsAndOverview({ persistentOnly: true }); }} />
                 </View>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <View style={styles.switchRow}>

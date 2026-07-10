@@ -2563,11 +2563,48 @@ flow, Unallocated bucket, monthly reset.
 044a blocks 044b (same files). 044a+044b block Session 043·2's shopping pass. Independent
 of Decision 042.
 
----
+### Implementation (2026-07-09) — both 044a and 044b complete
 
-## Decision 045 — RESERVED (deferred): Monthly/Catalogue tab consolidation
+**044a** shipped as planned, with the scope correction the session flagged and the user
+confirmed before proceeding: the diagnosis's "AddSourceChooser" step was already stale — a
+2026-07-06 redesign (`WeekListCard.tsx`'s inline add row) had superseded it and left it
+dead code (`addSourceChooserListId` was set nowhere in the repo). Rather than rebuild the
+already-working inline flow to match 044a's now-outdated wording, the session deleted the
+dead component/wiring and left the working inline add row + qty stepper in place. Monthly's
+staging tray removal, the undo-toast affordance, and the i18n retirements all landed as
+specified. See PROGRESS_LOG's "Decision 044a" entry for the full file-by-file breakdown.
 
-**Status:** Reserved stub, not open for coding. Question: after on-device use of the 044
-flow, do Monthly (curated standing list) and Catalogue (master item list) still earn two
-tabs, or collapse into one? Reserved here so no parallel session burns the number and no
-session absorbs the scope silently.
+**044b** shipped against the same four points, with two implementation choices worth
+recording since they differ from the plan's exact wording:
+1. **New-row entrance + highlight** — tracked in `useShoppingStore`'s `recentlyAddedIds`
+   (an ephemeral, non-persisted map keyed by id, self-clearing after ~1.8s) rather than
+   screen-local state as originally sketched. `add()`/`addToWeeklyFromCatalog()` mark ids
+   automatically, so Food tab's direct `add()` calls (pushing dish ingredients into the
+   weekly Unallocated bucket) get entrance/highlight treatment for free, with no wiring
+   inside `FoodTab.tsx` itself. `components/ShoppingRow.tsx` reads the map directly and
+   plays `FadeInDown` + the existing Decision 021 highlight glow on mount.
+2. **Cross-tab cue** — a small checkmark badge (not a numeric pulse) pops onto the Weekly
+   tab label via the same store map, filtered to `status === 'inWeeklyList'` items, and
+   only while the user isn't already on the Weekly tab; it clears itself both on tab switch
+   and via the map's own TTL, so no separate effect/timer was needed in `shopping.tsx`.
+3. **Unified modal motion** — `ListSettingsSheet`, `SavedListsModal`,
+   `MonthlyResetSummaryModal`, and `UpdateSheet` all used a raw
+   `<Modal transparent animationType="slide">`, and since every caller nulls its "which
+   item" state in the same update that flips `visible` false, React unmounted the whole
+   subtree before the native close transition ever ran — opens animated, closes didn't.
+   Fixed by extracting a shared `components/AnimatedBottomSheet.tsx` (the AddItemSheet/
+   AppModal mounted-state + timed-exit pattern, generalized) and switching all four sheets
+   to it; the three with a nullable data prop (`list`/`summary`/`item`) each cache the last
+   non-null value locally so their content survives the exit animation after the parent
+   nulls the prop.
+4. **Section moves** — true shared-element "travel" across sections (list → cart is a
+   different JSX block, so a real move is actually an unmount+remount) was judged too heavy
+   for an OTA-safe JS-only pass. Approximated instead with `exiting={FadeOut}` +
+   `layout={LinearTransition}` on every `ShoppingRow`, so removals fade and sibling rows
+   resettle smoothly rather than teleporting — a real improvement on "just pops," short of
+   a full shared-element transition.
+
+All motion reads `useAccessibility().reducedMotion` per point 5. `npx tsc --noEmit` — zero
+errors. The Decision 045 stub (Monthly/Catalogue tab consolidation) stays out of scope and
+unopened by this session, exactly as reserved — it isn't recorded as its own decision
+number here since nothing was decided about it.

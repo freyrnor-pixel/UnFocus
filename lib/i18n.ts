@@ -686,6 +686,18 @@ const en = {
     renudgeTitle: (title: string) => `Still there: ${title}`,
     renudgeBody: "No rush — just a gentle nudge whenever you're ready.",
   },
+  // Home-screen widget labels (Android). All already-localised; baked into the
+  // widget snapshot (lib/widgets/sync.ts) so the headless renderer needs no i18n.
+  widgets: {
+    shoppingTitle: 'Shopping',
+    tasksTitle: "Today's tasks",
+    itemsLeft: (n: number) => (n === 1 ? '1 item left' : `${n} items left`),
+    tasksLeft: (n: number) => (n === 1 ? '1 task left' : `${n} tasks left`),
+    allDone: 'All done 🎉',
+    noItems: 'List is empty',
+    noTasks: 'Nothing planned today',
+    more: (n: number) => `+${n} more`,
+  },
   // Radial menu labels
   nav: {
     newTask: 'New task', plans: 'Tasks', shop: 'Shopping', habits: 'Habits',
@@ -811,8 +823,6 @@ const en = {
     nutrition: 'Nutrition',
     other: 'Other',
   } as Record<string, string>,
-  // Top-level overflow label (shopping.tsx tab-bar "…" menu). Distinct from habits.moreOptions.
-  moreOptions: 'More options',
   // --- end W-D additions ---
   // Habits — shame-free labels (Proposal 5)
   habits: {
@@ -1950,6 +1960,17 @@ const no: typeof en = {
     renudgeTitle: (title: string) => `Fortsatt der: ${title}`,
     renudgeBody: 'Ingen hast — bare en mild påminnelse når du er klar.',
   },
+  // Widget-etiketter for startskjermen (Android).
+  widgets: {
+    shoppingTitle: 'Handleliste',
+    tasksTitle: 'Dagens oppgaver',
+    itemsLeft: (n: number) => (n === 1 ? '1 vare igjen' : `${n} varer igjen`),
+    tasksLeft: (n: number) => (n === 1 ? '1 oppgave igjen' : `${n} oppgaver igjen`),
+    allDone: 'Alt ferdig 🎉',
+    noItems: 'Listen er tom',
+    noTasks: 'Ingenting planlagt i dag',
+    more: (n: number) => `+${n} flere`,
+  },
   nav: {
     newTask: 'Ny oppgave', plans: 'Oppgaver', shop: 'Handleliste', habits: 'Vaner',
     meals: 'Mat', health: 'Helse', scan: 'Skann', settings: 'Innst.',
@@ -2072,8 +2093,6 @@ const no: typeof en = {
     nutrition: 'Ernæring',
     other: 'Annet',
   } as Record<string, string>,
-  // Top-level overflow label (shopping.tsx tab-bar "…" menu). Distinct from habits.moreOptions.
-  moreOptions: 'Flere valg',
   // --- end W-D additions ---
   cover: {
     tasksToday: 'I dag',
