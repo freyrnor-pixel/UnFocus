@@ -4691,3 +4691,70 @@ reserved). No store/schema changes; no new strings beyond none needed (existing 
 copy already names items/lists).
 
 `npx tsc --noEmit` — zero errors.
+
+## 2026-07-10 — Decision 043·1: Sectioning & depth grammar, Home
+
+**Status: Complete**
+
+**Precondition gates — all verified:**
+1. `REBUILD_DECISIONS.md` contains Decision 043 (Resolved, 2026-07-09) with four grammar rules. ✓
+2. `PROGRESS_LOG.md` contains the Decision 042 session entry; `components/PlanTaskCard.tsx` uses row-owned rail segments on this branch. ✓
+3. `app/(tabs)/index.tsx` exists (pager migration present). ✓
+
+**Files changed:**
+- `app/(tabs)/index.tsx` — styles only; no logic, navigation, store, or interaction changes.
+
+---
+
+### Rule 1 — One glass level per region
+
+**`index.tsx` itself:** No `Surface` import or usage in `index.tsx`; all layout uses plain `View`s. No Surface-in-Surface introduced by how `index.tsx` wraps its components. ✓
+
+**Component-internal violations handed to 043·2:**
+- `HomeShoppingCard.tsx` — mounts `ExpandableCard` (which uses `Surface surfaceContext="ambient"`) inside HomeShoppingCard's own `Surface surfaceContext="ambient"` → nested ambient Surface. Fix: replace ExpandableCard's inner Surface with plain View + spacing in 043·2.
+
+---
+
+### Rule 2 — Fixed section-header anatomy
+
+**Changes in `index.tsx`:**
+- `styles.section`: changed from `{ marginBottom: Spacing.lg }` → `{ marginTop: Spacing.xl }`. Each section now carries its own `Spacing.xl` (32px) of space above it, satisfying the "Spacing.xl above" part of the anatomy. The bottom margin was removed; bottom breathing room for the scroll is supplied by `paddingBottom: Spacing.xl` added to `styles.content`.
+- `styles.header` (greeting block): changed from `{ marginBottom: Spacing.lg }` → `{ marginBottom: 0 }`. The Notes section's own `marginTop: Spacing.xl` provides the 32px gap from the greeting to the first section header; removing the greeting's bottom margin prevents stacking.
+- `styles.content`: added `paddingBottom: Spacing.xl` to provide scroll breathing room below the last section (previously the last section's `marginBottom: Spacing.lg` served this purpose).
+
+**Component-internal Rule 2 violations handed to 043·2** (all use `FontSize.md` where `FontSize.lg` is required; and internal `Spacing.sm below header` not yet applied):
+- `HomeNotesCard.tsx` → `styles.title: { fontSize: FontSize.md }` (should be `FontSize.lg`)
+- `HomeShoppingCard.tsx` → `styles.title: { fontSize: FontSize.md }` (should be `FontSize.lg`)
+- `PlanTaskCard.tsx` → `styles.headerTitle: { fontSize: FontSize.md }` (should be `FontSize.lg`); internal header `marginBottom: Spacing.sm` not yet verified against rule
+- `HomeSharedCard.tsx` → `styles.title: { fontSize: FontSize.md }` (should be `FontSize.lg`)
+
+---
+
+### Rule 3 — Accent bars only
+
+**`index.tsx`:** No per-feature color applied to any card wrapper or section in `index.tsx`. The card styling is entirely delegated to the components. ✓
+
+**Component-internal note for 043·2:** `HomeNotesCard`, `HomeShoppingCard`, `PlanTaskCard` each use `rgba(theme.featXxx, 0.16)` for count-badge backgrounds in the card header area. These are content elements (not card body/border/sheen), so may be within Rule 3's intent, but 043·2 should confirm the scope of "body" before deciding.
+
+---
+
+### Rule 4 — Empty/hide assignment
+
+Verified against Decision 043's recorded assignment:
+
+| Section | Component | Assigned pattern | Actual behaviour | Status |
+|---------|-----------|-----------------|-----------------|--------|
+| Plans | `PlanTaskCard` | always-render-header | Always renders (empty state text when no tasks) | ✓ |
+| Shopping | `HomeShoppingCard` | always-render-header | Always renders (empty state when `totalCount === 0`) | ✓ |
+| Notes | `HomeNotesCard` | always-render-header | Always renders (empty state via `activeNotes.length === 0` branch) | ✓ |
+| SharedRequests | `HomeSharedCard` | hide-entirely-when-empty | `if (total === 0) return null` at line 51 | ✓ |
+| Backlog | (not present) | hide-entirely-when-empty | Not mounted in Home — no action needed | ✓ |
+| Inbox | (not present) | hide-entirely-when-empty | Not mounted in Home — no action needed | ✓ |
+
+No unassigned sections found. No STOP triggered.
+
+**Note:** `HomeNotesCard`'s JSDoc header says "Renders nothing when the notes list is empty" — this is stale; the code renders an empty-state view. The header comment should be corrected in 043·2 when that component is otherwise touched.
+
+---
+
+**Behavior preserved:** no navigation, data, ordering, Focus-mode, store, or interaction changes. Greeting styling unchanged (FontSize.xxl / Fonts.semibold as recorded). `PlanTaskCard.tsx` internals not touched. Zero new TypeScript errors expected (style-only change). No new dependencies; no Surface.tsx edits; all strings via `useT()` (no new strings).
