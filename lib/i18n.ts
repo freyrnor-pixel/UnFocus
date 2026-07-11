@@ -697,6 +697,9 @@ const en = {
     noItems: 'List is empty',
     noTasks: 'Nothing planned today',
     more: (n: number) => `+${n} more`,
+    notesTitle: 'Notes',
+    noNotes: 'No notes yet',
+    voiceNote: 'Voice note',
   },
   // Radial menu labels
   nav: {
@@ -1970,6 +1973,9 @@ const no: typeof en = {
     noItems: 'Listen er tom',
     noTasks: 'Ingenting planlagt i dag',
     more: (n: number) => `+${n} flere`,
+    notesTitle: 'Notater',
+    noNotes: 'Ingen notater ennå',
+    voiceNote: 'Taleopptak',
   },
   nav: {
     newTask: 'Ny oppgave', plans: 'Oppgaver', shop: 'Handleliste', habits: 'Vaner',

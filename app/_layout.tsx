@@ -181,6 +181,15 @@ export default function RootLayout() {
       if (state === 'background' && autoBackupRef.current) {
         void saveAutoBackup();
       }
+      if (state === 'active') {
+        // A home-screen widget tap may have written straight to SQLite while we were
+        // backgrounded or dead (lib/widgets/widgetActions.ts). Reload the widget-writable
+        // stores from the DB so the app reflects it AND the sync below re-pushes the
+        // reconciled state instead of clobbering it with stale in-memory rows.
+        useTaskStore.getState().load();
+        useShoppingStore.getState().load();
+        useNotesStore.getState().load();
+      }
       if (state === 'active' || state === 'background') {
         void syncWidgetsAndOverview();
       }

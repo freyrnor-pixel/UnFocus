@@ -23,13 +23,22 @@
  *   - saveWidgetSnapshot() runs `PRAGMA wal_checkpoint(TRUNCATE)` after the write: the DB is
  *     in WAL mode and the headless handler reads this row from a separate process (app closed),
  *     which can otherwise miss a write still in the -wal and render a stale/empty snapshot.
+ *   - Each list row carries its `id` so a widget tap (WIDGET_CLICK) can write the toggle back
+ *     via lib/widgets/widgetActions.ts. The handler patches the matching row in this snapshot
+ *     in place after the DB write, so the widget reflects the change without a full rebuild.
  */
 import db from '@/lib/db';
 
-/** One task row shown in the Tasks widget. */
-export type WidgetTaskLine = { title: string; done: boolean };
+/** One task row shown in the Tasks widget. `id` lets a widget tap toggle it (WIDGET_CLICK). */
+export type WidgetTaskLine = { id: string; title: string; done: boolean };
 
-/** Fully-localised snapshot rendered by all three widgets. */
+/** One shopping row. `state` drives the cycle list → cart → purchased; purchased rows drop out. */
+export type WidgetShopLine = { id: string; name: string; state: 'list' | 'cart' };
+
+/** One note row shown in the Notes widget; tap toggles `checked`. */
+export type WidgetNoteLine = { id: string; header: string; checked: boolean };
+
+/** Fully-localised snapshot rendered by all four widgets. */
 export type WidgetSnapshot = {
   /** Epoch ms the snapshot was built — lets a widget show a relative "updated" hint if wanted. */
   updatedAt: number;
@@ -37,7 +46,7 @@ export type WidgetSnapshot = {
     title: string;
     /** e.g. "3 items left" / "All done 🎉" */
     subtitle: string;
-    items: string[];
+    items: WidgetShopLine[];
     /** localised "+N more" footer, or '' when nothing is hidden */
     more: string;
     /** localised text shown when the list is empty */
@@ -58,6 +67,16 @@ export type WidgetSnapshot = {
     title: string;
     lines: string[];
     empty: string;
+    accent: string;
+    hasContent: boolean;
+  };
+  notes: {
+    title: string;
+    items: WidgetNoteLine[];
+    more: string;
+    empty: string;
+    /** localised label for the "record a voice note" button */
+    voiceLabel: string;
     accent: string;
     hasContent: boolean;
   };

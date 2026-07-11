@@ -197,6 +197,9 @@ type ShoppingStore = {
   update: (id: string, patch: Partial<Omit<ShoppingItem, 'id'>>) => void;
   toggleCheck: (id: string) => void;
   toggleCollected: (id: string) => void;
+  /** Mark a single item purchased (status='purchased' + timestamp) without a shopping_trips
+   *  row — used by the Shopping widget's list→cart→purchased tap. Full-trip checkout is doneShopping(). */
+  markPurchased: (id: string) => void;
   adjustAmount: (id: string, delta: number) => void;
   putBackToInventory: (id: string) => void;
   remove: (id: string) => void;
@@ -443,6 +446,12 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     const item = get().items.find((i) => i.id === id);
     if (!item) return;
     get().update(id, { collected: !item.collected });
+  },
+
+  markPurchased(id) {
+    const item = get().items.find((i) => i.id === id);
+    if (!item) return;
+    get().update(id, { status: 'purchased', purchasedAt: new Date().toISOString() });
   },
 
   adjustAmount(id, delta) {
