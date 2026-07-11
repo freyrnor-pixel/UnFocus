@@ -11,6 +11,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HomeNotesCard,
  *             components/HomeSharedCard, components/HomeShoppingCard,
+ *             components/FlightOverlay (FlightPill, Flight, FlightRect),
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, store/useTaskStore, store/useNotesStore, store/useSharedStore,
  *             store/useShoppingStore, store/useShoppingListStore, store/useSettingsStore
@@ -61,15 +62,22 @@
  *     card (before the bottom nav) on short content — the ambient hero backdrop
  *     (HomeHeroBackground) itself is untouched, this only tightens the screen's own
  *     bottom padding.
+ *   - **Flight animation (Phase 1, 2026-07-11)**: list→cart toggles inside HomeShoppingCard
+ *     fly a `FlightPill` clone; this screen owns the `flights` state and mounts a single
+ *     `<FlightOverlay>` as a sibling of `<ScreenScaffold>` (not inside it — scaffold children
+ *     scroll inside its internal ScrollView). `handleScreenScroll` clears in-flight flights on
+ *     scroll. See app/(tabs)/shopping.tsx's own note and ANIMATION_GUIDELINES.md for the
+ *     full pattern.
  */
-import React, { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
 import { useRouter, usePathname, useFocusEffect } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PlanTaskCard from '@/components/PlanTaskCard';
 import HomeNotesCard from '@/components/HomeNotesCard';
 import HomeSharedCard from '@/components/HomeSharedCard';
 import HomeShoppingCard from '@/components/HomeShoppingCard';
+import FlightOverlay, { FlightPill, Flight, FlightRect } from '@/components/FlightOverlay';
 import HintCard from '@/components/HintCard';
 import { goToSite } from '@/lib/siteNav';
 import { todayStr } from '@/lib/date';
@@ -95,6 +103,30 @@ export default function HomeScreen() {
   // Focus mode: Home-only, ephemeral (Decisions 009 #4 / 018). Reset on blur below.
   const [focusMode, setFocusMode] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
+
+  // Flight animation (Phase 1, 2026-07-11) — mirrors app/(tabs)/shopping.tsx's screen-level
+  // plumbing at smaller scale (one card, no listId keying needed). See that file's own edit
+  // note and ANIMATION_GUIDELINES.md's "Flight / Cross-Section Travel Animations" section.
+  const [flights, setFlights] = useState<Flight[]>([]);
+  const flightCounter = useRef(0);
+  const lastScrollY = useRef(0);
+
+  function handleFlightStart(item: ShoppingItem, from: FlightRect, to: FlightRect) {
+    flightCounter.current += 1;
+    const key = `${item.id}-${flightCounter.current}`;
+    setFlights((prev) => [
+      ...prev.filter((f) => f.itemId !== item.id),
+      { key, itemId: item.id, from, to, content: <FlightPill label={item.name} /> },
+    ]);
+  }
+  function handleFlightEnd(key: string) {
+    setFlights((prev) => prev.filter((f) => f.key !== key));
+  }
+  function handleScreenScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const y = e.nativeEvent.contentOffset.y;
+    if (Math.abs(y - lastScrollY.current) > 4 && flights.length > 0) setFlights([]);
+    lastScrollY.current = y;
+  }
 
   const tasks = useTaskStore((s) => s.tasks);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
@@ -176,6 +208,7 @@ export default function HomeScreen() {
         onToggleFocus={() => setFocusMode((v) => !v)}
         infoActive={hintOpen}
         onInfoToggle={() => setHintOpen((v) => !v)}
+        onScroll={handleScreenScroll}
       >
         <View style={styles.content}>
           {!focusMode && <HintCard text={t.hints.home.text} open={hintOpen} noPill />}
@@ -235,6 +268,7 @@ export default function HomeScreen() {
               onDecrement={(id) => adjustAmount(id, -1)}
               onNavigateToShopping={() => goToSite(router, pathname, '/shopping')}
               inStockLabel={t.inStockLabel}
+              onFlightStart={handleFlightStart}
             />
           </View>
 
@@ -248,6 +282,7 @@ export default function HomeScreen() {
           )}
         </View>
       </ScreenScaffold>
+      <FlightOverlay flights={flights} onFlightEnd={handleFlightEnd} />
     </>
   );
 }

@@ -10,8 +10,9 @@
  * trailing button (Ripple R2) — both replaced by gesture surfaces.
  *
  * Connections:
- *   Imports → components/Badge, components/InventoryIcon, constants/theme, lib/date, lib/haptics,
- *             lib/i18n, lib/useAppTheme, react-native-gesture-handler, react-native-reanimated,
+ *   Imports → components/Badge, components/FlightOverlay (FlightRect type only), components/InventoryIcon,
+ *             constants/theme, lib/date, lib/haptics, lib/i18n, lib/useAppTheme,
+ *             react-native-gesture-handler, react-native-reanimated,
  *             store/useShoppingStore (ShoppingItem type + recentlyAddedIds, see Decision 044b note)
  *   Used by → components/WeekListCard.tsx, app/(tabs)/shopping.tsx (weekly rows +
  *             purchased-history rows), components/HomeShoppingCard.tsx (Home shopping
@@ -102,6 +103,14 @@
  *     transition) read as "travel" rather than a teleport. All three respect reducedMotion.
  *   - **Touch target (2026-07-11)**: the check circle is visually 22x22 but `hitSlop={13}`
  *     brings the tappable area to ~48dp, meeting Android's minimum touch-target size.
+ *   - **Flight animation (Phase 1, 2026-07-11)**: `onFlightStart` (optional) fires with this
+ *     row's window-space rect right before `onToggle`, letting the parent kick off a
+ *     `FlightOverlay` clone (see ANIMATION_GUIDELINES.md). Only wired for the forward
+ *     'planned'-and-unchecked → 'In cart' direction (`willFly`) — reverse toggles keep
+ *     today's fade-only behavior, matching FLIGHT_ANIMATION_HANDOFF.md's stated Phase 1
+ *     scope. The ref for measuring must live on the outer `styles.wrap` Animated.View, NOT
+ *     the `GestureDetector`-wrapped `styles.row` one below it — GestureDetector clones its
+ *     child and would silently overwrite a ref placed there.
  */
 import React, { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -118,6 +127,7 @@ import Animated, {
   LinearTransition,
 } from 'react-native-reanimated';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
+import type { FlightRect } from '@/components/FlightOverlay';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -153,6 +163,8 @@ type Props = {
   onDecrement?: () => void;
   inStockLabel?: string;
   locked?: boolean;
+  /** See "Flight animation" edit note above. Omit to keep today's fade-only toggle. */
+  onFlightStart?: (rect: FlightRect) => void;
 };
 
 export default function ShoppingRow({
@@ -165,12 +177,14 @@ export default function ShoppingRow({
   onDecrement,
   inStockLabel,
   locked,
+  onFlightStart,
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
   const { reducedMotion } = useAccessibility();
   const { width } = useWindowDimensions();
+  const rowRef = useRef<any>(null);
 
   const translateX = useSharedValue(0);
   const crossedThreshold = useSharedValue(false);
@@ -229,6 +243,21 @@ export default function ShoppingRow({
     onRemove();
   }
 
+  // Phase 1 flight scope: only the forward "In list" (unchecked, planned) → "In cart"
+  // toggle flies; reverse toggles keep today's fade-only unmount/remount.
+  const willFly = !reducedMotion && !!onFlightStart && variant === 'planned' && !item.checked;
+
+  function handleCheckPress() {
+    if (willFly && rowRef.current?.measureInWindow) {
+      rowRef.current.measureInWindow((x: number, y: number, width2: number, height: number) => {
+        onFlightStart!({ x, y, width: width2, height });
+        onToggle();
+      });
+    } else {
+      onToggle();
+    }
+  }
+
   const pan = Gesture.Pan()
     .enabled(!locked)
     .activeOffsetX([-12, 12])
@@ -272,9 +301,10 @@ export default function ShoppingRow({
 
   return (
     <Animated.View
+      ref={rowRef}
       style={styles.wrap}
       entering={!reducedMotion && wasNewOnMount ? FadeInDown.duration(250) : undefined}
-      exiting={reducedMotion ? undefined : FadeOut.duration(200)}
+      exiting={willFly ? undefined : (reducedMotion ? undefined : FadeOut.duration(200))}
       layout={reducedMotion ? undefined : LinearTransition.duration(220)}
     >
       <Animated.View
@@ -298,7 +328,7 @@ export default function ShoppingRow({
               variant === 'cart' && { backgroundColor: theme.good, borderColor: theme.good },
               variant === 'purchased' && { backgroundColor: theme.good, borderColor: theme.good },
             ]}
-            onPress={onToggle}
+            onPress={handleCheckPress}
             disabled={variant === 'purchased'}
             hitSlop={13}
             accessibilityRole="checkbox"

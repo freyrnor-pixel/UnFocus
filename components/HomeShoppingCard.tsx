@@ -7,7 +7,8 @@
  * Shopping screen.
  *
  * Connections:
- *   Imports → components/Surface, components/ExpandableCard, components/ShoppingRow,
+ *   Imports → components/Surface, components/ExpandableCard, components/FlightOverlay
+ *             (FlightRect type only), components/ShoppingRow,
  *             components/ProgressBar, constants/theme, lib/haptics, lib/i18n, lib/shoppingGroups
  *             (listProgress), lib/useAppTheme, expo-router, store/useShoppingStore (ShoppingItem
  *             type), store/useShoppingListStore (ShoppingList type)
@@ -27,8 +28,15 @@
  *   - **Touch target (2026-07-11)**: the collapsed-preview check circle is visually 22x22
  *     but `hitSlop={13}` brings the tappable area to ~48dp, meeting Android's minimum
  *     touch-target size (the expanded/full-list rows reuse ShoppingRow, fixed separately).
+ *   - **Flight animation (Phase 1, 2026-07-11)**: two destination anchors depending on mode —
+ *     expanded rows (real `ShoppingRow`s) fly to the "In cart" section label (`cartHeaderRef`,
+ *     always mounted whenever `checked.length > 0`); collapsed-preview rows (hand-rolled, not
+ *     `ShoppingRow` — there's no "In cart" section mounted in that mode to fly to) fly to the
+ *     card's own item-count badge instead (`badgeRef`) rather than forcing the card open —
+ *     "some motion" is the bar, not a literal cross-section flight, per product direction.
+ *     Both paths gate on `reducedMotion` and fall through to plain `onToggle()`.
  */
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,8 +44,9 @@ import Surface from '@/components/Surface';
 import ExpandableCard from '@/components/ExpandableCard';
 import ShoppingRow from '@/components/ShoppingRow';
 import ProgressBar from '@/components/ProgressBar';
+import type { FlightRect } from '@/components/FlightOverlay';
 import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { ShoppingItem } from '@/store/useShoppingStore';
@@ -58,6 +67,8 @@ type Props = {
   onDecrement: (id: string) => void;
   onNavigateToShopping: () => void;
   inStockLabel: string;
+  /** See "Flight animation" edit note above. Omit to keep today's fade-only toggle. */
+  onFlightStart?: (item: ShoppingItem, from: FlightRect, to: FlightRect) => void;
 };
 
 export default function HomeShoppingCard({
@@ -72,18 +83,32 @@ export default function HomeShoppingCard({
   onDecrement,
   onNavigateToShopping,
   inStockLabel,
+  onFlightStart,
 }: Props) {
   const t = useT();
   const router = useRouter();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
+  const { reducedMotion } = useAccessibility();
   const [expanded, setExpanded] = useState(false);
+  const cartHeaderRef = useRef<any>(null);
+  const badgeRef = useRef<any>(null);
+  const collapsedRowNodes = useRef<Map<string, any>>(new Map());
 
   const progress = listProgress({ dishGroups, ungroupedUnchecked, checked });
   const totalCount = progress.total;
 
   const previewItems = ungroupedUnchecked.slice(0, COLLAPSED_COUNT);
   const showToggle = ungroupedUnchecked.length > COLLAPSED_COUNT || checked.length > 0;
+
+  function handleExpandedFlightStart(item: ShoppingItem, from: FlightRect) {
+    if (!onFlightStart) return;
+    const dest = cartHeaderRef.current;
+    if (!dest?.measureInWindow) return; // "In cart" section not mounted yet — falls back to today's fade
+    dest.measureInWindow((x: number, y: number, width: number, height: number) => {
+      onFlightStart(item, from, { x, y, width, height });
+    });
+  }
 
   function renderShoppingRow(item: ShoppingItem, idx: number, total: number, variant: 'planned' | 'cart') {
     return (
@@ -97,6 +122,7 @@ export default function HomeShoppingCard({
           onIncrement={() => onIncrement(item.id)}
           onDecrement={() => onDecrement(item.id)}
           inStockLabel={inStockLabel}
+          onFlightStart={variant === 'planned' ? (rect) => handleExpandedFlightStart(item, rect) : undefined}
         />
         {idx < total - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.surfaceMuted }]} />}
       </View>
@@ -105,6 +131,22 @@ export default function HomeShoppingCard({
 
   function handleTitlePress() {
     router.push('/shopping');
+  }
+
+  // Collapsed-preview rows are hand-rolled (not ShoppingRow) and have no "In cart" section
+  // mounted to fly to — fly toward the card's own item-count badge instead, which is always
+  // mounted whenever there's an item to toggle (totalCount counts regardless of checked state).
+  function handleCollapsedToggle(item: ShoppingItem) {
+    if (reducedMotion || !onFlightStart) { onToggle(item.id); return; }
+    const rowNode = collapsedRowNodes.current.get(item.id);
+    const badgeNode = badgeRef.current;
+    if (!rowNode?.measureInWindow || !badgeNode?.measureInWindow) { onToggle(item.id); return; }
+    rowNode.measureInWindow((x: number, y: number, width: number, height: number) => {
+      badgeNode.measureInWindow((bx: number, by: number, bw: number, bh: number) => {
+        onFlightStart(item, { x, y, width, height }, { x: bx, y: by, width: bw, height: bh });
+        onToggle(item.id);
+      });
+    });
   }
 
   return (
@@ -119,7 +161,7 @@ export default function HomeShoppingCard({
               {list?.name ?? t.shoppingTitle}
             </Text>
             {totalCount > 0 && (
-              <View style={[styles.badge, { backgroundColor: rgba(theme.featShop, 0.16) }]}>
+              <View ref={badgeRef} style={[styles.badge, { backgroundColor: rgba(theme.featShop, 0.16) }]}>
                 <Text style={[styles.badgeText, { color: theme.featShop }]}>{totalCount}</Text>
               </View>
             )}
@@ -163,7 +205,7 @@ export default function HomeShoppingCard({
 
               {checked.length > 0 && (
                 <View style={styles.shoppingSection}>
-                  <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.inKurvenSection(checked.length)}</Text>
+                  <Text ref={cartHeaderRef} style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.inKurvenSection(checked.length)}</Text>
                   {checked.map((item, idx) => renderShoppingRow(item, idx, checked.length, 'cart'))}
                 </View>
               )}
@@ -174,7 +216,13 @@ export default function HomeShoppingCard({
           <View style={[styles.rowsContainer, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
             <View style={styles.rows}>
               {previewItems.map((item, idx) => (
-                <View key={item.id}>
+                <View
+                  key={item.id}
+                  ref={(node) => {
+                    if (node) collapsedRowNodes.current.set(item.id, node);
+                    else collapsedRowNodes.current.delete(item.id);
+                  }}
+                >
                   {idx > 0 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
                   <View style={styles.previewRow}>
                     <Pressable
@@ -183,7 +231,7 @@ export default function HomeShoppingCard({
                         { borderColor: theme.featShop },
                         item.checked && { backgroundColor: theme.featShop },
                       ]}
-                      onPress={() => onToggle(item.id)}
+                      onPress={() => handleCollapsedToggle(item)}
                       hitSlop={13}
                     >
                       {item.checked && <Ionicons name="checkmark" size={12} color={theme.accentInk} />}
