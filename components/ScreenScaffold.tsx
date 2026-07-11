@@ -56,6 +56,13 @@
  *     match the rendered content's actual height — it drives the ScrollView's top content
  *     padding so the first real content item isn't permanently hidden under the two floating
  *     blocks (mirrors the header's own float, which every current screen already accepts).
+ *   - **headerBlock backgroundColor (visual-audit fix, 2026-07-11)**: `headerBlock` has an
+ *     explicit height (`HEADER_HEIGHT + topInset`), but `ScreenHeader`'s glass `Surface`
+ *     shrink-wraps to its own (shorter) content height, leaving a transparent sliver at the
+ *     bottom of the block that let scrolled-past L3 content show through unblurred — most
+ *     visible on Settings, where `stickyBelowHeader` sits glued right under it. Fixed by
+ *     giving `headerBlock` `backgroundColor: theme.bg` so any shortfall is covered by the
+ *     page background instead of a hole.
  */
 import React from 'react';
 import { Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
@@ -182,7 +189,7 @@ export default function ScreenScaffold({
 
       {/* L4: Top block (ScreenHeader) — extended up behind the status bar and
           padded down by the top inset so the bar content clears it. */}
-      <View style={[styles.headerBlock, { height: HEADER_HEIGHT + topInset, paddingTop: topInset }]}>
+      <View style={[styles.headerBlock, { height: HEADER_HEIGHT + topInset, paddingTop: topInset, backgroundColor: theme.bg }]}>
         <ScreenHeader
           title={title}
           tier={tier}

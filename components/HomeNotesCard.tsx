@@ -20,6 +20,8 @@
  *     mirroring PlanTaskCard's done zone.
  *   - "+" add creates a blank note via add() then navigates to /notes so the user can fill it.
  *     success() haptic fires on add; tap() haptic on toggle/expand.
+ *   - **Touch target (2026-07-11)**: check circle is visually 22x22 but `hitSlop={13}`
+ *     brings the tappable area to ~48dp, meeting Android's minimum touch-target size.
  */
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -93,7 +95,7 @@ export default function HomeNotesCard() {
                     <Pressable
                       style={[styles.check, { borderColor: theme.featNote }]}
                       onPress={() => handleToggle(note.id)}
-                      hitSlop={8}
+                      hitSlop={13}
                       accessibilityLabel={t.notes.checkedLabel}
                     >
                       {/* circle only — tap marks it checked and it moves to the done section */}

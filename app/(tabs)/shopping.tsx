@@ -32,6 +32,11 @@
  *             startup by app/_layout.tsx). FoodTab additionally drives useMealStore.
  *
  * Edit notes:
+ *   - **Sticky-bar label fix (visual-audit, 2026-07-11)**: the summary-row ternary fell
+ *     through to a `tab === 'food' ? foodTabLabel : catalogueTabLabel` catch-all for any
+ *     tab that wasn't `'monthly'` or `'weekly'`-with-a-`focusedList` — so a fresh/empty
+ *     Weekly tab (no focused list yet) showed "Katalog" instead of "Ukelister". Added an
+ *     explicit `tab === 'weekly'` branch before the catch-all.
  *   - **Decision 044a (2026-07-09):** removed the Monthly tab's staging tray
  *     (per-item pendingRestock checkbox → confirm button); MonthlyTableRow's checkbox
  *     now calls addToWeeklyFromCatalog directly, with undo via putBackToInventory in
@@ -726,6 +731,10 @@ export default function ShoppingScreen() {
       ) : tab === 'monthly' ? (
         <View style={styles.stickySummaryRow}>
           <Text style={[styles.stickyListName, { color: theme.text }]} numberOfLines={1}>{t.monthlyTabLabel}</Text>
+        </View>
+      ) : tab === 'weekly' ? (
+        <View style={styles.stickySummaryRow}>
+          <Text style={[styles.stickyListName, { color: theme.text }]} numberOfLines={1}>{t.weeklyTabLabel}</Text>
         </View>
       ) : (
         <View style={styles.stickySummaryRow}>

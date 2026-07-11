@@ -39,6 +39,9 @@
  *     `dayViewAllDone` state (Decision 009 #4 "gentle done-state, not an empty screen").
  *   - **Plans preview = PlanTaskCard read-only (Decision 009a)**: OFF-focus, the preview IS the
  *     day-view rendered read-only, with a "See everything →" link to /plans. Not a bespoke card.
+ *     `readOnly` only disables row tap-through here (no `onPressTask`/`onSeeMore` passed) — the
+ *     done-toggle stays live because `onToggleTask` is passed alongside `readOnly`, so tapping a
+ *     task's checkbox toggles it done without opening the editor.
  *     `allTasks` (full store) is passed so Decision 020 cross-date followers surface.
  *     `horizontal={settings.planTimelineHorizontal}` is threaded to both PlanTaskCard mounts
  *     (Focus + preview) so the rail-orientation setting applies in both modes.
@@ -53,6 +56,11 @@
  *   - **"More" links (Decision 036)**: off-Focus chips to /notes and /meals. Reachability is
  *     data-independent — shown even if HomeNotesCard self-hides (notes empty on first launch).
  *   - All visible strings via useT(); today is todayStr() (YYYY-MM-DD).
+ *   - **Bottom whitespace (visual-audit, 2026-07-11)**: `content`'s trailing padding was
+ *     trimmed from `Spacing.xl` to `Spacing.md` to shrink the empty area below the last
+ *     card (before the bottom nav) on short content — the ambient hero backdrop
+ *     (HomeHeroBackground) itself is untouched, this only tightens the screen's own
+ *     bottom padding.
  */
 import React, { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -207,6 +215,7 @@ export default function HomeScreen() {
                 tasks={todayTasks}
                 allTasks={tasks}
                 readOnly
+                onToggleTask={(task: Task) => toggleTask(task.id)}
                 horizontal={settings.planTimelineHorizontal}
               />
             )}
@@ -245,7 +254,7 @@ export default function HomeScreen() {
 
 const baseStyles = StyleSheet.create({
   blank: { flex: 1 },
-  content: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.xl },
+  content: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.md },
   header: { marginBottom: 0 },
   greeting: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold },
   dateLabel: { fontSize: FontSize.sm, marginTop: Spacing.xs, textTransform: 'capitalize', fontFamily: Fonts.regular },
