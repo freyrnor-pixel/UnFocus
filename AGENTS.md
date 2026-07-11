@@ -104,6 +104,21 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 4. Add to `app/settings.tsx` UI
 5. Add i18n labels
 
+### Verify a change (headless — no device)
+A full emulator isn't feasible in the remote env (no KVM/virtualization; the app is
+deeply native), so verification is headless and covers the **logic/data layer** only —
+not visual/gesture behavior, which still needs a real device.
+
+1. `npx tsc --noEmit` — first-pass gate. Runs & passes in the remote env now (the
+   session-start hook installs deps). Also enforces i18n key parity via `no: typeof en`.
+2. `scripts/test-changed.sh` — runs only the Jest suites a change affects
+   (`jest --findRelatedTests` over the git diff). Full suite: `scripts/test-changed.sh --all`.
+3. **Only test behavioral changes.** A pure move/rename/comment/header edit gets step 1
+   only — there's nothing to re-test.
+4. Test files live in `__tests__/` (+ `lib/__tests__/`); native modules are mocked
+   (`__mocks__/expo-sqlite.js` is auto-applied; mock `@/lib/db` directly for store logic).
+   Add a test when you add a pure helper or store logic; keep them DB-free/headless.
+
 ## Known gotchas
 
 - **`StyleSheet.absoluteFill`** (not `.absoluteFillObject`) for full-screen overlays

@@ -56,10 +56,24 @@ you've explicitly handed the merge to the user).
 - **BottomNav** (`components/BottomNav.tsx`) — current, only entry point; no redesign needed
 - **BubbleMenu** (radial FAB from the pre-rebuild spec) — dropped before porting (Decision 008 #5); `components/BubbleMenu.tsx` does not exist in this repo, don't look for it
 
-### Testing
-- **No Jest required** until further notice (no test runs, no live-app verification)
-- Manual code review only: read through for bugs and dead code
-- TypeScript typecheck (`npx tsc --noEmit`) is local-only; not available in remote environment
+### Testing — headless verification (no device needed)
+A full emulator is **not feasible** in the remote environment (no KVM/virtualization,
+and the app is deeply native), so verification is headless. Both of these run in the
+remote env (the session-start hook installs deps):
+
+- **Typecheck first:** `npx tsc --noEmit` — runs and passes here. Catches broken
+  imports, type errors, and (because `no: typeof en` in `lib/i18n.ts`) missing/mismatched
+  i18n keys at compile time. This is the cheap first-pass gate on every change.
+- **Jest suite** over the pure logic/store layer (`__tests__/` + `lib/__tests__/`):
+  date/time helpers, `dataAccess`, receipt parsing, reminder scheduling, live-sync LWW.
+  Native modules (`expo-sqlite`, notifications, etc.) are mocked — see
+  `__mocks__/expo-sqlite.js` and the `jest.mock` patterns in `__tests__/*.test.ts`.
+- **Run only what a change affects, and only for behavioral changes:**
+  `scripts/test-changed.sh` (wraps `jest --findRelatedTests` over the git diff).
+  A pure move/rename/comment/header edit gets `tsc --noEmit` only — skip Jest.
+  Report which tests ran + their pass/fail, not a blanket "all green".
+- **Still not covered:** visual/gesture/interaction behavior — that needs a real
+  device (maintainer, or a local emulator where KVM exists).
 
 ## During Work
 
@@ -70,7 +84,8 @@ you've explicitly handed the merge to the user).
 
 ## After Completing a Cookbook Task
 
-- Run `npx tsc --noEmit` locally to typecheck
+- Run `npx tsc --noEmit` to typecheck (works in the remote env now)
+- For behavioral changes, run `scripts/test-changed.sh` to exercise the affected tests
 - Verify file headers are accurate
 - `/clear` before starting an unrelated task — but carry forward which files changed and any new i18n keys/migration lines, so the next step doesn't need to re-read what was just written
 
