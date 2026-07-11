@@ -100,6 +100,8 @@
  *     resettle smoothly when the list above them changes height — this is what makes
  *     list→cart moves (a different section = unmount+remount, not a true shared-element
  *     transition) read as "travel" rather than a teleport. All three respect reducedMotion.
+ *   - **Touch target (2026-07-11)**: the check circle is visually 22x22 but `hitSlop={13}`
+ *     brings the tappable area to ~48dp, meeting Android's minimum touch-target size.
  */
 import React, { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -298,7 +300,7 @@ export default function ShoppingRow({
             ]}
             onPress={onToggle}
             disabled={variant === 'purchased'}
-            hitSlop={6}
+            hitSlop={13}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: !!item.checked }}
             accessibilityLabel={item.name}

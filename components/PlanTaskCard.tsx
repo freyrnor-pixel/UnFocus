@@ -65,9 +65,12 @@
  *   - **Decision 019 hint**: a task's `hint` renders under its title (display-only) while
  *     the task is "up" (current or next), so the reminder shows exactly when it's useful.
  *     Vertical rail only — the horizontal rail's columns are too narrow for it.
- *   - `readOnly` (Home preview) disables the done-toggle and row tap-through only —
- *     structure, rail, collapse/expand, and done zone are identical (Decision 009a). Pass
- *     `onSeeMore` to show a "See everything →" link routing to the full screen.
+ *   - `readOnly` (Home preview) disables row tap-through only — structure, rail,
+ *     collapse/expand, and done zone are identical (Decision 009a). The done-toggle is
+ *     independently gated on whether `onToggleTask` is passed (not on `readOnly`), so the
+ *     Home preview's checkbox stays interactive while row tap-through into the editor
+ *     stays disabled. Pass `onSeeMore` to show a "See everything →" link routing to the
+ *     full screen.
  *   - Anytime (untimed) tasks have no rail position; they render as plain dotted rows
  *     above the timed rail (same as DayTimeline). Only timed→timed gaps are proportional.
  *   - **Completion feedback**: a completed task immediately leaves the pending rail for
@@ -82,6 +85,9 @@
  *     the "happening now" / follower-surfaced highlight that the dot used to carry. Done
  *     zone rows (the collapsed history list) always use the vertical `renderRow`, even in
  *     horizontal mode — it's a secondary dropdown, not the primary glance surface.
+ *   - **Touch target (2026-07-11)**: the done-toggle `dot` is visually 16x16 but
+ *     `hitSlop={16}` brings the tappable area to ~48dp, meeting Android's minimum
+ *     touch-target size.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -101,7 +107,9 @@ type Props = {
   tasks: Task[];
   /** Full store list — lets cross-date followers surface into this view (Decision 020). Defaults to `tasks`. */
   allTasks?: Task[];
-  /** Home preview: disables done-toggle + row tap-through only (Decision 009a). */
+  /** Home preview: disables row tap-through only (Decision 009a). Done-toggle is
+   *  independently gated on whether `onToggleTask` is passed — pass it to keep the
+   *  checkbox interactive even when `readOnly` is set. */
   readOnly?: boolean;
   onPressTask?: (task: Task) => void;
   onToggleTask?: (task: Task) => void;
@@ -289,7 +297,7 @@ export default function PlanTaskCard({
       : anytimePending[0]?.id;
 
   function handleToggle(task: Task) {
-    if (readOnly || !onToggleTask) return;
+    if (!onToggleTask) return;
     if (!task.done) success();
     onToggleTask(task);
   }
@@ -302,8 +310,8 @@ export default function PlanTaskCard({
   function doneToggle(task: Task, isHappeningNow?: boolean) {
     return (
       <Pressable
-        disabled={readOnly || !onToggleTask}
-        hitSlop={8}
+        disabled={!onToggleTask}
+        hitSlop={16}
         onPress={() => handleToggle(task)}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: task.done }}

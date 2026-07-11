@@ -24,6 +24,9 @@
  *     that helper rather than re-deriving it, since it's also the only correct way to count
  *     dish-group items as checked/unchecked (Decision 011a items don't live wholly in one
  *     bucket). The title row's progress bar uses the same call's `pct`, tinted `featShop`.
+ *   - **Touch target (2026-07-11)**: the collapsed-preview check circle is visually 22x22
+ *     but `hitSlop={13}` brings the tappable area to ~48dp, meeting Android's minimum
+ *     touch-target size (the expanded/full-list rows reuse ShoppingRow, fixed separately).
  */
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -181,7 +184,7 @@ export default function HomeShoppingCard({
                         item.checked && { backgroundColor: theme.featShop },
                       ]}
                       onPress={() => onToggle(item.id)}
-                      hitSlop={8}
+                      hitSlop={13}
                     >
                       {item.checked && <Ionicons name="checkmark" size={12} color={theme.accentInk} />}
                     </Pressable>
