@@ -20,6 +20,9 @@
  *     handler or the widget views. Add new display text here (baked by sync.ts), not there.
  *   - Every read/write is wrapped so a missing table / parse error degrades to null rather
  *     than crashing a headless task.
+ *   - saveWidgetSnapshot() runs `PRAGMA wal_checkpoint(TRUNCATE)` after the write: the DB is
+ *     in WAL mode and the headless handler reads this row from a separate process (app closed),
+ *     which can otherwise miss a write still in the -wal and render a stale/empty snapshot.
  */
 import db from '@/lib/db';
 
@@ -79,6 +82,13 @@ export function saveWidgetSnapshot(snapshot: WidgetSnapshot) {
         'ON CONFLICT(id) DO UPDATE SET payload = excluded.payload',
       [JSON.stringify(snapshot)]
     );
+    // The DB runs in WAL mode (lib/db.ts). The widget's headless task handler
+    // (lib/widgets/handler.tsx) reads this row from a SEPARATE process while the
+    // app is closed — and a fresh connection can miss changes still sitting in the
+    // -wal file, showing a stale/empty snapshot (the "widget shows no tasks even
+    // though the app has them" bug). Force a checkpoint so the write lands in the
+    // main db file the headless reader opens. TRUNCATE also keeps the -wal small.
+    try { db.execSync('PRAGMA wal_checkpoint(TRUNCATE)'); } catch { /* checkpoint is best-effort */ }
   } catch {
     /* never crash the app over a widget cache write */
   }
