@@ -11,7 +11,7 @@
  * sticky bar (Decision 011 A2-1) holds the 4-tab switcher plus a per-tab summary line.
  *
  * Connections:
- *   Imports → components/AddDivider, components/AddItemSheet, components/HintCard,
+ *   Imports → components/AddFAB, components/AddItemSheet, components/HintCard,
  *             components/AppModal (showAppModal),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
  *             components/ExpandableCard, components/IconButton,
@@ -55,7 +55,8 @@
  *     monthly list" (→ status:'catalog'), expandable to ingredient rows. Catalogue
  *     (components/CatalogueTab) is the master item list, sectioned by type, with add/edit/
  *     delete. The Monthly tab dropped its embedded seed-catalogue section (moved to the
- *     Catalogue tab) and keeps a direct add-to-monthly AddDivider. Weekly gained the
+ *     Catalogue tab) and keeps a direct add-to-monthly bubble (AddFAB size="sm", lower-right
+ *     of the card — visual-audit 2026-07-11 replaced the old AddDivider "—+—" line). Weekly gained the
  *     Unallocated card; each unallocated dish/item can be allocated into a real dated list.
  *   - New file (2026-07-02, Session A2·2). app/shopping.tsx never existed in this repo
  *     before this session — this is a from-scratch build against Decision 011 (A2-1,
@@ -151,11 +152,11 @@ import ConfirmationBanner from '@/components/ConfirmationBanner';
 import { showAppModal } from '@/components/AppModal';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
-import AddDivider from '@/components/AddDivider';
 import ExpandableCard from '@/components/ExpandableCard';
 import WeekListCard from '@/components/WeekListCard';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab from '@/components/CatalogueTab';
+import AddFAB from '@/components/AddFAB';
 import SavedListsModal from '@/components/SavedListsModal';
 import ListSettingsSheet from '@/components/ListSettingsSheet';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
@@ -720,6 +721,11 @@ export default function ShoppingScreen() {
         })}
       </View>
 
+      {/* Visual-audit 2026-07-11: dropped the plain tab-name echo here for monthly/food/
+          catalogue/weekly-without-a-list — the active tab button above already names it,
+          so a second "Monthly list"/"Katalog" line right underneath was pure repetition.
+          This row only earns its place when it carries information the tab button
+          doesn't: the focused list's own name + live progress. */}
       {tab === 'weekly' && focusedList && focusedProgress ? (
         <View style={styles.stickySummaryRow}>
           <Text style={[styles.stickyListName, { color: theme.text }]} numberOfLines={1}>{focusedList.name}</Text>
@@ -728,21 +734,7 @@ export default function ShoppingScreen() {
           </Text>
           <ProgressBar value={focusedProgress.pct} state="good" height={6} style={styles.stickyProgressBar} />
         </View>
-      ) : tab === 'monthly' ? (
-        <View style={styles.stickySummaryRow}>
-          <Text style={[styles.stickyListName, { color: theme.text }]} numberOfLines={1}>{t.monthlyTabLabel}</Text>
-        </View>
-      ) : tab === 'weekly' ? (
-        <View style={styles.stickySummaryRow}>
-          <Text style={[styles.stickyListName, { color: theme.text }]} numberOfLines={1}>{t.weeklyTabLabel}</Text>
-        </View>
-      ) : (
-        <View style={styles.stickySummaryRow}>
-          <Text style={[styles.stickyListName, { color: theme.text }]} numberOfLines={1}>
-            {tab === 'food' ? t.foodTabLabel : t.catalogueTabLabel}
-          </Text>
-        </View>
-      )}
+      ) : null}
     </View>
   );
 
@@ -755,8 +747,10 @@ export default function ShoppingScreen() {
 
         {tab === 'monthly' && (
           <Surface style={styles.catalogCard}>
-            <View style={styles.catalogHeaderRow}>
-              <Text style={[styles.catalogTitle, { color: theme.text }]}>{t.monthlyTabLabel}</Text>
+            {/* No repeated "Monthly list" title here — the sticky tab bar above already
+                names the active tab (visual-audit 2026-07-11: this was the 3rd echo of
+                the same label). */}
+            <View style={[styles.catalogHeaderRow, styles.catalogHeaderRowEnd]}>
               <View style={styles.catalogHeaderActions}>
                 <Pressable
                   style={styles.resetIconBtn}
@@ -778,9 +772,11 @@ export default function ShoppingScreen() {
             <View style={styles.bodyGap}>
               {/* SECTION 1 — Monthly list (things the user has added) */}
               <View style={styles.section}>
-                <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.monthlyListSection}</Text>
+                <View style={[styles.sectionTitleCard, { backgroundColor: theme.surfaceMuted }]}>
+                  <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.monthlyListSection}</Text>
+                </View>
                 {catalogItems.length === 0 ? (
-                  <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.monthlyListEmpty}</Text>
+                  <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.monthlyListEmpty}</Text>
                 ) : (
                   <>
                     {catalogDishGroups.length > 0 && (
@@ -830,13 +826,22 @@ export default function ShoppingScreen() {
                 )}
                 {/* Add an item straight to the Monthly list. The full item catalogue now
                     lives in its own "Catalogue" tab (CatalogueTab); this keeps a direct
-                    add-to-monthly affordance where the catalogue section used to sit. */}
-                <AddDivider onPress={() => setAddToCatalogOpen(true)} disabled={catalogLocked} />
+                    add-to-monthly affordance where the catalogue section used to sit.
+                    Visual-audit 2026-07-11: a lower-right bubble (matching the "add
+                    within this card" shape used elsewhere) replaces the old centered
+                    "—+—" AddDivider line. */}
+                {!catalogLocked && (
+                  <View style={styles.cardAddBubbleRow}>
+                    <AddFAB size="sm" onPress={() => setAddToCatalogOpen(true)} accessibilityLabel={t.catalogueAddNewBtn} style={styles.cardAddBubble} />
+                  </View>
+                )}
               </View>
 
               {purchasedByTrip.length > 0 && (
                 <View style={styles.section}>
-                  <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.purchasedThisMonthSection}</Text>
+                  <View style={[styles.sectionTitleCard, { backgroundColor: theme.surfaceMuted }]}>
+                    <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.purchasedThisMonthSection}</Text>
+                  </View>
                   {purchasedByTrip.map(({ trip, tripItems }) => {
                     const expanded = purchasedExpanded === trip.id;
                     return (
@@ -1013,7 +1018,7 @@ export default function ShoppingScreen() {
             })}
 
             <Pressable
-              style={[styles.newListCard, { borderColor: theme.border, backgroundColor: theme.surface }]}
+              style={[styles.newListCard, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
               onPress={() =>
                 showAppModal(t.newWeeklyListTitle, '', [
                   { text: t.startEmptyList, onPress: handleCreateNewWeeklyList },
@@ -1022,8 +1027,8 @@ export default function ShoppingScreen() {
                 ])
               }
             >
-              <Text style={[styles.newListPlus, { color: theme.textMuted }]}>+</Text>
-              <Text style={[styles.newListText, { color: theme.textMuted }]}>{t.newWeeklyListTitle}</Text>
+              <Text style={[styles.newListPlus, { color: theme.accent }]}>+</Text>
+              <Text style={[styles.newListText, { color: theme.accent }]}>{t.newWeeklyListTitle}</Text>
             </Pressable>
           </>
         )}
@@ -1131,9 +1136,13 @@ const styles = StyleSheet.create({
 
   catalogCard: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.md },
   catalogHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  catalogHeaderRowEnd: { justifyContent: 'flex-end' },
   catalogHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  // Lower-right "add within this card" bubble (visual-audit 2026-07-11) — replaces the
+  // old centered AddDivider "—+—" line for the Monthly list's add-item affordance.
+  cardAddBubbleRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+  cardAddBubble: {},
   resetIconBtn: { alignItems: 'center', justifyContent: 'center' },
-  catalogTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
 
   dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: Spacing.lg },
   dialogBox: { borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', maxWidth: 340, gap: Spacing.lg },
@@ -1143,7 +1152,9 @@ const styles = StyleSheet.create({
   dialogBtnNo: { backgroundColor: '#1E3A5F' },
   dialogBtnYes: { backgroundColor: '#4A90D9' },
   dialogBtnText: { color: '#FFFFFF', fontFamily: Fonts.bold, fontSize: FontSize.sm, textAlign: 'center' },
-  sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm },
+  // Visual-audit 2026-07-11: background/border colour applied inline (theme) at each
+  // call site — was bare muted text floating on the particle background.
+  sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, borderRadius: Radius.sm, borderWidth: 1 },
   totalLine: { fontSize: FontSize.md, fontFamily: Fonts.bold, textAlign: 'right', marginTop: 4 },
 
   unsavedBanner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, borderRadius: Radius.md, padding: Spacing.sm },
@@ -1174,6 +1185,10 @@ const styles = StyleSheet.create({
   // section title itself, sectionLabel below; this row is a repeatable foldout control).
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: Radius.sm },
   sectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
+  // Visual-audit 2026-07-11: gives Monthly-tab section titles the same surfaceMuted-card
+  // treatment plans.tsx's sectionHeader() already applies — was bare text, flat/low-contrast
+  // against the particle background.
+  sectionTitleCard: { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: Radius.sm, marginBottom: Spacing.sm },
 
   disclosureChevron: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   weekLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },

@@ -297,9 +297,9 @@ export default function WeekListCard({
         {/* ── FROM MONTHLY LIST section (ephemeral, appears while adding from monthly) ── */}
         {monthlyPreviewOpen && (
           <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
+            <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
               <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.fromMonthlySection}</Text>
-              <View style={styles.sectionRule} />
+              <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />
               <Pressable
                 onPress={handleConfirmMonthly}
                 hitSlop={8}
@@ -370,7 +370,7 @@ export default function WeekListCard({
         {/* ── IN LIST section ── */}
         {showInListSection && (
           <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
+            <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
               <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.inListSection(totalInList)}</Text>
               <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />
             </View>
@@ -450,11 +450,14 @@ export default function WeekListCard({
                       disabled={!addName.trim()}
                       hitSlop={4}
                     >
-                      <Ionicons
-                        name="add"
-                        size={18}
-                        color={addName.trim() ? theme.textInverse : theme.textMuted}
-                      />
+                      <Text
+                        style={[
+                          styles.inlineAddConfirmText,
+                          { color: addName.trim() ? theme.textInverse : theme.textMuted },
+                        ]}
+                      >
+                        {t.a11yAdd}
+                      </Text>
                     </Pressable>
                   </View>
 
@@ -509,7 +512,7 @@ export default function WeekListCard({
         {/* ── IN CART section ── */}
         {totalInCart > 0 && (
           <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
+            <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
               <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.inCartSection(totalInCart)}</Text>
               <View style={[styles.sectionRule, { backgroundColor: theme.accent }]} />
             </View>
@@ -622,7 +625,17 @@ const baseStyles = StyleSheet.create({
   emptyTitle: { fontSize: FontSize.md, fontFamily: Fonts.semibold, textAlign: 'center' },
   emptySubtitle: { fontSize: FontSize.sm, textAlign: 'center' },
   section: { gap: Spacing.xs },
-  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  // Visual-audit 2026-07-11: a surfaceMuted card behind the label + rule so "sub-headers"
+  // (In list / In cart / From monthly list) read with real weight instead of floating
+  // bare text over the particle background — background colour applied inline (theme).
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.sm,
+  },
   sectionRule: { flex: 1, height: 2, borderRadius: Radius.full, opacity: 0.4 },
   sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
   sectionTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, textAlign: 'right', paddingTop: 2 },
@@ -653,13 +666,17 @@ const baseStyles = StyleSheet.create({
   inlineQtyBtnText: { fontSize: FontSize.md, fontFamily: Fonts.bold, lineHeight: 20 },
   inlineQtyVal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, minWidth: 20, textAlign: 'center' },
   inlineLineTotal: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, minWidth: 40, textAlign: 'right' },
+  // Visual-audit 2026-07-11: was an icon-only "+" circle — a plain-text "Add" pill
+  // reads less ambiguously (the "+" alone was easy to mistake for something else,
+  // since the row already has its own qty-stepper "+"/"−" buttons right next to it).
   inlineAddConfirmBtn: {
-    width: 30,
-    height: 30,
+    minHeight: 30,
+    paddingHorizontal: Spacing.sm,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  inlineAddConfirmText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   addSearchDropdown: {
     borderRadius: Radius.sm,
     marginTop: 2,

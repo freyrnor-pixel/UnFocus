@@ -63,6 +63,11 @@
  *     visible on Settings, where `stickyBelowHeader` sits glued right under it. Fixed by
  *     giving `headerBlock` `backgroundColor: theme.bg` so any shortfall is covered by the
  *     page background instead of a hole.
+ *   - **keyboardShouldPersistTaps (visual-audit, 2026-07-11)**: the in-flow ScrollView now
+ *     sets `keyboardShouldPersistTaps="handled"` so a first tap on an on-screen control (e.g.
+ *     an autocomplete suggestion row while an inline add-item input is focused) is delivered
+ *     to that control instead of only dismissing the keyboard — applies app-wide since every
+ *     screen shares this one ScrollView.
  */
 import React from 'react';
 import { Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
@@ -168,6 +173,7 @@ export default function ScreenScaffold({
       scrollIndicatorInsets={{
         bottom: tier === 'site' ? BOTTOM_NAV_HEIGHT : 0,
       }}
+      keyboardShouldPersistTaps="handled"
     >
       {children}
     </ScrollView>
