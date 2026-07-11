@@ -26,10 +26,13 @@
  *     it, so a stop with no speech captured doesn't create a blank note.
  *   - "no-speech"/"aborted" errors are expected (silence, or the user stopped early) and are
  *     swallowed; any other error surfaces via showAppModal.
+ *   - `autoStart` begins listening once on mount — app/notes.tsx passes it when opened via the
+ *     Notes widget's voice deep-link (unfocus:///notes?capture=voice). Guarded by a ref so it
+ *     fires a single time per mount.
  *   - expo-speech-recognition ships as a reserve-only native module already in this build
  *     (Decision 040/AGENTS.md) — using it here is a normal JS change, no new native build needed.
  */
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
@@ -43,14 +46,18 @@ import { FAB_LG_SIZE, FAB_DEFAULT_BOTTOM } from '@/components/AddFAB';
 type Props = {
   /** Fires once, with the recognized text, when a recording ends with non-empty speech. */
   onTranscript: (text: string) => void;
+  /** When true, begin listening on mount — used by the Notes widget's voice deep-link
+   *  (unfocus:///notes?capture=voice), so the mic button opens the app and records at once. */
+  autoStart?: boolean;
 };
 
-export default function VoiceNoteFAB({ onTranscript }: Props) {
+export default function VoiceNoteFAB({ onTranscript, autoStart }: Props) {
   const theme = useAppTheme();
   const t = useT();
   const language = useSettingsStore((s) => s.language);
   const [listening, setListening] = useState(false);
   const transcriptRef = useRef('');
+  const autoStartedRef = useRef(false);
 
   useSpeechRecognitionEvent('start', () => setListening(true));
 
@@ -93,6 +100,15 @@ export default function VoiceNoteFAB({ onTranscript }: Props) {
       addsPunctuation: true,
     });
   }
+
+  // Auto-start once when opened via the widget's voice deep-link.
+  useEffect(() => {
+    if (autoStart && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      void handlePress();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
 
   return (
     <Pressable

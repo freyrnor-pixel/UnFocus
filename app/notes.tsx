@@ -29,13 +29,15 @@
  *     render as siblings of ScreenScaffold. Decision 006 tokens only (accent/textMuted).
  *   - No manual "add blank note" affordance — VoiceNoteFAB both creates the note and fills
  *     its body from the transcript; the header is left for the user to type (see NoteRow).
+ *   - Deep link `unfocus:///notes?capture=voice` (the Notes home-screen widget's mic button)
+ *     lands here with `capture==='voice'` → VoiceNoteFAB `autoStart` begins recording on mount.
  *   - Store hydration happens once at startup in app/_layout.tsx; edits made in /capture
  *     (edit affordance) or /task-form land in the same shared store, so they're reflected
  *     on return without a per-screen focus-load.
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useNotesStore } from '@/store/useNotesStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
@@ -51,6 +53,8 @@ export default function NotesScreen() {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
+  // Opened from the Notes widget mic button (unfocus:///notes?capture=voice) → auto-record.
+  const { capture } = useLocalSearchParams<{ capture?: string }>();
 
   const notes = useNotesStore((s) => s.notes);
   const addNote = useNotesStore((s) => s.add);
@@ -117,6 +121,7 @@ export default function NotesScreen() {
       </ScreenScaffold>
 
       <VoiceNoteFAB
+        autoStart={capture === 'voice'}
         onTranscript={(text) => {
           const note = addNote();
           updateNote(note.id, { body: text });
