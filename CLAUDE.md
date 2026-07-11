@@ -81,8 +81,18 @@ remote env (the session-start hook installs deps):
   `scripts/test-changed.sh` (wraps `jest --findRelatedTests` over the git diff).
   A pure move/rename/comment/header edit gets `tsc --noEmit` only — skip Jest.
   Report which tests ran + their pass/fail, not a blanket "all green".
-- **Still not covered:** visual/gesture/interaction behavior — that needs a real
-  device (maintainer, or a local emulator where KVM exists).
+- **Visual/logic verification via the web preview "emulator":** a real Android
+  emulator still isn't feasible here (no KVM), but `npm run preview` builds the app as
+  Expo Web and drives it headlessly with Playwright (Chromium pre-installed) — screenshots
+  every onboarding step + all 5 tabs, and exercises adding a task to prove the SQLite
+  write→read path, not just static render. See "Web preview for agent testing" in
+  AGENTS.md for the full command set and the SQLite-on-web caveat (in-memory `sql.js`,
+  not the native SQLite file). **Fidelity caveat:** react-native-web layout/logic is
+  faithful but NOT pixel-identical to native (shadows, font metrics, Reanimated timing
+  differ) — use it for "does the flow/logic work," not final visual sign-off.
+- **Still not covered:** true pixel-perfect native rendering, gestures (swipe/haptics),
+  and anything behind a native-only module (camera OCR, widgets, LAN sync) — those need
+  a real device (maintainer, or a local emulator where KVM exists).
 
 ## During Work
 

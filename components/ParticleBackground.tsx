@@ -32,6 +32,15 @@
  *     ("no more than a few simultaneous moving elements"). Don't grow this back.
  *   - `particlesEnabled` defaults to true in the settings store — users see particles from
  *     first launch and can opt out in Settings → Accessibility.
+ *   - **react-native-web gotcha (found via the web preview harness):** ImageBackground's
+ *     `style` prop must include explicit `width: '100%', height: '100%'` alongside
+ *     `StyleSheet.absoluteFill`. RNW's ImageBackground only reapplies whatever width/height
+ *     it finds already flattened on the OUTER `style` prop to override the inner `<Image>`'s
+ *     own baked-in intrinsic asset size (see its "Temporary Workaround" comment in
+ *     node_modules/react-native-web/dist/exports/ImageBackground); `absoluteFill` alone
+ *     carries no width/height, so without this the background rendered at bg-*.png's raw
+ *     390×844 pixel size instead of stretching, leaving a gap down the right edge on any
+ *     viewport wider than that. No effect on native (Image already fills its bounds there).
  */
 import React, { useEffect, useRef } from 'react';
 import {
@@ -184,7 +193,7 @@ export default function ParticleBackground() {
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <ImageBackground
         source={isDark ? bgPair.dark : bgPair.light}
-        style={StyleSheet.absoluteFill}
+        style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
         resizeMode="cover"
       >
         {showParticles && (

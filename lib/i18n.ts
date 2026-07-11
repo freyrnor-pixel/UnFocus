@@ -22,6 +22,8 @@
  *     shopping.scan, shopping.budget, notes.*, hints.notes.
  *   - Added keys: peers.* (Decision 038 LAN live-sync wiring — app/pair-device.tsx,
  *     app/settings.tsx's sync toggle card).
+ *   - Added keys: webPreview.notAvailable (web preview placeholder screens —
+ *     app/(tabs)/scan.web.tsx).
  */
 import { useSettingsStore } from '@/store/useSettingsStore';
 
@@ -46,6 +48,7 @@ const en = {
   previous: '← Back',
   done: "Let's go! 🌿",
   ok: 'OK',
+  webPreview: { notAvailable: 'Not available in the web preview.' },
   // Home screen
   addNew: '+ New',
   backlog: 'Waiting for you',
@@ -1173,6 +1176,7 @@ const no: typeof en = {
   previous: '← Tilbake',
   done: 'Kom i gang! 🌿',
   ok: 'OK',
+  webPreview: { notAvailable: 'Ikke tilgjengelig i nettleserforhåndsvisningen.' },
   addNew: '+ Ny',
   backlog: 'Venter på deg',
   backlogHint: 'Hvert lite steg teller — bare ta ett om gangen.',

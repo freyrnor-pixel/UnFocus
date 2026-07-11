@@ -119,6 +119,44 @@ not visual/gesture behavior, which still needs a real device.
    (`__mocks__/expo-sqlite.js` is auto-applied; mock `@/lib/db` directly for store logic).
    Add a test when you add a pure helper or store logic; keep them DB-free/headless.
 
+### Web preview for agent testing (visual/logic — not pixel-perfect native)
+`EMULATOR_TESTING_SPIKE.md` / `EMULATOR_TESTING_HANDOFF.md` describe the original plan;
+this is the outcome. Runs the real app as Expo Web (`react-native-web`) and drives it
+headlessly with Playwright (Chromium pre-installed under `PLAYWRIGHT_BROWSERS_PATH` —
+never `playwright install`) so an agent can actually *see* screens and flows without a
+device or EAS build.
+
+- **Run it:** `npm run preview` — builds (`expo export --platform web` + wires the
+  sql.js fallback), serves `dist/` with COOP/COEP headers, and walks onboarding + all 5
+  tabs with Playwright, screenshotting to `preview-shots/` (gitignored). Add a task via
+  the always-open first-run draft card and confirms it survives a tab round-trip, proving
+  the store→DB write path actually works, not just static render.
+  - `npm run preview:build` / `npm run preview:serve` run the two steps standalone.
+  - `node scripts/preview.mjs --route=/some/path` for a focused single-screen recheck.
+- **SQLite-on-web (the gating decision):** `expo-sqlite`'s web backend (wa-sqlite/WASM)
+  needs a growable `SharedArrayBuffer`-backed WASM memory for its worker bridge — this
+  reliably fails with `RangeError: Out of memory: Cannot allocate Wasm memory for new
+  instance` in this container (`RLIMIT_MEMLOCK` fixed at 8MB, no permission to raise it —
+  confirmed unfixable from app code). **Fallback in use: `sql.js`** (in-memory,
+  single-threaded, no worker/shared memory). `scripts/build-web.mjs` loads it via a plain
+  `<script>` bootstrap injected into `dist/index.html` that finishes BEFORE the app
+  bundle's own `<script>` tag is even inserted, so `lib/sqlite.web.ts` can read the ready
+  `SQL.Database` off `window.__unfocusSqlJsDb__` synchronously at module-eval time — no
+  top-level-await, no queuing tricks needed. **In-memory only — no persistence across a
+  full page reload/`page.goto()`.** Navigate between tabs via BottomNav clicks (client-side
+  route change), not `page.goto()`, or the DB (and onboarding state) resets.
+- **The `.web` sibling pattern** (Metro resolves `file.web.ts(x)` over `file.ts(x)` on
+  web — no `Platform.OS` branches in native files): `lib/sqlite.ts`/`lib/sqlite.web.ts`
+  (DB handle), `lib/lanTransport.web.ts` (LAN sync stub — `isTransportAvailable()` false),
+  `lib/widgets/sync.web.ts` (Android widgets no-op), `app/(tabs)/scan.web.tsx` (OCR
+  placeholder screen — `@react-native-ml-kit/text-recognition` has no web build).
+  `metro.config.js` adds `.wasm` to `resolver.assetExts` (harmless leftover from the
+  rejected wa-sqlite path; costs nothing to keep).
+- **Not pixel-perfect native.** react-native-web renders layout/navigation/store logic
+  faithfully but differs from native in shadows/elevation, some font metrics, and
+  Reanimated timing. Use this for "does the flow/logic work," not final visual sign-off —
+  that still goes through a device/EAS build.
+
 ## Known gotchas
 
 - **`StyleSheet.absoluteFill`** (not `.absoluteFillObject`) for full-screen overlays

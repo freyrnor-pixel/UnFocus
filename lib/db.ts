@@ -7,7 +7,7 @@
  * stores import this db handle to run their queries.
  *
  * Connections:
- *   Imports → lib/date
+ *   Imports → lib/date, lib/sqlite
  *   Used by → app/_layout.tsx, lib/backup.ts, lib/liveSync.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useInboxStore.ts, store/useMealStore.ts, store/useNotesStore.ts, store/usePeersStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
  *   Data    → owns ALL SQLite tables: settings, tasks, shopping_items, shopping_trips, shopping_lists, dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the energy check-in feature; table/pruning kept per the never-drop-tables rule, no longer written to), inbox_items, receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key), widget_snapshot (single-row localised cache for the Android home-screen widgets — lib/widgets/snapshot.ts)
  *
@@ -32,10 +32,8 @@
  *     (Decision 016 Q3) are editing metadata only — never used to recompute
  *     `notification_times`, which stays authoritative for scheduling.
  */
-import * as SQLite from 'expo-sqlite';
 import { dateStr } from '@/lib/date';
-
-const db = SQLite.openDatabaseSync('unfocus.db');
+import { db } from '@/lib/sqlite';
 
 /** The app keeps at most this many days of historical, time-stamped data. */
 export const RETENTION_DAYS = 365;
