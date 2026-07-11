@@ -68,9 +68,14 @@
  *     an autocomplete suggestion row while an inline add-item input is focused) is delivered
  *     to that control instead of only dismissing the keyboard — applies app-wide since every
  *     screen shares this one ScrollView.
+ *   - **onScroll (Phase 1 flight animation, 2026-07-11)**: optional, forwarded to the internal
+ *     ScrollView. Purely additive — omit for identical behavior to before. Added so a screen
+ *     can cancel an in-flight `FlightOverlay` animation on scroll (window-space coordinates
+ *     go stale once the user scrolls); `scrollEventThrottle` only activates when a listener
+ *     is passed, so screens that don't use it pay no extra event-bridge cost.
  */
 import React from 'react';
-import { Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import { NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/lib/useAppTheme';
 import ScreenBackground from '@/components/ScreenBackground';
@@ -113,6 +118,9 @@ type Props = {
    * background would visibly slide with the gesture.
    */
   ownBackground?: boolean;
+  /** Forwarded to the internal ScrollView — e.g. to cancel an in-flight FlightOverlay
+   *  animation on scroll (components/FlightOverlay.tsx). Omit for identical behavior. */
+  onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 };
 
 export default function ScreenScaffold({
@@ -130,6 +138,7 @@ export default function ScreenScaffold({
   onInfoToggle,
   bottomNav = true,
   ownBackground = true,
+  onScroll,
 }: Props) {
   const theme = useAppTheme();
   // Android edge-to-edge (RN 0.85 / Expo 56) draws content behind the status and
@@ -174,6 +183,8 @@ export default function ScreenScaffold({
         bottom: tier === 'site' ? BOTTOM_NAV_HEIGHT : 0,
       }}
       keyboardShouldPersistTaps="handled"
+      onScroll={onScroll}
+      scrollEventThrottle={onScroll ? 16 : undefined}
     >
       {children}
     </ScrollView>

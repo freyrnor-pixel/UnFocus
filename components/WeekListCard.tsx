@@ -11,7 +11,7 @@
  * ExpandableCards; all items are flat rows.
  *
  * Connections:
- *   Imports → components/ExpandableCard, components/IconButton,
+ *   Imports → components/ExpandableCard, components/FlightOverlay (FlightRect type only), components/IconButton,
  *             components/Surface, components/ShoppingRow (CHECKED_OPACITY), constants/theme,
  *             lib/i18n, lib/money (formatKr), lib/shoppingGroups (listProgress, listTotal),
  *             lib/useAppTheme, lib/haptics,
@@ -40,6 +40,14 @@
  *   - **Decision 044b (2026-07-09):** entrance/highlight animation for just-added rows is
  *     handled by ShoppingRow reading recentlyAddedIds directly from useShoppingStore — no
  *     prop threading needed through WeekListCard.
+ *   - **Flight animation (Phase 1, 2026-07-11)**: `registerCartHeaderNode` hands the "In
+ *     cart" section header's native node up to shopping.tsx (mirrors the existing
+ *     `registerDishGroupNode` cross-component registration idiom used for drag-to-merge)
+ *     so it can be measured as a flight destination. `onFlightStart` forwards a measured
+ *     source rect for dish-grouped "In list" rows only — ungroupedUnchecked rows are wired
+ *     directly at the shopping.tsx call site via `renderReorderableRow`, not through this
+ *     component. This component owns no flight state, same as every other mutation
+ *     callback here.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -56,6 +64,7 @@ import IconButton from '@/components/IconButton';
 import ExpandableCard from '@/components/ExpandableCard';
 import PressableScale from '@/components/PressableScale';
 import ShoppingRow, { CHECKED_OPACITY } from '@/components/ShoppingRow';
+import type { FlightRect } from '@/components/FlightOverlay';
 import { Ionicons } from '@expo/vector-icons';
 
 type Props = {
@@ -87,6 +96,11 @@ type Props = {
   onDoneShopping: () => void;
   /** Renders one reorderable "In list" ungrouped row — parent wraps it in DraggableTaskRow. */
   renderReorderableRow: (item: ShoppingItem, index: number, total: number) => React.ReactNode;
+  /** Hands the "In cart" section header's native node up so the screen can measureInWindow()
+   *  it as a flight destination. React calls this with null when the section unmounts. */
+  registerCartHeaderNode?: (node: any) => void;
+  /** Bubbles a measured flight source rect for a dish-grouped "In list" row up to the screen. */
+  onFlightStart?: (item: ShoppingItem, rect: FlightRect) => void;
 };
 
 /** Price × amount total for a set of items. */
@@ -117,6 +131,8 @@ export default function WeekListCard({
   onAddMonthlyToWeek,
   onDoneShopping,
   renderReorderableRow,
+  registerCartHeaderNode,
+  onFlightStart,
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -395,6 +411,7 @@ export default function WeekListCard({
                     onDecrement={() => onDecrementItem(item)}
                     inStockLabel={t.inStockLabel}
                     locked={list.locked}
+                    onFlightStart={(rect) => onFlightStart?.(item, rect)}
                   />
                   {(idx < dishUnchecked.length - 1 || !list.locked) && (
                     <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
@@ -512,7 +529,10 @@ export default function WeekListCard({
         {/* ── IN CART section ── */}
         {totalInCart > 0 && (
           <View style={styles.section}>
-            <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
+            <View
+              ref={(node) => registerCartHeaderNode?.(node)}
+              style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}
+            >
               <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.inCartSection(totalInCart)}</Text>
               <View style={[styles.sectionRule, { backgroundColor: theme.accent }]} />
             </View>

@@ -14,7 +14,8 @@
  *   Imports → components/AddFAB, components/AddItemSheet, components/HintCard,
  *             components/AppModal (showAppModal),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
- *             components/ExpandableCard, components/IconButton,
+ *             components/ExpandableCard, components/FlightOverlay (FlightPill, Flight, FlightRect),
+ *             components/IconButton,
  *             components/ListSettingsSheet, components/MonthlyResetSummaryModal,
  *             components/MonthlyTableRow, components/ProgressBar, components/SavedListsModal,
  *             components/ScreenScaffold, components/SharedRequestsSection,
@@ -132,9 +133,19 @@
  *     computeListGroups()'s dish grouping to include checked items too (previously
  *     unchecked-only, which made the "dish shows checked" roll-up unobservable) — see
  *     lib/shoppingGroups.ts's own header note.
+ *   - **Flight animation (Phase 1, 2026-07-11)**: list→cart toggles fly a `FlightPill`
+ *     clone from the toggled row's rect to the target list's "In cart" section header,
+ *     reusing the same window-space `measureInWindow` idiom as the drag-to-merge code
+ *     above. `cartHeaderNodes` (keyed by listId) is the destination registry, populated by
+ *     WeekListCard's `registerCartHeaderNode`; `flights` is screen-owned state rendered by
+ *     a single `<FlightOverlay>` mounted as a sibling of `<ScreenScaffold>` (NOT inside
+ *     it — ScreenScaffold's children scroll inside its internal ScrollView, same reasoning
+ *     as `ConfirmationBanner`'s placement below). `handleScreenScroll` clears in-flight
+ *     flights on scroll since window-space coords go stale. See
+ *     ANIMATION_GUIDELINES.md's "Flight / Cross-Section Travel Animations" section.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutAnimation, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -154,6 +165,7 @@ import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import ExpandableCard from '@/components/ExpandableCard';
 import WeekListCard from '@/components/WeekListCard';
+import FlightOverlay, { FlightPill, Flight, FlightRect } from '@/components/FlightOverlay';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab from '@/components/CatalogueTab';
 import AddFAB from '@/components/AddFAB';
@@ -259,6 +271,16 @@ export default function ShoppingScreen() {
   const dishNodes = useRef<Map<string, any>>(new Map());
   const dragSnapshotRef = useRef<Record<string, { y: number; height: number }>>({});
   const dishRectsRef = useRef<Record<string, { y: number; height: number }>>({});
+
+  // ── Flight animation (Phase 1, 2026-07-11): list→cart toggle flies a floating clone
+  // from its measured source rect to the target list's "In cart" section header, both in
+  // window space (same measureInWindow idiom as the drag refs above). Cancelled on scroll
+  // (see handleScreenScroll) since window-space coords go stale once the user scrolls.
+  const cartHeaderNodes = useRef<Map<string, any>>(new Map());
+  const [flights, setFlights] = useState<Flight[]>([]);
+  const flightCounter = useRef(0);
+  const lastScrollY = useRef(0);
+
   const setDragState = useCallback(
     (next: DragState | null | ((prev: DragState | null) => DragState | null)) => {
       setDrag((prev) => {
@@ -581,6 +603,36 @@ export default function ShoppingScreen() {
     else dishNodes.current.delete(key);
   }
 
+  // ── Flight animation (Phase 1) ──
+
+  function handleRegisterCartHeaderNode(listId: string, node: any) {
+    if (node) cartHeaderNodes.current.set(listId, node);
+    else cartHeaderNodes.current.delete(listId);
+  }
+
+  function handleFlightStart(listId: string, item: ShoppingItem, from: FlightRect) {
+    const destNode = cartHeaderNodes.current.get(listId);
+    if (!destNode?.measureInWindow) return; // no "In cart" section mounted yet — falls back to today's fade
+    destNode.measureInWindow((x: number, y: number, width: number, height: number) => {
+      flightCounter.current += 1;
+      const key = `${item.id}-${flightCounter.current}`;
+      setFlights((prev) => [
+        ...prev.filter((f) => f.itemId !== item.id),
+        { key, itemId: item.id, from, to: { x, y, width, height }, content: <FlightPill label={item.name} /> },
+      ]);
+    });
+  }
+
+  function handleFlightEnd(key: string) {
+    setFlights((prev) => prev.filter((f) => f.key !== key));
+  }
+
+  function handleScreenScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const y = e.nativeEvent.contentOffset.y;
+    if (Math.abs(y - lastScrollY.current) > 4 && flights.length > 0) setFlights([]);
+    lastScrollY.current = y;
+  }
+
   function handleDragStart(listId: string, itemId: string, itemName: string, order: string[]) {
     // Measure the sibling reorder rows + this list's dish-group cards in window space (the
     // dragged row measures itself inside DraggableTaskRow). measureInWindow's callbacks land
@@ -740,7 +792,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={STICKY_HEIGHT} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={STICKY_HEIGHT} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onScroll={handleScreenScroll}>
       <View style={styles.content}>
         <HintCard text={t.hints.shopping.text} open={hintOpen} noPill />
         <SharedRequestsSection kind="shopping" />
@@ -993,6 +1045,8 @@ export default function ShoppingScreen() {
                     setConfirm(t.itemAddedToList(item.name));
                   }}
                   onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
+                  registerCartHeaderNode={(node) => handleRegisterCartHeaderNode(list.id, node)}
+                  onFlightStart={(item, rect) => handleFlightStart(list.id, item, rect)}
                   renderReorderableRow={(item) => (
                     <DraggableTaskRow
                       isOpen={false}
@@ -1010,6 +1064,7 @@ export default function ShoppingScreen() {
                         onDecrement={() => adjustAmount(item.id, -1)}
                         inStockLabel={t.inStockLabel}
                         locked={list.locked}
+                        onFlightStart={(rect) => handleFlightStart(list.id, item, rect)}
                       />
                     </DraggableTaskRow>
                   )}
@@ -1081,6 +1136,7 @@ export default function ShoppingScreen() {
         }}
       />
     </ScreenScaffold>
+    <FlightOverlay flights={flights} onFlightEnd={handleFlightEnd} />
     <ConfirmationBanner
       message={confirmMessage}
       onDismiss={() => setConfirm(null)}
