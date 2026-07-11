@@ -41,8 +41,13 @@ jobs:
         run: |
           eas build --platform android --profile preview --non-interactive --wait --message "${{ inputs.message || 'No message provided' }}" --json > build-result.json
           cat build-result.json
-          BUILD_URL=$(node -p "require('./build-result.json')[0].buildDetailsPageUrl")
+          # `eas build --json` does NOT emit a buildDetailsPageUrl field, so derive the
+          # expo.dev build page from the build id + project owner/slug. Single-quoted
+          # node args keep bash from treating anything as command substitution.
+          BUILD_URL=$(node -p 'const b=require("./build-result.json")[0]; "https://expo.dev/accounts/"+b.project.ownerAccount.name+"/projects/"+b.project.slug+"/builds/"+b.id')
+          APK_URL=$(node -p 'require("./build-result.json")[0].artifacts.buildUrl')
           echo "build_url=$BUILD_URL" >> "$GITHUB_OUTPUT"
+          echo "apk_url=$APK_URL" >> "$GITHUB_OUTPUT"
 
       - name: Create build summary
         if: always()
@@ -51,4 +56,5 @@ jobs:
           echo "Build message: ${{ inputs.message || 'No message provided' }}" >> $GITHUB_STEP_SUMMARY
           echo "Version: $(node -p "require('./app.json').expo.version") (runtimeVersion: $(node -p "require('./app.json').expo.runtimeVersion"))" >> $GITHUB_STEP_SUMMARY
           echo "Build page: ${{ steps.eas_build.outputs.build_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "APK download: ${{ steps.eas_build.outputs.apk_url }}" >> $GITHUB_STEP_SUMMARY
           echo "Install directly from that page on your Android phone (internal distribution — no Play Store needed)." >> $GITHUB_STEP_SUMMARY
