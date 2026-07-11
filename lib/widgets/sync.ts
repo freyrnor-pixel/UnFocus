@@ -19,7 +19,7 @@
  *             lib/notifications (refresh/cancelPersistentNotification), lib/widgets/snapshot,
  *             lib/widgets/WidgetViews (renderWidgetByName, WIDGET_NAMES), store/useTaskStore,
  *             store/useShoppingStore, store/useShoppingListStore, store/useNotesStore,
- *             store/useSettingsStore
+ *             store/useHabitStore, store/useHealthStore, store/useSettingsStore
  *   Used by → app/_layout.tsx (foreground/background + after startup load), app/settings.tsx
  *             (persistent-notif toggle)
  *   Data    → reads the task/shopping/settings stores; writes widget_snapshot; posts/cancels
@@ -41,12 +41,36 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useShoppingListStore } from '@/store/useShoppingListStore';
 import { useNotesStore } from '@/store/useNotesStore';
+import { useHabitStore, type Habit } from '@/store/useHabitStore';
+import { useHealthStore } from '@/store/useHealthStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 // Widgets scroll (ListWidget), so we can bake more than a handful of rows; overflow
 // beyond this still shows a "+N more" footer.
 const PREVIEW = 20;
-const ACCENT = { shop: '#0891B2', task: '#2563EB', overview: '#F4A261', notes: '#8B5CF6' };
+const ACCENT = {
+  shop: '#0891B2',
+  task: '#2563EB',
+  overview: '#F4A261',
+  notes: '#8B5CF6',
+  habits: '#16A34A',
+  health: '#E11D48',
+};
+
+/** Whether a habit is scheduled for `today` — mirrors shouldShowHabitOnDate in app/(tabs)/health.tsx. */
+function dueToday(h: Habit, today: string): boolean {
+  if (h.recurrence === 'daily' || h.recurrence === 'one-time') return true;
+  const date = new Date(today + 'T12:00:00');
+  if (h.recurrence === 'weekly') {
+    if (h.recurrenceDays.length === 0) return true;
+    return h.recurrenceDays.includes((date.getDay() + 6) % 7); // 0 = Mon
+  }
+  if (h.recurrence === 'monthly') {
+    if (h.recurrenceDays.length === 0) return true;
+    return date.getDate() === h.recurrenceDays[0];
+  }
+  return true;
+}
 
 /** First non-empty line of a note's header/body, trimmed for a one-line widget preview. */
 function noteText(header: string, body: string): string {
@@ -85,6 +109,23 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
   const noteItems = activeNotes
     .slice(0, PREVIEW)
     .map((n) => ({ id: n.id, header: noteText(n.header, n.body), checked: n.checked }));
+
+  // ── Habits (scheduled for today) — done = today's log met the goal (or a rest day). ──
+  const habitState = useHabitStore.getState();
+  const todayHabits = habitState.habits.filter((h) => h.active && dueToday(h, today));
+  const habitDone = (h: Habit) => {
+    const log = habitState.logs.find((l) => l.habitId === h.id && l.logDate === today);
+    return !!log && (log.restDay || log.count >= h.dailyGoal);
+  };
+  const habitItems = todayHabits.slice(0, PREVIEW).map((h) => ({ id: h.id, title: h.title, done: habitDone(h) }));
+  const habitsRemaining = todayHabits.filter((h) => !habitDone(h)).length;
+
+  // ── Health (ongoing issues + anything logged today), newest-first (store order). ──
+  const activeHealth = useHealthStore.getState().logs.filter((l) => l.endDate === '' || l.date === today);
+  const healthItems = activeHealth
+    .slice(0, PREVIEW)
+    .map((l) => ({ id: l.id, label: l.ailment, severity: l.severity, ongoing: l.endDate === '' }));
+  const ongoingCount = activeHealth.filter((l) => l.endDate === '').length;
 
   // ── Overview lines (also feeds the persistent notification body) ──
   const overviewLines: string[] = [];
@@ -128,6 +169,24 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
       voiceLabel: t.widgets.voiceNote,
       accent: ACCENT.notes,
       hasContent: noteItems.length > 0,
+    },
+    habits: {
+      title: t.widgets.habitsTitle,
+      subtitle: habitsRemaining > 0 ? t.widgets.habitsLeft(habitsRemaining) : '',
+      items: habitItems,
+      more: todayHabits.length > PREVIEW ? t.widgets.more(todayHabits.length - PREVIEW) : '',
+      empty: t.widgets.noHabits,
+      accent: ACCENT.habits,
+      hasContent: todayHabits.length > 0,
+    },
+    health: {
+      title: t.widgets.healthTitle,
+      subtitle: ongoingCount > 0 ? t.widgets.healthOngoing(ongoingCount) : '',
+      items: healthItems,
+      more: activeHealth.length > PREVIEW ? t.widgets.more(activeHealth.length - PREVIEW) : '',
+      empty: t.widgets.noHealth,
+      accent: ACCENT.health,
+      hasContent: healthItems.length > 0,
     },
   };
 }

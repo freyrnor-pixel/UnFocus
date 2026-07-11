@@ -9,6 +9,30 @@ _Last updated: 2026-07-11. Branch used this session: `claude/widget-button-avail
 
 ---
 
+## ⏩ STATUS UPDATE (branch `claude/widget-visibility-issue-svw4oy`)
+
+**Widget set changed to the 5 the maintainer wants: Shopping, Tasks, Notes, Habits, Health
+— `Overview` retired.** This is a **native-surface change** (new receivers in `app.json`) →
+**needs a new maintainer-cut EAS Android build** before Habits/Health appear on-device.
+
+- **New widgets:** `Habits` (interactive — tap toggles today's completion, writes `habit_logs`)
+  and `Health` (read-only — ongoing/today entries + a 1–5 severity scale). Layouts in
+  `lib/widgets/WidgetViews.tsx`; data baked in `lib/widgets/sync.ts`.
+- **`Overview` receiver dropped from `app.json`,** but its render case + snapshot slice are
+  **kept** so installs still on the old (1.3.0) native build keep rendering it via OTA until
+  they update. Do not delete the Overview code until all installs are on the new build.
+- **"Invisible until app opened" fix (OTA, ships now):** new `lib/widgets/headlessSnapshot.ts`
+  builds a real snapshot straight from SQLite inside the headless task, so a freshly-planted
+  widget shows content without the app ever running. Render chain in `handler.tsx` is now
+  `readWidgetSnapshot() ?? buildHeadlessSnapshot() ?? placeholder()`.
+- **Previews:** `assets/widget-previews/{shopping,tasks,notes,habits,health}.png` regenerated
+  to actually look like each widget (dark card, accent header dot, dot/ring rows, severity
+  scale, Notes mic pill). `overview.png` removed.
+- **Sequencing:** landed with `runtimeVersion` **unchanged (1.3.0)**. Maintainer cuts the new
+  preview build; **then** bump `runtimeVersion`/`version` (e.g. `1.4.0`) so OTA retargets it.
+
+---
+
 ## ⏩ STATUS UPDATE (PR #127, branch `claude/expo-full-widget-apk-nx3do2`, runtime 1.3.0)
 
 The picker-preview item below (§2) is **DONE**, and the widgets were extended into a

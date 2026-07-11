@@ -38,7 +38,13 @@ export type WidgetShopLine = { id: string; name: string; state: 'list' | 'cart' 
 /** One note row shown in the Notes widget; tap toggles `checked`. */
 export type WidgetNoteLine = { id: string; header: string; checked: boolean };
 
-/** Fully-localised snapshot rendered by all four widgets. */
+/** One habit row shown in the Habits widget. `done` = today's count met the goal; tap toggles it. */
+export type WidgetHabitLine = { id: string; title: string; done: boolean };
+
+/** One health row shown in the Health widget (read-only). `ongoing` = no end date yet. */
+export type WidgetHealthLine = { id: string; label: string; severity: number; ongoing: boolean };
+
+/** Fully-localised snapshot rendered by every widget. */
 export type WidgetSnapshot = {
   /** Epoch ms the snapshot was built — lets a widget show a relative "updated" hint if wanted. */
   updatedAt: number;
@@ -77,6 +83,26 @@ export type WidgetSnapshot = {
     empty: string;
     /** localised label for the "record a voice note" button */
     voiceLabel: string;
+    accent: string;
+    hasContent: boolean;
+  };
+  habits: {
+    title: string;
+    /** e.g. "2 habits left" / '' when all met */
+    subtitle: string;
+    items: WidgetHabitLine[];
+    more: string;
+    empty: string;
+    accent: string;
+    hasContent: boolean;
+  };
+  health: {
+    title: string;
+    /** e.g. "1 ongoing" / '' */
+    subtitle: string;
+    items: WidgetHealthLine[];
+    more: string;
+    empty: string;
     accent: string;
     hasContent: boolean;
   };
