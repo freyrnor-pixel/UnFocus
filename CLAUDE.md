@@ -8,6 +8,14 @@
 update workflow (`.github/workflows/update.yml`) runs **only on push to `main`**.
 A fix that lives only on a feature branch is invisible to every installed app.
 
+**Standing rule — ALWAYS open a PR and ALWAYS merge it to `main`.** Every code
+change finishes with a PR from the `claude/**` branch into `main` that you then
+merge yourself. Do not stop at "pushed the branch," and do not hand the merge
+back to the user as a separate step — merging is part of the task. (The maintainer
+granted this standing authorization; it applies to native-surface changes too.
+The one thing still gated to the human is *cutting the actual APK/AAB build* — see
+AGENTS.md — never the PR or the merge.)
+
 To make ANY JS/UI/logic change go live (see `PUBLISHING.md` for the full guide):
 
 1. Commit + push your work on the designated `claude/**` branch.
@@ -16,14 +24,15 @@ To make ANY JS/UI/logic change go live (see `PUBLISHING.md` for the full guide):
    runs `eas update --branch preview` targeting whatever `runtimeVersion` is
    currently set in `app.json`. Users get it on next launch (~1–2 min).
 
+Always do all three, every time, without being asked.
+
 If the user says "I can't see the update," the cause is almost always: **the
 commit never reached `main`.** Check `git log origin/main` for your commit before
 looking anywhere else. (Runtime must also match: OTA only reaches installs whose
 runtime == `app.json` `runtimeVersion`. Native changes need a new build, not OTA —
 see AGENTS.md.)
 
-**A task that must "go live" is not finished until it is merged to `main`** (or
-you've explicitly handed the merge to the user).
+**A task is not finished until its PR is merged to `main`.**
 
 ## Before Starting
 
@@ -49,7 +58,7 @@ you've explicitly handed the merge to the user).
 | SQLite file: `unfocus.db` (in `lib/db.ts`) | Fixed name for device storage |
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations | Runs once; never drop/recreate |
 | Stores use `lib/dataAccess.ts` | 13 of 14 stores rely on this pattern |
-| To publish, MERGE TO `main` | OTA (`update.yml`) fires only on push to `main`; a `claude/**` branch push publishes nothing (see the "Publishing" section above + `PUBLISHING.md`) |
+| ALWAYS open a PR and merge it to `main` | Every change ends with a PR into `main` that you merge yourself — never stop at the branch, never hand the merge off. OTA (`update.yml`) fires only on push to `main` (see the "Publishing" section above + `PUBLISHING.md`) |
 | New builds go through the maintainer; don't bump `runtimeVersion` ahead of the build | OTA reaches only installs on the matching runtime — bump `runtimeVersion` only *after* the maintainer cuts the new preview build (see AGENTS.md "Runtime version") |
 
 ### Navigation State
