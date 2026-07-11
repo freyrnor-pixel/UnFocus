@@ -20,6 +20,10 @@
  *   - Colours must be `#RRGGBB` literals (the lib's ColorProp type) — that's why palette
  *     values and the snapshot accents are typed/cast to Hex here. Keep layouts shallow
  *     (Flex + Text) — no app components, no StyleSheet — they render to native RemoteViews.
+ *   - Do NOT put Unicode symbol glyphs (☑/☐/•/…) in a TextWidget: rendering them to the
+ *     RemoteViews bitmap can fail and blank the WHOLE widget (the Tasks widget rendered
+ *     fully transparent only once it had items). Use a FlexWidget shape (a filled dot for
+ *     done, a bordered ring for not-done) instead — the same primitive the Shopping list uses.
  */
 import React from 'react';
 import { FlexWidget, TextWidget } from 'react-native-android-widget';
@@ -122,9 +126,12 @@ function TasksWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
               key={`${i}-${task.title}`}
               style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', paddingVertical: 3 }}
             >
-              <TextWidget
-                text={task.done ? '☑' : '☐'}
-                style={{ fontSize: 14, color: task.done ? accent : p.muted, marginRight: 8 }}
+              <FlexWidget
+                style={
+                  task.done
+                    ? { width: 10, height: 10, borderRadius: 5, marginRight: 8, backgroundColor: accent }
+                    : { width: 10, height: 10, borderRadius: 5, marginRight: 8, borderWidth: 2, borderColor: p.muted }
+                }
               />
               <TextWidget
                 text={task.title}
