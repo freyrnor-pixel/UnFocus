@@ -1,5 +1,11 @@
 # Handoff — Web-based "emulator" for agent visual/logic testing of UnFocus
 
+> **STATUS: DONE.** Executed — `npm run preview` builds + drives the web preview.
+> The primary SQLite-on-web path (§4-A) was rejected in favour of the `sql.js`
+> fallback (root cause + fix live in AGENTS.md's "Web preview for agent testing"
+> section — read that first for current usage). This document is kept as the
+> historical plan/rationale; don't redo the work described below.
+
 > **Audience:** a Claude Code session picking this up cold. This document is
 > self-contained — you should not need prior conversation context. Read it
 > top-to-bottom, then execute. Do the **`EMULATOR_TESTING_SPIKE.md`** task FIRST

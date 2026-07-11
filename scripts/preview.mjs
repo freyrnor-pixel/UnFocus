@@ -26,9 +26,42 @@ async function shot(page, name) {
   console.log(`  screenshot: ${file}`);
 }
 
+// expo-router's native Stack keeps previous screens mounted off-screen (for
+// back-swipe), so a plain text locator can resolve to a stale, invisible
+// button from an earlier onboarding step. Pick the first genuinely visible
+// match instead of trusting DOM order.
 async function clickText(page, text, opts = {}) {
   const locator = page.getByText(text, { exact: opts.exact ?? true });
-  await (opts.nth != null ? locator.nth(opts.nth) : locator.first()).click({ timeout: 10000 });
+  await locator.first().waitFor({ state: 'attached', timeout: 10000 });
+  const candidates = await locator.all();
+  const wantNth = opts.nth ?? 0;
+  let seen = 0;
+  for (const candidate of candidates) {
+    if (await candidate.isVisible()) {
+      if (seen === wantNth) {
+        await candidate.click({ timeout: 10000 });
+        return;
+      }
+      seen += 1;
+    }
+  }
+  throw new Error(`clickText: no visible match #${wantNth} for "${text}" (${candidates.length} total matches)`);
+}
+
+// Some screens show a one-off info modal on first visit (e.g. Shopping's
+// "Monthly list reset" summary, gated on real date math — expected app
+// behaviour, not a bug). Dismiss it if present so it doesn't block the next
+// click; no-op if no modal is showing.
+async function dismissModalIfPresent(page) {
+  for (const label of ['Got it', "Got it →", 'OK']) {
+    const btn = page.getByText(label, { exact: true }).first();
+    if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
+      console.log(`  (dismissing modal: "${label}")`);
+      await btn.click({ timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(300);
+      return;
+    }
+  }
 }
 
 async function main() {
@@ -97,25 +130,42 @@ async function main() {
     console.log('> Home');
     await shot(page, 'home');
 
-    console.log('> Shopping tab');
-    await page.goto(`${BASE_URL}/shopping`, { waitUntil: 'networkidle', timeout: 30000 });
-    await page.waitForTimeout(1000);
-    await shot(page, 'shopping');
+    // Navigate via the in-app BottomNav (client-side route change), NOT page.goto() —
+    // the DB is in-memory (sql.js fallback, see lib/sqlite.web.ts); a full page
+    // navigation reloads the bundle and wipes it, bouncing back to onboarding.
+    for (const [tab, shotName] of [['Shopping', 'shopping'], ['Tasks', 'plans'], ['Health', 'health'], ['Scan', 'scan']]) {
+      console.log(`> ${tab} tab`);
+      await page.getByRole('button', { name: tab, exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(1000);
+      await dismissModalIfPresent(page);
+      await shot(page, shotName);
+    }
 
-    console.log('> Plans tab');
-    await page.goto(`${BASE_URL}/plans`, { waitUntil: 'networkidle', timeout: 30000 });
+    console.log('> back to Home tab');
+    await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(1000);
-    await shot(page, 'plans');
+    await shot(page, 'home-again');
 
-    console.log('> Health tab');
-    await page.goto(`${BASE_URL}/health`, { waitUntil: 'networkidle', timeout: 30000 });
-    await page.waitForTimeout(1000);
-    await shot(page, 'health');
+    // Exercise real store logic (not just static render): add a task via the
+    // always-open first-run draft card, and confirm it round-trips through the
+    // in-memory sql.js DB by reappearing after navigating away and back.
+    console.log('> add a task (store logic check)');
+    await page.getByRole('button', { name: 'Tasks', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    const taskTitle = `Preview check ${Date.now()}`;
+    await page.getByPlaceholder('What needs to be done?').first().fill(taskTitle);
+    await clickText(page, 'Save');
+    await page.waitForTimeout(800);
+    await shot(page, 'task-added');
 
-    console.log('> Scan tab (web placeholder)');
-    await page.goto(`${BASE_URL}/scan`, { waitUntil: 'networkidle', timeout: 30000 });
-    await page.waitForTimeout(1000);
-    await shot(page, 'scan');
+    await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    await page.getByRole('button', { name: 'Tasks', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    const persisted = await page.getByText(taskTitle, { exact: true }).first().isVisible().catch(() => false);
+    console.log(`  task persisted after tab round-trip: ${persisted}`);
+    if (!persisted) pageErrors.push(`Task "${taskTitle}" did not persist after navigating away and back`);
+    await shot(page, 'task-persisted-check');
   }
 
   console.log(`\n> page errors: ${pageErrors.length}`);

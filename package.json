@@ -75,7 +75,10 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "preview:build": "node scripts/build-web.mjs",
+    "preview:serve": "node scripts/serve-web.mjs",
+    "preview": "npm run preview:build && (npm run preview:serve &) && sleep 1 && node scripts/preview.mjs"
   },
   "private": true
 }

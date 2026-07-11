@@ -1,5 +1,14 @@
 # Spike — De-risk SQLite-on-web (do this FIRST)
 
+> **STATUS: DONE.** Decision: **fallback (`sql.js`)**, not the primary wa-sqlite path.
+> wa-sqlite's worker needs a growable `SharedArrayBuffer`-backed WASM memory, which
+> fails with `RangeError: Out of memory: Cannot allocate Wasm memory for new instance`
+> in this container — root-caused to `RLIMIT_MEMLOCK` fixed at 8MB with no permission
+> to raise it (`ulimit -l unlimited` → "Operation not permitted"), confirmed
+> unfixable from app code. Full writeup + the sql.js loading mechanism (a plain
+> `<script>` bootstrap in `dist/index.html` that finishes before the app bundle even
+> loads) is in AGENTS.md's "Web preview for agent testing" section.
+
 > **Audience:** a Claude Code session, cold start. This is the **gating task** for
 > the web-preview "emulator" work described in `EMULATOR_TESTING_HANDOFF.md`. Its
 > only job is to answer one question **cheaply, in ~30 min**, and record the answer.
