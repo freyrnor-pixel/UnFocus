@@ -243,7 +243,7 @@ export default function TasksScreen() {
             <View style={styles.section}>
               {sectionHeader(t.tasksSectionSharedOut, theme.textMuted)}
               {sharedOutAll.length === 0 ? (
-                <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.tasksSectionSharedOutEmpty}</Text>
+                <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionSharedOutEmpty}</Text>
               ) : (
                 <View style={styles.cardStack}>
                   {sharedOutAll.map((tk) => (
@@ -256,7 +256,7 @@ export default function TasksScreen() {
             <View style={styles.section}>
               {sectionHeader(t.tasksSectionWhenever, theme.good)}
               {wheneverAll.length === 0 && drafts.length === 0 && (
-                <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.tasksSectionWheneverEmpty}</Text>
+                <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionWheneverEmpty}</Text>
               )}
               <View style={styles.cardStack}>
                 {wheneverAll.map((tk) => (
@@ -280,18 +280,18 @@ export default function TasksScreen() {
                   list" (app/(tabs)/shopping.tsx styles.newListCard), always visible so the
                   two list-style screens stay consistent. */}
               <Pressable
-                style={[styles.newTaskCard, { borderColor: theme.border, backgroundColor: theme.surface }]}
+                style={[styles.newTaskCard, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
                 onPress={addDraft}
               >
-                <Text style={[styles.newTaskPlus, { color: theme.textMuted }]}>+</Text>
-                <Text style={[styles.newTaskText, { color: theme.textMuted }]}>{t.newTask}</Text>
+                <Text style={[styles.newTaskPlus, { color: theme.accent }]}>+</Text>
+                <Text style={[styles.newTaskText, { color: theme.accent }]}>{t.newTask}</Text>
               </Pressable>
             </View>
 
             <View style={styles.section}>
               {sectionHeader(t.tasksSectionRecurring, theme.accent)}
               {recurringAll.length === 0 ? (
-                <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.tasksSectionRecurringEmpty}</Text>
+                <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionRecurringEmpty}</Text>
               ) : (
                 <View style={styles.cardStack}>
                   {recurringAll.map((tk) => (
@@ -322,7 +322,7 @@ export default function TasksScreen() {
             <View style={styles.section}>
               {sectionHeader(t.tasksSectionWhenever, theme.good)}
               {undatedWhenever.length === 0 ? (
-                <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.tasksSectionWheneverEmpty}</Text>
+                <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionWheneverEmpty}</Text>
               ) : (
                 <View style={styles.cardStack}>
                   {undatedWhenever.map((tk) => (
@@ -341,7 +341,7 @@ export default function TasksScreen() {
               <View key={group.date} style={styles.section}>
                 {sectionHeader(t.dayFull[i], theme.accent)}
                 {group.tasks.length === 0 ? (
-                  <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.tasksDayEmpty}</Text>
+                  <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksDayEmpty}</Text>
                 ) : (
                   <View style={styles.cardStack}>
                     {group.tasks.sort(byTime).map((tk) => (
@@ -355,7 +355,7 @@ export default function TasksScreen() {
             <View style={styles.section}>
               {sectionHeader(t.tasksSectionWhenever, theme.good)}
               {undatedWhenever.length === 0 ? (
-                <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.tasksSectionWheneverEmpty}</Text>
+                <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionWheneverEmpty}</Text>
               ) : (
                 <View style={styles.cardStack}>
                   {undatedWhenever.map((tk) => (
@@ -392,7 +392,19 @@ const styles = StyleSheet.create({
   // `bare` when the caller already provides an opaque card, e.g. todayCard).
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: Radius.sm },
   sectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
-  sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm },
+  // Visual-audit 2026-07-11: was bare muted text floating on the particle background
+  // (low contrast in practice even though the token itself passes AA) — a card behind
+  // it, matching HomeNotesCard's empty-state treatment, gives it real footing. The
+  // Today tab's own instance (inside todayCard) stays bare — that one already sits on
+  // a card, so a second background would double up (Decision 043 rule 1).
+  sectionEmpty: {
+    fontSize: FontSize.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
   cardStack: { gap: Spacing.sm },
   // 2/3 the height of shopping.tsx's styles.newListCard (padding only — same border/radius/
   // font sizes) — intentionally diverges from the old byte-for-byte match per the "New task"
