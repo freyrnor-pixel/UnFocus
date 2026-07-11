@@ -9,6 +9,31 @@ _Last updated: 2026-07-11. Branch used this session: `claude/widget-button-avail
 
 ---
 
+## ⏩ STATUS UPDATE (PR #127, branch `claude/expo-full-widget-apk-nx3do2`, runtime 1.3.0)
+
+The picker-preview item below (§2) is **DONE**, and the widgets were extended into a
+full interactive suite in the same PR. All of the following is **awaiting the next EAS
+Android preview build** (native surface changed → maintainer cuts it from `main`):
+
+- **Picker previews** — real `previewImage` PNGs for all widgets
+  (`assets/widget-previews/{shopping,tasks,overview,notes}.png`), wired in `app.json`. §2 is resolved.
+- **Interactive rows** — Tasks tap = done/not-done; Shopping tap = cycle *in list → in
+  cart (`checked`) → purchased*; Notes tap = check off. Rows live in a scrollable `ListWidget`.
+- **New Notes widget** — note previews + a mic button that deep-links into voice capture
+  (`unfocus:///notes?capture=voice` → `VoiceNoteFAB` autoStart).
+- **Headless write-back + auto-sync** — `lib/widgets/widgetActions.ts` writes taps to SQLite;
+  `app/_layout.tsx` reloads task/shopping/notes stores on foreground before re-syncing.
+- **Version** — `runtimeVersion` + `version` bumped to `1.3.0`.
+
+Known limitation: a widget-completed **task** is a plain `done` flip — the `task_completed`
+automation and notification reschedule only run on the next in-app open (they live in
+`useTaskStore.toggle()`). On-device spot-checks still needed: picker previews, ListWidget
+scroll + per-row taps, the voice deep-link path form.
+
+The sections below are retained for historical context; §2's "what to add" is now implemented.
+
+---
+
 ## 1. Current state (what already works — do NOT redo)
 
 All three Android widgets (**Shopping**, **Tasks**, **Overview**) are implemented and
@@ -25,7 +50,10 @@ The widget **receivers** are already compiled into the current preview build
 (EAS Android preview, built from `main` @ `b29859b`, runtime `1.2.0`). Widgets
 appear in the picker and can be planted.
 
-## 2. The ONE remaining item — needs a NATIVE build (OTA cannot fix)
+## 2. ~~The ONE remaining item~~ — DONE in PR #127 (kept for context)
+
+> **Resolved.** `previewImage` is now set for all four widgets in `app.json`, with PNGs
+> under `assets/widget-previews/`. The description below explains the original problem.
 
 **Problem:** In the Android widget picker (before adding to the home screen), all
 three widgets show a generic preview — the app icon (the "Tree" launcher icon) on a
