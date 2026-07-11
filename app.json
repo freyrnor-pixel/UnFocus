@@ -87,18 +87,6 @@
               "previewImage": "./assets/widget-previews/tasks.png"
             },
             {
-              "name": "Overview",
-              "label": "UnFocus Overview",
-              "description": "Today's overview",
-              "minWidth": "180dp",
-              "minHeight": "110dp",
-              "targetCellWidth": 3,
-              "targetCellHeight": 2,
-              "resizeMode": "horizontal|vertical",
-              "updatePeriodMillis": 1800000,
-              "previewImage": "./assets/widget-previews/overview.png"
-            },
-            {
               "name": "Notes",
               "label": "UnFocus Notes",
               "description": "Notes + voice capture",
@@ -109,6 +97,30 @@
               "resizeMode": "horizontal|vertical",
               "updatePeriodMillis": 1800000,
               "previewImage": "./assets/widget-previews/notes.png"
+            },
+            {
+              "name": "Habits",
+              "label": "UnFocus Habits",
+              "description": "Today's habits",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000,
+              "previewImage": "./assets/widget-previews/habits.png"
+            },
+            {
+              "name": "Health",
+              "label": "UnFocus Health",
+              "description": "Ongoing health log",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000,
+              "previewImage": "./assets/widget-previews/health.png"
             }
           ]
         }

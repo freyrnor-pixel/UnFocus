@@ -13,9 +13,9 @@
  * fire on the in-app path only; a widget toggle is a plain DB state change.
  *
  * Connections:
- *   Imports → lib/db (shared SQLite handle)
+ *   Imports → lib/db (shared SQLite handle), lib/date (todayStr), lib/id (generateId)
  *   Used by → lib/widgets/handler.tsx (WIDGET_CLICK dispatch)
- *   Data    → writes tasks / task_steps / shopping_items / notes; checkpoints WAL after
+ *   Data    → writes tasks / task_steps / shopping_items / notes / habit_logs; checkpoints WAL after
  *
  * Edit notes:
  *   - Every write runs `PRAGMA wal_checkpoint(TRUNCATE)` after committing — same reason as
@@ -28,6 +28,8 @@
  *     than crashing a headless task.
  */
 import db from '@/lib/db';
+import { todayStr } from '@/lib/date';
+import { generateId } from '@/lib/id';
 
 function checkpoint() {
   try {
@@ -92,6 +94,42 @@ export function toggleNoteChecked(id: string): { checked: boolean } | null {
     db.runSync('UPDATE notes SET checked = ? WHERE id = ?', [checked, id]);
     checkpoint();
     return { checked: !!checked };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Toggle a habit's "met today" state. Done = today's log count reaches the habit's daily goal
+ * (a rest day also counts as met). Marking done sets count = goal; clearing zeroes count and
+ * rest_day. Mirrors useHabitStore's habit_logs upsert (increment/markRestDay) closely enough
+ * that the app reconciles on next foreground. Returns the resulting done state.
+ */
+export function toggleHabitDone(id: string): { done: boolean } | null {
+  try {
+    const habit = db.getFirstSync<{ daily_goal: number }>('SELECT daily_goal FROM habits WHERE id = ?', [id]);
+    if (!habit) return null;
+    const goal = Math.max(1, habit.daily_goal || 1);
+    const today = todayStr();
+    const log = db.getFirstSync<{ id: string; count: number; rest_day: number }>(
+      'SELECT id, count, rest_day FROM habit_logs WHERE habit_id = ? AND log_date = ?',
+      [id, today]
+    );
+    const currentlyDone = !!log && (!!log.rest_day || log.count >= goal);
+    const nextCount = currentlyDone ? 0 : goal;
+    if (log) {
+      // Clearing also drops a rest-day flag so a re-tap starts from a clean "not met".
+      db.runSync('UPDATE habit_logs SET count = ?, rest_day = 0 WHERE id = ?', [nextCount, log.id]);
+    } else {
+      db.runSync('INSERT INTO habit_logs (id, habit_id, log_date, count, rest_day) VALUES (?, ?, ?, ?, 0)', [
+        generateId(),
+        id,
+        today,
+        nextCount,
+      ]);
+    }
+    checkpoint();
+    return { done: !currentlyDone };
   } catch {
     return null;
   }

@@ -13,15 +13,18 @@
  *
  * Connections:
  *   Imports → react-native-android-widget (types), lib/widgets/snapshot (read/save),
+ *             lib/widgets/headlessSnapshot (buildHeadlessSnapshot fallback),
  *             lib/widgets/WidgetViews (renderWidgetByName),
- *             lib/widgets/widgetActions (toggleTaskDone/cycleShoppingItem/toggleNoteChecked)
+ *             lib/widgets/widgetActions (toggleTaskDone/cycleShoppingItem/toggleNoteChecked/toggleHabitDone)
  *   Used by → index.ts (registerWidgetTaskHandler, Android only)
  *   Data    → reads/writes the widget_snapshot SQLite row; the actions write tasks/
- *             shopping_items/notes
+ *             shopping_items/notes/habit_logs
  *
  * Edit notes:
- *   - If the snapshot is missing (first launch before the app ever wrote one), we render a
- *     minimal empty snapshot so the widget shows a placeholder instead of a blank/broken box.
+ *   - Render fallback chain is readWidgetSnapshot() ?? buildHeadlessSnapshot() ?? placeholder().
+ *     The headless builder reads the live tables directly, so a freshly-planted widget renders
+ *     real content even if the app has never run and written a snapshot (the "invisible until I
+ *     open the app" symptom). placeholder() is only the last resort if even that read fails.
  *   - WIDGET_CLICK dispatches on `clickAction` + `clickActionData.id`. OPEN_APP / OPEN_URI
  *     are handled natively (never reach here) — only the custom TOGGLE_/CYCLE_ actions do.
  *   - The snapshot patch mirrors the DB write's effect on the visible list (flip done, move
@@ -30,8 +33,9 @@
  */
 import type { WidgetTaskHandlerProps } from 'react-native-android-widget';
 import { readWidgetSnapshot, saveWidgetSnapshot, type WidgetSnapshot } from './snapshot';
+import { buildHeadlessSnapshot } from './headlessSnapshot';
 import { renderWidgetByName } from './WidgetViews';
-import { toggleTaskDone, cycleShoppingItem, toggleNoteChecked } from './widgetActions';
+import { toggleTaskDone, cycleShoppingItem, toggleNoteChecked, toggleHabitDone } from './widgetActions';
 
 function placeholder(): WidgetSnapshot {
   return {
@@ -40,6 +44,8 @@ function placeholder(): WidgetSnapshot {
     tasks: { title: 'UnFocus', subtitle: '', items: [], more: '', empty: '—', accent: '#2563EB', hasContent: false },
     overview: { title: 'UnFocus', lines: [], empty: '—', accent: '#F4A261', hasContent: false },
     notes: { title: 'UnFocus', items: [], more: '', empty: '—', voiceLabel: '', accent: '#8B5CF6', hasContent: false },
+    habits: { title: 'UnFocus', subtitle: '', items: [], more: '', empty: '—', accent: '#16A34A', hasContent: false },
+    health: { title: 'UnFocus', subtitle: '', items: [], more: '', empty: '—', accent: '#E11D48', hasContent: false },
   };
 }
 
@@ -76,6 +82,14 @@ function applyClick(snap: WidgetSnapshot, action: string | undefined, id: string
       }
       break;
     }
+    case 'TOGGLE_HABIT': {
+      const r = toggleHabitDone(id);
+      if (r) {
+        const it = snap.habits.items.find((h) => h.id === id);
+        if (it) it.done = r.done;
+      }
+      break;
+    }
   }
 }
 
@@ -96,6 +110,9 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
   if (widgetAction !== 'WIDGET_ADDED' && widgetAction !== 'WIDGET_UPDATE' && widgetAction !== 'WIDGET_RESIZED') {
     return;
   }
-  const snapshot = readWidgetSnapshot() ?? placeholder();
+  // Prefer the app-built snapshot; if the app has never synced (freshly-planted widget on a
+  // cold install), build one straight from SQLite here so the widget shows real content
+  // immediately instead of a blank card that only fills in after the app is next opened.
+  const snapshot = readWidgetSnapshot() ?? buildHeadlessSnapshot() ?? placeholder();
   renderWidget(renderWidgetByName(widgetInfo.widgetName, snapshot));
 }

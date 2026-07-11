@@ -700,6 +700,12 @@ const en = {
     notesTitle: 'Notes',
     noNotes: 'No notes yet',
     voiceNote: 'Voice note',
+    habitsTitle: 'Habits',
+    habitsLeft: (n: number) => (n === 1 ? '1 habit left' : `${n} habits left`),
+    noHabits: 'No habits today',
+    healthTitle: 'Health',
+    noHealth: 'Nothing logged',
+    healthOngoing: (n: number) => (n === 1 ? '1 ongoing' : `${n} ongoing`),
   },
   // Radial menu labels
   nav: {
@@ -1976,6 +1982,12 @@ const no: typeof en = {
     notesTitle: 'Notater',
     noNotes: 'Ingen notater ennå',
     voiceNote: 'Taleopptak',
+    habitsTitle: 'Vaner',
+    habitsLeft: (n: number) => (n === 1 ? '1 vane igjen' : `${n} vaner igjen`),
+    noHabits: 'Ingen vaner i dag',
+    healthTitle: 'Helse',
+    noHealth: 'Ingenting logget',
+    healthOngoing: (n: number) => (n === 1 ? '1 pågående' : `${n} pågående`),
   },
   nav: {
     newTask: 'Ny oppgave', plans: 'Oppgaver', shop: 'Handleliste', habits: 'Vaner',

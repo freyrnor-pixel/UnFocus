@@ -1,19 +1,24 @@
 /**
- * WidgetViews.tsx — the four Android home-screen widget layouts + a name→JSX resolver.
+ * WidgetViews.tsx — the Android home-screen widget layouts + a name→JSX resolver.
  *
+ * The live set is Shopping / Tasks / Notes / Habits / Health (WIDGET_NAMES); the retired
+ * Overview layout is kept only for installs whose native build predates Habits/Health.
  * Pure presentational layouts built with react-native-android-widget primitives
  * (FlexWidget/TextWidget/ListWidget). They take an already-localised WidgetSnapshot slice
  * and a palette, so they never touch stores, i18n, or the settings theme — the app bakes
  * every string and the light/dark colours are chosen by the caller via renderWidgetByName.
  *
- * Interactivity: Tasks/Shopping/Notes rows live inside a scrollable ListWidget and each
- * carries its own clickAction so a tap writes back through the headless handler
+ * Interactivity: Tasks/Shopping/Notes/Habits rows live inside a scrollable ListWidget and
+ * each carries its own clickAction so a tap writes back through the headless handler
  * (lib/widgets/handler.tsx → lib/widgets/widgetActions.ts):
  *   - Tasks   row → 'TOGGLE_TASK'      (mark done / not-done)
  *   - Shopping row → 'CYCLE_SHOP_ITEM' (list → cart → purchased)
  *   - Notes   row → 'TOGGLE_NOTE'      (check off; it then leaves the active list)
- * The Notes header's mic + "open" buttons use 'OPEN_URI' into the app (speech recognition
- * can only run in-app), and every frame falls back to OPEN_APP / OPEN_URI for empty taps.
+ *   - Habits  row → 'TOGGLE_HABIT'     (mark today met / not-met)
+ * Health is read-only (its rows carry no clickAction — empty taps fall through to the
+ * card's OPEN_APP). The Notes header's mic + "open" buttons use 'OPEN_URI' into the app
+ * (speech recognition can only run in-app), and every frame falls back to OPEN_APP /
+ * OPEN_URI for empty taps.
  *
  * Connections:
  *   Imports → react-native-android-widget (FlexWidget, TextWidget, ListWidget), lib/widgets/snapshot (types)
@@ -38,7 +43,10 @@ import React from 'react';
 import { FlexWidget, TextWidget, ListWidget } from 'react-native-android-widget';
 import type { WidgetSnapshot } from './snapshot';
 
-export const WIDGET_NAMES = ['Shopping', 'Tasks', 'Overview', 'Notes'] as const;
+// The live set (drives the app-side requestWidgetUpdate fan-out + app.json). 'Overview' was
+// retired in favour of dedicated Habits + Health widgets; its render case is kept below for
+// installs whose native build still has the old Overview receiver until they update.
+export const WIDGET_NAMES = ['Shopping', 'Tasks', 'Notes', 'Habits', 'Health'] as const;
 export type WidgetName = (typeof WIDGET_NAMES)[number];
 
 type Hex = `#${string}`;
@@ -259,6 +267,85 @@ function NotesWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   );
 }
 
+// ── Habits ───────────────────────────────────────────────────────────────────
+function HabitsWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
+  const s = snap.habits;
+  const accent = hex(s.accent);
+  return (
+    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.bg }}>
+      <Header title={s.title} subtitle={s.subtitle} accent={accent} p={p} />
+      {!s.hasContent ? (
+        <Empty text={s.empty} p={p} />
+      ) : (
+        <ScrollBody more={s.more} p={p}>
+          {s.items.map((habit, i) => (
+            <FlexWidget key={`${i}-${habit.id}`} clickAction="TOGGLE_HABIT" clickActionData={{ id: habit.id }} style={ROW}>
+              {habit.done ? <Dot color={accent} /> : <Ring color={p.muted} />}
+              <TextWidget
+                text={habit.title}
+                maxLines={1}
+                truncate="END"
+                style={{ fontSize: 13, color: habit.done ? p.muted : p.text }}
+              />
+            </FlexWidget>
+          ))}
+        </ScrollBody>
+      )}
+    </FlexWidget>
+  );
+}
+
+// ── Health (read-only) ───────────────────────────────────────────────────────
+/** Severity 1–5 as a compact scale of filled dots (accent) over hollow rings (line). */
+function SeverityScale({ severity, accent, p }: { severity: number; accent: Hex; p: Palette }) {
+  const filled = Math.max(0, Math.min(5, severity));
+  return (
+    <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <FlexWidget
+          key={i}
+          style={
+            i < filled
+              ? { width: 7, height: 7, borderRadius: 4, marginLeft: 3, backgroundColor: accent }
+              : { width: 7, height: 7, borderRadius: 4, marginLeft: 3, borderWidth: 1, borderColor: p.line }
+          }
+        />
+      ))}
+    </FlexWidget>
+  );
+}
+
+function HealthWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
+  const s = snap.health;
+  const accent = hex(s.accent);
+  return (
+    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.bg }}>
+      <Header title={s.title} subtitle={s.subtitle} accent={accent} p={p} />
+      {!s.hasContent ? (
+        <Empty text={s.empty} p={p} />
+      ) : (
+        <ScrollBody more={s.more} p={p}>
+          {s.items.map((entry, i) => (
+            // Read-only: no per-row clickAction (empty taps fall through to the card's OPEN_APP).
+            <FlexWidget key={`${i}-${entry.id}`} style={{ ...ROW, justifyContent: 'space-between' }}>
+              <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                {entry.ongoing ? <Dot color={accent} /> : <Ring color={p.muted} />}
+                <TextWidget
+                  text={entry.label}
+                  maxLines={1}
+                  truncate="END"
+                  style={{ fontSize: 13, color: p.text }}
+                />
+              </FlexWidget>
+              <SeverityScale severity={entry.severity} accent={accent} p={p} />
+            </FlexWidget>
+          ))}
+        </ScrollBody>
+      )}
+    </FlexWidget>
+  );
+}
+
 function viewForName(name: string, snap: WidgetSnapshot, p: Palette) {
   switch (name) {
     case 'Shopping':
@@ -267,8 +354,13 @@ function viewForName(name: string, snap: WidgetSnapshot, p: Palette) {
       return <TasksWidget snap={snap} p={p} />;
     case 'Notes':
       return <NotesWidget snap={snap} p={p} />;
+    case 'Habits':
+      return <HabitsWidget snap={snap} p={p} />;
+    case 'Health':
+      return <HealthWidget snap={snap} p={p} />;
     case 'Overview':
     default:
+      // Retired widget — retained for installs still running the pre-Habits/Health native build.
       return <OverviewWidget snap={snap} p={p} />;
   }
 }
