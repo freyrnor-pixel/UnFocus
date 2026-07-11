@@ -60,7 +60,7 @@ Every `.ts`/`.tsx` file starts with a JSDoc header block. **Read it before editi
 | SQLite file name: `unfocus.db` | Set in `lib/db.ts` |
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations array | Runs once on upgrade; never drop or recreate tables |
 | Stores read/write rows via `lib/dataAccess.ts` (`loadFirst`/`loadAll`/`updateRow` + `FieldMap`) | Used by 13 of 14 stores; don't hand-roll row mapping in a new store |
-| **To ship a change to users, MERGE it to `main`** | OTA (`.github/workflows/update.yml`) publishes ONLY on push to `main`. A `claude/**` branch push publishes nothing — the fix stays invisible to installed apps until merged. This is the #1 "why isn't my fix live?" cause. See `PUBLISHING.md`. |
+| **ALWAYS open a PR and merge it to `main`** | Standing rule: every change ends with a PR from the `claude/**` branch into `main` that the agent merges itself — never stop at "pushed the branch," never hand the merge back to the user. OTA (`.github/workflows/update.yml`) publishes ONLY on push to `main`; a `claude/**` branch push publishes nothing. Only *cutting the APK/AAB build* stays human-gated — never the PR or the merge. See `PUBLISHING.md`. |
 
 ## Architecture at a glance
 
@@ -135,7 +135,7 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 ## Builds and updates
 
 ### OTA updates (normal flow)
-- **⚠️ PUBLISH = MERGE TO `main`.** Nothing reaches users until the change is on `main`. Pushing your `claude/**` branch is only step 1; you must open a PR into `main` and merge it. Full step-by-step: `PUBLISHING.md`.
+- **⚠️ PUBLISH = MERGE TO `main`, and you ALWAYS do it.** Standing rule: every change finishes with a PR from the `claude/**` branch into `main` that you merge yourself — automatically, without being asked, and without handing the merge back to the user. Pushing the branch is only step 1. Full step-by-step: `PUBLISHING.md`.
 - Workflow: `.github/workflows/update.yml` — triggers on every push to `main` only (deliberately NOT on `claude/**` branches — parallel session branches all publishing to the one shared `preview` channel caused a real incident where a later, older-tree push silently clobbered a newer one; see git history around June 2026). Push your branch and merge into `main` to publish.
 - Runs `eas update --branch preview --message "..."` — always publishes to EAS branch `preview`
 - Runtime version is read from `runtimeVersion` in `app.json` — an OTA reaches only installs whose runtime matches that value
