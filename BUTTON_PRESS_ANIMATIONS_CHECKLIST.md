@@ -123,7 +123,7 @@ opportunistically with other work in the same file)
 - [x] `app/(tabs)/health.tsx:292,322,329,350,492,500,689,736,764,791,796,806,814,842` — habit
       card, adjust +/- x2, rest-day toggle, month nav x2, ailment row, view-log row, profile
       chip, confirm-add-child, two "add child" buttons, sub-tab, "no habits yet" add-row.
-- [ ] `app/(tabs)/shopping.tsx:745,807,901,952,981,964,984,1075,1152,1155` — Weekly/Monthly
+- [x] `app/(tabs)/shopping.tsx:745,807,901,952,981,964,984,1075,1152,1155` — Weekly/Monthly
       tab, reset-monthly icon (destructive), purchased-section header, allocate-to-weekly x2,
       remove-item x2 (destructive), "new weekly list" card, reset-confirm No/Yes
       (Yes is destructive).

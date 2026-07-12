@@ -20,7 +20,8 @@
  *             components/MonthlyTableRow, components/ProgressBar, components/SavedListsModal,
  *             components/ScreenScaffold, components/SharedRequestsSection,
  *             components/ShoppingRow, components/Surface, components/UpdateSheet,
- *             components/WeekListCard, components/FoodTab, components/CatalogueTab, constants/theme,
+ *             components/WeekListCard, components/FoodTab, components/CatalogueTab,
+ *             components/PressableScale, constants/theme,
  *             lib/date (todayStr, dateStr, getWeekRangeContaining), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
  *             computeListGroups, listProgress), lib/useAppTheme,
@@ -145,7 +146,7 @@
  *     ANIMATION_GUIDELINES.md's "Flight / Cross-Section Travel Animations" section.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
 import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -164,6 +165,7 @@ import { showAppModal } from '@/components/AppModal';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import ExpandableCard from '@/components/ExpandableCard';
+import PressableScale from '@/components/PressableScale';
 import WeekListCard from '@/components/WeekListCard';
 import FlightOverlay, { FlightRow, Flight, FlightRect } from '@/components/FlightOverlay';
 import FoodTab from '@/components/FoodTab';
@@ -742,12 +744,13 @@ export default function ShoppingScreen() {
         {TAB_META.map(({ value, label, accent, count }) => {
           const isActive = tab === value;
           return (
-            <Pressable
+            <PressableScale
               key={value}
               style={[styles.tab, isActive && { borderBottomColor: accent, borderBottomWidth: 2 }]}
               onPress={() => setTab(value)}
               accessibilityRole="button"
               accessibilityLabel={label}
+              scaleTo={0.97}
             >
               <Text style={[styles.tabText, { color: isActive ? accent : theme.textMuted }]} numberOfLines={1}>
                 {label}
@@ -768,7 +771,7 @@ export default function ShoppingScreen() {
                   <Ionicons name="checkmark" size={10} color={theme.textInverse} />
                 </Animated.View>
               )}
-            </Pressable>
+            </PressableScale>
           );
         })}
       </View>
@@ -804,14 +807,15 @@ export default function ShoppingScreen() {
                 the same label). */}
             <View style={[styles.catalogHeaderRow, styles.catalogHeaderRowEnd]}>
               <View style={styles.catalogHeaderActions}>
-                <Pressable
+                <PressableScale
                   style={styles.resetIconBtn}
                   onPress={handleManualMonthlyReset}
                   hitSlop={6}
                   accessibilityLabel={t.resetMonthlyListAction}
+                  scaleTo={0.93}
                 >
                   <Ionicons name="refresh-circle" size={32} color="#E53935" />
-                </Pressable>
+                </PressableScale>
                 <IconButton
                   icon={catalogLocked ? 'lock-closed' : 'lock-open-outline'}
                   label={catalogLocked ? t.unlockListButtonLabel : t.lockListButtonLabel}
@@ -898,10 +902,10 @@ export default function ShoppingScreen() {
                     const expanded = purchasedExpanded === trip.id;
                     return (
                       <View key={trip.id}>
-                        <Pressable style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]} onPress={() => setPurchasedExpanded(expanded ? null : trip.id)}>
+                        <PressableScale style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]} onPress={() => setPurchasedExpanded(expanded ? null : trip.id)} scaleTo={0.97}>
                           <Text style={[styles.weekLabel, { color: theme.textMuted }]}>{trip.label}</Text>
                           <Text style={[styles.disclosureChevron, { color: theme.textMuted }]}>{expanded ? '▲' : '▼'}</Text>
-                        </Pressable>
+                        </PressableScale>
                         {expanded && (
                           // Decision 043 rule 1: this already sits inside the Monthly tab's
                           // outer Surface (catalogCard) — plain View + theme.surface fill,
@@ -949,10 +953,10 @@ export default function ShoppingScreen() {
                   <View key={dishName} style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
                     <View style={styles.unallocatedGroupHeader}>
                       <Text style={[styles.unallocatedGroupName, { color: theme.text }]} numberOfLines={1}>{dishName}</Text>
-                      <Pressable style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate(groupItems)} hitSlop={6}>
+                      <PressableScale style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate(groupItems)} hitSlop={6} scaleTo={0.97}>
                         <Ionicons name="arrow-forward" size={14} color={theme.textInverse} />
                         <Text style={[styles.allocateBtnText, { color: theme.textInverse }]}>{t.allocateItemLabel}</Text>
-                      </Pressable>
+                      </PressableScale>
                     </View>
                     {groupItems.map((item, idx) => (
                       <View key={item.id}>
@@ -961,9 +965,9 @@ export default function ShoppingScreen() {
                           <Text style={[styles.unallocatedItemMeta, { color: theme.textMuted }]}>
                             {item.amount}{item.unit ? ` ${item.unit}` : ''}{item.price > 0 ? ` · ${formatKr(item.price, 0)}` : ''}
                           </Text>
-                          <Pressable onPress={() => removeWithSource(item.id)} hitSlop={8} accessibilityLabel={t.removeItemLabel}>
+                          <PressableScale onPress={() => removeWithSource(item.id)} hitSlop={8} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
                             <Ionicons name="close" size={18} color={theme.textMuted} />
-                          </Pressable>
+                          </PressableScale>
                         </View>
                       </View>
                     ))}
@@ -978,12 +982,12 @@ export default function ShoppingScreen() {
                         <Text style={[styles.unallocatedItemMeta, { color: theme.textMuted }]}>
                           {item.amount}{item.unit ? ` ${item.unit}` : ''}{item.price > 0 ? ` · ${formatKr(item.price, 0)}` : ''}
                         </Text>
-                        <Pressable style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate([item])} hitSlop={6}>
+                        <PressableScale style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate([item])} hitSlop={6} scaleTo={0.97}>
                           <Ionicons name="arrow-forward" size={14} color={theme.textInverse} />
-                        </Pressable>
-                        <Pressable onPress={() => removeWithSource(item.id)} hitSlop={8} accessibilityLabel={t.removeItemLabel}>
+                        </PressableScale>
+                        <PressableScale onPress={() => removeWithSource(item.id)} hitSlop={8} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
                           <Ionicons name="close" size={18} color={theme.textMuted} />
-                        </Pressable>
+                        </PressableScale>
                       </View>
                     ))}
                   </View>
@@ -1072,7 +1076,7 @@ export default function ShoppingScreen() {
               );
             })}
 
-            <Pressable
+            <PressableScale
               style={[styles.newListCard, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
               onPress={() =>
                 showAppModal(t.newWeeklyListTitle, '', [
@@ -1081,10 +1085,11 @@ export default function ShoppingScreen() {
                   { text: t.cancel, style: 'cancel' },
                 ])
               }
+              scaleTo={0.97}
             >
               <Text style={[styles.newListPlus, { color: theme.accent }]}>+</Text>
               <Text style={[styles.newListText, { color: theme.accent }]}>{t.newWeeklyListTitle}</Text>
-            </Pressable>
+            </PressableScale>
           </>
         )}
 
@@ -1149,12 +1154,12 @@ export default function ShoppingScreen() {
         <View style={[styles.dialogBox, { backgroundColor: theme.surface }]}>
           <Text style={[styles.dialogMessage, { color: theme.text }]}>{t.resetMonthlyListConfirmTitle}</Text>
           <View style={styles.dialogBtns}>
-            <Pressable style={[styles.dialogBtn, styles.dialogBtnNo]} onPress={() => setResetConfirmVisible(false)}>
+            <PressableScale style={[styles.dialogBtn, styles.dialogBtnNo]} onPress={() => setResetConfirmVisible(false)} scaleTo={0.97}>
               <Text style={styles.dialogBtnText}>{t.no}</Text>
-            </Pressable>
-            <Pressable style={[styles.dialogBtn, styles.dialogBtnYes]} onPress={handleConfirmReset}>
+            </PressableScale>
+            <PressableScale style={[styles.dialogBtn, styles.dialogBtnYes]} onPress={handleConfirmReset} scaleTo={0.93}>
               <Text style={styles.dialogBtnText}>{t.yes}</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </View>
       </View>
