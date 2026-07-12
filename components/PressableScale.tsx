@@ -2,9 +2,14 @@
  * PressableScale.tsx — Pressable with a tactile spring scale-bounce on press.
  *
  * Drop-in replacement for Pressable that dips to ~0.94 scale on press-in and
- * springs back on release (~150ms), giving every button tactile feedback. Fires a
- * light haptic on press by default. Honours the user's reduce-motion setting: when
- * set, the scale animation is skipped (haptics still fire unless disabled).
+ * springs back on release (~150ms), giving every button tactile feedback. Also
+ * dips opacity to 0.85 in sync with the scale (derived from the same shared value,
+ * no extra tuning). Fires a light haptic on a completed press (onPress) by
+ * default — not on press-in/touch-down, so a touch that starts on a button but
+ * turns into a scroll (e.g. inside a ScrollView/FlatList) doesn't vibrate; only
+ * an actual selected tap does. Honours the user's reduce-motion setting: when
+ * set, the scale/opacity animation is skipped (haptics still fire unless
+ * disabled).
  *
  * Connections:
  *   Imports → react-native-reanimated, lib/haptics, lib/useAppTheme
@@ -24,6 +29,8 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
+  interpolate,
+  Extrapolation,
 } from 'react-native-reanimated';
 import { useAccessibility } from '@/lib/useAppTheme';
 import { tap as hapticTap } from '@/lib/haptics';
@@ -42,8 +49,10 @@ export default function PressableScale({
   style,
   haptic = true,
   scaleTo = 0.94,
+  disabled,
   onPressIn,
   onPressOut,
+  onPress,
   children,
   ...rest
 }: Props) {
@@ -52,20 +61,27 @@ export default function PressableScale({
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
+    opacity: disabled
+      ? undefined
+      : interpolate(scale.value, [scaleTo, 1], [0.85, 1], Extrapolation.CLAMP),
   }));
 
   return (
     <AnimatedPressable
       {...rest}
+      disabled={disabled}
       style={[style, animStyle]}
       onPressIn={(e) => {
-        if (haptic) hapticTap();
         if (!reducedMotion) scale.value = withTiming(scaleTo, { duration: 60 });
         onPressIn?.(e);
       }}
       onPressOut={(e) => {
         if (!reducedMotion) scale.value = withSpring(1, { damping: 18, stiffness: 320 });
         onPressOut?.(e);
+      }}
+      onPress={(e) => {
+        if (haptic) hapticTap();
+        onPress?.(e);
       }}
     >
       {children}

@@ -133,6 +133,9 @@ export type Task = {
   hasStartDate: boolean;
   /** "Shared out" flag — an outgoing shared_tasks row exists for this task. */
   sharedOut: boolean;
+  /** People/family mode — assigned profile name ('' = Me / self). Surfaced only when
+   *  settings.peopleModeEnabled and at least one childProfiles entry exists. */
+  assignee: string;
   steps: TaskStep[];
 };
 
@@ -157,6 +160,7 @@ export type TaskInput = {
   followsTaskId?: string | null;
   hasStartDate?: boolean;
   sharedOut?: boolean;
+  assignee?: string;
 };
 
 const ORDINAL_NUM: Record<Exclude<MonthOrdinal, 'last'>, number> = {
@@ -297,6 +301,7 @@ function rowToTask(row: Row): Task {
     followsTaskId: readStr(row, 'follows_task_id') || null,
     hasStartDate: readBool(row, 'has_start_date'),
     sharedOut: readBool(row, 'shared_out'),
+    assignee: readStr(row, 'assignee', ''),
     steps: [],
   };
 }
@@ -323,6 +328,7 @@ const TASK_COLUMNS: FieldMap<Task> = {
   hint: { col: 'hint', to: (v) => v ?? '' },
   hasStartDate: { col: 'has_start_date', to: (v) => (v ? 1 : 0) },
   sharedOut: { col: 'shared_out', to: (v) => (v ? 1 : 0) },
+  assignee: { col: 'assignee', to: (v) => v ?? '' },
   // followsTaskId is deliberately ABSENT from this map — rowValues() only ever
   // serialises keys present in the map, so neither add()'s insertRow nor update()'s
   // patch can accidentally write follows_task_id. All writes to it go through
@@ -383,6 +389,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       monthWeekday: t.monthWeekday ?? 0,
       hasStartDate: t.hasStartDate ?? false,
       sharedOut: t.sharedOut ?? false,
+      assignee: t.assignee ?? '',
       // duration_minutes is derived from Start→Finish so the Home day-view keeps working.
       durationMinutes: deriveDurationMinutes(t.time, t.finishTime) ?? t.durationMinutes,
       steps: [],

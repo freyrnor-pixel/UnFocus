@@ -11,7 +11,8 @@
  * become tappable.
  *
  * Connections:
- *   Imports → constants/theme, lib/date, lib/useAppTheme, store/useShoppingStore
+ *   Imports → constants/theme, lib/date, lib/useAppTheme, store/useShoppingStore,
+ *             components/PressableScale
  *   Used by → app/(tabs)/shopping.tsx (Monthly catalog tab), app/inventory-edit.tsx
  *   Data    → consumes the ShoppingItem type from useShoppingStore; mutations happen in the parent via onCheckboxPress/onPress; scaled fontSize via useScaledStyles()
  *
@@ -42,12 +43,13 @@
  *   - Theming reads useAppTheme() internally.
  */
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { formatKr } from '@/lib/money';
+import PressableScale from '@/components/PressableScale';
 
 type Props = {
   item: ShoppingItem;
@@ -69,13 +71,14 @@ export default function MonthlyTableRow({ item, onCheckboxPress, onPress, tempor
 
   const Body = (
     <View style={[styles.row, { backgroundColor: theme.surface }]}>
-      <Pressable
+      <PressableScale
         style={[styles.check, { borderColor: theme.accent }, item.pendingRestock && { backgroundColor: theme.accent, borderColor: theme.accent }]}
         onPress={onCheckboxPress}
         hitSlop={6}
+        scaleTo={0.97}
       >
         {item.pendingRestock && <Ionicons name="checkmark" size={14} color={theme.accentInk} />}
-      </Pressable>
+      </PressableScale>
 
       <View style={styles.itemCol}>
         <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
@@ -89,13 +92,13 @@ export default function MonthlyTableRow({ item, onCheckboxPress, onPress, tempor
           )}
           {hasStepper ? (
             <View style={styles.stepperRow}>
-              <Pressable style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted }]} onPress={onDecrement} hitSlop={6}>
+              <PressableScale style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted }]} onPress={onDecrement} hitSlop={6} scaleTo={0.9}>
                 <Text style={[styles.stepText, { color: theme.text }]}>−</Text>
-              </Pressable>
+              </PressableScale>
               <Text style={[styles.qtyMeta, { color: theme.text }]}>×{item.targetQuantity}</Text>
-              <Pressable style={[styles.stepBtn, { backgroundColor: theme.accent }]} onPress={onIncrement} hitSlop={6}>
+              <PressableScale style={[styles.stepBtn, { backgroundColor: theme.accent }]} onPress={onIncrement} hitSlop={6} scaleTo={0.9}>
                 <Text style={[styles.stepText, { color: theme.accentInk }]}>+</Text>
-              </Pressable>
+              </PressableScale>
             </View>
           ) : (
             <Text style={[styles.qtyMeta, { color: theme.textMuted }]}>×{item.targetQuantity}</Text>
@@ -113,15 +116,15 @@ export default function MonthlyTableRow({ item, onCheckboxPress, onPress, tempor
       </View>
 
       {onRemove && (
-        <Pressable onPress={onRemove} hitSlop={6} style={styles.removeBtn}>
+        <PressableScale onPress={onRemove} hitSlop={6} style={styles.removeBtn} scaleTo={0.93}>
           <Ionicons name="close" size={18} color={theme.textMuted} />
-        </Pressable>
+        </PressableScale>
       )}
     </View>
   );
 
   if (!onPress) return Body;
-  return <Pressable onPress={onPress}>{Body}</Pressable>;
+  return <PressableScale onPress={onPress} scaleTo={0.97}>{Body}</PressableScale>;
 }
 
 const baseStyles = StyleSheet.create({

@@ -131,6 +131,7 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
               style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted }]}
               onPress={() => setTargetQty((q) => Math.max(1, q - 1))}
               hitSlop={6}
+              scaleTo={0.90}
             >
               <Text style={[styles.stepText, { color: theme.text }]}>−</Text>
             </PressableScale>
@@ -139,6 +140,7 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
               style={[styles.stepBtn, { backgroundColor: theme.accent }]}
               onPress={() => setTargetQty((q) => q + 1)}
               hitSlop={6}
+              scaleTo={0.90}
             >
               <Text style={[styles.stepText, { color: theme.accentInk }]}>+</Text>
             </PressableScale>
@@ -150,10 +152,10 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
           </View>
 
           <View style={styles.actionsRow}>
-            <PressableScale style={styles.ghostBtn} onPress={onClose}>
+            <PressableScale style={styles.ghostBtn} onPress={onClose} scaleTo={0.97}>
               <Text style={[styles.ghostBtnText, { color: theme.textMuted }]}>{t.cancelBtn}</Text>
             </PressableScale>
-            <PressableScale style={[styles.primaryBtn, { backgroundColor: theme.accent }]} onPress={handleSave}>
+            <PressableScale style={[styles.primaryBtn, { backgroundColor: theme.accent }]} onPress={handleSave} scaleTo={0.95}>
               <Text style={[styles.primaryBtnText, { color: theme.accentInk }]}>{t.saveBtn}</Text>
             </PressableScale>
           </View>
@@ -164,6 +166,7 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
               { backgroundColor: deleteArmed ? theme.bad : theme.badSoft },
             ]}
             onPress={handleDeletePress}
+            scaleTo={0.93}
           >
             <Text style={[styles.deleteBtnText, { color: deleteArmed ? theme.textInverse : theme.bad }]}>
               {deleteArmed ? t.deleteConfirmText : t.deleteFromCatalogBtn}

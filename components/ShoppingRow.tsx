@@ -10,8 +10,9 @@
  * trailing button (Ripple R2) — both replaced by gesture surfaces.
  *
  * Connections:
- *   Imports → components/Badge, components/InventoryIcon, constants/theme, lib/date, lib/haptics,
- *             lib/i18n, lib/useAppTheme, react-native-gesture-handler, react-native-reanimated,
+ *   Imports → components/Badge, components/FlightOverlay (FlightRect type only), components/InventoryIcon,
+ *             components/PressableScale, constants/theme, lib/date, lib/haptics, lib/i18n, lib/useAppTheme,
+ *             react-native-gesture-handler, react-native-reanimated,
  *             store/useShoppingStore (ShoppingItem type + recentlyAddedIds, see Decision 044b note)
  *   Used by → components/WeekListCard.tsx, app/(tabs)/shopping.tsx (weekly rows +
  *             purchased-history rows), components/HomeShoppingCard.tsx (Home shopping
@@ -100,9 +101,19 @@
  *     resettle smoothly when the list above them changes height — this is what makes
  *     list→cart moves (a different section = unmount+remount, not a true shared-element
  *     transition) read as "travel" rather than a teleport. All three respect reducedMotion.
+ *   - **Touch target (2026-07-11)**: the check circle is visually 22x22 but `hitSlop={13}`
+ *     brings the tappable area to ~48dp, meeting Android's minimum touch-target size.
+ *   - **Flight animation (Phase 1, 2026-07-11)**: `onFlightStart` (optional) fires with this
+ *     row's window-space rect right before `onToggle`, letting the parent kick off a
+ *     `FlightOverlay` clone (see ANIMATION_GUIDELINES.md). Only wired for the forward
+ *     'planned'-and-unchecked → 'In cart' direction (`willFly`) — reverse toggles keep
+ *     today's fade-only behavior, matching FLIGHT_ANIMATION_HANDOFF.md's stated Phase 1
+ *     scope. The ref for measuring must live on the outer `styles.wrap` Animated.View, NOT
+ *     the `GestureDetector`-wrapped `styles.row` one below it — GestureDetector clones its
+ *     child and would silently overwrite a ref placed there.
  */
 import React, { useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -116,6 +127,7 @@ import Animated, {
   LinearTransition,
 } from 'react-native-reanimated';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
+import type { FlightRect } from '@/components/FlightOverlay';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -123,6 +135,7 @@ import { formatKr } from '@/lib/money';
 import { selection, heavy } from '@/lib/haptics';
 import InventoryIcon from '@/components/InventoryIcon';
 import { Badge } from '@/components/Badge';
+import PressableScale from '@/components/PressableScale';
 
 type Variant = 'planned' | 'cart' | 'purchased';
 
@@ -151,6 +164,8 @@ type Props = {
   onDecrement?: () => void;
   inStockLabel?: string;
   locked?: boolean;
+  /** See "Flight animation" edit note above. Omit to keep today's fade-only toggle. */
+  onFlightStart?: (rect: FlightRect) => void;
 };
 
 export default function ShoppingRow({
@@ -163,12 +178,14 @@ export default function ShoppingRow({
   onDecrement,
   inStockLabel,
   locked,
+  onFlightStart,
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
   const { reducedMotion } = useAccessibility();
   const { width } = useWindowDimensions();
+  const rowRef = useRef<any>(null);
 
   const translateX = useSharedValue(0);
   const crossedThreshold = useSharedValue(false);
@@ -227,6 +244,21 @@ export default function ShoppingRow({
     onRemove();
   }
 
+  // Phase 1 flight scope: only the forward "In list" (unchecked, planned) → "In cart"
+  // toggle flies; reverse toggles keep today's fade-only unmount/remount.
+  const willFly = !reducedMotion && !!onFlightStart && variant === 'planned' && !item.checked;
+
+  function handleCheckPress() {
+    if (willFly && rowRef.current?.measureInWindow) {
+      rowRef.current.measureInWindow((x: number, y: number, width2: number, height: number) => {
+        onFlightStart!({ x, y, width: width2, height });
+        onToggle();
+      });
+    } else {
+      onToggle();
+    }
+  }
+
   const pan = Gesture.Pan()
     .enabled(!locked)
     .activeOffsetX([-12, 12])
@@ -270,9 +302,10 @@ export default function ShoppingRow({
 
   return (
     <Animated.View
+      ref={rowRef}
       style={styles.wrap}
       entering={!reducedMotion && wasNewOnMount ? FadeInDown.duration(250) : undefined}
-      exiting={reducedMotion ? undefined : FadeOut.duration(200)}
+      exiting={willFly ? undefined : (reducedMotion ? undefined : FadeOut.duration(200))}
       layout={reducedMotion ? undefined : LinearTransition.duration(220)}
     >
       <Animated.View
@@ -287,7 +320,7 @@ export default function ShoppingRow({
             pointerEvents="none"
             style={[styles.highlight, { backgroundColor: theme.goodSoft, borderColor: theme.good }, highlightStyle]}
           />
-          <Pressable
+          <PressableScale
             style={[
               styles.check,
               variant === 'planned' && (item.checked
@@ -296,9 +329,10 @@ export default function ShoppingRow({
               variant === 'cart' && { backgroundColor: theme.good, borderColor: theme.good },
               variant === 'purchased' && { backgroundColor: theme.good, borderColor: theme.good },
             ]}
-            onPress={onToggle}
+            onPress={handleCheckPress}
             disabled={variant === 'purchased'}
-            hitSlop={6}
+            hitSlop={13}
+            scaleTo={0.97}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: !!item.checked }}
             accessibilityLabel={item.name}
@@ -318,7 +352,7 @@ export default function ShoppingRow({
               : <Ionicons name="add" size={16} color={theme.good} />)}
             {variant === 'cart' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
             {variant === 'purchased' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
-          </Pressable>
+          </PressableScale>
 
           <View style={styles.lines}>
             <View style={styles.line1}>
@@ -342,7 +376,7 @@ export default function ShoppingRow({
 
               {showStepper && (
                 <View style={styles.stepper}>
-                  <Pressable
+                  <PressableScale
                     style={[
                       styles.stepBtn,
                       canDecrement
@@ -353,11 +387,12 @@ export default function ShoppingRow({
                     disabled={!canDecrement}
                     hitSlop={4}
                     accessibilityLabel={t.decreaseQty}
+                    scaleTo={0.9}
                   >
                     <Ionicons name="remove" size={12} color={canDecrement ? theme.accentInk : theme.border} />
-                  </Pressable>
+                  </PressableScale>
                   <Badge label={String(safeQty)} style={styles.stepBadge} />
-                  <Pressable
+                  <PressableScale
                     style={[
                       styles.stepBtn,
                       canIncrement
@@ -368,9 +403,10 @@ export default function ShoppingRow({
                     disabled={!canIncrement}
                     hitSlop={4}
                     accessibilityLabel={t.increaseQty}
+                    scaleTo={0.9}
                   >
                     <Ionicons name="add" size={12} color={canIncrement ? theme.accentInk : theme.border} />
-                  </Pressable>
+                  </PressableScale>
                 </View>
               )}
 
@@ -381,9 +417,9 @@ export default function ShoppingRow({
           </View>
 
           {variant !== 'purchased' && (
-            <Pressable style={styles.deleteBtn} onPress={onRemove} hitSlop={8} accessibilityLabel={t.removeItemLabel}>
+            <PressableScale style={styles.deleteBtn} onPress={onRemove} hitSlop={8} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
               <Ionicons name="close-outline" size={18} color={theme.textMuted} />
-            </Pressable>
+            </PressableScale>
           )}
         </Animated.View>
       </GestureDetector>

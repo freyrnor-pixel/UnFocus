@@ -20,13 +20,31 @@
  *     handler or the widget views. Add new display text here (baked by sync.ts), not there.
  *   - Every read/write is wrapped so a missing table / parse error degrades to null rather
  *     than crashing a headless task.
+ *   - saveWidgetSnapshot() runs `PRAGMA wal_checkpoint(TRUNCATE)` after the write: the DB is
+ *     in WAL mode and the headless handler reads this row from a separate process (app closed),
+ *     which can otherwise miss a write still in the -wal and render a stale/empty snapshot.
+ *   - Each list row carries its `id` so a widget tap (WIDGET_CLICK) can write the toggle back
+ *     via lib/widgets/widgetActions.ts. The handler patches the matching row in this snapshot
+ *     in place after the DB write, so the widget reflects the change without a full rebuild.
  */
 import db from '@/lib/db';
 
-/** One task row shown in the Tasks widget. */
-export type WidgetTaskLine = { title: string; done: boolean };
+/** One task row shown in the Tasks widget. `id` lets a widget tap toggle it (WIDGET_CLICK). */
+export type WidgetTaskLine = { id: string; title: string; done: boolean };
 
-/** Fully-localised snapshot rendered by all three widgets. */
+/** One shopping row. `state` drives the cycle list → cart → purchased; purchased rows drop out. */
+export type WidgetShopLine = { id: string; name: string; state: 'list' | 'cart' };
+
+/** One note row shown in the Notes widget; tap toggles `checked`. */
+export type WidgetNoteLine = { id: string; header: string; checked: boolean };
+
+/** One habit row shown in the Habits widget. `done` = today's count met the goal; tap toggles it. */
+export type WidgetHabitLine = { id: string; title: string; done: boolean };
+
+/** One health row shown in the Health widget (read-only). `ongoing` = no end date yet. */
+export type WidgetHealthLine = { id: string; label: string; severity: number; ongoing: boolean };
+
+/** Fully-localised snapshot rendered by every widget. */
 export type WidgetSnapshot = {
   /** Epoch ms the snapshot was built — lets a widget show a relative "updated" hint if wanted. */
   updatedAt: number;
@@ -34,7 +52,7 @@ export type WidgetSnapshot = {
     title: string;
     /** e.g. "3 items left" / "All done 🎉" */
     subtitle: string;
-    items: string[];
+    items: WidgetShopLine[];
     /** localised "+N more" footer, or '' when nothing is hidden */
     more: string;
     /** localised text shown when the list is empty */
@@ -54,6 +72,36 @@ export type WidgetSnapshot = {
   overview: {
     title: string;
     lines: string[];
+    empty: string;
+    accent: string;
+    hasContent: boolean;
+  };
+  notes: {
+    title: string;
+    items: WidgetNoteLine[];
+    more: string;
+    empty: string;
+    /** localised label for the "record a voice note" button */
+    voiceLabel: string;
+    accent: string;
+    hasContent: boolean;
+  };
+  habits: {
+    title: string;
+    /** e.g. "2 habits left" / '' when all met */
+    subtitle: string;
+    items: WidgetHabitLine[];
+    more: string;
+    empty: string;
+    accent: string;
+    hasContent: boolean;
+  };
+  health: {
+    title: string;
+    /** e.g. "1 ongoing" / '' */
+    subtitle: string;
+    items: WidgetHealthLine[];
+    more: string;
     empty: string;
     accent: string;
     hasContent: boolean;
@@ -79,6 +127,13 @@ export function saveWidgetSnapshot(snapshot: WidgetSnapshot) {
         'ON CONFLICT(id) DO UPDATE SET payload = excluded.payload',
       [JSON.stringify(snapshot)]
     );
+    // The DB runs in WAL mode (lib/db.ts). The widget's headless task handler
+    // (lib/widgets/handler.tsx) reads this row from a SEPARATE process while the
+    // app is closed — and a fresh connection can miss changes still sitting in the
+    // -wal file, showing a stale/empty snapshot (the "widget shows no tasks even
+    // though the app has them" bug). Force a checkpoint so the write lands in the
+    // main db file the headless reader opens. TRUNCATE also keeps the -wal small.
+    try { db.execSync('PRAGMA wal_checkpoint(TRUNCATE)'); } catch { /* checkpoint is best-effort */ }
   } catch {
     /* never crash the app over a widget cache write */
   }

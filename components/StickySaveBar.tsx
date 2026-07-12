@@ -6,7 +6,7 @@
  * confirm. Position is sticky within a scroll container.
  *
  * Connections:
- *   Imports → react-native-reanimated, constants/theme, lib/useAppTheme
+ *   Imports → react-native-reanimated, constants/theme, lib/useAppTheme, components/PressableScale
  *   Used by → app/settings.tsx (work days, reset days) — not ported yet; this is a
  *             leaf ahead of its screen
  *   Data    → controlled via `visible`; fires `onSave` and `onRevert` callbacks
@@ -26,7 +26,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   withTiming,
   useSharedValue,
@@ -35,6 +35,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { FontSize, Fonts } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
+import PressableScale from '@/components/PressableScale';
 
 export interface StickySaveBarProps {
   visible: boolean;
@@ -102,16 +103,17 @@ export function StickySaveBar({
       pointerEvents={visible ? 'auto' : 'none'}
     >
       <Text style={[styles.label, { color: theme.textMuted }]}>{label}</Text>
-      <Pressable style={styles.ghostButton} onPress={onRevert} hitSlop={6}>
+      <PressableScale style={styles.ghostButton} onPress={onRevert} hitSlop={6} scaleTo={0.97}>
         <Text style={[styles.ghostText, { color: theme.textMuted }]}>{undoLabel}</Text>
-      </Pressable>
-      <Pressable
+      </PressableScale>
+      <PressableScale
         style={[styles.primaryButton, { backgroundColor: theme.accent }]}
         onPress={onSave}
         hitSlop={6}
+        scaleTo={0.95}
       >
         <Text style={[styles.primaryText, { color: theme.accentInk }]}>{saveLabel}</Text>
-      </Pressable>
+      </PressableScale>
     </AnimatedView>
   );
 }

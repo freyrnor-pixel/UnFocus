@@ -8,8 +8,8 @@
  * pattern as HomeNotesCard, so it never shows an empty shell.
  *
  * Connections:
- *   Imports → components/Surface, constants/theme, lib/haptics, lib/i18n, lib/useAppTheme,
- *             store/useSharedStore
+ *   Imports → components/Surface, components/PressableScale, constants/theme, lib/haptics,
+ *             lib/i18n, lib/useAppTheme, store/useSharedStore
  *   Used by → app/(tabs)/index.tsx (Home — a preview card alongside Notes/Plans/Shopping)
  *   Data    → reads useSharedStore (shared_tasks + shared_shopping_items); no writes —
  *             accept/dismiss/toggle live on the /shared screen the "See all" link opens
@@ -23,9 +23,10 @@
  *     cross-feature surface, so the primary accent fits rather than one feature's hue).
  */
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Surface from '@/components/Surface';
+import PressableScale from '@/components/PressableScale';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
@@ -67,9 +68,9 @@ export default function HomeSharedCard() {
             <Text style={[styles.badgeText, { color: theme.accent }]}>{total}</Text>
           </View>
           <View style={styles.titleRight}>
-            <Pressable onPress={openShared} hitSlop={8}>
+            <PressableScale onPress={openShared} hitSlop={8} scaleTo={0.97}>
               <Text style={[styles.seeAll, { color: theme.accent }]}>{t.seeAll}</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </View>
 
@@ -78,7 +79,7 @@ export default function HomeSharedCard() {
           <View style={styles.sectionBlock}>
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.sharedTasksTab}</Text>
             {incomingTasks.slice(0, PREVIEW_PER_SECTION).map((item, idx) => (
-              <Pressable key={item.id} onPress={openShared}>
+              <PressableScale key={item.id} onPress={openShared} scaleTo={0.97}>
                 {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.surfaceMuted }]} />}
                 <View style={styles.row}>
                   <Text style={[styles.rowLabel, { color: theme.text }]} numberOfLines={1}>{item.title}</Text>
@@ -86,7 +87,7 @@ export default function HomeSharedCard() {
                     {t.sharedFromLabel(item.sharedBy)}
                   </Text>
                 </View>
-              </Pressable>
+              </PressableScale>
             ))}
             {incomingTasks.length > PREVIEW_PER_SECTION && (
               <Text style={[styles.moreText, { color: theme.textMuted }]}>
@@ -101,7 +102,7 @@ export default function HomeSharedCard() {
           <View style={styles.sectionBlock}>
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.sharedShoppingTab}</Text>
             {incomingShopping.slice(0, PREVIEW_PER_SECTION).map((item, idx) => (
-              <Pressable key={item.id} onPress={openShared}>
+              <PressableScale key={item.id} onPress={openShared} scaleTo={0.97}>
                 {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.surfaceMuted }]} />}
                 <View style={styles.row}>
                   <Text style={[styles.rowLabel, { color: theme.text }]} numberOfLines={1}>
@@ -111,7 +112,7 @@ export default function HomeSharedCard() {
                     {t.sharedFromLabel(item.sharedBy)}
                   </Text>
                 </View>
-              </Pressable>
+              </PressableScale>
             ))}
             {incomingShopping.length > PREVIEW_PER_SECTION && (
               <Text style={[styles.moreText, { color: theme.textMuted }]}>

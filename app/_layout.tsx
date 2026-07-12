@@ -42,8 +42,9 @@
  *   - The 5 main sites (Home/Shopping/Plans/Health/Scan) are no longer separate
  *     Stack.Screen entries — they're one <Stack.Screen name="(tabs)" /> covering
  *     app/(tabs)/_layout.tsx's material-top-tabs pager (see that file + lib/siteNav.ts).
- *     Everything else (onboarding, inventory-edit, budget, shared, habits,
- *     automations, notes, the 4 modals) still pushes on top of it exactly as before —
+ *     Everything else (onboarding, inventory-edit, budget, shared, health-detail,
+ *     health-form, health-log, automations, notes, the 4 modals) still pushes on top
+ *     of it exactly as before —
  *     the pager only replaced how the 5 main sites relate to each other.
  *   - Stack `screenOptions.animation: 'default'` (Decision 033) turns on platform-native
  *     push/pop transitions; the modal screens keep their explicit `slide_from_bottom`.
@@ -181,6 +182,15 @@ export default function RootLayout() {
       if (state === 'background' && autoBackupRef.current) {
         void saveAutoBackup();
       }
+      if (state === 'active') {
+        // A home-screen widget tap may have written straight to SQLite while we were
+        // backgrounded or dead (lib/widgets/widgetActions.ts). Reload the widget-writable
+        // stores from the DB so the app reflects it AND the sync below re-pushes the
+        // reconciled state instead of clobbering it with stale in-memory rows.
+        useTaskStore.getState().load();
+        useShoppingStore.getState().load();
+        useNotesStore.getState().load();
+      }
       if (state === 'active' || state === 'background') {
         void syncWidgetsAndOverview();
       }
@@ -219,7 +229,9 @@ export default function RootLayout() {
         <Stack.Screen name="budget" />
         <Stack.Screen name="shared" />
         <Stack.Screen name="pair-device" />
-        <Stack.Screen name="habits" />
+        <Stack.Screen name="health-detail" />
+        <Stack.Screen name="health-form" />
+        <Stack.Screen name="health-log" />
         <Stack.Screen name="automations" />
         <Stack.Screen name="notes" />
         <Stack.Screen name="capture" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />

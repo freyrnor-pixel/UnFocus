@@ -4,14 +4,16 @@
  * Simplified layout (2026-07-06 redesign): three clean sections — In list
  * (all unchecked items, ungrouped and dish-grouped flattened together, plus an
  * always-visible inline add row when unlocked), In cart (all checked items),
- * Purchased (completed trip items for this list, collapsed). An optional fourth
- * section — From monthly list — appears when the user opens the monthly add
- * panel and closes when they tap ✓ (save) or × (undo adds). Each section shows
- * a price total footer. Dish groups are no longer rendered as nested
- * ExpandableCards; all items are flat rows.
+ * Purchased (completed trip items for this list, collapsed). An optional
+ * From-monthly-list panel appears inline inside the In list section, in place
+ * of the "Legg til fra månedsliste" trigger button, when the user opens the
+ * monthly add panel — it closes back to the trigger when they tap the Save
+ * additions / Undo additions footer buttons. Each section shows a price total
+ * footer. Dish groups are no longer rendered as nested ExpandableCards; all
+ * items are flat rows.
  *
  * Connections:
- *   Imports → components/ExpandableCard, components/IconButton,
+ *   Imports → components/ExpandableCard, components/FlightOverlay (FlightRect type only), components/IconButton,
  *             components/Surface, components/ShoppingRow (CHECKED_OPACITY), constants/theme,
  *             lib/i18n, lib/money (formatKr), lib/shoppingGroups (listProgress, listTotal),
  *             lib/useAppTheme, lib/haptics,
@@ -29,6 +31,12 @@
  *     buckets without the parent having to recompute.
  *   - `renderReorderableRow` is still used for ungroupedUnchecked items only (drag reorder).
  *     Dish-grouped unchecked items render as plain ShoppingRow (no drag wrapper).
+ *   - **2026-07-12 UX fix**: the monthly panel used to render as its own section ahead of
+ *     "In list", so opening it (via a trigger button living at the bottom of "In list")
+ *     made the card reorder above where the user had just tapped. It now renders inline,
+ *     swapped in for the trigger button's own slot, and its confirm/cancel controls moved
+ *     from a cramped icon-only row (squeezed next to the section label) to a labeled
+ *     two-button footer below the item rows.
  *   - Monthly session tracking: `monthlySessionAdds` records item names added while the
  *     monthly panel is open. ✓ clears the tracking and closes; × calls onRemoveItem for
  *     every fromCatalog weekly item whose name was tracked, then clears and closes.
@@ -40,9 +48,17 @@
  *   - **Decision 044b (2026-07-09):** entrance/highlight animation for just-added rows is
  *     handled by ShoppingRow reading recentlyAddedIds directly from useShoppingStore — no
  *     prop threading needed through WeekListCard.
+ *   - **Flight animation (Phase 1, 2026-07-11)**: `registerCartHeaderNode` hands the "In
+ *     cart" section header's native node up to shopping.tsx (mirrors the existing
+ *     `registerDishGroupNode` cross-component registration idiom used for drag-to-merge)
+ *     so it can be measured as a flight destination. `onFlightStart` forwards a measured
+ *     source rect for dish-grouped "In list" rows only — ungroupedUnchecked rows are wired
+ *     directly at the shopping.tsx call site via `renderReorderableRow`, not through this
+ *     component. This component owns no flight state, same as every other mutation
+ *     callback here.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
@@ -56,6 +72,7 @@ import IconButton from '@/components/IconButton';
 import ExpandableCard from '@/components/ExpandableCard';
 import PressableScale from '@/components/PressableScale';
 import ShoppingRow, { CHECKED_OPACITY } from '@/components/ShoppingRow';
+import type { FlightRect } from '@/components/FlightOverlay';
 import { Ionicons } from '@expo/vector-icons';
 
 type Props = {
@@ -87,6 +104,11 @@ type Props = {
   onDoneShopping: () => void;
   /** Renders one reorderable "In list" ungrouped row — parent wraps it in DraggableTaskRow. */
   renderReorderableRow: (item: ShoppingItem, index: number, total: number) => React.ReactNode;
+  /** Hands the "In cart" section header's native node up so the screen can measureInWindow()
+   *  it as a flight destination. React calls this with null when the section unmounts. */
+  registerCartHeaderNode?: (node: any) => void;
+  /** Bubbles a measured flight source rect for a dish-grouped "In list" row up to the screen. */
+  onFlightStart?: (item: ShoppingItem, rect: FlightRect) => void;
 };
 
 /** Price × amount total for a set of items. */
@@ -117,6 +139,8 @@ export default function WeekListCard({
   onAddMonthlyToWeek,
   onDoneShopping,
   renderReorderableRow,
+  registerCartHeaderNode,
+  onFlightStart,
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -243,7 +267,7 @@ export default function WeekListCard({
               returnKeyType="done"
             />
           ) : (
-            <Pressable onPress={() => setEditing(true)} style={styles.nameTapTarget}>
+            <PressableScale onPress={() => setEditing(true)} style={styles.nameTapTarget} scaleTo={0.97}>
               <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>{list.name}</Text>
               {list.isRecurring && (
                 <IconButton
@@ -256,21 +280,22 @@ export default function WeekListCard({
                   style={styles.repeatIcon}
                 />
               )}
-            </Pressable>
+            </PressableScale>
           )}
 
           <View style={styles.iconRow}>
             {/* Mode toggle pill — "Shopping" (locked) / "Planning" (unlocked) */}
-            <Pressable
+            <PressableScale
               style={[styles.modeToggle, { backgroundColor: list.locked ? theme.surfaceMuted : theme.good }]}
               onPress={onToggleLock}
               accessibilityRole="button"
               accessibilityLabel={list.locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
+              scaleTo={0.97}
             >
               <Text style={[styles.modeToggleText, { color: list.locked ? theme.textMuted : theme.textInverse }]}>
                 {list.locked ? t.shoppingModeBtn : t.planningModeBtn}
               </Text>
-            </Pressable>
+            </PressableScale>
             <IconButton icon="bookmark-outline" label={t.savedListsButtonLabel} onPress={onOpenSavedLists} size={30} />
             <IconButton icon="options-outline" label={t.listSettingsButtonLabel} onPress={onOpenListSettings} size={30} />
             <IconButton icon="trash-outline" label={t.deleteListButtonLabel} onPress={onDelete} size={30} color={theme.bad} />
@@ -278,11 +303,11 @@ export default function WeekListCard({
         </View>
 
         {!focused && progress.total > 0 && (
-          <Pressable onPress={onFocus} style={styles.compactProgressRow}>
+          <PressableScale onPress={onFocus} style={styles.compactProgressRow} scaleTo={0.97}>
             <Text style={[styles.compactProgressText, { color: theme.textMuted }]}>
               {t.shoppingRemaining(progress.remaining, progress.inCart)}
             </Text>
-          </Pressable>
+          </PressableScale>
         )}
       </View>
 
@@ -294,83 +319,10 @@ export default function WeekListCard({
           </View>
         )}
 
-        {/* ── FROM MONTHLY LIST section (ephemeral, appears while adding from monthly) ── */}
-        {monthlyPreviewOpen && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.fromMonthlySection}</Text>
-              <View style={styles.sectionRule} />
-              <Pressable
-                onPress={handleConfirmMonthly}
-                hitSlop={8}
-                accessibilityLabel={t.saveMonthlyAddsLabel}
-                style={styles.monthlyActionBtn}
-              >
-                <Ionicons name="checkmark-circle" size={24} color={theme.good} />
-              </Pressable>
-              <Pressable
-                onPress={handleCancelMonthly}
-                hitSlop={8}
-                accessibilityLabel={t.removeMonthlyAddsLabel}
-                style={styles.monthlyActionBtn}
-              >
-                <Ionicons name="close-circle" size={24} color={theme.bad} />
-              </Pressable>
-            </View>
-
-            <TextInput
-              style={[styles.monthlySearch, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-              value={monthlySearch}
-              onChangeText={setMonthlySearch}
-              placeholder={t.monthlyPreviewSearchPlaceholder}
-              placeholderTextColor={theme.textMuted}
-            />
-
-            {filteredMonthlyItems.length === 0 ? (
-              <Text style={[styles.monthlyEmpty, { color: theme.textMuted }]}>{t.monthlyPreviewEmpty}</Text>
-            ) : (
-              <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                {filteredMonthlyItems.map((item, idx) => {
-                  const isAdded = monthlySessionAdds.includes(item.name.trim().toLowerCase());
-                  const lineTotal = item.price > 0 ? item.price * (parseInt(item.amount, 10) || 1) : null;
-                  return (
-                    <View key={item.id}>
-                      <Pressable
-                        style={styles.monthlyPanelRow}
-                        onPress={() => handleAddMonthlyItem(item)}
-                        disabled={isAdded}
-                      >
-                        <Text style={[styles.monthlyPanelName, { color: theme.text }]} numberOfLines={1}>
-                          {item.name}
-                        </Text>
-                        {lineTotal !== null && (
-                          <Text style={[styles.monthlyPanelPrice, { color: theme.textMuted }]}>
-                            {formatKr(lineTotal, 0)}
-                          </Text>
-                        )}
-                        {isAdded ? (
-                          <Ionicons name="checkmark-circle" size={22} color={theme.good} />
-                        ) : (
-                          <View style={[styles.monthlyAddBtn, { backgroundColor: theme.good }]}>
-                            <Ionicons name="add" size={16} color={theme.textInverse} />
-                          </View>
-                        )}
-                      </Pressable>
-                      {idx < filteredMonthlyItems.length - 1 && (
-                        <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        )}
-
         {/* ── IN LIST section ── */}
         {showInListSection && (
           <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
+            <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
               <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.inListSection(totalInList)}</Text>
               <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />
             </View>
@@ -395,6 +347,7 @@ export default function WeekListCard({
                     onDecrement={() => onDecrementItem(item)}
                     inStockLabel={t.inStockLabel}
                     locked={list.locked}
+                    onFlightStart={(rect) => onFlightStart?.(item, rect)}
                   />
                   {(idx < dishUnchecked.length - 1 || !list.locked) && (
                     <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
@@ -420,28 +373,30 @@ export default function WeekListCard({
                       onSubmitEditing={handleSubmitAddRow}
                     />
                     <View style={styles.inlineQtyGroup}>
-                      <Pressable
+                      <PressableScale
                         style={[styles.inlineQtyBtn, { backgroundColor: theme.surfaceMuted }]}
                         onPress={() => setAddQty((q) => Math.max(1, q - 1))}
                         hitSlop={6}
+                        scaleTo={0.9}
                       >
                         <Text style={[styles.inlineQtyBtnText, { color: theme.text }]}>−</Text>
-                      </Pressable>
+                      </PressableScale>
                       <Text style={[styles.inlineQtyVal, { color: theme.text }]}>{addQty}</Text>
-                      <Pressable
+                      <PressableScale
                         style={[styles.inlineQtyBtn, { backgroundColor: theme.surfaceMuted }]}
                         onPress={() => setAddQty((q) => q + 1)}
                         hitSlop={6}
+                        scaleTo={0.9}
                       >
                         <Text style={[styles.inlineQtyBtnText, { color: theme.text }]}>+</Text>
-                      </Pressable>
+                      </PressableScale>
                     </View>
                     {addPrice > 0 && (
                       <Text style={[styles.inlineLineTotal, { color: theme.textMuted }]}>
                         {formatKr(addPrice * addQty, 0)}
                       </Text>
                     )}
-                    <Pressable
+                    <PressableScale
                       style={[
                         styles.inlineAddConfirmBtn,
                         { backgroundColor: addName.trim() ? theme.good : theme.surfaceMuted },
@@ -449,13 +404,17 @@ export default function WeekListCard({
                       onPress={handleSubmitAddRow}
                       disabled={!addName.trim()}
                       hitSlop={4}
+                      scaleTo={0.95}
                     >
-                      <Ionicons
-                        name="add"
-                        size={18}
-                        color={addName.trim() ? theme.textInverse : theme.textMuted}
-                      />
-                    </Pressable>
+                      <Text
+                        style={[
+                          styles.inlineAddConfirmText,
+                          { color: addName.trim() ? theme.textInverse : theme.textMuted },
+                        ]}
+                      >
+                        {t.a11yAdd}
+                      </Text>
+                    </PressableScale>
                   </View>
 
                   {/* Catalog search results */}
@@ -463,9 +422,10 @@ export default function WeekListCard({
                     <View style={[styles.addSearchDropdown, { backgroundColor: theme.surfaceMuted }]}>
                       {addSearchResults.map((result, idx) => (
                         <View key={result.id}>
-                          <Pressable
+                          <PressableScale
                             style={styles.addSearchRow}
                             onPress={() => handleSelectSuggestion(result)}
+                            scaleTo={0.97}
                           >
                             <Text style={[styles.addSearchName, { color: theme.text }]} numberOfLines={1}>
                               {result.name}
@@ -475,7 +435,7 @@ export default function WeekListCard({
                                 {formatKr(result.price, 0)}
                               </Text>
                             )}
-                          </Pressable>
+                          </PressableScale>
                           {idx < addSearchResults.length - 1 && (
                             <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
                           )}
@@ -489,13 +449,99 @@ export default function WeekListCard({
 
             {/* Add from monthly list trigger — always visible in planning mode */}
             {!list.locked && !monthlyPreviewOpen && (
-              <Pressable
+              <PressableScale
                 style={[styles.monthlyTrigger, { borderColor: theme.good }]}
                 onPress={() => setMonthlyPreviewOpen(true)}
+                scaleTo={0.97}
               >
                 <Ionicons name="calendar-outline" size={16} color={theme.good} />
                 <Text style={[styles.monthlyTriggerText, { color: theme.good }]}>{t.addFromMonthlyBtn}</Text>
-              </Pressable>
+              </PressableScale>
+            )}
+
+            {/* ── FROM MONTHLY LIST panel (ephemeral) — opens in place of the trigger
+                above, right where the user tapped, instead of jumping to a separate
+                section ahead of "In list". ── */}
+            {!list.locked && monthlyPreviewOpen && (
+              <View style={styles.monthlyPanel}>
+                <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
+                  <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.fromMonthlySection}</Text>
+                  <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />
+                </View>
+
+                <TextInput
+                  style={[styles.monthlySearch, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                  value={monthlySearch}
+                  onChangeText={setMonthlySearch}
+                  placeholder={t.monthlyPreviewSearchPlaceholder}
+                  placeholderTextColor={theme.textMuted}
+                />
+
+                {filteredMonthlyItems.length === 0 ? (
+                  <Text style={[styles.monthlyEmpty, { color: theme.textMuted }]}>{t.monthlyPreviewEmpty}</Text>
+                ) : (
+                  <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                    {filteredMonthlyItems.map((item, idx) => {
+                      const isAdded = monthlySessionAdds.includes(item.name.trim().toLowerCase());
+                      const lineTotal = item.price > 0 ? item.price * (parseInt(item.amount, 10) || 1) : null;
+                      return (
+                        <View key={item.id}>
+                          <PressableScale
+                            style={styles.monthlyPanelRow}
+                            onPress={() => handleAddMonthlyItem(item)}
+                            disabled={isAdded}
+                            scaleTo={0.97}
+                          >
+                            <Text style={[styles.monthlyPanelName, { color: theme.text }]} numberOfLines={1}>
+                              {item.name}
+                            </Text>
+                            {lineTotal !== null && (
+                              <Text style={[styles.monthlyPanelPrice, { color: theme.textMuted }]}>
+                                {formatKr(lineTotal, 0)}
+                              </Text>
+                            )}
+                            {isAdded ? (
+                              <Ionicons name="checkmark-circle" size={22} color={theme.good} />
+                            ) : (
+                              <View style={[styles.monthlyAddBtn, { backgroundColor: theme.good }]}>
+                                <Ionicons name="add" size={16} color={theme.textInverse} />
+                              </View>
+                            )}
+                          </PressableScale>
+                          {idx < filteredMonthlyItems.length - 1 && (
+                            <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+
+                <View style={styles.monthlyFooter}>
+                  <PressableScale
+                    style={[styles.monthlyFooterBtn, { backgroundColor: theme.good }]}
+                    onPress={handleConfirmMonthly}
+                    accessibilityLabel={t.saveMonthlyAddsLabel}
+                    scaleTo={0.95}
+                  >
+                    <Ionicons name="checkmark-circle" size={18} color={theme.textInverse} />
+                    <Text style={[styles.monthlyFooterBtnText, { color: theme.textInverse }]}>
+                      {t.saveMonthlyAddsLabel}
+                    </Text>
+                  </PressableScale>
+                  <PressableScale
+                    style={[styles.monthlyFooterBtn, { backgroundColor: theme.surfaceMuted }]}
+                    onPress={handleCancelMonthly}
+                    accessibilityLabel={t.removeMonthlyAddsLabel}
+                    scaleTo={0.97}
+                  >
+                    <Ionicons name="close-circle" size={18} color={theme.bad} />
+                    <Text style={[styles.monthlyFooterBtnText, { color: theme.bad }]}>
+                      {t.removeMonthlyAddsLabel}
+                    </Text>
+                  </PressableScale>
+                </View>
+              </View>
             )}
 
             {inListTotal > 0 && (
@@ -509,7 +555,10 @@ export default function WeekListCard({
         {/* ── IN CART section ── */}
         {totalInCart > 0 && (
           <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
+            <View
+              ref={(node) => registerCartHeaderNode?.(node)}
+              style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}
+            >
               <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.inCartSection(totalInCart)}</Text>
               <View style={[styles.sectionRule, { backgroundColor: theme.accent }]} />
             </View>
@@ -578,6 +627,7 @@ export default function WeekListCard({
           onPress={onDoneShopping}
           disabled={progress.inCart === 0}
           pointerEvents={progress.inCart === 0 ? 'none' : 'auto'}
+          scaleTo={0.95}
         >
           <Text style={[styles.doneShoppingText, { color: theme.textInverse }]}>{t.doneShoppingBtn}</Text>
         </PressableScale>
@@ -591,9 +641,9 @@ const baseStyles = StyleSheet.create({
   cardRow: { borderRadius: Radius.lg, flexDirection: 'row' },
   accent: { width: 4, alignSelf: 'stretch', borderTopLeftRadius: Radius.lg, borderBottomLeftRadius: Radius.lg },
   cardContent: { flex: 1, padding: Spacing.md, gap: Spacing.md },
-  header: { gap: 4 },
+  header: { gap: Spacing.xs },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
-  nameTapTarget: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
+  nameTapTarget: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexShrink: 1 },
   name: { fontSize: FontSize.lg, fontFamily: Fonts.bold, flexShrink: 1 },
   repeatIcon: {},
   nameInput: {
@@ -601,31 +651,41 @@ const baseStyles = StyleSheet.create({
     fontFamily: Fonts.bold,
     borderWidth: 1,
     borderRadius: Radius.sm,
-    paddingVertical: 4,
+    paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
     flex: 1,
   },
   iconRow: { flexDirection: 'row', alignItems: 'center', gap: 0 },
   modeToggle: {
     borderRadius: Radius.full,
-    paddingVertical: 5,
+    paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
     minHeight: 30,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modeToggleText: { fontSize: FontSize.xs, fontFamily: Fonts.bold, letterSpacing: 0.3 },
-  compactProgressRow: { paddingVertical: 2 },
+  compactProgressRow: { paddingVertical: Spacing.xs },
   compactProgressText: { fontSize: FontSize.sm },
   bodyGap: { gap: Spacing.md },
-  emptyState: { alignItems: 'center', gap: 4, paddingVertical: Spacing.md },
+  emptyState: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.md },
   emptyTitle: { fontSize: FontSize.md, fontFamily: Fonts.semibold, textAlign: 'center' },
   emptySubtitle: { fontSize: FontSize.sm, textAlign: 'center' },
   section: { gap: Spacing.xs },
-  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  // Visual-audit 2026-07-11: a surfaceMuted card behind the label + rule so "sub-headers"
+  // (In list / In cart / From monthly list) read with real weight instead of floating
+  // bare text over the particle background — background colour applied inline (theme).
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.sm,
+  },
   sectionRule: { flex: 1, height: 2, borderRadius: Radius.full, opacity: 0.4 },
   sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
-  sectionTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, textAlign: 'right', paddingTop: 2 },
+  sectionTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, textAlign: 'right', paddingTop: Spacing.xs },
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, borderLeftWidth: 3 },
   rowDivider: { height: 1 },
   // Inline add row
@@ -640,9 +700,9 @@ const baseStyles = StyleSheet.create({
     flex: 1,
     fontSize: FontSize.sm,
     fontFamily: Fonts.regular,
-    paddingVertical: 2,
+    paddingVertical: Spacing.xs,
   },
-  inlineQtyGroup: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  inlineQtyGroup: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   inlineQtyBtn: {
     width: 26,
     height: 26,
@@ -653,16 +713,20 @@ const baseStyles = StyleSheet.create({
   inlineQtyBtnText: { fontSize: FontSize.md, fontFamily: Fonts.bold, lineHeight: 20 },
   inlineQtyVal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, minWidth: 20, textAlign: 'center' },
   inlineLineTotal: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, minWidth: 40, textAlign: 'right' },
+  // Visual-audit 2026-07-11: was an icon-only "+" circle — a plain-text "Add" pill
+  // reads less ambiguously (the "+" alone was easy to mistake for something else,
+  // since the row already has its own qty-stepper "+"/"−" buttons right next to it).
   inlineAddConfirmBtn: {
-    width: 30,
-    height: 30,
+    minHeight: 30,
+    paddingHorizontal: Spacing.sm,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  inlineAddConfirmText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   addSearchDropdown: {
     borderRadius: Radius.sm,
-    marginTop: 2,
+    marginTop: Spacing.xs,
     overflow: 'hidden',
   },
   addSearchRow: {
@@ -685,7 +749,7 @@ const baseStyles = StyleSheet.create({
     minHeight: 40,
   },
   monthlyTriggerText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  monthlyActionBtn: { padding: 2 },
+  monthlyPanel: { gap: Spacing.xs },
   monthlySearch: {
     borderRadius: Radius.sm,
     paddingVertical: Spacing.sm,
@@ -697,9 +761,10 @@ const baseStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
+    minHeight: 44,
   },
-  monthlyPanelName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  monthlyPanelName: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
   monthlyPanelPrice: { fontSize: FontSize.xs },
   monthlyAddBtn: {
     width: 26,
@@ -708,6 +773,18 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  monthlyFooter: { flexDirection: 'row', gap: Spacing.sm },
+  monthlyFooterBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
+    minHeight: 44,
+  },
+  monthlyFooterBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   doneShoppingBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', minHeight: 44 },
   doneShoppingText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 });

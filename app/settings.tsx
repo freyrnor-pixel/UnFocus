@@ -24,11 +24,12 @@
  * Connections:
  *   Imports → components/AppModal, components/ConfirmationBanner, components/FormControls,
  *             components/ScreenScaffold, components/SectionDivider, components/Surface,
- *             constants/theme, lib/backup
+ *             components/PressableScale, constants/theme, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
  *             getAutoBackupLabel/saveAutoBackup), lib/childLock, lib/freyrModeSeed, lib/haptics,
  *             lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
- *             (syncWidgetsAndOverview — the persistent-overview toggle refreshes/cancels it here),
+ *             (syncWidgetsAndOverview — the persistent-overview toggle refreshes/cancels it, and
+ *             the Freyr-mode toggle re-syncs after seeding/unseeding today's tasks + shopping),
  *             lib/useAppTheme, store/useHabitStore, store/useSettingsStore, store/useShoppingStore,
  *             store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
@@ -70,8 +71,9 @@
  *     the native transport modules aren't linked outside a real build.
  */
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import ScreenScaffold from '@/components/ScreenScaffold';
@@ -80,6 +82,7 @@ import SectionDivider from '@/components/SectionDivider';
 import { Input, Switch as FormSwitch, SegmentedControl } from '@/components/FormControls';
 import { showAppModal } from '@/components/AppModal';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
+import PressableScale from '@/components/PressableScale';
 import {
   useSettingsStore,
   Settings,
@@ -126,7 +129,28 @@ export default function SettingsScreen() {
   );
   // Child mode (Decision 038c) — local input for the parent password entry/exit.
   const [childPwInput, setChildPwInput] = useState('');
+  const [newChildName, setNewChildName] = useState('');
   const [inputWarning, setInputWarning] = useState<string | null>(null);
+
+  // People / family mode — profile management (moved here from the Health screen so
+  // Tasks + Habits share one list). Adds/removes entries in settings.childProfiles.
+  function addProfile() {
+    const nm = newChildName.trim();
+    if (!nm || settings.childProfiles.includes(nm)) { setNewChildName(''); return; }
+    selection();
+    settings.update({ childProfiles: [...settings.childProfiles, nm] });
+    setNewChildName('');
+  }
+  function removeProfile(nm: string) {
+    warning();
+    showAppModal(t.peopleMode.removeTitle(nm), t.peopleMode.removeBody, [
+      { text: t.cancel, style: 'cancel' },
+      {
+        text: t.resetConfirmBtn, style: 'destructive',
+        onPress: () => { heavy(); settings.update({ childProfiles: settings.childProfiles.filter((c) => c !== nm) }); },
+      },
+    ]);
+  }
 
   // Set (or change) the parent password, then flip the persisted flag. The secret
   // itself only ever lives in expo-secure-store (lib/childLock), never in settings.
@@ -161,6 +185,10 @@ export default function SettingsScreen() {
       unseedFreyrMode(parseFreyrSeedIds(settings.freyrSeedIds));
       settings.update({ freyrModeEnabled: false, freyrSeedIds: '' });
     }
+    // Seeding/unseeding mutates today's tasks + shopping — refresh the home-screen
+    // widgets + persistent overview immediately, rather than waiting for the next
+    // app foreground/background sync (otherwise the widget shows stale/empty content).
+    void syncWidgetsAndOverview();
   }
 
   // Manually check the EAS preview channel for a newer OTA, fetch it, and reload.
@@ -332,10 +360,11 @@ export default function SettingsScreen() {
       {TABS.map((tb) => {
         const active = tab === tb.key;
         return (
-          <Pressable
+          <PressableScale
             key={tb.key}
             style={[styles.tabItem, active && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]}
             onPress={() => setTab(tb.key)}
+            scaleTo={0.97}
           >
             <Text style={[
               styles.tabLabel,
@@ -344,7 +373,7 @@ export default function SettingsScreen() {
             ]}>
               {tb.label}
             </Text>
-          </Pressable>
+          </PressableScale>
         );
       })}
     </ScrollView>
@@ -397,7 +426,7 @@ export default function SettingsScreen() {
                 <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.sectionLanguage}</Text>
                 <View style={styles.langRow}>
                   {(['no', 'en'] as const).map((lang) => (
-                    <Pressable
+                    <PressableScale
                       key={lang}
                       style={[
                         styles.langChip,
@@ -405,6 +434,7 @@ export default function SettingsScreen() {
                         settings.language === lang && { backgroundColor: theme.accent },
                       ]}
                       onPress={() => applyAndSync({ language: lang })}
+                      scaleTo={0.97}
                     >
                       <Text style={styles.langFlag}>{lang === 'no' ? '🇳🇴' : '🇬🇧'}</Text>
                       <Text style={[
@@ -414,7 +444,7 @@ export default function SettingsScreen() {
                       ]}>
                         {lang === 'no' ? t.norwegian : t.english}
                       </Text>
-                    </Pressable>
+                    </PressableScale>
                   ))}
                 </View>
                 <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.desc.language}</Text>
@@ -532,9 +562,9 @@ export default function SettingsScreen() {
                 {settings.accountCreated ? (
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.account.createdOn(settings.accountCreated)}</Text>
                 ) : (
-                  <Pressable style={styles.dangerBtn} onPress={handleCreateAccount}>
+                  <PressableScale style={styles.dangerBtn} onPress={handleCreateAccount} scaleTo={0.97}>
                     <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.createButton}</Text>
-                  </Pressable>
+                  </PressableScale>
                 )}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 {/* Auto-backup toggle */}
@@ -558,20 +588,20 @@ export default function SettingsScreen() {
                   </Text>
                 )}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Pressable style={styles.dangerBtn} onPress={handleSaveToDevice}>
+                <PressableScale style={styles.dangerBtn} onPress={handleSaveToDevice} scaleTo={0.97}>
                   <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.saveToDevice}</Text>
-                </Pressable>
+                </PressableScale>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Pressable style={styles.dangerBtn} onPress={handleExport}>
+                <PressableScale style={styles.dangerBtn} onPress={handleExport} scaleTo={0.97}>
                   <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.shareCopy}</Text>
-                </Pressable>
+                </PressableScale>
                 <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs, marginBottom: 0 }]}>
                   {t.config.autoBackup.shareNote}
                 </Text>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Pressable style={styles.dangerBtn} onPress={handleImport}>
+                <PressableScale style={styles.dangerBtn} onPress={handleImport} scaleTo={0.97}>
                   <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.restoreButton}</Text>
-                </Pressable>
+                </PressableScale>
                 <Text style={[styles.descText, { color: theme.textMuted, marginBottom: 0 }]}>{t.account.deviceOnlyNote}</Text>
               </Surface>
             </View>
@@ -584,9 +614,9 @@ export default function SettingsScreen() {
                 <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
                   {syncAvailable ? t.peers.settingsCardDesc : t.peers.syncUnavailable}
                 </Text>
-                <Pressable style={styles.dangerBtn} onPress={() => router.push('/pair-device')}>
+                <PressableScale style={styles.dangerBtn} onPress={() => router.push('/pair-device')} scaleTo={0.97}>
                   <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.peers.manageLink}</Text>
-                </Pressable>
+                </PressableScale>
               </Surface>
             </View>
 
@@ -595,15 +625,15 @@ export default function SettingsScreen() {
               <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.sectionReset}</Text>
               <Surface style={[styles.card, { borderWidth: 1, borderColor: theme.badSoft }]}>
                 <Text style={[styles.descText, { color: theme.bad, marginBottom: Spacing.sm, marginTop: 0 }]}>{t.config.desc.dataNote}</Text>
-                <Pressable style={styles.dangerBtn} onPress={() => confirmReset(t.resetMonthly.toLowerCase(), monthlyReset)}>
+                <PressableScale style={styles.dangerBtn} onPress={() => confirmReset(t.resetMonthly.toLowerCase(), monthlyReset)} scaleTo={0.93}>
                   <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetMonthly}</Text>
-                </Pressable>
+                </PressableScale>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Pressable style={styles.dangerBtn} onPress={() => confirmReset(t.resetTasks.toLowerCase(), clearTasks)}>
+                <PressableScale style={styles.dangerBtn} onPress={() => confirmReset(t.resetTasks.toLowerCase(), clearTasks)} scaleTo={0.93}>
                   <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetTasks}</Text>
-                </Pressable>
+                </PressableScale>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Pressable
+                <PressableScale
                   style={styles.dangerBtn}
                   onPress={() =>
                     confirmReset(t.resetOnboarding.toLowerCase(), () => {
@@ -611,9 +641,10 @@ export default function SettingsScreen() {
                       router.replace('/onboarding/language');
                     })
                   }
+                  scaleTo={0.93}
                 >
                   <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetOnboarding}</Text>
-                </Pressable>
+                </PressableScale>
               </Surface>
             </View>
 
@@ -642,11 +673,11 @@ export default function SettingsScreen() {
                   </Text>
                 )}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Pressable style={styles.dangerBtn} onPress={handleCheckUpdates} disabled={checkingUpdate}>
+                <PressableScale style={styles.dangerBtn} onPress={handleCheckUpdates} disabled={checkingUpdate} scaleTo={0.97}>
                   <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
                     {checkingUpdate ? t.version.checking : t.version.checkButton}
                   </Text>
-                </Pressable>
+                </PressableScale>
               </Surface>
             </View>
           </>
@@ -703,7 +734,7 @@ export default function SettingsScreen() {
                   {DAY_LABELS.map((label, i) => {
                     const active = settings.workDays.includes(i);
                     return (
-                      <Pressable
+                      <PressableScale
                         key={i}
                         style={[
                           styles.dayChip,
@@ -717,6 +748,7 @@ export default function SettingsScreen() {
                             : [...settings.workDays, i].sort();
                           settings.update({ workDays: next });
                         }}
+                        scaleTo={0.97}
                       >
                         <Text style={[
                           styles.dayText,
@@ -725,7 +757,7 @@ export default function SettingsScreen() {
                         ]}>
                           {label.slice(0, 3)}
                         </Text>
-                      </Pressable>
+                      </PressableScale>
                     );
                   })}
                 </View>
@@ -756,9 +788,9 @@ export default function SettingsScreen() {
                       placeholder={t.childModeEnterPassword}
                       autoCapitalize="none"
                     />
-                    <Pressable style={styles.dangerBtn} onPress={handleExitChildMode}>
+                    <PressableScale style={styles.dangerBtn} onPress={handleExitChildMode} scaleTo={0.97}>
                       <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeExit}</Text>
-                    </Pressable>
+                    </PressableScale>
                   </>
                 ) : (
                   <>
@@ -769,15 +801,15 @@ export default function SettingsScreen() {
                       placeholder={t.childModeNewPassword}
                       autoCapitalize="none"
                     />
-                    <Pressable style={styles.dangerBtn} onPress={handleSetChildPassword}>
+                    <PressableScale style={styles.dangerBtn} onPress={handleSetChildPassword} scaleTo={0.97}>
                       <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
                         {settings.childModePasswordSet ? t.childModeChangePassword : t.childModeSetPassword}
                       </Text>
-                    </Pressable>
+                    </PressableScale>
                     <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <Pressable style={styles.dangerBtn} onPress={handleEnableChildMode}>
+                    <PressableScale style={styles.dangerBtn} onPress={handleEnableChildMode} scaleTo={0.97}>
                       <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeEnable}</Text>
-                    </Pressable>
+                    </PressableScale>
                   </>
                 )}
               </Surface>
@@ -797,6 +829,68 @@ export default function SettingsScreen() {
                     onChange={(v) => { selection(); settings.update({ schoolModeEnabled: v }); }}
                   />
                 </View>
+              </Surface>
+            </View>
+
+            {/* PERSONER / FAMILIE (People / family mode) */}
+            <View style={styles.section}>
+              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.peopleMode.label}</Text>
+              <Surface style={styles.card}>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.peopleMode.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.peopleMode.hint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.peopleModeEnabled}
+                    onChange={(v) => { selection(); settings.update({ peopleModeEnabled: v }); }}
+                  />
+                </View>
+
+                {settings.peopleModeEnabled && (
+                  <>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.peopleMode.profilesHint}</Text>
+                    {settings.childProfiles.length > 0 && (
+                      <View style={styles.peopleChipRow}>
+                        {settings.childProfiles.map((nm) => (
+                          <PressableScale
+                            key={nm}
+                            style={[styles.peopleChip, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+                            onPress={() => removeProfile(nm)}
+                            accessibilityRole="button"
+                            accessibilityLabel={t.peopleMode.removeTitle(nm)}
+                            scaleTo={0.96}
+                          >
+                            <Text style={[styles.peopleChipText, { color: theme.text }]}>{nm}</Text>
+                            <Ionicons name="close-circle" size={16} color={theme.textMuted} />
+                          </PressableScale>
+                        ))}
+                      </View>
+                    )}
+                    <View style={styles.peopleAddRow}>
+                      <View style={styles.peopleAddInput}>
+                        <Input
+                          value={newChildName}
+                          onChangeText={setNewChildName}
+                          placeholder={t.peopleMode.addPlaceholder}
+                          onSubmitEditing={addProfile}
+                          returnKeyType="done"
+                        />
+                      </View>
+                      <PressableScale
+                        style={[styles.peopleAddBtn, { backgroundColor: newChildName.trim() ? theme.accent : theme.surfaceMuted, borderColor: theme.border }]}
+                        onPress={addProfile}
+                        disabled={!newChildName.trim()}
+                        accessibilityRole="button"
+                        accessibilityLabel={t.peopleMode.addButton}
+                        scaleTo={0.96}
+                      >
+                        <Ionicons name="add" size={22} color={newChildName.trim() ? theme.accentInk : theme.textMuted} />
+                      </PressableScale>
+                    </View>
+                  </>
+                )}
               </Surface>
             </View>
 
@@ -823,7 +917,7 @@ export default function SettingsScreen() {
               <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.weeklyResetDay}</Text>
               <View style={styles.dayRow}>
                 {DAY_LABELS.map((label, i) => (
-                  <Pressable
+                  <PressableScale
                     key={i}
                     style={[
                       styles.dayChip,
@@ -831,6 +925,7 @@ export default function SettingsScreen() {
                       settings.weeklyResetDay === i && { backgroundColor: theme.accent },
                     ]}
                     onPress={() => applyAndSync({ weeklyResetDay: i })}
+                    scaleTo={0.97}
                   >
                     <Text style={[
                       styles.dayText,
@@ -839,7 +934,7 @@ export default function SettingsScreen() {
                     ]}>
                       {label.slice(0, 3)}
                     </Text>
-                  </Pressable>
+                  </PressableScale>
                 ))}
               </View>
 
@@ -993,13 +1088,13 @@ export default function SettingsScreen() {
             <View style={styles.section}>
               <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.nav.automations}</Text>
               <Surface style={styles.card}>
-                <Pressable style={styles.switchRow} onPress={() => router.push('/automations')}>
+                <PressableScale style={styles.switchRow} onPress={() => router.push('/automations')} scaleTo={0.97}>
                   <View style={styles.switchTextCol}>
                     <Text style={[styles.switchLabel, { color: theme.text }]}>{t.nav.automations}</Text>
                     <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.hints.automations.text}</Text>
                   </View>
                   <Text style={[styles.switchLabel, { color: theme.accent }]}>{'→'}</Text>
-                </Pressable>
+                </PressableScale>
               </Surface>
             </View>
           </>
@@ -1029,26 +1124,39 @@ const baseStyles = StyleSheet.create({
   divider: { height: 1, marginVertical: Spacing.md },
   workHoursRow: { flexDirection: 'row', gap: Spacing.md },
   workHoursCol: { flex: 1 },
-  dayRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  dayRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   dayChip: {
     minWidth: 44,
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
     borderRadius: Radius.full,
   },
-  workDayRow: { flexWrap: 'nowrap', gap: 2 },
-  workDayChip: { flex: 1, minWidth: 0, minHeight: 36, paddingHorizontal: 2 },
+  workDayRow: { flexWrap: 'nowrap', gap: Spacing.xs },
+  workDayChip: { flex: 1, minWidth: 0, minHeight: 36, paddingHorizontal: Spacing.xs },
   dayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   paydayHint: { fontSize: FontSize.xs, marginTop: Spacing.xs, fontStyle: 'italic' },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   switchTextCol: { flex: 1, marginRight: Spacing.md },
   switchLabel: { fontSize: FontSize.md, fontFamily: Fonts.medium },
-  switchHint: { fontSize: FontSize.xs, marginTop: 2 },
+  switchHint: { fontSize: FontSize.xs, marginTop: Spacing.xs },
   dangerBtn: { paddingVertical: Spacing.sm },
   dangerBtnText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  peopleChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.md },
+  peopleChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderRadius: Radius.full, borderWidth: 1,
+    paddingVertical: Spacing.xs, paddingHorizontal: Spacing.sm,
+  },
+  peopleChipText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  peopleAddRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  peopleAddInput: { flex: 1 },
+  peopleAddBtn: {
+    width: 48, height: 48, borderRadius: Radius.md, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+  },
   langRow: { flexDirection: 'row', gap: Spacing.md },
   langChip: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,

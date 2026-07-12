@@ -6,7 +6,7 @@
  *
  * Connections:
  *   Imports → assets/icon.png, @expo/vector-icons, @/store/useSettingsStore, @/lib/i18n,
- *             @/constants/theme, @/lib/useAppTheme
+ *             @/constants/theme, @/lib/useAppTheme, @/components/PressableScale
  *   Used by → Expo Router route "/onboarding/language"
  *   Data    → useSettingsStore (writes `language`); scaled fontSize via useScaledStyles()
  *
@@ -20,7 +20,7 @@
  *     logoShadow/logo pattern as app/onboarding/index.tsx's welcome logo, for consistency.
  */
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +28,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import PressableScale from '@/components/PressableScale';
 import type { Language } from '@/store/useSettingsStore';
 
 type LangOption = {
@@ -67,7 +68,7 @@ export default function LanguageScreen() {
 
         <View style={styles.optionsRow}>
           {OPTIONS.map((opt) => (
-            <Pressable
+            <PressableScale
               key={opt.code}
               style={[
                 styles.option,
@@ -75,6 +76,7 @@ export default function LanguageScreen() {
                 settings.language === opt.code && { borderColor: theme.accent },
               ]}
               onPress={() => choose(opt.code)}
+              scaleTo={0.97}
             >
               <Text style={styles.flag}>{opt.flag}</Text>
               <Text style={[styles.optionLabel, { color: theme.text }]}>{opt.label}</Text>
@@ -84,7 +86,7 @@ export default function LanguageScreen() {
                   <Ionicons name="checkmark" size={14} color={theme.accentInk} />
                 </View>
               )}
-            </Pressable>
+            </PressableScale>
           ))}
         </View>
       </View>

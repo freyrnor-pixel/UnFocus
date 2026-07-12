@@ -56,9 +56,26 @@
  *     match the rendered content's actual height — it drives the ScrollView's top content
  *     padding so the first real content item isn't permanently hidden under the two floating
  *     blocks (mirrors the header's own float, which every current screen already accepts).
+ *   - **headerBlock backgroundColor (visual-audit fix, 2026-07-11)**: `headerBlock` has an
+ *     explicit height (`HEADER_HEIGHT + topInset`), but `ScreenHeader`'s glass `Surface`
+ *     shrink-wraps to its own (shorter) content height, leaving a transparent sliver at the
+ *     bottom of the block that let scrolled-past L3 content show through unblurred — most
+ *     visible on Settings, where `stickyBelowHeader` sits glued right under it. Fixed by
+ *     giving `headerBlock` `backgroundColor: theme.bg` so any shortfall is covered by the
+ *     page background instead of a hole.
+ *   - **keyboardShouldPersistTaps (visual-audit, 2026-07-11)**: the in-flow ScrollView now
+ *     sets `keyboardShouldPersistTaps="handled"` so a first tap on an on-screen control (e.g.
+ *     an autocomplete suggestion row while an inline add-item input is focused) is delivered
+ *     to that control instead of only dismissing the keyboard — applies app-wide since every
+ *     screen shares this one ScrollView.
+ *   - **onScroll (Phase 1 flight animation, 2026-07-11)**: optional, forwarded to the internal
+ *     ScrollView. Purely additive — omit for identical behavior to before. Added so a screen
+ *     can cancel an in-flight `FlightOverlay` animation on scroll (window-space coordinates
+ *     go stale once the user scrolls); `scrollEventThrottle` only activates when a listener
+ *     is passed, so screens that don't use it pay no extra event-bridge cost.
  */
 import React from 'react';
-import { Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import { NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/lib/useAppTheme';
 import ScreenBackground from '@/components/ScreenBackground';
@@ -101,6 +118,9 @@ type Props = {
    * background would visibly slide with the gesture.
    */
   ownBackground?: boolean;
+  /** Forwarded to the internal ScrollView — e.g. to cancel an in-flight FlightOverlay
+   *  animation on scroll (components/FlightOverlay.tsx). Omit for identical behavior. */
+  onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 };
 
 export default function ScreenScaffold({
@@ -118,6 +138,7 @@ export default function ScreenScaffold({
   onInfoToggle,
   bottomNav = true,
   ownBackground = true,
+  onScroll,
 }: Props) {
   const theme = useAppTheme();
   // Android edge-to-edge (RN 0.85 / Expo 56) draws content behind the status and
@@ -161,6 +182,9 @@ export default function ScreenScaffold({
       scrollIndicatorInsets={{
         bottom: tier === 'site' ? BOTTOM_NAV_HEIGHT : 0,
       }}
+      keyboardShouldPersistTaps="handled"
+      onScroll={onScroll}
+      scrollEventThrottle={onScroll ? 16 : undefined}
     >
       {children}
     </ScrollView>
@@ -182,7 +206,7 @@ export default function ScreenScaffold({
 
       {/* L4: Top block (ScreenHeader) — extended up behind the status bar and
           padded down by the top inset so the bar content clears it. */}
-      <View style={[styles.headerBlock, { height: HEADER_HEIGHT + topInset, paddingTop: topInset }]}>
+      <View style={[styles.headerBlock, { height: HEADER_HEIGHT + topInset, paddingTop: topInset, backgroundColor: theme.bg }]}>
         <ScreenHeader
           title={title}
           tier={tier}

@@ -6,7 +6,9 @@
  * since there are only two trigger types and two action types to pick from.
  *
  * Connections:
- *   Imports → components/AddFAB, components/AppModal, components/ScreenScaffold, components/Surface, constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, store/useAutomationStore
+ *   Imports → components/AddFAB, components/AppModal, components/ScreenScaffold, components/Surface,
+ *             components/PressableScale, constants/theme, lib/haptics, lib/i18n, lib/useAppTheme,
+ *             store/useAutomationStore
  *   Used by → Expo Router route "/automations"
  *   Data    → useAutomationStore (ifttt_rules table)
  *
@@ -21,7 +23,7 @@
  *     per-screen focus-load.
  */
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAutomationStore, AutomationRule, TriggerType, ActionType } from '@/store/useAutomationStore';
@@ -29,6 +31,7 @@ import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { showAppModal } from '@/components/AppModal';
 import AddFAB from '@/components/AddFAB';
+import PressableScale from '@/components/PressableScale';
 import { useT } from '@/lib/i18n';
 import { warning, heavy } from '@/lib/haptics';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
@@ -82,9 +85,9 @@ function RuleCard({ rule, onToggle, onDelete }: {
         trackColor={{ false: theme.border, true: theme.accentSoft }}
         thumbColor={rule.active ? theme.accent : theme.textMuted}
       />
-      <Pressable onPress={confirmDelete} hitSlop={8} style={styles.deleteBtn}>
+      <PressableScale onPress={confirmDelete} hitSlop={8} style={styles.deleteBtn} scaleTo={0.93}>
         <Ionicons name="close" size={18} color={theme.textMuted} />
-      </Pressable>
+      </PressableScale>
     </Surface>
   );
 }
@@ -111,7 +114,7 @@ function NewRuleForm({ onSave, onCancel }: { onSave: (triggerType: TriggerType, 
       <Text style={[styles.formLabel, { color: theme.textMuted }]}>{t.automations.whenLabel}</Text>
       <View style={styles.chipRow}>
         {(['task_completed', 'shopping_opened'] as TriggerType[]).map((type) => (
-          <Pressable
+          <PressableScale
             key={type}
             style={[
               styles.chip,
@@ -119,18 +122,19 @@ function NewRuleForm({ onSave, onCancel }: { onSave: (triggerType: TriggerType, 
               triggerType === type && { backgroundColor: theme.accent, borderColor: theme.accent },
             ]}
             onPress={() => setTriggerType(type)}
+            scaleTo={0.97}
           >
             <Text style={[styles.chipText, { color: triggerType === type ? theme.accentInk : theme.text }]}>
               {triggerLabel(t, type)}
             </Text>
-          </Pressable>
+          </PressableScale>
         ))}
       </View>
 
       <Text style={[styles.formLabel, { color: theme.textMuted }]}>{t.automations.thenLabel}</Text>
       <View style={styles.chipRow}>
         {(['show_message', 'add_shopping_item'] as ActionType[]).map((type) => (
-          <Pressable
+          <PressableScale
             key={type}
             style={[
               styles.chip,
@@ -138,11 +142,12 @@ function NewRuleForm({ onSave, onCancel }: { onSave: (triggerType: TriggerType, 
               actionType === type && { backgroundColor: theme.accent, borderColor: theme.accent },
             ]}
             onPress={() => setActionType(type)}
+            scaleTo={0.97}
           >
             <Text style={[styles.chipText, { color: actionType === type ? theme.accentInk : theme.text }]}>
               {actionLabel(t, type)}
             </Text>
-          </Pressable>
+          </PressableScale>
         ))}
       </View>
 
@@ -165,18 +170,19 @@ function NewRuleForm({ onSave, onCancel }: { onSave: (triggerType: TriggerType, 
       )}
 
       <View style={styles.formActions}>
-        <Pressable onPress={onCancel} style={styles.formCancelBtn}>
+        <PressableScale onPress={onCancel} style={styles.formCancelBtn} scaleTo={0.97}>
           <Text style={[styles.formCancelText, { color: theme.textMuted }]}>{t.cancel}</Text>
-        </Pressable>
-        <Pressable
+        </PressableScale>
+        <PressableScale
           onPress={save}
           disabled={!canSave}
           style={[styles.formSaveBtn, { backgroundColor: canSave ? theme.accent : theme.surfaceMuted }]}
+          scaleTo={0.95}
         >
           <Text style={[styles.formSaveText, { color: canSave ? theme.accentInk : theme.textMuted }]}>
             {t.automations.saveBtn}
           </Text>
-        </Pressable>
+        </PressableScale>
       </View>
     </Surface>
   );

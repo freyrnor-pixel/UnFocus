@@ -37,7 +37,7 @@
  * follower badges).
  *
  * Connections:
- *   Imports → components/Surface, components/CompletionGlow, constants/theme, lib/haptics,
+ *   Imports → components/Surface, components/PressableScale, constants/theme, lib/haptics,
  *             lib/i18n, lib/useAppTheme, store/useTaskStore (Task type only)
  *   Used by → app/(tabs)/index.tsx (Home — read-only preview off-focus per Decision 009a, and
  *             non-readOnly essential-filtered surface in Focus mode per 009 #4). Reads
@@ -65,16 +65,19 @@
  *   - **Decision 019 hint**: a task's `hint` renders under its title (display-only) while
  *     the task is "up" (current or next), so the reminder shows exactly when it's useful.
  *     Vertical rail only — the horizontal rail's columns are too narrow for it.
- *   - `readOnly` (Home preview) disables the done-toggle and row tap-through only —
- *     structure, rail, collapse/expand, and done zone are identical (Decision 009a). Pass
- *     `onSeeMore` to show a "See everything →" link routing to the full screen.
+ *   - `readOnly` (Home preview) disables row tap-through only — structure, rail,
+ *     collapse/expand, and done zone are identical (Decision 009a). The done-toggle is
+ *     independently gated on whether `onToggleTask` is passed (not on `readOnly`), so the
+ *     Home preview's checkbox stays interactive while row tap-through into the editor
+ *     stays disabled. Pass `onSeeMore` to show a "See everything →" link routing to the
+ *     full screen.
  *   - Anytime (untimed) tasks have no rail position; they render as plain dotted rows
  *     above the timed rail (same as DayTimeline). Only timed→timed gaps are proportional.
- *   - **Completion feedback**: a completed task immediately leaves the pending rail for
- *     the (collapsed) done zone, so a per-row animation would unmount before it plays.
- *     Instead a card-level `CompletionGlow` blooms when the done count rises (tracked via
- *     `completionPulse`) — the card stays mounted, so the "small win" reward shows. This
- *     mirrors the habit-card glow (app/(tabs)/health.tsx). The success() haptic is in handleToggle.
+ *   - **Completion feedback (2026-07-11, visual-audit)**: no card-level glow/bloom on
+ *     completion — user feedback called the whole-card colour flash "too much"; the
+ *     checkbox fill + strikethrough (plus the success() haptic in handleToggle) IS the
+ *     feedback. The habit-card glow (app/(tabs)/health.tsx) is untouched — this was
+ *     Home/Plans-specific.
  *   - `styles.dot` is now the checkmark-circle toggle ONLY (moved to the row's own fixed-
  *     width `doneCol`/`hDoneRow`, right of / below the content, so it lines up across every
  *     row regardless of title length). `styles.timeBox` is the rail's position marker —
@@ -82,13 +85,16 @@
  *     the "happening now" / follower-surfaced highlight that the dot used to carry. Done
  *     zone rows (the collapsed history list) always use the vertical `renderRow`, even in
  *     horizontal mode — it's a secondary dropdown, not the primary glance surface.
+ *   - **Touch target (2026-07-11)**: the done-toggle `dot` is visually 16x16 but
+ *     `hitSlop={16}` brings the tappable area to ~48dp, meeting Android's minimum
+ *     touch-target size.
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
-import CompletionGlow from '@/components/CompletionGlow';
+import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import { Task } from '@/store/useTaskStore';
 import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
@@ -101,7 +107,9 @@ type Props = {
   tasks: Task[];
   /** Full store list — lets cross-date followers surface into this view (Decision 020). Defaults to `tasks`. */
   allTasks?: Task[];
-  /** Home preview: disables done-toggle + row tap-through only (Decision 009a). */
+  /** Home preview: disables row tap-through only (Decision 009a). Done-toggle is
+   *  independently gated on whether `onToggleTask` is passed — pass it to keep the
+   *  checkbox interactive even when `readOnly` is set. */
   readOnly?: boolean;
   onPressTask?: (task: Task) => void;
   onToggleTask?: (task: Task) => void;
@@ -208,13 +216,6 @@ export default function PlanTaskCard({
 
   const [expanded, setExpanded] = useState(false);
   const [doneOpen, setDoneOpen] = useState(false);
-  // Completion reward: a task marked done leaves the pending rail and drops into the
-  // (collapsed) done zone on the same render, so a per-row animation would unmount
-  // before it could play. Instead bloom a card-level CompletionGlow when the done count
-  // rises — the card stays mounted, so the "small win" reward is actually visible.
-  // Mirrors the habit-card glow pattern (app/(tabs)/health.tsx). success() haptic fires in
-  // handleToggle; the glow self-skips under reduce-motion.
-  const [completionPulse, setCompletionPulse] = useState(0);
 
   // Decision 020 — surfaced followers: for each DONE task, its pending follower is
   // highlighted and (sub-question b) pulled into this view even if it lives on another
@@ -243,13 +244,6 @@ export default function PlanTaskCard({
     [dayTasks]
   );
   const doneTasks = useMemo(() => dayTasks.filter((task) => task.done), [dayTasks]);
-
-  // Pulse the card glow whenever the done count rises (a task was just completed).
-  const prevDoneCount = useRef(doneTasks.length);
-  useEffect(() => {
-    if (doneTasks.length > prevDoneCount.current) setCompletionPulse((n) => n + 1);
-    prevDoneCount.current = doneTasks.length;
-  }, [doneTasks.length]);
 
   const pendingCount = anytimePending.length + timedPending.length;
 
@@ -289,7 +283,7 @@ export default function PlanTaskCard({
       : anytimePending[0]?.id;
 
   function handleToggle(task: Task) {
-    if (readOnly || !onToggleTask) return;
+    if (!onToggleTask) return;
     if (!task.done) success();
     onToggleTask(task);
   }
@@ -301,12 +295,13 @@ export default function PlanTaskCard({
 
   function doneToggle(task: Task, isHappeningNow?: boolean) {
     return (
-      <Pressable
-        disabled={readOnly || !onToggleTask}
-        hitSlop={8}
+      <PressableScale
+        disabled={!onToggleTask}
+        hitSlop={16}
         onPress={() => handleToggle(task)}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: task.done }}
+        scaleTo={0.97}
       >
         <View
           style={[
@@ -317,7 +312,7 @@ export default function PlanTaskCard({
         >
           {task.done && <Ionicons name="checkmark" size={10} color={theme.accentInk} />}
         </View>
-      </Pressable>
+      </PressableScale>
     );
   }
 
@@ -357,37 +352,44 @@ export default function PlanTaskCard({
           {timeMarker(task, timed, dimmed, isHappeningNow, surfaced)}
           <View style={[styles.railLine, { backgroundColor: hasBottomLine ? theme.border : 'transparent' }]} />
         </View>
-        <Pressable style={styles.contentCol} onPress={() => handlePress(task)} disabled={readOnly || !onPressTask}>
-          <View style={styles.titleRow}>
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.title,
-                { color: dimmed ? theme.textMuted : theme.text },
-                task.done && { textDecorationLine: 'line-through' },
-              ]}
-            >
-              {task.title}
-            </Text>
-            {timed && task.taskType === 'time-box' && (
-              <Text style={[styles.durationText, { color: theme.textMuted }]}>–{minutesToLabel(timed.end)}</Text>
-            )}
-            {task.importance === 'essential' && !task.done && <Ionicons name="star" size={12} color={theme.accent} />}
-            {surfaced && !task.done ? (
-              <View style={[styles.followerBadge, { backgroundColor: rgba(theme.featPlan, 0.16) }]}>
-                <Text style={[styles.followerBadgeText, { color: theme.featPlan }]}>{t.dayViewFollowerBadge}</Text>
+        <PressableScale style={styles.contentCol} onPress={() => handlePress(task)} disabled={readOnly || !onPressTask} scaleTo={0.97}>
+          <View
+            style={[
+              styles.rowCard,
+              { backgroundColor: isHappeningNow ? rgba(theme.accent, 0.1) : theme.surfaceMuted },
+            ]}
+          >
+            <View style={styles.titleRow}>
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.title,
+                  { color: dimmed ? theme.textMuted : theme.text },
+                  task.done && { textDecorationLine: 'line-through' },
+                ]}
+              >
+                {task.title}
+              </Text>
+              {timed && task.taskType === 'time-box' && (
+                <Text style={[styles.durationText, { color: theme.textMuted }]}>–{minutesToLabel(timed.end)}</Text>
+              )}
+              {task.importance === 'essential' && !task.done && <Ionicons name="star" size={12} color={theme.accent} />}
+              {surfaced && !task.done ? (
+                <View style={[styles.followerBadge, { backgroundColor: rgba(theme.featPlan, 0.16) }]}>
+                  <Text style={[styles.followerBadgeText, { color: theme.featPlan }]}>{t.dayViewFollowerBadge}</Text>
+                </View>
+              ) : null}
+            </View>
+            {showHint ? (
+              <View style={styles.hintRow}>
+                <Ionicons name="bulb-outline" size={12} color={theme.textMuted} />
+                <Text style={[styles.hintText, { color: theme.textMuted }]} numberOfLines={2}>
+                  {task.hint}
+                </Text>
               </View>
             ) : null}
           </View>
-          {showHint ? (
-            <View style={styles.hintRow}>
-              <Ionicons name="bulb-outline" size={12} color={theme.textMuted} />
-              <Text style={[styles.hintText, { color: theme.textMuted }]} numberOfLines={2}>
-                {task.hint}
-              </Text>
-            </View>
-          ) : null}
-        </Pressable>
+        </PressableScale>
         <View style={styles.doneCol}>{doneToggle(task, isHappeningNow)}</View>
       </View>
     );
@@ -399,11 +401,12 @@ export default function PlanTaskCard({
     const surfaced = surfacedIds.has(task.id);
 
     return (
-      <Pressable
+      <PressableScale
         key={task.id}
         style={styles.hColumn}
         onPress={() => handlePress(task)}
         disabled={readOnly || !onPressTask}
+        scaleTo={0.97}
       >
         <View style={styles.hRailRow}>{timeMarker(task, timed, dimmed, isHappeningNow, surfaced)}</View>
         <View style={styles.hContent}>
@@ -422,7 +425,7 @@ export default function PlanTaskCard({
           )}
         </View>
         <View style={styles.hDoneRow}>{doneToggle(task, isHappeningNow)}</View>
-      </Pressable>
+      </PressableScale>
     );
   }
 
@@ -536,11 +539,10 @@ export default function PlanTaskCard({
     <Surface surfaceContext="ambient" style={[styles.card, styles.cardRow]}>
       <View style={[styles.accent, { backgroundColor: theme.featPlan }]} />
       <View style={styles.cardContent}>
-        <CompletionGlow trigger={completionPulse} color={theme.accent} radius={Radius.md} />
 
         {/* Section header — only in read-only (Home preview) mode */}
         {readOnly && (
-          <Pressable onPress={() => router.push('/plans')} style={styles.headerRowPressable}>
+          <PressableScale onPress={() => router.push('/plans')} style={styles.headerRowPressable} scaleTo={0.97}>
             <View style={styles.headerRow}>
               <Text style={[styles.headerTitle, { color: theme.text }]}>{t.home.todaysPlans}</Text>
               {pendingCount > 0 && (
@@ -548,6 +550,10 @@ export default function PlanTaskCard({
                   <Text style={[styles.badgeText, { color: theme.featPlan }]}>{pendingCount}</Text>
                 </View>
               )}
+              <View style={styles.nowChip}>
+                <View style={[styles.nowChipDot, { backgroundColor: theme.accent }]} />
+                <Text style={[styles.nowChipText, { color: theme.accent }]}>{minutesToLabel(now)}</Text>
+              </View>
             </View>
             {dayTasks.length > 0 && (
               <ProgressBar
@@ -557,7 +563,7 @@ export default function PlanTaskCard({
                 style={styles.progressBar}
               />
             )}
-          </Pressable>
+          </PressableScale>
         )}
 
         {showEmpty ? (
@@ -583,10 +589,10 @@ export default function PlanTaskCard({
             the primary glance rail. */}
         {doneTasks.length > 0 ? (
           <View style={styles.doneZone}>
-            <Pressable style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }}>
+            <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97}>
               <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>{t.dayViewDoneZone(doneTasks.length)}</Text>
               <Ionicons name={doneOpen ? 'chevron-up' : 'chevron-down'} size={14} color={theme.textMuted} />
-            </Pressable>
+            </PressableScale>
             {doneOpen
               ? doneTasks.map((task) =>
                   renderRow(task, {
@@ -601,11 +607,11 @@ export default function PlanTaskCard({
         ) : null}
 
         {showToggle ? (
-          <Pressable style={styles.footerBtn} onPress={() => { tap(); setExpanded((v) => !v); }}>
+          <PressableScale style={styles.footerBtn} onPress={() => { tap(); setExpanded((v) => !v); }} scaleTo={0.97}>
             <Text style={[styles.footerBtnText, { color: theme.accent }]}>
               {expanded ? t.plansCollapse : t.plansExpand}
             </Text>
-          </Pressable>
+          </PressableScale>
         ) : null}
 
       </View>
@@ -645,6 +651,9 @@ const baseStyles = StyleSheet.create({
   // whole of a spacer row (Decision 042a).
   railLine: { width: 2, flex: 1 },
   contentCol: { flex: 1, paddingHorizontal: Spacing.sm, paddingBottom: Spacing.md },
+  // Decision (visual-audit 2026-07-11): a subtle card behind each row's title/hint so
+  // the rail reads as distinct items rather than text floating on the background.
+  rowCard: { borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 6 },
   doneCol: { width: DONE_COL_WIDTH, alignItems: 'center', justifyContent: 'center' },
   // Dedicated connector row between two task rows — owns the proportional time-gap
   // height so it never has to be squeezed inside a row of variable content height.
@@ -695,6 +704,11 @@ const baseStyles = StyleSheet.create({
   footerBtnText: { fontSize: FontSize.sm, fontWeight: '700' },
   headerRowPressable: { marginBottom: Spacing.sm },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  // Persistent "now" indicator (visual-audit 2026-07-11) — always visible in the header,
+  // not just when a gap connector happens to render one.
+  nowChip: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' },
+  nowChipDot: { width: 6, height: 6, borderRadius: Radius.full },
+  nowChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   progressBar: { marginTop: Spacing.xs },
   headerTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },

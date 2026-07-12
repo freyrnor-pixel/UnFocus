@@ -11,6 +11,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HomeNotesCard,
  *             components/HomeSharedCard, components/HomeShoppingCard,
+ *             components/FlightOverlay (FlightPill, Flight, FlightRect),
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, store/useTaskStore, store/useNotesStore, store/useSharedStore,
  *             store/useShoppingStore, store/useShoppingListStore, store/useSettingsStore
@@ -39,6 +40,9 @@
  *     `dayViewAllDone` state (Decision 009 #4 "gentle done-state, not an empty screen").
  *   - **Plans preview = PlanTaskCard read-only (Decision 009a)**: OFF-focus, the preview IS the
  *     day-view rendered read-only, with a "See everything →" link to /plans. Not a bespoke card.
+ *     `readOnly` only disables row tap-through here (no `onPressTask`/`onSeeMore` passed) — the
+ *     done-toggle stays live because `onToggleTask` is passed alongside `readOnly`, so tapping a
+ *     task's checkbox toggles it done without opening the editor.
  *     `allTasks` (full store) is passed so Decision 020 cross-date followers surface.
  *     `horizontal={settings.planTimelineHorizontal}` is threaded to both PlanTaskCard mounts
  *     (Focus + preview) so the rail-orientation setting applies in both modes.
@@ -53,15 +57,27 @@
  *   - **"More" links (Decision 036)**: off-Focus chips to /notes and /meals. Reachability is
  *     data-independent — shown even if HomeNotesCard self-hides (notes empty on first launch).
  *   - All visible strings via useT(); today is todayStr() (YYYY-MM-DD).
+ *   - **Bottom whitespace (visual-audit, 2026-07-11)**: `content`'s trailing padding was
+ *     trimmed from `Spacing.xl` to `Spacing.md` to shrink the empty area below the last
+ *     card (before the bottom nav) on short content — the ambient hero backdrop
+ *     (HomeHeroBackground) itself is untouched, this only tightens the screen's own
+ *     bottom padding.
+ *   - **Flight animation (Phase 1, 2026-07-11)**: list→cart toggles inside HomeShoppingCard
+ *     fly a `FlightPill` clone; this screen owns the `flights` state and mounts a single
+ *     `<FlightOverlay>` as a sibling of `<ScreenScaffold>` (not inside it — scaffold children
+ *     scroll inside its internal ScrollView). `handleScreenScroll` clears in-flight flights on
+ *     scroll. See app/(tabs)/shopping.tsx's own note and ANIMATION_GUIDELINES.md for the
+ *     full pattern.
  */
-import React, { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
 import { useRouter, usePathname, useFocusEffect } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PlanTaskCard from '@/components/PlanTaskCard';
 import HomeNotesCard from '@/components/HomeNotesCard';
 import HomeSharedCard from '@/components/HomeSharedCard';
 import HomeShoppingCard from '@/components/HomeShoppingCard';
+import FlightOverlay, { FlightPill, Flight, FlightRect } from '@/components/FlightOverlay';
 import HintCard from '@/components/HintCard';
 import { goToSite } from '@/lib/siteNav';
 import { todayStr } from '@/lib/date';
@@ -87,6 +103,30 @@ export default function HomeScreen() {
   // Focus mode: Home-only, ephemeral (Decisions 009 #4 / 018). Reset on blur below.
   const [focusMode, setFocusMode] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
+
+  // Flight animation (Phase 1, 2026-07-11) — mirrors app/(tabs)/shopping.tsx's screen-level
+  // plumbing at smaller scale (one card, no listId keying needed). See that file's own edit
+  // note and ANIMATION_GUIDELINES.md's "Flight / Cross-Section Travel Animations" section.
+  const [flights, setFlights] = useState<Flight[]>([]);
+  const flightCounter = useRef(0);
+  const lastScrollY = useRef(0);
+
+  function handleFlightStart(item: ShoppingItem, from: FlightRect, to: FlightRect) {
+    flightCounter.current += 1;
+    const key = `${item.id}-${flightCounter.current}`;
+    setFlights((prev) => [
+      ...prev.filter((f) => f.itemId !== item.id),
+      { key, itemId: item.id, from, to, content: <FlightPill label={item.name} /> },
+    ]);
+  }
+  function handleFlightEnd(key: string) {
+    setFlights((prev) => prev.filter((f) => f.key !== key));
+  }
+  function handleScreenScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const y = e.nativeEvent.contentOffset.y;
+    if (Math.abs(y - lastScrollY.current) > 4 && flights.length > 0) setFlights([]);
+    lastScrollY.current = y;
+  }
 
   const tasks = useTaskStore((s) => s.tasks);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
@@ -168,6 +208,7 @@ export default function HomeScreen() {
         onToggleFocus={() => setFocusMode((v) => !v)}
         infoActive={hintOpen}
         onInfoToggle={() => setHintOpen((v) => !v)}
+        onScroll={handleScreenScroll}
       >
         <View style={styles.content}>
           {!focusMode && <HintCard text={t.hints.home.text} open={hintOpen} noPill />}
@@ -207,6 +248,7 @@ export default function HomeScreen() {
                 tasks={todayTasks}
                 allTasks={tasks}
                 readOnly
+                onToggleTask={(task: Task) => toggleTask(task.id)}
                 horizontal={settings.planTimelineHorizontal}
               />
             )}
@@ -226,6 +268,7 @@ export default function HomeScreen() {
               onDecrement={(id) => adjustAmount(id, -1)}
               onNavigateToShopping={() => goToSite(router, pathname, '/shopping')}
               inStockLabel={t.inStockLabel}
+              onFlightStart={handleFlightStart}
             />
           </View>
 
@@ -239,14 +282,18 @@ export default function HomeScreen() {
           )}
         </View>
       </ScreenScaffold>
+      <FlightOverlay flights={flights} onFlightEnd={handleFlightEnd} />
     </>
   );
 }
 
 const baseStyles = StyleSheet.create({
   blank: { flex: 1 },
-  content: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.xl },
-  header: { marginBottom: 0 },
+  content: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.md },
+  // marginBottom matches every card's own trailing marginBottom (Spacing.sm) so the
+  // greeting→first-preview gap equals the gaps between previews (each = card marginBottom
+  // + section marginTop). Without it the first gap was 8px short — the "uneven" rhythm.
+  header: { marginBottom: Spacing.sm },
   greeting: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold },
   dateLabel: { fontSize: FontSize.sm, marginTop: Spacing.xs, textTransform: 'capitalize', fontFamily: Fonts.regular },
   section: { marginTop: Spacing.xl },

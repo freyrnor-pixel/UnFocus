@@ -1,6 +1,6 @@
 # Animation, Button Feel & Haptics — Motion Design Reference for UnFocus
 
-Read this before writing or editing any animation, button-press, or haptic code. Section 8
+Read this before writing or editing any animation, button-press, or haptic code. Section 9
 at the bottom is a ready-to-paste block for animation prompts.
 
 This doc is grounded in this codebase's actual stack — react-native-reanimated for new
@@ -196,7 +196,36 @@ const target = reducedMotion ? 1 : withSpring(1, { damping: 18, stiffness: 480 }
 Haptics are **not** gated by `reducedMotion` — that flag is about visual motion only (see
 `lib/haptics.ts` header comment).
 
-## 8. Instructions for Claude Code
+## 8. Flight / Cross-Section Travel Animations
+
+Real implementation: **`components/FlightOverlay.tsx`**, first used by Shopping's list→cart
+toggle (Phase 1 — see `FLIGHT_ANIMATION_HANDOFF.md`). Use this whenever an item visibly moves
+between two sections/lists instead of just unmounting from one and mounting in another.
+
+- **The pattern (FLIP-style, no new dependency)**: measure the source in window space at the
+  trigger moment (`measureInWindow` on the row's own ref) → measure a destination anchor in
+  window space (or skip the flight entirely if that anchor isn't mounted yet — e.g. an empty
+  "In cart" section) → animate a floating clone between the two rects via `FlightOverlay`.
+- **Duration**: 220ms, `Easing.out(Easing.cubic)` — within this doc's 200-250ms "card/panel
+  transition" band (§1's quick-reference table).
+- **Destination-anchor convention**: land on a section/zone header (or another always-mounted
+  proxy element — e.g. `HomeShoppingCard`'s collapsed-preview mode has no "In cart" section to
+  fly to, so it targets the card's own item-count badge instead). Never chase the exact final
+  row slot — landing at a stable anchor reads as "it went there" without fighting reflow.
+- **Coordination rule**: suppress the source row's own `exiting` animation when a flight is
+  triggered for it, so the clone alone carries "leaving → arriving" — otherwise both animate
+  at once and read as duplication, not travel.
+- **Reduced motion**: gate at the trigger site (before measuring/firing), not inside
+  `FlightOverlay` itself — under `reducedMotion` the toggle should fire with zero measurement
+  overhead, not just a skipped animation.
+- **Scroll-cancel**: window-space coordinates go stale once the user scrolls mid-flight.
+  `ScreenScaffold`'s `onScroll` prop lets the owning screen clear its `flights` array on a
+  scroll delta; `FlightOverlay`'s own `exiting={FadeOut}` on each clone makes that look like a
+  fade rather than a snap, with no separate cancel-animation code path needed.
+- `FlightOverlay`'s `content` prop is a generic `ReactNode` (not hardcoded to Shopping) —
+  intentionally reusable for a future Tasks pending→done or habit-completion phase.
+
+## 9. Instructions for Claude Code
 
 Paste this block at the top of any animation/interaction/haptics prompt for this app:
 
@@ -232,6 +261,15 @@ HAPTICS (always via lib/haptics.ts, never raw expo-haptics):
   - The moment a destructive action is actually confirmed: heavy()
   - Pickers/sliders/gesture-threshold crossings: selection()
   - Fire at the same moment as the visual peak — never delayed
+
+FLIGHT / CROSS-SECTION TRAVEL (an item visibly moves between two sections/lists):
+  - Reuse components/FlightOverlay.tsx — measure source rect (measureInWindow) at the
+    trigger → measure a destination anchor (section header or stable proxy element) →
+    skip the flight if that anchor isn't mounted → animate a floating clone, 220ms
+    Easing.out(Easing.cubic)
+  - Suppress the source row's own exiting animation while it flies — the clone alone
+    carries "leaving → arriving"
+  - Gate at the trigger site (before measuring), not inside FlightOverlay
 
 REDUCE MOTION:
   - Read useAccessibility().reducedMotion from lib/useAppTheme.ts — it's already the union

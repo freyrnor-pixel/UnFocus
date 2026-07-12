@@ -22,6 +22,8 @@
  *     shopping.scan, shopping.budget, notes.*, hints.notes.
  *   - Added keys: peers.* (Decision 038 LAN live-sync wiring — app/pair-device.tsx,
  *     app/settings.tsx's sync toggle card).
+ *   - Added keys: webPreview.notAvailable (web preview placeholder screens —
+ *     app/(tabs)/scan.web.tsx).
  */
 import { useSettingsStore } from '@/store/useSettingsStore';
 
@@ -46,6 +48,7 @@ const en = {
   previous: '← Back',
   done: "Let's go! 🌿",
   ok: 'OK',
+  webPreview: { notAvailable: 'Not available in the web preview.' },
   // Home screen
   addNew: '+ New',
   backlog: 'Waiting for you',
@@ -54,7 +57,7 @@ const en = {
   // Plans widget (home preview + full /plans screen)
   plansTitle: "Today's plans",
   essentialPlansTitle: '⭐ Essential plans today',
-  noPlansToday: 'No plans today — enjoy your day 🌿',
+  noPlansToday: 'No plans today — enjoy your day',
   noEssentialPlansToday: 'No essential plans today — great!',
   plansExpand: 'Show full day',
   plansCollapse: 'Show less',
@@ -63,12 +66,12 @@ const en = {
   seeEverythingLink: 'See everything →',
   doneTasksLabel: 'Done today',
   plansEssentialsHidden: (n: number) => `+ ${n} regular plan${n !== 1 ? 's' : ''} hidden →`,
-  timelineEmpty: 'Nothing planned — enjoy your day 🌿',
+  timelineEmpty: 'Nothing planned — enjoy your day',
   timelineNow: 'Now',
   // Day-view rail (components/PlanTaskCard.tsx — full /plans screen + read-only Home preview)
   dayViewGapUntil: (time: string) => `Nothing until ${time}`,
   dayViewDoneZone: (n: number) => `Done today (${n})`,
-  dayViewAllDone: 'All done for today 🌿',
+  dayViewAllDone: 'All done for today',
   dayViewFollowerBadge: 'Then',
   // Tasks / Oppgaver screen (app/(tabs)/plans.tsx + components/TaskCard.tsx)
   tasksTitle: 'Tasks',
@@ -432,6 +435,8 @@ const en = {
   weekNumberChip: (n: number) => `Week ${n}`,
   // Shopping redesign — monthly two-section + weekly inline/preview + grouping screen
   monthlyListSection: 'Monthly list',
+  weekEmptyTitle: 'No lists this week yet',
+  weekEmptyBody: 'Make a new list below to start planning your shopping.',
   catalogueSection: 'Catalogue',
   catalogueSearchPlaceholder: 'Search the catalogue…',
   monthlyListTotal: (kr: string) => `Total: ${kr}`,
@@ -465,7 +470,7 @@ const en = {
   removeMonthlyAddsLabel: 'Undo additions',
   planningModeBtn: 'Planning',
   shoppingModeBtn: 'Shopping',
-  addItemInputPlaceholder: 'Add item…',
+  addItemInputPlaceholder: 'Search for items…',
   savedListsButtonLabel: 'Saved lists',
   deleteListButtonLabel: 'Delete list',
   listSettingsButtonLabel: 'List settings',
@@ -580,6 +585,18 @@ const en = {
   habitRemoveChild: (name: string) => `Remove ${name}?`,
   habitRemoveChildBody: 'Their habits will also be deleted.',
   habitChildrenSection: 'Profiles',
+  // People / family mode (2026-07-12 redesign) — one settings toggle that shows the
+  // person selector in Tasks + Habits. Profiles are managed in Settings.
+  peopleMode: {
+    label: 'People / family',
+    hint: 'Assign tasks and habits to the people in your household.',
+    profilesHint: 'Add the people you want to assign tasks and habits to. Tap a name to remove it.',
+    addPlaceholder: 'Name',
+    addButton: 'Add person',
+    removeTitle: (name: string) => `Remove ${name}?`,
+    removeBody: "Their tasks and habits won't be deleted — they move back to you.",
+    filterAll: 'Everyone',
+  },
   habitCategories: {
     physical: 'Physical',
     mental: 'Mental',
@@ -697,6 +714,15 @@ const en = {
     noItems: 'List is empty',
     noTasks: 'Nothing planned today',
     more: (n: number) => `+${n} more`,
+    notesTitle: 'Notes',
+    noNotes: 'No notes yet',
+    voiceNote: 'Voice note',
+    habitsTitle: 'Habits',
+    habitsLeft: (n: number) => (n === 1 ? '1 habit left' : `${n} habits left`),
+    noHabits: 'No habits today',
+    healthTitle: 'Health',
+    noHealth: 'Nothing logged',
+    healthOngoing: (n: number) => (n === 1 ? '1 ongoing' : `${n} ongoing`),
   },
   // Radial menu labels
   nav: {
@@ -1164,6 +1190,7 @@ const no: typeof en = {
   previous: '← Tilbake',
   done: 'Kom i gang! 🌿',
   ok: 'OK',
+  webPreview: { notAvailable: 'Ikke tilgjengelig i nettleserforhåndsvisningen.' },
   addNew: '+ Ny',
   backlog: 'Venter på deg',
   backlogHint: 'Hvert lite steg teller — bare ta ett om gangen.',
@@ -1171,7 +1198,7 @@ const no: typeof en = {
   // Plans widget (home preview + full /plans screen)
   plansTitle: 'Dagens planer',
   essentialPlansTitle: '⭐ Viktige planer i dag',
-  noPlansToday: 'Ingen planer i dag! Nyt dagen 🌿',
+  noPlansToday: 'Ingen planer i dag! Nyt dagen',
   noEssentialPlansToday: 'Ingen viktige planer i dag — bra!',
   plansExpand: 'Vis hele dagen',
   plansCollapse: 'Vis mindre',
@@ -1180,12 +1207,12 @@ const no: typeof en = {
   seeEverythingLink: 'Se alt →',
   doneTasksLabel: 'Ferdig i dag',
   plansEssentialsHidden: (n: number) => `+ ${n} vanlige planer skjult →`,
-  timelineEmpty: 'Ingenting planlagt — nyt dagen 🌿',
+  timelineEmpty: 'Ingenting planlagt — nyt dagen',
   timelineNow: 'Nå',
   // Day-view rail (components/PlanTaskCard.tsx — full /plans screen + read-only Home preview)
   dayViewGapUntil: (time: string) => `Ingenting før ${time}`,
   dayViewDoneZone: (n: number) => `Ferdig i dag (${n})`,
-  dayViewAllDone: 'Alt gjort for i dag 🌿',
+  dayViewAllDone: 'Alt gjort for i dag',
   dayViewFollowerBadge: 'Så',
   // Oppgaver-skjerm (app/(tabs)/plans.tsx + components/TaskCard.tsx)
   tasksTitle: 'Oppgaver',
@@ -1248,7 +1275,7 @@ const no: typeof en = {
   add: 'Legg til',
   editTask: 'Rediger',
   taskTitleLabel: 'Oppgave',
-  taskTitlePlaceholder: 'Oppgave',
+  taskTitlePlaceholder: 'Hva må gjøres?',
   dateLabel: 'Dato',
   calendar: {
     prevMonth: 'Forrige måned',
@@ -1540,6 +1567,8 @@ const no: typeof en = {
   listActiveWeeksLabel: 'Aktive uker i måneden',
   weekNumberChip: (n: number) => `Uke ${n}`,
   monthlyListSection: 'Månedsliste',
+  weekEmptyTitle: 'Ingen lister denne uken ennå',
+  weekEmptyBody: 'Lag en ny liste under for å begynne å planlegge handelen.',
   catalogueSection: 'Katalog',
   catalogueSearchPlaceholder: 'Søk i katalogen…',
   monthlyListTotal: (kr: string) => `Totalt: ${kr}`,
@@ -1573,7 +1602,7 @@ const no: typeof en = {
   removeMonthlyAddsLabel: 'Angre tillegg',
   planningModeBtn: 'Planlegging',
   shoppingModeBtn: 'Handle',
-  addItemInputPlaceholder: 'Legg til vare…',
+  addItemInputPlaceholder: 'Søk etter varer…',
   savedListsButtonLabel: 'Lagrede lister',
   deleteListButtonLabel: 'Slett liste',
   listSettingsButtonLabel: 'Listeinnstillinger',
@@ -1856,6 +1885,16 @@ const no: typeof en = {
   habitRemoveChild: (name: string) => `Fjerne ${name}?`,
   habitRemoveChildBody: 'Vanene deres vil også slettes.',
   habitChildrenSection: 'Profiler',
+  peopleMode: {
+    label: 'Personer / familie',
+    hint: 'Tildel oppgaver og vaner til personene i husstanden.',
+    profilesHint: 'Legg til personene du vil tildele oppgaver og vaner til. Trykk på et navn for å fjerne det.',
+    addPlaceholder: 'Navn',
+    addButton: 'Legg til person',
+    removeTitle: (name: string) => `Fjerne ${name}?`,
+    removeBody: 'Oppgavene og vanene deres slettes ikke — de flyttes tilbake til deg.',
+    filterAll: 'Alle',
+  },
   habitCategories: {
     physical: 'Fysisk',
     mental: 'Mental',
@@ -1970,6 +2009,15 @@ const no: typeof en = {
     noItems: 'Listen er tom',
     noTasks: 'Ingenting planlagt i dag',
     more: (n: number) => `+${n} flere`,
+    notesTitle: 'Notater',
+    noNotes: 'Ingen notater ennå',
+    voiceNote: 'Taleopptak',
+    habitsTitle: 'Vaner',
+    habitsLeft: (n: number) => (n === 1 ? '1 vane igjen' : `${n} vaner igjen`),
+    noHabits: 'Ingen vaner i dag',
+    healthTitle: 'Helse',
+    noHealth: 'Ingenting logget',
+    healthOngoing: (n: number) => (n === 1 ? '1 pågående' : `${n} pågående`),
   },
   nav: {
     newTask: 'Ny oppgave', plans: 'Oppgaver', shop: 'Handleliste', habits: 'Vaner',

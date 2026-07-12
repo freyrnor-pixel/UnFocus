@@ -8,7 +8,7 @@ Complete reference for card patterns, containers, modals, sheets, and common sur
 
 Cards are the primary content container. All cards share these principles:
 - **Elevated surface** (`theme.white`)
-- **Internal padding** (`Layout.cardPadding`: 18px)
+- **Internal padding** (`Spacing.md`: 16px)
 - **Rounded corners** (`Radius.md`: 18px)
 - **Subtle shadow** (`Shadow.card`)
 - **Clear visual boundary** from background (`theme.cream`)
@@ -22,7 +22,7 @@ Cards are the primary content container. All cards share these principles:
 <View style={{
   backgroundColor: theme.white,
   borderRadius: Radius.md,
-  padding: Layout.cardPadding,
+  padding: Spacing.md,
   ...Shadow.card,
 }}>
   <Text style={{ fontSize: FontSize.lg, fontFamily: Fonts.bold }}>
@@ -43,8 +43,8 @@ Cards are the primary content container. All cards share these principles:
 <View style={{
   backgroundColor: theme.white,
   borderRadius: Radius.md,
-  padding: Layout.cardPadding,
-  gap: Layout.cardGap,
+  padding: Spacing.md,
+  gap: Spacing.md,
   ...Shadow.card,
 }}>
   {/* Header */}
@@ -71,7 +71,7 @@ Cards are the primary content container. All cards share these principles:
 <View style={{
   backgroundColor: theme.white,
   borderRadius: Radius.md,
-  padding: Layout.cardPadding,
+  padding: Spacing.md,
   ...Shadow.card,
 }}>
   <Text>Just text content, no special styling</Text>
@@ -83,8 +83,8 @@ Cards are the primary content container. All cards share these principles:
 <View style={{
   backgroundColor: theme.white,
   borderRadius: Radius.md,
-  padding: Layout.cardPadding,
-  gap: Layout.cardGap,
+  padding: Spacing.md,
+  gap: Spacing.md,
   ...Shadow.card,
 }}>
   <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
@@ -102,8 +102,8 @@ Cards are the primary content container. All cards share these principles:
 <View style={{
   backgroundColor: theme.white,
   borderRadius: Radius.md,
-  padding: Layout.cardPadding,
-  gap: Layout.cardGap,
+  padding: Spacing.md,
+  gap: Spacing.md,
   ...Shadow.card,
 }}>
   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -123,8 +123,8 @@ Cards are the primary content container. All cards share these principles:
   style={{
     backgroundColor: theme.white,
     borderRadius: Radius.md,
-    padding: Layout.cardPadding,
-    gap: Layout.cardGap,
+    padding: Spacing.md,
+    gap: Spacing.md,
     ...Shadow.card,
   }}
 >
@@ -148,7 +148,7 @@ Cards are the primary content container. All cards share these principles:
     Section Title
   </Text>
   
-  <View style={{ paddingHorizontal: Spacing.md, gap: Layout.cardGap }}>
+  <View style={{ paddingHorizontal: Spacing.md, gap: Spacing.md }}>
     {/* Multiple cards */}
     {items.map(item => (
       <Card key={item.id} item={item} />
@@ -174,7 +174,7 @@ Cards are the primary content container. All cards share these principles:
   <View style={{
     backgroundColor: theme.white,
     borderRadius: Radius.md,
-    padding: Layout.cardPadding,
+    padding: Spacing.md,
     ...Shadow.card,
   }}>
     {/* Content inset from screen edges */}
@@ -187,7 +187,7 @@ Cards are the primary content container. All cards share these principles:
 <View style={{
   backgroundColor: theme.white,
   borderRadius: 0,  // Straight edges
-  padding: Layout.cardPaddingV,  // Vertical padding only
+  padding: Spacing.md,       // Vertical padding only
   ...Shadow.card,
 }}>
   <Text>Card extends to screen edges</Text>
@@ -204,8 +204,8 @@ For emphasized content, use `Radius.lg` and `Shadow.cardHeavy`:
 <View style={{
   backgroundColor: theme.white,
   borderRadius: Radius.lg,  // Larger corners
-  padding: Layout.cardPadding,
-  gap: Layout.cardGap,
+  padding: Spacing.md,
+  gap: Spacing.md,
   ...Shadow.cardHeavy,  // Stronger shadow
 }}>
   <Text style={{ fontSize: FontSize.xxl, fontFamily: Fonts.bold }}>
@@ -234,8 +234,8 @@ Modals use the same card styling with enhanced elevation:
   <View style={{
     backgroundColor: theme.white,
     borderRadius: Radius.lg,
-    padding: Layout.cardPadding,
-    gap: Layout.cardGap,
+    padding: Spacing.md,
+    gap: Spacing.md,
     maxWidth: '90%',
     ...Shadow.cardHeavy,  // Heavy shadow for prominence
   }}>
@@ -284,13 +284,13 @@ Bottom sheets slide from the bottom, often used for quick actions:
   backgroundColor: theme.white,
   borderTopLeftRadius: Radius.lg,
   borderTopRightRadius: Radius.lg,
-  paddingTop: Layout.cardPadding,
-  paddingHorizontal: Layout.cardPaddingH,
-  paddingBottom: Spacing.lg + Layout.cardPadding,
+  paddingTop: Spacing.md,
+  paddingHorizontal: Spacing.md,
+  paddingBottom: Spacing.lg + Spacing.md,
   ...Shadow.cardHeavy,
 }}>
   {/* Header */}
-  <View style={{ marginBottom: Layout.cardGap }}>
+  <View style={{ marginBottom: Spacing.md }}>
     <Text style={{ fontSize: FontSize.lg, fontFamily: Fonts.bold }}>
       Sheet Title
     </Text>
@@ -318,7 +318,7 @@ Bottom sheets slide from the bottom, often used for quick actions:
   ...Shadow.card,
 }}>
   {/* Section 1 */}
-  <View style={{ padding: Layout.cardPadding }}>
+  <View style={{ padding: Spacing.md }}>
     <Text style={{ fontSize: FontSize.md }}>Section 1</Text>
   </View>
 
@@ -326,11 +326,11 @@ Bottom sheets slide from the bottom, often used for quick actions:
   <View style={{ 
     height: 1, 
     backgroundColor: theme.border,
-    marginHorizontal: Layout.cardPaddingH,
+    marginHorizontal: Spacing.md,
   }} />
 
   {/* Section 2 */}
-  <View style={{ padding: Layout.cardPadding }}>
+  <View style={{ padding: Spacing.md }}>
     <Text style={{ fontSize: FontSize.md }}>Section 2</Text>
   </View>
 </View>
@@ -341,8 +341,8 @@ Bottom sheets slide from the bottom, often used for quick actions:
 <View style={{
   backgroundColor: theme.orangeLight,  // Tinted background
   borderRadius: Radius.md,
-  padding: Layout.cardPadding,
-  gap: Layout.cardGap,
+  padding: Spacing.md,
+  gap: Spacing.md,
   ...Shadow.card,
 }}>
   <Text style={{ fontSize: FontSize.md, fontFamily: Fonts.semibold }}>
@@ -361,7 +361,7 @@ Bottom sheets slide from the bottom, often used for quick actions:
   borderRadius: Radius.md,
   borderLeftWidth: 4,
   borderLeftColor: theme.danger,
-  padding: Layout.cardPadding,
+  padding: Spacing.md,
   gap: Spacing.sm,
   ...Shadow.card,
 }}>
@@ -426,7 +426,7 @@ export function Card({
       style={{
         backgroundColor: tint ?? theme.white,
         borderRadius: prominent ? Radius.lg : Radius.md,
-        padding: Layout.cardPadding,
+        padding: Spacing.md,
         ...(prominent ? Shadow.cardHeavy : Shadow.card),
         ...style,
       }}
@@ -472,7 +472,7 @@ Cards automatically adapt to dark mode:
 ## 🎯 Best Practices
 
 ✅ **DO:**
-- Use `Layout.cardPadding` for consistency
+- Use `Spacing.md` for consistency
 - Use `Radius.md` for standard cards
 - Use `Shadow.card` for elevation
 - Use `theme.white` for elevated surfaces
@@ -480,7 +480,7 @@ Cards automatically adapt to dark mode:
 - Test cards on dark mode
 
 ❌ **DON'T:**
-- Hardcode padding (use Layout tokens)
+- Hardcode padding (use Spacing tokens)
 - Use inconsistent shadows on cards
 - Forget to pair background with readable text colour
 - Stack excessive shadows
@@ -497,8 +497,8 @@ Cards automatically adapt to dark mode:
 
 ---
 
-**Last updated**: 2026-06-27  
-**Standard padding**: Layout.cardPadding (18px)  
+**Last updated**: 2026-07-12  
+**Standard padding**: Spacing.md (16px)  
 **Standard radius**: Radius.md (18px)  
 **Standard shadow**: Shadow.card  
 **Surface colour**: theme.white (adapts to dark mode)

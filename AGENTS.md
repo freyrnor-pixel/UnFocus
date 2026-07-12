@@ -60,7 +60,7 @@ Every `.ts`/`.tsx` file starts with a JSDoc header block. **Read it before editi
 | SQLite file name: `unfocus.db` | Set in `lib/db.ts` |
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations array | Runs once on upgrade; never drop or recreate tables |
 | Stores read/write rows via `lib/dataAccess.ts` (`loadFirst`/`loadAll`/`updateRow` + `FieldMap`) | Used by 13 of 14 stores; don't hand-roll row mapping in a new store |
-| **To ship a change to users, MERGE it to `main`** | OTA (`.github/workflows/update.yml`) publishes ONLY on push to `main`. A `claude/**` branch push publishes nothing — the fix stays invisible to installed apps until merged. This is the #1 "why isn't my fix live?" cause. See `PUBLISHING.md`. |
+| **ALWAYS open a PR and merge it to `main`** | Standing rule: every change ends with a PR from the `claude/**` branch into `main` that the agent merges itself — never stop at "pushed the branch," never hand the merge back to the user. OTA (`.github/workflows/update.yml`) publishes ONLY on push to `main`; a `claude/**` branch push publishes nothing. Only *cutting the APK/AAB build* stays human-gated — never the PR or the merge. See `PUBLISHING.md`. |
 
 ## Architecture at a glance
 
@@ -104,6 +104,59 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 4. Add to `app/settings.tsx` UI
 5. Add i18n labels
 
+### Verify a change (headless — no device)
+A full emulator isn't feasible in the remote env (no KVM/virtualization; the app is
+deeply native), so verification is headless and covers the **logic/data layer** only —
+not visual/gesture behavior, which still needs a real device.
+
+1. `npx tsc --noEmit` — first-pass gate. Runs & passes in the remote env now (the
+   session-start hook installs deps). Also enforces i18n key parity via `no: typeof en`.
+2. `scripts/test-changed.sh` — runs only the Jest suites a change affects
+   (`jest --findRelatedTests` over the git diff). Full suite: `scripts/test-changed.sh --all`.
+3. **Only test behavioral changes.** A pure move/rename/comment/header edit gets step 1
+   only — there's nothing to re-test.
+4. Test files live in `__tests__/` (+ `lib/__tests__/`); native modules are mocked
+   (`__mocks__/expo-sqlite.js` is auto-applied; mock `@/lib/db` directly for store logic).
+   Add a test when you add a pure helper or store logic; keep them DB-free/headless.
+
+### Web preview for agent testing (visual/logic — not pixel-perfect native)
+`EMULATOR_TESTING_SPIKE.md` / `EMULATOR_TESTING_HANDOFF.md` describe the original plan;
+this is the outcome. Runs the real app as Expo Web (`react-native-web`) and drives it
+headlessly with Playwright (Chromium pre-installed under `PLAYWRIGHT_BROWSERS_PATH` —
+never `playwright install`) so an agent can actually *see* screens and flows without a
+device or EAS build.
+
+- **Run it:** `npm run preview` — builds (`expo export --platform web` + wires the
+  sql.js fallback), serves `dist/` with COOP/COEP headers, and walks onboarding + all 5
+  tabs with Playwright, screenshotting to `preview-shots/` (gitignored). Add a task via
+  the always-open first-run draft card and confirms it survives a tab round-trip, proving
+  the store→DB write path actually works, not just static render.
+  - `npm run preview:build` / `npm run preview:serve` run the two steps standalone.
+  - `node scripts/preview.mjs --route=/some/path` for a focused single-screen recheck.
+- **SQLite-on-web (the gating decision):** `expo-sqlite`'s web backend (wa-sqlite/WASM)
+  needs a growable `SharedArrayBuffer`-backed WASM memory for its worker bridge — this
+  reliably fails with `RangeError: Out of memory: Cannot allocate Wasm memory for new
+  instance` in this container (`RLIMIT_MEMLOCK` fixed at 8MB, no permission to raise it —
+  confirmed unfixable from app code). **Fallback in use: `sql.js`** (in-memory,
+  single-threaded, no worker/shared memory). `scripts/build-web.mjs` loads it via a plain
+  `<script>` bootstrap injected into `dist/index.html` that finishes BEFORE the app
+  bundle's own `<script>` tag is even inserted, so `lib/sqlite.web.ts` can read the ready
+  `SQL.Database` off `window.__unfocusSqlJsDb__` synchronously at module-eval time — no
+  top-level-await, no queuing tricks needed. **In-memory only — no persistence across a
+  full page reload/`page.goto()`.** Navigate between tabs via BottomNav clicks (client-side
+  route change), not `page.goto()`, or the DB (and onboarding state) resets.
+- **The `.web` sibling pattern** (Metro resolves `file.web.ts(x)` over `file.ts(x)` on
+  web — no `Platform.OS` branches in native files): `lib/sqlite.ts`/`lib/sqlite.web.ts`
+  (DB handle), `lib/lanTransport.web.ts` (LAN sync stub — `isTransportAvailable()` false),
+  `lib/widgets/sync.web.ts` (Android widgets no-op), `app/(tabs)/scan.web.tsx` (OCR
+  placeholder screen — `@react-native-ml-kit/text-recognition` has no web build).
+  `metro.config.js` adds `.wasm` to `resolver.assetExts` (harmless leftover from the
+  rejected wa-sqlite path; costs nothing to keep).
+- **Not pixel-perfect native.** react-native-web renders layout/navigation/store logic
+  faithfully but differs from native in shadows/elevation, some font metrics, and
+  Reanimated timing. Use this for "does the flow/logic work," not final visual sign-off —
+  that still goes through a device/EAS build.
+
 ## Known gotchas
 
 - **`StyleSheet.absoluteFill`** (not `.absoluteFillObject`) for full-screen overlays
@@ -135,7 +188,7 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 ## Builds and updates
 
 ### OTA updates (normal flow)
-- **⚠️ PUBLISH = MERGE TO `main`.** Nothing reaches users until the change is on `main`. Pushing your `claude/**` branch is only step 1; you must open a PR into `main` and merge it. Full step-by-step: `PUBLISHING.md`.
+- **⚠️ PUBLISH = MERGE TO `main`, and you ALWAYS do it.** Standing rule: every change finishes with a PR from the `claude/**` branch into `main` that you merge yourself — automatically, without being asked, and without handing the merge back to the user. Pushing the branch is only step 1. Full step-by-step: `PUBLISHING.md`.
 - Workflow: `.github/workflows/update.yml` — triggers on every push to `main` only (deliberately NOT on `claude/**` branches — parallel session branches all publishing to the one shared `preview` channel caused a real incident where a later, older-tree push silently clobbered a newer one; see git history around June 2026). Push your branch and merge into `main` to publish.
 - Runs `eas update --branch preview --message "..."` — always publishes to EAS branch `preview`
 - Runtime version is read from `runtimeVersion` in `app.json` — an OTA reaches only installs whose runtime matches that value

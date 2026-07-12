@@ -8,7 +8,7 @@
  * sub-toggle, the week-interval (1/2/3), and Normal/Important.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme
+ *   Imports → constants/theme, lib/useAppTheme, components/PressableScale
  *   Used by → components/TaskCard.tsx
  *   Data    → none (controlled; value/options/onChange from props)
  *
@@ -17,9 +17,10 @@
  *   - `compact` shrinks padding/font for the tight week-interval / ordinal rows.
  */
 import React from 'react';
-import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
+import PressableScale from '@/components/PressableScale';
 
 export type SlideOption<T extends string | number> = { value: T; label: string };
 
@@ -42,11 +43,11 @@ export default function SlideSelector<T extends string | number>({
 }: Props<T>) {
   const theme = useAppTheme();
   return (
-    <View style={[styles.wrap, { backgroundColor: theme.surfaceMuted, opacity: disabled ? 0.5 : 1 }, style]}>
+    <View style={[styles.wrap, { backgroundColor: theme.surfaceMuted, borderColor: theme.border, opacity: disabled ? 0.5 : 1 }, style]}>
       {options.map((opt) => {
         const active = opt.value === value;
         return (
-          <Pressable
+          <PressableScale
             key={String(opt.value)}
             style={[
               styles.segment,
@@ -57,6 +58,7 @@ export default function SlideSelector<T extends string | number>({
             disabled={disabled}
             accessibilityRole="button"
             accessibilityState={{ selected: active, disabled }}
+            scaleTo={0.97}
           >
             <Text
               numberOfLines={1}
@@ -67,7 +69,7 @@ export default function SlideSelector<T extends string | number>({
             >
               {opt.label}
             </Text>
-          </Pressable>
+          </PressableScale>
         );
       })}
     </View>
@@ -78,6 +80,7 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     borderRadius: Radius.full,
+    borderWidth: 1,
     padding: 3,
     gap: 3,
   },

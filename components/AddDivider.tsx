@@ -11,15 +11,16 @@
  * on empty screens where the tiny button alone is too easy to miss.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme
+ *   Imports → constants/theme, lib/useAppTheme, components/PressableScale
  *   Used by → components/WeekListCard.tsx, app/shopping.tsx (Monthly catalog's "add item" spot —
  *             "add dish" moved to a standalone top button, see shopping.tsx's header)
  *   Data    → none — purely presentational, fires onPress
  */
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import PressableScale from '@/components/PressableScale';
 
 type Props = { onPress: () => void; disabled?: boolean; label?: string };
 
@@ -28,16 +29,17 @@ export default function AddDivider({ onPress, disabled, label }: Props) {
   return (
     <View style={[styles.row, disabled && styles.gated]} pointerEvents={disabled ? 'none' : 'auto'}>
       <View style={[styles.line, { backgroundColor: theme.border }]} />
-      <Pressable
+      <PressableScale
         onPress={onPress}
         style={[styles.button, { backgroundColor: theme.surfaceMuted }, !!label && styles.buttonLabeled]}
         hitSlop={label ? 4 : 6}
+        scaleTo={0.97}
       >
         <Text style={[styles.plus, { color: theme.textMuted }]}>+</Text>
         {label && (
           <Text style={[styles.label, { color: theme.textMuted }]}>{label}</Text>
         )}
-      </Pressable>
+      </PressableScale>
       <View style={[styles.line, { backgroundColor: theme.border }]} />
     </View>
   );

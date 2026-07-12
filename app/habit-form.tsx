@@ -14,7 +14,8 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
  *             components/HintCard, components/HabitIcon, components/Button, components/AppModal,
- *             lib/haptics, lib/i18n, lib/useAppTheme, store/useHabitStore, store/useSettingsStore
+ *             components/PressableScale, lib/haptics, lib/i18n, lib/useAppTheme,
+ *             store/useHabitStore, store/useSettingsStore
  *   Used by → Expo Router route "/habit-form"; reached from app/(tabs)/health.tsx's
  *             embedded Habits section (AddFAB "+" and long-press-to-edit on a habit card)
  *   Data    → useHabitStore (habits table) via add/update/remove; toggling the notification
@@ -40,7 +41,7 @@
  *     every time field is a plain FormControls.Input (HH:MM text).
  */
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -60,6 +61,7 @@ import HintCard from '@/components/HintCard';
 import HabitIcon, { HABIT_ICON_NAMES } from '@/components/HabitIcon';
 import Button from '@/components/Button';
 import { showAppModal } from '@/components/AppModal';
+import PressableScale from '@/components/PressableScale';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 
 const INTERVAL_OPTIONS = [30, 60, 90, 120, 180, 240];
@@ -116,6 +118,7 @@ export default function HabitForm() {
   const updateHabit = useHabitStore((s) => s.update);
   const removeHabit = useHabitStore((s) => s.remove);
   const childProfiles = useSettingsStore((s) => s.childProfiles);
+  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
 
   const theme = useAppTheme();
   const t = useT();
@@ -222,9 +225,9 @@ export default function HabitForm() {
       tier="sub"
       onBack={() => router.back()}
       headerRight={
-        <Pressable onPress={save} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.save}>
+        <PressableScale onPress={save} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.save} scaleTo={0.9}>
           <Ionicons name="checkmark" size={24} color={theme.accent} />
-        </Pressable>
+        </PressableScale>
       }
     >
       <View style={styles.content}>
@@ -255,14 +258,14 @@ export default function HabitForm() {
         </View>
 
         {/* For — profile assignment */}
-        {childProfiles.length > 0 && (
+        {peopleModeEnabled && childProfiles.length > 0 && (
           <View style={styles.field}>
             <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitForLabel}</Text>
             <View style={styles.chipRow}>
               {(['', ...childProfiles] as string[]).map((name) => {
                 const active = childName === name;
                 return (
-                  <Pressable
+                  <PressableScale
                     key={name || '__me__'}
                     style={[
                       styles.chip,
@@ -273,11 +276,12 @@ export default function HabitForm() {
                       tap();
                       setChildName(name);
                     }}
+                    scaleTo={0.97}
                   >
                     <Text style={[styles.chipText, { color: theme.text }, active && { color: theme.accentInk }]}>
                       {name || t.habitForMe}
                     </Text>
-                  </Pressable>
+                  </PressableScale>
                 );
               })}
             </View>
@@ -319,19 +323,21 @@ export default function HabitForm() {
               <View style={styles.timeFieldWrap}>
                 <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitReminderCountLabel}</Text>
                 <View style={styles.stepper}>
-                  <Pressable
+                  <PressableScale
                     style={[styles.stepperBtn, { backgroundColor: theme.surfaceMuted }]}
                     onPress={() => setReminderCount((c) => Math.max(2, c - 1))}
+                    scaleTo={0.9}
                   >
                     <Text style={[styles.stepperBtnText, { color: theme.text }]}>−</Text>
-                  </Pressable>
+                  </PressableScale>
                   <Text style={[styles.stepperValue, { color: theme.text }]}>{reminderCount}</Text>
-                  <Pressable
+                  <PressableScale
                     style={[styles.stepperBtn, { backgroundColor: theme.accent }]}
                     onPress={() => setReminderCount((c) => Math.min(12, c + 1))}
+                    scaleTo={0.9}
                   >
                     <Text style={[styles.stepperBtnText, { color: theme.accentInk }]}>+</Text>
-                  </Pressable>
+                  </PressableScale>
                 </View>
               </View>
             )}
@@ -343,7 +349,7 @@ export default function HabitForm() {
                   {INTERVAL_OPTIONS.map((min) => {
                     const active = reminderIntervalMin === min;
                     return (
-                      <Pressable
+                      <PressableScale
                         key={min}
                         style={[
                           styles.chip,
@@ -354,11 +360,12 @@ export default function HabitForm() {
                           tap();
                           setReminderIntervalMin(min);
                         }}
+                        scaleTo={0.97}
                       >
                         <Text style={[styles.chipText, { color: theme.text }, active && { color: theme.accentInk }]}>
                           {min % 60 === 0 ? t.habitReminderEveryHours(min / 60) : t.habitReminderEveryMinutes(min)}
                         </Text>
-                      </Pressable>
+                      </PressableScale>
                     );
                   })}
                 </View>
@@ -390,17 +397,18 @@ export default function HabitForm() {
         )}
 
         {/* More options disclosure */}
-        <Pressable
+        <PressableScale
           style={[styles.disclosure, { borderColor: theme.border }]}
           onPress={() => {
             tap();
             setShowMore((v) => !v);
           }}
+          scaleTo={0.97}
         >
           <Text style={[styles.disclosureText, { color: theme.textMuted }]}>
             {showMore ? `${t.habits.fewerOptions} ↑` : `${t.habits.moreOptions} ↓`}
           </Text>
-        </Pressable>
+        </PressableScale>
 
         {showMore && (
           <>
@@ -412,7 +420,7 @@ export default function HabitForm() {
                   {HABIT_ICON_NAMES.map((iconName) => {
                     const active = icon === iconName;
                     return (
-                      <Pressable
+                      <PressableScale
                         key={iconName}
                         style={[
                           styles.iconBtn,
@@ -423,9 +431,10 @@ export default function HabitForm() {
                           tap();
                           setIcon(iconName);
                         }}
+                        scaleTo={0.9}
                       >
                         <HabitIcon icon={iconName} size={22} color={active ? theme.accentInk : theme.text} />
-                      </Pressable>
+                      </PressableScale>
                     );
                   })}
                 </View>
@@ -440,7 +449,7 @@ export default function HabitForm() {
                   {categoryKeys.map((cat) => {
                     const active = category === cat;
                     return (
-                      <Pressable
+                      <PressableScale
                         key={cat}
                         style={[
                           styles.chip,
@@ -451,11 +460,12 @@ export default function HabitForm() {
                           tap();
                           setCategory(cat);
                         }}
+                        scaleTo={0.97}
                       >
                         <Text style={[styles.chipText, { color: theme.text }, active && { color: theme.accentInk }]}>
                           {t.habitCategories[cat]}
                         </Text>
-                      </Pressable>
+                      </PressableScale>
                     );
                   })}
                 </View>
@@ -472,19 +482,21 @@ export default function HabitForm() {
             <View style={styles.field}>
               <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitDailyGoal}</Text>
               <View style={styles.stepper}>
-                <Pressable
+                <PressableScale
                   style={[styles.stepperBtn, { backgroundColor: theme.surfaceMuted }]}
                   onPress={() => setDailyGoal((g) => Math.max(1, g - 1))}
+                  scaleTo={0.9}
                 >
                   <Text style={[styles.stepperBtnText, { color: theme.text }]}>−</Text>
-                </Pressable>
+                </PressableScale>
                 <Text style={[styles.stepperValue, { color: theme.text }]}>{dailyGoal}</Text>
-                <Pressable
+                <PressableScale
                   style={[styles.stepperBtn, { backgroundColor: theme.accent }]}
                   onPress={() => setDailyGoal((g) => Math.min(20, g + 1))}
+                  scaleTo={0.9}
                 >
                   <Text style={[styles.stepperBtnText, { color: theme.accentInk }]}>+</Text>
-                </Pressable>
+                </PressableScale>
               </View>
             </View>
           </>

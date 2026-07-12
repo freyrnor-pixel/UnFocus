@@ -59,7 +59,7 @@ Shadow.card = {
 <View style={{
   backgroundColor: theme.white,
   borderRadius: Radius.md,
-  padding: Layout.cardPadding,
+  padding: Spacing.md,
   ...Shadow.card,  // Subtle shadow
 }}>
   {/* Card content */}
@@ -84,7 +84,7 @@ Shadow.cardHeavy = {
 <View style={{
   backgroundColor: theme.white,
   borderRadius: Radius.lg,
-  padding: Layout.cardPadding,
+  padding: Spacing.md,
   ...Shadow.cardHeavy,  // Prominent shadow
 }}>
   {/* Modal or emphasized content */}
@@ -309,7 +309,7 @@ Page Background (no shadow)
 <View style={{
   backgroundColor: theme.white,
   borderRadius: Radius.md,
-  padding: Layout.cardPadding,
+  padding: Spacing.md,
   ...Shadow.card,
 }}>
   <Text>Card content</Text>
@@ -321,7 +321,7 @@ Page Background (no shadow)
 <View style={{
   backgroundColor: theme.white,
   borderRadius: Radius.lg,
-  padding: Layout.cardPadding,
+  padding: Spacing.md,
   ...Shadow.cardHeavy,
 }}>
   <Text style={{ fontSize: FontSize.lg, fontFamily: Fonts.bold }}>Modal Title</Text>
@@ -405,7 +405,7 @@ export function MyCard() {
     <View style={{
       backgroundColor: theme.white,
       borderRadius: Radius.md,
-      padding: Layout.cardPadding,
+      padding: Spacing.md,
       ...Shadow.card,  // Spread the shadow token
     }}>
       {/* Card content */}

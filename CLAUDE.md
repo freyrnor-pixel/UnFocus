@@ -8,6 +8,14 @@
 update workflow (`.github/workflows/update.yml`) runs **only on push to `main`**.
 A fix that lives only on a feature branch is invisible to every installed app.
 
+**Standing rule — ALWAYS open a PR and ALWAYS merge it to `main`.** Every code
+change finishes with a PR from the `claude/**` branch into `main` that you then
+merge yourself. Do not stop at "pushed the branch," and do not hand the merge
+back to the user as a separate step — merging is part of the task. (The maintainer
+granted this standing authorization; it applies to native-surface changes too.
+The one thing still gated to the human is *cutting the actual APK/AAB build* — see
+AGENTS.md — never the PR or the merge.)
+
 To make ANY JS/UI/logic change go live (see `PUBLISHING.md` for the full guide):
 
 1. Commit + push your work on the designated `claude/**` branch.
@@ -16,14 +24,15 @@ To make ANY JS/UI/logic change go live (see `PUBLISHING.md` for the full guide):
    runs `eas update --branch preview` targeting whatever `runtimeVersion` is
    currently set in `app.json`. Users get it on next launch (~1–2 min).
 
+Always do all three, every time, without being asked.
+
 If the user says "I can't see the update," the cause is almost always: **the
 commit never reached `main`.** Check `git log origin/main` for your commit before
 looking anywhere else. (Runtime must also match: OTA only reaches installs whose
 runtime == `app.json` `runtimeVersion`. Native changes need a new build, not OTA —
 see AGENTS.md.)
 
-**A task that must "go live" is not finished until it is merged to `main`** (or
-you've explicitly handed the merge to the user).
+**A task is not finished until its PR is merged to `main`.**
 
 ## Before Starting
 
@@ -49,17 +58,41 @@ you've explicitly handed the merge to the user).
 | SQLite file: `unfocus.db` (in `lib/db.ts`) | Fixed name for device storage |
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations | Runs once; never drop/recreate |
 | Stores use `lib/dataAccess.ts` | 13 of 14 stores rely on this pattern |
-| To publish, MERGE TO `main` | OTA (`update.yml`) fires only on push to `main`; a `claude/**` branch push publishes nothing (see the "Publishing" section above + `PUBLISHING.md`) |
+| ALWAYS open a PR and merge it to `main` | Every change ends with a PR into `main` that you merge yourself — never stop at the branch, never hand the merge off. OTA (`update.yml`) fires only on push to `main` (see the "Publishing" section above + `PUBLISHING.md`) |
 | New builds go through the maintainer; don't bump `runtimeVersion` ahead of the build | OTA reaches only installs on the matching runtime — bump `runtimeVersion` only *after* the maintainer cuts the new preview build (see AGENTS.md "Runtime version") |
 
 ### Navigation State
 - **BottomNav** (`components/BottomNav.tsx`) — current, only entry point; no redesign needed
 - **BubbleMenu** (radial FAB from the pre-rebuild spec) — dropped before porting (Decision 008 #5); `components/BubbleMenu.tsx` does not exist in this repo, don't look for it
 
-### Testing
-- **No Jest required** until further notice (no test runs, no live-app verification)
-- Manual code review only: read through for bugs and dead code
-- TypeScript typecheck (`npx tsc --noEmit`) is local-only; not available in remote environment
+### Testing — headless verification (no device needed)
+A full emulator is **not feasible** in the remote environment (no KVM/virtualization,
+and the app is deeply native), so verification is headless. Both of these run in the
+remote env (the session-start hook installs deps):
+
+- **Typecheck first:** `npx tsc --noEmit` — runs and passes here. Catches broken
+  imports, type errors, and (because `no: typeof en` in `lib/i18n.ts`) missing/mismatched
+  i18n keys at compile time. This is the cheap first-pass gate on every change.
+- **Jest suite** over the pure logic/store layer (`__tests__/` + `lib/__tests__/`):
+  date/time helpers, `dataAccess`, receipt parsing, reminder scheduling, live-sync LWW.
+  Native modules (`expo-sqlite`, notifications, etc.) are mocked — see
+  `__mocks__/expo-sqlite.js` and the `jest.mock` patterns in `__tests__/*.test.ts`.
+- **Run only what a change affects, and only for behavioral changes:**
+  `scripts/test-changed.sh` (wraps `jest --findRelatedTests` over the git diff).
+  A pure move/rename/comment/header edit gets `tsc --noEmit` only — skip Jest.
+  Report which tests ran + their pass/fail, not a blanket "all green".
+- **Visual/logic verification via the web preview "emulator":** a real Android
+  emulator still isn't feasible here (no KVM), but `npm run preview` builds the app as
+  Expo Web and drives it headlessly with Playwright (Chromium pre-installed) — screenshots
+  every onboarding step + all 5 tabs, and exercises adding a task to prove the SQLite
+  write→read path, not just static render. See "Web preview for agent testing" in
+  AGENTS.md for the full command set and the SQLite-on-web caveat (in-memory `sql.js`,
+  not the native SQLite file). **Fidelity caveat:** react-native-web layout/logic is
+  faithful but NOT pixel-identical to native (shadows, font metrics, Reanimated timing
+  differ) — use it for "does the flow/logic work," not final visual sign-off.
+- **Still not covered:** true pixel-perfect native rendering, gestures (swipe/haptics),
+  and anything behind a native-only module (camera OCR, widgets, LAN sync) — those need
+  a real device (maintainer, or a local emulator where KVM exists).
 
 ## During Work
 
@@ -70,7 +103,8 @@ you've explicitly handed the merge to the user).
 
 ## After Completing a Cookbook Task
 
-- Run `npx tsc --noEmit` locally to typecheck
+- Run `npx tsc --noEmit` to typecheck (works in the remote env now)
+- For behavioral changes, run `scripts/test-changed.sh` to exercise the affected tests
 - Verify file headers are accurate
 - `/clear` before starting an unrelated task — but carry forward which files changed and any new i18n keys/migration lines, so the next step doesn't need to re-read what was just written
 

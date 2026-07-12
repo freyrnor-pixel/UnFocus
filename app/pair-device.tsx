@@ -10,9 +10,10 @@
  * Connections:
  *   Imports → components/AppModal, components/Button, components/QRCodeDisplay,
  *             components/ScreenScaffold, components/Surface, components/FormControls
- *             (Switch), constants/theme, expo-camera, lib/date, lib/i18n, lib/peerAuth
- *             (generateSecret), lib/share (encode/decodeSharePayload), lib/syncService
- *             (isSyncAvailable), lib/useAppTheme, store/usePeersStore, store/useSettingsStore
+ *             (Switch), components/PressableScale, constants/theme, expo-camera, lib/date,
+ *             lib/i18n, lib/peerAuth (generateSecret), lib/share (encode/decodeSharePayload),
+ *             lib/syncService (isSyncAvailable), lib/useAppTheme, store/usePeersStore,
+ *             store/useSettingsStore
  *   Used by → Expo Router route "/pair-device" — pushed from app/settings.tsx's
  *             Data group "Live sync" card
  *   Data    → reads/writes store/usePeersStore (peers table); reads/writes
@@ -34,7 +35,7 @@
  *     per-screen focus-load.
  */
 import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -51,6 +52,7 @@ import Surface from '@/components/Surface';
 import Button from '@/components/Button';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import { Switch as FormSwitch } from '@/components/FormControls';
+import PressableScale from '@/components/PressableScale';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
@@ -194,9 +196,9 @@ export default function PairDeviceScreen() {
                       {t.peers.pairedAt(formatDisplayDate(dateStr(new Date(peer.pairedAt)), lang))}
                     </Text>
                   </View>
-                  <Pressable onPress={() => confirmRemove(peer.deviceId)} hitSlop={8}>
+                  <PressableScale onPress={() => confirmRemove(peer.deviceId)} hitSlop={8} scaleTo={0.93}>
                     <Text style={[styles.removeLink, { color: theme.bad }]}>{t.peers.removeDevice}</Text>
-                  </Pressable>
+                  </PressableScale>
                 </View>
               ))
             )}
@@ -216,9 +218,9 @@ export default function PairDeviceScreen() {
               <Text style={[styles.explain, { color: theme.textMuted }]}>{t.peers.chooseRoleExplain}</Text>
               <Button label={t.peers.showMyCode} onPress={startAsInitiator} />
               <Button label={t.peers.scanACode} variant="secondary" onPress={startAsResponder} />
-              <Pressable style={styles.wizardCancel} onPress={closeWizard}>
+              <PressableScale style={styles.wizardCancel} onPress={closeWizard} scaleTo={0.97}>
                 <Text style={[styles.wizardCancelText, { color: theme.textMuted }]}>{t.cancel}</Text>
-              </Pressable>
+              </PressableScale>
             </View>
           </SafeAreaView>
         ) : step === 'show' ? (
@@ -234,18 +236,18 @@ export default function PairDeviceScreen() {
               ) : (
                 <Button label={t.peers.showCodeDone} onPress={closeWizard} />
               )}
-              <Pressable style={styles.wizardCancel} onPress={closeWizard}>
+              <PressableScale style={styles.wizardCancel} onPress={closeWizard} scaleTo={0.97}>
                 <Text style={[styles.wizardCancelText, { color: theme.textMuted }]}>{t.cancel}</Text>
-              </Pressable>
+              </PressableScale>
             </View>
           </SafeAreaView>
         ) : (
           <View style={[styles.qrModal, { backgroundColor: QR_BG }]}>
             <SafeAreaView style={styles.qrSafeArea}>
               <View style={styles.qrHeader}>
-                <Pressable onPress={closeWizard}>
+                <PressableScale onPress={closeWizard} scaleTo={0.97}>
                   <Text style={[styles.backLink, { color: theme.accent }]}>{t.cancel}</Text>
-                </Pressable>
+                </PressableScale>
                 <Text style={[styles.qrTitle, { color: QR_FG }]}>{t.peers.title}</Text>
                 <View style={{ width: 60 }} />
               </View>

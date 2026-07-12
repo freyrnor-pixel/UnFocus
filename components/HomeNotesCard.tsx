@@ -9,8 +9,8 @@
  * (always-render-header per Decision 043 rule 4) — it does not render nothing/null.
  *
  * Connections:
- *   Imports → components/Surface, constants/theme, lib/haptics, lib/i18n, lib/useAppTheme,
- *             store/useNotesStore
+ *   Imports → components/Surface, components/PressableScale, constants/theme, lib/haptics,
+ *             lib/i18n, lib/useAppTheme, store/useNotesStore
  *   Used by → app/(tabs)/index.tsx (replaces InboxSection in the Notes preview slot)
  *   Data    → reads/writes useNotesStore (notes table): toggleChecked, add
  *
@@ -20,12 +20,15 @@
  *     mirroring PlanTaskCard's done zone.
  *   - "+" add creates a blank note via add() then navigates to /notes so the user can fill it.
  *     success() haptic fires on add; tap() haptic on toggle/expand.
+ *   - **Touch target (2026-07-11)**: check circle is visually 22x22 but `hitSlop={13}`
+ *     brings the tappable area to ~48dp, meeting Android's minimum touch-target size.
  */
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
+import PressableScale from '@/components/PressableScale';
 import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
@@ -67,7 +70,7 @@ export default function HomeNotesCard() {
       <View style={styles.cardContent}>
 
         {/* Title row */}
-        <Pressable onPress={handleTitlePress} style={styles.titleRowPressable}>
+        <PressableScale onPress={handleTitlePress} style={styles.titleRowPressable} scaleTo={0.97}>
           <View style={styles.titleRow}>
             <Text style={[styles.title, { color: theme.text }]}>{t.notes.title}</Text>
             {activeNotes.length > 0 && (
@@ -76,7 +79,7 @@ export default function HomeNotesCard() {
               </View>
             )}
           </View>
-        </Pressable>
+        </PressableScale>
 
         {/* Active note rows */}
         {activeNotes.length === 0 ? (
@@ -90,14 +93,15 @@ export default function HomeNotesCard() {
                 <View key={note.id}>
                   {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
                   <View style={styles.noteRow}>
-                    <Pressable
+                    <PressableScale
                       style={[styles.check, { borderColor: theme.featNote }]}
                       onPress={() => handleToggle(note.id)}
-                      hitSlop={8}
+                      hitSlop={13}
                       accessibilityLabel={t.notes.checkedLabel}
+                      scaleTo={0.97}
                     >
                       {/* circle only — tap marks it checked and it moves to the done section */}
-                    </Pressable>
+                    </PressableScale>
                     <View style={styles.noteText}>
                       <Text
                         style={[styles.noteHeader, { color: theme.text }]}
@@ -123,22 +127,24 @@ export default function HomeNotesCard() {
 
         {/* Expand/collapse active notes */}
         {showToggle && (
-          <Pressable
+          <PressableScale
             style={styles.footerBtn}
             onPress={() => { tap(); setExpanded((v) => !v); }}
+            scaleTo={0.97}
           >
             <Text style={[styles.footerBtnText, { color: theme.accent }]}>
               {expanded ? t.home.notesCollapse : t.home.notesExpand}
             </Text>
-          </Pressable>
+          </PressableScale>
         )}
 
         {/* Checked/done zone — only shown when expanded, mirroring PlanTaskCard done zone */}
         {expanded && checkedNotes.length > 0 && (
           <View style={[styles.rowsContainer, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-            <Pressable
+            <PressableScale
               style={styles.doneHeader}
               onPress={() => { tap(); setCheckedOpen((v) => !v); }}
+              scaleTo={0.97}
             >
               <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>
                 {t.notes.checkedLabel} ({checkedNotes.length})
@@ -148,18 +154,19 @@ export default function HomeNotesCard() {
                 size={14}
                 color={theme.textMuted}
               />
-            </Pressable>
+            </PressableScale>
             {checkedOpen && checkedNotes.map((note, idx) => (
               <View key={note.id}>
                 {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
                 <View style={styles.noteRow}>
-                  <Pressable
+                  <PressableScale
                     style={[styles.check, { borderColor: theme.featNote, backgroundColor: theme.featNote }]}
                     onPress={() => handleToggle(note.id)}
                     hitSlop={8}
+                    scaleTo={0.97}
                   >
                     <Ionicons name="checkmark" size={12} color={theme.accentInk} />
-                  </Pressable>
+                  </PressableScale>
                   <View style={styles.noteText}>
                     <Text
                       style={[styles.noteHeader, { color: theme.textMuted, textDecorationLine: 'line-through' }]}

@@ -97,6 +97,7 @@ export default function ListSettingsSheet({ visible, list, onClose, onSetRecurri
                         : [...lastList.activeWeeks, n];
                       onSetActiveWeeks(next);
                     }}
+                    scaleTo={0.97}
                   >
                     <Text style={[styles.chipText, { color: active ? theme.accentInk : theme.text }]}>
                       {t.weekNumberChip(n)}
@@ -108,7 +109,7 @@ export default function ListSettingsSheet({ visible, list, onClose, onSetRecurri
           </View>
         )}
 
-        <PressableScale style={[styles.doneBtn, { backgroundColor: theme.accent }]} onPress={onClose}>
+        <PressableScale style={[styles.doneBtn, { backgroundColor: theme.accent }]} onPress={onClose} scaleTo={0.95}>
           <Text style={[styles.doneBtnText, { color: theme.accentInk }]}>{t.save}</Text>
         </PressableScale>
       </Surface>
