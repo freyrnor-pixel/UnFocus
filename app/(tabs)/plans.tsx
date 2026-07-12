@@ -16,8 +16,8 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedRequestsSection,
- *             components/TaskCard, components/AddDivider, constants/theme, lib/date,
- *             lib/i18n, lib/useAppTheme, store/useTaskStore
+ *             components/TaskCard, components/AddDivider, components/PressableScale,
+ *             constants/theme, lib/date, lib/i18n, lib/useAppTheme, store/useTaskStore
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → reads/writes useTaskStore (tasks/steps); SharedRequestsSection reads
  *             useSharedStore internally for incoming shares
@@ -47,13 +47,14 @@
  *     only seeds the first-run blank draft (see below).
  */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import SharedRequestsSection from '@/components/SharedRequestsSection';
 import TaskCard from '@/components/TaskCard';
 import AddDivider from '@/components/AddDivider';
+import PressableScale from '@/components/PressableScale';
 import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -213,13 +214,14 @@ export default function TasksScreen() {
           const label =
             tabOption === 'all' ? t.tasksTabAll : tabOption === 'today' ? t.tasksTabToday : t.tasksTabWeek;
           return (
-            <Pressable
+            <PressableScale
               key={tabOption}
               style={[styles.tab, isActive && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]}
               onPress={() => setTab(tabOption)}
+              scaleTo={0.97}
             >
               <Text style={[styles.tabText, { color: isActive ? theme.accent : theme.textMuted }]}>{label}</Text>
-            </Pressable>
+            </PressableScale>
           );
         })}
       </View>
@@ -284,13 +286,14 @@ export default function TasksScreen() {
               {/* "Make New" card — same dashed-card affordance as Shopping's "Create a new
                   list" (app/(tabs)/shopping.tsx styles.newListCard), always visible so the
                   two list-style screens stay consistent. */}
-              <Pressable
+              <PressableScale
                 style={[styles.newTaskCard, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
                 onPress={addDraft}
+                scaleTo={0.97}
               >
                 <Text style={[styles.newTaskPlus, { color: theme.accent }]}>+</Text>
                 <Text style={[styles.newTaskText, { color: theme.accent }]}>{t.newTask}</Text>
-              </Pressable>
+              </PressableScale>
             </View>
 
             <View style={styles.section}>

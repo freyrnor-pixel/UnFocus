@@ -127,8 +127,8 @@ opportunistically with other work in the same file)
       tab, reset-monthly icon (destructive), purchased-section header, allocate-to-weekly x2,
       remove-item x2 (destructive), "new weekly list" card, reset-confirm No/Yes
       (Yes is destructive).
-- [ ] `app/(tabs)/plans.tsx:216,287` — Today/This-week tab, "new task" draft card.
-- [ ] `app/automations.tsx:85,114,133,168,171` — delete-rule (destructive), trigger/action
+- [x] `app/(tabs)/plans.tsx:216,287` — Today/This-week tab, "new task" draft card.
+- [x] `app/automations.tsx:85,114,133,168,171` — delete-rule (destructive), trigger/action
       chips x2, form cancel, form save.
 
 ---
