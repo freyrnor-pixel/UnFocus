@@ -62,13 +62,13 @@ opportunistically with other work in the same file)
 
 ## Part 3, Phase 2 — Card/row components (main-tab, high-frequency taps)
 
-- [ ] `components/TaskCard.tsx:252,259,273,290,310,320,374,395,439,509,580` — discard/save-edit,
+- [x] `components/TaskCard.tsx:252,259,273,290,310,320,374,395,439,509,580` — discard/save-edit,
       done-toggle circle, title tap, chevron, step check-circles (x2), step remove, weekday
       chips (x2), delete-task row. Mixed types per the table — done-circles/`0.97`,
       icon/chevron `0.90`, delete row `0.93`, chips `0.97`.
-- [ ] `components/PlanTaskCard.tsx:297,353,402,542,589,607` — done-toggle circle, content tap,
+- [x] `components/PlanTaskCard.tsx:297,353,402,542,589,607` — done-toggle circle, content tap,
       card tap, header nav link, disclosure, expand/collapse footer.
-- [ ] `components/ShoppingRow.tsx:322,377,392,416` — check-circle (`0.97`), qty stepper x2
+- [x] `components/ShoppingRow.tsx:322,377,392,416` — check-circle (`0.97`), qty stepper x2
       (`0.90`), remove (`0.93` destructive).
 - [ ] `components/WeekListCard.tsx:270,288,305,375,383,396,421,447,483,514,524` — list-name
       tap, lock toggle, progress row, inline-add stepper x2, inline-add confirm, catalog

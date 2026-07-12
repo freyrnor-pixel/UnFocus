@@ -24,7 +24,8 @@
  * Connections:
  *   Imports → components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
  *             components/IconButton, components/FormControls (Switch), components/AppModal,
- *             constants/theme, lib/date, lib/haptics, lib/i18n, lib/id, lib/useAppTheme, store/useTaskStore
+ *             components/PressableScale, constants/theme, lib/date, lib/haptics, lib/i18n, lib/id,
+ *             lib/useAppTheme, store/useTaskStore
  *   Used by → app/(tabs)/plans.tsx
  *   Data    → reads the passed `task`; writes via useTaskStore (update/steps/remove/setSharedOut)
  *             for committed tasks; a new (draft) card writes nothing until onCommitNew fires.
@@ -38,7 +39,7 @@
  *   - Save is disabled while the title is blank, so blank tasks can't be created.
  */
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -53,6 +54,7 @@ import DatePickerCalendar from '@/components/DatePickerCalendar';
 import IconButton from '@/components/IconButton';
 import { Switch } from '@/components/FormControls';
 import { showAppModal } from '@/components/AppModal';
+import PressableScale from '@/components/PressableScale';
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
@@ -249,32 +251,35 @@ export default function TaskCard({
       {/* ── Discard / Save bar (edit mode, above the card) ── */}
       {editing && (
         <View style={styles.saveBar}>
-          <Pressable
+          <PressableScale
             style={[styles.saveBtn, { backgroundColor: theme.surfaceMuted }]}
             onPress={handleDiscard}
             accessibilityRole="button"
+            scaleTo={0.97}
           >
             <Text style={[styles.saveBtnText, { color: theme.textMuted }]}>{t.taskDiscard}</Text>
-          </Pressable>
-          <Pressable
+          </PressableScale>
+          <PressableScale
             style={[styles.saveBtn, { backgroundColor: canSave ? theme.accent : theme.surfaceMuted, opacity: canSave ? 1 : 0.6 }]}
             onPress={handleSave}
             disabled={!canSave}
             accessibilityRole="button"
+            scaleTo={0.95}
           >
             <Text style={[styles.saveBtnText, { color: canSave ? theme.accentInk : theme.textMuted }]}>{t.taskSave}</Text>
-          </Pressable>
+          </PressableScale>
         </View>
       )}
 
       <View style={[styles.card, { backgroundColor: tinted ? theme.accentSoft : theme.surface, borderColor: editing ? theme.accent : theme.border }]}>
         {/* ── Collapsed row ── */}
         <View style={styles.row}>
-          <Pressable
+          <PressableScale
             hitSlop={8}
             onPress={() => onToggleDone(task)}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: task.done }}
+            scaleTo={0.97}
           >
             <View
               style={[
@@ -285,9 +290,9 @@ export default function TaskCard({
             >
               {task.done && <Ionicons name="checkmark" size={14} color={theme.accentInk} />}
             </View>
-          </Pressable>
+          </PressableScale>
 
-          <Pressable style={styles.titleTap} onPress={openEditor} disabled={!canExpand}>
+          <PressableScale style={styles.titleTap} onPress={openEditor} disabled={!canExpand} scaleTo={0.97}>
             <Text
               style={[
                 styles.title,
@@ -298,7 +303,7 @@ export default function TaskCard({
             >
               {task.title || t.taskTitlePlaceholder}
             </Text>
-          </Pressable>
+          </PressableScale>
 
           {task.time ? (
             <Text style={[styles.timeLabel, { color: theme.textMuted }]}>
@@ -307,9 +312,9 @@ export default function TaskCard({
           ) : null}
 
           {canExpand && (
-            <Pressable hitSlop={6} onPress={openEditor} style={styles.chevronBtn}>
+            <PressableScale hitSlop={6} onPress={openEditor} style={styles.chevronBtn} scaleTo={0.9}>
               <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textMuted} />
-            </Pressable>
+            </PressableScale>
           )}
         </View>
 
@@ -317,7 +322,7 @@ export default function TaskCard({
         {stepsOnly && expanded && hasSteps && (
           <View style={styles.stepsWrap}>
             {sortedSteps.map((step) => (
-              <Pressable key={step.id} hitSlop={6} onPress={() => toggleStep(step.id)} style={styles.stepCheckTap}>
+              <PressableScale key={step.id} hitSlop={6} onPress={() => toggleStep(step.id)} style={styles.stepCheckTap} scaleTo={0.97}>
                 <View
                   style={[
                     styles.stepCheck,
@@ -337,7 +342,7 @@ export default function TaskCard({
                 >
                   {step.title}
                 </Text>
-              </Pressable>
+              </PressableScale>
             ))}
           </View>
         )}
@@ -371,7 +376,7 @@ export default function TaskCard({
               <View style={styles.stepsWrap}>
                 {sortedSteps.map((step) => (
                   <View key={step.id} style={styles.stepRow}>
-                    <Pressable hitSlop={6} onPress={() => handleToggleStep(step.id)} style={styles.stepCheckTap}>
+                    <PressableScale hitSlop={6} onPress={() => handleToggleStep(step.id)} style={styles.stepCheckTap} scaleTo={0.97}>
                       <View
                         style={[
                           styles.stepCheck,
@@ -391,10 +396,10 @@ export default function TaskCard({
                       >
                         {step.title}
                       </Text>
-                    </Pressable>
-                    <Pressable hitSlop={6} onPress={() => handleRemoveStep(step.id)}>
+                    </PressableScale>
+                    <PressableScale hitSlop={6} onPress={() => handleRemoveStep(step.id)} scaleTo={0.9}>
                       <Ionicons name="close" size={16} color={theme.textMuted} />
-                    </Pressable>
+                    </PressableScale>
                   </View>
                 ))}
               </View>
@@ -436,15 +441,16 @@ export default function TaskCard({
                     {t.dayLabels.map((label, i) => {
                       const active = recurring === 'daily' || draft.recurringDays.includes(i);
                       return (
-                        <Pressable
+                        <PressableScale
                           key={i}
                           style={[styles.weekdayChip, { backgroundColor: active ? theme.accent : theme.surfaceMuted }]}
                           onPress={() => toggleWeekday(i)}
+                          scaleTo={0.97}
                         >
                           <Text style={[styles.weekdayText, { color: active ? theme.accentInk : theme.textMuted }]}>
                             {label.slice(0, 2)}
                           </Text>
-                        </Pressable>
+                        </PressableScale>
                       );
                     })}
                   </View>
@@ -506,15 +512,16 @@ export default function TaskCard({
                           {t.dayLabels.map((label, i) => {
                             const active = draft.monthWeekday === i;
                             return (
-                              <Pressable
+                              <PressableScale
                                 key={i}
                                 style={[styles.weekdayChip, { backgroundColor: active ? theme.accent : theme.surfaceMuted }]}
                                 onPress={() => patch({ monthWeekday: i })}
+                                scaleTo={0.97}
                               >
                                 <Text style={[styles.weekdayText, { color: active ? theme.accentInk : theme.textMuted }]}>
                                   {label.slice(0, 2)}
                                 </Text>
-                              </Pressable>
+                              </PressableScale>
                             );
                           })}
                         </View>
@@ -577,10 +584,10 @@ export default function TaskCard({
 
             {/* Delete (All tasks) */}
             {showDelete && !isNew && (
-              <Pressable style={styles.deleteRow} onPress={handleDelete}>
+              <PressableScale style={styles.deleteRow} onPress={handleDelete} scaleTo={0.93}>
                 <Ionicons name="trash-outline" size={16} color={theme.bad} />
                 <Text style={[styles.deleteText, { color: theme.bad }]}>{t.deleteTask}</Text>
-              </Pressable>
+              </PressableScale>
             )}
           </View>
         )}

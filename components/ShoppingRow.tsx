@@ -11,7 +11,7 @@
  *
  * Connections:
  *   Imports → components/Badge, components/FlightOverlay (FlightRect type only), components/InventoryIcon,
- *             constants/theme, lib/date, lib/haptics, lib/i18n, lib/useAppTheme,
+ *             components/PressableScale, constants/theme, lib/date, lib/haptics, lib/i18n, lib/useAppTheme,
  *             react-native-gesture-handler, react-native-reanimated,
  *             store/useShoppingStore (ShoppingItem type + recentlyAddedIds, see Decision 044b note)
  *   Used by → components/WeekListCard.tsx, app/(tabs)/shopping.tsx (weekly rows +
@@ -113,7 +113,7 @@
  *     child and would silently overwrite a ref placed there.
  */
 import React, { useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -135,6 +135,7 @@ import { formatKr } from '@/lib/money';
 import { selection, heavy } from '@/lib/haptics';
 import InventoryIcon from '@/components/InventoryIcon';
 import { Badge } from '@/components/Badge';
+import PressableScale from '@/components/PressableScale';
 
 type Variant = 'planned' | 'cart' | 'purchased';
 
@@ -319,7 +320,7 @@ export default function ShoppingRow({
             pointerEvents="none"
             style={[styles.highlight, { backgroundColor: theme.goodSoft, borderColor: theme.good }, highlightStyle]}
           />
-          <Pressable
+          <PressableScale
             style={[
               styles.check,
               variant === 'planned' && (item.checked
@@ -331,6 +332,7 @@ export default function ShoppingRow({
             onPress={handleCheckPress}
             disabled={variant === 'purchased'}
             hitSlop={13}
+            scaleTo={0.97}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: !!item.checked }}
             accessibilityLabel={item.name}
@@ -350,7 +352,7 @@ export default function ShoppingRow({
               : <Ionicons name="add" size={16} color={theme.good} />)}
             {variant === 'cart' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
             {variant === 'purchased' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
-          </Pressable>
+          </PressableScale>
 
           <View style={styles.lines}>
             <View style={styles.line1}>
@@ -374,7 +376,7 @@ export default function ShoppingRow({
 
               {showStepper && (
                 <View style={styles.stepper}>
-                  <Pressable
+                  <PressableScale
                     style={[
                       styles.stepBtn,
                       canDecrement
@@ -385,11 +387,12 @@ export default function ShoppingRow({
                     disabled={!canDecrement}
                     hitSlop={4}
                     accessibilityLabel={t.decreaseQty}
+                    scaleTo={0.9}
                   >
                     <Ionicons name="remove" size={12} color={canDecrement ? theme.accentInk : theme.border} />
-                  </Pressable>
+                  </PressableScale>
                   <Badge label={String(safeQty)} style={styles.stepBadge} />
-                  <Pressable
+                  <PressableScale
                     style={[
                       styles.stepBtn,
                       canIncrement
@@ -400,9 +403,10 @@ export default function ShoppingRow({
                     disabled={!canIncrement}
                     hitSlop={4}
                     accessibilityLabel={t.increaseQty}
+                    scaleTo={0.9}
                   >
                     <Ionicons name="add" size={12} color={canIncrement ? theme.accentInk : theme.border} />
-                  </Pressable>
+                  </PressableScale>
                 </View>
               )}
 
@@ -413,9 +417,9 @@ export default function ShoppingRow({
           </View>
 
           {variant !== 'purchased' && (
-            <Pressable style={styles.deleteBtn} onPress={onRemove} hitSlop={8} accessibilityLabel={t.removeItemLabel}>
+            <PressableScale style={styles.deleteBtn} onPress={onRemove} hitSlop={8} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
               <Ionicons name="close-outline" size={18} color={theme.textMuted} />
-            </Pressable>
+            </PressableScale>
           )}
         </Animated.View>
       </GestureDetector>
