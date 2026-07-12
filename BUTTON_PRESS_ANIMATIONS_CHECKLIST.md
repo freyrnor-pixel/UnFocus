@@ -115,15 +115,15 @@ opportunistically with other work in the same file)
       "done" primary.
 - [x] `app/onboarding/language.tsx:70` — language option row. `scaleTo=0.97`.
 - [x] `app/onboarding/step3.tsx:60` — reminder-day chip. `scaleTo=0.97`.
-- [ ] `app/(tabs)/scan.tsx` — heaviest screen after settings (~20 sites): `:385,399` store
+- [x] `app/(tabs)/scan.tsx` — heaviest screen after settings (~20 sites): `:385,399` store
       chips, `:426` QR cancel, `:474,477` sheet cancel/add, `:504` budget pill nav, `:517`
       "take photo" primary, `:528,534` picker grid cards, `:542` "scan QR", `:585` item-row
       toggle, `:601` category chip, `:615,619` add/cancel confirm, `:640` category option row,
       `:699,709` manual-entry confirm/cancel. (`:450,633` backdrops — excluded.)
-- [ ] `app/(tabs)/health.tsx:292,322,329,350,492,500,689,736,764,791,796,806,814,842` — habit
+- [x] `app/(tabs)/health.tsx:292,322,329,350,492,500,689,736,764,791,796,806,814,842` — habit
       card, adjust +/- x2, rest-day toggle, month nav x2, ailment row, view-log row, profile
       chip, confirm-add-child, two "add child" buttons, sub-tab, "no habits yet" add-row.
-- [ ] `app/(tabs)/shopping.tsx:745,807,901,952,981,964,984,1075,1152,1155` — Weekly/Monthly
+- [x] `app/(tabs)/shopping.tsx:745,807,901,952,981,964,984,1075,1152,1155` — Weekly/Monthly
       tab, reset-monthly icon (destructive), purchased-section header, allocate-to-weekly x2,
       remove-item x2 (destructive), "new weekly list" card, reset-confirm No/Yes
       (Yes is destructive).

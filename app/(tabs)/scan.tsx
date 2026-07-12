@@ -8,7 +8,7 @@
  * shopping/task payloads into the shared store.
  *
  * Connections:
- *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, store/useCatalogStore, store/useReceiptStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons), @react-navigation/material-top-tabs + @react-navigation/native (types only, for the swipeEnabled guard)
+ *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, store/useCatalogStore, store/useReceiptStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons), @react-navigation/material-top-tabs + @react-navigation/native (types only, for the swipeEnabled guard)
  *   Used by → Expo Router route "/scan" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx; reached from app/(tabs)/shopping.tsx's post-trip receipt pop-up (autoCapture) and app/budget.tsx header link
  *   Data    → confirmed items write to FOUR stores: useShoppingStore (shopping_items) + useReceiptStore.addReceipt (receipts) + useCatalogStore.recordPurchases (purchase_log, linked via receipt_id, + store_items); QR import writes useSharedStore (shared_shopping_items / shared_tasks); scaled fontSize via useScaledStyles()
  *
@@ -81,6 +81,7 @@ import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { goToSite } from '@/lib/siteNav';
 import { showAppModal } from '@/components/AppModal';
+import PressableScale from '@/components/PressableScale';
 import { decodeSharePayload } from '@/lib/share';
 import { parseReceiptText, findFuzzyMatch, ParsedReceiptItem as ParsedItem } from '@/lib/receipt';
 import { FontSize, Radius, Shadow, Spacing, rgba } from '@/constants/theme';
@@ -382,7 +383,7 @@ export default function ScanScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.storeScroll}>
           <View style={styles.storeRow}>
             {NORWEGIAN_STORES.map((store) => (
-              <Pressable
+              <PressableScale
                 key={store}
                 style={[
                   styles.storeChip,
@@ -390,24 +391,26 @@ export default function ScanScreen() {
                   selectedStore === store && { backgroundColor: theme.accent, borderColor: theme.accent },
                 ]}
                 onPress={() => setSelectedStore(selectedStore === store ? '' : store)}
+                scaleTo={0.97}
               >
                 <Text style={[styles.storeChipText, { color: theme.text }, selectedStore === store && { color: theme.accentInk }]}>
                   {store}
                 </Text>
-              </Pressable>
+              </PressableScale>
             ))}
-            <Pressable
+            <PressableScale
               style={[
                 styles.storeChip,
                 { borderWidth: 1, borderColor: theme.border },
                 selectedStore && !NORWEGIAN_STORES.includes(selectedStore) && { backgroundColor: theme.accent, borderColor: theme.accent },
               ]}
               onPress={() => setCustomStoreVisible(true)}
+              scaleTo={0.97}
             >
               <Text style={[styles.storeChipText, { color: theme.text }, selectedStore && !NORWEGIAN_STORES.includes(selectedStore) && { color: theme.accentInk }]}>
                 {selectedStore && !NORWEGIAN_STORES.includes(selectedStore) ? selectedStore : t.otherStore}
               </Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </ScrollView>
       </View>
@@ -423,9 +426,9 @@ export default function ScanScreen() {
           <View style={[styles.qrModal, { backgroundColor: QR_BG }]}>
             <SafeAreaView style={styles.qrSafeArea}>
               <View style={styles.qrHeader}>
-                <Pressable onPress={() => setQrScanVisible(false)}>
+                <PressableScale onPress={() => setQrScanVisible(false)} scaleTo={0.97}>
                   <Text style={[styles.backLink, { color: theme.accent }]}>{t.cancel}</Text>
-                </Pressable>
+                </PressableScale>
                 <Text style={[styles.qrTitle, { color: QR_FG }]}>{t.qrScanMode}</Text>
                 <View style={{ width: 60 }} />
               </View>
@@ -471,10 +474,10 @@ export default function ScanScreen() {
                 autoFocus
               />
               <View style={styles.sheetButtons}>
-                <Pressable style={[styles.sheetCancelBtn, { borderColor: theme.border }]} onPress={() => setCustomStoreVisible(false)}>
+                <PressableScale style={[styles.sheetCancelBtn, { borderColor: theme.border }]} onPress={() => setCustomStoreVisible(false)} scaleTo={0.97}>
                   <Text style={[styles.sheetCancelText, { color: theme.textMuted }]}>{t.cancel}</Text>
-                </Pressable>
-                <Pressable
+                </PressableScale>
+                <PressableScale
                   style={[styles.sheetAddBtn, { backgroundColor: theme.accent }, !customStoreName.trim() && { opacity: 0.4 }]}
                   onPress={() => {
                     if (customStoreName.trim()) {
@@ -484,9 +487,10 @@ export default function ScanScreen() {
                     }
                   }}
                   disabled={!customStoreName.trim()}
+                  scaleTo={0.95}
                 >
                   <Text style={[styles.sheetAddText, { color: theme.accentInk }]}>{t.ok}</Text>
-                </Pressable>
+                </PressableScale>
               </View>
             </Surface>
           </KeyboardAvoidingView>
@@ -501,51 +505,54 @@ export default function ScanScreen() {
       <>
         <ScreenScaffold title={t.scanReceipt} tier="site" bottomNav={false} ownBackground={false}>
           <View style={styles.content}>
-            <Pressable
+            <PressableScale
               style={[styles.budgetPill, { backgroundColor: rgba(theme.featBudget, 0.16) }]}
               onPress={() => goToSite(router, pathname, '/budget')}
               hitSlop={6}
+              scaleTo={0.97}
             >
               <Text style={[styles.budgetPillText, { color: theme.featBudget }]}>{t.budget.title}</Text>
-            </Pressable>
+            </PressableScale>
 
             <View style={[styles.tipBox, { backgroundColor: theme.goodSoft }]}>
               <Text style={[styles.tipText, { color: theme.text }]}>{t.scanHintBanner}</Text>
             </View>
 
             {/* Primary camera button */}
-            <Pressable
+            <PressableScale
               style={[styles.primaryButton, { backgroundColor: theme.accent, shadowColor: theme.accent }]}
               onPress={takePhoto}
+              scaleTo={0.95}
             >
               <Ionicons name="camera-outline" size={46} color={theme.accentInk} />
               <Text style={[styles.primaryButtonText, { color: theme.accentInk }]}>{t.takePhoto}</Text>
-            </Pressable>
+            </PressableScale>
 
             {/* 2-column grid */}
             <View style={styles.gridRow}>
               <Surface style={styles.gridCard}>
-                <Pressable style={styles.gridCardInner} onPress={pickImage}>
+                <PressableScale style={styles.gridCardInner} onPress={pickImage} scaleTo={0.97}>
                   <Ionicons name="images-outline" size={28} color={theme.accent} />
                   <Text style={[styles.gridCardText, { color: theme.text }]}>{t.chooseFromLibrary}</Text>
-                </Pressable>
+                </PressableScale>
               </Surface>
               <Surface style={styles.gridCard}>
-                <Pressable style={styles.gridCardInner} onPress={() => setMode('manual')}>
+                <PressableScale style={styles.gridCardInner} onPress={() => setMode('manual')} scaleTo={0.97}>
                   <Ionicons name="pencil-outline" size={28} color={theme.accent} />
                   <Text style={[styles.gridCardText, { color: theme.text }]}>{t.addManually}</Text>
-                </Pressable>
+                </PressableScale>
               </Surface>
             </View>
 
             {/* QR button */}
-            <Pressable
+            <PressableScale
               style={[styles.qrButton, { backgroundColor: theme.goodSoft, borderColor: theme.good }]}
               onPress={openQrScanner}
+              scaleTo={0.97}
             >
               <Ionicons name="qr-code-outline" size={26} color={theme.good} />
               <Text style={[styles.qrButtonText, { color: theme.good }]}>{t.scanQrCode}</Text>
-            </Pressable>
+            </PressableScale>
 
             <View style={{ height: 40 }} />
           </View>
@@ -582,7 +589,7 @@ export default function ScanScreen() {
             <Surface style={styles.itemsCard}>
               {parsedItems.map((item, i) => (
                 <View key={i}>
-                  <Pressable style={[styles.itemRow, { borderBottomColor: theme.border }]} onPress={() => toggleItem(i)}>
+                  <PressableScale style={[styles.itemRow, { borderBottomColor: theme.border }]} onPress={() => toggleItem(i)} scaleTo={0.97}>
                     <View style={[styles.checkbox, { borderColor: theme.accent }, item.selected && { backgroundColor: theme.accent }]}>
                       {item.selected && <Text style={[styles.checkMark, { color: theme.accentInk }]}>✓</Text>}
                     </View>
@@ -597,13 +604,14 @@ export default function ScanScreen() {
                     <Text style={[styles.itemPrice, { color: theme.textMuted }, !item.selected && { opacity: 0.42 }]}>
                       {formatKr(item.price, 2)}
                     </Text>
-                  </Pressable>
-                  <Pressable
+                  </PressableScale>
+                  <PressableScale
                     style={[styles.categoryChip, { backgroundColor: theme.surfaceMuted }]}
                     onPress={() => { setCategoryPickerIndex(i); setCategoryPickerVisible(true); }}
+                    scaleTo={0.97}
                   >
                     <Text style={[styles.categoryChipText, { color: theme.textMuted }]}>{item.category ?? 'other'}</Text>
-                  </Pressable>
+                  </PressableScale>
                 </View>
               ))}
 
@@ -612,17 +620,17 @@ export default function ScanScreen() {
               </View>
             </Surface>
 
-            <Pressable style={[styles.confirmButton, { backgroundColor: theme.accent }]} onPress={addToList}>
+            <PressableScale style={[styles.confirmButton, { backgroundColor: theme.accent }]} onPress={addToList} scaleTo={0.95}>
               <Text style={[styles.confirmButtonText, { color: theme.accentInk }]}>{t.addToListButton(selectedCount)}</Text>
-            </Pressable>
+            </PressableScale>
 
-            <Pressable style={[styles.cancelButton, { borderColor: theme.border }]} onPress={() => {
+            <PressableScale style={[styles.cancelButton, { borderColor: theme.border }]} onPress={() => {
               setMode('idle');
               setImageUri(null);
               setParsedItems([]);
-            }}>
+            }} scaleTo={0.97}>
               <Text style={[styles.cancelButtonText, { color: theme.textMuted }]}>{t.cancel}</Text>
-            </Pressable>
+            </PressableScale>
 
             <View style={{ height: 40 }} />
           </View>
@@ -637,18 +645,19 @@ export default function ScanScreen() {
               <Text style={[styles.sheetTitle, { color: theme.text }]}>{t.recognisedItems}</Text>
               <ScrollView style={styles.categoryGrid} contentContainerStyle={styles.categoryGridContent}>
                 {CATEGORIES.map((cat) => (
-                  <Pressable
+                  <PressableScale
                     key={cat}
                     style={[styles.categoryOption, { backgroundColor: parsedItems[categoryPickerIndex]?.category === cat ? theme.accent : theme.surfaceMuted }]}
                     onPress={() => {
                       updateCategory(categoryPickerIndex, cat);
                       setCategoryPickerVisible(false);
                     }}
+                    scaleTo={0.97}
                   >
                     <Text style={[styles.categoryOptionText, { color: parsedItems[categoryPickerIndex]?.category === cat ? theme.accentInk : theme.text }]}>
                       {cat}
                     </Text>
-                  </Pressable>
+                  </PressableScale>
                 ))}
               </ScrollView>
             </Surface>
@@ -696,25 +705,26 @@ export default function ScanScreen() {
               </View>
             )}
 
-            <Pressable
+            <PressableScale
               style={[styles.confirmButton, { backgroundColor: theme.accent }, manualLineCount === 0 && { opacity: 0.5 }]}
               onPress={addManualItems}
               disabled={manualLineCount === 0}
+              scaleTo={0.95}
             >
               <Text style={[styles.confirmButtonText, { color: theme.accentInk }]}>
                 {t.addToListButton(manualLineCount)}
               </Text>
-            </Pressable>
+            </PressableScale>
 
-            <Pressable style={[styles.cancelButton, { borderColor: theme.border }]} onPress={() => {
+            <PressableScale style={[styles.cancelButton, { borderColor: theme.border }]} onPress={() => {
               setMode('idle');
               setManualText('');
               setManualPrice('');
               setImageUri(null);
               setParsedItems([]);
-            }}>
+            }} scaleTo={0.97}>
               <Text style={[styles.cancelButtonText, { color: theme.textMuted }]}>{t.cancel}</Text>
-            </Pressable>
+            </PressableScale>
 
             <View style={{ height: 40 }} />
           </View>
