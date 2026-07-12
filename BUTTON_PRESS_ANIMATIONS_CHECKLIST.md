@@ -70,10 +70,10 @@ opportunistically with other work in the same file)
       card tap, header nav link, disclosure, expand/collapse footer.
 - [x] `components/ShoppingRow.tsx:322,377,392,416` — check-circle (`0.97`), qty stepper x2
       (`0.90`), remove (`0.93` destructive).
-- [ ] `components/WeekListCard.tsx:270,288,305,375,383,396,421,447,483,514,524` — list-name
+- [x] `components/WeekListCard.tsx:270,288,305,375,383,396,421,447,483,514,524` — list-name
       tap, lock toggle, progress row, inline-add stepper x2, inline-add confirm, catalog
       suggestion row, "from monthly" trigger, monthly-item row, confirm/cancel monthly-adds.
-- [ ] `components/NoteRow.tsx:77,98,104,111` — done check-circle (`0.97`), delete (`0.93`),
+- [x] `components/NoteRow.tsx:77,98,104,111` — done check-circle (`0.97`), delete (`0.93`),
       two quick-action chips (`0.97`).
 - [ ] `components/HomeNotesCard.tsx:72,95,128,141,158` — title row, note check-circle, footer
       expand/collapse, done-zone header, checked-note check-circle.
