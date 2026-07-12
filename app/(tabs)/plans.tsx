@@ -380,7 +380,7 @@ export default function TasksScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: Spacing.md, paddingBottom: Spacing.xl },
+  content: { padding: Spacing.md },
   stickyBar: { flex: 1, paddingHorizontal: Spacing.md, justifyContent: 'center' },
   tabsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   tab: {

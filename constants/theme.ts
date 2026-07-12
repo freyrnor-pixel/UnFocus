@@ -4,7 +4,10 @@
  * `getFontSize(base, scale)` applies the user's fontSize preference to a base pt.
  * `contrastOn(hexBg)` picks near-black or white text for the best WCAG contrast.
  * `getMaterialStyle(base)` computes glass surface-finish tokens from a single base colour.
- * `Fonts` holds the rounded Nunito family tokens. `Layout` the shared card padding/rhythm.
+ * `Fonts` holds the rounded Nunito family tokens. Card padding across the app is `Spacing.md`
+ * (16) — there is no separate `Layout` token; a prior `Layout.cardPadding/cardGap/maxVisible`
+ * export was removed 2026-07-12 (zero call sites, docs disagreed with it — see
+ * HANDOFF_SPACING_PASS.md).
  *
  * Connections:
  *   Imports → —
@@ -78,18 +81,6 @@ export const Spacing = {
   lg: 24,
   xl: 32,
   xxl: 48,
-};
-
-/**
- * Shared card/layout rhythm. Use these instead of ad-hoc padding so every card
- * breathes the same on every screen.
- */
-export const Layout = {
-  cardPadding: 18,
-  cardPaddingV: 18,
-  cardPaddingH: 16,
-  cardGap: 14,
-  maxVisible: 5,
 };
 
 export const Radius = {

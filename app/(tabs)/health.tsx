@@ -884,7 +884,7 @@ export default function HealthScreen() {
             )}
           </View>
 
-          <View style={{ height: 80 }} />
+          <View style={{ height: Spacing.xl + Spacing.xxl }} />
         </View>
       </ScreenScaffold>
     </>
