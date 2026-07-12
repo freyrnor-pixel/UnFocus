@@ -13,7 +13,7 @@
  * destination anchor → animate a floating clone between them).
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, react-native-reanimated, @expo/vector-icons
+ *   Imports → constants/theme, lib/money, lib/useAppTheme, react-native-reanimated, @expo/vector-icons
  *   Used by → app/(tabs)/shopping.tsx, app/(tabs)/index.tsx (Phase 1: Shopping list→cart only)
  *   Data    → none — pure presentational, driven entirely by the `flights` prop
  *
@@ -28,6 +28,9 @@
  *   - `exiting={FadeOut}` on each clone is what makes both "finished normally" and
  *     "cancelled by the owner" look the same — removal from `flights` always fades,
  *     no separate cancel-animation path needed.
+ *   - `FlightRow` renders a full-width snapshot of a ShoppingRow ('planned', unchecked)
+ *     so the flying clone looks like the actual row, not just a pill. Pass the source
+ *     rect's `width` so the clone fills the same horizontal footprint as the real row.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -42,6 +45,7 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { formatKr } from '@/lib/money';
 
 export type FlightRect = { x: number; y: number; width: number; height: number };
 
@@ -113,9 +117,7 @@ function FlightClone({ flight, duration, onFlightEnd }: { flight: Flight; durati
   );
 }
 
-/** Small rounded pill (checkmark + item name) — the default flight content for Shopping's
- *  list→cart flights. Self-contained (reads useAppTheme() internally) so callers only
- *  pass a label. */
+/** Small rounded pill (checkmark + item name) — kept for future reuse outside Shopping. */
 export function FlightPill({ label }: { label: string }) {
   const theme = useAppTheme();
   return (
@@ -124,6 +126,41 @@ export function FlightPill({ label }: { label: string }) {
       <Text style={[pillStyles.label, { color: theme.text }]} numberOfLines={1}>
         {label}
       </Text>
+    </View>
+  );
+}
+
+type FlightRowItem = {
+  name: string;
+  amount: string;
+  unit?: string | null;
+  price: number;
+};
+
+/** Full-row clone for Shopping's list→cart flight — mirrors ShoppingRow's 'planned'
+ *  unchecked layout. Pass `width={from.width}` so the clone fills the same horizontal
+ *  footprint as the real row (the source rect already excludes the card's padding). */
+export function FlightRow({ item, width }: { item: FlightRowItem; width: number }) {
+  const theme = useAppTheme();
+  const qty = parseInt(item.amount, 10) || 1;
+  const priceTotal = item.price > 0 ? item.price * qty : null;
+  return (
+    <View style={[rowCloneStyles.row, { backgroundColor: theme.surface, shadowColor: '#000', width }]}>
+      <View style={[rowCloneStyles.check, { borderColor: theme.good }]}>
+        <Ionicons name="add" size={16} color={theme.good} />
+      </View>
+      <View style={rowCloneStyles.lines}>
+        <View style={rowCloneStyles.line1}>
+          <Text numberOfLines={1} style={[rowCloneStyles.name, { color: theme.text }]}>{item.name}</Text>
+          {priceTotal !== null && (
+            <Text style={[rowCloneStyles.priceTotal, { color: theme.text }]}>{formatKr(priceTotal, 0)}</Text>
+          )}
+        </View>
+        <Text style={[rowCloneStyles.meta, { color: theme.textMuted }]}>
+          {item.amount}{item.unit ? ` ${item.unit}` : ''}
+        </Text>
+      </View>
+      <View style={rowCloneStyles.deleteSpace} />
     </View>
   );
 }
@@ -154,4 +191,29 @@ const pillStyles = StyleSheet.create({
     fontFamily: Fonts.semibold,
     flexShrink: 1,
   },
+});
+
+const rowCloneStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+    borderRadius: Radius.md,
+    ...Shadow.card,
+  },
+  check: {
+    width: 22,
+    height: 22,
+    borderRadius: Radius.full,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lines: { flex: 1, minWidth: 0 },
+  line1: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  name: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  priceTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  meta: { fontSize: FontSize.xs },
+  deleteSpace: { width: 28 },
 });
