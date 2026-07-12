@@ -80,14 +80,14 @@ opportunistically with other work in the same file)
 - [x] `components/HomeShoppingCard.tsx:158,228,263` — title row, preview check-circle, footer
       expand/collapse.
 - [x] `components/HomeSharedCard.tsx:70,81,104` — "see all" link, shared-item preview row (x2).
-- [ ] `components/CatalogueTab.tsx:94,125,166,169,179,184` — add-new disclosure, save-new-item,
+- [x] `components/CatalogueTab.tsx:94,125,166,169,179,184` — add-new disclosure, save-new-item,
       commit-edit, delete-while-editing, item row tap, delete-item.
-- [ ] `components/FoodTab.tsx` — non-backdrop elements only (`:370,405` popup backdrops and
+- [x] `components/FoodTab.tsx` — non-backdrop elements only (`:370,405` popup backdrops and
       `:377,413` popup close are the only ones to double check against the exclusion list —
       popup *close* buttons are real buttons, convert those; the backdrop taps themselves are
       excluded): `:257,280,287,310,340,350,381,388,419,439,477,485`.
-- [ ] `components/SavedListsModal.tsx:77,87` — saved-template row, "save current as template".
-- [ ] `components/MonthlyResetSummaryModal.tsx:112` — "close" button. `scaleTo=0.95` (primary).
+- [x] `components/SavedListsModal.tsx:77,87` — saved-template row, "save current as template".
+- [x] `components/MonthlyResetSummaryModal.tsx:112` — "close" button. `scaleTo=0.95` (primary).
 
 ## Part 3, Phase 3 — Per-screen files
 

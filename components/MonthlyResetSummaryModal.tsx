@@ -8,8 +8,9 @@
  * delete/edit affordances, this is a recap, not a list to manage.
  *
  * Connections:
- *   Imports → components/AnimatedBottomSheet, components/Surface, constants/theme, lib/date,
- *             lib/i18n, lib/useAppTheme, store/useShoppingStore (types only)
+ *   Imports → components/AnimatedBottomSheet, components/Surface, components/PressableScale,
+ *             constants/theme, lib/date, lib/i18n, lib/useAppTheme, store/useShoppingStore
+ *             (types only)
  *   Used by → app/(tabs)/shopping.tsx
  *   Data    → none directly — renders the MonthlyResetSummary object passed in by the parent
  *
@@ -30,12 +31,13 @@
  *     → Fonts tokens.
  */
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
 import Surface from '@/components/Surface';
+import PressableScale from '@/components/PressableScale';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 import { MonthlyResetSummary } from '@/store/useShoppingStore';
 
@@ -109,9 +111,9 @@ export default function MonthlyResetSummaryModal({ visible, summary, onClose }: 
           </ScrollView>
         )}
 
-        <Pressable style={[styles.closeBtn, { backgroundColor: theme.accent }]} onPress={onClose}>
+        <PressableScale style={[styles.closeBtn, { backgroundColor: theme.accent }]} onPress={onClose} scaleTo={0.95}>
           <Text style={[styles.closeBtnText, { color: theme.accentInk }]}>{t.monthlyResetSummaryCloseBtn}</Text>
-        </Pressable>
+        </PressableScale>
       </Surface>
     </AnimatedBottomSheet>
   );

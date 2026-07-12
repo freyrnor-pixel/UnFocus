@@ -14,7 +14,7 @@
  * Connections:
  *   Imports → constants/theme (getMaterialStyle, contrastOn, tokens), lib/useAppTheme,
  *             lib/i18n, lib/haptics, lib/money (formatKr), components/Surface,
- *             store/useMealStore (Dish/MealType/dishTotalPrice + CRUD),
+ *             components/PressableScale, store/useMealStore (Dish/MealType/dishTotalPrice + CRUD),
  *             store/useCatalogStore (suggest, StoreItem), store/useShoppingStore
  *             (add + UNALLOCATED_LIST_ID), @expo/vector-icons
  *   Used by → app/(tabs)/shopping.tsx (rendered when the Food tab is active)
@@ -36,6 +36,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleShee
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
+import PressableScale from '@/components/PressableScale';
 import { useMealStore, MealType, Dish, dishTotalPrice } from '@/store/useMealStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
@@ -254,15 +255,16 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
             <View style={styles.sectionHeader}>
               <Ionicons name={icon} size={20} color={ink} />
               <Text style={[styles.sectionTitle, { color: ink }]}>{t.mealTypes[mealType]}</Text>
-              <Pressable
+              <PressableScale
                 style={[styles.addDishBtn, { borderColor: ink }]}
                 onPress={() => openNewDishModal(mealType)}
                 accessibilityRole="button"
                 accessibilityLabel={t.addDishToMealBtn}
                 hitSlop={6}
+                scaleTo={0.9}
               >
                 <Ionicons name="add" size={18} color={ink} />
-              </Pressable>
+              </PressableScale>
             </View>
 
             {mealDishes.length === 0 ? (
@@ -277,22 +279,23 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                     <View key={dish.id} style={[styles.dishCard, { backgroundColor: theme.surface }]}>
                       {/* Collapsed row: expand toggle · name · total price · "+" */}
                       <View style={styles.dishRow}>
-                        <Pressable style={styles.dishNameTap} onPress={() => setExpanded((p) => ({ ...p, [dish.id]: !p[dish.id] }))} hitSlop={4}>
+                        <PressableScale style={styles.dishNameTap} onPress={() => setExpanded((p) => ({ ...p, [dish.id]: !p[dish.id] }))} hitSlop={4} scaleTo={0.97}>
                           <Ionicons name={isOpen ? 'chevron-down' : 'chevron-forward'} size={16} color={theme.textMuted} />
                           <Text style={[styles.dishName, { color: theme.text }]} numberOfLines={1}>{dish.name}</Text>
-                        </Pressable>
+                        </PressableScale>
                         {total > 0 && (
                           <Text style={[styles.dishPrice, { color: theme.textMuted }]}>{formatKr(total, 0)}</Text>
                         )}
-                        <Pressable
+                        <PressableScale
                           style={[styles.dishAddBtn, { backgroundColor: color }]}
                           onPress={() => setPopupDish(dish)}
                           accessibilityRole="button"
                           accessibilityLabel={t.addDishPopupTitle(dish.name)}
                           hitSlop={6}
+                          scaleTo={0.9}
                         >
                           <Ionicons name="add" size={18} color={contrastOn(color)} />
-                        </Pressable>
+                        </PressableScale>
                       </View>
 
                       {/* Expanded: ingredient rows (name · amount · line price) + inline add + delete dish */}
@@ -307,9 +310,9 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                               {ing.priceNok > 0 && (
                                 <Text style={[styles.ingPrice, { color: theme.textMuted }]}>{formatKr(ing.priceNok, 0)}</Text>
                               )}
-                              <Pressable onPress={() => removeIngredient(ing.id)} hitSlop={8} accessibilityLabel={t.removeItemLabel}>
+                              <PressableScale onPress={() => removeIngredient(ing.id)} hitSlop={8} accessibilityLabel={t.removeItemLabel} scaleTo={0.9}>
                                 <Ionicons name="remove-circle-outline" size={18} color={theme.textMuted} />
-                              </Pressable>
+                              </PressableScale>
                             </View>
                           ))}
 
@@ -337,20 +340,21 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                               placeholderTextColor={theme.textMuted}
                               keyboardType="decimal-pad"
                             />
-                            <Pressable
+                            <PressableScale
                               style={[styles.ingAddBtn, { backgroundColor: draft.name.trim() ? color : theme.surfaceMuted }]}
                               onPress={() => handleInlineAdd(dish)}
                               disabled={!draft.name.trim()}
                               hitSlop={4}
+                              scaleTo={0.9}
                             >
                               <Ionicons name="add" size={16} color={draft.name.trim() ? contrastOn(color) : theme.textMuted} />
-                            </Pressable>
+                            </PressableScale>
                           </View>
 
-                          <Pressable style={styles.deleteDishRow} onPress={() => { removeDish(dish.id); heavy(); }} hitSlop={6}>
+                          <PressableScale style={styles.deleteDishRow} onPress={() => { removeDish(dish.id); heavy(); }} hitSlop={6} scaleTo={0.93}>
                             <Ionicons name="trash-outline" size={14} color={theme.bad} />
                             <Text style={[styles.deleteDishText, { color: theme.bad }]}>{t.deleteDish}</Text>
-                          </Pressable>
+                          </PressableScale>
                         </View>
                       )}
                     </View>
@@ -374,24 +378,26 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
             <Surface surfaceContext="overlay" style={styles.popupCard}>
               <View style={styles.popupHeader}>
                 <Text style={[styles.popupTitle, { color: theme.text }]} numberOfLines={1}>{popupDish?.name}</Text>
-                <Pressable onPress={() => setPopupDish(null)} hitSlop={8} accessibilityLabel={t.closePopupLabel}>
+                <PressableScale onPress={() => setPopupDish(null)} hitSlop={8} accessibilityLabel={t.closePopupLabel} scaleTo={0.9}>
                   <Ionicons name="close" size={22} color={theme.textMuted} />
-                </Pressable>
+                </PressableScale>
               </View>
-              <Pressable
+              <PressableScale
                 style={[styles.popupBtn, { backgroundColor: theme.good }]}
                 onPress={() => popupDish && handleAddToWeek(popupDish)}
+                scaleTo={0.95}
               >
                 <Ionicons name="cart-outline" size={18} color={theme.textInverse} />
                 <Text style={[styles.popupBtnText, { color: theme.textInverse }]}>{t.addToWeekListBtn}</Text>
-              </Pressable>
-              <Pressable
+              </PressableScale>
+              <PressableScale
                 style={[styles.popupBtn, { backgroundColor: theme.accent }]}
                 onPress={() => popupDish && handleAddToMonthly(popupDish)}
+                scaleTo={0.95}
               >
                 <Ionicons name="calendar-outline" size={18} color={theme.accentInk} />
                 <Text style={[styles.popupBtnText, { color: theme.accentInk }]}>{t.addToMonthlyListBtn}</Text>
-              </Pressable>
+              </PressableScale>
             </Surface>
           </Animated.View>
         </Modal>
@@ -410,15 +416,15 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
           <Surface surfaceContext="overlay" style={styles.sheet}>
             <View style={[styles.sheetHandle, { backgroundColor: theme.border }]} />
             <View style={[styles.sheetHeader, { borderBottomColor: theme.border }]}>
-              <Pressable onPress={() => setModalMealType(null)}>
+              <PressableScale onPress={() => setModalMealType(null)} scaleTo={0.97}>
                 <Text style={[styles.sheetCancel, { color: theme.textMuted }]}>{t.cancel}</Text>
-              </Pressable>
+              </PressableScale>
               <Text style={[styles.sheetTitle, { color: theme.text }]}>
                 {modalMealType ? t.mealTypes[modalMealType] : ''} · {t.newDishTrigger}
               </Text>
-              <Pressable onPress={saveDish} disabled={!canSaveDish}>
+              <PressableScale onPress={saveDish} disabled={!canSaveDish} scaleTo={0.95}>
                 <Text style={[styles.sheetSave, { color: theme.accent }, !canSaveDish && { opacity: 0.4 }]}>{t.save}</Text>
-              </Pressable>
+              </PressableScale>
             </View>
 
             <ScrollView keyboardShouldPersistTaps="handled" style={styles.sheetScroll} contentContainerStyle={styles.sheetScrollContent}>
@@ -436,9 +442,9 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                     {ing.amount}{ing.unit ? ` ${ing.unit}` : ''} {ing.name}
                     {ing.price > 0 ? ` · ${formatKr(ing.price, 0)}` : ''}
                   </Text>
-                  <Pressable onPress={() => removeDraftIngredient(idx)} hitSlop={8}>
+                  <PressableScale onPress={() => removeDraftIngredient(idx)} hitSlop={8} scaleTo={0.9}>
                     <Ionicons name="remove-circle-outline" size={18} color={theme.textMuted} />
-                  </Pressable>
+                  </PressableScale>
                 </View>
               ))}
 
@@ -474,15 +480,15 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                   placeholderTextColor={theme.textMuted}
                   onSubmitEditing={addDraftIngredient}
                 />
-                <Pressable style={[styles.addIngBtn, { backgroundColor: theme.accent }]} onPress={addDraftIngredient}>
+                <PressableScale style={[styles.addIngBtn, { backgroundColor: theme.accent }]} onPress={addDraftIngredient} scaleTo={0.9}>
                   <Ionicons name="add" size={18} color={theme.accentInk} />
-                </Pressable>
+                </PressableScale>
               </View>
 
               {suggestions.length > 0 && (
                 <View style={[styles.suggestList, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                   {suggestions.map((item) => (
-                    <Pressable
+                    <PressableScale
                       key={item.id}
                       style={[styles.suggestRow, { borderBottomColor: theme.border }]}
                       onPress={() => {
@@ -490,10 +496,11 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                         if (item.price > 0) setIngPrice(String(item.price));
                         setSuggestions([]);
                       }}
+                      scaleTo={0.97}
                     >
                       <Text style={[styles.suggestText, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
                       {item.price > 0 && <Text style={[styles.suggestMeta, { color: theme.textMuted }]}>{formatKr(item.price, 0)}</Text>}
-                    </Pressable>
+                    </PressableScale>
                   ))}
                 </View>
               )}

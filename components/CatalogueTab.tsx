@@ -12,7 +12,8 @@
  *
  * Connections:
  *   Imports → constants/theme (tokens), lib/useAppTheme, lib/i18n, lib/haptics,
- *             lib/money (formatKr), components/Surface, store/useCatalogStore, @expo/vector-icons
+ *             lib/money (formatKr), components/Surface, components/PressableScale,
+ *             store/useCatalogStore, @expo/vector-icons
  *   Used by → app/(tabs)/shopping.tsx (rendered when the Catalogue tab is active)
  *   Data    → useCatalogStore.addItem/updateItem/removeItem (+ items list)
  *
@@ -26,9 +27,10 @@
  *     the per-load re-seed.
  */
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
+import PressableScale from '@/components/PressableScale';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -91,17 +93,18 @@ export default function CatalogueTab({ onNotify }: Props) {
     <View style={styles.root}>
       {/* ── Top: add-new-item section ── */}
       <Surface style={styles.addCard}>
-        <Pressable
+        <PressableScale
           style={styles.addHeader}
           onPress={() => setAddOpen((v) => !v)}
           accessibilityRole="button"
           accessibilityLabel={t.catalogueAddNewBtn}
+          scaleTo={0.97}
         >
           <View style={[styles.addPlus, { backgroundColor: theme.accent }]}>
             <Ionicons name={addOpen ? 'remove' : 'add'} size={18} color={theme.accentInk} />
           </View>
           <Text style={[styles.addHeaderText, { color: theme.text }]}>{t.catalogueAddNewBtn}</Text>
-        </Pressable>
+        </PressableScale>
 
         {addOpen && (
           <View style={styles.addForm}>
@@ -122,15 +125,16 @@ export default function CatalogueTab({ onNotify }: Props) {
               keyboardType="decimal-pad"
               onSubmitEditing={handleAdd}
             />
-            <Pressable
+            <PressableScale
               style={[styles.saveBtn, { backgroundColor: addName.trim() ? theme.good : theme.surfaceMuted }]}
               onPress={handleAdd}
               disabled={!addName.trim()}
+              scaleTo={0.95}
             >
               <Text style={[styles.saveBtnText, { color: addName.trim() ? theme.textInverse : theme.textMuted }]}>
                 {t.catalogueSaveItemBtn}
               </Text>
-            </Pressable>
+            </PressableScale>
           </View>
         )}
       </Surface>
@@ -163,32 +167,34 @@ export default function CatalogueTab({ onNotify }: Props) {
                       keyboardType="decimal-pad"
                       onSubmitEditing={commitEdit}
                     />
-                    <Pressable style={[styles.iconBtn, { backgroundColor: theme.good }]} onPress={commitEdit} hitSlop={4}>
+                    <PressableScale style={[styles.iconBtn, { backgroundColor: theme.good }]} onPress={commitEdit} hitSlop={4} scaleTo={0.9}>
                       <Ionicons name="checkmark" size={16} color={theme.textInverse} />
-                    </Pressable>
-                    <Pressable
+                    </PressableScale>
+                    <PressableScale
                       style={[styles.iconBtn, { backgroundColor: theme.badSoft }]}
                       onPress={() => { removeItem(item.id); heavy(); setEditingId(null); }}
                       hitSlop={4}
                       accessibilityLabel={t.catalogueDeleteItemLabel}
+                      scaleTo={0.93}
                     >
                       <Ionicons name="trash-outline" size={16} color={theme.bad} />
-                    </Pressable>
+                    </PressableScale>
                   </View>
                 ) : (
-                  <Pressable style={styles.itemRow} onPress={() => startEdit(item.id, item.name, item.price)}>
+                  <PressableScale style={styles.itemRow} onPress={() => startEdit(item.id, item.name, item.price)} scaleTo={0.97}>
                     <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
                     {item.price > 0 && (
                       <Text style={[styles.itemPrice, { color: theme.textMuted }]}>{formatKr(item.price, 0)}</Text>
                     )}
-                    <Pressable
+                    <PressableScale
                       onPress={() => { removeItem(item.id); heavy(); }}
                       hitSlop={8}
                       accessibilityLabel={t.catalogueDeleteItemLabel}
+                      scaleTo={0.93}
                     >
                       <Ionicons name="trash-outline" size={18} color={theme.textMuted} />
-                    </Pressable>
-                  </Pressable>
+                    </PressableScale>
+                  </PressableScale>
                 )}
                 {idx < sortedItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
               </View>
