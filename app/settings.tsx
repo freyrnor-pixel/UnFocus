@@ -21,10 +21,20 @@
  * Every setting applies immediately via applyAndSync() — no buffered/dirty save step (matches
  * hints.settings.text: "Changes apply immediately.").
  *
+ * **Design-consistency pass**: multi-setting groups (Profil, Utseende, Tilgjengelighet,
+ * Local account, LAN sync, Reset data, Version & updates, Jobb-modus, Foreldremodus,
+ * Personer/familie, Handle's shopping settings, Ukentlig, Generelle) are each an
+ * `ExpandableCard` (defaultOpen=false) inside their Surface card, so related settings
+ * collapse together instead of one long flat stack. Single-toggle cards (Focus mode, Debug
+ * mode, Skolemodus, Freyr-modus) and the Automatisering nav-link card stay plain — they
+ * already show everything in one row, so a chevron/header would add chrome with nothing to
+ * hide.
+ *
  * Connections:
  *   Imports → components/AppModal, components/ConfirmationBanner, components/FormControls,
  *             components/ScreenScaffold, components/SectionDivider, components/Surface,
- *             components/PressableScale, constants/theme, lib/backup
+ *             components/ExpandableCard, components/PressableScale, constants/theme,
+ *             lib/domainColor, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
  *             getAutoBackupLabel/saveAutoBackup), lib/childLock, lib/freyrModeSeed, lib/haptics,
  *             lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
@@ -79,6 +89,7 @@ import * as Updates from 'expo-updates';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import SectionDivider from '@/components/SectionDivider';
+import ExpandableCard from '@/components/ExpandableCard';
 import { Input, Switch as FormSwitch, SegmentedControl } from '@/components/FormControls';
 import { showAppModal } from '@/components/AppModal';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
@@ -102,6 +113,7 @@ import { isSyncAvailable } from '@/lib/syncService';
 import { useT, getTranslations } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { getDomainColor } from '@/lib/domainColor';
 import { selection, warning, heavy } from '@/lib/haptics';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 
@@ -409,111 +421,114 @@ export default function SettingsScreen() {
 
             {/* PROFIL */}
             <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.sectionProfile}</Text>
               <Surface style={styles.card}>
-                <Input
-                  label={t.yourName}
-                  value={name}
-                  onChangeText={(v) => setName(v)}
-                  onBlur={() => applyAndSync({ userName: name })}
-                  placeholder={t.namePlaceholder}
-                  returnKeyType="done"
-                />
-                <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.desc.name}</Text>
+                <ExpandableCard title={t.sectionProfile} accentColor={theme.accent}>
+                  <Input
+                    label={t.yourName}
+                    value={name}
+                    onChangeText={(v) => setName(v)}
+                    onBlur={() => applyAndSync({ userName: name })}
+                    placeholder={t.namePlaceholder}
+                    returnKeyType="done"
+                  />
+                  <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.desc.name}</Text>
 
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.sectionLanguage}</Text>
-                <View style={styles.langRow}>
-                  {(['no', 'en'] as const).map((lang) => (
-                    <PressableScale
-                      key={lang}
-                      style={[
-                        styles.langChip,
-                        { backgroundColor: theme.surfaceMuted },
-                        settings.language === lang && { backgroundColor: theme.accent },
-                      ]}
-                      onPress={() => applyAndSync({ language: lang })}
-                      scaleTo={0.97}
-                    >
-                      <Text style={styles.langFlag}>{lang === 'no' ? '🇳🇴' : '🇬🇧'}</Text>
-                      <Text style={[
-                        styles.langText,
-                        { color: theme.text },
-                        settings.language === lang && { color: theme.accentInk },
-                      ]}>
-                        {lang === 'no' ? t.norwegian : t.english}
-                      </Text>
-                    </PressableScale>
-                  ))}
-                </View>
-                <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.desc.language}</Text>
+                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.sectionLanguage}</Text>
+                  <View style={styles.langRow}>
+                    {(['no', 'en'] as const).map((lang) => (
+                      <PressableScale
+                        key={lang}
+                        style={[
+                          styles.langChip,
+                          { backgroundColor: theme.surfaceMuted },
+                          settings.language === lang && { backgroundColor: theme.accent },
+                        ]}
+                        onPress={() => applyAndSync({ language: lang })}
+                        scaleTo={0.97}
+                      >
+                        <Text style={styles.langFlag}>{lang === 'no' ? '🇳🇴' : '🇬🇧'}</Text>
+                        <Text style={[
+                          styles.langText,
+                          { color: theme.text },
+                          settings.language === lang && { color: theme.accentInk },
+                        ]}>
+                          {lang === 'no' ? t.norwegian : t.english}
+                        </Text>
+                      </PressableScale>
+                    ))}
+                  </View>
+                  <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.desc.language}</Text>
+                </ExpandableCard>
               </Surface>
             </View>
 
             {/* UTSEENDE */}
             <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.sections.appearance}</Text>
               <Surface style={styles.card}>
-                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.lightDarkModeLabel}</Text>
-                <SegmentedControl
-                  value={settings.darkMode}
-                  onChange={(v) => settings.update({ darkMode: v as DarkMode })}
-                  options={[
-                    { value: 'off', label: t.darkModeOff },
-                    { value: 'system', label: t.darkModeSystem },
-                    { value: 'on', label: t.darkModeOn },
-                  ]}
-                />
+                <ExpandableCard title={t.config.sections.appearance} accentColor={theme.accent}>
+                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.lightDarkModeLabel}</Text>
+                  <SegmentedControl
+                    value={settings.darkMode}
+                    onChange={(v) => settings.update({ darkMode: v as DarkMode })}
+                    options={[
+                      { value: 'off', label: t.darkModeOff },
+                      { value: 'system', label: t.darkModeSystem },
+                      { value: 'on', label: t.darkModeOn },
+                    ]}
+                  />
+                </ExpandableCard>
               </Surface>
             </View>
 
             {/* TILGJENGELIGHET */}
             <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.settings.accessibility.title}</Text>
               <Surface style={styles.card}>
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.reducedMotion}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.reducedMotionHint}</Text>
+                <ExpandableCard title={t.settings.accessibility.title} accentColor={theme.accent}>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.reducedMotion}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.reducedMotionHint}</Text>
+                    </View>
+                    <FormSwitch checked={settings.reducedMotion} onChange={(v) => settings.update({ reducedMotion: v })} />
                   </View>
-                  <FormSwitch checked={settings.reducedMotion} onChange={(v) => settings.update({ reducedMotion: v })} />
-                </View>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.particles}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.particlesHint}</Text>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.particles}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.particlesHint}</Text>
+                    </View>
+                    <FormSwitch checked={settings.particlesEnabled} onChange={(v) => settings.update({ particlesEnabled: v })} />
                   </View>
-                  <FormSwitch checked={settings.particlesEnabled} onChange={(v) => settings.update({ particlesEnabled: v })} />
-                </View>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.accessibility.fontSize}</Text>
-                <SegmentedControl
-                  value={settings.fontSize}
-                  onChange={(v) => settings.update({ fontSize: v as FontSizePref })}
-                  options={[
-                    { value: 'small', label: t.settings.accessibility.fontSizeSmall },
-                    { value: 'default', label: t.settings.accessibility.fontSizeDefault },
-                    { value: 'large', label: t.settings.accessibility.fontSizeLarge },
-                  ]}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.leftHanded}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.leftHandedHint}</Text>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.accessibility.fontSize}</Text>
+                  <SegmentedControl
+                    value={settings.fontSize}
+                    onChange={(v) => settings.update({ fontSize: v as FontSizePref })}
+                    options={[
+                      { value: 'small', label: t.settings.accessibility.fontSizeSmall },
+                      { value: 'default', label: t.settings.accessibility.fontSizeDefault },
+                      { value: 'large', label: t.settings.accessibility.fontSizeLarge },
+                    ]}
+                  />
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.leftHanded}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.leftHandedHint}</Text>
+                    </View>
+                    <FormSwitch checked={settings.leftHanded} onChange={(v) => settings.update({ leftHanded: v })} />
                   </View>
-                  <FormSwitch checked={settings.leftHanded} onChange={(v) => settings.update({ leftHanded: v })} />
-                </View>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.timelineHorizontal}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.timelineHorizontalHint}</Text>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.timelineHorizontal}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.timelineHorizontalHint}</Text>
+                    </View>
+                    <FormSwitch checked={settings.planTimelineHorizontal} onChange={(v) => settings.update({ planTimelineHorizontal: v })} />
                   </View>
-                  <FormSwitch checked={settings.planTimelineHorizontal} onChange={(v) => settings.update({ planTimelineHorizontal: v })} />
-                </View>
+                </ExpandableCard>
               </Surface>
             </View>
 
@@ -546,105 +561,108 @@ export default function SettingsScreen() {
             {/* Local account (Decision 039) — device-only, user-held profile. No server,
                 no credentials; the account rides along in the local backup file below. */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.account.title}</Text>
               <Surface style={styles.card}>
-                <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
-                  {settings.accountCreated ? t.account.descActive : t.account.descNone}
-                </Text>
-                <Input
-                  label={t.account.nameLabel}
-                  value={accountNameInput}
-                  onChangeText={setAccountNameInput}
-                  onBlur={() => { if (settings.accountCreated) applyAndSync({ accountName: accountNameInput.trim() }); }}
-                  placeholder={t.account.namePlaceholder}
-                  returnKeyType="done"
-                />
-                {settings.accountCreated ? (
-                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.account.createdOn(settings.accountCreated)}</Text>
-                ) : (
-                  <PressableScale style={styles.dangerBtn} onPress={handleCreateAccount} scaleTo={0.97}>
-                    <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.createButton}</Text>
-                  </PressableScale>
-                )}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                {/* Auto-backup toggle */}
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.autoBackup.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.autoBackup.hint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.autoBackupEnabled}
-                    onChange={(v) => {
-                      selection();
-                      applyAndSync({ autoBackupEnabled: v });
-                      if (v) void saveAutoBackup();
-                    }}
-                  />
-                </View>
-                {settings.autoBackupEnabled && (
-                  <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs, marginBottom: 0 }]}>
-                    {t.config.autoBackup.pathLabel} {getAutoBackupLabel()}
+                <ExpandableCard title={t.account.title} accentColor={theme.accent}>
+                  <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
+                    {settings.accountCreated ? t.account.descActive : t.account.descNone}
                   </Text>
-                )}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <PressableScale style={styles.dangerBtn} onPress={handleSaveToDevice} scaleTo={0.97}>
-                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.saveToDevice}</Text>
-                </PressableScale>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <PressableScale style={styles.dangerBtn} onPress={handleExport} scaleTo={0.97}>
-                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.shareCopy}</Text>
-                </PressableScale>
-                <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs, marginBottom: 0 }]}>
-                  {t.config.autoBackup.shareNote}
-                </Text>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <PressableScale style={styles.dangerBtn} onPress={handleImport} scaleTo={0.97}>
-                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.restoreButton}</Text>
-                </PressableScale>
-                <Text style={[styles.descText, { color: theme.textMuted, marginBottom: 0 }]}>{t.account.deviceOnlyNote}</Text>
+                  <Input
+                    label={t.account.nameLabel}
+                    value={accountNameInput}
+                    onChangeText={setAccountNameInput}
+                    onBlur={() => { if (settings.accountCreated) applyAndSync({ accountName: accountNameInput.trim() }); }}
+                    placeholder={t.account.namePlaceholder}
+                    returnKeyType="done"
+                  />
+                  {settings.accountCreated ? (
+                    <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.account.createdOn(settings.accountCreated)}</Text>
+                  ) : (
+                    <PressableScale style={styles.dangerBtn} onPress={handleCreateAccount} scaleTo={0.97}>
+                      <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.createButton}</Text>
+                    </PressableScale>
+                  )}
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  {/* Auto-backup toggle */}
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.autoBackup.label}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.autoBackup.hint}</Text>
+                    </View>
+                    <FormSwitch
+                      checked={settings.autoBackupEnabled}
+                      onChange={(v) => {
+                        selection();
+                        applyAndSync({ autoBackupEnabled: v });
+                        if (v) void saveAutoBackup();
+                      }}
+                    />
+                  </View>
+                  {settings.autoBackupEnabled && (
+                    <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs, marginBottom: 0 }]}>
+                      {t.config.autoBackup.pathLabel} {getAutoBackupLabel()}
+                    </Text>
+                  )}
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <PressableScale style={styles.dangerBtn} onPress={handleSaveToDevice} scaleTo={0.97}>
+                    <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.saveToDevice}</Text>
+                  </PressableScale>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <PressableScale style={styles.dangerBtn} onPress={handleExport} scaleTo={0.97}>
+                    <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.shareCopy}</Text>
+                  </PressableScale>
+                  <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs, marginBottom: 0 }]}>
+                    {t.config.autoBackup.shareNote}
+                  </Text>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <PressableScale style={styles.dangerBtn} onPress={handleImport} scaleTo={0.97}>
+                    <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.restoreButton}</Text>
+                  </PressableScale>
+                  <Text style={[styles.descText, { color: theme.textMuted, marginBottom: 0 }]}>{t.account.deviceOnlyNote}</Text>
+                </ExpandableCard>
               </Surface>
             </View>
 
             {/* LAN live sync (Decision 038 app integration) — pairing lives on its own
                 screen (app/pair-device.tsx); this card is just the entry point + toggle. */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.peers.title}</Text>
               <Surface style={styles.card}>
-                <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
-                  {syncAvailable ? t.peers.settingsCardDesc : t.peers.syncUnavailable}
-                </Text>
-                <PressableScale style={styles.dangerBtn} onPress={() => router.push('/pair-device')} scaleTo={0.97}>
-                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.peers.manageLink}</Text>
-                </PressableScale>
+                <ExpandableCard title={t.peers.title} accentColor={theme.accent}>
+                  <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
+                    {syncAvailable ? t.peers.settingsCardDesc : t.peers.syncUnavailable}
+                  </Text>
+                  <PressableScale style={styles.dangerBtn} onPress={() => router.push('/pair-device')} scaleTo={0.97}>
+                    <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.peers.manageLink}</Text>
+                  </PressableScale>
+                </ExpandableCard>
               </Surface>
             </View>
 
             {/* Reset data */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.sectionReset}</Text>
               <Surface style={[styles.card, { borderWidth: 1, borderColor: theme.badSoft }]}>
-                <Text style={[styles.descText, { color: theme.bad, marginBottom: Spacing.sm, marginTop: 0 }]}>{t.config.desc.dataNote}</Text>
-                <PressableScale style={styles.dangerBtn} onPress={() => confirmReset(t.resetMonthly.toLowerCase(), monthlyReset)} scaleTo={0.93}>
-                  <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetMonthly}</Text>
-                </PressableScale>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <PressableScale style={styles.dangerBtn} onPress={() => confirmReset(t.resetTasks.toLowerCase(), clearTasks)} scaleTo={0.93}>
-                  <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetTasks}</Text>
-                </PressableScale>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <PressableScale
-                  style={styles.dangerBtn}
-                  onPress={() =>
-                    confirmReset(t.resetOnboarding.toLowerCase(), () => {
-                      settings.update({ setupComplete: false });
-                      router.replace('/onboarding/language');
-                    })
-                  }
-                  scaleTo={0.93}
-                >
-                  <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetOnboarding}</Text>
-                </PressableScale>
+                <ExpandableCard title={t.sectionReset} accentColor={theme.bad}>
+                  <Text style={[styles.descText, { color: theme.bad, marginBottom: Spacing.sm, marginTop: 0 }]}>{t.config.desc.dataNote}</Text>
+                  <PressableScale style={styles.dangerBtn} onPress={() => confirmReset(t.resetMonthly.toLowerCase(), monthlyReset)} scaleTo={0.93}>
+                    <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetMonthly}</Text>
+                  </PressableScale>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <PressableScale style={styles.dangerBtn} onPress={() => confirmReset(t.resetTasks.toLowerCase(), clearTasks)} scaleTo={0.93}>
+                    <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetTasks}</Text>
+                  </PressableScale>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <PressableScale
+                    style={styles.dangerBtn}
+                    onPress={() =>
+                      confirmReset(t.resetOnboarding.toLowerCase(), () => {
+                        settings.update({ setupComplete: false });
+                        router.replace('/onboarding/language');
+                      })
+                    }
+                    scaleTo={0.93}
+                  >
+                    <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetOnboarding}</Text>
+                  </PressableScale>
+                </ExpandableCard>
               </Surface>
             </View>
 
@@ -652,32 +670,33 @@ export default function SettingsScreen() {
                 running and force an OTA check. Runtime + updateId here are the
                 fastest way to diagnose "I haven't received the update". */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.version.title}</Text>
               <Surface style={styles.card}>
-                {[
-                  [t.version.appVersion, appVersion],
-                  [t.version.runtime, runtimeVersion],
-                  [t.version.channel, updateChannel],
-                  [t.version.source, updateSource],
-                  [t.version.updateId, updateIdShort],
-                  [t.version.published, updatePublished],
-                ].map(([label, value], i) => (
-                  <View key={label} style={[styles.switchRow, i > 0 && { marginTop: Spacing.sm }]}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]} selectable>{value}</Text>
-                  </View>
-                ))}
-                {!Updates.isEnabled && (
-                  <Text style={[styles.descText, { color: theme.warn, marginBottom: Spacing.sm }]}>
-                    {t.version.disabled}
-                  </Text>
-                )}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <PressableScale style={styles.dangerBtn} onPress={handleCheckUpdates} disabled={checkingUpdate} scaleTo={0.97}>
-                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
-                    {checkingUpdate ? t.version.checking : t.version.checkButton}
-                  </Text>
-                </PressableScale>
+                <ExpandableCard title={t.version.title} accentColor={theme.accent}>
+                  {[
+                    [t.version.appVersion, appVersion],
+                    [t.version.runtime, runtimeVersion],
+                    [t.version.channel, updateChannel],
+                    [t.version.source, updateSource],
+                    [t.version.updateId, updateIdShort],
+                    [t.version.published, updatePublished],
+                  ].map(([label, value], i) => (
+                    <View key={label} style={[styles.switchRow, i > 0 && { marginTop: Spacing.sm }]}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{label}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]} selectable>{value}</Text>
+                    </View>
+                  ))}
+                  {!Updates.isEnabled && (
+                    <Text style={[styles.descText, { color: theme.warn, marginBottom: Spacing.sm }]}>
+                      {t.version.disabled}
+                    </Text>
+                  )}
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <PressableScale style={styles.dangerBtn} onPress={handleCheckUpdates} disabled={checkingUpdate} scaleTo={0.97}>
+                    <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
+                      {checkingUpdate ? t.version.checking : t.version.checkButton}
+                    </Text>
+                  </PressableScale>
+                </ExpandableCard>
               </Surface>
             </View>
           </>
@@ -687,131 +706,133 @@ export default function SettingsScreen() {
           <>
             {/* JOBB-MODUS */}
             <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.sections.workMode}</Text>
               <Surface style={styles.card}>
-                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.workModeDesc}</Text>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <Text style={[styles.switchLabel, { color: theme.text }]}>{t.workModeActive}</Text>
-                  <FormSwitch checked={settings.workModeEnabled} onChange={(v) => settings.update({ workModeEnabled: v })} />
-                </View>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.autoActivate}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.autoActivateHint}</Text>
+                <ExpandableCard title={t.config.sections.workMode} accentColor={theme.accent}>
+                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.workModeDesc}</Text>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <View style={styles.switchRow}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.workModeActive}</Text>
+                    <FormSwitch checked={settings.workModeEnabled} onChange={(v) => settings.update({ workModeEnabled: v })} />
                   </View>
-                  <FormSwitch checked={settings.enforceWorkHours} onChange={(v) => settings.update({ enforceWorkHours: v })} />
-                </View>
-                {settings.enforceWorkHours && (
-                  <>
-                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <View style={styles.workHoursRow}>
-                      <View style={styles.workHoursCol}>
-                        <Input
-                          label={t.workHoursFrom}
-                          value={settings.workHoursStart}
-                          onChangeText={(v) => settings.update({ workHoursStart: v })}
-                          placeholder="09:00"
-                          keyboardType="numbers-and-punctuation"
-                        />
-                      </View>
-                      <View style={styles.workHoursCol}>
-                        <Input
-                          label={t.workHoursTo}
-                          value={settings.workHoursEnd}
-                          onChangeText={(v) => settings.update({ workHoursEnd: v })}
-                          placeholder="17:00"
-                          keyboardType="numbers-and-punctuation"
-                        />
-                      </View>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.autoActivate}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.autoActivateHint}</Text>
                     </View>
-                  </>
-                )}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.workDaysLabel}</Text>
-                <View style={[styles.dayRow, styles.workDayRow]}>
-                  {DAY_LABELS.map((label, i) => {
-                    const active = settings.workDays.includes(i);
-                    return (
-                      <PressableScale
-                        key={i}
-                        style={[
-                          styles.dayChip,
-                          styles.workDayChip,
-                          { backgroundColor: theme.surfaceMuted },
-                          active && { backgroundColor: theme.accent },
-                        ]}
-                        onPress={() => {
-                          const next = active
-                            ? settings.workDays.filter((d) => d !== i)
-                            : [...settings.workDays, i].sort();
-                          settings.update({ workDays: next });
-                        }}
-                        scaleTo={0.97}
-                      >
-                        <Text style={[
-                          styles.dayText,
-                          { color: theme.text },
-                          active && { color: theme.accentInk },
-                        ]}>
-                          {label.slice(0, 3)}
-                        </Text>
-                      </PressableScale>
-                    );
-                  })}
-                </View>
-
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.holidaysEnabledLabel}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.holidaysHint}</Text>
+                    <FormSwitch checked={settings.enforceWorkHours} onChange={(v) => settings.update({ enforceWorkHours: v })} />
                   </View>
-                  <FormSwitch checked={settings.holidaysEnabled} onChange={(v) => settings.update({ holidaysEnabled: v })} />
-                </View>
+                  {settings.enforceWorkHours && (
+                    <>
+                      <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                      <View style={styles.workHoursRow}>
+                        <View style={styles.workHoursCol}>
+                          <Input
+                            label={t.workHoursFrom}
+                            value={settings.workHoursStart}
+                            onChangeText={(v) => settings.update({ workHoursStart: v })}
+                            placeholder="09:00"
+                            keyboardType="numbers-and-punctuation"
+                          />
+                        </View>
+                        <View style={styles.workHoursCol}>
+                          <Input
+                            label={t.workHoursTo}
+                            value={settings.workHoursEnd}
+                            onChangeText={(v) => settings.update({ workHoursEnd: v })}
+                            placeholder="17:00"
+                            keyboardType="numbers-and-punctuation"
+                          />
+                        </View>
+                      </View>
+                    </>
+                  )}
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.workDaysLabel}</Text>
+                  <View style={[styles.dayRow, styles.workDayRow]}>
+                    {DAY_LABELS.map((label, i) => {
+                      const active = settings.workDays.includes(i);
+                      return (
+                        <PressableScale
+                          key={i}
+                          style={[
+                            styles.dayChip,
+                            styles.workDayChip,
+                            { backgroundColor: theme.surfaceMuted },
+                            active && { backgroundColor: theme.accent },
+                          ]}
+                          onPress={() => {
+                            const next = active
+                              ? settings.workDays.filter((d) => d !== i)
+                              : [...settings.workDays, i].sort();
+                            settings.update({ workDays: next });
+                          }}
+                          scaleTo={0.97}
+                        >
+                          <Text style={[
+                            styles.dayText,
+                            { color: theme.text },
+                            active && { color: theme.accentInk },
+                          ]}>
+                            {label.slice(0, 3)}
+                          </Text>
+                        </PressableScale>
+                      );
+                    })}
+                  </View>
+
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.holidaysEnabledLabel}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.holidaysHint}</Text>
+                    </View>
+                    <FormSwitch checked={settings.holidaysEnabled} onChange={(v) => settings.update({ holidaysEnabled: v })} />
+                  </View>
+                </ExpandableCard>
               </Surface>
             </View>
 
             {/* FORELDREMODUS (Parent mode / Child mode) */}
             <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.childModeTitle}</Text>
               <Surface style={styles.card}>
-                <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeDesc}</Text>
-                {settings.childMode ? (
-                  <>
-                    <Text style={[styles.descText, { color: theme.bad, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeLockedNotice}</Text>
-                    <Input
-                      value={childPwInput}
-                      onChangeText={setChildPwInput}
-                      secureTextEntry
-                      placeholder={t.childModeEnterPassword}
-                      autoCapitalize="none"
-                    />
-                    <PressableScale style={styles.dangerBtn} onPress={handleExitChildMode} scaleTo={0.97}>
-                      <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeExit}</Text>
-                    </PressableScale>
-                  </>
-                ) : (
-                  <>
-                    <Input
-                      value={childPwInput}
-                      onChangeText={setChildPwInput}
-                      secureTextEntry
-                      placeholder={t.childModeNewPassword}
-                      autoCapitalize="none"
-                    />
-                    <PressableScale style={styles.dangerBtn} onPress={handleSetChildPassword} scaleTo={0.97}>
-                      <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
-                        {settings.childModePasswordSet ? t.childModeChangePassword : t.childModeSetPassword}
-                      </Text>
-                    </PressableScale>
-                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <PressableScale style={styles.dangerBtn} onPress={handleEnableChildMode} scaleTo={0.97}>
-                      <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeEnable}</Text>
-                    </PressableScale>
-                  </>
-                )}
+                <ExpandableCard title={t.childModeTitle} accentColor={theme.accent}>
+                  <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeDesc}</Text>
+                  {settings.childMode ? (
+                    <>
+                      <Text style={[styles.descText, { color: theme.bad, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeLockedNotice}</Text>
+                      <Input
+                        value={childPwInput}
+                        onChangeText={setChildPwInput}
+                        secureTextEntry
+                        placeholder={t.childModeEnterPassword}
+                        autoCapitalize="none"
+                      />
+                      <PressableScale style={styles.dangerBtn} onPress={handleExitChildMode} scaleTo={0.97}>
+                        <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeExit}</Text>
+                      </PressableScale>
+                    </>
+                  ) : (
+                    <>
+                      <Input
+                        value={childPwInput}
+                        onChangeText={setChildPwInput}
+                        secureTextEntry
+                        placeholder={t.childModeNewPassword}
+                        autoCapitalize="none"
+                      />
+                      <PressableScale style={styles.dangerBtn} onPress={handleSetChildPassword} scaleTo={0.97}>
+                        <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
+                          {settings.childModePasswordSet ? t.childModeChangePassword : t.childModeSetPassword}
+                        </Text>
+                      </PressableScale>
+                      <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                      <PressableScale style={styles.dangerBtn} onPress={handleEnableChildMode} scaleTo={0.97}>
+                        <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeEnable}</Text>
+                      </PressableScale>
+                    </>
+                  )}
+                </ExpandableCard>
               </Surface>
             </View>
 
@@ -834,63 +855,64 @@ export default function SettingsScreen() {
 
             {/* PERSONER / FAMILIE (People / family mode) */}
             <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.peopleMode.label}</Text>
               <Surface style={styles.card}>
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.peopleMode.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.peopleMode.hint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.peopleModeEnabled}
-                    onChange={(v) => { selection(); settings.update({ peopleModeEnabled: v }); }}
-                  />
-                </View>
-
-                {settings.peopleModeEnabled && (
-                  <>
-                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.peopleMode.profilesHint}</Text>
-                    {settings.childProfiles.length > 0 && (
-                      <View style={styles.peopleChipRow}>
-                        {settings.childProfiles.map((nm) => (
-                          <PressableScale
-                            key={nm}
-                            style={[styles.peopleChip, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
-                            onPress={() => removeProfile(nm)}
-                            accessibilityRole="button"
-                            accessibilityLabel={t.peopleMode.removeTitle(nm)}
-                            scaleTo={0.96}
-                          >
-                            <Text style={[styles.peopleChipText, { color: theme.text }]}>{nm}</Text>
-                            <Ionicons name="close-circle" size={16} color={theme.textMuted} />
-                          </PressableScale>
-                        ))}
-                      </View>
-                    )}
-                    <View style={styles.peopleAddRow}>
-                      <View style={styles.peopleAddInput}>
-                        <Input
-                          value={newChildName}
-                          onChangeText={setNewChildName}
-                          placeholder={t.peopleMode.addPlaceholder}
-                          onSubmitEditing={addProfile}
-                          returnKeyType="done"
-                        />
-                      </View>
-                      <PressableScale
-                        style={[styles.peopleAddBtn, { backgroundColor: newChildName.trim() ? theme.accent : theme.surfaceMuted, borderColor: theme.border }]}
-                        onPress={addProfile}
-                        disabled={!newChildName.trim()}
-                        accessibilityRole="button"
-                        accessibilityLabel={t.peopleMode.addButton}
-                        scaleTo={0.96}
-                      >
-                        <Ionicons name="add" size={22} color={newChildName.trim() ? theme.accentInk : theme.textMuted} />
-                      </PressableScale>
+                <ExpandableCard title={t.peopleMode.label} accentColor={theme.accent}>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.peopleMode.label}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.peopleMode.hint}</Text>
                     </View>
-                  </>
-                )}
+                    <FormSwitch
+                      checked={settings.peopleModeEnabled}
+                      onChange={(v) => { selection(); settings.update({ peopleModeEnabled: v }); }}
+                    />
+                  </View>
+
+                  {settings.peopleModeEnabled && (
+                    <>
+                      <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                      <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.peopleMode.profilesHint}</Text>
+                      {settings.childProfiles.length > 0 && (
+                        <View style={styles.peopleChipRow}>
+                          {settings.childProfiles.map((nm) => (
+                            <PressableScale
+                              key={nm}
+                              style={[styles.peopleChip, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+                              onPress={() => removeProfile(nm)}
+                              accessibilityRole="button"
+                              accessibilityLabel={t.peopleMode.removeTitle(nm)}
+                              scaleTo={0.96}
+                            >
+                              <Text style={[styles.peopleChipText, { color: theme.text }]}>{nm}</Text>
+                              <Ionicons name="close-circle" size={16} color={theme.textMuted} />
+                            </PressableScale>
+                          ))}
+                        </View>
+                      )}
+                      <View style={styles.peopleAddRow}>
+                        <View style={styles.peopleAddInput}>
+                          <Input
+                            value={newChildName}
+                            onChangeText={setNewChildName}
+                            placeholder={t.peopleMode.addPlaceholder}
+                            onSubmitEditing={addProfile}
+                            returnKeyType="done"
+                          />
+                        </View>
+                        <PressableScale
+                          style={[styles.peopleAddBtn, { backgroundColor: newChildName.trim() ? theme.accent : theme.surfaceMuted, borderColor: theme.border }]}
+                          onPress={addProfile}
+                          disabled={!newChildName.trim()}
+                          accessibilityRole="button"
+                          accessibilityLabel={t.peopleMode.addButton}
+                          scaleTo={0.96}
+                        >
+                          <Ionicons name="add" size={22} color={newChildName.trim() ? theme.accentInk : theme.textMuted} />
+                        </PressableScale>
+                      </View>
+                    </>
+                  )}
+                </ExpandableCard>
               </Surface>
             </View>
 
@@ -912,77 +934,78 @@ export default function SettingsScreen() {
 
         {tab === 'handle' && (
           <View style={styles.section}>
-            <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.sectionShopping}</Text>
             <Surface style={styles.card}>
-              <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.weeklyResetDay}</Text>
-              <View style={styles.dayRow}>
-                {DAY_LABELS.map((label, i) => (
-                  <PressableScale
-                    key={i}
-                    style={[
-                      styles.dayChip,
-                      { backgroundColor: theme.surfaceMuted },
-                      settings.weeklyResetDay === i && { backgroundColor: theme.accent },
-                    ]}
-                    onPress={() => applyAndSync({ weeklyResetDay: i })}
-                    scaleTo={0.97}
-                  >
-                    <Text style={[
-                      styles.dayText,
-                      { color: theme.text },
-                      settings.weeklyResetDay === i && { color: theme.accentInk },
-                    ]}>
-                      {label.slice(0, 3)}
-                    </Text>
-                  </PressableScale>
-                ))}
-              </View>
+              <ExpandableCard title={t.sectionShopping} accentColor={getDomainColor(theme, 'shop').accent}>
+                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.weeklyResetDay}</Text>
+                <View style={styles.dayRow}>
+                  {DAY_LABELS.map((label, i) => (
+                    <PressableScale
+                      key={i}
+                      style={[
+                        styles.dayChip,
+                        { backgroundColor: theme.surfaceMuted },
+                        settings.weeklyResetDay === i && { backgroundColor: theme.accent },
+                      ]}
+                      onPress={() => applyAndSync({ weeklyResetDay: i })}
+                      scaleTo={0.97}
+                    >
+                      <Text style={[
+                        styles.dayText,
+                        { color: theme.text },
+                        settings.weeklyResetDay === i && { color: theme.accentInk },
+                      ]}>
+                        {label.slice(0, 3)}
+                      </Text>
+                    </PressableScale>
+                  ))}
+                </View>
 
-              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-              <Input
-                label={t.monthlyResetDate}
-                value={monthlyDateInput}
-                onChangeText={setMonthlyDateInput}
-                onBlur={() => {
-                  const n = parseInt(monthlyDateInput, 10);
-                  if (!isNaN(n) && n >= 1 && n <= 31) {
-                    applyAndSync({ monthlyResetDate: n });
-                  } else {
-                    setMonthlyDateInput(String(settings.monthlyResetDate));
-                    setInputWarning(t.invalidMonthlyDateMsg);
-                  }
-                }}
-                keyboardType="number-pad"
-                placeholder="1–31"
-                maxLength={2}
-              />
-              <Text style={[styles.paydayHint, { color: theme.textMuted }]}>{t.monthlyDateInputHint}</Text>
+                <Input
+                  label={t.monthlyResetDate}
+                  value={monthlyDateInput}
+                  onChangeText={setMonthlyDateInput}
+                  onBlur={() => {
+                    const n = parseInt(monthlyDateInput, 10);
+                    if (!isNaN(n) && n >= 1 && n <= 31) {
+                      applyAndSync({ monthlyResetDate: n });
+                    } else {
+                      setMonthlyDateInput(String(settings.monthlyResetDate));
+                      setInputWarning(t.invalidMonthlyDateMsg);
+                    }
+                  }}
+                  keyboardType="number-pad"
+                  placeholder="1–31"
+                  maxLength={2}
+                />
+                <Text style={[styles.paydayHint, { color: theme.textMuted }]}>{t.monthlyDateInputHint}</Text>
 
-              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-              <Input
-                label={t.settings.monthlyBudget.label}
-                value={monthlyBudgetInput}
-                onChangeText={setMonthlyBudgetInput}
-                onBlur={() => {
-                  if (monthlyBudgetInput.trim() === '') {
-                    settings.update({ monthlyBudgetNok: 0 });
-                    return;
-                  }
-                  const n = parseFloat(monthlyBudgetInput.replace(',', '.'));
-                  if (!isNaN(n) && n >= 0) {
-                    settings.update({ monthlyBudgetNok: n });
-                  } else {
-                    setMonthlyBudgetInput(settings.monthlyBudgetNok > 0 ? String(settings.monthlyBudgetNok) : '');
-                    setInputWarning(t.invalidMonthlyBudgetMsg);
-                  }
-                }}
-                keyboardType="number-pad"
-                placeholder={t.settings.monthlyBudget.placeholder}
-                maxLength={6}
-              />
-              <Text style={[styles.paydayHint, { color: theme.textMuted }]}>{t.settings.monthlyBudget.hint}</Text>
+                <Input
+                  label={t.settings.monthlyBudget.label}
+                  value={monthlyBudgetInput}
+                  onChangeText={setMonthlyBudgetInput}
+                  onBlur={() => {
+                    if (monthlyBudgetInput.trim() === '') {
+                      settings.update({ monthlyBudgetNok: 0 });
+                      return;
+                    }
+                    const n = parseFloat(monthlyBudgetInput.replace(',', '.'));
+                    if (!isNaN(n) && n >= 0) {
+                      settings.update({ monthlyBudgetNok: n });
+                    } else {
+                      setMonthlyBudgetInput(settings.monthlyBudgetNok > 0 ? String(settings.monthlyBudgetNok) : '');
+                      setInputWarning(t.invalidMonthlyBudgetMsg);
+                    }
+                  }}
+                  keyboardType="number-pad"
+                  placeholder={t.settings.monthlyBudget.placeholder}
+                  maxLength={6}
+                />
+                <Text style={[styles.paydayHint, { color: theme.textMuted }]}>{t.settings.monthlyBudget.hint}</Text>
+              </ExpandableCard>
             </Surface>
           </View>
         )}
@@ -991,96 +1014,98 @@ export default function SettingsScreen() {
           <>
             {/* UKENTLIG */}
             <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.weeklyReminders}</Text>
               <Surface style={styles.card}>
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.weeklyReminders}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.desc.weeklyReminders}</Text>
+                <ExpandableCard title={t.weeklyReminders} accentColor={theme.accent}>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.weeklyReminders}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.desc.weeklyReminders}</Text>
+                    </View>
+                    <FormSwitch checked={settings.remindersEnabled} onChange={(v) => applyAndSync({ remindersEnabled: v })} />
                   </View>
-                  <FormSwitch checked={settings.remindersEnabled} onChange={(v) => applyAndSync({ remindersEnabled: v })} />
-                </View>
-                {settings.remindersEnabled && (
-                  <>
-                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <Input
-                      label={t.reminderTimeLabel}
-                      value={settings.reminderTime}
-                      onChangeText={(v) => applyAndSync({ reminderTime: v })}
-                      placeholder="08:00"
-                      keyboardType="numbers-and-punctuation"
-                    />
-                  </>
-                )}
+                  {settings.remindersEnabled && (
+                    <>
+                      <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                      <Input
+                        label={t.reminderTimeLabel}
+                        value={settings.reminderTime}
+                        onChangeText={(v) => applyAndSync({ reminderTime: v })}
+                        placeholder="08:00"
+                        keyboardType="numbers-and-punctuation"
+                      />
+                    </>
+                  )}
+                </ExpandableCard>
               </Surface>
             </View>
 
             {/* GENERELLE */}
             <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.sections.notifications}</Text>
               <Surface style={styles.card}>
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.taskNotifications}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.taskNotificationsHint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.taskNotificationsEnabled}
-                    onChange={(v) => applyAndSync({ taskNotificationsEnabled: v })}
-                  />
-                </View>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.habitNotifications}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.habitNotificationsHint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.habitNotificationsEnabled}
-                    onChange={(v) => applyAndSync({ habitNotificationsEnabled: v })}
-                  />
-                </View>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.persistentNotifLabel}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.persistentNotifHint}</Text>
-                  </View>
-                  <FormSwitch checked={settings.persistentNotifEnabled} onChange={(v) => { settings.update({ persistentNotifEnabled: v }); void syncWidgetsAndOverview({ persistentOnly: true }); }} />
-                </View>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.quietHours.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.quietHours.hint}</Text>
-                  </View>
-                  <FormSwitch checked={settings.quietHoursEnabled} onChange={(v) => applyAndSync({ quietHoursEnabled: v })} />
-                </View>
-                {settings.quietHoursEnabled && (
-                  <>
-                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <View style={styles.workHoursRow}>
-                      <View style={styles.workHoursCol}>
-                        <Input
-                          label={t.workHoursFrom}
-                          value={settings.quietHoursStart}
-                          onChangeText={(v) => applyAndSync({ quietHoursStart: v })}
-                          placeholder="21:00"
-                          keyboardType="numbers-and-punctuation"
-                        />
-                      </View>
-                      <View style={styles.workHoursCol}>
-                        <Input
-                          label={t.workHoursTo}
-                          value={settings.quietHoursEnd}
-                          onChangeText={(v) => applyAndSync({ quietHoursEnd: v })}
-                          placeholder="08:00"
-                          keyboardType="numbers-and-punctuation"
-                        />
-                      </View>
+                <ExpandableCard title={t.config.sections.notifications} accentColor={theme.accent}>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.taskNotifications}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.taskNotificationsHint}</Text>
                     </View>
-                  </>
-                )}
+                    <FormSwitch
+                      checked={settings.taskNotificationsEnabled}
+                      onChange={(v) => applyAndSync({ taskNotificationsEnabled: v })}
+                    />
+                  </View>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.habitNotifications}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.habitNotificationsHint}</Text>
+                    </View>
+                    <FormSwitch
+                      checked={settings.habitNotificationsEnabled}
+                      onChange={(v) => applyAndSync({ habitNotificationsEnabled: v })}
+                    />
+                  </View>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.persistentNotifLabel}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.persistentNotifHint}</Text>
+                    </View>
+                    <FormSwitch checked={settings.persistentNotifEnabled} onChange={(v) => { settings.update({ persistentNotifEnabled: v }); void syncWidgetsAndOverview({ persistentOnly: true }); }} />
+                  </View>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.quietHours.label}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.quietHours.hint}</Text>
+                    </View>
+                    <FormSwitch checked={settings.quietHoursEnabled} onChange={(v) => applyAndSync({ quietHoursEnabled: v })} />
+                  </View>
+                  {settings.quietHoursEnabled && (
+                    <>
+                      <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                      <View style={styles.workHoursRow}>
+                        <View style={styles.workHoursCol}>
+                          <Input
+                            label={t.workHoursFrom}
+                            value={settings.quietHoursStart}
+                            onChangeText={(v) => applyAndSync({ quietHoursStart: v })}
+                            placeholder="21:00"
+                            keyboardType="numbers-and-punctuation"
+                          />
+                        </View>
+                        <View style={styles.workHoursCol}>
+                          <Input
+                            label={t.workHoursTo}
+                            value={settings.quietHoursEnd}
+                            onChangeText={(v) => applyAndSync({ quietHoursEnd: v })}
+                            placeholder="08:00"
+                            keyboardType="numbers-and-punctuation"
+                          />
+                        </View>
+                      </View>
+                    </>
+                  )}
+                </ExpandableCard>
               </Surface>
             </View>
 
@@ -1114,7 +1139,8 @@ const baseStyles = StyleSheet.create({
   section: { gap: Spacing.sm },
   // Decision 043 rule 2 fixed anatomy: Fonts.semibold/FontSize.lg; below-spacing comes
   // from `section`'s own gap:Spacing.sm, so neither header style carries its own margin.
-  sectionTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
+  // (Most former sectionTitle/tabSectionLabel headers are now ExpandableCard's own title —
+  // tabSectionLabel survives for the few single-toggle cards that stayed plain, uncollapsed.)
   groupHeader: { fontSize: FontSize.xl, fontFamily: Fonts.bold, marginTop: Spacing.sm },
   descText: { fontSize: FontSize.xs, marginTop: Spacing.sm, lineHeight: 18 },
   essentialsCard: { padding: Spacing.md, borderWidth: 2 },

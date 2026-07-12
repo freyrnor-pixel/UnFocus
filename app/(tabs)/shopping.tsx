@@ -11,7 +11,7 @@
  * sticky bar (Decision 011 A2-1) holds the 4-tab switcher plus a per-tab summary line.
  *
  * Connections:
- *   Imports → components/AddFAB, components/AddItemSheet, components/HintCard,
+ *   Imports → components/AddItemSheet, components/HintCard,
  *             components/AppModal (showAppModal),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
  *             components/ExpandableCard, components/FlightOverlay (FlightPill, Flight, FlightRect),
@@ -57,9 +57,12 @@
  *     monthly list" (→ status:'catalog'), expandable to ingredient rows. Catalogue
  *     (components/CatalogueTab) is the master item list, sectioned by type, with add/edit/
  *     delete. The Monthly tab dropped its embedded seed-catalogue section (moved to the
- *     Catalogue tab) and keeps a direct add-to-monthly bubble (AddFAB size="sm", lower-right
- *     of the card — visual-audit 2026-07-11 replaced the old AddDivider "—+—" line). Weekly gained the
- *     Unallocated card; each unallocated dish/item can be allocated into a real dated list.
+ *     Catalogue tab) and keeps a direct add-to-monthly trigger (bordered pill, matching
+ *     WeekListCard's monthlyTrigger shape — design-consistency pass replaced the earlier
+ *     AddFAB size="sm" bubble, which itself had replaced an even earlier AddDivider "—+—"
+ *     line). Weekly gained the Unallocated card; each unallocated dish/item can be
+ *     allocated into a real dated list. Weekly's "New list" action is the same trigger-pill
+ *     family, sized more prominently as the tab's primary action.
  *   - New file (2026-07-02, Session A2·2). app/shopping.tsx never existed in this repo
  *     before this session — this is a from-scratch build against Decision 011 (A2-1,
  *     A2-4) and Decision 017, using the old repo's app/shopping.tsx only as a reference
@@ -172,7 +175,6 @@ import WeekListCard from '@/components/WeekListCard';
 import FlightOverlay, { FlightRow, Flight, FlightRect } from '@/components/FlightOverlay';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab from '@/components/CatalogueTab';
-import AddFAB from '@/components/AddFAB';
 import SavedListsModal from '@/components/SavedListsModal';
 import ListSettingsSheet from '@/components/ListSettingsSheet';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
@@ -893,13 +895,21 @@ export default function ShoppingScreen() {
                 {/* Add an item straight to the Monthly list. The full item catalogue now
                     lives in its own "Catalogue" tab (CatalogueTab); this keeps a direct
                     add-to-monthly affordance where the catalogue section used to sit.
-                    Visual-audit 2026-07-11: a lower-right bubble (matching the "add
-                    within this card" shape used elsewhere) replaces the old centered
-                    "—+—" AddDivider line. */}
+                    Design-consistency pass: a bordered trigger pill (opens the AddItemSheet)
+                    matching WeekListCard's "Add from monthly list" trigger — one shared shape
+                    for "tap to open a fuller add flow", instead of the old circular AddFAB
+                    bubble that read as a third, different add affordance on this screen. */}
                 {!catalogLocked && (
-                  <View style={styles.cardAddBubbleRow}>
-                    <AddFAB size="sm" onPress={() => setAddToCatalogOpen(true)} accessibilityLabel={t.catalogueAddNewBtn} style={styles.cardAddBubble} />
-                  </View>
+                  <PressableScale
+                    style={[styles.addTrigger, { borderColor: theme.accent }]}
+                    onPress={() => setAddToCatalogOpen(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t.catalogueAddNewBtn}
+                    scaleTo={0.97}
+                  >
+                    <Ionicons name="add-circle-outline" size={16} color={theme.accent} />
+                    <Text style={[styles.addTriggerText, { color: theme.accent }]}>{t.catalogueAddNewBtn}</Text>
+                  </PressableScale>
                 )}
               </View>
 
@@ -1096,8 +1106,13 @@ export default function ShoppingScreen() {
               </Surface>
             )}
 
+            {/* Creating a new list has no single text field to fill (it's auto-named by
+                date range, then offers a start-empty/from-saved choice), so it doesn't fit
+                the AddRow shape — it's a "tap to open a chooser" trigger like the other two
+                on this screen (monthlyTrigger, the Monthly-tab addTrigger), just sized more
+                prominently since it's the primary action on this tab. */}
             <PressableScale
-              style={[styles.newListCard, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+              style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
               onPress={() =>
                 showAppModal(t.newWeeklyListTitle, '', [
                   { text: t.startEmptyList, onPress: handleCreateNewWeeklyList },
@@ -1105,10 +1120,12 @@ export default function ShoppingScreen() {
                   { text: t.cancel, style: 'cancel' },
                 ])
               }
+              accessibilityRole="button"
+              accessibilityLabel={t.newWeeklyListTitle}
               scaleTo={0.97}
             >
-              <Text style={[styles.newListPlus, { color: theme.accent }]}>+</Text>
-              <Text style={[styles.newListText, { color: theme.accent }]}>{t.newWeeklyListTitle}</Text>
+              <Ionicons name="add-circle-outline" size={20} color={theme.accent} />
+              <Text style={[styles.newListTriggerText, { color: theme.accent }]}>{t.newWeeklyListTitle}</Text>
             </PressableScale>
           </>
         )}
@@ -1219,10 +1236,19 @@ const styles = StyleSheet.create({
   catalogHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   catalogHeaderTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   catalogHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  // Lower-right "add within this card" bubble (visual-audit 2026-07-11) — replaces the
-  // old centered AddDivider "—+—" line for the Monthly list's add-item affordance.
-  cardAddBubbleRow: { flexDirection: 'row', justifyContent: 'flex-end' },
-  cardAddBubble: {},
+  // Bordered trigger pill — matches WeekListCard's monthlyTrigger shape, the one shared
+  // "tap to open a fuller add flow" affordance (design-consistency pass).
+  addTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    minHeight: 40,
+  },
+  addTriggerText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   resetIconBtn: { alignItems: 'center', justifyContent: 'center' },
 
   dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: Spacing.lg },
@@ -1275,7 +1301,16 @@ const styles = StyleSheet.create({
   weekLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
 
   weekEmptyCard: { borderRadius: Radius.lg, paddingVertical: Spacing.sm, marginBottom: Spacing.md },
-  newListCard: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: Radius.lg, paddingVertical: Spacing.xl, paddingHorizontal: Spacing.lg, alignItems: 'center', gap: Spacing.sm },
-  newListPlus: { fontSize: FontSize.xxl, fontFamily: Fonts.bold, lineHeight: 34 },
-  newListText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  // Same bordered-pill trigger family as monthlyTrigger/addTrigger, sized up (paddingVertical
+  // md, larger icon+text) since this is the primary action on the Weekly tab.
+  newListTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.md,
+  },
+  newListTriggerText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
 });

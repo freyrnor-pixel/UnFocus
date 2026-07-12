@@ -6,10 +6,21 @@ A complete reference guide for all reusable button and interactive components in
 
 ## 📋 Quick Reference Table
 
+> **2026-07 design-consistency pass**: the ONE "add a row" affordance is now
+> `components/AddRow.tsx` — an inline empty row + confirm button, attached to the
+> list it feeds. `AddFAB` is reserved for genuine nav-to-a-full-form triggers embedded
+> in a header (e.g. Health's habit-add, next to the "Vaner" label) — floating
+> screen-corner FABs and dashed "new" cards were removed in favour of AddRow or, when
+> the flow needs multiple fields before it can save, a bordered trigger pill (see
+> Shopping's `monthlyTrigger`/`addTrigger`/`newListTrigger`, or automations.tsx/
+> health-log.tsx/inventory-edit.tsx's `addTrigger`). Don't reach for a floating AddFAB
+> on a new screen — see the updated checklist below.
+
 | Component | Type | File | Use Case |
 |-----------|------|------|----------|
 | **Button** | Action Button | `components/Button.tsx` | Primary actions, varied sizes & variants |
-| **AddFAB** | Floating Action | `components/AddFAB.tsx` | "Add new entity" (orange +) floating button |
+| **AddRow** | Inline Add Row | `components/AddRow.tsx` | The one "add a row" shape — empty input row + confirm, attached to its list |
+| **AddFAB** | Floating Action | `components/AddFAB.tsx` | Nav-to-full-form trigger embedded in a header (e.g. Health's habit-add) — NOT for screen-corner floating "add" anymore |
 | **IconButton** | Icon-only Button | `components/IconButton.tsx` | Header actions, toggles, icon controls |
 | **SaveButton** | Inline Button | `components/SaveButton.tsx` | Inline save trigger (animates in when dirty) |
 | **Checkbox** | Form Control | `components/FormControls.tsx` | Binary on/off selection |
@@ -649,8 +660,11 @@ All components use:
 ### Checklist: "I'm building a new screen/site. Which button do I use?"
 
 1. **Primary action?** → Use `Button` variant="primary" size="md"
-2. **Add new entity?** → Use `AddFAB` (size="lg" for screen-level, size="sm" for row-level)
-3. **Header/settings action?** → Use `IconButton`
+2. **Add new entity into a list?** → Use `AddRow` (single field) or a bordered trigger pill
+   (multi-field flow that needs its own sheet/form — matches Shopping's `monthlyTrigger`).
+   Attach it directly above/below the list it feeds — never a floating screen-corner FAB.
+3. **Header/settings action?** → Use `IconButton` (or `AddFAB size="sm"` specifically for a
+   header-embedded "add" trigger that navigates to a full form, e.g. Health's habit-add)
 4. **Need filtering?** → Use `Chip` (multiple, selectable)
 5. **Binary choice (yes/no)?** → Use `Checkbox` or `Switch`
 6. **Multiple mutually exclusive options?** → Use `SegmentedControl`

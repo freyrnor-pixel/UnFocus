@@ -6,7 +6,7 @@
  * since there are only two trigger types and two action types to pick from.
  *
  * Connections:
- *   Imports → components/AddFAB, components/AppModal, components/ScreenScaffold, components/Surface,
+ *   Imports → components/AppModal, components/ScreenScaffold, components/Surface,
  *             components/PressableScale, constants/theme, lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useAutomationStore
  *   Used by → Expo Router route "/automations"
@@ -17,8 +17,10 @@
  *     ScreenHeader/SiteSwipeView/BottomNav chrome dropped — the scaffold owns it.
  *   - Trigger/action picker is two rows of chips, not a dropdown — only two options each today.
  *   - Saving is disabled until the action's required field (message / item name) is non-empty.
- *   - "New automation" is a floating AddFAB toggling showForm. NewRuleForm's own Cancel/Save
- *     footer stays put (it's a quick inline form, not worth lifting to the header).
+ *   - "New automation" is a bordered trigger pill (design-consistency pass — replaced the
+ *     floating circular AddFAB, which floated disconnected from the rule list it fed) sitting
+ *     right above the rule list, toggling showForm. NewRuleForm's own Cancel/Save footer stays
+ *     put (it's a quick inline form with a chip picker, not a single-field AddRow candidate).
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen has no
  *     per-screen focus-load.
  */
@@ -30,7 +32,6 @@ import { useAutomationStore, AutomationRule, TriggerType, ActionType } from '@/s
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { showAppModal } from '@/components/AppModal';
-import AddFAB from '@/components/AddFAB';
 import PressableScale from '@/components/PressableScale';
 import { useT } from '@/lib/i18n';
 import { warning, heavy } from '@/lib/haptics';
@@ -205,30 +206,54 @@ export default function AutomationsScreen() {
   }
 
   return (
-    <>
-      <ScreenScaffold title={t.automations.title} tier="sub" onBack={() => router.back()}>
-        <View style={styles.content}>
-          {showForm && <NewRuleForm onSave={save} onCancel={() => setShowForm(false)} />}
+    <ScreenScaffold title={t.automations.title} tier="sub" onBack={() => router.back()}>
+      <View style={styles.content}>
+        {/* Design-consistency pass: the floating circular AddFAB (disconnected from the rule
+            list it affects) is replaced by a bordered trigger pill attached right above the
+            list — matching the "tap to open a fuller add flow" pill used on Shopping
+            (monthlyTrigger / addTrigger / newListTrigger). NewRuleForm needs a trigger/action
+            chip picker, so it isn't a single-field AddRow candidate. */}
+        {!showForm && (
+          <PressableScale
+            style={[styles.addTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+            onPress={() => setShowForm(true)}
+            accessibilityRole="button"
+            accessibilityLabel={t.automations.addNew}
+            scaleTo={0.97}
+          >
+            <Ionicons name="add-circle-outline" size={18} color={theme.accent} />
+            <Text style={[styles.addTriggerText, { color: theme.accent }]}>{t.automations.addNew}</Text>
+          </PressableScale>
+        )}
+        {showForm && <NewRuleForm onSave={save} onCancel={() => setShowForm(false)} />}
 
-          {rules.length === 0 ? (
-            <Text style={[styles.empty, { color: theme.textMuted }]}>{t.automations.emptyState}</Text>
-          ) : (
-            rules.map((rule) => (
-              <RuleCard key={rule.id} rule={rule} onToggle={toggleActive} onDelete={removeRule} />
-            ))
-          )}
-
-          <View style={{ height: 100 }} />
-        </View>
-      </ScreenScaffold>
-
-      <AddFAB onPress={() => setShowForm((v) => !v)} />
-    </>
+        {rules.length === 0 ? (
+          <Text style={[styles.empty, { color: theme.textMuted }]}>{t.automations.emptyState}</Text>
+        ) : (
+          rules.map((rule) => (
+            <RuleCard key={rule.id} rule={rule} onToggle={toggleActive} onDelete={removeRule} />
+          ))
+        )}
+      </View>
+    </ScreenScaffold>
   );
 }
 
 const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.sm },
+  // Bordered trigger pill — same shape as Shopping's monthlyTrigger/addTrigger/newListTrigger
+  // (design-consistency pass: one shared "tap to open a fuller add flow" affordance).
+  addTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    minHeight: 40,
+  },
+  addTriggerText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   empty: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.lg },
 
   ruleCard: {

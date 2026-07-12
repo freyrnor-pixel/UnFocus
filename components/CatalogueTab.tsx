@@ -4,25 +4,31 @@
  * The master list of known items (store_items via useCatalogStore), rendered as one
  * flat list sorted alphabetically by name (Decision, visual-audit 2026-07-11 —
  * previously sectioned by item type; flattened since a single glance-sorted list is
- * faster to scan than hunting through category headers). A top "add new item" section
- * reveals a small form — name, price, save — for authoring a brand-new catalogue item.
- * Each existing row shows name + price, is tappable to edit in place (name/price/save),
- * and has a delete button. The catalogue is the single basis both the week lists and
- * the Food tab draw item names/prices from (autocomplete), so edits here flow everywhere.
+ * faster to scan than hunting through category headers). A top AddRow (name + a price
+ * extra input) authors a brand-new catalogue item — always visible, no expand/collapse
+ * toggle (design-consistency pass: one shared "add a row" shape app-wide instead of a
+ * bespoke toggle-open form). Each existing row shows name + price, is tappable to edit
+ * in place (name/price/save), and has a delete button. The catalogue is the single basis
+ * both the week lists and the Food tab draw item names/prices from (autocomplete), so
+ * edits here flow everywhere.
  *
  * Connections:
  *   Imports → constants/theme (tokens), lib/useAppTheme, lib/i18n, lib/haptics,
- *             lib/money (formatKr), components/Surface, components/PressableScale,
- *             store/useCatalogStore, @expo/vector-icons
+ *             lib/money (formatKr), lib/domainColor, components/Surface,
+ *             components/PressableScale, components/AddRow, store/useCatalogStore,
+ *             @expo/vector-icons
  *   Used by → app/(tabs)/shopping.tsx (rendered when the Catalogue tab is active)
  *   Data    → useCatalogStore.addItem/updateItem/removeItem (+ items list)
  *
  * Edit notes:
  *   - Renders no ScrollView of its own — it lives inside the Shopping screen scaffold's
  *     ScrollView.
- *   - New items are still authored into the 'other' category (no picker in the add form,
+ *   - New items are still authored into the 'other' category (no picker in the add row,
  *     per the spec's "name, price, delete, save") — `category` is kept on the row (used
  *     by autocomplete elsewhere) even though this tab no longer groups/displays by it.
+ *   - The add row sits at the TOP of this list (unlike Plans/Shopping's bottom-of-list
+ *     AddRow) — deliberate exception: this is a long, alphabetized reference list, not a
+ *     short append-order list, so a bottom add row would require scrolling on every add.
  *   - removeItem soft-deletes (see useCatalogStore) so deleting a seeded item sticks across
  *     the per-load re-seed.
  */
@@ -31,12 +37,14 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
+import AddRow from '@/components/AddRow';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { success, heavy } from '@/lib/haptics';
 import { formatKr } from '@/lib/money';
+import { getDomainColor } from '@/lib/domainColor';
 
 type Props = {
   onNotify: (msg: string) => void;
@@ -52,9 +60,9 @@ export default function CatalogueTab({ onNotify }: Props) {
   const updateItem = useCatalogStore((s) => s.updateItem);
   const removeItem = useCatalogStore((s) => s.removeItem);
 
-  const [addOpen, setAddOpen] = useState(false);
   const [addName, setAddName] = useState('');
   const [addPrice, setAddPrice] = useState('');
+  const domainColor = getDomainColor(theme, 'shop');
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -73,7 +81,6 @@ export default function CatalogueTab({ onNotify }: Props) {
     onNotify(t.catalogueItemAdded(name));
     setAddName('');
     setAddPrice('');
-    setAddOpen(false);
   }
 
   function startEdit(id: string, name: string, price: number) {
@@ -91,31 +98,20 @@ export default function CatalogueTab({ onNotify }: Props) {
 
   return (
     <View style={styles.root}>
-      {/* ── Top: add-new-item section ── */}
-      <Surface style={styles.addCard}>
-        <PressableScale
-          style={styles.addHeader}
-          onPress={() => setAddOpen((v) => !v)}
-          accessibilityRole="button"
+      {/* ── Top: add-new-item row ── the shared AddRow (name input + price extra), always
+          visible at the top of this long, alphabetized reference list — mirrors WeekListCard's
+          inline-add shape but sits at the top here (not the bottom) since this list is a
+          scrollable catalogue, not a short append-order list like Plans/Shopping's weekly list. */}
+      <Surface style={styles.addRowCard}>
+        <AddRow
+          placeholder={t.catalogueItemNamePlaceholder}
+          value={addName}
+          onChangeText={setAddName}
+          onSubmit={handleAdd}
+          accent={domainColor.accent}
+          showDivider={false}
           accessibilityLabel={t.catalogueAddNewBtn}
-          scaleTo={0.97}
-        >
-          <View style={[styles.addPlus, { backgroundColor: theme.accent }]}>
-            <Ionicons name={addOpen ? 'remove' : 'add'} size={18} color={theme.accentInk} />
-          </View>
-          <Text style={[styles.addHeaderText, { color: theme.text }]}>{t.catalogueAddNewBtn}</Text>
-        </PressableScale>
-
-        {addOpen && (
-          <View style={styles.addForm}>
-            <TextInput
-              style={[styles.addNameInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-              value={addName}
-              onChangeText={setAddName}
-              placeholder={t.catalogueItemNamePlaceholder}
-              placeholderTextColor={theme.textMuted}
-              autoFocus
-            />
+          extras={
             <TextInput
               style={[styles.addPriceInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
               value={addPrice}
@@ -125,18 +121,8 @@ export default function CatalogueTab({ onNotify }: Props) {
               keyboardType="decimal-pad"
               onSubmitEditing={handleAdd}
             />
-            <PressableScale
-              style={[styles.saveBtn, { backgroundColor: addName.trim() ? theme.good : theme.surfaceMuted }]}
-              onPress={handleAdd}
-              disabled={!addName.trim()}
-              scaleTo={0.95}
-            >
-              <Text style={[styles.saveBtnText, { color: addName.trim() ? theme.textInverse : theme.textMuted }]}>
-                {t.catalogueSaveItemBtn}
-              </Text>
-            </PressableScale>
-          </View>
-        )}
+          }
+        />
       </Surface>
 
       {/* ── Flat, name-sorted list ── */}
@@ -208,15 +194,8 @@ export default function CatalogueTab({ onNotify }: Props) {
 
 const baseStyles = StyleSheet.create({
   root: { gap: Spacing.md },
-  addCard: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
-  addHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  addPlus: { width: 30, height: 30, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
-  addHeaderText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
-  addForm: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  addNameInput: { flex: 1, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8, fontSize: FontSize.sm },
+  addRowCard: { paddingHorizontal: Spacing.md },
   addPriceInput: { width: 76, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8, fontSize: FontSize.sm },
-  saveBtn: { borderRadius: Radius.sm, paddingHorizontal: Spacing.md, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', minHeight: 36 },
-  saveBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   empty: { fontSize: FontSize.sm, paddingVertical: Spacing.md, textAlign: 'center' },
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, minHeight: 44 },

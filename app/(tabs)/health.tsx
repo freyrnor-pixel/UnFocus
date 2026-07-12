@@ -46,6 +46,11 @@
  *     week strip, rest-day toggle) — the same sub-components/helpers habits.tsx used
  *     (HabitCard/WeekView/MonthView, shouldShowHabitOnDate/computeStreak/habitColor/
  *     progressColor), now module-scope in this file instead of their own screen.
+ *   - **Design-consistency pass**: the header AddFAB (next to "Vaner"/"Habits") is now the
+ *     ONLY add-habit trigger across Today/Week/Month. Each view used to carry its own extra
+ *     trigger too (Today's own dashed empty-state card, Week/Month's EmptyState action
+ *     button), duplicating the header's affordance — those are now plain, non-interactive
+ *     empty-state text (WeekView/MonthView dropped their `onAddHabit` prop entirely).
  *   - **Focus mode (mirrors Home's Decision 009 #4 / 018 pattern, scoped to Habits only)**:
  *     Health-only, session-ephemeral — its default is seeded from the persisted
  *     `essentialsModeEnabled` setting on every focus-in and resets back to that default on
@@ -385,9 +390,9 @@ function HabitCard({
 // ─── Week overview ───────────────────────────────────────────────────────────
 
 function WeekView({
-  habits, today, lang, theme, onAddHabit,
+  habits, today, lang, theme,
 }: {
-  habits: Habit[]; today: string; lang: string; theme: ThemePalette; onAddHabit: () => void;
+  habits: Habit[]; today: string; lang: string; theme: ThemePalette;
 }) {
   const logs = useHabitStore((s) => s.logs);
   const weekDates = useMemo(() => getWeekDates(today), [today]);
@@ -403,7 +408,7 @@ function WeekView({
   if (visibleHabits.length === 0) {
     return (
       <Surface style={styles.habitsEmptyCard}>
-        <EmptyState title={t.noHabitsYet} action={{ label: t.health.addHabit, onPress: onAddHabit }} />
+        <EmptyState title={t.noHabitsYet} />
       </Surface>
     );
   }
@@ -454,9 +459,9 @@ function WeekView({
 // ─── Month overview ───────────────────────────────────────────────────────────
 
 function MonthView({
-  habits, today, theme, onAddHabit,
+  habits, today, theme,
 }: {
-  habits: Habit[]; today: string; theme: ThemePalette; onAddHabit: () => void;
+  habits: Habit[]; today: string; theme: ThemePalette;
 }) {
   const logs = useHabitStore((s) => s.logs);
   const t = useT();
@@ -489,7 +494,7 @@ function MonthView({
   if (visibleHabits.length === 0) {
     return (
       <Surface style={styles.habitsEmptyCard}>
-        <EmptyState title={t.noHabitsYet} action={{ label: t.health.addHabit, onPress: onAddHabit }} />
+        <EmptyState title={t.noHabitsYet} />
       </Surface>
     );
   }
@@ -797,13 +802,7 @@ export default function HealthScreen() {
                 <View style={styles.section}>
                   {visibleHabits.length === 0 ? (
                     <Surface style={styles.sectionCard}>
-                      {focusMode ? (
-                        <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
-                      ) : (
-                        <PressableScale style={[styles.dashedAdd, { borderColor: theme.border }]} onPress={goToHabitForm} scaleTo={0.97}>
-                          <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
-                        </PressableScale>
-                      )}
+                      <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
                     </Surface>
                   ) : (
                     visibleHabits.map((h) => (
@@ -820,7 +819,6 @@ export default function HealthScreen() {
                 today={today}
                 lang={lang}
                 theme={theme}
-                onAddHabit={goToHabitForm}
               />
             )}
             {habitTab === 'month' && (
@@ -828,7 +826,6 @@ export default function HealthScreen() {
                 habits={focusFilteredHabits}
                 today={today}
                 theme={theme}
-                onAddHabit={goToHabitForm}
               />
             )}
           </View>
@@ -900,13 +897,6 @@ const baseStyles = StyleSheet.create({
     alignSelf: 'center',
   },
   summaryChipText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
-  dashedAdd: {
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    alignItems: 'center',
-  },
   dashedAddText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
 
   // Habit card — Decision 043 rule 3: progress/done state lives on the 4px accent bar
