@@ -58,7 +58,7 @@
  *     callback here.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
@@ -267,7 +267,7 @@ export default function WeekListCard({
               returnKeyType="done"
             />
           ) : (
-            <Pressable onPress={() => setEditing(true)} style={styles.nameTapTarget}>
+            <PressableScale onPress={() => setEditing(true)} style={styles.nameTapTarget} scaleTo={0.97}>
               <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>{list.name}</Text>
               {list.isRecurring && (
                 <IconButton
@@ -280,21 +280,22 @@ export default function WeekListCard({
                   style={styles.repeatIcon}
                 />
               )}
-            </Pressable>
+            </PressableScale>
           )}
 
           <View style={styles.iconRow}>
             {/* Mode toggle pill — "Shopping" (locked) / "Planning" (unlocked) */}
-            <Pressable
+            <PressableScale
               style={[styles.modeToggle, { backgroundColor: list.locked ? theme.surfaceMuted : theme.good }]}
               onPress={onToggleLock}
               accessibilityRole="button"
               accessibilityLabel={list.locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
+              scaleTo={0.97}
             >
               <Text style={[styles.modeToggleText, { color: list.locked ? theme.textMuted : theme.textInverse }]}>
                 {list.locked ? t.shoppingModeBtn : t.planningModeBtn}
               </Text>
-            </Pressable>
+            </PressableScale>
             <IconButton icon="bookmark-outline" label={t.savedListsButtonLabel} onPress={onOpenSavedLists} size={30} />
             <IconButton icon="options-outline" label={t.listSettingsButtonLabel} onPress={onOpenListSettings} size={30} />
             <IconButton icon="trash-outline" label={t.deleteListButtonLabel} onPress={onDelete} size={30} color={theme.bad} />
@@ -302,11 +303,11 @@ export default function WeekListCard({
         </View>
 
         {!focused && progress.total > 0 && (
-          <Pressable onPress={onFocus} style={styles.compactProgressRow}>
+          <PressableScale onPress={onFocus} style={styles.compactProgressRow} scaleTo={0.97}>
             <Text style={[styles.compactProgressText, { color: theme.textMuted }]}>
               {t.shoppingRemaining(progress.remaining, progress.inCart)}
             </Text>
-          </Pressable>
+          </PressableScale>
         )}
       </View>
 
@@ -372,28 +373,30 @@ export default function WeekListCard({
                       onSubmitEditing={handleSubmitAddRow}
                     />
                     <View style={styles.inlineQtyGroup}>
-                      <Pressable
+                      <PressableScale
                         style={[styles.inlineQtyBtn, { backgroundColor: theme.surfaceMuted }]}
                         onPress={() => setAddQty((q) => Math.max(1, q - 1))}
                         hitSlop={6}
+                        scaleTo={0.9}
                       >
                         <Text style={[styles.inlineQtyBtnText, { color: theme.text }]}>−</Text>
-                      </Pressable>
+                      </PressableScale>
                       <Text style={[styles.inlineQtyVal, { color: theme.text }]}>{addQty}</Text>
-                      <Pressable
+                      <PressableScale
                         style={[styles.inlineQtyBtn, { backgroundColor: theme.surfaceMuted }]}
                         onPress={() => setAddQty((q) => q + 1)}
                         hitSlop={6}
+                        scaleTo={0.9}
                       >
                         <Text style={[styles.inlineQtyBtnText, { color: theme.text }]}>+</Text>
-                      </Pressable>
+                      </PressableScale>
                     </View>
                     {addPrice > 0 && (
                       <Text style={[styles.inlineLineTotal, { color: theme.textMuted }]}>
                         {formatKr(addPrice * addQty, 0)}
                       </Text>
                     )}
-                    <Pressable
+                    <PressableScale
                       style={[
                         styles.inlineAddConfirmBtn,
                         { backgroundColor: addName.trim() ? theme.good : theme.surfaceMuted },
@@ -401,6 +404,7 @@ export default function WeekListCard({
                       onPress={handleSubmitAddRow}
                       disabled={!addName.trim()}
                       hitSlop={4}
+                      scaleTo={0.95}
                     >
                       <Text
                         style={[
@@ -410,7 +414,7 @@ export default function WeekListCard({
                       >
                         {t.a11yAdd}
                       </Text>
-                    </Pressable>
+                    </PressableScale>
                   </View>
 
                   {/* Catalog search results */}
@@ -418,9 +422,10 @@ export default function WeekListCard({
                     <View style={[styles.addSearchDropdown, { backgroundColor: theme.surfaceMuted }]}>
                       {addSearchResults.map((result, idx) => (
                         <View key={result.id}>
-                          <Pressable
+                          <PressableScale
                             style={styles.addSearchRow}
                             onPress={() => handleSelectSuggestion(result)}
+                            scaleTo={0.97}
                           >
                             <Text style={[styles.addSearchName, { color: theme.text }]} numberOfLines={1}>
                               {result.name}
@@ -430,7 +435,7 @@ export default function WeekListCard({
                                 {formatKr(result.price, 0)}
                               </Text>
                             )}
-                          </Pressable>
+                          </PressableScale>
                           {idx < addSearchResults.length - 1 && (
                             <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
                           )}
@@ -444,13 +449,14 @@ export default function WeekListCard({
 
             {/* Add from monthly list trigger — always visible in planning mode */}
             {!list.locked && !monthlyPreviewOpen && (
-              <Pressable
+              <PressableScale
                 style={[styles.monthlyTrigger, { borderColor: theme.good }]}
                 onPress={() => setMonthlyPreviewOpen(true)}
+                scaleTo={0.97}
               >
                 <Ionicons name="calendar-outline" size={16} color={theme.good} />
                 <Text style={[styles.monthlyTriggerText, { color: theme.good }]}>{t.addFromMonthlyBtn}</Text>
-              </Pressable>
+              </PressableScale>
             )}
 
             {/* ── FROM MONTHLY LIST panel (ephemeral) — opens in place of the trigger
@@ -480,10 +486,11 @@ export default function WeekListCard({
                       const lineTotal = item.price > 0 ? item.price * (parseInt(item.amount, 10) || 1) : null;
                       return (
                         <View key={item.id}>
-                          <Pressable
+                          <PressableScale
                             style={styles.monthlyPanelRow}
                             onPress={() => handleAddMonthlyItem(item)}
                             disabled={isAdded}
+                            scaleTo={0.97}
                           >
                             <Text style={[styles.monthlyPanelName, { color: theme.text }]} numberOfLines={1}>
                               {item.name}
@@ -500,7 +507,7 @@ export default function WeekListCard({
                                 <Ionicons name="add" size={16} color={theme.textInverse} />
                               </View>
                             )}
-                          </Pressable>
+                          </PressableScale>
                           {idx < filteredMonthlyItems.length - 1 && (
                             <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
                           )}
@@ -511,26 +518,28 @@ export default function WeekListCard({
                 )}
 
                 <View style={styles.monthlyFooter}>
-                  <Pressable
+                  <PressableScale
                     style={[styles.monthlyFooterBtn, { backgroundColor: theme.good }]}
                     onPress={handleConfirmMonthly}
                     accessibilityLabel={t.saveMonthlyAddsLabel}
+                    scaleTo={0.95}
                   >
                     <Ionicons name="checkmark-circle" size={18} color={theme.textInverse} />
                     <Text style={[styles.monthlyFooterBtnText, { color: theme.textInverse }]}>
                       {t.saveMonthlyAddsLabel}
                     </Text>
-                  </Pressable>
-                  <Pressable
+                  </PressableScale>
+                  <PressableScale
                     style={[styles.monthlyFooterBtn, { backgroundColor: theme.surfaceMuted }]}
                     onPress={handleCancelMonthly}
                     accessibilityLabel={t.removeMonthlyAddsLabel}
+                    scaleTo={0.97}
                   >
                     <Ionicons name="close-circle" size={18} color={theme.bad} />
                     <Text style={[styles.monthlyFooterBtnText, { color: theme.bad }]}>
                       {t.removeMonthlyAddsLabel}
                     </Text>
-                  </Pressable>
+                  </PressableScale>
                 </View>
               </View>
             )}
@@ -618,6 +627,7 @@ export default function WeekListCard({
           onPress={onDoneShopping}
           disabled={progress.inCart === 0}
           pointerEvents={progress.inCart === 0 ? 'none' : 'auto'}
+          scaleTo={0.95}
         >
           <Text style={[styles.doneShoppingText, { color: theme.textInverse }]}>{t.doneShoppingBtn}</Text>
         </PressableScale>

@@ -7,7 +7,8 @@
  * WeekListCard's commitRename) instead of writing to SQLite on every keystroke.
  *
  * Connections:
- *   Imports → components/Surface, constants/theme, lib/i18n, lib/useAppTheme, store/useNotesStore (Note type)
+ *   Imports → components/Surface, components/PressableScale, constants/theme, lib/i18n,
+ *             lib/useAppTheme, store/useNotesStore (Note type)
  *   Used by → (not yet mounted — Phase 5: app/notes.tsx)
  *   Data    → none directly — header/body commits and the checkmark/shopping/plans/delete
  *             actions are all owned by the parent via props
@@ -30,12 +31,13 @@
  *   - Theming reads useAppTheme() internally.
  */
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import Surface from '@/components/Surface';
+import PressableScale from '@/components/PressableScale';
 import { Note } from '@/store/useNotesStore';
 
 type Props = {
@@ -74,7 +76,7 @@ export default function NoteRow({
   return (
     <Surface style={styles.card}>
       <View style={styles.topRow}>
-        <Pressable
+        <PressableScale
           style={[
             styles.check,
             { borderColor: theme.accent },
@@ -83,9 +85,10 @@ export default function NoteRow({
           onPress={onToggleChecked}
           hitSlop={8}
           accessibilityLabel={t.notes.checkedLabel}
+          scaleTo={0.97}
         >
           {note.checked && <Ionicons name="checkmark" size={14} color={theme.accentInk} />}
-        </Pressable>
+        </PressableScale>
         <TextInput
           style={[styles.headerInput, { color: theme.text }]}
           value={headerInput}
@@ -95,26 +98,28 @@ export default function NoteRow({
           placeholderTextColor={theme.textMuted}
           returnKeyType="done"
         />
-        <Pressable onPress={onDelete} hitSlop={8} accessibilityLabel={t.notes.deleteNote}>
+        <PressableScale onPress={onDelete} hitSlop={8} accessibilityLabel={t.notes.deleteNote} scaleTo={0.93}>
           <Ionicons name="trash-outline" size={16} color={theme.bad} />
-        </Pressable>
+        </PressableScale>
       </View>
 
       <View style={styles.actionsRow}>
-        <Pressable
+        <PressableScale
           style={[styles.actionBtn, { backgroundColor: theme.surfaceMuted }]}
           onPress={onShoppingPress}
+          scaleTo={0.97}
         >
           <Ionicons name="cart-outline" size={15} color={theme.featShop} />
           <Text style={[styles.actionText, { color: theme.text }]}>{t.notes.addToShoppingLabel}</Text>
-        </Pressable>
-        <Pressable
+        </PressableScale>
+        <PressableScale
           style={[styles.actionBtn, { backgroundColor: theme.surfaceMuted }]}
           onPress={onPlansPress}
+          scaleTo={0.97}
         >
           <Ionicons name="checkbox-outline" size={15} color={theme.featTask} />
           <Text style={[styles.actionText, { color: theme.text }]}>{t.notes.addToPlansLabel}</Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       <TextInput

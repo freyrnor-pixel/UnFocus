@@ -13,7 +13,8 @@
  *   // call setMsg('Reminder set ✓') to show it
  *
  * Connections:
- *   Imports → react-native-reanimated, react-native-safe-area-context, constants/theme, lib/useAppTheme
+ *   Imports → react-native-reanimated, react-native-safe-area-context, constants/theme,
+ *             lib/useAppTheme, components/PressableScale
  *   Used by → app/task-form, app/meals, app/shopping (save/add confirmations), app/settings
  *             (rejected numeric input, variant='warn'), app/health-form
  *   Data    → reads reducedMotion via useAccessibility(); colours from useAppTheme(); scaled fontSize via useScaledStyles()
@@ -41,6 +42,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
+import PressableScale from '@/components/PressableScale';
 
 type Variant = 'success' | 'danger' | 'warn';
 
@@ -110,16 +112,17 @@ export default function ConfirmationBanner({ message, onDismiss, duration = 2200
           </Text>
         </Pressable>
         {showAction && (
-          <Pressable
+          <PressableScale
             onPress={() => {
               onAction!();
               onDismiss();
             }}
             hitSlop={8}
             style={styles.actionBtn}
+            scaleTo={0.97}
           >
             <Text style={[styles.actionText, { color: theme.textInverse }]}>{actionLabel}</Text>
-          </Pressable>
+          </PressableScale>
         )}
       </View>
     </Animated.View>

@@ -108,12 +108,14 @@ export default function SharedRequestsSection({ kind }: Props) {
                       : acceptTask(item.id, (item as { title: string }).title)
                   }
                   haptic={false}
+                  scaleTo={0.97}
                 >
                   <Text style={[styles.actionBtnText, { color: theme.accent }]}>{t.sharedRequests.accept}</Text>
                 </PressableScale>
                 <PressableScale
                   style={[styles.actionBtn, { backgroundColor: theme.surfaceMuted }]}
                   onPress={() => (kind === 'shopping' ? removeShopping(item.id) : removeTask(item.id))}
+                  scaleTo={0.97}
                 >
                   <Text style={[styles.actionBtnText, { color: theme.textMuted }]}>{t.sharedRequests.dismiss}</Text>
                 </PressableScale>

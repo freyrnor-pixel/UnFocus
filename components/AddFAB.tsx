@@ -8,7 +8,8 @@
  * so "add new" reads the same on every site.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, lib/i18n, components/BottomNav (BOTTOM_NAV_HEIGHT)
+ *   Imports → constants/theme, lib/useAppTheme, lib/i18n, components/BottomNav (BOTTOM_NAV_HEIGHT),
+ *             components/PressableScale
  *   Used by → app/health-log.tsx (symptom log FAB), app/(tabs)/health.tsx (embedded Habits
  *             section's inline "sm" add — the former app/habits.tsx's own AddFAB),
  *             app/automations.tsx,
@@ -31,11 +32,12 @@
  *     during the port (2026-07-02, Phase 3d).
  */
 import React from 'react';
-import { Pressable, StyleSheet, Text, ViewStyle, StyleProp } from 'react-native';
+import { StyleSheet, Text, ViewStyle, StyleProp } from 'react-native';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
+import PressableScale from '@/components/PressableScale';
 
 type Props = {
   onPress: () => void;
@@ -65,12 +67,13 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
   const dimension = DIMENSION[size];
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? t.a11yAdd}
       // 'sm' is 32px — below the 44px minimum touch target, so pad the tap area out.
       hitSlop={size === 'sm' ? 6 : undefined}
+      scaleTo={0.9}
       style={[
         styles.base,
         { width: dimension, height: dimension, backgroundColor: theme.accent },
@@ -79,7 +82,7 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
       ]}
     >
       <Text style={[styles.plus, { fontSize: PLUS_SIZE[size], color: theme.accentInk }]}>+</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 

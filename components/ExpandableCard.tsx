@@ -7,7 +7,7 @@
  * children/props.
  *
  * Connections:
- *   Imports → react-native-reanimated, constants/theme, lib/useAppTheme
+ *   Imports → react-native-reanimated, constants/theme, lib/useAppTheme, components/PressableScale
  *   Used by → components/WeekListCard.tsx (dish groups + collapsed "bought this week"
  *             history, uncontrolled), app/shopping.tsx (Monthly catalog dish groups);
  *             later Phase 3/6 sessions may also wire this into InboxSection/meals/health
@@ -46,7 +46,7 @@
  *     a checkbox/save-pill passed as rightAction don't also toggle the header.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, LayoutChangeEvent } from 'react-native';
+import { StyleSheet, Text, View, LayoutChangeEvent } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -58,6 +58,7 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import { Radius, Spacing, FontSize } from '@/constants/theme';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
+import PressableScale from '@/components/PressableScale';
 
 // §1 card expand/collapse timings — exit is faster than enter (ANIMATION_GUIDELINES.md §1).
 const OPEN_MS = 220;
@@ -158,10 +159,10 @@ export default function ExpandableCard({
     <View style={[styles.card, styles.cardRow, { borderTopColor: theme.border }]}>
       {accentColor ? <View style={[styles.accent, { backgroundColor: accentColor }]} /> : null}
       <View style={styles.cardContent}>
-        <Pressable style={styles.header} onPress={toggle}>
+        <PressableScale style={styles.header} onPress={toggle} scaleTo={0.97}>
           <View style={styles.headerLeft}>
             {leadingAction ? (
-              <Pressable onPress={(e) => e.stopPropagation()}>{leadingAction}</Pressable>
+              <PressableScale onPress={(e) => e.stopPropagation()} scaleTo={0.97}>{leadingAction}</PressableScale>
             ) : null}
             <View style={styles.headerLeftText}>
               <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
@@ -174,12 +175,12 @@ export default function ExpandableCard({
                 <Text style={[styles.badgeText, { color: theme.accent }]}>{badge}</Text>
               </View>
             ) : null}
-            {rightAction ? <Pressable onPress={(e) => e.stopPropagation()}>{rightAction}</Pressable> : null}
+            {rightAction ? <PressableScale onPress={(e) => e.stopPropagation()} scaleTo={0.97}>{rightAction}</PressableScale> : null}
             <Animated.View style={chevronStyle}>
               <Ionicons name="chevron-down" size={16} color={theme.textMuted} />
             </Animated.View>
           </View>
-        </Pressable>
+        </PressableScale>
         {rendered ? (
           <Animated.View style={[styles.bodyClip, bodyStyle]}>
             <Animated.View style={bodyInnerStyle} onLayout={onBodyLayout}>

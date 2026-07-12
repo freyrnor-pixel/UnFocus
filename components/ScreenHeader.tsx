@@ -13,7 +13,7 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/i18n, lib/useAppTheme, store/useSettingsStore,
- *             components/Surface, expo-router
+ *             components/Surface, components/PressableScale, expo-router
  *   Used by → ScreenScaffold (composition layer)
  *   Data    → reads `leftHanded` from the settings store to pick gear/eye corners
  *
@@ -38,7 +38,7 @@
  *   - iOS-only back link on sub-screens; Android uses system back
  */
 import React from 'react';
-import { Platform, Pressable, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
+import { Platform, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { FontSize, Spacing } from '@/constants/theme';
@@ -46,6 +46,7 @@ import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import Surface from '@/components/Surface';
+import PressableScale from '@/components/PressableScale';
 
 type Tier = 'site' | 'sub';
 
@@ -82,39 +83,42 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
   // the `leftHanded` setting (whose label promises it "moves the menu button to the
   // left side"): gear sits top-right by default, and swaps to top-left when left-handed.
   const gearButton = (
-    <Pressable
+    <PressableScale
       onPress={handleSettingsPress}
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel={t.settingsTitle}
+      scaleTo={0.9}
     >
       <Ionicons name="settings-outline" size={24} color={theme.text} />
-    </Pressable>
+    </PressableScale>
   );
   const infoButton = onInfoToggle ? (
-    <Pressable
+    <PressableScale
       onPress={onInfoToggle}
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel={infoActive ? t.hideHint : t.showHint}
       accessibilityState={{ selected: !!infoActive }}
+      scaleTo={0.9}
     >
       <Ionicons
         name={infoActive ? 'information-circle' : 'information-circle-outline'}
         size={24}
         color={infoActive ? theme.accent : theme.text}
       />
-    </Pressable>
+    </PressableScale>
   ) : null;
 
   const focusButton = (
-    <Pressable
+    <PressableScale
       onPress={handleFocusPress}
       hitSlop={8}
       accessibilityRole="button"
       accessibilityState={{ selected: !!focusActive }}
       accessibilityLabel={focusActive ? t.calmViewActive : t.calmViewInactive}
       style={styles.focusButton}
+      scaleTo={0.9}
     >
       {/* Label only where the toggle is live (Home) — elsewhere nothing is shown. */}
       {onToggleFocus && (
@@ -125,7 +129,7 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
           {t.config.essentials.label}
         </Text>
       )}
-    </Pressable>
+    </PressableScale>
   );
 
   const titleNode = (align: 'left' | 'right') => (
@@ -173,9 +177,9 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
   return (
     <Surface surfaceContext="overlay" style={[styles.header, style]}>
       {Platform.OS === 'ios' && onBack ? (
-        <Pressable onPress={onBack} hitSlop={8}>
+        <PressableScale onPress={onBack} hitSlop={8} scaleTo={0.97}>
           <Text style={[styles.back, { color: theme.accent }]}>{t.back}</Text>
-        </Pressable>
+        </PressableScale>
       ) : null}
 
       {titleNode('left')}

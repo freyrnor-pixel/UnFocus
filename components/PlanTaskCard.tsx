@@ -37,7 +37,7 @@
  * follower badges).
  *
  * Connections:
- *   Imports → components/Surface, constants/theme, lib/haptics,
+ *   Imports → components/Surface, components/PressableScale, constants/theme, lib/haptics,
  *             lib/i18n, lib/useAppTheme, store/useTaskStore (Task type only)
  *   Used by → app/(tabs)/index.tsx (Home — read-only preview off-focus per Decision 009a, and
  *             non-readOnly essential-filtered surface in Focus mode per 009 #4). Reads
@@ -90,10 +90,11 @@
  *     touch-target size.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
+import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import { Task } from '@/store/useTaskStore';
 import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
@@ -294,12 +295,13 @@ export default function PlanTaskCard({
 
   function doneToggle(task: Task, isHappeningNow?: boolean) {
     return (
-      <Pressable
+      <PressableScale
         disabled={!onToggleTask}
         hitSlop={16}
         onPress={() => handleToggle(task)}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: task.done }}
+        scaleTo={0.97}
       >
         <View
           style={[
@@ -310,7 +312,7 @@ export default function PlanTaskCard({
         >
           {task.done && <Ionicons name="checkmark" size={10} color={theme.accentInk} />}
         </View>
-      </Pressable>
+      </PressableScale>
     );
   }
 
@@ -350,7 +352,7 @@ export default function PlanTaskCard({
           {timeMarker(task, timed, dimmed, isHappeningNow, surfaced)}
           <View style={[styles.railLine, { backgroundColor: hasBottomLine ? theme.border : 'transparent' }]} />
         </View>
-        <Pressable style={styles.contentCol} onPress={() => handlePress(task)} disabled={readOnly || !onPressTask}>
+        <PressableScale style={styles.contentCol} onPress={() => handlePress(task)} disabled={readOnly || !onPressTask} scaleTo={0.97}>
           <View
             style={[
               styles.rowCard,
@@ -387,7 +389,7 @@ export default function PlanTaskCard({
               </View>
             ) : null}
           </View>
-        </Pressable>
+        </PressableScale>
         <View style={styles.doneCol}>{doneToggle(task, isHappeningNow)}</View>
       </View>
     );
@@ -399,11 +401,12 @@ export default function PlanTaskCard({
     const surfaced = surfacedIds.has(task.id);
 
     return (
-      <Pressable
+      <PressableScale
         key={task.id}
         style={styles.hColumn}
         onPress={() => handlePress(task)}
         disabled={readOnly || !onPressTask}
+        scaleTo={0.97}
       >
         <View style={styles.hRailRow}>{timeMarker(task, timed, dimmed, isHappeningNow, surfaced)}</View>
         <View style={styles.hContent}>
@@ -422,7 +425,7 @@ export default function PlanTaskCard({
           )}
         </View>
         <View style={styles.hDoneRow}>{doneToggle(task, isHappeningNow)}</View>
-      </Pressable>
+      </PressableScale>
     );
   }
 
@@ -539,7 +542,7 @@ export default function PlanTaskCard({
 
         {/* Section header — only in read-only (Home preview) mode */}
         {readOnly && (
-          <Pressable onPress={() => router.push('/plans')} style={styles.headerRowPressable}>
+          <PressableScale onPress={() => router.push('/plans')} style={styles.headerRowPressable} scaleTo={0.97}>
             <View style={styles.headerRow}>
               <Text style={[styles.headerTitle, { color: theme.text }]}>{t.home.todaysPlans}</Text>
               {pendingCount > 0 && (
@@ -560,7 +563,7 @@ export default function PlanTaskCard({
                 style={styles.progressBar}
               />
             )}
-          </Pressable>
+          </PressableScale>
         )}
 
         {showEmpty ? (
@@ -586,10 +589,10 @@ export default function PlanTaskCard({
             the primary glance rail. */}
         {doneTasks.length > 0 ? (
           <View style={styles.doneZone}>
-            <Pressable style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }}>
+            <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97}>
               <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>{t.dayViewDoneZone(doneTasks.length)}</Text>
               <Ionicons name={doneOpen ? 'chevron-up' : 'chevron-down'} size={14} color={theme.textMuted} />
-            </Pressable>
+            </PressableScale>
             {doneOpen
               ? doneTasks.map((task) =>
                   renderRow(task, {
@@ -604,11 +607,11 @@ export default function PlanTaskCard({
         ) : null}
 
         {showToggle ? (
-          <Pressable style={styles.footerBtn} onPress={() => { tap(); setExpanded((v) => !v); }}>
+          <PressableScale style={styles.footerBtn} onPress={() => { tap(); setExpanded((v) => !v); }} scaleTo={0.97}>
             <Text style={[styles.footerBtnText, { color: theme.accent }]}>
               {expanded ? t.plansCollapse : t.plansExpand}
             </Text>
-          </Pressable>
+          </PressableScale>
         ) : null}
 
       </View>

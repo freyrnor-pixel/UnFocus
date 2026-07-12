@@ -10,8 +10,8 @@
  *
  * Connections:
  *   Imports → expo-speech-recognition, components/AddFAB (FAB_LG_SIZE/FAB_DEFAULT_BOTTOM),
- *             components/AppModal (showAppModal), constants/theme, lib/i18n, lib/useAppTheme,
- *             store/useSettingsStore (language, for the recognizer locale)
+ *             components/AppModal (showAppModal), components/PressableScale, constants/theme,
+ *             lib/i18n, lib/useAppTheme, store/useSettingsStore (language, for the recognizer locale)
  *   Used by → app/notes.tsx (replaces AddFAB there)
  *   Data    → none directly — reports the transcript up via onTranscript; the parent owns
  *             note creation/update
@@ -33,7 +33,7 @@
  *     (Decision 040/AGENTS.md) — using it here is a normal JS change, no new native build needed.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -42,6 +42,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { showAppModal } from '@/components/AppModal';
 import { Radius, Shadow, Spacing } from '@/constants/theme';
 import { FAB_LG_SIZE, FAB_DEFAULT_BOTTOM } from '@/components/AddFAB';
+import PressableScale from '@/components/PressableScale';
 
 type Props = {
   /** Fires once, with the recognized text, when a recording ends with non-empty speech. */
@@ -111,10 +112,11 @@ export default function VoiceNoteFAB({ onTranscript, autoStart }: Props) {
   }, [autoStart]);
 
   return (
-    <Pressable
+    <PressableScale
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={listening ? t.notes.stopRecording : t.notes.recordVoiceNote}
+      scaleTo={0.9}
       style={[
         styles.base,
         {
@@ -130,7 +132,7 @@ export default function VoiceNoteFAB({ onTranscript, autoStart }: Props) {
         size={24}
         color={listening ? theme.textInverse : theme.accentInk}
       />
-    </Pressable>
+    </PressableScale>
   );
 }
 

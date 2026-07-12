@@ -8,8 +8,9 @@
  * template (useShoppingListStore.saveAsTemplate).
  *
  * Connections:
- *   Imports → components/AnimatedBottomSheet, components/Surface, constants/theme, lib/i18n,
- *             lib/useAppTheme, store/useShoppingListStore (ShoppingList type only)
+ *   Imports → components/AnimatedBottomSheet, components/Surface, components/PressableScale,
+ *             constants/theme, lib/i18n, lib/useAppTheme, store/useShoppingListStore
+ *             (ShoppingList type only)
  *   Used by → app/(tabs)/shopping.tsx
  *   Data    → none directly — `templates` and both callbacks are owned by the parent
  *
@@ -31,13 +32,14 @@
  *     orange(save btn)→accent, hardcoded '#fff'→textInverse.
  */
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import Surface from '@/components/Surface';
+import PressableScale from '@/components/PressableScale';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 
 type Props = {
@@ -74,20 +76,20 @@ export default function SavedListsModal({ visible, templates, onClose, onSelectT
         ) : (
           <ScrollView style={styles.scroll}>
             {templates.map((template) => (
-              <Pressable key={template.id} style={styles.row} onPress={() => handleSelect(template.id)}>
+              <PressableScale key={template.id} style={styles.row} onPress={() => handleSelect(template.id)} scaleTo={0.97}>
                 <View style={[styles.rowIcon, { backgroundColor: theme.goodSoft }]}>
                   <Ionicons name="bookmark" size={16} color={theme.good} />
                 </View>
                 <Text style={[styles.rowText, { color: theme.text }]} numberOfLines={1}>{template.name}</Text>
-              </Pressable>
+              </PressableScale>
             ))}
           </ScrollView>
         )}
 
-        <Pressable style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={handleSaveCurrent}>
+        <PressableScale style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={handleSaveCurrent} scaleTo={0.95}>
           <Ionicons name="add" size={18} color={theme.accentInk} />
           <Text style={[styles.saveBtnText, { color: theme.accentInk }]}>{t.saveListAsTemplateBtn}</Text>
-        </Pressable>
+        </PressableScale>
       </Surface>
     </AnimatedBottomSheet>
   );

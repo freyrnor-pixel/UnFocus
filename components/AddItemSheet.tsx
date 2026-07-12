@@ -195,6 +195,7 @@ export default function AddItemSheet({ visible, onClose, onAdd }: Props) {
                   style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted }]}
                   onPress={() => setTargetQty((q) => Math.max(1, q - 1))}
                   hitSlop={6}
+                  scaleTo={0.90}
                 >
                   <Text style={[styles.stepText, { color: theme.text }]}>−</Text>
                 </PressableScale>
@@ -203,6 +204,7 @@ export default function AddItemSheet({ visible, onClose, onAdd }: Props) {
                   style={[styles.stepBtn, { backgroundColor: theme.accent }]}
                   onPress={() => setTargetQty((q) => q + 1)}
                   hitSlop={6}
+                  scaleTo={0.90}
                 >
                   <Text style={[styles.stepText, { color: theme.accentInk }]}>+</Text>
                 </PressableScale>
@@ -214,10 +216,10 @@ export default function AddItemSheet({ visible, onClose, onAdd }: Props) {
               </View>
 
               <View style={styles.actionsRow}>
-                <PressableScale style={styles.ghostBtn} onPress={onClose}>
+                <PressableScale style={styles.ghostBtn} onPress={onClose} scaleTo={0.97}>
                   <Text style={[styles.ghostBtnText, { color: theme.textMuted }]}>{t.cancelBtn}</Text>
                 </PressableScale>
-                <PressableScale style={[styles.primaryBtn, { backgroundColor: theme.accent }]} onPress={handleAdd}>
+                <PressableScale style={[styles.primaryBtn, { backgroundColor: theme.accent }]} onPress={handleAdd} scaleTo={0.95}>
                   <Text style={[styles.primaryBtnText, { color: theme.accentInk }]}>{t.addItemBtn}</Text>
                 </PressableScale>
               </View>

@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → components/Surface, components/ExpandableCard, components/FlightOverlay
- *             (FlightRect type only), components/ShoppingRow,
+ *             (FlightRect type only), components/ShoppingRow, components/PressableScale,
  *             components/ProgressBar, constants/theme, lib/haptics, lib/i18n, lib/shoppingGroups
  *             (listProgress), lib/useAppTheme, expo-router, store/useShoppingStore (ShoppingItem
  *             type), store/useShoppingListStore (ShoppingList type)
@@ -37,12 +37,13 @@
  *     Both paths gate on `reducedMotion` and fall through to plain `onToggle()`.
  */
 import React, { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import ExpandableCard from '@/components/ExpandableCard';
 import ShoppingRow from '@/components/ShoppingRow';
+import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import type { FlightRect } from '@/components/FlightOverlay';
 import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
@@ -155,7 +156,7 @@ export default function HomeShoppingCard({
       <View style={styles.cardContent}>
 
         {/* Title row */}
-        <Pressable onPress={handleTitlePress} style={styles.titleRowPressable}>
+        <PressableScale onPress={handleTitlePress} style={styles.titleRowPressable} scaleTo={0.97}>
           <View style={styles.titleRow}>
             <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
               {list?.name ?? t.shoppingTitle}
@@ -174,7 +175,7 @@ export default function HomeShoppingCard({
               style={styles.progressBar}
             />
           )}
-        </Pressable>
+        </PressableScale>
 
         {totalCount === 0 ? (
           <View style={[styles.rowsContainer, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
@@ -225,7 +226,7 @@ export default function HomeShoppingCard({
                 >
                   {idx > 0 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
                   <View style={styles.previewRow}>
-                    <Pressable
+                    <PressableScale
                       style={[
                         styles.check,
                         { borderColor: theme.featShop },
@@ -233,9 +234,10 @@ export default function HomeShoppingCard({
                       ]}
                       onPress={() => handleCollapsedToggle(item)}
                       hitSlop={13}
+                      scaleTo={0.97}
                     >
                       {item.checked && <Ionicons name="checkmark" size={12} color={theme.accentInk} />}
-                    </Pressable>
+                    </PressableScale>
                     <Text
                       style={[
                         styles.previewName,
@@ -260,14 +262,15 @@ export default function HomeShoppingCard({
 
         {/* Expand/collapse toggle */}
         {showToggle && (
-          <Pressable
+          <PressableScale
             style={styles.footerBtn}
             onPress={() => { tap(); setExpanded((v) => !v); }}
+            scaleTo={0.97}
           >
             <Text style={[styles.footerBtnText, { color: theme.accent }]}>
               {expanded ? t.home.shoppingCollapse : t.home.shoppingExpand}
             </Text>
-          </Pressable>
+          </PressableScale>
         )}
       </View>
     </Surface>
