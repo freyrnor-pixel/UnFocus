@@ -6,7 +6,7 @@
  * inputs in settings.
  *
  * Connections:
- *   Imports → react-native-reanimated, constants/theme, lib/useAppTheme
+ *   Imports → react-native-reanimated, constants/theme, lib/useAppTheme, lib/haptics
  *   Used by → app/settings.tsx (name input, monthly date, monthly budget, reminder time)
  *             — not ported yet; this is a leaf ahead of its screen
  *   Data    → controlled via `visible`; fires `onPress` callback
@@ -14,6 +14,9 @@
  * Edit notes:
  *   - Uses react-native-reanimated v4 (withTiming for opacity + scale)
  *   - Button is disabled when not visible (opacity < 1)
+ *   - Press feedback is a second `pressScale` shared value multiplied into the same
+ *     transform as the entrance/exit `scale` (PressableScale's timing: 60ms down,
+ *     spring back) — kept separate so press-in/out never fights the visibility tween.
  *   - `theme` prop dropped in favor of internal useAppTheme() — established Phase 3
  *     convention (see NoteRow.tsx/MonthlyTableRow.tsx headers). Fill is `accent`,
  *     text is `accentInk` (Decision 006 fill/text-on-fill pairing).
@@ -26,12 +29,14 @@ import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import Animated, {
   withTiming,
+  withSpring,
   useSharedValue,
   useAnimatedStyle,
   Easing,
 } from 'react-native-reanimated';
 import { FontSize, Fonts } from '@/constants/theme';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
+import { tap as hapticTap } from '@/lib/haptics';
 
 export interface SaveButtonProps {
   visible: boolean;
@@ -45,8 +50,10 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function SaveButton({ visible, onPress, label }: SaveButtonProps) {
   const theme = useAppTheme();
+  const { reducedMotion } = useAccessibility();
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.92);
+  const pressScale = useSharedValue(1);
 
   useEffect(() => {
     if (visible) {
@@ -74,13 +81,21 @@ export function SaveButton({ visible, onPress, label }: SaveButtonProps) {
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [{ scale: scale.value }],
+    transform: [{ scale: scale.value * pressScale.value }],
   }));
 
   return (
     <AnimatedPressable
       style={[styles.button, animatedStyle, { backgroundColor: theme.accent }]}
       onPress={onPress}
+      onPressIn={() => {
+        if (!visible) return;
+        hapticTap();
+        if (!reducedMotion) pressScale.value = withTiming(0.95, { duration: 60 });
+      }}
+      onPressOut={() => {
+        if (!reducedMotion) pressScale.value = withSpring(1, { damping: 18, stiffness: 320 });
+      }}
       disabled={!visible}
       accessibilityRole="button"
       accessibilityLabel={label}

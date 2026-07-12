@@ -36,25 +36,25 @@ opportunistically with other work in the same file)
 
 ## Part 3, Phase 1 — Shared wrapper components (highest leverage — convert first)
 
-- [ ] `components/AddFAB.tsx:68` — the "+" FAB used on ~8 screens. `scaleTo=0.90` (icon/FAB).
-- [ ] `components/SaveButton.tsx:81` — inline dirty-state save button. Add press-scale on top
+- [x] `components/AddFAB.tsx:68` — the "+" FAB used on ~8 screens. `scaleTo=0.90` (icon/FAB).
+- [x] `components/SaveButton.tsx:81` — inline dirty-state save button. Add press-scale on top
       of its existing entrance/exit animation (don't touch that part). `scaleTo=0.95` (primary).
-- [ ] `components/ScreenHeader.tsx:85,95,111,176` — gear icon, info toggle, focus toggle, back
+- [x] `components/ScreenHeader.tsx:85,95,111,176` — gear icon, info toggle, focus toggle, back
       link. Rendered on nearly every screen. `scaleTo=0.90` for the icon buttons; back link is
       text-only, treat as secondary/ghost `0.97`.
-- [ ] `components/StickySaveBar.tsx:105,108` — "Undo" (secondary `0.97`) and "Save" (primary
+- [x] `components/StickySaveBar.tsx:105,108` — "Undo" (secondary `0.97`) and "Save" (primary
       `0.95`) buttons.
-- [ ] `components/ExpandableCard.tsx:161,164,177` — header disclosure toggle (list/card `0.97`)
+- [x] `components/ExpandableCard.tsx:161,164,177` — header disclosure toggle (list/card `0.97`)
       + leading/trailing action slots (match their own semantics, likely `0.97` or `0.90`).
-- [ ] `components/MonthlyTableRow.tsx:72,92,96,116,124` — checkbox circle (`0.97`), qty
+- [x] `components/MonthlyTableRow.tsx:72,92,96,116,124` — checkbox circle (`0.97`), qty
       steppers (`0.90`), remove button (`0.93` destructive), row-tap wrapper (`0.97`).
-- [ ] `components/DatePickerCalendar.tsx:104,116,128,170` — month prev/next nav (`0.90`),
+- [x] `components/DatePickerCalendar.tsx:104,116,128,170` — month prev/next nav (`0.90`),
       "today" jump (`0.97`), day cells (`0.97`).
-- [ ] `components/VoiceNoteFAB.tsx:114` — record FAB. `scaleTo=0.90`.
-- [ ] `components/AddDivider.tsx:31` — inline "+ add" divider button. `scaleTo=0.97`.
-- [ ] `components/ConfirmationBanner.tsx:113` — inline "Undo" action only (`:106` tap-to-dismiss
+- [x] `components/VoiceNoteFAB.tsx:114` — record FAB. `scaleTo=0.90`.
+- [x] `components/AddDivider.tsx:31` — inline "+ add" divider button. `scaleTo=0.97`.
+- [x] `components/ConfirmationBanner.tsx:113` — inline "Undo" action only (`:106` tap-to-dismiss
       stays raw `Pressable` — exclusion, see handoff doc). `scaleTo=0.97`.
-- [ ] `components/SlideSelector.tsx:49` — segmented-option pressable (twin of `FormControls`'
+- [x] `components/SlideSelector.tsx:49` — segmented-option pressable (twin of `FormControls`'
       `SegmentedControl`, which already uses `PressableScale`). `scaleTo=0.97`.
 
 <!-- Note: components/AnimatedBottomSheet.tsx's only Pressable (line ~90) is the backdrop —

@@ -6,7 +6,7 @@
  * parent owns localization; theming reads from useAppTheme() internally.
  *
  * Connections:
- *   Imports → constants/theme, lib/date, lib/useAppTheme
+ *   Imports → constants/theme, lib/date, lib/useAppTheme, components/PressableScale
  *   Used by → app/task-form.tsx, app/health-form.tsx
  *   Data    → none (presentational); value/onChange/labels all come from props; scaled fontSize via useScaledStyles()
  *
@@ -23,10 +23,11 @@
 '#FFFFFF'→accentInk.
  */
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { todayStr } from '@/lib/date';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import PressableScale from '@/components/PressableScale';
 
 interface CalendarLabels {
   prevMonth: string;
@@ -101,37 +102,40 @@ export default function DatePickerCalendar({ value, onChange, dayLabels, monthLa
   return (
     <View style={[styles.container, { backgroundColor: theme.surface }]}>
       <View style={styles.header}>
-        <Pressable
+        <PressableScale
           onPress={prevMonth}
           hitSlop={12}
           style={styles.navBtn}
           accessibilityRole="button"
           accessibilityLabel={calendarLabels?.prevMonth}
+          scaleTo={0.9}
         >
           <Text style={[styles.navArrow, { color: theme.accent }]}>‹</Text>
-        </Pressable>
+        </PressableScale>
         <Text style={[styles.monthYear, { color: theme.text }]}>
           {monthLabels[viewMonth]} {viewYear}
         </Text>
-        <Pressable
+        <PressableScale
           onPress={nextMonth}
           hitSlop={12}
           style={styles.navBtn}
           accessibilityRole="button"
           accessibilityLabel={calendarLabels?.nextMonth}
+          scaleTo={0.9}
         >
           <Text style={[styles.navArrow, { color: theme.accent }]}>›</Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       {calendarLabels && (
-        <Pressable
+        <PressableScale
           onPress={jumpToToday}
           disabled={isViewingCurrentMonth}
           hitSlop={6}
           style={styles.todayBtn}
           accessibilityRole="button"
           accessibilityLabel={calendarLabels.jumpToTodayHint}
+          scaleTo={0.97}
         >
           <Text
             style={[
@@ -142,7 +146,7 @@ export default function DatePickerCalendar({ value, onChange, dayLabels, monthLa
           >
             {calendarLabels.jumpToToday}
           </Text>
-        </Pressable>
+        </PressableScale>
       )}
 
       <View style={styles.weekRow}>
@@ -167,7 +171,7 @@ export default function DatePickerCalendar({ value, onChange, dayLabels, monthLa
               ? calendarLabels?.todaySuffix
               : undefined;
             return (
-              <Pressable
+              <PressableScale
                 key={di}
                 style={styles.cell}
                 onPress={() => onChange(ds)}
@@ -175,6 +179,7 @@ export default function DatePickerCalendar({ value, onChange, dayLabels, monthLa
                 accessibilityRole="button"
                 accessibilityLabel={suffix ? `${fullLabel}, ${suffix}` : fullLabel}
                 accessibilityState={{ selected: isSelected }}
+                scaleTo={0.97}
               >
                 <View style={[
                   styles.dayCircle,
@@ -190,7 +195,7 @@ export default function DatePickerCalendar({ value, onChange, dayLabels, monthLa
                     {day}
                   </Text>
                 </View>
-              </Pressable>
+              </PressableScale>
             );
           })}
         </View>
