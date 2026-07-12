@@ -121,7 +121,7 @@ export default function HealthLogScreen() {
             })
           )}
 
-          <View style={{ height: 80 }} />
+          <View style={{ height: Spacing.xl + Spacing.xxl }} />
         </View>
       </ScreenScaffold>
 

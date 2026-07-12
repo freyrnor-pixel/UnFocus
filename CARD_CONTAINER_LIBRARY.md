@@ -187,7 +187,7 @@ Cards are the primary content container. All cards share these principles:
 <View style={{
   backgroundColor: theme.white,
   borderRadius: 0,  // Straight edges
-  padding: Spacing.md,  // Vertical padding only
+  padding: Spacing.md,       // Vertical padding only
   ...Shadow.card,
 }}>
   <Text>Card extends to screen edges</Text>
@@ -472,7 +472,7 @@ Cards automatically adapt to dark mode:
 ## 🎯 Best Practices
 
 ✅ **DO:**
-- Use `Spacing.md` for card padding consistency
+- Use `Spacing.md` for consistency
 - Use `Radius.md` for standard cards
 - Use `Shadow.card` for elevation
 - Use `theme.white` for elevated surfaces
@@ -480,7 +480,7 @@ Cards automatically adapt to dark mode:
 - Test cards on dark mode
 
 ❌ **DON'T:**
-- Hardcode padding (use `Spacing` tokens)
+- Hardcode padding (use Spacing tokens)
 - Use inconsistent shadows on cards
 - Forget to pair background with readable text colour
 - Stack excessive shadows
@@ -497,7 +497,7 @@ Cards automatically adapt to dark mode:
 
 ---
 
-**Last updated**: 2026-06-27  
+**Last updated**: 2026-07-12  
 **Standard padding**: Spacing.md (16px)  
 **Standard radius**: Radius.md (18px)  
 **Standard shadow**: Shadow.card  

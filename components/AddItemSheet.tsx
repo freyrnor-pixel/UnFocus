@@ -234,7 +234,7 @@ export default function AddItemSheet({ visible, onClose, onAdd }: Props) {
 const baseStyles = StyleSheet.create({
   overlay: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.lg },
   cardWrap: { width: '100%', maxWidth: 420, maxHeight: '85%' },
-  card: { borderRadius: Radius.lg, padding: Spacing.md },
+  card: { borderRadius: Radius.lg, padding: Spacing.lg },
   title: { fontSize: FontSize.xl, fontFamily: Fonts.bold, marginBottom: Spacing.sm },
   scrollView: { flex: 1 },
   label: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginTop: Spacing.sm, marginBottom: 4 },

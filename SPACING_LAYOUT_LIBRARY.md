@@ -105,28 +105,33 @@ xs   sm   md   lg   xl   xxl
 
 ---
 
-## 🏗️ Card Internal Spacing
+## 🏗️ Card Internal Padding
 
-There is no separate `Layout` token — cards use `Spacing.md` (16) for both
-padding and internal gaps, same as every other "standard" slot:
+There is no separate `Layout` token — `constants/theme.ts` used to export a
+`Layout.cardPadding/cardGap/maxVisible` block (18px/14px/5), but it had zero
+call sites anywhere in the app; every real card had already converged on
+`Spacing.md` (16px) instead. The dead export was removed 2026-07-12 and this
+doc updated to match reality (see `HANDOFF_SPACING_PASS.md`).
 
-### Card padding (Spacing.md, 16)
-Used for card, modal, and sheet internal padding:
+Card, modal, and sheet internal padding, and the gap between elements inside
+a card, both use `Spacing.md`:
 
 ```tsx
 <View style={{ padding: Spacing.md }}>
   {/* Card content with breathing room */}
 </View>
-```
 
-### Gap between elements inside a card (Spacing.md, 16)
-```tsx
 <View style={{ gap: Spacing.md }}>
   <Text>Title</Text>
   <Text>Subtitle</Text>
   <Button label="Action" onPress={() => {}} />
 </View>
 ```
+
+Some cards intentionally use a different padding for their role (e.g. a
+compact inline card at `Spacing.sm`, a modal sheet at `Spacing.lg`) — that's
+a legitimate visual-weight choice per component, not something to blindly
+homogenize.
 
 ---
 
@@ -307,7 +312,7 @@ All scrollable screens:
 Cards always have internal breathing room:
 ```tsx
 <View style={{ 
-  padding: Spacing.md,  // 16px all sides
+  padding: Spacing.md,           // 16px all sides
   borderRadius: Radius.md,
 }}>
   {/* Content inside is breathes naturally */}
@@ -411,7 +416,6 @@ Use Radius.md (18)     for: cards, inputs, modals
 Use Radius.lg (26)     for: large cards, prominence
 Use Radius.full (999)  for: buttons, FABs, avatars
 
-Use Spacing.md (16)    for: card internal padding + gaps inside cards
 ```
 
 ---
@@ -425,7 +429,7 @@ Use Spacing.md (16)    for: card internal padding + gaps inside cards
 
 ---
 
-**Last updated**: 2026-06-27  
+**Last updated**: 2026-07-12  
 **Spacing scale**: xs (4), sm (8), md (16), lg (24), xl (32), xxl (48)  
 **Radius scale**: sm (10), md (18), lg (26), full (999)  
 **Consistent rhythm**: Use tokens, never hardcode
