@@ -59,7 +59,7 @@ import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { generateId } from '@/lib/id';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
 
 type Tab = 'all' | 'today' | 'week';
 
@@ -187,12 +187,17 @@ export default function TasksScreen() {
   // (styles.section's marginTop) / Spacing.sm below (sectionHeaderRow's marginBottom).
   // `bare` skips the legibility pill when the caller already sits on an opaque card
   // (Today tab's todayCard) — two overlapping flat-color backgrounds would be redundant.
-  function sectionHeader(label: string, color: string, bare = false) {
+  // `strongBg` (Whenever/Recurring only, 2026-07-12) swaps the near-invisible surfaceMuted
+  // pill for the label colour's tinted "Soft" token plus a matching border and Shadow.card —
+  // those two sections needed more contrast/depth than the rest to stand out as the screen's
+  // primary lists.
+  function sectionHeader(label: string, color: string, bare = false, strongBg?: string) {
     return (
       <View
         style={[
           styles.sectionHeaderRow,
           !bare && { backgroundColor: theme.surfaceMuted, marginBottom: Spacing.sm },
+          strongBg && { backgroundColor: strongBg, borderWidth: 1, borderColor: color, ...Shadow.card },
         ]}
       >
         <Text style={[styles.sectionLabel, { color }]}>{label}</Text>
@@ -254,7 +259,7 @@ export default function TasksScreen() {
             </View>
 
             <View style={styles.section}>
-              {sectionHeader(t.tasksSectionWhenever, theme.good)}
+              {sectionHeader(t.tasksSectionWhenever, theme.good, false, theme.goodSoft)}
               {wheneverAll.length === 0 && drafts.length === 0 && (
                 <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionWheneverEmpty}</Text>
               )}
@@ -289,7 +294,7 @@ export default function TasksScreen() {
             </View>
 
             <View style={styles.section}>
-              {sectionHeader(t.tasksSectionRecurring, theme.accent)}
+              {sectionHeader(t.tasksSectionRecurring, theme.accent, false, theme.accentSoft)}
               {recurringAll.length === 0 ? (
                 <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionRecurringEmpty}</Text>
               ) : (
@@ -320,7 +325,7 @@ export default function TasksScreen() {
             </View>
 
             <View style={styles.section}>
-              {sectionHeader(t.tasksSectionWhenever, theme.good)}
+              {sectionHeader(t.tasksSectionWhenever, theme.good, false, theme.goodSoft)}
               {undatedWhenever.length === 0 ? (
                 <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionWheneverEmpty}</Text>
               ) : (
@@ -353,7 +358,7 @@ export default function TasksScreen() {
             ))}
 
             <View style={styles.section}>
-              {sectionHeader(t.tasksSectionWhenever, theme.good)}
+              {sectionHeader(t.tasksSectionWhenever, theme.good, false, theme.goodSoft)}
               {undatedWhenever.length === 0 ? (
                 <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionWheneverEmpty}</Text>
               ) : (
