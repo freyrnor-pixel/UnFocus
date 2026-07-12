@@ -102,9 +102,9 @@ opportunistically with other work in the same file)
       reset-monthly/reset-tasks/reset-onboarding (destructive, `0.93`), `:650` check-updates,
       `:711` day-chip, `:764,777,783` child-mode ghost buttons, `:831` day-chip (child-mode),
       `:1001` Automations nav row.
-- [ ] `app/health-log.tsx:103` — symptom summary row → detail. `scaleTo=0.97`.
-- [ ] `app/health-detail.tsx:102` — log-entry row → edit form. `scaleTo=0.97`.
-- [ ] `app/habit-form.tsx:225,265,322,329,346,393,415,443,475,482` — save icon, profile chip,
+- [x] `app/health-log.tsx:103` — symptom summary row → detail. `scaleTo=0.97`.
+- [x] `app/health-detail.tsx:102` — log-entry row → edit form. `scaleTo=0.97`.
+- [x] `app/habit-form.tsx:225,265,322,329,346,393,415,443,475,482` — save icon, profile chip,
       reminder-count stepper x2, reminder-time chip, "show more" disclosure, icon-picker
       swatch, category chip, daily-goal stepper x2.
 - [ ] `app/pair-device.tsx:197,219,237,246` — "remove device" (destructive), wizard cancel x2,

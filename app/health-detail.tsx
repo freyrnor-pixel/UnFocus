@@ -8,8 +8,8 @@
  * row opens app/health-form.tsx to edit or delete that specific log.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/Surface, lib/i18n, lib/severity,
- *             lib/useAppTheme, store/useHealthStore
+ *   Imports → components/ScreenScaffold, components/Surface, components/PressableScale,
+ *             lib/i18n, lib/severity, lib/useAppTheme, store/useHealthStore
  *   Used by → Expo Router route "/health-detail"; pushed from app/(tabs)/health.tsx and
  *             app/health-log.tsx with params { symptomId, ailment, name }
  *   Data    → useHealthStore.logsForSymptom (read-only; edits happen in app/health-form.tsx)
@@ -22,12 +22,13 @@
  *     ailment string for legacy rows — same convention used everywhere else in Health.
  */
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore } from '@/store/useHealthStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
+import PressableScale from '@/components/PressableScale';
 import { useT } from '@/lib/i18n';
 import { SEVERITY_COLORS, severities, severityInk } from '@/lib/severity';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
@@ -99,7 +100,7 @@ export default function HealthDetailScreen() {
         {data.entries.map((e) => {
           const sev = SEVERITIES.find((s) => s.value === e.severity);
           return (
-            <Pressable key={e.id} onPress={() => router.push({ pathname: '/health-form', params: { id: e.id } })}>
+            <PressableScale key={e.id} onPress={() => router.push({ pathname: '/health-form', params: { id: e.id } })} scaleTo={0.97}>
               <Surface style={styles.detailEntry}>
                 <View style={styles.detailEntryHead}>
                   <Text style={[styles.detailEntryDate, { color: theme.text }]}>{e.date}</Text>
@@ -114,7 +115,7 @@ export default function HealthDetailScreen() {
                 </View>
                 {e.notes ? <Text style={[styles.detailEntryNotes, { color: theme.textMuted }]}>{e.notes}</Text> : null}
               </Surface>
-            </Pressable>
+            </PressableScale>
           );
         })}
         <View style={{ height: 40 }} />
