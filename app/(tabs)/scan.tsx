@@ -747,23 +747,23 @@ const baseStyles = StyleSheet.create({
     alignSelf: 'flex-end',
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: Spacing.xs,
   },
   budgetPillText: { fontSize: FontSize.xs, fontWeight: '700' },
   backLink: { fontSize: FontSize.sm, fontWeight: '700' },
-  tipBox: { borderRadius: Radius.md, paddingVertical: 13, paddingHorizontal: 16 },
+  tipBox: { borderRadius: Radius.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md },
   tipText: { fontSize: FontSize.sm, lineHeight: 20 },
 
   storeSection: { gap: Spacing.sm },
   sectionLabel: { fontSize: FontSize.xs, fontWeight: '700', letterSpacing: 0.07 },
   storeScroll: {},
   storeRow: { flexDirection: 'row', gap: Spacing.sm },
-  storeChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: Radius.full },
+  storeChip: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.full },
   storeChipText: { fontSize: FontSize.sm, fontWeight: '500' },
 
   primaryButton: {
     borderRadius: Radius.lg,
-    paddingVertical: 30,
+    paddingVertical: Spacing.xl,
     paddingHorizontal: Spacing.lg,
     alignItems: 'center',
     gap: Spacing.sm,
@@ -774,14 +774,14 @@ const baseStyles = StyleSheet.create({
   },
   primaryButtonText: { fontSize: FontSize.xl, fontWeight: '700' },
 
-  gridRow: { flexDirection: 'row', gap: 10 },
+  gridRow: { flexDirection: 'row', gap: Spacing.sm },
   gridCard: {
     flex: 1,
     borderRadius: Radius.md,
   },
   gridCardInner: {
-    paddingVertical: 18,
-    paddingHorizontal: 12,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
@@ -801,7 +801,7 @@ const baseStyles = StyleSheet.create({
   qrButtonText: { fontSize: FontSize.md, fontWeight: '700' },
 
   // SCANNING MODE
-  scanningContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 20, paddingHorizontal: 32 },
+  scanningContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.lg, paddingHorizontal: Spacing.xl },
   pulseCircle: {
     width: 84,
     height: 84,
@@ -813,11 +813,11 @@ const baseStyles = StyleSheet.create({
   scanningSubtitle: { fontSize: FontSize.sm, textAlign: 'center' },
 
   // RESULT MODE
-  itemsCard: { borderRadius: Radius.md, paddingVertical: 6, paddingHorizontal: 16 },
+  itemsCard: { borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 11,
+    paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
     gap: Spacing.sm,
   },
@@ -831,10 +831,10 @@ const baseStyles = StyleSheet.create({
 
   categoryChip: {
     alignSelf: 'flex-start',
-    marginLeft: 32,
+    marginLeft: Spacing.xl,
     marginBottom: Spacing.sm,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: Spacing.xs,
     borderRadius: Radius.sm,
   },
   categoryChipText: { fontSize: FontSize.xs, fontWeight: '500' },
@@ -872,7 +872,7 @@ const baseStyles = StyleSheet.create({
   manualInput: {
     borderRadius: Radius.md,
     borderWidth: 1.5,
-    padding: 14,
+    padding: Spacing.md,
     fontSize: FontSize.md,
     lineHeight: 24,
     textAlignVertical: 'top',

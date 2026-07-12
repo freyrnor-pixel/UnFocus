@@ -131,7 +131,7 @@ export default function SharedRequestsSection({ kind }: Props) {
 const baseStyles = StyleSheet.create({
   section: { marginBottom: Spacing.md, gap: Spacing.sm },
   sectionTitle: { fontSize: FontSize.md, fontFamily: Fonts.bold },
-  card: { borderRadius: Radius.md, padding: Spacing.sm, gap: Spacing.sm },
+  card: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   row: { gap: Spacing.xs },
   itemText: { fontSize: FontSize.sm },
   actions: { flexDirection: 'row', gap: Spacing.sm },

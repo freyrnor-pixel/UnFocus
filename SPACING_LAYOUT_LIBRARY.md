@@ -105,53 +105,28 @@ xs   sm   md   lg   xl   xxl
 
 ---
 
-## 🏗️ Layout Tokens
+## 🏗️ Card Internal Spacing
 
-From `constants/theme.ts` → `Layout`:
+There is no separate `Layout` token — cards use `Spacing.md` (16) for both
+padding and internal gaps, same as every other "standard" slot:
 
-```typescript
-Layout = {
-  cardPadding:  18,   // Standard card internal padding
-  cardPaddingV: 18,   // Vertical padding in cards
-  cardPaddingH: 16,   // Horizontal padding in cards
-  cardGap:      14,   // Gap between elements inside cards
-  maxVisible:   5,    // Items visible in a full list before scroll
-}
-```
-
-### Layout.cardPadding / cardPaddingV / cardPaddingH (18 & 16)
+### Card padding (Spacing.md, 16)
 Used for card, modal, and sheet internal padding:
 
 ```tsx
-<View style={{ padding: Layout.cardPadding }}>
+<View style={{ padding: Spacing.md }}>
   {/* Card content with breathing room */}
-</View>
-
-// Or with different V/H:
-<View style={{ 
-  paddingVertical: Layout.cardPaddingV,
-  paddingHorizontal: Layout.cardPaddingH,
-}}>
-  {/* Card content */}
 </View>
 ```
 
-### Layout.cardGap (14)
-Gap between elements *inside* a card:
-
+### Gap between elements inside a card (Spacing.md, 16)
 ```tsx
-<View style={{ gap: Layout.cardGap }}>
+<View style={{ gap: Spacing.md }}>
   <Text>Title</Text>
   <Text>Subtitle</Text>
   <Button label="Action" onPress={() => {}} />
 </View>
 ```
-
-### Layout.maxVisible (5)
-How many items fit in a list before needing scroll. Used for:
-- Planning scroll height
-- Understanding list affordance
-- Deciding when a list needs scroll vs. fits on screen
 
 ---
 
@@ -189,7 +164,7 @@ Radius = {
 <View style={{ 
   borderRadius: Radius.md,
   backgroundColor: theme.white,
-  padding: Layout.cardPadding,
+  padding: Spacing.md,
 }}>
   {/* Card content */}
 </View>
@@ -228,7 +203,7 @@ Radius = {
 <View style={{ flex: 1, backgroundColor: theme.cream }}>
   <ScrollView 
     style={{ padding: Spacing.md }}
-    contentContainerStyle={{ gap: Layout.cardGap }}
+    contentContainerStyle={{ gap: Spacing.md }}
   >
     {/* Content */}
   </ScrollView>
@@ -251,8 +226,8 @@ Radius = {
 <View style={{
   backgroundColor: theme.white,
   borderRadius: Radius.md,
-  padding: Layout.cardPadding,
-  gap: Layout.cardGap,
+  padding: Spacing.md,
+  gap: Spacing.md,
 }}>
   <Text style={{ fontFamily: Fonts.bold }}>Card Title</Text>
   <Text>Card content with standard spacing</Text>
@@ -292,7 +267,7 @@ Radius = {
 ### Pattern 7: Bottom Padding (Above FAB/BottomNav)
 ```tsx
 <ScrollView>
-  <View style={{ gap: Layout.cardGap, paddingBottom: Spacing.xxl + 56 }}>
+  <View style={{ gap: Spacing.md, paddingBottom: Spacing.xxl + 56 }}>
     {/* Content with room for floating FAB */}
   </View>
 </ScrollView>
@@ -332,7 +307,7 @@ All scrollable screens:
 Cards always have internal breathing room:
 ```tsx
 <View style={{ 
-  padding: Layout.cardPadding,  // 18px all sides
+  padding: Spacing.md,  // 16px all sides
   borderRadius: Radius.md,
 }}>
   {/* Content inside is breathes naturally */}
@@ -403,7 +378,7 @@ Position FABs above scrollable content; toasts above everything.
 ## 🔧 Accessing Spacing in Code
 
 ```typescript
-import { Spacing, Layout, Radius } from '@/constants/theme';
+import { Spacing, Radius } from '@/constants/theme';
 
 export function MyComponent() {
   return (
@@ -436,9 +411,7 @@ Use Radius.md (18)     for: cards, inputs, modals
 Use Radius.lg (26)     for: large cards, prominence
 Use Radius.full (999)  for: buttons, FABs, avatars
 
-Use Layout.cardPadding (18)  for: card internal spacing
-Use Layout.cardGap (14)      for: gaps inside cards
-Use Layout.maxVisible (5)    for: scroll affordance
+Use Spacing.md (16)    for: card internal padding + gaps inside cards
 ```
 
 ---
@@ -448,7 +421,7 @@ Use Layout.maxVisible (5)    for: scroll affordance
 - **BUTTON_LIBRARY.md** – Button sizes & touch targets
 - **COLOR_THEME_LIBRARY.md** – Visual separation with colour
 - **CARD_CONTAINER_LIBRARY.md** – Card layout patterns
-- Source: `constants/theme.ts` (Spacing, Layout, Radius)
+- Source: `constants/theme.ts` (Spacing, Radius)
 
 ---
 

@@ -1169,7 +1169,7 @@ export default function ShoppingScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: Spacing.md, gap: Spacing.md },
+  content: { padding: Spacing.md, gap: Spacing.xl },
   // Decision 043 rule 2: Spacing.xl above each of the Monthly tab's two named sections.
   bodyGap: { gap: Spacing.xl },
   dishGroupsWrap: { gap: Spacing.xs },
@@ -1188,7 +1188,7 @@ const styles = StyleSheet.create({
   },
   tabText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
-  tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold },
+  tabBadgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   stickySummaryRow: { gap: 4, paddingBottom: Spacing.xs },
   stickyListName: { fontSize: FontSize.md, fontFamily: Fonts.bold },

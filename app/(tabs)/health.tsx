@@ -57,6 +57,10 @@
  *     app/habit-form.tsx) — an essential habit shows a small star next to its title, same
  *     as PlanTaskCard's task star. It also gates habit *notifications* (see
  *     lib/habitNotifications.ts) via the same persisted `essentialsModeEnabled` setting.
+ *   - The week/month habit grids (ailmentDayAbbr/dayAbbr/weekGridDayAbbr/weekGridDate/
+ *     monthDotDate) use raw 7–9px fontSize, below the FontSize.xs (12) floor, intentionally:
+ *     the month view packs ~31 date+dot columns into one row, so there's no room for the
+ *     standard scale there. Don't "fix" these to a token without redoing the grid layout.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -883,8 +887,6 @@ export default function HealthScreen() {
               />
             )}
           </View>
-
-          <View style={{ height: 80 }} />
         </View>
       </ScreenScaffold>
     </>

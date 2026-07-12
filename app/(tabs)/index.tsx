@@ -291,7 +291,7 @@ const baseStyles = StyleSheet.create({
   blank: { flex: 1 },
   content: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.md },
   header: { marginBottom: 0 },
-  greeting: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold },
+  greeting: { fontSize: FontSize.xl, fontFamily: Fonts.semibold },
   dateLabel: { fontSize: FontSize.sm, marginTop: Spacing.xs, textTransform: 'capitalize', fontFamily: Fonts.regular },
   section: { marginTop: Spacing.xl },
   pointsText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },
