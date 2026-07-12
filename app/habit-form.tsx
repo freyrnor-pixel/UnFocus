@@ -118,6 +118,7 @@ export default function HabitForm() {
   const updateHabit = useHabitStore((s) => s.update);
   const removeHabit = useHabitStore((s) => s.remove);
   const childProfiles = useSettingsStore((s) => s.childProfiles);
+  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
 
   const theme = useAppTheme();
   const t = useT();
@@ -257,7 +258,7 @@ export default function HabitForm() {
         </View>
 
         {/* For — profile assignment */}
-        {childProfiles.length > 0 && (
+        {peopleModeEnabled && childProfiles.length > 0 && (
           <View style={styles.field}>
             <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitForLabel}</Text>
             <View style={styles.chipRow}>

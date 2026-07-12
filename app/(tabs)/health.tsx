@@ -17,10 +17,13 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/Surface,
  *             components/AddFAB, components/CompletionGlow, components/HabitIcon,
- *             components/EmptyState, components/AppModal, components/PressableScale,
+ *             components/EmptyState, components/SlideSelector, components/PressableScale,
  *             constants/theme, constants/colors, lib/date, lib/db, lib/haptics, lib/i18n,
  *             lib/severity, lib/useAppTheme, store/useHealthStore, store/useHabitStore,
  *             store/useSettingsStore
+ *   - Habit Today/Week/Month uses the shared SlideSelector; the person filter row +
+ *     habit-form "For" chips are gated on settings.peopleModeEnabled (People/family
+ *     mode). Profile add/remove now lives in app/settings.tsx, not here.
  *   Used by → Expo Router route "/health" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx (BottomNav "Health" tab)
  *   Data    → useHealthStore (health_logs + symptoms catalog, read-only here — add/edit/delete
  *             live in app/health-form.tsx); useHabitStore (habits + habit_logs) via
@@ -59,7 +62,7 @@
  *     lib/habitNotifications.ts) via the same persisted `essentialsModeEnabled` setting.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore, HealthLog } from '@/store/useHealthStore';
@@ -72,7 +75,7 @@ import AddFAB from '@/components/AddFAB';
 import CompletionGlow from '@/components/CompletionGlow';
 import HabitIcon from '@/components/HabitIcon';
 import EmptyState from '@/components/EmptyState';
-import { showAppModal } from '@/components/AppModal';
+import SlideSelector from '@/components/SlideSelector';
 import PressableScale from '@/components/PressableScale';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekDates, getMonthDates } from '@/lib/date';
@@ -80,7 +83,7 @@ import { SEVERITY_COLORS, severities } from '@/lib/severity';
 import { FontSize, Radius, Spacing, Fonts } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
-import { warning, success, heavy, selection } from '@/lib/haptics';
+import { success, selection } from '@/lib/haptics';
 
 // ─── Habits (ported from the removed app/habits.tsx) ──────────────────────────
 
@@ -556,7 +559,7 @@ export default function HealthScreen() {
 
   const lang = useSettingsStore((s) => s.language);
   const childProfiles = useSettingsStore((s) => s.childProfiles);
-  const updateSettings = useSettingsStore((s) => s.update);
+  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
 
   const [hintOpen, setHintOpen] = useState(false);
   const t = useT();
@@ -567,8 +570,6 @@ export default function HealthScreen() {
   // Habits section state (ported from the removed app/habits.tsx).
   const [habitTab, setHabitTab] = useState<HabitViewTab>('today');
   const [selectedProfile, setSelectedProfile] = useState<string>('');
-  const [addingChild, setAddingChild] = useState(false);
-  const [newChildName, setNewChildName] = useState('');
 
   // Focus mode: Health-only, ephemeral, scoped to the Habits section (see header notes).
   const [focusMode, setFocusMode] = useState(false);
@@ -615,11 +616,15 @@ export default function HealthScreen() {
   }
 
   // ---- Habits section derived state ----
-  const profileHabits = habits.filter((h) => h.childName === selectedProfile);
+  // Profile filter row shows only in People/family mode with at least one profile
+  // (management moved to Settings — this screen only *filters* by person now).
+  const showHabitProfiles = peopleModeEnabled && childProfiles.length > 0;
+  // Only filter by person when the filter UI is actually shown; otherwise (People mode
+  // off) show every habit so profile-assigned habits don't silently disappear.
+  const profileHabits = showHabitProfiles ? habits.filter((h) => h.childName === selectedProfile) : habits;
   // Focus mode narrows every Habits view (today/week/month) to essential habits only.
   const focusFilteredHabits = focusMode ? profileHabits.filter((h) => h.importance === 'essential') : profileHabits;
   const visibleHabits = focusFilteredHabits.filter((h) => shouldShowHabitOnDate(h, today));
-  const showHabitProfiles = childProfiles.length > 0 || (addingChild && !focusMode);
 
   const metCount = visibleHabits.filter((h) => {
     const log = habitLogs.find((l) => l.habitId === h.id && l.logDate === today);
@@ -638,29 +643,6 @@ export default function HealthScreen() {
     { key: 'week', label: t.habitWeekView },
     { key: 'month', label: t.habitMonthView },
   ];
-
-  function addChild() {
-    const name = newChildName.trim();
-    if (!name) return;
-    updateSettings({ childProfiles: [...childProfiles, name] });
-    setNewChildName('');
-    setAddingChild(false);
-  }
-
-  function removeChild(name: string) {
-    warning();
-    showAppModal(t.habitRemoveChild(name), t.habitRemoveChildBody, [
-      { text: t.cancel, style: 'cancel' },
-      {
-        text: t.resetConfirmBtn, style: 'destructive',
-        onPress: () => {
-          heavy();
-          updateSettings({ childProfiles: childProfiles.filter((c) => c !== name) });
-          if (selectedProfile === name) setSelectedProfile('');
-        },
-      },
-    ]);
-  }
 
   function goToHabitForm() {
     router.push({ pathname: '/habit-form', params: selectedProfile ? { childName: selectedProfile } : {} });
@@ -745,11 +727,15 @@ export default function HealthScreen() {
             onPress={() => router.push('/health-log')}
             accessibilityRole="button"
             accessibilityLabel={t.healthLogTitle}
-            style={[styles.navLink, { borderTopColor: theme.border }]}
-            scaleTo={0.97}
+            scaleTo={0.98}
+            style={styles.navLinkWrap}
           >
-            <Text style={[styles.navLinkText, { color: theme.text }]}>{t.healthLogTitle}</Text>
-            <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+            <Surface style={styles.navCard}>
+              <View style={[styles.navCardAccent, { backgroundColor: theme.featHealth }]} />
+              <Ionicons name="document-text-outline" size={20} color={theme.featHealth} />
+              <Text style={[styles.navCardText, { color: theme.text }]}>{t.healthLogTitle}</Text>
+              <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+            </Surface>
           </PressableScale>
 
           {/* Habits — embedded section (no separate /habits screen; ported in full). */}
@@ -761,6 +747,7 @@ export default function HealthScreen() {
               )}
             </View>
 
+            {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
             {showHabitProfiles && (
               <ScrollView
                 horizontal
@@ -774,10 +761,11 @@ export default function HealthScreen() {
                       key={name || '__me__'}
                       style={[
                         styles.profileChip,
-                        { backgroundColor: isActive ? theme.accent : theme.surfaceMuted },
+                        { backgroundColor: isActive ? theme.accent : theme.surfaceMuted, borderColor: isActive ? theme.accent : theme.border },
                       ]}
                       onPress={() => setSelectedProfile(name)}
-                      onLongPress={() => !focusMode && name && removeChild(name)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isActive }}
                       scaleTo={0.97}
                     >
                       <Text style={[styles.profileChipText, { color: isActive ? theme.accentInk : theme.text }]}>
@@ -786,54 +774,15 @@ export default function HealthScreen() {
                     </PressableScale>
                   );
                 })}
-                {!focusMode && (addingChild ? (
-                  <View style={[styles.profileChip, styles.addChildRow, { backgroundColor: theme.surface }]}>
-                    <TextInput
-                      style={[styles.addChildInput, { color: theme.text }]}
-                      value={newChildName}
-                      onChangeText={setNewChildName}
-                      placeholder={t.habitAddChildPlaceholder}
-                      placeholderTextColor={theme.textMuted}
-                      autoFocus
-                      returnKeyType="done"
-                      onSubmitEditing={addChild}
-                    />
-                    <PressableScale onPress={addChild} scaleTo={0.9}>
-                      <Text style={[styles.addChildConfirm, { color: theme.accent }]}>✓</Text>
-                    </PressableScale>
-                  </View>
-                ) : (
-                  <PressableScale
-                    style={[styles.profileChip, { backgroundColor: theme.surfaceMuted, borderStyle: 'dashed', borderWidth: 1, borderColor: theme.border }]}
-                    onPress={() => setAddingChild(true)}
-                    scaleTo={0.97}
-                  >
-                    <Text style={[styles.profileChipText, { color: theme.textMuted }]}>{t.habitAddChild}</Text>
-                  </PressableScale>
-                ))}
               </ScrollView>
             )}
-            {!showHabitProfiles && !focusMode && (
-              <PressableScale style={styles.addChildBtn} onPress={() => setAddingChild(true)} scaleTo={0.97}>
-                <Text style={[styles.addChildBtnText, { color: theme.textMuted }]}>{t.habitAddChild}</Text>
-              </PressableScale>
-            )}
 
-            {/* View tabs */}
-            <View style={[styles.tabs, { backgroundColor: theme.surfaceMuted }]}>
-              {habitTabs.map(({ key, label }) => (
-                <PressableScale
-                  key={key}
-                  style={[styles.tab, habitTab === key && { backgroundColor: theme.surface }]}
-                  onPress={() => setHabitTab(key)}
-                  scaleTo={0.97}
-                >
-                  <Text style={[styles.tabText, { color: theme.textMuted }, habitTab === key && { color: theme.text }]}>
-                    {label}
-                  </Text>
-                </PressableScale>
-              ))}
-            </View>
+            {/* View tabs — shared bordered segmented control (SlideSelector). */}
+            <SlideSelector
+              options={habitTabs.map(({ key, label }) => ({ value: key, label }))}
+              value={habitTab}
+              onChange={(v) => setHabitTab(v as HabitViewTab)}
+            />
 
             {habitTab === 'today' && (
               <>
@@ -919,15 +868,12 @@ const baseStyles = StyleSheet.create({
   overviewFill: { height: 8, borderRadius: Radius.full },
   overviewCount: { fontSize: FontSize.xs, width: 28, textAlign: 'right' },
   emptyText: { fontSize: FontSize.sm },
-  navLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    marginTop: Spacing.sm,
-  },
-  navLinkText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  // Health-log entry as a grouped card (2026-07-12 redesign) instead of bare text +
+  // hairline, so it reads as a tappable section that belongs with the rest.
+  navLinkWrap: { marginTop: Spacing.sm },
+  navCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md, paddingLeft: Spacing.lg },
+  navCardAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
+  navCardText: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
 
   // ─── Habits section (ported from the removed app/habits.tsx) ─────────────────
   // Decision 043 rule 2: Spacing.xl above (marginTop replaces the old Spacing.sm).
@@ -941,23 +887,9 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: Radius.full,
+    borderWidth: 1,
   },
   profileChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  addChildRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  addChildInput: { fontSize: FontSize.sm, minWidth: 80 },
-  addChildConfirm: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
-  addChildBtn: {
-    paddingBottom: Spacing.xs,
-  },
-  addChildBtnText: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
-  tabs: {
-    flexDirection: 'row',
-    borderRadius: Radius.md,
-    padding: 3,
-    gap: 3,
-  },
-  tab: { flex: 1, paddingVertical: Spacing.sm, borderRadius: Radius.sm, alignItems: 'center' },
-  tabText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   section: { gap: Spacing.sm },
   habitsEmptyCard: { borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', justifyContent: 'center' },
   sectionCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
