@@ -120,7 +120,7 @@ opportunistically with other work in the same file)
       "take photo" primary, `:528,534` picker grid cards, `:542` "scan QR", `:585` item-row
       toggle, `:601` category chip, `:615,619` add/cancel confirm, `:640` category option row,
       `:699,709` manual-entry confirm/cancel. (`:450,633` backdrops — excluded.)
-- [ ] `app/(tabs)/health.tsx:292,322,329,350,492,500,689,736,764,791,796,806,814,842` — habit
+- [x] `app/(tabs)/health.tsx:292,322,329,350,492,500,689,736,764,791,796,806,814,842` — habit
       card, adjust +/- x2, rest-day toggle, month nav x2, ailment row, view-log row, profile
       chip, confirm-add-child, two "add child" buttons, sub-tab, "no habits yet" add-row.
 - [ ] `app/(tabs)/shopping.tsx:745,807,901,952,981,964,984,1075,1152,1155` — Weekly/Monthly

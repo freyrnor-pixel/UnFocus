@@ -17,7 +17,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/Surface,
  *             components/AddFAB, components/CompletionGlow, components/HabitIcon,
- *             components/EmptyState, components/AppModal,
+ *             components/EmptyState, components/AppModal, components/PressableScale,
  *             constants/theme, constants/colors, lib/date, lib/db, lib/haptics, lib/i18n,
  *             lib/severity, lib/useAppTheme, store/useHealthStore, store/useHabitStore,
  *             store/useSettingsStore
@@ -59,7 +59,7 @@
  *     lib/habitNotifications.ts) via the same persisted `essentialsModeEnabled` setting.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore, HealthLog } from '@/store/useHealthStore';
@@ -73,6 +73,7 @@ import CompletionGlow from '@/components/CompletionGlow';
 import HabitIcon from '@/components/HabitIcon';
 import EmptyState from '@/components/EmptyState';
 import { showAppModal } from '@/components/AppModal';
+import PressableScale from '@/components/PressableScale';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekDates, getMonthDates } from '@/lib/date';
 import { SEVERITY_COLORS, severities } from '@/lib/severity';
@@ -289,9 +290,10 @@ function HabitCard({
   const barColor = isDone ? accent : progressColor(ratio, habit.kind, theme);
 
   return (
-    <Pressable
+    <PressableScale
       onPress={() => setExpanded((v) => !v)}
       onLongPress={() => onEdit(habit.id)}
+      scaleTo={0.97}
     >
       <View style={[styles.habitCard, { backgroundColor: theme.surface }]}>
         <View style={[styles.habitAccent, { backgroundColor: barColor }]} />
@@ -319,20 +321,22 @@ function HabitCard({
             </View>
           </View>
           <ProgressDots count={count} goal={habit.dailyGoal} kind={habit.kind} theme={theme} />
-          <Pressable
+          <PressableScale
             style={[styles.adjBtn, { backgroundColor: theme.surfaceMuted }]}
             onPress={() => decrement(habit.id, today)}
             hitSlop={8}
+            scaleTo={0.9}
           >
             <Text style={[styles.adjBtnText, { color: theme.textMuted }]}>−</Text>
-          </Pressable>
-          <Pressable
+          </PressableScale>
+          <PressableScale
             style={[styles.adjBtn, styles.adjBtnPlus, { backgroundColor: barColor }]}
             onPress={() => increment(habit.id, today)}
             hitSlop={8}
+            scaleTo={0.9}
           >
             <Text style={[styles.adjBtnPlusText, { color: theme.accentInk }]}>+</Text>
-          </Pressable>
+          </PressableScale>
         </View>
 
         {expanded && (
@@ -347,7 +351,7 @@ function HabitCard({
                 theme={theme}
               />
             </View>
-            <Pressable
+            <PressableScale
               style={[
                 styles.restDayBtn,
                 { borderColor: theme.border },
@@ -357,12 +361,13 @@ function HabitCard({
                 selection();
                 markRestDay(habit.id, today);
               }}
+              scaleTo={0.97}
             >
               <Ionicons name="moon" size={14} color={isRestToday ? theme.textInverse : theme.textMuted} />
               <Text style={[styles.restDayText, { color: isRestToday ? theme.textInverse : theme.textMuted }]}>
                 {isRestToday ? t.habits.restingToday : t.habits.restDay}
               </Text>
-            </Pressable>
+            </PressableScale>
             {isRestToday && (
               <Text style={[styles.restDayHint, { color: theme.textMuted }]}>{t.habits.restDayHint}</Text>
             )}
@@ -370,7 +375,7 @@ function HabitCard({
         )}
         </View>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -489,21 +494,23 @@ function MonthView({
   return (
     <View>
       <View style={styles.monthNav}>
-        <Pressable
+        <PressableScale
           onPress={() => setOffset((o) => Math.max(minOffset, o - 1))}
           style={[styles.monthNavBtn, offset <= minOffset && { opacity: 0.3 }]}
           disabled={offset <= minOffset}
+          scaleTo={0.9}
         >
           <Text style={[styles.monthNavText, { color: theme.accent }]}>‹</Text>
-        </Pressable>
+        </PressableScale>
         <Text style={[styles.monthLabel, { color: theme.text }]}>{label}</Text>
-        <Pressable
+        <PressableScale
           onPress={() => setOffset((o) => Math.min(0, o + 1))}
           style={[styles.monthNavBtn, offset >= 0 && { opacity: 0.3 }]}
           disabled={offset >= 0}
+          scaleTo={0.9}
         >
           <Text style={[styles.monthNavText, { color: theme.accent }]}>›</Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       {visibleHabits.map((habit) => (
@@ -686,12 +693,13 @@ export default function HealthScreen() {
                 const weekSeverities = weekDates.map((d) => severityAt(s.key, d));
                 const maxCount = thisWeekSymptoms[0]?.count ?? 1;
                 return (
-                  <Pressable
+                  <PressableScale
                     key={s.key}
                     style={styles.overviewAilment}
                     onPress={() => openDetail(s.symptomId, s.ailment, s.name)}
                     accessibilityRole="button"
                     accessibilityLabel={t.symptomHistoryTitle(s.name)}
+                    scaleTo={0.97}
                   >
                     <View style={styles.overviewRow}>
                       <Text style={[styles.overviewName, { color: theme.text }]}>{s.name}</Text>
@@ -726,22 +734,23 @@ export default function HealthScreen() {
                         );
                       })}
                     </View>
-                  </Pressable>
+                  </PressableScale>
                 );
               })}
             </View>
           </Surface>
 
           {/* Health-log — sectioned overview of every issue ever logged, and where new entries are added */}
-          <Pressable
+          <PressableScale
             onPress={() => router.push('/health-log')}
             accessibilityRole="button"
             accessibilityLabel={t.healthLogTitle}
             style={[styles.navLink, { borderTopColor: theme.border }]}
+            scaleTo={0.97}
           >
             <Text style={[styles.navLinkText, { color: theme.text }]}>{t.healthLogTitle}</Text>
             <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-          </Pressable>
+          </PressableScale>
 
           {/* Habits — embedded section (no separate /habits screen; ported in full). */}
           <View style={styles.habitsSection}>
@@ -761,7 +770,7 @@ export default function HealthScreen() {
                 {(['', ...childProfiles] as string[]).map((name) => {
                   const isActive = selectedProfile === name;
                   return (
-                    <Pressable
+                    <PressableScale
                       key={name || '__me__'}
                       style={[
                         styles.profileChip,
@@ -769,11 +778,12 @@ export default function HealthScreen() {
                       ]}
                       onPress={() => setSelectedProfile(name)}
                       onLongPress={() => !focusMode && name && removeChild(name)}
+                      scaleTo={0.97}
                     >
                       <Text style={[styles.profileChipText, { color: isActive ? theme.accentInk : theme.text }]}>
                         {name || t.habitForMe}
                       </Text>
-                    </Pressable>
+                    </PressableScale>
                   );
                 })}
                 {!focusMode && (addingChild ? (
@@ -788,38 +798,40 @@ export default function HealthScreen() {
                       returnKeyType="done"
                       onSubmitEditing={addChild}
                     />
-                    <Pressable onPress={addChild}>
+                    <PressableScale onPress={addChild} scaleTo={0.9}>
                       <Text style={[styles.addChildConfirm, { color: theme.accent }]}>✓</Text>
-                    </Pressable>
+                    </PressableScale>
                   </View>
                 ) : (
-                  <Pressable
+                  <PressableScale
                     style={[styles.profileChip, { backgroundColor: theme.surfaceMuted, borderStyle: 'dashed', borderWidth: 1, borderColor: theme.border }]}
                     onPress={() => setAddingChild(true)}
+                    scaleTo={0.97}
                   >
                     <Text style={[styles.profileChipText, { color: theme.textMuted }]}>{t.habitAddChild}</Text>
-                  </Pressable>
+                  </PressableScale>
                 ))}
               </ScrollView>
             )}
             {!showHabitProfiles && !focusMode && (
-              <Pressable style={styles.addChildBtn} onPress={() => setAddingChild(true)}>
+              <PressableScale style={styles.addChildBtn} onPress={() => setAddingChild(true)} scaleTo={0.97}>
                 <Text style={[styles.addChildBtnText, { color: theme.textMuted }]}>{t.habitAddChild}</Text>
-              </Pressable>
+              </PressableScale>
             )}
 
             {/* View tabs */}
             <View style={[styles.tabs, { backgroundColor: theme.surfaceMuted }]}>
               {habitTabs.map(({ key, label }) => (
-                <Pressable
+                <PressableScale
                   key={key}
                   style={[styles.tab, habitTab === key && { backgroundColor: theme.surface }]}
                   onPress={() => setHabitTab(key)}
+                  scaleTo={0.97}
                 >
                   <Text style={[styles.tabText, { color: theme.textMuted }, habitTab === key && { color: theme.text }]}>
                     {label}
                   </Text>
-                </Pressable>
+                </PressableScale>
               ))}
             </View>
 
@@ -839,9 +851,9 @@ export default function HealthScreen() {
                       {focusMode ? (
                         <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
                       ) : (
-                        <Pressable style={[styles.dashedAdd, { borderColor: theme.border }]} onPress={goToHabitForm}>
+                        <PressableScale style={[styles.dashedAdd, { borderColor: theme.border }]} onPress={goToHabitForm} scaleTo={0.97}>
                           <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
-                        </Pressable>
+                        </PressableScale>
                       )}
                     </Surface>
                   ) : (
