@@ -146,15 +146,16 @@ async function main() {
     await page.waitForTimeout(1000);
     await shot(page, 'home-again');
 
-    // Exercise real store logic (not just static render): add a task via the
-    // always-open first-run draft card, and confirm it round-trips through the
-    // in-memory sql.js DB by reappearing after navigating away and back.
+    // Exercise real store logic (not just static render): add a task via the inline
+    // AddRow at the bottom of the Whenever section (type + Enter), and confirm it
+    // round-trips through the in-memory sql.js DB by reappearing after navigating away.
     console.log('> add a task (store logic check)');
     await page.getByRole('button', { name: 'Tasks', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     const taskTitle = `Preview check ${Date.now()}`;
-    await page.getByPlaceholder('What needs to be done?').first().fill(taskTitle);
-    await clickText(page, 'Save');
+    const taskInput = page.getByPlaceholder('New task').first();
+    await taskInput.fill(taskTitle);
+    await taskInput.press('Enter');
     await page.waitForTimeout(800);
     await shot(page, 'task-added');
 

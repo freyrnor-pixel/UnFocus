@@ -72,8 +72,9 @@
  *     names "sticky headers... nav bar" as the overlay use case — `ScreenHeader`/`BottomNav`
  *     also use `overlay` (the earlier doc-vs-source inconsistency flagged here has since
  *     been fixed in both files).
- *     `STICKY_HEIGHT` is a fixed estimate (tab row + summary row), not measured — good
- *     enough for a stub-data screen with no live-app verification available.
+ *     Reserved sticky height is now conditional: `STICKY_HEIGHT` (tab row + summary row) only
+ *     when the Weekly summary row actually renders, else `STICKY_HEIGHT_TABS` (tab row only),
+ *     so non-Weekly tabs don't reserve empty space above the first card (visual-audit gap fix).
  *   - **A2-1 focused list**: `focusedListId` picks which non-template list's summary the
  *     sticky bar shows (Decision 017 Q3/Q4 — focused-list-only, never an aggregate).
  *     Falls back to the first list when nothing is explicitly focused yet or the focused
@@ -199,7 +200,12 @@ type Tab = 'weekly' | 'monthly' | 'food' | 'catalogue';
  */
 let catalogLockedSession = true;
 
+// Reserved sticky-bar height. The summary row (focused list name + progress) only renders
+// on the Weekly tab, so reserving the full height on every tab left a large empty gap above
+// the first card (visual-audit finding). Reserve the tab-row-only height otherwise, matching
+// Plans' 56 so the tab→first-card gap is consistent across the two list screens.
 const STICKY_HEIGHT = 116;
+const STICKY_HEIGHT_TABS = 60;
 
 type DragState = {
   listId: string;
@@ -739,6 +745,8 @@ export default function ShoppingScreen() {
     { value: 'catalogue', label: t.catalogueTabLabel, accent: theme.featShop, count: 0 },
   ];
 
+  const summaryVisible = tab === 'weekly' && !!focusedList && !!focusedProgress;
+  const stickyHeight = summaryVisible ? STICKY_HEIGHT : STICKY_HEIGHT_TABS;
   const stickyBelowHeader = (
     <View style={[styles.stickyBar, { backgroundColor: theme.bg }]}>
       <View style={styles.tabsRow}>
@@ -796,7 +804,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={STICKY_HEIGHT} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onScroll={handleScreenScroll}>
       <View style={styles.content}>
         <HintCard text={t.hints.shopping.text} open={hintOpen} noPill />
         <SharedRequestsSection kind="shopping" />
