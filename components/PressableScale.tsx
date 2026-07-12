@@ -4,9 +4,12 @@
  * Drop-in replacement for Pressable that dips to ~0.94 scale on press-in and
  * springs back on release (~150ms), giving every button tactile feedback. Also
  * dips opacity to 0.85 in sync with the scale (derived from the same shared value,
- * no extra tuning). Fires a light haptic on press by default. Honours the user's
- * reduce-motion setting: when set, the scale/opacity animation is skipped (haptics
- * still fire unless disabled).
+ * no extra tuning). Fires a light haptic on a completed press (onPress) by
+ * default — not on press-in/touch-down, so a touch that starts on a button but
+ * turns into a scroll (e.g. inside a ScrollView/FlatList) doesn't vibrate; only
+ * an actual selected tap does. Honours the user's reduce-motion setting: when
+ * set, the scale/opacity animation is skipped (haptics still fire unless
+ * disabled).
  *
  * Connections:
  *   Imports → react-native-reanimated, lib/haptics, lib/useAppTheme
@@ -49,6 +52,7 @@ export default function PressableScale({
   disabled,
   onPressIn,
   onPressOut,
+  onPress,
   children,
   ...rest
 }: Props) {
@@ -68,13 +72,16 @@ export default function PressableScale({
       disabled={disabled}
       style={[style, animStyle]}
       onPressIn={(e) => {
-        if (haptic) hapticTap();
         if (!reducedMotion) scale.value = withTiming(scaleTo, { duration: 60 });
         onPressIn?.(e);
       }}
       onPressOut={(e) => {
         if (!reducedMotion) scale.value = withSpring(1, { damping: 18, stiffness: 320 });
         onPressOut?.(e);
+      }}
+      onPress={(e) => {
+        if (haptic) hapticTap();
+        onPress?.(e);
       }}
     >
       {children}
