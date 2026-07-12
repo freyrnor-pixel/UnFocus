@@ -320,7 +320,7 @@ export default function TaskCard({
               ]}
               numberOfLines={1}
             >
-              {task.title || t.taskTitlePlaceholder}
+              {task.title || (editing ? '' : t.taskTitlePlaceholder)}
             </Text>
           </PressableScale>
 
