@@ -97,18 +97,21 @@ export default function InboxSection() {
               style={[styles.actionBtn, { backgroundColor: theme.accentSoft }]}
               onPress={() => handlePromote(item.id, item.text)}
               haptic={false}
+              scaleTo={0.97}
             >
               <Text style={[styles.actionBtnText, { color: theme.accent }]}>{t.inbox.promote}</Text>
             </PressableScale>
             <PressableScale
               style={[styles.actionBtn, { backgroundColor: theme.surfaceMuted }]}
               onPress={() => router.push({ pathname: '/capture', params: { id: item.id } })}
+              scaleTo={0.97}
             >
               <Text style={[styles.actionBtnText, { color: theme.textMuted }]}>{t.inbox.edit}</Text>
             </PressableScale>
             <PressableScale
               style={[styles.actionBtn, { backgroundColor: theme.surfaceMuted }]}
               onPress={() => remove(item.id)}
+              scaleTo={0.97}
             >
               <Text style={[styles.actionBtnText, { color: theme.textMuted }]}>{t.inbox.discard}</Text>
             </PressableScale>

@@ -618,6 +618,7 @@ export default function WeekListCard({
           onPress={onDoneShopping}
           disabled={progress.inCart === 0}
           pointerEvents={progress.inCart === 0 ? 'none' : 'auto'}
+          scaleTo={0.95}
         >
           <Text style={[styles.doneShoppingText, { color: theme.textInverse }]}>{t.doneShoppingBtn}</Text>
         </PressableScale>

@@ -123,6 +123,7 @@ export default function ShoppingQuickAddSheet({ visible, onClose }: Props) {
             ]}
             onPress={save}
             disabled={!name.trim() || !!confirm}
+            scaleTo={0.95}
           >
             <Text style={[styles.saveBtnText, { color: theme.accentInk }]}>{t.save}</Text>
           </PressableScale>
