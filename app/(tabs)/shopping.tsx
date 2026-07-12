@@ -155,6 +155,7 @@ import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import ShoppingRow from '@/components/ShoppingRow';
+import EmptyState from '@/components/EmptyState';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
 import AddItemSheet from '@/components/AddItemSheet';
 import UpdateSheet from '@/components/UpdateSheet';
@@ -802,10 +803,11 @@ export default function ShoppingScreen() {
 
         {tab === 'monthly' && (
           <Surface style={styles.catalogCard}>
-            {/* No repeated "Monthly list" title here — the sticky tab bar above already
-                names the active tab (visual-audit 2026-07-11: this was the 3rd echo of
-                the same label). */}
-            <View style={[styles.catalogHeaderRow, styles.catalogHeaderRowEnd]}>
+            {/* Title on the left groups with the reset/lock actions on the right
+                (space-between) — the previous right-aligned-only layout left a big empty
+                gap between the tab label and the icons (2026-07-12 redesign). */}
+            <View style={styles.catalogHeaderRow}>
+              <Text style={[styles.catalogHeaderTitle, { color: theme.text }]}>{t.monthlyListSection}</Text>
               <View style={styles.catalogHeaderActions}>
                 <PressableScale
                   style={styles.resetIconBtn}
@@ -1076,6 +1078,16 @@ export default function ShoppingScreen() {
               );
             })}
 
+            {nonTemplateLists.length === 0 && unallocatedItems.length === 0 && (
+              <Surface style={styles.weekEmptyCard}>
+                <EmptyState
+                  icon="cart-outline"
+                  title={t.weekEmptyTitle}
+                  body={t.weekEmptyBody}
+                />
+              </Surface>
+            )}
+
             <PressableScale
               style={[styles.newListCard, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
               onPress={() =>
@@ -1197,7 +1209,7 @@ const styles = StyleSheet.create({
 
   catalogCard: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.md },
   catalogHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  catalogHeaderRowEnd: { justifyContent: 'flex-end' },
+  catalogHeaderTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   catalogHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   // Lower-right "add within this card" bubble (visual-audit 2026-07-11) — replaces the
   // old centered AddDivider "—+—" line for the Monthly list's add-item affordance.
@@ -1254,7 +1266,8 @@ const styles = StyleSheet.create({
   disclosureChevron: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   weekLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
 
-  newListCard: { borderWidth: 1, borderStyle: 'dashed', borderRadius: Radius.lg, paddingVertical: Spacing.lg, alignItems: 'center', gap: 4 },
-  newListPlus: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
-  newListText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  weekEmptyCard: { borderRadius: Radius.lg, paddingVertical: Spacing.sm, marginBottom: Spacing.md },
+  newListCard: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: Radius.lg, paddingVertical: Spacing.xl, paddingHorizontal: Spacing.lg, alignItems: 'center', gap: Spacing.sm },
+  newListPlus: { fontSize: FontSize.xxl, fontFamily: Fonts.bold, lineHeight: 34 },
+  newListText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
 });

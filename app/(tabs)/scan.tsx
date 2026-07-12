@@ -514,13 +514,16 @@ export default function ScanScreen() {
               <Text style={[styles.budgetPillText, { color: theme.featBudget }]}>{t.budget.title}</Text>
             </PressableScale>
 
-            <View style={[styles.tipBox, { backgroundColor: theme.goodSoft }]}>
+            {/* Tip — subtle bordered card with an info glyph, not a flat colour block. */}
+            <Surface style={styles.tipCardRow}>
+              <View style={[styles.tipAccent, { backgroundColor: theme.good }]} />
+              <Ionicons name="bulb-outline" size={18} color={theme.good} style={styles.tipIcon} />
               <Text style={[styles.tipText, { color: theme.text }]}>{t.scanHintBanner}</Text>
-            </View>
+            </Surface>
 
-            {/* Primary camera button */}
+            {/* Primary camera button — the hero action. */}
             <PressableScale
-              style={[styles.primaryButton, { backgroundColor: theme.accent, shadowColor: theme.accent }]}
+              style={[styles.primaryButton, { backgroundColor: theme.accent, shadowColor: theme.shadow }]}
               onPress={takePhoto}
               scaleTo={0.95}
             >
@@ -528,31 +531,25 @@ export default function ScanScreen() {
               <Text style={[styles.primaryButtonText, { color: theme.accentInk }]}>{t.takePhoto}</Text>
             </PressableScale>
 
-            {/* 2-column grid */}
-            <View style={styles.gridRow}>
-              <Surface style={styles.gridCard}>
-                <PressableScale style={styles.gridCardInner} onPress={pickImage} scaleTo={0.97}>
-                  <Ionicons name="images-outline" size={28} color={theme.accent} />
-                  <Text style={[styles.gridCardText, { color: theme.text }]}>{t.chooseFromLibrary}</Text>
+            {/* Other ways to add — consistent bordered option cards with a tinted icon
+                badge each, so they read as distinct choices instead of flat colour blocks. */}
+            <View style={styles.optionList}>
+              {[
+                { icon: 'images-outline' as const, color: theme.featShop, label: t.chooseFromLibrary, onPress: pickImage },
+                { icon: 'pencil-outline' as const, color: theme.featBudget, label: t.addManually, onPress: () => setMode('manual') },
+                { icon: 'qr-code-outline' as const, color: theme.good, label: t.scanQrCode, onPress: openQrScanner },
+              ].map((opt) => (
+                <PressableScale key={opt.label} onPress={opt.onPress} scaleTo={0.98}>
+                  <Surface style={styles.optionCardRow}>
+                    <View style={[styles.optionBadge, { backgroundColor: rgba(opt.color, 0.16) }]}>
+                      <Ionicons name={opt.icon} size={22} color={opt.color} />
+                    </View>
+                    <Text style={[styles.optionLabel, { color: theme.text }]}>{opt.label}</Text>
+                    <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+                  </Surface>
                 </PressableScale>
-              </Surface>
-              <Surface style={styles.gridCard}>
-                <PressableScale style={styles.gridCardInner} onPress={() => setMode('manual')} scaleTo={0.97}>
-                  <Ionicons name="pencil-outline" size={28} color={theme.accent} />
-                  <Text style={[styles.gridCardText, { color: theme.text }]}>{t.addManually}</Text>
-                </PressableScale>
-              </Surface>
+              ))}
             </View>
-
-            {/* QR button */}
-            <PressableScale
-              style={[styles.qrButton, { backgroundColor: theme.goodSoft, borderColor: theme.good }]}
-              onPress={openQrScanner}
-              scaleTo={0.97}
-            >
-              <Ionicons name="qr-code-outline" size={26} color={theme.good} />
-              <Text style={[styles.qrButtonText, { color: theme.good }]}>{t.scanQrCode}</Text>
-            </PressableScale>
 
             <View style={{ height: 40 }} />
           </View>
@@ -751,8 +748,10 @@ const baseStyles = StyleSheet.create({
   },
   budgetPillText: { fontSize: FontSize.xs, fontWeight: '700' },
   backLink: { fontSize: FontSize.sm, fontWeight: '700' },
-  tipBox: { borderRadius: Radius.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md },
-  tipText: { fontSize: FontSize.sm, lineHeight: 20 },
+  tipCardRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md, paddingLeft: Spacing.lg },
+  tipAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
+  tipIcon: {},
+  tipText: { flex: 1, fontSize: FontSize.sm, lineHeight: 20 },
 
   storeSection: { gap: Spacing.sm },
   sectionLabel: { fontSize: FontSize.xs, fontWeight: '700', letterSpacing: 0.07 },
@@ -774,31 +773,23 @@ const baseStyles = StyleSheet.create({
   },
   primaryButtonText: { fontSize: FontSize.xl, fontWeight: '700' },
 
-  gridRow: { flexDirection: 'row', gap: Spacing.sm },
-  gridCard: {
-    flex: 1,
-    borderRadius: Radius.md,
-  },
-  gridCardInner: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-  },
-  gridCardText: { fontSize: FontSize.sm, fontWeight: '600', textAlign: 'center' },
-
-  qrButton: {
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
+  optionList: { gap: Spacing.sm },
+  optionCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    borderWidth: 1.5,
+    gap: Spacing.md,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
   },
-  qrButtonText: { fontSize: FontSize.md, fontWeight: '700' },
+  optionBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionLabel: { flex: 1, fontSize: FontSize.md, fontWeight: '600' },
 
   // SCANNING MODE
   scanningContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.lg, paddingHorizontal: Spacing.xl },

@@ -435,6 +435,8 @@ const en = {
   weekNumberChip: (n: number) => `Week ${n}`,
   // Shopping redesign — monthly two-section + weekly inline/preview + grouping screen
   monthlyListSection: 'Monthly list',
+  weekEmptyTitle: 'No lists this week yet',
+  weekEmptyBody: 'Make a new list below to start planning your shopping.',
   catalogueSection: 'Catalogue',
   catalogueSearchPlaceholder: 'Search the catalogue…',
   monthlyListTotal: (kr: string) => `Total: ${kr}`,
@@ -1565,6 +1567,8 @@ const no: typeof en = {
   listActiveWeeksLabel: 'Aktive uker i måneden',
   weekNumberChip: (n: number) => `Uke ${n}`,
   monthlyListSection: 'Månedsliste',
+  weekEmptyTitle: 'Ingen lister denne uken ennå',
+  weekEmptyBody: 'Lag en ny liste under for å begynne å planlegge handelen.',
   catalogueSection: 'Katalog',
   catalogueSearchPlaceholder: 'Søk i katalogen…',
   monthlyListTotal: (kr: string) => `Totalt: ${kr}`,

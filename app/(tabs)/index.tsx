@@ -290,7 +290,10 @@ export default function HomeScreen() {
 const baseStyles = StyleSheet.create({
   blank: { flex: 1 },
   content: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.md },
-  header: { marginBottom: 0 },
+  // marginBottom matches every card's own trailing marginBottom (Spacing.sm) so the
+  // greeting→first-preview gap equals the gaps between previews (each = card marginBottom
+  // + section marginTop). Without it the first gap was 8px short — the "uneven" rhythm.
+  header: { marginBottom: Spacing.sm },
   greeting: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold },
   dateLabel: { fontSize: FontSize.sm, marginTop: Spacing.xs, textTransform: 'capitalize', fontFamily: Fonts.regular },
   section: { marginTop: Spacing.xl },
