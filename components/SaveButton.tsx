@@ -87,10 +87,13 @@ export function SaveButton({ visible, onPress, label }: SaveButtonProps) {
   return (
     <AnimatedPressable
       style={[styles.button, animatedStyle, { backgroundColor: theme.accent }]}
-      onPress={onPress}
-      onPressIn={() => {
+      onPress={() => {
         if (!visible) return;
         hapticTap();
+        onPress();
+      }}
+      onPressIn={() => {
+        if (!visible) return;
         if (!reducedMotion) pressScale.value = withTiming(0.95, { duration: 60 });
       }}
       onPressOut={() => {
