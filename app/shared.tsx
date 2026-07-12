@@ -6,9 +6,10 @@
  * linked source task/shopping item when one exists (sourceTaskId / sourceItemId).
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/Surface, constants/theme, lib/date,
- *             lib/db, lib/i18n, lib/useAppTheme, store/useSettingsStore, store/useSharedStore,
- *             store/useShoppingStore, store/useTaskStore
+ *   Imports → components/ScreenScaffold, components/Surface, components/PressableScale,
+ *             constants/theme, lib/date, lib/db, lib/i18n, lib/useAppTheme,
+ *             store/useSettingsStore, store/useSharedStore, store/useShoppingStore,
+ *             store/useTaskStore
  *   Used by → Expo Router route "/shared" (reached from /share-modal's Done button and
  *             app/scan.tsx's post-scan prompt — scan.tsx not ported yet)
  *   Data    → useSharedStore (shared_tasks + shared_shopping_items tables); mirrors actions
@@ -25,7 +26,7 @@
  *     per-screen focus-load.
  */
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSharedStore, SharedTask, SharedShoppingItem } from '@/store/useSharedStore';
 import { useTaskStore } from '@/store/useTaskStore';
@@ -34,6 +35,7 @@ import { useT } from '@/lib/i18n';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { formatDisplayDate } from '@/lib/date';
 import Surface from '@/components/Surface';
+import PressableScale from '@/components/PressableScale';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -83,15 +85,16 @@ export default function SharedScreen() {
       <View style={styles.content}>
         <View style={[styles.tabs, { backgroundColor: theme.surfaceMuted }]}>
           {(['shopping', 'tasks'] as Tab[]).map((tabOpt) => (
-            <Pressable
+            <PressableScale
               key={tabOpt}
               style={[styles.tab, tab === tabOpt && { backgroundColor: theme.surface, ...Shadow.card }]}
               onPress={() => setTab(tabOpt)}
+              scaleTo={0.97}
             >
               <Text style={[styles.tabText, { color: theme.textMuted }, tab === tabOpt && { color: theme.text }]}>
                 {tabOpt === 'shopping' ? t.sharedShoppingTab : t.sharedTasksTab}
               </Text>
-            </Pressable>
+            </PressableScale>
           ))}
         </View>
 
@@ -191,12 +194,13 @@ function SharedShoppingRow({
   const styles = useScaledStyles(baseStyles);
   return (
     <View style={styles.row}>
-      <Pressable
+      <PressableScale
         style={[styles.doneBtn, { borderColor: theme.accent }, item.done && { backgroundColor: theme.accent }]}
         onPress={onToggle}
+        scaleTo={0.97}
       >
         {item.done && <Text style={[styles.doneMark, { color: theme.accentInk }]}>✓</Text>}
-      </Pressable>
+      </PressableScale>
       <View style={styles.rowContent}>
         <Text style={[styles.rowLabel, { color: theme.text }, item.done && styles.strikethrough]}>
           {item.amount} {item.unit} {item.name}
@@ -205,9 +209,9 @@ function SharedShoppingRow({
           {item.direction === 'out' ? t.sharedBySelf : t.sharedFromLabel(item.sharedBy)}
         </Text>
       </View>
-      <Pressable onPress={onRemove} style={styles.removeBtn}>
+      <PressableScale onPress={onRemove} style={styles.removeBtn} scaleTo={0.93}>
         <Text style={[styles.removeText, { color: theme.textMuted }]}>✕</Text>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }
@@ -225,12 +229,13 @@ function SharedTaskRow({
   const styles = useScaledStyles(baseStyles);
   return (
     <View style={styles.row}>
-      <Pressable
+      <PressableScale
         style={[styles.doneBtn, { borderColor: theme.accent }, item.done && { backgroundColor: theme.accent }]}
         onPress={onToggle}
+        scaleTo={0.97}
       >
         {item.done && <Text style={[styles.doneMark, { color: theme.accentInk }]}>✓</Text>}
-      </Pressable>
+      </PressableScale>
       <View style={styles.rowContent}>
         <Text style={[styles.rowLabel, { color: theme.text }, item.done && styles.strikethrough]}>
           {item.title}
@@ -239,9 +244,9 @@ function SharedTaskRow({
           {formatDisplayDate(item.date, lang)} · {item.direction === 'out' ? t.sharedBySelf : t.sharedFromLabel(item.sharedBy)}
         </Text>
       </View>
-      <Pressable onPress={onRemove} style={styles.removeBtn}>
+      <PressableScale onPress={onRemove} style={styles.removeBtn} scaleTo={0.93}>
         <Text style={[styles.removeText, { color: theme.textMuted }]}>✕</Text>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }

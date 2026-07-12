@@ -11,8 +11,8 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/EmptyState,
- *             components/Surface, components/AddFAB, lib/i18n, lib/severity, lib/useAppTheme,
- *             store/useHealthStore
+ *             components/Surface, components/AddFAB, components/PressableScale, lib/i18n,
+ *             lib/severity, lib/useAppTheme, store/useHealthStore
  *   Note    → store hydration happens once at startup in app/_layout.tsx; this screen has
  *             no per-screen focus-load
  *   Used by → Expo Router route "/health-log"; pushed from app/(tabs)/health.tsx's
@@ -27,7 +27,7 @@
  *     spirit as the old flat newest-first log list this screen replaces.
  */
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore, HealthLog } from '@/store/useHealthStore';
@@ -36,6 +36,7 @@ import HintCard from '@/components/HintCard';
 import EmptyState from '@/components/EmptyState';
 import Surface from '@/components/Surface';
 import AddFAB from '@/components/AddFAB';
+import PressableScale from '@/components/PressableScale';
 import { useT } from '@/lib/i18n';
 import { severities, severityInk } from '@/lib/severity';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
@@ -100,7 +101,7 @@ export default function HealthLogScreen() {
             sections.map((s) => {
               const sev = SEVERITIES.find((x) => x.value === s.lastSeverity);
               return (
-                <Pressable key={s.key} onPress={() => openDetail(s)}>
+                <PressableScale key={s.key} onPress={() => openDetail(s)} scaleTo={0.97}>
                   <Surface style={styles.sectionRow}>
                     <View style={styles.sectionInfo}>
                       <Text style={[styles.sectionName, { color: theme.text }]} numberOfLines={1}>{s.name}</Text>
@@ -115,7 +116,7 @@ export default function HealthLogScreen() {
                     </View>
                     <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
                   </Surface>
-                </Pressable>
+                </PressableScale>
               );
             })
           )}

@@ -13,7 +13,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
  *             components/HintCard, components/ConfirmationBanner, components/DatePickerCalendar,
- *             components/IconButton, components/Button, components/AppModal,
+ *             components/IconButton, components/Button, components/AppModal, components/PressableScale,
  *             lib/date, lib/haptics, lib/i18n, lib/severity, lib/useAppTheme, store/useHealthStore
  *   Used by → Expo Router route "/health-form"; pushed from app/(tabs)/health.tsx's "This week"
  *             rows, app/health-log.tsx's AddFAB, and app/health-detail.tsx's entry rows
@@ -32,7 +32,7 @@
  *     matching task-form.tsx.
  */
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useHealthStore, Symptom } from '@/store/useHealthStore';
@@ -79,7 +79,7 @@ function DateChipPicker({
         {weekDays.map((wd) => {
           const active = value === wd.value;
           return (
-            <Pressable
+            <PressableScale
               key={wd.value}
               style={[
                 styles.weekChip,
@@ -91,6 +91,7 @@ function DateChipPicker({
                 onChange(wd.value);
                 setExpanded(false);
               }}
+              scaleTo={0.97}
             >
               <Text style={[styles.weekChipDay, { color: theme.textMuted }, active && { color: theme.accentInk }]}>
                 {dayLabels[wd.dayIdx].slice(0, 2)}
@@ -104,7 +105,7 @@ function DateChipPicker({
               >
                 {wd.dayNum}
               </Text>
-            </Pressable>
+            </PressableScale>
           );
         })}
       </View>
@@ -225,9 +226,9 @@ export default function HealthFormScreen() {
       tier="sub"
       onBack={() => router.back()}
       headerRight={
-        <Pressable onPress={save} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.save}>
+        <PressableScale onPress={save} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.save} scaleTo={0.9}>
           <Ionicons name="checkmark" size={24} color={theme.accent} />
-        </Pressable>
+        </PressableScale>
       }
     >
       <View style={styles.content}>
@@ -245,27 +246,29 @@ export default function HealthFormScreen() {
           {suggestions.length > 0 && (
             <View style={[styles.suggestList, { backgroundColor: theme.surfaceMuted }]}>
               {suggestions.map((sug) => (
-                <Pressable
+                <PressableScale
                   key={sug.id}
                   style={[styles.suggestRow, { borderTopColor: theme.border }]}
                   onPress={() => handlePickSymptom(sug)}
+                  scaleTo={0.97}
                 >
                   <Text style={[styles.suggestName, { color: theme.text }]}>{sug.name}</Text>
                   <Text style={[styles.suggestCat, { color: theme.textMuted }]}>
                     {t.symptomCategories[sug.category] ?? sug.category}
                   </Text>
-                </Pressable>
+                </PressableScale>
               ))}
             </View>
           )}
           {query.trim() && !exactMatch && (
-            <Pressable
+            <PressableScale
               style={[styles.addSymptomRow, { backgroundColor: theme.surfaceMuted }]}
               onPress={() => handlePickSymptom(ensureSymptom(query.trim()))}
+              scaleTo={0.97}
             >
               <Ionicons name="add" size={16} color={theme.accent} />
               <Text style={[styles.addSymptomText, { color: theme.accent }]}>{t.addSymptomOption(query.trim())}</Text>
-            </Pressable>
+            </PressableScale>
           )}
         </View>
 

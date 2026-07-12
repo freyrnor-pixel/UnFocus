@@ -91,10 +91,10 @@ opportunistically with other work in the same file)
 
 ## Part 3, Phase 3 — Per-screen files
 
-- [ ] `app/task-form.tsx:209,235,332,386,445,478,486,494` — save icon, weekday/duration/day
+- [x] `app/task-form.tsx:209,235,332,386,445,478,486,494` — save icon, weekday/duration/day
       chips, "then" task picker row, reorder up/down, remove step.
-- [ ] `app/shared.tsx:86,194,228,208,242` — tab selector, done-toggle circles x2, remove x2.
-- [ ] `app/health-form.tsx:82,228,248,262` — weekday chip, save icon, symptom suggestion row,
+- [x] `app/shared.tsx:86,194,228,208,242` — tab selector, done-toggle circles x2, remove x2.
+- [x] `app/health-form.tsx:82,228,248,262` — weekday chip, save icon, symptom suggestion row,
       "add new symptom" row. (Severity picker at this file's other Pressable is already
       converted — leave as-is.)
 - [ ] `app/settings.tsx` — largest concentration (~20 sites): `:340` sub-tab item, `:405`
@@ -102,19 +102,19 @@ opportunistically with other work in the same file)
       reset-monthly/reset-tasks/reset-onboarding (destructive, `0.93`), `:650` check-updates,
       `:711` day-chip, `:764,777,783` child-mode ghost buttons, `:831` day-chip (child-mode),
       `:1001` Automations nav row.
-- [ ] `app/health-log.tsx:103` — symptom summary row → detail. `scaleTo=0.97`.
-- [ ] `app/health-detail.tsx:102` — log-entry row → edit form. `scaleTo=0.97`.
-- [ ] `app/habit-form.tsx:225,265,322,329,346,393,415,443,475,482` — save icon, profile chip,
+- [x] `app/health-log.tsx:103` — symptom summary row → detail. `scaleTo=0.97`.
+- [x] `app/health-detail.tsx:102` — log-entry row → edit form. `scaleTo=0.97`.
+- [x] `app/habit-form.tsx:225,265,322,329,346,393,415,443,475,482` — save icon, profile chip,
       reminder-count stepper x2, reminder-time chip, "show more" disclosure, icon-picker
       swatch, category chip, daily-goal stepper x2.
-- [ ] `app/pair-device.tsx:197,219,237,246` — "remove device" (destructive), wizard cancel x2,
+- [x] `app/pair-device.tsx:197,219,237,246` — "remove device" (destructive), wizard cancel x2,
       QR-screen cancel.
-- [ ] `app/budget.tsx:114,124,143,167,226,230` — month prev/next nav, "edit budget" link, "set
+- [x] `app/budget.tsx:114,124,143,167,226,230` — month prev/next nav, "edit budget" link, "set
       budget" primary, sheet cancel, sheet save. (`:221` sheet backdrop — excluded.)
-- [ ] `app/share-modal.tsx:155,170,208` — select/deselect-all toggle, shareable-item row,
+- [x] `app/share-modal.tsx:155,170,208` — select/deselect-all toggle, shareable-item row,
       "done" primary.
-- [ ] `app/onboarding/language.tsx:70` — language option row. `scaleTo=0.97`.
-- [ ] `app/onboarding/step3.tsx:60` — reminder-day chip. `scaleTo=0.97`.
+- [x] `app/onboarding/language.tsx:70` — language option row. `scaleTo=0.97`.
+- [x] `app/onboarding/step3.tsx:60` — reminder-day chip. `scaleTo=0.97`.
 - [ ] `app/(tabs)/scan.tsx` — heaviest screen after settings (~20 sites): `:385,399` store
       chips, `:426` QR cancel, `:474,477` sheet cancel/add, `:504` budget pill nav, `:517`
       "take photo" primary, `:528,534` picker grid cards, `:542` "scan QR", `:585` item-row

@@ -6,7 +6,7 @@
  *
  * Connections:
  *   Imports → @/store/useSettingsStore, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
- *             @/components/Button, @/components/HintCard
+ *             @/components/Button, @/components/HintCard, @/components/PressableScale
  *   Used by → Expo Router route "/onboarding/step3"
  *   Data    → useSettingsStore (writes `weeklyResetDay`, `monthlyResetDate`); scaled fontSize via useScaledStyles()
  *
@@ -22,7 +22,7 @@
  *     shopping cart icon uses theme.featShop (feature accent).
  */
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +32,7 @@ import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import Button from '@/components/Button';
 import HintCard from '@/components/HintCard';
+import PressableScale from '@/components/PressableScale';
 
 export default function OnboardingStep3() {
   const router = useRouter();
@@ -57,7 +58,7 @@ export default function OnboardingStep3() {
           <Text style={[styles.cardTitle, { color: theme.text }]}>{t.weeklyResetDay}</Text>
           <View style={styles.dayRow}>
             {t.dayFull.map((label, i) => (
-              <Pressable
+              <PressableScale
                 key={i}
                 style={[
                   styles.dayChip,
@@ -65,6 +66,7 @@ export default function OnboardingStep3() {
                   settings.weeklyResetDay === i && { backgroundColor: theme.accent },
                 ]}
                 onPress={() => settings.update({ weeklyResetDay: i })}
+                scaleTo={0.97}
               >
                 <Text style={[
                   styles.dayText,
@@ -73,7 +75,7 @@ export default function OnboardingStep3() {
                 ]}>
                   {label.slice(0, 3)}
                 </Text>
-              </Pressable>
+              </PressableScale>
             ))}
           </View>
 
