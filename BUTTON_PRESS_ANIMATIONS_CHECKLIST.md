@@ -107,14 +107,14 @@ opportunistically with other work in the same file)
 - [x] `app/habit-form.tsx:225,265,322,329,346,393,415,443,475,482` — save icon, profile chip,
       reminder-count stepper x2, reminder-time chip, "show more" disclosure, icon-picker
       swatch, category chip, daily-goal stepper x2.
-- [ ] `app/pair-device.tsx:197,219,237,246` — "remove device" (destructive), wizard cancel x2,
+- [x] `app/pair-device.tsx:197,219,237,246` — "remove device" (destructive), wizard cancel x2,
       QR-screen cancel.
-- [ ] `app/budget.tsx:114,124,143,167,226,230` — month prev/next nav, "edit budget" link, "set
+- [x] `app/budget.tsx:114,124,143,167,226,230` — month prev/next nav, "edit budget" link, "set
       budget" primary, sheet cancel, sheet save. (`:221` sheet backdrop — excluded.)
-- [ ] `app/share-modal.tsx:155,170,208` — select/deselect-all toggle, shareable-item row,
+- [x] `app/share-modal.tsx:155,170,208` — select/deselect-all toggle, shareable-item row,
       "done" primary.
-- [ ] `app/onboarding/language.tsx:70` — language option row. `scaleTo=0.97`.
-- [ ] `app/onboarding/step3.tsx:60` — reminder-day chip. `scaleTo=0.97`.
+- [x] `app/onboarding/language.tsx:70` — language option row. `scaleTo=0.97`.
+- [x] `app/onboarding/step3.tsx:60` — reminder-day chip. `scaleTo=0.97`.
 - [ ] `app/(tabs)/scan.tsx` — heaviest screen after settings (~20 sites): `:385,399` store
       chips, `:426` QR cancel, `:474,477` sheet cancel/add, `:504` budget pill nav, `:517`
       "take photo" primary, `:528,534` picker grid cards, `:542` "scan QR", `:585` item-row

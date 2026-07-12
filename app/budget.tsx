@@ -9,7 +9,9 @@
  * returns there.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/Surface, constants/theme, lib/date, lib/i18n, lib/useAppTheme, store/useReceiptStore, store/useSettingsStore
+ *   Imports → components/ScreenScaffold, components/Surface, components/PressableScale,
+ *             constants/theme, lib/date, lib/i18n, lib/useAppTheme, store/useReceiptStore,
+ *             store/useSettingsStore
  *   Used by → Expo Router route "/budget"; reached via app/shopping.tsx (quick action) or app/scan.tsx (header link)
  *   Data    → reads useReceiptStore (receipts table, receipts/months/receiptsForMonth/totalForMonth/receiptsByStore) and useSettingsStore (monthlyBudgetNok, monthlyResetDate, lastMonthlyReset); writes via useSettingsStore.update (monthlyBudgetNok)
  *
@@ -40,6 +42,7 @@ import { currentMonthStr, todayStr, formatDisplayDate } from '@/lib/date';
 import { formatKr } from '@/lib/money';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
+import PressableScale from '@/components/PressableScale';
 import { FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
@@ -111,25 +114,27 @@ export default function BudgetScreen() {
           {/* Month selector */}
           {months.length > 1 && (
             <View style={styles.monthSelector}>
-              <Pressable
+              <PressableScale
                 onPress={() => {
                   const idx = months.indexOf(selectedMonth);
                   if (idx < months.length - 1) setSelectedMonth(months[idx + 1]);
                 }}
                 disabled={months.indexOf(selectedMonth) >= months.length - 1}
+                scaleTo={0.9}
               >
                 <Text style={[styles.monthNavText, { color: theme.accent }]}>{t.budget.olderMonth}</Text>
-              </Pressable>
+              </PressableScale>
               <Text style={[styles.monthText, { color: theme.text }]}>{selectedMonth}</Text>
-              <Pressable
+              <PressableScale
                 onPress={() => {
                   const idx = months.indexOf(selectedMonth);
                   if (idx > 0) setSelectedMonth(months[idx - 1]);
                 }}
                 disabled={months.indexOf(selectedMonth) === 0}
+                scaleTo={0.9}
               >
                 <Text style={[styles.monthNavText, { color: theme.accent }]}>{t.budget.newerMonth}</Text>
-              </Pressable>
+              </PressableScale>
             </View>
           )}
 
@@ -140,9 +145,9 @@ export default function BudgetScreen() {
                   <Text style={[styles.spentText, { color: theme.text }]}>
                     {t.budget.spentOfBudget(String(Math.round(spent)), String(Math.round(monthlyBudgetNok)))}
                   </Text>
-                  <Pressable onPress={() => { setBudgetInput(String(monthlyBudgetNok)); setBudgetEditorVisible(true); }}>
+                  <PressableScale onPress={() => { setBudgetInput(String(monthlyBudgetNok)); setBudgetEditorVisible(true); }} scaleTo={0.97}>
                     <Text style={[styles.editBudgetLink, { color: theme.accent }]}>{t.budget.editBudget}</Text>
-                  </Pressable>
+                  </PressableScale>
                 </View>
                 <View style={[styles.track, { backgroundColor: theme.surfaceMuted }]}>
                   <View style={[styles.fill, { width: `${pct}%`, backgroundColor: barColor }]} />
@@ -164,12 +169,13 @@ export default function BudgetScreen() {
             ) : (
               <>
                 <Text style={[styles.hintText, { color: theme.textMuted }]}>{t.budget.noBudgetSet}</Text>
-                <Pressable
+                <PressableScale
                   style={[styles.setBudgetBtn, { backgroundColor: theme.accent }]}
                   onPress={() => { setBudgetInput(''); setBudgetEditorVisible(true); }}
+                  scaleTo={0.95}
                 >
                   <Text style={[styles.setBudgetBtnText, { color: theme.accentInk }]}>{t.budget.setBudget}</Text>
-                </Pressable>
+                </PressableScale>
               </>
             )}
           </Surface>
@@ -223,13 +229,13 @@ export default function BudgetScreen() {
           <Surface surfaceContext="overlay" style={styles.budgetSheet}>
             <View style={[styles.sheetHandle, { backgroundColor: theme.surfaceMuted }]} />
             <View style={[styles.sheetHeader, { borderBottomColor: theme.border }]}>
-              <Pressable onPress={() => setBudgetEditorVisible(false)}>
+              <PressableScale onPress={() => setBudgetEditorVisible(false)} scaleTo={0.97}>
                 <Text style={[styles.sheetCancel, { color: theme.textMuted }]}>{t.cancel}</Text>
-              </Pressable>
+              </PressableScale>
               <Text style={[styles.sheetHeaderTitle, { color: theme.text }]}>{t.budget.editorTitle}</Text>
-              <Pressable onPress={saveBudget}>
+              <PressableScale onPress={saveBudget} scaleTo={0.95}>
                 <Text style={[styles.sheetSave, { color: theme.accent }]}>{t.save}</Text>
-              </Pressable>
+              </PressableScale>
             </View>
             <Text style={[styles.sheetLabel, { color: theme.textMuted }]}>{t.budget.monthlyBudgetLabel}</Text>
             <TextInput

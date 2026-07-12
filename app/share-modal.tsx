@@ -7,9 +7,10 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/Button,
- *             components/QRCodeDisplay, constants/theme, lib/date (todayStr, formatDisplayDate),
- *             lib/i18n, lib/share, lib/useAppTheme, store/useSettingsStore, store/useSharedStore,
- *             store/useShoppingStore, store/useTaskStore
+ *             components/QRCodeDisplay, components/PressableScale, constants/theme,
+ *             lib/date (todayStr, formatDisplayDate), lib/i18n, lib/share, lib/useAppTheme,
+ *             store/useSettingsStore, store/useSharedStore, store/useShoppingStore,
+ *             store/useTaskStore
  *   Used by → Expo Router route "/share-modal"; entry points push it with a `kind`
  *             param — app/shopping.tsx ('s'), app/plans.tsx ('t'), app/index.tsx ('t')
  *   Data    → reads useShoppingStore (shopping_items) / useTaskStore (tasks) / useSettingsStore
@@ -29,7 +30,7 @@
  *     t.shareExplainLaterBuild — pre-existing bilingual keys reused).
  */
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
@@ -41,6 +42,7 @@ import QRCodeDisplay from '@/components/QRCodeDisplay';
 import Surface from '@/components/Surface';
 import Button from '@/components/Button';
 import ScreenScaffold from '@/components/ScreenScaffold';
+import PressableScale from '@/components/PressableScale';
 import { todayStr, formatDisplayDate } from '@/lib/date';
 import { FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -152,11 +154,11 @@ export default function ShareModal() {
             <Surface style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={[styles.cardTitle, { color: theme.text }]}>{title}</Text>
-                <Pressable onPress={toggleAll}>
+                <PressableScale onPress={toggleAll} scaleTo={0.97}>
                   <Text style={[styles.toggleAll, { color: theme.accent }]}>
                     {allSelected ? t.deselectAll : t.selectAll}
                   </Text>
-                </Pressable>
+                </PressableScale>
               </View>
               <Text style={[styles.explain, { color: theme.textMuted }]}>
                 {kind === 's' ? t.shareExplainShopping : t.shareExplainTasks}
@@ -167,10 +169,11 @@ export default function ShareModal() {
                 <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.noSharedItems}</Text>
               ) : (
                 sourceItems.map((item) => (
-                  <Pressable
+                  <PressableScale
                     key={item.id}
                     style={styles.itemRow}
                     onPress={() => toggleItem(item.id)}
+                    scaleTo={0.97}
                   >
                     <View style={[
                       styles.checkbox,
@@ -183,7 +186,7 @@ export default function ShareModal() {
                       <Text style={[styles.itemLabel, { color: theme.text }]}>{item.label}</Text>
                       {item.sub ? <Text style={[styles.itemSub, { color: theme.textMuted }]}>{item.sub}</Text> : null}
                     </View>
-                  </Pressable>
+                  </PressableScale>
                 ))
               )}
             </Surface>
@@ -205,12 +208,13 @@ export default function ShareModal() {
               </View>
             </Surface>
 
-            <Pressable
+            <PressableScale
               style={[styles.doneBtn, { backgroundColor: theme.goodSoft }]}
               onPress={() => { router.dismissAll(); router.push('/shared'); }}
+              scaleTo={0.95}
             >
               <Text style={[styles.doneBtnText, { color: theme.good }]}>{t.sharedTitle} →</Text>
-            </Pressable>
+            </PressableScale>
           </>
         )}
 
