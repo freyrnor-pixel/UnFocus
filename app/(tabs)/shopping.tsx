@@ -165,7 +165,7 @@ import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import ExpandableCard from '@/components/ExpandableCard';
 import WeekListCard from '@/components/WeekListCard';
-import FlightOverlay, { FlightPill, Flight, FlightRect } from '@/components/FlightOverlay';
+import FlightOverlay, { FlightRow, Flight, FlightRect } from '@/components/FlightOverlay';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab from '@/components/CatalogueTab';
 import AddFAB from '@/components/AddFAB';
@@ -618,7 +618,7 @@ export default function ShoppingScreen() {
       const key = `${item.id}-${flightCounter.current}`;
       setFlights((prev) => [
         ...prev.filter((f) => f.itemId !== item.id),
-        { key, itemId: item.id, from, to: { x, y, width, height }, content: <FlightPill label={item.name} /> },
+        { key, itemId: item.id, from, to: { x, y, width, height }, content: <FlightRow item={item} width={from.width} /> },
       ]);
     });
   }
