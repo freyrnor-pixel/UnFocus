@@ -24,7 +24,7 @@
  * Connections:
  *   Imports → components/AppModal, components/ConfirmationBanner, components/FormControls,
  *             components/ScreenScaffold, components/SectionDivider, components/Surface,
- *             constants/theme, lib/backup
+ *             components/PressableScale, constants/theme, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
  *             getAutoBackupLabel/saveAutoBackup), lib/childLock, lib/freyrModeSeed, lib/haptics,
  *             lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
@@ -71,7 +71,7 @@
  *     the native transport modules aren't linked outside a real build.
  */
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
@@ -81,6 +81,7 @@ import SectionDivider from '@/components/SectionDivider';
 import { Input, Switch as FormSwitch, SegmentedControl } from '@/components/FormControls';
 import { showAppModal } from '@/components/AppModal';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
+import PressableScale from '@/components/PressableScale';
 import {
   useSettingsStore,
   Settings,
@@ -337,10 +338,11 @@ export default function SettingsScreen() {
       {TABS.map((tb) => {
         const active = tab === tb.key;
         return (
-          <Pressable
+          <PressableScale
             key={tb.key}
             style={[styles.tabItem, active && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]}
             onPress={() => setTab(tb.key)}
+            scaleTo={0.97}
           >
             <Text style={[
               styles.tabLabel,
@@ -349,7 +351,7 @@ export default function SettingsScreen() {
             ]}>
               {tb.label}
             </Text>
-          </Pressable>
+          </PressableScale>
         );
       })}
     </ScrollView>
@@ -402,7 +404,7 @@ export default function SettingsScreen() {
                 <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.sectionLanguage}</Text>
                 <View style={styles.langRow}>
                   {(['no', 'en'] as const).map((lang) => (
-                    <Pressable
+                    <PressableScale
                       key={lang}
                       style={[
                         styles.langChip,
@@ -410,6 +412,7 @@ export default function SettingsScreen() {
                         settings.language === lang && { backgroundColor: theme.accent },
                       ]}
                       onPress={() => applyAndSync({ language: lang })}
+                      scaleTo={0.97}
                     >
                       <Text style={styles.langFlag}>{lang === 'no' ? '🇳🇴' : '🇬🇧'}</Text>
                       <Text style={[
@@ -419,7 +422,7 @@ export default function SettingsScreen() {
                       ]}>
                         {lang === 'no' ? t.norwegian : t.english}
                       </Text>
-                    </Pressable>
+                    </PressableScale>
                   ))}
                 </View>
                 <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.desc.language}</Text>
@@ -537,9 +540,9 @@ export default function SettingsScreen() {
                 {settings.accountCreated ? (
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.account.createdOn(settings.accountCreated)}</Text>
                 ) : (
-                  <Pressable style={styles.dangerBtn} onPress={handleCreateAccount}>
+                  <PressableScale style={styles.dangerBtn} onPress={handleCreateAccount} scaleTo={0.97}>
                     <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.createButton}</Text>
-                  </Pressable>
+                  </PressableScale>
                 )}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 {/* Auto-backup toggle */}
@@ -563,20 +566,20 @@ export default function SettingsScreen() {
                   </Text>
                 )}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Pressable style={styles.dangerBtn} onPress={handleSaveToDevice}>
+                <PressableScale style={styles.dangerBtn} onPress={handleSaveToDevice} scaleTo={0.97}>
                   <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.saveToDevice}</Text>
-                </Pressable>
+                </PressableScale>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Pressable style={styles.dangerBtn} onPress={handleExport}>
+                <PressableScale style={styles.dangerBtn} onPress={handleExport} scaleTo={0.97}>
                   <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.shareCopy}</Text>
-                </Pressable>
+                </PressableScale>
                 <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs, marginBottom: 0 }]}>
                   {t.config.autoBackup.shareNote}
                 </Text>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Pressable style={styles.dangerBtn} onPress={handleImport}>
+                <PressableScale style={styles.dangerBtn} onPress={handleImport} scaleTo={0.97}>
                   <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.restoreButton}</Text>
-                </Pressable>
+                </PressableScale>
                 <Text style={[styles.descText, { color: theme.textMuted, marginBottom: 0 }]}>{t.account.deviceOnlyNote}</Text>
               </Surface>
             </View>
@@ -589,9 +592,9 @@ export default function SettingsScreen() {
                 <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
                   {syncAvailable ? t.peers.settingsCardDesc : t.peers.syncUnavailable}
                 </Text>
-                <Pressable style={styles.dangerBtn} onPress={() => router.push('/pair-device')}>
+                <PressableScale style={styles.dangerBtn} onPress={() => router.push('/pair-device')} scaleTo={0.97}>
                   <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.peers.manageLink}</Text>
-                </Pressable>
+                </PressableScale>
               </Surface>
             </View>
 
@@ -600,15 +603,15 @@ export default function SettingsScreen() {
               <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.sectionReset}</Text>
               <Surface style={[styles.card, { borderWidth: 1, borderColor: theme.badSoft }]}>
                 <Text style={[styles.descText, { color: theme.bad, marginBottom: Spacing.sm, marginTop: 0 }]}>{t.config.desc.dataNote}</Text>
-                <Pressable style={styles.dangerBtn} onPress={() => confirmReset(t.resetMonthly.toLowerCase(), monthlyReset)}>
+                <PressableScale style={styles.dangerBtn} onPress={() => confirmReset(t.resetMonthly.toLowerCase(), monthlyReset)} scaleTo={0.93}>
                   <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetMonthly}</Text>
-                </Pressable>
+                </PressableScale>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Pressable style={styles.dangerBtn} onPress={() => confirmReset(t.resetTasks.toLowerCase(), clearTasks)}>
+                <PressableScale style={styles.dangerBtn} onPress={() => confirmReset(t.resetTasks.toLowerCase(), clearTasks)} scaleTo={0.93}>
                   <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetTasks}</Text>
-                </Pressable>
+                </PressableScale>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Pressable
+                <PressableScale
                   style={styles.dangerBtn}
                   onPress={() =>
                     confirmReset(t.resetOnboarding.toLowerCase(), () => {
@@ -616,9 +619,10 @@ export default function SettingsScreen() {
                       router.replace('/onboarding/language');
                     })
                   }
+                  scaleTo={0.93}
                 >
                   <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetOnboarding}</Text>
-                </Pressable>
+                </PressableScale>
               </Surface>
             </View>
 
@@ -647,11 +651,11 @@ export default function SettingsScreen() {
                   </Text>
                 )}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Pressable style={styles.dangerBtn} onPress={handleCheckUpdates} disabled={checkingUpdate}>
+                <PressableScale style={styles.dangerBtn} onPress={handleCheckUpdates} disabled={checkingUpdate} scaleTo={0.97}>
                   <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
                     {checkingUpdate ? t.version.checking : t.version.checkButton}
                   </Text>
-                </Pressable>
+                </PressableScale>
               </Surface>
             </View>
           </>
@@ -708,7 +712,7 @@ export default function SettingsScreen() {
                   {DAY_LABELS.map((label, i) => {
                     const active = settings.workDays.includes(i);
                     return (
-                      <Pressable
+                      <PressableScale
                         key={i}
                         style={[
                           styles.dayChip,
@@ -722,6 +726,7 @@ export default function SettingsScreen() {
                             : [...settings.workDays, i].sort();
                           settings.update({ workDays: next });
                         }}
+                        scaleTo={0.97}
                       >
                         <Text style={[
                           styles.dayText,
@@ -730,7 +735,7 @@ export default function SettingsScreen() {
                         ]}>
                           {label.slice(0, 3)}
                         </Text>
-                      </Pressable>
+                      </PressableScale>
                     );
                   })}
                 </View>
@@ -761,9 +766,9 @@ export default function SettingsScreen() {
                       placeholder={t.childModeEnterPassword}
                       autoCapitalize="none"
                     />
-                    <Pressable style={styles.dangerBtn} onPress={handleExitChildMode}>
+                    <PressableScale style={styles.dangerBtn} onPress={handleExitChildMode} scaleTo={0.97}>
                       <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeExit}</Text>
-                    </Pressable>
+                    </PressableScale>
                   </>
                 ) : (
                   <>
@@ -774,15 +779,15 @@ export default function SettingsScreen() {
                       placeholder={t.childModeNewPassword}
                       autoCapitalize="none"
                     />
-                    <Pressable style={styles.dangerBtn} onPress={handleSetChildPassword}>
+                    <PressableScale style={styles.dangerBtn} onPress={handleSetChildPassword} scaleTo={0.97}>
                       <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
                         {settings.childModePasswordSet ? t.childModeChangePassword : t.childModeSetPassword}
                       </Text>
-                    </Pressable>
+                    </PressableScale>
                     <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <Pressable style={styles.dangerBtn} onPress={handleEnableChildMode}>
+                    <PressableScale style={styles.dangerBtn} onPress={handleEnableChildMode} scaleTo={0.97}>
                       <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeEnable}</Text>
-                    </Pressable>
+                    </PressableScale>
                   </>
                 )}
               </Surface>
@@ -828,7 +833,7 @@ export default function SettingsScreen() {
               <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.weeklyResetDay}</Text>
               <View style={styles.dayRow}>
                 {DAY_LABELS.map((label, i) => (
-                  <Pressable
+                  <PressableScale
                     key={i}
                     style={[
                       styles.dayChip,
@@ -836,6 +841,7 @@ export default function SettingsScreen() {
                       settings.weeklyResetDay === i && { backgroundColor: theme.accent },
                     ]}
                     onPress={() => applyAndSync({ weeklyResetDay: i })}
+                    scaleTo={0.97}
                   >
                     <Text style={[
                       styles.dayText,
@@ -844,7 +850,7 @@ export default function SettingsScreen() {
                     ]}>
                       {label.slice(0, 3)}
                     </Text>
-                  </Pressable>
+                  </PressableScale>
                 ))}
               </View>
 
@@ -998,13 +1004,13 @@ export default function SettingsScreen() {
             <View style={styles.section}>
               <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.nav.automations}</Text>
               <Surface style={styles.card}>
-                <Pressable style={styles.switchRow} onPress={() => router.push('/automations')}>
+                <PressableScale style={styles.switchRow} onPress={() => router.push('/automations')} scaleTo={0.97}>
                   <View style={styles.switchTextCol}>
                     <Text style={[styles.switchLabel, { color: theme.text }]}>{t.nav.automations}</Text>
                     <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.hints.automations.text}</Text>
                   </View>
                   <Text style={[styles.switchLabel, { color: theme.accent }]}>{'→'}</Text>
-                </Pressable>
+                </PressableScale>
               </Surface>
             </View>
           </>

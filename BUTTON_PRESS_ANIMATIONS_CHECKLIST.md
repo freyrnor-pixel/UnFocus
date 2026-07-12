@@ -97,7 +97,7 @@ opportunistically with other work in the same file)
 - [x] `app/health-form.tsx:82,228,248,262` — weekday chip, save icon, symptom suggestion row,
       "add new symptom" row. (Severity picker at this file's other Pressable is already
       converted — leave as-is.)
-- [ ] `app/settings.tsx` — largest concentration (~20 sites): `:340` sub-tab item, `:405`
+- [x] `app/settings.tsx` — largest concentration (~20 sites): `:340` sub-tab item, `:405`
       language chip, `:540,566,570,577,592` account/backup links, `:603,607,611`
       reset-monthly/reset-tasks/reset-onboarding (destructive, `0.93`), `:650` check-updates,
       `:711` day-chip, `:764,777,783` child-mode ghost buttons, `:831` day-chip (child-mode),
@@ -127,8 +127,8 @@ opportunistically with other work in the same file)
       tab, reset-monthly icon (destructive), purchased-section header, allocate-to-weekly x2,
       remove-item x2 (destructive), "new weekly list" card, reset-confirm No/Yes
       (Yes is destructive).
-- [ ] `app/(tabs)/plans.tsx:216,287` — Today/This-week tab, "new task" draft card.
-- [ ] `app/automations.tsx:85,114,133,168,171` — delete-rule (destructive), trigger/action
+- [x] `app/(tabs)/plans.tsx:216,287` — Today/This-week tab, "new task" draft card.
+- [x] `app/automations.tsx:85,114,133,168,171` — delete-rule (destructive), trigger/action
       chips x2, form cancel, form save.
 
 ---
