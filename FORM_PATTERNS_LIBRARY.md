@@ -349,8 +349,8 @@ Standard form layout follows this rhythm:
 <View style={{
   backgroundColor: theme.white,
   borderRadius: Radius.md,
-  padding: Layout.cardPadding,
-  gap: Layout.cardGap,
+  padding: Spacing.md,
+  gap: Spacing.md,
   ...Shadow.card,
 }}>
   <Text style={{ fontSize: FontSize.lg, fontFamily: Fonts.bold }}>
@@ -399,7 +399,7 @@ Standard form layout follows this rhythm:
   <View style={{
     backgroundColor: theme.dangerLight,
     borderRadius: Radius.md,
-    padding: Layout.cardPadding,
+    padding: Spacing.md,
     borderLeftWidth: 4,
     borderLeftColor: theme.danger,
     marginBottom: Spacing.md,
