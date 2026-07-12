@@ -75,11 +75,11 @@ opportunistically with other work in the same file)
       suggestion row, "from monthly" trigger, monthly-item row, confirm/cancel monthly-adds.
 - [x] `components/NoteRow.tsx:77,98,104,111` — done check-circle (`0.97`), delete (`0.93`),
       two quick-action chips (`0.97`).
-- [ ] `components/HomeNotesCard.tsx:72,95,128,141,158` — title row, note check-circle, footer
+- [x] `components/HomeNotesCard.tsx:72,95,128,141,158` — title row, note check-circle, footer
       expand/collapse, done-zone header, checked-note check-circle.
-- [ ] `components/HomeShoppingCard.tsx:158,228,263` — title row, preview check-circle, footer
+- [x] `components/HomeShoppingCard.tsx:158,228,263` — title row, preview check-circle, footer
       expand/collapse.
-- [ ] `components/HomeSharedCard.tsx:70,81,104` — "see all" link, shared-item preview row (x2).
+- [x] `components/HomeSharedCard.tsx:70,81,104` — "see all" link, shared-item preview row (x2).
 - [ ] `components/CatalogueTab.tsx:94,125,166,169,179,184` — add-new disclosure, save-new-item,
       commit-edit, delete-while-editing, item row tap, delete-item.
 - [ ] `components/FoodTab.tsx` — non-backdrop elements only (`:370,405` popup backdrops and
