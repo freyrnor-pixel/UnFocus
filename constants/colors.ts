@@ -112,12 +112,19 @@ export function contrastRatio(hex1: string, hex2: string): number {
 const defaultLight: ThemePalette = {
   bg: '#F2F8FE',
   surface: '#FFFFFF',
-  surfaceMuted: '#F0F6FB',
-  surfaceInset: '#E8F2FE',
+  // surfaceMuted/surfaceInset deepened one step (2026-07-12 redesign) so nested wells,
+  // toggle tracks and empty states read as recessed against surface #FFFFFF instead of
+  // "the same white". Validated ≥4.5:1 for text/textMuted via contrastRatio() (surface
+  // vs muted ≈1.17, muted vs inset ≈1.10 — enough separation to see an edge).
+  surfaceMuted: '#E4EEF9',
+  surfaceInset: '#D3E4F6',
   text: '#0F1C2E',
   textMuted: '#4E6182',
   textInverse: '#FFFFFF',
-  border: '#B0CFF2',
+  // border strengthened to a clearly-visible-but-soft edge (~1.97:1 on white) — the old
+  // #B0CFF2 (1.61:1) plus Surface's translucent-white material edge left cards edgeless
+  // in light mode. borderStrong stays the high-contrast option for active/emphasis.
+  border: '#9BBBE6',
   borderStrong: '#5590E9',
   accent: '#0B62F2',
   accentSoft: '#DBEAFE',

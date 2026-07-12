@@ -59,6 +59,7 @@ import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { Task, useTaskStore } from '@/store/useTaskStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { generateId } from '@/lib/id';
 import { Fonts, FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
 
@@ -93,6 +94,7 @@ function blankDraft(date: string): Task {
     followsTaskId: null,
     hasStartDate: false,
     sharedOut: false,
+    assignee: '',
     steps: [],
   };
 }
@@ -110,13 +112,26 @@ export default function TasksScreen() {
   const addTask = useTaskStore((s) => s.add);
   const addStep = useTaskStore((s) => s.addStep);
 
+  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
+  const childProfiles = useSettingsStore((s) => s.childProfiles);
+  const showPeople = peopleModeEnabled && childProfiles.length > 0;
+
   const [tab, setTab] = useState<Tab>('all');
   const [hintOpen, setHintOpen] = useState(false);
+  // Person filter (People/family mode): null = Everyone, '' = Me, name = that profile.
+  const [personFilter, setPersonFilter] = useState<string | null>(null);
   // Local blank draft cards awaiting a first Save (creation flow — no store row yet).
   const [drafts, setDrafts] = useState<Task[]>([]);
   const didSeedRef = useRef(false);
 
   const today = todayStr();
+
+  // Person filter predicate — identity unless People/family mode is on AND a specific
+  // person (not "Everyone") is selected.
+  const matchPerson = useCallback(
+    (tk: Task) => !showPeople || personFilter === null || (tk.assignee || '') === personFilter,
+    [showPeople, personFilter]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -135,24 +150,27 @@ export default function TasksScreen() {
 
   // ── Section selectors ──
   const wheneverAll = useMemo(
-    () => tasks.filter((tk) => tk.recurring === 'none' && !tk.sharedOut),
-    [tasks]
+    () => tasks.filter((tk) => tk.recurring === 'none' && !tk.sharedOut && matchPerson(tk)),
+    [tasks, matchPerson]
   );
   const recurringAll = useMemo(
-    () => tasks.filter((tk) => tk.recurring !== 'none' && !tk.sharedOut),
-    [tasks]
+    () => tasks.filter((tk) => tk.recurring !== 'none' && !tk.sharedOut && matchPerson(tk)),
+    [tasks, matchPerson]
   );
-  const sharedOutAll = useMemo(() => tasks.filter((tk) => tk.sharedOut), [tasks]);
+  const sharedOutAll = useMemo(() => tasks.filter((tk) => tk.sharedOut && matchPerson(tk)), [tasks, matchPerson]);
   const undatedWhenever = useMemo(
-    () => tasks.filter((tk) => tk.recurring === 'none' && !tk.hasStartDate && !tk.sharedOut),
-    [tasks]
+    () => tasks.filter((tk) => tk.recurring === 'none' && !tk.hasStartDate && !tk.sharedOut && matchPerson(tk)),
+    [tasks, matchPerson]
   );
 
   const todayList = useMemo(
-    () => tasksForDate(today).filter((tk) => tk.hasStartDate || tk.recurring !== 'none').sort(byTime),
-    [tasksForDate, today, tasks]
+    () => tasksForDate(today).filter((tk) => (tk.hasStartDate || tk.recurring !== 'none') && matchPerson(tk)).sort(byTime),
+    [tasksForDate, today, tasks, matchPerson]
   );
-  const weekGroups = useMemo(() => tasksForWeek(weekStart), [tasksForWeek, weekStart, tasks]);
+  const weekGroups = useMemo(
+    () => tasksForWeek(weekStart).map((g) => ({ ...g, tasks: g.tasks.filter(matchPerson) })),
+    [tasksForWeek, weekStart, tasks, matchPerson]
+  );
 
   const addDraft = useCallback(() => setDrafts((d) => [...d, blankDraft(today)]), [today]);
   const discardDraft = useCallback((id: string) => setDrafts((d) => d.filter((x) => x.id !== id)), []);
@@ -175,6 +193,7 @@ export default function TasksScreen() {
         importance: committed.importance,
         sortOrder: 0,
         hasStartDate: committed.hasStartDate,
+        assignee: committed.assignee,
       });
       // Steps added while the draft was still local (isNew) buffer onto committed.steps —
       // they can't hit SQLite until the real task row (with a real id) exists.
@@ -242,13 +261,35 @@ export default function TasksScreen() {
       <View style={styles.content}>
         <HintCard text={t.hints.plans.text} open={hintOpen} noPill />
 
+        {/* Person filter (People/family mode) — Everyone + Me + each profile. */}
+        {showPeople && (
+          <View style={styles.personFilterRow}>
+            {([null, '', ...childProfiles] as (string | null)[]).map((p) => {
+              const active = personFilter === p;
+              const label = p === null ? t.peopleMode.filterAll : p === '' ? t.habitForMe : p;
+              return (
+                <PressableScale
+                  key={p === null ? '__all__' : p || '__me__'}
+                  style={[styles.personChip, { backgroundColor: active ? theme.accent : theme.surfaceMuted, borderColor: active ? theme.accent : theme.border }]}
+                  onPress={() => setPersonFilter(p)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  scaleTo={0.96}
+                >
+                  <Text style={[styles.personChipText, { color: active ? theme.accentInk : theme.text }]}>{label}</Text>
+                </PressableScale>
+              );
+            })}
+          </View>
+        )}
+
         {/* ── ALL TASKS ── */}
         {tab === 'all' && (
           <>
             <SharedRequestsSection kind="task" />
 
             <View style={styles.section}>
-              {sectionHeader(t.tasksSectionSharedOut, theme.textMuted)}
+              {sectionHeader(t.tasksSectionSharedOut, theme.featShop, false, theme.surfaceMuted)}
               {sharedOutAll.length === 0 ? (
                 <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionSharedOutEmpty}</Text>
               ) : (
@@ -414,6 +455,9 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   cardStack: { gap: Spacing.sm },
+  personFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm },
+  personChip: { borderRadius: Radius.full, borderWidth: 1, paddingVertical: 6, paddingHorizontal: Spacing.md, minHeight: 34, justifyContent: 'center' },
+  personChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   // 2/3 the height of shopping.tsx's styles.newListCard (padding only — same border/radius/
   // font sizes) — intentionally diverges from the old byte-for-byte match per the "New task"
   // card resize; keep shopping's newListCard untouched.

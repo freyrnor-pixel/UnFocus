@@ -25,7 +25,8 @@
  *   Imports → components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
  *             components/IconButton, components/FormControls (Switch), components/AppModal,
  *             components/PressableScale, constants/theme, lib/date, lib/haptics, lib/i18n, lib/id,
- *             lib/useAppTheme, store/useTaskStore
+ *             lib/useAppTheme, store/useTaskStore, store/useSettingsStore (People/family mode:
+ *             peopleModeEnabled + childProfiles gate the "For" assignee chip row)
  *   Used by → app/(tabs)/plans.tsx
  *   Data    → reads the passed `task`; writes via useTaskStore (update/steps/remove/setSharedOut)
  *             for committed tasks; a new (draft) card writes nothing until onCommitNew fires.
@@ -37,6 +38,10 @@
  *   - Day↔Week promote/demote: selecting all 7 weekdays promotes Week→Day; unselecting any
  *     weekday in Day demotes to Week with the remaining days (all in the draft).
  *   - Save is disabled while the title is blank, so blank tasks can't be created.
+ *   - **Collapse = keep-as-unfinished (2026-07-12)**: tapping the chevron to close an open
+ *     editor SAVES whatever's there (the task is simply not-done until ticked) rather than
+ *     discarding — the up-arrow is never a destructive X. Only a brand-new card with no
+ *     title is dropped (nothing to keep). Explicit Discard stays the deliberate abandon path.
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
@@ -48,6 +53,7 @@ import { dayOfWeekMon0 } from '@/lib/date';
 import { tap, warning } from '@/lib/haptics';
 import { generateId } from '@/lib/id';
 import { Task, TaskStep, useTaskStore } from '@/store/useTaskStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import SlideSelector from '@/components/SlideSelector';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import DatePickerCalendar from '@/components/DatePickerCalendar';
@@ -96,6 +102,9 @@ export default function TaskCard({
   const toggleStep = useTaskStore((s) => s.toggleStep);
   const removeStep = useTaskStore((s) => s.removeStep);
   const setSharedOut = useTaskStore((s) => s.setSharedOut);
+  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
+  const childProfiles = useSettingsStore((s) => s.childProfiles);
+  const showPeople = peopleModeEnabled && childProfiles.length > 0;
 
   const stepsOnly = variant === 'steps';
 
@@ -129,10 +138,15 @@ export default function TaskCard({
       setExpanded((v) => !v);
       return;
     }
-    // Collapsing an open editor is a Discard (revert / drop the draft), so the only way
-    // to keep edits is the Save button — never a silent partial write.
+    // Collapsing an open editor KEEPS the task as unfinished (2026-07-12 redesign):
+    // the up-arrow saves whatever's there and closes, rather than destroying it. A task
+    // is simply not-done until its circle is ticked, so "collapse" never means "discard".
+    // The only exception is a brand-new card with no title (nothing to keep) — that's
+    // dropped. Explicit Discard stays the deliberate way to abandon edits/delete a draft.
     if (expanded) {
-      handleDiscard();
+      if (canSave) handleSave();
+      else if (isNew) onDiscardNew?.();
+      else handleDiscard();
       return;
     }
     setDraft(task); // re-seed the draft from the latest persisted task
@@ -164,6 +178,7 @@ export default function TaskCard({
       monthDay: draft.monthDay,
       monthOrdinal: draft.monthOrdinal,
       monthWeekday: draft.monthWeekday,
+      assignee: draft.assignee,
     });
     setExpanded(false);
     setShowCalendar(false);
@@ -248,24 +263,28 @@ export default function TaskCard({
 
   return (
     <View style={styles.wrap}>
-      {/* ── Discard / Save bar (edit mode, above the card) ── */}
+      {/* ── Discard / Save bar (edit mode, attached to the top of the card) ── */}
       {editing && (
-        <View style={styles.saveBar}>
+        <View style={[styles.saveBar, { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}>
           <PressableScale
-            style={[styles.saveBtn, { backgroundColor: theme.surfaceMuted }]}
+            style={[styles.saveBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
             onPress={handleDiscard}
             accessibilityRole="button"
+            accessibilityLabel={t.taskDiscard}
             scaleTo={0.97}
           >
-            <Text style={[styles.saveBtnText, { color: theme.textMuted }]}>{t.taskDiscard}</Text>
+            <Ionicons name="close" size={16} color={theme.bad} />
+            <Text style={[styles.saveBtnText, { color: theme.bad }]}>{t.taskDiscard}</Text>
           </PressableScale>
           <PressableScale
-            style={[styles.saveBtn, { backgroundColor: canSave ? theme.accent : theme.surfaceMuted, opacity: canSave ? 1 : 0.6 }]}
+            style={[styles.saveBtn, { backgroundColor: canSave ? theme.accent : theme.surfaceMuted, borderColor: canSave ? theme.accent : theme.border, opacity: canSave ? 1 : 0.7 }]}
             onPress={handleSave}
             disabled={!canSave}
             accessibilityRole="button"
+            accessibilityLabel={t.taskSave}
             scaleTo={0.95}
           >
+            <Ionicons name="checkmark" size={16} color={canSave ? theme.accentInk : theme.textMuted} />
             <Text style={[styles.saveBtnText, { color: canSave ? theme.accentInk : theme.textMuted }]}>{t.taskSave}</Text>
           </PressableScale>
         </View>
@@ -304,6 +323,13 @@ export default function TaskCard({
               {task.title || t.taskTitlePlaceholder}
             </Text>
           </PressableScale>
+
+          {showPeople && task.assignee ? (
+            <View style={[styles.assigneeCue, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+              <Ionicons name="person" size={11} color={theme.textMuted} />
+              <Text style={[styles.assigneeCueText, { color: theme.textMuted }]} numberOfLines={1}>{task.assignee}</Text>
+            </View>
+          ) : null}
 
           {task.time ? (
             <Text style={[styles.timeLabel, { color: theme.textMuted }]}>
@@ -369,6 +395,35 @@ export default function TaskCard({
               value={draft.importance}
               onChange={(v) => patch({ importance: v as Task['importance'] })}
             />
+
+            {/* For — person/profile assignment (People/family mode). Mirrors habit-form. */}
+            {showPeople && (
+              <View style={styles.forRow}>
+                <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.habitForLabel}</Text>
+                <View style={styles.forChips}>
+                  {(['', ...childProfiles] as string[]).map((name) => {
+                    const active = draft.assignee === name;
+                    return (
+                      <PressableScale
+                        key={name || '__me__'}
+                        style={[
+                          styles.forChip,
+                          { backgroundColor: active ? theme.accent : theme.surfaceMuted, borderColor: active ? theme.accent : theme.border },
+                        ]}
+                        onPress={() => { tap(); patch({ assignee: name }); }}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        scaleTo={0.96}
+                      >
+                        <Text style={[styles.forChipText, { color: active ? theme.accentInk : theme.text }]}>
+                          {name || t.habitForMe}
+                        </Text>
+                      </PressableScale>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
 
             {/* Steps — persist immediately for existing tasks; buffered on the local draft
                 for a new (isNew) card until Save creates the real task row. */}
@@ -598,15 +653,47 @@ export default function TaskCard({
 
 const styles = StyleSheet.create({
   wrap: { gap: Spacing.xs },
-  saveBar: { flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.sm },
+  saveBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+  },
   saveBtn: {
-    minHeight: 36,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: Radius.full,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
+    minHeight: 38,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
   },
-  saveBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  saveBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
+  forRow: { gap: Spacing.sm },
+  forChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+  forChip: {
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  forChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  assigneeCue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    paddingVertical: 2,
+    paddingHorizontal: Spacing.sm,
+    maxWidth: 110,
+  },
+  assigneeCueText: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
   card: { borderRadius: Radius.md, borderWidth: 1, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 40 },
   circle: {

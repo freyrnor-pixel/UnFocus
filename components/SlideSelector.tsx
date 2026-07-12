@@ -43,7 +43,7 @@ export default function SlideSelector<T extends string | number>({
 }: Props<T>) {
   const theme = useAppTheme();
   return (
-    <View style={[styles.wrap, { backgroundColor: theme.surfaceMuted, opacity: disabled ? 0.5 : 1 }, style]}>
+    <View style={[styles.wrap, { backgroundColor: theme.surfaceMuted, borderColor: theme.border, opacity: disabled ? 0.5 : 1 }, style]}>
       {options.map((opt) => {
         const active = opt.value === value;
         return (
@@ -80,6 +80,7 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     borderRadius: Radius.full,
+    borderWidth: 1,
     padding: 3,
     gap: 3,
   },

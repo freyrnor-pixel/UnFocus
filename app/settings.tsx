@@ -73,6 +73,7 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import ScreenScaffold from '@/components/ScreenScaffold';
@@ -128,7 +129,28 @@ export default function SettingsScreen() {
   );
   // Child mode (Decision 038c) — local input for the parent password entry/exit.
   const [childPwInput, setChildPwInput] = useState('');
+  const [newChildName, setNewChildName] = useState('');
   const [inputWarning, setInputWarning] = useState<string | null>(null);
+
+  // People / family mode — profile management (moved here from the Health screen so
+  // Tasks + Habits share one list). Adds/removes entries in settings.childProfiles.
+  function addProfile() {
+    const nm = newChildName.trim();
+    if (!nm || settings.childProfiles.includes(nm)) { setNewChildName(''); return; }
+    selection();
+    settings.update({ childProfiles: [...settings.childProfiles, nm] });
+    setNewChildName('');
+  }
+  function removeProfile(nm: string) {
+    warning();
+    showAppModal(t.peopleMode.removeTitle(nm), t.peopleMode.removeBody, [
+      { text: t.cancel, style: 'cancel' },
+      {
+        text: t.resetConfirmBtn, style: 'destructive',
+        onPress: () => { heavy(); settings.update({ childProfiles: settings.childProfiles.filter((c) => c !== nm) }); },
+      },
+    ]);
+  }
 
   // Set (or change) the parent password, then flip the persisted flag. The secret
   // itself only ever lives in expo-secure-store (lib/childLock), never in settings.
@@ -810,6 +832,68 @@ export default function SettingsScreen() {
               </Surface>
             </View>
 
+            {/* PERSONER / FAMILIE (People / family mode) */}
+            <View style={styles.section}>
+              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.peopleMode.label}</Text>
+              <Surface style={styles.card}>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.peopleMode.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.peopleMode.hint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.peopleModeEnabled}
+                    onChange={(v) => { selection(); settings.update({ peopleModeEnabled: v }); }}
+                  />
+                </View>
+
+                {settings.peopleModeEnabled && (
+                  <>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.peopleMode.profilesHint}</Text>
+                    {settings.childProfiles.length > 0 && (
+                      <View style={styles.peopleChipRow}>
+                        {settings.childProfiles.map((nm) => (
+                          <PressableScale
+                            key={nm}
+                            style={[styles.peopleChip, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+                            onPress={() => removeProfile(nm)}
+                            accessibilityRole="button"
+                            accessibilityLabel={t.peopleMode.removeTitle(nm)}
+                            scaleTo={0.96}
+                          >
+                            <Text style={[styles.peopleChipText, { color: theme.text }]}>{nm}</Text>
+                            <Ionicons name="close-circle" size={16} color={theme.textMuted} />
+                          </PressableScale>
+                        ))}
+                      </View>
+                    )}
+                    <View style={styles.peopleAddRow}>
+                      <View style={styles.peopleAddInput}>
+                        <Input
+                          value={newChildName}
+                          onChangeText={setNewChildName}
+                          placeholder={t.peopleMode.addPlaceholder}
+                          onSubmitEditing={addProfile}
+                          returnKeyType="done"
+                        />
+                      </View>
+                      <PressableScale
+                        style={[styles.peopleAddBtn, { backgroundColor: newChildName.trim() ? theme.accent : theme.surfaceMuted, borderColor: theme.border }]}
+                        onPress={addProfile}
+                        disabled={!newChildName.trim()}
+                        accessibilityRole="button"
+                        accessibilityLabel={t.peopleMode.addButton}
+                        scaleTo={0.96}
+                      >
+                        <Ionicons name="add" size={22} color={newChildName.trim() ? theme.accentInk : theme.textMuted} />
+                      </PressableScale>
+                    </View>
+                  </>
+                )}
+              </Surface>
+            </View>
+
             {/* FREYR-MODUS */}
             <View style={styles.section}>
               <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.freyrMode.label}</Text>
@@ -1060,6 +1144,19 @@ const baseStyles = StyleSheet.create({
   switchHint: { fontSize: FontSize.xs, marginTop: Spacing.xs },
   dangerBtn: { paddingVertical: Spacing.sm },
   dangerBtnText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  peopleChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.md },
+  peopleChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderRadius: Radius.full, borderWidth: 1,
+    paddingVertical: Spacing.xs, paddingHorizontal: Spacing.sm,
+  },
+  peopleChipText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  peopleAddRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  peopleAddInput: { flex: 1 },
+  peopleAddBtn: {
+    width: 48, height: 48, borderRadius: Radius.md, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+  },
   langRow: { flexDirection: 'row', gap: Spacing.md },
   langChip: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,

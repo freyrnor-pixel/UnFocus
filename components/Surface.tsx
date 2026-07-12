@@ -39,6 +39,10 @@
  *     stops the fill from shrink-wrapping its children and floating as a narrower
  *     "box inside the box". Any backgroundColor, border colors/width, or
  *     shadow/elevation in `style` is intentionally dropped — owned by the material.
+ *   - The card edge is `theme.border` (opaque), not the material's translucent-white
+ *     border, so cards keep a visible calm edge in light mode (2026-07-12 redesign).
+ *     Light mode still keeps the material's brighter `borderTopColor` as a top-lit glass
+ *     highlight; dark mode uses a uniform themed edge (sheen is off there anyway).
  *   - shadowColor comes from the active theme's `shadow` token (not a fixed
  *     black), so depth itself shifts hue with the colour theme.
  *   - The sheen is suppressed in dark mode (useIsDark) — over near-black surfaces
@@ -149,9 +153,15 @@ export default function Surface({ surfaceContext = 'ambient', tint, style, child
         {
           borderRadius: radius,
           borderWidth: mat.borderWidth,
-          borderColor: mat.borderColor,
-          borderTopColor: mat.borderTopColor,
-          borderBottomColor: mat.borderBottomColor,
+          // Opaque themed edge (2026-07-12 redesign): the material's default border is a
+          // translucent white (rgba('#FFFFFF',0.5)) that vanishes on light-mode cards,
+          // leaving them edgeless. Use theme.border so every card has a visible, calm edge
+          // in both modes. In light mode keep the material's brighter top edge as the glass
+          // top-lit highlight (depth); in dark mode the sheen is off, so a uniform themed
+          // edge reads cleaner than a white top-line.
+          borderColor: theme.border,
+          borderTopColor: isDark ? theme.border : mat.borderTopColor,
+          borderBottomColor: theme.border,
           shadowColor: theme.shadow,
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: mat.shadowOpacity,

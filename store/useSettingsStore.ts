@@ -126,6 +126,10 @@ export type Settings = {
   autoBackupEnabled: boolean;
   // School mode placeholder — no feature logic yet, toggle persisted for future use.
   schoolModeEnabled: boolean;
+  // People / family mode (2026-07-12 redesign) — when on, the person selector (Me +
+  // each childProfiles entry) appears in the task editor AND the habit form, and a
+  // person filter row appears on Tasks/Health. Profiles are managed in Settings.
+  peopleModeEnabled: boolean;
   // Freyr-mode (Additional modes tab) — one-tap seed/unseed of a starter set of
   // shopping/task/habit/note rows via lib/freyrModeSeed.ts. freyrSeedIds is the JSON
   // record of exactly which rows the seed created, so disabling removes only those.
@@ -191,6 +195,7 @@ function rowToSettings(row: Row): Settings {
     lanSyncEnabled: readBool(row, 'lan_sync_enabled'),
     autoBackupEnabled: readBool(row, 'auto_backup_enabled'),
     schoolModeEnabled: readBool(row, 'school_mode_enabled'),
+    peopleModeEnabled: readBool(row, 'people_mode_enabled'),
     freyrModeEnabled: readBool(row, 'freyr_mode_enabled'),
     freyrSeedIds: readStr(row, 'freyr_seed_ids'),
     planTimelineHorizontal: readBool(row, 'plan_timeline_horizontal'),
@@ -243,6 +248,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   lanSyncEnabled: { col: 'lan_sync_enabled', to: bool },
   autoBackupEnabled: { col: 'auto_backup_enabled', to: bool },
   schoolModeEnabled: { col: 'school_mode_enabled', to: bool },
+  peopleModeEnabled: { col: 'people_mode_enabled', to: bool },
   freyrModeEnabled: { col: 'freyr_mode_enabled', to: bool },
   freyrSeedIds: { col: 'freyr_seed_ids' },
   planTimelineHorizontal: { col: 'plan_timeline_horizontal', to: bool },
@@ -295,6 +301,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   lanSyncEnabled: false,
   autoBackupEnabled: false,
   schoolModeEnabled: false,
+  peopleModeEnabled: false,
   freyrModeEnabled: false,
   freyrSeedIds: '',
   planTimelineHorizontal: false,
