@@ -4,11 +4,13 @@
  * Simplified layout (2026-07-06 redesign): three clean sections — In list
  * (all unchecked items, ungrouped and dish-grouped flattened together, plus an
  * always-visible inline add row when unlocked), In cart (all checked items),
- * Purchased (completed trip items for this list, collapsed). An optional fourth
- * section — From monthly list — appears when the user opens the monthly add
- * panel and closes when they tap ✓ (save) or × (undo adds). Each section shows
- * a price total footer. Dish groups are no longer rendered as nested
- * ExpandableCards; all items are flat rows.
+ * Purchased (completed trip items for this list, collapsed). An optional
+ * From-monthly-list panel appears inline inside the In list section, in place
+ * of the "Legg til fra månedsliste" trigger button, when the user opens the
+ * monthly add panel — it closes back to the trigger when they tap the Save
+ * additions / Undo additions footer buttons. Each section shows a price total
+ * footer. Dish groups are no longer rendered as nested ExpandableCards; all
+ * items are flat rows.
  *
  * Connections:
  *   Imports → components/ExpandableCard, components/FlightOverlay (FlightRect type only), components/IconButton,
@@ -29,6 +31,12 @@
  *     buckets without the parent having to recompute.
  *   - `renderReorderableRow` is still used for ungroupedUnchecked items only (drag reorder).
  *     Dish-grouped unchecked items render as plain ShoppingRow (no drag wrapper).
+ *   - **2026-07-12 UX fix**: the monthly panel used to render as its own section ahead of
+ *     "In list", so opening it (via a trigger button living at the bottom of "In list")
+ *     made the card reorder above where the user had just tapped. It now renders inline,
+ *     swapped in for the trigger button's own slot, and its confirm/cancel controls moved
+ *     from a cramped icon-only row (squeezed next to the section label) to a labeled
+ *     two-button footer below the item rows.
  *   - Monthly session tracking: `monthlySessionAdds` records item names added while the
  *     monthly panel is open. ✓ clears the tracking and closes; × calls onRemoveItem for
  *     every fromCatalog weekly item whose name was tracked, then clears and closes.
@@ -310,79 +318,6 @@ export default function WeekListCard({
           </View>
         )}
 
-        {/* ── FROM MONTHLY LIST section (ephemeral, appears while adding from monthly) ── */}
-        {monthlyPreviewOpen && (
-          <View style={styles.section}>
-            <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
-              <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.fromMonthlySection}</Text>
-              <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />
-              <Pressable
-                onPress={handleConfirmMonthly}
-                hitSlop={8}
-                accessibilityLabel={t.saveMonthlyAddsLabel}
-                style={styles.monthlyActionBtn}
-              >
-                <Ionicons name="checkmark-circle" size={24} color={theme.good} />
-              </Pressable>
-              <Pressable
-                onPress={handleCancelMonthly}
-                hitSlop={8}
-                accessibilityLabel={t.removeMonthlyAddsLabel}
-                style={styles.monthlyActionBtn}
-              >
-                <Ionicons name="close-circle" size={24} color={theme.bad} />
-              </Pressable>
-            </View>
-
-            <TextInput
-              style={[styles.monthlySearch, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-              value={monthlySearch}
-              onChangeText={setMonthlySearch}
-              placeholder={t.monthlyPreviewSearchPlaceholder}
-              placeholderTextColor={theme.textMuted}
-            />
-
-            {filteredMonthlyItems.length === 0 ? (
-              <Text style={[styles.monthlyEmpty, { color: theme.textMuted }]}>{t.monthlyPreviewEmpty}</Text>
-            ) : (
-              <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                {filteredMonthlyItems.map((item, idx) => {
-                  const isAdded = monthlySessionAdds.includes(item.name.trim().toLowerCase());
-                  const lineTotal = item.price > 0 ? item.price * (parseInt(item.amount, 10) || 1) : null;
-                  return (
-                    <View key={item.id}>
-                      <Pressable
-                        style={styles.monthlyPanelRow}
-                        onPress={() => handleAddMonthlyItem(item)}
-                        disabled={isAdded}
-                      >
-                        <Text style={[styles.monthlyPanelName, { color: theme.text }]} numberOfLines={1}>
-                          {item.name}
-                        </Text>
-                        {lineTotal !== null && (
-                          <Text style={[styles.monthlyPanelPrice, { color: theme.textMuted }]}>
-                            {formatKr(lineTotal, 0)}
-                          </Text>
-                        )}
-                        {isAdded ? (
-                          <Ionicons name="checkmark-circle" size={22} color={theme.good} />
-                        ) : (
-                          <View style={[styles.monthlyAddBtn, { backgroundColor: theme.good }]}>
-                            <Ionicons name="add" size={16} color={theme.textInverse} />
-                          </View>
-                        )}
-                      </Pressable>
-                      {idx < filteredMonthlyItems.length - 1 && (
-                        <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        )}
-
         {/* ── IN LIST section ── */}
         {showInListSection && (
           <View style={styles.section}>
@@ -516,6 +451,88 @@ export default function WeekListCard({
                 <Ionicons name="calendar-outline" size={16} color={theme.good} />
                 <Text style={[styles.monthlyTriggerText, { color: theme.good }]}>{t.addFromMonthlyBtn}</Text>
               </Pressable>
+            )}
+
+            {/* ── FROM MONTHLY LIST panel (ephemeral) — opens in place of the trigger
+                above, right where the user tapped, instead of jumping to a separate
+                section ahead of "In list". ── */}
+            {!list.locked && monthlyPreviewOpen && (
+              <View style={styles.monthlyPanel}>
+                <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
+                  <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.fromMonthlySection}</Text>
+                  <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />
+                </View>
+
+                <TextInput
+                  style={[styles.monthlySearch, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                  value={monthlySearch}
+                  onChangeText={setMonthlySearch}
+                  placeholder={t.monthlyPreviewSearchPlaceholder}
+                  placeholderTextColor={theme.textMuted}
+                />
+
+                {filteredMonthlyItems.length === 0 ? (
+                  <Text style={[styles.monthlyEmpty, { color: theme.textMuted }]}>{t.monthlyPreviewEmpty}</Text>
+                ) : (
+                  <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                    {filteredMonthlyItems.map((item, idx) => {
+                      const isAdded = monthlySessionAdds.includes(item.name.trim().toLowerCase());
+                      const lineTotal = item.price > 0 ? item.price * (parseInt(item.amount, 10) || 1) : null;
+                      return (
+                        <View key={item.id}>
+                          <Pressable
+                            style={styles.monthlyPanelRow}
+                            onPress={() => handleAddMonthlyItem(item)}
+                            disabled={isAdded}
+                          >
+                            <Text style={[styles.monthlyPanelName, { color: theme.text }]} numberOfLines={1}>
+                              {item.name}
+                            </Text>
+                            {lineTotal !== null && (
+                              <Text style={[styles.monthlyPanelPrice, { color: theme.textMuted }]}>
+                                {formatKr(lineTotal, 0)}
+                              </Text>
+                            )}
+                            {isAdded ? (
+                              <Ionicons name="checkmark-circle" size={22} color={theme.good} />
+                            ) : (
+                              <View style={[styles.monthlyAddBtn, { backgroundColor: theme.good }]}>
+                                <Ionicons name="add" size={16} color={theme.textInverse} />
+                              </View>
+                            )}
+                          </Pressable>
+                          {idx < filteredMonthlyItems.length - 1 && (
+                            <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+
+                <View style={styles.monthlyFooter}>
+                  <Pressable
+                    style={[styles.monthlyFooterBtn, { backgroundColor: theme.good }]}
+                    onPress={handleConfirmMonthly}
+                    accessibilityLabel={t.saveMonthlyAddsLabel}
+                  >
+                    <Ionicons name="checkmark-circle" size={18} color={theme.textInverse} />
+                    <Text style={[styles.monthlyFooterBtnText, { color: theme.textInverse }]}>
+                      {t.saveMonthlyAddsLabel}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.monthlyFooterBtn, { backgroundColor: theme.surfaceMuted }]}
+                    onPress={handleCancelMonthly}
+                    accessibilityLabel={t.removeMonthlyAddsLabel}
+                  >
+                    <Ionicons name="close-circle" size={18} color={theme.bad} />
+                    <Text style={[styles.monthlyFooterBtnText, { color: theme.bad }]}>
+                      {t.removeMonthlyAddsLabel}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
             )}
 
             {inListTotal > 0 && (
@@ -722,7 +739,7 @@ const baseStyles = StyleSheet.create({
     minHeight: 40,
   },
   monthlyTriggerText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  monthlyActionBtn: { padding: 2 },
+  monthlyPanel: { gap: Spacing.xs },
   monthlySearch: {
     borderRadius: Radius.sm,
     paddingVertical: Spacing.sm,
@@ -734,9 +751,10 @@ const baseStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
+    minHeight: 44,
   },
-  monthlyPanelName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  monthlyPanelName: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
   monthlyPanelPrice: { fontSize: FontSize.xs },
   monthlyAddBtn: {
     width: 26,
@@ -745,6 +763,18 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  monthlyFooter: { flexDirection: 'row', gap: Spacing.sm },
+  monthlyFooterBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
+    minHeight: 44,
+  },
+  monthlyFooterBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   doneShoppingBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', minHeight: 44 },
   doneShoppingText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 });
