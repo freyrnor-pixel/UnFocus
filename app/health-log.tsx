@@ -6,12 +6,12 @@
  * to a recent period like app/(tabs)/health.tsx's "This week" card. Tapping a
  * section opens that symptom's full history (app/health-detail.tsx). This is
  * also where new entries are created; the old inline "+ Log symptom" FAB on
- * the Health tab was removed in favour of this screen's AddFAB, mirroring how
- * Tasks/Habits keep "add" on the full-list screen rather than the tab preview.
+ * the Health tab was removed in favour of this screen's add trigger, mirroring
+ * how Tasks/Habits keep "add" on the full-list screen rather than the tab preview.
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/EmptyState,
- *             components/Surface, components/AddFAB, components/PressableScale, lib/i18n,
+ *             components/Surface, components/PressableScale, lib/i18n,
  *             lib/severity, lib/useAppTheme, store/useHealthStore
  *   Note    → store hydration happens once at startup in app/_layout.tsx; this screen has
  *             no per-screen focus-load
@@ -25,6 +25,10 @@
  *   - Sections are sorted by most recent activity (last logged date, newest first), not name
  *     or count — the point is a quick way back into whatever's been going on lately, same
  *     spirit as the old flat newest-first log list this screen replaces.
+ *   - **Design-consistency pass**: replaced a duplicate pair — an EmptyState action button
+ *     (shown only when the list was empty) PLUS an always-present floating circular AddFAB —
+ *     with a single bordered trigger pill attached above the list, always visible. Logging a
+ *     symptom needs a full form, so it isn't a single-field AddRow candidate.
  */
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -35,7 +39,6 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import EmptyState from '@/components/EmptyState';
 import Surface from '@/components/Surface';
-import AddFAB from '@/components/AddFAB';
 import PressableScale from '@/components/PressableScale';
 import { useT } from '@/lib/i18n';
 import { severities, severityInk } from '@/lib/severity';
@@ -85,20 +88,33 @@ export default function HealthLogScreen() {
   }
 
   return (
-    <>
-      <ScreenScaffold title={t.healthLogTitle} tier="sub" onBack={() => router.back()}>
-        <View style={styles.content}>
-          <HintCard text={t.hints.health.text} />
+    <ScreenScaffold title={t.healthLogTitle} tier="sub" onBack={() => router.back()}>
+      <View style={styles.content}>
+        <HintCard text={t.hints.health.text} />
 
-          {sections.length === 0 ? (
-            <Surface style={styles.emptyCard}>
-              <EmptyState
-                title={t.noLogsGentle}
-                action={{ label: t.logSymptomTrigger, onPress: () => router.push('/health-form') }}
-              />
-            </Surface>
-          ) : (
-            sections.map((s) => {
+        {/* Design-consistency pass: was a duplicate pair (an EmptyState action button here
+            when the list was empty, PLUS an always-present floating circular AddFAB) — two
+            triggers for the same job. Now a single bordered trigger pill (matching Shopping's
+            monthlyTrigger/addTrigger family) attached above the list, always. Logging a
+            symptom needs a full form (symptom picker, severity, notes, date), so it isn't a
+            single-field AddRow candidate. */}
+        <PressableScale
+          style={[styles.addTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+          onPress={() => router.push('/health-form')}
+          accessibilityRole="button"
+          accessibilityLabel={t.logSymptomTrigger}
+          scaleTo={0.97}
+        >
+          <Ionicons name="add-circle-outline" size={18} color={theme.accent} />
+          <Text style={[styles.addTriggerText, { color: theme.accent }]}>{t.logSymptomTrigger}</Text>
+        </PressableScale>
+
+        {sections.length === 0 ? (
+          <Surface style={styles.emptyCard}>
+            <EmptyState title={t.noLogsGentle} />
+          </Surface>
+        ) : (
+          sections.map((s) => {
               const sev = SEVERITIES.find((x) => x.value === s.lastSeverity);
               return (
                 <PressableScale key={s.key} onPress={() => openDetail(s)} scaleTo={0.97}>
@@ -119,19 +135,27 @@ export default function HealthLogScreen() {
                 </PressableScale>
               );
             })
-          )}
-
-          <View style={{ height: Spacing.xl + Spacing.xxl }} />
-        </View>
-      </ScreenScaffold>
-
-      <AddFAB onPress={() => router.push('/health-form')} accessibilityLabel={t.logSymptomTrigger} />
-    </>
+        )}
+      </View>
+    </ScreenScaffold>
   );
 }
 
 const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.sm },
+  // Bordered trigger pill — same shape as Shopping's monthlyTrigger/addTrigger/newListTrigger
+  // and automations.tsx's addTrigger (design-consistency pass).
+  addTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    minHeight: 40,
+  },
+  addTriggerText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   emptyCard: { borderRadius: Radius.md, padding: Spacing.md },
   sectionRow: {
     borderRadius: Radius.md,
