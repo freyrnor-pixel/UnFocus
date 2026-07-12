@@ -11,8 +11,8 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
  *             components/HintCard, components/ConfirmationBanner, components/DatePickerCalendar,
- *             components/IconButton, components/AppModal, lib/date, lib/haptics, lib/i18n,
- *             lib/useAppTheme, store/useTaskStore
+ *             components/IconButton, components/AppModal, components/PressableScale, lib/date,
+ *             lib/haptics, lib/i18n, lib/useAppTheme, store/useTaskStore
  *   Used by → Expo Router route "/task-form"; pushed from anywhere that needs to add/edit a
  *             task (e.g. a future "+" affordance, plans rows) — no caller wired yet, this
  *             session ports the screen itself, per REBUILD_PLAN.md's "port ahead of mount" pattern
@@ -40,7 +40,7 @@
  *     it's visible. Delete is confirm-gated via confirmDelete()/showAppModal.
  */
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTaskStore, TaskType, Recurring, Importance } from '@/store/useTaskStore';
@@ -57,6 +57,7 @@ import DatePickerCalendar from '@/components/DatePickerCalendar';
 import IconButton from '@/components/IconButton';
 import Button from '@/components/Button';
 import { showAppModal } from '@/components/AppModal';
+import PressableScale from '@/components/PressableScale';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 
 function nextHourStr(): string {
@@ -206,9 +207,9 @@ export default function TaskFormScreen() {
       tier="sub"
       onBack={() => router.back()}
       headerRight={
-        <Pressable onPress={save} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.save}>
+        <PressableScale onPress={save} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.save} scaleTo={0.9}>
           <Ionicons name="checkmark" size={24} color={theme.accent} />
-        </Pressable>
+        </PressableScale>
       }
     >
       <View style={styles.content}>
@@ -232,7 +233,7 @@ export default function TaskFormScreen() {
             {weekDays.map((wd) => {
               const active = date === wd.value;
               return (
-                <Pressable
+                <PressableScale
                   key={wd.value}
                   style={[
                     styles.weekChip,
@@ -244,6 +245,7 @@ export default function TaskFormScreen() {
                     setDate(wd.value);
                     setCalExpanded(false);
                   }}
+                  scaleTo={0.97}
                 >
                   <Text style={[styles.weekChipDay, { color: theme.textMuted }, active && { color: theme.accentInk }]}>
                     {dayLabels[wd.dayIdx].slice(0, 2)}
@@ -257,7 +259,7 @@ export default function TaskFormScreen() {
                   >
                     {wd.dayNum}
                   </Text>
-                </Pressable>
+                </PressableScale>
               );
             })}
           </View>
@@ -329,7 +331,7 @@ export default function TaskFormScreen() {
               {DURATION_CHIPS.map((m) => {
                 const active = duration === String(m);
                 return (
-                  <Pressable
+                  <PressableScale
                     key={m}
                     style={[
                       styles.durationChip,
@@ -340,11 +342,12 @@ export default function TaskFormScreen() {
                       tap();
                       setDuration(String(m));
                     }}
+                    scaleTo={0.97}
                   >
                     <Text style={[styles.durationText, { color: theme.text }, active && { color: theme.accentInk, fontWeight: '700' }]}>
                       {m}m
                     </Text>
-                  </Pressable>
+                  </PressableScale>
                 );
               })}
               <View style={styles.durationInputWrap}>
@@ -383,7 +386,7 @@ export default function TaskFormScreen() {
               {dayLabels.map((label, i) => {
                 const active = recurringDays.includes(i);
                 return (
-                  <Pressable
+                  <PressableScale
                     key={i}
                     style={[
                       styles.dayChip,
@@ -391,11 +394,12 @@ export default function TaskFormScreen() {
                       active && { backgroundColor: theme.accent },
                     ]}
                     onPress={() => toggleDay(i)}
+                    scaleTo={0.97}
                   >
                     <Text style={[styles.dayText, { color: theme.text }, active && { color: theme.accentInk }]}>
                       {label.slice(0, 2)}
                     </Text>
-                  </Pressable>
+                  </PressableScale>
                 );
               })}
             </View>
@@ -442,18 +446,19 @@ export default function TaskFormScreen() {
                   <Text style={[styles.wheneverHint, { color: theme.textMuted }]}>{t.thenTaskEmptyList}</Text>
                 ) : (
                   followerCandidates.map((candidate, i) => (
-                    <Pressable
+                    <PressableScale
                       key={candidate.id}
                       style={[
                         styles.thenPickerRow,
                         i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
                       ]}
                       onPress={() => pickFollower(candidate.id)}
+                      scaleTo={0.97}
                     >
                       <Text style={[styles.thenPickerRowText, { color: theme.text }]} numberOfLines={1}>
                         {candidate.title}
                       </Text>
-                    </Pressable>
+                    </PressableScale>
                   ))
                 )}
               </View>
@@ -475,25 +480,27 @@ export default function TaskFormScreen() {
               >
                 <Checkbox checked={step.done} onChange={() => toggleStep(step.id)} label={step.title} />
                 <View style={styles.stepActions}>
-                  <Pressable
+                  <PressableScale
                     onPress={() => reorderStep(step.id, 'up')}
                     disabled={i === 0}
                     hitSlop={8}
                     style={i === 0 && { opacity: 0.3 }}
+                    scaleTo={0.9}
                   >
                     <Ionicons name="chevron-up" size={16} color={theme.textMuted} />
-                  </Pressable>
-                  <Pressable
+                  </PressableScale>
+                  <PressableScale
                     onPress={() => reorderStep(step.id, 'down')}
                     disabled={i === sortedSteps.length - 1}
                     hitSlop={8}
                     style={i === sortedSteps.length - 1 && { opacity: 0.3 }}
+                    scaleTo={0.9}
                   >
                     <Ionicons name="chevron-down" size={16} color={theme.textMuted} />
-                  </Pressable>
-                  <Pressable onPress={() => removeStep(step.id)} hitSlop={8}>
+                  </PressableScale>
+                  <PressableScale onPress={() => removeStep(step.id)} hitSlop={8} scaleTo={0.93}>
                     <Ionicons name="trash-outline" size={16} color={theme.bad} />
-                  </Pressable>
+                  </PressableScale>
                 </View>
               </View>
             ))}

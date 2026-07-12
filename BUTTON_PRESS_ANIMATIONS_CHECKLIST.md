@@ -91,10 +91,10 @@ opportunistically with other work in the same file)
 
 ## Part 3, Phase 3 — Per-screen files
 
-- [ ] `app/task-form.tsx:209,235,332,386,445,478,486,494` — save icon, weekday/duration/day
+- [x] `app/task-form.tsx:209,235,332,386,445,478,486,494` — save icon, weekday/duration/day
       chips, "then" task picker row, reorder up/down, remove step.
-- [ ] `app/shared.tsx:86,194,228,208,242` — tab selector, done-toggle circles x2, remove x2.
-- [ ] `app/health-form.tsx:82,228,248,262` — weekday chip, save icon, symptom suggestion row,
+- [x] `app/shared.tsx:86,194,228,208,242` — tab selector, done-toggle circles x2, remove x2.
+- [x] `app/health-form.tsx:82,228,248,262` — weekday chip, save icon, symptom suggestion row,
       "add new symptom" row. (Severity picker at this file's other Pressable is already
       converted — leave as-is.)
 - [ ] `app/settings.tsx` — largest concentration (~20 sites): `:340` sub-tab item, `:405`
