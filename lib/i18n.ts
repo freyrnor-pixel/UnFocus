@@ -31,7 +31,7 @@ export type Lang = 'en' | 'no';
 
 const en = {
   // Greeting
-  greeting: { morning: 'Good morning', day: 'Good day', evening: 'Good evening' },
+  greeting: { night: 'Good night', morning: 'Good morning', day: 'Good day', evening: 'Good evening' },
   days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
   months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
   // Short month names for date-range labels (lib/date.ts's formatDateRange)
@@ -1175,7 +1175,7 @@ const en = {
 };
 
 const no: typeof en = {
-  greeting: { morning: 'God morgen', day: 'God dag', evening: 'God kveld' },
+  greeting: { night: 'God natt', morning: 'God morgen', day: 'God dag', evening: 'God kveld' },
   days: ['søndag', 'mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'],
   months: ['januar', 'februar', 'mars', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'desember'],
   monthsShort: ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'],

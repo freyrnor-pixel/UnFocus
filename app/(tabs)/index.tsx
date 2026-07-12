@@ -181,6 +181,7 @@ export default function HomeScreen() {
 
   const greeting = () => {
     const h = new Date().getHours();
+    if (h < 5) return t.greeting.night;
     if (h < 10) return t.greeting.morning;
     if (h < 17) return t.greeting.day;
     return t.greeting.evening;

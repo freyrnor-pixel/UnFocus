@@ -112,7 +112,12 @@ export default function BottomNav({ state, navigation }: Props = {}) {
         hitSlop={6}
       >
         <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={iconColor} />
-        <Text style={[styles.label, { color: iconColor }]} numberOfLines={1}>
+        <Text
+          style={[styles.label, { color: iconColor }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+        >
           {t.nav[item.key]}
         </Text>
       </PressableScale>
@@ -161,7 +166,9 @@ const baseStyles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.xs,
     paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
+    // Tight horizontal padding + adjustsFontSizeToFit on the label keeps long labels
+    // ("Handleliste", "Oppgaver") on one line without ellipsis truncation.
+    paddingHorizontal: 2,
   },
   centreButton: {
     width: 56,

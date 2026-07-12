@@ -6,15 +6,19 @@
  *
  * Connections:
  *   Imports → @/store/useSettingsStore, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
- *             @/components/Button, @/components/Surface
+ *             @/components/Button, @/components/Surface, @/components/PressableScale
  *   Used by → Expo Router route "/onboarding/guided"
  *   Data    → useSettingsStore (writes `showHints`; Explore also writes `setupComplete`)
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
  *   - goGuided() → router.push "/onboarding" (continues wizard, leaves setupComplete unset).
- *   - goExplore() sets setupComplete:true and router.replace "/" — this is the onboarding
- *     completion flag; the wizard's own completion is set later in step5.tsx.
+ *   - goExplore() sets setupComplete:true + new-user defaults and router.replace "/" — a
+ *     legitimate "skip the wizard, use defaults" path (theme is locked to 'default' and no
+ *     longer user-selectable, so nothing visual is missed by skipping; see step5.tsx).
+ *   - Each whole option card is a PressableScale (was: only the small "Neste →" Button was
+ *     tappable, so taps on the title/description did nothing). A trailing arrow-forward icon
+ *     shows the affordance; distinct leading icons (list vs compass) tell the two apart.
  *   - Guided option card uses <Surface tint={theme.accent}> (Decision 008 material); its
  *     label/icon read theme.accentInk (text-on-accent-fill). Decision 006 tokens throughout.
  */
@@ -29,6 +33,7 @@ import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import Button from '@/components/Button';
 import Surface from '@/components/Surface';
+import PressableScale from '@/components/PressableScale';
 
 export default function GuidedScreen() {
   const router = useRouter();
@@ -65,38 +70,40 @@ export default function GuidedScreen() {
         </View>
 
         <View style={styles.options}>
-          <Surface tint={theme.accent} style={styles.optionCard}>
-            <View style={styles.optionContent}>
+          {/* Whole card is the tap target (was: only the small "Neste →" button registered
+              taps, so tapping the title/description did nothing). A trailing arrow shows the
+              affordance; distinct leading icons keep the two adjacent cards tellable apart. */}
+          <PressableScale
+            onPress={goGuided}
+            scaleTo={0.98}
+            accessibilityRole="button"
+            accessibilityLabel={t.guidedBtn}
+          >
+            <Surface tint={theme.accent} style={styles.optionCard}>
               <Ionicons name="list-outline" size={24} color={theme.accentInk} style={styles.optionIcon} />
               <View style={styles.optionText}>
                 <Text style={[styles.optionLabel, { color: theme.accentInk }]}>{t.guidedBtn}</Text>
                 <Text style={[styles.optionDesc, { color: theme.accentInk }]}>{t.guidedDesc}</Text>
               </View>
-            </View>
-            <Button
-              label={t.next}
-              onPress={goGuided}
-              variant="ghost"
-              size="sm"
-              icon="arrow-forward"
-            />
-          </Surface>
+              <Ionicons name="arrow-forward" size={22} color={theme.accentInk} />
+            </Surface>
+          </PressableScale>
 
-          <Surface style={styles.optionCard}>
-            <View style={styles.optionContent}>
+          <PressableScale
+            onPress={goExplore}
+            scaleTo={0.98}
+            accessibilityRole="button"
+            accessibilityLabel={t.exploreBtn}
+          >
+            <Surface style={styles.optionCard}>
+              <Ionicons name="compass-outline" size={24} color={theme.accent} style={styles.optionIcon} />
               <View style={styles.optionText}>
                 <Text style={[styles.optionLabel, { color: theme.text }]}>{t.exploreBtn}</Text>
                 <Text style={[styles.optionDesc, { color: theme.textMuted }]}>{t.exploreDesc}</Text>
               </View>
-            </View>
-            <Button
-              label={t.next}
-              onPress={goExplore}
-              variant="ghost"
-              size="sm"
-              icon="arrow-forward"
-            />
-          </Surface>
+              <Ionicons name="arrow-forward" size={22} color={theme.textMuted} />
+            </Surface>
+          </PressableScale>
         </View>
       </ScrollView>
 
@@ -139,12 +146,6 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: Radius.lg,
     padding: Spacing.lg,
-    gap: Spacing.md,
-  },
-  optionContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: Spacing.md,
   },
   optionIcon: {},
