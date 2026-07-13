@@ -1172,6 +1172,16 @@ const en = {
     exportHeading: (date: string) => `UnFocus debug notes — ${date}`,
     resetNotes: 'Reset all notes',
   },
+  // Send Feedback (2026-07-13) — general-audience mailto card, separate from
+  // debug mode's anchor-note export above.
+  feedback: {
+    cardTitle: 'Send feedback',
+    cardDesc: 'Found a bug, or have an idea? Type it below — it opens your mail app, addressed to the developer.',
+    placeholder: "What's on your mind?",
+    sendButton: 'Send feedback',
+    subject: 'UnFocus feedback',
+    mailUnavailable: "Couldn't open a mail app on this device. Try again from a device with mail set up.",
+  },
 };
 
 const no: typeof en = {
@@ -2277,6 +2287,14 @@ const no: typeof en = {
     exportNotes: 'Eksporter',
     exportHeading: (date: string) => `UnFocus feilsøkingsnotater — ${date}`,
     resetNotes: 'Nullstill alle notater',
+  },
+  feedback: {
+    cardTitle: 'Send tilbakemelding',
+    cardDesc: 'Funnet en feil, eller har en idé? Skriv den under — det åpner e-postappen din, adressert til utvikleren.',
+    placeholder: 'Hva tenker du på?',
+    sendButton: 'Send tilbakemelding',
+    subject: 'UnFocus tilbakemelding',
+    mailUnavailable: 'Fant ingen e-postapp på denne enheten. Prøv igjen fra en enhet med e-post satt opp.',
   },
 };
 

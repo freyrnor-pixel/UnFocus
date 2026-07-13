@@ -43,8 +43,8 @@
  *             components/ExpandableCard, components/PressableScale, constants/theme,
  *             lib/domainColor, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
- *             getAutoBackupLabel/saveAutoBackup), lib/childLock, lib/freyrModeSeed, lib/haptics,
- *             lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
+ *             getAutoBackupLabel/saveAutoBackup), lib/childLock, lib/feedbackMail, lib/freyrModeSeed,
+ *             lib/haptics, lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
  *             (syncWidgetsAndOverview — the persistent-overview toggle refreshes/cancels it, and
  *             the Freyr-mode toggle re-syncs after seeding/unseeding today's tasks + shopping),
  *             lib/useAppTheme, store/useFeedbackStore, store/useHabitStore, store/useSettingsStore,
@@ -74,6 +74,12 @@
  *     (free-text, matching the precedent set by task-form.tsx / habit-form.tsx).
  *   - essentialsModeEnabled is the underlying field/DB column name (unchanged) — its user-facing
  *     label is "Focus mode" / "Fokus-modus".
+ *   - Send Feedback card (2026-07-13): always visible (not gated on debugModeEnabled) — a
+ *     free-text composer that builds a mailto: URL (lib/feedbackMail's buildFeedbackMailUrl,
+ *     addressed to Unfocus@hlynsson.no, footer includes app/runtime version + platform) and
+ *     opens it via Linking.openURL, falling back to RN's Share.share if no mail client is
+ *     configured. Separate from the debug-notes export directly below — that's the testers'
+ *     anchor-note tool, this is the general "type a message and email it" feature.
  *   - Debug section (2026-07-13 redesign): the toggle, plus — only while it's on — a how-to-use
  *     explainer and a "Reset all notes" button (useFeedbackStore.clearAll(), disabled when there
  *     are none). The actual notes are created elsewhere via components/DebugNoteAnchor.tsx
@@ -91,7 +97,7 @@
  *     the native transport modules aren't linked outside a real build.
  */
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -121,6 +127,7 @@ import { seedFreyrMode, unseedFreyrMode, parseFreyrSeedIds } from '@/lib/freyrMo
 import { exportBackup, exportBackupToDevice, pickAndParseBackup, restoreBackup, reloadApp, getAutoBackupLabel, saveAutoBackup } from '@/lib/backup';
 import { setPassword as setChildPassword, verifyPassword as verifyChildPassword } from '@/lib/childLock';
 import { isSyncAvailable } from '@/lib/syncService';
+import { buildFeedbackMailUrl } from '@/lib/feedbackMail';
 import { useT, getTranslations } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -152,6 +159,8 @@ export default function SettingsScreen() {
   const [monthlyBudgetInput, setMonthlyBudgetInput] = useState(
     settings.monthlyBudgetNok > 0 ? String(settings.monthlyBudgetNok) : ''
   );
+  // Send Feedback (2026-07-13) — free-text composer, mailed via mailto:.
+  const [feedbackText, setFeedbackText] = useState('');
   // Child mode (Decision 038c) — local input for the parent password entry/exit.
   const [childPwInput, setChildPwInput] = useState('');
   const [newChildName, setNewChildName] = useState('');
@@ -301,6 +310,30 @@ export default function SettingsScreen() {
         { text: t.resetConfirmBtn, style: 'destructive', onPress: () => { heavy(); action(); } },
       ]
     );
+  }
+
+  // Send Feedback (2026-07-13) — mailto: via Linking, falling back to the OS
+  // share sheet if no mail client is configured on this device.
+  async function handleSendFeedback() {
+    selection();
+    const url = buildFeedbackMailUrl(
+      feedbackText,
+      { appVersion, runtimeVersion, platform: Platform.OS, osVersion: Platform.Version },
+      'Unfocus@hlynsson.no',
+      t.feedback.subject,
+    );
+    const supported = await Linking.canOpenURL(url);
+    if (supported) {
+      await Linking.openURL(url);
+      setFeedbackText('');
+      return;
+    }
+    try {
+      await Share.share({ message: feedbackText.trim() });
+      setFeedbackText('');
+    } catch {
+      showAppModal(t.feedback.cardTitle, t.feedback.mailUnavailable);
+    }
   }
 
   // Local backup & restore (Decision 036) — device-only, no upload.
@@ -545,6 +578,34 @@ export default function SettingsScreen() {
             {/* ===== DATA ===== */}
             <SectionDivider />
             <Text style={[styles.groupHeader, { color: theme.bad }]}>{t.config.sections.data}</Text>
+
+            {/* Send Feedback (2026-07-13) — always visible, not gated on debug mode.
+                Free-text composer → mailto: via Linking, falling back to the OS share
+                sheet if no mail client is configured. Separate from the debug-notes
+                export below, which is a testers' anchor-note tool. */}
+            <View style={styles.section}>
+              <Surface style={styles.card}>
+                <Text style={[styles.switchLabel, { color: theme.text }]}>{t.feedback.cardTitle}</Text>
+                <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs }]}>{t.feedback.cardDesc}</Text>
+                <View style={{ marginTop: Spacing.sm }}>
+                  <Input
+                    value={feedbackText}
+                    onChangeText={setFeedbackText}
+                    placeholder={t.feedback.placeholder}
+                    multiline
+                    numberOfLines={4}
+                  />
+                </View>
+                <PressableScale
+                  style={[styles.dangerBtn, feedbackText.trim() === '' && { opacity: 0.4 }]}
+                  onPress={handleSendFeedback}
+                  disabled={feedbackText.trim() === ''}
+                  scaleTo={0.97}
+                >
+                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.feedback.sendButton}</Text>
+                </PressableScale>
+              </Surface>
+            </View>
 
             {/* Debug mode */}
             <View style={styles.section}>
