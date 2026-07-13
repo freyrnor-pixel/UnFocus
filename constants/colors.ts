@@ -141,18 +141,24 @@ const defaultLight: ThemePalette = {
   hintBg: '#E9EFFD',
   hintBorder: '#B3C8F8',
   hintAccent: '#0B62F2',
-  // Domain accents re-spaced 2026-07-13 for even hue separation (grouping pass):
-  // blue→violet→magenta→red→orange→gold→green→cyan around the wheel. budget moved
-  // off purple (was #8B5CF6, crowded featPlan's violet) to gold — distinct + reads as
-  // "money"; meal cleaned from muddy brown to true orange; habit/shop purified.
-  featTask: '#2563EB',   // blue
-  featPlan: '#7C3AED',   // violet
-  featHabit: '#15803D',  // green
-  featShop: '#0E7490',   // cyan
-  featMeal: '#EA580C',   // orange
-  featBudget: '#CA8A04', // gold
-  featNote: '#DB2777',   // magenta
-  featHealth: '#DC2626', // red
+  // Domain accents ordered by ROUTINE SEQUENCE (2026-07-13 redesign) — color now signifies
+  // "the order of things," not a random rainbow. Read in the order a user moves through a day
+  // (plan → task → habit → health → meal → shop → budget → note) the hue walks a deliberate
+  // arc: a smooth cool gradient across the morning "get-things-done" block (indigo → blue →
+  // cyan → teal), then warm midday activity (orange → rose), settling to money-gold and a
+  // reflective evening violet. Two hard fixes vs the old octet: health moved OFF red (it was
+  // literally #DC2626 === `bad`, so an error/overdue red and a Health header were the same
+  // color) to a calm medical teal, and habit moved OFF green (≈ `good`) to cyan. green/red/
+  // amber are reserved for STATUS (good/bad/warn); every domain hue stays clear of them so a
+  // colored chip never reads as "done/overdue/soon". See lib/domainColor.ts for the mapping.
+  featPlan: '#4F46E5',   // 1 · indigo  — plan the day
+  featTask: '#2563EB',   // 2 · blue    — do tasks
+  featHabit: '#0E7490',  // 3 · cyan    — keep habits (was green→collided with `good`)
+  featHealth: '#0F766E', // 4 · teal    — track health (was red→collided with `bad`)
+  featMeal: '#EA580C',   // 5 · orange  — eat
+  featShop: '#E11D74',   // 6 · rose    — shop
+  featBudget: '#CA8A04', // 7 · gold    — money
+  featNote: '#7C3AED',   // 8 · violet  — reflect / note
 };
 
 const defaultDark: ThemePalette = {
@@ -179,16 +185,18 @@ const defaultDark: ThemePalette = {
   hintBg: '#0C1E38',
   hintBorder: '#1A3A60',
   hintAccent: '#60A5FA',
-  // Dark mirrors the light re-space (2026-07-13): same hue families, brighter tints
-  // for the dark surface. budget moved off pink (#E879F9) to gold; meal amber→orange.
-  featTask: '#60A5FA',   // blue
-  featPlan: '#C084FC',   // violet
-  featHabit: '#4ADE80',  // green
-  featShop: '#22D3EE',   // cyan
-  featMeal: '#FB923C',   // orange
-  featBudget: '#FBBF24', // gold
-  featNote: '#F472B6',   // magenta
-  featHealth: '#F87171', // red
+  // Dark mirrors the light routine-order arc (2026-07-13): same hue families, brighter tints
+  // for the dark surface. Order plan → task → habit → health → meal → shop → budget → note;
+  // health = teal (off red/`bad`), habit = cyan (off green/`good`); green/red/amber stay
+  // reserved for status. See the light block above and lib/domainColor.ts.
+  featPlan: '#818CF8',   // 1 · indigo
+  featTask: '#60A5FA',   // 2 · blue
+  featHabit: '#22D3EE',  // 3 · cyan
+  featHealth: '#2DD4BF', // 4 · teal
+  featMeal: '#FB923C',   // 5 · orange
+  featShop: '#F472B6',   // 6 · rose
+  featBudget: '#FBBF24', // 7 · gold
+  featNote: '#C084FC',   // 8 · violet
 };
 
 // ── Theme registry ───────────────────────────────────────────────────────────

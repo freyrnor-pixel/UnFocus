@@ -44,11 +44,15 @@
  *     reintroduce that pattern here.
  *   - `style` is split three ways: padding keys AND content-layout keys
  *     (alignItems/justifyContent/flexDirection/gap...) move to the inner content
- *     view; everything else non-owned (margin, width, flex, borderRadius...) stays
- *     on the outer shadow-casting view; the mask always `alignSelf:'stretch'`es to
- *     full width. Routing content-layout inward (not onto the outer view) is what
- *     stops the fill from shrink-wrapping its children and floating as a narrower
- *     "box inside the box". Any backgroundColor, border colors/width, or
+ *     view; everything else non-owned (margin, width, flex, minHeight, borderRadius...)
+ *     stays on the outer shadow-casting view; the mask `alignSelf:'stretch'`es to full
+ *     width AND `flexGrow:1`s to full height. Routing content-layout inward (not onto the
+ *     outer view) is what stops the fill from shrink-wrapping its children and floating as
+ *     a narrower "box inside the box" (width case); `flexGrow:1` is the height counterpart —
+ *     without it, a card whose outer view is taller than its content (e.g. a collapsed Home
+ *     preview card with `minHeight`) leaves a bare transparent band inside the border below
+ *     the content, since the fill (absoluteFill inside the mask) only covered the content
+ *     height. Any backgroundColor, border colors/width, or
  *     shadow/elevation in `style` is intentionally dropped — owned by the material.
  *   - The card edge is `theme.border` (opaque), not the material's translucent-white
  *     border, so cards keep a visible calm edge in light mode (2026-07-12 redesign).
@@ -213,9 +217,14 @@ export default function Surface({ surfaceContext = 'ambient', tint, style, child
 }
 
 const styles = StyleSheet.create({
-  // alignSelf:'stretch' so the fill always spans the full card even when the caller's
+  // alignSelf:'stretch' so the fill always spans the full card WIDTH even when the caller's
   // style centers content on the outer view (otherwise the mask shrink-wraps its children
-  // and floats as a narrower box inside the bordered card).
-  mask: { overflow: 'hidden', alignSelf: 'stretch' },
+  // and floats as a narrower box inside the bordered card). flexGrow:1 does the same for the
+  // main axis (HEIGHT): when the outer view is forced taller than its content — e.g. Home's
+  // collapsed preview cards with minHeight:HOME_PREVIEW_CARD_MIN_HEIGHT — the mask grows to
+  // fill the floor so the fill (blur + wash) covers the whole card instead of leaving a bare,
+  // transparent band inside the border below the content. No-op for content-sized cards
+  // (zero free space to distribute).
+  mask: { overflow: 'hidden', alignSelf: 'stretch', flexGrow: 1 },
   sheen: { position: 'absolute', top: 0, left: 0, right: 0, height: 30 },
 });
