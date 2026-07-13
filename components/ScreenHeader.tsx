@@ -45,6 +45,11 @@
  *     controls swap sides together — controls right (title left) by default, both left
  *     (title right) when left-handed. gear is always the outermost control.
  *   - iOS-only back link on sub-screens; Android uses system back
+ *   - **Square corners (2026-07-13)**: `styles.header` forces `borderRadius: 0` — the
+ *     header is an edge-to-edge full-width bar (no side margins), so Surface's default
+ *     rounded-card corners had no floating card to belong to and, once the glass fill
+ *     was stretched flush against the first content row, read as chopped-off corners.
+ *     Don't re-add rounding here without also reintroducing a gap below the header.
  *   - **Debug notes (2026-07-13, replaces the old DebugOverlay)**: the title is wrapped in
  *     DebugNoteAnchor keyed off the (translated) `title` string — see that component's own
  *     edit note on the language-switch caveat this implies. The export icon (site-tier only)
@@ -314,6 +319,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     gap: Spacing.md,
+    // Edge-to-edge top bar (no side margins), not a floating card — rounding here has
+    // no visual purpose and, since the glass Surface now fills the whole fixed-height
+    // header band flush against the first content row (2026-07-13 dead-band fix), a
+    // rounded bottom edge just collides with that content's square corner and reads as
+    // "cut off". Square corners match the conventional full-bleed app-bar look.
+    borderRadius: 0,
   },
   controls: {
     flexDirection: 'row',

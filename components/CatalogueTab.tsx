@@ -34,6 +34,12 @@
  *     short append-order list, so a bottom add row would require scrolling on every add.
  *   - removeItem soft-deletes (see useCatalogStore) so deleting a seeded item sticks across
  *     a seed re-run (seeding is now version-gated, not per-load).
+ *   - **No domain tint on the cards (2026-07-13)**: unlike WeekListCard, the add-row and
+ *     rows Surfaces here don't pass `tint={domainColor.tint}` — this list is one long,
+ *     continuous card holding the whole ~286-row catalogue, so the same shop-domain rose
+ *     wash that reads as a subtle accent on a small weekly-list card reads as a loud,
+ *     "red" full-screen tint at this scale. `domainColor.accent` is still used for the
+ *     small AddRow confirm-button fill, which stays a domain-consistent touch.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { InteractionManager, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -122,7 +128,7 @@ export default function CatalogueTab({ onNotify }: Props) {
           visible at the top of this long, alphabetized reference list — mirrors WeekListCard's
           inline-add shape but sits at the top here (not the bottom) since this list is a
           scrollable catalogue, not a short append-order list like Plans/Shopping's weekly list. */}
-      <Surface tint={domainColor.tint} style={styles.addRowCard}>
+      <Surface style={styles.addRowCard}>
         <AddRow
           placeholder={t.catalogueItemNamePlaceholder}
           value={addName}
@@ -149,7 +155,7 @@ export default function CatalogueTab({ onNotify }: Props) {
       {sortedItems.length === 0 ? (
         <Text style={[styles.empty, { color: theme.textMuted }]}>{t.catalogueEmpty}</Text>
       ) : (
-        <Surface tint={domainColor.tint} style={styles.rowsCard}>
+        <Surface style={styles.rowsCard}>
           {visibleItems.map((item, idx) => {
             const isEditing = editingId === item.id;
             return (
