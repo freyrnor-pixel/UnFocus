@@ -239,7 +239,6 @@ export default function ShoppingScreen() {
   const router = useRouter();
   const { reducedMotion } = useAccessibility();
   const mealDomainColor = getDomainColor(theme, 'meal');
-  const shopDomainColor = getDomainColor(theme, 'shop');
 
   // Fire the 'shopping_opened' automation trigger once per screen visit (mount).
   // Rules are already loaded by app/_layout.tsx's startup bootstrap.
@@ -752,7 +751,11 @@ export default function ShoppingScreen() {
     { value: 'weekly', label: t.weeklyTabLabel, accent: theme.good, count: ukelisteBadge },
     { value: 'monthly', label: t.monthlyTabLabel, accent: theme.accent, count: 0 },
     { value: 'food', label: t.foodTabLabel, accent: mealDomainColor.accent, count: 0 },
-    { value: 'catalogue', label: t.catalogueTabLabel, accent: shopDomainColor.accent, count: 0 },
+    // Catalogue is a static reference list, not an active-shopping view, so it doesn't
+    // borrow the shop-domain rose accent (visual-audit 2026-07-13: read as an alarming
+    // red for a prominent active-tab label+underline) — reuses the same neutral brand
+    // accent as Monthly instead.
+    { value: 'catalogue', label: t.catalogueTabLabel, accent: theme.accent, count: 0 },
   ];
 
   const summaryVisible = tab === 'weekly' && !!focusedList && !!focusedProgress;
