@@ -19,8 +19,8 @@
  *             components/AddFAB, components/CompletionGlow, components/HabitIcon,
  *             components/EmptyState, components/SlideSelector, components/PressableScale,
  *             constants/theme, constants/colors, lib/date, lib/db, lib/haptics, lib/i18n,
- *             lib/severity, lib/useAppTheme, store/useHealthStore, store/useHabitStore,
- *             store/useSettingsStore
+ *             lib/severity, lib/useAppTheme, lib/domainColor, store/useHealthStore,
+ *             store/useHabitStore, store/useSettingsStore
  *   - Habit Today/Week/Month uses the shared SlideSelector; the person filter row +
  *     habit-form "For" chips are gated on settings.peopleModeEnabled (People/family
  *     mode). Profile add/remove now lives in app/settings.tsx, not here.
@@ -88,6 +88,7 @@ import { SEVERITY_COLORS, severities } from '@/lib/severity';
 import { FontSize, Radius, Spacing, Fonts } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
+import { getDomainColor } from '@/lib/domainColor';
 import { success, selection } from '@/lib/haptics';
 
 // ─── Habits (ported from the removed app/habits.tsx) ──────────────────────────
@@ -570,6 +571,7 @@ export default function HealthScreen() {
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
+  const healthDomainColor = getDomainColor(theme, 'health');
   const SEVERITIES = severities();
 
   // Habits section state (ported from the removed app/habits.tsx).
@@ -670,7 +672,7 @@ export default function HealthScreen() {
 
           {/* This week */}
           <Surface style={styles.overviewCardRow}>
-            <View style={[styles.overviewAccent, { backgroundColor: theme.featHealth }]} />
+            <View style={[styles.overviewAccent, { backgroundColor: healthDomainColor.accent }]} />
             <View style={styles.overviewCardContent}>
               <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.thisWeekLabel}</Text>
               {thisWeekSymptoms.length === 0 && (
@@ -736,8 +738,8 @@ export default function HealthScreen() {
             style={styles.navLinkWrap}
           >
             <Surface style={styles.navCard}>
-              <View style={[styles.navCardAccent, { backgroundColor: theme.featHealth }]} />
-              <Ionicons name="document-text-outline" size={20} color={theme.featHealth} />
+              <View style={[styles.navCardAccent, { backgroundColor: healthDomainColor.accent }]} />
+              <Ionicons name="document-text-outline" size={20} color={healthDomainColor.accent} />
               <Text style={[styles.navCardText, { color: theme.text }]}>{t.healthLogTitle}</Text>
               <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
             </Surface>

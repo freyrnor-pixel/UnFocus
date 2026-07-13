@@ -10,7 +10,7 @@
  *
  * Connections:
  *   Imports → components/Surface, components/PressableScale, constants/theme, lib/haptics,
- *             lib/i18n, lib/useAppTheme, store/useNotesStore
+ *             lib/i18n, lib/useAppTheme, lib/domainColor, store/useNotesStore
  *   Used by → app/(tabs)/index.tsx (replaces InboxSection in the Notes preview slot)
  *   Data    → reads/writes useNotesStore (notes table): toggleChecked, add
  *
@@ -29,11 +29,12 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
-import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useNotesStore } from '@/store/useNotesStore';
+import { getDomainColor } from '@/lib/domainColor';
 
 const COLLAPSED_COUNT = 5;
 
@@ -42,6 +43,7 @@ export default function HomeNotesCard() {
   const router = useRouter();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
+  const domainColor = getDomainColor(theme, 'note');
 
   const notes = useNotesStore((s) => s.notes);
   const toggleChecked = useNotesStore((s) => s.toggleChecked);
@@ -66,7 +68,7 @@ export default function HomeNotesCard() {
 
   return (
     <Surface surfaceContext="ambient" style={[styles.card, styles.cardRow]}>
-      <View style={[styles.accent, { backgroundColor: theme.featNote }]} />
+      <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
       <View style={styles.cardContent}>
 
         {/* Title row */}
@@ -74,8 +76,8 @@ export default function HomeNotesCard() {
           <View style={styles.titleRow}>
             <Text style={[styles.title, { color: theme.text }]}>{t.notes.title}</Text>
             {activeNotes.length > 0 && (
-              <View style={[styles.badge, { backgroundColor: rgba(theme.featNote, 0.16) }]}>
-                <Text style={[styles.badgeText, { color: theme.featNote }]}>{activeNotes.length}</Text>
+              <View style={[styles.badge, { backgroundColor: domainColor.soft }]}>
+                <Text style={[styles.badgeText, { color: domainColor.accent }]}>{activeNotes.length}</Text>
               </View>
             )}
           </View>
@@ -94,7 +96,7 @@ export default function HomeNotesCard() {
                   {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
                   <View style={styles.noteRow}>
                     <PressableScale
-                      style={[styles.check, { borderColor: theme.featNote }]}
+                      style={[styles.check, { borderColor: domainColor.accent }]}
                       onPress={() => handleToggle(note.id)}
                       hitSlop={13}
                       accessibilityLabel={t.notes.checkedLabel}
@@ -160,7 +162,7 @@ export default function HomeNotesCard() {
                 {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
                 <View style={styles.noteRow}>
                   <PressableScale
-                    style={[styles.check, { borderColor: theme.featNote, backgroundColor: theme.featNote }]}
+                    style={[styles.check, { borderColor: domainColor.accent, backgroundColor: domainColor.accent }]}
                     onPress={() => handleToggle(note.id)}
                     hitSlop={8}
                     scaleTo={0.97}

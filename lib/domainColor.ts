@@ -5,8 +5,8 @@
  * note, health) to a triad {accent, soft, ink} derived from the palette's `feat*`
  * tokens (constants/colors.ts), plus a per-status mapping (done/overdue/soon/default)
  * onto the semantic good/bad/warn tokens. Every screen's section headers, AddRow
- * accent, ComposerCard accent, and ExpandableCard.accentColor pull their hue from
- * here so a domain reads the same color everywhere (design criteria 1, 4, 8).
+ * accent, badges, and ExpandableCard.accentColor pull their hue from here so a
+ * domain reads the same color everywhere (design criteria 1, 4, 8).
  *
  * Domain → palette token:
  *   task→featTask · plan→featPlan · habit→featHabit · shop→featShop
@@ -17,8 +17,8 @@
  *
  * Connections:
  *   Imports → constants/colors (ThemePalette), constants/theme (rgba, contrastOn)
- *   Used by → components/AddRow, components/ComposerCard, and screen headers
- *             (plans/shopping/health/settings) that color-code by domain
+ *   Used by → components/AddRow, and screen headers/badges (plans/shopping/health/
+ *             settings and their card components) that color-code by domain
  *   Data    → pure functions over a ThemePalette; no state
  *
  * Edit notes:

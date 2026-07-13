@@ -60,6 +60,7 @@ import { useAppTheme } from '@/lib/useAppTheme';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { Fonts, FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
+import { getDomainColor } from '@/lib/domainColor';
 
 type Tab = 'all' | 'today' | 'week';
 
@@ -77,6 +78,7 @@ const STICKY_HEIGHT = 56;
 export default function TasksScreen() {
   const theme = useAppTheme();
   const t = useT();
+  const sharedOutDomainColor = getDomainColor(theme, 'shop');
 
   const tasks = useTaskStore((s) => s.tasks);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
@@ -248,7 +250,7 @@ export default function TasksScreen() {
             <SharedRequestsSection kind="task" />
 
             <View style={styles.section}>
-              {sectionHeader(t.tasksSectionSharedOut, theme.featShop, false, theme.surfaceMuted)}
+              {sectionHeader(t.tasksSectionSharedOut, sharedOutDomainColor.accent, false, theme.surfaceMuted)}
               {sharedOutAll.length === 0 ? (
                 <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionSharedOutEmpty}</Text>
               ) : (
