@@ -16,13 +16,15 @@
  *             components/IconButton, components/Button, components/AppModal, components/PressableScale,
  *             lib/date, lib/haptics, lib/i18n, lib/severity, lib/useAppTheme, store/useHealthStore
  *   Used by → Expo Router route "/health-form"; pushed from app/(tabs)/health.tsx's "This week"
- *             rows, app/health-log.tsx's AddFAB, and app/health-detail.tsx's entry rows
+ *             rows, app/health-log.tsx's AddRow (passes a `name` param to prefill the Issue
+ *             field), and app/health-detail.tsx's entry rows
  *   Data    → useHealthStore (health_logs + symptoms catalog) via add/update/remove/suggest/ensureSymptom
  *
  * Edit notes:
  *   - Picking/typing the Issue field sets both `ailment` (display name) and `symptomId` (stable
  *     trend key), same as the old inline health.tsx editor; a typed name with no picked
- *     suggestion is committed to the catalog via ensureSymptom() on save.
+ *     suggestion is committed to the catalog via ensureSymptom() on save. A `name` route param
+ *     (from the Health-log AddRow) prefills `ailment` for a new entry.
  *   - "When finished" defaults to Ongoing (endDate stays '') for a new entry — most symptoms are
  *     logged while still happening. Editing an entry whose endDate is already set starts with
  *     Ongoing off.
@@ -137,7 +139,7 @@ function DateChipPicker({
 
 export default function HealthFormScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, name } = useLocalSearchParams<{ id?: string; name?: string }>();
   const logs = useHealthStore((s) => s.logs);
   const addLog = useHealthStore((s) => s.add);
   const updateLog = useHealthStore((s) => s.update);
@@ -152,7 +154,9 @@ export default function HealthFormScreen() {
 
   const existing = id ? logs.find((log) => log.id === id) : undefined;
 
-  const [ailment, setAilment] = useState(existing?.ailment ?? '');
+  // `name` prefills the Issue field when opened from the Health-log AddRow (quick-add row →
+  // full form). Only used for a new entry (no `id`/`existing`).
+  const [ailment, setAilment] = useState(existing?.ailment ?? name ?? '');
   const [symptomId, setSymptomId] = useState(existing?.symptomId ?? '');
   const [severity, setSeverity] = useState(existing?.severity ?? 3);
   const [startDate, setStartDate] = useState(existing?.date ?? todayStr());

@@ -560,6 +560,14 @@ export function initDb() {
     // habit form. tasks.assignee holds the chosen profile name ('' = Me / self).
     "ALTER TABLE settings ADD COLUMN people_mode_enabled INTEGER DEFAULT 0",
     "ALTER TABLE tasks ADD COLUMN assignee TEXT DEFAULT ''",
+    // Generic key/value store for one-time/versioned flags (first used by the catalogue
+    // seed-version gate — see store/useCatalogStore.ts). seedCatalog() used to re-run its
+    // full ~570-statement write on every load(); this table lets it run once per seed
+    // version instead. Keep it generic so future one-time flags reuse it.
+    `CREATE TABLE IF NOT EXISTS app_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT DEFAULT ''
+    )`,
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

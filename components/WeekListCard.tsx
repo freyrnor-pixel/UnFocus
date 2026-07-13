@@ -250,7 +250,7 @@ export default function WeekListCard({
   const showInListSection = totalInList > 0 || !list.locked;
 
   return (
-    <Surface style={styles.cardRow}>
+    <Surface tint={domainColor.tint} style={styles.cardRow}>
       <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
       <View style={styles.cardContent}>
       {/* ── Card header: title + mode toggle + rename/settings/delete icons ── */}

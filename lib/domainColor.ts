@@ -28,7 +28,7 @@
  *     modes) rather than a second hardcoded token; `ink` is contrast-picked.
  */
 import { ThemePalette } from '@/constants/colors';
-import { rgba, contrastOn } from '@/constants/theme';
+import { rgba, contrastOn, mix } from '@/constants/theme';
 
 export type Domain =
   | 'task'
@@ -47,6 +47,13 @@ export type DomainTriad = {
   soft: string;
   /** Legible text/icon color to sit on top of `accent`. */
   ink: string;
+  /**
+   * Solid, opaque pale surface tint (the accent softly blended into theme.surface) for
+   * tinting a whole card so a section visibly belongs to its domain (2026-07-13 grouping
+   * pass). Solid hex — pass as Surface's `tint` (getMaterialStyle can't parse an rgba()).
+   * In dark mode this equals `theme.surface` (no tint) — see getDomainColor.
+   */
+  tint: string;
 };
 
 const DOMAIN_TOKEN: Record<Domain, keyof ThemePalette> = {
@@ -60,13 +67,27 @@ const DOMAIN_TOKEN: Record<Domain, keyof ThemePalette> = {
   health: 'featHealth',
 };
 
-/** Resolve a domain's {accent, soft, ink} triad from the active palette. */
+/** Perceived-brightness check so the tint strength can adapt to light vs dark palettes. */
+function isDarkSurface(hex: string): boolean {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128;
+}
+
+/** Resolve a domain's {accent, soft, ink, tint} triad from the active palette. */
 export function getDomainColor(theme: ThemePalette, domain: Domain): DomainTriad {
   const accent = theme[DOMAIN_TOKEN[domain]] as string;
   return {
     accent,
     soft: rgba(accent, 0.14),
     ink: contrastOn(accent),
+    // Whole-card tint. Light mode: ~15% accent into white keeps body text at the same
+    // contrast while clearly coloring the card. Dark mode: skip it (return surface) — the
+    // feature accents are bright, so tinting a dark card lightens it and erodes textMuted
+    // legibility; there the 4px accent bar already carries the domain identity.
+    tint: isDarkSurface(theme.surface) ? theme.surface : mix(theme.surface, accent, 0.15),
   };
 }
 

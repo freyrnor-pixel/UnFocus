@@ -67,7 +67,7 @@ export default function HomeNotesCard() {
   }
 
   return (
-    <Surface surfaceContext="ambient" style={[styles.card, styles.cardRow]}>
+    <Surface surfaceContext="ambient" tint={domainColor.tint} style={[styles.card, styles.cardRow]}>
       <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
       <View style={styles.cardContent}>
 
@@ -85,11 +85,11 @@ export default function HomeNotesCard() {
 
         {/* Active note rows */}
         {activeNotes.length === 0 ? (
-          <View style={[styles.rowsContainer, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+          <View style={styles.rowsContainer}>
             <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.notes.emptyState}</Text>
           </View>
         ) : (
-          <View style={[styles.rowsContainer, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+          <View style={styles.rowsContainer}>
             <View style={styles.rows}>
               {visibleActive.map((note, idx) => (
                 <View key={note.id}>
@@ -142,7 +142,7 @@ export default function HomeNotesCard() {
 
         {/* Checked/done zone — only shown when expanded, mirroring PlanTaskCard done zone */}
         {expanded && checkedNotes.length > 0 && (
-          <View style={[styles.rowsContainer, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+          <View style={styles.rowsContainer}>
             <PressableScale
               style={styles.doneHeader}
               onPress={() => { tap(); setCheckedOpen((v) => !v); }}
@@ -197,7 +197,9 @@ const baseStyles = StyleSheet.create({
   title: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-  rowsContainer: { borderRadius: Radius.sm, borderWidth: 1, padding: Spacing.sm, marginBottom: Spacing.sm },
+  // Wells removed (2026-07-13 grouping pass): rows sit directly on the domain-tinted card
+  // face so the whole section reads as one thing, instead of a flat surfaceMuted box-in-a-box.
+  rowsContainer: { marginBottom: Spacing.sm },
   rows: { gap: 0 },
   noteRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: Spacing.sm, gap: Spacing.sm },
   check: {

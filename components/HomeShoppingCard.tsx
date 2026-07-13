@@ -154,7 +154,7 @@ export default function HomeShoppingCard({
   }
 
   return (
-    <Surface surfaceContext="ambient" style={[styles.card, styles.cardRow]}>
+    <Surface surfaceContext="ambient" tint={domainColor.tint} style={[styles.card, styles.cardRow]}>
       <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
       <View style={styles.cardContent}>
 
@@ -181,12 +181,12 @@ export default function HomeShoppingCard({
         </PressableScale>
 
         {totalCount === 0 ? (
-          <View style={[styles.rowsContainer, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+          <View style={styles.rowsContainer}>
             <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.shoppingEmpty}</Text>
           </View>
         ) : expanded ? (
           // Expanded: full nested structure
-          <View style={[styles.rowsContainer, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+          <View style={styles.rowsContainer}>
             <View style={styles.expandedBody}>
               {dishGroups.map(([dishName, groupItems]) => (
                 <ExpandableCard
@@ -217,7 +217,7 @@ export default function HomeShoppingCard({
           </View>
         ) : (
           // Collapsed: flat preview rows
-          <View style={[styles.rowsContainer, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+          <View style={styles.rowsContainer}>
             <View style={styles.rows}>
               {previewItems.map((item, idx) => (
                 <View
@@ -291,7 +291,8 @@ const baseStyles = StyleSheet.create({
   title: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, flexShrink: 1 },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-  rowsContainer: { borderRadius: Radius.sm, borderWidth: 1, padding: Spacing.sm, marginBottom: Spacing.sm },
+  // Wells removed (2026-07-13 grouping pass): rows sit directly on the domain-tinted card face.
+  rowsContainer: { marginBottom: Spacing.sm },
   rows: {},
   previewRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm, gap: Spacing.sm },
   check: {
