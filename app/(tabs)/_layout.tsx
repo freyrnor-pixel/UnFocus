@@ -48,14 +48,17 @@
  *     material-top-tabs keeps a visited site mounted (translated off-screen) afterwards —
  *     that persistence is what makes the swipe instant on repeat visits; watch memory on
  *     low-end Android if this becomes an issue later.
- *   - `lazyPreloadDistance: 1` additionally preloads the one screen on either side of
- *     whichever tab is active (e.g. Plans + Health while on Home), so the first swipe to
- *     an adjacent site no longer pays its mount/layout cost at that moment — it's already
- *     mounted off-screen by the time you swipe. Data-wise this is free: all stores those
- *     screens read are already hydrated by app/_layout.tsx's boot-time loads (see that
- *     file's Tier A/B split) before this pager even mounts. That's 3 sites resident right
- *     after launch instead of 1 — watch low-end Android memory if that becomes an issue;
- *     don't bump the distance to 2 (all 5 eagerly) without re-checking that budget.
+ *   - **`lazyPreloadDistance` REVERTED (2026-07-13)**: briefly set to `1` to preload the
+ *     pager neighbor screens; a real user testing the very next build reported "+"/add
+ *     controls (e.g. Habits' inline AddRow) going dead — taps silently doing nothing. Not
+ *     reproducible in the headless web preview (react-native-web doesn't exercise
+ *     pager-view's native touch delivery at all), so it can only be verified on-device.
+ *     react-native-pager-view's lazy/preload mounting is a documented trouble spot for
+ *     touch delivery to preloaded-but-inactive screens (several open issues on
+ *     callstack/react-native-pager-view), which lines up with the timing — reverted as the
+ *     prime suspect rather than confirmed root-caused. Not worth the swipe-latency win
+ *     until upstream is more solid — do not re-add `lazyPreloadDistance` without verifying
+ *     add/tap controls on a real device first.
  *   - `swipeEnabled: true` is the whole point of this migration. app/(tabs)/scan.tsx
  *     temporarily flips it off via `navigation.setOptions` while an OCR scan is
  *     processing or one of its modals is open, so a stray swipe can't abandon that flow.
@@ -145,7 +148,7 @@ export default function TabsLayout() {
 
       <TopTabs
         tabBarPosition="bottom"
-        screenOptions={{ swipeEnabled: true, lazy: true, lazyPreloadDistance: 1, sceneStyle: { backgroundColor: 'transparent' } }}
+        screenOptions={{ swipeEnabled: true, lazy: true, sceneStyle: { backgroundColor: 'transparent' } }}
         tabBar={(props: MaterialTopTabBarProps) => (
           <TabBarWithBackgroundSync {...props} insetsBottom={insets.bottom} onActiveRouteChange={setActiveRouteName} />
         )}
