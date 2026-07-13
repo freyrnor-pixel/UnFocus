@@ -16,6 +16,10 @@
  *   Data    → pure presentational; all mutations bubbled up via callbacks (parent owns the stores)
  *
  * Edit notes:
+ *   - **Collapsed sizing (2026-07-13)**: `cardCollapsed` (minHeight:
+ *     `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) applies only while `!expanded`, so
+ *     this card reads the same height as HomeNotesCard/PlanTaskCard even with few items;
+ *     `previewRow`'s paddingVertical was trimmed to `Spacing.xs` for a slimmer collapsed row.
  *   - Collapsed preview shows the first 5 items from ungroupedUnchecked (In list only).
  *   - Expanded shows full nested structure with "In list" (ungrouped items),
  *     "In cart" (checked items), and "Purchased" sections.
@@ -47,7 +51,7 @@ import ShoppingRow from '@/components/ShoppingRow';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import type { FlightRect } from '@/components/FlightOverlay';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -154,7 +158,11 @@ export default function HomeShoppingCard({
   }
 
   return (
-    <Surface surfaceContext="ambient" tint={domainColor.tint} style={[styles.card, styles.cardRow]}>
+    <Surface
+      surfaceContext="ambient"
+      tint={domainColor.tint}
+      style={[styles.card, styles.cardRow, !expanded && styles.cardCollapsed]}
+    >
       <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
       <View style={styles.cardContent}>
 
@@ -282,6 +290,9 @@ export default function HomeShoppingCard({
 
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
+  // Collapsed-only floor so Notes/Plans/Shopping read as the same size regardless of how
+  // few items are in the list — see constants/theme.ts.
+  cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   cardRow: { flexDirection: 'row' },
   accent: { width: 4, alignSelf: 'stretch', borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
   cardContent: { flex: 1, padding: Spacing.md },
@@ -294,7 +305,7 @@ const baseStyles = StyleSheet.create({
   // Wells removed (2026-07-13 grouping pass): rows sit directly on the domain-tinted card face.
   rowsContainer: { marginBottom: Spacing.sm },
   rows: {},
-  previewRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.sm, gap: Spacing.sm },
+  previewRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.xs, gap: Spacing.sm },
   check: {
     width: 22,
     height: 22,

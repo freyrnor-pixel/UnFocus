@@ -49,6 +49,13 @@
  *             passed in. Live "now" marker re-renders on a 60s interval (useNowMinutes).
  *
  * Edit notes:
+ *   - **Collapsed sizing + slimmer rows (2026-07-13)**: `cardCollapsed` (minHeight:
+ *     `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) applies only while `!expanded`, so
+ *     this card reads the same height as HomeNotesCard/HomeShoppingCard on a light day —
+ *     it's a floor, not a cap, so a widely time-spaced day can still grow taller. Rail tuning
+ *     (`PX_PER_MIN`/`MIN_GAP`/`MAX_GAP`) was trimmed and `contentCol`/`rowCard` vertical
+ *     padding reduced for a visibly slimmer rail; this is Home-only now (see below), so
+ *     retuning these constants has no other caller to break.
  *   - **Decision 014 (revised 2026-07-13 grouping pass)**: the card face is a `<Surface>`
  *     with a 4px left accent BAR (`getDomainColor(theme,'plan').accent`) AND a soft whole-card
  *     domain `tint` (`domainColor.tint`) so the section reads as belonging to Plans at a glance.
@@ -99,7 +106,7 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import { Task } from '@/store/useTaskStore';
-import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -128,9 +135,9 @@ type Props = {
 // minutes × PX_PER_MIN, clamped legible. Keeps distance ∝ time without letting a long
 // empty afternoon push the whole card off-screen. Shared by both orientations (height
 // in the vertical rail, width in the horizontal one).
-const PX_PER_MIN = 0.55;
-const MIN_GAP = 14;
-const MAX_GAP = 72;
+const PX_PER_MIN = 0.45;
+const MIN_GAP = 10;
+const MAX_GAP = 56;
 const DEFAULT_BOX_MIN = 30; // start-at tasks get a nominal span so "happening now" works
 
 // Vertical rail column widths.
@@ -540,7 +547,11 @@ export default function PlanTaskCard({
   const allDone = pendingCount === 0 && doneTasks.length > 0;
 
   return (
-    <Surface surfaceContext="ambient" tint={domainColor.tint} style={[styles.card, styles.cardRow]}>
+    <Surface
+      surfaceContext="ambient"
+      tint={domainColor.tint}
+      style={[styles.card, styles.cardRow, !expanded && styles.cardCollapsed]}
+    >
       <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
       <View style={styles.cardContent}>
 
@@ -625,6 +636,10 @@ export default function PlanTaskCard({
 
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
+  // Collapsed-only floor so Notes/Plans/Shopping read as the same size regardless of how
+  // few tasks (or how compact the time gaps) today has — see constants/theme.ts. Content can
+  // still grow taller than this floor (e.g. widely time-spaced tasks) — it's a min, not a cap.
+  cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   cardRow: { flexDirection: 'row' },
   accent: { width: 4, alignSelf: 'stretch' },
   cardContent: { flex: 1, padding: Spacing.md, position: 'relative' },
@@ -654,10 +669,10 @@ const baseStyles = StyleSheet.create({
   // stretched height gives it — either half of a row (above/below its marker) or the
   // whole of a spacer row (Decision 042a).
   railLine: { width: 2, flex: 1 },
-  contentCol: { flex: 1, paddingHorizontal: Spacing.sm, paddingBottom: Spacing.md },
+  contentCol: { flex: 1, paddingHorizontal: Spacing.sm, paddingBottom: Spacing.sm },
   // Decision (visual-audit 2026-07-11): a subtle card behind each row's title/hint so
   // the rail reads as distinct items rather than text floating on the background.
-  rowCard: { borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 6 },
+  rowCard: { borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
   doneCol: { width: DONE_COL_WIDTH, alignItems: 'center', justifyContent: 'center' },
   // Dedicated connector row between two task rows — owns the proportional time-gap
   // height so it never has to be squeezed inside a row of variable content height.

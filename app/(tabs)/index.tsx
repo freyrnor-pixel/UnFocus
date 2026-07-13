@@ -93,7 +93,7 @@ import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { FontSize, Fonts, Spacing } from '@/constants/theme';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useNotesStore } from '@/store/useNotesStore';
-import { useSharedStore } from '@/store/useSharedStore';
+import { SharedShoppingItem, SharedTask, useSharedStore } from '@/store/useSharedStore';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import { useShoppingListStore } from '@/store/useShoppingListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -148,6 +148,16 @@ export default function HomeScreen() {
 
   const shoppingLists = useShoppingListStore((s) => s.lists);
   const currentListFn = useShoppingListStore((s) => s.currentList);
+
+  // Mirrors HomeSharedCard's own self-hide check exactly — needed here too so this
+  // screen doesn't mount an empty `section` wrapper (marginTop: Spacing.xl) around a
+  // card that renders nothing, which was doubling the gap to the next card below it
+  // whenever nothing was incoming (the common case).
+  const sharedTasks = useSharedStore((s) => s.tasks);
+  const sharedShoppingItems = useSharedStore((s) => s.shoppingItems);
+  const hasIncomingShared =
+    sharedTasks.some((x: SharedTask) => x.direction === 'in' && !x.done) ||
+    sharedShoppingItems.some((i: SharedShoppingItem) => i.direction === 'in' && !i.done);
 
   const settings = useSettingsStore();
 
@@ -236,8 +246,10 @@ export default function HomeScreen() {
           </DebugNoteAnchor>
 
           {/* Shared preview — HomeSharedCard (incoming shared tasks + shopping). Self-hides
-              when nothing is incoming. Hidden in Focus mode (an input/triage surface). */}
-          {!focusMode && (
+              when nothing is incoming — gated here too (not just inside HomeSharedCard) so no
+              empty `section`-margin wrapper is mounted in that case (see hasIncomingShared
+              above). Hidden in Focus mode (an input/triage surface). */}
+          {!focusMode && hasIncomingShared && (
             <DebugNoteAnchor id="home.sharedPreview" label="Home — Shared preview" style={styles.section}>
               <HomeSharedCard />
             </DebugNoteAnchor>
