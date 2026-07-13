@@ -1108,15 +1108,15 @@ const en = {
   },
   hints: {
     home: {
-      text: "1) See today's notes, plans and shopping at a glance.\n2) Tap an item to check it off.\n3) Tap \"See all →\" to open the full screen.\n4) Tap the eye icon (top bar) to show only essential plans.",
+      text: "See today's notes, plans and shopping at a glance.",
       example: '',
     },
     taskForm: {
-      text: '1) Type a title.\n2) Pick a date — today is filled in for you.\n3) Optional: set a time, mark it Essential, add steps, or repeat it weekly.\n4) Tap Save.',
+      text: 'Add a task with a title, date, and optional details.',
       example: '',
     },
     habitForm: {
-      text: '1) Choose Build (start doing) or Break (do less).\n2) Give it a name.\n3) Optional: set a daily goal, a reminder, or the cue→craving→response→reward steps.\n4) Tap Save.',
+      text: "Track a habit you're building or breaking.",
       example: '',
     },
     shopping: {
@@ -1124,11 +1124,11 @@ const en = {
       example: '',
     },
     meals: {
-      text: '1) Tap a meal-type tile to see its dishes.\n2) Tap a dish to add its ingredients to your shopping list.\n3) Tap + to create a new dish and list its ingredients.',
+      text: 'Browse dishes and add their ingredients to your shopping list.',
       example: '',
     },
     health: {
-      text: '1) This week\'s issues show up below — tap one to see its full history.\n2) Open Health-log to add a new entry: set the issue, severity (1–5), when it started/finished and an optional note.\n3) Health-log also lists every issue you\'ve ever logged, sectioned by type.',
+      text: 'Log and track health issues over time.',
       example: '',
     },
     scan: {
@@ -1140,15 +1140,15 @@ const en = {
       example: '',
     },
     shared: {
-      text: 'Items shared with you — toggle Done for your part.',
+      text: 'Items shared with you — mark your part done.',
       example: '',
     },
     habits: {
-      text: '1) Tap + on a habit each time you build it or resist it.\n2) Tap a card to expand its steps and week view.\n3) Hold a card to edit it.\n4) Tap + New to add a habit.',
+      text: 'Build habits you want more of, or break ones you want less of.',
       example: '',
     },
     plans: {
-      text: "1) All tasks, Today, and This week are the three tabs up top.\n2) Tap the circle to check a task off.\n3) Tap a task to expand it and edit inline — time, steps, repeat.\n4) Add new tasks in the Whenever list; unlock with the padlock to edit.",
+      text: 'All your tasks, organized by day and week.',
       example: '',
     },
     automations: {
@@ -1156,7 +1156,7 @@ const en = {
       example: '',
     },
     notes: {
-      text: '1) Tap the mic and say your note — it lands in the text box.\n2) Use its shopping or plans button to send it onward.\n3) Check it off when done — it moves below.',
+      text: 'Quick notes you can send to shopping or plans.',
       example: '',
     },
   },
@@ -2215,15 +2215,15 @@ const no: typeof en = {
   },
   hints: {
     home: {
-      text: '1) Se dagens notater, planer og handleliste på ett blikk.\n2) Trykk en vare for å hake den av.\n3) Trykk «Se alt →» for å åpne hele skjermen.\n4) Trykk på øyet (topplinjen) for å vise kun de viktigste planene.',
+      text: 'Se dagens notater, planer og handleliste på ett blikk.',
       example: '',
     },
     taskForm: {
-      text: '1) Skriv en tittel.\n2) Velg en dato — i dag er fylt inn for deg.\n3) Valgfritt: sett et tidspunkt, merk som viktig, legg til steg, eller gjenta ukentlig.\n4) Trykk Lagre.',
+      text: 'Legg til en oppgave med tittel, dato og valgfrie detaljer.',
       example: '',
     },
     habitForm: {
-      text: '1) Velg Bygg (start å gjøre) eller Bryt (gjør mindre).\n2) Gi den et navn.\n3) Valgfritt: sett et daglig mål, en påminnelse, eller signal→trang→respons→belønning.\n4) Trykk Lagre.',
+      text: 'Følg en vane du bygger eller bryter.',
       example: '',
     },
     shopping: {
@@ -2231,11 +2231,11 @@ const no: typeof en = {
       example: '',
     },
     meals: {
-      text: '1) Trykk en måltidskategori for å se rettene.\n2) Trykk en rett for å legge ingrediensene til handlelisten.\n3) Trykk + for å lage en ny rett og liste ingrediensene.',
+      text: 'Bla gjennom retter og legg ingrediensene til handlelisten.',
       example: '',
     },
     health: {
-      text: '1) Denne ukens plager vises under — trykk på en for å se hele historikken.\n2) Åpne Helse-logg for å legge til en ny oppføring: sett plage, alvorlighetsgrad (1–5), når den startet/ble bedre og en valgfri notat.\n3) Helse-logg viser også alt du noen gang har logget, sortert etter type.',
+      text: 'Logg og følg opp helseplager over tid.',
       example: '',
     },
     scan: {
@@ -2247,15 +2247,15 @@ const no: typeof en = {
       example: '',
     },
     shared: {
-      text: 'Delt med deg — trykk Utført for din del.',
+      text: 'Delt med deg — merk din del som utført.',
       example: '',
     },
     habits: {
-      text: '1) Trykk + på en vane hver gang du bygger den eller motstår den.\n2) Trykk et kort for å utvide steg og ukevisning.\n3) Hold inne et kort for å redigere det.\n4) Trykk + Ny for å legge til en vane.',
+      text: 'Bygg vaner du vil ha mer av, eller bryt de du vil ha mindre av.',
       example: '',
     },
     plans: {
-      text: '1) Alle, I dag og Denne uka er de tre fanene øverst.\n2) Trykk sirkelen for å hake av en oppgave.\n3) Trykk en oppgave for å utvide og redigere direkte — tid, steg, gjentakelse.\n4) Legg til nye oppgaver i Når som helst-lista; lås opp med hengelåsen for å redigere.',
+      text: 'Alle oppgavene dine, organisert etter dag og uke.',
       example: '',
     },
     automations: {
@@ -2263,7 +2263,7 @@ const no: typeof en = {
       example: '',
     },
     notes: {
-      text: '1) Trykk på mikrofonen og si notatet — det legges rett i tekstboksen.\n2) Bruk handleliste- eller planer-knappen for å sende det videre.\n3) Hak av når du er ferdig — det flyttes ned.',
+      text: 'Raske notater du kan sende til handleliste eller planer.',
       example: '',
     },
   },
