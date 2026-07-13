@@ -6,29 +6,36 @@
  * ScreenScaffold's `stickyBelowHeader`; each tab is its own scroll of cards
  * (local `tab` state, no router routes).
  *
- * - Generelt: Focus mode toggle → Profil (name + language) → Utseende (dark mode) →
- *   Tilgjengelighet (reduced motion, particles, font size, left-handed, horizontal plans timeline) →
- *   Data group (debug mode toggle, Local account card (Decision 039 —
- *   device-only profile: name + create date, auto-backup toggle, backup/restore via
- *   lib/backup [share excludes user name]), LAN sync, destructive resets, version & updates).
- * - Modi (Additional modes): Jobb-modus (work mode, auto-activate + hours + work days,
- *   Norske helligdager) → Foreldremodus (child-mode, password, enter/exit) → Skolemodus toggle →
- *   Freyr-modus toggle (seeds/unseeds a starter data set via lib/freyrModeSeed.ts).
+ * - Generelt: Focus mode toggle → [Profil (name + language) / Utseende (dark mode) /
+ *   Tilgjengelighet (reduced motion, particles, font size, left-handed, horizontal plans
+ *   timeline)] one merged panel → Data group (debug mode toggle, then [Local account
+ *   (Decision 039 — device-only profile: name + create date, auto-backup toggle,
+ *   backup/restore via lib/backup [share excludes user name]) / LAN sync / version &
+ *   updates] one merged panel, then destructive Reset data card last).
+ * - Modi (Additional modes): [Jobb-modus (work mode, auto-activate + hours + work days,
+ *   Norske helligdager) / Foreldremodus (child-mode, password, enter/exit) / Personer-familie]
+ *   one merged panel → Skolemodus toggle → Freyr-modus toggle (seeds/unseeds a starter data
+ *   set via lib/freyrModeSeed.ts).
  * - Handle: shopping list settings (weekly reset weekday, monthly reset date, monthly budget).
- * - Varsler: Ukentlig (weekly reminder + time) → Generelle (independent plan-notifications and
- *   habit-reminders toggles, persistent daily overview, quiet hours).
+ * - Varsler: [Ukentlig (weekly reminder + time) / Generelle (independent plan-notifications
+ *   and habit-reminders toggles, persistent daily overview, quiet hours)] one merged panel →
+ *   Automatisering nav-link.
  *
  * Every setting applies immediately via applyAndSync() — no buffered/dirty save step (matches
  * hints.settings.text: "Changes apply immediately.").
  *
- * **Design-consistency pass**: multi-setting groups (Profil, Utseende, Tilgjengelighet,
- * Local account, LAN sync, Reset data, Version & updates, Jobb-modus, Foreldremodus,
- * Personer/familie, Handle's shopping settings, Ukentlig, Generelle) are each an
- * `ExpandableCard` (defaultOpen=false) inside their Surface card, so related settings
- * collapse together instead of one long flat stack. Single-toggle cards (Focus mode, Debug
- * mode, Skolemodus, Freyr-modus) and the Automatisering nav-link card stay plain — they
- * already show everything in one row, so a chevron/header would add chrome with nothing to
- * hide.
+ * **Layering pass (2026-07-13)**: related setting groups that used to each float in their own
+ * bordered/shadowed Surface card are now merged into ONE shared Surface holding several
+ * `ExpandableCard` rows (Profil+Utseende+Tilgjengelighet; Local account+LAN sync+Version &
+ * updates; Jobb-modus+Foreldremodus+Personer/familie; Ukentlig+Generelle) — fewer separate
+ * floating "islands" reads as one cohesive panel instead of a stack of unrelated boxes. This
+ * is exactly the grouping pattern ExpandableCard's own header already documents (Decision 043
+ * rule 1 / WeekListCard's dish-group rows) — multiple ExpandableCards as siblings inside one
+ * caller-owned Surface, each getting its own hairline top divider for separation. Destructive
+ * (Reset data) and single-toggle cards with no accordion body (Focus mode, Debug mode,
+ * Skolemodus, Freyr-modus) stay their own standalone card — folding a warning-red destructive
+ * card into a neutral panel would bury its visual distinctiveness, and a plain toggle has
+ * nothing to collapse.
  *
  * Connections:
  *   Imports → components/AppModal, components/ConfirmationBanner, components/FormControls,
@@ -419,7 +426,11 @@ export default function SettingsScreen() {
               </Surface>
             </View>
 
-            {/* PROFIL */}
+            {/* PROFIL / UTSEENDE / TILGJENGELIGHET — one panel (2026-07-13 layering pass:
+                these three used to be three separate floating Surface cards; merged into
+                one shared Surface with ExpandableCard rows, matching the grouping pattern
+                ExpandableCard's own header already documents — see its "Decision 043 rule 1"
+                note). */}
             <View style={styles.section}>
               <Surface style={styles.card}>
                 <ExpandableCard title={t.sectionProfile} accentColor={theme.accent}>
@@ -461,12 +472,9 @@ export default function SettingsScreen() {
                   </View>
                   <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.desc.language}</Text>
                 </ExpandableCard>
-              </Surface>
-            </View>
 
-            {/* UTSEENDE */}
-            <View style={styles.section}>
-              <Surface style={styles.card}>
+                {/* UTSEENDE — merged into the same panel as Profil/Tilgjengelighet
+                    (2026-07-13 layering pass: fewer separate floating cards). */}
                 <ExpandableCard title={t.config.sections.appearance} accentColor={theme.accent}>
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.lightDarkModeLabel}</Text>
                   <SegmentedControl
@@ -479,12 +487,8 @@ export default function SettingsScreen() {
                     ]}
                   />
                 </ExpandableCard>
-              </Surface>
-            </View>
 
-            {/* TILGJENGELIGHET */}
-            <View style={styles.section}>
-              <Surface style={styles.card}>
+                {/* TILGJENGELIGHET — same merged panel. */}
                 <ExpandableCard title={t.settings.accessibility.title} accentColor={theme.accent}>
                   <View style={styles.switchRow}>
                     <View style={styles.switchTextCol}>
@@ -558,8 +562,10 @@ export default function SettingsScreen() {
               </Surface>
             </View>
 
-            {/* Local account (Decision 039) — device-only, user-held profile. No server,
-                no credentials; the account rides along in the local backup file below. */}
+            {/* Local account / LAN sync / Version & updates — one panel (2026-07-13
+                layering pass: these three used to each float in their own Surface card).
+                Decision 039: device-only, user-held profile. No server, no credentials;
+                the account rides along in the local backup file below. */}
             <View style={styles.section}>
               <Surface style={styles.card}>
                 <ExpandableCard title={t.account.title} accentColor={theme.accent}>
@@ -619,13 +625,9 @@ export default function SettingsScreen() {
                   </PressableScale>
                   <Text style={[styles.descText, { color: theme.textMuted, marginBottom: 0 }]}>{t.account.deviceOnlyNote}</Text>
                 </ExpandableCard>
-              </Surface>
-            </View>
 
-            {/* LAN live sync (Decision 038 app integration) — pairing lives on its own
-                screen (app/pair-device.tsx); this card is just the entry point + toggle. */}
-            <View style={styles.section}>
-              <Surface style={styles.card}>
+                {/* LAN live sync (Decision 038 app integration) — pairing lives on its own
+                    screen (app/pair-device.tsx); this card is just the entry point + toggle. */}
                 <ExpandableCard title={t.peers.title} accentColor={theme.accent}>
                   <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
                     {syncAvailable ? t.peers.settingsCardDesc : t.peers.syncUnavailable}
@@ -634,43 +636,10 @@ export default function SettingsScreen() {
                     <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.peers.manageLink}</Text>
                   </PressableScale>
                 </ExpandableCard>
-              </Surface>
-            </View>
 
-            {/* Reset data */}
-            <View style={styles.section}>
-              <Surface style={[styles.card, { borderWidth: 1, borderColor: theme.badSoft }]}>
-                <ExpandableCard title={t.sectionReset} accentColor={theme.bad}>
-                  <Text style={[styles.descText, { color: theme.bad, marginBottom: Spacing.sm, marginTop: 0 }]}>{t.config.desc.dataNote}</Text>
-                  <PressableScale style={styles.dangerBtn} onPress={() => confirmReset(t.resetMonthly.toLowerCase(), monthlyReset)} scaleTo={0.93}>
-                    <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetMonthly}</Text>
-                  </PressableScale>
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <PressableScale style={styles.dangerBtn} onPress={() => confirmReset(t.resetTasks.toLowerCase(), clearTasks)} scaleTo={0.93}>
-                    <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetTasks}</Text>
-                  </PressableScale>
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <PressableScale
-                    style={styles.dangerBtn}
-                    onPress={() =>
-                      confirmReset(t.resetOnboarding.toLowerCase(), () => {
-                        settings.update({ setupComplete: false });
-                        router.replace('/onboarding/language');
-                      })
-                    }
-                    scaleTo={0.93}
-                  >
-                    <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetOnboarding}</Text>
-                  </PressableScale>
-                </ExpandableCard>
-              </Surface>
-            </View>
-
-            {/* Version & updates — lets the user see exactly which build/OTA is
-                running and force an OTA check. Runtime + updateId here are the
-                fastest way to diagnose "I haven't received the update". */}
-            <View style={styles.section}>
-              <Surface style={styles.card}>
+                {/* Version & updates — lets the user see exactly which build/OTA is
+                    running and force an OTA check. Runtime + updateId here are the
+                    fastest way to diagnose "I haven't received the update". */}
                 <ExpandableCard title={t.version.title} accentColor={theme.accent}>
                   {[
                     [t.version.appVersion, appVersion],
@@ -699,12 +668,46 @@ export default function SettingsScreen() {
                 </ExpandableCard>
               </Surface>
             </View>
+
+            {/* Reset data — kept as its own red-bordered card (not folded into the merged
+                panel above) so the destructive action stays visually distinct; moved to the
+                end of the tab as a "danger zone at the bottom" (2026-07-13 layering pass). */}
+            <View style={styles.section}>
+              <Surface style={[styles.card, { borderWidth: 1, borderColor: theme.badSoft }]}>
+                <ExpandableCard title={t.sectionReset} accentColor={theme.bad}>
+                  <Text style={[styles.descText, { color: theme.bad, marginBottom: Spacing.sm, marginTop: 0 }]}>{t.config.desc.dataNote}</Text>
+                  <PressableScale style={styles.dangerBtn} onPress={() => confirmReset(t.resetMonthly.toLowerCase(), monthlyReset)} scaleTo={0.93}>
+                    <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetMonthly}</Text>
+                  </PressableScale>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <PressableScale style={styles.dangerBtn} onPress={() => confirmReset(t.resetTasks.toLowerCase(), clearTasks)} scaleTo={0.93}>
+                    <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetTasks}</Text>
+                  </PressableScale>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <PressableScale
+                    style={styles.dangerBtn}
+                    onPress={() =>
+                      confirmReset(t.resetOnboarding.toLowerCase(), () => {
+                        settings.update({ setupComplete: false });
+                        router.replace('/onboarding/language');
+                      })
+                    }
+                    scaleTo={0.93}
+                  >
+                    <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetOnboarding}</Text>
+                  </PressableScale>
+                </ExpandableCard>
+              </Surface>
+            </View>
           </>
         )}
 
         {tab === 'moduser' && (
           <>
-            {/* JOBB-MODUS */}
+            {/* JOBB-MODUS / FORELDREMODUS / PERSONER — one panel (2026-07-13 layering
+                pass: these three used to each float in their own Surface card). Skolemodus
+                and Freyr-modus stay standalone below — they're single-toggle cards with no
+                accordion body, so folding them in would add chrome with nothing to hide. */}
             <View style={styles.section}>
               <Surface style={styles.card}>
                 <ExpandableCard title={t.config.sections.workMode} accentColor={theme.accent}>
@@ -790,12 +793,8 @@ export default function SettingsScreen() {
                     <FormSwitch checked={settings.holidaysEnabled} onChange={(v) => settings.update({ holidaysEnabled: v })} />
                   </View>
                 </ExpandableCard>
-              </Surface>
-            </View>
 
-            {/* FORELDREMODUS (Parent mode / Child mode) */}
-            <View style={styles.section}>
-              <Surface style={styles.card}>
+                {/* FORELDREMODUS (Parent mode / Child mode) */}
                 <ExpandableCard title={t.childModeTitle} accentColor={theme.accent}>
                   <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeDesc}</Text>
                   {settings.childMode ? (
@@ -833,29 +832,8 @@ export default function SettingsScreen() {
                     </>
                   )}
                 </ExpandableCard>
-              </Surface>
-            </View>
 
-            {/* SKOLEMODUS */}
-            <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.schoolMode.label}</Text>
-              <Surface style={styles.card}>
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.schoolMode.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.schoolMode.hint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.schoolModeEnabled}
-                    onChange={(v) => { selection(); settings.update({ schoolModeEnabled: v }); }}
-                  />
-                </View>
-              </Surface>
-            </View>
-
-            {/* PERSONER / FAMILIE (People / family mode) */}
-            <View style={styles.section}>
-              <Surface style={styles.card}>
+                {/* PERSONER / FAMILIE (People / family mode) — same merged panel. */}
                 <ExpandableCard title={t.peopleMode.label} accentColor={theme.accent}>
                   <View style={styles.switchRow}>
                     <View style={styles.switchTextCol}>
@@ -913,6 +891,23 @@ export default function SettingsScreen() {
                     </>
                   )}
                 </ExpandableCard>
+              </Surface>
+            </View>
+
+            {/* SKOLEMODUS — standalone: single-toggle card with no accordion body. */}
+            <View style={styles.section}>
+              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.schoolMode.label}</Text>
+              <Surface style={styles.card}>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.schoolMode.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.schoolMode.hint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.schoolModeEnabled}
+                    onChange={(v) => { selection(); settings.update({ schoolModeEnabled: v }); }}
+                  />
+                </View>
               </Surface>
             </View>
 
@@ -1012,7 +1007,8 @@ export default function SettingsScreen() {
 
         {tab === 'varsler' && (
           <>
-            {/* UKENTLIG */}
+            {/* UKENTLIG / GENERELLE — one panel (2026-07-13 layering pass: these two used
+                to each float in their own Surface card). */}
             <View style={styles.section}>
               <Surface style={styles.card}>
                 <ExpandableCard title={t.weeklyReminders} accentColor={theme.accent}>
@@ -1036,12 +1032,8 @@ export default function SettingsScreen() {
                     </>
                   )}
                 </ExpandableCard>
-              </Surface>
-            </View>
 
-            {/* GENERELLE */}
-            <View style={styles.section}>
-              <Surface style={styles.card}>
+                {/* GENERELLE — same merged panel. */}
                 <ExpandableCard title={t.config.sections.notifications} accentColor={theme.accent}>
                   <View style={styles.switchRow}>
                     <View style={styles.switchTextCol}>

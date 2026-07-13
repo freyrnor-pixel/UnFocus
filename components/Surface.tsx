@@ -24,8 +24,19 @@
  *     selects the blur intensity AND the wash alpha — one shared code path; what sits
  *     *behind* the card (ScreenBackground backdrop for ambient, live scrolling content
  *     for overlay) is decided by where the caller mounts the Surface, not here.
- *     Android wires
- *     `experimentalBlurMethod="dimezisBlurView"` (Decision 008 (2)).
+ *   - Android's BlurView renders with `experimentalBlurMethod="none"` (2026-07-13 fix,
+ *     superseding Decision 008 (2)'s `"dimezisBlurView"`): as of expo-blur's SDK 55+
+ *     implementation, `dimezisBlurView` requires wrapping the blurred backdrop in a
+ *     `BlurTargetView` and passing its ref to `BlurView` — Surface never did this, so the
+ *     blur was silently misconfigured. Worse, it's documented broken inside a React
+ *     Native `<Modal>` (expo/expo#44165 — BlurTargetView can't cross the Modal's separate
+ *     native window), and in practice the misconfigured native view was intercepting
+ *     touches meant for children underneath it (PressableScale headers going dead —
+ *     e.g. ExpandableCard rows in Settings not responding to taps). The colour wash
+ *     below is already GLASS_WASH_ALPHA (0.92–0.97, near-opaque), so disabling the
+ *     native blur on Android is visually near-invisible while removing a broken native
+ *     view from the tree entirely. iOS is unaffected (`undefined` uses its native blur,
+ *     which never had this requirement).
  *   - The top sheen highlight is a single `<LinearGradient>` (expo-linear-gradient)
  *     fading mat.sheenColor to transparent — a real continuous gradient, not two
  *     overlapping flat-opacity Views. Two stacked flat rectangles read as a visible
@@ -179,7 +190,7 @@ export default function Surface({ surfaceContext = 'ambient', tint, style, child
               pointerEvents="none"
               tint={isDark ? 'dark' : 'light'}
               intensity={GLASS_BLUR_INTENSITY[surfaceContext]}
-              experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
+              experimentalBlurMethod={Platform.OS === 'android' ? 'none' : undefined}
               style={StyleSheet.absoluteFill}
             />
             {/* Colour wash so the glass carries the theme/tint hue while staying opaque
