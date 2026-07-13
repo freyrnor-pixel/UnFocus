@@ -234,7 +234,6 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_store_items_name ON store_items(name);
     CREATE INDEX IF NOT EXISTS idx_purchase_log_date ON purchase_log(purchased_at);
     CREATE INDEX IF NOT EXISTS idx_feedback_notes_screen ON feedback_notes(screen);
-    CREATE INDEX IF NOT EXISTS idx_feedback_notes_anchor ON feedback_notes(anchor_id);
     CREATE INDEX IF NOT EXISTS idx_receipts_month ON receipts(month);
     -- Append-only tables are read/pruned ordered by created_at — index it.
     CREATE INDEX IF NOT EXISTS idx_inbox_created ON inbox_items(created_at);
@@ -577,6 +576,10 @@ export function initDb() {
     // longer exists in the new UI. x/y stay unused (legacy NOT NULL columns, written as 0).
     "ALTER TABLE feedback_notes ADD COLUMN anchor_id TEXT DEFAULT ''",
     "ALTER TABLE feedback_notes ADD COLUMN updated_at TEXT DEFAULT ''",
+    // Must run AFTER the anchor_id column migration above — indexing it from the
+    // initial CREATE TABLE block (before the column exists on a fresh DB) throws
+    // "no such column: anchor_id" and aborts initDb() before any migration runs.
+    "CREATE INDEX IF NOT EXISTS idx_feedback_notes_anchor ON feedback_notes(anchor_id)",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
