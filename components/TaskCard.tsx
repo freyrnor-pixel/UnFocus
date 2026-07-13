@@ -21,6 +21,14 @@
  * lives in useTaskStore (toggle / toggleStep), so tapping a circle here keeps them in
  * lockstep automatically for an existing task; a new card's steps just toggle in the draft.
  *
+ * Row anatomy (2026-07-13 color-rail redesign): the collapsed row is
+ * `[sent chip?] · title · assignee · time · ◯ circle · ⌄ chevron` — the done-circle sits to
+ * the RIGHT of the title and LEFT of the chevron (was far-left). A `railColor` prop paints a
+ * 4px domain-hue left rail so a card reads as belonging to its section; `sharedDirection="out"`
+ * adds a leading ↑ "Sent" chip in the merged Shared section. The done circle/steps fill with
+ * `theme.good` (status green, both modes) — never the section hue — so "done" never collides
+ * with a domain color.
+ *
  * Connections:
  *   Imports → components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
  *             components/IconButton, components/FormControls (Switch), components/AppModal,
@@ -46,7 +54,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, contrastOn } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0 } from '@/lib/date';
@@ -74,6 +82,10 @@ type Props = {
   showShareOut?: boolean;
   /** Shared color cue (Today / This week views). */
   tinted?: boolean;
+  /** Domain-hue left rail (color-rail layout — 2026-07-13 redesign). 4px left border. */
+  railColor?: string;
+  /** Shared-section direction cue: 'out' shows a leading ↑ "Sent" chip on the collapsed row. */
+  sharedDirection?: 'in' | 'out';
   /** Draft card for a not-yet-created task: starts expanded; Save → onCommitNew. */
   isNew?: boolean;
   /** New-card Save: hand the assembled draft back to the parent to persist. */
@@ -89,6 +101,8 @@ export default function TaskCard({
   showDelete,
   showShareOut,
   tinted,
+  railColor,
+  sharedDirection,
   isNew,
   onCommitNew,
   onDiscardNew,
@@ -290,26 +304,23 @@ export default function TaskCard({
         </View>
       )}
 
-      <View style={[styles.card, { backgroundColor: tinted ? theme.accentSoft : theme.surface, borderColor: editing ? theme.accent : theme.border }]}>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: tinted ? theme.accentSoft : theme.surface, borderColor: editing ? theme.accent : theme.border },
+          railColor && { borderLeftWidth: 4, borderLeftColor: railColor },
+        ]}
+      >
         {/* ── Collapsed row ── */}
+        {/* Anatomy (2026-07-13 redesign): [sent chip?] · title (flex) · assignee · time · ◯ circle · ⌄ chevron.
+            The done-circle sits to the RIGHT of the title and to the LEFT of the expand chevron. */}
         <View style={styles.row}>
-          <PressableScale
-            hitSlop={8}
-            onPress={() => onToggleDone(task)}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: task.done }}
-            scaleTo={0.97}
-          >
-            <View
-              style={[
-                styles.circle,
-                { borderColor: theme.border },
-                task.done && { backgroundColor: theme.accent, borderColor: theme.accent },
-              ]}
-            >
-              {task.done && <Ionicons name="checkmark" size={14} color={theme.accentInk} />}
+          {sharedDirection === 'out' && (
+            <View style={[styles.dirChip, { backgroundColor: railColor ? railColor : theme.surfaceMuted }]}>
+              <Ionicons name="arrow-up" size={11} color={railColor ? contrastOn(railColor) : theme.textMuted} />
+              <Text style={[styles.dirChipText, { color: railColor ? contrastOn(railColor) : theme.textMuted }]}>{t.tasksSharedSent}</Text>
             </View>
-          </PressableScale>
+          )}
 
           <PressableScale style={styles.titleTap} onPress={openEditor} disabled={!canExpand} scaleTo={0.97}>
             <Text
@@ -337,6 +348,24 @@ export default function TaskCard({
             </Text>
           ) : null}
 
+          <PressableScale
+            hitSlop={8}
+            onPress={() => onToggleDone(task)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: task.done }}
+            scaleTo={0.97}
+          >
+            <View
+              style={[
+                styles.circle,
+                { borderColor: theme.border },
+                task.done && { backgroundColor: theme.good, borderColor: theme.good },
+              ]}
+            >
+              {task.done && <Ionicons name="checkmark" size={14} color={contrastOn(theme.good)} />}
+            </View>
+          </PressableScale>
+
           {canExpand && (
             <PressableScale hitSlop={6} onPress={openEditor} style={styles.chevronBtn} scaleTo={0.9}>
               <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textMuted} />
@@ -353,10 +382,10 @@ export default function TaskCard({
                   style={[
                     styles.stepCheck,
                     { borderColor: theme.border },
-                    step.done && { backgroundColor: theme.accent, borderColor: theme.accent },
+                    step.done && { backgroundColor: theme.good, borderColor: theme.good },
                   ]}
                 >
-                  {step.done && <Ionicons name="checkmark" size={12} color={theme.accentInk} />}
+                  {step.done && <Ionicons name="checkmark" size={12} color={contrastOn(theme.good)} />}
                 </View>
                 <Text
                   style={[
@@ -436,10 +465,10 @@ export default function TaskCard({
                         style={[
                           styles.stepCheck,
                           { borderColor: theme.border },
-                          step.done && { backgroundColor: theme.accent, borderColor: theme.accent },
+                          step.done && { backgroundColor: theme.good, borderColor: theme.good },
                         ]}
                       >
-                        {step.done && <Ionicons name="checkmark" size={12} color={theme.accentInk} />}
+                        {step.done && <Ionicons name="checkmark" size={12} color={contrastOn(theme.good)} />}
                       </View>
                       <Text
                         style={[
@@ -707,6 +736,16 @@ const styles = StyleSheet.create({
   titleTap: { flex: 1, paddingVertical: 4 },
   title: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   timeLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
+  // Leading "Sent" indicator on shared-out rows (merged Shared section).
+  dirChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: Radius.full,
+    paddingVertical: 2,
+    paddingHorizontal: Spacing.sm,
+  },
+  dirChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   chevronBtn: { padding: 2 },
   editor: { gap: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.xs },
   titleInput: {

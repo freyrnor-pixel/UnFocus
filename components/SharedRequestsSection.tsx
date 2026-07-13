@@ -11,7 +11,9 @@
  *   Imports → components/PressableScale, components/Surface, constants/theme, lib/haptics,
  *             lib/i18n, lib/date, lib/useAppTheme, store/useSharedStore, store/useShoppingStore,
  *             store/useTaskStore
- *   Used by → app/(tabs)/shopping.tsx (kind='shopping'), app/(tabs)/plans.tsx (kind='task')
+ *   Used by → app/(tabs)/shopping.tsx (kind='shopping'). The Tasks screen no longer uses this —
+ *             its incoming shares moved into components/SharedTasksSection.tsx (merged Shared
+ *             section, 2026-07-13). The kind='task' code path is kept for reference/reuse.
  *   Data    → reads/removes useSharedStore rows; writes useShoppingStore/useTaskStore on accept
  *
  * Edit notes:

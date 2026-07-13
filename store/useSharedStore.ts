@@ -9,6 +9,7 @@
  *   Imports → lib/db, lib/dataAccess, lib/id
  *   Used by → app/share-modal.tsx, app/shared.tsx, app/(tabs)/index.tsx (Home preview via
  *             components/HomeSharedCard.tsx), components/SharedRequestsSection.tsx,
+ *             components/SharedTasksSection.tsx (Tasks screen merged Shared section),
  *             app/(tabs)/scan.tsx (QR import writes addShared*)
  *   Data    → defines a Zustand store; owns SQLite tables shared_tasks and shared_shopping_items
  *
