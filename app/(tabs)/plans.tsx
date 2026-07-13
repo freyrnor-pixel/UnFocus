@@ -16,7 +16,8 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedRequestsSection,
  *             components/TaskCard, components/AddRow, components/Surface, components/PressableScale,
- *             constants/theme, lib/date, lib/i18n, lib/useAppTheme, store/useTaskStore
+ *             constants/theme, lib/date, lib/i18n, lib/useAppTheme, lib/useFirstVisitHint,
+ *             store/useTaskStore, store/useSettingsStore
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → reads/writes useTaskStore (tasks/steps); SharedRequestsSection reads
  *             useSharedStore internally for incoming shares
@@ -45,8 +46,7 @@
  *     only seeds the first-run blank draft (see below).
  */
 import React, { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { StyleSheet, Switch, Text, View } from 'react-native';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import SharedRequestsSection from '@/components/SharedRequestsSection';
@@ -57,6 +57,7 @@ import PressableScale from '@/components/PressableScale';
 import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { Fonts, FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
@@ -89,9 +90,12 @@ export default function TasksScreen() {
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
   const childProfiles = useSettingsStore((s) => s.childProfiles);
   const showPeople = peopleModeEnabled && childProfiles.length > 0;
+  // First-run hint embeds the work-mode toggle the old wizard step 2 collected.
+  const workModeEnabled = useSettingsStore((s) => s.workModeEnabled);
+  const updateSettings = useSettingsStore((s) => s.update);
 
   const [tab, setTab] = useState<Tab>('all');
-  const [hintOpen, setHintOpen] = useState(false);
+  const [hintOpen, setHintOpen] = useFirstVisitHint('plans');
   // Person filter (People/family mode): null = Everyone, '' = Me, name = that profile.
   const [personFilter, setPersonFilter] = useState<string | null>(null);
   // Inline "add a row" input for the Whenever section — the one add affordance on this screen.
@@ -104,12 +108,6 @@ export default function TasksScreen() {
   const matchPerson = useCallback(
     (tk: Task) => !showPeople || personFilter === null || (tk.assignee || '') === personFilter,
     [showPeople, personFilter]
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      return () => setHintOpen(false);
-    }, [])
   );
 
   const weekDates = useMemo(() => getWeekDates(today), [today]);
@@ -220,7 +218,20 @@ export default function TasksScreen() {
       onInfoToggle={() => setHintOpen((v) => !v)}
     >
       <View style={styles.content}>
-        <HintCard text={t.hints.plans.text} open={hintOpen} noPill />
+        <HintCard text={t.hints.plans.text} open={hintOpen} noPill>
+          <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
+            <View style={styles.hintSettingText}>
+              <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.startWithWorkMode}</Text>
+              <Text style={[styles.hintSettingHint, { color: theme.textMuted }]}>{t.canChangeAnytime}</Text>
+            </View>
+            <Switch
+              value={workModeEnabled}
+              onValueChange={(v) => updateSettings({ workModeEnabled: v })}
+              trackColor={{ false: theme.border, true: theme.accentSoft }}
+              thumbColor={workModeEnabled ? theme.accent : theme.textMuted}
+            />
+          </View>
+        </HintCard>
 
         {/* Person filter (People/family mode) — Everyone + Me + each profile. */}
         {showPeople && (
@@ -376,6 +387,17 @@ export default function TasksScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: Spacing.md },
+  // Embedded first-run setting inside the ⓘ hint (work mode).
+  hintSetting: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    borderTopWidth: 1,
+    paddingTop: Spacing.sm,
+  },
+  hintSettingText: { flex: 1 },
+  hintSettingLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  hintSettingHint: { fontSize: FontSize.xs, marginTop: 2 },
   stickyBar: { flex: 1, paddingHorizontal: Spacing.md, justifyContent: 'center' },
   tabsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   tab: {

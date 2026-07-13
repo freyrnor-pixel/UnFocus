@@ -9,14 +9,17 @@
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme,
  *             lib/i18n (useT), components/PressableScale
- *   Used by → app/(tabs)/index.tsx, app/(tabs)/plans.tsx, app/(tabs)/health.tsx (this-week
- *             summary + embedded Habits section), app/(tabs)/scan.tsx, app/task-form.tsx,
- *             app/meals.tsx, app/habit-form.tsx, app/notes.tsx, app/onboarding/step2.tsx,
- *             app/onboarding/step3.tsx, app/health-form.tsx, app/health-log.tsx
+ *   Used by → app/(tabs)/index.tsx, app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx,
+ *             app/(tabs)/health.tsx (this-week summary + embedded Habits section),
+ *             app/(tabs)/scan.tsx, app/task-form.tsx, app/meals.tsx, app/habit-form.tsx,
+ *             app/notes.tsx, app/health-form.tsx, app/health-log.tsx
  *   Data    → reads colours from
  *             useAppTheme(); scaled fontSize via useScaledStyles()
  *
  * Edit notes:
+ *   - Optional `children` render below text/example — used to embed a first-run setting
+ *     control (shopping reset day, work mode, notifications) so a screen teaches it in
+ *     context on first visit. See app/(tabs)/shopping.tsx / plans.tsx / index.tsx.
  *   - Always renders the how-to button (collapsed by default) — callers should still pass text/example.
  *   - text/example are passed in already-localized; this component does not call useT() itself
  *     except for the toggle button's own label (t.showHint/t.hideHint).
@@ -52,9 +55,16 @@ type Props = {
    * hint — the header ⓘ button IS the toggle, so the pill is redundant.
    */
   noPill?: boolean;
+  /**
+   * Optional interactive content rendered inside the hint body, below the
+   * text/example. Used to embed a first-run setting control (e.g. shopping
+   * reset day, work mode) that the old onboarding wizard used to collect —
+   * the hint teaches it in context on first visit. See app/(tabs)/*.
+   */
+  children?: React.ReactNode;
 };
 
-export default function HintCard({ text, example, open: openProp, onToggle: onToggleProp, noPill }: Props) {
+export default function HintCard({ text, example, open: openProp, onToggle: onToggleProp, noPill, children }: Props) {
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
@@ -79,6 +89,7 @@ export default function HintCard({ text, example, open: openProp, onToggle: onTo
         <View style={styles.body}>
           <Text style={[styles.text, { color: theme.text }]}>{text}</Text>
           {example ? <Text style={[styles.example, { color: theme.textMuted }]}>{example}</Text> : null}
+          {children ? <View style={styles.childrenSlot}>{children}</View> : null}
         </View>
       </View>
     );
@@ -103,6 +114,7 @@ export default function HintCard({ text, example, open: openProp, onToggle: onTo
           <View style={styles.body}>
             <Text style={[styles.text, { color: theme.text }]}>{text}</Text>
             {example ? <Text style={[styles.example, { color: theme.textMuted }]}>{example}</Text> : null}
+            {children ? <View style={styles.childrenSlot}>{children}</View> : null}
           </View>
         </View>
       )}
@@ -153,5 +165,8 @@ const baseStyles = StyleSheet.create({
     fontSize: FontSize.xs,
     lineHeight: 18,
     fontStyle: 'italic',
+  },
+  childrenSlot: {
+    marginTop: Spacing.sm,
   },
 });

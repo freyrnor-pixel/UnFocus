@@ -1,26 +1,29 @@
 /**
  * guided.tsx — Guided-setup vs Explore choice (after language)
  *
- * Branch point: "Guided" enters the 5-step wizard; "Explore" skips it and jumps
- * straight to the home screen, marking setup complete. Both enable showHints.
+ * Branch point: "Guided" runs the short intro tour then the name step; "Explore"
+ * skips it and jumps straight to the home screen, marking setup complete. Both
+ * enable showHints so the per-screen ⓘ hints (which now teach the settings the old
+ * wizard collected) are available.
  *
  * Connections:
- *   Imports → @/store/useSettingsStore, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
+ *   Imports → @/store/useSettingsStore, @/store/useTaskStore, @/lib/notifications,
+ *             @/lib/reminders, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
  *             @/components/Button, @/components/Surface, @/components/PressableScale
  *   Used by → Expo Router route "/onboarding/guided"
- *   Data    → useSettingsStore (writes `showHints`; Explore also writes `setupComplete`)
+ *   Data    → useSettingsStore (writes `showHints`; Explore also writes `setupComplete`
+ *             + new-user defaults, then schedules reminders like the name-step finish)
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
- *   - goGuided() → router.push "/onboarding" (continues wizard, leaves setupComplete unset).
- *   - goExplore() sets setupComplete:true + new-user defaults and router.replace "/" — a
- *     legitimate "skip the wizard, use defaults" path (theme is locked to 'default' and no
- *     longer user-selectable, so nothing visual is missed by skipping; see step5.tsx).
- *   - Each whole option card is a PressableScale (was: only the small "Neste →" Button was
- *     tappable, so taps on the title/description did nothing). A trailing arrow-forward icon
- *     shows the affordance; distinct leading icons (list vs compass) tell the two apart.
- *   - Guided option card uses <Surface tint={theme.accent}> (Decision 008 material); its
- *     label/icon read theme.accentInk (text-on-accent-fill). Decision 006 tokens throughout.
+ *   - goGuided() → router.push "/onboarding/intro" (the short tour → name step).
+ *   - goExplore() sets setupComplete + new-user defaults and runs the same reminder
+ *     sync as the name step's finish() (parity), then router.replace "/".
+ *   - Both option cards sit on the plain glass Surface (theme.text on surface = full
+ *     contrast); the recommended (Guided) one is marked by an accent icon badge + a
+ *     "Recommended" chip, NOT an accent fill (the old tint={theme.accent} fill put
+ *     low-contrast accentInk text on a busy fill — the "too filled / low contrast"
+ *     complaint). Decision 006 tokens throughout.
  */
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -28,6 +31,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useTaskStore } from '@/store/useTaskStore';
+import { requestPermissions } from '@/lib/notifications';
+import { syncReminders } from '@/lib/reminders';
 import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -44,13 +50,23 @@ export default function GuidedScreen() {
 
   function goGuided() {
     settings.update({ showHints: true });
-    router.push('/onboarding');
+    router.push('/onboarding/intro');
   }
 
   function goExplore() {
     // W-E: new-user defaults — start with Focus/Essentials mode OFF (Notes/Shopping
-    // previews visible) and points visible. Onboarding-only.
+    // previews visible) and points visible. Onboarding-only. Schedule reminders the
+    // same way the name-step finish() does, so Explore users aren't left unscheduled.
     settings.update({ showHints: true, setupComplete: true, essentialsModeEnabled: false, showPoints: true });
+    if (settings.taskNotificationsEnabled || settings.remindersEnabled) {
+      requestPermissions().finally(() => {
+        syncReminders();
+        useTaskStore.getState().syncAllTaskNotifications();
+      });
+    } else {
+      syncReminders();
+      useTaskStore.getState().syncAllTaskNotifications();
+    }
     router.replace('/');
   }
 
@@ -70,22 +86,29 @@ export default function GuidedScreen() {
         </View>
 
         <View style={styles.options}>
-          {/* Whole card is the tap target (was: only the small "Neste →" button registered
-              taps, so tapping the title/description did nothing). A trailing arrow shows the
-              affordance; distinct leading icons keep the two adjacent cards tellable apart. */}
+          {/* Whole card is the tap target. Both cards read theme.text on the plain glass
+              surface (full contrast); the recommended one is marked with an accent icon
+              badge + chip rather than a low-contrast accent fill. */}
           <PressableScale
             onPress={goGuided}
             scaleTo={0.98}
             accessibilityRole="button"
             accessibilityLabel={t.guidedBtn}
           >
-            <Surface tint={theme.accent} style={styles.optionCard}>
-              <Ionicons name="list-outline" size={24} color={theme.accentInk} style={styles.optionIcon} />
-              <View style={styles.optionText}>
-                <Text style={[styles.optionLabel, { color: theme.accentInk }]}>{t.guidedBtn}</Text>
-                <Text style={[styles.optionDesc, { color: theme.accentInk }]}>{t.guidedDesc}</Text>
+            <Surface style={styles.optionCard}>
+              <View style={[styles.optionBadge, { backgroundColor: theme.accentSoft }]}>
+                <Ionicons name="list-outline" size={22} color={theme.accent} />
               </View>
-              <Ionicons name="arrow-forward" size={22} color={theme.accentInk} />
+              <View style={styles.optionText}>
+                <View style={styles.optionLabelRow}>
+                  <Text style={[styles.optionLabel, { color: theme.text }]}>{t.guidedBtn}</Text>
+                  <View style={[styles.recommendedChip, { backgroundColor: theme.accentSoft }]}>
+                    <Text style={[styles.recommendedChipText, { color: theme.accent }]}>{t.recommended}</Text>
+                  </View>
+                </View>
+                <Text style={[styles.optionDesc, { color: theme.textMuted }]}>{t.guidedDesc}</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={22} color={theme.accent} />
             </Surface>
           </PressableScale>
 
@@ -96,7 +119,9 @@ export default function GuidedScreen() {
             accessibilityLabel={t.exploreBtn}
           >
             <Surface style={styles.optionCard}>
-              <Ionicons name="compass-outline" size={24} color={theme.accent} style={styles.optionIcon} />
+              <View style={[styles.optionBadge, { backgroundColor: theme.surfaceMuted }]}>
+                <Ionicons name="compass-outline" size={22} color={theme.textMuted} />
+              </View>
               <View style={styles.optionText}>
                 <Text style={[styles.optionLabel, { color: theme.text }]}>{t.exploreBtn}</Text>
                 <Text style={[styles.optionDesc, { color: theme.textMuted }]}>{t.exploreDesc}</Text>
@@ -148,10 +173,22 @@ const baseStyles = StyleSheet.create({
     padding: Spacing.lg,
     gap: Spacing.md,
   },
-  optionIcon: {},
+  optionBadge: {
+    width: 44, height: 44, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center',
+  },
   optionText: { flex: 1, gap: 2 },
+  optionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
   optionLabel: {
     fontSize: FontSize.lg,
+    fontFamily: Fonts.semibold,
+  },
+  recommendedChip: {
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+  },
+  recommendedChipText: {
+    fontSize: FontSize.xs,
     fontFamily: Fonts.semibold,
   },
   optionDesc: {

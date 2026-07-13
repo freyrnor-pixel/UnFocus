@@ -13,7 +13,8 @@
  *             components/HomeSharedCard, components/HomeShoppingCard,
  *             components/FlightOverlay (FlightPill, Flight, FlightRect), components/DebugNoteAnchor,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
- *             lib/useAppTheme, store/useTaskStore, store/useNotesStore, store/useSharedStore,
+ *             lib/useAppTheme, lib/useFirstVisitHint, lib/notifications, lib/reminders,
+ *             store/useTaskStore, store/useNotesStore, store/useSharedStore,
  *             store/useShoppingStore, store/useShoppingListStore, store/useSettingsStore
  *   Used by → Expo Router route "/" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → reads useTaskStore (tasks) + useNotesStore (notes) + useSharedStore (incoming
@@ -75,7 +76,7 @@
  *     mechanics; this screen is the one concrete "cards" usage alongside every screen's header.
  */
 import React, { useCallback, useRef, useState } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
+import { NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Switch, Text, View } from 'react-native';
 import { useRouter, usePathname, useFocusEffect } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PlanTaskCard from '@/components/PlanTaskCard';
@@ -97,6 +98,9 @@ import { SharedShoppingItem, SharedTask, useSharedStore } from '@/store/useShare
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import { useShoppingListStore } from '@/store/useShoppingListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
+import { requestPermissions } from '@/lib/notifications';
+import { syncReminders } from '@/lib/reminders';
 
 export default function HomeScreen() {
   const t = useT();
@@ -108,7 +112,7 @@ export default function HomeScreen() {
 
   // Focus mode: Home-only, ephemeral (Decisions 009 #4 / 018). Reset on blur below.
   const [focusMode, setFocusMode] = useState(false);
-  const [hintOpen, setHintOpen] = useState(false);
+  const [hintOpen, setHintOpen] = useFirstVisitHint('home');
 
   // Flight animation (Phase 1, 2026-07-11) — mirrors app/(tabs)/shopping.tsx's screen-level
   // plumbing at smaller scale (one card, no listId keying needed). See that file's own edit
@@ -228,7 +232,39 @@ export default function HomeScreen() {
         onScroll={handleScreenScroll}
       >
         <View style={styles.content}>
-          {!focusMode && <HintCard text={t.hints.home.text} open={hintOpen} noPill />}
+          {!focusMode && (
+            <HintCard text={t.hints.home.text} open={hintOpen} noPill>
+              <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
+                <View style={styles.hintSettingRow}>
+                  <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.taskNotifications}</Text>
+                  <Switch
+                    value={settings.taskNotificationsEnabled}
+                    onValueChange={(v) => {
+                      settings.update({ taskNotificationsEnabled: v });
+                      const resync = () => useTaskStore.getState().syncAllTaskNotifications();
+                      if (v) requestPermissions().finally(resync);
+                      else resync();
+                    }}
+                    trackColor={{ false: theme.border, true: theme.accentSoft }}
+                    thumbColor={settings.taskNotificationsEnabled ? theme.accent : theme.textMuted}
+                  />
+                </View>
+                <View style={styles.hintSettingRow}>
+                  <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.weeklyRemindersOnboarding}</Text>
+                  <Switch
+                    value={settings.remindersEnabled}
+                    onValueChange={(v) => {
+                      settings.update({ remindersEnabled: v });
+                      if (v) requestPermissions().finally(() => syncReminders());
+                      else syncReminders();
+                    }}
+                    trackColor={{ false: theme.border, true: theme.accentSoft }}
+                    thumbColor={settings.remindersEnabled ? theme.accent : theme.textMuted}
+                  />
+                </View>
+              </View>
+            </HintCard>
+          )}
 
           {/* Greeting */}
           <DebugNoteAnchor id="home.greeting" label="Home — Greeting">
@@ -311,6 +347,10 @@ export default function HomeScreen() {
 const baseStyles = StyleSheet.create({
   blank: { flex: 1 },
   content: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.md },
+  // Embedded first-run settings inside the ⓘ hint (notification opt-in).
+  hintSetting: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.sm },
+  hintSettingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
+  hintSettingLabel: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   // marginBottom matches every card's own trailing marginBottom (Spacing.sm) so the
   // greeting→first-preview gap equals the gaps between previews (each = card marginBottom
   // + section marginTop). Without it the first gap was 8px short — the "uneven" rhythm.

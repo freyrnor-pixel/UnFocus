@@ -24,7 +24,7 @@
  *             components/PressableScale, constants/theme,
  *             lib/date (todayStr, dateStr, getWeekRangeContaining), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
- *             computeListGroups, listProgress), lib/useAppTheme,
+ *             computeListGroups, listProgress), lib/useAppTheme, lib/useFirstVisitHint,
  *             store/useSettingsStore, store/useShoppingListStore,
  *             store/useShoppingStore (incl. UNALLOCATED_LIST_ID), @expo/vector-icons (Ionicons)
  *   Used by → Expo Router route "/shopping" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
@@ -150,7 +150,7 @@
  *     ANIMATION_GUIDELINES.md's "Flight / Cross-Section Travel Animations" section.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
+import { LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -185,6 +185,7 @@ import { success, heavy, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
+import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { groupByDish, computeListGroups, listProgress } from '@/lib/shoppingGroups';
 import { formatKr } from '@/lib/money';
@@ -247,7 +248,11 @@ export default function ShoppingScreen() {
   }, []);
 
   const [tab, setTab] = useState<Tab>('weekly');
-  const [hintOpen, setHintOpen] = useState(false);
+  const [hintOpen, setHintOpen] = useFirstVisitHint('shopping');
+  // Local edit buffer for the monthly reset-date field embedded in the first-run hint.
+  // Starts empty (placeholder-preview per the input UX pass); committing a valid 1–31
+  // updates the setting, leaving it blank keeps the current value.
+  const [monthlyDateInput, setMonthlyDateInput] = useState('');
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
   const [addToCatalogOpen, setAddToCatalogOpen] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
@@ -811,7 +816,49 @@ export default function ShoppingScreen() {
     <>
     <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onScroll={handleScreenScroll}>
       <View style={styles.content}>
-        <HintCard text={t.hints.shopping.text} open={hintOpen} noPill />
+        <HintCard text={t.hints.shopping.text} open={hintOpen} noPill>
+          <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
+            <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.weeklyResetDay}</Text>
+            <View style={styles.hintDayRow}>
+              {t.dayFull.map((label, i) => (
+                <PressableScale
+                  key={i}
+                  style={[
+                    styles.hintDayChip,
+                    { backgroundColor: theme.surfaceMuted },
+                    weeklyResetDay === i && { backgroundColor: theme.accent },
+                  ]}
+                  onPress={() => updateSettings({ weeklyResetDay: i })}
+                  scaleTo={0.97}
+                >
+                  <Text style={[
+                    styles.hintDayText,
+                    { color: theme.text },
+                    weeklyResetDay === i && { color: theme.accentInk },
+                  ]}>
+                    {label.slice(0, 3)}
+                  </Text>
+                </PressableScale>
+              ))}
+            </View>
+            <Text style={[styles.hintSettingLabel, { color: theme.text, marginTop: Spacing.sm }]}>{t.monthlyResetDateQuestion}</Text>
+            <TextInput
+              style={[styles.hintDateInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface }]}
+              value={monthlyDateInput}
+              onChangeText={(v) => {
+                setMonthlyDateInput(v);
+                const n = parseInt(v, 10);
+                if (!isNaN(n) && n >= 1 && n <= 31) updateSettings({ monthlyResetDate: n });
+              }}
+              onBlur={() => setMonthlyDateInput('')}
+              keyboardType="number-pad"
+              placeholder={String(monthlyResetDate)}
+              placeholderTextColor={theme.textMuted}
+              maxLength={2}
+              returnKeyType="done"
+            />
+          </View>
+        </HintCard>
         <SharedRequestsSection kind="shopping" />
 
         {tab === 'monthly' && (
@@ -1210,6 +1257,28 @@ export default function ShoppingScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.md },
+  // Embedded first-run setting inside the ⓘ hint (weekly/monthly reset).
+  hintSetting: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.xs },
+  hintSettingLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  hintDayRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  hintDayChip: {
+    minWidth: 40,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    borderRadius: Radius.full,
+  },
+  hintDayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
+  hintDateInput: {
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    padding: Spacing.sm,
+    fontSize: FontSize.md,
+    textAlign: 'center',
+    alignSelf: 'flex-start',
+    minWidth: 64,
+  },
   // Decision 043 rule 2: Spacing.xl above each of the Monthly tab's two named sections.
   bodyGap: { gap: Spacing.xl },
   dishGroupsWrap: { gap: Spacing.xs },

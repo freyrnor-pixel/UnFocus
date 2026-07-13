@@ -80,7 +80,7 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 ```
 
 - **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` (Home/Shopping/Meals/Health/Habits); other screens are reached via links/buttons from those 5. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
-- **Onboarding** (`app/onboarding/*`, in file order): language → privacy → guided/explore → index (name) → step2 (work mode) → step3 (shopping days) → step4 (notification confirm) → step5 (theme + handedness, finishes onboarding) → home
+- **Onboarding** (`app/onboarding/*`): language → privacy → guided/explore → intro (short icon-per-feature tour) → index (name, finishes onboarding) → home. The Explore path skips the tour/name and goes straight to home. The old setup steps (work mode / shopping days / notifications / handedness) were removed — those settings now default and are taught in context: each tab screen's ⓘ hint auto-expands on first visit (via `lib/useFirstVisitHint.ts` + `settings.seenScreenHints`) with the relevant control embedded (work mode on Plans, weekly/monthly reset on Shopping, notification opt-in on Home). Handedness stays in Settings only.
 - **i18n**: `const t = useT()` in any component; `t.someKey`; add new keys to both `en` and `no` objects in `lib/i18n.ts`
 
 ## Common tasks

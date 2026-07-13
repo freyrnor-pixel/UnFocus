@@ -594,6 +594,8 @@ export default function ScanScreen() {
                       style={[styles.itemName, { color: theme.text }, !item.selected && { opacity: 0.42 }]}
                       value={item.name}
                       onChangeText={(v) => updateName(i, v)}
+                      placeholder={t.shoppingItemPlaceholder}
+                      placeholderTextColor={theme.textMuted}
                     />
                     <Text style={[styles.itemQty, { color: theme.textMuted }, !item.selected && { opacity: 0.42 }]}>
                       1 stk

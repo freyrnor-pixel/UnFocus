@@ -138,6 +138,10 @@ export type Settings = {
   // Plans day-view rail orientation (Home preview + Focus mode) — see
   // components/PlanTaskCard.tsx. false = vertical rail (default), true = horizontal.
   planTimelineHorizontal: boolean;
+  // First-run per-screen hints (onboarding slim-down 2026-07-13). Screen keys whose
+  // ⓘ hint has already auto-expanded once; a key not present means "first visit — open
+  // the hint". Replaces the old setup-wizard steps, which taught these settings up front.
+  seenScreenHints: string[];
 };
 
 type SettingsStore = Settings & {
@@ -147,6 +151,8 @@ type SettingsStore = Settings & {
   load: () => void;
   update: (patch: Partial<Settings>) => void;
   setWorkModeSessionOverride: (v: boolean) => void;
+  /** Record that a screen's first-run ⓘ hint has auto-expanded, so it won't again. */
+  markScreenHintSeen: (key: string) => void;
 };
 
 /** Map the single settings row to the persisted Settings (defaults mirror the old load()). */
@@ -199,6 +205,7 @@ function rowToSettings(row: Row): Settings {
     freyrModeEnabled: readBool(row, 'freyr_mode_enabled'),
     freyrSeedIds: readStr(row, 'freyr_seed_ids'),
     planTimelineHorizontal: readBool(row, 'plan_timeline_horizontal'),
+    seenScreenHints: readJson<string[]>(row, 'seen_screen_hints', []),
   };
 }
 
@@ -252,6 +259,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   freyrModeEnabled: { col: 'freyr_mode_enabled', to: bool },
   freyrSeedIds: { col: 'freyr_seed_ids' },
   planTimelineHorizontal: { col: 'plan_timeline_horizontal', to: bool },
+  seenScreenHints: { col: 'seen_screen_hints', to: (v) => JSON.stringify(v) },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -305,6 +313,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   freyrModeEnabled: false,
   freyrSeedIds: '',
   planTimelineHorizontal: false,
+  seenScreenHints: [],
   loaded: false,
   workModeSessionOverride: false,
 
@@ -342,5 +351,18 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
 
   setWorkModeSessionOverride(v) {
     set({ workModeSessionOverride: v });
+  },
+
+  markScreenHintSeen(key) {
+    set((s) => {
+      if (s.seenScreenHints.includes(key)) return s;
+      const seenScreenHints = [...s.seenScreenHints, key];
+      try {
+        updateRow('settings', rowValues({ seenScreenHints }, SETTINGS_COLUMNS), 'id = 1');
+      } catch (e) {
+        logDbError(`useSettingsStore.markScreenHintSeen(${key})`, e);
+      }
+      return { ...s, seenScreenHints };
+    });
   },
 }));

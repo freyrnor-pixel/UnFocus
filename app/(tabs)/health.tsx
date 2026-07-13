@@ -19,8 +19,8 @@
  *             components/AddRow, components/CompletionGlow, components/HabitIcon,
  *             components/EmptyState, components/SlideSelector, components/PressableScale,
  *             constants/theme, constants/colors, lib/date, lib/db, lib/haptics, lib/i18n,
- *             lib/severity, lib/useAppTheme, lib/domainColor, store/useHealthStore,
- *             store/useHabitStore, store/useSettingsStore
+ *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor,
+ *             store/useHealthStore, store/useHabitStore, store/useSettingsStore
  *   - Habit Today/Week/Month uses the shared SlideSelector; the person filter row +
  *     habit-form "For" chips are gated on settings.peopleModeEnabled (People/family
  *     mode). Profile add/remove now lives in app/settings.tsx, not here.
@@ -84,6 +84,7 @@ import EmptyState from '@/components/EmptyState';
 import SlideSelector from '@/components/SlideSelector';
 import PressableScale from '@/components/PressableScale';
 import { useT } from '@/lib/i18n';
+import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { todayStr, dateStr, getWeekDates, getMonthDates } from '@/lib/date';
 import { SEVERITY_COLORS, severities } from '@/lib/severity';
 import { FontSize, Radius, Shadow, Spacing, Fonts } from '@/constants/theme';
@@ -568,7 +569,7 @@ export default function HealthScreen() {
   const childProfiles = useSettingsStore((s) => s.childProfiles);
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
 
-  const [hintOpen, setHintOpen] = useState(false);
+  const [hintOpen, setHintOpen] = useFirstVisitHint('health');
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
