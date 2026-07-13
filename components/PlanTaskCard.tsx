@@ -37,8 +37,9 @@
  * follower badges).
  *
  * Connections:
- *   Imports → components/Surface, components/PressableScale, constants/theme, lib/haptics,
- *             lib/i18n, lib/useAppTheme, lib/domainColor, store/useTaskStore (Task type only)
+ *   Imports → components/Surface, components/PressableScale, components/ProgressBar,
+ *             components/HomePreviewEmpty, constants/theme, lib/haptics, lib/i18n,
+ *             lib/useAppTheme, lib/domainColor, store/useTaskStore (Task type only)
  *   Used by → app/(tabs)/index.tsx (Home — read-only preview off-focus per Decision 009a, and
  *             non-readOnly essential-filtered surface in Focus mode per 009 #4). Reads
  *             settings.planTimelineHorizontal there and passes it down as the `horizontal`
@@ -50,12 +51,16 @@
  *
  * Edit notes:
  *   - **Collapsed sizing + slimmer rows (2026-07-13)**: `cardCollapsed` (minHeight:
- *     `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) applies only while `!expanded`, so
- *     this card reads the same height as HomeNotesCard/HomeShoppingCard on a light day —
- *     it's a floor, not a cap, so a widely time-spaced day can still grow taller. Rail tuning
+ *     `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) is a compact shared *resting* floor
+ *     applied only while `!expanded`, so this card reads the same size as
+ *     HomeNotesCard/HomeShoppingCard on a light day — it's a floor, not a cap, so an expanded
+ *     task's steps or a widely time-spaced day still grows taller. Rail tuning
  *     (`PX_PER_MIN`/`MIN_GAP`/`MAX_GAP`) was trimmed and `contentCol`/`rowCard` vertical
  *     padding reduced for a visibly slimmer rail; this is Home-only now (see below), so
  *     retuning these constants has no other caller to break.
+ *   - **Empty state**: an empty day (`showEmpty`) renders the shared `HomePreviewEmpty` (icon
+ *     disc + `t.timelineEmpty`), filling the resting floor as one inviting block. The distinct
+ *     "all done" state keeps its own `t.dayViewAllDone` line — it's a reward, not an empty card.
  *   - **Decision 014 (revised 2026-07-13 grouping pass)**: the card face is a `<Surface>`
  *     with a 4px left accent BAR (`getDomainColor(theme,'plan').accent`) AND a soft whole-card
  *     domain `tint` (`domainColor.tint`) so the section reads as belonging to Plans at a glance.
@@ -105,6 +110,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
+import HomePreviewEmpty from '@/components/HomePreviewEmpty';
 import { Task } from '@/store/useTaskStore';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -582,7 +588,7 @@ export default function PlanTaskCard({
         )}
 
         {showEmpty ? (
-          <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.timelineEmpty}</Text>
+          <HomePreviewEmpty icon="calendar-outline" text={t.timelineEmpty} domainColor={domainColor} />
         ) : allDone ? (
           <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.dayViewAllDone}</Text>
         ) : horizontal ? (
