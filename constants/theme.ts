@@ -46,6 +46,17 @@ function lighten(hex: string, amount: number): string {
   return rgbToHex(r + (255 - r) * amount, g + (255 - g) * amount, b + (255 - b) * amount);
 }
 
+/**
+ * Blend `t` (0..1) of `overlay` into `base` and return an opaque hex. Used to derive a
+ * soft solid card tint from a domain accent (e.g. mix(theme.surface, accent, 0.15)) — a
+ * solid hex is required because getMaterialStyle()/Surface's tint can't parse an rgba().
+ */
+export function mix(base: string, overlay: string, t: number): string {
+  const [r1, g1, b1] = hexToRgb(base);
+  const [r2, g2, b2] = hexToRgb(overlay);
+  return rgbToHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
+}
+
 function relLuminance(hex: string): number {
   const lin = (c: number) => {
     const v = c / 255;
@@ -135,12 +146,16 @@ export const Shadow = {
     shadowRadius: 16,
     elevation: 12,
   },
+  // Raised "toward the user" button depth (2026-07-13 depth pass): a stronger downward
+  // offset + elevation so small tappable controls (AddRow confirm, habit +/- adjusters,
+  // chips) read as physical, pressable buttons instead of flat recessed wells. Pair with
+  // a fill that is NOT surfaceMuted (use surface or an accent) and a light top edge.
   button: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    elevation: 5,
   },
 };
 

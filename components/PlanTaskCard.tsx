@@ -49,10 +49,11 @@
  *             passed in. Live "now" marker re-renders on a 60s interval (useNowMinutes).
  *
  * Edit notes:
- *   - **Decision 014**: the card face is a `<Surface>`; `accentColor` (default
- *     `getDomainColor(theme,'plan').accent`) tints the 4px left accent BAR ONLY — never the
- *     Surface border/sheen/fill. Do not reintroduce border-tint here (Surface owns
- *     border/sheen/blur since Decision 008).
+ *   - **Decision 014 (revised 2026-07-13 grouping pass)**: the card face is a `<Surface>`
+ *     with a 4px left accent BAR (`getDomainColor(theme,'plan').accent`) AND a soft whole-card
+ *     domain `tint` (`domainColor.tint`) so the section reads as belonging to Plans at a glance.
+ *     Still don't set Surface border/sheen/fill directly — pass `tint` and let the material
+ *     compute the finish (Surface owns border/sheen/blur since Decision 008).
  *   - **Decision 009b tail**: `railTailMinutes()` = 10% of the visible span (axis-start →
  *     last unfinished task's end), floored at 15 min so a near-empty day still gets a
  *     visible tail. Start from pure 10%; the floor is the 009b-sanctioned execution guard
@@ -539,7 +540,7 @@ export default function PlanTaskCard({
   const allDone = pendingCount === 0 && doneTasks.length > 0;
 
   return (
-    <Surface surfaceContext="ambient" style={[styles.card, styles.cardRow]}>
+    <Surface surfaceContext="ambient" tint={domainColor.tint} style={[styles.card, styles.cardRow]}>
       <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
       <View style={styles.cardContent}>
 

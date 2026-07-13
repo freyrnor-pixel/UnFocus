@@ -7,8 +7,9 @@
  * everywhere instead of the old mix (floating AddFAB, AddDivider line+dot, dashed
  * "new" cards). Extracted from the WeekListCard inline-add pattern.
  *
- * The confirm button is muted while the input is empty and fills with `accent`
- * (default theme.good) once there's text. It defaults to a "+" glyph; callers whose
+ * The confirm button is a raised, pressable-looking control (surface fill + Shadow.button
+ * + a light top edge) while the input is empty, and fills with `accent` (default theme.good)
+ * once there's text — depth "toward the user", not a recessed well. It defaults to a "+" glyph; callers whose
  * row already shows a +/− stepper in `extras` pass confirmIcon="checkmark" so two
  * identical "+" buttons never sit adjacent (criterion 6).
  *
@@ -31,7 +32,7 @@ import { StyleSheet, Text, TextInput, View, StyleProp, ViewStyle } from 'react-n
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { FontSize, Fonts, Radius, Spacing, contrastOn } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Shadow, Spacing, contrastOn } from '@/constants/theme';
 import PressableScale from '@/components/PressableScale';
 
 type Props = {
@@ -92,7 +93,16 @@ export default function AddRow({
       />
       {extras}
       <PressableScale
-        style={[styles.confirm, { backgroundColor: active ? fill : theme.surfaceMuted }]}
+        style={[
+          styles.confirm,
+          Shadow.button,
+          {
+            // Raised, pressable-looking button: a real fill (never the recessed surfaceMuted)
+            // + a light top edge so it reads as lifted toward the user, not a sunken well.
+            backgroundColor: active ? fill : theme.surface,
+            borderTopColor: 'rgba(255,255,255,0.6)',
+          },
+        ]}
         onPress={onSubmit}
         disabled={!active}
         hitSlop={8}
@@ -130,6 +140,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
+    borderTopWidth: 1,
   },
   gated: { opacity: 0.45 },
 });

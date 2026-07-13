@@ -22,7 +22,10 @@
  *
  * Edit notes:
  *   - Renders no ScrollView of its own — it lives inside the Shopping screen scaffold's
- *     ScrollView.
+ *     ScrollView. Because of that it can't virtualise with a FlatList (nested same-axis
+ *     VirtualizedList); instead it renders a small initial window synchronously and fills
+ *     the rest after the tab-transition interaction settles (see CATALOGUE_INITIAL_WINDOW /
+ *     visibleCount) so opening the tab stays snappy despite the ~286-row catalogue.
  *   - New items are still authored into the 'other' category (no picker in the add row,
  *     per the spec's "name, price, delete, save") — `category` is kept on the row (used
  *     by autocomplete elsewhere) even though this tab no longer groups/displays by it.
@@ -30,10 +33,10 @@
  *     AddRow) — deliberate exception: this is a long, alphabetized reference list, not a
  *     short append-order list, so a bottom add row would require scrolling on every add.
  *   - removeItem soft-deletes (see useCatalogStore) so deleting a seeded item sticks across
- *     the per-load re-seed.
+ *     a seed re-run (seeding is now version-gated, not per-load).
  */
-import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { InteractionManager, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
@@ -45,6 +48,9 @@ import { useT } from '@/lib/i18n';
 import { success, heavy } from '@/lib/haptics';
 import { formatKr } from '@/lib/money';
 import { getDomainColor } from '@/lib/domainColor';
+
+/** Rows mounted synchronously on tab open; the rest fill in after the transition settles. */
+const CATALOGUE_INITIAL_WINDOW = 30;
 
 type Props = {
   onNotify: (msg: string) => void;
@@ -68,10 +74,24 @@ export default function CatalogueTab({ onNotify }: Props) {
   const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState('');
 
+  // Keep the Norwegian-collated sort (SQL orderBy 'name' doesn't order æ/ø/å correctly);
+  // it's memoised on `items`, so it's cheap.
   const sortedItems = useMemo(
     () => items.slice().sort((a, b) => a.name.localeCompare(b.name, 'no')),
     [items]
   );
+
+  // Incremental render (perf): this tab mounts fresh on every switch, and mounting all
+  // ~286 rows synchronously is what made the Catalogue feel "slow to load". Render a small
+  // window instantly so the tab opens without a hitch, then fill the rest after the
+  // tab-transition interaction settles (off the critical frame).
+  const [visibleCount, setVisibleCount] = useState(CATALOGUE_INITIAL_WINDOW);
+  useEffect(() => {
+    if (visibleCount >= sortedItems.length) return;
+    const task = InteractionManager.runAfterInteractions(() => setVisibleCount(sortedItems.length));
+    return () => task.cancel();
+  }, [sortedItems.length, visibleCount]);
+  const visibleItems = useMemo(() => sortedItems.slice(0, visibleCount), [sortedItems, visibleCount]);
 
   function handleAdd() {
     const name = addName.trim();
@@ -102,7 +122,7 @@ export default function CatalogueTab({ onNotify }: Props) {
           visible at the top of this long, alphabetized reference list — mirrors WeekListCard's
           inline-add shape but sits at the top here (not the bottom) since this list is a
           scrollable catalogue, not a short append-order list like Plans/Shopping's weekly list. */}
-      <Surface style={styles.addRowCard}>
+      <Surface tint={domainColor.tint} style={styles.addRowCard}>
         <AddRow
           placeholder={t.catalogueItemNamePlaceholder}
           value={addName}
@@ -129,8 +149,8 @@ export default function CatalogueTab({ onNotify }: Props) {
       {sortedItems.length === 0 ? (
         <Text style={[styles.empty, { color: theme.textMuted }]}>{t.catalogueEmpty}</Text>
       ) : (
-        <Surface style={styles.rowsCard}>
-          {sortedItems.map((item, idx) => {
+        <Surface tint={domainColor.tint} style={styles.rowsCard}>
+          {visibleItems.map((item, idx) => {
             const isEditing = editingId === item.id;
             return (
               <View key={item.id}>
@@ -182,7 +202,7 @@ export default function CatalogueTab({ onNotify }: Props) {
                     </PressableScale>
                   </PressableScale>
                 )}
-                {idx < sortedItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+                {idx < visibleItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
               </View>
             );
           })}

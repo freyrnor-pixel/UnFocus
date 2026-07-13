@@ -16,7 +16,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/Surface,
- *             components/AddFAB, components/CompletionGlow, components/HabitIcon,
+ *             components/AddRow, components/CompletionGlow, components/HabitIcon,
  *             components/EmptyState, components/SlideSelector, components/PressableScale,
  *             constants/theme, constants/colors, lib/date, lib/db, lib/haptics, lib/i18n,
  *             lib/severity, lib/useAppTheme, lib/domainColor, store/useHealthStore,
@@ -46,16 +46,17 @@
  *     week strip, rest-day toggle) — the same sub-components/helpers habits.tsx used
  *     (HabitCard/WeekView/MonthView, shouldShowHabitOnDate/computeStreak/habitColor/
  *     progressColor), now module-scope in this file instead of their own screen.
- *   - **Design-consistency pass**: the header AddFAB (next to "Vaner"/"Habits") is now the
- *     ONLY add-habit trigger across Today/Week/Month. Each view used to carry its own extra
- *     trigger too (Today's own dashed empty-state card, Week/Month's EmptyState action
- *     button), duplicating the header's affordance — those are now plain, non-interactive
- *     empty-state text (WeekView/MonthView dropped their `onAddHabit` prop entirely).
+ *   - **Add-habit affordance (2026-07-13 rows pass)**: an inline `AddRow` at the bottom of
+ *     the Today habit list is the add-habit trigger — a title-only quick-create with sensible
+ *     defaults (icon/goal/recurrence via `commitHabit` → useHabitStore.add), matching Plans'
+ *     AddRow → addTask flow; long-press a habit card to edit the rest in /habit-form. This
+ *     replaced the old header "+" AddFAB (which navigated straight to the form). Week/Month
+ *     views show plain, non-interactive empty-state text (they dropped their `onAddHabit` prop).
  *   - **Focus mode (mirrors Home's Decision 009 #4 / 018 pattern, scoped to Habits only)**:
  *     Health-only, session-ephemeral — its default is seeded from the persisted
  *     `essentialsModeEnabled` setting on every focus-in and resets back to that default on
  *     blur, same as Home. ON: habit cards (today/week/month) are filtered to
- *     `importance === 'essential'`; the "add habit" AddFAB and "add child profile"
+ *     `importance === 'essential'`; the inline add-habit row and "add child profile"
  *     affordances hide (no input surfaces in focus, matching Home); a habit card's
  *     long-press-to-edit is disabled but the done/increment/rest-day actions stay live
  *     (doing the habit is the point, not input). The symptom summary above is NOT filtered
@@ -76,7 +77,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import Surface from '@/components/Surface';
-import AddFAB from '@/components/AddFAB';
+import AddRow from '@/components/AddRow';
 import CompletionGlow from '@/components/CompletionGlow';
 import HabitIcon from '@/components/HabitIcon';
 import EmptyState from '@/components/EmptyState';
@@ -85,7 +86,7 @@ import PressableScale from '@/components/PressableScale';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekDates, getMonthDates } from '@/lib/date';
 import { SEVERITY_COLORS, severities } from '@/lib/severity';
-import { FontSize, Radius, Spacing, Fonts } from '@/constants/theme';
+import { FontSize, Radius, Shadow, Spacing, Fonts } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
@@ -331,7 +332,7 @@ function HabitCard({
           </View>
           <ProgressDots count={count} goal={habit.dailyGoal} kind={habit.kind} theme={theme} />
           <PressableScale
-            style={[styles.adjBtn, { backgroundColor: theme.surfaceMuted }]}
+            style={[styles.adjBtn, { backgroundColor: theme.surface }]}
             onPress={() => decrement(habit.id, today)}
             hitSlop={8}
             scaleTo={0.9}
@@ -572,11 +573,17 @@ export default function HealthScreen() {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const healthDomainColor = getDomainColor(theme, 'health');
+  const habitDomainColor = getDomainColor(theme, 'habit');
   const SEVERITIES = severities();
 
   // Habits section state (ported from the removed app/habits.tsx).
   const [habitTab, setHabitTab] = useState<HabitViewTab>('today');
   const [selectedProfile, setSelectedProfile] = useState<string>('');
+  // Inline quick-add (replaces the old "+" bubble → form nav): create a habit from just a
+  // title with sensible defaults; the rest (icon/goal/recurrence) is edited later by
+  // long-pressing the habit → /habit-form. Mirrors Plans' AddRow → addTask flow.
+  const addHabitQuick = useHabitStore((s) => s.add);
+  const [habitDraft, setHabitDraft] = useState('');
 
   // Focus mode: Health-only, ephemeral, scoped to the Habits section (see header notes).
   const [focusMode, setFocusMode] = useState(false);
@@ -651,8 +658,33 @@ export default function HealthScreen() {
     { key: 'month', label: t.habitMonthView },
   ];
 
-  function goToHabitForm() {
-    router.push({ pathname: '/habit-form', params: selectedProfile ? { childName: selectedProfile } : {} });
+  function commitHabit() {
+    const title = habitDraft.trim();
+    if (!title) return;
+    // Same new-habit shape app/habit-form.tsx writes, minus the fields the quick-add leaves
+    // at their defaults (icon/goal/recurrence/notifications) — editable later via the form.
+    addHabitQuick({
+      title,
+      icon: '⭐',
+      kind: 'neutral',
+      category: 'other',
+      cue: '', craving: '', response: '', reward: '',
+      dailyGoal: 1,
+      recurrence: 'daily',
+      recurrenceDays: [],
+      notificationEnabled: false,
+      notificationTimes: [],
+      reminderMode: null,
+      reminderCount: null,
+      reminderIntervalMin: null,
+      reminderStart: null,
+      reminderEnd: null,
+      routineOrder: 0,
+      childName: selectedProfile || '',
+      importance: 'regular',
+    });
+    setHabitDraft('');
+    success();
   }
 
   return (
@@ -671,7 +703,7 @@ export default function HealthScreen() {
           <HintCard text={t.hints.health.text} open={hintOpen} noPill />
 
           {/* This week */}
-          <Surface style={styles.overviewCardRow}>
+          <Surface tint={healthDomainColor.tint} style={styles.overviewCardRow}>
             <View style={[styles.overviewAccent, { backgroundColor: healthDomainColor.accent }]} />
             <View style={styles.overviewCardContent}>
               <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.thisWeekLabel}</Text>
@@ -737,7 +769,7 @@ export default function HealthScreen() {
             scaleTo={0.98}
             style={styles.navLinkWrap}
           >
-            <Surface style={styles.navCard}>
+            <Surface tint={healthDomainColor.tint} style={styles.navCard}>
               <View style={[styles.navCardAccent, { backgroundColor: healthDomainColor.accent }]} />
               <Ionicons name="document-text-outline" size={20} color={healthDomainColor.accent} />
               <Text style={[styles.navCardText, { color: theme.text }]}>{t.healthLogTitle}</Text>
@@ -749,9 +781,6 @@ export default function HealthScreen() {
           <View style={styles.habitsSection}>
             <View style={styles.habitsSectionHeader}>
               <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.habitsTitle}</Text>
-              {!focusMode && (
-                <AddFAB size="sm" onPress={goToHabitForm} accessibilityLabel={t.health.addHabit} />
-              )}
             </View>
 
             {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
@@ -794,7 +823,7 @@ export default function HealthScreen() {
             {habitTab === 'today' && (
               <>
                 {visibleHabits.length > 0 && (
-                  <Surface style={styles.summaryChip}>
+                  <Surface tint={habitDomainColor.tint} style={styles.summaryChip}>
                     <Text style={[styles.summaryChipText, { color: metCount === visibleHabits.length ? theme.good : theme.textMuted }]}>
                       {metCount} / {visibleHabits.length} {t.habitSummaryLabel}
                     </Text>
@@ -803,7 +832,7 @@ export default function HealthScreen() {
 
                 <View style={styles.section}>
                   {visibleHabits.length === 0 ? (
-                    <Surface style={styles.sectionCard}>
+                    <Surface tint={habitDomainColor.tint} style={styles.sectionCard}>
                       <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
                     </Surface>
                   ) : (
@@ -812,6 +841,22 @@ export default function HealthScreen() {
                     ))
                   )}
                 </View>
+
+                {/* Inline quick-add row (replaces the old "+" bubble). Title-only create with
+                    defaults; long-press a habit to edit the rest. Hidden in Focus mode. */}
+                {!focusMode && (
+                  <Surface tint={habitDomainColor.tint} style={styles.habitAddRowCard}>
+                    <AddRow
+                      placeholder={t.health.addHabit}
+                      value={habitDraft}
+                      onChangeText={setHabitDraft}
+                      onSubmit={commitHabit}
+                      accent={habitDomainColor.accent}
+                      showDivider={false}
+                      accessibilityLabel={t.health.addHabit}
+                    />
+                  </Surface>
+                )}
               </>
             )}
 
@@ -892,6 +937,8 @@ const baseStyles = StyleSheet.create({
   section: { gap: Spacing.sm },
   habitsEmptyCard: { borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', justifyContent: 'center' },
   sectionCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
+  // Inline habit quick-add row card (mirrors Plans' addRowCard).
+  habitAddRowCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, marginTop: Spacing.sm },
   summaryChip: {
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.md,
@@ -944,6 +991,10 @@ const baseStyles = StyleSheet.create({
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
+    // Raised, pressable-looking adjusters (depth toward the user) — see Shadow.button.
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.6)',
+    ...Shadow.button,
   },
   adjBtnText: { fontSize: FontSize.lg, lineHeight: 30 },
   adjBtnPlus: {},

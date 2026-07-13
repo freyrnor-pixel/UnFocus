@@ -20,8 +20,13 @@
  *   Data    → defines a Zustand store; owns SQLite tables store_items (catalog) and purchase_log (append-only history, optionally linked to a receipts row via receipt_id)
  *
  * Edit notes:
- *   - seedCatalog() runs on every load() and uses stable name-derived IDs ('cat_<name>') with INSERT OR IGNORE — safe to re-run, but renaming seed items orphans old rows.
- *   - price_source ('seed' | 'purchase') tracks where a row's price came from: seedCatalog() keeps 'seed' rows in sync with lib/catalogSeed.ts on every load, but never overwrites a price once a real purchase sets it to 'purchase'.
+ *   - seedCatalog() runs at most ONCE per CATALOG_SEED_VERSION (tracked in the app_meta
+ *     key/value table), not on every load() — the old per-load re-seed was ~570 synchronous
+ *     writes and the main cause of slow catalogue/startup. It uses stable name-derived IDs
+ *     ('cat_<name>') with INSERT OR IGNORE, all inside one transaction. Bump CATALOG_SEED_VERSION
+ *     whenever lib/catalogSeed.ts changes so the seed re-runs once. Renaming seed items orphans old rows.
+ *   - price_source ('seed' | 'purchase') tracks where a row's price came from: seedCatalog() re-syncs
+ *     'seed' rows with lib/catalogSeed.ts when the seed version changes, but never overwrites a price once a real purchase sets it to 'purchase'.
  *   - purchase_log is append-only and pruned by RETENTION_DAYS in lib/db.ts; recordPurchases() also upserts the catalog row's store/category, but only raises price — a new purchase price below the existing catalog price never lowers it (store/category still update unconditionally).
  *   - recordPurchases()'s optional receiptId links each purchase_log row to a receipts row (purchase_log.receipt_id) for a future budget screen — pass it whenever a receipt was already created; omit it for purchases with no receipt (e.g. manual catalog edits).
  *   - resetItemPrice(id, newPrice) directly updates a store_items row's price and sets price_source = 'purchase' — escape hatch for correcting misread OCR prices.
@@ -77,28 +82,58 @@ function rowToItem(row: Row): StoreItem {
   };
 }
 
-function seedCatalog(): void {
-  const now = new Date().toISOString();
-  for (const s of CATALOG_SEED) {
-    // Stable ID derived from name so this is safe to call on every load.
-    const stableId = 'cat_' + s.name.toLowerCase().replace(/\s+/g, '_');
-    try {
-      db.runSync(
-        `INSERT OR IGNORE INTO store_items (id, name, category, store, price, price_source, last_updated)
-         VALUES (?, ?, ?, '', ?, 'seed', ?)`,
-        [stableId, s.name, s.category, s.price, now]
-      );
-      // Keep seed-sourced prices in sync with lib/catalogSeed.ts on every load.
-      // Stops touching the row once a real purchase marks it price_source = 'purchase'.
-      db.runSync(
-        `UPDATE store_items SET price = ?, price_source = 'seed' WHERE id = ? AND price_source = 'seed'`,
-        [s.price, stableId]
-      );
-    } catch (err) {
-      // Log errors for debugging, but still continue seeding other items.
-      console.error(`Failed to seed item ${s.name}:`, err);
-    }
+// Bump this whenever lib/catalogSeed.ts changes (items added/removed or seed prices
+// edited) so the one-time gate below re-runs the seed once to pick the changes up.
+const CATALOG_SEED_VERSION = '1';
+const CATALOG_SEED_META_KEY = 'catalog_seed_version';
+
+function catalogSeedVersion(): string {
+  try {
+    const row = db.getFirstSync<{ value: string }>(
+      'SELECT value FROM app_meta WHERE key = ?',
+      [CATALOG_SEED_META_KEY]
+    );
+    return row?.value ?? '';
+  } catch {
+    return '';
   }
+}
+
+/**
+ * Seed the catalogue from lib/catalogSeed.ts. Previously this ran ~2 autocommitting
+ * writes per item on EVERY load() (~570 synchronous statements) — the main cause of
+ * the slow catalogue/startup. Now it runs at most once per CATALOG_SEED_VERSION, and
+ * wraps the whole thing in a single transaction (one commit instead of ~570).
+ */
+function seedCatalog(): void {
+  if (catalogSeedVersion() === CATALOG_SEED_VERSION) return;
+  const now = new Date().toISOString();
+  tx(() => {
+    for (const s of CATALOG_SEED) {
+      // Stable ID derived from name so this is safe to re-run for a new seed version.
+      const stableId = 'cat_' + s.name.toLowerCase().replace(/\s+/g, '_');
+      try {
+        db.runSync(
+          `INSERT OR IGNORE INTO store_items (id, name, category, store, price, price_source, last_updated)
+           VALUES (?, ?, ?, '', ?, 'seed', ?)`,
+          [stableId, s.name, s.category, s.price, now]
+        );
+        // Keep seed-sourced prices in sync with lib/catalogSeed.ts when the seed version
+        // changes. Stops touching the row once a real purchase marks it price_source = 'purchase'.
+        db.runSync(
+          `UPDATE store_items SET price = ?, price_source = 'seed' WHERE id = ? AND price_source = 'seed'`,
+          [s.price, stableId]
+        );
+      } catch (err) {
+        // Log errors for debugging, but still continue seeding other items.
+        console.error(`Failed to seed item ${s.name}:`, err);
+      }
+    }
+    db.runSync(
+      'INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)',
+      [CATALOG_SEED_META_KEY, CATALOG_SEED_VERSION]
+    );
+  });
 }
 
 export const useCatalogStore = create<CatalogStore>((set, get) => ({

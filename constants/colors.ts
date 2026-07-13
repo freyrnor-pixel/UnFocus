@@ -112,12 +112,13 @@ export function contrastRatio(hex1: string, hex2: string): number {
 const defaultLight: ThemePalette = {
   bg: '#F2F8FE',
   surface: '#FFFFFF',
-  // surfaceMuted/surfaceInset deepened one step (2026-07-12 redesign) so nested wells,
-  // toggle tracks and empty states read as recessed against surface #FFFFFF instead of
-  // "the same white". Validated ≥4.5:1 for text/textMuted via contrastRatio() (surface
-  // vs muted ≈1.17, muted vs inset ≈1.10 — enough separation to see an edge).
-  surfaceMuted: '#E4EEF9',
-  surfaceInset: '#D3E4F6',
+  // surfaceMuted/surfaceInset carry a touch more blue chroma (2026-07-13 depth pass) so
+  // recessed wells/tracks read as intentional depth rather than the old lifeless flat
+  // blue-grey, while raised controls now pop via Shadow.button. Validated ≥4.5:1 for
+  // text/textMuted via contrastRatio() (surface→muted ≈1.24, muted→inset ≈1.12; textMuted
+  // on inset ≈4.53 — still AA, with a clearly visible surface→muted→inset step).
+  surfaceMuted: '#DDE8FA',
+  surfaceInset: '#CBDDF4',
   text: '#0F1C2E',
   textMuted: '#4E6182',
   textInverse: '#FFFFFF',
@@ -153,8 +154,8 @@ const defaultLight: ThemePalette = {
 const defaultDark: ThemePalette = {
   bg: '#070C18',
   surface: '#18243E',
-  surfaceMuted: '#0F1B2E',
-  surfaceInset: '#060914',
+  surfaceMuted: '#0D1A33',
+  surfaceInset: '#070E1E',
   text: '#DDE9FB',
   textMuted: '#7A9FC6',
   textInverse: '#07101F',
