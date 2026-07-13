@@ -32,6 +32,12 @@
  *     ("no more than a few simultaneous moving elements"). Don't grow this back.
  *   - `particlesEnabled` defaults to true in the settings store — users see particles from
  *     first launch and can opt out in Settings → Accessibility.
+ *   - **Calm backdrop (imageStyle opacity):** the tree renders as a faint watermark
+ *     (~0.3 light / ~0.4 dark), not full-bleed at full saturation — a full-opacity blue
+ *     tree behind every screen read as a heavy, muddy "general tint" that fought the
+ *     content's own colour. The near-neutral theme.bg base shows through from
+ *     ScreenBackground underneath, so domain-coloured cards/section pills/accents pop.
+ *     Tune the two opacity values here to dial the backdrop's presence up/down.
  *   - **react-native-web gotcha (found via the web preview harness):** ImageBackground's
  *     `style` prop must include explicit `width: '100%', height: '100%'` alongside
  *     `StyleSheet.absoluteFill`. RNW's ImageBackground only reapplies whatever width/height
@@ -194,6 +200,7 @@ export default function ParticleBackground() {
       <ImageBackground
         source={isDark ? bgPair.dark : bgPair.light}
         style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
+        imageStyle={{ opacity: isDark ? 0.4 : 0.3 }}
         resizeMode="cover"
       >
         {showParticles && (

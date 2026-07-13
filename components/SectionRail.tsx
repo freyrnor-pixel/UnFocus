@@ -15,13 +15,17 @@
  *   Data    → none — presentational
  *
  * Edit notes:
- *   - `hue` should be a solid domain accent (works on any surface, both modes); do NOT pass a
- *     translucent tint here — the label needs full contrast.
+ *   - `hue` should be a solid domain accent (works on any surface, both modes). The row now
+ *     sits on a soft pill of that same hue (`rgba(hue, 0.14)`) so the header reads as a
+ *     labelled plate on the backdrop instead of bare text; the solid-`hue` label stays legible
+ *     over its own 14% tint. Pass a solid accent, not an already-translucent colour.
+ *   - Default the pill hugs its label (alignSelf flex-start); passing `right` stretches it
+ *     full-width so the right-slot control's `marginLeft:'auto'` still pushes to the edge.
  *   - `count` is optional; omit it for sections where a tally adds noise (e.g. weekday groups).
  */
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Fonts, FontSize, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 
 type Props = {
@@ -38,7 +42,16 @@ type Props = {
 export default function SectionRail({ hue, label, count, right, style }: Props) {
   const theme = useAppTheme();
   return (
-    <View style={[styles.row, style]}>
+    <View
+      style={[
+        styles.row,
+        { backgroundColor: rgba(hue, 0.14) },
+        // Hug the label as a pill by default; stretch full-width when a right-slot
+        // control is present (its marginLeft:'auto' needs the row to span the width).
+        right ? styles.rowStretch : styles.rowHug,
+        style,
+      ]}
+    >
       <View style={[styles.dot, { backgroundColor: hue }]} />
       <Text style={[styles.label, { color: hue }]}>{label}</Text>
       {count != null && (
@@ -50,7 +63,19 @@ export default function SectionRail({ hue, label, count, right, style }: Props) 
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: 2, marginBottom: Spacing.sm },
+  // Soft domain-tinted pill so the header reads as a labelled plate on the backdrop
+  // instead of bare text floating on the background.
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.md,
+    marginBottom: Spacing.sm,
+  },
+  rowHug: { alignSelf: 'flex-start' },
+  rowStretch: { alignSelf: 'stretch' },
   dot: { width: 10, height: 10, borderRadius: 5 },
   label: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   count: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
