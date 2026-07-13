@@ -51,10 +51,11 @@
  *     is gated on `debugModeEnabled` and shares export text/format with app/settings.tsx's
  *     Reset action; dimmed (not hidden) when there are zero notes, matching the old
  *     DebugOverlay's disabled-button convention.
- *   - **OTA update button (Home only)**: checks once on mount and again on every AppState
- *     'active' transition while mounted (Home's tab is kept alive by the pager, so this
- *     effect runs for the lifetime of the app, not just Home's own focus). `Updates.isEnabled`
- *     is false in dev/debug builds, so the button never renders there.
+ *   - **OTA update button (Home only)**: checks once on mount (i.e. once per app launch),
+ *     again on every AppState 'active' transition, and on a 60s interval while the app
+ *     stays open/foregrounded (Home's tab is kept alive by the pager, so this effect runs
+ *     for the lifetime of the app, not just Home's own focus). `Updates.isEnabled` is false
+ *     in dev/debug builds, so the button never renders there.
  */
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, AppState, Platform, Share, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
@@ -101,8 +102,10 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [applyingUpdate, setApplyingUpdate] = useState(false);
 
-  // OTA update check — Home only (see edit notes). Re-checks whenever the app comes
-  // back to the foreground so an update published while backgrounded still surfaces.
+  // OTA update check — Home only (see edit notes). Checks once on mount (app launch),
+  // again whenever the app comes back to the foreground, and every 60s while the app
+  // stays open so an update published mid-session still surfaces without needing a
+  // background/foreground cycle.
   useEffect(() => {
     if (!isHome || !Updates.isEnabled) return;
     let cancelled = false;
@@ -115,9 +118,11 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') check();
     });
+    const interval = setInterval(check, 60_000);
     return () => {
       cancelled = true;
       sub.remove();
+      clearInterval(interval);
     };
   }, [isHome]);
 
