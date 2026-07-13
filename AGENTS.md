@@ -1,7 +1,14 @@
-# Repo status — UnFocus is the LIVE app (2026-07-03)
+# Repo status — UnFocus is the LIVE app (2026-07-13)
 
 **This repo (`UnFocus`) is the current, canonical version of the app. All new
 builds — OTA updates and APKs/AABs — come from here.**
+
+**Real users are now testing the app (as of 2026-07-13)** — this is no longer a
+solo-dev sandbox. Treat OTA publishes accordingly: a broken `main` merge reaches
+real installs on next launch, not just a test device. This is also why Debug mode
+(`settings.debugModeEnabled` → components/DebugNoteAnchor.tsx) exists — testers can
+long-press any annotated card/header to leave a note in place, then export/send it
+in.
 
 The sibling repo `All-the-small-things` is the **outdated predecessor and is no
 longer in use.** It survives only as a read-only reference for porting old source
@@ -170,6 +177,8 @@ device or EAS build.
 - **Materials**: `bubbleMaterial` (settings) + `getMaterialStyle()` in `constants/theme.ts` give the FAB/bubbles a surface finish (glass/metal/rock/paper) independent of colour theme — a bubble's hue and its finish vary separately. Rendered via a two-layer view (outer = border + shadow, inner `overflow:'hidden'` mask = fill + sheen) so shadows aren't clipped.
 - **Animation, button-press, and haptics**: read `ANIMATION_GUIDELINES.md` (repo root) before writing or editing any of these — it has the real timing/easing/spring values and the `lib/haptics.ts` contract this codebase actually uses. Paste its §8 block at the top of any animation/interaction/haptics prompt.
 - **Biometric authentication**: `expo-local-authentication` is already in `package.json` and `app.json`'s `plugins` array (Decision 040, reserve-only — module ships in the build, no feature code uses it yet). Once the maintainer cuts the build with this dependency, the lock/unlock UI can ship as a normal OTA change — no further native work needed for that feature. See `REBUILD_DECISIONS.md` Decision 040 and `REBUILD_PLAN.md` §1 for the rest of the reserve-only native surface (`expo-location`, `expo-calendar`, `expo-contacts`, `expo-sensors`, `expo-speech-recognition`) that's ready the same way.
+- **Debug notes (2026-07-13)**: `settings.debugModeEnabled` turns on long-press-to-annotate — `components/DebugNoteAnchor.tsx` wraps a card/header; holding it opens a text note, saved notes show a small bubble badge (tap to edit, clear the text to delete). Currently wired onto every screen's header title (`components/ScreenHeader.tsx`) and Home's cards (`app/(tabs)/index.tsx`); wrap more screens' cards the same way as needed. `store/useFeedbackStore.ts` owns the data (table `feedback_notes`); export (Share sheet, top header icon) and "Reset all notes" (Settings → Data, same card as the toggle) both read/clear that store. Replaced the old flat DebugOverlay panel (deleted).
+- **OTA "update available" indicator**: Home's header (`components/ScreenHeader.tsx`, gated on `isHome`) checks `expo-updates` on mount and on every app-foreground and shows a small cloud icon when an update is ready — tapping it fetches and reloads. Silent no-op in dev/debug builds (`Updates.isEnabled` is false there). This is a convenience wrapper around the same `Updates.checkForUpdateAsync`/`fetchUpdateAsync`/`reloadAsync` flow Settings → Version & updates already exposes manually.
 
 ## Current deployment state
 

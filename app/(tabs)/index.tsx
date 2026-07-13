@@ -11,7 +11,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HomeNotesCard,
  *             components/HomeSharedCard, components/HomeShoppingCard,
- *             components/FlightOverlay (FlightPill, Flight, FlightRect),
+ *             components/FlightOverlay (FlightPill, Flight, FlightRect), components/DebugNoteAnchor,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, store/useTaskStore, store/useNotesStore, store/useSharedStore,
  *             store/useShoppingStore, store/useShoppingListStore, store/useSettingsStore
@@ -68,6 +68,11 @@
  *     scroll inside its internal ScrollView). `handleScreenScroll` clears in-flight flights on
  *     scroll. See app/(tabs)/shopping.tsx's own note and ANIMATION_GUIDELINES.md for the
  *     full pattern.
+ *   - **Debug notes (2026-07-13)**: each top-level section is wrapped in DebugNoteAnchor with
+ *     a hand-picked stable id (`home.greeting`/`home.notesPreview`/`home.sharedPreview`/
+ *     `home.plansPreview`/`home.shoppingPreview`) — a no-op unless Debug mode is on
+ *     (settings.debugModeEnabled). See that component's header for the long-press/bubble/edit
+ *     mechanics; this screen is the one concrete "cards" usage alongside every screen's header.
  */
 import React, { useCallback, useRef, useState } from 'react';
 import { NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
@@ -79,6 +84,7 @@ import HomeSharedCard from '@/components/HomeSharedCard';
 import HomeShoppingCard from '@/components/HomeShoppingCard';
 import FlightOverlay, { FlightPill, Flight, FlightRect } from '@/components/FlightOverlay';
 import HintCard from '@/components/HintCard';
+import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import { goToSite } from '@/lib/siteNav';
 import { todayStr } from '@/lib/date';
 import { useT } from '@/lib/i18n';
@@ -215,28 +221,30 @@ export default function HomeScreen() {
           {!focusMode && <HintCard text={t.hints.home.text} open={hintOpen} noPill />}
 
           {/* Greeting */}
-          <View style={styles.header}>
-            <Text style={[styles.greeting, { color: theme.text }]}>
-              {greeting()}{settings.userName ? `, ${settings.userName}` : ''}!
-            </Text>
-            <Text style={[styles.dateLabel, { color: theme.textMuted }]}>{dateLabel}</Text>
-          </View>
+          <DebugNoteAnchor id="home.greeting" label="Home — Greeting">
+            <View style={styles.header}>
+              <Text style={[styles.greeting, { color: theme.text }]}>
+                {greeting()}{settings.userName ? `, ${settings.userName}` : ''}!
+              </Text>
+              <Text style={[styles.dateLabel, { color: theme.textMuted }]}>{dateLabel}</Text>
+            </View>
+          </DebugNoteAnchor>
 
           {/* Notes preview — HomeNotesCard (real Notes / useNotesStore). Always visible. */}
-          <View style={styles.section}>
+          <DebugNoteAnchor id="home.notesPreview" label="Home — Notes preview" style={styles.section}>
             <HomeNotesCard />
-          </View>
+          </DebugNoteAnchor>
 
           {/* Shared preview — HomeSharedCard (incoming shared tasks + shopping). Self-hides
               when nothing is incoming. Hidden in Focus mode (an input/triage surface). */}
           {!focusMode && (
-            <View style={styles.section}>
+            <DebugNoteAnchor id="home.sharedPreview" label="Home — Shared preview" style={styles.section}>
               <HomeSharedCard />
-            </View>
+            </DebugNoteAnchor>
           )}
 
           {/* Plans preview = the shared PlanTaskCard day-view (Decision 009a). */}
-          <View style={styles.section}>
+          <DebugNoteAnchor id="home.plansPreview" label="Home — Plans preview" style={styles.section}>
             {focusMode ? (
               <PlanTaskCard
                 tasks={visibleTasks}
@@ -253,10 +261,10 @@ export default function HomeScreen() {
                 horizontal={settings.planTimelineHorizontal}
               />
             )}
-          </View>
+          </DebugNoteAnchor>
 
           {/* Shopping preview — HomeShoppingCard. Always visible. */}
-          <View style={styles.section}>
+          <DebugNoteAnchor id="home.shoppingPreview" label="Home — Shopping preview" style={styles.section}>
             <HomeShoppingCard
               list={currentShoppingList}
               dishGroups={dishGroups}
@@ -271,7 +279,7 @@ export default function HomeScreen() {
               inStockLabel={t.inStockLabel}
               onFlightStart={handleFlightStart}
             />
-          </View>
+          </DebugNoteAnchor>
 
           {/* Gentle points */}
           {!focusMode && completedCount > 0 && (

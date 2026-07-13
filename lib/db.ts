@@ -234,6 +234,7 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_store_items_name ON store_items(name);
     CREATE INDEX IF NOT EXISTS idx_purchase_log_date ON purchase_log(purchased_at);
     CREATE INDEX IF NOT EXISTS idx_feedback_notes_screen ON feedback_notes(screen);
+    CREATE INDEX IF NOT EXISTS idx_feedback_notes_anchor ON feedback_notes(anchor_id);
     CREATE INDEX IF NOT EXISTS idx_receipts_month ON receipts(month);
     -- Append-only tables are read/pruned ordered by created_at — index it.
     CREATE INDEX IF NOT EXISTS idx_inbox_created ON inbox_items(created_at);
@@ -568,6 +569,14 @@ export function initDb() {
       key TEXT PRIMARY KEY,
       value TEXT DEFAULT ''
     )`,
+    // Debug notes redesign (2026-07-13): per-element long-press annotations
+    // (components/DebugNoteAnchor.tsx), replacing the old flat DebugOverlay panel.
+    // anchor_id is the stable element key (e.g. a header's title text, or a Home
+    // card slot id); the existing `title` column is reused to hold the human-readable
+    // anchor label for export, since DebugOverlay's old user-typed "title" field no
+    // longer exists in the new UI. x/y stay unused (legacy NOT NULL columns, written as 0).
+    "ALTER TABLE feedback_notes ADD COLUMN anchor_id TEXT DEFAULT ''",
+    "ALTER TABLE feedback_notes ADD COLUMN updated_at TEXT DEFAULT ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
