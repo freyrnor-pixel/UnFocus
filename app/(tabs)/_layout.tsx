@@ -48,6 +48,14 @@
  *     material-top-tabs keeps a visited site mounted (translated off-screen) afterwards —
  *     that persistence is what makes the swipe instant on repeat visits; watch memory on
  *     low-end Android if this becomes an issue later.
+ *   - `lazyPreloadDistance: 1` additionally preloads the one screen on either side of
+ *     whichever tab is active (e.g. Plans + Health while on Home), so the first swipe to
+ *     an adjacent site no longer pays its mount/layout cost at that moment — it's already
+ *     mounted off-screen by the time you swipe. Data-wise this is free: all stores those
+ *     screens read are already hydrated by app/_layout.tsx's boot-time loads (see that
+ *     file's Tier A/B split) before this pager even mounts. That's 3 sites resident right
+ *     after launch instead of 1 — watch low-end Android memory if that becomes an issue;
+ *     don't bump the distance to 2 (all 5 eagerly) without re-checking that budget.
  *   - `swipeEnabled: true` is the whole point of this migration. app/(tabs)/scan.tsx
  *     temporarily flips it off via `navigation.setOptions` while an OCR scan is
  *     processing or one of its modals is open, so a stray swipe can't abandon that flow.
@@ -137,7 +145,7 @@ export default function TabsLayout() {
 
       <TopTabs
         tabBarPosition="bottom"
-        screenOptions={{ swipeEnabled: true, lazy: true, sceneStyle: { backgroundColor: 'transparent' } }}
+        screenOptions={{ swipeEnabled: true, lazy: true, lazyPreloadDistance: 1, sceneStyle: { backgroundColor: 'transparent' } }}
         tabBar={(props: MaterialTopTabBarProps) => (
           <TabBarWithBackgroundSync {...props} insetsBottom={insets.bottom} onActiveRouteChange={setActiveRouteName} />
         )}
