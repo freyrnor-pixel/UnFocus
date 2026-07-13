@@ -14,7 +14,8 @@
  * identical "+" buttons never sit adjacent (criterion 6).
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, lib/i18n, components/PressableScale, @expo/vector-icons
+ *   Imports → constants/theme, lib/useAppTheme, lib/i18n, components/PressableScale,
+ *             components/ScreenScaffold (ScrollToEndContext), @expo/vector-icons
  *   Used by → app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx, app/(tabs)/health.tsx,
  *             app/automations.tsx, app/health-log.tsx, app/inventory-edit.tsx
  *             (replaces AddDivider + the floating/inline AddFAB + dashed new-cards)
@@ -26,14 +27,22 @@
  *   - `accent` should come from lib/domainColor.getDomainColor(theme, domain).accent
  *     so the confirm fill matches the screen's identity color.
  *   - Confirm target is padded to ≥44px; the row itself is minHeight 44.
+ *   - **Keyboard-avoidance (2026-07-13, fixes taps going dead)**: since this row is always
+ *     the LAST item of its list, Android's default `windowSoftInputMode=resize` can leave
+ *     it hidden behind the keyboard once it opens (the viewport shrinks but nothing scrolls
+ *     to compensate) — the input+confirm button silently become untappable. On focus, this
+ *     component asks the enclosing ScreenScaffold (via ScrollToEndContext) to scroll itself
+ *     into view, both immediately (keyboard-already-open case) and again on `keyboardDidShow`
+ *     (keyboard-opening-fresh case).
  */
-import React from 'react';
-import { StyleSheet, Text, TextInput, View, StyleProp, ViewStyle } from 'react-native';
+import React, { useContext, useEffect, useRef } from 'react';
+import { Keyboard, StyleSheet, Text, TextInput, View, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Shadow, Spacing, contrastOn } from '@/constants/theme';
 import PressableScale from '@/components/PressableScale';
+import { ScrollToEndContext } from '@/components/ScreenScaffold';
 
 type Props = {
   placeholder: string;
@@ -71,6 +80,18 @@ export default function AddRow({
   const active = value.trim().length > 0 && !disabled;
   const fill = accent ?? theme.good;
 
+  // Scroll this row above the keyboard once it opens, but only while THIS row's input is
+  // the one focused (a screen may have other, unrelated inputs elsewhere that shouldn't
+  // trigger it). See ScreenScaffold.tsx's ScrollToEndContext doc for why this is needed.
+  const scrollToEnd = useContext(ScrollToEndContext);
+  const isFocusedRef = useRef(false);
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      if (isFocusedRef.current) scrollToEnd?.();
+    });
+    return () => sub.remove();
+  }, [scrollToEnd]);
+
   return (
     <View
       style={[
@@ -90,6 +111,14 @@ export default function AddRow({
         returnKeyType="done"
         onSubmitEditing={() => active && onSubmit()}
         editable={!disabled}
+        onFocus={() => {
+          isFocusedRef.current = true;
+          // Covers the keyboard-already-open case (switching focus to this input doesn't
+          // re-fire keyboardDidShow); the listener above covers the keyboard-opening-fresh
+          // case. Harmless to call both — scrollToEnd() is idempotent.
+          scrollToEnd?.();
+        }}
+        onBlur={() => { isFocusedRef.current = false; }}
       />
       {extras}
       <PressableScale

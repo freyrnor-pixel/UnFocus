@@ -11,12 +11,22 @@
  *             components/ParticleBackground, components/ScreenHeader (now also passed `isHome`, so
  *             ScreenHeader can gate its OTA "update available" button to Home only), components/BottomNav,
  *             lib/useAppTheme
- *   Used by → every app screen (app/(tabs)/index.tsx, app/(tabs)/shopping.tsx, etc.)
+ *   Used by → every app screen (app/(tabs)/index.tsx, app/(tabs)/shopping.tsx, etc.); also
+ *             exports ScrollToEndContext, consumed by components/AddRow.tsx to scroll
+ *             itself above the keyboard on focus (see that Edit note below)
  *   Data    → none (presentational; all logic in child screens)
  *
  * Edit notes:
  *   - Layer order is critical: L1 background → L2 particles → L3 content → L4 top block →
  *     L4.5 optional sticky-below-header block → L5 bottom block
+ *   - **ScrollToEndContext (2026-07-13, fixes AddRow taps going dead behind the keyboard)**:
+ *     wraps `children` inside the ScrollView, exposing `scrollRef.current.scrollToEnd()`.
+ *     Android's default `windowSoftInputMode=resize` shrinks the visible viewport when the
+ *     keyboard opens but never scrolls content to compensate — a bottom-of-list AddRow (its
+ *     contract: always the LAST row) silently ends up hidden behind the keyboard, so taps on
+ *     "+" land on the keyboard instead of the button and do nothing. AddRow calls this context
+ *     from its input's onFocus/keyboardDidShow. `null` outside a ScreenScaffold — shouldn't
+ *     happen, every AddRow site is ScreenScaffold-wrapped.
  *   - ParticleBackground gating (particlesEnabled + reducedMotion) happens inside the component
  *   - Top and bottom blocks float above content with translucency — content scrolls behind them
  *   - Safe-area handling is SPLIT (Android edge-to-edge is always on in RN 0.85 / Expo 56, so
@@ -76,7 +86,7 @@
  *     go stale once the user scrolls); `scrollEventThrottle` only activates when a listener
  *     is passed, so screens that don't use it pay no extra event-bridge cost.
  */
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import { NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -85,6 +95,17 @@ import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
 import ScreenHeader from '@/components/ScreenHeader';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
+
+/**
+ * Scrolls this screen's ScrollView to the end — consumed by components/AddRow.tsx so
+ * its input+confirm button (always mounted as the LAST row of whatever it's attached to,
+ * per that file's contract) scrolls above the keyboard on focus. Android's default
+ * `windowSoftInputMode=resize` shrinks the visible viewport when the keyboard opens but
+ * never auto-scrolls content to compensate, so a bottom-of-list AddRow silently ends up
+ * hidden behind the keyboard — taps land on the keyboard, not the button. `null` outside
+ * a ScreenScaffold (shouldn't happen — every AddRow site is a ScreenScaffold-wrapped screen).
+ */
+export const ScrollToEndContext = React.createContext<(() => void) | null>(null);
 
 type Tier = 'site' | 'sub';
 
@@ -161,6 +182,11 @@ export default function ScreenScaffold({
 
   const HEADER_HEIGHT = 56;
 
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollToEnd = useCallback(() => {
+    scrollRef.current?.scrollToEnd({ animated: true });
+  }, []);
+
   // The outer SafeAreaView pads the in-flow ScrollView into the safe area — this is
   // what confines scrolling so content can't slide up behind the status bar. So the
   // content padding here only accounts for the floating chrome (header + sticky bar +
@@ -175,6 +201,7 @@ export default function ScreenScaffold({
   // reads as "the header overlaps the text".
   const scrollContent = (
     <ScrollView
+      ref={scrollRef}
       style={styles.scrollView}
       contentContainerStyle={[
         styles.contentContainer,
@@ -188,7 +215,7 @@ export default function ScreenScaffold({
       onScroll={onScroll}
       scrollEventThrottle={onScroll ? 16 : undefined}
     >
-      {children}
+      <ScrollToEndContext.Provider value={scrollToEnd}>{children}</ScrollToEndContext.Provider>
     </ScrollView>
   );
 
