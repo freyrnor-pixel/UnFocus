@@ -141,14 +141,18 @@ const defaultLight: ThemePalette = {
   hintBg: '#E9EFFD',
   hintBorder: '#B3C8F8',
   hintAccent: '#0B62F2',
-  featTask: '#2563EB',
-  featPlan: '#7C3AED',
-  featHabit: '#107636',
-  featShop: '#0891B2',
-  featMeal: '#A55A05',
-  featBudget: '#8B5CF6',
-  featNote: '#DB2777',
-  featHealth: '#DC2626',
+  // Domain accents re-spaced 2026-07-13 for even hue separation (grouping pass):
+  // blue→violet→magenta→red→orange→gold→green→cyan around the wheel. budget moved
+  // off purple (was #8B5CF6, crowded featPlan's violet) to gold — distinct + reads as
+  // "money"; meal cleaned from muddy brown to true orange; habit/shop purified.
+  featTask: '#2563EB',   // blue
+  featPlan: '#7C3AED',   // violet
+  featHabit: '#15803D',  // green
+  featShop: '#0E7490',   // cyan
+  featMeal: '#EA580C',   // orange
+  featBudget: '#CA8A04', // gold
+  featNote: '#DB2777',   // magenta
+  featHealth: '#DC2626', // red
 };
 
 const defaultDark: ThemePalette = {
@@ -175,14 +179,16 @@ const defaultDark: ThemePalette = {
   hintBg: '#0C1E38',
   hintBorder: '#1A3A60',
   hintAccent: '#60A5FA',
-  featTask: '#60A5FA',
-  featPlan: '#C084FC',
-  featHabit: '#34D399',
-  featShop: '#22D3EE',
-  featMeal: '#FBBF24',
-  featBudget: '#E879F9',
-  featNote: '#F472B6',
-  featHealth: '#F87171',
+  // Dark mirrors the light re-space (2026-07-13): same hue families, brighter tints
+  // for the dark surface. budget moved off pink (#E879F9) to gold; meal amber→orange.
+  featTask: '#60A5FA',   // blue
+  featPlan: '#C084FC',   // violet
+  featHabit: '#4ADE80',  // green
+  featShop: '#22D3EE',   // cyan
+  featMeal: '#FB923C',   // orange
+  featBudget: '#FBBF24', // gold
+  featNote: '#F472B6',   // magenta
+  featHealth: '#F87171', // red
 };
 
 // ── Theme registry ───────────────────────────────────────────────────────────
