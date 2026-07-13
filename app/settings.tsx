@@ -47,8 +47,8 @@
  *             lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
  *             (syncWidgetsAndOverview — the persistent-overview toggle refreshes/cancels it, and
  *             the Freyr-mode toggle re-syncs after seeding/unseeding today's tasks + shopping),
- *             lib/useAppTheme, store/useHabitStore, store/useSettingsStore, store/useShoppingStore,
- *             store/useTaskStore
+ *             lib/useAppTheme, store/useFeedbackStore, store/useHabitStore, store/useSettingsStore,
+ *             store/useShoppingStore, store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
  *   Data    → useSettingsStore (settings table; incl. essentialsModeEnabled, quietHours*,
  *             monthlyBudgetNok, taskNotificationsEnabled, habitNotificationsEnabled,
@@ -74,8 +74,11 @@
  *     (free-text, matching the precedent set by task-form.tsx / habit-form.tsx).
  *   - essentialsModeEnabled is the underlying field/DB column name (unchanged) — its user-facing
  *     label is "Focus mode" / "Fokus-modus".
- *   - Debug section only exposes the debugModeEnabled toggle. permissionTests.ts does not exist
- *     in this repo yet — its buttons are NOT wired here; see the commented placeholder below.
+ *   - Debug section (2026-07-13 redesign): the toggle, plus — only while it's on — a how-to-use
+ *     explainer and a "Reset all notes" button (useFeedbackStore.clearAll(), disabled when there
+ *     are none). The actual notes are created elsewhere via components/DebugNoteAnchor.tsx
+ *     (long-press any annotated card/header), not from this screen. permissionTests.ts does not
+ *     exist in this repo yet — its buttons are NOT wired here; see the commented placeholder below.
  *   - "Reset weekly list" and the Test-data load/clear actions from the pre-rebuild app are NOT
  *     ported: this repo's shopping architecture replaced the single global weekly list with
  *     per-week ShoppingList rows (store/useShoppingListStore.ts, auto-rolling by date), so there
@@ -110,6 +113,7 @@ import {
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
+import { useFeedbackStore } from '@/store/useFeedbackStore';
 import { syncReminders } from '@/lib/reminders';
 import { syncNotificationCategories } from '@/lib/notifications';
 import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
@@ -136,6 +140,8 @@ export default function SettingsScreen() {
   const syncTaskNotifs = useTaskStore((s) => s.syncAllTaskNotifications);
   const syncHabitNotifs = useHabitStore((s) => s.syncAllHabitReminders);
   const clearTasks = useTaskStore((s) => s.clearAll);
+  const feedbackNoteCount = useFeedbackStore((s) => s.notes.length);
+  const clearFeedbackNotes = useFeedbackStore((s) => s.clearAll);
   const monthlyReset = useShoppingStore((s) => s.monthlyReset);
   const syncAvailable = isSyncAvailable();
 
@@ -553,6 +559,20 @@ export default function SettingsScreen() {
                     onChange={(v) => { selection(); settings.update({ debugModeEnabled: v }); }}
                   />
                 </View>
+                {settings.debugModeEnabled && (
+                  <>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0 }]}>{t.debug.howToUse}</Text>
+                    <PressableScale
+                      style={[styles.dangerBtn, feedbackNoteCount === 0 && { opacity: 0.4 }]}
+                      onPress={() => confirmReset(t.debug.resetNotes.toLowerCase(), clearFeedbackNotes)}
+                      disabled={feedbackNoteCount === 0}
+                      scaleTo={0.93}
+                    >
+                      <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.debug.resetNotes}</Text>
+                    </PressableScale>
+                  </>
+                )}
                 {/*
                   Placeholder — permission test buttons (lib/permissionTests.ts) mount here once
                   that utility exists. It does not exist anywhere in this repo yet (native

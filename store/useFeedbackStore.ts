@@ -1,47 +1,110 @@
 /**
- * useFeedbackStore.ts — Decision 015 stub: typed interface only, no store logic.
+ * useFeedbackStore.ts — per-element debug notes ("hold a card/header to leave a note").
  *
- * Declares the minimal notes/add()/clearAll() contract Phase 3e's DebugOverlay
- * needs so it can typecheck ahead of Phase 5's real debug-notes store (SQLite
- * table `feedback_notes`, per the old app's useFeedbackStore.ts). Every action
- * throws to make accidental real usage fail loudly instead of silently
- * no-op'ing. Reading `notes` is always safe — it just returns an empty array.
+ * Backs components/DebugNoteAnchor.tsx: one optional note per stable `anchorId`
+ * (e.g. a header's title text, or a Home card slot id). Saving overwrites the
+ * existing note for that anchor; saving empty text deletes it. Real SQLite-backed
+ * implementation of the Decision 015 stub — see table `feedback_notes` in lib/db.ts.
  *
  * Connections:
- *   Imports → —
- *   Used by → components/DebugOverlay.tsx
- *   Data    → none — placeholder for Phase 5's real SQLite-backed store (table `feedback_notes`)
+ *   Imports → lib/db, lib/dataAccess, lib/id
+ *   Used by → components/DebugNoteAnchor.tsx (notes/saveNote), components/ScreenHeader.tsx
+ *             (notes — export button), app/settings.tsx (notes.length, clearAll — Reset all notes),
+ *             app/_layout.tsx (load() at startup)
+ *   Data    → owns SQLite table feedback_notes (id, anchor_id, title [reused as anchor_label],
+ *             screen, note, created_at, updated_at; x/y are legacy NOT NULL columns from the
+ *             pre-DebugOverlay tap-to-pin design, always written as 0 and otherwise unused)
  *
  * Edit notes:
- *   - Phase 5 must implement this store to satisfy FeedbackNote/add()/clearAll()
- *     exactly as declared here (Decision 015). The old app's `load()` and the
- *     legacy `screen`/`x`/`y` placeholder columns are a real-store implementation
- *     detail (see the old repo's useFeedbackStore.ts edit notes), not part of
- *     this component-facing contract.
+ *   - One row per anchorId — saveNote() upserts by anchorId, not by note id. Callers look up
+ *     an anchor's note with `notes.find(n => n.anchorId === id)`, same as any other store read.
+ *   - x/y have no DEFAULT in the CREATE TABLE (NOT NULL), so every insert must supply them
+ *     even though nothing reads them any more — omitting them throws a constraint error.
  */
+import { create } from 'zustand';
+import db from '@/lib/db';
+import { Row, FieldMap, loadAll, insertRow, updateRow, rowValues, readStr } from '@/lib/dataAccess';
+import { generateId } from '@/lib/id';
+
 export type FeedbackNote = {
   id: string;
-  title: string;
+  anchorId: string;
+  anchorLabel: string;
+  screen: string;
   note: string;
   createdAt: string;
+  updatedAt: string;
 };
 
-type FeedbackStoreState = {
+type FeedbackStore = {
   notes: FeedbackNote[];
-  add: (title: string, note: string) => FeedbackNote;
+  load: () => void;
+  saveNote: (anchorId: string, anchorLabel: string, screen: string, text: string) => void;
   clearAll: () => void;
 };
 
-function notImplemented(): never {
-  throw new Error('useFeedbackStore is a Phase 5 stub (Decision 015) — not implemented yet');
+function rowToNote(row: Row): FeedbackNote {
+  return {
+    id: readStr(row, 'id'),
+    anchorId: readStr(row, 'anchor_id'),
+    anchorLabel: readStr(row, 'title'),
+    screen: readStr(row, 'screen'),
+    note: readStr(row, 'note'),
+    createdAt: readStr(row, 'created_at'),
+    updatedAt: readStr(row, 'updated_at'),
+  };
 }
 
-const state: FeedbackStoreState = {
-  notes: [],
-  add: notImplemented,
-  clearAll: notImplemented,
+const FEEDBACK_COLUMNS: FieldMap<FeedbackNote> = {
+  id: { col: 'id' },
+  anchorId: { col: 'anchor_id' },
+  anchorLabel: { col: 'title' },
+  screen: { col: 'screen' },
+  note: { col: 'note' },
+  createdAt: { col: 'created_at' },
+  updatedAt: { col: 'updated_at' },
 };
 
-export function useFeedbackStore<T>(selector: (s: FeedbackStoreState) => T): T {
-  return selector(state);
-}
+export const useFeedbackStore = create<FeedbackStore>((set, get) => ({
+  notes: [],
+
+  load() {
+    set({ notes: loadAll('feedback_notes', rowToNote, { orderBy: 'updated_at DESC' }) });
+  },
+
+  saveNote(anchorId, anchorLabel, screen, text) {
+    const existing = get().notes.find((n) => n.anchorId === anchorId);
+    const now = new Date().toISOString();
+
+    if (!text) {
+      // Empty save deletes the note (self-service delete via clearing the text).
+      if (!existing) return;
+      db.runSync('DELETE FROM feedback_notes WHERE id = ?', [existing.id]);
+      set((s) => ({ notes: s.notes.filter((n) => n.id !== existing.id) }));
+      return;
+    }
+
+    if (existing) {
+      const next: FeedbackNote = { ...existing, anchorLabel, screen, note: text, updatedAt: now };
+      updateRow('feedback_notes', rowValues(next, FEEDBACK_COLUMNS), 'id = ?', [existing.id]);
+      set((s) => ({ notes: s.notes.map((n) => (n.id === existing.id ? next : n)) }));
+    } else {
+      const note: FeedbackNote = {
+        id: generateId(),
+        anchorId,
+        anchorLabel,
+        screen,
+        note: text,
+        createdAt: now,
+        updatedAt: now,
+      };
+      insertRow('feedback_notes', { ...rowValues(note, FEEDBACK_COLUMNS), x: 0, y: 0 });
+      set((s) => ({ notes: [note, ...s.notes] }));
+    }
+  },
+
+  clearAll() {
+    db.runSync('DELETE FROM feedback_notes');
+    set({ notes: [] });
+  },
+}));

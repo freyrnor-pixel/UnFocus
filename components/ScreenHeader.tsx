@@ -11,11 +11,20 @@
  * live scrolling content, not the calm ScreenBackground backdrop — the ambient default
  * let scrolled text read through it.
  *
+ * Also owns two self-contained, opt-out-by-default extras (2026-07-13): every screen's
+ * title is long-press-annotatable via DebugNoteAnchor (debug notes), and site-tier headers
+ * show a debug-mode "export all notes" icon plus (Home only) an OTA "update available" icon.
+ * Both read their own state directly from settings/expo-updates — no props threaded down
+ * from individual screens.
+ *
  * Connections:
- *   Imports → constants/theme, lib/i18n, lib/useAppTheme, store/useSettingsStore,
- *             components/Surface, components/PressableScale, expo-router
+ *   Imports → constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, store/useSettingsStore,
+ *             store/useFeedbackStore, components/Surface, components/PressableScale,
+ *             components/DebugNoteAnchor, components/AppModal (showAppModal), expo-router,
+ *             expo-updates, react-native (Share, AppState, ActivityIndicator)
  *   Used by → ScreenScaffold (composition layer)
- *   Data    → reads `leftHanded` from the settings store to pick gear/eye corners
+ *   Data    → reads `leftHanded`/`debugModeEnabled` from the settings store; reads/exports
+ *             useFeedbackStore's notes; reads expo-updates' isEnabled/checkForUpdateAsync
  *
  * Edit notes:
  *   - tier='site' is for top-level screens (Shopping, Plans, Home, Health, Scan)
@@ -36,23 +45,40 @@
  *     controls swap sides together — controls right (title left) by default, both left
  *     (title right) when left-handed. gear is always the outermost control.
  *   - iOS-only back link on sub-screens; Android uses system back
+ *   - **Debug notes (2026-07-13, replaces the old DebugOverlay)**: the title is wrapped in
+ *     DebugNoteAnchor keyed off the (translated) `title` string — see that component's own
+ *     edit note on the language-switch caveat this implies. The export icon (site-tier only)
+ *     is gated on `debugModeEnabled` and shares export text/format with app/settings.tsx's
+ *     Reset action; dimmed (not hidden) when there are zero notes, matching the old
+ *     DebugOverlay's disabled-button convention.
+ *   - **OTA update button (Home only)**: checks once on mount and again on every AppState
+ *     'active' transition while mounted (Home's tab is kept alive by the pager, so this
+ *     effect runs for the lifetime of the app, not just Home's own focus). `Updates.isEnabled`
+ *     is false in dev/debug builds, so the button never renders there.
  */
-import React from 'react';
-import { Platform, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, AppState, Platform, Share, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Updates from 'expo-updates';
 import { FontSize, Spacing } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { tap } from '@/lib/haptics';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useFeedbackStore } from '@/store/useFeedbackStore';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
+import DebugNoteAnchor from '@/components/DebugNoteAnchor';
+import { showAppModal } from '@/components/AppModal';
 
 type Tier = 'site' | 'sub';
 
 type Props = {
   title: string;
   tier: Tier;
+  /** Home only — gates the OTA "update available" button. */
+  isHome?: boolean;
   onBack?: () => void;
   headerRight?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -64,11 +90,64 @@ type Props = {
   onInfoToggle?: () => void;
 };
 
-export default function ScreenHeader({ title, tier, onBack, headerRight, style, focusActive, onToggleFocus, infoActive, onInfoToggle }: Props) {
+export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, focusActive, onToggleFocus, infoActive, onInfoToggle }: Props) {
   const t = useT();
   const theme = useAppTheme();
   const router = useRouter();
   const leftHanded = useSettingsStore((s) => s.leftHanded);
+  const debugModeEnabled = useSettingsStore((s) => s.debugModeEnabled);
+  const feedbackNotes = useFeedbackStore((s) => s.notes);
+
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [applyingUpdate, setApplyingUpdate] = useState(false);
+
+  // OTA update check — Home only (see edit notes). Re-checks whenever the app comes
+  // back to the foreground so an update published while backgrounded still surfaces.
+  useEffect(() => {
+    if (!isHome || !Updates.isEnabled) return;
+    let cancelled = false;
+    const check = () => {
+      Updates.checkForUpdateAsync()
+        .then((res) => { if (!cancelled) setUpdateAvailable(res.isAvailable); })
+        .catch(() => { /* background check — silent, button just stays hidden */ });
+    };
+    check();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') check();
+    });
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, [isHome]);
+
+  async function handleUpdatePress() {
+    if (applyingUpdate) return;
+    tap();
+    setApplyingUpdate(true);
+    try {
+      await Updates.fetchUpdateAsync();
+      await Updates.reloadAsync();
+    } catch {
+      setApplyingUpdate(false);
+      showAppModal(t.version.title, t.version.failed);
+    }
+  }
+
+  async function handleExportPress() {
+    tap();
+    if (feedbackNotes.length === 0) return;
+    const date = new Date().toISOString().slice(0, 10);
+    const lines = [t.debug.exportHeading(date), ''];
+    for (const n of feedbackNotes) {
+      lines.push(`${n.anchorLabel} (${n.screen})`, n.note, '');
+    }
+    try {
+      await Share.share({ message: lines.join('\n').trim() });
+    } catch {
+      // user cancelled or the share sheet failed — nothing to recover, no-op
+    }
+  }
 
   const handleSettingsPress = () => {
     router.push('/settings');
@@ -132,21 +211,55 @@ export default function ScreenHeader({ title, tier, onBack, headerRight, style, 
     </PressableScale>
   );
 
-  const titleNode = (align: 'left' | 'right') => (
-    <Text
-      style={[styles.title, { color: theme.text, textAlign: align }]}
-      numberOfLines={1}
+  // Home-only OTA update icon (see edit notes) — a small spinner while fetching.
+  const updateButton = isHome && updateAvailable ? (
+    <PressableScale
+      onPress={handleUpdatePress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={t.version.updateAvailable}
+      scaleTo={0.9}
     >
-      {title}
-    </Text>
+      {applyingUpdate ? (
+        <ActivityIndicator size="small" color={theme.accent} />
+      ) : (
+        <Ionicons name="cloud-download-outline" size={22} color={theme.accent} />
+      )}
+    </PressableScale>
+  ) : null;
+
+  // Debug-mode "export all notes" icon (site-tier only) — dimmed, not hidden, when empty
+  // (matches the old DebugOverlay's disabled-button convention).
+  const exportButton = debugModeEnabled ? (
+    <PressableScale
+      onPress={handleExportPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={t.debug.exportNotes}
+      scaleTo={0.9}
+      style={feedbackNotes.length === 0 ? styles.dimmed : undefined}
+    >
+      <Ionicons name="share-outline" size={22} color={theme.text} />
+    </PressableScale>
+  ) : null;
+
+  const titleNode = (align: 'left' | 'right') => (
+    <DebugNoteAnchor id={`header:${title}`} label={title} style={styles.titleWrap}>
+      <Text
+        style={[styles.title, { color: theme.text, textAlign: align }]}
+        numberOfLines={1}
+      >
+        {title}
+      </Text>
+    </DebugNoteAnchor>
   );
 
   if (tier === 'site') {
-    // Grouped controls. Order (right-handed, left-to-right): [ⓘ info] [Focus mode] [gear].
-    // Gear is outermost on whichever side the group sits (Decision 034).
+    // Grouped controls. Order (right-handed, left-to-right): [update] [export] [ⓘ info]
+    // [Focus mode] [gear]. Gear is outermost on whichever side the group sits (Decision 034).
     // Left-handed mirrors the whole row. Items that don't apply to this screen are null/filtered.
     const focusButtonOrNull = onToggleFocus ? focusButton : null;
-    const controlItems = [infoButton, focusButtonOrNull, gearButton].filter(Boolean) as React.ReactNode[];
+    const controlItems = [updateButton, exportButton, infoButton, focusButtonOrNull, gearButton].filter(Boolean) as React.ReactNode[];
     const controls = leftHanded ? [...controlItems].reverse() : controlItems;
     const controlsGroup = (
       <View style={styles.controls}>
@@ -215,6 +328,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FontSize.xl,
     fontWeight: '700',
+  },
+  titleWrap: {
+    flex: 1,
+  },
+  dimmed: {
+    opacity: 0.4,
   },
   rightSlot: {
     minWidth: 32,

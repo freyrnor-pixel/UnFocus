@@ -5,8 +5,7 @@
  * loads the settings store, then once settings are loaded fires the app-wide
  * startup loads for every other store, and defines the Expo Router Stack.
  * Redirects to the onboarding flow until setup is complete, mounts the global
- * AppModalHost (unconditionally) and the DebugOverlay (gated on settings.loaded &&
- * settings.debugModeEnabled).
+ * AppModalHost (unconditionally).
  *
  * Connections:
  *   Imports → expo-router, expo-status-bar, react-native (AppState), react-native-gesture-handler,
@@ -16,10 +15,10 @@
  *             lib/widgets/sync (syncWidgetsAndOverview — pushes today to the home-screen widgets
  *             + persistent overview notification), lib/useAppTheme,
  *             store/useSettingsStore, store/useAutomationStore, store/useCatalogStore,
- *             store/useHabitStore, store/useHealthStore, store/useInboxStore,
+ *             store/useFeedbackStore, store/useHabitStore, store/useHealthStore, store/useInboxStore,
  *             store/useMealStore, store/useNotesStore, store/usePeersStore, store/useReceiptStore,
  *             store/useSharedStore, store/useShoppingListStore, store/useShoppingStore,
- *             store/useTaskStore, components/AppModal, components/DebugOverlay
+ *             store/useTaskStore, components/AppModal
  *   Used by → router layout — defines the Stack
  *
  * Edit notes:
@@ -49,8 +48,9 @@
  *   - Stack `screenOptions.animation: 'default'` (Decision 033) turns on platform-native
  *     push/pop transitions; the modal screens keep their explicit `slide_from_bottom`.
  *   - <AppModalHost/> mounted here (Session A2·2) so showAppModal() works from any screen.
- *   - DebugOverlay is gated on `loaded && debugModeEnabled` so it never flashes before
- *     settings load and is absent for users who haven't enabled it.
+ *   - useFeedbackStore (debug notes) loads here like every other store; the debug-mode
+ *     gate now lives per-anchor in components/DebugNoteAnchor.tsx / ScreenHeader instead
+ *     of a single global overlay mount.
  */
 import React, { useEffect, useRef } from 'react';
 import { AppState, Text as RNText, TextInput as RNTextInput } from 'react-native';
@@ -74,6 +74,7 @@ import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import { useCatalogStore } from '@/store/useCatalogStore';
+import { useFeedbackStore } from '@/store/useFeedbackStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { useHealthStore } from '@/store/useHealthStore';
 import { useInboxStore } from '@/store/useInboxStore';
@@ -86,7 +87,6 @@ import { useShoppingListStore } from '@/store/useShoppingListStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import AppModalHost from '@/components/AppModal';
-import DebugOverlay from '@/components/DebugOverlay';
 
 // Cap OS-level font scaling (Dynamic Type / Android font size) so it can't
 // overflow the app's fixed-height chrome — the header (56px), BottomNav (72px),
@@ -106,7 +106,6 @@ export default function RootLayout() {
   const loadSettings = useSettingsStore((s) => s.load);
   const loaded = useSettingsStore((s) => s.loaded);
   const setupComplete = useSettingsStore((s) => s.setupComplete);
-  const debugModeEnabled = useSettingsStore((s) => s.debugModeEnabled);
   const lanSyncEnabled = useSettingsStore((s) => s.lanSyncEnabled);
   const deviceId = useSettingsStore((s) => s.deviceId);
   const userName = useSettingsStore((s) => s.userName);
@@ -136,6 +135,7 @@ export default function RootLayout() {
     if (!loaded) return;
     useAutomationStore.getState().load();
     useCatalogStore.getState().load();
+    useFeedbackStore.getState().load();
     useHabitStore.getState().load();
     useHealthStore.getState().load();
     useInboxStore.getState().load();
@@ -239,7 +239,6 @@ export default function RootLayout() {
         <Stack.Screen name="habit-form" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="share-modal" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       </Stack>
-      {loaded && debugModeEnabled && <DebugOverlay />}
       <AppModalHost />
       </SafeAreaProvider>
     </GestureHandlerRootView>
