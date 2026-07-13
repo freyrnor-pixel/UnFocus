@@ -23,11 +23,22 @@
  *
  * Edit notes:
  *   - Settings load first (own effect, mount-only); a second effect keyed on
- *     `loaded` fires every other store's `load()` once settings have hydrated —
- *     this is the app-wide bootstrap referenced by the old "still deferred" note.
- *     Crucially includes useAutomationStore.load() so `shopping_opened` /
- *     `task_completed` triggers are live from launch, not only after the user
- *     visits a screen that happens to load that store first.
+ *     `loaded` fires the rest of the app-wide bootstrap once settings have
+ *     hydrated, split into two tiers so the 14 synchronous full-table SQLite
+ *     scans don't all compete with the very first interactive frame:
+ *       - Tier A (synchronous, same tick): Automation, Task, Shopping,
+ *         ShoppingList, Shared, Habit, Health — covers Home plus its two
+ *         lazy-preloaded pager neighbors, Plans and Health (see
+ *         app/(tabs)/_layout.tsx's `lazyPreloadDistance: 1`), so nothing on
+ *         those three screens ever renders empty while waiting. Crucially
+ *         includes useAutomationStore.load() so `shopping_opened` /
+ *         `task_completed` triggers are live from launch, not only after the
+ *         user visits a screen that happens to load that store first.
+ *       - Tier B (deferred via InteractionManager.runAfterInteractions):
+ *         Catalog, Feedback, Inbox, Meal, Notes, Peers, Receipt — only back
+ *         screens 2+ swipes from Home (Shopping's catalog autocomplete, Scan's
+ *         receipt parsing) or non-tab screens (Notes, Automations), so a beat
+ *         of extra latency here is imperceptible.
  *   - Render is NOT gated on these loads (unlike the font load) — screens already
  *     tolerate hydrating stores via their own guarded focus-loads, which stay in
  *     place as redundant safety nets, not dead code.
@@ -53,7 +64,7 @@
  *     of a single global overlay mount.
  */
 import React, { useEffect, useRef } from 'react';
-import { AppState, Text as RNText, TextInput as RNTextInput } from 'react-native';
+import { AppState, InteractionManager, Text as RNText, TextInput as RNTextInput } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -127,29 +138,37 @@ export default function RootLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // App-wide startup store loads, once settings have hydrated. Includes
-  // useAutomationStore so triggers (shopping_opened, task_completed) are live
-  // from launch instead of only after visiting a screen that self-loads them.
-  // Per-screen focus-loads remain as redundant safety nets.
+  // App-wide startup store loads, once settings have hydrated. Split into two
+  // tiers (see file header) so the full boot preload doesn't block the first
+  // interactive frame in one large synchronous clump. Per-screen focus-loads
+  // remain as redundant safety nets.
   useEffect(() => {
     if (!loaded) return;
+    // Tier A: Home + its lazy-preloaded pager neighbors (Plans, Health) need
+    // these ready before the tabs pager mounts. Includes useAutomationStore so
+    // triggers (shopping_opened, task_completed) are live from launch instead
+    // of only after visiting a screen that self-loads them.
     useAutomationStore.getState().load();
-    useCatalogStore.getState().load();
-    useFeedbackStore.getState().load();
+    useTaskStore.getState().load();
+    useShoppingStore.getState().load();
+    useShoppingListStore.getState().load();
+    useSharedStore.getState().load();
     useHabitStore.getState().load();
     useHealthStore.getState().load();
-    useInboxStore.getState().load();
-    useMealStore.getState().load();
-    useNotesStore.getState().load();
-    usePeersStore.getState().load();
-    useReceiptStore.getState().load();
-    useSharedStore.getState().load();
-    useShoppingListStore.getState().load();
-    useShoppingStore.getState().load();
-    useTaskStore.getState().load();
-    // Stores hydrate synchronously above, so today's tasks/shopping are ready:
-    // push them to the home-screen widgets + the persistent overview notification.
+    // Today's tasks/shopping are ready now: push them to the home-screen
+    // widgets + the persistent overview notification.
     void syncWidgetsAndOverview();
+    // Tier B: only back screens 2+ swipes from Home or non-tab screens —
+    // deferred a beat so they don't compete with the first paint.
+    InteractionManager.runAfterInteractions(() => {
+      useCatalogStore.getState().load();
+      useFeedbackStore.getState().load();
+      useInboxStore.getState().load();
+      useMealStore.getState().load();
+      useNotesStore.getState().load();
+      usePeersStore.getState().load();
+      useReceiptStore.getState().load();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
 
