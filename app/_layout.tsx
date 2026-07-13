@@ -27,13 +27,15 @@
  *     hydrated, split into two tiers so the 14 synchronous full-table SQLite
  *     scans don't all compete with the very first interactive frame:
  *       - Tier A (synchronous, same tick): Automation, Task, Shopping,
- *         ShoppingList, Shared, Habit, Health — covers Home plus its two
- *         lazy-preloaded pager neighbors, Plans and Health (see
- *         app/(tabs)/_layout.tsx's `lazyPreloadDistance: 1`), so nothing on
- *         those three screens ever renders empty while waiting. Crucially
- *         includes useAutomationStore.load() so `shopping_opened` /
- *         `task_completed` triggers are live from launch, not only after the
- *         user visits a screen that happens to load that store first.
+ *         ShoppingList, Shared, Habit, Health — covers Home plus its pager
+ *         neighbors Plans and Health (the screens a user reaches first via
+ *         BottomNav or an early swipe — see app/(tabs)/_layout.tsx's Edit
+ *         notes on why they're no longer preload-mounted ahead of time),
+ *         so nothing on those three screens ever renders empty on first
+ *         visit even without preloading. Crucially includes
+ *         useAutomationStore.load() so `shopping_opened` / `task_completed`
+ *         triggers are live from launch, not only after the user visits a
+ *         screen that happens to load that store first.
  *       - Tier B (deferred via InteractionManager.runAfterInteractions):
  *         Catalog, Feedback, Inbox, Meal, Notes, Peers, Receipt — only back
  *         screens 2+ swipes from Home (Shopping's catalog autocomplete, Scan's
