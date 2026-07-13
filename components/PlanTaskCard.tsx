@@ -38,7 +38,7 @@
  *
  * Connections:
  *   Imports → components/Surface, components/PressableScale, constants/theme, lib/haptics,
- *             lib/i18n, lib/useAppTheme, store/useTaskStore (Task type only)
+ *             lib/i18n, lib/useAppTheme, lib/domainColor, store/useTaskStore (Task type only)
  *   Used by → app/(tabs)/index.tsx (Home — read-only preview off-focus per Decision 009a, and
  *             non-readOnly essential-filtered surface in Focus mode per 009 #4). Reads
  *             settings.planTimelineHorizontal there and passes it down as the `horizontal`
@@ -49,9 +49,10 @@
  *             passed in. Live "now" marker re-renders on a 60s interval (useNowMinutes).
  *
  * Edit notes:
- *   - **Decision 014**: the card face is a `<Surface>`; `accentColor` (default `featPlan`)
- *     tints the 4px left accent BAR ONLY — never the Surface border/sheen/fill. Do not
- *     reintroduce border-tint here (Surface owns border/sheen/blur since Decision 008).
+ *   - **Decision 014**: the card face is a `<Surface>`; `accentColor` (default
+ *     `getDomainColor(theme,'plan').accent`) tints the 4px left accent BAR ONLY — never the
+ *     Surface border/sheen/fill. Do not reintroduce border-tint here (Surface owns
+ *     border/sheen/blur since Decision 008).
  *   - **Decision 009b tail**: `railTailMinutes()` = 10% of the visible span (axis-start →
  *     last unfinished task's end), floored at 15 min so a near-empty day still gets a
  *     visible tail. Start from pure 10%; the floor is the 009b-sanctioned execution guard
@@ -101,6 +102,7 @@ import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
+import { getDomainColor } from '@/lib/domainColor';
 
 type Props = {
   /** Tasks scheduled for the viewed date (already filtered by the caller). */
@@ -211,6 +213,7 @@ export default function PlanTaskCard({
   const theme = useAppTheme();
   const t = useT();
   const styles = useScaledStyles(baseStyles);
+  const domainColor = getDomainColor(theme, 'plan');
   const liveNow = useNowMinutes();
   const now = nowOverride ?? liveNow;
 
@@ -375,8 +378,8 @@ export default function PlanTaskCard({
               )}
               {task.importance === 'essential' && !task.done && <Ionicons name="star" size={12} color={theme.accent} />}
               {surfaced && !task.done ? (
-                <View style={[styles.followerBadge, { backgroundColor: rgba(theme.featPlan, 0.16) }]}>
-                  <Text style={[styles.followerBadgeText, { color: theme.featPlan }]}>{t.dayViewFollowerBadge}</Text>
+                <View style={[styles.followerBadge, { backgroundColor: domainColor.soft }]}>
+                  <Text style={[styles.followerBadgeText, { color: domainColor.accent }]}>{t.dayViewFollowerBadge}</Text>
                 </View>
               ) : null}
             </View>
@@ -537,7 +540,7 @@ export default function PlanTaskCard({
 
   return (
     <Surface surfaceContext="ambient" style={[styles.card, styles.cardRow]}>
-      <View style={[styles.accent, { backgroundColor: theme.featPlan }]} />
+      <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
       <View style={styles.cardContent}>
 
         {/* Section header — only in read-only (Home preview) mode */}
@@ -546,8 +549,8 @@ export default function PlanTaskCard({
             <View style={styles.headerRow}>
               <Text style={[styles.headerTitle, { color: theme.text }]}>{t.home.todaysPlans}</Text>
               {pendingCount > 0 && (
-                <View style={[styles.badge, { backgroundColor: rgba(theme.featPlan, 0.16) }]}>
-                  <Text style={[styles.badgeText, { color: theme.featPlan }]}>{pendingCount}</Text>
+                <View style={[styles.badge, { backgroundColor: domainColor.soft }]}>
+                  <Text style={[styles.badgeText, { color: domainColor.accent }]}>{pendingCount}</Text>
                 </View>
               )}
               <View style={styles.nowChip}>
@@ -558,7 +561,7 @@ export default function PlanTaskCard({
             {dayTasks.length > 0 && (
               <ProgressBar
                 value={doneTasks.length / dayTasks.length}
-                color={theme.featPlan}
+                color={domainColor.accent}
                 height={4}
                 style={styles.progressBar}
               />

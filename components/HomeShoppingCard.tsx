@@ -10,8 +10,8 @@
  *   Imports → components/Surface, components/ExpandableCard, components/FlightOverlay
  *             (FlightRect type only), components/ShoppingRow, components/PressableScale,
  *             components/ProgressBar, constants/theme, lib/haptics, lib/i18n, lib/shoppingGroups
- *             (listProgress), lib/useAppTheme, expo-router, store/useShoppingStore (ShoppingItem
- *             type), store/useShoppingListStore (ShoppingList type)
+ *             (listProgress), lib/useAppTheme, lib/domainColor, expo-router, store/useShoppingStore
+ *             (ShoppingItem type), store/useShoppingListStore (ShoppingList type)
  *   Used by → app/(tabs)/index.tsx (Home shopping preview)
  *   Data    → pure presentational; all mutations bubbled up via callbacks (parent owns the stores)
  *
@@ -24,7 +24,8 @@
  *   - `totalCount` comes from `listProgress()`'s `total` (matches the old ad-hoc sum) — reuse
  *     that helper rather than re-deriving it, since it's also the only correct way to count
  *     dish-group items as checked/unchecked (Decision 011a items don't live wholly in one
- *     bucket). The title row's progress bar uses the same call's `pct`, tinted `featShop`.
+ *     bucket). The title row's progress bar uses the same call's `pct`, tinted with
+ *     `getDomainColor(theme,'shop').accent`.
  *   - **Touch target (2026-07-11)**: the collapsed-preview check circle is visually 22x22
  *     but `hitSlop={13}` brings the tappable area to ~48dp, meeting Android's minimum
  *     touch-target size (the expanded/full-list rows reuse ShoppingRow, fixed separately).
@@ -46,13 +47,14 @@ import ShoppingRow from '@/components/ShoppingRow';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import type { FlightRect } from '@/components/FlightOverlay';
-import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { listProgress } from '@/lib/shoppingGroups';
+import { getDomainColor } from '@/lib/domainColor';
 
 const COLLAPSED_COUNT = 5;
 
@@ -91,6 +93,7 @@ export default function HomeShoppingCard({
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const { reducedMotion } = useAccessibility();
+  const domainColor = getDomainColor(theme, 'shop');
   const [expanded, setExpanded] = useState(false);
   const cartHeaderRef = useRef<any>(null);
   const badgeRef = useRef<any>(null);
@@ -152,7 +155,7 @@ export default function HomeShoppingCard({
 
   return (
     <Surface surfaceContext="ambient" style={[styles.card, styles.cardRow]}>
-      <View style={[styles.accent, { backgroundColor: theme.featShop }]} />
+      <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
       <View style={styles.cardContent}>
 
         {/* Title row */}
@@ -162,15 +165,15 @@ export default function HomeShoppingCard({
               {list?.name ?? t.shoppingTitle}
             </Text>
             {totalCount > 0 && (
-              <View ref={badgeRef} style={[styles.badge, { backgroundColor: rgba(theme.featShop, 0.16) }]}>
-                <Text style={[styles.badgeText, { color: theme.featShop }]}>{totalCount}</Text>
+              <View ref={badgeRef} style={[styles.badge, { backgroundColor: domainColor.soft }]}>
+                <Text style={[styles.badgeText, { color: domainColor.accent }]}>{totalCount}</Text>
               </View>
             )}
           </View>
           {totalCount > 0 && (
             <ProgressBar
               value={progress.pct}
-              color={theme.featShop}
+              color={domainColor.accent}
               height={4}
               style={styles.progressBar}
             />
@@ -190,7 +193,7 @@ export default function HomeShoppingCard({
                   key={dishName}
                   title={dishName}
                   subtitle={t.ingredientsCount(groupItems.length)}
-                  accentColor={theme.featShop}
+                  accentColor={domainColor.accent}
                   defaultOpen={false}
                 >
                   {groupItems.map((item, idx) => renderShoppingRow(item, idx, groupItems.length, 'planned'))}
@@ -199,7 +202,7 @@ export default function HomeShoppingCard({
 
               {ungroupedUnchecked.length > 0 && (
                 <View style={styles.shoppingSection}>
-                  <Text style={[styles.sectionLabel, { color: theme.featShop }]}>{t.inWeeklyListSection}</Text>
+                  <Text style={[styles.sectionLabel, { color: domainColor.accent }]}>{t.inWeeklyListSection}</Text>
                   {ungroupedUnchecked.map((item, idx) => renderShoppingRow(item, idx, ungroupedUnchecked.length, 'planned'))}
                 </View>
               )}
@@ -229,8 +232,8 @@ export default function HomeShoppingCard({
                     <PressableScale
                       style={[
                         styles.check,
-                        { borderColor: theme.featShop },
-                        item.checked && { backgroundColor: theme.featShop },
+                        { borderColor: domainColor.accent },
+                        item.checked && { backgroundColor: domainColor.accent },
                       ]}
                       onPress={() => handleCollapsedToggle(item)}
                       hitSlop={13}

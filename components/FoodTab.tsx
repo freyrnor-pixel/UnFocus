@@ -13,10 +13,10 @@
  *
  * Connections:
  *   Imports → constants/theme (getMaterialStyle, contrastOn, tokens), lib/useAppTheme,
- *             lib/i18n, lib/haptics, lib/money (formatKr), components/Surface,
- *             components/PressableScale, store/useMealStore (Dish/MealType/dishTotalPrice + CRUD),
- *             store/useCatalogStore (suggest, StoreItem), store/useShoppingStore
- *             (add + UNALLOCATED_LIST_ID), @expo/vector-icons
+ *             lib/i18n, lib/haptics, lib/money (formatKr), lib/domainColor, components/Surface,
+ *             components/PressableScale, components/AddRow, store/useMealStore
+ *             (Dish/MealType/dishTotalPrice + CRUD), store/useCatalogStore (suggest, StoreItem),
+ *             store/useShoppingStore (add + UNALLOCATED_LIST_ID), @expo/vector-icons
  *   Used by → app/(tabs)/shopping.tsx (rendered when the Food tab is active)
  *   Data    → useMealStore (dishes/ingredients), useShoppingStore.add (weekly/monthly pushes),
  *             useCatalogStore.suggest (ingredient price autocomplete)
@@ -24,6 +24,9 @@
  * Edit notes:
  *   - Renders no ScrollView of its own — it lives inside the Shopping screen's scaffold
  *     ScrollView. The new-dish + "add to list" popups are RN <Modal>s (own layers).
+ *   - Both ingredient composers (the per-dish inline add row and the new-dish modal's
+ *     ingredient row) use the shared AddRow, accented with domainColor('meal') — amount/
+ *     unit/price stay as AddRow `extras` inputs, matching CatalogueTab's pattern.
  *   - A dish's total price is dishTotalPrice() = Σ ingredient.priceNok (NOT dish.estimatedPriceNok).
  *   - Pushes carry dishName so the Unallocated card and the Monthly list can group by dish.
  *   - **Decision 044b (2026-07-09):** `handleAddToWeek` now collects the ids `shoppingAdd`
@@ -37,6 +40,7 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
+import AddRow from '@/components/AddRow';
 import { useMealStore, MealType, Dish, dishTotalPrice } from '@/store/useMealStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
@@ -46,6 +50,7 @@ import { useT } from '@/lib/i18n';
 import { useMountedTransition } from '@/lib/useMountedTransition';
 import { success, heavy } from '@/lib/haptics';
 import { formatKr } from '@/lib/money';
+import { getDomainColor } from '@/lib/domainColor';
 
 type Props = {
   /** Show a transient confirmation banner in the parent screen. */
@@ -79,6 +84,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
   const styles = useScaledStyles(baseStyles);
   const t = useT();
   const { reducedMotion } = useAccessibility();
+  const domainColor = getDomainColor(theme, 'meal');
 
   const dishes = useMealStore((s) => s.dishes);
   const loadDishes = useMealStore((s) => s.load);
@@ -316,40 +322,35 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                             </View>
                           ))}
 
-                          {/* Inline add-ingredient row */}
-                          <View style={[styles.ingAddRow, { borderTopColor: theme.border }]}>
-                            <TextInput
-                              style={[styles.ingAddName, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                              value={draft.name}
-                              onChangeText={(v) => setInlineIng((p) => ({ ...p, [dish.id]: { ...draft, name: v } }))}
-                              placeholder={t.ingredientPlaceholder}
-                              placeholderTextColor={theme.textMuted}
-                            />
-                            <TextInput
-                              style={[styles.ingAddQty, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                              value={draft.amount}
-                              onChangeText={(v) => setInlineIng((p) => ({ ...p, [dish.id]: { ...draft, amount: v } }))}
-                              placeholder="1"
-                              placeholderTextColor={theme.textMuted}
-                            />
-                            <TextInput
-                              style={[styles.ingAddPrice, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                              value={draft.price}
-                              onChangeText={(v) => setInlineIng((p) => ({ ...p, [dish.id]: { ...draft, price: v } }))}
-                              placeholder={t.catalogueItemPricePlaceholder}
-                              placeholderTextColor={theme.textMuted}
-                              keyboardType="decimal-pad"
-                            />
-                            <PressableScale
-                              style={[styles.ingAddBtn, { backgroundColor: draft.name.trim() ? color : theme.surfaceMuted }]}
-                              onPress={() => handleInlineAdd(dish)}
-                              disabled={!draft.name.trim()}
-                              hitSlop={4}
-                              scaleTo={0.9}
-                            >
-                              <Ionicons name="add" size={16} color={draft.name.trim() ? contrastOn(color) : theme.textMuted} />
-                            </PressableScale>
-                          </View>
+                          {/* Inline add-ingredient row — shared AddRow (name input + amount/price extras). */}
+                          <AddRow
+                            placeholder={t.ingredientPlaceholder}
+                            value={draft.name}
+                            onChangeText={(v) => setInlineIng((p) => ({ ...p, [dish.id]: { ...draft, name: v } }))}
+                            onSubmit={() => handleInlineAdd(dish)}
+                            accent={color}
+                            accessibilityLabel={t.ingredientPlaceholder}
+                            extras={
+                              <>
+                                <TextInput
+                                  style={[styles.ingAddQty, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                                  value={draft.amount}
+                                  onChangeText={(v) => setInlineIng((p) => ({ ...p, [dish.id]: { ...draft, amount: v } }))}
+                                  placeholder="1"
+                                  placeholderTextColor={theme.textMuted}
+                                />
+                                <TextInput
+                                  style={[styles.ingAddPrice, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                                  value={draft.price}
+                                  onChangeText={(v) => setInlineIng((p) => ({ ...p, [dish.id]: { ...draft, price: v } }))}
+                                  placeholder={t.catalogueItemPricePlaceholder}
+                                  placeholderTextColor={theme.textMuted}
+                                  keyboardType="decimal-pad"
+                                  onSubmitEditing={() => handleInlineAdd(dish)}
+                                />
+                              </>
+                            }
+                          />
 
                           <PressableScale style={styles.deleteDishRow} onPress={() => { removeDish(dish.id); heavy(); }} hitSlop={6} scaleTo={0.93}>
                             <Ionicons name="trash-outline" size={14} color={theme.bad} />
@@ -448,42 +449,43 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                 </View>
               ))}
 
-              <View style={styles.ingAddRow}>
-                <TextInput
-                  style={[styles.amountInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                  value={ingAmount}
-                  onChangeText={setIngAmount}
-                  keyboardType="decimal-pad"
-                  placeholder="1"
-                  placeholderTextColor={theme.textMuted}
-                />
-                <TextInput
-                  style={[styles.unitInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                  value={ingUnit}
-                  onChangeText={setIngUnit}
-                  placeholder={t.shoppingUnitPlaceholder}
-                  placeholderTextColor={theme.textMuted}
-                />
-                <TextInput
-                  style={[styles.ingNameInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                  value={ingName}
-                  onChangeText={onIngNameChange}
-                  placeholder={t.ingredientPlaceholder}
-                  placeholderTextColor={theme.textMuted}
-                />
-                <TextInput
-                  style={[styles.priceInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                  value={ingPrice}
-                  onChangeText={setIngPrice}
-                  keyboardType="decimal-pad"
-                  placeholder={t.catalogueItemPricePlaceholder}
-                  placeholderTextColor={theme.textMuted}
-                  onSubmitEditing={addDraftIngredient}
-                />
-                <PressableScale style={[styles.addIngBtn, { backgroundColor: theme.accent }]} onPress={addDraftIngredient} scaleTo={0.9}>
-                  <Ionicons name="add" size={18} color={theme.accentInk} />
-                </PressableScale>
-              </View>
+              <AddRow
+                placeholder={t.ingredientPlaceholder}
+                value={ingName}
+                onChangeText={onIngNameChange}
+                onSubmit={addDraftIngredient}
+                accent={domainColor.accent}
+                showDivider={false}
+                accessibilityLabel={t.ingredientPlaceholder}
+                extras={
+                  <>
+                    <TextInput
+                      style={[styles.amountInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                      value={ingAmount}
+                      onChangeText={setIngAmount}
+                      keyboardType="decimal-pad"
+                      placeholder="1"
+                      placeholderTextColor={theme.textMuted}
+                    />
+                    <TextInput
+                      style={[styles.unitInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                      value={ingUnit}
+                      onChangeText={setIngUnit}
+                      placeholder={t.shoppingUnitPlaceholder}
+                      placeholderTextColor={theme.textMuted}
+                    />
+                    <TextInput
+                      style={[styles.priceInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                      value={ingPrice}
+                      onChangeText={setIngPrice}
+                      keyboardType="decimal-pad"
+                      placeholder={t.catalogueItemPricePlaceholder}
+                      placeholderTextColor={theme.textMuted}
+                      onSubmitEditing={addDraftIngredient}
+                    />
+                  </>
+                }
+              />
 
               {suggestions.length > 0 && (
                 <View style={[styles.suggestList, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -533,11 +535,8 @@ const baseStyles = StyleSheet.create({
   ingName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium },
   ingAmount: { fontSize: FontSize.xs, minWidth: 40, textAlign: 'right' },
   ingPrice: { fontSize: FontSize.xs, minWidth: 48, textAlign: 'right' },
-  ingAddRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingTop: Spacing.xs, borderTopWidth: StyleSheet.hairlineWidth },
-  ingAddName: { flex: 1, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 6, fontSize: FontSize.sm },
   ingAddQty: { width: 40, borderRadius: Radius.sm, paddingHorizontal: 4, paddingVertical: 6, fontSize: FontSize.sm, textAlign: 'center' },
   ingAddPrice: { width: 64, borderRadius: Radius.sm, paddingHorizontal: 6, paddingVertical: 6, fontSize: FontSize.sm },
-  ingAddBtn: { width: 30, height: 30, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   deleteDishRow: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-end', marginTop: Spacing.xs },
   deleteDishText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
 
@@ -565,9 +564,7 @@ const baseStyles = StyleSheet.create({
   draftText: { flex: 1, fontSize: FontSize.sm },
   amountInput: { width: 44, borderRadius: Radius.sm, padding: Spacing.sm, fontSize: FontSize.sm, textAlign: 'center' },
   unitInput: { width: 52, borderRadius: Radius.sm, padding: Spacing.sm, fontSize: FontSize.sm },
-  ingNameInput: { flex: 1, borderRadius: Radius.sm, padding: Spacing.sm, fontSize: FontSize.sm },
   priceInput: { width: 60, borderRadius: Radius.sm, padding: Spacing.sm, fontSize: FontSize.sm },
-  addIngBtn: { width: 36, height: 36, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   suggestList: { maxHeight: 160, borderWidth: 1, borderRadius: Radius.sm },
   suggestRow: { padding: Spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.sm },
   suggestText: { flex: 1, fontSize: FontSize.sm },

@@ -16,7 +16,7 @@
  *   Imports → components/ExpandableCard, components/FlightOverlay (FlightRect type only), components/IconButton,
  *             components/Surface, components/ShoppingRow (CHECKED_OPACITY), constants/theme,
  *             lib/i18n, lib/money (formatKr), lib/shoppingGroups (listProgress, listTotal),
- *             lib/useAppTheme, lib/haptics,
+ *             lib/useAppTheme, lib/haptics, lib/domainColor,
  *             store/useCatalogStore (StoreItem, suggest),
  *             store/useShoppingListStore (ShoppingList type), store/useShoppingStore
  *             (ShoppingItem type)
@@ -42,7 +42,7 @@
  *     every fromCatalog weekly item whose name was tracked, then clears and closes.
  *   - listProgress() is still called here for the compact progress line on non-focused lists
  *     and the "Shopping done!" disabled state — same helper, same data.
- *   - Outer card has a 4px `theme.featShop` left accent stripe (Surface split into
+ *   - Outer card has a 4px `getDomainColor(theme,'shop').accent` left accent stripe (Surface split into
  *     `cardRow`/`accent`/`cardContent`), matching Home's preview-card treatment so the
  *     card reads as the same object when tapping through from Home into full Shopping.
  *   - **Decision 044b (2026-07-09):** entrance/highlight animation for just-added rows is
@@ -73,6 +73,7 @@ import ExpandableCard from '@/components/ExpandableCard';
 import PressableScale from '@/components/PressableScale';
 import ShoppingRow, { CHECKED_OPACITY } from '@/components/ShoppingRow';
 import type { FlightRect } from '@/components/FlightOverlay';
+import { getDomainColor } from '@/lib/domainColor';
 import { Ionicons } from '@expo/vector-icons';
 
 type Props = {
@@ -144,6 +145,7 @@ export default function WeekListCard({
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
+  const domainColor = getDomainColor(theme, 'shop');
   const t = useT();
   const [editing, setEditing] = useState(false);
   const [nameInput, setNameInput] = useState(list.name);
@@ -249,7 +251,7 @@ export default function WeekListCard({
 
   return (
     <Surface style={styles.cardRow}>
-      <View style={[styles.accent, { backgroundColor: theme.featShop }]} />
+      <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
       <View style={styles.cardContent}>
       {/* ── Card header: title + mode toggle + rename/settings/delete icons ── */}
       <View style={styles.header}>

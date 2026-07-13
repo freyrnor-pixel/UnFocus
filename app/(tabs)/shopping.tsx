@@ -188,6 +188,7 @@ import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { groupByDish, computeListGroups, listProgress } from '@/lib/shoppingGroups';
 import { formatKr } from '@/lib/money';
+import { getDomainColor } from '@/lib/domainColor';
 
 type Tab = 'weekly' | 'monthly' | 'food' | 'catalogue';
 
@@ -236,6 +237,8 @@ export default function ShoppingScreen() {
   const t = useT();
   const router = useRouter();
   const { reducedMotion } = useAccessibility();
+  const mealDomainColor = getDomainColor(theme, 'meal');
+  const shopDomainColor = getDomainColor(theme, 'shop');
 
   // Fire the 'shopping_opened' automation trigger once per screen visit (mount).
   // Rules are already loaded by app/_layout.tsx's startup bootstrap.
@@ -743,8 +746,8 @@ export default function ShoppingScreen() {
   const TAB_META: { value: Tab; label: string; accent: string; count: number }[] = [
     { value: 'weekly', label: t.weeklyTabLabel, accent: theme.good, count: ukelisteBadge },
     { value: 'monthly', label: t.monthlyTabLabel, accent: theme.accent, count: 0 },
-    { value: 'food', label: t.foodTabLabel, accent: theme.featMeal, count: 0 },
-    { value: 'catalogue', label: t.catalogueTabLabel, accent: theme.featShop, count: 0 },
+    { value: 'food', label: t.foodTabLabel, accent: mealDomainColor.accent, count: 0 },
+    { value: 'catalogue', label: t.catalogueTabLabel, accent: shopDomainColor.accent, count: 0 },
   ];
 
   const summaryVisible = tab === 'weekly' && !!focusedList && !!focusedProgress;
@@ -961,7 +964,7 @@ export default function ShoppingScreen() {
                 card's material (a Surface `tint` used to recolor the entire fill/sheen). */}
             {unallocatedItems.length > 0 && (
               <Surface style={[styles.unallocatedCard, styles.unallocatedCardRow]}>
-                <View style={[styles.unallocatedAccent, { backgroundColor: theme.featMeal }]} />
+                <View style={[styles.unallocatedAccent, { backgroundColor: mealDomainColor.accent }]} />
                 <View style={styles.unallocatedContent}>
                 <View style={styles.unallocatedHeader}>
                   <Ionicons name="fast-food-outline" size={18} color={theme.text} />
