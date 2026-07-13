@@ -25,9 +25,13 @@
  *     except for the toggle button's own label (t.showHint/t.hideHint).
  *   - Uses theme.hintBg/hintBorder/hintAccent (Decision 006 token layer) —
  *     theme-tuned per palette, not a fixed hue.
- *   - Expand/collapse uses LayoutAnimation (same pattern as ExpandableCard), gated on
- *     reducedMotion per ANIMATION_GUIDELINES §7; toggle button is PressableScale so it
- *     gets the standard tap haptic + press-scale for free.
+ *   - Pill path expand/collapse uses LayoutAnimation here (same pattern as ExpandableCard),
+ *     gated on reducedMotion per ANIMATION_GUIDELINES §7; toggle button is PressableScale so
+ *     it gets the standard tap haptic + press-scale for free.
+ *   - noPill (header-driven) mode does NOT animate from this file — the body is mounted/
+ *     unmounted by the parent's `open` prop. The animation for that path lives in
+ *     lib/useFirstVisitHint.ts, whose wrapped setter runs LayoutAnimation.configureNext
+ *     before every open/close (auto-open, blur, and the header ⓘ toggle).
  */
 import React, { useState } from 'react';
 import { LayoutAnimation, Platform, StyleSheet, Text, UIManager, View } from 'react-native';

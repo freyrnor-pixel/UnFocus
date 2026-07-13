@@ -8,9 +8,11 @@
  * accent, badges, and ExpandableCard.accentColor pull their hue from here so a
  * domain reads the same color everywhere (design criteria 1, 4, 8).
  *
- * Domain → palette token:
- *   task→featTask · plan→featPlan · habit→featHabit · shop→featShop
- *   meal→featMeal · budget→featBudget · note→featNote · health→featHealth
+ * Domain → palette token (the feat* hexes are ordered by ROUTINE SEQUENCE in
+ * constants/colors.ts — color signifies the order of a day, not a random rainbow;
+ * green/red/amber are reserved for status, so no domain hue collides with done/overdue/soon):
+ *   plan→featPlan · task→featTask · habit→featHabit · health→featHealth
+ *   meal→featMeal · shop→featShop · budget→featBudget · note→featNote
  *
  * Status → semantic token:
  *   done→good · overdue→bad · soon→warn · default→the domain accent
