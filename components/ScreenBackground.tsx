@@ -1,10 +1,9 @@
 /**
  * ScreenBackground.tsx — ambient backdrop behind a screen's scrollable content.
  *
- * Renders the theme's base colour plus a couple of large, soft colour blobs
- * (radial SVG gradients for smooth falloff) sized and positioned for the glass
- * surface finish — three saturated accent blobs spanning the screen so ambient
- * glass Surfaces always have colour underneath to frost (Decision 008 (3)).
+ * Renders the theme's base colour plus one large, soft accent blob (radial SVG
+ * gradient for smooth falloff) so ambient glass Surfaces still have a hint of colour
+ * underneath to frost (Decision 008 (3)) without the backdrop competing with content.
  *
  * Connections:
  *   Imports → constants/colors (ThemePalette), lib/useAppTheme, react-native-svg
@@ -19,8 +18,9 @@
  *     screen's SafeAreaView/ScrollView be transparent on top of it — don't
  *     also set backgroundColor: theme.bg on the SafeAreaView or the blobs
  *     get painted over.
- *   - Blobs are intentionally low-opacity (≤ ~0.2 at their core) so body text
- *     rendered directly on the background (not inside a Surface) stays legible.
+ *   - The blob is intentionally very low-opacity (~0.1 at its core) so body text
+ *     rendered directly on the background (not inside a Surface) stays legible and the
+ *     base reads near-neutral — colour is meant to come from the content, not here.
  */
 import React from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
@@ -30,11 +30,13 @@ import { useAppTheme } from '@/lib/useAppTheme';
 
 type BlobSpec = { size: number; color: string; pos: ViewStyle };
 
+// Calm, near-neutral base: a single soft accent blob anchored top-right. The old
+// three-blob set mixed accent + green (theme.good), and that second hue is what read
+// as a muddy wash — dropped it, and lowered the remaining blob's opacity (see Blob),
+// so the backdrop stays quiet and the content's own colour carries the screen.
 function blobsFor(theme: ThemePalette): BlobSpec[] {
   return [
     { size: 340, color: theme.accent, pos: { top: -80, right: -80 } },
-    { size: 300, color: theme.good, pos: { bottom: -60, left: -80 } },
-    { size: 240, color: theme.accent, pos: { top: '38%', left: -90 } },
   ];
 }
 
@@ -45,9 +47,9 @@ function Blob({ size, color, pos }: BlobSpec) {
       <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <Defs>
           <RadialGradient id={gradientId} cx="50%" cy="50%" rx="50%" ry="50%">
-            <Stop offset="0%" stopColor={color} stopOpacity="0.2" />
-            <Stop offset="35%" stopColor={color} stopOpacity="0.13" />
-            <Stop offset="70%" stopColor={color} stopOpacity="0.06" />
+            <Stop offset="0%" stopColor={color} stopOpacity="0.1" />
+            <Stop offset="35%" stopColor={color} stopOpacity="0.06" />
+            <Stop offset="70%" stopColor={color} stopOpacity="0.03" />
             <Stop offset="100%" stopColor={color} stopOpacity="0" />
           </RadialGradient>
         </Defs>

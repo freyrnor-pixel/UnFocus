@@ -781,7 +781,11 @@ export default function HealthScreen() {
           {/* Habits — embedded section (no separate /habits screen; ported in full). */}
           <View style={styles.habitsSection}>
             <View style={styles.habitsSectionHeader}>
-              <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.habitsTitle}</Text>
+              {/* Soft domain-tinted pill so this section title reads as a labelled plate on the
+                  calm backdrop instead of bare text floating on it (mirrors SectionRail). */}
+              <View style={[styles.sectionLabelPill, { backgroundColor: habitDomainColor.soft }]}>
+                <Text style={[styles.sectionLabelPillText, { color: habitDomainColor.accent }]}>{t.habitsTitle}</Text>
+              </View>
             </View>
 
             {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
@@ -892,6 +896,9 @@ const baseStyles = StyleSheet.create({
   overviewAccent: { width: 4, alignSelf: 'stretch', borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
   overviewCardContent: { flex: 1, padding: Spacing.md },
   sectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, marginBottom: Spacing.sm },
+  // Soft-tinted pill backing for the bare "Vaner" section title (mirrors SectionRail).
+  sectionLabelPill: { alignSelf: 'flex-start', paddingVertical: Spacing.xs, paddingHorizontal: Spacing.sm, borderRadius: Radius.md, marginBottom: Spacing.sm },
+  sectionLabelPillText: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   overviewAilment: { marginTop: Spacing.sm },
   overviewRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   ailmentWeekStrip: {

@@ -210,6 +210,7 @@ export default function ScreenScaffold({
           padded down by the top inset so the bar content clears it. */}
       <View style={[styles.headerBlock, { height: HEADER_HEIGHT + topInset, paddingTop: topInset, backgroundColor: theme.bg }]}>
         <ScreenHeader
+          style={styles.headerFill}
           title={title}
           tier={tier}
           isHome={isHome}
@@ -257,6 +258,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100,
+  },
+  // Stretch the glass header Surface to fill the whole HEADER_HEIGHT band (not just its
+  // shrink-wrapped ~40px content height). Without this the strip below the glass was flat
+  // theme.bg — dead space at rest and, since headerBlock has zIndex:100, a blank rectangle
+  // that covered cards scrolling behind it. Filling it means cards blur under frosted glass
+  // (reads intentional) instead of vanishing under an opaque band. `flex` is a non-owned key,
+  // so Surface routes it to its outer shadow view and its mask (flexGrow:1) frosts the height.
+  headerFill: {
+    flex: 1,
   },
   stickyBlock: {
     position: 'absolute',
