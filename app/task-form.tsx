@@ -60,11 +60,6 @@ import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 
-function nextHourStr(): string {
-  const h = (new Date().getHours() + 1) % 24;
-  return `${String(h).padStart(2, '0')}:00`;
-}
-
 const DURATION_CHIPS = [15, 20, 30, 45, 60, 90];
 
 export default function TaskFormScreen() {
@@ -89,9 +84,12 @@ export default function TaskFormScreen() {
   const [title, setTitle] = useState(existing?.title ?? titleParam ?? '');
   const [date, setDate] = useState(existing?.date ?? todayStr());
   const [timeEnabled, setTimeEnabled] = useState(existing ? !!existing.time : true);
-  const [time, setTime] = useState(existing?.time ?? nextHourStr());
+  // New tasks start with an empty time/duration so the field shows a grey placeholder
+  // (HH:MM / min) instead of a pre-filled value the user has to erase — save() treats an
+  // empty time as "no time" and falls back to 30 min for an empty time-box duration.
+  const [time, setTime] = useState(existing?.time ?? '');
   const [taskType, setTaskType] = useState<TaskType>(existing?.taskType ?? 'start-at');
-  const [duration, setDuration] = useState(String(existing?.durationMinutes ?? '30'));
+  const [duration, setDuration] = useState(existing?.durationMinutes != null ? String(existing.durationMinutes) : '');
   const [recurring, setRecurring] = useState<Recurring>(existing?.recurring ?? 'none');
   const [recurringDays, setRecurringDays] = useState<number[]>(existing?.recurringDays ?? []);
   const [importance, setImportance] = useState<Importance>(existing?.importance ?? 'regular');
@@ -298,9 +296,7 @@ export default function TaskFormScreen() {
               ]}
               value={timeEnabled ? 'set' : 'whenever'}
               onChange={(v) => {
-                const isSet = v === 'set';
-                setTimeEnabled(isSet);
-                if (!isSet) setTime(nextHourStr());
+                setTimeEnabled(v === 'set');
               }}
             />
             {timeEnabled ? (

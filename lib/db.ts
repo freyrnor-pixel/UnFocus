@@ -580,6 +580,11 @@ export function initDb() {
     // initial CREATE TABLE block (before the column exists on a fresh DB) throws
     // "no such column: anchor_id" and aborts initDb() before any migration runs.
     "CREATE INDEX IF NOT EXISTS idx_feedback_notes_anchor ON feedback_notes(anchor_id)",
+    // First-run per-screen hints (onboarding slim-down 2026-07-13): JSON array of
+    // screen keys whose ⓘ hint has already auto-expanded once. Drives the "teach the
+    // setting in context on first visit" behaviour that replaced the old setup wizard
+    // steps — see store/useSettingsStore.ts (seenScreenHints) and the tab screens.
+    "ALTER TABLE settings ADD COLUMN seen_screen_hints TEXT DEFAULT ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

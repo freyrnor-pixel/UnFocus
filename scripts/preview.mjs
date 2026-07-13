@@ -99,31 +99,26 @@ async function main() {
 
     console.log('> onboarding: guided/explore choice');
     await shot(page, 'onboarding-guided-choice');
-    await clickText(page, 'Next →', { nth: 0 });
+    await clickText(page, 'Walk me through it');
     await page.waitForTimeout(500);
 
-    console.log('> onboarding: name');
+    // Intro tour: one short page per feature (t.features), stepped with "Next →";
+    // the last page's primary button reads "Get started →" and continues to the name step.
+    console.log('> onboarding: intro tour');
+    for (let i = 0; i < 8; i++) {
+      await shot(page, `onboarding-intro-${i}`);
+      const onLastPage = await page.getByText('Get started →', { exact: true }).first().isVisible().catch(() => false);
+      if (onLastPage) {
+        await clickText(page, 'Get started →');
+        break;
+      }
+      await clickText(page, 'Next →', { nth: 0 });
+      await page.waitForTimeout(400);
+    }
+    await page.waitForTimeout(500);
+
+    console.log('> onboarding: name + finish');
     await shot(page, 'onboarding-name');
-    await clickText(page, 'Get started →');
-    await page.waitForTimeout(500);
-
-    console.log('> onboarding: work mode (step2)');
-    await shot(page, 'onboarding-step2');
-    await clickText(page, 'Next →', { nth: 0 });
-    await page.waitForTimeout(500);
-
-    console.log('> onboarding: shopping days (step3)');
-    await shot(page, 'onboarding-step3');
-    await clickText(page, 'Next →', { nth: 0 });
-    await page.waitForTimeout(500);
-
-    console.log('> onboarding: notifications (step4)');
-    await shot(page, 'onboarding-step4');
-    await clickText(page, 'Next →', { nth: 0 });
-    await page.waitForTimeout(500);
-
-    console.log('> onboarding: theme + handedness (step5)');
-    await shot(page, 'onboarding-step5');
     await clickText(page, "Let's go! 🌿");
     await page.waitForTimeout(1500);
 
