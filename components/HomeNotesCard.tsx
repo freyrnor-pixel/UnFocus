@@ -10,16 +10,25 @@
  *
  * Connections:
  *   Imports → components/Surface, components/PressableScale, constants/theme, lib/haptics,
- *             lib/i18n, lib/useAppTheme, lib/domainColor, store/useNotesStore
+ *             lib/i18n, lib/useAppTheme, lib/domainColor, lib/useVoiceCapture, store/useNotesStore
  *   Used by → app/(tabs)/index.tsx (replaces InboxSection in the Notes preview slot)
- *   Data    → reads/writes useNotesStore (notes table): toggleChecked, add
+ *   Data    → reads/writes useNotesStore (notes table): toggleChecked, add, update
  *
  * Edit notes:
+ *   - **Collapsed sizing (2026-07-13)**: `cardCollapsed` (minHeight:
+ *     `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) applies only while `!expanded`, so
+ *     this card reads the same height as PlanTaskCard/HomeShoppingCard even with few notes;
+ *     `noteRow`'s paddingVertical was trimmed to `Spacing.xs` for a slimmer collapsed row.
  *   - Note rows are read-only previews (no inline TextInput) — editing is the /notes screen's job.
  *   - Checked notes are shown in a dimmed collapsed sub-section only when fully expanded,
  *     mirroring PlanTaskCard's done zone.
- *   - "+" add creates a blank note via add() then navigates to /notes so the user can fill it.
- *     success() haptic fires on add; tap() haptic on toggle/expand.
+ *   - **Inline mic button (title row)**: records a voice note without leaving Home, via
+ *     lib/useVoiceCapture (the same recording logic app/notes.tsx's VoiceNoteFAB uses) — on a
+ *     finished transcript it creates a note (add() + update({body})), matching notes.tsx's own
+ *     onTranscript handler exactly, so a note recorded from Home is identical to one recorded
+ *     from /notes. Sits as a sibling of the title's PressableScale (not nested inside it) so
+ *     its tap doesn't also trigger the title's navigate-to-/notes press. success() haptic on
+ *     a created note; tap() haptic on toggle/expand.
  *   - **Touch target (2026-07-11)**: check circle is visually 22x22 but `hitSlop={13}`
  *     brings the tappable area to ~48dp, meeting Android's minimum touch-target size.
  */
@@ -29,12 +38,13 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useNotesStore } from '@/store/useNotesStore';
 import { getDomainColor } from '@/lib/domainColor';
+import { useVoiceCapture } from '@/lib/useVoiceCapture';
 
 const COLLAPSED_COUNT = 5;
 
@@ -47,9 +57,17 @@ export default function HomeNotesCard() {
 
   const notes = useNotesStore((s) => s.notes);
   const toggleChecked = useNotesStore((s) => s.toggleChecked);
+  const addNote = useNotesStore((s) => s.add);
+  const updateNote = useNotesStore((s) => s.update);
 
   const [expanded, setExpanded] = useState(false);
   const [checkedOpen, setCheckedOpen] = useState(false);
+
+  const { listening, toggle: toggleVoiceCapture } = useVoiceCapture((text) => {
+    const note = addNote();
+    updateNote(note.id, { body: text });
+    success();
+  });
 
   const activeNotes = notes.filter((n) => !n.checked);
   const checkedNotes = notes.filter((n) => n.checked);
@@ -67,21 +85,44 @@ export default function HomeNotesCard() {
   }
 
   return (
-    <Surface surfaceContext="ambient" tint={domainColor.tint} style={[styles.card, styles.cardRow]}>
+    <Surface
+      surfaceContext="ambient"
+      tint={domainColor.tint}
+      style={[styles.card, styles.cardRow, !expanded && styles.cardCollapsed]}
+    >
       <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
       <View style={styles.cardContent}>
 
-        {/* Title row */}
-        <PressableScale onPress={handleTitlePress} style={styles.titleRowPressable} scaleTo={0.97}>
-          <View style={styles.titleRow}>
-            <Text style={[styles.title, { color: theme.text }]}>{t.notes.title}</Text>
-            {activeNotes.length > 0 && (
-              <View style={[styles.badge, { backgroundColor: domainColor.soft }]}>
-                <Text style={[styles.badgeText, { color: domainColor.accent }]}>{activeNotes.length}</Text>
-              </View>
-            )}
-          </View>
-        </PressableScale>
+        {/* Title row — title/badge (navigates to /notes) and the mic button are siblings,
+            not nested Pressables, so tapping the mic doesn't also fire the title's navigate. */}
+        <View style={styles.titleRow}>
+          <PressableScale onPress={handleTitlePress} style={styles.titleLeftPressable} scaleTo={0.97}>
+            <View style={styles.titleLeft}>
+              <Text style={[styles.title, { color: theme.text }]}>{t.notes.title}</Text>
+              {activeNotes.length > 0 && (
+                <View style={[styles.badge, { backgroundColor: domainColor.soft }]}>
+                  <Text style={[styles.badgeText, { color: domainColor.accent }]}>{activeNotes.length}</Text>
+                </View>
+              )}
+            </View>
+          </PressableScale>
+          <PressableScale
+            onPress={toggleVoiceCapture}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={listening ? t.notes.stopRecording : t.notes.recordVoiceNote}
+            scaleTo={0.9}
+          >
+            <View
+              style={[
+                styles.micButton,
+                { backgroundColor: listening ? theme.badSoft : domainColor.soft },
+              ]}
+            >
+              <Ionicons name={listening ? 'stop' : 'mic'} size={15} color={listening ? theme.bad : domainColor.accent} />
+            </View>
+          </PressableScale>
+        </View>
 
         {/* Active note rows */}
         {activeNotes.length === 0 ? (
@@ -189,19 +230,24 @@ export default function HomeNotesCard() {
 
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
+  // Collapsed-only floor so Notes/Plans/Shopping read as the same size regardless of how
+  // little content one of them has (e.g. a single note) — see constants/theme.ts.
+  cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   cardRow: { flexDirection: 'row' },
   accent: { width: 4, alignSelf: 'stretch', borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
   cardContent: { flex: 1, padding: Spacing.md },
-  titleRowPressable: { marginBottom: Spacing.sm },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm, gap: Spacing.sm },
+  titleLeftPressable: { flexShrink: 1 },
+  titleLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   title: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  micButton: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   // Wells removed (2026-07-13 grouping pass): rows sit directly on the domain-tinted card
   // face so the whole section reads as one thing, instead of a flat surfaceMuted box-in-a-box.
   rowsContainer: { marginBottom: Spacing.sm },
   rows: { gap: 0 },
-  noteRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: Spacing.sm, gap: Spacing.sm },
+  noteRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: Spacing.xs, gap: Spacing.sm },
   check: {
     width: 22,
     height: 22,

@@ -9,37 +9,28 @@
  * note's header — that starts empty and stays whatever the user types, per app/notes.tsx.
  *
  * Connections:
- *   Imports → expo-speech-recognition, components/AddFAB (FAB_LG_SIZE/FAB_DEFAULT_BOTTOM),
- *             components/AppModal (showAppModal), components/PressableScale, constants/theme,
- *             lib/i18n, lib/useAppTheme, store/useSettingsStore (language, for the recognizer locale)
+ *   Imports → components/AddFAB (FAB_LG_SIZE/FAB_DEFAULT_BOTTOM), components/PressableScale,
+ *             constants/theme, lib/i18n, lib/useAppTheme, lib/useVoiceCapture
  *   Used by → app/notes.tsx (replaces AddFAB there)
  *   Data    → none directly — reports the transcript up via onTranscript; the parent owns
  *             note creation/update
  *
  * Edit notes:
- *   - Locale passed to ExpoSpeechRecognitionModule.start() is derived from
- *     useSettingsStore's language ('no' → 'nb-NO', 'en' → 'en-US'), not hardcoded.
- *   - interimResults:false + continuous:false — the OS recognizer auto-ends on a speech
- *     pause (like Siri/Google dictation) and only ever emits final results, so there's no
- *     separate "finalize" step beyond the tap-to-stop affordance for cutting a recording short.
- *   - transcriptRef holds the latest "result" event's text; "end" reads it once and clears
- *     it, so a stop with no speech captured doesn't create a blank note.
- *   - "no-speech"/"aborted" errors are expected (silence, or the user stopped early) and are
- *     swallowed; any other error surfaces via showAppModal.
+ *   - The recording state machine (permission, start/stop, transcript, error handling) lives
+ *     in lib/useVoiceCapture.ts — shared with components/HomeNotesCard.tsx's inline mic
+ *     button. This file is now just the big floating-button UI + the autoStart wiring.
  *   - `autoStart` begins listening once on mount — app/notes.tsx passes it when opened via the
  *     Notes widget's voice deep-link (unfocus:///notes?capture=voice). Guarded by a ref so it
  *     fires a single time per mount.
  *   - expo-speech-recognition ships as a reserve-only native module already in this build
  *     (Decision 040/AGENTS.md) — using it here is a normal JS change, no new native build needed.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { useSettingsStore } from '@/store/useSettingsStore';
-import { showAppModal } from '@/components/AppModal';
+import { useVoiceCapture } from '@/lib/useVoiceCapture';
 import { Radius, Shadow, Spacing } from '@/constants/theme';
 import { FAB_LG_SIZE, FAB_DEFAULT_BOTTOM } from '@/components/AddFAB';
 import PressableScale from '@/components/PressableScale';
@@ -55,65 +46,21 @@ type Props = {
 export default function VoiceNoteFAB({ onTranscript, autoStart }: Props) {
   const theme = useAppTheme();
   const t = useT();
-  const language = useSettingsStore((s) => s.language);
-  const [listening, setListening] = useState(false);
-  const transcriptRef = useRef('');
+  const { listening, toggle } = useVoiceCapture(onTranscript);
   const autoStartedRef = useRef(false);
-
-  useSpeechRecognitionEvent('start', () => setListening(true));
-
-  useSpeechRecognitionEvent('result', (event) => {
-    const text = event.results[0]?.transcript;
-    if (text) transcriptRef.current = text;
-  });
-
-  useSpeechRecognitionEvent('end', () => {
-    setListening(false);
-    const text = transcriptRef.current.trim();
-    transcriptRef.current = '';
-    if (text) onTranscript(text);
-  });
-
-  useSpeechRecognitionEvent('error', (event) => {
-    setListening(false);
-    transcriptRef.current = '';
-    if (event.error === 'no-speech' || event.error === 'aborted') return;
-    showAppModal(
-      t.permissionTitle,
-      event.error === 'not-allowed' ? t.notes.micPermissionBody : t.notes.micErrorBody
-    );
-  });
-
-  async function handlePress() {
-    if (listening) {
-      ExpoSpeechRecognitionModule.stop();
-      return;
-    }
-    const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-    if (!perm.granted) {
-      showAppModal(t.permissionTitle, t.notes.micPermissionBody);
-      return;
-    }
-    ExpoSpeechRecognitionModule.start({
-      lang: language === 'no' ? 'nb-NO' : 'en-US',
-      interimResults: false,
-      continuous: false,
-      addsPunctuation: true,
-    });
-  }
 
   // Auto-start once when opened via the widget's voice deep-link.
   useEffect(() => {
     if (autoStart && !autoStartedRef.current) {
       autoStartedRef.current = true;
-      void handlePress();
+      void toggle();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart]);
 
   return (
     <PressableScale
-      onPress={handlePress}
+      onPress={toggle}
       accessibilityRole="button"
       accessibilityLabel={listening ? t.notes.stopRecording : t.notes.recordVoiceNote}
       scaleTo={0.9}
