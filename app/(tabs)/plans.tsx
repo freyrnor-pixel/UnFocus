@@ -14,34 +14,40 @@
  * consistent with Shopping's always-visible list layout (app/(tabs)/shopping.tsx).
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/HintCard, components/SharedRequestsSection,
- *             components/TaskCard, components/AddRow, components/Surface, components/PressableScale,
- *             constants/theme, lib/date, lib/i18n, lib/useAppTheme, lib/useFirstVisitHint,
- *             store/useTaskStore, store/useSettingsStore
+ *   Imports → components/ScreenScaffold, components/HintCard, components/SharedTasksSection,
+ *             components/SectionRail, components/TaskCard, components/AddRow,
+ *             components/PressableScale, constants/theme, lib/date, lib/domainColor, lib/i18n,
+ *             lib/useAppTheme, lib/useFirstVisitHint, store/useTaskStore, store/useSettingsStore
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
- *   Data    → reads/writes useTaskStore (tasks/steps); SharedRequestsSection reads
- *             useSharedStore internally for incoming shares
+ *   Data    → reads/writes useTaskStore (tasks/steps); SharedTasksSection reads useSharedStore
+ *             internally for incoming shares + accepts the sharedOut tasks as its "sent" half
  *
  * Edit notes:
+ *   - **Color-rail redesign (2026-07-13)**: section order is now **Whenever → Repeating →
+ *     Shared**. Headers are `<SectionRail>` (a hue dot + label + count); each section's cards
+ *     wear a matching `railColor` left edge (TaskCard's `railColor` prop) so a card visibly
+ *     belongs to its section. Hues are domain accents via lib/domainColor: Whenever = task
+ *     (blue), Repeating = plan (indigo), Shared = shop (rose) — all with light+dark variants,
+ *     so `green/red` stay reserved for STATUS (the done circle is `theme.good`, never a hue).
+ *   - **Merged Shared section**: the old top-of-screen incoming `SharedRequestsSection` +
+ *     standalone "Shared out" section are replaced by one `<SharedTasksSection>` (last section)
+ *     combining received (↓ Accept/Dismiss) and sent (↑ TaskCard) rows with per-row direction
+ *     indicators. It takes `sentTasks={sharedOutAll}` and reads incoming shares itself.
  *   - No lock: the old module-session `taskLockedSession` is gone. TaskCard's Discard/Save
  *     bar is the commit point for edits; creation goes through the Whenever AddRow, which
  *     calls addTask() directly on submit (no local draft rows). TaskCard still supports an
  *     `isNew` draft mode but plans no longer uses it (candidate for later cleanup).
  *   - Section selectors: Whenever = recurring 'none' & !sharedOut (All tab includes dated
- *     one-offs); Recurring = recurring !== 'none' & !sharedOut; Shared out = sharedOut. In
- *     Today / This week the "Whenever" section is undated tasks only, and shared tasks are
- *     tinted instead of getting their own section.
+ *     one-offs); Recurring = recurring !== 'none' & !sharedOut; Shared = sharedOut (sent) +
+ *     useSharedStore 'in' rows (received). In Today / This week the "Whenever" section is
+ *     undated tasks only, and shared tasks are tinted instead of getting their own section.
  *   - New tasks are always created in Whenever (undated, non-recurring); the editor can
  *     then promote them (date / repeat).
- *   - **Always-visible sections**: sections used to conditionally hide when empty
- *     (`.length > 0 && ...`); now every named section always renders with a
+ *   - **Always-visible sections**: every named section always renders with a
  *     `styles.sectionEmpty` placeholder (i18n keys `tasksSection*Empty` / `tasksDayEmpty`).
- *   - **Add affordance (design-consistency pass)**: the old per-row `AddDivider` and the
- *     dashed "Make New" card were replaced by a single shared `AddRow` (empty row + "+")
- *     in a Surface at the bottom of the Whenever section — one add-a-row shape app-wide.
- *   - **Section header cards**: `sectionHeader()`'s row now sits on a `theme.surfaceMuted`
- *     card (padding + radius) so the label/rule stay legible over the particle background —
- *     matches the same fix in app/(tabs)/shopping.tsx.
+ *   - **Add affordance**: the shared `AddRow` (empty row + "+") sits in a plain bordered card
+ *     (not a translucent Surface) at the bottom of Whenever, with the Whenever-blue rail so its
+ *     full edge is visible over the particle background.
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus effect
  *     only seeds the first-run blank draft (see below).
  */
@@ -49,10 +55,10 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
-import SharedRequestsSection from '@/components/SharedRequestsSection';
+import SharedTasksSection from '@/components/SharedTasksSection';
+import SectionRail from '@/components/SectionRail';
 import TaskCard from '@/components/TaskCard';
 import AddRow from '@/components/AddRow';
-import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
@@ -60,7 +66,7 @@ import { useAppTheme } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { Fonts, FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { getDomainColor } from '@/lib/domainColor';
 
 type Tab = 'all' | 'today' | 'week';
@@ -79,7 +85,12 @@ const STICKY_HEIGHT = 56;
 export default function TasksScreen() {
   const theme = useAppTheme();
   const t = useT();
-  const sharedOutDomainColor = getDomainColor(theme, 'shop');
+  // Section hues (color-rail redesign): each list section carries a stable domain accent —
+  // Whenever = task (blue), Repeating = plan (indigo). Both tokens have light + dark variants,
+  // so the rail/dot/label stay distinct and legible in both modes. Shared handles its own
+  // (shop/rose) hue inside SharedTasksSection.
+  const wheneverHue = getDomainColor(theme, 'task').accent;
+  const repeatingHue = getDomainColor(theme, 'plan').accent;
 
   const tasks = useTaskStore((s) => s.tasks);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
@@ -162,27 +173,10 @@ export default function TasksScreen() {
     setWheneverInput('');
   }, [wheneverInput, addTask, today]);
 
-  // Decision 043 rule 2 fixed anatomy: Fonts.semibold/FontSize.lg title, Spacing.xl above
-  // (styles.section's marginTop) / Spacing.sm below (sectionHeaderRow's marginBottom).
-  // `bare` skips the legibility pill when the caller already sits on an opaque card
-  // (Today tab's todayCard) — two overlapping flat-color backgrounds would be redundant.
-  // `strongBg` (Whenever/Recurring only, 2026-07-12) swaps the near-invisible surfaceMuted
-  // pill for the label colour's tinted "Soft" token plus a matching border and Shadow.card —
-  // those two sections needed more contrast/depth than the rest to stand out as the screen's
-  // primary lists.
-  function sectionHeader(label: string, color: string, bare = false, strongBg?: string) {
-    return (
-      <View
-        style={[
-          styles.sectionHeaderRow,
-          !bare && { backgroundColor: theme.surfaceMuted, marginBottom: Spacing.sm },
-          strongBg && { backgroundColor: strongBg, borderWidth: 1, borderColor: color, ...Shadow.card },
-        ]}
-      >
-        <Text style={[styles.sectionLabel, { color }]}>{label}</Text>
-      </View>
-    );
-  }
+  // Section headers are the reusable <SectionRail> (hue dot + label + count) — the color-rail
+  // redesign (2026-07-13). Each section's rows carry a matching `railColor` left edge; the
+  // shared domain hue binds a header to its list. Whenever = task blue, Repeating = plan indigo,
+  // Shared = shop rose (inside SharedTasksSection); Today/Week day groups use the neutral accent.
 
   const stickyBelowHeader = (
     <View style={[styles.stickyBar, { backgroundColor: theme.bg }]}>
@@ -255,65 +249,49 @@ export default function TasksScreen() {
           </View>
         )}
 
-        {/* ── ALL TASKS ── */}
+        {/* ── ALL TASKS (order: Whenever → Repeating → Shared) ── */}
         {tab === 'all' && (
           <>
-            <SharedRequestsSection kind="task" />
-
             <View style={styles.section}>
-              {sectionHeader(t.tasksSectionSharedOut, sharedOutDomainColor.accent, false, theme.surfaceMuted)}
-              {sharedOutAll.length === 0 ? (
-                <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionSharedOutEmpty}</Text>
-              ) : (
-                <View style={styles.cardStack}>
-                  {sharedOutAll.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} tinted onToggleDone={(x) => toggle(x.id)} />
-                  ))}
-                </View>
-              )}
-            </View>
-
-            <View style={styles.section}>
-              {sectionHeader(t.tasksSectionWhenever, theme.good, false, theme.goodSoft)}
-              {wheneverAll.length === 0 && (
-                <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionWheneverEmpty}</Text>
-              )}
+              <SectionRail hue={wheneverHue} label={t.tasksSectionWhenever} count={wheneverAll.length} />
               {wheneverAll.length > 0 && (
                 <View style={styles.cardStack}>
                   {wheneverAll.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} showDelete showShareOut onToggleDone={(x) => toggle(x.id)} />
+                    <TaskCard key={tk.id} task={tk} railColor={wheneverHue} showDelete showShareOut onToggleDone={(x) => toggle(x.id)} />
                   ))}
                 </View>
               )}
               {/* The one add-a-row affordance: an inline empty row with a "+" that saves a new
-                  Whenever task into this section (replaces the old per-row AddDivider + the
-                  dashed "Make New" card). Mounted in a Surface so it reads as a card of the
-                  Whenever list rather than floating on the particle background. */}
-              <Surface style={styles.addRowCard}>
+                  Whenever task into this section. Rendered as a plain bordered card with the
+                  Whenever rail so its edge is fully visible (the old Surface's translucent edge
+                  vanished into the light background — 2026-07-13 fix). */}
+              <View style={[styles.addRowCard, { backgroundColor: theme.surface, borderColor: theme.border, borderLeftColor: wheneverHue }]}>
                 <AddRow
                   placeholder={t.newTask}
                   value={wheneverInput}
                   onChangeText={setWheneverInput}
                   onSubmit={commitWhenever}
-                  accent={theme.good}
+                  accent={wheneverHue}
                   showDivider={false}
                   accessibilityLabel={t.newTask}
                 />
-              </Surface>
+              </View>
             </View>
 
             <View style={styles.section}>
-              {sectionHeader(t.tasksSectionRecurring, theme.accent, false, theme.accentSoft)}
+              <SectionRail hue={repeatingHue} label={t.tasksSectionRecurring} count={recurringAll.length} />
               {recurringAll.length === 0 ? (
                 <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionRecurringEmpty}</Text>
               ) : (
                 <View style={styles.cardStack}>
                   {recurringAll.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} showDelete showShareOut onToggleDone={(x) => toggle(x.id)} />
+                    <TaskCard key={tk.id} task={tk} railColor={repeatingHue} showDelete showShareOut onToggleDone={(x) => toggle(x.id)} />
                   ))}
                 </View>
               )}
             </View>
+
+            <SharedTasksSection sentTasks={sharedOutAll} onToggleDone={(x) => toggle(x.id)} />
           </>
         )}
 
@@ -321,7 +299,7 @@ export default function TasksScreen() {
         {tab === 'today' && (
           <>
             <View style={[styles.todayCard, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-              {sectionHeader(t.tasksTabToday, theme.accent, true)}
+              <SectionRail hue={theme.accent} label={t.tasksTabToday} count={todayList.length} style={styles.railInCard} />
               {todayList.length === 0 ? (
                 <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.noPlansToday}</Text>
               ) : (
@@ -334,13 +312,13 @@ export default function TasksScreen() {
             </View>
 
             <View style={styles.section}>
-              {sectionHeader(t.tasksSectionWhenever, theme.good, false, theme.goodSoft)}
+              <SectionRail hue={wheneverHue} label={t.tasksSectionWhenever} count={undatedWhenever.length} />
               {undatedWhenever.length === 0 ? (
                 <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionWheneverEmpty}</Text>
               ) : (
                 <View style={styles.cardStack}>
                   {undatedWhenever.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} variant="steps" onToggleDone={(x) => toggle(x.id)} />
+                    <TaskCard key={tk.id} task={tk} variant="steps" railColor={wheneverHue} onToggleDone={(x) => toggle(x.id)} />
                   ))}
                 </View>
               )}
@@ -353,7 +331,7 @@ export default function TasksScreen() {
           <>
             {weekGroups.map((group, i) => (
               <View key={group.date} style={styles.section}>
-                {sectionHeader(t.dayFull[i], theme.accent)}
+                <SectionRail hue={theme.accent} label={t.dayFull[i]} count={group.tasks.length} />
                 {group.tasks.length === 0 ? (
                   <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksDayEmpty}</Text>
                 ) : (
@@ -367,13 +345,13 @@ export default function TasksScreen() {
             ))}
 
             <View style={styles.section}>
-              {sectionHeader(t.tasksSectionWhenever, theme.good, false, theme.goodSoft)}
+              <SectionRail hue={wheneverHue} label={t.tasksSectionWhenever} count={undatedWhenever.length} />
               {undatedWhenever.length === 0 ? (
                 <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionWheneverEmpty}</Text>
               ) : (
                 <View style={styles.cardStack}>
                   {undatedWhenever.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} variant="steps" onToggleDone={(x) => toggle(x.id)} />
+                    <TaskCard key={tk.id} task={tk} variant="steps" railColor={wheneverHue} onToggleDone={(x) => toggle(x.id)} />
                   ))}
                 </View>
               )}
@@ -409,14 +387,12 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  // Decision 043 rule 2: Spacing.xl above every section; below-header spacing comes from
-  // sectionHeader()'s own marginBottom (non-bare) or the caller's card gap (bare), so this
-  // wrapper carries no gap of its own (avoids doubling up with either).
+  // Decision 043 rule 2: Spacing.xl above every section; the SectionRail carries its own
+  // below-header spacing (marginBottom), so this wrapper adds none of its own.
   section: { marginTop: Spacing.xl },
-  // Card behind the label so it stays legible over the busy background (skipped via
-  // `bare` when the caller already provides an opaque card, e.g. todayCard).
-  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: Radius.sm },
-  sectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
+  // SectionRail inside the Today card already sits on an opaque surface whose `gap` handles
+  // the header→list spacing, so drop the rail's own marginBottom to avoid doubling up.
+  railInCard: { marginBottom: 0 },
   // Visual-audit 2026-07-11: was bare muted text floating on the particle background
   // (low contrast in practice even though the token itself passes AA) — a card behind
   // it, matching HomeNotesCard's empty-state treatment, gives it real footing. The
@@ -434,9 +410,15 @@ const styles = StyleSheet.create({
   personFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm },
   personChip: { borderRadius: Radius.full, borderWidth: 1, paddingVertical: 6, paddingHorizontal: Spacing.md, minHeight: 34, justifyContent: 'center' },
   personChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  // Surface wrapper for the Whenever AddRow — Spacing.md inner padding so the input isn't
-  // edge-to-edge; sits just under the task list (marginTop) as its appended add-a-row.
-  addRowCard: { paddingHorizontal: Spacing.md, marginTop: Spacing.sm },
+  // The Whenever "New task" card — a plain bordered card (not a translucent Surface) so its
+  // full edge stays visible, with the Whenever-blue rail matching the section's task cards.
+  addRowCard: {
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+  },
   todayCard: {
     borderWidth: 1,
     borderRadius: Radius.md,
