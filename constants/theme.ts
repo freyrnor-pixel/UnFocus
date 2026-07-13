@@ -101,11 +101,12 @@ export const Radius = {
   full: 999,
 };
 
-// Shared floor for Home's collapsed preview cards (Notes/Plans/Shopping) so a card with
-// little content (e.g. one note) doesn't look visually "shorter" than its siblings —
-// each card's own minHeight, applied only while collapsed/unexpanded. Content past this
-// floor (e.g. Plans' proportional time-gap rail) is still free to grow taller.
-export const HOME_PREVIEW_CARD_MIN_HEIGHT = 220;
+// Shared compact "resting" height for Home's collapsed preview cards (Notes/Plans/Shopping)
+// so an empty or light card reads as one intentional size (with a designed empty state —
+// components/HomePreviewEmpty) instead of a big blank band. Applied only while
+// collapsed/unexpanded; it's a floor, not a cap — content past it (added rows up to 5, an
+// expanded task's steps, Plans' proportional time-gap rail) is free to grow taller.
+export const HOME_PREVIEW_CARD_MIN_HEIGHT = 140;
 
 // Body text is never below 16; secondary/caption text never below 14.
 export const FontSize = {

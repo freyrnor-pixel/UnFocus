@@ -47,8 +47,9 @@
  *     `allTasks` (full store) is passed so Decision 020 cross-date followers surface.
  *     `horizontal={settings.planTimelineHorizontal}` is threaded to both PlanTaskCard mounts
  *     (Focus + preview) so the rail-orientation setting applies in both modes.
- *   - **Notes preview = HomeNotesCard**: reads useNotesStore, shows first 3 active notes with
- *     inline toggle-checked, quick-add (→ /notes), and "See all →" link. Self-hides when empty.
+ *   - **Notes preview = HomeNotesCard**: reads useNotesStore, shows first 5 active notes with
+ *     inline toggle-checked, quick-add (→ /notes), and "See all →" link. When empty it renders
+ *     the shared HomePreviewEmpty block at the compact resting height (does NOT self-hide).
  *   - **Shopping preview = HomeShoppingCard**: shows first 4 items flat when collapsed; full
  *     nested dish-group ExpandableCard structure when expanded. Reorder intentionally omitted
  *     (Decision 011 R1). Tick-to-buy, cart-collect, stepper, and catalog-vs-adhoc remove preserved.
@@ -56,7 +57,7 @@
  *     previews, SharedRequestsSection(kind='task'), update-ready banner, work-mode banner,
  *     CoverScreen / SiteSwipeView chrome, automation trigger ('shopping_opened').
  *   - **"More" links (Decision 036)**: off-Focus chips to /notes and /meals. Reachability is
- *     data-independent — shown even if HomeNotesCard self-hides (notes empty on first launch).
+ *     data-independent — always shown, independent of whether the previews have any content.
  *   - All visible strings via useT(); today is todayStr() (YYYY-MM-DD).
  *   - **Bottom whitespace (visual-audit, 2026-07-11)**: `content`'s trailing padding was
  *     trimmed from `Spacing.xl` to `Spacing.md` to shrink the empty area below the last

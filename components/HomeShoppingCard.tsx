@@ -9,17 +9,21 @@
  * Connections:
  *   Imports → components/Surface, components/ExpandableCard, components/FlightOverlay
  *             (FlightRect type only), components/ShoppingRow, components/PressableScale,
- *             components/ProgressBar, constants/theme, lib/haptics, lib/i18n, lib/shoppingGroups
- *             (listProgress), lib/useAppTheme, lib/domainColor, expo-router, store/useShoppingStore
- *             (ShoppingItem type), store/useShoppingListStore (ShoppingList type)
+ *             components/ProgressBar, components/HomePreviewEmpty, constants/theme, lib/haptics,
+ *             lib/i18n, lib/shoppingGroups (listProgress), lib/useAppTheme, lib/domainColor,
+ *             expo-router, store/useShoppingStore (ShoppingItem type),
+ *             store/useShoppingListStore (ShoppingList type)
  *   Used by → app/(tabs)/index.tsx (Home shopping preview)
  *   Data    → pure presentational; all mutations bubbled up via callbacks (parent owns the stores)
  *
  * Edit notes:
  *   - **Collapsed sizing (2026-07-13)**: `cardCollapsed` (minHeight:
- *     `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) applies only while `!expanded`, so
- *     this card reads the same height as HomeNotesCard/PlanTaskCard even with few items;
+ *     `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) is a compact shared *resting* floor
+ *     applied only while `!expanded`, so this card reads the same size as
+ *     HomeNotesCard/PlanTaskCard when light — then grows per item row above it;
  *     `previewRow`'s paddingVertical was trimmed to `Spacing.xs` for a slimmer collapsed row.
+ *   - **Empty state**: an empty list renders the shared `HomePreviewEmpty` (icon disc +
+ *     `t.shoppingEmpty`), filling the resting floor as one inviting block.
  *   - Collapsed preview shows the first 5 items from ungroupedUnchecked (In list only).
  *   - Expanded shows full nested structure with "In list" (ungrouped items),
  *     "In cart" (checked items), and "Purchased" sections.
@@ -49,6 +53,7 @@ import Surface from '@/components/Surface';
 import ExpandableCard from '@/components/ExpandableCard';
 import ShoppingRow from '@/components/ShoppingRow';
 import PressableScale from '@/components/PressableScale';
+import HomePreviewEmpty from '@/components/HomePreviewEmpty';
 import ProgressBar from '@/components/ProgressBar';
 import type { FlightRect } from '@/components/FlightOverlay';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing } from '@/constants/theme';
@@ -189,9 +194,7 @@ export default function HomeShoppingCard({
         </PressableScale>
 
         {totalCount === 0 ? (
-          <View style={styles.rowsContainer}>
-            <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.shoppingEmpty}</Text>
-          </View>
+          <HomePreviewEmpty icon="cart-outline" text={t.shoppingEmpty} domainColor={domainColor} />
         ) : expanded ? (
           // Expanded: full nested structure
           <View style={styles.rowsContainer}>
@@ -317,7 +320,6 @@ const baseStyles = StyleSheet.create({
   previewName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.regular },
   previewAmount: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   rowDivider: { height: 1 },
-  emptyText: { fontSize: FontSize.sm, fontFamily: Fonts.regular, textAlign: 'center', paddingVertical: Spacing.sm },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   expandedBody: { gap: 0 },

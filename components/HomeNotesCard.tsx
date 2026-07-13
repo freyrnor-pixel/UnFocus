@@ -9,16 +9,21 @@
  * (always-render-header per Decision 043 rule 4) — it does not render nothing/null.
  *
  * Connections:
- *   Imports → components/Surface, components/PressableScale, constants/theme, lib/haptics,
- *             lib/i18n, lib/useAppTheme, lib/domainColor, lib/useVoiceCapture, store/useNotesStore
+ *   Imports → components/Surface, components/PressableScale, components/HomePreviewEmpty,
+ *             constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, lib/domainColor,
+ *             lib/useVoiceCapture, store/useNotesStore
  *   Used by → app/(tabs)/index.tsx (replaces InboxSection in the Notes preview slot)
  *   Data    → reads/writes useNotesStore (notes table): toggleChecked, add, update
  *
  * Edit notes:
  *   - **Collapsed sizing (2026-07-13)**: `cardCollapsed` (minHeight:
- *     `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) applies only while `!expanded`, so
- *     this card reads the same height as PlanTaskCard/HomeShoppingCard even with few notes;
+ *     `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) is a compact shared *resting* floor
+ *     applied only while `!expanded`, so this card reads the same size as
+ *     PlanTaskCard/HomeShoppingCard when light — then grows per note row above it;
  *     `noteRow`'s paddingVertical was trimmed to `Spacing.xs` for a slimmer collapsed row.
+ *   - **Empty state**: an empty list renders the shared `HomePreviewEmpty` (icon disc + the
+ *     `t.notes.emptyState` message), which fills the resting floor as one inviting block
+ *     instead of leaving a bare band under a single line of text.
  *   - Note rows are read-only previews (no inline TextInput) — editing is the /notes screen's job.
  *   - Checked notes are shown in a dimmed collapsed sub-section only when fully expanded,
  *     mirroring PlanTaskCard's done zone.
@@ -38,6 +43,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
+import HomePreviewEmpty from '@/components/HomePreviewEmpty';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
@@ -126,9 +132,7 @@ export default function HomeNotesCard() {
 
         {/* Active note rows */}
         {activeNotes.length === 0 ? (
-          <View style={styles.rowsContainer}>
-            <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.notes.emptyState}</Text>
-          </View>
+          <HomePreviewEmpty icon="mic-outline" text={t.notes.emptyState} domainColor={domainColor} />
         ) : (
           <View style={styles.rowsContainer}>
             <View style={styles.rows}>
@@ -261,7 +265,6 @@ const baseStyles = StyleSheet.create({
   noteHeader: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   noteBody: { fontSize: FontSize.xs, fontFamily: Fonts.regular, marginTop: 1 },
   divider: { height: 1 },
-  emptyText: { fontSize: FontSize.sm, fontFamily: Fonts.regular, textAlign: 'center', paddingVertical: Spacing.sm },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   doneHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
