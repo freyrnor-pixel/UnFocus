@@ -7,7 +7,7 @@
  * Real Phase 5/6 port replacing the Decision 015 typed-interface stub.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/dishSeed (DISH_SEED), lib/i18n (getTranslations)
  *   Used by → components/FoodTab.tsx (the Shopping screen's in-place "Food" tab — dish CRUD +
  *             push-to-list), app/(tabs)/shopping.tsx (indirect, via FoodTab)
  *   Data    → defines a Zustand store; owns SQLite tables dishes and ingredients (1-to-many)
@@ -21,13 +21,21 @@
  *     row in FoodTab, and the price carried onto the shopping_items rows a dish push creates.
  *     `estimatedPriceNok` on the dish itself is legacy/display-only and no longer the source of
  *     the shown total.
+ *   - seedDishes() runs on every load() with stable ids ('dish_<name>') + INSERT OR IGNORE — safe
+ *     to re-run; mirrors useHealthStore.seedSymptoms(). Renaming a seed entry orphans old rows.
+ *   - duplicateDish() copies a dish + its ingredients under a new id, suffixing the name via
+ *     getTranslations().dishCopySuffix (stores can't call useT(), see lib/i18n.ts header).
  */
 import { create } from 'zustand';
 import db from '@/lib/db';
-import { Row, SQLValue, loadAll, insertRow, updateRow, readStr, readReal } from '@/lib/dataAccess';
+import { Row, SQLValue, loadAll, insertRow, updateRow, readStr, readReal, readEnum } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
+import { DISH_SEED } from '@/lib/dishSeed';
+import { getTranslations } from '@/lib/i18n';
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'kveldsmat';
+export type Difficulty = 'easy' | 'normal';
+const DIFFICULTIES: readonly Difficulty[] = ['easy', 'normal'];
 
 export type Ingredient = {
   id: string;
@@ -43,6 +51,7 @@ export type Dish = {
   id: string;
   name: string;
   mealType: MealType;
+  difficulty: Difficulty;
   estimatedPriceNok: number;
   ingredients: Ingredient[];
 };
@@ -55,9 +64,10 @@ export function dishTotalPrice(dish: Dish): number {
 type MealStore = {
   dishes: Dish[];
   load: () => void;
-  addDish: (d: { name: string; mealType: MealType; estimatedPriceNok?: number }) => Dish;
-  updateDish: (id: string, patch: { name?: string; mealType?: MealType; estimatedPriceNok?: number }) => void;
+  addDish: (d: { name: string; mealType: MealType; difficulty?: Difficulty; estimatedPriceNok?: number }) => Dish;
+  updateDish: (id: string, patch: { name?: string; mealType?: MealType; difficulty?: Difficulty; estimatedPriceNok?: number }) => void;
   removeDish: (id: string) => void;
+  duplicateDish: (id: string) => Dish | undefined;
   addIngredient: (i: Omit<Ingredient, 'id'>) => void;
   removeIngredient: (id: string) => void;
   randomDish: (mealType?: MealType) => Dish | undefined;
@@ -81,6 +91,7 @@ function loadDishes(): Dish[] {
       id: readStr(d, 'id'),
       name: readStr(d, 'name'),
       mealType: readStr(d, 'meal_type') as MealType,
+      difficulty: readEnum(d, 'difficulty', DIFFICULTIES, 'normal'),
       estimatedPriceNok: readReal(d, 'estimated_price_nok'),
     }),
     { orderBy: 'name' }
@@ -97,17 +108,42 @@ function loadDishes(): Dish[] {
   return dishes.map((d) => ({ ...d, ingredients: byDish.get(d.id) ?? [] }));
 }
 
+function slug(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, '_');
+}
+
+function seedDishes(): void {
+  for (const d of DISH_SEED) {
+    const dishId = 'dish_' + slug(d.name);
+    try {
+      db.runSync(
+        `INSERT OR IGNORE INTO dishes (id, name, meal_type, difficulty) VALUES (?, ?, ?, ?)`,
+        [dishId, d.name, d.mealType, d.difficulty]
+      );
+      for (const ing of d.ingredients) {
+        db.runSync(
+          `INSERT OR IGNORE INTO ingredients (id, dish_id, name, amount, unit, price_nok) VALUES (?, ?, ?, ?, ?, ?)`,
+          [dishId + '_' + slug(ing.name), dishId, ing.name, ing.amount, ing.unit, ing.priceNok]
+        );
+      }
+    } catch (err) {
+      console.error(`Failed to seed dish ${d.name}:`, err);
+    }
+  }
+}
+
 export const useMealStore = create<MealStore>((set, get) => ({
   dishes: [],
 
   load() {
+    seedDishes();
     set({ dishes: loadDishes() });
   },
 
-  addDish({ name, mealType, estimatedPriceNok = 0 }) {
+  addDish({ name, mealType, difficulty = 'normal', estimatedPriceNok = 0 }) {
     const id = generateId();
-    insertRow('dishes', { id, name, meal_type: mealType, estimated_price_nok: estimatedPriceNok });
-    const dish: Dish = { id, name, mealType, estimatedPriceNok, ingredients: [] };
+    insertRow('dishes', { id, name, meal_type: mealType, difficulty, estimated_price_nok: estimatedPriceNok });
+    const dish: Dish = { id, name, mealType, difficulty, estimatedPriceNok, ingredients: [] };
     set((s) => ({ dishes: [...s.dishes, dish] }));
     return dish;
   },
@@ -118,6 +154,7 @@ export const useMealStore = create<MealStore>((set, get) => ({
     const values: Record<string, SQLValue> = {};
     if (patch.name !== undefined) values.name = patch.name;
     if (patch.mealType !== undefined) values.meal_type = patch.mealType;
+    if (patch.difficulty !== undefined) values.difficulty = patch.difficulty;
     if (patch.estimatedPriceNok !== undefined) values.estimated_price_nok = patch.estimatedPriceNok;
     updateRow('dishes', values, 'id = ?', [id]);
     set((s) => ({
@@ -128,6 +165,36 @@ export const useMealStore = create<MealStore>((set, get) => ({
   removeDish(id) {
     db.runSync('DELETE FROM dishes WHERE id = ?', [id]);
     set((s) => ({ dishes: s.dishes.filter((d) => d.id !== id) }));
+  },
+
+  duplicateDish(id) {
+    const source = get().dishes.find((d) => d.id === id);
+    if (!source) return undefined;
+    const t = getTranslations();
+    const newId = generateId();
+    const name = source.name + t.dishCopySuffix;
+    insertRow('dishes', {
+      id: newId,
+      name,
+      meal_type: source.mealType,
+      difficulty: source.difficulty,
+      estimated_price_nok: source.estimatedPriceNok,
+    });
+    const ingredients: Ingredient[] = source.ingredients.map((ing) => {
+      const ingId = generateId();
+      insertRow('ingredients', {
+        id: ingId,
+        dish_id: newId,
+        name: ing.name,
+        amount: ing.amount,
+        unit: ing.unit,
+        price_nok: ing.priceNok,
+      });
+      return { ...ing, id: ingId, dishId: newId };
+    });
+    const dish: Dish = { ...source, id: newId, name, ingredients };
+    set((s) => ({ dishes: [...s.dishes, dish] }));
+    return dish;
   },
 
   addIngredient(i) {

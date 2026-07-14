@@ -14,8 +14,10 @@
  * Connections:
  *   Imports → constants/theme (getMaterialStyle, contrastOn, tokens), lib/useAppTheme,
  *             lib/i18n, lib/haptics, lib/money (formatKr), lib/domainColor, components/Surface,
- *             components/PressableScale, components/AddRow, store/useMealStore
- *             (Dish/MealType/dishTotalPrice + CRUD), store/useCatalogStore (suggest, StoreItem),
+ *             components/PressableScale, components/AddRow, components/Badge (difficulty pill),
+ *             components/SlideSelector (difficulty picker), store/useMealStore
+ *             (Dish/MealType/Difficulty/dishTotalPrice + CRUD incl. duplicateDish),
+ *             store/useCatalogStore (suggest, StoreItem),
  *             store/useShoppingStore (add + UNALLOCATED_LIST_ID), @expo/vector-icons
  *   Used by → app/(tabs)/shopping.tsx (rendered when the Food tab is active)
  *   Data    → useMealStore (dishes/ingredients), useShoppingStore.add (weekly/monthly pushes),
@@ -33,6 +35,11 @@
  *     returns and reports them via the optional `onAddedToWeek` prop, so the parent screen
  *     can play the new-row entrance/highlight on the Weekly tab's Unallocated card and
  *     pulse the Weekly tab label — the push itself never navigates the user there.
+ *   - Difficulty (easy/normal): shown as a `Badge` on the collapsed dish row, set via a
+ *     compact `SlideSelector` in the new-dish modal (defaults to 'normal'). Duplicating a
+ *     dish (copy button in the expanded body, next to delete) calls useMealStore's
+ *     duplicateDish — the copy keeps the same difficulty/ingredients and gets a localized
+ *     "(copy)" name suffix so users can create edited variants without losing the original.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -41,7 +48,9 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
-import { useMealStore, MealType, Dish, dishTotalPrice } from '@/store/useMealStore';
+import { Badge } from '@/components/Badge';
+import SlideSelector from '@/components/SlideSelector';
+import { useMealStore, MealType, Difficulty, Dish, dishTotalPrice } from '@/store/useMealStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { getMaterialStyle, contrastOn, Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
@@ -90,6 +99,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
   const loadDishes = useMealStore((s) => s.load);
   const addDish = useMealStore((s) => s.addDish);
   const removeDish = useMealStore((s) => s.removeDish);
+  const duplicateDish = useMealStore((s) => s.duplicateDish);
   const addIngredient = useMealStore((s) => s.addIngredient);
   const removeIngredient = useMealStore((s) => s.removeIngredient);
   const suggest = useCatalogStore((s) => s.suggest);
@@ -115,6 +125,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
     transform: [{ translateY: (1 - dishModalTransition.progress.value) * 24 }],
   }));
   const [dishName, setDishName] = useState('');
+  const [dishDifficulty, setDishDifficulty] = useState<Difficulty>('normal');
   const [draftIngredients, setDraftIngredients] = useState<DraftIngredient[]>([]);
   const [ingName, setIngName] = useState('');
   const [ingAmount, setIngAmount] = useState('1');
@@ -142,6 +153,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
   function openNewDishModal(mealType: MealType) {
     setModalMealType(mealType);
     setDishName('');
+    setDishDifficulty('normal');
     setDraftIngredients([]);
     setIngName('');
     setIngAmount('1');
@@ -172,7 +184,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
 
   function saveDish() {
     if (!dishName.trim() || !modalMealType) return;
-    const dish = addDish({ name: dishName.trim(), mealType: modalMealType });
+    const dish = addDish({ name: dishName.trim(), mealType: modalMealType, difficulty: dishDifficulty });
     for (const ing of draftIngredients) {
       addIngredient({ dishId: dish.id, name: ing.name, amount: ing.amount, unit: ing.unit, priceNok: ing.price });
     }
@@ -288,6 +300,10 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                         <PressableScale style={styles.dishNameTap} onPress={() => setExpanded((p) => ({ ...p, [dish.id]: !p[dish.id] }))} hitSlop={4} scaleTo={0.97}>
                           <Ionicons name={isOpen ? 'chevron-down' : 'chevron-forward'} size={16} color={theme.textMuted} />
                           <Text style={[styles.dishName, { color: theme.text }]} numberOfLines={1}>{dish.name}</Text>
+                          <Badge
+                            label={t.mealDifficulty[dish.difficulty]}
+                            variant={dish.difficulty === 'easy' ? 'success' : 'neutral'}
+                          />
                         </PressableScale>
                         {total > 0 && (
                           <Text style={[styles.dishPrice, { color: theme.textMuted }]}>{formatKr(total, 0)}</Text>
@@ -352,10 +368,22 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                             }
                           />
 
-                          <PressableScale style={styles.deleteDishRow} onPress={() => { removeDish(dish.id); heavy(); }} hitSlop={6} scaleTo={0.93}>
-                            <Ionicons name="trash-outline" size={14} color={theme.bad} />
-                            <Text style={[styles.deleteDishText, { color: theme.bad }]}>{t.deleteDish}</Text>
-                          </PressableScale>
+                          <View style={styles.dishFooterActions}>
+                            <PressableScale
+                              style={styles.deleteDishRow}
+                              onPress={() => { duplicateDish(dish.id); success(); }}
+                              hitSlop={6}
+                              scaleTo={0.93}
+                              accessibilityLabel={t.duplicateDishBtn}
+                            >
+                              <Ionicons name="copy-outline" size={14} color={theme.textMuted} />
+                              <Text style={[styles.deleteDishText, { color: theme.textMuted }]}>{t.duplicateDishBtn}</Text>
+                            </PressableScale>
+                            <PressableScale style={styles.deleteDishRow} onPress={() => { removeDish(dish.id); heavy(); }} hitSlop={6} scaleTo={0.93}>
+                              <Ionicons name="trash-outline" size={14} color={theme.bad} />
+                              <Text style={[styles.deleteDishText, { color: theme.bad }]}>{t.deleteDish}</Text>
+                            </PressableScale>
+                          </View>
                         </View>
                       )}
                     </View>
@@ -436,6 +464,19 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                 placeholder={t.dishNamePlaceholder}
                 placeholderTextColor={theme.textMuted}
               />
+
+              <View style={styles.difficultyPicker}>
+                <Text style={[styles.difficultyLabel, { color: theme.textMuted }]}>{t.dishDifficultyPickerLabel}</Text>
+                <SlideSelector
+                  compact
+                  options={[
+                    { value: 'easy' as Difficulty, label: t.mealDifficulty.easy },
+                    { value: 'normal' as Difficulty, label: t.mealDifficulty.normal },
+                  ]}
+                  value={dishDifficulty}
+                  onChange={setDishDifficulty}
+                />
+              </View>
 
               {draftIngredients.map((ing, idx) => (
                 <View key={idx} style={[styles.draftRow, { borderBottomColor: theme.border }]}>
@@ -537,7 +578,8 @@ const baseStyles = StyleSheet.create({
   ingPrice: { fontSize: FontSize.xs, minWidth: 48, textAlign: 'right' },
   ingAddQty: { width: 40, borderRadius: Radius.sm, paddingHorizontal: 4, paddingVertical: 6, fontSize: FontSize.sm, textAlign: 'center' },
   ingAddPrice: { width: 64, borderRadius: Radius.sm, paddingHorizontal: 6, paddingVertical: 6, fontSize: FontSize.sm },
-  deleteDishRow: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-end', marginTop: Spacing.xs },
+  dishFooterActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: Spacing.md, marginTop: Spacing.xs },
+  deleteDishRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   deleteDishText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
 
   // Popup
@@ -560,6 +602,8 @@ const baseStyles = StyleSheet.create({
   sheetScroll: { flexGrow: 0 },
   sheetScrollContent: { gap: Spacing.md },
   nameInput: { borderWidth: 2, borderRadius: Radius.sm, padding: Spacing.md, fontSize: FontSize.md },
+  difficultyPicker: { gap: Spacing.xs },
+  difficultyLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   draftRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.xs, borderBottomWidth: StyleSheet.hairlineWidth },
   draftText: { flex: 1, fontSize: FontSize.sm },
   amountInput: { width: 44, borderRadius: Radius.sm, padding: Spacing.sm, fontSize: FontSize.sm, textAlign: 'center' },

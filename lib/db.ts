@@ -585,6 +585,9 @@ export function initDb() {
     // setting in context on first visit" behaviour that replaced the old setup wizard
     // steps — see store/useSettingsStore.ts (seenScreenHints) and the tab screens.
     "ALTER TABLE settings ADD COLUMN seen_screen_hints TEXT DEFAULT ''",
+    // Dish difficulty (easy/normal), shown as a badge on the Food tab and seeded
+    // by lib/dishSeed.ts — see store/useMealStore.ts.
+    "ALTER TABLE dishes ADD COLUMN difficulty TEXT DEFAULT 'normal'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
