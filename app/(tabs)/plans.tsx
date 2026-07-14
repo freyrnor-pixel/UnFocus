@@ -1,7 +1,7 @@
 /**
  * plans.tsx — the "Tasks" / "Oppgaver" screen: a tabbed, inline-editable list.
  *
- * A sticky tab bar (All tasks · Today · This week) over sectioned lists. Editing is
+ * A sticky tab bar (Today · This week · All tasks) over sectioned lists. Editing is
  * always available (no lock): tapping a task in the All-tasks tab opens its inline
  * editor with a Discard / Save bar (see TaskCard). New tasks are made through the shared
  * inline AddRow at the bottom of the Whenever section — the one add-a-row affordance on
@@ -11,18 +11,28 @@
  * preview keeps the unchanged PlanTaskCard day-view. Every section (Shared out / Whenever /
  * Recurring on All tasks; Whenever on Today/This week; each weekday on This week) always
  * renders, showing an empty message instead of disappearing when it has no tasks — kept
- * consistent with Shopping's always-visible list layout (app/(tabs)/shopping.tsx).
+ * consistent with Shopping's always-visible list layout (app/(tabs)/shopping.tsx). Within
+ * every Today/This-week section, `<DoneSplitList>` splits tasks into unfinished (shown
+ * plainly) + finished (collapsed behind a "Finished (n)" zone), mirroring the Home-preview
+ * done zone in components/PlanTaskCard.tsx.
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedTasksSection,
  *             components/SectionRail, components/TaskCard, components/AddRow,
- *             components/PressableScale, constants/theme, lib/date, lib/domainColor, lib/i18n,
- *             lib/useAppTheme, lib/useFirstVisitHint, store/useTaskStore, store/useSettingsStore
+ *             components/PressableScale, constants/theme, lib/date, lib/domainColor, lib/haptics,
+ *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, store/useTaskStore,
+ *             store/useSettingsStore
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → reads/writes useTaskStore (tasks/steps); SharedTasksSection reads useSharedStore
  *             internally for incoming shares + accepts the sharedOut tasks as its "sent" half
  *
  * Edit notes:
+ *   - **Tab order (2026-07-14)**: Today → This week → All tasks (was All → Today → Week).
+ *   - **Unfinished/finished split (2026-07-14)**: the local `<DoneSplitList>` component
+ *     (defined just above `TasksScreen`) filters a section's tasks into unfinished (always
+ *     shown) + finished (behind a collapsible "Finished (n)" header, default collapsed) —
+ *     applied to the Today card, each This-week weekday group, and both Whenever sections.
+ *     The All-tasks tab is untouched — its sections still render flat.
  *   - **Color-rail redesign (2026-07-13)**: section order is now **Whenever → Repeating →
  *     Shared**. Headers are `<SectionRail>` (a hue dot + label + count); each section's cards
  *     wear a matching `railColor` left edge (TaskCard's `railColor` prop) so a card visibly
@@ -53,6 +63,7 @@
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import SharedTasksSection from '@/components/SharedTasksSection';
@@ -64,6 +75,7 @@ import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
+import { tap } from '@/lib/haptics';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
@@ -79,6 +91,51 @@ function byTime(a: Task, b: Task): number {
   return a.title.localeCompare(b.title);
 }
 
+
+/**
+ * Splits a task list into unfinished (shown plainly) + finished (collapsed behind a
+ * "Finished (n)" zone, same convention as PlanTaskCard's Home-preview done zone). Falls
+ * back to `emptyText` only when the whole list is empty — an all-finished list still
+ * shows the (collapsed) finished zone rather than the empty placeholder.
+ */
+function DoneSplitList({
+  tasks,
+  emptyText,
+  renderCard,
+}: {
+  tasks: Task[];
+  emptyText: string;
+  renderCard: (tk: Task) => React.ReactNode;
+}) {
+  const theme = useAppTheme();
+  const t = useT();
+  const [doneOpen, setDoneOpen] = useState(false);
+  const unfinished = useMemo(() => tasks.filter((tk) => !tk.done), [tasks]);
+  const finished = useMemo(() => tasks.filter((tk) => tk.done), [tasks]);
+
+  if (tasks.length === 0) {
+    return (
+      <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+        {emptyText}
+      </Text>
+    );
+  }
+
+  return (
+    <>
+      {unfinished.length > 0 && <View style={styles.cardStack}>{unfinished.map(renderCard)}</View>}
+      {finished.length > 0 && (
+        <View style={styles.doneZone}>
+          <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97}>
+            <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>{t.tasksFinishedZone(finished.length)}</Text>
+            <Ionicons name={doneOpen ? 'chevron-up' : 'chevron-down'} size={14} color={theme.textMuted} />
+          </PressableScale>
+          {doneOpen && <View style={styles.cardStack}>{finished.map(renderCard)}</View>}
+        </View>
+      )}
+    </>
+  );
+}
 
 const STICKY_HEIGHT = 56;
 
@@ -181,7 +238,7 @@ export default function TasksScreen() {
   const stickyBelowHeader = (
     <View style={[styles.stickyBar, { backgroundColor: theme.bg }]}>
       <View style={styles.tabsRow}>
-        {(['all', 'today', 'week'] as Tab[]).map((tabOption) => {
+        {(['today', 'week', 'all'] as Tab[]).map((tabOption) => {
           const isActive = tab === tabOption;
           const label =
             tabOption === 'all' ? t.tasksTabAll : tabOption === 'today' ? t.tasksTabToday : t.tasksTabWeek;
@@ -300,28 +357,24 @@ export default function TasksScreen() {
           <>
             <View style={[styles.todayCard, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
               <SectionRail hue={theme.accent} label={t.tasksTabToday} count={todayList.length} style={styles.railInCard} />
-              {todayList.length === 0 ? (
-                <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.noPlansToday}</Text>
-              ) : (
-                <View style={styles.cardStack}>
-                  {todayList.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={(x) => toggle(x.id)} />
-                  ))}
-                </View>
-              )}
+              <DoneSplitList
+                tasks={todayList}
+                emptyText={t.noPlansToday}
+                renderCard={(tk) => (
+                  <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={(x) => toggle(x.id)} />
+                )}
+              />
             </View>
 
             <View style={styles.section}>
               <SectionRail hue={wheneverHue} label={t.tasksSectionWhenever} count={undatedWhenever.length} />
-              {undatedWhenever.length === 0 ? (
-                <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionWheneverEmpty}</Text>
-              ) : (
-                <View style={styles.cardStack}>
-                  {undatedWhenever.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} variant="steps" railColor={wheneverHue} onToggleDone={(x) => toggle(x.id)} />
-                  ))}
-                </View>
-              )}
+              <DoneSplitList
+                tasks={undatedWhenever}
+                emptyText={t.tasksSectionWheneverEmpty}
+                renderCard={(tk) => (
+                  <TaskCard key={tk.id} task={tk} variant="steps" railColor={wheneverHue} onToggleDone={(x) => toggle(x.id)} />
+                )}
+              />
             </View>
           </>
         )}
@@ -332,29 +385,25 @@ export default function TasksScreen() {
             {weekGroups.map((group, i) => (
               <View key={group.date} style={styles.section}>
                 <SectionRail hue={theme.accent} label={t.dayFull[i]} count={group.tasks.length} />
-                {group.tasks.length === 0 ? (
-                  <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksDayEmpty}</Text>
-                ) : (
-                  <View style={styles.cardStack}>
-                    {group.tasks.sort(byTime).map((tk) => (
-                      <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={(x) => toggle(x.id)} />
-                    ))}
-                  </View>
-                )}
+                <DoneSplitList
+                  tasks={[...group.tasks].sort(byTime)}
+                  emptyText={t.tasksDayEmpty}
+                  renderCard={(tk) => (
+                    <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={(x) => toggle(x.id)} />
+                  )}
+                />
               </View>
             ))}
 
             <View style={styles.section}>
               <SectionRail hue={wheneverHue} label={t.tasksSectionWhenever} count={undatedWhenever.length} />
-              {undatedWhenever.length === 0 ? (
-                <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionWheneverEmpty}</Text>
-              ) : (
-                <View style={styles.cardStack}>
-                  {undatedWhenever.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} variant="steps" railColor={wheneverHue} onToggleDone={(x) => toggle(x.id)} />
-                  ))}
-                </View>
-              )}
+              <DoneSplitList
+                tasks={undatedWhenever}
+                emptyText={t.tasksSectionWheneverEmpty}
+                renderCard={(tk) => (
+                  <TaskCard key={tk.id} task={tk} variant="steps" railColor={wheneverHue} onToggleDone={(x) => toggle(x.id)} />
+                )}
+              />
             </View>
           </>
         )}
@@ -407,6 +456,9 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   cardStack: { gap: Spacing.sm },
+  doneZone: { marginTop: Spacing.xs, borderTopWidth: 1, borderTopColor: 'transparent' },
+  doneHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
+  doneHeaderText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   personFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm },
   personChip: { borderRadius: Radius.full, borderWidth: 1, paddingVertical: 6, paddingHorizontal: Spacing.md, minHeight: 34, justifyContent: 'center' },
   personChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
