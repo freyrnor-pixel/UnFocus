@@ -443,6 +443,7 @@ export default function SettingsScreen() {
       title={t.settingsTitle}
       tier="sub"
       onBack={() => router.back()}
+      plainBackground
       stickyBelowHeader={tabBar}
       stickyBelowHeaderHeight={TAB_BAR_HEIGHT}
     >
