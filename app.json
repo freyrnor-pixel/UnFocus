@@ -125,6 +125,7 @@
           ]
         }
       ],
+      "./plugins/withWidgetBackground",
       "@bacons/apple-targets",
       [
         "expo-local-authentication",

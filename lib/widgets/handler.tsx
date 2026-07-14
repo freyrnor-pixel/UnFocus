@@ -21,10 +21,15 @@
  *             shopping_items/notes/habit_logs
  *
  * Edit notes:
- *   - Render fallback chain is readWidgetSnapshot() ?? buildHeadlessSnapshot() ?? placeholder().
- *     The headless builder reads the live tables directly, so a freshly-planted widget renders
- *     real content even if the app has never run and written a snapshot (the "invisible until I
- *     open the app" symptom). placeholder() is only the last resort if even that read fails.
+ *   - WIDGET_UPDATE (the OS periodic tick, app usually dead) rebuilds from live SQLite via
+ *     buildHeadlessSnapshot() FIRST, so widgets refresh in the background instead of staying
+ *     frozen on the last app-pushed snapshot until the app is next opened. That fresh build is
+ *     rendered but NOT saved back over the cached row (the app's snapshot is more precise).
+ *   - WIDGET_ADDED / WIDGET_RESIZED prefer the cached snapshot: readWidgetSnapshot() ??
+ *     buildHeadlessSnapshot() ?? placeholder(). The headless builder reads the live tables
+ *     directly, so a freshly-planted widget renders real content even if the app has never run
+ *     and written a snapshot (the "invisible until I open the app" symptom). placeholder() is
+ *     only the last resort if even that read fails.
  *   - WIDGET_CLICK dispatches on `clickAction` + `clickActionData.id`. OPEN_APP / OPEN_URI
  *     are handled natively (never reach here) — only the custom TOGGLE_/CYCLE_ actions do.
  *   - The snapshot patch mirrors the DB write's effect on the visible list (flip done, move
@@ -110,9 +115,15 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
   if (widgetAction !== 'WIDGET_ADDED' && widgetAction !== 'WIDGET_UPDATE' && widgetAction !== 'WIDGET_RESIZED') {
     return;
   }
-  // Prefer the app-built snapshot; if the app has never synced (freshly-planted widget on a
-  // cold install), build one straight from SQLite here so the widget shows real content
-  // immediately instead of a blank card that only fills in after the app is next opened.
-  const snapshot = readWidgetSnapshot() ?? buildHeadlessSnapshot() ?? placeholder();
+  // WIDGET_UPDATE is the OS's periodic refresh (updatePeriodMillis) and fires with the app
+  // process dead. Rebuild straight from live SQLite here so the widget reflects current data
+  // (day rollover, edits made in a previous session) instead of re-rendering the last snapshot
+  // the app pushed — otherwise widgets never change until the app is next opened. We render the
+  // fresh build but deliberately do NOT persist it over the cached row: the app-built snapshot
+  // is more precise (exact recurring-task expansion / list scoping the headless builder only
+  // approximates), so we keep it as the cache and only want a fresher render right now.
+  // WIDGET_ADDED / WIDGET_RESIZED just need the current visual, so they prefer that cache.
+  const fresh = widgetAction === 'WIDGET_UPDATE' ? buildHeadlessSnapshot() : null;
+  const snapshot = fresh ?? readWidgetSnapshot() ?? buildHeadlessSnapshot() ?? placeholder();
   renderWidget(renderWidgetByName(widgetInfo.widgetName, snapshot));
 }
