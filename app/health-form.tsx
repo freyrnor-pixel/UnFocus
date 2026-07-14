@@ -12,6 +12,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
+ *             components/Collapsible (animated inline calendar reveal),
  *             components/HintCard, components/ConfirmationBanner, components/DatePickerCalendar,
  *             components/IconButton, components/Button, components/AppModal, components/PressableScale,
  *             lib/date, lib/haptics, lib/i18n, lib/severity, lib/useAppTheme, store/useHealthStore
@@ -49,6 +50,7 @@ import PressableScale from '@/components/PressableScale';
 import HintCard from '@/components/HintCard';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import DatePickerCalendar from '@/components/DatePickerCalendar';
+import Collapsible from '@/components/Collapsible';
 import IconButton from '@/components/IconButton';
 import Button from '@/components/Button';
 import { showAppModal } from '@/components/AppModal';
@@ -121,7 +123,7 @@ function DateChipPicker({
           setExpanded(!expanded);
         }}
       />
-      {expanded && (
+      <Collapsible open={expanded}>
         <DatePickerCalendar
           value={value}
           onChange={(d) => {
@@ -132,7 +134,7 @@ function DateChipPicker({
           monthLabels={t.months}
           calendarLabels={t.calendar}
         />
-      )}
+      </Collapsible>
     </>
   );
 }

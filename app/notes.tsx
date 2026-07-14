@@ -10,7 +10,8 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/NoteRow,
- *             components/VoiceNoteFAB, components/ShoppingQuickAddSheet, constants/theme,
+ *             components/AnimatedListItem (note add/remove fade), components/VoiceNoteFAB,
+ *             components/ShoppingQuickAddSheet, constants/theme,
  *             lib/i18n, lib/useAppTheme, store/useNotesStore
  *   Used by → Expo Router route "/notes", reached via Home's "More → Notes" link
  *             (no BottomNav tab by design — Decision 036; note editing itself is Decision 012)
@@ -35,13 +36,14 @@
  *     (edit affordance) or /task-form land in the same shared store, so they're reflected
  *     on return without a per-screen focus-load.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useNotesStore } from '@/store/useNotesStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import NoteRow from '@/components/NoteRow';
+import AnimatedListItem from '@/components/AnimatedListItem';
 import VoiceNoteFAB from '@/components/VoiceNoteFAB';
 import ShoppingQuickAddSheet from '@/components/ShoppingQuickAddSheet';
 import { useT } from '@/lib/i18n';
@@ -63,6 +65,11 @@ export default function NotesScreen() {
   const removeNote = useNotesStore((s) => s.remove);
 
   const [shoppingSheetVisible, setShoppingSheetVisible] = useState(false);
+  // Gate row entrance so only notes added after mount fade in (not the whole list on load).
+  const hasMounted = useRef(false);
+  useEffect(() => {
+    hasMounted.current = true;
+  }, []);
 
   const activeNotes = notes.filter((n) => !n.checked);
   const checkedNotes = notes.filter((n) => n.checked);
@@ -73,16 +80,17 @@ export default function NotesScreen() {
 
   function renderRow(note: (typeof notes)[number]) {
     return (
-      <NoteRow
-        key={note.id}
-        note={note}
-        onToggleChecked={() => toggleChecked(note.id)}
-        onHeaderCommit={(text) => updateNote(note.id, { header: text })}
-        onBodyCommit={(text) => updateNote(note.id, { body: text })}
-        onShoppingPress={() => setShoppingSheetVisible(true)}
-        onPlansPress={() => openTaskForm(note.header)}
-        onDelete={() => removeNote(note.id)}
-      />
+      <AnimatedListItem key={note.id} enabled={hasMounted.current}>
+        <NoteRow
+          note={note}
+          onToggleChecked={() => toggleChecked(note.id)}
+          onHeaderCommit={(text) => updateNote(note.id, { header: text })}
+          onBodyCommit={(text) => updateNote(note.id, { body: text })}
+          onShoppingPress={() => setShoppingSheetVisible(true)}
+          onPlansPress={() => openTaskForm(note.header)}
+          onDelete={() => removeNote(note.id)}
+        />
+      </AnimatedListItem>
     );
   }
 

@@ -15,8 +15,10 @@
  */
 import React from 'react';
 import { StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { useToggleColor } from '@/lib/useToggleColor';
 import PressableScale from '@/components/PressableScale';
 
 type BadgeVariant = 'neutral' | 'success' | 'warning' | 'danger';
@@ -56,21 +58,16 @@ type ChipProps = {
 
 export function Chip({ label, selected, onPress, style }: ChipProps) {
   const theme = useAppTheme();
+  // Background + border crossfade as the chip selects/deselects (text colour swaps on top).
+  const animatedStyle = useToggleColor(!!selected, {
+    backgroundColor: [theme.surfaceMuted, theme.accent],
+    borderColor: [theme.border, theme.accent],
+  });
   return (
-    <PressableScale
-      onPress={onPress}
-      scaleTo={0.97}
-      style={[
-        styles.pill,
-        styles.chip,
-        {
-          backgroundColor: selected ? theme.accent : theme.surfaceMuted,
-          borderColor: selected ? theme.accent : theme.border,
-        },
-        style,
-      ]}
-    >
-      <Text style={[styles.pillText, { color: selected ? theme.accentInk : theme.text }]}>{label}</Text>
+    <PressableScale onPress={onPress} scaleTo={0.97} style={style}>
+      <Animated.View style={[styles.pill, styles.chip, animatedStyle]}>
+        <Text style={[styles.pillText, { color: selected ? theme.accentInk : theme.text }]}>{label}</Text>
+      </Animated.View>
     </PressableScale>
   );
 }

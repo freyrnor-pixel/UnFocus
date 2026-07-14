@@ -10,6 +10,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
+ *             components/Collapsible (animated inline calendar reveal),
  *             components/HintCard, components/ConfirmationBanner, components/DatePickerCalendar,
  *             components/IconButton, components/AppModal, components/PressableScale, lib/date,
  *             lib/haptics, lib/i18n, lib/useAppTheme, store/useTaskStore
@@ -55,6 +56,7 @@ import HintCard from '@/components/HintCard';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import DatePickerCalendar from '@/components/DatePickerCalendar';
 import IconButton from '@/components/IconButton';
+import Collapsible from '@/components/Collapsible';
 import Button from '@/components/Button';
 import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
@@ -271,7 +273,7 @@ export default function TaskFormScreen() {
               setCalExpanded((v) => !v);
             }}
           />
-          {calExpanded && (
+          <Collapsible open={calExpanded}>
             <DatePickerCalendar
               value={date}
               onChange={(d) => {
@@ -282,7 +284,7 @@ export default function TaskFormScreen() {
               monthLabels={t.months}
               calendarLabels={t.calendar}
             />
-          )}
+          </Collapsible>
         </View>
 
         {/* Time + Type — grouped in one card */}

@@ -110,6 +110,7 @@ import { Input, Switch as FormSwitch, SegmentedControl } from '@/components/Form
 import { showAppModal } from '@/components/AppModal';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import PressableScale from '@/components/PressableScale';
+import AnimatedTabUnderline from '@/components/AnimatedTabUnderline';
 import {
   useSettingsStore,
   Settings,
@@ -420,10 +421,11 @@ export default function SettingsScreen() {
         return (
           <PressableScale
             key={tb.key}
-            style={[styles.tabItem, active && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]}
+            style={styles.tabItem}
             onPress={() => setTab(tb.key)}
             scaleTo={0.97}
           >
+            <AnimatedTabUnderline active={active} color={theme.accent} />
             <Text style={[
               styles.tabLabel,
               { color: active ? theme.accent : theme.textMuted },

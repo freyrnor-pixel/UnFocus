@@ -19,7 +19,8 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedTasksSection,
  *             components/SectionRail, components/TaskCard, components/AddRow,
- *             components/PressableScale, constants/theme, lib/date, lib/domainColor, lib/haptics,
+ *             components/PressableScale, components/Collapsible + components/AnimatedChevron
+ *             (animated "Finished (n)" done-zone reveal), constants/theme, lib/date, lib/domainColor, lib/haptics,
  *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, store/useTaskStore,
  *             store/useSettingsStore
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
@@ -64,7 +65,6 @@
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import SharedTasksSection from '@/components/SharedTasksSection';
@@ -72,6 +72,9 @@ import SectionRail from '@/components/SectionRail';
 import TaskCard from '@/components/TaskCard';
 import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
+import Collapsible from '@/components/Collapsible';
+import AnimatedChevron from '@/components/AnimatedChevron';
+import AnimatedTabUnderline from '@/components/AnimatedTabUnderline';
 import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -129,9 +132,11 @@ function DoneSplitList({
         <View style={styles.doneZone}>
           <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97}>
             <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>{t.tasksFinishedZone(finished.length)}</Text>
-            <Ionicons name={doneOpen ? 'chevron-up' : 'chevron-down'} size={14} color={theme.textMuted} />
+            <AnimatedChevron open={doneOpen} size={14} color={theme.textMuted} />
           </PressableScale>
-          {doneOpen && <View style={styles.cardStack}>{finished.map(renderCard)}</View>}
+          <Collapsible open={doneOpen}>
+            <View style={styles.cardStack}>{finished.map(renderCard)}</View>
+          </Collapsible>
         </View>
       )}
     </>
@@ -247,10 +252,11 @@ export default function TasksScreen() {
           return (
             <PressableScale
               key={tabOption}
-              style={[styles.tab, isActive && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]}
+              style={styles.tab}
               onPress={() => setTab(tabOption)}
               scaleTo={0.97}
             >
+              <AnimatedTabUnderline active={isActive} color={theme.accent} />
               <Text style={[styles.tabText, { color: isActive ? theme.accent : theme.textMuted }]}>{label}</Text>
             </PressableScale>
           );
@@ -287,7 +293,7 @@ export default function TasksScreen() {
         </HintCard>
 
         {/* Person filter (People/family mode) — Everyone + Me + each profile. */}
-        {showPeople && (
+        <Collapsible open={showPeople}>
           <View style={styles.personFilterRow}>
             {([null, '', ...childProfiles] as (string | null)[]).map((p) => {
               const active = personFilter === p;
@@ -306,7 +312,7 @@ export default function TasksScreen() {
               );
             })}
           </View>
-        )}
+        </Collapsible>
 
         {/* ── ALL TASKS (order: Whenever → Repeating → Shared) ── */}
         {tab === 'all' && (

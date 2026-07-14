@@ -13,6 +13,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
+ *             components/Collapsible (animated "More options" disclosure),
  *             components/HintCard, components/HabitIcon, components/Button, components/AppModal,
  *             components/PressableScale, lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useHabitStore, store/useSettingsStore
@@ -62,6 +63,7 @@ import HabitIcon, { HABIT_ICON_NAMES } from '@/components/HabitIcon';
 import Button from '@/components/Button';
 import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
+import Collapsible from '@/components/Collapsible';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 
 const INTERVAL_OPTIONS = [30, 60, 90, 120, 180, 240];
@@ -410,7 +412,7 @@ export default function HabitForm() {
           </Text>
         </PressableScale>
 
-        {showMore && (
+        <Collapsible open={showMore}>
           <>
             {/* Icon picker */}
             <View style={styles.field}>
@@ -500,7 +502,7 @@ export default function HabitForm() {
               </View>
             </View>
           </>
-        )}
+        </Collapsible>
 
         {isEdit && (
           <Button label={t.habitDeleteLabel} variant="danger" onPress={confirmDelete} style={styles.deleteBtn} />

@@ -7,6 +7,7 @@
  *
  * Connections:
  *   Imports → components/AppModal, components/ScreenScaffold, components/Surface,
+ *             components/Collapsible (animated add-rule form reveal),
  *             components/PressableScale, constants/theme, lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useAutomationStore
  *   Used by → Expo Router route "/automations"
@@ -33,6 +34,7 @@ import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
+import Collapsible from '@/components/Collapsible';
 import { useT } from '@/lib/i18n';
 import { warning, heavy } from '@/lib/haptics';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
@@ -225,7 +227,9 @@ export default function AutomationsScreen() {
             <Text style={[styles.addTriggerText, { color: theme.accent }]}>{t.automations.addNew}</Text>
           </PressableScale>
         )}
-        {showForm && <NewRuleForm onSave={save} onCancel={() => setShowForm(false)} />}
+        <Collapsible open={showForm}>
+          <NewRuleForm onSave={save} onCancel={() => setShowForm(false)} />
+        </Collapsible>
 
         {rules.length === 0 ? (
           <Text style={[styles.empty, { color: theme.textMuted }]}>{t.automations.emptyState}</Text>
