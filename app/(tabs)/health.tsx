@@ -704,8 +704,7 @@ export default function HealthScreen() {
           <HintCard text={t.hints.health.text} open={hintOpen} noPill />
 
           {/* This week */}
-          <Surface tint={healthDomainColor.tint} style={styles.overviewCardRow}>
-            <View style={[styles.overviewAccent, { backgroundColor: healthDomainColor.accent }]} />
+          <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
             <View style={styles.overviewCardContent}>
               <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.thisWeekLabel}</Text>
               {thisWeekSymptoms.length === 0 && (
@@ -770,8 +769,7 @@ export default function HealthScreen() {
             scaleTo={0.98}
             style={styles.navLinkWrap}
           >
-            <Surface tint={healthDomainColor.tint} style={styles.navCard}>
-              <View style={[styles.navCardAccent, { backgroundColor: healthDomainColor.accent }]} />
+            <Surface borderColor={healthDomainColor.accent} style={styles.navCard}>
               <Ionicons name="document-text-outline" size={20} color={healthDomainColor.accent} />
               <Text style={[styles.navCardText, { color: theme.text }]}>{t.healthLogTitle}</Text>
               <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
@@ -828,7 +826,7 @@ export default function HealthScreen() {
             {habitTab === 'today' && (
               <>
                 {visibleHabits.length > 0 && (
-                  <Surface tint={habitDomainColor.tint} style={styles.summaryChip}>
+                  <Surface borderColor={habitDomainColor.accent} style={styles.summaryChip}>
                     <Text style={[styles.summaryChipText, { color: metCount === visibleHabits.length ? theme.good : theme.textMuted }]}>
                       {metCount} / {visibleHabits.length} {t.habitSummaryLabel}
                     </Text>
@@ -837,7 +835,7 @@ export default function HealthScreen() {
 
                 <View style={styles.section}>
                   {visibleHabits.length === 0 ? (
-                    <Surface tint={habitDomainColor.tint} style={styles.sectionCard}>
+                    <Surface borderColor={habitDomainColor.accent} style={styles.sectionCard}>
                       <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
                     </Surface>
                   ) : (
@@ -850,7 +848,7 @@ export default function HealthScreen() {
                 {/* Inline quick-add row (replaces the old "+" bubble). Title-only create with
                     defaults; long-press a habit to edit the rest. Hidden in Focus mode. */}
                 {!focusMode && (
-                  <Surface tint={habitDomainColor.tint} style={styles.habitAddRowCard}>
+                  <Surface borderColor={habitDomainColor.accent} style={styles.habitAddRowCard}>
                     <AddRow
                       placeholder={t.health.addHabit}
                       value={habitDraft}
@@ -892,8 +890,7 @@ export default function HealthScreen() {
 const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md },
   // Decision 043 rule 2: Spacing.xl above every section (This week / Habits).
-  overviewCardRow: { borderRadius: Radius.md, flexDirection: 'row', marginTop: Spacing.xl },
-  overviewAccent: { width: 4, alignSelf: 'stretch', borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
+  overviewCardRow: { borderRadius: Radius.md, marginTop: Spacing.xl },
   overviewCardContent: { flex: 1, padding: Spacing.md },
   sectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, marginBottom: Spacing.sm },
   // Soft-tinted pill backing for the bare "Vaner" section title (mirrors SectionRail).
@@ -923,8 +920,7 @@ const baseStyles = StyleSheet.create({
   // Health-log entry as a grouped card (2026-07-12 redesign) instead of bare text +
   // hairline, so it reads as a tappable section that belongs with the rest.
   navLinkWrap: { marginTop: Spacing.sm },
-  navCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md, paddingLeft: Spacing.lg },
-  navCardAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
+  navCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md },
   navCardText: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
 
   // ─── Habits section (ported from the removed app/habits.tsx) ─────────────────

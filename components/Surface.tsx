@@ -65,7 +65,9 @@
  *     from border + shadow instead. Light mode keeps the sheen.
  *   - Pass `tint` for a non-default base (e.g. theme.offWhite for empty
  *     states, or an accent colour for a coloured card) — material shading is
- *     computed from this base.
+ *     computed from this base. For a domain-coded card, prefer `borderColor`
+ *     (colored edge, neutral fill) over `tint` (whole-card colour wash) — see its
+ *     own doc comment on the Props type (2026-07-14).
  */
 import React from 'react';
 import { Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
@@ -85,6 +87,13 @@ export type SurfaceContext = 'ambient' | 'overlay';
 type Props = {
   surfaceContext?: SurfaceContext;
   tint?: string;
+  /**
+   * Overrides the card edge color on all four sides (including the light-mode glass
+   * top highlight) — e.g. a domain accent for a colored-border/neutral-fill card
+   * (2026-07-14: replaces the old whole-card `tint` wash pattern). Omit for the
+   * default calm `theme.border` edge.
+   */
+  borderColor?: string;
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 };
@@ -138,7 +147,7 @@ const OWNED_KEYS = new Set([
   'shadowColor', 'shadowOpacity', 'shadowRadius', 'shadowOffset', 'elevation',
 ]);
 
-export default function Surface({ surfaceContext = 'ambient', tint, style, children }: Props) {
+export default function Surface({ surfaceContext = 'ambient', tint, borderColor, style, children }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
   const base = tint ?? theme.surface;
@@ -174,9 +183,9 @@ export default function Surface({ surfaceContext = 'ambient', tint, style, child
           // in both modes. In light mode keep the material's brighter top edge as the glass
           // top-lit highlight (depth); in dark mode the sheen is off, so a uniform themed
           // edge reads cleaner than a white top-line.
-          borderColor: theme.border,
-          borderTopColor: isDark ? theme.border : mat.borderTopColor,
-          borderBottomColor: theme.border,
+          borderColor: borderColor ?? theme.border,
+          borderTopColor: borderColor ?? (isDark ? theme.border : mat.borderTopColor),
+          borderBottomColor: borderColor ?? theme.border,
           shadowColor: theme.shadow,
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: mat.shadowOpacity,

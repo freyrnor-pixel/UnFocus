@@ -145,20 +145,23 @@ const defaultLight: ThemePalette = {
   // "the order of things," not a random rainbow. Read in the order a user moves through a day
   // (plan → task → habit → health → meal → shop → budget → note) the hue walks a deliberate
   // arc: a smooth cool gradient across the morning "get-things-done" block (indigo → blue →
-  // cyan → teal), then warm midday activity (orange → rose), settling to money-gold and a
-  // reflective evening violet. Two hard fixes vs the old octet: health moved OFF red (it was
+  // cyan → teal), then warm midday activity (orange → lime-green), settling to money-gold and
+  // a lemon-yellow note accent. Two hard fixes vs the old octet: health moved OFF red (it was
   // literally #DC2626 === `bad`, so an error/overdue red and a Health header were the same
   // color) to a calm medical teal, and habit moved OFF green (≈ `good`) to cyan. green/red/
   // amber are reserved for STATUS (good/bad/warn); every domain hue stays clear of them so a
   // colored chip never reads as "done/overdue/soon". See lib/domainColor.ts for the mapping.
-  featPlan: '#4F46E5',   // 1 · indigo  — plan the day
-  featTask: '#2563EB',   // 2 · blue    — do tasks
-  featHabit: '#0E7490',  // 3 · cyan    — keep habits (was green→collided with `good`)
-  featHealth: '#0F766E', // 4 · teal    — track health (was red→collided with `bad`)
-  featMeal: '#EA580C',   // 5 · orange  — eat
-  featShop: '#E11D74',   // 6 · rose    — shop
-  featBudget: '#CA8A04', // 7 · gold    — money
-  featNote: '#7C3AED',   // 8 · violet  — reflect / note
+  // (2026-07-14: shop rose→lime-green and note violet→lemon-yellow, per product direction that
+  // Shopping should read "green" and Notes "yellow" — hues picked to sit clear of `good`'s
+  // forest green and `warn`/`featBudget`'s amber-gold so they don't misread as a status color.)
+  featPlan: '#4F46E5',   // 1 · indigo      — plan the day
+  featTask: '#2563EB',   // 2 · blue        — do tasks
+  featHabit: '#0E7490',  // 3 · cyan        — keep habits (was green→collided with `good`)
+  featHealth: '#0F766E', // 4 · teal        — track health (was red→collided with `bad`)
+  featMeal: '#EA580C',   // 5 · orange      — eat
+  featShop: '#65A30D',   // 6 · lime-green  — shop (was rose; clear of `good`'s forest green)
+  featBudget: '#CA8A04', // 7 · gold        — money
+  featNote: '#C9C30D',   // 8 · lemon-yellow — reflect / note (was violet; clear of `warn`/gold)
 };
 
 const defaultDark: ThemePalette = {
@@ -194,9 +197,9 @@ const defaultDark: ThemePalette = {
   featHabit: '#22D3EE',  // 3 · cyan
   featHealth: '#2DD4BF', // 4 · teal
   featMeal: '#FB923C',   // 5 · orange
-  featShop: '#F472B6',   // 6 · rose
+  featShop: '#A3E635',   // 6 · lime-green
   featBudget: '#FBBF24', // 7 · gold
-  featNote: '#C084FC',   // 8 · violet
+  featNote: '#F2E55A',   // 8 · lemon-yellow
 };
 
 // ── Theme registry ───────────────────────────────────────────────────────────

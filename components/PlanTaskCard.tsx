@@ -61,11 +61,12 @@
  *   - **Empty state**: an empty day (`showEmpty`) renders the shared `HomePreviewEmpty` (icon
  *     disc + `t.timelineEmpty`), filling the resting floor as one inviting block. The distinct
  *     "all done" state keeps its own `t.dayViewAllDone` line — it's a reward, not an empty card.
- *   - **Decision 014 (revised 2026-07-13 grouping pass)**: the card face is a `<Surface>`
- *     with a 4px left accent BAR (`getDomainColor(theme,'plan').accent`) AND a soft whole-card
- *     domain `tint` (`domainColor.tint`) so the section reads as belonging to Plans at a glance.
- *     Still don't set Surface border/sheen/fill directly — pass `tint` and let the material
- *     compute the finish (Surface owns border/sheen/blur since Decision 008).
+ *   - **Decision 014 (revised 2026-07-14)**: the card face is a `<Surface>` with a
+ *     domain-colored border (`borderColor={getDomainColor(theme,'plan').accent}`) on a plain
+ *     `theme.surface` fill, so the section reads as belonging to Plans without washing the
+ *     whole card in a tint (2026-07-13's whole-card blend read as muddy — see domainColor.ts).
+ *     Still don't set Surface's fill/sheen directly — pass `borderColor`/`tint` and let the
+ *     material compute the finish (Surface owns border/sheen/blur since Decision 008).
  *   - **Decision 009b tail**: `railTailMinutes()` = 10% of the visible span (axis-start →
  *     last unfinished task's end), floored at 15 min so a near-empty day still gets a
  *     visible tail. Start from pure 10%; the floor is the 009b-sanctioned execution guard
@@ -555,10 +556,9 @@ export default function PlanTaskCard({
   return (
     <Surface
       surfaceContext="ambient"
-      tint={domainColor.tint}
-      style={[styles.card, styles.cardRow, !expanded && styles.cardCollapsed]}
+      borderColor={domainColor.accent}
+      style={[styles.card, !expanded && styles.cardCollapsed]}
     >
-      <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
       <View style={styles.cardContent}>
 
         {/* Section header — only in read-only (Home preview) mode */}
@@ -646,8 +646,6 @@ const baseStyles = StyleSheet.create({
   // few tasks (or how compact the time gaps) today has — see constants/theme.ts. Content can
   // still grow taller than this floor (e.g. widely time-spaced tasks) — it's a min, not a cap.
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
-  cardRow: { flexDirection: 'row' },
-  accent: { width: 4, alignSelf: 'stretch' },
   cardContent: { flex: 1, padding: Spacing.md, position: 'relative' },
   rail: { paddingVertical: Spacing.xs },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },

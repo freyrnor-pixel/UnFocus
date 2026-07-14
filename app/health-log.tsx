@@ -110,7 +110,7 @@ export default function HealthLogScreen() {
             add-a-row shape used across Plans/Shopping/Habits. A symptom log is multi-field
             (symptom, severity, date, notes), so confirming here opens the full form prefilled
             with the typed name rather than creating a bare inline entry. */}
-        <Surface tint={domainColor.tint} style={styles.addRowCard}>
+        <Surface borderColor={domainColor.accent} style={styles.addRowCard}>
           <AddRow
             placeholder={t.logSymptomTrigger}
             value={draft}
