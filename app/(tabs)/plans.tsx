@@ -37,8 +37,9 @@
  *     Shared**. Headers are `<SectionRail>` (a hue dot + label + count); each section's cards
  *     wear a matching `railColor` left edge (TaskCard's `railColor` prop) so a card visibly
  *     belongs to its section. Hues are domain accents via lib/domainColor: Whenever = task
- *     (blue), Repeating = plan (indigo), Shared = shop (rose) — all with light+dark variants,
- *     so `green/red` stay reserved for STATUS (the done circle is `theme.good`, never a hue).
+ *     (blue), Repeating = meal (orange — was plan/indigo, too close to Whenever's blue;
+ *     2026-07-14), Shared = shop (green) — all with light+dark variants, so `red` stays
+ *     reserved for STATUS (the done circle is `theme.good`, never a hue).
  *   - **Merged Shared section**: the old top-of-screen incoming `SharedRequestsSection` +
  *     standalone "Shared out" section are replaced by one `<SharedTasksSection>` (last section)
  *     combining received (↓ Accept/Dismiss) and sent (↑ TaskCard) rows with per-row direction
@@ -143,11 +144,12 @@ export default function TasksScreen() {
   const theme = useAppTheme();
   const t = useT();
   // Section hues (color-rail redesign): each list section carries a stable domain accent —
-  // Whenever = task (blue), Repeating = plan (indigo). Both tokens have light + dark variants,
-  // so the rail/dot/label stay distinct and legible in both modes. Shared handles its own
-  // (shop/rose) hue inside SharedTasksSection.
+  // Whenever = task (blue), Repeating = meal (orange — was plan/indigo, too close to
+  // Whenever's blue to tell apart at a glance; 2026-07-14). Both tokens have light + dark
+  // variants, so the rail/dot/label stay distinct and legible in both modes. Shared handles
+  // its own (shop/green) hue inside SharedTasksSection.
   const wheneverHue = getDomainColor(theme, 'task').accent;
-  const repeatingHue = getDomainColor(theme, 'plan').accent;
+  const repeatingHue = getDomainColor(theme, 'meal').accent;
 
   const tasks = useTaskStore((s) => s.tasks);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
@@ -232,8 +234,8 @@ export default function TasksScreen() {
 
   // Section headers are the reusable <SectionRail> (hue dot + label + count) — the color-rail
   // redesign (2026-07-13). Each section's rows carry a matching `railColor` left edge; the
-  // shared domain hue binds a header to its list. Whenever = task blue, Repeating = plan indigo,
-  // Shared = shop rose (inside SharedTasksSection); Today/Week day groups use the neutral accent.
+  // shared domain hue binds a header to its list. Whenever = task blue, Repeating = meal orange,
+  // Shared = shop green (inside SharedTasksSection); Today/Week day groups use the neutral accent.
 
   const stickyBelowHeader = (
     <View style={[styles.stickyBar, { backgroundColor: theme.bg }]}>
