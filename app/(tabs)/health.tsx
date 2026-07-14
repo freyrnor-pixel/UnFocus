@@ -16,7 +16,8 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/Surface,
- *             components/AddRow, components/CompletionGlow, components/HabitIcon,
+ *             components/AddRow, components/AnimatedListItem (habit add/remove fade),
+ *             components/CompletionGlow, components/HabitIcon,
  *             components/EmptyState, components/SlideSelector, components/PressableScale,
  *             constants/theme, constants/colors, lib/date, lib/db, lib/haptics, lib/i18n,
  *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor,
@@ -78,6 +79,7 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import Surface from '@/components/Surface';
 import AddRow from '@/components/AddRow';
+import AnimatedListItem from '@/components/AnimatedListItem';
 import CompletionGlow from '@/components/CompletionGlow';
 import HabitIcon from '@/components/HabitIcon';
 import EmptyState from '@/components/EmptyState';
@@ -641,6 +643,12 @@ export default function HealthScreen() {
   const focusFilteredHabits = focusMode ? profileHabits.filter((h) => h.importance === 'essential') : profileHabits;
   const visibleHabits = focusFilteredHabits.filter((h) => shouldShowHabitOnDate(h, today));
 
+  // Gate habit-card entrance so only habits added after mount fade in (not the whole list).
+  const hasMountedHabits = useRef(false);
+  useEffect(() => {
+    hasMountedHabits.current = true;
+  }, []);
+
   const metCount = visibleHabits.filter((h) => {
     const log = habitLogs.find((l) => l.habitId === h.id && l.logDate === today);
     return (log?.count ?? 0) >= h.dailyGoal;
@@ -840,7 +848,9 @@ export default function HealthScreen() {
                     </Surface>
                   ) : (
                     visibleHabits.map((h) => (
-                      <HabitCard key={h.id} habit={h} today={today} onEdit={onEditHabit} lang={lang} theme={theme} />
+                      <AnimatedListItem key={h.id} enabled={hasMountedHabits.current}>
+                        <HabitCard habit={h} today={today} onEdit={onEditHabit} lang={lang} theme={theme} />
+                      </AnimatedListItem>
                     ))
                   )}
                 </View>

@@ -9,7 +9,8 @@
  * the same logic in-place), matching the old app's orphaned-but-kept status.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/MonthlyTableRow, components/UpdateSheet,
+ *   Imports → components/ScreenScaffold, components/MonthlyTableRow, components/AnimatedListItem
+ *             (catalog row add/remove fade), components/UpdateSheet,
  *             components/AddItemSheet, components/EmptyState, components/PressableScale,
  *             constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, store/useShoppingStore
  *   Used by → Expo Router route "/inventory-edit"
@@ -29,13 +30,14 @@
  *   - The store is loaded globally (deferred to the future _layout bootstrap phase),
  *     same as every other Phase 5 screen so far — this screen does not self-load.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem } from '@/store/useShoppingStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
+import AnimatedListItem from '@/components/AnimatedListItem';
 import UpdateSheet from '@/components/UpdateSheet';
 import AddItemSheet from '@/components/AddItemSheet';
 import EmptyState from '@/components/EmptyState';
@@ -58,6 +60,11 @@ export default function InventoryEditScreen() {
   const setPendingRestock = useShoppingStore((s) => s.setPendingRestock);
 
   const [showAddSheet, setShowAddSheet] = useState(false);
+  // Gate row entrance so only catalog items added after mount fade in (not the whole list).
+  const hasMounted = useRef(false);
+  useEffect(() => {
+    hasMounted.current = true;
+  }, []);
   const [updateItem, setUpdateItem] = useState<ShoppingItem | null>(null);
 
   const catalogItems = useMemo(
@@ -121,7 +128,7 @@ export default function InventoryEditScreen() {
           ) : (
             <View style={[styles.card, { backgroundColor: theme.surface }]}>
               {catalogItems.map((item, idx) => (
-                <View key={item.id}>
+                <AnimatedListItem key={item.id} enabled={hasMounted.current}>
                   <MonthlyTableRow
                     item={item}
                     onCheckboxPress={() => setPendingRestock(item.id, !item.pendingRestock)}
@@ -131,7 +138,7 @@ export default function InventoryEditScreen() {
                   {idx < catalogItems.length - 1 && (
                     <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
                   )}
-                </View>
+                </AnimatedListItem>
               ))}
             </View>
           )}

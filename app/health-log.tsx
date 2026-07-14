@@ -11,7 +11,8 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/EmptyState,
- *             components/Surface, components/PressableScale, lib/i18n,
+ *             components/Surface, components/PressableScale, components/AnimatedListItem
+ *             (symptom-section add/remove fade), lib/i18n,
  *             lib/severity, lib/useAppTheme, store/useHealthStore
  *   Note    → store hydration happens once at startup in app/_layout.tsx; this screen has
  *             no per-screen focus-load
@@ -42,6 +43,7 @@ import HintCard from '@/components/HintCard';
 import EmptyState from '@/components/EmptyState';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
+import AnimatedListItem from '@/components/AnimatedListItem';
 import AddRow from '@/components/AddRow';
 import { useT } from '@/lib/i18n';
 import { severities, severityInk } from '@/lib/severity';
@@ -61,6 +63,11 @@ export default function HealthLogScreen() {
   // Quick-add row: a symptom log is multi-field (severity/date/notes), so typing a name here
   // opens the full form prefilled with it rather than creating a bare entry inline.
   const [draft, setDraft] = React.useState('');
+  // Gate row entrance so only symptom sections added after mount fade in (not the whole list).
+  const hasMounted = React.useRef(false);
+  React.useEffect(() => {
+    hasMounted.current = true;
+  }, []);
 
   function startLog() {
     const name = draft.trim();
@@ -131,7 +138,8 @@ export default function HealthLogScreen() {
           sections.map((s) => {
               const sev = SEVERITIES.find((x) => x.value === s.lastSeverity);
               return (
-                <PressableScale key={s.key} onPress={() => openDetail(s)} scaleTo={0.97}>
+                <AnimatedListItem key={s.key} enabled={hasMounted.current}>
+                <PressableScale onPress={() => openDetail(s)} scaleTo={0.97}>
                   <Surface style={styles.sectionRow}>
                     <View style={styles.sectionInfo}>
                       <Text style={[styles.sectionName, { color: theme.text }]} numberOfLines={1}>{s.name}</Text>
@@ -147,6 +155,7 @@ export default function HealthLogScreen() {
                     <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
                   </Surface>
                 </PressableScale>
+                </AnimatedListItem>
               );
             })
         )}
