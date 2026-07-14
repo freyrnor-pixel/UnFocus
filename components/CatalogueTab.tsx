@@ -34,12 +34,12 @@
  *     short append-order list, so a bottom add row would require scrolling on every add.
  *   - removeItem soft-deletes (see useCatalogStore) so deleting a seeded item sticks across
  *     a seed re-run (seeding is now version-gated, not per-load).
- *   - **No domain tint on the cards (2026-07-13)**: unlike WeekListCard, the add-row and
- *     rows Surfaces here don't pass `tint={domainColor.tint}` — this list is one long,
- *     continuous card holding the whole ~286-row catalogue, so the same shop-domain rose
- *     wash that reads as a subtle accent on a small weekly-list card reads as a loud,
- *     "red" full-screen tint at this scale. `domainColor.accent` is still used for the
- *     small AddRow confirm-button fill, which stays a domain-consistent touch.
+ *   - **No domain border on the cards (2026-07-13, updated 2026-07-14)**: unlike
+ *     WeekListCard, the add-row and rows Surfaces here don't pass `borderColor={domainColor.accent}`
+ *     — this list is one long, continuous card holding the whole ~286-row catalogue, so the
+ *     same shop-domain green edge that reads as a subtle accent on a small weekly-list card
+ *     would read as a loud full-screen outline at this scale. `domainColor.accent` is still
+ *     used for the small AddRow confirm-button fill, which stays a domain-consistent touch.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { InteractionManager, StyleSheet, Text, TextInput, View } from 'react-native';

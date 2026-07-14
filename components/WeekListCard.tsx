@@ -42,9 +42,9 @@
  *     every fromCatalog weekly item whose name was tracked, then clears and closes.
  *   - listProgress() is still called here for the compact progress line on non-focused lists
  *     and the "Shopping done!" disabled state — same helper, same data.
- *   - Outer card has a 4px `getDomainColor(theme,'shop').accent` left accent stripe (Surface split into
- *     `cardRow`/`accent`/`cardContent`), matching Home's preview-card treatment so the
- *     card reads as the same object when tapping through from Home into full Shopping.
+ *   - Outer card border is `getDomainColor(theme,'shop').accent` (Surface's `borderColor` prop,
+ *     2026-07-14), matching Home's preview-card treatment so the card reads as the same
+ *     object when tapping through from Home into full Shopping.
  *   - **Decision 044b (2026-07-09):** entrance/highlight animation for just-added rows is
  *     handled by ShoppingRow reading recentlyAddedIds directly from useShoppingStore — no
  *     prop threading needed through WeekListCard.
@@ -250,8 +250,7 @@ export default function WeekListCard({
   const showInListSection = totalInList > 0 || !list.locked;
 
   return (
-    <Surface tint={domainColor.tint} style={styles.cardRow}>
-      <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
+    <Surface borderColor={domainColor.accent} style={styles.cardRow}>
       <View style={styles.cardContent}>
       {/* ── Card header: title + mode toggle + rename/settings/delete icons ── */}
       <View style={styles.header}>
@@ -640,8 +639,7 @@ export default function WeekListCard({
 }
 
 const baseStyles = StyleSheet.create({
-  cardRow: { borderRadius: Radius.lg, flexDirection: 'row' },
-  accent: { width: 4, alignSelf: 'stretch', borderTopLeftRadius: Radius.lg, borderBottomLeftRadius: Radius.lg },
+  cardRow: { borderRadius: Radius.lg },
   cardContent: { flex: 1, padding: Spacing.md, gap: Spacing.md },
   header: { gap: Spacing.xs },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },

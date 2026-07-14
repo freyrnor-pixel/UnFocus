@@ -1,7 +1,7 @@
 /**
  * HomeNotesCard.tsx — Home-screen preview of the real Notes feature (useNotesStore).
  *
- * Mirrors PlanTaskCard's Surface + left-accent-bar layout: always shows a collapsed
+ * Mirrors PlanTaskCard's Surface + domain-colored-border layout: always shows a collapsed
  * preview of the first COLLAPSED_COUNT active notes, with a footer toggle to reveal
  * the rest. Inline checkbox taps mark notes checked/unchecked; a "+" header action
  * creates a blank note and routes to /notes; a "See all →" footer link opens the full
@@ -93,10 +93,9 @@ export default function HomeNotesCard() {
   return (
     <Surface
       surfaceContext="ambient"
-      tint={domainColor.tint}
-      style={[styles.card, styles.cardRow, !expanded && styles.cardCollapsed]}
+      borderColor={domainColor.accent}
+      style={[styles.card, !expanded && styles.cardCollapsed]}
     >
-      <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
       <View style={styles.cardContent}>
 
         {/* Title row — title/badge (navigates to /notes) and the mic button are siblings,
@@ -237,8 +236,6 @@ const baseStyles = StyleSheet.create({
   // Collapsed-only floor so Notes/Plans/Shopping read as the same size regardless of how
   // little content one of them has (e.g. a single note) — see constants/theme.ts.
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
-  cardRow: { flexDirection: 'row' },
-  accent: { width: 4, alignSelf: 'stretch', borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
   cardContent: { flex: 1, padding: Spacing.md },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm, gap: Spacing.sm },
   titleLeftPressable: { flexShrink: 1 },
@@ -247,8 +244,8 @@ const baseStyles = StyleSheet.create({
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   micButton: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
-  // Wells removed (2026-07-13 grouping pass): rows sit directly on the domain-tinted card
-  // face so the whole section reads as one thing, instead of a flat surfaceMuted box-in-a-box.
+  // Wells removed (2026-07-13 grouping pass): rows sit directly on the card face so the
+  // whole section reads as one thing, instead of a flat surfaceMuted box-in-a-box.
   rowsContainer: { marginBottom: Spacing.sm },
   rows: { gap: 0 },
   noteRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: Spacing.xs, gap: Spacing.sm },

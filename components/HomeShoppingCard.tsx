@@ -1,7 +1,7 @@
 /**
  * HomeShoppingCard.tsx — Home-screen preview of the current week's shopping list.
  *
- * Mirrors PlanTaskCard's Surface + left-accent-bar layout: shows the first 5 items
+ * Mirrors PlanTaskCard's Surface + domain-colored-border layout: shows the first 5 items
  * from "In list" in a collapsed preview, with an expand toggle to reveal "In list",
  * "In cart", and "Purchased" sections. Clicking the title navigates to the full
  * Shopping screen.
@@ -165,10 +165,9 @@ export default function HomeShoppingCard({
   return (
     <Surface
       surfaceContext="ambient"
-      tint={domainColor.tint}
-      style={[styles.card, styles.cardRow, !expanded && styles.cardCollapsed]}
+      borderColor={domainColor.accent}
+      style={[styles.card, !expanded && styles.cardCollapsed]}
     >
-      <View style={[styles.accent, { backgroundColor: domainColor.accent }]} />
       <View style={styles.cardContent}>
 
         {/* Title row */}
@@ -296,8 +295,6 @@ const baseStyles = StyleSheet.create({
   // Collapsed-only floor so Notes/Plans/Shopping read as the same size regardless of how
   // few items are in the list — see constants/theme.ts.
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
-  cardRow: { flexDirection: 'row' },
-  accent: { width: 4, alignSelf: 'stretch', borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
   cardContent: { flex: 1, padding: Spacing.md },
   titleRowPressable: { marginBottom: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
@@ -305,7 +302,7 @@ const baseStyles = StyleSheet.create({
   title: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, flexShrink: 1 },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-  // Wells removed (2026-07-13 grouping pass): rows sit directly on the domain-tinted card face.
+  // Wells removed (2026-07-13 grouping pass): rows sit directly on the card face.
   rowsContainer: { marginBottom: Spacing.sm },
   rows: {},
   previewRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.xs, gap: Spacing.sm },
