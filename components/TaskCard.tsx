@@ -3,10 +3,11 @@
  *
  * Two variants:
  *   - variant="full" (All-tasks): tap the row to open an inline editor. While the
- *     editor is open the card is in *edit mode* — a Discard / Save bar sits ABOVE the
- *     card and edits are buffered in a local draft (nothing persists until Save). The
- *     editor holds: an editable title, importance, a steps checklist, a "Repeat" switch
- *     + per-mode recurrence options, a "Start specific date" toggle + calendar, and an
+ *     editor is open the card is in *edit mode* — small Discard / Save buttons sit at the
+ *     BOTTOM of the expanded editor (next to Delete) and edits are buffered in a local
+ *     draft (nothing persists until Save). The editor holds: an editable title, importance,
+ *     a steps checklist, a "Repeat" switch + per-mode recurrence options, a "Set time"
+ *     toggle + calendar, and an
  *     optional Start/Finish time-box pair. For an existing task, Steps and the
  *     Shared-out / Delete affordances persist immediately (they bypass the draft). A
  *     card with `isNew` starts expanded, has no title autoFocus (keeps the keyboard down
@@ -281,33 +282,6 @@ export default function TaskCard({
 
   return (
     <View style={styles.wrap}>
-      {/* ── Discard / Save bar (edit mode, attached to the top of the card) ── */}
-      {editing && (
-        <View style={[styles.saveBar, { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}>
-          <PressableScale
-            style={[styles.saveBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-            onPress={handleDiscard}
-            accessibilityRole="button"
-            accessibilityLabel={t.taskDiscard}
-            scaleTo={0.97}
-          >
-            <Ionicons name="close" size={16} color={theme.bad} />
-            <Text style={[styles.saveBtnText, { color: theme.bad }]}>{t.taskDiscard}</Text>
-          </PressableScale>
-          <PressableScale
-            style={[styles.saveBtn, { backgroundColor: canSave ? theme.accent : theme.surfaceMuted, borderColor: canSave ? theme.accent : theme.border, opacity: canSave ? 1 : 0.7 }]}
-            onPress={handleSave}
-            disabled={!canSave}
-            accessibilityRole="button"
-            accessibilityLabel={t.taskSave}
-            scaleTo={0.95}
-          >
-            <Ionicons name="checkmark" size={16} color={canSave ? theme.accentInk : theme.textMuted} />
-            <Text style={[styles.saveBtnText, { color: canSave ? theme.accentInk : theme.textMuted }]}>{t.taskSave}</Text>
-          </PressableScale>
-        </View>
-      )}
-
       <View
         style={[
           styles.card,
@@ -671,13 +645,40 @@ export default function TaskCard({
               </View>
             )}
 
-            {/* Delete (All tasks) */}
-            {showDelete && !isNew && (
-              <PressableScale style={styles.deleteRow} onPress={handleDelete} scaleTo={0.93}>
-                <Ionicons name="trash-outline" size={16} color={theme.bad} />
-                <Text style={[styles.deleteText, { color: theme.bad }]}>{t.deleteTask}</Text>
-              </PressableScale>
-            )}
+            {/* ── Bottom actions: Delete (left) · Discard / Save (right) — small, icon + label ── */}
+            <View style={styles.bottomActionsRow}>
+              {showDelete && !isNew ? (
+                <PressableScale style={styles.smallActionBtn} onPress={handleDelete} scaleTo={0.93} accessibilityRole="button" accessibilityLabel={t.deleteTask}>
+                  <Ionicons name="trash-outline" size={14} color={theme.bad} />
+                  <Text style={[styles.smallActionText, { color: theme.bad }]}>{t.deleteTask}</Text>
+                </PressableScale>
+              ) : (
+                <View />
+              )}
+              <View style={styles.bottomActionsRight}>
+                <PressableScale
+                  style={[styles.smallActionBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1.5 }]}
+                  onPress={handleDiscard}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.taskDiscard}
+                  scaleTo={0.97}
+                >
+                  <Ionicons name="close" size={14} color={theme.bad} />
+                  <Text style={[styles.smallActionText, { color: theme.bad }]}>{t.taskDiscard}</Text>
+                </PressableScale>
+                <PressableScale
+                  style={[styles.smallActionBtn, { backgroundColor: canSave ? theme.accent : theme.surfaceMuted, borderColor: canSave ? theme.accent : theme.border, borderWidth: 1.5, opacity: canSave ? 1 : 0.7 }]}
+                  onPress={handleSave}
+                  disabled={!canSave}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.taskSave}
+                  scaleTo={0.95}
+                >
+                  <Ionicons name="checkmark" size={14} color={canSave ? theme.accentInk : theme.textMuted} />
+                  <Text style={[styles.smallActionText, { color: canSave ? theme.accentInk : theme.textMuted }]}>{t.taskSave}</Text>
+                </PressableScale>
+              </View>
+            </View>
           </View>
         )}
       </View>
@@ -687,25 +688,18 @@ export default function TaskCard({
 
 const styles = StyleSheet.create({
   wrap: { gap: Spacing.xs },
-  saveBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: Spacing.sm,
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    padding: Spacing.sm,
-  },
-  saveBtn: {
+  bottomActionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Spacing.xs },
+  bottomActionsRight: { flexDirection: 'row', gap: Spacing.xs },
+  smallActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    minHeight: 38,
-    paddingHorizontal: Spacing.md,
+    minHeight: 32,
+    paddingHorizontal: Spacing.sm,
     borderRadius: Radius.full,
-    borderWidth: 1.5,
   },
-  saveBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
+  smallActionText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   forRow: { gap: Spacing.sm },
   forChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   forChip: {
@@ -807,6 +801,4 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bold,
     textAlign: 'center',
   },
-  deleteRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.xs },
-  deleteText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
 });
