@@ -12,15 +12,23 @@
  * disabled).
  *
  * Connections:
- *   Imports → react-native-reanimated, lib/haptics, lib/useAppTheme
+ *   Imports → react-native-reanimated, lib/haptics, lib/useAppTheme, constants/theme
  *   Used by → any screen button wanting press feedback
  *   Data    → reads reducedMotion via useAccessibility()
  *
  * Edit notes:
  *   - This is a shared primitive — keep its API a strict superset of Pressable so
  *     it can replace one without churn. Extra props: `haptic` (default true),
- *     `scaleTo` (default 0.94).
+ *     `scaleTo` (default 0.94), `depth` (Purposeful Depth System, 2026-07-14).
  *   - Animation must stay gated behind useAccessibility().reducedMotion.
+ *   - `depth` (optional `ElevationLevel`): when set, PressableScale OWNS the resting
+ *     shadow for that tier (via `getElevation(depth, theme.shadow)`) and compresses it
+ *     toward flat on press, driven off the same `scale` shared value the bounce already
+ *     uses — mirrors DraggableTaskRow.tsx's animated-lift-shadow pattern in reverse.
+ *     Callers passing `depth` must NOT also put shadow/elevation keys in `style` (same
+ *     "owned" contract Surface.tsx uses for its material shadow) — they'd be fighting
+ *     the animated style. Reduce-motion: shadow snaps to the resting tier, no compress
+ *     animation (haptic still fires) — same contract the scale bounce already honors.
  */
 import React from 'react';
 import { Pressable, PressableProps, ViewStyle, StyleProp } from 'react-native';
@@ -32,8 +40,9 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import { useAccessibility } from '@/lib/useAppTheme';
+import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { tap as hapticTap } from '@/lib/haptics';
+import { ElevationLevel, getElevation } from '@/constants/theme';
 
 type Props = PressableProps & {
   /** Container style (animated). */
@@ -42,6 +51,9 @@ type Props = PressableProps & {
   haptic?: boolean;
   /** Target scale at full press. Default 0.94. */
   scaleTo?: number;
+  /** Resting elevation tier; PressableScale owns the shadow and compresses it toward
+   *  flat on press. Omit for current no-shadow behavior. See Edit notes. */
+  depth?: ElevationLevel;
   children?: React.ReactNode;
 };
 
@@ -49,6 +61,7 @@ export default function PressableScale({
   style,
   haptic = true,
   scaleTo = 0.94,
+  depth,
   disabled,
   onPressIn,
   onPressOut,
@@ -57,14 +70,28 @@ export default function PressableScale({
   ...rest
 }: Props) {
   const { reducedMotion } = useAccessibility();
+  const theme = useAppTheme();
   const scale = useSharedValue(1);
+  const rest_ = depth ? getElevation(depth, theme.shadow) : undefined;
 
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: disabled
-      ? undefined
-      : interpolate(scale.value, [scaleTo, 1], [0.85, 1], Extrapolation.CLAMP),
-  }));
+  const animStyle = useAnimatedStyle(() => {
+    const base = {
+      transform: [{ scale: scale.value }],
+      opacity: disabled
+        ? undefined
+        : interpolate(scale.value, [scaleTo, 1], [0.85, 1], Extrapolation.CLAMP),
+    };
+    if (!rest_) return base;
+    const compress = (from: number) => interpolate(scale.value, [scaleTo, 1], [from * 0.35, from], Extrapolation.CLAMP);
+    return {
+      ...base,
+      shadowColor: rest_.shadowColor,
+      shadowOpacity: compress(rest_.shadowOpacity),
+      shadowRadius: compress(rest_.shadowRadius),
+      shadowOffset: { width: 0, height: compress(rest_.shadowOffset.height) },
+      elevation: compress(rest_.elevation),
+    };
+  });
 
   return (
     <AnimatedPressable

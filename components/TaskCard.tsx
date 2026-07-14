@@ -32,7 +32,7 @@
  * Connections:
  *   Imports → components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
  *             components/IconButton, components/FormControls (Switch), components/AppModal,
- *             components/PressableScale, constants/theme, lib/date, lib/haptics, lib/i18n, lib/id,
+ *             components/PressableScale, constants/theme (incl. getElevation), lib/date, lib/haptics, lib/i18n, lib/id,
  *             lib/useAppTheme, store/useTaskStore, store/useSettingsStore (People/family mode:
  *             peopleModeEnabled + childProfiles gate the "For" assignee chip row)
  *   Used by → app/(tabs)/plans.tsx
@@ -50,11 +50,15 @@
  *     editor SAVES whatever's there (the task is simply not-done until ticked) rather than
  *     discarding — the up-arrow is never a destructive X. Only a brand-new card with no
  *     title is dropped (nothing to keep). Explicit Discard stays the deliberate abandon path.
+ *   - **Purposeful Depth System (2026-07-14)**: the card's static resting elevation is
+ *     `getElevation('raised', theme.shadow)`; while `editing` it bumps to `'floating'` —
+ *     the deepest thing on screen, anchoring attention on the card being worked on
+ *     (focus-pop). Reuses the already-tracked `editing` boolean, no new state.
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Fonts, FontSize, Radius, Spacing, contrastOn } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, contrastOn, getElevation } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0 } from '@/lib/date';
@@ -307,6 +311,7 @@ export default function TaskCard({
       <View
         style={[
           styles.card,
+          getElevation(editing ? 'floating' : 'raised', theme.shadow),
           { backgroundColor: tinted ? theme.accentSoft : theme.surface, borderColor: editing ? theme.accent : theme.border },
           railColor && { borderLeftWidth: 4, borderLeftColor: railColor },
         ]}
