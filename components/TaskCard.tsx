@@ -32,7 +32,8 @@
  * Connections:
  *   Imports → components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
  *             components/IconButton, components/FormControls (Switch), components/AppModal,
- *             components/PressableScale, constants/theme (incl. getElevation), lib/date, lib/haptics, lib/i18n, lib/id,
+ *             components/PressableScale, components/Collapsible + components/AnimatedChevron (animated
+ *             steps/editor reveal + rotating chevron), constants/theme (incl. getElevation), lib/date, lib/haptics, lib/i18n, lib/id,
  *             lib/useAppTheme, store/useTaskStore, store/useSettingsStore (People/family mode:
  *             peopleModeEnabled + childProfiles gate the "For" assignee chip row)
  *   Used by → app/(tabs)/plans.tsx
@@ -73,6 +74,8 @@ import IconButton from '@/components/IconButton';
 import { Switch } from '@/components/FormControls';
 import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
+import Collapsible from '@/components/Collapsible';
+import AnimatedChevron from '@/components/AnimatedChevron';
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
@@ -373,13 +376,14 @@ export default function TaskCard({
 
           {canExpand && (
             <PressableScale hitSlop={6} onPress={openEditor} style={styles.chevronBtn} scaleTo={0.9}>
-              <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textMuted} />
+              <AnimatedChevron open={expanded} size={18} color={theme.textMuted} />
             </PressableScale>
           )}
         </View>
 
         {/* ── Steps-only expansion (Today / This week) ── */}
-        {stepsOnly && expanded && hasSteps && (
+        {stepsOnly && hasSteps && (
+          <Collapsible open={expanded}>
           <View style={styles.stepsWrap}>
             {sortedSteps.map((step) => (
               <PressableScale key={step.id} hitSlop={6} onPress={() => toggleStep(step.id)} style={styles.stepCheckTap} scaleTo={0.97}>
@@ -405,10 +409,12 @@ export default function TaskCard({
               </PressableScale>
             ))}
           </View>
+          </Collapsible>
         )}
 
         {/* ── Full editor (All tasks) ── */}
-        {editing && (
+        {!stepsOnly && (
+          <Collapsible open={editing}>
           <View style={styles.editor}>
             {/* Editable title */}
             <TextInput
@@ -679,6 +685,7 @@ export default function TaskCard({
               </PressableScale>
             )}
           </View>
+          </Collapsible>
         )}
       </View>
     </View>

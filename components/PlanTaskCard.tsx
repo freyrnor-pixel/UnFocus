@@ -38,8 +38,11 @@
  *
  * Connections:
  *   Imports → components/Surface, components/PressableScale, components/ProgressBar,
- *             components/HomePreviewEmpty, constants/theme, lib/haptics, lib/i18n,
- *             lib/useAppTheme, lib/domainColor, store/useTaskStore (Task type only)
+ *             components/HomePreviewEmpty, components/Collapsible + components/AnimatedChevron
+ *             (done-zone reveal + chevron), react-native-reanimated (FadeInDown/FadeOut/
+ *             LinearTransition for rail rows revealed by the Show more/less toggle),
+ *             constants/theme, constants/motion, lib/haptics, lib/i18n,
+ *             lib/useAppTheme (incl. useAccessibility), lib/domainColor, store/useTaskStore (Task type only)
  *   Used by → app/(tabs)/index.tsx (Home — read-only preview off-focus per Decision 009a, and
  *             non-readOnly essential-filtered surface in Focus mode per 009 #4). Reads
  *             settings.planTimelineHorizontal there and passes it down as the `horizontal`
@@ -109,17 +112,21 @@
  *     instances here, so the surfaced-follower/"happening now" highlight stays a
  *     border/fill cue (unchanged) rather than a per-row elevation bump.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import HomePreviewEmpty from '@/components/HomePreviewEmpty';
+import Collapsible from '@/components/Collapsible';
+import AnimatedChevron from '@/components/AnimatedChevron';
 import { Task } from '@/store/useTaskStore';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { Duration } from '@/constants/motion';
+import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { getDomainColor } from '@/lib/domainColor';
@@ -184,6 +191,9 @@ type RailItemOpts = {
   isPast?: boolean;
   hasTopLine?: boolean;
   hasBottomLine?: boolean;
+  /** vertical rail rows fade/slide in + reflow when the "Show more/less" toggle mounts/unmounts
+   *  them; done-zone rows omit this (their reveal is owned by the Collapsible wrapper). */
+  animateIn?: boolean;
 };
 
 function timedEntryOf(task: Task): TimedEntry {
@@ -232,10 +242,18 @@ export default function PlanTaskCard({
   const router = useRouter();
   const theme = useAppTheme();
   const t = useT();
+  const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
   const domainColor = getDomainColor(theme, 'plan');
   const liveNow = useNowMinutes();
   const now = nowOverride ?? liveNow;
+
+  // Gate row entrance animations to genuine post-mount reveals (the "Show more" toggle),
+  // so the initially-visible collapsed rows don't all fade in on every navigation to Home.
+  const hasMounted = useRef(false);
+  useEffect(() => {
+    hasMounted.current = true;
+  }, []);
 
   const [expanded, setExpanded] = useState(false);
   const [doneOpen, setDoneOpen] = useState(false);
@@ -362,14 +380,24 @@ export default function PlanTaskCard({
   }
 
   function renderRow(task: Task, opts: RailItemOpts) {
-    const { timed, isHappeningNow, isPast, hasTopLine, hasBottomLine } = opts;
+    const { timed, isHappeningNow, isPast, hasTopLine, hasBottomLine, animateIn } = opts;
     const dimmed = !!(task.done || isPast);
     const surfaced = surfacedIds.has(task.id);
     const isUp = task.id === upNextId;
     const showHint = isUp && !!task.hint && !task.done;
+    // Rows the "Show more/less" toggle adds/removes glide in/out and reflow (ShoppingRow §
+    // house pattern); reducedMotion, done-zone rows (animateIn omitted), and the first mount
+    // (hasMounted false) stay static so the collapsed set doesn't fade in on every mount.
+    const anim = animateIn && !reducedMotion && hasMounted.current;
 
     return (
-      <View key={task.id} style={styles.row}>
+      <Animated.View
+        key={task.id}
+        style={styles.row}
+        entering={anim ? FadeInDown.duration(Duration.listIn) : undefined}
+        exiting={anim ? FadeOut.duration(Duration.cardOut) : undefined}
+        layout={anim ? LinearTransition.duration(Duration.listMove) : undefined}
+      >
         <View style={styles.lineCol}>
           <View style={[styles.railLine, { backgroundColor: hasTopLine ? theme.border : 'transparent' }]} />
           {timeMarker(task, timed, dimmed, isHappeningNow, surfaced)}
@@ -414,7 +442,7 @@ export default function PlanTaskCard({
           </View>
         </PressableScale>
         <View style={styles.doneCol}>{doneToggle(task, isHappeningNow)}</View>
-      </View>
+      </Animated.View>
     );
   }
 
@@ -530,7 +558,7 @@ export default function PlanTaskCard({
     const hasTopLine = !isFirstItem;
     isFirstItem = false;
     const hasNext = idx < visibleAnytime.length - 1 || timedPending.length > 0;
-    anytimeItems.push(renderItem(task, { hasTopLine, hasBottomLine: hasNext }));
+    anytimeItems.push(renderItem(task, { hasTopLine, hasBottomLine: hasNext, animateIn: true }));
     if (hasNext) anytimeItems.push(renderSpacerItem(`gap-any-${task.id}`, MIN_GAP));
   });
 
@@ -545,7 +573,7 @@ export default function PlanTaskCard({
     const gapMin = nextEntry ? nextEntry.start - entry.end : 0;
     const connectorPx = nextEntry ? clamp(gapMin * PX_PER_MIN, MIN_GAP, MAX_GAP) : tailPx;
     const hasBottomLine = !isLast || tailPx > 0;
-    timedItems.push(renderItem(entry.task, { timed: entry, isHappeningNow, isPast, hasTopLine, hasBottomLine }));
+    timedItems.push(renderItem(entry.task, { timed: entry, isHappeningNow, isPast, hasTopLine, hasBottomLine, animateIn: true }));
     if (hasBottomLine) {
       // Insert the live "now" marker into the connector whose time-window contains it —
       // it renders as the spacer's content, not a dangling extra sibling row.
@@ -618,18 +646,18 @@ export default function PlanTaskCard({
           <View style={styles.doneZone}>
             <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97}>
               <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>{t.dayViewDoneZone(doneTasks.length)}</Text>
-              <Ionicons name={doneOpen ? 'chevron-up' : 'chevron-down'} size={14} color={theme.textMuted} />
+              <AnimatedChevron open={doneOpen} size={14} color={theme.textMuted} />
             </PressableScale>
-            {doneOpen
-              ? doneTasks.map((task) =>
-                  renderRow(task, {
-                    timed: task.time ? timedEntryOf(task) : undefined,
-                    isPast: true,
-                    hasTopLine: false,
-                    hasBottomLine: false,
-                  })
-                )
-              : null}
+            <Collapsible open={doneOpen}>
+              {doneTasks.map((task) =>
+                renderRow(task, {
+                  timed: task.time ? timedEntryOf(task) : undefined,
+                  isPast: true,
+                  hasTopLine: false,
+                  hasBottomLine: false,
+                })
+              )}
+            </Collapsible>
           </View>
         ) : null}
 
