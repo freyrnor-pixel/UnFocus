@@ -139,14 +139,17 @@ const defaultLight: ThemePalette = {
   // banner — this replaces the retired cream/orange/green/brown naming, not the tokens
   // themselves). bg/surface/text/border/accent/good/bad/hint values map 1:1 from the
   // design brief's CSS vars; see task notes for the full mapping table.
-  bg: '#F7F8FA',
+  // (2026-07-14 "Vivid & clean" pass also lightly polished the neutral base — bg/surfaceMuted/
+  // surfaceInset/border nudged a touch cleaner/cooler; text/textMuted unchanged so the WCAG
+  // contrast tests still hold.)
+  bg: '#F6F8FB',
   surface: '#FFFFFF',
-  surfaceMuted: '#ECEEF1',
-  surfaceInset: '#E4E6EA',
+  surfaceMuted: '#EEF1F5',
+  surfaceInset: '#E6EAEF',
   text: '#161B26',
   textMuted: '#5B6472',
   textInverse: '#FFFFFF',
-  border: '#E2E5EA',
+  border: '#E3E7EC',
   borderStrong: '#1E3A8A',
   accent: '#2563EB',
   accentSoft: '#BFDBFE',
@@ -164,27 +167,29 @@ const defaultLight: ThemePalette = {
   hintBg: '#E9EFFD',
   hintBorder: '#B3C8F8',
   hintAccent: '#2563EB',
-  // Domain accents ordered by ROUTINE SEQUENCE (2026-07-13 redesign) — color now signifies
+  // Domain accents ordered by ROUTINE SEQUENCE (2026-07-13 redesign) — color signifies
   // "the order of things," not a random rainbow. Read in the order a user moves through a day
   // (plan → task → habit → health → meal → shop → budget → note) the hue walks a deliberate
   // arc: a smooth cool gradient across the morning "get-things-done" block (indigo → blue →
-  // cyan → teal), then warm midday activity (orange → lime-green), settling to money-gold and
-  // a lemon-yellow note accent. Two hard fixes vs the old octet: health moved OFF red (it was
-  // literally #DC2626 === `bad`, so an error/overdue red and a Health header were the same
-  // color) to a calm medical teal, and habit moved OFF green (≈ `good`) to cyan. green/red/
-  // amber are reserved for STATUS (good/bad/warn); every domain hue stays clear of them so a
-  // colored chip never reads as "done/overdue/soon". See lib/domainColor.ts for the mapping.
-  // (2026-07-14: shop rose→lime-green and note violet→lemon-yellow, per product direction that
-  // Shopping should read "green" and Notes "yellow" — hues picked to sit clear of `good`'s
-  // forest green and `warn`/`featBudget`'s amber-gold so they don't misread as a status color.)
-  featPlan: '#4F46E5',   // 1 · indigo      — plan the day
-  featTask: '#2563EB',   // 2 · blue        — do tasks
-  featHabit: '#0E7490',  // 3 · cyan        — keep habits (was green→collided with `good`)
-  featHealth: '#0F766E', // 4 · teal        — track health (was red→collided with `bad`)
-  featMeal: '#EA580C',   // 5 · orange      — eat
-  featShop: '#65A30D',   // 6 · lime-green  — shop (was rose; clear of `good`'s forest green)
-  featBudget: '#CA8A04', // 7 · gold        — money
-  featNote: '#C9C30D',   // 8 · lemon-yellow — reflect / note (was violet; clear of `warn`/gold)
+  // sky → teal), then warm midday activity (orange → green), settling to money-amber and a
+  // golden-yellow note accent. Health stays OFF red (it was #DC2626 === `bad`) on a calm teal.
+  // (2026-07-14 "Vivid & clean" refresh: the whole octet moved to bright, confident Tailwind-
+  // 500-family hues for a higher-tier look — Shopping now reads as a fresh green (#22C55E, was
+  // the muddy olive-lime #65A30D) and Notes a clean golden yellow (#EAB308, was olive-lemon
+  // #C9C30D). The earlier hard rule that every domain hue must sit clear of `good`(green)/
+  // `bad`(red)/`warn`(gold) was RELAXED per product direction: with the app's clear button
+  // layout/section structure, a green Shopping chip near a green "done" status reads fine —
+  // proximity is disambiguated by placement, not hue. Status logic is UNCHANGED: good/bad/warn
+  // still drive done/overdue/soon via getStatusColor; a domain accent only shows for `default`
+  // rows. See lib/domainColor.ts for the mapping.)
+  featPlan: '#6366F1',   // 1 · indigo   — plan the day
+  featTask: '#3B82F6',   // 2 · blue     — do tasks
+  featHabit: '#0EA5E9',  // 3 · sky      — keep habits
+  featHealth: '#14B8A6', // 4 · teal     — track health (off red/`bad`)
+  featMeal: '#F97316',   // 5 · orange   — eat
+  featShop: '#22C55E',   // 6 · green    — shop (was olive-lime #65A30D)
+  featBudget: '#F59E0B', // 7 · amber    — money
+  featNote: '#EAB308',   // 8 · yellow   — reflect / note (was olive-lemon #C9C30D)
 
   // Reserved priority/category ramps from the 2026-07-14 Claude Design brief — no live
   // feature reads these yet (dormant `priority` SQLite column, unwired category concept).
@@ -234,18 +239,18 @@ const defaultDark: ThemePalette = {
   hintBg: '#0C1E38',
   hintBorder: '#1A3A60',
   hintAccent: '#60A5FA',
-  // Dark mirrors the light routine-order arc (2026-07-13): same hue families, brighter tints
-  // for the dark surface. Order plan → task → habit → health → meal → shop → budget → note;
-  // health = teal (off red/`bad`), habit = cyan (off green/`good`); green/red/amber stay
-  // reserved for status. See the light block above and lib/domainColor.ts.
+  // Dark mirrors the light "Vivid & clean" arc (2026-07-14): same hue families, brighter
+  // tints for the dark surface. Order plan → task → habit → health → meal → shop → budget →
+  // note; health = teal (off red/`bad`). See the light block above for the full rationale
+  // (bright Tailwind-family hues, collision-avoidance relaxed) and lib/domainColor.ts.
   featPlan: '#818CF8',   // 1 · indigo
   featTask: '#60A5FA',   // 2 · blue
-  featHabit: '#22D3EE',  // 3 · cyan
+  featHabit: '#38BDF8',  // 3 · sky
   featHealth: '#2DD4BF', // 4 · teal
   featMeal: '#FB923C',   // 5 · orange
-  featShop: '#A3E635',   // 6 · lime-green
-  featBudget: '#FBBF24', // 7 · gold
-  featNote: '#F2E55A',   // 8 · lemon-yellow
+  featShop: '#4ADE80',   // 6 · green (was lime #A3E635)
+  featBudget: '#FBBF24', // 7 · amber
+  featNote: '#FACC15',   // 8 · yellow (was lemon #F2E55A)
 
   // Reserved priority/category ramps — dark values from the 2026-07-14 Claude Design brief.
   priorityHigh: '#F0685A',
