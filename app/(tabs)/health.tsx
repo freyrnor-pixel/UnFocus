@@ -80,6 +80,7 @@ import HintCard from '@/components/HintCard';
 import Surface from '@/components/Surface';
 import AddRow from '@/components/AddRow';
 import AnimatedListItem from '@/components/AnimatedListItem';
+import Collapsible from '@/components/Collapsible';
 import CompletionGlow from '@/components/CompletionGlow';
 import HabitIcon from '@/components/HabitIcon';
 import EmptyState from '@/components/EmptyState';
@@ -795,7 +796,7 @@ export default function HealthScreen() {
             </View>
 
             {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
-            {showHabitProfiles && (
+            <Collapsible open={showHabitProfiles}>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -822,7 +823,7 @@ export default function HealthScreen() {
                   );
                 })}
               </ScrollView>
-            )}
+            </Collapsible>
 
             {/* View tabs — shared bordered segmented control (SlideSelector). */}
             <SlideSelector

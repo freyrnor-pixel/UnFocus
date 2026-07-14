@@ -291,7 +291,7 @@ export default function TasksScreen() {
         </HintCard>
 
         {/* Person filter (People/family mode) — Everyone + Me + each profile. */}
-        {showPeople && (
+        <Collapsible open={showPeople}>
           <View style={styles.personFilterRow}>
             {([null, '', ...childProfiles] as (string | null)[]).map((p) => {
               const active = personFilter === p;
@@ -310,7 +310,7 @@ export default function TasksScreen() {
               );
             })}
           </View>
-        )}
+        </Collapsible>
 
         {/* ── ALL TASKS (order: Whenever → Repeating → Shared) ── */}
         {tab === 'all' && (
