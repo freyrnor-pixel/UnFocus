@@ -13,6 +13,11 @@
  *   Depth: shadow, overlay
  *   Hint card: hintBg, hintBorder, hintAccent
  *   Feature accents: featTask, featPlan, featHabit, featShop, featMeal, featBudget, featNote, featHealth
+ *   Priority ramp (reserved, unwired — no live UI/DB reads this yet): priorityHigh,
+ *     priorityHighSoft, priorityMedium, priorityMediumSoft, priorityLow, priorityLowSoft
+ *   Category palette (reserved, unwired — no live UI/DB reads this yet): categoryWork,
+ *     categoryWorkSoft, categoryHealth, categoryHealthSoft, categoryHome, categoryHomeSoft,
+ *     categoryPersonal, categoryPersonalSoft, categoryShared, categorySharedSoft
  *
  * Connections:
  *   Imports → —
@@ -73,6 +78,26 @@ export interface ThemePalette {
   featBudget: string;      // Budget type bubble
   featNote: string;        // Note type bubble
   featHealth: string;      // Health type bubble
+
+  // ── Priority ramp (reserved — no live feature reads these yet) ────────────
+  priorityHigh: string;
+  priorityHighSoft: string;
+  priorityMedium: string;
+  priorityMediumSoft: string;
+  priorityLow: string;
+  priorityLowSoft: string;
+
+  // ── Category palette (reserved — no live feature reads these yet) ────────
+  categoryWork: string;
+  categoryWorkSoft: string;
+  categoryHealth: string;
+  categoryHealthSoft: string;
+  categoryHome: string;
+  categoryHomeSoft: string;
+  categoryPersonal: string;
+  categoryPersonalSoft: string;
+  categoryShared: string;
+  categorySharedSoft: string;
 }
 
 export interface ThemeVariant {
@@ -110,37 +135,35 @@ export function contrastRatio(hex1: string, hex2: string): number {
 // ── Default Theme (Cool blue, Linear/Notion-clean) ──────────────────────────
 
 const defaultLight: ThemePalette = {
-  bg: '#F2F8FE',
+  // 2026-07-14 Claude Design palette refresh (see docs/COLOR_THEME_LIBRARY.md stale-flag
+  // banner — this replaces the retired cream/orange/green/brown naming, not the tokens
+  // themselves). bg/surface/text/border/accent/good/bad/hint values map 1:1 from the
+  // design brief's CSS vars; see task notes for the full mapping table.
+  bg: '#F7F8FA',
   surface: '#FFFFFF',
-  // surfaceMuted/surfaceInset carry a touch more blue chroma (2026-07-13 depth pass) so
-  // recessed wells/tracks read as intentional depth rather than the old lifeless flat
-  // blue-grey, while raised controls now pop via Shadow.button. Validated ≥4.5:1 for
-  // text/textMuted via contrastRatio() (surface→muted ≈1.24, muted→inset ≈1.12; textMuted
-  // on inset ≈4.53 — still AA, with a clearly visible surface→muted→inset step).
-  surfaceMuted: '#DDE8FA',
-  surfaceInset: '#CBDDF4',
-  text: '#0F1C2E',
-  textMuted: '#4E6182',
+  surfaceMuted: '#ECEEF1',
+  surfaceInset: '#E4E6EA',
+  text: '#161B26',
+  textMuted: '#5B6472',
   textInverse: '#FFFFFF',
-  // border strengthened to a clearly-visible-but-soft edge (~1.97:1 on white) — the old
-  // #B0CFF2 (1.61:1) plus Surface's translucent-white material edge left cards edgeless
-  // in light mode. borderStrong stays the high-contrast option for active/emphasis.
-  border: '#9BBBE6',
-  borderStrong: '#5590E9',
-  accent: '#0B62F2',
-  accentSoft: '#DBEAFE',
+  border: '#E2E5EA',
+  borderStrong: '#1E3A8A',
+  accent: '#2563EB',
+  accentSoft: '#BFDBFE',
   accentInk: '#FFFFFF',
-  good: '#107636',
-  goodSoft: '#DCEADE',
-  bad: '#DC2626',
+  good: '#10B981',
+  goodSoft: '#A7F3D0',
+  bad: '#EF4444',
   badSoft: '#FEE2E2',
-  warn: '#976306',
-  warnSoft: '#FEFCE8',
-  shadow: 'rgba(15,28,46,0.12)',
+  // warn/warnSoft aren't in the design brief's base block — reuse its priority-medium
+  // amber (closest same-brief "warning" hue family) rather than inventing a new hue.
+  warn: '#B7691A',
+  warnSoft: '#FDF1E1',
+  shadow: 'rgba(22,27,38,0.10)',
   overlay: 'rgba(0,0,0,0.5)',
   hintBg: '#E9EFFD',
   hintBorder: '#B3C8F8',
-  hintAccent: '#0B62F2',
+  hintAccent: '#2563EB',
   // Domain accents ordered by ROUTINE SEQUENCE (2026-07-13 redesign) — color now signifies
   // "the order of things," not a random rainbow. Read in the order a user moves through a day
   // (plan → task → habit → health → meal → shop → budget → note) the hue walks a deliberate
@@ -162,27 +185,50 @@ const defaultLight: ThemePalette = {
   featShop: '#65A30D',   // 6 · lime-green  — shop (was rose; clear of `good`'s forest green)
   featBudget: '#CA8A04', // 7 · gold        — money
   featNote: '#C9C30D',   // 8 · lemon-yellow — reflect / note (was violet; clear of `warn`/gold)
+
+  // Reserved priority/category ramps from the 2026-07-14 Claude Design brief — no live
+  // feature reads these yet (dormant `priority` SQLite column, unwired category concept).
+  priorityHigh: '#C4341F',
+  priorityHighSoft: '#FBEAE8',
+  priorityMedium: '#B7691A',
+  priorityMediumSoft: '#FDF1E1',
+  priorityLow: '#5B6472',
+  priorityLowSoft: '#EEF1F4',
+
+  categoryWork: '#2854C9',
+  categoryWorkSoft: '#EFF3FF',
+  categoryHealth: '#0F8B63',
+  categoryHealthSoft: '#ECF9F5',
+  categoryHome: '#A9631E',
+  categoryHomeSoft: '#FBF1E8',
+  categoryPersonal: '#7A4FC9',
+  categoryPersonalSoft: '#F3EEFC',
+  categoryShared: '#B23E82',
+  categorySharedSoft: '#FBEAF3',
 };
 
 const defaultDark: ThemePalette = {
-  bg: '#070C18',
-  surface: '#18243E',
-  surfaceMuted: '#0D1A33',
-  surfaceInset: '#070E1E',
-  text: '#DDE9FB',
-  textMuted: '#7A9FC6',
-  textInverse: '#07101F',
-  border: '#2A4264',
-  borderStrong: '#3A5578',
+  // 2026-07-14 Claude Design palette refresh — brief gave no dark base tokens, so these
+  // are hand-authored to match the new light mode's neutrality, carrying forward the
+  // existing accent/good/bad hue families (see task notes for the reasoning).
+  bg: '#0B0E14',
+  surface: '#1A2030',
+  surfaceMuted: '#141824',
+  surfaceInset: '#0E1119',
+  text: '#E7EAF0',
+  textMuted: '#8891A0',
+  textInverse: '#0B0E14',
+  border: '#2E3446',
+  borderStrong: '#454C63',
   accent: '#60A5FA',
-  accentSoft: '#1E3A5F',
-  accentInk: '#07101F',
+  accentSoft: '#1E2F4D',
+  accentInk: '#0B0E14',
   good: '#34D399',
-  goodSoft: '#0D2A1A',
+  goodSoft: '#12291F',
   bad: '#F87171',
-  badSoft: '#220A0A',
-  warn: '#FCD34D',
-  warnSoft: '#1A1400',
+  badSoft: '#2A0F0D',
+  warn: '#E0A030',
+  warnSoft: '#2A2010',
   shadow: 'rgba(0,3,12,0.6)',
   overlay: 'rgba(0,0,0,0.7)',
   hintBg: '#0C1E38',
@@ -200,6 +246,25 @@ const defaultDark: ThemePalette = {
   featShop: '#A3E635',   // 6 · lime-green
   featBudget: '#FBBF24', // 7 · gold
   featNote: '#F2E55A',   // 8 · lemon-yellow
+
+  // Reserved priority/category ramps — dark values from the 2026-07-14 Claude Design brief.
+  priorityHigh: '#F0685A',
+  priorityHighSoft: '#2A0F0D',
+  priorityMedium: '#E0A030',
+  priorityMediumSoft: '#2A2010',
+  priorityLow: '#8A93A0',
+  priorityLowSoft: '#171C24',
+
+  categoryWork: '#6E9CF5',
+  categoryWorkSoft: '#101B33',
+  categoryHealth: '#34C99A',
+  categoryHealthSoft: '#0B241C',
+  categoryHome: '#E0A050',
+  categoryHomeSoft: '#2A2013',
+  categoryPersonal: '#B197F0',
+  categoryPersonalSoft: '#201A33',
+  categoryShared: '#E870B0',
+  categorySharedSoft: '#2E1522',
 };
 
 // ── Theme registry ───────────────────────────────────────────────────────────

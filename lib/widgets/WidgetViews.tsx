@@ -60,8 +60,10 @@ type Palette = {
   line: Hex;
 };
 
-const LIGHT: Palette = { bg: '#FFFFFF', card: '#F1F5F9', text: '#0F1B2E', muted: '#64748B', line: '#E2E8F0' };
-const DARK: Palette = { bg: '#0F1B2E', card: '#18243E', text: '#DDE9FB', muted: '#7A9FC6', line: '#2A4264' };
+// Hand-mirrored from constants/colors.ts's bg/surface/text/textMuted/border (2026-07-14
+// Claude Design palette refresh) — widgets can't call useAppTheme() at runtime.
+const LIGHT: Palette = { bg: '#F7F8FA', card: '#FFFFFF', text: '#161B26', muted: '#5B6472', line: '#E2E5EA' };
+const DARK: Palette = { bg: '#0B0E14', card: '#1A2030', text: '#E7EAF0', muted: '#8891A0', line: '#2E3446' };
 
 const FRAME = {
   height: 'match_parent' as const,
