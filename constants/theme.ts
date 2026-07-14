@@ -4,6 +4,8 @@
  * `getFontSize(base, scale)` applies the user's fontSize preference to a base pt.
  * `contrastOn(hexBg)` picks near-black or white text for the best WCAG contrast.
  * `getMaterialStyle(base)` computes glass surface-finish tokens from a single base colour.
+ * `getElevation(level, shadowColor?)` is the 3-tier depth scale (flat/raised/floating) —
+ * the go-forward source of truth for shadow/elevation; see its own doc comment.
  * `Fonts` holds the rounded Nunito family tokens. Card padding across the app is `Spacing.md`
  * (16) — there is no separate `Layout` token; a prior `Layout.cardPadding/cardGap/maxVisible`
  * export was removed 2026-07-12 (zero call sites, docs disagreed with it — see
@@ -17,6 +19,11 @@
  * Edit notes:
  *   - Glass surface: BlurView frost + colour wash (see Surface.tsx) so text on cards
  *     keeps the same contrast guarantees regardless of what's blurred behind.
+ *   - Purposeful Depth System (2026-07-14): `getElevation('flat'|'raised'|'floating')`
+ *     is the go-forward depth token — flat=read-only, raised=tappable at rest,
+ *     floating=the one focused/active surface. Used by PressableScale's `depth` prop,
+ *     TaskCard's resting/focus-pop elevation, and Surface's `elevated` prop. The old
+ *     `Shadow.*` map is untouched/back-compat only — don't mass-migrate its call sites.
  */
 export type FontSizeScale = 'small' | 'default' | 'large';
 
@@ -130,6 +137,27 @@ export const Fonts = {
   bold: 'Nunito_700Bold',
   extrabold: 'Nunito_800ExtraBold',
 } as const;
+
+export type ElevationLevel = 'flat' | 'raised' | 'floating';
+
+/**
+ * 3-tier depth scale (Purposeful Depth System, 2026-07-14): `flat` = informational/
+ * read-only, `raised` = tappable at rest, `floating` = the one focused/active/modal
+ * surface on screen. Roughly: `Shadow.card`/`button` ≈ `raised`, `Shadow.cardHeavy`/
+ * `fab` ≈ `floating` — new code should prefer `getElevation` over the `Shadow` map
+ * below (kept for its 15+ existing call sites, not migrated in this pass). Pass
+ * `theme.shadow` for a theme-tinted shadow (matches Surface); omit for legacy black.
+ */
+export function getElevation(level: ElevationLevel, shadowColor: string = '#000') {
+  switch (level) {
+    case 'flat':
+      return { shadowColor, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0, shadowRadius: 0, elevation: 0 };
+    case 'raised':
+      return { shadowColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 4 };
+    case 'floating':
+      return { shadowColor, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.20, shadowRadius: 14, elevation: 10 };
+  }
+}
 
 export const Shadow = {
   card: {

@@ -10,7 +10,7 @@
  * still spans the full card).
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, expo-blur, expo-linear-gradient
+ *   Imports → constants/theme (incl. getElevation), lib/useAppTheme, expo-blur, expo-linear-gradient
  *   Used by → app screens that render a "card" surface (see grep for `<Surface`)
  *   Data    → —
  *
@@ -68,12 +68,17 @@
  *     computed from this base. For a domain-coded card, prefer `borderColor`
  *     (colored edge, neutral fill) over `tint` (whole-card colour wash) — see its
  *     own doc comment on the Props type (2026-07-14).
+ *   - **Purposeful Depth System (2026-07-14)**: `elevated` swaps the outer view's
+ *     shadow keys from the material's own (`mat.shadowOpacity/Radius/elevation`, ≈
+ *     `raised`) to `getElevation('floating', theme.shadow)` — same themed shadowColor,
+ *     just deeper. This is the focus-pop path for Surface-based (glass) cards; see
+ *     PlanTaskCard.tsx for the caller.
  */
 import React from 'react';
 import { Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getMaterialStyle, Radius } from '@/constants/theme';
+import { getElevation, getMaterialStyle, Radius } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 
 /**
@@ -94,6 +99,13 @@ type Props = {
    * default calm `theme.border` edge.
    */
   borderColor?: string;
+  /**
+   * Purposeful Depth System (2026-07-14): boosts this card's shadow to the `floating`
+   * tier (getElevation('floating', theme.shadow)) on top of the material's own themed
+   * shadowColor — the focus/active pop for material (glass) cards. Omit for the
+   * default material shadow (≈ `raised`).
+   */
+  elevated?: boolean;
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 };
@@ -147,12 +159,13 @@ const OWNED_KEYS = new Set([
   'shadowColor', 'shadowOpacity', 'shadowRadius', 'shadowOffset', 'elevation',
 ]);
 
-export default function Surface({ surfaceContext = 'ambient', tint, borderColor, style, children }: Props) {
+export default function Surface({ surfaceContext = 'ambient', tint, borderColor, elevated, style, children }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
   const base = tint ?? theme.surface;
   const mat = getMaterialStyle(base);
   const isGlass = true;
+  const elevation = elevated ? getElevation('floating', theme.shadow) : null;
 
   const flat = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
   const outer: Record<string, unknown> = {};
@@ -187,10 +200,10 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
           borderTopColor: borderColor ?? (isDark ? theme.border : mat.borderTopColor),
           borderBottomColor: borderColor ?? theme.border,
           shadowColor: theme.shadow,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: mat.shadowOpacity,
-          shadowRadius: mat.shadowRadius,
-          elevation: mat.elevation,
+          shadowOffset: elevation ? elevation.shadowOffset : { width: 0, height: 2 },
+          shadowOpacity: elevation ? elevation.shadowOpacity : mat.shadowOpacity,
+          shadowRadius: elevation ? elevation.shadowRadius : mat.shadowRadius,
+          elevation: elevation ? elevation.elevation : mat.elevation,
         },
       ]}
     >

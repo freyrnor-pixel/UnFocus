@@ -103,6 +103,11 @@
  *   - **Touch target (2026-07-11)**: the done-toggle `dot` is visually 16x16 but
  *     `hitSlop={16}` brings the tappable area to ~48dp, meeting Android's minimum
  *     touch-target size.
+ *   - **Purposeful Depth System (2026-07-14)**: passes Surface's `elevated` when
+ *     `expanded` — the card the user has actively opened to see the full day becomes
+ *     the deepest surface (focus-pop). Per-row cards (`styles.rowCard`) aren't Surface
+ *     instances here, so the surfaced-follower/"happening now" highlight stays a
+ *     border/fill cue (unchanged) rather than a per-row elevation bump.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -557,6 +562,7 @@ export default function PlanTaskCard({
     <Surface
       surfaceContext="ambient"
       borderColor={domainColor.accent}
+      elevated={expanded}
       style={[styles.card, !expanded && styles.cardCollapsed]}
     >
       <View style={styles.cardContent}>

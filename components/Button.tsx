@@ -14,6 +14,9 @@
  *   - BorderRadius.full (999) for buttons (fully rounded pills).
  *   - Secondary is soft-tint fill (accentSoft), NOT border.
  *   - Disabled state is opacity 0.45 applied over the variant's own colours — never swap fill for disabled.
+ *   - Purposeful Depth System (2026-07-14): primary/secondary/danger pass PressableScale's
+ *     `depth="raised"` (solid-fill, physical — reads as tappable); `ghost` (text-only) stays
+ *     flat/unset since it has no fill to cast a shadow from.
  */
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
@@ -71,6 +74,7 @@ export default function Button({
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}
       scaleTo={variant === 'danger' ? 0.93 : size === 'sm' ? 0.97 : 0.95}
+      depth={variant === 'ghost' ? undefined : 'raised'}
       style={[
         styles.base,
         {
