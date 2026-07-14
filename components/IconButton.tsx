@@ -5,21 +5,26 @@
  * accent background + border. Always pass `label` for accessibility.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, components/PressableScale
+ *   Imports → constants/theme, lib/useAppTheme, lib/useToggleColor (animated active-state
+ *             background/border crossfade), react-native-reanimated, components/PressableScale
  *   Used by → header actions, focus toggles, standalone icon controls
  *   Data    → none (purely presentational)
  *
  * Edit notes:
  *   - `size` controls outer button size (default 36); hit target always >=44px (achieved via Pressable wrapper).
  *   - Icon size is automatically 50% of button size.
- *   - `active` adds accentSoft background + accent border, icon colour accent.
+ *   - `active` crossfades the background (→ accentSoft) and border (transparent → accent) via
+ *     useToggleColor; icon colour swaps instantly to accent on top. Border is always 1.5px
+ *     (transparent when inactive) so toggling active never shifts the icon by the border width.
  *   - Default (inactive, enabled) icon colour is `text`; disabled icon colour is `textMuted`.
  */
 import React from 'react';
-import { StyleSheet, StyleProp, ViewStyle, View } from 'react-native';
+import { StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { Radius } from '@/constants/theme';
+import { Radius, rgba } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { useToggleColor } from '@/lib/useToggleColor';
 import PressableScale from '@/components/PressableScale';
 
 type Props = {
@@ -49,9 +54,15 @@ export default function IconButton({
   const iconSize = Math.round(size * 0.5);
   const hitTarget = Math.max(44, size + 8);
 
-  const bgColor = active ? theme.accentSoft : (tint ?? theme.surfaceMuted);
+  const inactiveBg = tint ?? theme.surfaceMuted;
   const fgColor = color ?? (disabled ? theme.textMuted : active ? theme.accent : theme.text);
-  const borderColor = active ? theme.accent : 'transparent';
+
+  // Background + border crossfade between inactive and active as `active` flips (the icon
+  // colour swaps instantly on top, matching the SlideSelector convention).
+  const animatedStyle = useToggleColor(active, {
+    backgroundColor: [inactiveBg, theme.accentSoft],
+    borderColor: [rgba(theme.accent, 0), theme.accent],
+  });
 
   return (
     <PressableScale
@@ -67,18 +78,13 @@ export default function IconButton({
         style,
       ]}
     >
-      <View style={[
+      <Animated.View style={[
         styles.base,
-        {
-          width: size,
-          height: size,
-          backgroundColor: bgColor,
-          borderWidth: active ? 1.5 : 0,
-          borderColor: borderColor,
-        },
+        { width: size, height: size, borderWidth: 1.5 },
+        animatedStyle,
       ]}>
         <Ionicons name={icon} size={iconSize} color={fgColor} />
-      </View>
+      </Animated.View>
     </PressableScale>
   );
 }

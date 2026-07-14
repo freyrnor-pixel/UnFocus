@@ -73,6 +73,7 @@ import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
+import AnimatedTabUnderline from '@/components/AnimatedTabUnderline';
 import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -249,10 +250,11 @@ export default function TasksScreen() {
           return (
             <PressableScale
               key={tabOption}
-              style={[styles.tab, isActive && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]}
+              style={styles.tab}
               onPress={() => setTab(tabOption)}
               scaleTo={0.97}
             >
+              <AnimatedTabUnderline active={isActive} color={theme.accent} />
               <Text style={[styles.tabText, { color: isActive ? theme.accent : theme.textMuted }]}>{label}</Text>
             </PressableScale>
           );

@@ -33,10 +33,12 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
+import { useToggleColor } from '@/lib/useToggleColor';
+import { Duration } from '@/constants/motion';
 import { selection } from '@/lib/haptics';
 import PressableScale from '@/components/PressableScale';
 
@@ -51,6 +53,12 @@ type CheckboxProps = {
 
 export function Checkbox({ checked, onChange, label, disabled }: CheckboxProps) {
   const theme = useAppTheme();
+  const { reducedMotion } = useAccessibility();
+  // Box fill + border crossfade as checked flips; the checkmark pops in/out on top.
+  const boxStyle = useToggleColor(checked, {
+    backgroundColor: [rgba(theme.accent, 0), theme.accent],
+    borderColor: [theme.border, theme.accent],
+  });
   return (
     <PressableScale
       onPress={() => onChange(!checked)}
@@ -60,17 +68,16 @@ export function Checkbox({ checked, onChange, label, disabled }: CheckboxProps) 
       accessibilityState={{ checked }}
       style={[styles.checkboxRow, { opacity: disabled ? 0.5 : 1 }]}
     >
-      <View
-        style={[
-          styles.checkboxBox,
-          {
-            backgroundColor: checked ? theme.accent : 'transparent',
-            borderColor: checked ? theme.accent : theme.border,
-          },
-        ]}
-      >
-        {checked ? <Ionicons name="checkmark" size={16} color={theme.accentInk} /> : null}
-      </View>
+      <Animated.View style={[styles.checkboxBox, boxStyle]}>
+        {checked ? (
+          <Animated.View
+            entering={reducedMotion ? undefined : ZoomIn.duration(Duration.micro)}
+            exiting={reducedMotion ? undefined : ZoomOut.duration(Duration.micro)}
+          >
+            <Ionicons name="checkmark" size={16} color={theme.accentInk} />
+          </Animated.View>
+        ) : null}
+      </Animated.View>
       {label ? <Text style={[styles.checkboxLabel, { color: theme.text }]}>{label}</Text> : null}
     </PressableScale>
   );

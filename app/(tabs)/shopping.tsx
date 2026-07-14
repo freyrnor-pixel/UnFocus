@@ -171,6 +171,7 @@ import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import ExpandableCard from '@/components/ExpandableCard';
 import PressableScale from '@/components/PressableScale';
+import AnimatedTabUnderline from '@/components/AnimatedTabUnderline';
 import WeekListCard from '@/components/WeekListCard';
 import FlightOverlay, { FlightRow, Flight, FlightRect } from '@/components/FlightOverlay';
 import FoodTab from '@/components/FoodTab';
@@ -768,12 +769,13 @@ export default function ShoppingScreen() {
           return (
             <PressableScale
               key={value}
-              style={[styles.tab, isActive && { borderBottomColor: accent, borderBottomWidth: 2 }]}
+              style={styles.tab}
               onPress={() => setTab(value)}
               accessibilityRole="button"
               accessibilityLabel={label}
               scaleTo={0.97}
             >
+              <AnimatedTabUnderline active={isActive} color={accent} />
               <Text style={[styles.tabText, { color: isActive ? accent : theme.textMuted }]} numberOfLines={1}>
                 {label}
               </Text>

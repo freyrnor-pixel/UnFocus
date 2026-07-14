@@ -13,8 +13,9 @@
  *
  * Connections:
  *   Imports → @react-navigation/material-top-tabs (MaterialTopTabBarProps type),
- *             expo-router, constants/theme, lib/i18n, lib/siteNav, lib/useAppTheme,
- *             components/PressableScale, components/Surface
+ *             react-native-reanimated (FadeIn/FadeOut for the active-tab highlight),
+ *             expo-router, constants/theme, constants/motion, lib/i18n, lib/siteNav,
+ *             lib/useAppTheme (incl. useAccessibility), components/PressableScale, components/Surface
  *   Used by → app/(tabs)/_layout.tsx (as the pager's tabBar); components/ScreenScaffold
  *             (standalone fallback via bottomNav=true — currently unused by any real screen)
  *   Data    → none (presentational; navigation only)
@@ -36,12 +37,14 @@
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
 import { FontSize, Radius, Spacing, Shadow } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { Duration } from '@/constants/motion';
+import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { goToSite, SITE_ITEMS, SiteItem, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
@@ -55,6 +58,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   const pathname = usePathname();
   const t = useT();
   const theme = useAppTheme();
+  const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
 
   const leftItems = SITE_ITEMS.slice(0, 2);
@@ -107,10 +111,18 @@ export default function BottomNav({ state, navigation }: Props = {}) {
         accessibilityRole="button"
         accessibilityLabel={t.nav[item.key]}
         accessibilityState={{ selected: active }}
-        style={[styles.item, active && { backgroundColor: theme.surfaceMuted, borderRadius: Radius.sm }]}
+        style={styles.item}
         onPress={() => handlePress(item)}
         hitSlop={6}
       >
+        {active && (
+          <Animated.View
+            pointerEvents="none"
+            entering={reducedMotion ? undefined : FadeIn.duration(Duration.control)}
+            exiting={reducedMotion ? undefined : FadeOut.duration(Duration.control)}
+            style={[StyleSheet.absoluteFill, styles.activeHighlight, { backgroundColor: theme.surfaceMuted }]}
+          />
+        )}
         <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={iconColor} />
         <Text
           style={[styles.label, { color: iconColor }]}
@@ -169,6 +181,11 @@ const baseStyles = StyleSheet.create({
     // Tight horizontal padding + adjustsFontSizeToFit on the label keeps long labels
     // ("Handleliste", "Oppgaver") on one line without ellipsis truncation.
     paddingHorizontal: 2,
+  },
+  // Active-tab highlight — an absolutely-filled layer behind the icon/label that fades in/out
+  // as the active tab changes (icon/label colour still swaps instantly on top).
+  activeHighlight: {
+    borderRadius: Radius.sm,
   },
   centreButton: {
     width: 56,
