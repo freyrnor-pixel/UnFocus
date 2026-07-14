@@ -51,6 +51,11 @@
  *     through. Sub-tier and non-pager site screens keep ownBackground's default
  *     (true) — their transitions are stack push/pop, not a swipe, so per-screen
  *     backgrounds were never the problem.
+ *   - **plainBackground (Settings request)**: opt-in flat backdrop — pure white/black
+ *     (via useIsDark) with no ScreenBackground accent blob and no ParticleBackground, and
+ *     a hairline bottom edge on the header block so the title bar stays a visible app-bar
+ *     against the flat fill. Only app/settings.tsx passes it; every other screen keeps the
+ *     tinted theme.bg + glow.
  *   - **bottomNav (successor to Decision 032's swipeNav)**: the 5 nav sites now live in
  *     app/(tabs)/_layout.tsx's material-top-tabs pager, which owns both the bottom tab
  *     bar and the swipe-between-sites gesture itself (react-native-pager-view — one
@@ -89,7 +94,7 @@
 import React, { useCallback, useRef } from 'react';
 import { NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
@@ -141,6 +146,13 @@ type Props = {
    * background would visibly slide with the gesture.
    */
   ownBackground?: boolean;
+  /**
+   * Plain flat backdrop: pure white (light) / black (dark), no accent blob and no
+   * particle overlay, plus a hairline bottom edge on the header block so the title bar
+   * reads as a distinct app-bar against the flat fill. Default false. Used by the
+   * Settings screen (app/settings.tsx). Only affects screens that opt in.
+   */
+  plainBackground?: boolean;
   /** Forwarded to the internal ScrollView — e.g. to cancel an in-flight FlightOverlay
    *  animation on scroll (components/FlightOverlay.tsx). Omit for identical behavior. */
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
@@ -161,9 +173,13 @@ export default function ScreenScaffold({
   onInfoToggle,
   bottomNav = true,
   ownBackground = true,
+  plainBackground = false,
   onScroll,
 }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
+  // Flat backdrop colour for plainBackground screens (Settings): true white/black, no tint.
+  const bgColor = plainBackground ? (isDark ? '#000000' : '#FFFFFF') : theme.bg;
   // Android edge-to-edge (RN 0.85 / Expo 56) draws content behind the status and
   // navigation bars. The header/bottom blocks are position:absolute, and absolute
   // children do NOT inherit the SafeAreaView's padding in current Yoga, so top:0 /
@@ -220,13 +236,14 @@ export default function ScreenScaffold({
   );
 
   return (
-    <SafeAreaView style={[styles.safeArea, ownBackground && { backgroundColor: theme.bg }]}>
+    <SafeAreaView style={[styles.safeArea, ownBackground && { backgroundColor: bgColor }]}>
       {/* L1: Background — skipped when a parent (the tabs pager) already renders a
-          shared instance behind this screen (see ownBackground doc above). */}
-      {ownBackground && (isHome ? <HomeHeroBackground /> : <ScreenBackground />)}
+          shared instance behind this screen (see ownBackground doc above), or when
+          plainBackground asks for a flat white/black fill with no accent blob. */}
+      {ownBackground && !plainBackground && (isHome ? <HomeHeroBackground /> : <ScreenBackground />)}
 
-      {/* L2: Particle overlay — same ownBackground gating as L1. */}
-      {ownBackground && <ParticleBackground />}
+      {/* L2: Particle overlay — same ownBackground gating as L1; also dropped for plainBackground. */}
+      {ownBackground && !plainBackground && <ParticleBackground />}
 
       {/* L3: Content — swipe-between-sites navigation now lives one level up, in
           app/(tabs)/_layout.tsx's pager, so tab screens render their scroll content
@@ -235,7 +252,11 @@ export default function ScreenScaffold({
 
       {/* L4: Top block (ScreenHeader) — extended up behind the status bar and
           padded down by the top inset so the bar content clears it. */}
-      <View style={[styles.headerBlock, { height: HEADER_HEIGHT + topInset, paddingTop: topInset, backgroundColor: theme.bg }]}>
+      <View style={[
+        styles.headerBlock,
+        { height: HEADER_HEIGHT + topInset, paddingTop: topInset, backgroundColor: bgColor },
+        plainBackground && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },
+      ]}>
         <ScreenHeader
           style={styles.headerFill}
           title={title}

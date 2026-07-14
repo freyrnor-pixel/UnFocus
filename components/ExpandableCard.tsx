@@ -28,6 +28,11 @@
  *   - The body stays mounted through the close animation, then unmounts (`rendered` flips
  *     false in the withTiming completion callback) — so a collapsed card renders no body,
  *     preserving the old lazy-mount behaviour for long lists (e.g. WeekListCard history).
+ *   - First-open deferral: because the body only mounts when `rendered` flips true, on the
+ *     very first open `contentH` is still 0 and a withTiming started immediately would
+ *     interpolate height 0→0 and snap. The open is therefore deferred (`pendingOpenRef`)
+ *     until onBodyLayout reports the natural height, which then kicks off the reveal — so the
+ *     first tap glides like every later one. Later opens reuse the retained `contentH`.
  *   - reducedMotion is honoured by running the same timings with duration 0 (instant snap);
  *     the code path stays single so there's no divergent static branch to keep in sync.
  *   - `leadingAction` renders before the title/subtitle stack inside headerLeft (same
@@ -105,6 +110,17 @@ export default function ExpandableCard({
   // then unmount it (a collapsed card renders no body — preserves lazy mount).
   const [rendered, setRendered] = useState(open);
   const mountedRef = useRef(false);
+  // True while an open is waiting for the body's first layout. On the very first
+  // open, `contentH` is still 0 (the body only mounts now), so starting withTiming
+  // here would interpolate height 0→0 and snap. We defer the reveal to onBodyLayout.
+  const pendingOpenRef = useRef(false);
+
+  function animateOpen() {
+    progress.value = withTiming(1, {
+      duration: reducedMotion ? 0 : OPEN_MS,
+      easing: Easing.out(Easing.cubic),
+    });
+  }
 
   useEffect(() => {
     // Skip the first run: `progress`/`rendered` already reflect the initial `open`,
@@ -115,11 +131,15 @@ export default function ExpandableCard({
     }
     if (open) {
       setRendered(true);
-      progress.value = withTiming(1, {
-        duration: reducedMotion ? 0 : OPEN_MS,
-        easing: Easing.out(Easing.cubic),
-      });
+      if (contentH.value > 0) {
+        // Body was measured on a prior open — reveal straight away.
+        animateOpen();
+      } else {
+        // First open: wait for onBodyLayout to report the natural height, then reveal.
+        pendingOpenRef.current = true;
+      }
     } else {
+      pendingOpenRef.current = false;
       progress.value = withTiming(
         0,
         { duration: reducedMotion ? 0 : CLOSE_MS, easing: Easing.in(Easing.cubic) },
@@ -140,6 +160,11 @@ export default function ExpandableCard({
 
   function onBodyLayout(e: LayoutChangeEvent) {
     contentH.value = e.nativeEvent.layout.height;
+    // First open deferred until the height was known — start the reveal now.
+    if (pendingOpenRef.current) {
+      pendingOpenRef.current = false;
+      animateOpen();
+    }
   }
 
   const chevronStyle = useAnimatedStyle(() => ({
