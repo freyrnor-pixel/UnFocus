@@ -7,7 +7,8 @@
  * Connections:
  *   Imports → react-native-reanimated, @expo/vector-icons, constants/motion (Duration, Ease),
  *             lib/useAppTheme (useAccessibility)
- *   Used by → components/TaskCard.tsx, components/PlanTaskCard.tsx (and any expand affordance)
+ *   Used by → components/TaskCard.tsx, components/PlanTaskCard.tsx, components/ExpandableCard.tsx
+ *             (and any expand affordance)
  *   Data    → none (controlled via `open`)
  *
  * Edit notes:

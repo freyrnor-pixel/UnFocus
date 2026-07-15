@@ -2,12 +2,12 @@
  * ExpandableCard.tsx — collapsible card with animated header chevron.
  *
  * Generic accordion container: shows a title/subtitle/badge row that toggles a
- * body section with a smooth measured-height reveal (Reanimated) and a rotating
- * arrow. Content, labels, and optional right action are all passed in as
- * children/props.
+ * body section with a smooth reveal and a rotating arrow. Content, labels, and
+ * optional right/leading actions are all passed in as children/props.
  *
  * Connections:
- *   Imports → react-native-reanimated, constants/theme, lib/useAppTheme, components/PressableScale
+ *   Imports → constants/theme, lib/useAppTheme, components/PressableScale,
+ *             components/Collapsible (body reveal), components/AnimatedChevron (arrow)
  *   Used by → components/WeekListCard.tsx (dish groups + collapsed "bought this week"
  *             history, uncontrolled), app/shopping.tsx (Monthly catalog dish groups);
  *             later Phase 3/6 sessions may also wire this into InboxSection/meals/health
@@ -16,25 +16,18 @@
  *             (its collapsed state still shows content, which ExpandableCard's hide-all-body
  *             accordion shape can't express), superseding Decision 009 #2's original
  *             "PlanTaskCard wraps ExpandableCard" reference.
- *   Data    → driven by props; reads reducedMotion + scaled fontSize via useAccessibility()/useScaledStyles()
+ *   Data    → driven by props; reads scaled fontSize via useScaledStyles()
  *
  * Edit notes:
- *   - Animation is react-native-reanimated (imperative shared values), matching the
- *     codebase default (ANIMATION_GUIDELINES.md §2). The body reveal animates a measured
- *     content height (the RN-correct equivalent of a web `layout` animation): an always-
- *     laid-out inner view reports its natural height via onLayout into `contentH`, and the
- *     outer clip view interpolates 0→contentH as `progress` runs. Content also fades and
- *     slides up ~8px on reveal. Timing follows §1: ~220ms ease-out open, ~200ms ease-in close.
- *   - The body stays mounted through the close animation, then unmounts (`rendered` flips
- *     false in the withTiming completion callback) — so a collapsed card renders no body,
- *     preserving the old lazy-mount behaviour for long lists (e.g. WeekListCard history).
- *   - First-open deferral: because the body only mounts when `rendered` flips true, on the
- *     very first open `contentH` is still 0 and a withTiming started immediately would
- *     interpolate height 0→0 and snap. The open is therefore deferred (`pendingOpenRef`)
- *     until onBodyLayout reports the natural height, which then kicks off the reveal — so the
- *     first tap glides like every later one. Later opens reuse the retained `contentH`.
- *   - reducedMotion is honoured by running the same timings with duration 0 (instant snap);
- *     the code path stays single so there's no divergent static branch to keep in sync.
+ *   - **Reveal is delegated to Collapsible (2026-07-15).** This card used to animate a
+ *     measured body height via `useAnimatedStyle` (`height: interpolate(...)`). Under
+ *     Reanimated 4 + the New Architecture that does NOT drive a visible reveal — the arrow
+ *     rotated but the body stayed clipped at height 0 (same class of bug as PR #183's
+ *     Collapsible). It now reuses `Collapsible`, which reveals via the reliable
+ *     entering/exiting/`layout` layout-animation primitives, and `AnimatedChevron` for the
+ *     arrow (a `transform` rotation, always reliable). No `height` math or onLayout here.
+ *   - Collapsible renders null while closed, preserving the old lazy-mount of the body (a
+ *     collapsed card renders no children — matters for long lists like WeekListCard history).
  *   - `leadingAction` renders before the title/subtitle stack inside headerLeft (same
  *     stopPropagation-wrapped Pressable pattern as `rightAction`) — e.g. a severity badge
  *     needs to sit leading rather than trailing, where a checkbox lives on the right.
@@ -50,24 +43,13 @@
  *   - `rightAction` is wrapped in its own Pressable that calls `e.stopPropagation()` so taps on
  *     a checkbox/save-pill passed as rightAction don't also toggle the header.
  */
-import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, LayoutChangeEvent } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  interpolate,
-  runOnJS,
-  Easing,
-} from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { Radius, Spacing, FontSize } from '@/constants/theme';
-import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import PressableScale from '@/components/PressableScale';
-
-// §1 card expand/collapse timings — exit is faster than enter (ANIMATION_GUIDELINES.md §1).
-const OPEN_MS = 220;
-const CLOSE_MS = 200;
+import Collapsible from '@/components/Collapsible';
+import AnimatedChevron from '@/components/AnimatedChevron';
 
 type Props = {
   title: string;
@@ -99,56 +81,7 @@ export default function ExpandableCard({
   const open = isControlled ? controlledOpen : openState;
 
   const theme = useAppTheme();
-  const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
-
-  // 0 = collapsed, 1 = expanded. Drives chevron rotation, body height, opacity, slide.
-  const progress = useSharedValue(open ? 1 : 0);
-  // Natural height of the body content, reported by the inner view's onLayout.
-  const contentH = useSharedValue(0);
-  // Keep the body mounted while collapsing so the height can animate back to 0,
-  // then unmount it (a collapsed card renders no body — preserves lazy mount).
-  const [rendered, setRendered] = useState(open);
-  const mountedRef = useRef(false);
-  // True while an open is waiting for the body's first layout. On the very first
-  // open, `contentH` is still 0 (the body only mounts now), so starting withTiming
-  // here would interpolate height 0→0 and snap. We defer the reveal to onBodyLayout.
-  const pendingOpenRef = useRef(false);
-
-  function animateOpen() {
-    progress.value = withTiming(1, {
-      duration: reducedMotion ? 0 : OPEN_MS,
-      easing: Easing.out(Easing.cubic),
-    });
-  }
-
-  useEffect(() => {
-    // Skip the first run: `progress`/`rendered` already reflect the initial `open`,
-    // so mounting (incl. controlled mode) should not animate.
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      return;
-    }
-    if (open) {
-      setRendered(true);
-      if (contentH.value > 0) {
-        // Body was measured on a prior open — reveal straight away.
-        animateOpen();
-      } else {
-        // First open: wait for onBodyLayout to report the natural height, then reveal.
-        pendingOpenRef.current = true;
-      }
-    } else {
-      pendingOpenRef.current = false;
-      progress.value = withTiming(
-        0,
-        { duration: reducedMotion ? 0 : CLOSE_MS, easing: Easing.in(Easing.cubic) },
-        (finished) => {
-          if (finished) runOnJS(setRendered)(false);
-        },
-      );
-    }
-  }, [open, reducedMotion]);
 
   function toggle() {
     if (isControlled) {
@@ -157,28 +90,6 @@ export default function ExpandableCard({
     }
     setOpenState((v) => !v);
   }
-
-  function onBodyLayout(e: LayoutChangeEvent) {
-    contentH.value = e.nativeEvent.layout.height;
-    // First open deferred until the height was known — start the reveal now.
-    if (pendingOpenRef.current) {
-      pendingOpenRef.current = false;
-      animateOpen();
-    }
-  }
-
-  const chevronStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${interpolate(progress.value, [0, 1], [0, 180])}deg` }],
-  }));
-
-  const bodyStyle = useAnimatedStyle(() => ({
-    height: interpolate(progress.value, [0, 1], [0, contentH.value]),
-    opacity: progress.value,
-  }));
-
-  const bodyInnerStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: interpolate(progress.value, [0, 1], [-8, 0]) }],
-  }));
 
   return (
     <View style={[styles.card, styles.cardRow, { borderTopColor: theme.border }]}>
@@ -201,18 +112,12 @@ export default function ExpandableCard({
               </View>
             ) : null}
             {rightAction ? <PressableScale onPress={(e) => e.stopPropagation()} scaleTo={0.97}>{rightAction}</PressableScale> : null}
-            <Animated.View style={chevronStyle}>
-              <Ionicons name="chevron-down" size={16} color={theme.textMuted} />
-            </Animated.View>
+            <AnimatedChevron open={open} size={16} color={theme.textMuted} />
           </View>
         </PressableScale>
-        {rendered ? (
-          <Animated.View style={[styles.bodyClip, bodyStyle]}>
-            <Animated.View style={bodyInnerStyle} onLayout={onBodyLayout}>
-              <View style={[styles.body, { borderTopColor: theme.border }]}>{children}</View>
-            </Animated.View>
-          </Animated.View>
-        ) : null}
+        <Collapsible open={open}>
+          <View style={[styles.body, { borderTopColor: theme.border }]}>{children}</View>
+        </Collapsible>
       </View>
     </View>
   );
@@ -261,11 +166,6 @@ const baseStyles = StyleSheet.create({
   badgeText: {
     fontSize: FontSize.xs,
     fontWeight: '600',
-  },
-  // Outer clip: its animated `height` reveals/hides the body; overflow hidden so the
-  // always-laid-out inner content is masked while collapsed/animating.
-  bodyClip: {
-    overflow: 'hidden',
   },
   body: {
     paddingHorizontal: Spacing.md,
