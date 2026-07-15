@@ -169,7 +169,7 @@ export default function TasksScreen() {
   const workModeEnabled = useSettingsStore((s) => s.workModeEnabled);
   const updateSettings = useSettingsStore((s) => s.update);
 
-  const [tab, setTab] = useState<Tab>('all');
+  const [tab, setTab] = useState<Tab>('today');
   const [hintOpen, setHintOpen] = useFirstVisitHint('plans');
   // Person filter (People/family mode): null = Everyone, '' = Me, name = that profile.
   const [personFilter, setPersonFilter] = useState<string | null>(null);

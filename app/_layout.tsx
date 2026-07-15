@@ -102,7 +102,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import AppModalHost from '@/components/AppModal';
 
 // Cap OS-level font scaling (Dynamic Type / Android font size) so it can't
-// overflow the app's fixed-height chrome — the header (56px), BottomNav (72px),
+// overflow the app's fixed-height chrome — the header (64px), BottomNav (72px),
 // FAB, chips, etc. The in-app font-size setting (small/default/large, applied
 // via useScaledStyles) still scales text on top of this; the cap only bounds the
 // OS multiplier that stacks over it, which was previously uncapped. 1.4 keeps a
