@@ -174,7 +174,7 @@ type Props = {
   onFlightStart?: (rect: FlightRect) => void;
 };
 
-export default function ShoppingRow({
+function ShoppingRow({
   item,
   variant = 'planned',
   onToggle,
@@ -480,3 +480,27 @@ const baseStyles = StyleSheet.create({
   stepBadge: { minWidth: 22, alignItems: 'center' },
   deleteBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
 });
+
+// React.memo with a custom comparator (perf sweep 2026-07-15): compare only the DATA props
+// and ignore the callback props. Parents (WeekListCard, HomeShoppingCard, shopping.tsx) pass
+// per-item inline closures like `() => onToggleItem(item)` that are recreated every render —
+// a default shallow compare would never bail. This is safe because each closure only ever
+// dispatches for THIS row's item: as long as `item` (and the other data props) are unchanged,
+// the previous render's closure is still correct, so we can keep it. `item` keeps its object
+// reference across store updates that don't touch it (only the mutated row gets a new object),
+// so toggling one item re-renders only that row instead of the whole list. `isNew`/highlight
+// come from ShoppingRow's own useShoppingStore subscription, not props, so they still update.
+function shoppingRowPropsEqual(prev: Props, next: Props): boolean {
+  return (
+    prev.item === next.item &&
+    prev.variant === next.variant &&
+    prev.locked === next.locked &&
+    prev.inStockLabel === next.inStockLabel &&
+    // Presence (not identity) of optional callbacks controls what renders (stepper, flight).
+    !!prev.onCollect === !!next.onCollect &&
+    !!prev.onIncrement === !!next.onIncrement &&
+    !!prev.onDecrement === !!next.onDecrement &&
+    !!prev.onFlightStart === !!next.onFlightStart
+  );
+}
+export default React.memo(ShoppingRow, shoppingRowPropsEqual);

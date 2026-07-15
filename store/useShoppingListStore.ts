@@ -40,7 +40,9 @@
  *   - Calling code must refresh useShoppingStore's `items` (re-run its load()) after
  *     advanceRecurringLists()/instantiateTemplate(), since those write shopping_items
  *     rows directly via this store rather than through useShoppingStore. app/shopping.tsx
- *     does exactly this in its on-focus effect.
+ *     does exactly this in its on-focus effect — but only when advanceRecurringLists()
+ *     returns true (it created ≥1 list), so a no-op focus doesn't force a full reload +
+ *     after-paint reflow every visit.
  *   - `activeWeeks` (number[] 1–4, persisted as the comma-joined `active_weeks` column)
  *     scopes a recurring list to specific weeks of the monthly reset cycle. Empty = every
  *     week (default). advanceRecurringLists() skips regenerating an overdue list whose
@@ -118,7 +120,9 @@ type ShoppingListStore = {
   /** The active (non-template) list whose [startDate, endDate] contains `today`. */
   currentList: (today: string) => ShoppingList | undefined;
   /** Rolls every overdue recurring list forward to the period containing `today`. */
-  advanceRecurringLists: (today: string) => void;
+  /** Rolls overdue recurring lists forward to the current period. Returns true only
+   *  when it actually created ≥1 list, so callers can skip a reload when nothing changed. */
+  advanceRecurringLists: (today: string) => boolean;
   saveAsTemplate: (id: string) => void;
   /** Creates a live list from a template, dated to the current week. Returns the new list's id. */
   instantiateTemplate: (id: string, today: string) => string | undefined;
@@ -317,13 +321,18 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
 
   advanceRecurringLists(today) {
     const overdue = get().lists.filter((l) => l.isRecurring && !l.isTemplate && l.endDate < today);
-    if (overdue.length === 0) return;
+    if (overdue.length === 0) return false;
 
     // A list scoped to specific weeks-of-the-monthly-cycle only regenerates when the
     // week `today` falls in is one of them; an empty activeWeeks means "every week".
     const monthlyResetDate = useSettingsStore.getState().monthlyResetDate;
     const currentWeek = weekOfMonthlyCycle(today, monthlyResetDate);
 
+    // Whether we actually rolled at least one list forward — the caller (Shopping's
+    // focus effect) only re-runs useShoppingStore.load() when this is true, so a
+    // no-op focus (nothing overdue, or every overdue list scoped out of this week)
+    // doesn't trigger a full-table reload + reflow after the screen has painted.
+    let created = false;
     for (const old of overdue) {
       if (old.activeWeeks.length > 0 && !old.activeWeeks.includes(currentWeek)) continue;
       const intervalDays = old.recurrenceIntervalWeeks * 7;
@@ -356,7 +365,9 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
       insertRow('shopping_lists', rowValues(newList, LIST_COLUMNS));
       copyOpenItemsToList(old.id, id);
       set((s) => ({ lists: [...s.lists, newList] }));
+      created = true;
     }
+    return created;
   },
 
   saveAsTemplate(id) {

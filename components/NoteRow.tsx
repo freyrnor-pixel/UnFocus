@@ -50,7 +50,7 @@ type Props = {
   onDelete: () => void;
 };
 
-export default function NoteRow({
+function NoteRow({
   note,
   onToggleChecked,
   onHeaderCommit,
@@ -167,3 +167,13 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
   },
 });
+
+// React.memo with a custom comparator (perf sweep 2026-07-15): app/notes.tsx passes per-note
+// inline closures, so a default shallow compare would never bail. The only data prop is `note`
+// (kept by reference across store updates that don't touch it); the closures only ever act on
+// this row's note, so keeping the previous render's closures is safe. Editing one note then
+// re-renders only that row, not the whole list.
+function noteRowPropsEqual(prev: Props, next: Props): boolean {
+  return prev.note === next.note;
+}
+export default React.memo(NoteRow, noteRowPropsEqual);

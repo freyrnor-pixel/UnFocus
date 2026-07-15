@@ -63,7 +63,7 @@ type Props = {
   onRemove?: () => void;
 };
 
-export default function MonthlyTableRow({ item, onCheckboxPress, onPress, temporaryLabel, onIncrement, onDecrement, onRemove }: Props) {
+function MonthlyTableRow({ item, onCheckboxPress, onPress, temporaryLabel, onIncrement, onDecrement, onRemove }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const total = item.price > 0 ? item.price * item.targetQuantity : null;
@@ -144,3 +144,21 @@ const baseStyles = StyleSheet.create({
   stepText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   removeBtn: { paddingLeft: 4 },
 });
+
+// React.memo with a custom comparator (perf sweep 2026-07-15): shopping.tsx passes per-item
+// inline closures, so a default shallow compare would never bail. Compare the data prop
+// (`item`, kept by reference across unrelated store updates) plus the PRESENCE of the optional
+// callbacks — their presence, not identity, is what drives rendering (onPress makes the row
+// tappable; onIncrement/onDecrement show the stepper; onRemove shows the ×). The closures only
+// ever act on this row's item, so keeping the previous render's closures is safe.
+function monthlyRowPropsEqual(prev: Props, next: Props): boolean {
+  return (
+    prev.item === next.item &&
+    prev.temporaryLabel === next.temporaryLabel &&
+    !!prev.onPress === !!next.onPress &&
+    !!prev.onIncrement === !!next.onIncrement &&
+    !!prev.onDecrement === !!next.onDecrement &&
+    !!prev.onRemove === !!next.onRemove
+  );
+}
+export default React.memo(MonthlyTableRow, monthlyRowPropsEqual);

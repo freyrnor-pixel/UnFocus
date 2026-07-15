@@ -637,12 +637,24 @@ export default function HealthScreen() {
   // Profile filter row shows only in People/family mode with at least one profile
   // (management moved to Settings — this screen only *filters* by person now).
   const showHabitProfiles = peopleModeEnabled && childProfiles.length > 0;
+  // Memoise the habit filter chain + metCount (perf sweep 2026-07-15): these used to
+  // re-filter the full habits array (and metCount re-scanned habitLogs per visible habit)
+  // on every render of this large screen. Only recompute when their real inputs change.
   // Only filter by person when the filter UI is actually shown; otherwise (People mode
   // off) show every habit so profile-assigned habits don't silently disappear.
-  const profileHabits = showHabitProfiles ? habits.filter((h) => h.childName === selectedProfile) : habits;
+  const profileHabits = useMemo(
+    () => (showHabitProfiles ? habits.filter((h) => h.childName === selectedProfile) : habits),
+    [showHabitProfiles, habits, selectedProfile]
+  );
   // Focus mode narrows every Habits view (today/week/month) to essential habits only.
-  const focusFilteredHabits = focusMode ? profileHabits.filter((h) => h.importance === 'essential') : profileHabits;
-  const visibleHabits = focusFilteredHabits.filter((h) => shouldShowHabitOnDate(h, today));
+  const focusFilteredHabits = useMemo(
+    () => (focusMode ? profileHabits.filter((h) => h.importance === 'essential') : profileHabits),
+    [focusMode, profileHabits]
+  );
+  const visibleHabits = useMemo(
+    () => focusFilteredHabits.filter((h) => shouldShowHabitOnDate(h, today)),
+    [focusFilteredHabits, today]
+  );
 
   // Gate habit-card entrance so only habits added after mount fade in (not the whole list).
   const hasMountedHabits = useRef(false);
@@ -650,10 +662,14 @@ export default function HealthScreen() {
     hasMountedHabits.current = true;
   }, []);
 
-  const metCount = visibleHabits.filter((h) => {
-    const log = habitLogs.find((l) => l.habitId === h.id && l.logDate === today);
-    return (log?.count ?? 0) >= h.dailyGoal;
-  }).length;
+  const metCount = useMemo(
+    () =>
+      visibleHabits.filter((h) => {
+        const log = habitLogs.find((l) => l.habitId === h.id && l.logDate === today);
+        return (log?.count ?? 0) >= h.dailyGoal;
+      }).length,
+    [visibleHabits, habitLogs, today]
+  );
 
   const onEditHabit = useCallback((id: string) => {
     // Long-press-to-edit is an input action — disabled in Focus mode, same as

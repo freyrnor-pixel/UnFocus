@@ -161,6 +161,9 @@ export default function TasksScreen() {
   const tasksForWeek = useTaskStore((s) => s.tasksForWeek);
   const toggle = useTaskStore((s) => s.toggle);
   const addTask = useTaskStore((s) => s.add);
+  // Stable handler so the memoised TaskCards / SharedTasksSection don't get a fresh
+  // onToggleDone closure every render (which would defeat their React.memo).
+  const handleToggleDone = useCallback((task: Task) => toggle(task.id), [toggle]);
 
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
   const childProfiles = useSettingsStore((s) => s.childProfiles);
@@ -322,7 +325,7 @@ export default function TasksScreen() {
               {wheneverAll.length > 0 && (
                 <View style={styles.cardStack}>
                   {wheneverAll.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} railColor={wheneverHue} showDelete showShareOut onToggleDone={(x) => toggle(x.id)} />
+                    <TaskCard key={tk.id} task={tk} railColor={wheneverHue} showDelete showShareOut onToggleDone={handleToggleDone} />
                   ))}
                 </View>
               )}
@@ -350,13 +353,13 @@ export default function TasksScreen() {
               ) : (
                 <View style={styles.cardStack}>
                   {recurringAll.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} railColor={repeatingHue} showDelete showShareOut onToggleDone={(x) => toggle(x.id)} />
+                    <TaskCard key={tk.id} task={tk} railColor={repeatingHue} showDelete showShareOut onToggleDone={handleToggleDone} />
                   ))}
                 </View>
               )}
             </View>
 
-            <SharedTasksSection sentTasks={sharedOutAll} onToggleDone={(x) => toggle(x.id)} />
+            <SharedTasksSection sentTasks={sharedOutAll} onToggleDone={handleToggleDone} />
           </>
         )}
 
@@ -369,7 +372,7 @@ export default function TasksScreen() {
                 tasks={todayList}
                 emptyText={t.noPlansToday}
                 renderCard={(tk) => (
-                  <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={(x) => toggle(x.id)} />
+                  <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={handleToggleDone} />
                 )}
               />
             </View>
@@ -380,7 +383,7 @@ export default function TasksScreen() {
                 tasks={undatedWhenever}
                 emptyText={t.tasksSectionWheneverEmpty}
                 renderCard={(tk) => (
-                  <TaskCard key={tk.id} task={tk} variant="steps" railColor={wheneverHue} onToggleDone={(x) => toggle(x.id)} />
+                  <TaskCard key={tk.id} task={tk} variant="steps" railColor={wheneverHue} onToggleDone={handleToggleDone} />
                 )}
               />
             </View>
@@ -397,7 +400,7 @@ export default function TasksScreen() {
                   tasks={[...group.tasks].sort(byTime)}
                   emptyText={t.tasksDayEmpty}
                   renderCard={(tk) => (
-                    <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={(x) => toggle(x.id)} />
+                    <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={handleToggleDone} />
                   )}
                 />
               </View>
@@ -409,7 +412,7 @@ export default function TasksScreen() {
                 tasks={undatedWhenever}
                 emptyText={t.tasksSectionWheneverEmpty}
                 renderCard={(tk) => (
-                  <TaskCard key={tk.id} task={tk} variant="steps" railColor={wheneverHue} onToggleDone={(x) => toggle(x.id)} />
+                  <TaskCard key={tk.id} task={tk} variant="steps" railColor={wheneverHue} onToggleDone={handleToggleDone} />
                 )}
               />
             </View>

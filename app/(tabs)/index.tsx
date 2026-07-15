@@ -164,7 +164,17 @@ export default function HomeScreen() {
     sharedTasks.some((x: SharedTask) => x.direction === 'in' && !x.done) ||
     sharedShoppingItems.some((i: SharedShoppingItem) => i.direction === 'in' && !i.done);
 
-  const settings = useSettingsStore();
+  // Field selectors, NOT a whole-store subscription: `const settings = useSettingsStore()`
+  // subscribed Home to every settings field, so any unrelated settings change (dark mode,
+  // focus toggle, any update()) repainted the whole screen and re-ran the derived work
+  // below. These select only the fields Home actually reads.
+  const settingsLoaded = useSettingsStore((s) => s.loaded);
+  const setupComplete = useSettingsStore((s) => s.setupComplete);
+  const taskNotificationsEnabled = useSettingsStore((s) => s.taskNotificationsEnabled);
+  const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
+  const userName = useSettingsStore((s) => s.userName);
+  const planTimelineHorizontal = useSettingsStore((s) => s.planTimelineHorizontal);
+  const updateSettings = useSettingsStore((s) => s.update);
 
   useFocusEffect(
     useCallback(() => {
@@ -183,20 +193,24 @@ export default function HomeScreen() {
     }, [])
   );
 
-  // Memoized: tasksForDate/computeListGroups otherwise re-ran on every Home render
-  // (focus-mode toggles, flight animations, scroll handling, etc.), not just when the
-  // underlying tasks/shopping data actually changed.
-  const todayTasks = useMemo(() => tasksForDate(today), [tasksForDate, tasks, today]);
+  // These derived views used to recompute on EVERY render (each is a full-array filter/
+  // sort; computeListGroups also groups by dish). Memoise them on the store state they read
+  // — `tasksForDate`/`completedCount`/`currentList` are stable store fn refs, so `tasks` /
+  // `shoppingLists` / `shoppingItems` are the real inputs that should drive recompute.
+  const todayTasks = useMemo(() => tasksForDate(today), [tasksForDate, today, tasks]);
   const visibleTasks = useMemo(
     () => (focusMode ? todayTasks.filter((task) => task.importance === 'essential') : todayTasks),
     [focusMode, todayTasks]
   );
 
-  const completedCount = completedCountFn();
+  const completedCount = useMemo(() => completedCountFn(), [completedCountFn, tasks]);
 
-  const currentShoppingList = currentListFn(today);
-  // Read `shoppingLists` so this render subscribes to list changes (currentList is a fn ref).
-  void shoppingLists;
+  // currentList is a fn ref; `shoppingLists` is the real input, so memo on it (this also
+  // replaces the old `void shoppingLists` render-subscription hack).
+  const currentShoppingList = useMemo(
+    () => currentListFn(today),
+    [currentListFn, today, shoppingLists]
+  );
   const { dishGroups, ungroupedUnchecked, checked } = useMemo(
     () =>
       currentShoppingList
@@ -204,7 +218,7 @@ export default function HomeScreen() {
         : { dishGroups: [], ungroupedUnchecked: [], checked: [] },
     [currentShoppingList, shoppingItems]
   );
-  if (!settings.loaded || !settings.setupComplete) {
+  if (!settingsLoaded || !setupComplete) {
     return <View style={[styles.blank, { backgroundColor: theme.bg }]} />;
   }
 
@@ -218,13 +232,25 @@ export default function HomeScreen() {
   const now = new Date();
   const dateLabel = `${t.days[now.getDay()]} ${now.getDate()}. ${t.months[now.getMonth()]}`;
 
-  function handleRemoveShoppingItem(item: ShoppingItem) {
-    if (item.fromCatalog) {
-      putBackToInventory(item.id);
-    } else {
-      removeWithSource(item.id);
-    }
-  }
+  // Stable callbacks (store action refs are themselves stable), so the memoised list rows
+  // inside HomeShoppingCard / PlanTaskCard can actually bail out of re-rendering instead of
+  // getting a fresh closure every parent render.
+  const handleRemoveShoppingItem = useCallback(
+    (item: ShoppingItem) => {
+      if (item.fromCatalog) putBackToInventory(item.id);
+      else removeWithSource(item.id);
+    },
+    [putBackToInventory, removeWithSource]
+  );
+  const handleToggleTask = useCallback((task: Task) => toggleTask(task.id), [toggleTask]);
+  const handleToggleShopping = useCallback((id: string) => toggleShoppingItem(id), [toggleShoppingItem]);
+  const handleCollectShopping = useCallback((id: string) => toggleShoppingCollected(id), [toggleShoppingCollected]);
+  const handleIncrementShopping = useCallback((id: string) => adjustAmount(id, 1), [adjustAmount]);
+  const handleDecrementShopping = useCallback((id: string) => adjustAmount(id, -1), [adjustAmount]);
+  const handleNavigateToShopping = useCallback(
+    () => goToSite(router, pathname, '/shopping'),
+    [router, pathname]
+  );
 
   return (
     <>
@@ -247,28 +273,28 @@ export default function HomeScreen() {
                 <View style={styles.hintSettingRow}>
                   <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.taskNotifications}</Text>
                   <Switch
-                    value={settings.taskNotificationsEnabled}
+                    value={taskNotificationsEnabled}
                     onValueChange={(v) => {
-                      settings.update({ taskNotificationsEnabled: v });
+                      updateSettings({ taskNotificationsEnabled: v });
                       const resync = () => useTaskStore.getState().syncAllTaskNotifications();
                       if (v) requestPermissions().finally(resync);
                       else resync();
                     }}
                     trackColor={{ false: theme.border, true: theme.accentSoft }}
-                    thumbColor={settings.taskNotificationsEnabled ? theme.accent : theme.textMuted}
+                    thumbColor={taskNotificationsEnabled ? theme.accent : theme.textMuted}
                   />
                 </View>
                 <View style={styles.hintSettingRow}>
                   <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.weeklyRemindersOnboarding}</Text>
                   <Switch
-                    value={settings.remindersEnabled}
+                    value={remindersEnabled}
                     onValueChange={(v) => {
-                      settings.update({ remindersEnabled: v });
+                      updateSettings({ remindersEnabled: v });
                       if (v) requestPermissions().finally(() => syncReminders());
                       else syncReminders();
                     }}
                     trackColor={{ false: theme.border, true: theme.accentSoft }}
-                    thumbColor={settings.remindersEnabled ? theme.accent : theme.textMuted}
+                    thumbColor={remindersEnabled ? theme.accent : theme.textMuted}
                   />
                 </View>
               </View>
@@ -279,7 +305,7 @@ export default function HomeScreen() {
           <DebugNoteAnchor id="home.greeting" label="Home — Greeting">
             <View style={styles.header}>
               <Text style={[styles.greeting, { color: theme.text }]}>
-                {greeting()}{settings.userName ? `, ${settings.userName}` : ''}!
+                {greeting()}{userName ? `, ${userName}` : ''}!
               </Text>
               <Text style={[styles.dateLabel, { color: theme.textMuted }]}>{dateLabel}</Text>
             </View>
@@ -306,16 +332,16 @@ export default function HomeScreen() {
               <PlanTaskCard
                 tasks={visibleTasks}
                 allTasks={tasks}
-                onToggleTask={(task: Task) => toggleTask(task.id)}
-                horizontal={settings.planTimelineHorizontal}
+                onToggleTask={handleToggleTask}
+                horizontal={planTimelineHorizontal}
               />
             ) : (
               <PlanTaskCard
                 tasks={todayTasks}
                 allTasks={tasks}
                 readOnly
-                onToggleTask={(task: Task) => toggleTask(task.id)}
-                horizontal={settings.planTimelineHorizontal}
+                onToggleTask={handleToggleTask}
+                horizontal={planTimelineHorizontal}
               />
             )}
           </DebugNoteAnchor>
@@ -327,12 +353,12 @@ export default function HomeScreen() {
               dishGroups={dishGroups}
               ungroupedUnchecked={ungroupedUnchecked}
               checked={checked}
-              onToggle={(id) => toggleShoppingItem(id)}
-              onCollect={(id) => toggleShoppingCollected(id)}
+              onToggle={handleToggleShopping}
+              onCollect={handleCollectShopping}
               onRemove={handleRemoveShoppingItem}
-              onIncrement={(id) => adjustAmount(id, 1)}
-              onDecrement={(id) => adjustAmount(id, -1)}
-              onNavigateToShopping={() => goToSite(router, pathname, '/shopping')}
+              onIncrement={handleIncrementShopping}
+              onDecrement={handleDecrementShopping}
+              onNavigateToShopping={handleNavigateToShopping}
               inStockLabel={t.inStockLabel}
               onFlightStart={handleFlightStart}
             />

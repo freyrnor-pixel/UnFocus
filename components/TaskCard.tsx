@@ -103,7 +103,7 @@ type Props = {
   onToggleDone: (task: Task) => void;
 };
 
-export default function TaskCard({
+function TaskCard({
   task,
   variant = 'full',
   showDelete,
@@ -809,3 +809,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+// React.memo: re-render only on own prop changes, not every parent-list render (perf sweep 2026-07-15).
+export default React.memo(TaskCard);
