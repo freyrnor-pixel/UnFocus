@@ -34,7 +34,7 @@ import Animated, {
   useAnimatedStyle,
   Easing,
 } from 'react-native-reanimated';
-import { FontSize, Fonts } from '@/constants/theme';
+import { FontSize, Fonts, Radius } from '@/constants/theme';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { tap as hapticTap } from '@/lib/haptics';
 
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   button: {
     height: 34,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },

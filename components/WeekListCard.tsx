@@ -639,7 +639,7 @@ export default function WeekListCard({
 }
 
 const baseStyles = StyleSheet.create({
-  cardRow: { borderRadius: Radius.lg },
+  cardRow: { borderRadius: Radius.md },
   cardContent: { flex: 1, padding: Spacing.md, gap: Spacing.md },
   header: { gap: Spacing.xs },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
