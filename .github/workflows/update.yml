@@ -38,5 +38,10 @@ jobs:
       - name: Push update
         run: |
           MSG=$(git log -1 --format=%s)
-          eas update --branch preview --platform android --message "$MSG"
-          eas update --branch preview --platform ios --message "$MSG"
+          # Publish BOTH platforms in a single atomic command → one update group covering
+          # Android + iOS. Do NOT split this back into per-platform `eas update` calls: that
+          # produced two separate update groups per release (iOS ~45s after Android, so iOS
+          # always sorted newest on the EAS dashboard and every release read as "iOS-only"),
+          # and under `set -e` a mid-sequence failure stranded the platforms on different code.
+          # `--platform all` is the eas-cli default; stated explicitly for clarity.
+          eas update --branch preview --platform all --message "$MSG"
