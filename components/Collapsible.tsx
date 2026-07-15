@@ -1,42 +1,43 @@
 /**
- * Collapsible.tsx — controlled measured-height reveal for arbitrary content.
+ * Collapsible.tsx — controlled reveal for arbitrary content driven by a boolean.
  *
- * Wrap any block whose visibility is driven by a boolean and it will glide open/closed
- * (height 0↔natural, plus a fade and an 8px slide-up) instead of instantly mounting.
- * This is the reusable extraction of the measured-height reveal proven in ExpandableCard
- * (the canonical pattern per ANIMATION_GUIDELINES.md §1) — use it anywhere a
- * `{open && <View/>}` block used to pop in with no animation.
+ * Wrap any block whose visibility is driven by a boolean and it will glide open (fade +
+ * slide-down into place) and fade out on close, instead of instantly mounting. Use it
+ * anywhere a `{open && <View/>}` block used to pop in with no animation.
  *
  * Connections:
- *   Imports → react-native-reanimated, constants/motion (Duration, Ease), lib/useAppTheme (useAccessibility)
+ *   Imports → react-native-reanimated (FadeInDown/FadeOut/LinearTransition), constants/motion
+ *             (Duration, Ease), lib/useAppTheme (useAccessibility)
  *   Used by → components/TaskCard.tsx, components/PlanTaskCard.tsx, app/(tabs)/plans.tsx,
  *             app/task-form.tsx, app/health-form.tsx, app/habit-form.tsx, app/automations.tsx,
  *             app/(tabs)/health.tsx (filter reveals)
  *   Data    → none (controlled via the `open` prop)
  *
  * Edit notes:
- *   - Measured-height reveal is the RN-correct equivalent of a web height:auto transition:
- *     the always-laid-out inner view reports its natural height via onLayout into `contentH`,
- *     and the outer clip interpolates 0→contentH as `progress` runs. Content also fades and
- *     slides up 8px. Timings from motion.ts: card enter / cardOut exit.
- *   - Body stays mounted through the close animation, then unmounts (`rendered` flips false in
- *     the withTiming completion callback) — a collapsed instance renders null (lazy mount).
- *   - First-open deferral: because the body only mounts when `rendered` flips true, on the very
- *     first open `contentH` is still 0; starting withTiming then would interpolate height 0→0 and
- *     snap. The open is deferred (`pendingOpenRef`) until onBodyLayout reports the natural height.
- *   - reducedMotion runs the same timings with duration 0 (instant snap) — single code path.
- *   - Mount already-open (e.g. a new task card that starts expanded) shows content immediately
- *     with no animation; the reveal animates on subsequent toggles. Matches ExpandableCard.
+ *   - **Why layout animations, not a measured `height` interpolation (2026-07-15 fix):** the
+ *     previous version animated `height: interpolate(progress, [0,1], [0, contentH])` inside a
+ *     `useAnimatedStyle`. Under Reanimated 4 + the New Architecture, animating layout props
+ *     (`height`/`width`) through `useAnimatedStyle` does NOT drive a visible reveal — the
+ *     chevron (a `transform` animation) rotated but the body stayed clipped at height 0, so
+ *     cards never expanded (PR #183 bug report: "arrow works, not the expansion"). Only
+ *     transform/opacity and the entering/exiting/`layout` layout-animation primitives are
+ *     reliable here — the same house pattern proven in AnimatedListItem/ShoppingRow. This file
+ *     now uses those exclusively: no `height` math, no onLayout measurement, no first-open
+ *     deferral needed. `ExpandableCard` still carries the old `height`-interpolation approach
+ *     and shares this latent bug — migrate it the same way if its accordions misbehave.
+ *   - Closing: when `open` flips false the Animated.View is removed from render; Reanimated
+ *     plays `exiting` (FadeOut) before actually unmounting, so a collapsed instance renders
+ *     null (lazy mount preserved).
+ *   - `layout={LinearTransition}` lets the card's own size change animate smoothly instead of
+ *     snapping when the body appears/disappears — recovers the "glide" feel without measuring.
+ *   - Mount-already-open (e.g. a new task card that starts expanded) shows content immediately
+ *     with no entrance animation; the reveal animates on subsequent toggles. Matches the prior
+ *     contract via `firstOpenRef`.
+ *   - reducedMotion drops entering/exiting/layout entirely (instant snap) — single code path.
  */
-import React, { useEffect, useRef, useState } from 'react';
-import { LayoutChangeEvent, StyleProp, StyleSheet, ViewStyle } from 'react-native';
-import Animated, {
-  interpolate,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import React, { useRef } from 'react';
+import { StyleProp, ViewStyle } from 'react-native';
+import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility } from '@/lib/useAppTheme';
 
@@ -48,80 +49,27 @@ type Props = {
 
 export default function Collapsible({ open, children, style }: Props) {
   const { reducedMotion } = useAccessibility();
+  // Was this the component's very first render? A card mounted already-open (e.g. a new task
+  // card) then shows its content instantly with no entrance; a card mounted collapsed animates
+  // on its first (and every later) open. Consumed on the mount render regardless of `open`.
+  const firstRenderRef = useRef(true);
+  const mountedOpen = firstRenderRef.current && open;
+  firstRenderRef.current = false;
 
-  // 0 = collapsed, 1 = expanded. Drives clip height, opacity, slide.
-  const progress = useSharedValue(open ? 1 : 0);
-  // Natural height of the content, reported by the inner view's onLayout.
-  const contentH = useSharedValue(0);
-  // Keep the body mounted while collapsing so height can animate back to 0, then unmount.
-  const [rendered, setRendered] = useState(open);
-  const mountedRef = useRef(false);
-  // True while an open waits for the body's first layout (see header — first-open deferral).
-  const pendingOpenRef = useRef(false);
+  if (!open) return null;
 
-  function animateOpen() {
-    progress.value = withTiming(1, {
-      duration: reducedMotion ? 0 : Duration.card,
-      easing: Ease.enter,
-    });
+  if (reducedMotion) {
+    return <Animated.View style={style}>{children}</Animated.View>;
   }
-
-  useEffect(() => {
-    // Skip the first run: progress/rendered already reflect the initial `open`.
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      return;
-    }
-    if (open) {
-      setRendered(true);
-      if (contentH.value > 0) {
-        animateOpen();
-      } else {
-        pendingOpenRef.current = true;
-      }
-    } else {
-      pendingOpenRef.current = false;
-      progress.value = withTiming(
-        0,
-        { duration: reducedMotion ? 0 : Duration.cardOut, easing: Ease.exit },
-        (finished) => {
-          if (finished) runOnJS(setRendered)(false);
-        },
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, reducedMotion]);
-
-  function onBodyLayout(e: LayoutChangeEvent) {
-    contentH.value = e.nativeEvent.layout.height;
-    if (pendingOpenRef.current) {
-      pendingOpenRef.current = false;
-      animateOpen();
-    }
-  }
-
-  const clipStyle = useAnimatedStyle(() => ({
-    height: interpolate(progress.value, [0, 1], [0, contentH.value]),
-    opacity: progress.value,
-  }));
-
-  const innerStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: interpolate(progress.value, [0, 1], [-8, 0]) }],
-  }));
-
-  if (!rendered) return null;
 
   return (
-    <Animated.View style={[styles.clip, clipStyle, style]}>
-      <Animated.View style={innerStyle} onLayout={onBodyLayout}>
-        {children}
-      </Animated.View>
+    <Animated.View
+      style={style}
+      entering={mountedOpen ? undefined : FadeInDown.duration(Duration.card).easing(Ease.enter)}
+      exiting={FadeOut.duration(Duration.cardOut).easing(Ease.exit)}
+      layout={LinearTransition.duration(Duration.card).easing(Ease.move)}
+    >
+      {children}
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  // Outer clip: its animated `height` reveals/hides the body; overflow hidden masks the
-  // always-laid-out inner content while collapsed/animating.
-  clip: { overflow: 'hidden' },
-});
