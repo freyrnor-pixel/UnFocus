@@ -67,7 +67,7 @@ import { ActivityIndicator, AppState, Platform, Share, StyleSheet, Text, View, V
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
-import { FontSize, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Spacing } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
@@ -342,8 +342,14 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: FontSize.xl,
-    fontWeight: '700',
+    fontSize: FontSize.xxl,
+    fontFamily: Fonts.bold,
+    // Explicit, generous lineHeight (not just a bigger fontSize) — without it the
+    // line box RN computes for bold text can be tighter than descenders (g/j/p/q/y)
+    // need, clipping their bottoms regardless of how much room the header container
+    // has. This was the real "header cutoff" bug; bumping HEADER_HEIGHT alone
+    // (ScreenScaffold.tsx) never fixed it because the clip wasn't from that outer box.
+    lineHeight: 36,
   },
   titleWrap: {
     flex: 1,

@@ -196,11 +196,15 @@ export default function ScreenScaffold({
     : insets.top;
   const bottomInset = insets.bottom;
 
-  // 64, not 56: the title/focus-label Text can still hit the MAX_FONT_SCALE=1.4 OS
-  // cap (app/_layout.tsx) on top of Android's own font-metric padding, and at 56 that
-  // left ~0px of slack before Surface's overflow:hidden mask clipped the row's bottom
-  // edge — the intermittent "header cutoff" reports. 64 restores real headroom.
-  const HEADER_HEIGHT = 64;
+  // 72: the title grew to FontSize.xxl (28) with an explicit 36 lineHeight
+  // (ScreenHeader.tsx, fixing the real descender-clipping bug — see that file's
+  // styles.title comment) to guarantee room for descenders on its own. 72 is a
+  // defensive complement so that title still has comfortable headroom inside
+  // Surface's overflow:hidden mask even under the MAX_FONT_SCALE=1.4 OS
+  // accessibility cap (app/_layout.tsx) — at 1.4x the 36 lineHeight scales to
+  // ~50px, +16px vertical padding = ~66px, which 64 would leave almost no
+  // margin for.
+  const HEADER_HEIGHT = 72;
 
   const scrollRef = useRef<ScrollView>(null);
   const scrollToEnd = useCallback(() => {
