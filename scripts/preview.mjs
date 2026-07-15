@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // preview.mjs — Playwright driver for the web preview: walks onboarding, screenshots
-// every main tab, and exercises "add a task" / "add a shopping item" to prove store
-// logic (not just static render). Chromium is pre-installed under
+// every main tab, and exercises "add a task" (Tasks) + "add a habit" (Health) — each
+// verified to survive a tab round-trip — to prove two stores' write→read paths through
+// the in-memory sql.js DB, not just static render. Chromium is pre-installed under
 // PLAYWRIGHT_BROWSERS_PATH; never `playwright install`.
 //
 // Usage: node scripts/preview.mjs [outDir] [--route=/some/path]
@@ -166,6 +167,31 @@ async function main() {
     console.log(`  task persisted after tab round-trip: ${persisted}`);
     if (!persisted) pageErrors.push(`Task "${taskTitle}" did not persist after navigating away and back`);
     await shot(page, 'task-persisted-check');
+
+    // Exercise a second store's write path: add a habit via the inline AddRow at the
+    // bottom of Health's Habits section (placeholder = t.health.addHabit), then confirm
+    // it round-trips through the in-memory sql.js DB after a tab away-and-back.
+    console.log('> add a habit (store logic check)');
+    await page.getByRole('button', { name: 'Health', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await dismissModalIfPresent(page);
+    const habitTitle = `Preview habit ${Date.now()}`;
+    const habitInput = page.getByPlaceholder('Add habit').first();
+    await habitInput.scrollIntoViewIfNeeded();
+    await habitInput.fill(habitTitle);
+    await habitInput.press('Enter');
+    await page.waitForTimeout(800);
+    await shot(page, 'habit-added');
+
+    await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    await page.getByRole('button', { name: 'Health', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await dismissModalIfPresent(page);
+    const habitPersisted = await page.getByText(habitTitle, { exact: true }).first().isVisible().catch(() => false);
+    console.log(`  habit persisted after tab round-trip: ${habitPersisted}`);
+    if (!habitPersisted) pageErrors.push(`Habit "${habitTitle}" did not persist after navigating away and back`);
+    await shot(page, 'habit-persisted-check');
   }
 
   console.log(`\n> page errors: ${pageErrors.length}`);

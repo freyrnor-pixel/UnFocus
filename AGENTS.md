@@ -116,6 +116,11 @@ A full emulator isn't feasible in the remote env (no KVM/virtualization; the app
 deeply native), so verification is headless and covers the **logic/data layer** only —
 not visual/gesture behavior, which still needs a real device.
 
+> **See `TESTING.md`** for the full quality strategy — the test-pyramid layers, the
+> "add a test with every helper/branch/bug fix" rule, how to write a headless store
+> test, the coverage ratchet, and the CI gate (`.github/workflows/ci.yml` runs
+> typecheck + lint + jest on every PR into `main`).
+
 1. `npx tsc --noEmit` — first-pass gate. Runs & passes in the remote env now (the
    session-start hook installs deps). Also enforces i18n key parity via `no: typeof en`.
 2. `scripts/test-changed.sh` — runs only the Jest suites a change affects
