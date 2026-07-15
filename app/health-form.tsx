@@ -34,7 +34,7 @@
  *   - On save a ConfirmationBanner is shown, then navigation is delayed ~900ms so it's visible,
  *     matching task-form.tsx.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -154,6 +154,11 @@ export default function HealthFormScreen() {
   const SEVERITIES = severities();
   const severityLabel = (value: number) => t.severityLabels[value - 1] ?? '';
 
+  // The post-save banner delays router.back() ~900ms; clear it on unmount so a user who
+  // navigates away first doesn't trigger a late back()/setState on an unmounted screen.
+  const backTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (backTimerRef.current) clearTimeout(backTimerRef.current); }, []);
+
   const existing = id ? logs.find((log) => log.id === id) : undefined;
 
   // `name` prefills the Issue field when opened from the Health-log AddRow (quick-add row →
@@ -210,7 +215,7 @@ export default function HealthFormScreen() {
       addLog(payload);
     }
     setConfirm(t.taskSavedSimple);
-    setTimeout(() => router.back(), 900);
+    backTimerRef.current = setTimeout(() => router.back(), 900);
   }
 
   function performDelete() {

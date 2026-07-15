@@ -76,7 +76,7 @@
  *     (settings.debugModeEnabled). See that component's header for the long-press/bubble/edit
  *     mechanics; this screen is the one concrete "cards" usage alongside every screen's header.
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Switch, Text, View } from 'react-native';
 import { useRouter, usePathname, useFocusEffect } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
@@ -183,19 +183,27 @@ export default function HomeScreen() {
     }, [])
   );
 
-  const todayTasks = tasksForDate(today);
-  const visibleTasks = focusMode
-    ? todayTasks.filter((task) => task.importance === 'essential')
-    : todayTasks;
+  // Memoized: tasksForDate/computeListGroups otherwise re-ran on every Home render
+  // (focus-mode toggles, flight animations, scroll handling, etc.), not just when the
+  // underlying tasks/shopping data actually changed.
+  const todayTasks = useMemo(() => tasksForDate(today), [tasksForDate, tasks, today]);
+  const visibleTasks = useMemo(
+    () => (focusMode ? todayTasks.filter((task) => task.importance === 'essential') : todayTasks),
+    [focusMode, todayTasks]
+  );
 
   const completedCount = completedCountFn();
 
   const currentShoppingList = currentListFn(today);
   // Read `shoppingLists` so this render subscribes to list changes (currentList is a fn ref).
   void shoppingLists;
-  const { dishGroups, ungroupedUnchecked, checked } = currentShoppingList
-    ? computeListGroups(shoppingItems, currentShoppingList.id)
-    : { dishGroups: [], ungroupedUnchecked: [], checked: [] };
+  const { dishGroups, ungroupedUnchecked, checked } = useMemo(
+    () =>
+      currentShoppingList
+        ? computeListGroups(shoppingItems, currentShoppingList.id)
+        : { dishGroups: [], ungroupedUnchecked: [], checked: [] },
+    [currentShoppingList, shoppingItems]
+  );
   if (!settings.loaded || !settings.setupComplete) {
     return <View style={[styles.blank, { backgroundColor: theme.bg }]} />;
   }

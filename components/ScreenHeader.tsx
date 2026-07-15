@@ -108,9 +108,12 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const [applyingUpdate, setApplyingUpdate] = useState(false);
 
   // OTA update check — Home only (see edit notes). Checks once on mount (app launch),
-  // again whenever the app comes back to the foreground, and every 60s while the app
+  // again whenever the app comes back to the foreground, and every 10min while the app
   // stays open so an update published mid-session still surfaces without needing a
-  // background/foreground cycle.
+  // background/foreground cycle. (Was every 60s — that's redundant with the foreground
+  // check for a value that only changes when someone publishes an OTA, so it was mostly
+  // idle network wake-ups; 10min keeps the same "surfaces without backgrounding" guarantee
+  // at a fraction of the polling cost.)
   useEffect(() => {
     if (!isHome || !Updates.isEnabled) return;
     let cancelled = false;
@@ -123,7 +126,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') check();
     });
-    const interval = setInterval(check, 60_000);
+    const interval = setInterval(check, 10 * 60_000);
     return () => {
       cancelled = true;
       sub.remove();
