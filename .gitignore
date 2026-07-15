@@ -12,3 +12,4 @@ package-lock.json
 dist/
 build/
 preview-shots/
+coverage/

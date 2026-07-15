@@ -218,9 +218,6 @@ export default function HomeScreen() {
         : { dishGroups: [], ungroupedUnchecked: [], checked: [] },
     [currentShoppingList, shoppingItems]
   );
-  if (!settingsLoaded || !setupComplete) {
-    return <View style={[styles.blank, { backgroundColor: theme.bg }]} />;
-  }
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -251,6 +248,12 @@ export default function HomeScreen() {
     () => goToSite(router, pathname, '/shopping'),
     [router, pathname]
   );
+
+  // All hooks above must run on every render (Rules of Hooks), so this loading
+  // guard sits below them rather than up among the useMemo block.
+  if (!settingsLoaded || !setupComplete) {
+    return <View style={[styles.blank, { backgroundColor: theme.bg }]} />;
+  }
 
   return (
     <>
