@@ -40,7 +40,7 @@
  *   - On save a ConfirmationBanner is shown, then navigation is briefly delayed (~900ms) so
  *     it's visible. Delete is confirm-gated via confirmDelete()/showAppModal.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -80,6 +80,11 @@ export default function TaskFormScreen() {
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
+
+  // The post-save banner delays router.back() ~900ms; clear it on unmount so a user who
+  // navigates away first doesn't trigger a late back()/setState on an unmounted screen.
+  const backTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (backTimerRef.current) clearTimeout(backTimerRef.current); }, []);
 
   const existing = id ? tasks.find((task) => task.id === id) : undefined;
 
@@ -165,7 +170,7 @@ export default function TaskFormScreen() {
     }
     setConfirm(confirmationMessage(date, savedTime));
     // Let the banner land before leaving the form.
-    setTimeout(() => router.back(), 900);
+    backTimerRef.current = setTimeout(() => router.back(), 900);
   }
 
   function performDelete() {

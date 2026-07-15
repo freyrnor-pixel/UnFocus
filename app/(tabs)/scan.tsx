@@ -85,7 +85,7 @@ import PressableScale from '@/components/PressableScale';
 import { decodeSharePayload } from '@/lib/share';
 import { parseReceiptText, findFuzzyMatch, ParsedReceiptItem as ParsedItem } from '@/lib/receipt';
 import { FontSize, Radius, Shadow, Spacing, rgba } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 
 // Fixed camera-chrome colours (Decision 025) — theme-independent, always white-on-black.
 const QR_BG = '#000000';
@@ -116,6 +116,7 @@ export default function ScanScreen() {
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
+  const { reducedMotion } = useAccessibility();
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [mode, setMode] = useState<ScreenMode>('idle');
@@ -133,7 +134,15 @@ export default function ScanScreen() {
   const manualInputRef = useRef<TextInput>(null);
   const customStoreRef = useRef<TextInput>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseRef = useRef<Animated.CompositeAnimation | null>(null);
   const autoCaptureFired = useRef(false);
+  // Guards the deferred setState in the OCR pipeline (100ms picker hop + 1800ms result
+  // hold) from firing after this pager tab unmounts.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // Shopping's post-trip receipt pop-up routes here with autoCapture to go straight into the
   // camera/library picker — guarded so a remount never re-fires the same auto-capture.
@@ -155,24 +164,30 @@ export default function ScanScreen() {
     navigation.setOptions({ swipeEnabled: !disableSwipe });
   }, [navigation, mode, qrScanVisible, customStoreVisible, categoryPickerVisible]);
 
-  // Pulsing animation for scanning state.
+  // Pulsing animation for scanning state. Captured in a ref and stopped on mode-change/
+  // unmount — an uncaptured Animated.loop keeps running (and drawing) forever once the
+  // screen leaves 'scanning'. Skipped under reduce-motion.
   useEffect(() => {
-    if (mode === 'scanning') {
-      Animated.loop(
+    if (mode === 'scanning' && !reducedMotion) {
+      pulseRef.current = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, { toValue: 1.14, duration: 600, useNativeDriver: true }),
           Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
         ])
-      ).start();
+      );
+      pulseRef.current.start();
     } else {
+      pulseRef.current?.stop();
       pulseAnim.setValue(1);
     }
-  }, [mode, pulseAnim]);
+    return () => { pulseRef.current?.stop(); };
+  }, [mode, reducedMotion, pulseAnim]);
 
   // Auto-focus manual input when entering manual mode.
   useEffect(() => {
     if (mode === 'manual') {
-      setTimeout(() => manualInputRef.current?.focus(), 100);
+      const id = setTimeout(() => manualInputRef.current?.focus(), 100);
+      return () => clearTimeout(id);
     }
   }, [mode]);
 
@@ -213,11 +228,13 @@ export default function ScanScreen() {
   async function processImage(uri: string) {
     try {
       const result = await TextRecognition.recognize(uri);
+      if (!mountedRef.current) return;
       const items = parseReceiptText(result.text);
       if (items.length > 0) {
         const enrichedItems = enrichItemsWithCategories(items);
         setParsedItems(enrichedItems);
         await new Promise((resolve) => setTimeout(resolve, 1800));
+        if (!mountedRef.current) return;
         setMode('result');
       } else {
         handleOcrFailure();
@@ -228,6 +245,7 @@ export default function ScanScreen() {
   }
 
   function handleOcrFailure() {
+    if (!mountedRef.current) return;
     setImageUri(null);
     setParsedItems([]);
     setMode('manual');

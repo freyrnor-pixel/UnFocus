@@ -26,7 +26,7 @@
  *   - Decision 008: the sheet is a glass Surface in `overlay` context. Blur comes from
  *     Surface's BlurView; this file never imports expo-blur directly.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -63,6 +63,7 @@ export default function ShoppingQuickAddSheet({ visible, onClose }: Props) {
 
   const [name, setName] = useState('');
   const [confirm, setConfirm] = useState<string | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -70,6 +71,9 @@ export default function ShoppingQuickAddSheet({ visible, onClose }: Props) {
       setConfirm(null);
     }
   }, [visible]);
+
+  // Clear the pending onClose() if the sheet unmounts before the 300ms delay elapses.
+  useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
 
   function save() {
     const trimmed = name.trim();
@@ -87,7 +91,7 @@ export default function ShoppingQuickAddSheet({ visible, onClose }: Props) {
     });
     setConfirm(t.itemAddedToList(trimmed));
     // Let the confirmation land before the sheet closes — mirrors QuickAddSheet.tsx.
-    setTimeout(onClose, 300);
+    closeTimerRef.current = setTimeout(onClose, 300);
   }
 
   return (
