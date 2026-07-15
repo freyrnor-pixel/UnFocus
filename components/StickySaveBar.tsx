@@ -33,7 +33,7 @@ import Animated, {
   useAnimatedStyle,
   Easing,
 } from 'react-native-reanimated';
-import { FontSize, Fonts } from '@/constants/theme';
+import { FontSize, Fonts, Radius } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import PressableScale from '@/components/PressableScale';
 
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },

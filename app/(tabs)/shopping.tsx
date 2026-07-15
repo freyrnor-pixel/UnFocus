@@ -1309,7 +1309,7 @@ const styles = StyleSheet.create({
   stickyProgressText: { fontSize: FontSize.xs },
   stickyProgressBar: { marginTop: 2 },
 
-  catalogCard: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.md },
+  catalogCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md },
   catalogHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   catalogHeaderTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   catalogHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
@@ -1345,7 +1345,7 @@ const styles = StyleSheet.create({
   unsavedBannerText: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
 
   // Weekly "Unallocated" card
-  unallocatedCard: { borderRadius: Radius.lg },
+  unallocatedCard: { borderRadius: Radius.md },
   unallocatedCardRow: { flexDirection: 'row' },
   unallocatedAccent: { width: 4, alignSelf: 'stretch' },
   unallocatedContent: { flex: 1, padding: Spacing.md, gap: Spacing.sm },
@@ -1377,7 +1377,7 @@ const styles = StyleSheet.create({
   disclosureChevron: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   weekLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
 
-  weekEmptyCard: { borderRadius: Radius.lg, paddingVertical: Spacing.sm, marginBottom: Spacing.md },
+  weekEmptyCard: { borderRadius: Radius.md, paddingVertical: Spacing.sm, marginBottom: Spacing.md },
   // Same bordered-pill trigger family as monthlyTrigger/addTrigger, sized up (paddingVertical
   // md, larger icon+text) since this is the primary action on the Weekly tab.
   newListTrigger: {

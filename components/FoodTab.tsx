@@ -559,7 +559,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
 
 const baseStyles = StyleSheet.create({
   root: { gap: Spacing.md },
-  section: { borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
+  section: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   sectionTitle: { flex: 1, fontSize: FontSize.lg, fontFamily: Fonts.bold },
   addDishBtn: { width: 30, height: 30, borderRadius: Radius.full, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
