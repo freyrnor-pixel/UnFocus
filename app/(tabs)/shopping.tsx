@@ -112,8 +112,9 @@
  *   - **Mount-time store hydration**: app/_layout.tsx loads every store at startup now, so
  *     this screen's focus effect no longer re-initialises the DB or re-hydrates
  *     settings/shopping/list/catalog — it only runs the behavior that's more than hydration:
- *     advanceRecurringLists(today) (re-loading shopping items after, since it writes
- *     shopping_items rows directly) and the automatic payday-boundary monthly-reset detection
+ *     advanceRecurringLists(today) (re-loading shopping items after ONLY when it returns
+ *     true, i.e. it actually rolled a list forward — a no-op focus skips the reload so the
+ *     list doesn't reflow after paint) and the automatic payday-boundary monthly-reset detection
  *     (buildMonthlyResetSummary BEFORE monthlyReset, then persists lastMonthlyReset).
  *   - The 'shopping_opened' automation trigger fires once per mount; rules are already loaded
  *     by _layout's startup bootstrap. "Shopping done!"'s Scan/Upload choices route to /scan
@@ -359,11 +360,12 @@ export default function ShoppingScreen() {
       // A no-op once every recurring list is already current, so it's safe to run
       // on every focus rather than gating it behind a once-per-period flag like
       // the monthly reset below. advanceRecurringLists() writes shopping_items
-      // rows directly via the list store, so re-run the shopping load afterwards
-      // to pick up any freshly copied rows.
+      // rows directly via the list store, so re-run the shopping load ONLY when it
+      // actually created a list — otherwise every focus paid two full-table SQLite
+      // scans + a re-render that visibly reflowed the list AFTER the screen painted
+      // (focus effects run post-commit). The common case (nothing overdue) now skips it.
       const today = todayStr();
-      advanceRecurringLists(today);
-      loadShopping();
+      if (advanceRecurringLists(today)) loadShopping();
 
       // Automatic payday-boundary reset: once per period, when today's day-of-month
       // has reached monthlyResetDate and we haven't already reset for this period.
@@ -817,54 +819,67 @@ export default function ShoppingScreen() {
     </View>
   );
 
+  // Screen intro chrome (first-run hint + incoming shared requests), shared by every tab.
+  // Extracted so the Catalogue tab — which renders its own FlatList outside the padded
+  // content View (scrollable={false}) — can hand it in as that list's header and keep it
+  // scrolling with the rows.
+  const shoppingIntro = (
+    <>
+      <HintCard text={t.hints.shopping.text} open={hintOpen} noPill>
+        <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
+          <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.weeklyResetDay}</Text>
+          <View style={styles.hintDayRow}>
+            {t.dayFull.map((label, i) => (
+              <PressableScale
+                key={i}
+                style={[
+                  styles.hintDayChip,
+                  { backgroundColor: theme.surfaceMuted },
+                  weeklyResetDay === i && { backgroundColor: theme.accent },
+                ]}
+                onPress={() => updateSettings({ weeklyResetDay: i })}
+                scaleTo={0.97}
+              >
+                <Text style={[
+                  styles.hintDayText,
+                  { color: theme.text },
+                  weeklyResetDay === i && { color: theme.accentInk },
+                ]}>
+                  {label.slice(0, 3)}
+                </Text>
+              </PressableScale>
+            ))}
+          </View>
+          <Text style={[styles.hintSettingLabel, { color: theme.text, marginTop: Spacing.sm }]}>{t.monthlyResetDateQuestion}</Text>
+          <TextInput
+            style={[styles.hintDateInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface }]}
+            value={monthlyDateInput}
+            onChangeText={(v) => {
+              setMonthlyDateInput(v);
+              const n = parseInt(v, 10);
+              if (!isNaN(n) && n >= 1 && n <= 31) updateSettings({ monthlyResetDate: n });
+            }}
+            onBlur={() => setMonthlyDateInput('')}
+            keyboardType="number-pad"
+            placeholder={String(monthlyResetDate)}
+            placeholderTextColor={theme.textMuted}
+            maxLength={2}
+            returnKeyType="done"
+          />
+        </View>
+      </HintCard>
+      <SharedRequestsSection kind="shopping" />
+    </>
+  );
+
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} scrollable={tab !== 'catalogue'} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onScroll={handleScreenScroll}>
+      {tab === 'catalogue' ? (
+        <CatalogueTab onNotify={setConfirm} header={shoppingIntro} />
+      ) : (
       <View style={styles.content}>
-        <HintCard text={t.hints.shopping.text} open={hintOpen} noPill>
-          <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
-            <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.weeklyResetDay}</Text>
-            <View style={styles.hintDayRow}>
-              {t.dayFull.map((label, i) => (
-                <PressableScale
-                  key={i}
-                  style={[
-                    styles.hintDayChip,
-                    { backgroundColor: theme.surfaceMuted },
-                    weeklyResetDay === i && { backgroundColor: theme.accent },
-                  ]}
-                  onPress={() => updateSettings({ weeklyResetDay: i })}
-                  scaleTo={0.97}
-                >
-                  <Text style={[
-                    styles.hintDayText,
-                    { color: theme.text },
-                    weeklyResetDay === i && { color: theme.accentInk },
-                  ]}>
-                    {label.slice(0, 3)}
-                  </Text>
-                </PressableScale>
-              ))}
-            </View>
-            <Text style={[styles.hintSettingLabel, { color: theme.text, marginTop: Spacing.sm }]}>{t.monthlyResetDateQuestion}</Text>
-            <TextInput
-              style={[styles.hintDateInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface }]}
-              value={monthlyDateInput}
-              onChangeText={(v) => {
-                setMonthlyDateInput(v);
-                const n = parseInt(v, 10);
-                if (!isNaN(n) && n >= 1 && n <= 31) updateSettings({ monthlyResetDate: n });
-              }}
-              onBlur={() => setMonthlyDateInput('')}
-              keyboardType="number-pad"
-              placeholder={String(monthlyResetDate)}
-              placeholderTextColor={theme.textMuted}
-              maxLength={2}
-              returnKeyType="done"
-            />
-          </View>
-        </HintCard>
-        <SharedRequestsSection kind="shopping" />
+        {shoppingIntro}
 
         {tab === 'monthly' && (
           <Surface style={styles.catalogCard}>
@@ -1188,9 +1203,10 @@ export default function ShoppingScreen() {
         {/* Food — dishes, in place (Point: "Food is just another tab, not another screen") */}
         {tab === 'food' && <FoodTab onNotify={setConfirm} />}
 
-        {/* Catalogue — master item list, sectioned by type, with add/edit/delete */}
-        {tab === 'catalogue' && <CatalogueTab onNotify={setConfirm} />}
+        {/* Catalogue renders above (scrollable={false} branch) as its own virtualising
+            FlatList — it is NOT one of the content-View tabs. */}
       </View>
+      )}
 
       <AddItemSheet
         visible={addToCatalogOpen}

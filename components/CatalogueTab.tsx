@@ -17,15 +17,29 @@
  *             lib/money (formatKr), lib/domainColor, components/Surface,
  *             components/PressableScale, components/AddRow, store/useCatalogStore,
  *             @expo/vector-icons
- *   Used by → app/(tabs)/shopping.tsx (rendered when the Catalogue tab is active)
+ *   Used by → app/(tabs)/shopping.tsx (rendered when the Catalogue tab is active, with
+ *             ScreenScaffold in scrollable={false} mode so THIS FlatList owns scrolling)
  *   Data    → useCatalogStore.addItem/updateItem/removeItem (+ items list)
  *
  * Edit notes:
- *   - Renders no ScrollView of its own — it lives inside the Shopping screen scaffold's
- *     ScrollView. Because of that it can't virtualise with a FlatList (nested same-axis
- *     VirtualizedList); instead it renders a small initial window synchronously and fills
- *     the rest after the tab-transition interaction settles (see CATALOGUE_INITIAL_WINDOW /
- *     visibleCount) so opening the tab stays snappy despite the ~286-row catalogue.
+ *   - **Virtualised (perf, 2026-07-15)**: renders a real FlatList, so only ~15 rows mount
+ *     at a time instead of all ~286 at once. The old version was a `.map()` inside the
+ *     Shopping scaffold's shared ScrollView (a FlatList there would be a nested same-axis
+ *     VirtualizedList), which fully mounted every row — each a PressableScale carrying its
+ *     own Reanimated shared-value/animated-style, so ~570 animated nodes mounted per open
+ *     and re-mounted on every tab switch. Now app/(tabs)/shopping.tsx passes
+ *     `scrollable={false}` to ScreenScaffold on the Catalogue tab so this FlatList is the
+ *     scroller. The old CATALOGUE_INITIAL_WINDOW / visibleCount / InteractionManager
+ *     deferral is gone — virtualization caps the mounted-row count directly instead of just
+ *     deferring the full expansion past the first frame.
+ *   - **Rows are plain `Pressable`, not `PressableScale`**: at list scale the per-row spring
+ *     bounce isn't worth a Reanimated node per row. The small check/trash action buttons keep
+ *     PressableScale (only a handful mounted at once). `CatalogueRow` is `React.memo`'d with
+ *     stable callbacks (onStartEdit/onRemove from useCallback) so typing in the add row or
+ *     entering edit mode only re-renders the affected row, not the whole visible window.
+ *   - **`header` prop**: the Shopping screen's hint card + SharedRequestsSection are handed in
+ *     as the FlatList's ListHeaderComponent (above the add row) so they still scroll with the
+ *     list — the Catalogue tab renders outside the screen's normal padded content View.
  *   - New items are still authored into the 'other' category (no picker in the add row,
  *     per the spec's "name, price, delete, save") — `category` is kept on the row (used
  *     by autocomplete elsewhere) even though this tab no longer groups/displays by it.
@@ -35,34 +49,92 @@
  *   - removeItem soft-deletes (see useCatalogStore) so deleting a seeded item sticks across
  *     a seed re-run (seeding is now version-gated, not per-load).
  *   - **No domain border on the cards (2026-07-13, updated 2026-07-14)**: unlike
- *     WeekListCard, the add-row and rows Surfaces here don't pass `borderColor={domainColor.accent}`
- *     — this list is one long, continuous card holding the whole ~286-row catalogue, so the
- *     same shop-domain green edge that reads as a subtle accent on a small weekly-list card
- *     would read as a loud full-screen outline at this scale. `domainColor.accent` is still
- *     used for the small AddRow confirm-button fill, which stays a domain-consistent touch.
+ *     WeekListCard, the rows don't carry the shop-domain green edge — this list is one long,
+ *     continuous card, so a full-screen outline would read as a loud frame at this scale.
+ *     `domainColor.accent` is still used for the small AddRow confirm-button fill.
  */
-import React, { useEffect, useMemo, useState } from 'react';
-import { InteractionManager, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
-import { useCatalogStore } from '@/store/useCatalogStore';
+import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { ThemePalette } from '@/constants/colors';
 import { useT } from '@/lib/i18n';
 import { success, heavy } from '@/lib/haptics';
 import { formatKr } from '@/lib/money';
 import { getDomainColor } from '@/lib/domainColor';
 
-/** Rows mounted synchronously on tab open; the rest fill in after the transition settles. */
-const CATALOGUE_INITIAL_WINDOW = 30;
-
 type Props = {
   onNotify: (msg: string) => void;
+  /** Screen-owned chrome (hint card + shared requests) rendered above the add row. */
+  header?: React.ReactNode;
 };
 
-export default function CatalogueTab({ onNotify }: Props) {
+type Styles = ReturnType<typeof useScaledStyles<typeof baseStyles>>;
+
+/**
+ * One display-mode catalogue row. Memoised + fed stable callbacks so typing in the add
+ * row / entering edit mode doesn't re-render every visible row. Plain Pressable (no
+ * per-row Reanimated node); only the small trash button keeps PressableScale.
+ */
+const CatalogueRow = React.memo(function CatalogueRow({
+  item,
+  isFirst,
+  isLast,
+  onStartEdit,
+  onRemove,
+  theme,
+  styles,
+  deleteLabel,
+}: {
+  item: StoreItem;
+  isFirst: boolean;
+  isLast: boolean;
+  onStartEdit: (item: StoreItem) => void;
+  onRemove: (id: string) => void;
+  theme: ThemePalette;
+  styles: Styles;
+  deleteLabel: string;
+}) {
+  return (
+    <View
+      style={[
+        styles.itemRow,
+        { backgroundColor: theme.surface },
+        isFirst && styles.rowFirst,
+        isLast && styles.rowLast,
+      ]}
+    >
+      <Text
+        style={[styles.itemNameTouch, { color: theme.text }]}
+        numberOfLines={1}
+        onPress={() => onStartEdit(item)}
+        suppressHighlighting
+      >
+        {item.name}
+      </Text>
+      {item.price > 0 && (
+        <Text style={[styles.itemPrice, { color: theme.textMuted }]} onPress={() => onStartEdit(item)}>
+          {formatKr(item.price, 0)}
+        </Text>
+      )}
+      <PressableScale
+        onPress={() => onRemove(item.id)}
+        hitSlop={8}
+        accessibilityLabel={deleteLabel}
+        scaleTo={0.93}
+      >
+        <Ionicons name="trash-outline" size={18} color={theme.textMuted} />
+      </PressableScale>
+    </View>
+  );
+});
+
+export default function CatalogueTab({ onNotify, header }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
@@ -81,23 +153,11 @@ export default function CatalogueTab({ onNotify }: Props) {
   const [editPrice, setEditPrice] = useState('');
 
   // Keep the Norwegian-collated sort (SQL orderBy 'name' doesn't order æ/ø/å correctly);
-  // it's memoised on `items`, so it's cheap.
+  // memoised on `items`, so it's cheap.
   const sortedItems = useMemo(
     () => items.slice().sort((a, b) => a.name.localeCompare(b.name, 'no')),
     [items]
   );
-
-  // Incremental render (perf): this tab mounts fresh on every switch, and mounting all
-  // ~286 rows synchronously is what made the Catalogue feel "slow to load". Render a small
-  // window instantly so the tab opens without a hitch, then fill the rest after the
-  // tab-transition interaction settles (off the critical frame).
-  const [visibleCount, setVisibleCount] = useState(CATALOGUE_INITIAL_WINDOW);
-  useEffect(() => {
-    if (visibleCount >= sortedItems.length) return;
-    const task = InteractionManager.runAfterInteractions(() => setVisibleCount(sortedItems.length));
-    return () => task.cancel();
-  }, [sortedItems.length, visibleCount]);
-  const visibleItems = useMemo(() => sortedItems.slice(0, visibleCount), [sortedItems, visibleCount]);
 
   function handleAdd() {
     const name = addName.trim();
@@ -109,11 +169,19 @@ export default function CatalogueTab({ onNotify }: Props) {
     setAddPrice('');
   }
 
-  function startEdit(id: string, name: string, price: number) {
-    setEditingId(id);
-    setEditName(name);
-    setEditPrice(price > 0 ? String(price) : '');
-  }
+  const startEdit = useCallback((item: StoreItem) => {
+    setEditingId(item.id);
+    setEditName(item.name);
+    setEditPrice(item.price > 0 ? String(item.price) : '');
+  }, []);
+
+  const handleRemove = useCallback(
+    (id: string) => {
+      removeItem(id);
+      heavy();
+    },
+    [removeItem]
+  );
 
   function commitEdit() {
     if (!editingId) return;
@@ -122,12 +190,70 @@ export default function CatalogueTab({ onNotify }: Props) {
     setEditingId(null);
   }
 
-  return (
-    <View style={styles.root}>
+  const renderItem = ({ item, index }: { item: StoreItem; index: number }) => {
+    const isFirst = index === 0;
+    const isLast = index === sortedItems.length - 1;
+    if (editingId === item.id) {
+      return (
+        <View
+          style={[
+            styles.editRow,
+            { backgroundColor: theme.surface },
+            isFirst && styles.rowFirst,
+            isLast && styles.rowLast,
+          ]}
+        >
+          <TextInput
+            style={[styles.editNameInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+            value={editName}
+            onChangeText={setEditName}
+            placeholder={t.catalogueItemNamePlaceholder}
+            placeholderTextColor={theme.textMuted}
+            autoFocus
+          />
+          <TextInput
+            style={[styles.editPriceInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+            value={editPrice}
+            onChangeText={setEditPrice}
+            placeholder={t.catalogueItemPricePlaceholder}
+            placeholderTextColor={theme.textMuted}
+            keyboardType="decimal-pad"
+            onSubmitEditing={commitEdit}
+          />
+          <PressableScale style={[styles.iconBtn, { backgroundColor: theme.good }]} onPress={commitEdit} hitSlop={4} scaleTo={0.9}>
+            <Ionicons name="checkmark" size={16} color={theme.textInverse} />
+          </PressableScale>
+          <PressableScale
+            style={[styles.iconBtn, { backgroundColor: theme.badSoft }]}
+            onPress={() => { removeItem(item.id); heavy(); setEditingId(null); }}
+            hitSlop={4}
+            accessibilityLabel={t.catalogueDeleteItemLabel}
+            scaleTo={0.93}
+          >
+            <Ionicons name="trash-outline" size={16} color={theme.bad} />
+          </PressableScale>
+        </View>
+      );
+    }
+    return (
+      <CatalogueRow
+        item={item}
+        isFirst={isFirst}
+        isLast={isLast}
+        onStartEdit={startEdit}
+        onRemove={handleRemove}
+        theme={theme}
+        styles={styles}
+        deleteLabel={t.catalogueDeleteItemLabel}
+      />
+    );
+  };
+
+  const listHeader = (
+    <View style={styles.listHeader}>
+      {header}
       {/* ── Top: add-new-item row ── the shared AddRow (name input + price extra), always
-          visible at the top of this long, alphabetized reference list — mirrors WeekListCard's
-          inline-add shape but sits at the top here (not the bottom) since this list is a
-          scrollable catalogue, not a short append-order list like Plans/Shopping's weekly list. */}
+          visible at the top of this long, alphabetized reference list. */}
       <Surface style={styles.addRowCard}>
         <AddRow
           placeholder={t.catalogueItemNamePlaceholder}
@@ -150,84 +276,47 @@ export default function CatalogueTab({ onNotify }: Props) {
           }
         />
       </Surface>
-
-      {/* ── Flat, name-sorted list ── */}
-      {sortedItems.length === 0 ? (
+      {sortedItems.length === 0 && (
         <Text style={[styles.empty, { color: theme.textMuted }]}>{t.catalogueEmpty}</Text>
-      ) : (
-        <Surface style={styles.rowsCard}>
-          {visibleItems.map((item, idx) => {
-            const isEditing = editingId === item.id;
-            return (
-              <View key={item.id}>
-                {isEditing ? (
-                  <View style={styles.editRow}>
-                    <TextInput
-                      style={[styles.editNameInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                      value={editName}
-                      onChangeText={setEditName}
-                      placeholder={t.catalogueItemNamePlaceholder}
-                      placeholderTextColor={theme.textMuted}
-                      autoFocus
-                    />
-                    <TextInput
-                      style={[styles.editPriceInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                      value={editPrice}
-                      onChangeText={setEditPrice}
-                      placeholder={t.catalogueItemPricePlaceholder}
-                      placeholderTextColor={theme.textMuted}
-                      keyboardType="decimal-pad"
-                      onSubmitEditing={commitEdit}
-                    />
-                    <PressableScale style={[styles.iconBtn, { backgroundColor: theme.good }]} onPress={commitEdit} hitSlop={4} scaleTo={0.9}>
-                      <Ionicons name="checkmark" size={16} color={theme.textInverse} />
-                    </PressableScale>
-                    <PressableScale
-                      style={[styles.iconBtn, { backgroundColor: theme.badSoft }]}
-                      onPress={() => { removeItem(item.id); heavy(); setEditingId(null); }}
-                      hitSlop={4}
-                      accessibilityLabel={t.catalogueDeleteItemLabel}
-                      scaleTo={0.93}
-                    >
-                      <Ionicons name="trash-outline" size={16} color={theme.bad} />
-                    </PressableScale>
-                  </View>
-                ) : (
-                  <PressableScale style={styles.itemRow} onPress={() => startEdit(item.id, item.name, item.price)} scaleTo={0.97}>
-                    <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
-                    {item.price > 0 && (
-                      <Text style={[styles.itemPrice, { color: theme.textMuted }]}>{formatKr(item.price, 0)}</Text>
-                    )}
-                    <PressableScale
-                      onPress={() => { removeItem(item.id); heavy(); }}
-                      hitSlop={8}
-                      accessibilityLabel={t.catalogueDeleteItemLabel}
-                      scaleTo={0.93}
-                    >
-                      <Ionicons name="trash-outline" size={18} color={theme.textMuted} />
-                    </PressableScale>
-                  </PressableScale>
-                )}
-                {idx < visibleItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
-              </View>
-            );
-          })}
-        </Surface>
       )}
     </View>
+  );
+
+  return (
+    <FlatList
+      style={styles.flatList}
+      data={sortedItems}
+      keyExtractor={(item) => item.id}
+      renderItem={renderItem}
+      // extraData: re-render rows when edit mode toggles (editingId) or the theme changes,
+      // since CatalogueRow is memoised and otherwise only re-renders on its own prop changes.
+      extraData={`${editingId}|${theme.surface}`}
+      ListHeaderComponent={listHeader}
+      ItemSeparatorComponent={() => <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+      contentContainerStyle={styles.listContent}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      initialNumToRender={15}
+      windowSize={11}
+      maxToRenderPerBatch={20}
+      removeClippedSubviews
+    />
   );
 }
 
 const baseStyles = StyleSheet.create({
-  root: { gap: Spacing.md },
+  flatList: { flex: 1 },
+  listContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md },
+  listHeader: { gap: Spacing.md, paddingBottom: Spacing.md },
   addRowCard: { paddingHorizontal: Spacing.md },
   addPriceInput: { width: 76, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8, fontSize: FontSize.sm },
   empty: { fontSize: FontSize.sm, paddingVertical: Spacing.md, textAlign: 'center' },
-  rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md },
-  itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, minHeight: 44 },
-  itemName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, minHeight: 44 },
+  rowFirst: { borderTopLeftRadius: Radius.md, borderTopRightRadius: Radius.md },
+  rowLast: { borderBottomLeftRadius: Radius.md, borderBottomRightRadius: Radius.md },
+  itemNameTouch: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium },
   itemPrice: { fontSize: FontSize.sm },
-  editRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.xs },
+  editRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md },
   editNameInput: { flex: 1, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 6, fontSize: FontSize.sm },
   editPriceInput: { width: 64, borderRadius: Radius.sm, paddingHorizontal: 6, paddingVertical: 6, fontSize: FontSize.sm },
   iconBtn: { width: 30, height: 30, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },

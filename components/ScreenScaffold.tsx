@@ -90,6 +90,12 @@
  *     can cancel an in-flight `FlightOverlay` animation on scroll (window-space coordinates
  *     go stale once the user scrolls); `scrollEventThrottle` only activates when a listener
  *     is passed, so screens that don't use it pay no extra event-bridge cost.
+ *   - **scrollable (perf, 2026-07-15)**: default true. When false, children render in a plain
+ *     flex View (chrome padding still applied) instead of the internal ScrollView, so a child
+ *     can own scrolling with a virtualising FlatList. Used by app/(tabs)/shopping.tsx on the
+ *     Catalogue tab, whose ~286-row list can't virtualise inside a same-axis ScrollView (nested
+ *     VirtualizedList). ScrollToEndContext is a no-op in this mode — a self-scrolling FlatList
+ *     manages keeping its own AddRow above the keyboard.
  */
 import React, { useCallback, useRef } from 'react';
 import { NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
@@ -156,6 +162,14 @@ type Props = {
   /** Forwarded to the internal ScrollView — e.g. to cancel an in-flight FlightOverlay
    *  animation on scroll (components/FlightOverlay.tsx). Omit for identical behavior. */
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /**
+   * When false, children render in a plain flex View instead of the internal ScrollView,
+   * so a child can own scrolling with its own FlatList (virtualization). Default true.
+   * The chrome padding (header + sticky bar + bottom nav) is applied to that View so the
+   * child's list still clears the floating chrome. Used by the Shopping screen's Catalogue
+   * tab (a ~286-row list that must virtualise). See Edit notes.
+   */
+  scrollable?: boolean;
 };
 
 export default function ScreenScaffold({
@@ -175,6 +189,7 @@ export default function ScreenScaffold({
   ownBackground = true,
   plainBackground = false,
   onScroll,
+  scrollable = true,
 }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
@@ -223,15 +238,19 @@ export default function ScreenScaffold({
   // floats, so content slides behind it as the user scrolls — it just doesn't overlap
   // at rest). Without this the greeting/first card renders under the glass header and
   // reads as "the header overlaps the text".
-  const scrollContent = (
+  // Same chrome-clearing padding the ScrollView uses, so a non-scrollable child (which
+  // owns its own FlatList) starts below the floating header/sticky bar and clears the
+  // bottom nav.
+  const contentPadding = {
+    paddingTop: HEADER_HEIGHT + (stickyBelowHeader ? stickyBelowHeaderHeight : 0),
+    ...(tier === 'site' ? { paddingBottom: BOTTOM_NAV_HEIGHT } : null),
+  };
+
+  const scrollContent = scrollable ? (
     <ScrollView
       ref={scrollRef}
       style={styles.scrollView}
-      contentContainerStyle={[
-        styles.contentContainer,
-        { paddingTop: HEADER_HEIGHT + (stickyBelowHeader ? stickyBelowHeaderHeight : 0) },
-        tier === 'site' && { paddingBottom: BOTTOM_NAV_HEIGHT },
-      ]}
+      contentContainerStyle={[styles.contentContainer, contentPadding]}
       scrollIndicatorInsets={{
         bottom: tier === 'site' ? BOTTOM_NAV_HEIGHT : 0,
       }}
@@ -241,6 +260,12 @@ export default function ScreenScaffold({
     >
       <ScrollToEndContext.Provider value={scrollToEnd}>{children}</ScrollToEndContext.Provider>
     </ScrollView>
+  ) : (
+    // Non-scrollable: children own scrolling (e.g. a FlatList). ScrollToEndContext is a
+    // no-op here — a self-scrolling FlatList handles keeping its own AddRow above the keyboard.
+    <View style={[styles.scrollView, contentPadding]}>
+      <ScrollToEndContext.Provider value={null}>{children}</ScrollToEndContext.Provider>
+    </View>
   );
 
   return (
