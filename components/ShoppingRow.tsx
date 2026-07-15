@@ -11,7 +11,8 @@
  *
  * Connections:
  *   Imports → components/Badge, components/FlightOverlay (FlightRect type only), components/InventoryIcon,
- *             components/PressableScale, constants/theme, lib/date, lib/haptics, lib/i18n, lib/useAppTheme,
+ *             components/PressableScale, constants/theme, constants/motion (Duration/Ease tokens),
+ *             lib/date, lib/haptics, lib/i18n, lib/useAppTheme,
  *             react-native-gesture-handler, react-native-reanimated,
  *             store/useShoppingStore (ShoppingItem type + recentlyAddedIds, see Decision 044b note)
  *   Used by → components/WeekListCard.tsx, app/(tabs)/shopping.tsx (weekly rows +
@@ -101,6 +102,10 @@
  *     resettle smoothly when the list above them changes height — this is what makes
  *     list→cart moves (a different section = unmount+remount, not a true shared-element
  *     transition) read as "travel" rather than a teleport. All three respect reducedMotion.
+ *     **2026-07-15**: durations moved off hardcoded magic numbers onto `Duration.listIn/
+ *     cardOut/listMove` (same values, now the shared token) and each animation calls
+ *     `.easing(Ease.enter/exit/move)` explicitly, matching Collapsible.tsx's house pattern
+ *     (fixed alongside the same gap in PlanTaskCard.tsx and AnimatedListItem.tsx).
  *   - **Touch target (2026-07-11)**: the check circle is visually 22x22 but `hitSlop={13}`
  *     brings the tappable area to ~48dp, meeting Android's minimum touch-target size.
  *   - **Flight animation (Phase 1, 2026-07-11)**: `onFlightStart` (optional) fires with this
@@ -129,6 +134,7 @@ import Animated, {
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import type { FlightRect } from '@/components/FlightOverlay';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
@@ -304,9 +310,9 @@ export default function ShoppingRow({
     <Animated.View
       ref={rowRef}
       style={styles.wrap}
-      entering={!reducedMotion && wasNewOnMount ? FadeInDown.duration(250) : undefined}
-      exiting={willFly ? undefined : (reducedMotion ? undefined : FadeOut.duration(200))}
-      layout={reducedMotion ? undefined : LinearTransition.duration(220)}
+      entering={!reducedMotion && wasNewOnMount ? FadeInDown.duration(Duration.listIn).easing(Ease.enter) : undefined}
+      exiting={willFly ? undefined : (reducedMotion ? undefined : FadeOut.duration(Duration.cardOut).easing(Ease.exit))}
+      layout={reducedMotion ? undefined : LinearTransition.duration(Duration.listMove).easing(Ease.move)}
     >
       <Animated.View
         style={[styles.reveal, { backgroundColor: isPutBack ? theme.badSoft : theme.surfaceMuted }, revealStyle]}

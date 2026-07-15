@@ -29,6 +29,9 @@
  *     "owned" contract Surface.tsx uses for its material shadow) — they'd be fighting
  *     the animated style. Reduce-motion: shadow snaps to the resting tier, no compress
  *     animation (haptic still fires) — same contract the scale bounce already honors.
+ *   - `layout` (optional): passed straight through to the underlying AnimatedPressable
+ *     so a PressableScale can join a sibling `LinearTransition` group (e.g.
+ *     PlanTaskCard's footer button reflowing in sync with its rail/done-zone).
  */
 import React from 'react';
 import { Pressable, PressableProps, ViewStyle, StyleProp } from 'react-native';
@@ -54,6 +57,10 @@ type Props = PressableProps & {
   /** Resting elevation tier; PressableScale owns the shadow and compresses it toward
    *  flat on press. Omit for current no-shadow behavior. See Edit notes. */
   depth?: ElevationLevel;
+  /** Reanimated layout-transition passthrough (e.g. `LinearTransition`) — forwarded
+   *  as-is to the underlying AnimatedPressable so callers can keep this element in
+   *  sync with sibling layout animations. */
+  layout?: React.ComponentProps<typeof AnimatedPressable>['layout'];
   children?: React.ReactNode;
 };
 

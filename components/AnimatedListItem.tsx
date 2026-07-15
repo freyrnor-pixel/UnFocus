@@ -8,7 +8,7 @@
  * `useRef(false)` in the screen, flip it true in a mount `useEffect`, and pass `.current`.
  *
  * Connections:
- *   Imports → react-native-reanimated (FadeInDown/FadeOut/LinearTransition), constants/motion,
+ *   Imports → react-native-reanimated (FadeInDown/FadeOutDown/LinearTransition), constants/motion,
  *             lib/useAppTheme (useAccessibility)
  *   Used by → app/notes.tsx, app/(tabs)/health.tsx, app/inventory-edit.tsx, app/health-log.tsx
  *   Data    → none (driven by props)
@@ -17,11 +17,20 @@
  *   - reducedMotion drops entering/exiting/layout entirely (instant).
  *   - layout stays on whenever motion is allowed (even when `enabled` is false) so reflow on
  *     reorder/removal is smooth from the first frame; only the entrance is gated by `enabled`.
+ *   - **Easing (2026-07-15)**: entering/exiting/layout now call `.easing(Ease.enter/exit/move)`
+ *     explicitly, matching Collapsible.tsx's house pattern — previously these fell back to
+ *     Reanimated's default curve, which read as visually disconnected from the rest of the
+ *     app's `Ease.move`-timed reflows (surfaced via PlanTaskCard's expand/collapse feeling
+ *     "fragmented"; fixed there and here + ShoppingRow.tsx for consistency).
+ *   - **Exit direction (2026-07-15)**: `FadeOutDown` (not a static in-place `FadeOut`) so a
+ *     removed row reads as sliding away, not blinking out of existence — this app's motion
+ *     goal for a neurodivergent audience is that things retreat somewhere, they don't just
+ *     vanish (see PlanTaskCard.tsx's "Collapse feel" note for the fuller rationale).
  */
 import React from 'react';
 import { StyleProp, ViewStyle } from 'react-native';
-import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
-import { Duration } from '@/constants/motion';
+import Animated, { FadeInDown, FadeOutDown, LinearTransition } from 'react-native-reanimated';
+import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility } from '@/lib/useAppTheme';
 
 type Props = {
@@ -37,9 +46,9 @@ export default function AnimatedListItem({ children, enabled, style }: Props) {
   return (
     <Animated.View
       style={style}
-      entering={entrance ? FadeInDown.duration(Duration.listIn) : undefined}
-      exiting={reducedMotion ? undefined : FadeOut.duration(Duration.cardOut)}
-      layout={reducedMotion ? undefined : LinearTransition.duration(Duration.listMove)}
+      entering={entrance ? FadeInDown.duration(Duration.listIn).easing(Ease.enter) : undefined}
+      exiting={reducedMotion ? undefined : FadeOutDown.duration(Duration.cardOut).easing(Ease.exit)}
+      layout={reducedMotion ? undefined : LinearTransition.duration(Duration.listMove).easing(Ease.move)}
     >
       {children}
     </Animated.View>
