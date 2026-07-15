@@ -23,8 +23,8 @@
  *     transform/opacity and the entering/exiting/`layout` layout-animation primitives are
  *     reliable here — the same house pattern proven in AnimatedListItem/ShoppingRow. This file
  *     now uses those exclusively: no `height` math, no onLayout measurement, no first-open
- *     deferral needed. `ExpandableCard` still carries the old `height`-interpolation approach
- *     and shares this latent bug — migrate it the same way if its accordions misbehave.
+ *     deferral needed. `ExpandableCard` was migrated the same way (it now reuses this
+ *     component for its body reveal) — see its header.
  *   - Closing: when `open` flips false the Animated.View is removed from render; Reanimated
  *     plays `exiting` (FadeOut) before actually unmounting, so a collapsed instance renders
  *     null (lazy mount preserved).
