@@ -147,6 +147,10 @@ async function main() {
     console.log('> add a task (store logic check)');
     await page.getByRole('button', { name: 'Tasks', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
+    // The Whenever AddRow (the only add affordance on this screen) only renders under the
+    // "All tasks" tab — the default tab is "Today" (#186), which doesn't have it.
+    await clickText(page, 'All tasks');
+    await page.waitForTimeout(500);
     const taskTitle = `Preview check ${Date.now()}`;
     const taskInput = page.getByPlaceholder('New task').first();
     await taskInput.fill(taskTitle);
