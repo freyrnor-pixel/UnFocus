@@ -73,6 +73,7 @@ const en = {
   dayViewDoneZone: (n: number) => `Done today (${n})`,
   dayViewAllDone: 'All done for today',
   dayViewFollowerBadge: 'Then',
+  dayViewAnytimeBadge: 'Anytime',
   // Tasks / Oppgaver screen (app/(tabs)/plans.tsx + components/TaskCard.tsx)
   tasksTitle: 'Tasks',
   tasksTabAll: 'All tasks',
@@ -1231,6 +1232,7 @@ const no: typeof en = {
   dayViewDoneZone: (n: number) => `Ferdig i dag (${n})`,
   dayViewAllDone: 'Alt gjort for i dag',
   dayViewFollowerBadge: 'Så',
+  dayViewAnytimeBadge: 'Når som helst',
   // Oppgaver-skjerm (app/(tabs)/plans.tsx + components/TaskCard.tsx)
   tasksTitle: 'Oppgaver',
   tasksTabAll: 'Alle',

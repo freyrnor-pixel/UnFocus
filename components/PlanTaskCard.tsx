@@ -39,8 +39,10 @@
  * Connections:
  *   Imports → components/Surface, components/PressableScale, components/ProgressBar,
  *             components/HomePreviewEmpty, components/Collapsible + components/AnimatedChevron
- *             (done-zone reveal + chevron), react-native-reanimated (FadeInDown/FadeOut/
- *             LinearTransition for rail rows revealed by the Show more/less toggle),
+ *             (done-zone reveal + chevron), react-native-reanimated (FadeInDown/FadeOutDown/
+ *             LinearTransition for rail rows revealed by the Show more/less toggle — rail,
+ *             done-zone, and footer all share one `containerLayout` LinearTransition so the
+ *             whole card reflows together instead of siblings snapping ahead of the rows),
  *             constants/theme, constants/motion, lib/haptics, lib/i18n,
  *             lib/useAppTheme (incl. useAccessibility), lib/domainColor, store/useTaskStore (Task type only)
  *   Used by → app/(tabs)/index.tsx (Home — read-only preview off-focus per Decision 009a, and
@@ -53,14 +55,16 @@
  *             passed in. Live "now" marker re-renders on a 60s interval (useNowMinutes).
  *
  * Edit notes:
- *   - **Collapsed sizing + slimmer rows (2026-07-13)**: `cardCollapsed` (minHeight:
- *     `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) is a compact shared *resting* floor
- *     applied only while `!expanded`, so this card reads the same size as
- *     HomeNotesCard/HomeShoppingCard on a light day — it's a floor, not a cap, so an expanded
- *     task's steps or a widely time-spaced day still grows taller. Rail tuning
- *     (`PX_PER_MIN`/`MIN_GAP`/`MAX_GAP`) was trimmed and `contentCol`/`rowCard` vertical
- *     padding reduced for a visibly slimmer rail; this is Home-only now (see below), so
- *     retuning these constants has no other caller to break.
+ *   - **Collapsed sizing + slimmer rows (2026-07-13, padding restored 2026-07-15)**:
+ *     `cardCollapsed` (minHeight: `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) is a
+ *     compact shared *resting* floor applied only while `!expanded`, so this card reads the
+ *     same size as HomeNotesCard/HomeShoppingCard on a light day — it's a floor, not a cap, so
+ *     an expanded task's steps or a widely time-spaced day still grows taller. Rail tuning
+ *     (`PX_PER_MIN`/`MIN_GAP`/`MAX_GAP`) stays trimmed for a slimmer rail; this is Home-only
+ *     now (see below), so retuning these constants has no other caller to break. `rowCard`
+ *     vertical padding and `title`'s font size were bumped back up on 2026-07-15 (user
+ *     feedback: text/spacing read as too tight) — the slimness now comes from the rail-gap
+ *     tuning alone, not from cramped row content.
  *   - **Empty state**: an empty day (`showEmpty`) renders the shared `HomePreviewEmpty` (icon
  *     disc + `t.timelineEmpty`), filling the resting floor as one inviting block. The distinct
  *     "all done" state keeps its own `t.dayViewAllDone` line — it's a reward, not an empty card.
@@ -91,6 +95,11 @@
  *     full screen.
  *   - Anytime (untimed) tasks have no rail position; they render as plain dotted rows
  *     above the timed rail (same as DayTimeline). Only timed→timed gaps are proportional.
+ *     **Anytime badge (2026-07-15)**: the dashed `anytimeDot` rail marker on its own read as
+ *     an unexplained blank circle (user report), so untimed rows also carry a small "Anytime"
+ *     text pill in `titleRow` (vertical `renderRow` only — horizontal columns are too narrow,
+ *     same reasoning as the hint row above). The dot itself stays — it's still the rail's
+ *     required centered marker (Decision 042a) — this only adds a label alongside it.
  *   - **Completion feedback (2026-07-11, visual-audit)**: no card-level glow/bloom on
  *     completion — user feedback called the whole-card colour flash "too much"; the
  *     checkbox fill + strikethrough (plus the success() haptic in handleToggle) IS the
@@ -111,10 +120,19 @@
  *     the deepest surface (focus-pop). Per-row cards (`styles.rowCard`) aren't Surface
  *     instances here, so the surfaced-follower/"happening now" highlight stays a
  *     border/fill cue (unchanged) rather than a per-row elevation bump.
+ *   - **Collapse feel (2026-07-15)**: rows exit with `FadeOutDown` (not a plain in-place
+ *     `FadeOut`) — this app's motion goal for a neurodivergent audience is that things read
+ *     as *retreating to somewhere*, never blinking out of existence. A directional exit also
+ *     fixes a real bug: with a static fade, the "Done today" zone's `containerLayout` snap
+ *     into its new (shorter) position visually overlapped the still-fading row above it
+ *     ("covers half the task" — user report); sliding the exiting row down and out of the
+ *     way removes that overlap instead of just papering over it with a longer fade. Rail,
+ *     done-zone, and footer all sharing `containerLayout` (see Connections) is what makes the
+ *     whole card reflow as one card rather than several pieces animating on their own clocks.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeOutDown, LinearTransition } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
@@ -125,7 +143,7 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import { Task } from '@/store/useTaskStore';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
-import { Duration } from '@/constants/motion';
+import { Duration, Ease } from '@/constants/motion';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -394,9 +412,9 @@ export default function PlanTaskCard({
       <Animated.View
         key={task.id}
         style={styles.row}
-        entering={anim ? FadeInDown.duration(Duration.listIn) : undefined}
-        exiting={anim ? FadeOut.duration(Duration.cardOut) : undefined}
-        layout={anim ? LinearTransition.duration(Duration.listMove) : undefined}
+        entering={anim ? FadeInDown.duration(Duration.listIn).easing(Ease.enter) : undefined}
+        exiting={anim ? FadeOutDown.duration(Duration.cardOut).easing(Ease.exit) : undefined}
+        layout={anim ? LinearTransition.duration(Duration.listMove).easing(Ease.move) : undefined}
       >
         <View style={styles.lineCol}>
           <View style={[styles.railLine, { backgroundColor: hasTopLine ? theme.border : 'transparent' }]} />
@@ -425,6 +443,11 @@ export default function PlanTaskCard({
                 <Text style={[styles.durationText, { color: theme.textMuted }]}>–{minutesToLabel(timed.end)}</Text>
               )}
               {task.importance === 'essential' && !task.done && <Ionicons name="star" size={12} color={theme.accent} />}
+              {!timed && !task.done ? (
+                <View style={[styles.followerBadge, { backgroundColor: theme.surfaceMuted, borderColor: theme.border, borderWidth: 1 }]}>
+                  <Text style={[styles.followerBadgeText, { color: theme.textMuted }]}>{t.dayViewAnytimeBadge}</Text>
+                </View>
+              ) : null}
               {surfaced && !task.done ? (
                 <View style={[styles.followerBadge, { backgroundColor: domainColor.soft }]}>
                   <Text style={[styles.followerBadgeText, { color: domainColor.accent }]}>{t.dayViewFollowerBadge}</Text>
@@ -586,6 +609,11 @@ export default function PlanTaskCard({
   const showEmpty = pendingCount === 0 && doneTasks.length === 0;
   const allDone = pendingCount === 0 && doneTasks.length > 0;
 
+  // Shared with the rail/doneZone/footer so the whole card reflows in sync with the row-level
+  // layout transition above — otherwise these siblings snap instantly while rows are still
+  // fading, which is what made the done-zone appear to get "covered" by an exiting row.
+  const containerLayout = reducedMotion ? undefined : LinearTransition.duration(Duration.listMove).easing(Ease.move);
+
   return (
     <Surface
       surfaceContext="ambient"
@@ -632,18 +660,18 @@ export default function PlanTaskCard({
             {timedItems}
           </ScrollView>
         ) : (
-          <View style={styles.rail}>
+          <Animated.View style={styles.rail} layout={containerLayout}>
             {gapMarker}
             {anytimeItems}
             {timedItems}
-          </View>
+          </Animated.View>
         )}
 
         {/* Done zone — dimmed, collapsed by default (Decision 009a). Always the vertical
             row layout, even in horizontal mode — this is a secondary dropdown list, not
             the primary glance rail. */}
         {doneTasks.length > 0 ? (
-          <View style={styles.doneZone}>
+          <Animated.View style={styles.doneZone} layout={containerLayout}>
             <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97}>
               <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>{t.dayViewDoneZone(doneTasks.length)}</Text>
               <AnimatedChevron open={doneOpen} size={14} color={theme.textMuted} />
@@ -658,11 +686,16 @@ export default function PlanTaskCard({
                 })
               )}
             </Collapsible>
-          </View>
+          </Animated.View>
         ) : null}
 
         {showToggle ? (
-          <PressableScale style={styles.footerBtn} onPress={() => { tap(); setExpanded((v) => !v); }} scaleTo={0.97}>
+          <PressableScale
+            style={styles.footerBtn}
+            layout={containerLayout}
+            onPress={() => { tap(); setExpanded((v) => !v); }}
+            scaleTo={0.97}
+          >
             <Text style={[styles.footerBtnText, { color: theme.accent }]}>
               {expanded ? t.plansCollapse : t.plansExpand}
             </Text>
@@ -710,14 +743,14 @@ const baseStyles = StyleSheet.create({
   contentCol: { flex: 1, paddingHorizontal: Spacing.sm, paddingBottom: Spacing.sm },
   // Decision (visual-audit 2026-07-11): a subtle card behind each row's title/hint so
   // the rail reads as distinct items rather than text floating on the background.
-  rowCard: { borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 4 },
+  rowCard: { borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm },
   doneCol: { width: DONE_COL_WIDTH, alignItems: 'center', justifyContent: 'center' },
   // Dedicated connector row between two task rows — owns the proportional time-gap
   // height so it never has to be squeezed inside a row of variable content height.
   spacerRow: { flexDirection: 'row', alignItems: 'stretch' },
   spacerContent: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  title: { fontSize: FontSize.md, fontWeight: '500', flexShrink: 1 },
+  title: { fontSize: FontSize.lg, fontWeight: '500', flexShrink: 1 },
   durationText: { fontSize: FontSize.xs },
   followerBadge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 1 },
   followerBadgeText: { fontSize: FontSize.xs, fontWeight: '700' },
