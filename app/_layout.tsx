@@ -25,15 +25,16 @@
  *   - Cold-start hydration (2026-07-16): ALL 14 stores load EAGERLY and
  *     synchronously in one mount effect, right after initDb() + loadSettings().
  *     The old Tier A / Tier B split (Tier B deferred via
- *     InteractionManager.runAfterInteractions) was removed: the pager now mounts
- *     all five tab screens up front (lazy:false — see app/(tabs)/_layout.tsx),
- *     so EVERY screen needs its data in memory before first paint, or content
- *     visibly "loads in" the first time you navigate to a screen. Deferring
- *     Catalog/Meal in particular stranded Shopping (a PRIMARY tab, not "2+ swipes
- *     from Home") with an empty catalogue/food list on first visit — the exact
- *     pop-in this eager load fixes. All loads are synchronous getAllSync scans
- *     over small local tables, and they run behind the render gate below, so
- *     they cost a few ms of the launch window, not an interactive-frame stall.
+ *     InteractionManager.runAfterInteractions) was removed because deferring
+ *     Catalog/Meal stranded Shopping (a PRIMARY tab, not "2+ swipes from Home")
+ *     with an empty catalogue/food list on first visit — content visibly "loaded
+ *     in" the first time you navigated there. Loading every store eagerly means
+ *     any screen mounts with its data already in memory. All loads are
+ *     synchronous getAllSync scans over small local tables, and they run behind
+ *     the render gate below, so they cost a few ms of the launch window, not an
+ *     interactive-frame stall. (Companion change tracked separately: pre-mounting
+ *     all five tab screens via lazy:false in app/(tabs)/_layout.tsx, so navigation
+ *     reveals an already-rendered tree — held pending on-device tap verification.)
  *   - Render is gated on BOTH fonts AND settings `loaded` (see the return near the
  *     bottom): until both are ready we paint a plain themed backdrop, not `null`
  *     and not a half-empty app. Because the load effect flips `loaded` only after
@@ -134,11 +135,10 @@ export default function RootLayout() {
 
   // One-shot cold-start bootstrap. initDb() first, then settings, then EVERY
   // other store — all synchronous SQLite scans, all eager (no InteractionManager
-  // defer, no Tier A/B split). The pager mounts all five tab screens up front
-  // (lazy:false), so each screen must have its data in memory before it mounts or
-  // content visibly "loads in" on first navigation. loadSettings() flips `loaded`
-  // (batched with the store sets into a single re-render), and render is gated on
-  // `loaded` below, so this whole block finishes before any tab screen mounts.
+  // defer, no Tier A/B split), so any screen mounts with its data already in
+  // memory instead of popping it in on first navigation. loadSettings() flips
+  // `loaded` (batched with the store sets into a single re-render), and render is
+  // gated on `loaded` below, so this whole block finishes before the tabs mount.
   // useAutomationStore is included so `shopping_opened` / `task_completed`
   // triggers are live from launch. Per-screen focus-loads stay as safety nets.
   useEffect(() => {
