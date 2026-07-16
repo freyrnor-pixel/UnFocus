@@ -1,8 +1,63 @@
 # Header clip — debugging log (2026-07-16)
 
-**Status: FIX #7 SHIPPED (root cause found in RN source) — awaiting on-device confirmation.**
-This file is now committed to the repo (it was previously lost with an ephemeral session
+**Status: FIX #8 SHIPPED — TRUE root cause found and reproduced headlessly in real Yoga.**
+This file is committed to the repo (it was previously lost with an ephemeral session
 container); keep updating it here until the bug is confirmed dead on device.
+
+## Round 3 (2026-07-16, later) — THE root cause: `flex: 1` on the title Text
+
+**#199 (fix #7) FAILED on device** (bundle 019f6a58 confirmed): user screenshot shows the
+same straight-line bottom crop on "Hjem", Settings header still missing, and "Fokus-modus"
+label reported too small. Screenshot analysis: the controls (ⓘ / Fokus-modus / gear) in the
+SAME band are NOT cut; below the cut is band-bg filler. So the crop line is a box boundary
+that none of seven font/band fixes ever moved — not text metrics.
+
+**Root cause (reproduced in real Yoga, headlessly — first true repro of this bug):**
+`styles.title` had **`flex: 1` on the Text itself**. Harmless while the Text was a direct
+child of the header ROW (main axis = width). But commit `ce90fd8` (Jul 13 — debug notes)
+wrapped the title in DebugNoteAnchor/`titleWrap`, a **COLUMN** View → `flex:1` became
+**flexBasis:0 on the HEIGHT**. Yoga simulation (yoga-layout@3, exact subtree:
+headerBlock→outer(flex:1)→mask(flexGrow:1)→row(center,pad 8)→titleWrap(flex:1)→Text):
+
+| | Text frame | row | measureFunc called? |
+|---|---|---|---|
+| with `flex:1` on Text | **0dp tall** | 40dp (icons+padding only) | **NO — never** |
+| without | 41dp | 57dp | yes |
+
+Android paints the StaticLayout glyphs from the zero-height frame and they slice in a
+straight line (~40dp region — matches the screenshot's cut). **The text measure function
+is never even called**, so no fontSize/lineHeight/includeFontPadding/band change could
+ever matter — the entire 7-fix history was fighting a layout bug with font tools.
+Browser flexbox (react-native-web) resolves flex-basis:0 children of auto-height
+containers from their content contribution (41px measured) — web could never reproduce
+this **by construction** (different layout engine, not just different font metrics).
+
+Timeline confirms: wrapper added Jul 13 → first clip report Jul 14-15 → all fixes after.
+Also unifies the Settings report: Android's sub-tier header is title-only (no back link,
+no gear) — 0dp title + white glass band on Settings' white plainBackground = "no header
+at all."
+
+**Fix #8 (this round):**
+- Removed `flex: 1` from `styles.title` (width was always owned by titleWrap's flex:1).
+- Debug mode now also draws colored outlines: **BLUE** = headerBlock band
+  (ScreenScaffold), **RED** = header Surface edge, **GREEN** = title Text frame. With the
+  magenta numbers caption, one screenshot pins any remaining clip to its exact box.
+- `focusLabel` FontSize.xs→sm (tester: "Fokus-modus too small").
+- Yoga sim script preserved below for re-running (scratchpad-only, not committed as code).
+
+The #199 changes (allowFontScaling={false} + verbatim getHeaderMetrics values) stay —
+the SP double-scaling was a second real defect, just not the visible one.
+
+<details><summary>Yoga simulation script (yoga-layout@3)</summary>
+
+Model headerBlock(h=HEADER_HEIGHT+inset, padTop=inset) → outer(flex:1) →
+mask(flexGrow:1, alignSelf:stretch, overflow:hidden) → row(row, alignItems:center,
+padV 8, padH 16, gap 16) → [titleWrap(flex:1) → Text(measureFunc h=41)] +
+controls(120×24). Toggle `text.setFlex(1)` and compare `getComputedHeight()`.
+Result above; measureFunc is skipped entirely when flex:1 is set.
+</details>
+
+---
 
 ## Session 2 (2026-07-16, branch `claude/header-clip-debug-mjhzqx`) — the double-scaling root cause
 

@@ -50,18 +50,21 @@
  *     rounded-card corners had no floating card to belong to and, once the glass fill
  *     was stretched flush against the first content row, read as chopped-off corners.
  *     Don't re-add rounding here without also reintroducing a gap below the header.
- *   - **Header title clip — the full story (2026-07-16, see HEADER_CLIP_DEBUG.md)**: the
- *     title Text sets `allowFontScaling={false}` and takes its fontSize AND lineHeight
- *     verbatim from `getHeaderMetrics` (which applies the capped OS font scale itself, once).
- *     With RN's own scaling left on, Android treats the style lineHeight as SP and multiplies
- *     it by the font scale AGAIN (`TextAttributes.effectiveLineHeight`) — the pre-scaled line
- *     box got double-scaled (57 → ~80px at 1.4×) past the single-scaled band (89px) and the
- *     bottom clipped in a straight line on enlarged-text devices. react-native-web never
- *     applies the SP conversion, which is why no web preview could ever reproduce it and
- *     fixes #189/#194/#195/#198 all shipped "verified" but broken. `includeFontPadding:
- *     false` + `textAlignVertical: 'center'` (#198) are kept — correct on their own. Debug
- *     mode additionally renders a numbers-only diagnostics caption in the band (fontScale /
- *     applied sizes / measured onLayout box) so testers can screenshot real device geometry.
+ *   - **Header title clip — the full story (2026-07-16, see HEADER_CLIP_DEBUG.md)**: TWO
+ *     real defects, fixed in rounds. (1) THE root cause: `styles.title` had `flex: 1` — once
+ *     the Text was wrapped in titleWrap (a COLUMN View, added with DebugNoteAnchor Jul 13),
+ *     that meant flexBasis:0 on its HEIGHT; Yoga (Android) then computes the Text frame 0dp
+ *     tall WITHOUT ever calling the text measure function, so the glyphs paint from a
+ *     zero-height frame and slice in a straight line — immune to every font/band fix, and
+ *     invisible on react-native-web (browser flexbox resolves the same style from content).
+ *     Do NOT re-add flex to the title Text. (2) Also real: with `allowFontScaling` on,
+ *     Android treats style lineHeight as SP and multiplies by the font scale AGAIN
+ *     (`TextAttributes.effectiveLineHeight`), so the title takes fontSize AND lineHeight
+ *     verbatim (pre-scaled once by `getHeaderMetrics`) with `allowFontScaling={false}`.
+ *     `includeFontPadding: false` + `textAlignVertical: 'center'` (#198) are kept. Debug
+ *     mode renders a numbers caption (fontScale/sizes/onLayout box) + colored outlines
+ *     (BLUE band in ScreenScaffold, RED Surface edge, GREEN title frame) so one tester
+ *     screenshot pins any remaining clip to its exact box.
  *   - **Debug notes (2026-07-13, replaces the old DebugOverlay)**: the title is wrapped in
  *     DebugNoteAnchor keyed off the (translated) `title` string — see that component's own
  *     edit note on the language-switch caveat this implies. The export icon (site-tier only)
@@ -318,7 +321,12 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
           double-scaling the line box past the single-scaled band = the header clip bug. */}
       <Text
         allowFontScaling={false}
-        style={[styles.title, { color: theme.text, textAlign: align, fontSize: titleFontSize, lineHeight: titleLineHeight }]}
+        style={[
+          styles.title,
+          { color: theme.text, textAlign: align, fontSize: titleFontSize, lineHeight: titleLineHeight },
+          // Debug mode: GREEN outline = the title Text's own frame (see debugCaption note).
+          debugModeEnabled && styles.debugTitleOutline,
+        ]}
         numberOfLines={1}
         onLayout={onTitleLayout}
       >
@@ -342,7 +350,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
       </View>
     );
     return (
-      <Surface surfaceContext="overlay" style={[styles.header, style]}>
+      <Surface surfaceContext="overlay" style={[styles.header, style]} borderColor={debugModeEnabled ? '#FF3B30' : undefined}>
         {leftHanded ? (
           <>
             {controlsGroup}
@@ -362,7 +370,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // Sub tier: back link (iOS) leftmost, title immediately right of it and left-aligned,
   // right slot for the screen-specific action. Not mirrored (back link is platform-fixed).
   return (
-    <Surface surfaceContext="overlay" style={[styles.header, style]}>
+    <Surface surfaceContext="overlay" style={[styles.header, style]} borderColor={debugModeEnabled ? '#FF3B30' : undefined}>
       {Platform.OS === 'ios' && onBack ? (
         <PressableScale onPress={onBack} hitSlop={8} scaleTo={0.97}>
           <Text style={[styles.back, { color: theme.accent }]}>{t.back}</Text>
@@ -402,11 +410,21 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   focusLabel: {
-    fontSize: FontSize.xs,
+    // sm, not xs (2026-07-16): the tester reported the "Fokus-modus" label too small
+    // next to the (correctly sized) title.
+    fontSize: FontSize.sm,
     fontWeight: '600',
   },
   title: {
-    flex: 1,
+    // ⚠️ NO `flex: 1` here — THE root cause of the 7-fix header-clip saga (2026-07-16,
+    // HEADER_CLIP_DEBUG.md round 2). This Text sits inside titleWrap (a COLUMN View via
+    // DebugNoteAnchor), so flex:1 meant flexBasis:0 on its HEIGHT. Real-Yoga simulation
+    // proved Android then computes the Text frame at 0dp tall WITHOUT EVER CALLING the
+    // text measure function — the glyphs paint from a zero-height frame and get sliced
+    // in a straight line, immune to every fontSize/lineHeight/band fix. Browser flexbox
+    // (react-native-web) resolves the same style from content (41dp), so web never
+    // reproduced it. Width is owned by titleWrap's flex:1 on the row axis; the Text
+    // needs no flex at all.
     fontFamily: Fonts.bold,
     // fontSize AND lineHeight are applied INLINE from getHeaderMetrics (pre-scaled), with
     // `allowFontScaling={false}` on the Text — see the comment at titleNode and the
@@ -440,6 +458,15 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: '#E91E63',
     zIndex: 10,
+  },
+  // Debug-mode outline for the title Text frame (GREEN). Together with the RED Surface
+  // edge (borderColor prop on the header Surface) and the BLUE headerBlock outline in
+  // ScreenScaffold, a single tester screenshot shows exactly which box clips: cut at
+  // green = the Text frame; at red = the Surface mask; at blue = the band; at none of
+  // them = an overlapping foreign view.
+  debugTitleOutline: {
+    borderWidth: 1,
+    borderColor: '#00C853',
   },
   back: {
     fontSize: FontSize.md,

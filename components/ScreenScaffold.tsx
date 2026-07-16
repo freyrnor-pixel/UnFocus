@@ -10,7 +10,7 @@
  *   Imports → react-native, react-native-safe-area-context, components/ScreenBackground, components/HomeHeroBackground,
  *             components/ParticleBackground, components/ScreenHeader (now also passed `isHome`, so
  *             ScreenHeader can gate its OTA "update available" button to Home only), components/BottomNav,
- *             lib/useAppTheme
+ *             lib/useAppTheme, store/useSettingsStore (debugModeEnabled → debug band outline)
  *   Used by → every app screen (app/(tabs)/index.tsx, app/(tabs)/shopping.tsx, etc.); also
  *             exports ScrollToEndContext, consumed by components/AddRow.tsx to scroll
  *             itself above the keyboard on focus (see that Edit note below)
@@ -102,6 +102,7 @@ import { NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform, ScrollVi
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getHeaderMetrics } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
@@ -203,6 +204,9 @@ export default function ScreenScaffold({
   // explicitly. (The in-flow ScrollView still gets its inset padding from the
   // SafeAreaView, so scroll content keeps clearing the bars as before.)
   const insets = useSafeAreaInsets();
+  // Debug-mode band outline (see the headerBlock style below). Field selector, so this
+  // only re-renders when the toggle itself flips.
+  const debugModeEnabled = useSettingsStore((s) => s.debugModeEnabled);
   // Belt-and-suspenders for Android: if safe-area-context under-reports the top
   // inset (it can read 0 before the first window-insets dispatch), fall back to
   // the reliable native status-bar height so the header never sits behind the
@@ -289,6 +293,10 @@ export default function ScreenScaffold({
         styles.headerBlock,
         { height: HEADER_HEIGHT + topInset, paddingTop: topInset, backgroundColor: bgColor },
         plainBackground && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },
+        // Debug mode: BLUE outline = the header band's extent. Legend with the RED
+        // (Surface) + GREEN (title frame) outlines in ScreenHeader.tsx — one tester
+        // screenshot then shows exactly which box any clipping belongs to.
+        debugModeEnabled && styles.debugBandOutline,
       ]}>
         <ScreenHeader
           style={styles.headerFill}
@@ -361,5 +369,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100,
+  },
+  // Debug-mode-only header-band outline (BLUE) — see the legend note on headerBlock above.
+  debugBandOutline: {
+    borderWidth: 1,
+    borderColor: '#2962FF',
   },
 });
