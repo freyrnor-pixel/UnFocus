@@ -10,7 +10,9 @@
  * `settings.particlesEnabled` is false or `reducedMotion` is true.
  *
  * Connections:
- *   Imports → assets/bg-dark.png, assets/bg-light.png, lib/useAppTheme (useIsDark, useAccessibility), store/useSettingsStore
+ *   Imports → assets/bg-dark.png, assets/bg-light.png, expo-image (ImageBackground — cached,
+ *             replaces RN's so the backdrop decodes once and is instant across screens),
+ *             lib/useAppTheme (useIsDark, useAccessibility), store/useSettingsStore
  *   Used by → components/ScreenScaffold (L2, first child inside SafeAreaView, for
  *             sub-tier and non-pager site screens); app/(tabs)/_layout.tsx (hoisted,
  *             one shared instance behind the whole pager — see that file's header)
@@ -38,24 +40,22 @@
  *     content's own colour. The near-neutral theme.bg base shows through from
  *     ScreenBackground underneath, so domain-coloured cards/section pills/accents pop.
  *     Tune the two opacity values here to dial the backdrop's presence up/down.
- *   - **react-native-web gotcha (found via the web preview harness):** ImageBackground's
- *     `style` prop must include explicit `width: '100%', height: '100%'` alongside
- *     `StyleSheet.absoluteFill`. RNW's ImageBackground only reapplies whatever width/height
- *     it finds already flattened on the OUTER `style` prop to override the inner `<Image>`'s
- *     own baked-in intrinsic asset size (see its "Temporary Workaround" comment in
- *     node_modules/react-native-web/dist/exports/ImageBackground); `absoluteFill` alone
- *     carries no width/height, so without this the background rendered at bg-*.png's raw
- *     390×844 pixel size instead of stretching, leaving a gap down the right edge on any
- *     viewport wider than that. No effect on native (Image already fills its bounds there).
+ *   - **Cached backdrop (expo-image):** this uses `ImageBackground` from expo-image, not
+ *     react-native, for its memory+disk decoded-bitmap cache — so the backdrop decodes
+ *     once (warmed at boot in app/_layout.tsx's Asset.loadAsync) and paints instantly on
+ *     every screen that mounts an instance, instead of each pushed sub-screen re-decoding
+ *     + fading its own copy. `transition={0}` disables the cross-fade; `contentFit="cover"`
+ *     replaces RN's `resizeMode`. The explicit `width/height: '100%'` on `style` is kept as
+ *     a harmless belt-and-braces for the web preview harness's layout.
  */
 import React, { useEffect, useRef } from 'react';
 import {
   Animated,
   Easing,
-  ImageBackground,
   StyleSheet,
   View,
 } from 'react-native';
+import { ImageBackground } from 'expo-image';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -201,12 +201,15 @@ export default function ParticleBackground() {
         source={isDark ? bgPair.dark : bgPair.light}
         style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
         imageStyle={{ opacity: isDark ? 0.4 : 0.3 }}
-        resizeMode="cover"
-        // Android's Image fades in ~300ms by default; every pushed sub-screen mounts a
-        // fresh instance of this, so that fade read as the backdrop "loading in" on each
-        // navigation. 0 = paint immediately (no-op on iOS). Pairs with the boot-time
-        // Asset.loadAsync warm-cache in app/_layout.tsx so the bitmap is already decoded.
-        fadeDuration={0}
+        contentFit="cover"
+        // expo-image (not RN's ImageBackground): keeps a memory+disk decoded-bitmap
+        // cache, so the same backdrop is instant on every screen that mounts one instead
+        // of each pushed sub-screen re-decoding + fading its own copy (the "each screen
+        // loads in" symptom). transition={0} disables the cross-fade so a cached bitmap
+        // paints on the first frame; recyclingKey swaps the light/dark asset cleanly.
+        cachePolicy="memory-disk"
+        transition={0}
+        recyclingKey={isDark ? 'bg-dark' : 'bg-light'}
       >
         {showParticles && (
           <>
