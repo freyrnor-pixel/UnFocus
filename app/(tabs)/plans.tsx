@@ -51,7 +51,11 @@
  *     AddRow in the Today section (dates the task today) and each This-week day group (dates it
  *     that weekday), so tasks can be made from Today/This week — not only as undated Whenever
  *     tasks from the All tab. All tabs read the one store, so a new task shows everywhere at
- *     once (its day group, Today, and the All tab's Whenever) with no extra sync.
+ *     once (its day group, Today, and the All tab's Whenever) with no extra sync. The add row
+ *     is passed to `<DoneSplitList footer=…>` (not rendered after it), so within a section the
+ *     order is unfinished tasks → add row → collapsed "Done" zone — the active/white containers
+ *     stay grouped and the green "Done" zone always sits last, instead of green being sandwiched
+ *     between the tasks and the add row (2026-07-16 color-order fix).
  *   - **Color-rail redesign (2026-07-13)**: section order is now **Whenever → Repeating →
  *     Shared**. Headers are `<SectionRail>` (a hue dot + label + count); each section's cards
  *     wear a matching `railColor` left edge (TaskCard's `railColor` prop) so a card visibly
@@ -125,10 +129,18 @@ function DoneSplitList({
   tasks,
   emptyText,
   renderCard,
+  footer,
 }: {
   tasks: Task[];
   emptyText: string;
   renderCard: (tk: Task) => React.ReactNode;
+  /**
+   * Rendered right after the unfinished cards and *before* the collapsed "Done" zone
+   * (e.g. the inline add-a-task row). Keeps the active/white containers grouped together
+   * so the green "Done" zone always sits at the bottom of the section, not sandwiched
+   * between the tasks and the add row. Also shown in the empty state (below the placeholder).
+   */
+  footer?: React.ReactNode;
 }) {
   const theme = useAppTheme();
   const t = useT();
@@ -138,15 +150,19 @@ function DoneSplitList({
 
   if (tasks.length === 0) {
     return (
-      <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-        {emptyText}
-      </Text>
+      <>
+        <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+          {emptyText}
+        </Text>
+        {footer}
+      </>
     );
   }
 
   return (
     <>
       {unfinished.length > 0 && <View style={styles.cardStack}>{unfinished.map(renderCard)}</View>}
+      {footer}
       {finished.length > 0 && (
         <View style={[styles.doneZone, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           {/* "Done" reads as a peer of the Whenever / Recurring / day sub-headers — same
@@ -466,15 +482,16 @@ export default function TasksScreen() {
           <>
             <View style={styles.section}>
               <SectionRail hue={theme.accent} label={t.tasksTabToday} count={todayList.length} />
+              {/* Add row sits between the tasks and the collapsed "Done" zone (DoneSplitList
+                  footer) so the active/white containers stay grouped and green "Done" is last. */}
               <DoneSplitList
                 tasks={todayList}
                 emptyText={t.noPlansToday}
+                footer={<InlineTaskAdd date={today} accent={theme.accent} assignee={personFilter ?? ''} wrapped />}
                 renderCard={(tk) => (
                   <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={handleToggleDone} />
                 )}
               />
-              {/* Make a task straight into today (dated today), not only as an undated Whenever task. */}
-              <InlineTaskAdd date={today} accent={theme.accent} assignee={personFilter ?? ''} wrapped />
             </View>
 
             <View style={styles.section}>
@@ -496,15 +513,15 @@ export default function TasksScreen() {
             {weekGroups.map((group, i) => (
               <View key={group.date} style={styles.section}>
                 <SectionRail hue={theme.accent} label={t.dayFull[i]} count={group.tasks.length} />
+                {/* Add row between tasks and the collapsed "Done" zone — same grouping as Today. */}
                 <DoneSplitList
                   tasks={[...group.tasks].sort(byTime)}
                   emptyText={t.tasksDayEmpty}
+                  footer={<InlineTaskAdd date={group.date} accent={theme.accent} assignee={personFilter ?? ''} wrapped />}
                   renderCard={(tk) => (
                     <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={handleToggleDone} />
                   )}
                 />
-                {/* Make a task straight into this weekday (dated that day). */}
-                <InlineTaskAdd date={group.date} accent={theme.accent} assignee={personFilter ?? ''} wrapped />
               </View>
             ))}
 
