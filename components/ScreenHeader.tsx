@@ -50,15 +50,17 @@
  *     rounded-card corners had no floating card to belong to and, once the glass fill
  *     was stretched flush against the first content row, read as chopped-off corners.
  *     Don't re-add rounding here without also reintroducing a gap below the header.
- *   - **Title descender clip (2026-07-16)**: the title's `lineHeight` comes inline from
- *     `getHeaderMetrics(fontScale)` (constants/theme.ts), NOT hardcoded in `styles.title`.
- *     Two clippers fight here: (1) a static lineHeight goes tighter than Nunito Bold's
- *     descenders as the font scales up (global maxFontSizeMultiplier 1.4 in app/_layout.tsx)
- *     and chops g/j/p/q/y ("Hjem"→"Hiem"); (2) a lineHeight generous enough for the glyph
- *     then overflows the header band, so ScreenScaffold's glass Surface (overflow:hidden)
- *     clips the bottom instead. getHeaderMetrics scales BOTH the line box and the band
- *     (ScreenScaffold's HEADER_HEIGHT) from the same font scale so neither can clip — keep
- *     them sourced from that one helper, don't reintroduce a fixed px value in either place.
+ *   - **Header title clip — the REAL fix (2026-07-16)**: `styles.title` sets
+ *     `includeFontPadding: false`. Android adds font-metric padding (default true) on top of
+ *     lineHeight and offsets the glyph down inside the numberOfLines=1 box, so it crops the
+ *     title's bottom in a straight line. It's Android-only — react-native-web renders the
+ *     text box exactly `lineHeight` tall (verified in the web preview: no clip at any scale),
+ *     which is why three earlier lineHeight/HEADER_HEIGHT "sizing-math" fixes never worked;
+ *     none touched includeFontPadding. The inline `lineHeight` (from `getHeaderMetrics`,
+ *     1.45 ratio, scales with the OS text size) still gives descenders (j/g/p/y) and top
+ *     accents (å/ø) room within the line box; `textAlignVertical: 'center'` centers the glyph
+ *     in it. Keep `includeFontPadding: false` — removing it re-introduces the clip on Android.
+ *     (The getHeaderMetrics band scaling in ScreenScaffold is kept as harmless headroom.)
  *   - **Debug notes (2026-07-13, replaces the old DebugOverlay)**: the title is wrapped in
  *     DebugNoteAnchor keyed off the (translated) `title` string — see that component's own
  *     edit note on the language-switch caveat this implies. The export icon (site-tier only)
@@ -374,11 +376,19 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FontSize.xxl,
     fontFamily: Fonts.bold,
-    // lineHeight is applied INLINE (see `titleLineHeight` in the component) so it scales
-    // with the OS text-size setting. A static px value here (previously 36) went tighter
-    // than Nunito Bold's descenders as the font scaled up, clipping g/j/p/q/y bottoms — the
-    // "Hjem"→"Hiem" bug. Bumping HEADER_HEIGHT alone (ScreenScaffold.tsx) never fixed it
-    // because the clip is inside the Text's own line box, not the outer header band.
+    // THE actual header-clip fix (2026-07-16, after 3 sizing-math attempts failed):
+    // `includeFontPadding: false`. On Android that extra font-metric padding (default true,
+    // set nowhere else in the app) is added ON TOP OF lineHeight and offsets the glyph down
+    // inside the numberOfLines=1 box, so Android crops the bottom in a straight line — the
+    // real "cut headers" bug. It's Android-only, so react-native-web never reproduced it
+    // (web Text height == lineHeight exactly, verified in the preview); every lineHeight/
+    // HEADER_HEIGHT tweak missed it because none touched includeFontPadding. Turning it off
+    // makes Android's text box == lineHeight (like web); the generous scaled lineHeight
+    // (getHeaderMetrics, 1.45 ratio) already reserves room for descenders (j/g/p/y) AND
+    // top accents (å/ø), and textAlignVertical centers the glyph in that box.
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    // lineHeight is applied INLINE (see `titleLineHeight`) so it scales with the OS text size.
   },
   titleWrap: {
     flex: 1,
