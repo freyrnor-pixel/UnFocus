@@ -22,28 +22,25 @@
  *   Used by → router layout — defines the Stack
  *
  * Edit notes:
- *   - Settings load first (own effect, mount-only); a second effect keyed on
- *     `loaded` fires the rest of the app-wide bootstrap once settings have
- *     hydrated, split into two tiers so the 14 synchronous full-table SQLite
- *     scans don't all compete with the very first interactive frame:
- *       - Tier A (synchronous, same tick): Automation, Task, Shopping,
- *         ShoppingList, Shared, Habit, Health — covers Home plus its pager
- *         neighbors Plans and Health (the screens a user reaches first via
- *         BottomNav or an early swipe — see app/(tabs)/_layout.tsx's Edit
- *         notes on why they're no longer preload-mounted ahead of time),
- *         so nothing on those three screens ever renders empty on first
- *         visit even without preloading. Crucially includes
- *         useAutomationStore.load() so `shopping_opened` / `task_completed`
- *         triggers are live from launch, not only after the user visits a
- *         screen that happens to load that store first.
- *       - Tier B (deferred via InteractionManager.runAfterInteractions):
- *         Catalog, Feedback, Inbox, Meal, Notes, Peers, Receipt — only back
- *         screens 2+ swipes from Home (Shopping's catalog autocomplete, Scan's
- *         receipt parsing) or non-tab screens (Notes, Automations), so a beat
- *         of extra latency here is imperceptible.
- *   - Render is NOT gated on these loads (unlike the font load) — screens already
- *     tolerate hydrating stores via their own guarded focus-loads, which stay in
- *     place as redundant safety nets, not dead code.
+ *   - Cold-start hydration (2026-07-16): ALL 14 stores load EAGERLY and
+ *     synchronously in one mount effect, right after initDb() + loadSettings().
+ *     The old Tier A / Tier B split (Tier B deferred via
+ *     InteractionManager.runAfterInteractions) was removed: the pager now mounts
+ *     all five tab screens up front (lazy:false — see app/(tabs)/_layout.tsx),
+ *     so EVERY screen needs its data in memory before first paint, or content
+ *     visibly "loads in" the first time you navigate to a screen. Deferring
+ *     Catalog/Meal in particular stranded Shopping (a PRIMARY tab, not "2+ swipes
+ *     from Home") with an empty catalogue/food list on first visit — the exact
+ *     pop-in this eager load fixes. All loads are synchronous getAllSync scans
+ *     over small local tables, and they run behind the render gate below, so
+ *     they cost a few ms of the launch window, not an interactive-frame stall.
+ *   - Render is gated on BOTH fonts AND settings `loaded` (see the return near the
+ *     bottom): until both are ready we paint a plain themed backdrop, not `null`
+ *     and not a half-empty app. Because the load effect flips `loaded` only after
+ *     it has finished hydrating every store, the gate guarantees no tab screen
+ *     mounts before its data exists — killing the first-navigation flicker at the
+ *     source rather than masking it. Screens keep their guarded focus-loads as
+ *     redundant safety nets.
  *   - Onboarding guard: once settings.loaded is true and setupComplete is false, and we
  *     aren't already under /onboarding, redirect to /onboarding/language. segments are
  *     read inside the effect as a guard, intentionally kept out of its deps.
@@ -66,7 +63,7 @@
  *     of a single global overlay mount.
  */
 import React, { useEffect, useRef } from 'react';
-import { AppState, InteractionManager, Text as RNText, TextInput as RNTextInput } from 'react-native';
+import { AppState, Text as RNText, TextInput as RNTextInput, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -135,22 +132,19 @@ export default function RootLayout() {
     Nunito_800ExtraBold,
   });
 
+  // One-shot cold-start bootstrap. initDb() first, then settings, then EVERY
+  // other store — all synchronous SQLite scans, all eager (no InteractionManager
+  // defer, no Tier A/B split). The pager mounts all five tab screens up front
+  // (lazy:false), so each screen must have its data in memory before it mounts or
+  // content visibly "loads in" on first navigation. loadSettings() flips `loaded`
+  // (batched with the store sets into a single re-render), and render is gated on
+  // `loaded` below, so this whole block finishes before any tab screen mounts.
+  // useAutomationStore is included so `shopping_opened` / `task_completed`
+  // triggers are live from launch. Per-screen focus-loads stay as safety nets.
   useEffect(() => {
+    const t0 = __DEV__ ? Date.now() : 0;
     try { initDb(); } catch { /* DB init failed — proceed anyway */ }
     loadSettings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // App-wide startup store loads, once settings have hydrated. Split into two
-  // tiers (see file header) so the full boot preload doesn't block the first
-  // interactive frame in one large synchronous clump. Per-screen focus-loads
-  // remain as redundant safety nets.
-  useEffect(() => {
-    if (!loaded) return;
-    // Tier A: Home + its lazy-preloaded pager neighbors (Plans, Health) need
-    // these ready before the tabs pager mounts. Includes useAutomationStore so
-    // triggers (shopping_opened, task_completed) are live from launch instead
-    // of only after visiting a screen that self-loads them.
     useAutomationStore.getState().load();
     useTaskStore.getState().load();
     useShoppingStore.getState().load();
@@ -158,22 +152,22 @@ export default function RootLayout() {
     useSharedStore.getState().load();
     useHabitStore.getState().load();
     useHealthStore.getState().load();
-    // Today's tasks/shopping are ready now: push them to the home-screen
-    // widgets + the persistent overview notification.
+    useCatalogStore.getState().load();
+    useMealStore.getState().load();
+    useNotesStore.getState().load();
+    useInboxStore.getState().load();
+    useReceiptStore.getState().load();
+    usePeersStore.getState().load();
+    useFeedbackStore.getState().load();
+    // Today's tasks/shopping are ready now: push them to the home-screen widgets
+    // + the persistent overview notification.
     void syncWidgetsAndOverview();
-    // Tier B: only back screens 2+ swipes from Home or non-tab screens —
-    // deferred a beat so they don't compete with the first paint.
-    InteractionManager.runAfterInteractions(() => {
-      useCatalogStore.getState().load();
-      useFeedbackStore.getState().load();
-      useInboxStore.getState().load();
-      useMealStore.getState().load();
-      useNotesStore.getState().load();
-      usePeersStore.getState().load();
-      useReceiptStore.getState().load();
-    });
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log(`[perf] cold-start boot (initDb + 14 store loads): ${Date.now() - t0}ms`);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded]);
+  }, []);
 
   // LAN live-sync (Decision 038 app integration): start/stop lib/syncService's
   // transport as the settings toggle flips, once a stable deviceId exists (settings
@@ -229,7 +223,15 @@ export default function RootLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, setupComplete]);
 
-  if (!fontsLoaded) return null;
+  // Gate render on fonts AND settings hydration. The boot effect above finishes
+  // loading every store before it flips `loaded`, so once this gate passes, all
+  // five pre-mounted tab screens mount with their data already in memory — no
+  // empty-then-fill flicker. Until then we paint a plain themed backdrop (not a
+  // blank/`null` frame and not a half-empty app) so the cold launch reveals a
+  // fully-populated app in one step.
+  if (!fontsLoaded || !loaded) {
+    return <View style={{ flex: 1, backgroundColor: theme.bg }} />;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

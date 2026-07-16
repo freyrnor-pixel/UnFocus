@@ -44,21 +44,26 @@
  *     `createMaterialTopTabNavigator` from `@react-navigation/material-top-tabs` — the
  *     latter breaks both `eas update` and `eas build` at the bundling step. `TopTabs`
  *     wraps the identical react-native-tab-view/-pager-view stack internally.
- *   - `lazy: true` mounts each site on first visit only (not all 5 at launch), but
- *     material-top-tabs keeps a visited site mounted (translated off-screen) afterwards —
- *     that persistence is what makes the swipe instant on repeat visits; watch memory on
- *     low-end Android if this becomes an issue later.
- *   - **`lazyPreloadDistance` REVERTED (2026-07-13)**: briefly set to `1` to preload the
- *     pager neighbor screens; a real user testing the very next build reported "+"/add
- *     controls (e.g. Habits' inline AddRow) going dead — taps silently doing nothing. Not
- *     reproducible in the headless web preview (react-native-web doesn't exercise
- *     pager-view's native touch delivery at all), so it can only be verified on-device.
- *     react-native-pager-view's lazy/preload mounting is a documented trouble spot for
- *     touch delivery to preloaded-but-inactive screens (several open issues on
- *     callstack/react-native-pager-view), which lines up with the timing — reverted as the
- *     prime suspect rather than confirmed root-caused. Not worth the swipe-latency win
- *     until upstream is more solid — do not re-add `lazyPreloadDistance` without verifying
- *     add/tap controls on a real device first.
+ *   - **`lazy: false` (2026-07-16, cold-start perf)**: all five sites mount up front when
+ *     the pager mounts, so navigating Home → any tab reveals an ALREADY-RENDERED tree
+ *     instead of mounting it fresh on first visit — that first-visit mount was the visible
+ *     "things load in" hitch users reported. Paired with app/_layout.tsx now loading every
+ *     store eagerly before the render gate, so the pre-mounted screens mount with their data
+ *     already in memory. Watch memory on low-end Android (5 screens mounted from launch);
+ *     the Scan tab's CameraView is gated behind its `qrScanVisible` modal, so eager mount
+ *     does NOT power on the camera. Mounting all five costs more launch-time JS than lazy
+ *     mounting, but it runs behind _layout's render gate (themed backdrop until fonts +
+ *     settings are ready), so it's paid during the launch window, not on navigation.
+ *   - **`lazy: false` vs the REVERTED `lazyPreloadDistance` (2026-07-13)**: the earlier
+ *     revert was `lazyPreloadDistance: 1` — a HALF-lazy state (lazy:true + preload) that hit
+ *     react-native-pager-view's documented touch-delivery bug for preloaded-but-inactive
+ *     screens ("+"/add controls going dead, e.g. Habits' inline AddRow). `lazy: false` is a
+ *     different mode: the classic fully-eager tab-view render where every screen is a
+ *     first-class mounted page from frame 0, not a preloaded-inactive one — the likely-safer
+ *     configuration. Still: pager-view touch delivery can only be verified on-device (the
+ *     headless web preview doesn't exercise native touch), so BEFORE this ships to users,
+ *     verify inline add/tap controls (Habits AddRow, Shopping/Plans "+") work on a real
+ *     build. If they regress, revert this single line to `lazy: true`.
  *   - `swipeEnabled: true` is the whole point of this migration. app/(tabs)/scan.tsx
  *     temporarily flips it off via `navigation.setOptions` while an OCR scan is
  *     processing or one of its modals is open, so a stray swipe can't abandon that flow.
@@ -148,7 +153,7 @@ export default function TabsLayout() {
 
       <TopTabs
         tabBarPosition="bottom"
-        screenOptions={{ swipeEnabled: true, lazy: true, sceneStyle: { backgroundColor: 'transparent' } }}
+        screenOptions={{ swipeEnabled: true, lazy: false, sceneStyle: { backgroundColor: 'transparent' } }}
         tabBar={(props: MaterialTopTabBarProps) => (
           <TabBarWithBackgroundSync {...props} insetsBottom={insets.bottom} onActiveRouteChange={setActiveRouteName} />
         )}
