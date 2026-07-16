@@ -192,6 +192,41 @@ async function main() {
     console.log(`  habit persisted after tab round-trip: ${habitPersisted}`);
     if (!habitPersisted) pageErrors.push(`Habit "${habitTitle}" did not persist after navigating away and back`);
     await shot(page, 'habit-persisted-check');
+
+    // Sub-tier header check (HEADER_CLIP_DEBUG.md): Settings was reported to show NO
+    // header at all on device, and this walk never visited a sub-tier screen before —
+    // the gear → /settings push is the only sub-tier route reachable without data setup.
+    // Measure the header title's geometry on Home (site tier) and Settings (sub tier):
+    // a layout/positioning-level cause (band collapsed, title off-screen) would show up
+    // here, even though Android-native font metrics don't reproduce on web.
+    console.log('> Settings (sub-tier header check)');
+    await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    // A title string can match other nodes too (e.g. the BottomNav "Home" label), so
+    // measure the TOPMOST visible match — the header title is the one at the top edge.
+    const measureTitle = async (text) => {
+      const matches = await page.getByText(text, { exact: true }).all();
+      let best = null;
+      for (const m of matches) {
+        if (!(await m.isVisible().catch(() => false))) continue;
+        const box = await m.boundingBox();
+        if (box && (!best || box.y < best.box.y)) best = { m, box };
+      }
+      if (!best) return { visible: false };
+      const css = await best.m.evaluate((node) => {
+        const s = getComputedStyle(node);
+        return { fontSize: s.fontSize, lineHeight: s.lineHeight };
+      });
+      return { visible: true, box: best.box, ...css };
+    };
+    const homeTitle = await measureTitle('Home');
+    console.log(`  Home (site) header title: ${JSON.stringify(homeTitle)}`);
+    await page.getByRole('button', { name: 'Settings', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(1200);
+    await shot(page, 'settings');
+    const settingsTitle = await measureTitle('Settings');
+    console.log(`  Settings (sub) header title: ${JSON.stringify(settingsTitle)}`);
+    if (!settingsTitle.visible) pageErrors.push('Settings sub-tier header title is NOT visible on web (matches the on-device "no header" report)');
   }
 
   console.log(`\n> page errors: ${pageErrors.length}`);

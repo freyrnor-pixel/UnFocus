@@ -141,18 +141,30 @@ export const MAX_FONT_SCALE = 1.4;
  *      lineHeight below the font's ~1.36 natural ratio chops their tails ("Hjem"→"Hiem");
  *   2. the row (line box + vertical padding) must fit inside the header band, or the glass
  *      Surface's overflow:hidden mask clips the bottom instead.
- * A *fixed* band (the old 72px) satisfies neither once the font scales up: a static
- * lineHeight goes tighter than the glyph, and a lineHeight generous enough for the glyph
- * overflows the fixed band. So both scale with the (capped) font size.
+ *
+ * ⚠️ The values are PRE-SCALED, so the consuming Text MUST set `allowFontScaling={false}`
+ * and apply `titleFontSize` + `titleLineHeight` verbatim. With `allowFontScaling` left on
+ * (the earlier, broken arrangement), RN treats BOTH the style fontSize AND the style
+ * lineHeight as SP and multiplies them by the OS font scale again — see Android's
+ * `TextAttributes.effectiveLineHeight` (`toPixelFromSP(lineHeight, maxFontSizeMultiplier)`).
+ * That double-scaled the line box (57 → ~80px at the 1.4× cap) while the band stayed
+ * single-scaled (89px), overflowing the row — the "cut headers" bug that survived #189/
+ * #194/#195/#198. (The old comments claimed "a px lineHeight never scales; only fontSize
+ * does" — that's exactly backwards on Android, and react-native-web doesn't emulate the
+ * SP conversion, which is why the web preview could never reproduce the clip.)
  */
 export const HEADER_TITLE_LINE_RATIO = 1.45; // headroom over Nunito Bold's ~1.36 natural ratio
 export function getHeaderMetrics(rawFontScale: number) {
   const fontScale = Math.min(rawFontScale, MAX_FONT_SCALE);
-  const titleLineHeight = Math.ceil(FontSize.xxl * fontScale * HEADER_TITLE_LINE_RATIO);
+  // The OS text-size scale is applied HERE, once — the title Text opts out of RN's own
+  // scaling (allowFontScaling={false}), so accessibility sizing still works but through
+  // this single, band-aware code path with the same MAX_FONT_SCALE cap.
+  const titleFontSize = Math.round(FontSize.xxl * fontScale);
+  const titleLineHeight = Math.ceil(titleFontSize * HEADER_TITLE_LINE_RATIO);
   // Band = title line box + the header row's vertical padding (Spacing.sm each side) + a
   // Spacing.md slack so the descender never sits flush against the mask edge.
   const headerHeight = titleLineHeight + Spacing.sm * 2 + Spacing.md;
-  return { fontScale, titleLineHeight, headerHeight };
+  return { fontScale, titleFontSize, titleLineHeight, headerHeight };
 }
 
 /**

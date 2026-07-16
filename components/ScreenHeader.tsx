@@ -50,17 +50,18 @@
  *     rounded-card corners had no floating card to belong to and, once the glass fill
  *     was stretched flush against the first content row, read as chopped-off corners.
  *     Don't re-add rounding here without also reintroducing a gap below the header.
- *   - **Header title clip — the REAL fix (2026-07-16)**: `styles.title` sets
- *     `includeFontPadding: false`. Android adds font-metric padding (default true) on top of
- *     lineHeight and offsets the glyph down inside the numberOfLines=1 box, so it crops the
- *     title's bottom in a straight line. It's Android-only — react-native-web renders the
- *     text box exactly `lineHeight` tall (verified in the web preview: no clip at any scale),
- *     which is why three earlier lineHeight/HEADER_HEIGHT "sizing-math" fixes never worked;
- *     none touched includeFontPadding. The inline `lineHeight` (from `getHeaderMetrics`,
- *     1.45 ratio, scales with the OS text size) still gives descenders (j/g/p/y) and top
- *     accents (å/ø) room within the line box; `textAlignVertical: 'center'` centers the glyph
- *     in it. Keep `includeFontPadding: false` — removing it re-introduces the clip on Android.
- *     (The getHeaderMetrics band scaling in ScreenScaffold is kept as harmless headroom.)
+ *   - **Header title clip — the full story (2026-07-16, see HEADER_CLIP_DEBUG.md)**: the
+ *     title Text sets `allowFontScaling={false}` and takes its fontSize AND lineHeight
+ *     verbatim from `getHeaderMetrics` (which applies the capped OS font scale itself, once).
+ *     With RN's own scaling left on, Android treats the style lineHeight as SP and multiplies
+ *     it by the font scale AGAIN (`TextAttributes.effectiveLineHeight`) — the pre-scaled line
+ *     box got double-scaled (57 → ~80px at 1.4×) past the single-scaled band (89px) and the
+ *     bottom clipped in a straight line on enlarged-text devices. react-native-web never
+ *     applies the SP conversion, which is why no web preview could ever reproduce it and
+ *     fixes #189/#194/#195/#198 all shipped "verified" but broken. `includeFontPadding:
+ *     false` + `textAlignVertical: 'center'` (#198) are kept — correct on their own. Debug
+ *     mode additionally renders a numbers-only diagnostics caption in the band (fontScale /
+ *     applied sizes / measured onLayout box) so testers can screenshot real device geometry.
  *   - **Debug notes (2026-07-13, replaces the old DebugOverlay)**: the title is wrapped in
  *     DebugNoteAnchor keyed off the (translated) `title` string — see that component's own
  *     edit note on the language-switch caveat this implies. The export icon (site-tier only)
@@ -80,7 +81,7 @@
  *     dev/debug builds, so the button never renders there.
  */
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, AppState, PixelRatio, Platform, Share, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
+import { ActivityIndicator, AppState, LayoutChangeEvent, PixelRatio, Platform, Share, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
@@ -121,10 +122,34 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const debugModeEnabled = useSettingsStore((s) => s.debugModeEnabled);
   const feedbackNotes = useFeedbackStore((s) => s.notes);
 
-  // Descender-safe title lineHeight, from the shared header metrics (see getHeaderMetrics
-  // in constants/theme.ts) so it stays in lockstep with the band height ScreenScaffold
-  // derives from the same font scale. A static px lineHeight clips Nunito Bold's descenders.
-  const { titleLineHeight } = getHeaderMetrics(PixelRatio.getFontScale());
+  // Descender-safe title metrics, from the shared header helper (see getHeaderMetrics in
+  // constants/theme.ts) so they stay in lockstep with the band height ScreenScaffold
+  // derives from the same font scale. PRE-SCALED values — the title Text sets
+  // `allowFontScaling={false}` and applies them verbatim; see the doc on getHeaderMetrics
+  // for the double-scaling bug that arrangement fixes.
+  const fontScale = PixelRatio.getFontScale();
+  const { titleFontSize, titleLineHeight, headerHeight } = getHeaderMetrics(fontScale);
+
+  // On-device header diagnostics (debug mode only): the title's measured box from
+  // onLayout, rendered as a tiny caption inside the band. The header clip never
+  // reproduced headlessly (Android-native; no emulator here, web lacks SP scaling),
+  // so testers screenshot these numbers instead of sessions shipping blind fixes —
+  // see HEADER_CLIP_DEBUG.md.
+  const [titleBox, setTitleBox] = useState<{ h: number; y: number } | null>(null);
+  const onTitleLayout = debugModeEnabled
+    ? (e: LayoutChangeEvent) => {
+        const { height, y } = e.nativeEvent.layout;
+        setTitleBox((prev) => (prev && prev.h === height && prev.y === y ? prev : { h: height, y }));
+      }
+    : undefined;
+  // Language-neutral shorthand, numbers only (no i18n needed): OS fontScale, applied
+  // title fontSize/lineHeight, band height, then the title's measured height @ y-offset.
+  const debugCaption = debugModeEnabled ? (
+    <Text allowFontScaling={false} numberOfLines={1} style={styles.debugCaption}>
+      {`fs${fontScale.toFixed(2)} fz${titleFontSize} lh${titleLineHeight} bh${headerHeight}` +
+        (titleBox ? ` t${Math.round(titleBox.h)}@${Math.round(titleBox.y)}` : '')}
+    </Text>
+  ) : null;
 
   // useUpdates() is reactive: isUpdateAvailable flips when a NEW server update is found;
   // isUpdatePending flips when one has finished DOWNLOADING and is waiting for a reload to
@@ -287,9 +312,15 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
 
   const titleNode = (align: 'left' | 'right') => (
     <DebugNoteAnchor id={`header:${title}`} label={title} style={styles.titleWrap}>
+      {/* allowFontScaling MUST stay false: fontSize + lineHeight below are already scaled
+          by getHeaderMetrics. With scaling left on, RN multiplies BOTH by the OS font
+          scale again (Android treats them as SP — TextAttributes.effectiveLineHeight),
+          double-scaling the line box past the single-scaled band = the header clip bug. */}
       <Text
-        style={[styles.title, { color: theme.text, textAlign: align, lineHeight: titleLineHeight }]}
+        allowFontScaling={false}
+        style={[styles.title, { color: theme.text, textAlign: align, fontSize: titleFontSize, lineHeight: titleLineHeight }]}
         numberOfLines={1}
+        onLayout={onTitleLayout}
       >
         {title}
       </Text>
@@ -323,6 +354,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
             {controlsGroup}
           </>
         )}
+        {debugCaption}
       </Surface>
     );
   }
@@ -340,6 +372,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
       {titleNode('left')}
 
       <View style={styles.rightSlot}>{headerRight}</View>
+      {debugCaption}
     </Surface>
   );
 }
@@ -374,21 +407,17 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: FontSize.xxl,
     fontFamily: Fonts.bold,
-    // THE actual header-clip fix (2026-07-16, after 3 sizing-math attempts failed):
-    // `includeFontPadding: false`. On Android that extra font-metric padding (default true,
-    // set nowhere else in the app) is added ON TOP OF lineHeight and offsets the glyph down
-    // inside the numberOfLines=1 box, so Android crops the bottom in a straight line — the
-    // real "cut headers" bug. It's Android-only, so react-native-web never reproduced it
-    // (web Text height == lineHeight exactly, verified in the preview); every lineHeight/
-    // HEADER_HEIGHT tweak missed it because none touched includeFontPadding. Turning it off
-    // makes Android's text box == lineHeight (like web); the generous scaled lineHeight
-    // (getHeaderMetrics, 1.45 ratio) already reserves room for descenders (j/g/p/y) AND
-    // top accents (å/ø), and textAlignVertical centers the glyph in that box.
+    // fontSize AND lineHeight are applied INLINE from getHeaderMetrics (pre-scaled), with
+    // `allowFontScaling={false}` on the Text — see the comment at titleNode and the
+    // getHeaderMetrics doc for the double-scaling bug this arrangement fixes. Do NOT put a
+    // fontSize/lineHeight back here or re-enable font scaling on the title.
+    // includeFontPadding stays off (#198): Android otherwise adds font-metric padding on
+    // top of lineHeight, offsetting the glyph down inside the numberOfLines=1 box.
+    // textAlignVertical centers the glyph in the (1.45-ratio) line box, which reserves
+    // room for descenders (j/g/p/y) AND top accents (å/ø).
     includeFontPadding: false,
     textAlignVertical: 'center',
-    // lineHeight is applied INLINE (see `titleLineHeight`) so it scales with the OS text size.
   },
   titleWrap: {
     flex: 1,
@@ -400,6 +429,17 @@ const styles = StyleSheet.create({
     minWidth: 32,
     alignItems: 'flex-end',
     justifyContent: 'center',
+  },
+  // Debug-mode-only header diagnostics (see HEADER_CLIP_DEBUG.md): numbers-only caption
+  // pinned to the band's bottom-left. Loud fixed color on purpose — it must be readable
+  // in a tester's screenshot on any theme, and it only exists while Debug mode is on.
+  debugCaption: {
+    position: 'absolute',
+    bottom: 1,
+    left: Spacing.md,
+    fontSize: 9,
+    color: '#E91E63',
+    zIndex: 10,
   },
   back: {
     fontSize: FontSize.md,

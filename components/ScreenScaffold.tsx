@@ -213,12 +213,12 @@ export default function ScreenScaffold({
   const bottomInset = insets.bottom;
 
   // Header band height scales with the OS text-size setting so the title's line box always
-  // fits inside Surface's overflow:hidden mask. A FIXED height (the old 72) can't: a px
-  // lineHeight never scales with maxFontSizeMultiplier (only fontSize does), so at 1.4x the
-  // title font grew to ~39px while the band/line box stayed put — descenders clipped either
-  // in the line box (too tight) or against the mask (line box generous enough to overflow
-  // the fixed band). getHeaderMetrics derives band + line box together; see its doc comment
-  // in constants/theme.ts. ~72 at 1.0x, ~89 at the 1.4x cap.
+  // fits inside Surface's overflow:hidden mask. getHeaderMetrics derives band + title
+  // fontSize/lineHeight together from the same capped scale — and the title Text consumes
+  // them with allowFontScaling={false}, so RN can't rescale them a second time (Android
+  // treats style fontSize/lineHeight as SP and multiplies by the font scale when scaling
+  // is on — the double-scaling behind the header-clip bug; see the getHeaderMetrics doc in
+  // constants/theme.ts and HEADER_CLIP_DEBUG.md). ~73 at 1.0x, ~89 at the 1.4x cap.
   const { headerHeight: HEADER_HEIGHT } = getHeaderMetrics(PixelRatio.getFontScale());
 
   const scrollRef = useRef<ScrollView>(null);
