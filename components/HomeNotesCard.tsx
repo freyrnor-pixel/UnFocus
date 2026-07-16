@@ -10,6 +10,7 @@
  *
  * Connections:
  *   Imports → components/Surface, components/PressableScale, components/HomePreviewEmpty,
+ *             components/Collapsible + components/AnimatedChevron (checked-zone clip reveal),
  *             constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, lib/domainColor,
  *             lib/useVoiceCapture, store/useNotesStore
  *   Used by → app/(tabs)/index.tsx (replaces InboxSection in the Notes preview slot)
@@ -44,6 +45,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import HomePreviewEmpty from '@/components/HomePreviewEmpty';
+import Collapsible from '@/components/Collapsible';
+import AnimatedChevron from '@/components/AnimatedChevron';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
@@ -195,35 +198,35 @@ export default function HomeNotesCard() {
               <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>
                 {t.notes.checkedLabel} ({checkedNotes.length})
               </Text>
-              <Ionicons
-                name={checkedOpen ? 'chevron-up' : 'chevron-down'}
-                size={14}
-                color={theme.textMuted}
-              />
+              <AnimatedChevron open={checkedOpen} size={14} color={theme.textMuted} />
             </PressableScale>
-            {checkedOpen && checkedNotes.map((note, idx) => (
-              <View key={note.id}>
-                {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
-                <View style={styles.noteRow}>
-                  <PressableScale
-                    style={[styles.check, { borderColor: domainColor.accent, backgroundColor: domainColor.accent }]}
-                    onPress={() => handleToggle(note.id)}
-                    hitSlop={8}
-                    scaleTo={0.97}
-                  >
-                    <Ionicons name="checkmark" size={12} color={theme.accentInk} />
-                  </PressableScale>
-                  <View style={styles.noteText}>
-                    <Text
-                      style={[styles.noteHeader, { color: theme.textMuted, textDecorationLine: 'line-through' }]}
-                      numberOfLines={1}
+            {/* Clip-reveal (unveil), not a pop/fade — the checked notes feel folded away, still
+                there, matching the Tasks/PlanTaskCard done zones (see Collapsible header). */}
+            <Collapsible open={checkedOpen}>
+              {checkedNotes.map((note, idx) => (
+                <View key={note.id}>
+                  {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
+                  <View style={styles.noteRow}>
+                    <PressableScale
+                      style={[styles.check, { borderColor: domainColor.accent, backgroundColor: domainColor.accent }]}
+                      onPress={() => handleToggle(note.id)}
+                      hitSlop={8}
+                      scaleTo={0.97}
                     >
-                      {note.header || t.notes.headerPlaceholder}
-                    </Text>
+                      <Ionicons name="checkmark" size={12} color={theme.accentInk} />
+                    </PressableScale>
+                    <View style={styles.noteText}>
+                      <Text
+                        style={[styles.noteHeader, { color: theme.textMuted, textDecorationLine: 'line-through' }]}
+                        numberOfLines={1}
+                      >
+                        {note.header || t.notes.headerPlaceholder}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
+              ))}
+            </Collapsible>
           </View>
         )}
       </View>

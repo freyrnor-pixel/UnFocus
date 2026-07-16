@@ -14,30 +14,32 @@
  *   Data    → none (controlled via the `open` prop)
  *
  * Edit notes:
- *   - **Why layout animations, not a measured `height` interpolation (2026-07-15 fix):** the
- *     previous version animated `height: interpolate(progress, [0,1], [0, contentH])` inside a
- *     `useAnimatedStyle`. Under Reanimated 4 + the New Architecture, animating layout props
- *     (`height`/`width`) through `useAnimatedStyle` does NOT drive a visible reveal — the
- *     chevron (a `transform` animation) rotated but the body stayed clipped at height 0, so
- *     cards never expanded (PR #183 bug report: "arrow works, not the expansion"). Only
- *     transform/opacity and the entering/exiting/`layout` layout-animation primitives are
- *     reliable here — the same house pattern proven in AnimatedListItem/ShoppingRow. This file
- *     now uses those exclusively: no `height` math, no onLayout measurement, no first-open
- *     deferral needed. `ExpandableCard` was migrated the same way (it now reuses this
- *     component for its body reveal) — see its header.
- *   - Closing: when `open` flips false the Animated.View is removed from render; Reanimated
- *     plays `exiting` (FadeOut) before actually unmounting, so a collapsed instance renders
- *     null (lazy mount preserved).
- *   - `layout={LinearTransition}` lets the card's own size change animate smoothly instead of
- *     snapping when the body appears/disappears — recovers the "glide" feel without measuring.
- *   - Mount-already-open (e.g. a new task card that starts expanded) shows content immediately
- *     with no entrance animation; the reveal animates on subsequent toggles. Matches the prior
- *     contract via `firstOpenRef`.
- *   - reducedMotion drops entering/exiting/layout entirely (instant snap) — single code path.
+ *   - **Clip reveal, not a fade (2026-07-16):** the body is *unveiled* — an outer, always-mounted
+ *     wrapper with `overflow:'hidden'` grows/shrinks as its child mounts/unmounts, and
+ *     `layout={LinearTransition}` animates that size change, so content is revealed from behind
+ *     an edge instead of fading in. Deliberately NO opacity fade and NO slide-from-above
+ *     (the old `FadeInDown`/`FadeOut`): a completed task tucked into a "Done" zone should feel
+ *     like it's *still there, just folded away*, not "gotten and faded" — a neurodivergent-/
+ *     anxiety-friendly motion choice (see ANIMATION_GUIDELINES.md §6 and the Tasks screen).
+ *   - **Why layout animations, not a measured `height` interpolation:** an earlier version
+ *     animated `height: interpolate(progress, [0,1], [0, contentH])` inside a `useAnimatedStyle`.
+ *     Under Reanimated 4 + the New Architecture, animating layout props (`height`/`width`)
+ *     through `useAnimatedStyle` does NOT drive a visible reveal — the chevron rotated but the
+ *     body stayed clipped at height 0 (PR #183). Only transform/opacity and the
+ *     entering/exiting/`layout` layout-animation primitives are reliable here; `LinearTransition`
+ *     (a `layout` animation) drives the size change dependably, which is what the clip reveal
+ *     leans on. No `height` math, no onLayout measurement.
+ *   - Closing: `open` flips false → the inner child unmounts → the outer wrapper shrinks to 0
+ *     via `LinearTransition` (a smooth fold-away, no fade). The child is only rendered while
+ *     `open`, so a collapsed instance renders no children (lazy mount preserved).
+ *   - Mount-already-open (e.g. a new task card that starts expanded) shows content immediately:
+ *     the wrapper mounts at its natural size with no prior frame to transition from, so there's
+ *     no entrance animation; the reveal animates on subsequent toggles.
+ *   - reducedMotion drops the layout animation entirely (instant mount/unmount).
  */
-import React, { useRef } from 'react';
-import { StyleProp, ViewStyle } from 'react-native';
-import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
+import React from 'react';
+import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility } from '@/lib/useAppTheme';
 
@@ -49,27 +51,28 @@ type Props = {
 
 export default function Collapsible({ open, children, style }: Props) {
   const { reducedMotion } = useAccessibility();
-  // Was this the component's very first render? A card mounted already-open (e.g. a new task
-  // card) then shows its content instantly with no entrance; a card mounted collapsed animates
-  // on its first (and every later) open. Consumed on the mount render regardless of `open`.
-  const firstRenderRef = useRef(true);
-  const mountedOpen = firstRenderRef.current && open;
-  firstRenderRef.current = false;
-
-  if (!open) return null;
 
   if (reducedMotion) {
-    return <Animated.View style={style}>{children}</Animated.View>;
+    return open ? <View style={style}>{children}</View> : null;
   }
 
+  // Outer wrapper is always mounted; `overflow:'hidden'` clips the child so it appears to be
+  // unveiled from behind an edge as the wrapper grows (open) or fold away as it shrinks (close).
+  // LinearTransition animates the wrapper's own size change when the child mounts/unmounts.
   return (
     <Animated.View
-      style={style}
-      entering={mountedOpen ? undefined : FadeInDown.duration(Duration.card).easing(Ease.enter)}
-      exiting={FadeOut.duration(Duration.cardOut).easing(Ease.exit)}
+      style={[styles.clip, style]}
       layout={LinearTransition.duration(Duration.card).easing(Ease.move)}
     >
-      {children}
+      {open ? (
+        <Animated.View layout={LinearTransition.duration(Duration.card).easing(Ease.move)}>
+          {children}
+        </Animated.View>
+      ) : null}
     </Animated.View>
   );
 }
+
+const styles = StyleSheet.create({
+  clip: { overflow: 'hidden' },
+});

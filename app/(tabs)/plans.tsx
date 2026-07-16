@@ -31,9 +31,18 @@
  *   - **Tab order (2026-07-14)**: Today → This week → All tasks (was All → Today → Week).
  *   - **Unfinished/finished split (2026-07-14)**: the local `<DoneSplitList>` component
  *     (defined just above `TasksScreen`) filters a section's tasks into unfinished (always
- *     shown) + finished (behind a collapsible "Finished (n)" header, default collapsed) —
+ *     shown) + finished (behind a collapsible "Done" header, default collapsed) —
  *     applied to the Today card, each This-week weekday group, and both Whenever sections.
  *     The All-tasks tab is untouched — its sections still render flat.
+ *   - **"Done" sub-header (2026-07-16)**: the finished zone's header is the same
+ *     `<SectionRail>` pill as the Whenever/Recurring/day headers (hue = `theme.good` status
+ *     green), with the collapse `AnimatedChevron` in its right slot — so "Done" reads as a
+ *     peer sub-header, not a bare text row. Reveal is a clip/unveil (see Collapsible), not a fade.
+ *   - **Per-day add (2026-07-16)**: `<InlineTaskAdd>` (defined above `TasksScreen`) puts an
+ *     AddRow in the Today card (dates the task today) and each This-week day group (dates it
+ *     that weekday), so tasks can be made from Today/This week — not only as undated Whenever
+ *     tasks from the All tab. All tabs read the one store, so a new task shows everywhere at
+ *     once (its day group, Today, and the All tab's Whenever) with no extra sync.
  *   - **Color-rail redesign (2026-07-13)**: section order is now **Whenever → Repeating →
  *     Shared**. Headers are `<SectionRail>` (a hue dot + label + count); each section's cards
  *     wear a matching `railColor` left edge (TaskCard's `railColor` prop) so a card visibly
@@ -130,9 +139,15 @@ function DoneSplitList({
       {unfinished.length > 0 && <View style={styles.cardStack}>{unfinished.map(renderCard)}</View>}
       {finished.length > 0 && (
         <View style={styles.doneZone}>
-          <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97}>
-            <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>{t.tasksFinishedZone(finished.length)}</Text>
-            <AnimatedChevron open={doneOpen} size={14} color={theme.textMuted} />
+          {/* "Done" reads as a peer of the Whenever / Recurring / day sub-headers — same
+              SectionRail pill (hue = status green), with the collapse chevron in its right slot. */}
+          <PressableScale onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97}>
+            <SectionRail
+              hue={theme.good}
+              label={t.tasksDoneLabel}
+              count={finished.length}
+              right={<AnimatedChevron open={doneOpen} size={16} color={theme.good} />}
+            />
           </PressableScale>
           <Collapsible open={doneOpen}>
             <View style={styles.cardStack}>{finished.map(renderCard)}</View>
@@ -141,6 +156,76 @@ function DoneSplitList({
       )}
     </>
   );
+}
+
+/**
+ * Inline "add a task" row scoped to a specific date — the Today card and each This-week day
+ * group get their own so a task can be made straight into that day (not only as an undated
+ * Whenever task from the All tab). Owns its own input state; on submit it creates a dated,
+ * non-recurring task (hasStartDate=true) via useTaskStore.add — so it immediately shows in
+ * this day's list, in Today, and under the All tab's Whenever, all reading the same store.
+ * `wrapped` renders it inside a bordered card (for day groups sitting on the particle
+ * background); bare (default) it appends directly inside an existing card (the Today card).
+ */
+function InlineTaskAdd({
+  date,
+  accent,
+  assignee = '',
+  wrapped,
+}: {
+  date: string;
+  accent: string;
+  assignee?: string;
+  wrapped?: boolean;
+}) {
+  const theme = useAppTheme();
+  const t = useT();
+  const addTask = useTaskStore((s) => s.add);
+  const [value, setValue] = useState('');
+
+  const commit = useCallback(() => {
+    const title = value.trim();
+    if (!title) return;
+    addTask({
+      title,
+      date,
+      taskType: 'start-at',
+      done: false,
+      recurring: 'none',
+      recurringDays: [],
+      weekInterval: 1,
+      monthlyMode: 'day',
+      monthDay: 1,
+      monthOrdinal: 'first',
+      monthWeekday: 0,
+      importance: 'regular',
+      sortOrder: 0,
+      hasStartDate: true,
+      assignee,
+    });
+    setValue('');
+  }, [value, date, assignee, addTask]);
+
+  const row = (
+    <AddRow
+      placeholder={t.newTask}
+      value={value}
+      onChangeText={setValue}
+      onSubmit={commit}
+      accent={accent}
+      showDivider={!wrapped}
+      accessibilityLabel={t.newTask}
+    />
+  );
+
+  if (wrapped) {
+    return (
+      <View style={[styles.addRowCard, { backgroundColor: theme.surface, borderColor: theme.border, borderLeftColor: accent }]}>
+        {row}
+      </View>
+    );
+  }
+  return row;
 }
 
 const STICKY_HEIGHT = 56;
@@ -375,6 +460,8 @@ export default function TasksScreen() {
                   <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={handleToggleDone} />
                 )}
               />
+              {/* Make a task straight into today (dated today), not only as an undated Whenever task. */}
+              <InlineTaskAdd date={today} accent={theme.accent} assignee={personFilter ?? ''} />
             </View>
 
             <View style={styles.section}>
@@ -403,6 +490,8 @@ export default function TasksScreen() {
                     <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={handleToggleDone} />
                   )}
                 />
+                {/* Make a task straight into this weekday (dated that day). */}
+                <InlineTaskAdd date={group.date} accent={theme.accent} assignee={personFilter ?? ''} wrapped />
               </View>
             ))}
 
@@ -467,9 +556,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   cardStack: { gap: Spacing.sm },
-  doneZone: { marginTop: Spacing.xs, borderTopWidth: 1, borderTopColor: 'transparent' },
-  doneHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
-  doneHeaderText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  doneZone: { marginTop: Spacing.sm },
   personFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm },
   personChip: { borderRadius: Radius.full, borderWidth: 1, paddingVertical: 6, paddingHorizontal: Spacing.md, minHeight: 34, justifyContent: 'center' },
   personChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
