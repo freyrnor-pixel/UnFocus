@@ -10,7 +10,7 @@
  * stability.
  * useIsDark() returns just the resolved dark/light boolean.
  * useAccessibility() returns { reducedMotion, getFontSize } for animation and font scaling.
- * useScaledStyles() takes a StyleSheet.create() result and rescales every fontSize per the user's text-size setting.
+ * useScaledStyles() takes a StyleSheet.create() result and rescales every fontSize (and lineHeight, in lockstep) per the user's text-size setting.
  *
  * Connections:
  *   Imports → constants/colors, constants/theme, store/useSettingsStore
@@ -76,7 +76,8 @@ export function useAccessibility(): {
 
 /**
  * Returns `base` (a StyleSheet.create() result) with every style's `fontSize`
- * scaled by the user's text-size setting. Call once per component that
+ * AND `lineHeight` scaled by the user's text-size setting (both by the same factor,
+ * so the line box keeps its ratio to the font and descenders never clip). Call once per component that
  * renders styles from a module-level StyleSheet.create() object — if several
  * components share one styles object, each must call this hook separately.
  */
@@ -87,8 +88,21 @@ export function useScaledStyles<T extends Record<string, any>>(base: T): T {
     const out = {} as T;
     for (const key in base) {
       const style = base[key];
-      if (style && typeof style === 'object' && typeof (style as any).fontSize === 'number') {
-        out[key] = { ...style, fontSize: getFontSize((style as any).fontSize, fontSize) };
+      const s = style as any;
+      const hasFont = style && typeof style === 'object' && typeof s.fontSize === 'number';
+      // lineHeight MUST scale by the same factor as fontSize, or the Size setting (large =
+      // 1.2x) grows the glyph while the line box stays put — going tighter than the font's
+      // descenders and clipping their bottoms (the "Hjem"->"Hiem" class of bug), the same
+      // way the OS font-scale axis did to the header. Scale it whether or not this same
+      // style also carries fontSize (a style can set lineHeight alone; keeping its ratio to
+      // the inherited font size is still correct).
+      const hasLine = style && typeof style === 'object' && typeof s.lineHeight === 'number';
+      if (hasFont || hasLine) {
+        out[key] = {
+          ...style,
+          ...(hasFont ? { fontSize: getFontSize(s.fontSize, fontSize) } : null),
+          ...(hasLine ? { lineHeight: getFontSize(s.lineHeight, fontSize) } : null),
+        };
       } else {
         out[key] = style;
       }
