@@ -127,6 +127,35 @@ export const FontSize = {
 };
 
 /**
+ * The global `maxFontSizeMultiplier` applied to every RNText/RNTextInput in
+ * app/_layout.tsx. Header metrics below cap font scaling at the same value so the
+ * band/line-box math matches what the title actually renders at.
+ */
+export const MAX_FONT_SCALE = 1.4;
+
+/**
+ * Screen-header title metrics, derived together from the OS text-size scale so they can
+ * never disagree (they live in two files — ScreenHeader draws the title, ScreenScaffold
+ * sizes the band). Two clippers have to be satisfied at once:
+ *   1. the Text's own line box must clear Nunito Bold's deep descenders (g/j/p/q/y) — a
+ *      lineHeight below the font's ~1.36 natural ratio chops their tails ("Hjem"→"Hiem");
+ *   2. the row (line box + vertical padding) must fit inside the header band, or the glass
+ *      Surface's overflow:hidden mask clips the bottom instead.
+ * A *fixed* band (the old 72px) satisfies neither once the font scales up: a static
+ * lineHeight goes tighter than the glyph, and a lineHeight generous enough for the glyph
+ * overflows the fixed band. So both scale with the (capped) font size.
+ */
+export const HEADER_TITLE_LINE_RATIO = 1.45; // headroom over Nunito Bold's ~1.36 natural ratio
+export function getHeaderMetrics(rawFontScale: number) {
+  const fontScale = Math.min(rawFontScale, MAX_FONT_SCALE);
+  const titleLineHeight = Math.ceil(FontSize.xxl * fontScale * HEADER_TITLE_LINE_RATIO);
+  // Band = title line box + the header row's vertical padding (Spacing.sm each side) + a
+  // Spacing.md slack so the descender never sits flush against the mask edge.
+  const headerHeight = titleLineHeight + Spacing.sm * 2 + Spacing.md;
+  return { fontScale, titleLineHeight, headerHeight };
+}
+
+/**
  * Rounded-typeface family tokens (Nunito). Loaded in app/_layout.tsx via expo-font;
  * the regular face is also set as the global Text default there.
  */

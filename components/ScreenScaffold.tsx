@@ -98,8 +98,9 @@
  *     manages keeping its own AddRow above the keyboard.
  */
 import React, { useCallback, useRef } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import { NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getHeaderMetrics } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
@@ -211,15 +212,14 @@ export default function ScreenScaffold({
     : insets.top;
   const bottomInset = insets.bottom;
 
-  // 72: the title grew to FontSize.xxl (28) with an explicit 36 lineHeight
-  // (ScreenHeader.tsx, fixing the real descender-clipping bug — see that file's
-  // styles.title comment) to guarantee room for descenders on its own. 72 is a
-  // defensive complement so that title still has comfortable headroom inside
-  // Surface's overflow:hidden mask even under the MAX_FONT_SCALE=1.4 OS
-  // accessibility cap (app/_layout.tsx) — at 1.4x the 36 lineHeight scales to
-  // ~50px, +16px vertical padding = ~66px, which 64 would leave almost no
-  // margin for.
-  const HEADER_HEIGHT = 72;
+  // Header band height scales with the OS text-size setting so the title's line box always
+  // fits inside Surface's overflow:hidden mask. A FIXED height (the old 72) can't: a px
+  // lineHeight never scales with maxFontSizeMultiplier (only fontSize does), so at 1.4x the
+  // title font grew to ~39px while the band/line box stayed put — descenders clipped either
+  // in the line box (too tight) or against the mask (line box generous enough to overflow
+  // the fixed band). getHeaderMetrics derives band + line box together; see its doc comment
+  // in constants/theme.ts. ~72 at 1.0x, ~89 at the 1.4x cap.
+  const { headerHeight: HEADER_HEIGHT } = getHeaderMetrics(PixelRatio.getFontScale());
 
   const scrollRef = useRef<ScrollView>(null);
   const scrollToEnd = useCallback(() => {
