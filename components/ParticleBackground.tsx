@@ -202,6 +202,11 @@ export default function ParticleBackground() {
         style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
         imageStyle={{ opacity: isDark ? 0.4 : 0.3 }}
         resizeMode="cover"
+        // Android's Image fades in ~300ms by default; every pushed sub-screen mounts a
+        // fresh instance of this, so that fade read as the backdrop "loading in" on each
+        // navigation. 0 = paint immediately (no-op on iOS). Pairs with the boot-time
+        // Asset.loadAsync warm-cache in app/_layout.tsx so the bitmap is already decoded.
+        fadeDuration={0}
       >
         {showParticles && (
           <>
