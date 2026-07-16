@@ -11,7 +11,10 @@
  *   Imports → expo-router, expo-status-bar, react-native (AppState), react-native-gesture-handler,
  *             react-native-safe-area-context (SafeAreaProvider — supplies insets to every
  *             screen's SafeAreaView so content clears the status bar on Android too),
- *             @expo-google-fonts/nunito, lib/backup (saveAutoBackup), lib/db, lib/syncService,
+ *             @expo-google-fonts/nunito, @expo/vector-icons (Ionicons/MaterialCommunityIcons —
+ *             .font preloaded into useFonts so icons don't pop in on cold load),
+ *             expo-asset (Asset.loadAsync warms the bundled-image cache at boot),
+ *             lib/backup (saveAutoBackup), lib/db, lib/syncService,
  *             lib/widgets/sync (syncWidgetsAndOverview — pushes today to the home-screen widgets
  *             + persistent overview notification), lib/useAppTheme,
  *             store/useSettingsStore, store/useAutomationStore, store/useCatalogStore,
@@ -34,6 +37,13 @@
  *         Feedback, Inbox, Peers, Receipt — only back screens 2+ swipes from Home
  *         (Scan's receipt parsing) or non-tab screens, so a beat of extra latency
  *         is imperceptible.
+ *   - Cold-load asset warming (2026-07-16): the icon glyph fonts (Ionicons +
+ *     MaterialCommunityIcons `.font`) are preloaded via useFonts alongside Nunito so
+ *     icons paint on the first frame instead of loading their font on first mount and
+ *     popping in. The bundled images (bg-light/dark, icon, monochrome) are warmed
+ *     fire-and-forget via Asset.loadAsync in the boot effect — deliberately NOT gated,
+ *     so launch isn't blocked on image decode; the first sub-screen navigation then
+ *     paints its ImageBackground from cache instead of re-decoding + fading in.
  *   - Render is gated on BOTH fonts AND settings `loaded` (see the return near the
  *     bottom): until both are ready we paint a plain themed backdrop, not `null`
  *     and not a half-empty app. loadSettings() flips `loaded` only after Tier A
@@ -75,6 +85,8 @@ import {
   Nunito_700Bold,
   Nunito_800ExtraBold,
 } from '@expo-google-fonts/nunito';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Asset } from 'expo-asset';
 import { MAX_FONT_SCALE } from '@/constants/theme';
 import { initDb } from '@/lib/db';
 import { saveAutoBackup } from '@/lib/backup';
@@ -129,6 +141,12 @@ export default function RootLayout() {
     Nunito_600SemiBold,
     Nunito_700Bold,
     Nunito_800ExtraBold,
+    // Preload the icon glyph fonts alongside Nunito so icons render on the first
+    // frame instead of loading their font on first mount and popping in a beat late
+    // (the "icons appear when triggered" cold-load symptom). These are small,
+    // bundled TTFs — negligible added time to the font gate the app already waits on.
+    ...Ionicons.font,
+    ...MaterialCommunityIcons.font,
   });
 
   // One-shot cold-start bootstrap in a single mount effect: initDb(), settings,
@@ -158,6 +176,19 @@ export default function RootLayout() {
     // Today's tasks/shopping are ready now: push them to the home-screen widgets
     // + the persistent overview notification.
     void syncWidgetsAndOverview();
+    // Warm the decoded-image cache without blocking launch (fire-and-forget). The
+    // watercolor backdrop (ParticleBackground's ImageBackground) otherwise decodes
+    // lazily, and every pushed sub-screen mounts its OWN ImageBackground that
+    // re-decodes + fades — reading as "each screen loads in". Once these are cached,
+    // sub-screen backdrops paint from the first frame. Icons/logos included for the
+    // same reason. Errors are swallowed: a warm-cache miss just falls back to the
+    // normal lazy decode, so there's nothing to handle.
+    void Asset.loadAsync([
+      require('../assets/bg-light.png'),
+      require('../assets/bg-dark.png'),
+      require('../assets/icon.png'),
+      require('../assets/android-icon-monochrome.png'),
+    ]).catch(() => { /* warm-cache miss — lazy decode still works */ });
     if (__DEV__) {
       // eslint-disable-next-line no-console
       console.log(`[perf] cold-start sync boot (initDb + Tier A store loads): ${Date.now() - t0}ms`);

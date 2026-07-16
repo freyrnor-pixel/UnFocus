@@ -31,6 +31,10 @@ export default function TreeWatermark({ size, opacity, absolute = true, style }:
         source={require('../assets/android-icon-monochrome.png')}
         style={[{ width: size, height: size, opacity }, style]}
         resizeMode="contain"
+        // Skip Android's default ~300ms fade-in so this decorative mark is present on
+        // the first frame instead of fading up (no-op on iOS). Warmed at boot via
+        // app/_layout.tsx's Asset.loadAsync.
+        fadeDuration={0}
       />
     </View>
   );

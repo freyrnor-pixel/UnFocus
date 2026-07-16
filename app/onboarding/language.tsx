@@ -60,7 +60,7 @@ export default function LanguageScreen() {
       <View style={styles.content}>
         <View style={styles.top}>
           <View style={styles.logoShadow}>
-            <Image source={require('../../assets/icon.png')} style={styles.logo} resizeMode="contain" />
+            <Image source={require('../../assets/icon.png')} style={styles.logo} resizeMode="contain" fadeDuration={0} />
           </View>
           <Text style={[styles.heading, { color: theme.text }]}>{t.chooseLanguage}</Text>
           <Text style={[styles.sub, { color: theme.textMuted }]}>{t.chooseLanguageSub}</Text>
