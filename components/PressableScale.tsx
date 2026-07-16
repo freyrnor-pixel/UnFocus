@@ -12,14 +12,17 @@
  * disabled).
  *
  * Connections:
- *   Imports → react-native-reanimated, lib/haptics, lib/useAppTheme, constants/theme
+ *   Imports → react-native-reanimated, lib/haptics, lib/useAppTheme, constants/theme,
+ *             constants/motion (Spring)
  *   Used by → any screen button wanting press feedback
  *   Data    → reads reducedMotion via useAccessibility()
  *
  * Edit notes:
  *   - This is a shared primitive — keep its API a strict superset of Pressable so
  *     it can replace one without churn. Extra props: `haptic` (default true),
- *     `scaleTo` (default 0.94), `depth` (Purposeful Depth System, 2026-07-14).
+ *     `scaleTo` (default 0.94), `depth` (Purposeful Depth System, 2026-07-14),
+ *     `releaseSpring` (default `Spring.snappy`; pass `Spring.calm` for a less bouncy
+ *     release on repeatedly-tapped toggles like section/accordion headers).
  *   - Animation must stay gated behind useAccessibility().reducedMotion.
  *   - `depth` (optional `ElevationLevel`): when set, PressableScale OWNS the resting
  *     shadow for that tier (via `getElevation(depth, theme.shadow)`) and compresses it
@@ -46,6 +49,7 @@ import Animated, {
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { tap as hapticTap } from '@/lib/haptics';
 import { ElevationLevel, getElevation } from '@/constants/theme';
+import { Spring } from '@/constants/motion';
 
 type Props = PressableProps & {
   /** Container style (animated). */
@@ -54,6 +58,9 @@ type Props = PressableProps & {
   haptic?: boolean;
   /** Target scale at full press. Default 0.94. */
   scaleTo?: number;
+  /** Press-out spring. Default `Spring.snappy`; pass `Spring.calm` for section/accordion
+   *  toggle headers where the default bounce reads as too energetic. */
+  releaseSpring?: { damping: number; stiffness: number };
   /** Resting elevation tier; PressableScale owns the shadow and compresses it toward
    *  flat on press. Omit for current no-shadow behavior. See Edit notes. */
   depth?: ElevationLevel;
@@ -68,6 +75,7 @@ export default function PressableScale({
   style,
   haptic = true,
   scaleTo = 0.94,
+  releaseSpring = Spring.snappy,
   depth,
   disabled,
   onPressIn,
@@ -110,7 +118,7 @@ export default function PressableScale({
         onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        if (!reducedMotion) scale.value = withSpring(1, { damping: 18, stiffness: 320 });
+        if (!reducedMotion) scale.value = withSpring(1, releaseSpring);
         onPressOut?.(e);
       }}
       onPress={(e) => {
