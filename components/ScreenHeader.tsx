@@ -50,6 +50,11 @@
  *     rounded-card corners had no floating card to belong to and, once the glass fill
  *     was stretched flush against the first content row, read as chopped-off corners.
  *     Don't re-add rounding here without also reintroducing a gap below the header.
+ *   - **Title descender clip (2026-07-16)**: the title's `lineHeight` is computed inline
+ *     (`titleLineHeight`) from the OS text-size scale, NOT hardcoded in `styles.title` — a
+ *     static px lineHeight goes tighter than Nunito Bold's descenders as the font scales up
+ *     (global maxFontSizeMultiplier 1.4 in app/_layout.tsx) and chops g/j/p/q/y bottoms
+ *     ("Hjem"→"Hiem"). Keep lineHeight proportional to the scaled font (see TITLE_LINE_RATIO).
  *   - **Debug notes (2026-07-13, replaces the old DebugOverlay)**: the title is wrapped in
  *     DebugNoteAnchor keyed off the (translated) `title` string — see that component's own
  *     edit note on the language-switch caveat this implies. The export icon (site-tier only)
@@ -63,7 +68,7 @@
  *     in dev/debug builds, so the button never renders there.
  */
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, AppState, Platform, Share, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
+import { ActivityIndicator, AppState, PixelRatio, Platform, Share, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
@@ -79,6 +84,15 @@ import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import { showAppModal } from '@/components/AppModal';
 
 type Tier = 'site' | 'sub';
+
+// Mirrors the global `maxFontSizeMultiplier` cap set on RNText in app/_layout.tsx: the
+// rendered title font is `FontSize.xxl * min(deviceFontScale, MAX_FONT_SCALE)`. lineHeight
+// must be derived from that same scaled size (a hardcoded px value never scales, so it goes
+// tighter than the glyph as the OS text-size setting grows and clips descenders — the
+// "Hjem"→"Hiem" bug). 1.45 gives Nunito Bold's deep descenders headroom over its ~1.36
+// natural line ratio.
+const MAX_FONT_SCALE = 1.4;
+const TITLE_LINE_RATIO = 1.45;
 
 type Props = {
   title: string;
@@ -103,6 +117,13 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const leftHanded = useSettingsStore((s) => s.leftHanded);
   const debugModeEnabled = useSettingsStore((s) => s.debugModeEnabled);
   const feedbackNotes = useFeedbackStore((s) => s.notes);
+
+  // Descender-safe title lineHeight, derived from the *actual* rendered font size (the OS
+  // text-size setting, capped at MAX_FONT_SCALE just like the Text itself). A static px
+  // lineHeight clips Nunito Bold's descenders — see the MAX_FONT_SCALE note above.
+  const titleLineHeight = Math.ceil(
+    FontSize.xxl * Math.min(PixelRatio.getFontScale(), MAX_FONT_SCALE) * TITLE_LINE_RATIO,
+  );
 
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [applyingUpdate, setApplyingUpdate] = useState(false);
@@ -259,7 +280,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const titleNode = (align: 'left' | 'right') => (
     <DebugNoteAnchor id={`header:${title}`} label={title} style={styles.titleWrap}>
       <Text
-        style={[styles.title, { color: theme.text, textAlign: align }]}
+        style={[styles.title, { color: theme.text, textAlign: align, lineHeight: titleLineHeight }]}
         numberOfLines={1}
       >
         {title}
@@ -347,12 +368,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FontSize.xxl,
     fontFamily: Fonts.bold,
-    // Explicit, generous lineHeight (not just a bigger fontSize) — without it the
-    // line box RN computes for bold text can be tighter than descenders (g/j/p/q/y)
-    // need, clipping their bottoms regardless of how much room the header container
-    // has. This was the real "header cutoff" bug; bumping HEADER_HEIGHT alone
-    // (ScreenScaffold.tsx) never fixed it because the clip wasn't from that outer box.
-    lineHeight: 36,
+    // lineHeight is applied INLINE (see `titleLineHeight` in the component) so it scales
+    // with the OS text-size setting. A static px value here (previously 36) went tighter
+    // than Nunito Bold's descenders as the font scaled up, clipping g/j/p/q/y bottoms — the
+    // "Hjem"→"Hiem" bug. Bumping HEADER_HEIGHT alone (ScreenScaffold.tsx) never fixed it
+    // because the clip is inside the Text's own line box, not the outer header band.
   },
   titleWrap: {
     flex: 1,
