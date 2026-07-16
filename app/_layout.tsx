@@ -22,31 +22,24 @@
  *   Used by → router layout — defines the Stack
  *
  * Edit notes:
- *   - Settings load first (own effect, mount-only); a second effect keyed on
- *     `loaded` fires the rest of the app-wide bootstrap once settings have
- *     hydrated, split into two tiers so the 14 synchronous full-table SQLite
- *     scans don't all compete with the very first interactive frame:
+ *   - Settings + all stores hydrate in one mount effect (see the effect comment):
  *       - Tier A (synchronous, same tick): Automation, Task, Shopping,
- *         ShoppingList, Shared, Habit, Health — covers Home plus its pager
- *         neighbors Plans and Health (the screens a user reaches first via
- *         BottomNav or an early swipe — see app/(tabs)/_layout.tsx's Edit
- *         notes on why they're no longer preload-mounted ahead of time),
- *         so nothing on those three screens ever renders empty on first
- *         visit even without preloading. Crucially includes
- *         useAutomationStore.load() so `shopping_opened` / `task_completed`
- *         triggers are live from launch, not only after the user visits a
- *         screen that happens to load that store first. Also Notes, Meal, and
- *         Catalog: these are read by content on the FIRST screens (Notes → the
- *         Home notes preview; Meal + Catalog → the Shopping tab), so deferring
- *         them made that content visibly pop in after first paint — they belong
- *         in the synchronous tier, not Tier B.
+ *         ShoppingList, Shared, Habit, Health, plus Notes, Meal and Catalog —
+ *         the stores read by content on the FIRST screens (Notes → the Home notes
+ *         preview; Meal + Catalog → the Shopping tab), so they must be ready before
+ *         first paint or that content pops in a beat late. Includes
+ *         useAutomationStore so `shopping_opened` / `task_completed` triggers are
+ *         live from launch, not only after a screen self-loads that store.
  *       - Tier B (deferred via InteractionManager.runAfterInteractions):
- *         Feedback, Inbox, Peers, Receipt — only back screens 2+ swipes from
- *         Home (Scan's receipt parsing) or non-tab screens (Automations), so a
- *         beat of extra latency here is imperceptible.
- *   - Render is NOT gated on these loads (unlike the font load) — screens already
- *     tolerate hydrating stores via their own guarded focus-loads, which stay in
- *     place as redundant safety nets, not dead code.
+ *         Feedback, Inbox, Peers, Receipt — only back screens 2+ swipes from Home
+ *         (Scan's receipt parsing) or non-tab screens, so a beat of extra latency
+ *         is imperceptible.
+ *   - Render is gated on BOTH fonts AND settings `loaded` (see the return near the
+ *     bottom): until both are ready we paint a plain themed backdrop, not `null`
+ *     and not a half-empty app. loadSettings() flips `loaded` only after Tier A
+ *     has hydrated in the same effect, so once the gate passes the first screens
+ *     mount with their data already in memory rather than empty-then-fill. Screens
+ *     keep their guarded focus-loads as redundant safety nets.
  *   - Onboarding guard: once settings.loaded is true and setupComplete is false, and we
  *     aren't already under /onboarding, redirect to /onboarding/language. segments are
  *     read inside the effect as a guard, intentionally kept out of its deps.
@@ -69,7 +62,7 @@
  *     of a single global overlay mount.
  */
 import React, { useEffect, useRef } from 'react';
-import { AppState, InteractionManager, Text as RNText, TextInput as RNTextInput } from 'react-native';
+import { AppState, InteractionManager, Text as RNText, TextInput as RNTextInput, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -138,22 +131,17 @@ export default function RootLayout() {
     Nunito_800ExtraBold,
   });
 
+  // One-shot cold-start bootstrap in a single mount effect: initDb(), settings,
+  // then the Tier A stores that back the first screens (synchronous getAllSync
+  // scans), then Tier B deferred behind InteractionManager. loadSettings() flips
+  // `loaded`, and render is gated on `loaded` below, so Tier A finishes before the
+  // tabs mount and no first screen renders empty. useAutomationStore is included so
+  // `shopping_opened` / `task_completed` triggers are live from launch. Per-screen
+  // focus-loads stay as safety nets.
   useEffect(() => {
+    const t0 = __DEV__ ? Date.now() : 0;
     try { initDb(); } catch { /* DB init failed — proceed anyway */ }
     loadSettings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // App-wide startup store loads, once settings have hydrated. Split into two
-  // tiers (see file header) so the full boot preload doesn't block the first
-  // interactive frame in one large synchronous clump. Per-screen focus-loads
-  // remain as redundant safety nets.
-  useEffect(() => {
-    if (!loaded) return;
-    // Tier A: Home + its lazy-preloaded pager neighbors (Plans, Health) need
-    // these ready before the tabs pager mounts. Includes useAutomationStore so
-    // triggers (shopping_opened, task_completed) are live from launch instead
-    // of only after visiting a screen that self-loads them.
     useAutomationStore.getState().load();
     useTaskStore.getState().load();
     useShoppingStore.getState().load();
@@ -161,19 +149,21 @@ export default function RootLayout() {
     useSharedStore.getState().load();
     useHabitStore.getState().load();
     useHealthStore.getState().load();
-    // These three are read by content on the FIRST screens (Notes → Home's
-    // notes preview; Meal + Catalog → the Shopping tab), so deferring them made
-    // that content visibly pop in a beat after first paint. Kept synchronous
-    // (getAllSync) alongside the rest of Tier A so those screens render full on
-    // first visit. See the file header's tier note.
+    // Notes → Home's notes preview; Meal + Catalog → the Shopping tab. These back
+    // content on the FIRST screens, so they load synchronously here (not Tier B)
+    // or that content visibly pops in a beat after first paint.
     useNotesStore.getState().load();
     useMealStore.getState().load();
     useCatalogStore.getState().load();
-    // Today's tasks/shopping are ready now: push them to the home-screen
-    // widgets + the persistent overview notification.
+    // Today's tasks/shopping are ready now: push them to the home-screen widgets
+    // + the persistent overview notification.
     void syncWidgetsAndOverview();
-    // Tier B: only back screens 2+ swipes from Home or non-tab screens —
-    // deferred a beat so they don't compete with the first paint.
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log(`[perf] cold-start sync boot (initDb + Tier A store loads): ${Date.now() - t0}ms`);
+    }
+    // Tier B: only back screens 2+ swipes from Home (Scan's receipts) or non-tab
+    // screens — deferred a beat so they don't compete with the first paint.
     InteractionManager.runAfterInteractions(() => {
       useFeedbackStore.getState().load();
       useInboxStore.getState().load();
@@ -181,7 +171,7 @@ export default function RootLayout() {
       useReceiptStore.getState().load();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded]);
+  }, []);
 
   // LAN live-sync (Decision 038 app integration): start/stop lib/syncService's
   // transport as the settings toggle flips, once a stable deviceId exists (settings
@@ -237,7 +227,15 @@ export default function RootLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, setupComplete]);
 
-  if (!fontsLoaded) return null;
+  // Gate render on fonts AND settings hydration. The boot effect above finishes
+  // loading every store before it flips `loaded`, so once this gate passes, all
+  // five pre-mounted tab screens mount with their data already in memory — no
+  // empty-then-fill flicker. Until then we paint a plain themed backdrop (not a
+  // blank/`null` frame and not a half-empty app) so the cold launch reveals a
+  // fully-populated app in one step.
+  if (!fontsLoaded || !loaded) {
+    return <View style={{ flex: 1, backgroundColor: theme.bg }} />;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
