@@ -8,11 +8,14 @@
  * "new" cards). Extracted from the WeekListCard inline-add pattern. It no longer has to be
  * the strict last item — the keyboard-avoidance below lifts the row itself, not the list end.
  *
- * The confirm button is a raised, pressable-looking control (surface fill + Shadow.button
- * + a light top edge) while the input is empty, and fills with `accent` (default theme.good)
- * once there's text — depth "toward the user", not a recessed well. It defaults to a "+" glyph; callers whose
- * row already shows a +/− stepper in `extras` pass confirmIcon="checkmark" so two
- * identical "+" buttons never sit adjacent (criterion 6).
+ * The confirm button reads as inert while the input is empty — it IS disabled then (submitting
+ * needs text), so it's a flat, recessed well (surfaceMuted + a neutral edge, no shadow) rather
+ * than masquerading as a ready-to-tap control (an earlier "raised even when empty" look made the
+ * disabled state read as a broken/dead button). Once there's text it becomes raised and
+ * pressable-looking — fills with `accent` (default theme.good) + Shadow.button + a light top
+ * edge, depth "toward the user". It defaults to a "+" glyph; callers whose row already shows a
+ * +/− stepper in `extras` pass confirmIcon="checkmark" so two identical "+" buttons never sit
+ * adjacent (criterion 6).
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme, lib/i18n, components/PressableScale,
@@ -131,12 +134,15 @@ export default function AddRow({
       <PressableScale
         style={[
           styles.confirm,
-          Shadow.button,
+          // Raised & pressable-looking ONLY when there's text to submit: real fill + button
+          // shadow + a light top edge so it reads as lifted toward the user. While the input is
+          // empty the button is inert (disabled — submitting needs text), so it drops all of that
+          // and reads as a flat, recessed well (surfaceMuted + a neutral edge, no shadow) to
+          // signal "type something first" instead of masquerading as a ready-to-tap control.
+          active && Shadow.button,
           {
-            // Raised, pressable-looking button: a real fill (never the recessed surfaceMuted)
-            // + a light top edge so it reads as lifted toward the user, not a sunken well.
-            backgroundColor: active ? fill : theme.surface,
-            borderTopColor: 'rgba(255,255,255,0.6)',
+            backgroundColor: active ? fill : theme.surfaceMuted,
+            borderTopColor: active ? 'rgba(255,255,255,0.6)' : theme.border,
           },
         ]}
         onPress={onSubmit}
