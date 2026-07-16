@@ -32,8 +32,13 @@
  *   - **Unfinished/finished split (2026-07-14)**: the local `<DoneSplitList>` component
  *     (defined just above `TasksScreen`) filters a section's tasks into unfinished (always
  *     shown) + finished (behind a collapsible "Done" header, default collapsed) —
- *     applied to the Today card, each This-week weekday group, and both Whenever sections.
+ *     applied to the Today section, each This-week weekday group, and both Whenever sections.
  *     The All-tasks tab is untouched — its sections still render flat.
+ *   - **Consistent sections (2026-07-16)**: Today no longer sits in its own boxed
+ *     `surfaceMuted` card — it renders as a plain `styles.section` like the This-week day
+ *     groups and both Whenever sections, so every task section shares one treatment (loose
+ *     cards on the shared backdrop). The old `todayCard` box was the lone exception and read
+ *     as unfinished next to the loose Whenever section right below it.
  *   - **"Done" sub-header (2026-07-16)**: the finished zone's header is the same
  *     `<SectionRail>` pill as the Whenever/Recurring/day headers (hue = `theme.good` status
  *     green), with the collapse `AnimatedChevron` in its right slot — so "Done" reads as a
@@ -43,7 +48,7 @@
  *     uses `Spring.calm` (constants/motion) instead of the default bouncy release — a
  *     repeatedly-tapped section toggle shouldn't overshoot as much as a one-off button press.
  *   - **Per-day add (2026-07-16)**: `<InlineTaskAdd>` (defined above `TasksScreen`) puts an
- *     AddRow in the Today card (dates the task today) and each This-week day group (dates it
+ *     AddRow in the Today section (dates the task today) and each This-week day group (dates it
  *     that weekday), so tasks can be made from Today/This week — not only as undated Whenever
  *     tasks from the All tab. All tabs read the one store, so a new task shows everywhere at
  *     once (its day group, Today, and the All tab's Whenever) with no extra sync.
@@ -171,8 +176,9 @@ function DoneSplitList({
  * Whenever task from the All tab). Owns its own input state; on submit it creates a dated,
  * non-recurring task (hasStartDate=true) via useTaskStore.add — so it immediately shows in
  * this day's list, in Today, and under the All tab's Whenever, all reading the same store.
- * `wrapped` renders it inside a bordered card (for day groups sitting on the particle
- * background); bare (default) it appends directly inside an existing card (the Today card).
+ * `wrapped` renders it inside a bordered card (for the Today section and each This-week day
+ * group, which all sit loose on the particle background); bare (default) appends the row
+ * directly, for a caller that already provides its own surrounding card.
  */
 function InlineTaskAdd({
   date,
@@ -458,8 +464,8 @@ export default function TasksScreen() {
         {/* ── TODAY ── */}
         {tab === 'today' && (
           <>
-            <View style={[styles.todayCard, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-              <SectionRail hue={theme.accent} label={t.tasksTabToday} count={todayList.length} style={styles.railInCard} />
+            <View style={styles.section}>
+              <SectionRail hue={theme.accent} label={t.tasksTabToday} count={todayList.length} />
               <DoneSplitList
                 tasks={todayList}
                 emptyText={t.noPlansToday}
@@ -468,7 +474,7 @@ export default function TasksScreen() {
                 )}
               />
               {/* Make a task straight into today (dated today), not only as an undated Whenever task. */}
-              <InlineTaskAdd date={today} accent={theme.accent} assignee={personFilter ?? ''} />
+              <InlineTaskAdd date={today} accent={theme.accent} assignee={personFilter ?? ''} wrapped />
             </View>
 
             <View style={styles.section}>
@@ -546,14 +552,11 @@ const styles = StyleSheet.create({
   // Decision 043 rule 2: Spacing.xl above every section; the SectionRail carries its own
   // below-header spacing (marginBottom), so this wrapper adds none of its own.
   section: { marginTop: Spacing.xl },
-  // SectionRail inside the Today card already sits on an opaque surface whose `gap` handles
-  // the header→list spacing, so drop the rail's own marginBottom to avoid doubling up.
-  railInCard: { marginBottom: 0 },
   // Visual-audit 2026-07-11: was bare muted text floating on the particle background
   // (low contrast in practice even though the token itself passes AA) — a card behind
-  // it, matching HomeNotesCard's empty-state treatment, gives it real footing. The
-  // Today tab's own instance (inside todayCard) stays bare — that one already sits on
-  // a card, so a second background would double up (Decision 043 rule 1).
+  // it, matching HomeNotesCard's empty-state treatment, gives it real footing. Every
+  // section (Today included, as of 2026-07-16) sits directly on the backdrop, so this
+  // card is what gives an empty section its footing.
   sectionEmpty: {
     fontSize: FontSize.sm,
     paddingVertical: Spacing.sm,
@@ -565,12 +568,11 @@ const styles = StyleSheet.create({
   cardStack: { gap: Spacing.sm },
   // Frames the "Done" pill + its collapsed rows as one card (2026-07-16) — previously bare
   // spacing, so the header floated over the rows with nothing tying them together visually.
-  // `theme.surface` (not `surfaceMuted`) keeps it distinct when nested inside `todayCard`
-  // (already `surfaceMuted`) and still readable as a raised card on the bare particle
-  // background (This-week/Whenever sections). No `gap` here — SectionRail already carries
-  // its own marginBottom, so a gap would leave a phantom blank strip under the header while
-  // collapsed (Collapsible's outer clip wrapper stays mounted at 0 height). Collapsible's own
-  // reveal already resizes this View smoothly — no extra layout-animation needed here.
+  // `theme.surface` reads as a raised card on the bare particle background (every section now
+  // sits directly on it). No `gap` here — SectionRail already carries its own marginBottom, so
+  // a gap would leave a phantom blank strip under the header while collapsed (Collapsible's
+  // outer clip wrapper stays mounted at 0 height). Collapsible's own reveal already resizes
+  // this View smoothly — no extra layout-animation needed here.
   doneZone: { marginTop: Spacing.sm, borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm },
   personFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm },
   personChip: { borderRadius: Radius.full, borderWidth: 1, paddingVertical: 6, paddingHorizontal: Spacing.md, minHeight: 34, justifyContent: 'center' },
@@ -583,11 +585,5 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     borderWidth: 1,
     borderLeftWidth: 4,
-  },
-  todayCard: {
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    gap: Spacing.sm,
   },
 });
