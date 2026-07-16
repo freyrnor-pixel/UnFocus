@@ -365,7 +365,9 @@ export default function PlanTaskCard({
         <View
           style={[
             styles.dot,
-            { borderColor: isHappeningNow ? theme.accent : theme.border },
+            // Idle checkbox ring uses textMuted so the unchecked dot reads clearly (the
+            // border token is too faint for a tap target); happening-now/done fill = accent.
+            { borderColor: isHappeningNow ? theme.accent : theme.textMuted },
             (isHappeningNow || task.done) && { backgroundColor: theme.accent, borderColor: theme.accent },
           ]}
         >

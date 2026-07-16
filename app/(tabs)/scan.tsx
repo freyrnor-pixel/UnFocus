@@ -397,7 +397,7 @@ export default function ScanScreen() {
   function renderStoreSelector() {
     return (
       <View style={styles.storeSection}>
-        <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.store.toUpperCase()}</Text>
+        <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.store.toUpperCase()}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.storeScroll}>
           <View style={styles.storeRow}>
             {NORWEGIAN_STORES.map((store) => (

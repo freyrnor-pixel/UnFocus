@@ -29,9 +29,17 @@
  *     entering/exiting/`layout` layout-animation primitives are reliable here; `LinearTransition`
  *     (a `layout` animation) drives the size change dependably, which is what the clip reveal
  *     leans on. No `height` math, no onLayout measurement.
- *   - Closing: `open` flips false → the inner child unmounts → the outer wrapper shrinks to 0
- *     via `LinearTransition` (a smooth fold-away, no fade). The child is only rendered while
- *     `open`, so a collapsed instance renders no children (lazy mount preserved).
+ *   - Closing (2026-07-16 fix): the inner child carries `exiting={FadeOut}`. Without it the
+ *     child unmounted in one commit and the wrapper's height SNAPPED to 0 — a `layout`
+ *     animation does not reliably animate a shrink caused by its own child being removed, so
+ *     the collapse had no animation while the open (a grow the wrapper's `LinearTransition`
+ *     catches) looked fine. With an `exiting` animation Reanimated pulls the leaving child out
+ *     of layout flow WHILE it plays, so the outer wrapper folds shut via `LinearTransition`
+ *     *at the same time* — the fold and a light fade overlap into one cohesive close that
+ *     mirrors the open. (The #196 clip rewrite dropped the earlier `FadeOut` and lost the
+ *     collapse animation entirely; this restores the exit without giving up the clip-unveil
+ *     open.) The child is only rendered while `open`, so a collapsed instance renders no
+ *     children (lazy mount preserved).
  *   - Mount-already-open (e.g. a new task card that starts expanded) shows content immediately:
  *     the wrapper mounts at its natural size with no prior frame to transition from, so there's
  *     no entrance animation; the reveal animates on subsequent toggles.
@@ -39,7 +47,7 @@
  */
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import Animated, { LinearTransition } from 'react-native-reanimated';
+import Animated, { FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility } from '@/lib/useAppTheme';
 
@@ -65,7 +73,10 @@ export default function Collapsible({ open, children, style }: Props) {
       layout={LinearTransition.duration(Duration.card).easing(Ease.move)}
     >
       {open ? (
-        <Animated.View layout={LinearTransition.duration(Duration.card).easing(Ease.move)}>
+        <Animated.View
+          layout={LinearTransition.duration(Duration.card).easing(Ease.move)}
+          exiting={FadeOut.duration(Duration.cardOut).easing(Ease.exit)}
+        >
           {children}
         </Animated.View>
       ) : null}

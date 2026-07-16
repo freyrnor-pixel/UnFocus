@@ -986,7 +986,7 @@ export default function ShoppingScreen() {
               {purchasedByTrip.length > 0 && (
                 <View style={styles.section}>
                   <View style={[styles.sectionTitleCard, { backgroundColor: theme.surfaceMuted }]}>
-                    <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.purchasedThisMonthSection}</Text>
+                    <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.purchasedThisMonthSection}</Text>
                   </View>
                   {purchasedByTrip.map(({ trip, tripItems }) => {
                     const expanded = purchasedExpanded === trip.id;

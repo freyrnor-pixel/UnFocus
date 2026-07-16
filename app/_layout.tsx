@@ -35,12 +35,15 @@
  *         visit even without preloading. Crucially includes
  *         useAutomationStore.load() so `shopping_opened` / `task_completed`
  *         triggers are live from launch, not only after the user visits a
- *         screen that happens to load that store first.
+ *         screen that happens to load that store first. Also Notes, Meal, and
+ *         Catalog: these are read by content on the FIRST screens (Notes → the
+ *         Home notes preview; Meal + Catalog → the Shopping tab), so deferring
+ *         them made that content visibly pop in after first paint — they belong
+ *         in the synchronous tier, not Tier B.
  *       - Tier B (deferred via InteractionManager.runAfterInteractions):
- *         Catalog, Feedback, Inbox, Meal, Notes, Peers, Receipt — only back
- *         screens 2+ swipes from Home (Shopping's catalog autocomplete, Scan's
- *         receipt parsing) or non-tab screens (Notes, Automations), so a beat
- *         of extra latency here is imperceptible.
+ *         Feedback, Inbox, Peers, Receipt — only back screens 2+ swipes from
+ *         Home (Scan's receipt parsing) or non-tab screens (Automations), so a
+ *         beat of extra latency here is imperceptible.
  *   - Render is NOT gated on these loads (unlike the font load) — screens already
  *     tolerate hydrating stores via their own guarded focus-loads, which stay in
  *     place as redundant safety nets, not dead code.
@@ -158,17 +161,22 @@ export default function RootLayout() {
     useSharedStore.getState().load();
     useHabitStore.getState().load();
     useHealthStore.getState().load();
+    // These three are read by content on the FIRST screens (Notes → Home's
+    // notes preview; Meal + Catalog → the Shopping tab), so deferring them made
+    // that content visibly pop in a beat after first paint. Kept synchronous
+    // (getAllSync) alongside the rest of Tier A so those screens render full on
+    // first visit. See the file header's tier note.
+    useNotesStore.getState().load();
+    useMealStore.getState().load();
+    useCatalogStore.getState().load();
     // Today's tasks/shopping are ready now: push them to the home-screen
     // widgets + the persistent overview notification.
     void syncWidgetsAndOverview();
     // Tier B: only back screens 2+ swipes from Home or non-tab screens —
     // deferred a beat so they don't compete with the first paint.
     InteractionManager.runAfterInteractions(() => {
-      useCatalogStore.getState().load();
       useFeedbackStore.getState().load();
       useInboxStore.getState().load();
-      useMealStore.getState().load();
-      useNotesStore.getState().load();
       usePeersStore.getState().load();
       useReceiptStore.getState().load();
     });

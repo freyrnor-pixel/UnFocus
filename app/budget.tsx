@@ -181,7 +181,7 @@ export default function BudgetScreen() {
           </Surface>
 
           <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.budget.receiptsTitle}</Text>
+            <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.budget.receiptsTitle}</Text>
             {receipts.length === 0 ? (
               <Surface tint={theme.surfaceMuted} style={styles.card}>
                 <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.budget.noReceipts}</Text>
@@ -204,7 +204,7 @@ export default function BudgetScreen() {
           {/* Per-store breakdown */}
           {Object.keys(storeBreakdown).length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.budget.perStore}</Text>
+              <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.budget.perStore}</Text>
               <Surface style={styles.card}>
                 {Object.entries(storeBreakdown)
                   .sort((a, b) => b[1] - a[1])
