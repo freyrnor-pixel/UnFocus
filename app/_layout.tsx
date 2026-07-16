@@ -14,6 +14,8 @@
  *             @expo-google-fonts/nunito, @expo/vector-icons (Ionicons/MaterialCommunityIcons —
  *             .font preloaded into useFonts so icons don't pop in on cold load),
  *             expo-asset (Asset.loadAsync warms the bundled-image cache at boot),
+ *             expo-splash-screen (held until the app is fully painted, then hidden),
+ *             expo-system-ui + expo-navigation-bar (theme the Android system chrome),
  *             lib/backup (saveAutoBackup), lib/db, lib/syncService,
  *             lib/widgets/sync (syncWidgetsAndOverview — pushes today to the home-screen widgets
  *             + persistent overview notification), lib/useAppTheme,
@@ -40,16 +42,23 @@
  *   - Cold-load asset warming (2026-07-16): the icon glyph fonts (Ionicons +
  *     MaterialCommunityIcons `.font`) are preloaded via useFonts alongside Nunito so
  *     icons paint on the first frame instead of loading their font on first mount and
- *     popping in. The bundled images (bg-light/dark, icon, monochrome) are warmed
- *     fire-and-forget via Asset.loadAsync in the boot effect — deliberately NOT gated,
- *     so launch isn't blocked on image decode; the first sub-screen navigation then
- *     paints its ImageBackground from cache instead of re-decoding + fading in.
- *   - Render is gated on BOTH fonts AND settings `loaded` (see the return near the
- *     bottom): until both are ready we paint a plain themed backdrop, not `null`
- *     and not a half-empty app. loadSettings() flips `loaded` only after Tier A
- *     has hydrated in the same effect, so once the gate passes the first screens
- *     mount with their data already in memory rather than empty-then-fill. Screens
- *     keep their guarded focus-loads as redundant safety nets.
+ *     popping in. The bundled images (bg-light/dark, icon, monochrome) are decoded into
+ *     cache via Asset.loadAsync in the boot effect; `assetsReady` flips on settle (with a
+ *     1.5s timeout floor) so the backdrop is ready before the splash hides.
+ *   - Native splash "one clean reveal" (2026-07-16, needs the 1.4.0 build): the native
+ *     splash is HELD via SplashScreen.preventAutoHideAsync() at module scope, and hidden
+ *     in onLayoutRootView only once fonts + settings + assets are all ready. Until then
+ *     the component returns `null` (the splash covers the screen), so launch goes
+ *     splash → fully-painted app in one step — never a plain backdrop or half-empty frame.
+ *     expo-splash-screen/expo-system-ui/expo-navigation-bar are native modules that only
+ *     exist in the 1.4.0+ build; the module-scope preventAutoHideAsync would throw on the
+ *     old 1.3.0 runtime, which is why this ships in a build (runtimeVersion bumped), not OTA.
+ *   - Native chrome (Android): a theme-keyed effect sets SystemUI.setBackgroundColorAsync
+ *     + NavigationBar.setStyle so the system window/nav-bar match the app theme once JS is
+ *     live; app.json's splash + backgroundColor cover the pre-JS window.
+ *   - loadSettings() flips `loaded` only after Tier A has hydrated in the same effect, so
+ *     once the gate passes the first screens mount with their data already in memory rather
+ *     than empty-then-fill. Screens keep their guarded focus-loads as redundant safety nets.
  *   - Onboarding guard: once settings.loaded is true and setupComplete is false, and we
  *     aren't already under /onboarding, redirect to /onboarding/language. segments are
  *     read inside the effect as a guard, intentionally kept out of its deps.
@@ -71,8 +80,8 @@
  *     gate now lives per-anchor in components/DebugNoteAnchor.tsx / ScreenHeader instead
  *     of a single global overlay mount.
  */
-import React, { useEffect, useRef } from 'react';
-import { AppState, InteractionManager, Text as RNText, TextInput as RNTextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, InteractionManager, Platform, Text as RNText, TextInput as RNTextInput } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -87,6 +96,9 @@ import {
 } from '@expo-google-fonts/nunito';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Asset } from 'expo-asset';
+import * as SplashScreen from 'expo-splash-screen';
+import * as SystemUI from 'expo-system-ui';
+import * as NavigationBar from 'expo-navigation-bar';
 import { MAX_FONT_SCALE } from '@/constants/theme';
 import { initDb } from '@/lib/db';
 import { saveAutoBackup } from '@/lib/backup';
@@ -120,6 +132,15 @@ import AppModalHost from '@/components/AppModal';
 (RNText as any).defaultProps = { ...(RNText as any).defaultProps, maxFontSizeMultiplier: MAX_FONT_SCALE };
 (RNTextInput as any).defaultProps = { ...(RNTextInput as any).defaultProps, maxFontSizeMultiplier: MAX_FONT_SCALE };
 
+// Hold the native splash screen up (instead of letting it auto-hide on the first JS
+// frame) so the app reveals ONCE, fully painted — fonts, icon glyphs and the decoded
+// backdrop image all ready — rather than flashing a half-built frame. Called in global
+// scope without awaiting, per expo-splash-screen's guidance; RootLayout hides it in an
+// onLayout callback once fonts + settings + image assets are ready. No-op on web.
+void SplashScreen.preventAutoHideAsync().catch(() => { /* already hidden / unsupported */ });
+// iOS gets a short cross-fade out; Android hides instantly (fade is iOS-only here).
+SplashScreen.setOptions({ duration: 220, fade: true });
+
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
@@ -149,6 +170,13 @@ export default function RootLayout() {
     ...MaterialCommunityIcons.font,
   });
 
+  // Gates hiding the splash (below) until the backdrop image is decoded, so the very
+  // first screen — and every pushed sub-screen after it — paints its backdrop from a
+  // warm cache instead of decoding + fading in. Held behind the splash (already on
+  // screen), so this reads as launch, not a block. A timeout floor guarantees we never
+  // hang on a slow/failed decode.
+  const [assetsReady, setAssetsReady] = useState(false);
+
   // One-shot cold-start bootstrap in a single mount effect: initDb(), settings,
   // then the Tier A stores that back the first screens (synchronous getAllSync
   // scans), then Tier B deferred behind InteractionManager. loadSettings() flips
@@ -176,19 +204,21 @@ export default function RootLayout() {
     // Today's tasks/shopping are ready now: push them to the home-screen widgets
     // + the persistent overview notification.
     void syncWidgetsAndOverview();
-    // Warm the decoded-image cache without blocking launch (fire-and-forget). The
-    // watercolor backdrop (ParticleBackground's ImageBackground) otherwise decodes
-    // lazily, and every pushed sub-screen mounts its OWN ImageBackground that
-    // re-decodes + fades — reading as "each screen loads in". Once these are cached,
-    // sub-screen backdrops paint from the first frame. Icons/logos included for the
-    // same reason. Errors are swallowed: a warm-cache miss just falls back to the
-    // normal lazy decode, so there's nothing to handle.
+    // Decode the backdrop image (+ icons/logos) into cache before we hide the splash,
+    // so the first screen and every pushed sub-screen paint their ImageBackground from
+    // a warm cache instead of decoding + fading in ("each screen loads in"). Flip
+    // `assetsReady` on settle — success OR failure — with a 1.5s timeout floor so a
+    // slow/failed decode never strands us behind the splash. This runs while the splash
+    // is still up, so it reads as launch, not an added block.
+    let settled = false;
+    const markAssetsReady = () => { if (!settled) { settled = true; setAssetsReady(true); } };
+    const assetTimeout = setTimeout(markAssetsReady, 1500);
     void Asset.loadAsync([
       require('../assets/bg-light.png'),
       require('../assets/bg-dark.png'),
       require('../assets/icon.png'),
       require('../assets/android-icon-monochrome.png'),
-    ]).catch(() => { /* warm-cache miss — lazy decode still works */ });
+    ]).then(markAssetsReady).catch(markAssetsReady);
     if (__DEV__) {
       // eslint-disable-next-line no-console
       console.log(`[perf] cold-start sync boot (initDb + Tier A store loads): ${Date.now() - t0}ms`);
@@ -201,8 +231,20 @@ export default function RootLayout() {
       usePeersStore.getState().load();
       useReceiptStore.getState().load();
     });
+    return () => clearTimeout(assetTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Native chrome (Android): paint the system window + navigation-bar to match the
+  // active theme so there's no white/mismatched flash around the app's own background,
+  // and the nav-bar icons stay legible in both themes. app.json's splash + backgroundColor
+  // cover the pre-JS window; this keeps it correct once JS is live and on theme changes.
+  // Android-only — these modules are no-ops/unsupported elsewhere.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    void SystemUI.setBackgroundColorAsync(theme.bg).catch(() => { /* unsupported — ignore */ });
+    try { NavigationBar.setStyle(isDark ? 'light' : 'dark'); } catch { /* unsupported — ignore */ }
+  }, [theme.bg, isDark]);
 
   // LAN live-sync (Decision 038 app integration): start/stop lib/syncService's
   // transport as the settings toggle flips, once a stable deviceId exists (settings
@@ -258,18 +300,26 @@ export default function RootLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, setupComplete]);
 
-  // Gate render on fonts AND settings hydration. The boot effect above finishes
-  // loading every store before it flips `loaded`, so once this gate passes, all
-  // five pre-mounted tab screens mount with their data already in memory — no
-  // empty-then-fill flicker. Until then we paint a plain themed backdrop (not a
-  // blank/`null` frame and not a half-empty app) so the cold launch reveals a
-  // fully-populated app in one step.
-  if (!fontsLoaded || !loaded) {
-    return <View style={{ flex: 1, backgroundColor: theme.bg }} />;
+  // Gate on fonts AND settings hydration AND the decoded backdrop image. The boot
+  // effect finishes every store load before it flips `loaded`, so once this gate
+  // passes all five pre-mounted tab screens mount with their data (and the backdrop)
+  // already in memory — no empty-then-fill flicker. The native splash (held up above
+  // via preventAutoHideAsync) stays on screen the whole time and is hidden in
+  // onLayoutRootView once the real tree has laid out — so the cold launch goes
+  // splash → fully-painted app in one clean step, never through a half-built frame.
+  const appReady = fontsLoaded && loaded && assetsReady;
+  const onLayoutRootView = useCallback(() => {
+    if (appReady) {
+      void SplashScreen.hideAsync().catch(() => { /* already hidden */ });
+    }
+  }, [appReady]);
+
+  if (!appReady) {
+    return null;
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack
