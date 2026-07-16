@@ -79,6 +79,7 @@ import {
   Nunito_700Bold,
   Nunito_800ExtraBold,
 } from '@expo-google-fonts/nunito';
+import { MAX_FONT_SCALE } from '@/constants/theme';
 import { initDb } from '@/lib/db';
 import { saveAutoBackup } from '@/lib/backup';
 import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
@@ -101,13 +102,13 @@ import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import AppModalHost from '@/components/AppModal';
 
-// Cap OS-level font scaling (Dynamic Type / Android font size) so it can't
-// overflow the app's fixed-height chrome — the header (64px), BottomNav (72px),
-// FAB, chips, etc. The in-app font-size setting (small/default/large, applied
-// via useScaledStyles) still scales text on top of this; the cap only bounds the
-// OS multiplier that stacks over it, which was previously uncapped. 1.4 keeps a
-// meaningful accessibility zoom while preventing the worst clipping/overflow.
-const MAX_FONT_SCALE = 1.4;
+// Cap OS-level font scaling (Dynamic Type / Android font size) so it can't overflow the
+// app's chrome — BottomNav, FAB, chips, etc. (MAX_FONT_SCALE lives in constants/theme.ts,
+// shared with getHeaderMetrics so the header band that DOES scale with this cap uses the
+// exact same value.) The in-app font-size setting (small/default/large, applied via
+// useScaledStyles) still scales text on top of this; the cap only bounds the OS multiplier
+// that stacks over it. 1.4 keeps a meaningful accessibility zoom while preventing the worst
+// clipping/overflow.
 (RNText as any).defaultProps = { ...(RNText as any).defaultProps, maxFontSizeMultiplier: MAX_FONT_SCALE };
 (RNTextInput as any).defaultProps = { ...(RNTextInput as any).defaultProps, maxFontSizeMultiplier: MAX_FONT_SCALE };
 
