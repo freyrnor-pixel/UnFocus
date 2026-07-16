@@ -12,21 +12,24 @@
  *             ScreenHeader can gate its OTA "update available" button to Home only), components/BottomNav,
  *             lib/useAppTheme, store/useSettingsStore (debugModeEnabled → debug band outline)
  *   Used by → every app screen (app/(tabs)/index.tsx, app/(tabs)/shopping.tsx, etc.); also
- *             exports ScrollToEndContext, consumed by components/AddRow.tsx to scroll
+ *             exports ScrollIntoViewContext, consumed by components/AddRow.tsx to scroll
  *             itself above the keyboard on focus (see that Edit note below)
  *   Data    → none (presentational; all logic in child screens)
  *
  * Edit notes:
  *   - Layer order is critical: L1 background → L2 particles → L3 content → L4 top block →
  *     L4.5 optional sticky-below-header block → L5 bottom block
- *   - **ScrollToEndContext (2026-07-13, fixes AddRow taps going dead behind the keyboard)**:
- *     wraps `children` inside the ScrollView, exposing `scrollRef.current.scrollToEnd()`.
- *     Android's default `windowSoftInputMode=resize` shrinks the visible viewport when the
- *     keyboard opens but never scrolls content to compensate — a bottom-of-list AddRow (its
- *     contract: always the LAST row) silently ends up hidden behind the keyboard, so taps on
- *     "+" land on the keyboard instead of the button and do nothing. AddRow calls this context
- *     from its input's onFocus/keyboardDidShow. `null` outside a ScreenScaffold — shouldn't
- *     happen, every AddRow site is ScreenScaffold-wrapped.
+ *   - **ScrollIntoViewContext (2026-07-13 keyboard fix; 2026-07-16 made row-relative)**:
+ *     wraps `children` inside the ScrollView, exposing a `scrollIntoView(node)` that measures
+ *     the focused AddRow in window coords and scrolls only enough to lift it above the
+ *     keyboard. Android's default `windowSoftInputMode=resize` shrinks the visible viewport
+ *     when the keyboard opens but never scrolls content to compensate, so an AddRow can end up
+ *     hidden behind the keyboard — taps on "+" land on the keyboard and do nothing. The
+ *     original fix scrolled to the absolute END, which assumed AddRow was always the LAST row;
+ *     #196's per-day InlineTaskAdd rows sit MID-list, so scroll-to-end scrolled *past* them and
+ *     re-broke the taps. Measuring the row and lifting just it is correct for last- and
+ *     mid-list rows alike. AddRow calls this from its input's onFocus/keyboardDidShow. `null`
+ *     outside a scrollable ScreenScaffold — the non-scrollable/FlatList branch self-manages.
  *   - ParticleBackground gating (particlesEnabled + reducedMotion) happens inside the component
  *   - Top and bottom blocks float above content with translucency — content scrolls behind them
  *   - Safe-area handling is SPLIT (Android edge-to-edge is always on in RN 0.85 / Expo 56, so
@@ -98,7 +101,7 @@
  *     manages keeping its own AddRow above the keyboard.
  */
 import React, { useCallback, useRef } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import { Keyboard, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getHeaderMetrics } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
@@ -109,16 +112,29 @@ import ParticleBackground from '@/components/ParticleBackground';
 import ScreenHeader from '@/components/ScreenHeader';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
 
+/** A host component (View) ref that can be measured in window coordinates. */
+type Measurable = {
+  measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void;
+};
+
 /**
- * Scrolls this screen's ScrollView to the end — consumed by components/AddRow.tsx so
- * its input+confirm button (always mounted as the LAST row of whatever it's attached to,
- * per that file's contract) scrolls above the keyboard on focus. Android's default
+ * Scrolls a given row just above the keyboard — consumed by components/AddRow.tsx so its
+ * input+confirm button stays tappable when the keyboard opens. Android's default
  * `windowSoftInputMode=resize` shrinks the visible viewport when the keyboard opens but
- * never auto-scrolls content to compensate, so a bottom-of-list AddRow silently ends up
- * hidden behind the keyboard — taps land on the keyboard, not the button. `null` outside
- * a ScreenScaffold (shouldn't happen — every AddRow site is a ScreenScaffold-wrapped screen).
+ * never auto-scrolls content to compensate, so an AddRow can end up hidden behind the
+ * keyboard — taps land on the keyboard, not the "+" button.
+ *
+ * Pass the AddRow's own View node: we measure it in window coords and scroll only enough to
+ * lift its bottom above the keyboard. This is correct whether the row is the LAST item of its
+ * list OR sits mid-list (the per-day InlineTaskAdd rows on Today/This week) — unlike the old
+ * "scroll to absolute end", which scrolled *past* a mid-list row and left it (and its button)
+ * behind the keyboard (the #196 regression). `null` outside a scrollable ScreenScaffold
+ * (the non-scrollable/FlatList branch handles its own keyboard avoidance).
  */
-export const ScrollToEndContext = React.createContext<(() => void) | null>(null);
+export const ScrollIntoViewContext = React.createContext<((node: Measurable | null) => void) | null>(null);
+
+/** Extra gap left between the lifted row's bottom and the top of the keyboard. */
+const KEYBOARD_MARGIN = 16;
 
 type Tier = 'site' | 'sub';
 
@@ -226,8 +242,36 @@ export default function ScreenScaffold({
   const { headerHeight: HEADER_HEIGHT } = getHeaderMetrics(PixelRatio.getFontScale());
 
   const scrollRef = useRef<ScrollView>(null);
-  const scrollToEnd = useCallback(() => {
-    scrollRef.current?.scrollToEnd({ animated: true });
+  // Live scroll offset, so scrollIntoView can convert a window-space overlap into an
+  // absolute scrollTo target. Tracked on every scroll frame (cheap — a single ref write).
+  const scrollY = useRef(0);
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollY.current = e.nativeEvent.contentOffset.y;
+      onScroll?.(e);
+    },
+    [onScroll],
+  );
+  // Lift the given row just above the keyboard (see ScrollIntoViewContext doc). Measures the
+  // row in window coords; if its bottom is under the keyboard, scrolls up by exactly the
+  // overlap. Falls back to scrollToEnd when the node can't be measured.
+  const scrollIntoView = useCallback((node: Measurable | null) => {
+    const sv = scrollRef.current;
+    if (!sv) return;
+    if (!node?.measureInWindow) {
+      sv.scrollToEnd({ animated: true });
+      return;
+    }
+    node.measureInWindow((_x, y, _w, h) => {
+      // Keyboard.metrics() returns the keyboard rect while it's shown; screenY is its top edge
+      // in window coords. Unknown (keyboard not yet up) → no scroll now; the keyboardDidShow
+      // call from AddRow retries once metrics exist.
+      const kbTop = Keyboard.metrics?.()?.screenY ?? Number.POSITIVE_INFINITY;
+      const overlap = y + h + KEYBOARD_MARGIN - kbTop;
+      if (overlap > 0) {
+        scrollRef.current?.scrollTo({ y: scrollY.current + overlap, animated: true });
+      }
+    });
   }, []);
 
   // The outer SafeAreaView pads the in-flow ScrollView into the safe area — this is
@@ -259,16 +303,16 @@ export default function ScreenScaffold({
         bottom: tier === 'site' ? BOTTOM_NAV_HEIGHT : 0,
       }}
       keyboardShouldPersistTaps="handled"
-      onScroll={onScroll}
-      scrollEventThrottle={onScroll ? 16 : undefined}
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
     >
-      <ScrollToEndContext.Provider value={scrollToEnd}>{children}</ScrollToEndContext.Provider>
+      <ScrollIntoViewContext.Provider value={scrollIntoView}>{children}</ScrollIntoViewContext.Provider>
     </ScrollView>
   ) : (
-    // Non-scrollable: children own scrolling (e.g. a FlatList). ScrollToEndContext is a
+    // Non-scrollable: children own scrolling (e.g. a FlatList). ScrollIntoViewContext is a
     // no-op here — a self-scrolling FlatList handles keeping its own AddRow above the keyboard.
     <View style={[styles.scrollView, contentPadding]}>
-      <ScrollToEndContext.Provider value={null}>{children}</ScrollToEndContext.Provider>
+      <ScrollIntoViewContext.Provider value={null}>{children}</ScrollIntoViewContext.Provider>
     </View>
   );
 

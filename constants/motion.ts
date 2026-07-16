@@ -50,4 +50,8 @@ export const Ease = {
 /** The proven snappy spring (from PressableScale) for tactile press/toggle spring-backs. */
 export const Spring = {
   snappy: { damping: 18, stiffness: 320 },
+  /** Near-critically-damped — settles with almost no overshoot. Use for section/accordion
+   *  toggle headers (Tasks "Done" zone, ExpandableCard) where the default `snappy` spring's
+   *  bounce reads as too energetic for a repeatedly-tapped list control. */
+  calm: { damping: 34, stiffness: 280 },
 } as const;

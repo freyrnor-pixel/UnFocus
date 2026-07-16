@@ -38,6 +38,10 @@
  *     `<SectionRail>` pill as the Whenever/Recurring/day headers (hue = `theme.good` status
  *     green), with the collapse `AnimatedChevron` in its right slot — so "Done" reads as a
  *     peer sub-header, not a bare text row. Reveal is a clip/unveil (see Collapsible), not a fade.
+ *     The zone is framed (`styles.doneZone` — border + `theme.surface` background) so the
+ *     header and its rows read as one card that grows/shrinks together, and its toggle press
+ *     uses `Spring.calm` (constants/motion) instead of the default bouncy release — a
+ *     repeatedly-tapped section toggle shouldn't overshoot as much as a one-off button press.
  *   - **Per-day add (2026-07-16)**: `<InlineTaskAdd>` (defined above `TasksScreen`) puts an
  *     AddRow in the Today card (dates the task today) and each This-week day group (dates it
  *     that weekday), so tasks can be made from Today/This week — not only as undated Whenever
@@ -92,6 +96,7 @@ import { tap } from '@/lib/haptics';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Spring } from '@/constants/motion';
 import { getDomainColor } from '@/lib/domainColor';
 
 type Tab = 'all' | 'today' | 'week';
@@ -138,10 +143,12 @@ function DoneSplitList({
     <>
       {unfinished.length > 0 && <View style={styles.cardStack}>{unfinished.map(renderCard)}</View>}
       {finished.length > 0 && (
-        <View style={styles.doneZone}>
+        <View style={[styles.doneZone, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           {/* "Done" reads as a peer of the Whenever / Recurring / day sub-headers — same
-              SectionRail pill (hue = status green), with the collapse chevron in its right slot. */}
-          <PressableScale onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97}>
+              SectionRail pill (hue = status green), with the collapse chevron in its right slot.
+              The zone itself is framed (border/background) so header + rows read as one card
+              that grows/shrinks together, not a header floating over bare rows. */}
+          <PressableScale onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
             <SectionRail
               hue={theme.good}
               label={t.tasksDoneLabel}
@@ -556,7 +563,15 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   cardStack: { gap: Spacing.sm },
-  doneZone: { marginTop: Spacing.sm },
+  // Frames the "Done" pill + its collapsed rows as one card (2026-07-16) — previously bare
+  // spacing, so the header floated over the rows with nothing tying them together visually.
+  // `theme.surface` (not `surfaceMuted`) keeps it distinct when nested inside `todayCard`
+  // (already `surfaceMuted`) and still readable as a raised card on the bare particle
+  // background (This-week/Whenever sections). No `gap` here — SectionRail already carries
+  // its own marginBottom, so a gap would leave a phantom blank strip under the header while
+  // collapsed (Collapsible's outer clip wrapper stays mounted at 0 height). Collapsible's own
+  // reveal already resizes this View smoothly — no extra layout-animation needed here.
+  doneZone: { marginTop: Spacing.sm, borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm },
   personFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm },
   personChip: { borderRadius: Radius.full, borderWidth: 1, paddingVertical: 6, paddingHorizontal: Spacing.md, minHeight: 34, justifyContent: 'center' },
   personChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },

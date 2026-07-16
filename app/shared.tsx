@@ -121,7 +121,7 @@ export default function SharedScreen() {
               )}
               {doneShopping.length > 0 && (
                 <View style={styles.section}>
-                  <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.sharedDone}</Text>
+                  <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.sharedDone}</Text>
                   <Surface tint={theme.surfaceMuted} style={styles.card}>
                     {doneShopping.map((item) => (
                       <SharedShoppingRow
@@ -159,7 +159,7 @@ export default function SharedScreen() {
               )}
               {doneTasks.length > 0 && (
                 <View style={styles.section}>
-                  <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.sharedDone}</Text>
+                  <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.sharedDone}</Text>
                   <Surface tint={theme.surfaceMuted} style={styles.card}>
                     {doneTasks.map((item) => (
                       <SharedTaskRow

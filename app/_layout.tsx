@@ -22,26 +22,24 @@
  *   Used by → router layout — defines the Stack
  *
  * Edit notes:
- *   - Cold-start hydration (2026-07-16): ALL 14 stores load EAGERLY and
- *     synchronously in one mount effect, right after initDb() + loadSettings().
- *     The old Tier A / Tier B split (Tier B deferred via
- *     InteractionManager.runAfterInteractions) was removed because deferring
- *     Catalog/Meal stranded Shopping (a PRIMARY tab, not "2+ swipes from Home")
- *     with an empty catalogue/food list on first visit — content visibly "loaded
- *     in" the first time you navigated there. Loading every store eagerly means
- *     any screen mounts with its data already in memory. All loads are
- *     synchronous getAllSync scans over small local tables, and they run behind
- *     the render gate below, so they cost a few ms of the launch window, not an
- *     interactive-frame stall. (Companion change tracked separately: pre-mounting
- *     all five tab screens via lazy:false in app/(tabs)/_layout.tsx, so navigation
- *     reveals an already-rendered tree — held pending on-device tap verification.)
+ *   - Settings + all stores hydrate in one mount effect (see the effect comment):
+ *       - Tier A (synchronous, same tick): Automation, Task, Shopping,
+ *         ShoppingList, Shared, Habit, Health, plus Notes, Meal and Catalog —
+ *         the stores read by content on the FIRST screens (Notes → the Home notes
+ *         preview; Meal + Catalog → the Shopping tab), so they must be ready before
+ *         first paint or that content pops in a beat late. Includes
+ *         useAutomationStore so `shopping_opened` / `task_completed` triggers are
+ *         live from launch, not only after a screen self-loads that store.
+ *       - Tier B (deferred via InteractionManager.runAfterInteractions):
+ *         Feedback, Inbox, Peers, Receipt — only back screens 2+ swipes from Home
+ *         (Scan's receipt parsing) or non-tab screens, so a beat of extra latency
+ *         is imperceptible.
  *   - Render is gated on BOTH fonts AND settings `loaded` (see the return near the
  *     bottom): until both are ready we paint a plain themed backdrop, not `null`
- *     and not a half-empty app. Because the load effect flips `loaded` only after
- *     it has finished hydrating every store, the gate guarantees no tab screen
- *     mounts before its data exists — killing the first-navigation flicker at the
- *     source rather than masking it. Screens keep their guarded focus-loads as
- *     redundant safety nets.
+ *     and not a half-empty app. loadSettings() flips `loaded` only after Tier A
+ *     has hydrated in the same effect, so once the gate passes the first screens
+ *     mount with their data already in memory rather than empty-then-fill. Screens
+ *     keep their guarded focus-loads as redundant safety nets.
  *   - Onboarding guard: once settings.loaded is true and setupComplete is false, and we
  *     aren't already under /onboarding, redirect to /onboarding/language. segments are
  *     read inside the effect as a guard, intentionally kept out of its deps.
@@ -64,7 +62,7 @@
  *     of a single global overlay mount.
  */
 import React, { useEffect, useRef } from 'react';
-import { AppState, Text as RNText, TextInput as RNTextInput, View } from 'react-native';
+import { AppState, InteractionManager, Text as RNText, TextInput as RNTextInput, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -133,14 +131,13 @@ export default function RootLayout() {
     Nunito_800ExtraBold,
   });
 
-  // One-shot cold-start bootstrap. initDb() first, then settings, then EVERY
-  // other store — all synchronous SQLite scans, all eager (no InteractionManager
-  // defer, no Tier A/B split), so any screen mounts with its data already in
-  // memory instead of popping it in on first navigation. loadSettings() flips
-  // `loaded` (batched with the store sets into a single re-render), and render is
-  // gated on `loaded` below, so this whole block finishes before the tabs mount.
-  // useAutomationStore is included so `shopping_opened` / `task_completed`
-  // triggers are live from launch. Per-screen focus-loads stay as safety nets.
+  // One-shot cold-start bootstrap in a single mount effect: initDb(), settings,
+  // then the Tier A stores that back the first screens (synchronous getAllSync
+  // scans), then Tier B deferred behind InteractionManager. loadSettings() flips
+  // `loaded`, and render is gated on `loaded` below, so Tier A finishes before the
+  // tabs mount and no first screen renders empty. useAutomationStore is included so
+  // `shopping_opened` / `task_completed` triggers are live from launch. Per-screen
+  // focus-loads stay as safety nets.
   useEffect(() => {
     const t0 = __DEV__ ? Date.now() : 0;
     try { initDb(); } catch { /* DB init failed — proceed anyway */ }
@@ -152,20 +149,27 @@ export default function RootLayout() {
     useSharedStore.getState().load();
     useHabitStore.getState().load();
     useHealthStore.getState().load();
-    useCatalogStore.getState().load();
-    useMealStore.getState().load();
+    // Notes → Home's notes preview; Meal + Catalog → the Shopping tab. These back
+    // content on the FIRST screens, so they load synchronously here (not Tier B)
+    // or that content visibly pops in a beat after first paint.
     useNotesStore.getState().load();
-    useInboxStore.getState().load();
-    useReceiptStore.getState().load();
-    usePeersStore.getState().load();
-    useFeedbackStore.getState().load();
+    useMealStore.getState().load();
+    useCatalogStore.getState().load();
     // Today's tasks/shopping are ready now: push them to the home-screen widgets
     // + the persistent overview notification.
     void syncWidgetsAndOverview();
     if (__DEV__) {
       // eslint-disable-next-line no-console
-      console.log(`[perf] cold-start boot (initDb + 14 store loads): ${Date.now() - t0}ms`);
+      console.log(`[perf] cold-start sync boot (initDb + Tier A store loads): ${Date.now() - t0}ms`);
     }
+    // Tier B: only back screens 2+ swipes from Home (Scan's receipts) or non-tab
+    // screens — deferred a beat so they don't compete with the first paint.
+    InteractionManager.runAfterInteractions(() => {
+      useFeedbackStore.getState().load();
+      useInboxStore.getState().load();
+      usePeersStore.getState().load();
+      useReceiptStore.getState().load();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -106,7 +106,7 @@ export default function NotesScreen() {
             <>
               {activeNotes.length > 0 && (
                 <View style={styles.section}>
-                  <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.notes.activeLabel}</Text>
+                  <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.notes.activeLabel}</Text>
                   {activeNotes.map(renderRow)}
                 </View>
               )}
@@ -117,7 +117,7 @@ export default function NotesScreen() {
 
               {checkedNotes.length > 0 && (
                 <View style={styles.section}>
-                  <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.notes.checkedLabel}</Text>
+                  <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.notes.checkedLabel}</Text>
                   {checkedNotes.map(renderRow)}
                 </View>
               )}

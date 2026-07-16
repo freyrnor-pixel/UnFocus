@@ -6,7 +6,8 @@
  * optional right/leading actions are all passed in as children/props.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, components/PressableScale,
+ *   Imports → constants/theme, constants/motion (Spring.calm — calmer header-press release),
+ *             lib/useAppTheme, components/PressableScale,
  *             components/Collapsible (body reveal), components/AnimatedChevron (arrow)
  *   Used by → components/WeekListCard.tsx (dish groups + collapsed "bought this week"
  *             history, uncontrolled), app/shopping.tsx (Monthly catalog dish groups);
@@ -50,6 +51,7 @@ import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
+import { Spring } from '@/constants/motion';
 
 type Props = {
   title: string;
@@ -95,7 +97,7 @@ export default function ExpandableCard({
     <View style={[styles.card, styles.cardRow, { borderTopColor: theme.border }]}>
       {accentColor ? <View style={[styles.accent, { backgroundColor: accentColor }]} /> : null}
       <View style={styles.cardContent}>
-        <PressableScale style={styles.header} onPress={toggle} scaleTo={0.97}>
+        <PressableScale style={styles.header} onPress={toggle} scaleTo={0.97} releaseSpring={Spring.calm}>
           <View style={styles.headerLeft}>
             {leadingAction ? (
               <PressableScale onPress={(e) => e.stopPropagation()} scaleTo={0.97}>{leadingAction}</PressableScale>
