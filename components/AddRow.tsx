@@ -1,11 +1,12 @@
 /**
  * AddRow.tsx — the ONE "add a row" affordance (design criteria 2, 3, 4).
  *
- * An empty input row with a confirm button inside it, mounted as the last row of
+ * An empty input row with a confirm button inside it, mounted at the bottom of (or within)
  * whatever list/section it feeds — so the add control stays visually connected to
  * the thing it adds to (criterion 1) and the app has a single add-a-row shape
  * everywhere instead of the old mix (floating AddFAB, AddDivider line+dot, dashed
- * "new" cards). Extracted from the WeekListCard inline-add pattern.
+ * "new" cards). Extracted from the WeekListCard inline-add pattern. It no longer has to be
+ * the strict last item — the keyboard-avoidance below lifts the row itself, not the list end.
  *
  * The confirm button is a raised, pressable-looking control (surface fill + Shadow.button
  * + a light top edge) while the input is empty, and fills with `accent` (default theme.good)
@@ -15,7 +16,7 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme, lib/i18n, components/PressableScale,
- *             components/ScreenScaffold (ScrollToEndContext), @expo/vector-icons
+ *             components/ScreenScaffold (ScrollIntoViewContext), @expo/vector-icons
  *   Used by → app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx, app/(tabs)/health.tsx,
  *             app/automations.tsx, app/health-log.tsx, app/inventory-edit.tsx
  *             (replaces AddDivider + the floating/inline AddFAB + dashed new-cards)
@@ -27,13 +28,15 @@
  *   - `accent` should come from lib/domainColor.getDomainColor(theme, domain).accent
  *     so the confirm fill matches the screen's identity color.
  *   - Confirm target is padded to ≥44px; the row itself is minHeight 44.
- *   - **Keyboard-avoidance (2026-07-13, fixes taps going dead)**: since this row is always
- *     the LAST item of its list, Android's default `windowSoftInputMode=resize` can leave
- *     it hidden behind the keyboard once it opens (the viewport shrinks but nothing scrolls
- *     to compensate) — the input+confirm button silently become untappable. On focus, this
- *     component asks the enclosing ScreenScaffold (via ScrollToEndContext) to scroll itself
- *     into view, both immediately (keyboard-already-open case) and again on `keyboardDidShow`
- *     (keyboard-opening-fresh case).
+ *   - **Keyboard-avoidance (2026-07-13, fixes taps going dead; 2026-07-16 made row-relative)**:
+ *     Android's default `windowSoftInputMode=resize` can leave this row hidden behind the
+ *     keyboard once it opens (the viewport shrinks but nothing scrolls to compensate) — the
+ *     input+confirm button silently become untappable. On focus (and on `keyboardDidShow`)
+ *     this component hands the enclosing ScreenScaffold its OWN View node via
+ *     ScrollIntoViewContext, which measures the row and lifts just it above the keyboard.
+ *     The earlier version scrolled to the list's absolute END, which only worked when the row
+ *     was the last item; #196's per-day InlineTaskAdd rows sit mid-list, so scroll-to-end
+ *     scrolled past them and re-broke the taps — measuring the row itself fixes both cases.
  */
 import React, { useContext, useEffect, useRef } from 'react';
 import { Keyboard, StyleSheet, Text, TextInput, View, StyleProp, ViewStyle } from 'react-native';
@@ -42,7 +45,7 @@ import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Shadow, Spacing, contrastOn } from '@/constants/theme';
 import PressableScale from '@/components/PressableScale';
-import { ScrollToEndContext } from '@/components/ScreenScaffold';
+import { ScrollIntoViewContext } from '@/components/ScreenScaffold';
 
 type Props = {
   placeholder: string;
@@ -80,20 +83,24 @@ export default function AddRow({
   const active = value.trim().length > 0 && !disabled;
   const fill = accent ?? theme.good;
 
-  // Scroll this row above the keyboard once it opens, but only while THIS row's input is
+  // Scroll THIS row above the keyboard once it opens, but only while THIS row's input is
   // the one focused (a screen may have other, unrelated inputs elsewhere that shouldn't
-  // trigger it). See ScreenScaffold.tsx's ScrollToEndContext doc for why this is needed.
-  const scrollToEnd = useContext(ScrollToEndContext);
+  // trigger it). We hand the scaffold this row's own View node so it lifts just this row —
+  // correct whether the row is last-in-list or mid-list. See ScreenScaffold's
+  // ScrollIntoViewContext doc for why this is needed.
+  const scrollIntoView = useContext(ScrollIntoViewContext);
+  const rowRef = useRef<View>(null);
   const isFocusedRef = useRef(false);
   useEffect(() => {
     const sub = Keyboard.addListener('keyboardDidShow', () => {
-      if (isFocusedRef.current) scrollToEnd?.();
+      if (isFocusedRef.current) scrollIntoView?.(rowRef.current);
     });
     return () => sub.remove();
-  }, [scrollToEnd]);
+  }, [scrollIntoView]);
 
   return (
     <View
+      ref={rowRef}
       style={[
         styles.row,
         showDivider && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
@@ -115,8 +122,8 @@ export default function AddRow({
           isFocusedRef.current = true;
           // Covers the keyboard-already-open case (switching focus to this input doesn't
           // re-fire keyboardDidShow); the listener above covers the keyboard-opening-fresh
-          // case. Harmless to call both — scrollToEnd() is idempotent.
-          scrollToEnd?.();
+          // case. Harmless to call both — scrollIntoView() is idempotent.
+          scrollIntoView?.(rowRef.current);
         }}
         onBlur={() => { isFocusedRef.current = false; }}
       />

@@ -149,7 +149,10 @@ const defaultLight: ThemePalette = {
   text: '#161B26',
   textMuted: '#5B6472',
   textInverse: '#FFFFFF',
-  border: '#E3E7EC',
+  // 2026-07-16 contrast raise: the old #E3E7EC read ~1.06:1 on white — effectively invisible,
+  // so cards/buttons/dividers had no visible edge. #C5CDD8 is a clean cool gray at ~1.45:1
+  // (Linear/Notion range) so card and control edges actually read, without going harsh.
+  border: '#C5CDD8',
   borderStrong: '#1E3A8A',
   accent: '#2563EB',
   accentSoft: '#BFDBFE',
@@ -223,7 +226,9 @@ const defaultDark: ThemePalette = {
   text: '#E7EAF0',
   textMuted: '#8891A0',
   textInverse: '#0B0E14',
-  border: '#2E3446',
+  // 2026-07-16 contrast raise (mirrors light): #2E3446 barely separated from the #1A2030
+  // surface; #3E4660 gives card/control edges a visible lift on dark.
+  border: '#3E4660',
   borderStrong: '#454C63',
   accent: '#60A5FA',
   accentSoft: '#1E2F4D',

@@ -340,7 +340,9 @@ function TaskCard({
             <View
               style={[
                 styles.circle,
-                { borderColor: theme.border },
+                // Idle ring uses textMuted (not the near-invisible border token) so the
+                // unchecked circle clearly reads as a tappable target. Done = good fill.
+                { borderColor: theme.textMuted },
                 task.done && { backgroundColor: theme.good, borderColor: theme.good },
               ]}
             >
@@ -364,7 +366,7 @@ function TaskCard({
                 <View
                   style={[
                     styles.stepCheck,
-                    { borderColor: theme.border },
+                    { borderColor: theme.textMuted },
                     step.done && { backgroundColor: theme.good, borderColor: theme.good },
                   ]}
                 >
@@ -449,7 +451,7 @@ function TaskCard({
                       <View
                         style={[
                           styles.stepCheck,
-                          { borderColor: theme.border },
+                          { borderColor: theme.textMuted },
                           step.done && { backgroundColor: theme.good, borderColor: theme.good },
                         ]}
                       >
