@@ -230,6 +230,11 @@ export default function SettingsScreen() {
   // In debug builds Updates.isEnabled is false (expo-updates is off), so this
   // reports that OTA is unavailable rather than silently doing nothing.
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  // isUpdatePending: an update already finished downloading (expo-updates auto-downloads on
+  // launch but applies only on the next cold start) and is waiting for a reload. Without this
+  // branch, checkForUpdateAsync returns isAvailable:false for it and we'd wrongly report
+  // "up to date" while the app is still running the old bundle.
+  const { isUpdatePending } = Updates.useUpdates();
   async function handleCheckUpdates() {
     if (!Updates.isEnabled) {
       showAppModal(t.version.title, t.version.disabled);
@@ -240,6 +245,10 @@ export default function SettingsScreen() {
       const res = await Updates.checkForUpdateAsync();
       if (res.isAvailable) {
         await Updates.fetchUpdateAsync();
+        showAppModal(t.version.title, t.version.downloaded);
+        await Updates.reloadAsync();
+      } else if (isUpdatePending) {
+        // Newest update already downloaded on a prior launch — just apply it.
         showAppModal(t.version.title, t.version.downloaded);
         await Updates.reloadAsync();
       } else {

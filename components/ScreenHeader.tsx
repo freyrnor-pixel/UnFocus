@@ -65,11 +65,17 @@
  *     is gated on `debugModeEnabled` and shares export text/format with app/settings.tsx's
  *     Reset action; dimmed (not hidden) when there are zero notes, matching the old
  *     DebugOverlay's disabled-button convention.
- *   - **OTA update button (Home only)**: checks once on mount (i.e. once per app launch),
- *     again on every AppState 'active' transition, and on a 60s interval while the app
- *     stays open/foregrounded (Home's tab is kept alive by the pager, so this effect runs
- *     for the lifetime of the app, not just Home's own focus). `Updates.isEnabled` is false
- *     in dev/debug builds, so the button never renders there.
+ *   - **OTA update button (Home only)**: visibility is driven by `Updates.useUpdates()` —
+ *     shown when `isUpdateAvailable` (a newer update is on the server) OR `isUpdatePending`
+ *     (one has already downloaded and is waiting for a reload to apply). The pending case is
+ *     essential: expo-updates auto-downloads on launch but only applies on the *next* cold
+ *     start, so a downloaded update is otherwise invisible (checkForUpdateAsync returns
+ *     isAvailable:false once it's downloaded) and the app strands the user on the old bundle —
+ *     the "published updates never arrive" bug. A separate effect still polls
+ *     checkForUpdateAsync on mount / foreground / 10-min interval to surface mid-session
+ *     server publishes; its results feed the hook. Tapping applies: reloadAsync() directly
+ *     if pending, else fetchUpdateAsync()+reloadAsync(). `Updates.isEnabled` is false in
+ *     dev/debug builds, so the button never renders there.
  */
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, AppState, PixelRatio, Platform, Share, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
@@ -118,7 +124,14 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // derives from the same font scale. A static px lineHeight clips Nunito Bold's descenders.
   const { titleLineHeight } = getHeaderMetrics(PixelRatio.getFontScale());
 
-  const [updateAvailable, setUpdateAvailable] = useState(false);
+  // useUpdates() is reactive: isUpdateAvailable flips when a NEW server update is found;
+  // isUpdatePending flips when one has finished DOWNLOADING and is waiting for a reload to
+  // apply. expo-updates auto-downloads on launch but only applies on the *next* cold start,
+  // so a downloaded update sits pending and invisible unless we surface isUpdatePending too —
+  // that gap is why published updates seemed to "never arrive" (checkForUpdateAsync returns
+  // isAvailable:false once the newest is already downloaded).
+  const { isUpdateAvailable, isUpdatePending } = Updates.useUpdates();
+  const updateAvailable = isUpdateAvailable || isUpdatePending;
   const [applyingUpdate, setApplyingUpdate] = useState(false);
 
   // OTA update check — Home only (see edit notes). Checks once on mount (app launch),
@@ -130,19 +143,17 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // at a fraction of the polling cost.)
   useEffect(() => {
     if (!isHome || !Updates.isEnabled) return;
-    let cancelled = false;
-    const check = () => {
-      Updates.checkForUpdateAsync()
-        .then((res) => { if (!cancelled) setUpdateAvailable(res.isAvailable); })
-        .catch(() => { /* background check — silent, button just stays hidden */ });
-    };
+    // Actively poll the server for a newer update on mount, on every foreground, and every
+    // 10min while open. Results flow into the useUpdates() hook above (checkForUpdateAsync
+    // emits a state-change event it listens to), so there's no local state to set here — the
+    // check just triggers; the hook drives the button. Errors stay silent (button hidden).
+    const check = () => { Updates.checkForUpdateAsync().catch(() => {}); };
     check();
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') check();
     });
     const interval = setInterval(check, 10 * 60_000);
     return () => {
-      cancelled = true;
       sub.remove();
       clearInterval(interval);
     };
@@ -153,7 +164,9 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
     tap();
     setApplyingUpdate(true);
     try {
-      await Updates.fetchUpdateAsync();
+      // If an update already finished downloading (pending), skip the fetch and just apply
+      // it. Otherwise download it first. Either way reloadAsync() launches the new bundle.
+      if (!isUpdatePending) await Updates.fetchUpdateAsync();
       await Updates.reloadAsync();
     } catch {
       setApplyingUpdate(false);
