@@ -129,6 +129,13 @@
  *     way removes that overlap instead of just papering over it with a longer fade. Rail,
  *     done-zone, and footer all sharing `containerLayout` (see Connections) is what makes the
  *     whole card reflow as one card rather than several pieces animating on their own clocks.
+ *   - **Done-zone frame + calmer toggle (2026-07-16)**: `styles.doneZone` now carries a real
+ *     border + `theme.surfaceMuted` background (was a transparent top border only) so the
+ *     "Done today" header and its collapsed rows read as one card — a step subtler than the
+ *     outer `Surface` so it doesn't stack two heavy card looks. Its (and the footer show-more
+ *     toggle's) `PressableScale` now passes `releaseSpring={Spring.calm}` (constants/motion) —
+ *     a near-critically-damped spring instead of the default bouncy release, since these are
+ *     repeatedly-tapped toggles, not one-off button presses.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -143,7 +150,7 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import { Task } from '@/store/useTaskStore';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
-import { Duration, Ease } from '@/constants/motion';
+import { Duration, Ease, Spring } from '@/constants/motion';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -673,20 +680,22 @@ export default function PlanTaskCard({
             row layout, even in horizontal mode — this is a secondary dropdown list, not
             the primary glance rail. */}
         {doneTasks.length > 0 ? (
-          <Animated.View style={styles.doneZone} layout={containerLayout}>
-            <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97}>
+          <Animated.View style={[styles.doneZone, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} layout={containerLayout}>
+            <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
               <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>{t.dayViewDoneZone(doneTasks.length)}</Text>
               <AnimatedChevron open={doneOpen} size={14} color={theme.textMuted} />
             </PressableScale>
             <Collapsible open={doneOpen}>
-              {doneTasks.map((task) =>
-                renderRow(task, {
-                  timed: task.time ? timedEntryOf(task) : undefined,
-                  isPast: true,
-                  hasTopLine: false,
-                  hasBottomLine: false,
-                })
-              )}
+              <View style={styles.doneRows}>
+                {doneTasks.map((task) =>
+                  renderRow(task, {
+                    timed: task.time ? timedEntryOf(task) : undefined,
+                    isPast: true,
+                    hasTopLine: false,
+                    hasBottomLine: false,
+                  })
+                )}
+              </View>
             </Collapsible>
           </Animated.View>
         ) : null}
@@ -697,6 +706,7 @@ export default function PlanTaskCard({
             layout={containerLayout}
             onPress={() => { tap(); setExpanded((v) => !v); }}
             scaleTo={0.97}
+            releaseSpring={Spring.calm}
           >
             <Text style={[styles.footerBtnText, { color: theme.accent }]}>
               {expanded ? t.plansCollapse : t.plansExpand}
@@ -789,9 +799,16 @@ const baseStyles = StyleSheet.create({
   hGapDot: { width: 8, height: 8, borderRadius: Radius.full, borderWidth: 2, borderStyle: 'dashed', marginBottom: 4 },
   hGapText: { fontSize: FontSize.xs, fontStyle: 'italic', textAlign: 'center' },
 
-  doneZone: { marginTop: Spacing.xs, borderTopWidth: 1, borderTopColor: 'transparent' },
+  // Frames the done header + its collapsed rows as one card (2026-07-16) — previously a
+  // transparent top border (no real frame). This card already sits inside the outer Surface,
+  // so it uses `theme.surfaceMuted` (a step subtler than the card's own surface) rather than
+  // a second elevated Surface, to avoid stacking two heavy card looks.
+  doneZone: { marginTop: Spacing.xs, borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: Spacing.sm },
   doneHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
   doneHeaderText: { fontSize: FontSize.sm, fontWeight: '600' },
+  // Only rendered while the done zone is open (inside Collapsible's children), so this
+  // padding never shows up as phantom height while collapsed.
+  doneRows: { paddingBottom: Spacing.sm },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   footerBtnText: { fontSize: FontSize.sm, fontWeight: '700' },
   headerRowPressable: { marginBottom: Spacing.sm },
