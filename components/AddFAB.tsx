@@ -8,8 +8,9 @@
  * so "add new" reads the same on every site.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, lib/i18n, components/BottomNav (BOTTOM_NAV_HEIGHT),
- *             components/PressableScale
+ *   Imports → constants/theme (getLayeredShadow, getMaterialStyle), lib/useAppTheme, lib/i18n,
+ *             store/useSettingsStore (glassSurfaces), components/BottomNav (BOTTOM_NAV_HEIGHT),
+ *             components/PressableScale, components/GlassFill
  *   Used by → app/health-log.tsx (symptom log FAB), app/(tabs)/health.tsx (embedded Habits
  *             section's inline "sm" add — the former app/habits.tsx's own AddFAB),
  *             app/automations.tsx,
@@ -21,8 +22,10 @@
  *   Data    → none (presentational)
  *
  * Edit notes:
- *   - Reuses Shadow.fab (constants/theme.ts) — the same token BottomNav's centre
- *     button uses — instead of each screen hand-rolling its own weaker shadow.
+ *   - Glass ("Glass, take two", 2026-07-17): when settings.glassSurfaces is on the FAB is a
+ *     transparent circle with components/GlassFill + a floating-tier getLayeredShadow (the
+ *     three-pass depth). Off → solid theme.accent + Shadow.fab (the same token BottomNav's
+ *     centre button uses) so it never hand-rolls a weaker shadow.
  *   - `bottom` only applies to the 'lg' floating variant; pass it when a screen has
  *     extra sticky footer content above BottomNav.
  *   - Exports FAB_LG_SIZE/FAB_DEFAULT_BOTTOM so a screen with extra footer content
@@ -33,11 +36,13 @@
  */
 import React from 'react';
 import { StyleSheet, Text, ViewStyle, StyleProp } from 'react-native';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, getLayeredShadow, getMaterialStyle, Radius, Shadow, Spacing } from '@/constants/theme';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
 import PressableScale from '@/components/PressableScale';
+import GlassFill from '@/components/GlassFill';
 
 type Props = {
   onPress: () => void;
@@ -63,8 +68,11 @@ export const FAB_DEFAULT_BOTTOM = DEFAULT_BOTTOM;
 
 export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibilityLabel }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
+  const glass = useSettingsStore((s) => s.glassSurfaces);
   const t = useT();
   const dimension = DIMENSION[size];
+  const mat = getMaterialStyle(theme.accent, 'button');
 
   return (
     <PressableScale
@@ -76,11 +84,25 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
       scaleTo={0.9}
       style={[
         styles.base,
-        { width: dimension, height: dimension, backgroundColor: theme.accent },
+        { width: dimension, height: dimension },
+        // Glass ("Glass, take two"): transparent fill + frost + floating-tier layered shadow
+        // makes the FAB read as the lit chrome floating over content. Off → solid accent + Shadow.fab.
+        glass
+          ? { backgroundColor: 'transparent', overflow: 'hidden', boxShadow: getLayeredShadow(theme.shadow, 'floating') }
+          : { backgroundColor: theme.accent, ...Shadow.fab },
         size === 'lg' && [styles.floating, { bottom: bottom ?? DEFAULT_BOTTOM }],
         style,
       ]}
     >
+      {glass && (
+        <GlassFill
+          mat={mat}
+          radius={Radius.full}
+          blurIntensity={16}
+          tint={isDark ? 'dark' : 'light'}
+          showSheen={!isDark}
+        />
+      )}
       <Text style={[styles.plus, { fontSize: PLUS_SIZE[size], color: theme.accentInk }]}>+</Text>
     </PressableScale>
   );
@@ -91,7 +113,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Shadow.fab,
   },
   floating: {
     position: 'absolute',

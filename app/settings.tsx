@@ -7,8 +7,8 @@
  * (local `tab` state, no router routes).
  *
  * - Generelt: Focus mode toggle → [Profil (name + language) / Utseende (dark mode) /
- *   Tilgjengelighet (reduced motion, particles, font size, left-handed, horizontal plans
- *   timeline)] one merged panel → Data group (debug mode toggle, then [Local account
+ *   Tilgjengelighet (reduced motion, particles, glass surfaces, font size, left-handed,
+ *   horizontal plans timeline)] one merged panel → Data group (debug mode toggle, then [Local account
  *   (Decision 039 — device-only profile: name + create date, auto-backup toggle,
  *   backup/restore via lib/backup [share excludes user name]) / LAN sync / version &
  *   updates] one merged panel, then destructive Reset data card last).
@@ -612,6 +612,14 @@ export default function SettingsScreen() {
                       <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.particlesHint}</Text>
                     </View>
                     <FormSwitch checked={settings.particlesEnabled} onChange={(v) => settings.update({ particlesEnabled: v })} />
+                  </View>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.glassSurfaces}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.glassSurfacesHint}</Text>
+                    </View>
+                    <FormSwitch checked={settings.glassSurfaces} onChange={(v) => settings.update({ glassSurfaces: v })} />
                   </View>
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.accessibility.fontSize}</Text>
