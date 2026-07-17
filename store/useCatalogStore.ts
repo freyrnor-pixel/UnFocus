@@ -34,6 +34,10 @@
  *     (sets `deleted = 1`) rather than DELETEing, because seedCatalog() re-inserts every seed row
  *     on each load(); load() filters `deleted = 0`. User-added rows use generateId() (not the
  *     'cat_<name>' seed id) so re-adding a deleted seed name creates a fresh live row.
+ *   - load() JS-collates the loaded rows with localeCompare('no') so `items` is stored in
+ *     Norwegian display order (SQL orderBy sorts by byte value and mis-orders æ/ø/å). Doing
+ *     it once here — not per Catalogue-tab mount — keeps opening that tab instant; the
+ *     mutation methods (addItem/updateItem/recordPurchases/resetItemPrice) re-sort the same way.
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
  */
 import { create } from 'zustand';
@@ -141,7 +145,15 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
 
   load() {
     seedCatalog();
-    set({ items: loadAll('store_items', rowToItem, { orderBy: 'name', where: 'deleted = 0' }) });
+    // Collate in JS with localeCompare('no') so æ/ø/å order correctly (SQL orderBy
+    // sorts by byte value and mis-orders them). Sorting HERE — once, at startup load —
+    // means `items` is stored in final display order, so CatalogueTab renders it
+    // directly with no per-mount sort (that 287-item locale sort used to run every time
+    // the Catalogue tab was opened, adding a "loading" beat to the tap). The mutation
+    // methods below already keep this order after edits.
+    const rows = loadAll('store_items', rowToItem, { where: 'deleted = 0' });
+    rows.sort((a, b) => a.name.localeCompare(b.name, 'no'));
+    set({ items: rows });
   },
 
   suggest(query, limit = 8) {
