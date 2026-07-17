@@ -22,7 +22,7 @@
  *   Data    → useCatalogStore.addItem/updateItem/removeItem (+ items list)
  *
  * Edit notes:
- *   - **Virtualised (perf, 2026-07-15)**: renders a real FlatList, so only ~15 rows mount
+ *   - **Virtualised (perf, 2026-07-15)**: renders a real FlatList, so only ~10 rows mount
  *     at a time instead of all ~286 at once. The old version was a `.map()` inside the
  *     Shopping scaffold's shared ScrollView (a FlatList there would be a nested same-axis
  *     VirtualizedList), which fully mounted every row — each a PressableScale carrying its
@@ -33,10 +33,18 @@
  *     deferral is gone — virtualization caps the mounted-row count directly instead of just
  *     deferring the full expansion past the first frame.
  *   - **Rows are plain `Pressable`, not `PressableScale`**: at list scale the per-row spring
- *     bounce isn't worth a Reanimated node per row. The small check/trash action buttons keep
- *     PressableScale (only a handful mounted at once). `CatalogueRow` is `React.memo`'d with
- *     stable callbacks (onStartEdit/onRemove from useCallback) so typing in the add row or
- *     entering edit mode only re-renders the affected row, not the whole visible window.
+ *     bounce isn't worth a Reanimated node per row. This extends to the row's trash button —
+ *     also a plain Pressable (opacity feedback) — since a PressableScale there means a
+ *     Reanimated shared-value/animated-style node PLUS an AccessibilityInfo listener per row,
+ *     ~10 of each built synchronously on first paint (part of the tab's open latency). Only the
+ *     inline EDIT row's action buttons keep PressableScale (one edit row exists at a time).
+ *     `CatalogueRow` is `React.memo`'d with stable callbacks (onStartEdit/onRemove from
+ *     useCallback) so typing in the add row or entering edit mode only re-renders the affected
+ *     row, not the whole visible window.
+ *   - **No per-mount sort (perf, tab-open latency)**: `items` arrives already Norwegian-collated
+ *     from useCatalogStore (sorted once in load(), kept sorted by every mutation), so this tab
+ *     feeds `items` straight to the FlatList. The old `sortedItems` useMemo re-collated all ~286
+ *     rows with localeCompare('no') on every mount — a synchronous beat every time the tab opened.
  *   - **`header` prop**: the Shopping screen's hint card + SharedRequestsSection are handed in
  *     as the FlatList's ListHeaderComponent (above the add row) so they still scroll with the
  *     list — the Catalogue tab renders outside the screen's normal padded content View.
@@ -53,8 +61,8 @@
  *     continuous card, so a full-screen outline would read as a loud frame at this scale.
  *     `domainColor.accent` is still used for the small AddRow confirm-button fill.
  */
-import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
@@ -122,14 +130,18 @@ const CatalogueRow = React.memo(function CatalogueRow({
           {formatKr(item.price, 0)}
         </Text>
       )}
-      <PressableScale
+      {/* Plain Pressable (opacity feedback), NOT PressableScale: at list scale a per-row
+          Reanimated shared-value/animated-style node + AccessibilityInfo listener per trash
+          button is real mount cost across the ~10 rows built on first paint — the second half
+          of the Catalogue tab's open latency. Opacity dip keeps the tap feeling responsive. */}
+      <Pressable
         onPress={() => onRemove(item.id)}
         hitSlop={8}
         accessibilityLabel={deleteLabel}
-        scaleTo={0.93}
+        style={({ pressed }) => (pressed ? { opacity: 0.5 } : null)}
       >
         <Ionicons name="trash-outline" size={18} color={theme.textMuted} />
-      </PressableScale>
+      </Pressable>
     </View>
   );
 });
@@ -152,12 +164,9 @@ export default function CatalogueTab({ onNotify, header }: Props) {
   const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState('');
 
-  // Keep the Norwegian-collated sort (SQL orderBy 'name' doesn't order æ/ø/å correctly);
-  // memoised on `items`, so it's cheap.
-  const sortedItems = useMemo(
-    () => items.slice().sort((a, b) => a.name.localeCompare(b.name, 'no')),
-    [items]
-  );
+  // `items` already arrives Norwegian-collated from useCatalogStore (sorted once in
+  // load() + kept sorted by every mutation), so this tab renders it directly — no
+  // per-mount sort, which is what used to add a "loading" beat when opening this tab.
 
   function handleAdd() {
     const name = addName.trim();
@@ -192,7 +201,7 @@ export default function CatalogueTab({ onNotify, header }: Props) {
 
   const renderItem = ({ item, index }: { item: StoreItem; index: number }) => {
     const isFirst = index === 0;
-    const isLast = index === sortedItems.length - 1;
+    const isLast = index === items.length - 1;
     if (editingId === item.id) {
       return (
         <View
@@ -276,7 +285,7 @@ export default function CatalogueTab({ onNotify, header }: Props) {
           }
         />
       </Surface>
-      {sortedItems.length === 0 && (
+      {items.length === 0 && (
         <Text style={[styles.empty, { color: theme.textMuted }]}>{t.catalogueEmpty}</Text>
       )}
     </View>
@@ -285,7 +294,7 @@ export default function CatalogueTab({ onNotify, header }: Props) {
   return (
     <FlatList
       style={styles.flatList}
-      data={sortedItems}
+      data={items}
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
       // extraData: re-render rows when edit mode toggles (editingId) or the theme changes,
@@ -296,7 +305,7 @@ export default function CatalogueTab({ onNotify, header }: Props) {
       contentContainerStyle={styles.listContent}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
-      initialNumToRender={15}
+      initialNumToRender={10}
       windowSize={11}
       maxToRenderPerBatch={20}
       removeClippedSubviews

@@ -18,6 +18,7 @@ jest.mock('@/lib/db', () => ({
   },
 }));
 
+import db from '@/lib/db';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 
 function item(overrides: Partial<StoreItem>): StoreItem {
@@ -25,6 +26,31 @@ function item(overrides: Partial<StoreItem>): StoreItem {
 }
 
 afterEach(() => useCatalogStore.setState({ items: [] }));
+
+describe('load', () => {
+  it('stores items in Norwegian-collated order (æ < ø < å, after z)', () => {
+    // load() sorts in JS with localeCompare('no') so CatalogueTab can render `items`
+    // directly with no per-mount sort. A plain byte/codepoint sort would order these
+    // Å(C5) < Æ(C6) < Ø(D8); Norwegian collation must instead give Æ < Ø < Å (å last).
+    (db.getAllSync as jest.Mock).mockReturnValueOnce([
+      { id: '1', name: 'Øl', category: 'other', store: '', price: 0 },
+      { id: '2', name: 'Banan', category: 'other', store: '', price: 0 },
+      { id: '3', name: 'Ært', category: 'other', store: '', price: 0 },
+      { id: '4', name: 'Apple', category: 'other', store: '', price: 0 },
+      { id: '5', name: 'Ål', category: 'other', store: '', price: 0 },
+    ]);
+
+    useCatalogStore.getState().load();
+
+    expect(useCatalogStore.getState().items.map((i) => i.name)).toEqual([
+      'Apple',
+      'Banan',
+      'Ært',
+      'Øl',
+      'Ål',
+    ]);
+  });
+});
 
 describe('suggest', () => {
   beforeEach(() => {
