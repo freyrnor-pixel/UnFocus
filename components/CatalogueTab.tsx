@@ -67,11 +67,24 @@
  *     filler (`listFiller`, same `theme.surface` fill, `flexGrow: 1`) soaks up any leftover
  *     viewport height so the card's rounded bottom edge sits near the nav regardless of item
  *     count. The bottom corner rounding moved from the actual last row (`rowLast`, now
- *     removed) onto this filler, since it's now the card's true visual end.
+ *     removed) onto this filler, since it's now the card's true visual end. The OTHER half of
+ *     that same bug report — a large gap even on a FULL (287-row) catalogue, where the
+ *     filler never engages since content already overflows the box — turned out to be
+ *     ScreenScaffold's `contentPadding` double-reserving `BOTTOM_NAV_HEIGHT` on top of the
+ *     clearance the tab pager already gives every `bottomNav={false}` screen; fixed there
+ *     (see ScreenScaffold.tsx's own edit notes), not here.
+ *   - **Bottom fade (visual-audit, 2026-07-17)**: a long, virtualized catalogue is almost
+ *     always mid-scroll, so the viewport's bottom edge hard-clips a row — a stark contrast
+ *     against the first row's deliberately rounded top corner. A `LinearGradient`
+ *     (`transparent` → `theme.bg`, `pointerEvents="none"`) sits absolutely pinned over the
+ *     FlatList's bottom edge to soften that clip into a "more below" fade instead of a flat
+ *     cut. It degrades harmlessly at the true end of a short list too, since it just fades
+ *     into more of the same `theme.surface`-coloured `listFiller` sitting underneath it.
  */
 import React, { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
@@ -294,37 +307,52 @@ export default function CatalogueTab({ onNotify, header }: Props) {
   );
 
   return (
-    <FlatList
-      style={styles.flatList}
-      data={items}
-      keyExtractor={(item) => item.id}
-      renderItem={renderItem}
-      // extraData: re-render rows when edit mode toggles (editingId) or the theme changes,
-      // since CatalogueRow is memoised and otherwise only re-renders on its own prop changes.
-      extraData={`${editingId}|${theme.surface}`}
-      ListHeaderComponent={listHeader}
-      ItemSeparatorComponent={() => <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
-      // listFiller: a themed, flex-growing spacer right after the last row. Visual-audit
-      // 2026-07-17 — a short catalogue (most seeded rows deleted, or a fresh manual list)
-      // left the FlatList's own unused flex:1 tail exposed as plain screen background between
-      // the last row and the bottom nav, reading as a large "cut off" gap. Growing this filler
-      // to consume that leftover space (flexGrow on both it and listContent below) keeps the
-      // card's rounded-bottom silhouette flush near the nav instead of stopping short — the
-      // real last row no longer carries rowLast itself (see renderItem/CatalogueRow above).
-      ListFooterComponent={items.length > 0 ? <View style={[styles.listFiller, { backgroundColor: theme.surface }]} /> : null}
-      contentContainerStyle={styles.listContent}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-      initialNumToRender={10}
-      windowSize={11}
-      maxToRenderPerBatch={20}
-      removeClippedSubviews
-    />
+    <View style={styles.root}>
+      <FlatList
+        style={styles.flatList}
+        data={items}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        // extraData: re-render rows when edit mode toggles (editingId) or the theme changes,
+        // since CatalogueRow is memoised and otherwise only re-renders on its own prop changes.
+        extraData={`${editingId}|${theme.surface}`}
+        ListHeaderComponent={listHeader}
+        ItemSeparatorComponent={() => <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+        // listFiller: a themed, flex-growing spacer right after the last row. Visual-audit
+        // 2026-07-17 — a short catalogue (most seeded rows deleted, or a fresh manual list)
+        // left the FlatList's own unused flex:1 tail exposed as plain screen background between
+        // the last row and the bottom nav, reading as a large "cut off" gap. Growing this filler
+        // to consume that leftover space (flexGrow on both it and listContent below) keeps the
+        // card's rounded-bottom silhouette flush near the nav instead of stopping short — the
+        // real last row no longer carries rowLast itself (see renderItem/CatalogueRow above).
+        ListFooterComponent={items.length > 0 ? <View style={[styles.listFiller, { backgroundColor: theme.surface }]} /> : null}
+        contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        initialNumToRender={10}
+        windowSize={11}
+        maxToRenderPerBatch={20}
+        removeClippedSubviews
+      />
+      {/* Bottom fade (visual-audit, 2026-07-17): a long catalogue is virtualized and almost
+          always mid-scroll, so the visible viewport's bottom edge hard-clips a row — a stark
+          contrast against the top row's deliberate rounded corner. This soft fade to the
+          screen background reads as "more below, keep scrolling" instead of a broken cut,
+          and blends harmlessly into the (already background-coloured) listFiller once the
+          real end of the list is reached. pointerEvents="none" so taps still reach the list. */}
+      <LinearGradient
+        colors={['transparent', theme.bg]}
+        style={styles.bottomFade}
+        pointerEvents="none"
+      />
+    </View>
   );
 }
 
 const baseStyles = StyleSheet.create({
+  root: { flex: 1 },
   flatList: { flex: 1 },
+  bottomFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: Spacing.xl },
   listContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, flexGrow: 1 },
   listHeader: { gap: Spacing.md, paddingBottom: Spacing.md },
   addRowCard: { paddingHorizontal: Spacing.md },
