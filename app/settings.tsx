@@ -43,7 +43,7 @@
  *             components/ExpandableCard, components/PressableScale, constants/theme,
  *             lib/domainColor, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
- *             getAutoBackupLabel/saveAutoBackup), lib/childLock, lib/feedbackMail, lib/freyrModeSeed,
+ *             saveAutoBackup/chooseAutoBackupLocation), lib/childLock, lib/feedbackMail, lib/freyrModeSeed,
  *             lib/haptics, lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
  *             (syncWidgetsAndOverview — the persistent-overview toggle refreshes/cancels it, and
  *             the Freyr-mode toggle re-syncs after seeding/unseeding today's tasks + shopping),
@@ -125,7 +125,7 @@ import { syncReminders } from '@/lib/reminders';
 import { syncNotificationCategories } from '@/lib/notifications';
 import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
 import { seedFreyrMode, unseedFreyrMode, parseFreyrSeedIds } from '@/lib/freyrModeSeed';
-import { exportBackup, exportBackupToDevice, pickAndParseBackup, restoreBackup, reloadApp, getAutoBackupLabel, saveAutoBackup } from '@/lib/backup';
+import { exportBackup, exportBackupToDevice, pickAndParseBackup, restoreBackup, reloadApp, saveAutoBackup, chooseAutoBackupLocation } from '@/lib/backup';
 import { setPassword as setChildPassword, verifyPassword as verifyChildPassword } from '@/lib/childLock';
 import { isSyncAvailable } from '@/lib/syncService';
 import { buildFeedbackMailUrl } from '@/lib/feedbackMail';
@@ -138,6 +138,14 @@ import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 
 type SettingsTab = 'generelt' | 'handle' | 'varsler' | 'moduser';
 const TAB_BAR_HEIGHT = 48;
+
+/** Format an ISO auto-backup timestamp as "YYYY-MM-DD HH:MM" (local time). */
+function formatBackupTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -382,6 +390,45 @@ export default function SettingsScreen() {
     const nm = (accountNameInput || settings.userName).trim();
     setAccountNameInput(nm);
     applyAndSync({ accountName: nm, accountCreated: todayStr() });
+  }
+
+  // Auto-backup: enabling it first asks the user WHERE the single self-updating
+  // backup file should live (Android SAF folder pick; iOS uses a fixed Files
+  // location). Backing out of the picker leaves auto-backup off, so the toggle
+  // never claims to protect data it can't actually reach.
+  async function handleAutoBackupToggle(v: boolean) {
+    selection();
+    if (!v) {
+      applyAndSync({ autoBackupEnabled: false });
+      return;
+    }
+    try {
+      const loc = await chooseAutoBackupLocation();
+      if (!loc) {
+        showAppModal(t.backup.title, t.config.autoBackup.locationCanceled);
+        return;
+      }
+      applyAndSync({ autoBackupEnabled: true, autoBackupUri: loc.uri, autoBackupLabel: loc.label });
+      void saveAutoBackup();
+    } catch {
+      showAppModal(t.backup.title, t.backup.exportError);
+    }
+  }
+
+  // Force an immediate auto-backup write. saveAutoBackup() is best-effort/silent,
+  // so confirm success by checking whether it stamped a fresh autoBackupLastAt.
+  async function handleBackupNow() {
+    selection();
+    // Android installs that had auto-backup on before the persistent-location
+    // change have no folder yet — pick one first (a no-op write otherwise).
+    if (Platform.OS === 'android' && !settings.autoBackupUri) {
+      await handleAutoBackupToggle(true);
+      return;
+    }
+    const before = useSettingsStore.getState().autoBackupLastAt;
+    await saveAutoBackup();
+    const after = useSettingsStore.getState().autoBackupLastAt;
+    showAppModal(t.backup.title, after !== before ? t.config.autoBackup.backedUpNow : t.backup.exportError);
   }
 
   async function handleImport() {
@@ -689,17 +736,23 @@ export default function SettingsScreen() {
                     </View>
                     <FormSwitch
                       checked={settings.autoBackupEnabled}
-                      onChange={(v) => {
-                        selection();
-                        applyAndSync({ autoBackupEnabled: v });
-                        if (v) void saveAutoBackup();
-                      }}
+                      onChange={(v) => { void handleAutoBackupToggle(v); }}
                     />
                   </View>
                   {settings.autoBackupEnabled && (
-                    <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs, marginBottom: 0 }]}>
-                      {t.config.autoBackup.pathLabel} {getAutoBackupLabel()}
-                    </Text>
+                    <>
+                      <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs, marginBottom: 0 }]}>
+                        {t.config.autoBackup.pathLabel} {settings.autoBackupLabel || t.config.autoBackup.locationUnknown}
+                      </Text>
+                      <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs, marginBottom: 0 }]}>
+                        {settings.autoBackupLastAt
+                          ? t.config.autoBackup.lastBackedUp(formatBackupTime(settings.autoBackupLastAt))
+                          : t.config.autoBackup.never}
+                      </Text>
+                      <PressableScale style={[styles.dangerBtn, { marginTop: Spacing.xs }]} onPress={handleBackupNow} scaleTo={0.97}>
+                        <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.config.autoBackup.backUpNow}</Text>
+                      </PressableScale>
+                    </>
                   )}
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
                   <PressableScale style={styles.dangerBtn} onPress={handleSaveToDevice} scaleTo={0.97}>
