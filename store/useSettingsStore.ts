@@ -122,8 +122,16 @@ export type Settings = {
   // whether lib/syncService's transport runs.
   deviceId: string;
   lanSyncEnabled: boolean;
-  // Auto-backup to a fixed local path, updated on every change when enabled.
+  // Auto-backup to a persistent, user-visible location, updated on every change
+  // when enabled (lib/backup.ts). autoBackupUri is the SAF content:// URI of the
+  // single self-updating backup file the user picked on Android (empty on
+  // iOS/other, which write the fixed documentDirectory path); autoBackupLabel is a
+  // human-readable location shown in Settings; autoBackupLastAt is the ISO
+  // timestamp of the last successful auto-backup (drives "Last backed up …").
   autoBackupEnabled: boolean;
+  autoBackupUri: string;
+  autoBackupLabel: string;
+  autoBackupLastAt: string;
   // School mode placeholder — no feature logic yet, toggle persisted for future use.
   schoolModeEnabled: boolean;
   // People / family mode (2026-07-12 redesign) — when on, the person selector (Me +
@@ -200,6 +208,9 @@ function rowToSettings(row: Row): Settings {
     deviceId: readStr(row, 'device_id'),
     lanSyncEnabled: readBool(row, 'lan_sync_enabled'),
     autoBackupEnabled: readBool(row, 'auto_backup_enabled'),
+    autoBackupUri: readStr(row, 'auto_backup_uri'),
+    autoBackupLabel: readStr(row, 'auto_backup_label'),
+    autoBackupLastAt: readStr(row, 'auto_backup_last_at'),
     schoolModeEnabled: readBool(row, 'school_mode_enabled'),
     peopleModeEnabled: readBool(row, 'people_mode_enabled'),
     freyrModeEnabled: readBool(row, 'freyr_mode_enabled'),
@@ -254,6 +265,9 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   deviceId: { col: 'device_id' },
   lanSyncEnabled: { col: 'lan_sync_enabled', to: bool },
   autoBackupEnabled: { col: 'auto_backup_enabled', to: bool },
+  autoBackupUri: { col: 'auto_backup_uri' },
+  autoBackupLabel: { col: 'auto_backup_label' },
+  autoBackupLastAt: { col: 'auto_backup_last_at' },
   schoolModeEnabled: { col: 'school_mode_enabled', to: bool },
   peopleModeEnabled: { col: 'people_mode_enabled', to: bool },
   freyrModeEnabled: { col: 'freyr_mode_enabled', to: bool },
@@ -308,6 +322,9 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   deviceId: '',
   lanSyncEnabled: false,
   autoBackupEnabled: false,
+  autoBackupUri: '',
+  autoBackupLabel: '',
+  autoBackupLastAt: '',
   schoolModeEnabled: false,
   peopleModeEnabled: false,
   freyrModeEnabled: false,

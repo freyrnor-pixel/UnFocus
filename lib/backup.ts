@@ -22,10 +22,13 @@
  * (lib/db.ts, 365-day retention) has already removed — export does not un-prune.
  *
  * Connections:
- *   Imports → lib/db (the shared handle + table set), lib/date (todayStr);
+ *   Imports → lib/db (the shared handle + table set), lib/date (todayStr),
+ *             store/useSettingsStore (auto-backup target uri + last-run stamp);
  *             expo-file-system/legacy (incl. StorageAccessFramework), expo-sharing,
  *             expo-document-picker, expo-constants, expo-updates, react-native (Platform)
- *   Used by → app/settings.tsx (Data tab → Local account card's Backup & restore section)
+ *   Used by → app/settings.tsx (Data tab → Local account card's Backup & restore section),
+ *             app/onboarding/restore.tsx (first-run "restore my data" step),
+ *             app/_layout.tsx (saveAutoBackup on app background)
  *   Data    → reads/writes EVERY table in unfocus.db; restore DELETEs then
  *             re-INSERTs all rows inside one transaction (FKs off for the swap)
  *
@@ -34,6 +37,12 @@
  *     adding these is a native-surface change, so it is gated behind a new APK/AAB
  *     build (see AGENTS.md "Runtime version"). Do NOT bump runtimeVersion until
  *     that build exists.
+ *   - Auto-backup is a SINGLE self-updating file that must SURVIVE UNINSTALL, so it
+ *     never writes to the sandbox (cache/document dir on Android). Android points at
+ *     a user-picked SAF folder (settings.autoBackupUri, persistable permission),
+ *     overwriting that one file; iOS uses the fixed documentDirectory file (Files /
+ *     iCloud-visible). chooseAutoBackupLocation() sets the target; saveAutoBackup()
+ *     writes it and stamps settings.autoBackupLastAt.
  *   - Uses expo-file-system's LEGACY functional API (writeAsStringAsync etc.) on
  *     purpose — stable signatures across the SDK 56 new-API migration.
  *   - exportBackupToDevice() writes a real local file instead of routing through
@@ -65,9 +74,13 @@ import {
 import type { SQLiteBindValue } from 'expo-sqlite';
 import db from '@/lib/db';
 import { todayStr } from '@/lib/date';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 /** Identifies a file as an UnFocus backup; import refuses anything else. */
 const BACKUP_MAGIC = 'unfocus-backup';
+
+/** Filename (no extension) of the single self-updating auto-backup file. */
+const AUTO_BACKUP_BASENAME = 'unfocus-auto-backup';
 
 type Row = Record<string, unknown>;
 
@@ -120,29 +133,74 @@ function buildBackup(opts: { redactName?: boolean } = {}): BackupFile {
   };
 }
 
-/** Fixed path where auto-backup writes on this platform (null if no suitable location). */
+/**
+ * Fixed, uninstall-surviving path where auto-backup writes on this platform, or
+ * null when there is none. iOS: the app's documentDirectory — user-visible in
+ * Files (UIFileSharingEnabled) and swept into device/iCloud backups. Android has
+ * NO persistent fixed path (documentDirectory/cacheDirectory both live in the
+ * sandbox and die on uninstall), so it returns null — Android auto-backup goes to
+ * the user-picked SAF location (settings.autoBackupUri) instead.
+ */
 export function getAutoBackupPath(): string | null {
-  if (Platform.OS === 'ios' && documentDirectory) return `${documentDirectory}unfocus-auto-backup.json`;
-  if (cacheDirectory) return `${cacheDirectory}unfocus-auto-backup.json`;
+  if (Platform.OS === 'ios' && documentDirectory) return `${documentDirectory}${AUTO_BACKUP_BASENAME}.json`;
   return null;
 }
 
 /** Human-readable description of the auto-backup location shown in settings. */
 export function getAutoBackupLabel(): string {
   if (Platform.OS === 'ios') return 'Files → On My iPhone/iPad → UnFocus';
-  return 'App internal storage';
+  return 'the folder you choose';
+}
+
+export type AutoBackupLocation = { uri: string; label: string };
+
+/**
+ * Ask the user where the single self-updating auto-backup file should live and
+ * return a PERSISTENT target for it. Android: the user picks a folder via SAF
+ * (grants a persistable URI permission that survives relaunch/reboot) and we
+ * create the backup file there once, returning its content:// URI — every later
+ * saveAutoBackup() overwrites that same file. iOS/other: no folder picker, so the
+ * file lives at the fixed documentDirectory path; we return an empty uri and just
+ * a label. Returns null if the user cancels or no location is available. Throws
+ * only on an unexpected SAF failure — the caller surfaces that.
+ */
+export async function chooseAutoBackupLocation(): Promise<AutoBackupLocation | null> {
+  if (Platform.OS === 'android') {
+    const perm = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+    if (!perm.granted) return null;
+    const fileUri = await StorageAccessFramework.createFileAsync(
+      perm.directoryUri,
+      AUTO_BACKUP_BASENAME,
+      'application/json'
+    );
+    return { uri: fileUri, label: safDirectoryLabel(perm.directoryUri) };
+  }
+  // iOS/other: fixed documentDirectory file, no picker.
+  if (getAutoBackupPath()) return { uri: '', label: getAutoBackupLabel() };
+  return null;
 }
 
 /**
- * Write a full backup (including name) to the fixed auto-backup path.
- * Silent on failure — never throws. Called automatically when autoBackupEnabled is on.
+ * Write a full backup (including name) to the persistent auto-backup target and
+ * stamp settings.autoBackupLastAt on success. Android: overwrite the user-picked
+ * SAF file (settings.autoBackupUri) in place — a single state, no versions. iOS:
+ * overwrite the fixed documentDirectory file. Silent on failure — never throws.
+ * Called automatically (app background) when autoBackupEnabled is on, and from the
+ * "Back up now" button. A no-op on Android until a location has been chosen.
  */
 export async function saveAutoBackup(): Promise<void> {
-  const path = getAutoBackupPath();
-  if (!path) return;
+  const { autoBackupUri } = useSettingsStore.getState();
   try {
     const json = JSON.stringify(buildBackup());
-    await writeAsStringAsync(path, json, { encoding: EncodingType.UTF8 });
+    if (autoBackupUri) {
+      // Android SAF file the user picked — overwrite in place.
+      await StorageAccessFramework.writeAsStringAsync(autoBackupUri, json, { encoding: EncodingType.UTF8 });
+    } else {
+      const path = getAutoBackupPath();
+      if (!path) return; // Android with no chosen location yet — nothing to write to.
+      await writeAsStringAsync(path, json, { encoding: EncodingType.UTF8 });
+    }
+    useSettingsStore.getState().update({ autoBackupLastAt: new Date().toISOString() });
   } catch {
     // Best-effort — a failed write is not surfaced to the user
   }

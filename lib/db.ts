@@ -588,6 +588,16 @@ export function initDb() {
     // Dish difficulty (easy/normal), shown as a badge on the Food tab and seeded
     // by lib/dishSeed.ts — see store/useMealStore.ts.
     "ALTER TABLE dishes ADD COLUMN difficulty TEXT DEFAULT 'normal'",
+    // Persistent auto-backup target (lib/backup.ts). auto_backup_uri is the SAF
+    // content:// URI of the single self-updating backup file the user picked on
+    // Android (empty on iOS/other — those write the fixed documentDirectory path);
+    // auto_backup_label is a human-readable location shown in Settings;
+    // auto_backup_last_at is the ISO timestamp of the last successful auto-backup
+    // ("Last backed up …"). Replaces the old cache-dir auto-backup that died on
+    // uninstall — see store/useSettingsStore.ts (autoBackup* fields).
+    "ALTER TABLE settings ADD COLUMN auto_backup_uri TEXT DEFAULT ''",
+    "ALTER TABLE settings ADD COLUMN auto_backup_label TEXT DEFAULT ''",
+    "ALTER TABLE settings ADD COLUMN auto_backup_last_at TEXT DEFAULT ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

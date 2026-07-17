@@ -12,7 +12,7 @@
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
- *   - choose() writes `language` to settings, then router.push to "/onboarding/privacy".
+ *   - choose() writes `language` to settings, then router.push to "/onboarding/restore".
  *   - OPTIONS labels are intentionally literal language names (not translated).
  *   - Decision 006 tokens throughout — no raw hex, no legacy theme.* names.
  *   - Top hero image is the real app icon (assets/icon.png, the watercolor tree mark),
@@ -52,7 +52,7 @@ export default function LanguageScreen() {
 
   function choose(lang: Language) {
     settings.update({ language: lang });
-    router.push('/onboarding/privacy');
+    router.push('/onboarding/restore');
   }
 
   return (

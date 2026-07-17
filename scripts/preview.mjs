@@ -93,6 +93,13 @@ async function main() {
     await clickText(page, 'English');
     await page.waitForTimeout(500);
 
+    // "Have you used UnFocus before?" — the returning-user restore step. Take the
+    // "No, I'm new here" path to continue a fresh onboarding walk.
+    console.log('> onboarding: restore prompt');
+    await shot(page, 'onboarding-restore');
+    await clickText(page, "No, I'm new here");
+    await page.waitForTimeout(500);
+
     console.log('> onboarding: privacy');
     await shot(page, 'onboarding-privacy');
     await clickText(page, 'Got it →');

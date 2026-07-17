@@ -905,6 +905,14 @@ const en = {
       free: 'UnFocus is free and always will be.',
       cta: 'Got it →',
     },
+    // First-run "have you used UnFocus before?" step — offers to restore a backup
+    // file before the user starts a fresh setup (restore replaces all data).
+    restore: {
+      headline: 'Have you used UnFocus before?',
+      body: 'If you saved a backup on your old phone, you can bring all your data back now. Otherwise, start fresh.',
+      restoreCta: 'Yes — restore my data',
+      newCta: "No, I'm new here",
+    },
   },
   // Accessibility settings (Proposal 4)
   settings: {
@@ -984,11 +992,17 @@ const en = {
       label: 'Freyr-mode',
       hint: 'Adds a starter set of shopping items, tasks, a habit, and notes. Turning this off removes only what it added.',
     },
-    // Auto-backup to a fixed device path
+    // Auto-backup to a persistent, user-chosen location that survives uninstall
     autoBackup: {
       label: 'Auto-backup',
-      hint: 'Automatically save a local backup whenever changes are made. Nothing is uploaded.',
+      hint: 'Keeps one backup file up to date automatically. This is the file you restore from on a new phone. Nothing is uploaded — you choose where it lives.',
       pathLabel: 'Backup location:',
+      locationUnknown: 'not set yet',
+      lastBackedUp: (when: string) => `Last backed up: ${when}`,
+      never: 'Not backed up yet — it will update when you make a change.',
+      backUpNow: 'Back up now',
+      backedUpNow: 'Backup updated.',
+      locationCanceled: 'Auto-backup stays off until you pick where to save it.',
       shareNote: 'Sharing a copy does not include your name.',
     },
     // One-sentence descriptions under each setting
@@ -1729,6 +1743,12 @@ const no: typeof en = {
       free: 'UnFocus er gratis og vil alltid være det.',
       cta: 'Skjønner →',
     },
+    restore: {
+      headline: 'Har du brukt UnFocus før?',
+      body: 'Hvis du lagret en sikkerhetskopi på den gamle telefonen, kan du hente alle dataene tilbake nå. Ellers kan du starte på nytt.',
+      restoreCta: 'Ja — gjenopprett dataene mine',
+      newCta: 'Nei, jeg er ny her',
+    },
   },
   settings: {
     accessibility: {
@@ -1800,8 +1820,14 @@ const no: typeof en = {
     },
     autoBackup: {
       label: 'Automatisk sikkerhetskopiering',
-      hint: 'Lagrer automatisk en lokal sikkerhetskopi ved endringer. Ingenting lastes opp.',
+      hint: 'Holder én sikkerhetskopifil automatisk oppdatert. Det er denne filen du gjenoppretter fra på en ny telefon. Ingenting lastes opp — du velger hvor den lagres.',
       pathLabel: 'Lagres til:',
+      locationUnknown: 'ikke valgt ennå',
+      lastBackedUp: (when: string) => `Sist sikkerhetskopiert: ${when}`,
+      never: 'Ikke sikkerhetskopiert ennå — den oppdateres når du gjør en endring.',
+      backUpNow: 'Sikkerhetskopiér nå',
+      backedUpNow: 'Sikkerhetskopi oppdatert.',
+      locationCanceled: 'Automatisk sikkerhetskopiering forblir av til du velger hvor den skal lagres.',
       shareNote: 'Deling av en kopi inkluderer ikke ditt navn.',
     },
     desc: {
