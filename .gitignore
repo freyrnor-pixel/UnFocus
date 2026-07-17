@@ -1,5 +1,9 @@
 node_modules/
 package-lock.json
+# Generated native projects (managed Expo workflow — prebuild output, never committed)
+/ios/
+/android/
+.expo/
 .DS_Store
 .env
 .env.local
@@ -13,3 +17,7 @@ dist/
 build/
 preview-shots/
 coverage/
+# Signing / submit secrets — never commit
+*.p8
+asc-api-key.p8
+google-play-service-account.json

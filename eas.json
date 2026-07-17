@@ -17,6 +17,15 @@
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     },
+    "testflight": {
+      "channel": "preview",
+      "distribution": "store",
+      "autoIncrement": true,
+      "ios": {},
+      "env": {
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+      }
+    },
     "production": {
       "channel": "production",
       "distribution": "store",
@@ -30,6 +39,15 @@
     }
   },
   "submit": {
+    "testflight": {
+      "ios": {
+        "ascApiKeyPath": "./asc-api-key.p8",
+        "ascApiKeyId": "REPLACE_WITH_ASC_API_KEY_ID",
+        "ascApiKeyIssuerId": "REPLACE_WITH_ASC_API_KEY_ISSUER_ID",
+        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID",
+        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID"
+      }
+    },
     "production": {
       "android": {
         "serviceAccountKeyPath": "./google-play-service-account.json",
