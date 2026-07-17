@@ -91,7 +91,12 @@ export default function GlassFill({
   const { reducedMotion } = useAccessibility();
   const [size, setSize] = useState({ w: 0, h: 0 });
   const sw = borderWidth ?? mat.borderWidth;
-  const wash = withAlpha(mat.backgroundColor, washAlpha ?? mat.washAlpha);
+  // The reference glass stays translucent (~0.46) and leans on the backdrop blur+saturate for
+  // legibility. Android has no working backdrop blur (see note below), so floor the wash there
+  // to keep text contrast; iOS/web keep the glassy low-opacity look.
+  const rawWash = washAlpha ?? mat.washAlpha;
+  const effectiveWash = Platform.OS === 'android' ? Math.max(rawWash, 0.82) : rawWash;
+  const wash = withAlpha(mat.backgroundColor, effectiveWash);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -132,6 +137,16 @@ export default function GlassFill({
         experimentalBlurMethod={Platform.OS === 'android' ? 'none' : undefined}
         style={StyleSheet.absoluteFill}
       />
+      {/* 1b. Saturation/brightness lift (reference backdrop = saturate(1.6) brightness(1.04)).
+          Web-only: stacks a second backdrop-filter over the BlurView's blur so the frost picks
+          up the vivid pop the reference has. iOS/Android don't honour this style, so it no-ops. */}
+      {Platform.OS === 'web' && (
+        <View
+          pointerEvents="none"
+          // @ts-expect-error backdropFilter is a web-only CSS passthrough (react-native-web)
+          style={[StyleSheet.absoluteFill, { backdropFilter: 'saturate(1.6) brightness(1.04)' }]}
+        />
+      )}
       {/* 2. Colour wash */}
       <View style={[StyleSheet.absoluteFill, { backgroundColor: wash }]} />
 
@@ -147,10 +162,10 @@ export default function GlassFill({
             </Defs>
             <Rect x={0} y={0} width={size.w} height={size.h} rx={radius} ry={radius} fill="url(#glassSpec)" />
           </Svg>
-          {/* 4. Adaptive scrim behind the text zone */}
+          {/* 4. Adaptive scrim behind the text zone (reference: #fff .4 → transparent @45%) */}
           <LinearGradient
             colors={[mat.scrimColor, 'transparent']}
-            locations={[0, 0.82]}
+            locations={[0, 0.45]}
             style={StyleSheet.absoluteFill}
           />
         </>
@@ -177,9 +192,10 @@ export default function GlassFill({
       {measured && showSheen && (
         <Svg style={StyleSheet.absoluteFill} width={size.w} height={size.h}>
           <Defs>
-            <SvgLinearGradient id="glassRim" x1="0" y1="0" x2="1" y2="1">
+            {/* ~160deg: brightest along the top, dips mid, lifts again at the bottom edge. */}
+            <SvgLinearGradient id="glassRim" x1="0.15" y1="0" x2="0.4" y2="1">
               <Stop offset="0" stopColor={mat.rimColors[0]} />
-              <Stop offset="0.5" stopColor={mat.rimColors[1]} />
+              <Stop offset="0.45" stopColor={mat.rimColors[1]} />
               <Stop offset="1" stopColor={mat.rimColors[2]} />
             </SvgLinearGradient>
           </Defs>

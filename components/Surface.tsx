@@ -102,23 +102,22 @@ type Props = {
 // Blur strength per context. Overlay frosts busier (live) content, so it leans
 // stronger to keep that content from reading through as legible detail.
 const GLASS_BLUR_INTENSITY: Record<SurfaceContext, number> = {
-  ambient: 25,
-  overlay: 45,
+  ambient: 42,
+  overlay: 60,
 };
 
-// The glass colour wash sits on top of the BlurView to keep the theme hue and
-// block the blurred backdrop from reading as legible shapes/text through the
-// card. Expressed as the *final* alpha the wash renders at (not multiplied
-// against mat.backgroundColor's own 0.84 — that compounding used to land
-// around 0.42 effective alpha, translucent enough that scrolled text (under
-// ScreenHeader/BottomNav/sheets) and busy backdrops (under content cards)
-// stayed legible through the card, breaking the app's validated text/surface
-// contrast guarantees (see constants/colors.ts). Overlay sits over live
-// scrolling content, so it leans closer to opaque than ambient (which only
-// frosts the calm, text-free ScreenBackground backdrop).
+// The glass colour wash sits on top of the BlurView, carrying the theme hue. The final alpha
+// it renders at. "Glass, take two" (2026-07-17) leans on the reference recipe's approach —
+// translucent fill (~0.46) + a strong blur/saturate backdrop + a text scrim do the legibility
+// work, not opacity — so AMBIENT cards (which only ever frost the calm, text-free
+// ScreenBackground backdrop) run translucent and actually read as glass. OVERLAY surfaces sit
+// over live scrolling content (sticky headers, BottomNav, sheets) where legible text/shapes
+// must NOT read through, so they stay much denser — the earlier contrast incident was an
+// overlay-context problem, not an ambient one. GlassFill additionally floors the wash on
+// Android, where the backdrop blur is disabled and opacity is the only contrast lever.
 const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
-  ambient: 0.92,
-  overlay: 0.97,
+  ambient: 0.5,
+  overlay: 0.82,
 };
 
 const PADDING_KEYS = new Set([
