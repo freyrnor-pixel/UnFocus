@@ -18,7 +18,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedTasksSection,
- *             components/SectionRail, components/TaskCard, components/AddRow,
+ *             components/SectionRail, components/SectionCard, components/TaskCard, components/AddRow,
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron
  *             (animated "Finished (n)" done-zone reveal), constants/theme, lib/date, lib/domainColor, lib/haptics,
  *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, store/useTaskStore,
@@ -34,11 +34,13 @@
  *     shown) + finished (behind a collapsible "Done" header, default collapsed) —
  *     applied to the Today section, each This-week weekday group, and both Whenever sections.
  *     The All-tasks tab is untouched — its sections still render flat.
- *   - **Consistent sections (2026-07-16)**: Today no longer sits in its own boxed
- *     `surfaceMuted` card — it renders as a plain `styles.section` like the This-week day
- *     groups and both Whenever sections, so every task section shares one treatment (loose
- *     cards on the shared backdrop). The old `todayCard` box was the lone exception and read
- *     as unfinished next to the loose Whenever section right below it.
+ *   - **Boxed sections (2026-07-17)**: every task section (Today / Whenever / Recurring on
+ *     All; Today + Whenever; each This-week day + Whenever) is now wrapped in a single
+ *     `<SectionCard>` — a bordered glass card, hue-edged to the section's domain color, that
+ *     holds the `<SectionRail>` header AND the section's rows as one clearly-bounded group.
+ *     This replaces the earlier "loose cards on the shared backdrop" treatment, which read as
+ *     a run of separated, unrelated boxes. Because the card edge now carries the section hue,
+ *     the rows inside no longer pass a per-card `railColor` (that would double-code the color).
  *   - **"Done" sub-header (2026-07-16)**: the finished zone's header is the same
  *     `<SectionRail>` pill as the Whenever/Recurring/day headers (hue = `theme.good` status
  *     green), with the collapse `AnimatedChevron` in its right slot — so "Done" reads as a
@@ -91,6 +93,7 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import SharedTasksSection from '@/components/SharedTasksSection';
 import SectionRail from '@/components/SectionRail';
+import SectionCard from '@/components/SectionCard';
 import TaskCard from '@/components/TaskCard';
 import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
@@ -434,19 +437,17 @@ export default function TasksScreen() {
         {/* ── ALL TASKS (order: Whenever → Repeating → Shared) ── */}
         {tab === 'all' && (
           <>
-            <View style={styles.section}>
-              <SectionRail hue={wheneverHue} label={t.tasksSectionWhenever} count={wheneverAll.length} />
+            <SectionCard hue={wheneverHue} label={t.tasksSectionWhenever} count={wheneverAll.length}>
               {wheneverAll.length > 0 && (
                 <View style={styles.cardStack}>
                   {wheneverAll.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} railColor={wheneverHue} showDelete showShareOut onToggleDone={handleToggleDone} />
+                    <TaskCard key={tk.id} task={tk} showDelete showShareOut onToggleDone={handleToggleDone} />
                   ))}
                 </View>
               )}
               {/* The one add-a-row affordance: an inline empty row with a "+" that saves a new
-                  Whenever task into this section. Rendered as a plain bordered card with the
-                  Whenever rail so its edge is fully visible (the old Surface's translucent edge
-                  vanished into the light background — 2026-07-13 fix). */}
+                  Whenever task into this section. Keeps its Whenever-hue accent as a functional
+                  "add" cue (the section box already carries membership color). */}
               <View style={[styles.addRowCard, { backgroundColor: theme.surface, borderColor: theme.border, borderLeftColor: wheneverHue }]}>
                 <AddRow
                   placeholder={t.newTask}
@@ -458,20 +459,19 @@ export default function TasksScreen() {
                   accessibilityLabel={t.newTask}
                 />
               </View>
-            </View>
+            </SectionCard>
 
-            <View style={styles.section}>
-              <SectionRail hue={repeatingHue} label={t.tasksSectionRecurring} count={recurringAll.length} />
+            <SectionCard hue={repeatingHue} label={t.tasksSectionRecurring} count={recurringAll.length}>
               {recurringAll.length === 0 ? (
                 <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionRecurringEmpty}</Text>
               ) : (
                 <View style={styles.cardStack}>
                   {recurringAll.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} railColor={repeatingHue} showDelete showShareOut onToggleDone={handleToggleDone} />
+                    <TaskCard key={tk.id} task={tk} showDelete showShareOut onToggleDone={handleToggleDone} />
                   ))}
                 </View>
               )}
-            </View>
+            </SectionCard>
 
             <SharedTasksSection sentTasks={sharedOutAll} onToggleDone={handleToggleDone} />
           </>
@@ -480,8 +480,7 @@ export default function TasksScreen() {
         {/* ── TODAY ── */}
         {tab === 'today' && (
           <>
-            <View style={styles.section}>
-              <SectionRail hue={theme.accent} label={t.tasksTabToday} count={todayList.length} />
+            <SectionCard hue={theme.accent} label={t.tasksTabToday} count={todayList.length}>
               {/* Add row sits between the tasks and the collapsed "Done" zone (DoneSplitList
                   footer) so the active/white containers stay grouped and green "Done" is last. */}
               <DoneSplitList
@@ -492,18 +491,17 @@ export default function TasksScreen() {
                   <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={handleToggleDone} />
                 )}
               />
-            </View>
+            </SectionCard>
 
-            <View style={styles.section}>
-              <SectionRail hue={wheneverHue} label={t.tasksSectionWhenever} count={undatedWhenever.length} />
+            <SectionCard hue={wheneverHue} label={t.tasksSectionWhenever} count={undatedWhenever.length}>
               <DoneSplitList
                 tasks={undatedWhenever}
                 emptyText={t.tasksSectionWheneverEmpty}
                 renderCard={(tk) => (
-                  <TaskCard key={tk.id} task={tk} variant="steps" railColor={wheneverHue} onToggleDone={handleToggleDone} />
+                  <TaskCard key={tk.id} task={tk} variant="steps" onToggleDone={handleToggleDone} />
                 )}
               />
-            </View>
+            </SectionCard>
           </>
         )}
 
@@ -511,8 +509,7 @@ export default function TasksScreen() {
         {tab === 'week' && (
           <>
             {weekGroups.map((group, i) => (
-              <View key={group.date} style={styles.section}>
-                <SectionRail hue={theme.accent} label={t.dayFull[i]} count={group.tasks.length} />
+              <SectionCard key={group.date} hue={theme.accent} label={t.dayFull[i]} count={group.tasks.length}>
                 {/* Add row between tasks and the collapsed "Done" zone — same grouping as Today. */}
                 <DoneSplitList
                   tasks={[...group.tasks].sort(byTime)}
@@ -522,19 +519,18 @@ export default function TasksScreen() {
                     <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={handleToggleDone} />
                   )}
                 />
-              </View>
+              </SectionCard>
             ))}
 
-            <View style={styles.section}>
-              <SectionRail hue={wheneverHue} label={t.tasksSectionWhenever} count={undatedWhenever.length} />
+            <SectionCard hue={wheneverHue} label={t.tasksSectionWhenever} count={undatedWhenever.length}>
               <DoneSplitList
                 tasks={undatedWhenever}
                 emptyText={t.tasksSectionWheneverEmpty}
                 renderCard={(tk) => (
-                  <TaskCard key={tk.id} task={tk} variant="steps" railColor={wheneverHue} onToggleDone={handleToggleDone} />
+                  <TaskCard key={tk.id} task={tk} variant="steps" onToggleDone={handleToggleDone} />
                 )}
               />
-            </View>
+            </SectionCard>
           </>
         )}
       </View>
@@ -566,9 +562,6 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  // Decision 043 rule 2: Spacing.xl above every section; the SectionRail carries its own
-  // below-header spacing (marginBottom), so this wrapper adds none of its own.
-  section: { marginTop: Spacing.xl },
   // Visual-audit 2026-07-11: was bare muted text floating on the particle background
   // (low contrast in practice even though the token itself passes AA) — a card behind
   // it, matching HomeNotesCard's empty-state treatment, gives it real footing. Every
