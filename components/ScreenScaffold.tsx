@@ -99,6 +99,20 @@
  *     Catalogue tab, whose ~286-row list can't virtualise inside a same-axis ScrollView (nested
  *     VirtualizedList). ScrollToEndContext is a no-op in this mode — a self-scrolling FlatList
  *     manages keeping its own AddRow above the keyboard.
+ *   - **contentPadding's bottom reservation is gated on `bottomNav`, not just `tier`
+ *     (bug fix, 2026-07-17)**: previously `paddingBottom: BOTTOM_NAV_HEIGHT` applied whenever
+ *     `tier === 'site'`, full stop. But the 5 pager tab screens (app/(tabs)/*) all pass
+ *     `bottomNav={false}` — app/(tabs)/_layout.tsx's pager already renders the real BottomNav
+ *     as a SIBLING tab-bar container, and react-navigation sizes each page to stop exactly
+ *     above it, so those screens' own box never actually overlaps the real nav. Reserving
+ *     BOTTOM_NAV_HEIGHT again here double-counted that clearance for every screen that
+ *     currently exists (no real screen passes `bottomNav={true}` today). On a ScrollView
+ *     screen this only wasted a bit of scroll-past-the-end padding, easy to miss. On the
+ *     Catalogue tab's non-scrollable FlatList box (`scrollable={false}`, see above), the same
+ *     padding shrinks a real flex-bounded viewport, so the list hard-clipped ~72dp above where
+ *     the nav actually sits, leaving a bare gap even on a long, fully-populated list — reported
+ *     as a "cut off" bug. Fixed by keying both `contentPadding.paddingBottom` and the
+ *     ScrollView's `scrollIndicatorInsets.bottom` on `tier === 'site' && bottomNav` instead.
  */
 import React, { useCallback, useRef } from 'react';
 import { Keyboard, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
@@ -289,9 +303,19 @@ export default function ScreenScaffold({
   // Same chrome-clearing padding the ScrollView uses, so a non-scrollable child (which
   // owns its own FlatList) starts below the floating header/sticky bar and clears the
   // bottom nav.
+  // bottomNav gates the reservation, not just tier: the 5 pager tab screens (Shopping/
+  // Plans/Home/Health/Scan) all pass bottomNav={false} because app/(tabs)/_layout.tsx's
+  // pager already renders the real BottomNav as a SIBLING tab-bar container — react-
+  // navigation sizes each page to stop exactly above it, so this screen's own box never
+  // overlaps the real nav. Reserving BOTTOM_NAV_HEIGHT here too (previously keyed on
+  // `tier === 'site'` alone, true for every real screen) double-counted that clearance:
+  // harmless-looking extra scroll-past-the-end padding on ScrollView screens, but a hard,
+  // visible shortfall on Catalogue's non-scrollable FlatList box (bug report 2026-07-17 —
+  // the list hard-clipped ~72dp above where the real nav actually sits, leaving a bare gap).
+  const reserveBottomNav = tier === 'site' && bottomNav;
   const contentPadding = {
     paddingTop: HEADER_HEIGHT + (stickyBelowHeader ? stickyBelowHeaderHeight : 0),
-    ...(tier === 'site' ? { paddingBottom: BOTTOM_NAV_HEIGHT } : null),
+    ...(reserveBottomNav ? { paddingBottom: BOTTOM_NAV_HEIGHT } : null),
   };
 
   const scrollContent = scrollable ? (
@@ -300,7 +324,7 @@ export default function ScreenScaffold({
       style={styles.scrollView}
       contentContainerStyle={[styles.contentContainer, contentPadding]}
       scrollIndicatorInsets={{
-        bottom: tier === 'site' ? BOTTOM_NAV_HEIGHT : 0,
+        bottom: reserveBottomNav ? BOTTOM_NAV_HEIGHT : 0,
       }}
       keyboardShouldPersistTaps="handled"
       onScroll={handleScroll}
