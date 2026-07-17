@@ -31,6 +31,11 @@
  *     `reminder_count`/`reminder_interval_min`/`reminder_start`/`reminder_end`
  *     (Decision 016 Q3) are editing metadata only — never used to recompute
  *     `notification_times`, which stays authoritative for scheduling.
+ *   - Reserve-only native features (2026-07-17): `tasks.contact_name`/`contact_phone`,
+ *     `location_lat`/`location_lng`, and `calendar_event_id` are now wired end-to-end
+ *     via store/useTaskStore.ts (see lib/location.ts, lib/taskCalendar.ts). `tasks.
+ *     location_radius_m`/`geofence_id` and `settings.background_location_enabled`
+ *     stay unwired — reserved for a future background-geofencing pass, not this one.
  */
 import { dateStr } from '@/lib/date';
 import { db } from '@/lib/sqlite';
@@ -598,6 +603,15 @@ export function initDb() {
     "ALTER TABLE settings ADD COLUMN auto_backup_uri TEXT DEFAULT ''",
     "ALTER TABLE settings ADD COLUMN auto_backup_label TEXT DEFAULT ''",
     "ALTER TABLE settings ADD COLUMN auto_backup_last_at TEXT DEFAULT ''",
+    // Reserve-only native features (2026-07-17): contacts attach-to-task (name+phone
+    // snapshot, no live device-contact-id link — see store/useTaskStore.ts) and its
+    // gating toggle. location_lat/location_lng and calendar_event_id already exist
+    // from the earlier permission pre-bake migration above and are wired for the
+    // first time by this same pass — see lib/location.ts and lib/taskCalendar.ts.
+    "ALTER TABLE settings ADD COLUMN contacts_enabled INTEGER DEFAULT 0",
+    "ALTER TABLE tasks ADD COLUMN contact_name TEXT DEFAULT NULL",
+    "ALTER TABLE tasks ADD COLUMN contact_phone TEXT DEFAULT NULL",
+    "ALTER TABLE settings ADD COLUMN device_calendar_id TEXT DEFAULT ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

@@ -23,7 +23,7 @@
  *
  * Connections:
  *   Imports → lib/dataAccess, lib/id
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/ParticleBackground.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/ParticleBackground.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns the single-row SQLite table settings (id = 1)
  *
  * Edit notes:
@@ -36,6 +36,11 @@
  *     logDbError so a silently-lost-on-restart setting shows up in logs instead of
  *     vanishing unnoticed.
  *   - New settings columns go through the migrations array in lib/db.ts; add to Settings type, load() mapping, and update()'s column list.
+ *   - `contactsEnabled` (2026-07-17) joins `locationEnabled`/`calendarSyncEnabled`/
+ *     `voiceNotesEnabled` as the fourth reserve-only permission toggle, all surfaced in
+ *     app/settings.tsx's "Device features" card. `deviceCalendarId` is internal (not
+ *     user-facing) — the id of the dedicated "UnFocus" device calendar, cached by
+ *     lib/taskCalendar.ts's ensureCalendar() so it isn't recreated on every sync.
  */
 import { create } from 'zustand';
 import {
@@ -106,6 +111,10 @@ export type Settings = {
   backgroundLocationEnabled: boolean;
   calendarSyncEnabled: boolean;
   voiceNotesEnabled: boolean;
+  contactsEnabled: boolean;
+  /** Cached id of the dedicated "UnFocus" device calendar created by lib/taskCalendar.ts's
+   *  ensureCalendar() — internal, not user-facing. Empty until the first calendar sync. */
+  deviceCalendarId: string;
   // Local account (Decision 039) — device-only, user-held profile. No server, no
   // credentials. accountName is a display label; accountCreated (YYYY-MM-DD) is
   // stamped when the user creates their local account (empty = none yet). Both ride
@@ -201,6 +210,8 @@ function rowToSettings(row: Row): Settings {
     backgroundLocationEnabled: readBool(row, 'background_location_enabled'),
     calendarSyncEnabled: readBool(row, 'calendar_sync_enabled'),
     voiceNotesEnabled: readBool(row, 'voice_notes_enabled'),
+    contactsEnabled: readBool(row, 'contacts_enabled'),
+    deviceCalendarId: readStr(row, 'device_calendar_id'),
     accountName: readStr(row, 'account_name'),
     accountCreated: readStr(row, 'account_created'),
     childMode: readBool(row, 'child_mode'),
@@ -258,6 +269,8 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   backgroundLocationEnabled: { col: 'background_location_enabled', to: bool },
   calendarSyncEnabled: { col: 'calendar_sync_enabled', to: bool },
   voiceNotesEnabled: { col: 'voice_notes_enabled', to: bool },
+  contactsEnabled: { col: 'contacts_enabled', to: bool },
+  deviceCalendarId: { col: 'device_calendar_id' },
   accountName: { col: 'account_name' },
   accountCreated: { col: 'account_created' },
   childMode: { col: 'child_mode', to: bool },
@@ -315,6 +328,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   backgroundLocationEnabled: false,
   calendarSyncEnabled: false,
   voiceNotesEnabled: false,
+  contactsEnabled: false,
+  deviceCalendarId: '',
   accountName: '',
   accountCreated: '',
   childMode: false,

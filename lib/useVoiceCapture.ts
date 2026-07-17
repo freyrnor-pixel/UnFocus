@@ -10,7 +10,8 @@
  *   Imports → expo-speech-recognition, components/AppModal (showAppModal), lib/i18n,
  *             store/useSettingsStore
  *   Used by → components/VoiceNoteFAB.tsx (app/notes.tsx's FAB), components/HomeNotesCard.tsx
- *             (Home's inline mic button)
+ *             (Home's inline mic button), app/task-form.tsx (Title field mic button,
+ *             reserve-only, gated on settings.voiceNotesEnabled)
  *   Data    → none directly — reports the finished transcript via onTranscript
  *
  * Edit notes:
