@@ -13,7 +13,8 @@
  *             components/Collapsible (animated inline calendar reveal),
  *             components/HintCard, components/ConfirmationBanner, components/DatePickerCalendar,
  *             components/IconButton, components/AppModal, components/PressableScale, lib/date,
- *             lib/haptics, lib/i18n, lib/useAppTheme, store/useTaskStore
+ *             lib/haptics, lib/i18n, lib/useAppTheme, lib/useVoiceCapture, lib/location,
+ *             expo-contacts, store/useTaskStore, store/useSettingsStore
  *   Used by → Expo Router route "/task-form"; pushed from anywhere that needs to add/edit a
  *             task (e.g. a future "+" affordance, plans rows) — no caller wired yet, this
  *             session ports the screen itself, per REBUILD_PLAN.md's "port ahead of mount" pattern
@@ -39,16 +40,30 @@
  *     field) — no energy/battery picker.
  *   - On save a ConfirmationBanner is shown, then navigation is briefly delayed (~900ms) so
  *     it's visible. Delete is confirm-gated via confirmDelete()/showAppModal.
+ *   - **Reserve-only device features (2026-07-17)**: a mic button beside the Title Input
+ *     (lib/useVoiceCapture.ts, gated on settings.voiceNotesEnabled, replaces the field's
+ *     value on a finished transcript); a Contact block (expo-contacts' class API —
+ *     Contact.presentPicker()/getDetails(), NOT the deprecated flat functions, gated on
+ *     settings.contactsEnabled, name+phone snapshot only, tap-to-call via Linking); a
+ *     Location block (lib/location.ts, gated on settings.locationEnabled, foreground
+ *     one-shot fix only, no reverse geocoding). All three follow the "then" follower
+ *     link's empty-state/filled-row shape. Calendar mirroring (lib/taskCalendar.ts) has
+ *     no task-form UI — it's a global settings toggle, wired in store/useTaskStore.ts.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Contact, ContactField } from 'expo-contacts';
+import * as Contacts from 'expo-contacts';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTaskStore, TaskType, Recurring, Importance } from '@/store/useTaskStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, dayOfWeekMon0 } from '@/lib/date';
 import { tap, warning } from '@/lib/haptics';
+import { useVoiceCapture } from '@/lib/useVoiceCapture';
+import { getCurrentTaskLocation } from '@/lib/location';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import { Checkbox, Input, SegmentedControl, Switch } from '@/components/FormControls';
@@ -80,6 +95,9 @@ export default function TaskFormScreen() {
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
+  const voiceNotesEnabled = useSettingsStore((s) => s.voiceNotesEnabled);
+  const contactsEnabled = useSettingsStore((s) => s.contactsEnabled);
+  const locationEnabled = useSettingsStore((s) => s.locationEnabled);
 
   // The post-save banner delays router.back() ~900ms; clear it on unmount so a user who
   // navigates away first doesn't trigger a late back()/setState on an unmounted screen.
@@ -89,6 +107,7 @@ export default function TaskFormScreen() {
   const existing = id ? tasks.find((task) => task.id === id) : undefined;
 
   const [title, setTitle] = useState(existing?.title ?? titleParam ?? '');
+  const { listening: titleListening, toggle: toggleTitleVoice } = useVoiceCapture((text) => setTitle(text));
   const [date, setDate] = useState(existing?.date ?? todayStr());
   const [timeEnabled, setTimeEnabled] = useState(existing ? !!existing.time : true);
   // New tasks start with an empty time/duration so the field shows a grey placeholder
@@ -101,6 +120,11 @@ export default function TaskFormScreen() {
   const [recurringDays, setRecurringDays] = useState<number[]>(existing?.recurringDays ?? []);
   const [importance, setImportance] = useState<Importance>(existing?.importance ?? 'regular');
   const [hint, setHint] = useState(existing?.hint ?? '');
+  const [contactName, setContactName] = useState(existing?.contactName ?? '');
+  const [contactPhone, setContactPhone] = useState(existing?.contactPhone ?? '');
+  const [locationLat, setLocationLat] = useState<number | undefined>(existing?.locationLat);
+  const [locationLng, setLocationLng] = useState<number | undefined>(existing?.locationLng);
+  const [locationBusy, setLocationBusy] = useState(false);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [calExpanded, setCalExpanded] = useState(false);
   const [newStepTitle, setNewStepTitle] = useState('');
@@ -134,6 +158,59 @@ export default function TaskFormScreen() {
     setRecurringDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
   }
 
+  // Contacts (reserve-only) — snapshot only, no live device-contact-id link (UnFocus
+  // is local-only; a device contact id isn't portable across devices/LAN live-sync).
+  async function handlePickContact() {
+    tap();
+    await Contacts.requestPermissionsAsync();
+    const picked = await Contact.presentPicker();
+    if (!picked) return;
+    const details = await picked.getDetails([
+      ContactField.FULL_NAME,
+      ContactField.GIVEN_NAME,
+      ContactField.FAMILY_NAME,
+      ContactField.PHONES,
+    ]);
+    const name = details.fullName || [details.givenName, details.familyName].filter(Boolean).join(' ');
+    if (!name) return;
+    setContactName(name);
+    setContactPhone(details.phones?.[0]?.number ?? '');
+  }
+
+  function handleRemoveContact() {
+    tap();
+    setContactName('');
+    setContactPhone('');
+  }
+
+  function handleCallContact() {
+    if (contactPhone) Linking.openURL(`tel:${contactPhone}`);
+  }
+
+  // Location (reserve-only) — foreground one-shot fix only; no reverse geocoding.
+  async function handleAddLocation() {
+    tap();
+    setLocationBusy(true);
+    const result = await getCurrentTaskLocation();
+    setLocationBusy(false);
+    if (result.status === 'denied') {
+      showAppModal(t.permissionTitle, t.taskLocationPermissionBody);
+      return;
+    }
+    if (result.status === 'error') {
+      showAppModal(t.permissionTitle, t.taskLocationErrorBody);
+      return;
+    }
+    setLocationLat(result.location.lat);
+    setLocationLng(result.location.lng);
+  }
+
+  function handleRemoveLocation() {
+    tap();
+    setLocationLat(undefined);
+    setLocationLng(undefined);
+  }
+
   /** Build the localized "Reminder set …" / "Saved ✓" confirmation from the saved values. */
   function confirmationMessage(savedDate: string, savedTime: string | undefined): string {
     if (!savedTime) return t.taskSavedSimple;
@@ -162,6 +239,10 @@ export default function TaskFormScreen() {
       importance,
       sortOrder: existing?.sortOrder ?? 0,
       hint: hint.trim(),
+      contactName: contactName.trim() || undefined,
+      contactPhone: contactPhone.trim() || undefined,
+      locationLat,
+      locationLng,
     };
     if (existing) {
       updateTask(existing.id, payload);
@@ -220,15 +301,38 @@ export default function TaskFormScreen() {
       <View style={styles.content}>
         <HintCard text={t.hints.taskForm.text} example={t.hints.taskForm.example} />
 
-        {/* Title */}
+        {/* Title — mic button (reserve-only voice dictation) sits beside the Input when enabled */}
         <View style={styles.field}>
-          <Input
-            label={t.taskTitleLabel}
-            value={title}
-            onChangeText={setTitle}
-            placeholder={t.taskTitlePlaceholder}
-            returnKeyType="next"
-          />
+          <View style={styles.titleFieldRow}>
+            <View style={styles.titleInputWrap}>
+              <Input
+                label={t.taskTitleLabel}
+                value={title}
+                onChangeText={setTitle}
+                placeholder={t.taskTitlePlaceholder}
+                returnKeyType="next"
+              />
+            </View>
+            {voiceNotesEnabled && (
+              <PressableScale
+                onPress={toggleTitleVoice}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={titleListening ? t.taskVoiceTitleStop : t.taskVoiceTitleLabel}
+                scaleTo={0.9}
+                style={styles.voiceBtnWrap}
+              >
+                <View
+                  style={[
+                    styles.micButton,
+                    { backgroundColor: titleListening ? theme.badSoft : theme.surfaceMuted },
+                  ]}
+                >
+                  <Ionicons name={titleListening ? 'stop' : 'mic'} size={15} color={titleListening ? theme.bad : theme.accent} />
+                </View>
+              </PressableScale>
+            )}
+          </View>
         </View>
 
         {/* Date — Mon–Sun chip row, with the full calendar collapsed behind a toggle */}
@@ -420,6 +524,57 @@ export default function TaskFormScreen() {
           />
         </View>
 
+        {/* Contact — reserve-only, attach a name+phone snapshot, tap-to-call */}
+        {contactsEnabled && (
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: theme.textMuted }]}>{t.taskContactLabel}</Text>
+            {contactName ? (
+              <View style={[styles.thenRow, { backgroundColor: theme.surfaceMuted }]}>
+                <PressableScale onPress={handleCallContact} disabled={!contactPhone} style={{ flex: 1 }} scaleTo={0.98}>
+                  <Text style={[styles.thenRowText, { color: theme.text }]} numberOfLines={1}>
+                    {contactName}
+                    {contactPhone ? ` · ${contactPhone}` : ''}
+                  </Text>
+                </PressableScale>
+                <IconButton icon="close-circle" label={t.taskContactRemove} onPress={handleRemoveContact} size={28} />
+              </View>
+            ) : (
+              <>
+                <Text style={[styles.wheneverHint, { color: theme.textMuted }]}>{t.taskContactNone}</Text>
+                <Button label={t.taskContactPick} variant="secondary" size="sm" onPress={handlePickContact} style={styles.thenPickBtn} />
+              </>
+            )}
+          </View>
+        )}
+
+        {/* Location — reserve-only, foreground "tag my current location", no reverse geocoding */}
+        {locationEnabled && (
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: theme.textMuted }]}>{t.taskLocationLabel}</Text>
+            {locationLat != null && locationLng != null ? (
+              <View style={[styles.thenRow, { backgroundColor: theme.surfaceMuted }]}>
+                <View style={styles.locationRowContent}>
+                  <Ionicons name="location" size={16} color={theme.accent} />
+                  <Text style={[styles.thenRowText, { color: theme.text }]}>{t.taskLocationTagged}</Text>
+                </View>
+                <IconButton icon="close-circle" label={t.taskLocationRemove} onPress={handleRemoveLocation} size={28} />
+              </View>
+            ) : (
+              <>
+                <Text style={[styles.wheneverHint, { color: theme.textMuted }]}>{t.taskLocationNone}</Text>
+                <Button
+                  label={t.taskLocationAdd}
+                  variant="secondary"
+                  size="sm"
+                  onPress={handleAddLocation}
+                  loading={locationBusy}
+                  style={styles.thenPickBtn}
+                />
+              </>
+            )}
+          </View>
+        )}
+
         {/* Then — Decision 020, one-to-one follower link, surfacing-only */}
         {existing && (
           <View style={styles.field}>
@@ -541,6 +696,11 @@ const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.lg },
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   card: { gap: Spacing.md, padding: Spacing.md },
+  titleFieldRow: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm },
+  titleInputWrap: { flex: 1 },
+  voiceBtnWrap: { marginBottom: 10 },
+  micButton: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  locationRowContent: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   switchLabel: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },

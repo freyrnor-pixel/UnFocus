@@ -52,10 +52,11 @@
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
  *   Data    → useSettingsStore (settings table; incl. essentialsModeEnabled, quietHours*,
  *             monthlyBudgetNok, taskNotificationsEnabled, habitNotificationsEnabled,
- *             persistentNotifEnabled); reset actions touch useTaskStore (tasks) and
- *             useShoppingStore (shopping_items via monthlyReset); re-syncs notifications via
- *             syncReminders / syncAllTaskNotifications / syncAllHabitReminders /
- *             syncNotificationCategories
+ *             persistentNotifEnabled, voiceNotesEnabled/contactsEnabled/locationEnabled/
+ *             calendarSyncEnabled — the "Device features" card); reset actions touch
+ *             useTaskStore (tasks) and useShoppingStore (shopping_items via monthlyReset);
+ *             re-syncs notifications via syncReminders / syncAllTaskNotifications /
+ *             syncAllTaskCalendarEvents / syncAllHabitReminders / syncNotificationCategories
  *
  * Edit notes:
  *   - applyAndSync() is the single write path: updates settings AND fires the right notification
@@ -95,6 +96,11 @@
  *     devices list all live on app/pair-device.tsx. syncAvailable (lib/syncService's
  *     isSyncAvailable()) gates whether the card shows the link or an "unavailable" note, since
  *     the native transport modules aren't linked outside a real build.
+ *   - **Device features card (2026-07-17)**: four toggles (voice/contacts/location/calendar)
+ *     for the reserve-only native surface — all default off, so app/task-form.tsx's mic/
+ *     contact/location blocks stay hidden and calendar mirroring stays inert until a user
+ *     opts in here. The other three toggles were previously unreachable (fully wired in
+ *     useSettingsStore but no UI anywhere) — this card is what makes them reachable.
  */
 import React, { useState } from 'react';
 import { Linking, Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
@@ -154,6 +160,7 @@ export default function SettingsScreen() {
   const styles = useScaledStyles(baseStyles);
   const t = useT();
   const syncTaskNotifs = useTaskStore((s) => s.syncAllTaskNotifications);
+  const syncTaskCalendarEvents = useTaskStore((s) => s.syncAllTaskCalendarEvents);
   const syncHabitNotifs = useHabitStore((s) => s.syncAllHabitReminders);
   const clearTasks = useTaskStore((s) => s.clearAll);
   const feedbackNoteCount = useFeedbackStore((s) => s.notes.length);
@@ -308,6 +315,9 @@ export default function SettingsScreen() {
     }
     if (keys.some((k) => ['taskNotificationsEnabled', 'language', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'essentialsModeEnabled'].includes(k))) {
       syncTaskNotifs();
+    }
+    if (keys.includes('calendarSyncEnabled')) {
+      syncTaskCalendarEvents();
     }
     if (keys.includes('language') || keys.includes('habitNotificationsEnabled') || keys.includes('essentialsModeEnabled')) {
       syncHabitNotifs();
@@ -699,6 +709,62 @@ export default function SettingsScreen() {
                   permission-testing is blocked on a dev/APK build), so nothing is wired below
                   the toggle above. Do not wire this until permissionTests.ts lands.
                 */}
+              </Surface>
+            </View>
+
+            {/* Device features (2026-07-17) — Settings toggles for the reserve-only native
+                surface: voice dictation (task-form mic), contacts (attach-to-task), location
+                (tag-with-my-location), calendar (mirror timed tasks). All four default off;
+                each gates its own task-form/store wiring — see app/task-form.tsx and
+                store/useTaskStore.ts. Calendar goes through applyAndSync so toggling it
+                immediately re-syncs every eligible task; the other three are read directly
+                by task-form.tsx at render time, no background job to kick. */}
+            <View style={styles.section}>
+              <Surface style={styles.card}>
+                <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.permissions.sectionTitle}</Text>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.voiceNotes.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.voiceNotes.hint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.voiceNotesEnabled}
+                    onChange={(v) => { selection(); settings.update({ voiceNotesEnabled: v }); }}
+                  />
+                </View>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.contacts.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.contacts.hint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.contactsEnabled}
+                    onChange={(v) => { selection(); settings.update({ contactsEnabled: v }); }}
+                  />
+                </View>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.location.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.location.hint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.locationEnabled}
+                    onChange={(v) => { selection(); settings.update({ locationEnabled: v }); }}
+                  />
+                </View>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.calendar.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.calendar.hint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.calendarSyncEnabled}
+                    onChange={(v) => { selection(); applyAndSync({ calendarSyncEnabled: v }); }}
+                  />
+                </View>
               </Surface>
             </View>
 

@@ -188,6 +188,22 @@ const en = {
   thenTaskChange: 'Change',
   thenTaskRemove: 'Remove link',
   thenTaskEmptyList: 'No eligible tasks to link',
+  // Task form — voice dictation (reserve-only, lib/useVoiceCapture.ts), gated on settings.voiceNotesEnabled
+  taskVoiceTitleLabel: 'Dictate title',
+  taskVoiceTitleStop: 'Stop dictating title',
+  // Task form — attach a contact (reserve-only, expo-contacts), gated on settings.contactsEnabled
+  taskContactLabel: 'Contact',
+  taskContactNone: 'No contact attached',
+  taskContactPick: 'Attach a contact',
+  taskContactRemove: 'Remove contact',
+  // Task form — tag with current location (reserve-only, expo-location), gated on settings.locationEnabled
+  taskLocationLabel: 'Location',
+  taskLocationNone: 'No location tagged',
+  taskLocationAdd: 'Tag my current location',
+  taskLocationRemove: 'Remove location',
+  taskLocationTagged: 'Location tagged',
+  taskLocationPermissionBody: 'Location access is required to tag this task.',
+  taskLocationErrorBody: "Couldn't get your location — try again.",
   // Task form — save confirmation (W-B). `day` is a localized reference (Today / Tomorrow / Monday…).
   taskSavedSimple: 'Saved ✓',
   taskSavedReminder: (time: string, day: string) => `Reminder set for ${time} on ${day} ✓`,
@@ -1195,6 +1211,16 @@ const en = {
     exportHeading: (date: string) => `UnFocus debug notes — ${date}`,
     resetNotes: 'Reset all notes',
   },
+  // Device features (2026-07-17) — Settings toggles for the reserve-only native
+  // surface (voice/contacts/location/calendar); gates app/task-form.tsx's mic
+  // button and contact/location blocks, and store/useTaskStore.ts's calendar sync.
+  permissions: {
+    sectionTitle: 'Device features',
+    voiceNotes: { label: 'Voice dictation', hint: 'Dictate the task title by voice.' },
+    contacts: { label: 'Contacts', hint: 'Attach a contact to a task.' },
+    location: { label: 'Location', hint: 'Tag a task with your current location.' },
+    calendar: { label: 'Calendar sync', hint: 'Mirror timed tasks to your device calendar.' },
+  },
   // Send Feedback (2026-07-13) — general-audience mailto card, separate from
   // debug mode's anchor-note export above.
   feedback: {
@@ -1359,6 +1385,22 @@ const no: typeof en = {
   thenTaskChange: 'Endre',
   thenTaskRemove: 'Fjern lenke',
   thenTaskEmptyList: 'Ingen aktuelle oppgaver å lenke',
+  // Task form — talediktering (reserve-only, lib/useVoiceCapture.ts), styrt av settings.voiceNotesEnabled
+  taskVoiceTitleLabel: 'Diktér tittel',
+  taskVoiceTitleStop: 'Stopp diktering',
+  // Task form — legg til kontakt (reserve-only, expo-contacts), styrt av settings.contactsEnabled
+  taskContactLabel: 'Kontakt',
+  taskContactNone: 'Ingen kontakt lagt til',
+  taskContactPick: 'Legg til kontakt',
+  taskContactRemove: 'Fjern kontakt',
+  // Task form — merk med gjeldende sted (reserve-only, expo-location), styrt av settings.locationEnabled
+  taskLocationLabel: 'Sted',
+  taskLocationNone: 'Ingen sted lagt til',
+  taskLocationAdd: 'Merk med stedet mitt',
+  taskLocationRemove: 'Fjern sted',
+  taskLocationTagged: 'Sted lagt til',
+  taskLocationPermissionBody: 'Stedstilgang er nødvendig for å merke denne oppgaven.',
+  taskLocationErrorBody: 'Fikk ikke stedet ditt — prøv igjen.',
   // Task form — lagringsbekreftelse (W-B). `day` er en lokalisert referanse (I dag / Imorgen / Mandag…).
   taskSavedSimple: 'Lagret ✓',
   taskSavedReminder: (time: string, day: string) => `Påminnelse satt til ${time} ${day} ✓`,
@@ -2331,6 +2373,13 @@ const no: typeof en = {
     exportNotes: 'Eksporter',
     exportHeading: (date: string) => `UnFocus feilsøkingsnotater — ${date}`,
     resetNotes: 'Nullstill alle notater',
+  },
+  permissions: {
+    sectionTitle: 'Enhetsfunksjoner',
+    voiceNotes: { label: 'Talediktering', hint: 'Diktér oppgavetittelen med stemmen.' },
+    contacts: { label: 'Kontakter', hint: 'Legg til en kontakt på en oppgave.' },
+    location: { label: 'Sted', hint: 'Merk en oppgave med stedet ditt.' },
+    calendar: { label: 'Kalendersynkronisering', hint: 'Speil tidsfestede oppgaver til enhetens kalender.' },
   },
   feedback: {
     cardTitle: 'Send tilbakemelding',

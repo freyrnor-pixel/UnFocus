@@ -10,7 +10,8 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, lib/notifications, lib/taskNotifications,
- *             lib/liveSync, lib/syncService, store/useAutomationStore, store/useSettingsStore,
+ *             lib/taskCalendar (reserve-only calendar mirroring), lib/liveSync, lib/syncService,
+ *             store/useAutomationStore, store/useSettingsStore,
  *             store/useSharedStore (setSharedOut emits an outgoing shared_tasks row)
  *   Used by → components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
  *             components/TaskCard.tsx, app/task-form.tsx, app/(tabs)/plans.tsx
@@ -40,6 +41,15 @@
  *     at schedule time, so call `syncAllTaskNotifications()` after a settings/language
  *     change to re-schedule every task. Quiet hours SHIFT a task reminder past the
  *     window (habits skip instead — see lib/habitNotifications.ts).
+ *   - **Calendar mirroring (reserve-only, 2026-07-17) — WIRED.** `add`/`update` call the
+ *     local `syncTaskCalendar(task)` wrapper (mirrors `syncTaskNotification`'s shape),
+ *     which delegates to `lib/taskCalendar.ts`'s `syncTaskCalendarEvent` and writes the
+ *     resolved `calendar_event_id` back once the native call resolves; `remove`/`clearAll`
+ *     cancel via `cancelTaskCalendarEvent`. Gated on `settings.calendarSyncEnabled`; only
+ *     one-off, dated, timed tasks are eligible (see `isCalendarEligible`). Call
+ *     `syncAllTaskCalendarEvents()` after the setting is toggled on to re-sync every task.
+ *     `contactName`/`contactPhone`/`locationLat`/`locationLng` (reserve-only contacts/
+ *     location) are plain fields through the normal add/update payload — no sync wrapper.
  *   - `task.steps` persist straight to SQLite on every change (addStep/removeStep/
  *     toggleStep/reorderStep) — no draft/save gate. load() loads all task_steps in
  *     one query and groups them onto their owning task in JS (one query, not N+1).
@@ -80,8 +90,10 @@ import {
   rowValues,
   readStr,
   readInt,
+  readReal,
   readBool,
   readJson,
+  logDbError,
   tx,
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
@@ -91,6 +103,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useSharedStore } from '@/store/useSharedStore';
 import { cancelTaskNotification } from '@/lib/notifications';
 import { syncTaskNotification as scheduleTaskReminder } from '@/lib/taskNotifications';
+import { syncTaskCalendarEvent, cancelTaskCalendarEvent } from '@/lib/taskCalendar';
 import { touchRow, softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
 
@@ -136,6 +149,19 @@ export type Task = {
   /** People/family mode — assigned profile name ('' = Me / self). Surfaced only when
    *  settings.peopleModeEnabled and at least one childProfiles entry exists. */
   assignee: string;
+  /** Contacts (reserve-only) — name+phone snapshot from expo-contacts' picker at attach
+   *  time; no live device-contact-id link (see TASK_COLUMNS below for why). */
+  contactName?: string;
+  contactPhone?: string;
+  /** Location (reserve-only) — foreground-tagged lat/lng at save time; no reverse
+   *  geocoding. location_radius_m/geofence_id (lib/db.ts) stay unwired — reserved for
+   *  future background geofencing, not this pass. */
+  locationLat?: number;
+  locationLng?: number;
+  /** Calendar (reserve-only) — the mirrored device calendar event's id. System-managed
+   *  by lib/taskCalendar.ts's syncTaskCalendar wrapper; never set through the normal
+   *  add/update payload (same rationale as followsTaskId — see TASK_COLUMNS below). */
+  calendarEventId?: string;
   steps: TaskStep[];
 };
 
@@ -161,6 +187,11 @@ export type TaskInput = {
   hasStartDate?: boolean;
   sharedOut?: boolean;
   assignee?: string;
+  contactName?: string;
+  contactPhone?: string;
+  locationLat?: number;
+  locationLng?: number;
+  // calendarEventId is deliberately absent — system-managed only, see Task's own comment.
 };
 
 const ORDINAL_NUM: Record<Exclude<MonthOrdinal, 'last'>, number> = {
@@ -254,6 +285,8 @@ type TaskStore = {
   focusTask: (date: string, workModeActive: boolean) => Task | null;
   /** Re-schedule every task's reminder (after a settings/language change). */
   syncAllTaskNotifications: () => void;
+  /** Re-sync every eligible task's mirrored calendar event (after calendarSyncEnabled flips on). */
+  syncAllTaskCalendarEvents: () => void;
   /** Write a new sort_order (by array position) for every id in orderedIds. */
   reorderTasks: (orderedIds: string[]) => void;
   /** Steps persist straight to SQLite on every change — no draft/save gate. */
@@ -302,6 +335,11 @@ function rowToTask(row: Row): Task {
     hasStartDate: readBool(row, 'has_start_date'),
     sharedOut: readBool(row, 'shared_out'),
     assignee: readStr(row, 'assignee', ''),
+    contactName: readStr(row, 'contact_name') || undefined,
+    contactPhone: readStr(row, 'contact_phone') || undefined,
+    locationLat: readReal(row, 'location_lat') || undefined,
+    locationLng: readReal(row, 'location_lng') || undefined,
+    calendarEventId: readStr(row, 'calendar_event_id') || undefined,
     steps: [],
   };
 }
@@ -329,6 +367,10 @@ const TASK_COLUMNS: FieldMap<Task> = {
   hasStartDate: { col: 'has_start_date', to: (v) => (v ? 1 : 0) },
   sharedOut: { col: 'shared_out', to: (v) => (v ? 1 : 0) },
   assignee: { col: 'assignee', to: (v) => v ?? '' },
+  contactName: { col: 'contact_name', to: (v) => v ?? null },
+  contactPhone: { col: 'contact_phone', to: (v) => v ?? null },
+  locationLat: { col: 'location_lat', to: (v) => v ?? null },
+  locationLng: { col: 'location_lng', to: (v) => v ?? null },
   // followsTaskId is deliberately ABSENT from this map — rowValues() only ever
   // serialises keys present in the map, so neither add()'s insertRow nor update()'s
   // patch can accidentally write follows_task_id. All writes to it go through
@@ -336,6 +378,9 @@ const TASK_COLUMNS: FieldMap<Task> = {
   // atomically (see below). A brand-new task's follower always starts unset anyway
   // (the tasks table's DEFAULT NULL), matching the form's own gating (the "then"
   // picker only appears once a task already exists to be a predecessor).
+  // calendarEventId is likewise ABSENT — only lib/taskCalendar.ts's syncTaskCalendar
+  // wrapper (below) writes calendar_event_id, via its own raw updateRow call after
+  // the native create/update resolves. Never write it through the generic add/update.
 };
 
 function rowToTaskStep(row: Row): TaskStep {
@@ -357,7 +402,23 @@ const TASK_STEP_COLUMNS: FieldMap<TaskStep> = {
   orderIndex: { col: 'order_index' },
 };
 
-export const useTaskStore = create<TaskStore>((set, get) => ({
+export const useTaskStore = create<TaskStore>((set, get) => {
+  /** Mirror (create/update/cancel) a task's device calendar event; fire-and-forget, writes
+   *  calendar_event_id back once the native call resolves. Never throws (see lib/taskCalendar.ts). */
+  function syncTaskCalendar(task: Task): void {
+    const settings = useSettingsStore.getState();
+    syncTaskCalendarEvent(task, { calendarSyncEnabled: settings.calendarSyncEnabled })
+      .then((eventId) => {
+        if ((eventId ?? undefined) === task.calendarEventId) return;
+        updateRow('tasks', { calendar_event_id: eventId }, 'id = ?', [task.id]);
+        set((s) => ({
+          tasks: s.tasks.map((t) => (t.id === task.id ? { ...t, calendarEventId: eventId ?? undefined } : t)),
+        }));
+      })
+      .catch((e) => logDbError(`syncTaskCalendar(${task.id})`, e));
+  }
+
+  return {
   tasks: [],
 
   load() {
@@ -398,6 +459,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set((s) => ({ tasks: [...s.tasks, task] }));
     syncTaskNotification(task);
     syncTaskRow(id);
+    syncTaskCalendar(task);
     return task;
   },
 
@@ -416,6 +478,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? next : t)) }));
     syncTaskNotification(next);
     syncTaskRow(id);
+    syncTaskCalendar(next);
   },
 
   toggle(id) {
@@ -452,6 +515,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   remove(id) {
+    const task = get().tasks.find((t) => t.id === id);
     tx(() => {
       // Decision 020 ON DELETE SET NULL, enforced here since SQLite can't ALTER
       // TABLE to add a real FK: any row that followed this task loses the link.
@@ -465,6 +529,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       softDelete('tasks', id, useSettingsStore.getState().deviceId);
     });
     void cancelTaskNotification(id);
+    if (task?.calendarEventId) void cancelTaskCalendarEvent(task.calendarEventId);
     broadcastRow('tasks', id);
     set((s) => ({
       tasks: s.tasks
@@ -593,8 +658,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     // tasks"), not a per-row user delete — propagating it would wipe a paired
     // partner's tasks too, which Decision 038b never asked for.
     const ids = get().tasks.map((t) => t.id);
+    const calendarEventIds = get()
+      .tasks.map((t) => t.calendarEventId)
+      .filter((x): x is string => !!x);
     db.runSync('DELETE FROM tasks');
     ids.forEach((id) => void cancelTaskNotification(id));
+    calendarEventIds.forEach((eventId) => void cancelTaskCalendarEvent(eventId));
     set({ tasks: [] });
   },
 
@@ -660,4 +729,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   syncAllTaskNotifications() {
     get().tasks.forEach(syncTaskNotification);
   },
-}));
+
+  syncAllTaskCalendarEvents() {
+    get().tasks.forEach(syncTaskCalendar);
+  },
+  };
+});
