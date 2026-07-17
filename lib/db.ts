@@ -612,6 +612,9 @@ export function initDb() {
     "ALTER TABLE tasks ADD COLUMN contact_name TEXT DEFAULT NULL",
     "ALTER TABLE tasks ADD COLUMN contact_phone TEXT DEFAULT NULL",
     "ALTER TABLE settings ADD COLUMN device_calendar_id TEXT DEFAULT ''",
+    // Glass surface finish toggle ("Glass, take two", 2026-07-17) — default on; off is a
+    // user-facing reduce-transparency fallback to plain opaque surfaces (see components/GlassFill.tsx).
+    "ALTER TABLE settings ADD COLUMN glass_surfaces INTEGER DEFAULT 1",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

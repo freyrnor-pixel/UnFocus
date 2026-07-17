@@ -89,6 +89,12 @@ export type Settings = {
   // Accessibility (Proposal 4)
   reducedMotion: boolean;
   particlesEnabled: boolean;
+  /**
+   * Glass surface finish ("Glass, take two", 2026-07-17). On (default) renders the
+   * frosted rim/specular/scrim/drifting-sheen glass on cards, buttons, and the FAB; off
+   * falls back to plain opaque surfaces — a user-facing reduce-transparency mode.
+   */
+  glassSurfaces: boolean;
   fontSize: FontSizePref;
   // Left-handed mode
   leftHanded: boolean;
@@ -196,6 +202,7 @@ function rowToSettings(row: Row): Settings {
     childProfiles: readJson<string[]>(row, 'child_profiles', []),
     reducedMotion: readBool(row, 'reduced_motion'),
     particlesEnabled: readInt(row, 'particles_enabled', 1) !== 0,
+    glassSurfaces: readInt(row, 'glass_surfaces', 1) !== 0,
     fontSize: readEnum<FontSizePref>(row, 'font_size', ['small', 'default', 'large'], 'default'),
     leftHanded: readBool(row, 'left_handed'),
     persistentNotifEnabled: readBool(row, 'persistent_notif_enabled'),
@@ -255,6 +262,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   childProfiles: { col: 'child_profiles', to: (v) => JSON.stringify(v) },
   reducedMotion: { col: 'reduced_motion', to: bool },
   particlesEnabled: { col: 'particles_enabled', to: bool },
+  glassSurfaces: { col: 'glass_surfaces', to: bool },
   fontSize: { col: 'font_size' },
   leftHanded: { col: 'left_handed', to: bool },
   persistentNotifEnabled: { col: 'persistent_notif_enabled', to: bool },
@@ -314,6 +322,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   childProfiles: [],
   reducedMotion: false,
   particlesEnabled: true,
+  glassSurfaces: true,
   fontSize: 'default' as FontSizePref,
   leftHanded: false,
   persistentNotifEnabled: false,

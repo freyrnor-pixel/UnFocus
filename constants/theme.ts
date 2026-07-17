@@ -3,7 +3,9 @@
  *
  * `getFontSize(base, scale)` applies the user's fontSize preference to a base pt.
  * `contrastOn(hexBg)` picks near-black or white text for the best WCAG contrast.
- * `getMaterialStyle(base)` computes glass surface-finish tokens from a single base colour.
+ * `getMaterialStyle(base, variant?)` computes glass surface-finish tokens ("Glass, take two")
+ * from a single base colour, consumed by components/GlassFill.tsx.
+ * `getLayeredShadow(shadowColor?, level?)` returns the three-pass `boxShadow` depth (fix 3).
  * `getElevation(level, shadowColor?)` is the 3-tier depth scale (flat/raised/floating) —
  * the go-forward source of truth for shadow/elevation; see its own doc comment.
  * `Fonts` holds the rounded Nunito family tokens. Card padding across the app is `Spacing.md`
@@ -13,7 +15,8 @@
  *
  * Connections:
  *   Imports → —
- *   Used by → app/_layout.tsx, app/budget.tsx, app/capture.tsx, app/focus.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/meals.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DatePickerCalendar.tsx, components/ExpandableCard.tsx, components/HintCard.tsx, components/ShoppingRow.tsx, components/TimePickerWheel.tsx, lib/useAppTheme.ts
+ *   Used by → components/GlassFill.tsx, components/Surface.tsx, components/Button.tsx,
+ *             components/AddFAB.tsx, app/_layout.tsx, app/budget.tsx, app/capture.tsx, app/focus.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/meals.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DatePickerCalendar.tsx, components/ExpandableCard.tsx, components/HintCard.tsx, components/ShoppingRow.tsx, components/TimePickerWheel.tsx, lib/useAppTheme.ts
  *   Data    → none (pure constants)
  *
  * Edit notes:
@@ -259,19 +262,52 @@ export type MaterialStyle = {
    * translucent rgba() string that contrastOn() can't parse.
    */
   contrastBase: string;
+
+  // ─── "Glass, take two" tokens (2026-07-17) ──────────────────────────────────
+  // Additive layer colours consumed by components/GlassFill.tsx. All are white/black
+  // based (theme-independent) — the themed part is the *shadow colour*, applied by the
+  // outer view via getLayeredShadow(theme.shadow), not baked in here.
+  /**
+   * Rim-light ring stops (fix 1): a gradient stroke that is bright top-left as if lit
+   * from above and fades to nothing bottom-right — reads as an edge catching light, not
+   * a flat CSS outline. Three stops: [top-left, mid, bottom-right].
+   */
+  rimColors: readonly [string, string, string];
+  /** Soft specular highlight blob (fix 3), top-left, fading to transparent. */
+  specularColor: string;
+  /**
+   * Top-down white scrim behind the text zone (fix 2, adaptive contrast) — lifts text
+   * legibility over any backdrop without pushing the whole fill opaque.
+   */
+  scrimColor: string;
+  /** Low-contrast band colour for the slow drifting sheen (fix 4). */
+  driftSheenColor: string;
+  /**
+   * Alpha the colour wash renders at inside GlassFill. Card glass leans translucent
+   * (the Surface caller overrides this per surfaceContext); the `'button'` variant
+   * returns a near-opaque value so a CTA's ink keeps its contrast over busy backdrops.
+   */
+  washAlpha: number;
 };
 
 const MATERIAL_BORDER_WIDTH = 1.5;
 
+/** Card vs. button tuning for the glass recipe (buttons lean denser/opaquer for CTA contrast). */
+export type MaterialVariant = 'card' | 'button';
+
 /**
  * Computes glass surface-finish tokens from a single base colour.
  * Spread the border/shadow keys onto the outer (shadow-casting) view and
- * `backgroundColor` + `sheenColor` onto an inner overflow:hidden mask.
+ * `backgroundColor` + the take-two layer colours onto components/GlassFill.tsx.
+ * `variant` tunes fill density: `'card'` (default) stays glassy-translucent; `'button'`
+ * returns a near-opaque wash + stronger scrim so action labels stay WCAG-legible.
  */
-export function getMaterialStyle(base: string): MaterialStyle {
+export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'): MaterialStyle {
+  const isButton = variant === 'button';
   // Frosted-pane look from the base colour's own hue (lightened, not blended toward
-  // an unrelated icy-blue) — every feature colour keeps its identity.
-  const tinted = lighten(base, 0.16);
+  // an unrelated icy-blue) — every feature colour keeps its identity. Buttons lighten far
+  // less so a CTA's accent stays close to its true hue and keeps `accentInk`'s contrast.
+  const tinted = lighten(base, isButton ? 0.06 : 0.16);
   return {
     backgroundColor: rgba(tinted, 0.84),
     borderWidth: MATERIAL_BORDER_WIDTH,
@@ -284,5 +320,31 @@ export function getMaterialStyle(base: string): MaterialStyle {
     sheenColor: rgba('#FFFFFF', 0.5),
     shadeColor: rgba('#000000', 0.12),
     contrastBase: tinted,
+    // take-two tokens
+    rimColors: [rgba('#FFFFFF', 0.9), rgba('#FFFFFF', 0.28), rgba('#FFFFFF', 0)],
+    specularColor: rgba('#FFFFFF', isButton ? 0.5 : 0.42),
+    scrimColor: rgba('#FFFFFF', isButton ? 0.34 : 0.16),
+    driftSheenColor: rgba('#FFFFFF', isButton ? 0.28 : 0.22),
+    // Buttons ride near-opaque so a CTA over live content keeps its ink contrast; cards
+    // stay glassy (the Surface caller still overrides per surfaceContext).
+    washAlpha: isButton ? 0.96 : 0.9,
   };
+}
+
+/**
+ * Layered depth (take-two fix 3): three shadow passes — contact (tight, grounds the
+ * pane), near (mid, the bulk of the float), and cast (soft/wide, the ambient drop) —
+ * instead of one flat shadow, so the eye reads real elevation. Returned as an RN
+ * `boxShadow` value array (New Arch, RN 0.76+); apply it to the outer surface view and
+ * DON'T also set `shadowOpacity`/`elevation` there (they'd double up). `shadowColor` is
+ * the theme's shadow token so depth shifts hue with the colour theme. `level` scales the
+ * spread: `raised` for resting cards/buttons, `floating` for the FAB and focus-popped cards.
+ */
+export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<ElevationLevel, 'flat'> = 'raised') {
+  const k = level === 'floating' ? 1.6 : 1;
+  return [
+    { offsetX: 0, offsetY: 1, blurRadius: 2, spreadDistance: 0, color: rgba(shadowColor, 0.1) },
+    { offsetX: 0, offsetY: Math.round(3 * k), blurRadius: Math.round(12 * k), spreadDistance: 0, color: rgba(shadowColor, 0.12) },
+    { offsetX: 0, offsetY: Math.round(8 * k), blurRadius: Math.round(24 * k), spreadDistance: -2, color: rgba(shadowColor, 0.1) },
+  ];
 }

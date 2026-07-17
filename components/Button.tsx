@@ -5,15 +5,21 @@
  * fill/text colours from the active theme (Decision 006 tokens). Minimum touch target is 44px tall.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, components/PressableScale
+ *   Imports → constants/theme (getMaterialStyle), lib/useAppTheme, store/useSettingsStore
+ *             (glassSurfaces), components/PressableScale, components/GlassFill
  *   Used by → all screens for standard action buttons
- *   Data    → none (purely presentational)
+ *   Data    → reads `glassSurfaces` from the settings store
  *
  * Edit notes:
  *   - Size sm=36, md=44-48, lg=56. All meet 44px minimum touch target (md,lg exceed it; sm is inset slightly for small/secondary uses).
  *   - BorderRadius.full (999) for buttons (fully rounded pills).
  *   - Secondary is soft-tint fill (accentSoft), NOT border.
  *   - Disabled state is opacity 0.45 applied over the variant's own colours — never swap fill for disabled.
+ *   - Glass ("Glass, take two", 2026-07-17): primary/secondary/danger render components/GlassFill
+ *     over a transparent PressableScale (so the frost blurs the screen, not a solid fill) with the
+ *     near-opaque `'button'` material for CTA contrast; `ghost` (no fill) is never glass. Off when
+ *     settings.glassSurfaces is false — back to the solid `colors.bg` pill. PressableScale still owns
+ *     the animated press depth in both modes.
  *   - Purposeful Depth System (2026-07-14): primary/secondary/danger pass PressableScale's
  *     `depth="raised"` (solid-fill, physical — reads as tappable); `ghost` (text-only) stays
  *     flat/unset since it has no fill to cast a shadow from.
@@ -21,9 +27,11 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { FontSize, Fonts, getMaterialStyle, Radius, Spacing } from '@/constants/theme';
+import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import PressableScale from '@/components/PressableScale';
+import GlassFill from '@/components/GlassFill';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 type Size = 'sm' | 'md' | 'lg';
@@ -56,6 +64,8 @@ export default function Button({
   style,
 }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
+  const glass = useSettingsStore((s) => s.glassSurfaces);
   const [vertPad, horizPad] = SIZE_PADDING[size];
 
   const variantColors = {
@@ -65,6 +75,13 @@ export default function Button({
     ghost: { bg: 'transparent', text: theme.accent },
   };
   const colors = variantColors[variant];
+  // Ghost is text-only (no fill) → never glass. Others render the take-two glass fill when
+  // enabled: the near-opaque `'button'` material keeps the CTA's ink contrast (see
+  // getMaterialStyle) while adding rim/specular/drift. When glass is on the PressableScale's
+  // own backgroundColor drops to transparent so the frost blurs the screen (not a solid fill
+  // sitting under it); the glass wash provides the colour.
+  const useGlass = glass && variant !== 'ghost';
+  const mat = getMaterialStyle(colors.bg, 'button');
 
   return (
     <PressableScale
@@ -81,12 +98,22 @@ export default function Button({
           height: SIZE_HEIGHT[size],
           paddingVertical: vertPad,
           paddingHorizontal: horizPad,
-          backgroundColor: colors.bg,
+          backgroundColor: useGlass ? 'transparent' : colors.bg,
+          overflow: useGlass ? 'hidden' : undefined,
           opacity: disabled ? 0.45 : 1,
         },
         style,
       ]}
     >
+      {useGlass && (
+        <GlassFill
+          mat={mat}
+          radius={Radius.full}
+          blurIntensity={12}
+          tint={isDark ? 'dark' : 'light'}
+          showSheen={!isDark}
+        />
+      )}
       {loading ? (
         <ActivityIndicator color={colors.text} />
       ) : (
