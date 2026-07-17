@@ -320,14 +320,20 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
     sheenColor: rgba('#FFFFFF', 0.5),
     shadeColor: rgba('#000000', 0.12),
     contrastBase: tinted,
-    // take-two tokens
-    rimColors: [rgba('#FFFFFF', 0.9), rgba('#FFFFFF', 0.28), rgba('#FFFFFF', 0)],
-    specularColor: rgba('#FFFFFF', isButton ? 0.5 : 0.42),
-    scrimColor: rgba('#FFFFFF', isButton ? 0.34 : 0.16),
-    driftSheenColor: rgba('#FFFFFF', isButton ? 0.28 : 0.22),
-    // Buttons ride near-opaque so a CTA over live content keeps its ink contrast; cards
-    // stay glassy (the Surface caller still overrides per surfaceContext).
-    washAlpha: isButton ? 0.96 : 0.9,
+    // take-two tokens — values mirror the "Glass, take two" reference recipe:
+    //   rim  = linear-gradient(160deg, #fff .95, #fff .05 @45%, #fff .4 @100%)
+    //   spec = radial-gradient(closest-side, #fff .55)
+    //   scrim= linear-gradient(180deg, #fff .4, transparent @45%)
+    //   drift= linear-gradient(100deg, transparent 36%, #fff .28 @48%, transparent 60%)
+    rimColors: [rgba('#FFFFFF', 0.95), rgba('#FFFFFF', 0.05), rgba('#FFFFFF', 0.4)],
+    specularColor: rgba('#FFFFFF', 0.55),
+    scrimColor: rgba('#FFFFFF', isButton ? 0.4 : 0.34),
+    driftSheenColor: rgba('#FFFFFF', 0.28),
+    // Card glass rides translucent like the reference (0.46 white + blur/saturate carry the
+    // legibility, not opacity); buttons lean a touch denser for CTA ink contrast. GlassFill
+    // floors this on Android where the backdrop blur is disabled. The Surface caller still
+    // overrides per surfaceContext (ambient vs. overlay).
+    washAlpha: isButton ? 0.58 : 0.46,
   };
 }
 
