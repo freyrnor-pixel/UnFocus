@@ -78,6 +78,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import Surface from '@/components/Surface';
+import SectionCard from '@/components/SectionCard';
 import AddRow from '@/components/AddRow';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Collapsible from '@/components/Collapsible';
@@ -801,16 +802,10 @@ export default function HealthScreen() {
             </Surface>
           </PressableScale>
 
-          {/* Habits — embedded section (no separate /habits screen; ported in full). */}
-          <View style={styles.habitsSection}>
-            <View style={styles.habitsSectionHeader}>
-              {/* Soft domain-tinted pill so this section title reads as a labelled plate on the
-                  calm backdrop instead of bare text floating on it (mirrors SectionRail). */}
-              <View style={[styles.sectionLabelPill, { backgroundColor: habitDomainColor.soft }]}>
-                <Text style={[styles.sectionLabelPillText, { color: habitDomainColor.accent }]}>{t.habitsTitle}</Text>
-              </View>
-            </View>
-
+          {/* Habits — embedded section (no separate /habits screen; ported in full), boxed in
+              a single hue-edged SectionCard so the whole section (filter · view tabs · cards ·
+              add row) reads as one group instead of loose controls on the backdrop (2026-07-17). */}
+          <SectionCard hue={habitDomainColor.accent} label={t.habitsTitle} contentStyle={styles.habitsSectionContent}>
             {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
             <Collapsible open={showHabitProfiles}>
               <ScrollView
@@ -905,7 +900,7 @@ export default function HealthScreen() {
                 theme={theme}
               />
             )}
-          </View>
+          </SectionCard>
 
           <View style={{ height: Spacing.xl + Spacing.xxl }} />
         </View>
@@ -920,9 +915,6 @@ const baseStyles = StyleSheet.create({
   overviewCardRow: { borderRadius: Radius.md, marginTop: Spacing.xl },
   overviewCardContent: { flex: 1, padding: Spacing.md },
   sectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, marginBottom: Spacing.sm },
-  // Soft-tinted pill backing for the bare "Vaner" section title (mirrors SectionRail).
-  sectionLabelPill: { alignSelf: 'flex-start', paddingVertical: Spacing.xs, paddingHorizontal: Spacing.sm, borderRadius: Radius.md, marginBottom: Spacing.sm },
-  sectionLabelPillText: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   overviewAilment: { marginTop: Spacing.sm },
   overviewRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   ailmentWeekStrip: {
@@ -951,9 +943,10 @@ const baseStyles = StyleSheet.create({
   navCardText: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
 
   // ─── Habits section (ported from the removed app/habits.tsx) ─────────────────
-  // Decision 043 rule 2: Spacing.xl above (marginTop replaces the old Spacing.sm).
-  habitsSection: { gap: Spacing.md, marginTop: Spacing.xl },
-  habitsSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  // Now boxed in a <SectionCard> (2026-07-17): the section's inner controls stack with a
+  // Spacing.md gap below the card's SectionRail header (overrides SectionCard's default
+  // Spacing.sm content gap, keeping the habits sub-controls' original breathing room).
+  habitsSectionContent: { gap: Spacing.md },
   profileRow: {
     paddingBottom: Spacing.sm,
     gap: Spacing.xs,
