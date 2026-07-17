@@ -60,6 +60,14 @@
  *     WeekListCard, the rows don't carry the shop-domain green edge — this list is one long,
  *     continuous card, so a full-screen outline would read as a loud frame at this scale.
  *     `domainColor.accent` is still used for the small AddRow confirm-button fill.
+ *   - **Grow-to-fill footer (visual-audit, 2026-07-17)**: a short catalogue (most seeded
+ *     rows soft-deleted, or a fresh manually-built one) left the FlatList's own flex:1 tail
+ *     as plain screen background between the last row and the bottom nav — read as a large
+ *     "cut off" gap. `listContent` now carries `flexGrow: 1` and a `ListFooterComponent`
+ *     filler (`listFiller`, same `theme.surface` fill, `flexGrow: 1`) soaks up any leftover
+ *     viewport height so the card's rounded bottom edge sits near the nav regardless of item
+ *     count. The bottom corner rounding moved from the actual last row (`rowLast`, now
+ *     removed) onto this filler, since it's now the card's true visual end.
  */
 import React, { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -92,7 +100,6 @@ type Styles = ReturnType<typeof useScaledStyles<typeof baseStyles>>;
 const CatalogueRow = React.memo(function CatalogueRow({
   item,
   isFirst,
-  isLast,
   onStartEdit,
   onRemove,
   theme,
@@ -101,7 +108,6 @@ const CatalogueRow = React.memo(function CatalogueRow({
 }: {
   item: StoreItem;
   isFirst: boolean;
-  isLast: boolean;
   onStartEdit: (item: StoreItem) => void;
   onRemove: (id: string) => void;
   theme: ThemePalette;
@@ -114,7 +120,6 @@ const CatalogueRow = React.memo(function CatalogueRow({
         styles.itemRow,
         { backgroundColor: theme.surface },
         isFirst && styles.rowFirst,
-        isLast && styles.rowLast,
       ]}
     >
       <Text
@@ -201,7 +206,6 @@ export default function CatalogueTab({ onNotify, header }: Props) {
 
   const renderItem = ({ item, index }: { item: StoreItem; index: number }) => {
     const isFirst = index === 0;
-    const isLast = index === items.length - 1;
     if (editingId === item.id) {
       return (
         <View
@@ -209,7 +213,6 @@ export default function CatalogueTab({ onNotify, header }: Props) {
             styles.editRow,
             { backgroundColor: theme.surface },
             isFirst && styles.rowFirst,
-            isLast && styles.rowLast,
           ]}
         >
           <TextInput
@@ -248,7 +251,6 @@ export default function CatalogueTab({ onNotify, header }: Props) {
       <CatalogueRow
         item={item}
         isFirst={isFirst}
-        isLast={isLast}
         onStartEdit={startEdit}
         onRemove={handleRemove}
         theme={theme}
@@ -302,6 +304,14 @@ export default function CatalogueTab({ onNotify, header }: Props) {
       extraData={`${editingId}|${theme.surface}`}
       ListHeaderComponent={listHeader}
       ItemSeparatorComponent={() => <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+      // listFiller: a themed, flex-growing spacer right after the last row. Visual-audit
+      // 2026-07-17 — a short catalogue (most seeded rows deleted, or a fresh manual list)
+      // left the FlatList's own unused flex:1 tail exposed as plain screen background between
+      // the last row and the bottom nav, reading as a large "cut off" gap. Growing this filler
+      // to consume that leftover space (flexGrow on both it and listContent below) keeps the
+      // card's rounded-bottom silhouette flush near the nav instead of stopping short — the
+      // real last row no longer carries rowLast itself (see renderItem/CatalogueRow above).
+      ListFooterComponent={items.length > 0 ? <View style={[styles.listFiller, { backgroundColor: theme.surface }]} /> : null}
       contentContainerStyle={styles.listContent}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
@@ -315,14 +325,18 @@ export default function CatalogueTab({ onNotify, header }: Props) {
 
 const baseStyles = StyleSheet.create({
   flatList: { flex: 1 },
-  listContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md },
+  listContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, flexGrow: 1 },
   listHeader: { gap: Spacing.md, paddingBottom: Spacing.md },
   addRowCard: { paddingHorizontal: Spacing.md },
   addPriceInput: { width: 76, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8, fontSize: FontSize.sm },
   empty: { fontSize: FontSize.sm, paddingVertical: Spacing.md, textAlign: 'center' },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, minHeight: 44 },
   rowFirst: { borderTopLeftRadius: Radius.md, borderTopRightRadius: Radius.md },
-  rowLast: { borderBottomLeftRadius: Radius.md, borderBottomRightRadius: Radius.md },
+  // listFiller: grows to soak up any leftover FlatList viewport height below the real rows
+  // (see the ListFooterComponent note above) — the rounded bottom now lives here instead of
+  // on whichever row happens to be last, so the card's bottom edge stays put near the nav
+  // regardless of item count.
+  listFiller: { flexGrow: 1, borderBottomLeftRadius: Radius.md, borderBottomRightRadius: Radius.md },
   itemNameTouch: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium },
   itemPrice: { fontSize: FontSize.sm },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md },

@@ -50,6 +50,13 @@ async function main() {
   await page.waitForTimeout(1000);
   await clickText(page, 'English');
   await page.waitForTimeout(400);
+  // Restore-backup prompt (added after this script was written) — "No, I'm new here"
+  // continues a fresh onboarding walk, matching scripts/preview.mjs's current sequence.
+  const restoreBtn = page.getByText("No, I'm new here", { exact: true }).first();
+  if (await restoreBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await restoreBtn.click();
+    await page.waitForTimeout(400);
+  }
   await clickText(page, 'Got it →');
   await page.waitForTimeout(400);
   await clickText(page, 'Jump right in');

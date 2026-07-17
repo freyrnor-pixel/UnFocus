@@ -2,28 +2,40 @@
  * FoodTab.tsx — the Shopping screen's in-place "Food" tab (dish library + push-to-list).
  *
  * Renders one glass Surface section per meal type (breakfast/lunch/dinner/snack/kveldsmat),
- * each tinted with that meal's colour ("a touch of colour by type"). A dish shows as a
- * collapsed row (name · total price · "+"); the "+" opens a small popup with two choices —
- * "Add to week list" (ingredients go to the weekly Unallocated bucket, listId
- * UNALLOCATED_LIST_ID) and "Add to monthly list" (ingredients become status='catalog'
- * rows) — plus an X. Expanding a dish reveals its ingredient rows (name · amount · line
- * price), the same shape as task steps, with an inline add-ingredient row and per-dish
- * delete. Dish creation lives here (per-section "add dish" modal) — this replaces the old
- * standalone /meals screen and the "Create grouping" screen.
+ * each tinted with that meal's colour ("a touch of colour by type"). Each meal-type section
+ * is itself a collapsible container (header row toggles it, collapsed by default — see Edit
+ * notes) holding that meal's dishes. A dish shows as a collapsed row (name · total price ·
+ * "+"); the "+" opens a small popup with two choices — "Add to week list" (ingredients go to
+ * the weekly Unallocated bucket, listId UNALLOCATED_LIST_ID) and "Add to monthly list"
+ * (ingredients become status='catalog' rows) — plus an X. Expanding a dish reveals its
+ * ingredient rows (name · amount · line price), the same shape as task steps, with an inline
+ * add-ingredient row and per-dish delete. Dish creation lives here (per-section "add dish"
+ * modal) — this replaces the old standalone /meals screen and the "Create grouping" screen.
  *
  * Connections:
- *   Imports → constants/theme (getMaterialStyle, contrastOn, tokens), lib/useAppTheme,
- *             lib/i18n, lib/haptics, lib/money (formatKr), lib/domainColor, components/Surface,
- *             components/PressableScale, components/AddRow, components/Badge (difficulty pill),
- *             components/SlideSelector (difficulty picker), store/useMealStore
- *             (Dish/MealType/Difficulty/dishTotalPrice + CRUD incl. duplicateDish),
- *             store/useCatalogStore (suggest, StoreItem),
+ *   Imports → constants/theme (getMaterialStyle, contrastOn, tokens), constants/motion (Spring),
+ *             lib/useAppTheme, lib/i18n, lib/haptics, lib/money (formatKr), lib/domainColor,
+ *             components/Surface, components/PressableScale, components/AddRow,
+ *             components/Badge (difficulty pill), components/SlideSelector (difficulty picker),
+ *             components/Collapsible + components/AnimatedChevron (meal-section collapse),
+ *             store/useMealStore (Dish/MealType/Difficulty/dishTotalPrice + CRUD incl.
+ *             duplicateDish), store/useCatalogStore (suggest, StoreItem),
  *             store/useShoppingStore (add + UNALLOCATED_LIST_ID), @expo/vector-icons
  *   Used by → app/(tabs)/shopping.tsx (rendered when the Food tab is active)
  *   Data    → useMealStore (dishes/ingredients), useShoppingStore.add (weekly/monthly pushes),
  *             useCatalogStore.suggest (ingredient price autocomplete)
  *
  * Edit notes:
+ *   - **Collapsible meal sections (visual-audit, 2026-07-17)**: `openSections` (one bool per
+ *     MealType, all false initially) gates each section's body via `Collapsible` — five
+ *     always-open sections used to push the actually-useful dish rows far down the screen on
+ *     first open. The header row (icon + title + chevron) is now a `PressableScale` that
+ *     toggles the section; the "add dish" button inside it is a nested `PressableScale` with
+ *     `e.stopPropagation()` (same pattern ExpandableCard.tsx uses for its leading/right
+ *     actions) so tapping "+" opens the new-dish modal without also toggling the section.
+ *     `AnimatedChevron` mirrors the per-dish row's chevron for a consistent expand affordance.
+ *     No persistence — every section re-collapses on next mount, matching the per-dish
+ *     `expanded` state below.
  *   - Renders no ScrollView of its own — it lives inside the Shopping screen's scaffold
  *     ScrollView. The new-dish + "add to list" popups are RN <Modal>s (own layers).
  *   - Both ingredient composers (the per-dish inline add row and the new-dish modal's
@@ -41,7 +53,7 @@
  *     duplicateDish — the copy keeps the same difficulty/ingredients and gets a localized
  *     "(copy)" name suffix so users can create edited variants without losing the original.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,6 +62,8 @@ import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
 import { Badge } from '@/components/Badge';
 import SlideSelector from '@/components/SlideSelector';
+import Collapsible from '@/components/Collapsible';
+import AnimatedChevron from '@/components/AnimatedChevron';
 import { useMealStore, MealType, Difficulty, Dish, dishTotalPrice } from '@/store/useMealStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
@@ -57,6 +71,7 @@ import { getMaterialStyle, contrastOn, Fonts, FontSize, Radius, Spacing } from '
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { useMountedTransition } from '@/lib/useMountedTransition';
+import { Spring } from '@/constants/motion';
 import { success, heavy } from '@/lib/haptics';
 import { formatKr } from '@/lib/money';
 import { getDomainColor } from '@/lib/domainColor';
@@ -106,6 +121,20 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
   const shoppingAdd = useShoppingStore((s) => s.add);
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Meal-type sections (the dish-list containers) collapse independently, collapsed by
+  // default (visual-audit 2026-07-17: five always-open sections pushed the actually-useful
+  // dish rows far down the screen on first open). No persistence — re-collapses on next
+  // mount, matching the per-dish `expanded` state above.
+  const [openSections, setOpenSections] = useState<Record<MealType, boolean>>({
+    breakfast: false,
+    lunch: false,
+    dinner: false,
+    snack: false,
+    kveldsmat: false,
+  });
+  const toggleSection = useCallback((mealType: MealType) => {
+    setOpenSections((prev) => ({ ...prev, [mealType]: !prev[mealType] }));
+  }, []);
   const [popupDish, setPopupDish] = useState<Dish | null>(null);
   // Decision 044b — mounted-state/exit-animation pattern (both popups already read their
   // nullable state via `?.`/`&&` guards, so no value-caching is needed, unlike ListSettingsSheet).
@@ -268,14 +297,24 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
         const mat = getMaterialStyle(color);
         const ink = contrastOn(mat.contrastBase);
         const mealDishes = byMeal.get(mealType) ?? [];
+        const sectionOpen = openSections[mealType];
         return (
           <Surface key={mealType} tint={color} style={styles.section}>
-            <View style={styles.sectionHeader}>
+            <PressableScale
+              style={styles.sectionHeader}
+              onPress={() => toggleSection(mealType)}
+              accessibilityRole="button"
+              accessibilityLabel={t.mealTypes[mealType]}
+              accessibilityState={{ expanded: sectionOpen }}
+              scaleTo={0.99}
+              releaseSpring={Spring.calm}
+            >
               <Ionicons name={icon} size={20} color={ink} />
               <Text style={[styles.sectionTitle, { color: ink }]}>{t.mealTypes[mealType]}</Text>
+              <AnimatedChevron open={sectionOpen} color={ink} size={18} />
               <PressableScale
                 style={[styles.addDishBtn, { borderColor: ink }]}
-                onPress={() => openNewDishModal(mealType)}
+                onPress={(e) => { e.stopPropagation(); openNewDishModal(mealType); }}
                 accessibilityRole="button"
                 accessibilityLabel={t.addDishToMealBtn}
                 hitSlop={6}
@@ -283,8 +322,9 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
               >
                 <Ionicons name="add" size={18} color={ink} />
               </PressableScale>
-            </View>
+            </PressableScale>
 
+            <Collapsible open={sectionOpen}>
             {mealDishes.length === 0 ? (
               <Text style={[styles.sectionEmpty, { color: ink }]}>{t.foodEmptyHint}</Text>
             ) : (
@@ -391,6 +431,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                 })}
               </View>
             )}
+            </Collapsible>
           </Surface>
         );
       })}
