@@ -376,19 +376,20 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
   // ring top→bottom (start {0,0} → end {0,1}); Button now matches (vertical, not diagonal).
   const rim: RimGradient = isDark
     ? {
-        colors: [rgba(lighten(base, 0.28), 0.34), rgba(lighten(base, 0.05), 0.08), rgba('#000000', 0.34)],
+        colors: [rgba(lighten(base, 0.34), 0.42), rgba(lighten(base, 0.05), 0.08), rgba('#000000', 0.42)],
         locations: [0, 0.25, 1],
       }
     : {
-        colors: [rgba(lighten(base, 0.42), 0.85), rgba(lighten(base, 0.08), 0.18), rgba(darken(base, 0.14), 0.34)],
-        locations: [0, 0.22, 1],
+        colors: [rgba(lighten(base, 0.5), 0.92), rgba(lighten(base, 0.06), 0.16), rgba(darken(base, 0.22), 0.48)],
+        locations: [0, 0.2, 1],
       };
 
-  // Inner line (the "double" of the double keycap): a crisp, cool, hue-tinted 1px line the
-  // callers draw on the inner mask, just inside the rim chamfer. Restrained (calm) but present
-  // enough to read as a second edge — this is what turns the previously-invisible neutral
-  // hairline (old `theme.border`) into the keycap's inner wall.
-  const innerLine = isDark ? rgba(lighten(base, 0.16), 0.26) : rgba(lighten(base, 0.06), 0.5);
+  // Inner line (the "double" of the double keycap): a crisp, hue-tinted keyline the callers draw
+  // on the inner mask, just inside the rim chamfer. Tuned for real CONTRAST (2026-07-18 retune) —
+  // a DEEPENED base hue in light mode (a darker keyline reads crisp against the lighter fill, like
+  // a typewriter keycap's keyline) and a LIGHTENED hue in dark mode — kept calm via alpha rather
+  // than by washing it toward the fill. This is the defined second edge (was a pale, near-invisible line).
+  const innerLine = isDark ? rgba(lighten(base, 0.26), 0.45) : rgba(darken(base, 0.1), 0.55);
 
   // Adaptive scrim (fix 2): a soft matte veil behind text — much lighter than the old glossy
   // 0.42 sheen (2026-07-18: dropped toward a frosted, non-glary finish), fading out by half height.
@@ -424,8 +425,8 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
     // a bright lit top, a cool mid, a soft hue-dark bottom. Read by the glass-OFF fallback and by
     // back-compat direct consumers (e.g. FoodTab) that don't render the rim gradient themselves.
     borderColor: innerLine,
-    borderTopColor: isDark ? rgba(lighten(base, 0.28), 0.5) : rgba(lighten(base, 0.42), 0.7),
-    borderBottomColor: isDark ? rgba('#000000', 0.3) : rgba(darken(base, 0.14), 0.34),
+    borderTopColor: isDark ? rgba(lighten(base, 0.34), 0.55) : rgba(lighten(base, 0.5), 0.8),
+    borderBottomColor: isDark ? rgba('#000000', 0.38) : rgba(darken(base, 0.22), 0.46),
     shadowOpacity: 0.16,
     shadowRadius: 16,
     elevation: 6,

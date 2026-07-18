@@ -76,9 +76,11 @@ type Props = {
 
 export default function GlassFill({ mat, radius, blurIntensity, washAlpha, tint, fillGradient }: Props) {
   // Android has no real backdrop blur (the blur-target subsystem was removed), so the wash
-  // is floored there to keep text contrast regardless of what the caller requested.
+  // is floored there to keep text contrast regardless of what the caller requested. Floor eased
+  // 0.82 → 0.7 (2026-07-18 "crisper glass"): the strengthened hue-tinted keycap edge lets Android
+  // cards read as glass at a lower fill, and 0.7 still keeps body text legible over the calm backdrop.
   const rawWash = washAlpha ?? mat.washAlpha;
-  const effectiveWash = Platform.OS === 'android' ? Math.max(rawWash, 0.82) : rawWash;
+  const effectiveWash = Platform.OS === 'android' ? Math.max(rawWash, 0.7) : rawWash;
   const wash = withAlpha(mat.backgroundColor, effectiveWash);
   // Document-unique id per mounted GlassFill (colons stripped → valid SVG url(#…) ref).
   const specularId = 'gfSpec' + React.useId().replace(/:/g, '');
