@@ -618,6 +618,13 @@ export function initDb() {
     // Android real backdrop blur behind glass (2026-07-18) — default on; off falls back to the
     // translucent wash. No effect on iOS/web. See components/BlurTarget.tsx.
     "ALTER TABLE settings ADD COLUMN glass_blur INTEGER DEFAULT 1",
+    // Perf/tap fix (2026-07-18): the per-card dimezis backdrop blur was the heaviest glass cost
+    // and could intercept taps on Android, so flip it OFF for everyone (the settings row is
+    // already seeded above, so this also covers fresh installs). Users can re-enable in Settings.
+    "UPDATE settings SET glass_blur = 0",
+    // Voice notes on by default (2026-07-18): enable the task-form Title mic out of the box.
+    // Runs once; the setting was new + defaulted off, so nobody had deliberately turned it off.
+    "UPDATE settings SET voice_notes_enabled = 1",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

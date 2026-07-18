@@ -16,7 +16,7 @@
  *   Data    → reads `glassSurfaces` from the settings store
  *
  * Edit notes:
- *   - The glass finish (frost + wash + rim + specular + scrim + drifting sheen) now lives
+ *   - The glass finish (frost + wash + rim + specular + scrim) now lives
  *     in the shared components/GlassFill.tsx ("Glass, take two", 2026-07-17); Surface owns
  *     only the outer view (border + layered shadow), the overflow:hidden mask, and the
  *     style-splitting contract. The `surfaceContext` prop (`'ambient'` default | `'overlay'`)
