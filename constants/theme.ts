@@ -480,11 +480,13 @@ export function getGlow(color: string, level: 'soft' | 'strong' = 'soft') {
  */
 export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<ElevationLevel, 'flat'> = 'raised') {
   const k = level === 'floating' ? 1.6 : 1;
-  // Softened (2026-07-18 "colored glass"): lower alphas so cards SIT on the backdrop rather
-  // than float like glossy toy tiles — depth is a whisper, the colour carries the surface.
+  // Elevated (2026-07-18 "bold keycap" retune): #235 had softened these to a whisper (α 0.06–0.08)
+  // so cards sat flat on the backdrop — but a raised keycap needs to READ as raised. Alphas + offsets
+  // bumped so the three passes (contact / near / cast) lift the pane off the background with a clear,
+  // hue-tinted drop, without going back to glossy-toy-tile territory.
   return [
-    { offsetX: 0, offsetY: 1, blurRadius: 2, spreadDistance: 0, color: rgba(shadowColor, 0.06) },
-    { offsetX: 0, offsetY: Math.round(3 * k), blurRadius: Math.round(12 * k), spreadDistance: 0, color: rgba(shadowColor, 0.08) },
-    { offsetX: 0, offsetY: Math.round(8 * k), blurRadius: Math.round(24 * k), spreadDistance: -2, color: rgba(shadowColor, 0.06) },
+    { offsetX: 0, offsetY: 1, blurRadius: 3, spreadDistance: 0, color: rgba(shadowColor, 0.12) },
+    { offsetX: 0, offsetY: Math.round(4 * k), blurRadius: Math.round(14 * k), spreadDistance: 0, color: rgba(shadowColor, 0.18) },
+    { offsetX: 0, offsetY: Math.round(10 * k), blurRadius: Math.round(28 * k), spreadDistance: -2, color: rgba(shadowColor, 0.14) },
   ];
 }
