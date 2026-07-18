@@ -34,7 +34,7 @@
  *   Imports → components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
  *             components/IconButton, components/FormControls (Switch), components/AppModal,
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron (animated
- *             steps/editor reveal + rotating chevron), constants/theme (incl. getElevation), lib/date, lib/haptics, lib/i18n, lib/id,
+ *             steps/editor reveal + rotating chevron), constants/theme (incl. getElevation, getGlow), lib/date, lib/haptics, lib/i18n, lib/id,
  *             lib/useAppTheme, store/useTaskStore, store/useSettingsStore (People/family mode:
  *             peopleModeEnabled + childProfiles gate the "For" assignee chip row)
  *   Used by → app/(tabs)/plans.tsx
@@ -56,11 +56,13 @@
  *     `getElevation('raised', theme.shadow)`; while `editing` it bumps to `'floating'` —
  *     the deepest thing on screen, anchoring attention on the card being worked on
  *     (focus-pop). Reuses the already-tracked `editing` boolean, no new state.
+ *   - **Purposeful glow (2026-07-18)**: `editing` also adds `getGlow(theme.accent)` alongside
+ *     the existing `borderColor: theme.accent` — augments the border cue, doesn't replace it.
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Fonts, FontSize, Radius, Spacing, contrastOn, getElevation } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, contrastOn, getElevation, getGlow } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0 } from '@/lib/date';
@@ -291,6 +293,7 @@ function TaskCard({
           getElevation(editing ? 'floating' : 'raised', theme.shadow),
           { backgroundColor: tinted ? theme.accentSoft : theme.surface, borderColor: editing ? theme.accent : theme.border },
           railColor && { borderLeftWidth: 4, borderLeftColor: railColor },
+          editing && getGlow(theme.accent),
         ]}
       >
         {/* ── Collapsed row ── */}

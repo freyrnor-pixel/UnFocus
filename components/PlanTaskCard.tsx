@@ -43,7 +43,7 @@
  *             LinearTransition for rail rows revealed by the Show more/less toggle — rail,
  *             done-zone, and footer all share one `containerLayout` LinearTransition so the
  *             whole card reflows together instead of siblings snapping ahead of the rows),
- *             constants/theme, constants/motion, lib/haptics, lib/i18n,
+ *             constants/theme (incl. getGlow), constants/motion, lib/haptics, lib/i18n,
  *             lib/useAppTheme (incl. useAccessibility), lib/domainColor, store/useTaskStore (Task type only)
  *   Used by → app/(tabs)/index.tsx (Home — read-only preview off-focus per Decision 009a, and
  *             non-readOnly essential-filtered surface in Focus mode per 009 #4). Reads
@@ -105,6 +105,10 @@
  *     checkbox fill + strikethrough (plus the success() haptic in handleToggle) IS the
  *     feedback. The habit-card glow (app/(tabs)/health.tsx) is untouched — this was
  *     Home/Plans-specific.
+ *   - **Purposeful glow (2026-07-18)**: the "happening now" row's `rowCard` (vertical rail
+ *     only, `renderRow`) gets `getGlow(domainColor.accent)` alongside its existing accent
+ *     tint fill — `isHappeningNow` is true for at most one entry at a time, so this never
+ *     glows more than a single row. `renderColumn` (horizontal rail) is left as-is.
  *   - `styles.dot` is now the checkmark-circle toggle ONLY (moved to the row's own fixed-
  *     width `doneCol`/`hDoneRow`, right of / below the content, so it lines up across every
  *     row regardless of title length). `styles.timeBox` is the rail's position marker —
@@ -149,7 +153,7 @@ import HomePreviewEmpty from '@/components/HomePreviewEmpty';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import { Task } from '@/store/useTaskStore';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, getGlow, rgba } from '@/constants/theme';
 import { Duration, Ease, Spring } from '@/constants/motion';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
@@ -435,6 +439,7 @@ export default function PlanTaskCard({
             style={[
               styles.rowCard,
               { backgroundColor: isHappeningNow ? rgba(theme.accent, 0.1) : theme.surfaceMuted },
+              isHappeningNow && getGlow(domainColor.accent),
             ]}
           >
             <View style={styles.titleRow}>

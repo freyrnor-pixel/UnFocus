@@ -14,7 +14,7 @@
  * Connections:
  *   Imports → @react-navigation/material-top-tabs (MaterialTopTabBarProps type),
  *             react-native-reanimated (FadeIn/FadeOut for the active-tab highlight),
- *             expo-router, constants/theme, constants/motion, lib/i18n, lib/siteNav,
+ *             expo-router, constants/theme (incl. getGlow), constants/motion, lib/i18n, lib/siteNav,
  *             lib/useAppTheme (incl. useAccessibility), components/PressableScale, components/Surface
  *   Used by → app/(tabs)/_layout.tsx (as the pager's tabBar); components/ScreenScaffold
  *             (standalone fallback via bottomNav=true — currently unused by any real screen)
@@ -34,6 +34,10 @@
  *     falls back to `usePathname() === item.route`.
  *   - `PressableScale`'s own default (`haptic=true`) already fires a light tap haptic on
  *     every press — no separate haptic call is needed here.
+ *   - **Purposeful glow (2026-07-18, optional per design pass)**: the active-tab
+ *     highlight layer carries `getGlow(theme.accent, 'soft')` alongside its existing fill —
+ *     only the active (non-centre) tab, never every item. The centre FAB-style button
+ *     already reads as "lit" via its permanent accent fill + `Shadow.fab`, so it's left alone.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -42,7 +46,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
-import { FontSize, Radius, Spacing, Shadow } from '@/constants/theme';
+import { FontSize, Radius, Spacing, Shadow, getGlow } from '@/constants/theme';
 import { Duration } from '@/constants/motion';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { goToSite, SITE_ITEMS, SiteItem, TAB_ROUTE_NAME } from '@/lib/siteNav';
@@ -120,7 +124,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
             pointerEvents="none"
             entering={reducedMotion ? undefined : FadeIn.duration(Duration.control)}
             exiting={reducedMotion ? undefined : FadeOut.duration(Duration.control)}
-            style={[StyleSheet.absoluteFill, styles.activeHighlight, { backgroundColor: theme.surfaceMuted }]}
+            style={[StyleSheet.absoluteFill, styles.activeHighlight, { backgroundColor: theme.surfaceMuted }, getGlow(theme.accent, 'soft')]}
           />
         )}
         <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={iconColor} />
