@@ -135,41 +135,33 @@ export function contrastRatio(hex1: string, hex2: string): number {
 // ── Default Theme (Cool blue, Linear/Notion-clean) ──────────────────────────
 
 const defaultLight: ThemePalette = {
-  // 2026-07-14 Claude Design palette refresh (see docs/COLOR_THEME_LIBRARY.md stale-flag
-  // banner — this replaces the retired cream/orange/green/brown naming, not the tokens
-  // themselves). bg/surface/text/border/accent/good/bad/hint values map 1:1 from the
-  // design brief's CSS vars; see task notes for the full mapping table.
-  // (2026-07-14 "Vivid & clean" pass also lightly polished the neutral base — bg/surfaceMuted/
-  // surfaceInset/border nudged a touch cleaner/cooler; text/textMuted unchanged so the WCAG
-  // contrast tests still hold.)
-  bg: '#F6F8FB',
-  surface: '#FFFFFF',
-  surfaceMuted: '#EEF1F5',
-  surfaceInset: '#E6EAEF',
-  text: '#161B26',
-  textMuted: '#5B6472',
+  // 2026-07-18 "Soft daylight" palette (Visual Refresh Phase 01). Airy, pale, cool-blue
+  // daylight mood — replaces the earlier "Vivid & clean" values. Every token name is
+  // preserved (closed ThemePalette set); only values change. shadow stays a themed
+  // translucent ink (not black) so depth shifts hue with the theme.
+  bg: '#EEF3F9',
+  surface: '#FCFDFF',
+  surfaceMuted: '#E7EDF4',
+  surfaceInset: '#DEE6EF',
+  text: '#1B2432',
+  textMuted: '#5F6A79',
   textInverse: '#FFFFFF',
-  // 2026-07-16 contrast raise: the old #E3E7EC read ~1.06:1 on white — effectively invisible,
-  // so cards/buttons/dividers had no visible edge. #C5CDD8 is a clean cool gray at ~1.45:1
-  // (Linear/Notion range) so card and control edges actually read, without going harsh.
-  border: '#C5CDD8',
-  borderStrong: '#1E3A8A',
-  accent: '#2563EB',
-  accentSoft: '#BFDBFE',
+  border: '#D3DBE6',
+  borderStrong: '#2B5FD9',
+  accent: '#3B6FE0',
+  accentSoft: '#CFE0FB',
   accentInk: '#FFFFFF',
-  good: '#10B981',
-  goodSoft: '#A7F3D0',
-  bad: '#EF4444',
-  badSoft: '#FEE2E2',
-  // warn/warnSoft aren't in the design brief's base block — reuse its priority-medium
-  // amber (closest same-brief "warning" hue family) rather than inventing a new hue.
-  warn: '#B7691A',
-  warnSoft: '#FDF1E1',
-  shadow: 'rgba(22,27,38,0.10)',
-  overlay: 'rgba(0,0,0,0.5)',
-  hintBg: '#E9EFFD',
-  hintBorder: '#B3C8F8',
-  hintAccent: '#2563EB',
+  good: '#1FA974',
+  goodSoft: '#C4EFDD',
+  bad: '#E1556B',
+  badSoft: '#FBDDE2',
+  warn: '#BF7A1C',
+  warnSoft: '#FBEBD3',
+  shadow: 'rgba(38,58,92,0.10)',
+  overlay: 'rgba(20,28,44,0.42)',
+  hintBg: '#E6EEFC',
+  hintBorder: '#BAD0F6',
+  hintAccent: '#3B6FE0',
   // Domain accents ordered by ROUTINE SEQUENCE (2026-07-13 redesign) — color signifies
   // "the order of things," not a random rainbow. Read in the order a user moves through a day
   // (plan → task → habit → health → meal → shop → budget → note) the hue walks a deliberate
@@ -185,14 +177,14 @@ const defaultLight: ThemePalette = {
   // proximity is disambiguated by placement, not hue. Status logic is UNCHANGED: good/bad/warn
   // still drive done/overdue/soon via getStatusColor; a domain accent only shows for `default`
   // rows. See lib/domainColor.ts for the mapping.)
-  featPlan: '#6366F1',   // 1 · indigo   — plan the day
-  featTask: '#3B82F6',   // 2 · blue     — do tasks
-  featHabit: '#0EA5E9',  // 3 · sky      — keep habits
-  featHealth: '#14B8A6', // 4 · teal     — track health (off red/`bad`)
-  featMeal: '#F97316',   // 5 · orange   — eat
-  featShop: '#22C55E',   // 6 · green    — shop (was olive-lime #65A30D)
-  featBudget: '#F59E0B', // 7 · amber    — money
-  featNote: '#EAB308',   // 8 · yellow   — reflect / note (was olive-lemon #C9C30D)
+  featPlan: '#6E74EE',   // 1 · indigo   — plan the day
+  featTask: '#4C8DF0',   // 2 · blue     — do tasks
+  featHabit: '#22A7E0',  // 3 · sky      — keep habits
+  featHealth: '#17BEB0', // 4 · teal     — track health (off red/`bad`)
+  featMeal: '#F5843A',   // 5 · orange   — eat
+  featShop: '#34C06A',   // 6 · green    — shop
+  featBudget: '#F0A81E', // 7 · amber    — money
+  featNote: '#E6BC1C',   // 8 · yellow   — reflect / note
 
   // Reserved priority/category ramps from the 2026-07-14 Claude Design brief — no live
   // feature reads these yet (dormant `priority` SQLite column, unwired category concept).
@@ -216,46 +208,45 @@ const defaultLight: ThemePalette = {
 };
 
 const defaultDark: ThemePalette = {
-  // 2026-07-14 Claude Design palette refresh — brief gave no dark base tokens, so these
-  // are hand-authored to match the new light mode's neutrality, carrying forward the
-  // existing accent/good/bad hue families (see task notes for the reasoning).
-  bg: '#0B0E14',
-  surface: '#1A2030',
-  surfaceMuted: '#141824',
-  surfaceInset: '#0E1119',
-  text: '#E7EAF0',
-  textMuted: '#8891A0',
-  textInverse: '#0B0E14',
-  // 2026-07-16 contrast raise (mirrors light): #2E3446 barely separated from the #1A2030
-  // surface; #3E4660 gives card/control edges a visible lift on dark.
-  border: '#3E4660',
-  borderStrong: '#454C63',
-  accent: '#60A5FA',
-  accentSoft: '#1E2F4D',
-  accentInk: '#0B0E14',
+  // 2026-07-18 "Midnight glass" palette (Visual Refresh Phase 01). Deep-navy, low-glare
+  // night mood pairing with Soft daylight above. Every token name is preserved; only
+  // values change. shadow stays a themed translucent ink (not black) so depth shifts hue
+  // with the theme.
+  bg: '#080B12',
+  surface: '#151C2B',
+  surfaceMuted: '#10151F',
+  surfaceInset: '#0B0F17',
+  text: '#E9EDF5',
+  textMuted: '#8B95A7',
+  textInverse: '#080B12',
+  border: '#2A3346',
+  borderStrong: '#3C4B66',
+  accent: '#6EA8FF',
+  accentSoft: '#1B2C49',
+  accentInk: '#080B12',
   good: '#34D399',
-  goodSoft: '#12291F',
-  bad: '#F87171',
-  badSoft: '#2A0F0D',
-  warn: '#E0A030',
-  warnSoft: '#2A2010',
-  shadow: 'rgba(0,3,12,0.6)',
-  overlay: 'rgba(0,0,0,0.7)',
-  hintBg: '#0C1E38',
-  hintBorder: '#1A3A60',
-  hintAccent: '#60A5FA',
+  goodSoft: '#123227',
+  bad: '#FB7185',
+  badSoft: '#3A1620',
+  warn: '#F0B24A',
+  warnSoft: '#33240F',
+  shadow: 'rgba(0,2,10,0.65)',
+  overlay: 'rgba(0,0,0,0.62)',
+  hintBg: '#141E30',
+  hintBorder: '#28405F',
+  hintAccent: '#6EA8FF',
   // Dark mirrors the light "Vivid & clean" arc (2026-07-14): same hue families, brighter
   // tints for the dark surface. Order plan → task → habit → health → meal → shop → budget →
   // note; health = teal (off red/`bad`). See the light block above for the full rationale
   // (bright Tailwind-family hues, collision-avoidance relaxed) and lib/domainColor.ts.
-  featPlan: '#818CF8',   // 1 · indigo
-  featTask: '#60A5FA',   // 2 · blue
-  featHabit: '#38BDF8',  // 3 · sky
-  featHealth: '#2DD4BF', // 4 · teal
-  featMeal: '#FB923C',   // 5 · orange
-  featShop: '#4ADE80',   // 6 · green (was lime #A3E635)
-  featBudget: '#FBBF24', // 7 · amber
-  featNote: '#FACC15',   // 8 · yellow (was lemon #F2E55A)
+  featPlan: '#8A90FF',   // 1 · indigo
+  featTask: '#6BA5FF',   // 2 · blue
+  featHabit: '#4CC3F5',  // 3 · sky
+  featHealth: '#2DD4C4', // 4 · teal
+  featMeal: '#FF9A55',   // 5 · orange
+  featShop: '#45D588',   // 6 · green
+  featBudget: '#FBBF3C', // 7 · amber
+  featNote: '#FBD24B',   // 8 · yellow
 
   // Reserved priority/category ramps — dark values from the 2026-07-14 Claude Design brief.
   priorityHigh: '#F0685A',
