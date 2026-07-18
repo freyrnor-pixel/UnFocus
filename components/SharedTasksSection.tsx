@@ -14,7 +14,7 @@
  * All cards wear the shop-domain hue (rail + chips) so the section reads as one group.
  *
  * Connections:
- *   Imports → components/TaskCard, components/SectionRail, components/PressableScale,
+ *   Imports → components/TaskCard, components/SectionCard, components/PressableScale,
  *             constants/theme, lib/domainColor, lib/date, lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useSharedStore, store/useTaskStore
  *   Used by → app/(tabs)/plans.tsx (All-tasks tab, last section)
@@ -24,12 +24,15 @@
  *   - The shop hue is arbitrary-but-stable for "shared" (rose); green/red stay reserved for
  *     status, so a received/sent chip never reads as done/overdue.
  *   - Received cards are plain Views (not TaskCard) — they aren't real local tasks yet.
+ *   - Wrapped in `<SectionCard>` (2026-07-18) so this section reads as one bordered glass
+ *     card like its All-tasks siblings (Whenever/Recurring) instead of a loose header floating
+ *     over unbounded rows — it was the one section still missing the boxed-section treatment.
  */
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import TaskCard from '@/components/TaskCard';
-import SectionRail from '@/components/SectionRail';
+import SectionCard from '@/components/SectionCard';
 import PressableScale from '@/components/PressableScale';
 import { Fonts, FontSize, Radius, Spacing, contrastOn } from '@/constants/theme';
 import { getDomainColor } from '@/lib/domainColor';
@@ -88,15 +91,13 @@ export default function SharedTasksSection({ sentTasks, onToggleDone }: Props) {
   }
 
   return (
-    <View style={styles.section}>
-      <SectionRail hue={hue} label={t.tasksSectionShared} count={count} />
-
+    <SectionCard hue={hue} label={t.tasksSectionShared} count={count}>
       {count === 0 ? (
         <Text style={[styles.empty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
           {t.tasksSectionSharedEmpty}
         </Text>
       ) : (
-        <View style={styles.stack}>
+        <>
           {/* Received (↓) */}
           {received.map((item) => (
             <View
@@ -147,15 +148,13 @@ export default function SharedTasksSection({ sentTasks, onToggleDone }: Props) {
               onToggleDone={onToggleDone}
             />
           ))}
-        </View>
+        </>
       )}
-    </View>
+    </SectionCard>
   );
 }
 
 const styles = StyleSheet.create({
-  section: { marginTop: Spacing.xl },
-  stack: { gap: Spacing.sm },
   empty: {
     fontSize: FontSize.sm,
     paddingVertical: Spacing.sm,
