@@ -2,6 +2,19 @@
 
 Complete reference for card patterns, containers, modals, sheets, and common surface layouts in UnFocus.
 
+> ⚠️ **STALE — flagged, not yet reconciled.** The patterns below hand-roll
+> `backgroundColor: theme.white` (and other token names — `theme.cream`,
+> `theme.orangeLight` — that don't exist in the current `ThemePalette`; see
+> `constants/colors.ts` for the real names: `surface`/`bg`/`accentSoft`/etc.).
+> Real cards go through `<Surface>` (`components/Surface.tsx`), which renders the
+> glass finish (frost + wash, ≤2 layers via `components/GlassFill.tsx`, 2026-07-18
+> simplification) or — with `settings.glassSurfaces` off (reduce-transparency) — a
+> plain opaque fallback; neither path sets `backgroundColor` directly the way this
+> file's snippets do. Purposeful active/focus cards additionally get a colored
+> halo via `getGlow()`, not a heavier shadow. Treat `components/Surface.tsx` +
+> AGENTS.md's "Materials" note as the source of truth until this file gets a full
+> reconciliation pass.
+
 ---
 
 ## 🎴 Card System

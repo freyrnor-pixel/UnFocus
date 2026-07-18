@@ -4,11 +4,16 @@ Complete reference for UnFocus's color palettes, theming system, and when to use
 
 > ⚠️ **STALE — flagged, not yet reconciled.** The theme table below (Default/Tech/
 > Gothic/Nature/Fluffy/Custom) predates the Decision 006 colour token rebuild and
-> does not match the current 6 named themes in `constants/colors.ts` (Default,
-> Summer, Nature, Fluffy Pink, Gothic, Black & White — no "Custom" theme exists;
-> `HuePicker.tsx` is an inert, unwired leaf reserved for a future custom-theme
-> decision). Treat `constants/colors.ts` as the source of truth until this file
-> gets a full reconciliation pass.
+> does not match `constants/colors.ts`'s actual model: a single named theme
+> (`ThemeName = 'default'`) with light/dark palettes ("Soft daylight" / "Midnight
+> glass", 2026-07-18 visual refresh) — no Tech/Gothic/Nature/Fluffy/Custom themes
+> exist, and `theme.orange`/`theme.cream`/`theme.white`/etc. are not real token
+> names (the actual `ThemePalette` tokens are `bg`/`surface`/`surfaceMuted`/
+> `surfaceInset`/`text`/`textMuted`/`accent`/`border`/the feature octet/etc. — see
+> `constants/colors.ts`). The glass surface finish itself is now frost + wash + a
+> purposeful `getGlow(color, level)` halo (AGENTS.md's "Materials" note), not the
+> multi-layer system this file's patterns assume. Treat `constants/colors.ts` +
+> AGENTS.md as the source of truth until this file gets a full reconciliation pass.
 
 ---
 
