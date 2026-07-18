@@ -46,11 +46,17 @@ type Stops = readonly [string, string, ...string[]];
 // that settles back to the base bg.
 function fieldColors(base: string, isDark: boolean, bg: string): Stops {
   if (isDark) {
-    return [mix(bg, base, 0.24), mix(bg, base, 0.12), bg];
+    // Deepened (2026-07-18): a touch more hue infused into the navy so empty/exposed field areas
+    // (e.g. below a short screen's cards, above the nav) read as an intentional colour field, not
+    // a washed near-bg blank. Still settles toward bg at the bottom to stay low-glare.
+    return [mix(bg, base, 0.34), mix(bg, base, 0.18), mix(bg, base, 0.06)];
   }
-  // Airy daylight field: light enough at the TOP (where header text sits) that dark/colored
-  // on-background text clears AA, easing to a richer hue lower down where cards float over it.
-  return [lighten(base, 0.60), lighten(base, 0.36), lighten(base, 0.16)];
+  // Airy daylight field, deepened (2026-07-18 "background has mostly transparent colours"). The
+  // old top stop (lighten 0.60) was near-white, so the top third of every screen — and any exposed
+  // field between the last card and the nav — read as washed-out blank space. Pulling the stops
+  // richer (0.48 → 0.28 → 0.10) gives the field a real, visible hue everywhere while the TOP stop
+  // stays light enough that dark on-background text (greeting, dates) still clears AA.
+  return [lighten(base, 0.48), lighten(base, 0.28), lighten(base, 0.10)];
 }
 
 // Full-screen colour field in one hue. Diagonal (top-left → bottom-right) so the richer end

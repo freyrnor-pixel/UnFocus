@@ -16,7 +16,7 @@
 import React from 'react';
 import { StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useToggleColor } from '@/lib/useToggleColor';
 import PressableScale from '@/components/PressableScale';
@@ -43,7 +43,9 @@ export function Badge({ label, variant = 'neutral', style }: BadgeProps) {
     theme.textMuted;
 
   return (
-    <View style={[styles.pill, { backgroundColor: bg }, style]}>
+    // Thin matching edge (2026-07-18 "border around icons and buttons"): a subtle rim in the pill's
+    // own foreground hue so status pills read as the same bordered family as the cards/chips.
+    <View style={[styles.pill, styles.pillBorder, { backgroundColor: bg, borderColor: rgba(fg, 0.3) }, style]}>
       <Text style={[styles.pillText, { color: fg }]}>{label}</Text>
     </View>
   );
@@ -105,6 +107,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: Radius.full,
     alignSelf: 'flex-start',
+  },
+  pillBorder: {
+    borderWidth: 1,
   },
   pillText: {
     fontSize: FontSize.xs,
