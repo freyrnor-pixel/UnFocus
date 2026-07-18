@@ -64,12 +64,12 @@ function rgbToHex(r: number, g: number, b: number): string {
     .join('');
 }
 
-function lighten(hex: string, amount: number): string {
+export function lighten(hex: string, amount: number): string {
   const [r, g, b] = hexToRgb(hex);
   return rgbToHex(r + (255 - r) * amount, g + (255 - g) * amount, b + (255 - b) * amount);
 }
 
-function darken(hex: string, amount: number): string {
+export function darken(hex: string, amount: number): string {
   const [r, g, b] = hexToRgb(hex);
   return rgbToHex(r * (1 - amount), g * (1 - amount), b * (1 - amount));
 }
@@ -285,7 +285,7 @@ export type MaterialMode = 'light' | 'dark';
 type GradientColors = readonly [string, string, ...string[]];
 type GradientStops = readonly [number, number, ...number[]];
 
-/** Keycap-bevel border (fix 1) — a vertical (top-light → bottom-dark) gradient padding-ring. */
+/** Raised-keycap border (fix 1) — a vertical (top-light → bottom-dark) hue-tinted gradient padding-ring. */
 export type RimGradient = { colors: GradientColors; locations: GradientStops };
 /** Adaptive top-down white scrim behind text (fix 2) — a vertical gradient. */
 export type ScrimGradient = { colors: GradientColors; locations: GradientStops };
@@ -323,6 +323,13 @@ export type MaterialStyle = {
    * fill, pre-alpha'd to `washAlpha`.
    */
   rim: RimGradient;
+  /**
+   * The "raised keycap (double)" second edge — a crisp, cool, hue-tinted line drawn on the
+   * inner `overflow:hidden` mask (Surface/Button/AddFAB) INSIDE the outer `rim` chamfer, so a
+   * surface reads as a physically raised key rather than a single soft bevel. Derived from the
+   * base hue (not neutral), so it auto-tints to whatever surface it sits on.
+   */
+  innerLine: string;
   scrim: ScrimGradient;
   specular: Specular;
   fillGradient: GradientColors;
@@ -360,20 +367,28 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
   // ambient value bumped 0.62 → 0.66 in "Glass, take two" for a denser adaptive scrim base.)
   const washAlpha = isButton ? 0.9 : 0.66;
 
-  // Rim = keycap bevel (2026-07-18 "typewriter, but glass"): a VERTICAL gradient border,
-  // bright translucent white at the top edge → faint mid → soft dark at the bottom edge, so
-  // the ring reads as a chamfered glass rim catching light on top and falling into shadow
-  // below (like a typewriter keycap) instead of the old diagonal 135° white streak that read
-  // as shiny plastic. Surface renders this ring top→bottom (start {0,0} → end {0,1}).
+  // Rim = raised-keycap chamfer (2026-07-18 "typewriter glass", retuned): a VERTICAL gradient
+  // border, HUE-TINTED (derived from the surface's own base, not pure white), with the bright
+  // band pushed hard to the TOP edge (locations 0 → 0.22) so it reads CRISP — a sharp lit lip,
+  // not the old soft half-height fade — then a faint mid and a soft dark hue-shadow at the
+  // bottom edge. Paired with `innerLine` below, this is the "double keycap": a bright outer lip
+  // + a cool inner line, so cards/buttons read as physically raised keys. Surface renders this
+  // ring top→bottom (start {0,0} → end {0,1}); Button now matches (vertical, not diagonal).
   const rim: RimGradient = isDark
     ? {
-        colors: [rgba('#FFFFFF', 0.22), rgba('#FFFFFF', 0.05), rgba('#000000', 0.28)],
-        locations: [0, 0.5, 1],
+        colors: [rgba(lighten(base, 0.28), 0.34), rgba(lighten(base, 0.05), 0.08), rgba('#000000', 0.34)],
+        locations: [0, 0.25, 1],
       }
     : {
-        colors: [rgba('#FFFFFF', 0.6), rgba('#FFFFFF', 0.12), rgba('#000000', 0.14)],
-        locations: [0, 0.5, 1],
+        colors: [rgba(lighten(base, 0.42), 0.85), rgba(lighten(base, 0.08), 0.18), rgba(darken(base, 0.14), 0.34)],
+        locations: [0, 0.22, 1],
       };
+
+  // Inner line (the "double" of the double keycap): a crisp, cool, hue-tinted 1px line the
+  // callers draw on the inner mask, just inside the rim chamfer. Restrained (calm) but present
+  // enough to read as a second edge — this is what turns the previously-invisible neutral
+  // hairline (old `theme.border`) into the keycap's inner wall.
+  const innerLine = isDark ? rgba(lighten(base, 0.16), 0.26) : rgba(lighten(base, 0.06), 0.5);
 
   // Adaptive scrim (fix 2): a soft matte veil behind text — much lighter than the old glossy
   // 0.42 sheen (2026-07-18: dropped toward a frosted, non-glary finish), fading out by half height.
@@ -405,17 +420,19 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
   return {
     backgroundColor: rgba(tinted, 0.84),
     borderWidth: MATERIAL_BORDER_WIDTH,
-    // Keycap-bevel edge tokens: bright top, soft-dark bottom (the glass-off path and the
-    // Surface mask read these for the chamfer). Muted vs the old plastic-white 0.75.
-    borderColor: rgba('#FFFFFF', 0.4),
-    borderTopColor: rgba('#FFFFFF', 0.55),
-    borderBottomColor: rgba('#000000', 0.18),
+    // Flat keycap edge tokens, now hue-tinted to match the rim/innerLine (was plastic white/black):
+    // a bright lit top, a cool mid, a soft hue-dark bottom. Read by the glass-OFF fallback and by
+    // back-compat direct consumers (e.g. FoodTab) that don't render the rim gradient themselves.
+    borderColor: innerLine,
+    borderTopColor: isDark ? rgba(lighten(base, 0.28), 0.5) : rgba(lighten(base, 0.42), 0.7),
+    borderBottomColor: isDark ? rgba('#000000', 0.3) : rgba(darken(base, 0.14), 0.34),
     shadowOpacity: 0.16,
     shadowRadius: 16,
     elevation: 6,
     contrastBase: tinted,
     washAlpha,
     rim,
+    innerLine,
     scrim,
     specular,
     fillGradient,

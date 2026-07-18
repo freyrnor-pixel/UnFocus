@@ -23,7 +23,8 @@
  *
  * Edit notes:
  *   - Glass: when settings.glassSurfaces is on the FAB is a transparent circle with
- *     components/GlassFill (frost + wash) + a floating-tier getLayeredShadow (the
+ *     components/GlassFill (frost + wash) + a crisp 1px hue-tinted inner line (mat.innerLine, the
+ *     raised-keycap edge, matching cards/buttons) + a floating-tier getLayeredShadow (the
  *     three-pass depth). Off → solid theme.accent + Shadow.fab (the same token BottomNav's
  *     centre button uses) so it never hand-rolls a weaker shadow.
  *   - **Glow (2026-07-18)**: only the `'lg'` floating FAB (the primary "add" action) always
@@ -101,6 +102,11 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
           ? {
               backgroundColor: 'transparent',
               overflow: 'hidden',
+              // Raised-keycap inner line (2026-07-18 retune): a crisp 1px hue-tinted edge so the
+              // glass FAB matches cards/buttons. No outer rim ring here — the inner line plus the
+              // always-on accent glow is enough definition for a 56px circle.
+              borderWidth: 1,
+              borderColor: mat.innerLine,
               boxShadow: [...getLayeredShadow(theme.shadow, 'floating'), ...glowShadow],
             }
           : { backgroundColor: theme.accent, ...Shadow.fab, boxShadow: glowShadow },
