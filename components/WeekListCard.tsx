@@ -27,6 +27,13 @@
  *   - 2026-07-06 redesign: removed AddDivider + lock icon. Replaced with inline add row
  *     (TextInput + catalog search dropdown + qty controls + price total, visible only
  *     when unlocked) and a mode-toggle pill button ("Shopping" locked / "Planning" unlocked).
+ *   - **2026-07-18 planned/made colour coding**: the card name is an always-editable
+ *     TextInput header (no more tap-to-reveal `editing` state). The card edge + mode pill
+ *     are colour-keyed to lock state — amber (`theme.warn`) "Planning"/planned while
+ *     unlocked, green (`getDomainColor(theme,'shop').accent`) "Shopping"/made once locked,
+ *     and the made card gets a soft green `getGlow()` halo via an outer wrapper View. The
+ *     items sub-label is dropped in planning (the name header is enough) and reads
+ *     "To buy (n)" (`t.toBuySection`) in shopping.
  *   - `dishGroups` prop is kept so this card can flatten dish items into the right section
  *     buckets without the parent having to recompute.
  *   - `renderReorderableRow` is still used for ungroupedUnchecked items only (drag reorder).
@@ -62,7 +69,7 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
-import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
+import { Fonts, FontSize, getGlow, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { listProgress } from '@/lib/shoppingGroups';
@@ -147,7 +154,6 @@ export default function WeekListCard({
   const styles = useScaledStyles(baseStyles);
   const domainColor = getDomainColor(theme, 'shop');
   const t = useT();
-  const [editing, setEditing] = useState(false);
   const [nameInput, setNameInput] = useState(list.name);
   const [monthlyPreviewOpen, setMonthlyPreviewOpen] = useState(false);
   const [monthlySearch, setMonthlySearch] = useState('');
@@ -166,7 +172,6 @@ export default function WeekListCard({
   );
 
   useEffect(() => {
-    setEditing(false);
     setNameInput(list.name);
   }, [list.id, list.name]);
 
@@ -181,7 +186,7 @@ export default function WeekListCard({
   function commitRename() {
     const trimmed = nameInput.trim();
     if (trimmed && trimmed !== list.name) onRename(trimmed);
-    setEditing(false);
+    else if (!trimmed) setNameInput(list.name); // don't leave the box empty
   }
 
   function handleSelectSuggestion(result: StoreItem) {
@@ -249,51 +254,54 @@ export default function WeekListCard({
   const totalInCart = allChecked.length;
   const showInListSection = totalInList > 0 || !list.locked;
 
+  // Planned vs made colour coding: a list you're still building (planning, unlocked)
+  // wears a calm amber "draft" edge; once switched to shopping (locked, "made") it
+  // takes the green shop accent edge and lights up with a soft green glow halo.
+  const edgeColor = list.locked ? domainColor.accent : theme.warn;
+
   return (
-    <Surface borderColor={domainColor.accent} style={styles.cardRow}>
+    <View style={list.locked ? [styles.glowWrap, getGlow(domainColor.accent, 'soft')] : undefined}>
+    <Surface borderColor={edgeColor} style={styles.cardRow}>
       <View style={styles.cardContent}>
       {/* ── Card header: title + mode toggle + rename/settings/delete icons ── */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          {editing ? (
+          {/* Always-editable name text-box — the list's header. Commits on blur/submit. */}
+          <View style={styles.nameWrap}>
             <TextInput
               style={[styles.nameInput, { color: theme.text, borderColor: theme.border }]}
               value={nameInput}
               onChangeText={setNameInput}
               placeholder={t.listRenamePlaceholder}
               placeholderTextColor={theme.textMuted}
-              autoFocus
               onSubmitEditing={commitRename}
               onBlur={commitRename}
               returnKeyType="done"
             />
-          ) : (
-            <PressableScale onPress={() => setEditing(true)} style={styles.nameTapTarget} scaleTo={0.97}>
-              <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>{list.name}</Text>
-              {list.isRecurring && (
-                <IconButton
-                  icon="repeat"
-                  label={t.listRecurringToggleLabel}
-                  onPress={onOpenListSettings}
-                  size={18}
-                  tint="transparent"
-                  color={theme.good}
-                  style={styles.repeatIcon}
-                />
-              )}
-            </PressableScale>
-          )}
+            {list.isRecurring && (
+              <IconButton
+                icon="repeat"
+                label={t.listRecurringToggleLabel}
+                onPress={onOpenListSettings}
+                size={18}
+                tint="transparent"
+                color={theme.good}
+                style={styles.repeatIcon}
+              />
+            )}
+          </View>
 
           <View style={styles.iconRow}>
-            {/* Mode toggle pill — "Shopping" (locked) / "Planning" (unlocked) */}
+            {/* Mode pill, colour-coded to the card state — amber "Planning" (planned)
+                / green "Shopping" (made) — matching the card edge. */}
             <PressableScale
-              style={[styles.modeToggle, { backgroundColor: list.locked ? theme.surfaceMuted : theme.good }]}
+              style={[styles.modeToggle, { backgroundColor: list.locked ? domainColor.accent : theme.warn }]}
               onPress={onToggleLock}
               accessibilityRole="button"
               accessibilityLabel={list.locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
               scaleTo={0.97}
             >
-              <Text style={[styles.modeToggleText, { color: list.locked ? theme.textMuted : theme.textInverse }]}>
+              <Text style={[styles.modeToggleText, { color: theme.textInverse }]}>
                 {list.locked ? t.shoppingModeBtn : t.planningModeBtn}
               </Text>
             </PressableScale>
@@ -320,13 +328,16 @@ export default function WeekListCard({
           </View>
         )}
 
-        {/* ── IN LIST section ── */}
+        {/* ── Items section — labelled "To buy" only while shopping; in planning the
+            card header names the list, so no redundant sub-label. ── */}
         {showInListSection && (
           <View style={styles.section}>
-            <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
-              <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.inListSection(totalInList)}</Text>
-              <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />
-            </View>
+            {list.locked && (
+              <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
+                <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.toBuySection(totalInList)}</Text>
+                <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />
+              </View>
+            )}
 
             <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.good }]}>
               {ungroupedUnchecked.map((item, idx) => (
@@ -650,16 +661,17 @@ export default function WeekListCard({
       </View>
       </View>
     </Surface>
+    </View>
   );
 }
 
 const baseStyles = StyleSheet.create({
   cardRow: { borderRadius: Radius.md },
+  glowWrap: { borderRadius: Radius.md },
   cardContent: { flex: 1, padding: Spacing.md, gap: Spacing.md },
   header: { gap: Spacing.xs },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
-  nameTapTarget: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexShrink: 1 },
-  name: { fontFamily: Type.heading.fontFamily, fontSize: Type.heading.size, flexShrink: 1 },
+  nameWrap: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flex: 1 },
   repeatIcon: {},
   nameInput: {
     fontFamily: Type.heading.fontFamily,
