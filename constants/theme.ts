@@ -465,11 +465,13 @@ export function getGlow(color: string, level: 'soft' | 'strong' = 'soft') {
  */
 export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<ElevationLevel, 'flat'> = 'raised') {
   const k = level === 'floating' ? 1.6 : 1;
-  // Softened (2026-07-18 "colored glass"): lower alphas so cards SIT on the backdrop rather
-  // than float like glossy toy tiles — depth is a whisper, the colour carries the surface.
+  // Strengthened (2026-07-18 vision tune): higher alphas + a deeper cast so raised-keycap cards
+  // POP off the colorful field with real depth/layering, not sit flush like flat tiles. The
+  // three passes are contact (tight, grounds the key), near (the bulk of the lift), and cast
+  // (soft/wide ambient drop).
   return [
-    { offsetX: 0, offsetY: 1, blurRadius: 2, spreadDistance: 0, color: rgba(shadowColor, 0.06) },
-    { offsetX: 0, offsetY: Math.round(3 * k), blurRadius: Math.round(12 * k), spreadDistance: 0, color: rgba(shadowColor, 0.08) },
-    { offsetX: 0, offsetY: Math.round(8 * k), blurRadius: Math.round(24 * k), spreadDistance: -2, color: rgba(shadowColor, 0.06) },
+    { offsetX: 0, offsetY: 1, blurRadius: 2, spreadDistance: 0, color: rgba(shadowColor, 0.10) },
+    { offsetX: 0, offsetY: Math.round(4 * k), blurRadius: Math.round(14 * k), spreadDistance: 0, color: rgba(shadowColor, 0.14) },
+    { offsetX: 0, offsetY: Math.round(10 * k), blurRadius: Math.round(26 * k), spreadDistance: -2, color: rgba(shadowColor, 0.10) },
   ];
 }
