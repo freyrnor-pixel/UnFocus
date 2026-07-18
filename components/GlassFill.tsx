@@ -75,10 +75,15 @@ type Props = {
 };
 
 export default function GlassFill({ mat, radius, blurIntensity, washAlpha, tint, fillGradient }: Props) {
-  // Android has no real backdrop blur (the blur-target subsystem was removed), so the wash
-  // is floored there to keep text contrast regardless of what the caller requested.
+  // Android has no real backdrop blur (the blur-target subsystem was removed), so the wash is
+  // floored there. Since the colour-architecture inversion (2026-07-18) ambient cards frost a
+  // SMOOTH ScreenBackground gradient (not sharp scrolling content), so a translucent neutral
+  // pane reads as frosted glass without opacity being the only contrast lever — the floor
+  // dropped 0.82 → 0.56 so cards stay genuinely translucent and the colour field shows through.
+  // Overlay (0.8) and button (0.9) surfaces sit over live content and pass their own higher
+  // wash, so they clear the floor and stay dense.
   const rawWash = washAlpha ?? mat.washAlpha;
-  const effectiveWash = Platform.OS === 'android' ? Math.max(rawWash, 0.82) : rawWash;
+  const effectiveWash = Platform.OS === 'android' ? Math.max(rawWash, 0.56) : rawWash;
   const wash = withAlpha(mat.backgroundColor, effectiveWash);
   // Document-unique id per mounted GlassFill (colons stripped → valid SVG url(#…) ref).
   const specularId = 'gfSpec' + React.useId().replace(/:/g, '');
