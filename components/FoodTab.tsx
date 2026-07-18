@@ -92,13 +92,19 @@ const MEAL_ORDER: { value: MealType; icon: keyof typeof Ionicons.glyphMap }[] = 
   { value: 'kveldsmat', icon: 'moon-outline' },
 ];
 
-/** "A touch of colour based on the type of meal" — the glass tint per meal section. */
+/**
+ * "A touch of colour based on the type of meal" — the frosted glass tint per meal section.
+ * (2026-07-18) Retuned to a calm, low-saturation set that steers CLEAR of semantic red/green:
+ * lunch was `#10B981` (collided with `good`/done) and dinner `#EF4444` (collided with `bad`/
+ * delete), which read as status signals on a food card. The new set keeps a warm→cool meal
+ * progression without ever landing on a pure success-green or error-red.
+ */
 const MEAL_COLORS: Record<MealType, string> = {
-  breakfast: '#F59E0B',
-  lunch: '#10B981',
-  dinner: '#EF4444',
-  snack: '#8B5CF6',
-  kveldsmat: '#6366F1',
+  breakfast: '#E0A85A', // soft morning amber
+  lunch: '#4FB3A6',     // muted teal (was collision-green)
+  dinner: '#D9825A',    // warm terracotta (was collision-red)
+  snack: '#9B87D6',     // soft lavender
+  kveldsmat: '#7A80D6', // calm indigo
 };
 
 type DraftIngredient = { name: string; amount: string; unit: string; price: number };

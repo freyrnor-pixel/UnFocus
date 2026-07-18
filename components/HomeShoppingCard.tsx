@@ -165,7 +165,6 @@ export default function HomeShoppingCard({
   return (
     <Surface
       surfaceContext="ambient"
-      borderColor={domainColor.accent}
       style={[styles.card, !expanded && styles.cardCollapsed]}
     >
       <View style={styles.cardContent}>

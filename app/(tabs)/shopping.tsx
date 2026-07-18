@@ -25,6 +25,7 @@
  *             lib/date (todayStr, dateStr, getWeekRangeContaining), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
  *             computeListGroups, listProgress), lib/useAppTheme, lib/useFirstVisitHint,
+ *             lib/domainColor, lib/screenColor,
  *             store/useSettingsStore, store/useShoppingListStore,
  *             store/useShoppingStore (incl. UNALLOCATED_LIST_ID), @expo/vector-icons (Ionicons)
  *   Used by → Expo Router route "/shopping" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
@@ -193,6 +194,7 @@ import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { groupByDish, computeListGroups, listProgress } from '@/lib/shoppingGroups';
 import { formatKr } from '@/lib/money';
 import { getDomainColor } from '@/lib/domainColor';
+import { getScreenColor } from '@/lib/screenColor';
 
 type Tab = 'weekly' | 'monthly' | 'food' | 'catalogue';
 
@@ -876,7 +878,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} scrollable={tab !== 'catalogue'} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'shopping').base} scrollable={tab !== 'catalogue'} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onScroll={handleScreenScroll}>
       {tab === 'catalogue' ? (
         <CatalogueTab onNotify={setConfirm} header={shoppingIntro} />
       ) : (
@@ -898,7 +900,7 @@ export default function ShoppingScreen() {
                   accessibilityLabel={t.resetMonthlyListAction}
                   scaleTo={0.93}
                 >
-                  <Ionicons name="refresh-circle" size={32} color="#E53935" />
+                  <Ionicons name="refresh-circle" size={32} color={theme.bad} />
                 </PressableScale>
                 <IconButton
                   icon={catalogLocked ? 'lock-closed' : 'lock-open-outline'}

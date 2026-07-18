@@ -11,6 +11,7 @@
  *
  * Connections:
  *   Imports → constants/theme (getElevation, getLayeredShadow), lib/useAppTheme,
+ *             lib/screenColor (useScreenColor — default per-screen frosted tint),
  *             store/useSettingsStore (glassSurfaces), components/GlassFill
  *   Used by → app screens that render a "card" surface (see grep for `<Surface`)
  *   Data    → reads `glassSurfaces` from the settings store
@@ -68,6 +69,7 @@ import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getElevation, getLayeredShadow, getMaterialStyle, Radius } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { useScreenColor } from '@/lib/screenColor';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import GlassFill from '@/components/GlassFill';
 
@@ -116,8 +118,10 @@ const GLASS_BLUR_INTENSITY: Record<SurfaceContext, number> = {
 // through, so they stay denser. GlassFill additionally floors the wash on Android, where
 // the backdrop blur is unavailable and opacity is the only contrast lever.
 const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
-  // Ambient bumped 0.62 → 0.66 in "Glass, take two" (denser base under the adaptive scrim).
-  ambient: 0.66,
+  // Ambient dropped 0.66 → 0.55 (2026-07-18 "colored glass"): a genuinely translucent frosted
+  // pane, so the screen's hue reads as tinted glass over the backdrop rather than opaque pastel.
+  // (GlassFill still floors this at 0.82 on Android, where there's no real backdrop blur.)
+  ambient: 0.55,
   overlay: 0.8,
 };
 
@@ -144,7 +148,13 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
   const theme = useAppTheme();
   const isDark = useIsDark();
   const glass = useSettingsStore((s) => s.glassSurfaces);
-  const base = tint ?? theme.surface;
+  // Per-screen frosted tint (2026-07-18): a card with no explicit `tint` picks up its
+  // screen's dominant hue (lib/screenColor.ts) so every ambient card on a screen reads as
+  // the same colour family. Only on the glass path — the reduce-transparency (glass-off)
+  // a11y path stays on the neutral `theme.surface` fill. Sub-tier screens provide no hue
+  // (screenHue null) and fall back to neutral. An explicit `tint` always wins.
+  const screenHue = useScreenColor();
+  const base = tint ?? (glass && screenHue ? screenHue : theme.surface);
   const mat = getMaterialStyle(base, 'card', isDark ? 'dark' : 'light');
   // Glass-off (reduce-transparency) path uses the legacy single shadow; glass-on uses the
   // three-pass layered shadow. Both deepen to the `floating` tier when `elevated`.
@@ -215,8 +225,11 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
       <LinearGradient
         colors={rimColors}
         locations={borderColor ? undefined : mat.rim.locations}
+        // Vertical (top → bottom) so the rim reads as a keycap bevel: light on the top edge,
+        // shadow on the bottom edge (2026-07-18). A solid `borderColor` override collapses to a
+        // flat coloured ring regardless of direction.
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 0, y: 1 }}
         style={[styles.ring, { borderRadius: radius, padding: mat.borderWidth }]}
       >
         <View

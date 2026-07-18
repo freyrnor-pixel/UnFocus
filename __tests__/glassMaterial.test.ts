@@ -66,17 +66,22 @@ describe('getMaterialStyle — take-two static layers', () => {
   it('dark mode dims the rim + specular vs light (no harsh white streak on near-black)', () => {
     const light = getMaterialStyle(base, 'card', 'light');
     const dark = getMaterialStyle(base, 'card', 'dark');
-    // Brightest rim stop: light starts at 0.92, dark at 0.55.
-    expect(light.rim.colors[0]).toBe(rgba('#FFFFFF', 0.92));
-    expect(dark.rim.colors[0]).toBe(rgba('#FFFFFF', 0.55));
+    // Keycap-bevel rim: bright translucent-white TOP stop, light 0.6 / dark 0.22 (muted off
+    // the old plastic 0.92/0.55 for a frosted, non-glossy edge), fading to a dark bottom stop.
+    expect(light.rim.colors[0]).toBe(rgba('#FFFFFF', 0.6));
+    expect(dark.rim.colors[0]).toBe(rgba('#FFFFFF', 0.22));
+    // Bottom rim stop is a soft dark shadow (the chamfer's shadowed edge), not white.
+    expect(light.rim.colors[light.rim.colors.length - 1]).toBe(rgba('#000000', 0.14));
     expect(dark.specular.centerOpacity).toBeLessThan(light.specular.centerOpacity);
   });
 
-  it('specular blob is anchored to the top-left corner', () => {
+  it('specular is a wide, diffuse top sheen (frosted, not a tight glossy bead)', () => {
     const { specular } = getMaterialStyle(base, 'card', 'light');
-    expect(specular.cx).toBe('16%');
-    expect(specular.cy).toBe('6%');
-    expect(specular.edgeOffset).toBe('72%');
+    // Anchored toward the top, widened + dimmed vs the old sharp top-left bead (cx16/cy6/0.6).
+    expect(specular.cx).toBe('28%');
+    expect(specular.cy).toBe('8%');
+    expect(specular.edgeOffset).toBe('82%');
+    expect(specular.centerOpacity).toBeLessThan(0.2);
   });
 
   it('button fillGradient runs light→base→dark, pre-alpha`d to the button wash', () => {

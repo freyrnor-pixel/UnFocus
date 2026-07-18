@@ -12,7 +12,7 @@
  *   Semantic state: good, goodSoft, bad, badSoft, warn, warnSoft
  *   Depth: shadow, overlay
  *   Hint card: hintBg, hintBorder, hintAccent
- *   Feature accents: featTask, featPlan, featHabit, featShop, featMeal, featBudget, featNote, featHealth
+ *   Feature accents: featTask, featPlan, featHabit, featShop, featMeal, featBudget, featNote, featHealth, featScan
  *   Priority ramp (reserved, unwired — no live UI/DB reads this yet): priorityHigh,
  *     priorityHighSoft, priorityMedium, priorityMediumSoft, priorityLow, priorityLowSoft
  *   Category palette (reserved, unwired — no live UI/DB reads this yet): categoryWork,
@@ -78,6 +78,7 @@ export interface ThemePalette {
   featBudget: string;      // Budget type bubble
   featNote: string;        // Note type bubble
   featHealth: string;      // Health type bubble
+  featScan: string;        // Scan screen hue (violet) — per-screen color, no domain bubble
 
   // ── Priority ramp (reserved — no live feature reads these yet) ────────────
   priorityHigh: string;
@@ -181,10 +182,13 @@ const defaultLight: ThemePalette = {
   featTask: '#4C8DF0',   // 2 · blue     — do tasks
   featHabit: '#22A7E0',  // 3 · sky      — keep habits
   featHealth: '#17BEB0', // 4 · teal     — track health (off red/`bad`)
-  featMeal: '#F5843A',   // 5 · orange   — eat
-  featShop: '#34C06A',   // 6 · green    — shop
+  featMeal: '#E88A52',   // 5 · orange   — eat (2026-07-18: muted off neon #F5843A, less candy)
+  featShop: '#3DAF6F',   // 6 · green    — shop (2026-07-18: muted off neon #34C06A, less candy)
   featBudget: '#F0A81E', // 7 · amber    — money
   featNote: '#E6BC1C',   // 8 · yellow   — reflect / note
+  // Scan screen hue — violet, distinct from featPlan indigo. Per-screen color only
+  // (Scan has no domain bubble); read via lib/screenColor.ts (2026-07-18).
+  featScan: '#9B72E3',
 
   // Reserved priority/category ramps from the 2026-07-14 Claude Design brief — no live
   // feature reads these yet (dormant `priority` SQLite column, unwired category concept).
@@ -243,10 +247,12 @@ const defaultDark: ThemePalette = {
   featTask: '#6BA5FF',   // 2 · blue
   featHabit: '#4CC3F5',  // 3 · sky
   featHealth: '#2DD4C4', // 4 · teal
-  featMeal: '#FF9A55',   // 5 · orange
-  featShop: '#45D588',   // 6 · green
+  featMeal: '#F09763',   // 5 · orange (2026-07-18: muted off neon #FF9A55)
+  featShop: '#50C68C',   // 6 · green  (2026-07-18: muted off neon #45D588)
   featBudget: '#FBBF3C', // 7 · amber
   featNote: '#FBD24B',   // 8 · yellow
+  // Scan screen hue — violet (per-screen color only; see lib/screenColor.ts, 2026-07-18).
+  featScan: '#BE9DF7',
 
   // Reserved priority/category ramps — dark values from the 2026-07-14 Claude Design brief.
   priorityHigh: '#F0685A',

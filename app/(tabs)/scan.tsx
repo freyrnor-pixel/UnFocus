@@ -8,7 +8,7 @@
  * shopping/task payloads into the shared store.
  *
  * Connections:
- *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, store/useCatalogStore, store/useReceiptStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons), @react-navigation/material-top-tabs + @react-navigation/native (types only, for the swipeEnabled guard)
+ *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, lib/screenColor, store/useCatalogStore, store/useReceiptStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons), @react-navigation/material-top-tabs + @react-navigation/native (types only, for the swipeEnabled guard)
  *   Used by → Expo Router route "/scan" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx; reached from app/(tabs)/shopping.tsx's post-trip receipt pop-up (autoCapture) and app/budget.tsx header link
  *   Data    → confirmed items write to FOUR stores: useShoppingStore (shopping_items) + useReceiptStore.addReceipt (receipts) + useCatalogStore.recordPurchases (purchase_log, linked via receipt_id, + store_items); QR import writes useSharedStore (shared_shopping_items / shared_tasks); scaled fontSize via useScaledStyles()
  *
@@ -86,6 +86,7 @@ import { decodeSharePayload } from '@/lib/share';
 import { parseReceiptText, findFuzzyMatch, ParsedReceiptItem as ParsedItem } from '@/lib/receipt';
 import { FontSize, Radius, Shadow, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
+import { getScreenColor } from '@/lib/screenColor';
 
 // Fixed camera-chrome colours (Decision 025) — theme-independent, always white-on-black.
 const QR_BG = '#000000';
@@ -521,7 +522,7 @@ export default function ScanScreen() {
   if (mode === 'idle') {
     return (
       <>
-        <ScreenScaffold title={t.scanReceipt} tier="site" bottomNav={false} ownBackground={false}>
+        <ScreenScaffold title={t.scanReceipt} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'scan').base}>
           <View style={styles.content}>
             <PressableScale
               style={[styles.budgetPill, { backgroundColor: rgba(theme.featBudget, 0.16) }]}
@@ -597,7 +598,7 @@ export default function ScanScreen() {
   if (mode === 'result' && parsedItems.length > 0) {
     return (
       <>
-        <ScreenScaffold title={t.foundOnReceipt} tier="site" bottomNav={false} ownBackground={false}>
+        <ScreenScaffold title={t.foundOnReceipt} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'scan').base}>
           <View style={styles.content}>
             <HintCard text={t.itemsSelectedCount(selectedCount, parsedItems.length)} example="" />
 
@@ -690,7 +691,7 @@ export default function ScanScreen() {
   if (mode === 'manual') {
     return (
       <>
-        <ScreenScaffold title={t.manualEntryTitle} tier="site" bottomNav={false} ownBackground={false}>
+        <ScreenScaffold title={t.manualEntryTitle} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'scan').base}>
           <View style={styles.content}>
             <HintCard text={t.manualEntryHint} example="" />
 

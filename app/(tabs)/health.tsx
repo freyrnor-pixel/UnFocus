@@ -20,7 +20,7 @@
  *             components/CompletionGlow, components/HabitIcon,
  *             components/EmptyState, components/SlideSelector, components/PressableScale,
  *             constants/theme, constants/colors, lib/date, lib/db, lib/haptics, lib/i18n,
- *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor,
+ *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor, lib/screenColor,
  *             store/useHealthStore, store/useHabitStore, store/useSettingsStore
  *   - Habit Today/Week/Month uses the shared SlideSelector; the person filter row +
  *     habit-form "For" chips are gated on settings.peopleModeEnabled (People/family
@@ -95,6 +95,7 @@ import { FontSize, Radius, Shadow, Spacing, Fonts, Type } from '@/constants/them
 import type { ThemePalette } from '@/constants/colors';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
+import { getScreenColor } from '@/lib/screenColor';
 import { success, selection } from '@/lib/haptics';
 
 // ─── Habits (ported from the removed app/habits.tsx) ──────────────────────────
@@ -721,6 +722,7 @@ export default function HealthScreen() {
         tier="site"
         bottomNav={false}
         ownBackground={false}
+        screenColor={getScreenColor(theme, 'health').base}
         focusActive={focusMode}
         onToggleFocus={() => setFocusMode((v) => !v)}
         infoActive={hintOpen}

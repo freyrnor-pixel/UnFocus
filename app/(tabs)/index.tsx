@@ -13,7 +13,7 @@
  *             components/HomeSharedCard, components/HomeShoppingCard,
  *             components/FlightOverlay (FlightPill, Flight, FlightRect), components/DebugNoteAnchor,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
- *             lib/useAppTheme, lib/useFirstVisitHint, lib/notifications, lib/reminders,
+ *             lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, lib/notifications, lib/reminders,
  *             store/useTaskStore, store/useNotesStore, store/useSharedStore,
  *             store/useShoppingStore, store/useShoppingListStore, store/useSettingsStore
  *   Used by → Expo Router route "/" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
@@ -92,6 +92,7 @@ import { todayStr } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { computeListGroups } from '@/lib/shoppingGroups';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { getScreenColor } from '@/lib/screenColor';
 import { FontSize, Fonts, Spacing, Type } from '@/constants/theme';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useNotesStore } from '@/store/useNotesStore';
@@ -263,6 +264,7 @@ export default function HomeScreen() {
         isHome
         bottomNav={false}
         ownBackground={false}
+        screenColor={getScreenColor(theme, 'index').base}
         focusActive={focusMode}
         onToggleFocus={() => setFocusMode((v) => !v)}
         infoActive={hintOpen}

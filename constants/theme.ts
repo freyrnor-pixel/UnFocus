@@ -124,7 +124,9 @@ export const Spacing = {
 
 export const Radius = {
   sm: 12,
-  md: 18,
+  // md nudged 18 → 16 (2026-07-18 "colored glass"): a calmer, less bubbly card corner so
+  // surfaces read as lifelike glass panes rather than rounded plastic tiles.
+  md: 16,
   lg: 24,
   full: 999,
 };
@@ -283,7 +285,7 @@ export type MaterialMode = 'light' | 'dark';
 type GradientColors = readonly [string, string, ...string[]];
 type GradientStops = readonly [number, number, ...number[]];
 
-/** Directional rim-light border (fix 1) — a 135° gradient rendered as a padding-ring. */
+/** Keycap-bevel border (fix 1) — a vertical (top-light → bottom-dark) gradient padding-ring. */
 export type RimGradient = { colors: GradientColors; locations: GradientStops };
 /** Adaptive top-down white scrim behind text (fix 2) — a vertical gradient. */
 export type ScrimGradient = { colors: GradientColors; locations: GradientStops };
@@ -348,38 +350,48 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
   // Frosted-pane look from the base colour's own hue (lightened, not blended toward
   // an unrelated icy-blue) — every feature colour keeps its identity. Buttons lighten far
   // less so a CTA's accent stays close to its true hue and keeps `accentInk`'s contrast.
-  const tinted = lighten(base, isButton ? 0.06 : 0.16);
+  // (2026-07-18 "colored glass": cards lighten only 0.10, not 0.16 — the translucency now
+  // comes from the low ambient wash alpha (Surface's GLASS_WASH_ALPHA), not from washing the
+  // hue toward milky white, so a screen-tinted card reads as real frosted glass, not pastel.)
+  const tinted = lighten(base, isButton ? 0.06 : 0.10);
   // Ambient content cards ride translucent (~0.66-0.8, set by the Surface caller per
   // surfaceContext) — a tinted wash alone reads as frosted without per-frame blur, the
   // simplified glass finish's power win. Buttons lean denser for CTA ink contrast. (The card
   // ambient value bumped 0.62 → 0.66 in "Glass, take two" for a denser adaptive scrim base.)
   const washAlpha = isButton ? 0.9 : 0.66;
 
-  // Rim light (fix 1): directional 135° gradient border, bright top-left → faint bottom-right.
+  // Rim = keycap bevel (2026-07-18 "typewriter, but glass"): a VERTICAL gradient border,
+  // bright translucent white at the top edge → faint mid → soft dark at the bottom edge, so
+  // the ring reads as a chamfered glass rim catching light on top and falling into shadow
+  // below (like a typewriter keycap) instead of the old diagonal 135° white streak that read
+  // as shiny plastic. Surface renders this ring top→bottom (start {0,0} → end {0,1}).
   const rim: RimGradient = isDark
     ? {
-        colors: [rgba('#FFFFFF', 0.55), rgba('#FFFFFF', 0.14), rgba('#FFFFFF', 0.03)],
-        locations: [0, 0.3, 1],
+        colors: [rgba('#FFFFFF', 0.22), rgba('#FFFFFF', 0.05), rgba('#000000', 0.28)],
+        locations: [0, 0.5, 1],
       }
     : {
-        colors: [rgba('#FFFFFF', 0.92), rgba('#FFFFFF', 0.5), rgba('#FFFFFF', 0.14), rgba('#FFFFFF', 0.03)],
-        locations: [0, 0.26, 0.55, 1],
+        colors: [rgba('#FFFFFF', 0.6), rgba('#FFFFFF', 0.12), rgba('#000000', 0.14)],
+        locations: [0, 0.5, 1],
       };
 
-  // Adaptive scrim (fix 2): soft top-down white behind text, faded out by ~58% of the height.
+  // Adaptive scrim (fix 2): a soft matte veil behind text — much lighter than the old glossy
+  // 0.42 sheen (2026-07-18: dropped toward a frosted, non-glary finish), fading out by half height.
   const scrim: ScrimGradient = {
-    colors: [rgba('#FFFFFF', isDark ? 0.14 : 0.42), rgba('#FFFFFF', 0)],
-    locations: [0, 0.58],
+    colors: [rgba('#FFFFFF', isDark ? 0.08 : 0.16), rgba('#FFFFFF', 0)],
+    locations: [0, 0.5],
   };
 
-  // Specular highlight (fix 3): soft top-left radial blob (percent geometry, objectBoundingBox).
+  // Specular (fix 3): a wide, diffuse top sheen — NOT a tight mirror bead. Widened and
+  // dimmed (2026-07-18) from the old sharp top-left blob (cx16/cy6, 0.6) so it reads as
+  // frosted-glass light diffusion rather than a glossy plastic highlight.
   const specular: Specular = {
-    cx: '16%',
-    cy: '6%',
-    rx: '48%',
-    ry: '60%',
-    centerOpacity: isDark ? 0.34 : 0.6,
-    edgeOffset: '72%',
+    cx: '28%',
+    cy: '8%',
+    rx: '78%',
+    ry: '70%',
+    centerOpacity: isDark ? 0.1 : 0.16,
+    edgeOffset: '82%',
   };
 
   // Primary/danger button top-lit vertical fill (lighten → base → darken), pre-alpha'd to the
@@ -393,9 +405,11 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
   return {
     backgroundColor: rgba(tinted, 0.84),
     borderWidth: MATERIAL_BORDER_WIDTH,
-    borderColor: rgba('#FFFFFF', 0.5),
-    borderTopColor: rgba('#FFFFFF', 0.75),
-    borderBottomColor: rgba('#000000', 0.15),
+    // Keycap-bevel edge tokens: bright top, soft-dark bottom (the glass-off path and the
+    // Surface mask read these for the chamfer). Muted vs the old plastic-white 0.75.
+    borderColor: rgba('#FFFFFF', 0.4),
+    borderTopColor: rgba('#FFFFFF', 0.55),
+    borderBottomColor: rgba('#000000', 0.18),
     shadowOpacity: 0.16,
     shadowRadius: 16,
     elevation: 6,
@@ -434,9 +448,11 @@ export function getGlow(color: string, level: 'soft' | 'strong' = 'soft') {
  */
 export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<ElevationLevel, 'flat'> = 'raised') {
   const k = level === 'floating' ? 1.6 : 1;
+  // Softened (2026-07-18 "colored glass"): lower alphas so cards SIT on the backdrop rather
+  // than float like glossy toy tiles — depth is a whisper, the colour carries the surface.
   return [
-    { offsetX: 0, offsetY: 1, blurRadius: 2, spreadDistance: 0, color: rgba(shadowColor, 0.1) },
-    { offsetX: 0, offsetY: Math.round(3 * k), blurRadius: Math.round(12 * k), spreadDistance: 0, color: rgba(shadowColor, 0.12) },
-    { offsetX: 0, offsetY: Math.round(8 * k), blurRadius: Math.round(24 * k), spreadDistance: -2, color: rgba(shadowColor, 0.1) },
+    { offsetX: 0, offsetY: 1, blurRadius: 2, spreadDistance: 0, color: rgba(shadowColor, 0.06) },
+    { offsetX: 0, offsetY: Math.round(3 * k), blurRadius: Math.round(12 * k), spreadDistance: 0, color: rgba(shadowColor, 0.08) },
+    { offsetX: 0, offsetY: Math.round(8 * k), blurRadius: Math.round(24 * k), spreadDistance: -2, color: rgba(shadowColor, 0.06) },
   ];
 }
