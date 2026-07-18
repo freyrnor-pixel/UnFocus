@@ -2,11 +2,11 @@
  * Surface.tsx — material-aware card surface.
  *
  * Wraps children in a two-layer pattern (outer view carries border +
- * shadow, inner overflow:hidden mask carries fill + sheen) so any card uses
+ * shadow, inner overflow:hidden mask carries the frost+wash fill) so any card uses
  * the glass surface finish — frosted glass over the ambient ScreenBackground.
  * Drop-in replacement for `<View style={[styles.card, {backgroundColor:
  * theme.surface}]}>` — pass the same `style` (radius/margin/padding all still
- * work; padding is automatically moved to the inner content so the sheen
+ * work; padding is automatically moved to the inner content so the fill
  * still spans the full card).
  *
  * Connections:
@@ -16,18 +16,19 @@
  *   Data    → reads `glassSurfaces` from the settings store
  *
  * Edit notes:
- *   - The glass finish (frost + wash + rim + specular + scrim) now lives
- *     in the shared components/GlassFill.tsx ("Glass, take two", 2026-07-17); Surface owns
- *     only the outer view (border + layered shadow), the overflow:hidden mask, and the
- *     style-splitting contract. The `surfaceContext` prop (`'ambient'` default | `'overlay'`)
- *     still selects GlassFill's blur intensity AND wash alpha — one shared code path; what
- *     sits *behind* the card (ScreenBackground backdrop for ambient, live scrolling content
- *     for overlay) is decided by where the caller mounts the Surface, not here.
+ *   - The glass finish (frost + wash, ≤2 layers, 2026-07-18 simplification) lives in the
+ *     shared components/GlassFill.tsx; Surface owns only the outer view (border + layered
+ *     shadow), the overflow:hidden mask, and the style-splitting contract. The
+ *     `surfaceContext` prop (`'ambient'` default | `'overlay'`) selects GlassFill's blur
+ *     intensity AND wash alpha — ambient cards get NO BlurView (wash-only, cheapest path);
+ *     overlay surfaces (sheets/modals/nav) get a real frost. What sits *behind* the card
+ *     (ScreenBackground backdrop for ambient, live scrolling content for overlay) is decided
+ *     by where the caller mounts the Surface, not here.
  *   - Glass-off path: `settings.glassSurfaces` false renders a plain opaque card
  *     (mat.contrastBase fill, themed border, legacy single shadow) — the demo's non-glass
  *     fallback, exposed to users as a reduce-transparency toggle. GlassFill isn't mounted
  *     at all in that mode.
- *   - Depth (fix 3): glass-on uses getLayeredShadow(theme.shadow) — a three-pass
+ *   - Depth: glass-on uses getLayeredShadow(theme.shadow) — a three-pass
  *     `boxShadow` (RN New-Arch) — and must NOT also set the shadow/elevation keys on the
  *     same view (they'd double up). Glass-off keeps the legacy single shadow. `elevated`
  *     deepens either to the `floating` tier.
@@ -46,12 +47,9 @@
  *   - The card edge is `theme.border` (opaque), not the material's translucent-white
  *     border, so cards keep a visible calm edge in light mode (2026-07-12 redesign).
  *     Light mode still keeps the material's brighter `borderTopColor` as a top-lit glass
- *     highlight; dark mode uses a uniform themed edge (sheen is off there anyway).
+ *     highlight; dark mode uses a uniform themed edge instead.
  *   - shadowColor comes from the active theme's `shadow` token (not a fixed
  *     black), so depth itself shifts hue with the colour theme.
- *   - The sheen is suppressed in dark mode (useIsDark) — over near-black surfaces
- *     it reads as bright streaks and contradicts sunken wells; dark depth comes
- *     from border + shadow instead. Light mode keeps the sheen.
  *   - Pass `tint` for a non-default base (e.g. theme.offWhite for empty
  *     states, or an accent colour for a coloured card) — material shading is
  *     computed from this base. For a domain-coded card, prefer `borderColor`
@@ -69,7 +67,6 @@ import { getElevation, getLayeredShadow, getMaterialStyle, Radius } from '@/cons
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import GlassFill from '@/components/GlassFill';
-import { useBlurTarget } from '@/components/BlurTarget';
 
 /**
  * Which backdrop a glass Surface frosts (Decision 008). 'ambient' (default) sits
@@ -100,25 +97,24 @@ type Props = {
   children: React.ReactNode;
 };
 
-// Blur strength per context. Overlay frosts busier (live) content, so it leans
-// stronger to keep that content from reading through as legible detail.
+// Blur strength per context (2026-07-18 simplification: frost is reserved for floating
+// chrome). Ambient cards get NO BlurView at all — ambient-context callers pass
+// blurIntensity 0 into GlassFill, which skips mounting it entirely. Overlay surfaces
+// (sheets/modals/nav) sit over live scrolling content, so they get a real frost.
 const GLASS_BLUR_INTENSITY: Record<SurfaceContext, number> = {
-  ambient: 42,
-  overlay: 60,
+  ambient: 0,
+  overlay: 64,
 };
 
-// The glass colour wash sits on top of the BlurView, carrying the theme hue. The final alpha
-// it renders at. "Glass, take two" (2026-07-17) leans on the reference recipe's approach —
-// translucent fill (~0.46) + a strong blur/saturate backdrop + a text scrim do the legibility
-// work, not opacity — so AMBIENT cards (which only ever frost the calm, text-free
-// ScreenBackground backdrop) run translucent and actually read as glass. OVERLAY surfaces sit
-// over live scrolling content (sticky headers, BottomNav, sheets) where legible text/shapes
-// must NOT read through, so they stay much denser — the earlier contrast incident was an
-// overlay-context problem, not an ambient one. GlassFill additionally floors the wash on
-// Android, where the backdrop blur is disabled and opacity is the only contrast lever.
+// The glass colour wash sits on top of the (optional) BlurView, carrying the theme hue.
+// AMBIENT cards have no BlurView, so the wash alone is the entire finish — a translucent
+// tint over the calm ScreenBackground backdrop reads as frosted without per-frame blur.
+// OVERLAY surfaces sit over live scrolling content where legible text/shapes must NOT read
+// through, so they stay denser. GlassFill additionally floors the wash on Android, where
+// the backdrop blur is unavailable and opacity is the only contrast lever.
 const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
-  ambient: 0.5,
-  overlay: 0.82,
+  ambient: 0.62,
+  overlay: 0.8,
 };
 
 const PADDING_KEYS = new Set([
@@ -144,15 +140,10 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
   const theme = useAppTheme();
   const isDark = useIsDark();
   const glass = useSettingsStore((s) => s.glassSurfaces);
-  // Android backdrop-blur target (components/BlurTarget.tsx). Only ambient cards frost the
-  // shared backdrop; overlay surfaces sit over live content in (sometimes) a separate native
-  // window, so they never take a target. `ready` gates the ref until its node is attached.
-  const blurTarget = useBlurTarget();
-  const blurTargetRef = surfaceContext === 'ambient' && blurTarget?.ready ? blurTarget.ref : undefined;
   const base = tint ?? theme.surface;
   const mat = getMaterialStyle(base);
   // Glass-off (reduce-transparency) path uses the legacy single shadow; glass-on uses the
-  // take-two three-pass shadow (fix 3). Both deepen to the `floating` tier when `elevated`.
+  // three-pass layered shadow. Both deepen to the `floating` tier when `elevated`.
   const shadowLevel = elevated ? 'floating' : 'raised';
   const elevation = elevated ? getElevation('floating', theme.shadow) : null;
 
@@ -166,11 +157,6 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
     else if (!OWNED_KEYS.has(key)) outer[key] = flat[key];
   }
   const radius = (flat.borderRadius as number | undefined) ?? Radius.md;
-
-  // The raised-material sheen/specular reads as bright streaks over near-black dark surfaces
-  // (and contradicts a sunken well), so suppress the light-mode lift layers in dark mode and
-  // lean on border + shadow for depth. Light mode keeps them.
-  const showSheen = !isDark;
 
   // Glass-on: the layered box-shadow OWNS depth on the outer view (don't also set the single
   // shadow*/elevation keys — they'd double up). Glass-off: keep the legacy single shadow.
@@ -195,8 +181,8 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
           // translucent white (rgba('#FFFFFF',0.5)) that vanishes on light-mode cards,
           // leaving them edgeless. Use theme.border so every card has a visible, calm edge
           // in both modes. In light mode keep the material's brighter top edge as the glass
-          // top-lit highlight (depth); in dark mode the sheen is off, so a uniform themed
-          // edge reads cleaner than a white top-line.
+          // top-lit highlight (depth); dark mode uses a uniform themed edge instead, since a
+          // white top-line reads as a bright streak over near-black surfaces.
           borderColor: borderColor ?? theme.border,
           borderTopColor: borderColor ?? (isDark ? theme.border : mat.borderTopColor),
           borderBottomColor: borderColor ?? theme.border,
@@ -212,8 +198,6 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
             blurIntensity={GLASS_BLUR_INTENSITY[surfaceContext]}
             washAlpha={GLASS_WASH_ALPHA[surfaceContext]}
             tint={isDark ? 'dark' : 'light'}
-            showSheen={showSheen}
-            blurTargetRef={blurTargetRef}
           />
         )}
         <View style={[content, padding]}>{children}</View>

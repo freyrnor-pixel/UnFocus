@@ -15,7 +15,7 @@
  *   - BorderRadius.full (999) for buttons (fully rounded pills).
  *   - Secondary is soft-tint fill (accentSoft), NOT border.
  *   - Disabled state is opacity 0.45 applied over the variant's own colours — never swap fill for disabled.
- *   - Glass ("Glass, take two", 2026-07-17): primary/secondary/danger render components/GlassFill
+ *   - Glass: primary/secondary/danger render components/GlassFill (frost + wash, ≤2 layers)
  *     over a transparent PressableScale (so the frost blurs the screen, not a solid fill) with the
  *     near-opaque `'button'` material for CTA contrast; `ghost` (no fill) is never glass. Off when
  *     settings.glassSurfaces is false — back to the solid `colors.bg` pill. PressableScale still owns
@@ -109,9 +109,8 @@ export default function Button({
         <GlassFill
           mat={mat}
           radius={Radius.full}
-          blurIntensity={12}
+          blurIntensity={20}
           tint={isDark ? 'dark' : 'light'}
-          showSheen={!isDark}
         />
       )}
       {loading ? (

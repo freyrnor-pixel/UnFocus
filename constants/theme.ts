@@ -3,9 +3,11 @@
  *
  * `getFontSize(base, scale)` applies the user's fontSize preference to a base pt.
  * `contrastOn(hexBg)` picks near-black or white text for the best WCAG contrast.
- * `getMaterialStyle(base, variant?)` computes glass surface-finish tokens ("Glass, take two")
- * from a single base colour, consumed by components/GlassFill.tsx.
- * `getLayeredShadow(shadowColor?, level?)` returns the three-pass `boxShadow` depth (fix 3).
+ * `getMaterialStyle(base, variant?)` computes the simplified glass surface-finish tokens
+ * (frost + wash, 2026-07-18) from a single base colour, consumed by components/GlassFill.tsx.
+ * `getLayeredShadow(shadowColor?, level?)` returns the three-pass `boxShadow` depth.
+ * `getGlow(color, level?)` (2026-07-18) returns a two-pass colored `boxShadow` halo —
+ * the purposeful active/focus indicator; apply sparingly (see its own doc comment).
  * `getElevation(level, shadowColor?)` is the 3-tier depth scale (flat/raised/floating) —
  * the go-forward source of truth for shadow/elevation; see its own doc comment.
  * `Fonts` holds the rounded Nunito family tokens. Card padding across the app is `Spacing.md`
@@ -20,8 +22,10 @@
  *   Data    → none (pure constants)
  *
  * Edit notes:
- *   - Glass surface: BlurView frost + colour wash (see Surface.tsx) so text on cards
- *     keeps the same contrast guarantees regardless of what's blurred behind.
+ *   - Glass surface (simplified 2026-07-18): BlurView frost (overlay/chrome only) + colour
+ *     wash (see Surface.tsx) so text on cards keeps the same contrast guarantees regardless
+ *     of what's blurred behind. `MaterialStyle` dropped its rim/specular/scrim/drift-sheen
+ *     tokens in this pass — GlassFill now renders at most 2 layers.
  *   - Purposeful Depth System (2026-07-14): `getElevation('flat'|'raised'|'floating')`
  *     is the go-forward depth token — flat=read-only, raised=tappable at rest,
  *     floating=the one focused/active surface. Used by PressableScale's `depth` prop,
@@ -105,9 +109,9 @@ export const Spacing = {
 };
 
 export const Radius = {
-  sm: 10,
+  sm: 12,
   md: 18,
-  lg: 26,
+  lg: 24,
   full: 999,
 };
 
@@ -250,38 +254,12 @@ export type MaterialStyle = {
   shadowRadius: number;
   /** Android shadow depth. */
   elevation: number;
-  /** Faint highlight overlay for the top portion of the surface. */
-  sheenColor: string;
-  /**
-   * Translucent dark overlay for the bottom portion of the surface.
-   */
-  shadeColor: string;
   /**
    * Opaque hex equivalent of `backgroundColor` — pass this to contrastOn(),
    * never `backgroundColor` itself, since glass's backgroundColor is a
    * translucent rgba() string that contrastOn() can't parse.
    */
   contrastBase: string;
-
-  // ─── "Glass, take two" tokens (2026-07-17) ──────────────────────────────────
-  // Additive layer colours consumed by components/GlassFill.tsx. All are white/black
-  // based (theme-independent) — the themed part is the *shadow colour*, applied by the
-  // outer view via getLayeredShadow(theme.shadow), not baked in here.
-  /**
-   * Rim-light ring stops (fix 1): a gradient stroke that is bright top-left as if lit
-   * from above and fades to nothing bottom-right — reads as an edge catching light, not
-   * a flat CSS outline. Three stops: [top-left, mid, bottom-right].
-   */
-  rimColors: readonly [string, string, string];
-  /** Soft specular highlight blob (fix 3), top-left, fading to transparent. */
-  specularColor: string;
-  /**
-   * Top-down white scrim behind the text zone (fix 2, adaptive contrast) — lifts text
-   * legibility over any backdrop without pushing the whole fill opaque.
-   */
-  scrimColor: string;
-  /** Low-contrast band colour for the slow drifting sheen (fix 4). */
-  driftSheenColor: string;
   /**
    * Alpha the colour wash renders at inside GlassFill. Card glass leans translucent
    * (the Surface caller overrides this per surfaceContext); the `'button'` variant
@@ -317,23 +295,26 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
     shadowOpacity: 0.16,
     shadowRadius: 16,
     elevation: 6,
-    sheenColor: rgba('#FFFFFF', 0.5),
-    shadeColor: rgba('#000000', 0.12),
     contrastBase: tinted,
-    // take-two tokens — values mirror the "Glass, take two" reference recipe:
-    //   rim  = linear-gradient(160deg, #fff .95, #fff .05 @45%, #fff .4 @100%)
-    //   spec = radial-gradient(closest-side, #fff .55)
-    //   scrim= linear-gradient(180deg, #fff .4, transparent @45%)
-    //   drift= linear-gradient(100deg, transparent 36%, #fff .28 @48%, transparent 60%)
-    rimColors: [rgba('#FFFFFF', 0.95), rgba('#FFFFFF', 0.05), rgba('#FFFFFF', 0.4)],
-    specularColor: rgba('#FFFFFF', 0.55),
-    scrimColor: rgba('#FFFFFF', isButton ? 0.4 : 0.34),
-    driftSheenColor: rgba('#FFFFFF', 0.28),
-    // Card glass rides translucent like the reference (0.46 white + blur/saturate carry the
-    // legibility, not opacity); buttons lean a touch denser for CTA ink contrast. GlassFill
-    // floors this on Android where the backdrop blur is disabled. The Surface caller still
-    // overrides per surfaceContext (ambient vs. overlay).
-    washAlpha: isButton ? 0.58 : 0.46,
+    // Ambient content cards ride translucent (~0.62-0.8, set by the Surface caller per
+    // surfaceContext) — a tinted wash alone reads as frosted without per-frame blur, the
+    // simplified glass finish's power win. Buttons lean denser for CTA ink contrast.
+    washAlpha: isButton ? 0.9 : 0.62,
+  };
+}
+
+/**
+ * Soft colored halo — PURPOSEFUL indicator ONLY (primary action + the single active/focused
+ * element on a screen). Not decoration; do not apply broadly. New-Arch boxShadow (iOS+Android).
+ */
+export function getGlow(color: string, level: 'soft' | 'strong' = 'soft') {
+  const alpha = level === 'strong' ? 0.55 : 0.34;
+  const radius = level === 'strong' ? 22 : 15;
+  return {
+    boxShadow: [
+      { offsetX: 0, offsetY: 0, blurRadius: radius, spreadDistance: 0, color: rgba(color, alpha) },
+      { offsetX: 0, offsetY: 0, blurRadius: Math.round(radius * 1.8), spreadDistance: 0, color: rgba(color, alpha * 0.5) },
+    ],
   };
 }
 
