@@ -15,11 +15,13 @@
  *   - BorderRadius.full (999) for buttons (fully rounded pills).
  *   - Secondary is soft-tint fill (accentSoft), NOT border.
  *   - Disabled state is opacity 0.45 applied over the variant's own colours — never swap fill for disabled.
- *   - Glass: primary/secondary/danger render components/GlassFill (frost + wash, ≤2 layers)
- *     over a transparent PressableScale (so the frost blurs the screen, not a solid fill) with the
- *     near-opaque `'button'` material for CTA contrast; `ghost` (no fill) is never glass. Off when
- *     settings.glassSurfaces is false — back to the solid `colors.bg` pill. PressableScale still owns
- *     the animated press depth in both modes.
+ *   - Glass: primary/secondary/danger render components/GlassFill (frost + wash + scrim +
+ *     specular) inside a rim-light gradient padding-ring (fix 1, at Radius.full) over a
+ *     transparent PressableScale (so the frost blurs the screen, not a solid fill) with the
+ *     near-opaque `'button'` material for CTA contrast. Primary/danger swap the flat wash for
+ *     the top-lit `mat.fillGradient` (lighten→base→darken); secondary keeps the flat wash + rim
+ *     edge only. `ghost` (no fill) is never glass. Off when settings.glassSurfaces is false —
+ *     back to the solid `colors.bg` pill, no rim. PressableScale owns the press depth in both.
  *   - Purposeful Depth System (2026-07-14): primary/secondary/danger pass PressableScale's
  *     `depth="raised"` (solid-fill, physical — reads as tappable); `ghost` (text-only) stays
  *     flat/unset since it has no fill to cast a shadow from.
@@ -30,6 +32,7 @@ import { Ionicons } from '@expo/vector-icons';
 // Label stays on FontSize/Fonts.bold rather than a Type role (2026-07-18 typography pass) —
 // no Type entry fits a short CTA pill label; Type is for headings/body/captions.
 import { FontSize, Fonts, getMaterialStyle, Radius, Spacing } from '@/constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import PressableScale from '@/components/PressableScale';
@@ -79,11 +82,24 @@ export default function Button({
   const colors = variantColors[variant];
   // Ghost is text-only (no fill) → never glass. Others render the take-two glass fill when
   // enabled: the near-opaque `'button'` material keeps the CTA's ink contrast (see
-  // getMaterialStyle) while adding rim/specular/drift. When glass is on the PressableScale's
-  // own backgroundColor drops to transparent so the frost blurs the screen (not a solid fill
-  // sitting under it); the glass wash provides the colour.
+  // getMaterialStyle) while adding the rim + specular (static; no drifting sheen). When glass
+  // is on the PressableScale's own backgroundColor drops to transparent so the frost blurs the
+  // screen (not a solid fill sitting under it); the glass wash provides the colour.
   const useGlass = glass && variant !== 'ghost';
-  const mat = getMaterialStyle(colors.bg, 'button');
+  const mat = getMaterialStyle(colors.bg, 'button', isDark ? 'dark' : 'light');
+  // Only the solid-filled CTAs (primary/danger) get the top-lit vertical fill gradient (fix,
+  // buttons); secondary keeps its flat accentSoft wash + rim edge only (per the spec).
+  const topLit = variant === 'primary' || variant === 'danger';
+
+  const inner = loading ? (
+    <ActivityIndicator color={colors.text} />
+  ) : (
+    <View style={styles.content}>
+      {icon ? <Ionicons name={icon} size={Math.ceil(SIZE_FONT[size] * 1.15)} color={colors.text} style={styles.icon} /> : null}
+      <Text style={[styles.label, { color: colors.text, fontSize: SIZE_FONT[size] }]}>{label}</Text>
+      {iconRight ? <Ionicons name={iconRight} size={Math.ceil(SIZE_FONT[size] * 1.15)} color={colors.text} style={styles.iconRight} /> : null}
+    </View>
+  );
 
   return (
     <PressableScale
@@ -98,31 +114,40 @@ export default function Button({
         styles.base,
         {
           height: SIZE_HEIGHT[size],
-          paddingVertical: vertPad,
-          paddingHorizontal: horizPad,
           backgroundColor: useGlass ? 'transparent' : colors.bg,
           overflow: useGlass ? 'hidden' : undefined,
           opacity: disabled ? 0.45 : 1,
         },
+        // Glass moves the label padding onto the inner mask (the rim ring + mask fill the pill);
+        // the solid path keeps it on the pressable itself, as before.
+        useGlass ? null : { paddingVertical: vertPad, paddingHorizontal: horizPad },
         style,
       ]}
     >
-      {useGlass && (
-        <GlassFill
-          mat={mat}
-          radius={Radius.full}
-          blurIntensity={20}
-          tint={isDark ? 'dark' : 'light'}
-        />
-      )}
-      {loading ? (
-        <ActivityIndicator color={colors.text} />
+      {useGlass ? (
+        // Rim light (fix 1) scaled to the pill: a 135° gradient padding-ring at Radius.full,
+        // with the frost/wash/scrim/specular masked inside. Primary/danger swap the flat wash
+        // for the top-lit fillGradient.
+        <LinearGradient
+          colors={mat.rim.colors}
+          locations={mat.rim.locations}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.ring, { borderRadius: Radius.full, padding: mat.borderWidth }]}
+        >
+          <View style={[styles.pillMask, { borderRadius: Radius.full, paddingVertical: vertPad, paddingHorizontal: horizPad }]}>
+            <GlassFill
+              mat={mat}
+              radius={Radius.full}
+              blurIntensity={20}
+              tint={isDark ? 'dark' : 'light'}
+              fillGradient={topLit ? mat.fillGradient : undefined}
+            />
+            {inner}
+          </View>
+        </LinearGradient>
       ) : (
-        <View style={styles.content}>
-          {icon ? <Ionicons name={icon} size={Math.ceil(SIZE_FONT[size] * 1.15)} color={colors.text} style={styles.icon} /> : null}
-          <Text style={[styles.label, { color: colors.text, fontSize: SIZE_FONT[size] }]}>{label}</Text>
-          {iconRight ? <Ionicons name={iconRight} size={Math.ceil(SIZE_FONT[size] * 1.15)} color={colors.text} style={styles.iconRight} /> : null}
-        </View>
+        inner
       )}
     </PressableScale>
   );
@@ -134,6 +159,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Glass-on only: the rim gradient ring fills the pressable, and the mask inside it clips the
+  // glass fill + centres the label. flexGrow/alignSelf so both fill the fixed-height pill.
+  ring: { alignSelf: 'stretch', flexGrow: 1 },
+  pillMask: { overflow: 'hidden', flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
   content: {
     flexDirection: 'row',
     alignItems: 'center',

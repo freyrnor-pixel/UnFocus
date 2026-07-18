@@ -16,9 +16,10 @@
  *   Data    → reads `glassSurfaces` from the settings store
  *
  * Edit notes:
- *   - The glass finish (frost + wash, ≤2 layers, 2026-07-18 simplification) lives in the
- *     shared components/GlassFill.tsx; Surface owns only the outer view (border + layered
- *     shadow), the overflow:hidden mask, and the style-splitting contract. The
+ *   - The glass finish (frost + wash + scrim + specular) lives in the shared
+ *     components/GlassFill.tsx; Surface owns the outer view (layered shadow + layout), the
+ *     rim-light gradient ring (fix 1, glass-on only — a padding-ring LinearGradient that IS
+ *     the border), the overflow:hidden mask, and the style-splitting contract. The
  *     `surfaceContext` prop (`'ambient'` default | `'overlay'`) selects GlassFill's blur
  *     intensity AND wash alpha — ambient cards get NO BlurView (wash-only, cheapest path);
  *     overlay surfaces (sheets/modals/nav) get a real frost. What sits *behind* the card
@@ -44,10 +45,11 @@
  *     the content, since the fill (absoluteFill inside the mask) only covered the content
  *     height. Any backgroundColor, border colors/width, or
  *     shadow/elevation in `style` is intentionally dropped — owned by the material.
- *   - The card edge is `theme.border` (opaque), not the material's translucent-white
- *     border, so cards keep a visible calm edge in light mode (2026-07-12 redesign).
- *     Light mode still keeps the material's brighter `borderTopColor` as a top-lit glass
- *     highlight; dark mode uses a uniform themed edge instead.
+ *   - Glass-off card edge is `theme.border` (opaque) so a plain card keeps a visible calm
+ *     edge (2026-07-12 redesign); light mode keeps the material's brighter `borderTopColor`
+ *     as a top-lit highlight, dark mode a uniform themed edge. Glass-ON replaces that flat
+ *     border with the rim gradient ring (bright top-left → faint bottom-right) plus a hairline
+ *     theme.border on the mask as the never-edgeless fallback.
  *   - shadowColor comes from the active theme's `shadow` token (not a fixed
  *     black), so depth itself shifts hue with the colour theme.
  *   - Pass `tint` for a non-default base (e.g. theme.offWhite for empty
@@ -63,6 +65,7 @@
  */
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getElevation, getLayeredShadow, getMaterialStyle, Radius } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -113,7 +116,8 @@ const GLASS_BLUR_INTENSITY: Record<SurfaceContext, number> = {
 // through, so they stay denser. GlassFill additionally floors the wash on Android, where
 // the backdrop blur is unavailable and opacity is the only contrast lever.
 const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
-  ambient: 0.62,
+  // Ambient bumped 0.62 → 0.66 in "Glass, take two" (denser base under the adaptive scrim).
+  ambient: 0.66,
   overlay: 0.8,
 };
 
@@ -141,7 +145,7 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
   const isDark = useIsDark();
   const glass = useSettingsStore((s) => s.glassSurfaces);
   const base = tint ?? theme.surface;
-  const mat = getMaterialStyle(base);
+  const mat = getMaterialStyle(base, 'card', isDark ? 'dark' : 'light');
   // Glass-off (reduce-transparency) path uses the legacy single shadow; glass-on uses the
   // three-pass layered shadow. Both deepen to the `floating` tier when `elevated`.
   const shadowLevel = elevated ? 'floating' : 'raised';
@@ -170,38 +174,67 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
         elevation: elevation ? elevation.elevation : mat.elevation,
       };
 
+  // Glass-off (reduce-transparency): plain opaque card — flat themed border, single shadow,
+  // mat.contrastBase fill, and NONE of the take-two rim/scrim/specular layers mounted.
+  if (!glass) {
+    return (
+      <View
+        style={[
+          outer,
+          {
+            borderRadius: radius,
+            borderWidth: mat.borderWidth,
+            // Opaque themed edge (2026-07-12 redesign): the material's default border is a
+            // translucent white (rgba('#FFFFFF',0.5)) that vanishes on light-mode cards,
+            // leaving them edgeless. Use theme.border so every card has a visible, calm edge.
+            borderColor: borderColor ?? theme.border,
+            borderTopColor: borderColor ?? (isDark ? theme.border : mat.borderTopColor),
+            borderBottomColor: borderColor ?? theme.border,
+          },
+          shadowStyle,
+        ]}
+      >
+        <View style={[styles.mask, { borderRadius: radius, backgroundColor: mat.contrastBase }]}>
+          <View style={[content, padding]}>{children}</View>
+        </View>
+      </View>
+    );
+  }
+
+  // Glass-on: the rim light (fix 1) IS the border — a 135° gradient rendered as a padding-ring
+  // (expo-linear-gradient has no gradient-border primitive). The outer view keeps the layered
+  // shadow (NOT the gradient, or it'd be clipped) + the caller's layout; the ring shows through
+  // its `padding: borderWidth` gap; the overflow:hidden mask inside clips the frost/wash/scrim/
+  // specular and carries a hairline theme.border so a card never goes fully edgeless where the
+  // rim fades to near-transparent (its bottom-right). A `borderColor` prop (domain-coded card)
+  // overrides the rim with a solid coloured ring instead.
+  const innerRadius = Math.max(0, radius - mat.borderWidth);
+  const rimColors = borderColor ? ([borderColor, borderColor] as const) : mat.rim.colors;
   return (
-    <View
-      style={[
-        outer,
-        {
-          borderRadius: radius,
-          borderWidth: mat.borderWidth,
-          // Opaque themed edge (2026-07-12 redesign): the material's default border is a
-          // translucent white (rgba('#FFFFFF',0.5)) that vanishes on light-mode cards,
-          // leaving them edgeless. Use theme.border so every card has a visible, calm edge
-          // in both modes. In light mode keep the material's brighter top edge as the glass
-          // top-lit highlight (depth); dark mode uses a uniform themed edge instead, since a
-          // white top-line reads as a bright streak over near-black surfaces.
-          borderColor: borderColor ?? theme.border,
-          borderTopColor: borderColor ?? (isDark ? theme.border : mat.borderTopColor),
-          borderBottomColor: borderColor ?? theme.border,
-        },
-        shadowStyle,
-      ]}
-    >
-      <View style={[styles.mask, { borderRadius: radius }, glass ? null : { backgroundColor: mat.contrastBase }]}>
-        {glass && (
+    <View style={[outer, { borderRadius: radius }, shadowStyle]}>
+      <LinearGradient
+        colors={rimColors}
+        locations={borderColor ? undefined : mat.rim.locations}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.ring, { borderRadius: radius, padding: mat.borderWidth }]}
+      >
+        <View
+          style={[
+            styles.mask,
+            { borderRadius: innerRadius, borderWidth: StyleSheet.hairlineWidth, borderColor: borderColor ?? theme.border },
+          ]}
+        >
           <GlassFill
             mat={mat}
-            radius={radius}
+            radius={innerRadius}
             blurIntensity={GLASS_BLUR_INTENSITY[surfaceContext]}
             washAlpha={GLASS_WASH_ALPHA[surfaceContext]}
             tint={isDark ? 'dark' : 'light'}
           />
-        )}
-        <View style={[content, padding]}>{children}</View>
-      </View>
+          <View style={[content, padding]}>{children}</View>
+        </View>
+      </LinearGradient>
     </View>
   );
 }
@@ -216,4 +249,8 @@ const styles = StyleSheet.create({
   // transparent band inside the border below the content. No-op for content-sized cards
   // (zero free space to distribute).
   mask: { overflow: 'hidden', alignSelf: 'stretch', flexGrow: 1 },
+  // The rim gradient ring (glass-on) sits between the outer shadow view and the mask, taking
+  // over the mask's old "stretch to the outer view" role so width/height still fill the card
+  // (incl. the minHeight case — see mask's note). Its `padding` (= borderWidth) is the ring gap.
+  ring: { alignSelf: 'stretch', flexGrow: 1 },
 });
