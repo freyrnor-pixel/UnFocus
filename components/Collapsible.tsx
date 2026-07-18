@@ -36,22 +36,30 @@
  *   - The inner measuring `View` lays out at its natural content height regardless of the
  *     animated wrapper height (an explicit main-axis height doesn't shrink the child — it just
  *     clips it), so `onLayout` reports the real height to grow toward.
- *   - **Auto-height fallback (2026-07-18) — the reveal no longer DEPENDS on measurement.** The
- *     "measured height stays 0" failure recurred (chevron rotates, body stays hidden) because
- *     under Fabric the child inside a `height:0`/`overflow:hidden` clip can itself measure 0, so
- *     `progress * 0` clips the body shut forever. Fix: the clip worklet now returns natural/auto
- *     height whenever the card is OPEN but has no valid measurement (`openSV` mirrors `open` onto
- *     the UI thread so it can tell that apart from "closed"), so an open body is ALWAYS visible
- *     even if `onLayout` never reports a real height. `onLayout` then snaps `progress` to 1 on
- *     the first measure-while-open (the body was already at full auto height — animating up from
- *     0 would flicker); later opens animate normally from the cached measured height.
+ *   - **Absolute-positioned measurer (2026-07-18, supersedes the "auto-height fallback").** The
+ *     "measured height stays 0" failure kept recurring (chevron rotates, body stays hidden) for
+ *     two compounding Fabric/Reanimated-4 reasons: (1) a child inside a `height:0`/`overflow:hidden`
+ *     clip itself measures 0, so `onLayout` never reports a real height; and (2) animating a
+ *     layout prop TO `height: undefined` from `useAnimatedStyle` does NOT reset the view to auto —
+ *     it retains the last committed numeric value (0), so the old "return `{height: undefined}`
+ *     when open-but-unmeasured" fallback never actually revealed anything. Fix: the measuring
+ *     child is now `position:'absolute'` (left/right:0, no vertical constraint), so it lays out at
+ *     its NATURAL height even while the clip is collapsed to 0 — `onLayout` always reports the real
+ *     height. The clip height is then driven by a numeric `progress * measured`, and the reveal
+ *     animates a real 0 → measured grow — no `openSV` mirror needed. The one remaining
+ *     `height: undefined` branch is narrow and safe: it fires ONLY for a mount-already-open,
+ *     never-measured card (its initial committed value, so it shows instantly instead of flashing
+ *     collapsed), and hands off to the numeric branch the instant `measured` is set. It is never
+ *     reached as an animated transition TO undefined (the case Fabric ignores), so it can't get
+ *     stuck the way the old closed→open fallback did.
  *   - **Lazy mount preserved:** children render only while `open` OR while a close animation is
  *     still playing; the close `withTiming` completion callback unmounts them (`runOnJS`). A
  *     fully-collapsed instance renders no children (matters for long lists like WeekListCard
  *     history via ExpandableCard). `measured` persists across mounts, so a re-open animates
  *     from the cached height.
  *   - Mount-already-open (e.g. an isNew task card that starts expanded) shows content
- *     immediately at natural height (the auto-height fallback), no entrance animation.
+ *     immediately at natural height (the narrow mount-open `height: undefined` branch), no
+ *     entrance animation.
  *   - reducedMotion drops the animation entirely (instant mount/unmount).
  */
 import React, { useEffect, useRef, useState } from 'react';
@@ -79,13 +87,9 @@ export default function Collapsible({ open, children, style }: Props) {
   const [mounted, setMounted] = useState(open);
   const progress = useSharedValue(open ? 1 : 0);
   const measured = useSharedValue(0);
-  // `open` mirrored onto the UI thread so the clip worklet can tell "open but not yet measured"
-  // (must stay visible) apart from "closed" (height 0) — see clipStyle.
-  const openSV = useSharedValue(open ? 1 : 0);
   const firstRun = useRef(true);
 
   useEffect(() => {
-    openSV.value = open ? 1 : 0;
     // Skip animating on the very first render: a mount-already-open instance shows its content
     // immediately (no entrance), and a mount-closed one is simply absent.
     if (firstRun.current) {
@@ -111,27 +115,29 @@ export default function Collapsible({ open, children, style }: Props) {
         if (finished && !open) runOnJS(setMounted)(false);
       }
     );
-  }, [open, reducedMotion, progress, openSV]);
+  }, [open, reducedMotion, progress]);
 
   const onLayout = (e: LayoutChangeEvent) => {
+    // The measuring child is absolutely positioned (styles.measure), so it lays out at its
+    // natural height regardless of the clip's current (possibly 0) height — this always reports
+    // the real content height, even while collapsed. The reveal then animates 0 → measured off
+    // `progress`, so there's nothing to snap here.
     const h = e.nativeEvent.layout.height;
-    if (h <= 0) return;
-    // First real measurement while open: the body was showing at auto height (the fallback
-    // below), so snap progress to fully-open instead of animating up from 0 — otherwise the
-    // clip would jump from full height down to `progress * h` and grow back, a visible flicker.
-    // Later opens animate normally from the cached measured height.
-    if (measured.value === 0 && open) progress.value = 1;
-    measured.value = h;
+    if (h > 0) measured.value = h;
   };
 
   const clipStyle = useAnimatedStyle(() => {
-    // CRITICAL: never clip an OPEN body to 0. If there's no valid measurement yet — the first
-    // open, or a Fabric layout where the child inside this height:0/overflow:hidden clip
-    // measured 0 — fall back to natural/auto height so the content is ALWAYS visible. This is
-    // the guard against the recurring "chevron rotates but the body stays hidden" bug: the
-    // reveal no longer depends on measurement succeeding. Once measured, drive the clip height
-    // from progress (0 = closed → measured = fully open) for the smooth grow/shrink.
-    if (openSV.value === 1 && measured.value === 0) return { height: undefined };
+    // Mount-already-open, not yet measured (an isNew/defaultOpen card): show at natural/auto
+    // height for the first frame(s) so it doesn't flash collapsed before onLayout reports its
+    // height. This is safe — it's the INITIAL committed value, never an animated transition TO
+    // undefined (which Fabric ignores, the bug that broke the old closed→open fallback) — and it
+    // hands off seamlessly to the numeric branch the instant `measured` is set. progress starts
+    // at exactly 1 only for a mount-open card and only changes via withTiming on a later toggle.
+    if (progress.value === 1 && measured.value === 0) return { height: undefined };
+    // Every other case — crucially the closed→open reveal — drives the clip height off a numeric
+    // progress * measured (0 = closed, measured = fully open), animating a real 0 → height grow.
+    // The absolute-positioned measurer guarantees `measured` becomes a real value, so this never
+    // gets stuck at 0 the way the old measure-inside-the-clip approach did.
     return { height: progress.value * measured.value };
   });
 
@@ -141,11 +147,16 @@ export default function Collapsible({ open, children, style }: Props) {
 
   return (
     <Animated.View style={[styles.clip, style, clipStyle]}>
-      {mounted ? <View onLayout={onLayout}>{children}</View> : null}
+      {mounted ? <View style={styles.measure} onLayout={onLayout}>{children}</View> : null}
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   clip: { overflow: 'hidden' },
+  // left/right:0 gives full width; no bottom/height means natural content height, unconstrained
+  // by the parent's animated (possibly 0) height — so onLayout always reports the real height,
+  // even while collapsed. position:'absolute' also removes it from flow, so the clip's height is
+  // driven solely by clipStyle (the numeric progress * measured).
+  measure: { position: 'absolute', left: 0, right: 0, top: 0 },
 });
