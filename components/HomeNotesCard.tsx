@@ -47,7 +47,7 @@ import PressableScale from '@/components/PressableScale';
 import HomePreviewEmpty from '@/components/HomePreviewEmpty';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -108,7 +108,7 @@ export default function HomeNotesCard() {
             <View style={styles.titleLeft}>
               <Text style={[styles.title, { color: theme.text }]}>{t.notes.title}</Text>
               {activeNotes.length > 0 && (
-                <View style={[styles.badge, { backgroundColor: domainColor.soft }]}>
+                <View style={[styles.badge, { backgroundColor: domainColor.soft, borderColor: rgba(domainColor.accent, 0.4) }]}>
                   <Text style={[styles.badgeText, { color: domainColor.accent }]}>{activeNotes.length}</Text>
                 </View>
               )}
@@ -124,7 +124,7 @@ export default function HomeNotesCard() {
             <View
               style={[
                 styles.micButton,
-                { backgroundColor: listening ? theme.badSoft : domainColor.soft },
+                { backgroundColor: listening ? theme.badSoft : domainColor.soft, borderColor: rgba(listening ? theme.bad : domainColor.accent, 0.4) },
               ]}
             >
               <Ionicons name={listening ? 'stop' : 'mic'} size={15} color={listening ? theme.bad : domainColor.accent} />
@@ -244,9 +244,9 @@ const baseStyles = StyleSheet.create({
   titleLeftPressable: { flexShrink: 1 },
   titleLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   title: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
-  badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
+  badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-  micButton: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  micButton: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   // Wells removed (2026-07-13 grouping pass): rows sit directly on the card face so the
   // whole section reads as one thing, instead of a flat surfaceMuted box-in-a-box.
   rowsContainer: { marginBottom: Spacing.sm },

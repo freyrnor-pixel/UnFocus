@@ -17,18 +17,20 @@
  *
  * Edit notes:
  *   - The glass finish (frost + wash + scrim + specular) lives in the shared
- *     components/GlassFill.tsx; Surface owns the outer view (layered shadow + layout), the
- *     raised-keycap EDGE (a thick hue-tinted rim gradient padding-ring + a crisp inner line),
+ *     components/GlassFill.tsx; Surface owns the outer view (layered shadow + layout), the THIN
+ *     beveled EDGE (a single ~1.5px border with per-side top-light/bottom-shadow bevel colours),
  *     the overflow:hidden mask, and the style-splitting contract. The `surfaceContext` prop
  *     (`'ambient'` default | `'overlay'`) selects GlassFill's blur intensity AND wash alpha —
  *     ambient cards get NO BlurView (wash-only, cheapest path); overlay surfaces
  *     (sheets/modals/nav) get a real frost. What sits *behind* the card (ScreenBackground
  *     colour field for ambient, live scrolling content for overlay) is decided by where the
  *     caller mounts the Surface, not here.
- *   - **Colour-architecture inversion (2026-07-18)**: the FILL is neutral frost (base =
- *     theme.surface), NOT tinted with the screen hue; the COLOUR lives in the keycap EDGE,
- *     keyed to the screen hue via `useScreenColor()` (edgeMat). So a card is a neutral glass
- *     keycap with a strong colored edge, floating over the colorful ScreenBackground field.
+ *   - **Colour-architecture inversion (2026-07-18, retuned)**: the translucent FILL frosts the
+ *     ScreenBackground FIELD showing through behind the card, so every card on a screen shares
+ *     one uniform frosted hue; the domain/screen COLOUR lives ONLY in the thin beveled EDGE. The
+ *     border is a real RN border on the mask (NOT a full-rect gradient ring behind the fill) —
+ *     that's what stops each card bleeding its own edge colour through the fill (the earlier
+ *     thick-ring version tinted every card's whole face, reading as a multi-hue screen).
  *   - Glass-off path: `settings.glassSurfaces` false renders a plain opaque card
  *     (mat.contrastBase fill, themed border, legacy single shadow) — the demo's non-glass
  *     fallback, exposed to users as a reduce-transparency toggle. GlassFill isn't mounted
@@ -51,11 +53,10 @@
  *     shadow/elevation in `style` is intentionally dropped — owned by the material.
  *   - Glass-off card edge is `theme.border` (opaque) so a plain card keeps a visible calm
  *     edge (2026-07-12 redesign); light mode keeps the material's brighter `borderTopColor`
- *     as a top-lit highlight, dark mode a uniform themed edge. Glass-ON is a strong raised
- *     keycap (double): a thick hue-tinted rim gradient padding-ring (bright top lip → soft dark
- *     bottom, from the screen-hue edgeMat) PLUS a crisp inner line (edgeMat.innerLine) — the two
- *     edges read as a physically raised, colored key. A `borderColor` prop (domain-coded card)
- *     collapses the ring to a solid coloured edge.
+ *     as a top-lit highlight, dark mode a uniform themed edge. Glass-ON is a THIN beveled edge
+ *     (~1.5px, `bevelEdge()`): one border line with a lit top / true-hue sides / darker bottom,
+ *     in the edge hue (screen hue, or the `borderColor`/`tint` override) — a raised key without
+ *     the old thick-ring heft, and thin enough that the colour reads as an accent, not a frame.
  *   - shadowColor comes from the active theme's `shadow` token (not a fixed
  *     black), so depth itself shifts hue with the colour theme.
  *   - Pass `tint` for a non-default base (e.g. theme.offWhite for empty
@@ -71,8 +72,7 @@
  */
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { darken, getElevation, getLayeredShadow, getMaterialStyle, lighten, Radius, rgba } from '@/constants/theme';
+import { darken, getElevation, getLayeredShadow, getMaterialStyle, lighten, Radius } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useScreenColor } from '@/lib/screenColor';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -134,28 +134,22 @@ const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
   overlay: 0.8,
 };
 
-// Raised-keycap edge geometry (2026-07-18 vision tune): a THICK hue-tinted rim padding-ring plus
-// a crisp inner line = the "double keycap" that pops off the field with real depth. Thicker than
-// the old 1.5 so the colored edge reads as a strong typewriter-key bevel, not a hairline.
-const KEYCAP_BORDER_WIDTH = 3;
-const KEYCAP_INNER_LINE_WIDTH = 1.5;
+// Thin beveled edge (2026-07-18 "make borders thinner"): a single hairline-ish border, not the old
+// thick gradient padding-ring + inner line. `EDGE_WIDTH` is the whole border now — one crisp line
+// with a top-light/bottom-shadow bevel (per-side colours) that still reads as a raised key without
+// the heft. Kept as a real RN border on the mask (not a full-rect LinearGradient) precisely so the
+// translucent fill frosts the SCREEN FIELD behind the card — colour only in this thin edge — which
+// is what keeps every card on a screen a single, uniform frosted hue instead of each bleeding its
+// own domain colour through the fill (the multi-hue "some screens one hue, others more" report).
+const EDGE_WIDTH = 1.5;
 
-// Strong colored keycap edge, built from the screen/domain hue. Deliberately SATURATED (not the
-// generic material rim, whose near-white top lip vanishes when the hue matches the field behind —
-// e.g. a blue card on the blue Home field). Top = a bright-but-saturated lit lip, mid = the true
-// hue, bottom = a dark hue-shadow, so the edge both POPS against a same-hue field and keeps the
-// top-light→bottom-dark bevel that reads as a raised key.
-function keycapRim(hue: string, isDark: boolean): { colors: readonly [string, string, ...string[]]; locations: readonly [number, number, ...number[]] } {
-  // Stronger top-light → bottom-shadow contrast (2026-07-18 "borders should pop more") so the
-  // keycap edge reads as a raised, shaded bevel rather than a flat coloured line: a brighter lit
-  // top lip and a deeper hue-shadow at the bottom.
+// Per-side bevel colours from one hue: a lit top lip, the true hue on the sides, a darker shadow at
+// the bottom — a thin shaded edge that reads as a raised key. Opaque so a domain edge stays crisp
+// against a same-hue field (e.g. a blue-edged card on the blue Home field).
+function bevelEdge(hue: string, isDark: boolean): { top: string; side: string; bottom: string } {
   return isDark
-    ? { colors: [rgba(lighten(hue, 0.28), 0.95), rgba(hue, 0.58), rgba('#000000', 0.55)], locations: [0, 0.5, 1] }
-    : { colors: [rgba(lighten(hue, 0.20), 1), rgba(hue, 0.85), rgba(darken(hue, 0.30), 0.78)], locations: [0, 0.48, 1] };
-}
-// The "double" inner edge — a saturated colored line just inside the rim chamfer.
-function keycapInner(hue: string, isDark: boolean): string {
-  return isDark ? rgba(lighten(hue, 0.10), 0.50) : rgba(darken(hue, 0.04), 0.55);
+    ? { top: lighten(hue, 0.24), side: hue, bottom: darken(hue, 0.20) }
+    : { top: lighten(hue, 0.14), side: hue, bottom: darken(hue, 0.22) };
 }
 
 const PADDING_KEYS = new Set([
@@ -183,21 +177,18 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
   const mode = isDark ? 'dark' : 'light';
   const glass = useSettingsStore((s) => s.glassSurfaces);
   const screenHue = useScreenColor();
-  // Colour-architecture inversion (2026-07-18): the FILL is neutral frosted glass (near-white /
-  // near-navy), NOT tinted with the screen hue — a denser, opaque-leaning frosted pane. The
-  // COLOUR lives in the raised-keycap EDGE instead: a strong hue-tinted rim + inner line, keyed
-  // to the screen's dominant hue (lib/screenColor.ts). So a card reads as a neutral glass keycap
-  // with a colored edge that pops, floating over the colorful ScreenBackground field. An explicit
-  // `tint` overrides the fill; `borderColor` overrides the edge with a solid coloured ring.
+  // Colour-architecture (2026-07-18, retuned): the translucent FILL frosts the ScreenBackground
+  // FIELD behind the card (base = theme.surface, near-white/near-navy), so cards on one screen all
+  // read as a single uniform frosted hue. The domain/screen COLOUR lives ONLY in the thin beveled
+  // EDGE, keyed to the screen's dominant hue (lib/screenColor.ts). An explicit `tint` overrides the
+  // fill base; `borderColor` overrides the edge hue.
   const base = tint ?? theme.surface;
   const mat = getMaterialStyle(base, 'card', mode);
-  // Edge (keycap) colour source, in priority order: an explicit `borderColor` (a domain-coded
-  // card — e.g. the green shopping preview, indigo plans, note-coloured notes — so the edge
-  // matches that card's own icon/badge instead of the generic screen hue), then `tint`, then the
-  // screen hue (so an un-coded card on a tab carries that screen's colored keycap edge), then a
-  // calm neutral keycap for sub-tier screens (no hue). Whatever wins is fed through keycapRim so
-  // it ALWAYS renders as a shaded, beveled keycap — `borderColor` no longer collapses to a flat
-  // ring (2026-07-18 "borders should pop / use shading"), it just picks the bevel's hue.
+  // Edge colour source, in priority order: an explicit `borderColor` (a domain-coded card — e.g.
+  // the green shopping preview, indigo plans, note-coloured notes — so the edge matches that card's
+  // own icon/badge instead of the generic screen hue), then `tint`, then the screen hue (so an
+  // un-coded card on a tab carries that screen's edge colour), then a calm neutral edge for
+  // sub-tier screens (no hue). Whatever wins becomes the thin beveled border's hue (bevelEdge).
   const edgeHue = borderColor ?? tint ?? (glass && screenHue ? screenHue : theme.border);
   // Glass-off (reduce-transparency) path uses the legacy single shadow; glass-on uses the
   // three-pass layered shadow. Both deepen to the `floating` tier when `elevated`.
@@ -254,43 +245,36 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
     );
   }
 
-  // Glass-on: a raised typewriter-keycap edge — a THICK, hue-tinted rim gradient padding-ring
-  // (bright lit top lip → soft dark bottom, from the screen-hue edgeMat) PLUS a crisp inner line
-  // (edgeMat.innerLine), so the card reads as a physically raised, colored key that pops off the
-  // field with real depth/layering. The FILL inside stays neutral frost (mat = neutral base). A
-  // `borderColor` prop (domain-coded card) collapses the ring to a solid coloured edge.
-  const innerRadius = Math.max(0, radius - KEYCAP_BORDER_WIDTH);
-  const rim = keycapRim(edgeHue, isDark);
+  // Glass-on: a THIN beveled edge (top-light → bottom-shadow) drawn as a real border on the
+  // overflow-hidden mask, over a TRANSLUCENT frosted fill. Because the border is a real RN border
+  // (not a full-rect gradient ring behind the fill), the fill frosts the SCREEN FIELD showing
+  // through — so every card on a screen shares one uniform frosted hue and the colour lives only in
+  // this thin edge (2026-07-18: thinner borders + fix the per-card multi-hue frost bleed).
+  const rim = bevelEdge(edgeHue, isDark);
+  const innerRadius = Math.max(0, radius - EDGE_WIDTH);
   return (
     <View style={[outer, { borderRadius: radius }, shadowStyle]}>
-      <LinearGradient
-        colors={rim.colors}
-        locations={rim.locations}
-        // Vertical (top → bottom): light on the top edge, shadow on the bottom edge — the keycap
-        // bevel. Every card (incl. domain-coded `borderColor` cards) uses this shaded gradient so
-        // the edge pops as a raised key, not a flat ring.
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={[styles.ring, { borderRadius: radius, padding: KEYCAP_BORDER_WIDTH }]}
+      <View
+        style={[
+          styles.mask,
+          {
+            borderRadius: radius,
+            borderWidth: EDGE_WIDTH,
+            borderColor: rim.side,
+            borderTopColor: rim.top,
+            borderBottomColor: rim.bottom,
+          },
+        ]}
       >
-        <View
-          style={[
-            styles.mask,
-            // Inner line = the second edge of the raised-keycap "double": a saturated colored line
-            // just inside the rim chamfer, in the same edge hue as the bevel.
-            { borderRadius: innerRadius, borderWidth: KEYCAP_INNER_LINE_WIDTH, borderColor: keycapInner(edgeHue, isDark) },
-          ]}
-        >
-          <GlassFill
-            mat={mat}
-            radius={innerRadius}
-            blurIntensity={GLASS_BLUR_INTENSITY[surfaceContext]}
-            washAlpha={GLASS_WASH_ALPHA[surfaceContext]}
-            tint={isDark ? 'dark' : 'light'}
-          />
-          <View style={[content, padding]}>{children}</View>
-        </View>
-      </LinearGradient>
+        <GlassFill
+          mat={mat}
+          radius={innerRadius}
+          blurIntensity={GLASS_BLUR_INTENSITY[surfaceContext]}
+          washAlpha={GLASS_WASH_ALPHA[surfaceContext]}
+          tint={isDark ? 'dark' : 'light'}
+        />
+        <View style={[content, padding]}>{children}</View>
+      </View>
     </View>
   );
 }
@@ -305,8 +289,4 @@ const styles = StyleSheet.create({
   // transparent band inside the border below the content. No-op for content-sized cards
   // (zero free space to distribute).
   mask: { overflow: 'hidden', alignSelf: 'stretch', flexGrow: 1 },
-  // The keycap rim gradient ring sits between the outer shadow view and the mask, taking over
-  // the mask's "stretch to the outer view" role so width/height still fill the card (incl. the
-  // minHeight case — see mask's note). Its `padding` (= KEYCAP_BORDER_WIDTH) is the ring gap.
-  ring: { alignSelf: 'stretch', flexGrow: 1 },
 });

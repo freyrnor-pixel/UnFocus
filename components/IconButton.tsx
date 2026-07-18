@@ -22,7 +22,7 @@ import React from 'react';
 import { StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { Radius, rgba } from '@/constants/theme';
+import { Radius } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useToggleColor } from '@/lib/useToggleColor';
 import PressableScale from '@/components/PressableScale';
@@ -58,10 +58,13 @@ export default function IconButton({
   const fgColor = color ?? (disabled ? theme.textMuted : active ? theme.accent : theme.text);
 
   // Background + border crossfade between inactive and active as `active` flips (the icon
-  // colour swaps instantly on top, matching the SlideSelector convention).
+  // colour swaps instantly on top, matching the SlideSelector convention). Inactive keeps a
+  // VISIBLE thin edge (theme.border) — matching the cards' thin beveled edge so icon-buttons read
+  // as the same family of raised keys (2026-07-18 "border around icons and buttons") — rather than
+  // the old fully-transparent inactive border that left them edgeless.
   const animatedStyle = useToggleColor(active, {
     backgroundColor: [inactiveBg, theme.accentSoft],
-    borderColor: [rgba(theme.accent, 0), theme.accent],
+    borderColor: [theme.border, theme.accent],
   });
 
   return (

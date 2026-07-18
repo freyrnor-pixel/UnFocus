@@ -56,7 +56,7 @@ import PressableScale from '@/components/PressableScale';
 import HomePreviewEmpty from '@/components/HomePreviewEmpty';
 import ProgressBar from '@/components/ProgressBar';
 import type { FlightRect } from '@/components/FlightOverlay';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -177,7 +177,7 @@ export default function HomeShoppingCard({
               {list?.name ?? t.shoppingTitle}
             </Text>
             {totalCount > 0 && (
-              <View ref={badgeRef} style={[styles.badge, { backgroundColor: domainColor.soft }]}>
+              <View ref={badgeRef} style={[styles.badge, { backgroundColor: domainColor.soft, borderColor: rgba(domainColor.accent, 0.4) }]}>
                 <Text style={[styles.badgeText, { color: domainColor.accent }]}>{totalCount}</Text>
               </View>
             )}
@@ -300,7 +300,7 @@ const baseStyles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   progressBar: { marginTop: Spacing.xs },
   title: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, flexShrink: 1 },
-  badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
+  badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   // Wells removed (2026-07-13 grouping pass): rows sit directly on the card face.
   rowsContainer: { marginBottom: Spacing.sm },

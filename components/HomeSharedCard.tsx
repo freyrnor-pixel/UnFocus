@@ -27,7 +27,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -64,7 +64,7 @@ export default function HomeSharedCard() {
         {/* Title row */}
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: theme.text }]}>{t.sharedTitle}</Text>
-          <View style={[styles.badge, { backgroundColor: theme.accentSoft }]}>
+          <View style={[styles.badge, { backgroundColor: theme.accentSoft, borderColor: rgba(theme.accent, 0.4) }]}>
             <Text style={[styles.badgeText, { color: theme.accent }]}>{total}</Text>
           </View>
           <View style={styles.titleRight}>
@@ -133,7 +133,7 @@ const baseStyles = StyleSheet.create({
   cardContent: { flex: 1, padding: Spacing.md },
   titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm, gap: Spacing.sm },
   title: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
-  badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
+  badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   titleRight: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: Spacing.md },
   seeAll: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
