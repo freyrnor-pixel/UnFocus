@@ -22,10 +22,16 @@
  *   Data    → none (presentational)
  *
  * Edit notes:
- *   - Glass ("Glass, take two", 2026-07-17): when settings.glassSurfaces is on the FAB is a
- *     transparent circle with components/GlassFill + a floating-tier getLayeredShadow (the
+ *   - Glass: when settings.glassSurfaces is on the FAB is a transparent circle with
+ *     components/GlassFill (frost + wash) + a floating-tier getLayeredShadow (the
  *     three-pass depth). Off → solid theme.accent + Shadow.fab (the same token BottomNav's
  *     centre button uses) so it never hand-rolls a weaker shadow.
+ *   - **Glow (2026-07-18)**: only the `'lg'` floating FAB (the primary "add" action) always
+ *     carries `getGlow(theme.accent, 'strong')` — the one "always on" purposeful glow in the
+ *     app (see constants/theme.ts's getGlow doc); the `'sm'` inline variant is a secondary,
+ *     in-row control and stays glow-free. Merged into the same `boxShadow` array as the depth
+ *     shadow (glass-on) or added alongside `Shadow.fab`'s single-shadow keys (glass-off; RN
+ *     allows `boxShadow` and the legacy shadow* keys on the same view — independent props).
  *   - `bottom` only applies to the 'lg' floating variant; pass it when a screen has
  *     extra sticky footer content above BottomNav.
  *   - Exports FAB_LG_SIZE/FAB_DEFAULT_BOTTOM so a screen with extra footer content
@@ -38,7 +44,7 @@ import React from 'react';
 import { StyleSheet, Text, ViewStyle, StyleProp } from 'react-native';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { Fonts, getLayeredShadow, getMaterialStyle, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, getGlow, getLayeredShadow, getMaterialStyle, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
 import PressableScale from '@/components/PressableScale';
@@ -73,6 +79,9 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
   const t = useT();
   const dimension = DIMENSION[size];
   const mat = getMaterialStyle(theme.accent, 'button');
+  // Purposeful glow (2026-07-18): only the floating 'lg' FAB, always on, regardless of the
+  // glassSurfaces toggle — see the file header's Glow edit note.
+  const glowShadow = size === 'lg' ? getGlow(theme.accent, 'strong').boxShadow : [];
 
   return (
     <PressableScale
@@ -85,11 +94,16 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
       style={[
         styles.base,
         { width: dimension, height: dimension },
-        // Glass ("Glass, take two"): transparent fill + frost + floating-tier layered shadow
-        // makes the FAB read as the lit chrome floating over content. Off → solid accent + Shadow.fab.
+        // Glass: transparent fill + frost + floating-tier layered shadow (merged with the
+        // glow) makes the FAB read as the lit chrome floating over content. Off → solid
+        // accent + Shadow.fab, with the glow's boxShadow added alongside.
         glass
-          ? { backgroundColor: 'transparent', overflow: 'hidden', boxShadow: getLayeredShadow(theme.shadow, 'floating') }
-          : { backgroundColor: theme.accent, ...Shadow.fab },
+          ? {
+              backgroundColor: 'transparent',
+              overflow: 'hidden',
+              boxShadow: [...getLayeredShadow(theme.shadow, 'floating'), ...glowShadow],
+            }
+          : { backgroundColor: theme.accent, ...Shadow.fab, boxShadow: glowShadow },
         size === 'lg' && [styles.floating, { bottom: bottom ?? DEFAULT_BOTTOM }],
         style,
       ]}
@@ -100,7 +114,6 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
           radius={Radius.full}
           blurIntensity={16}
           tint={isDark ? 'dark' : 'light'}
-          showSheen={!isDark}
         />
       )}
       <Text style={[styles.plus, { fontSize: PLUS_SIZE[size], color: theme.accentInk }]}>+</Text>

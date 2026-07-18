@@ -616,7 +616,10 @@ export function initDb() {
     // user-facing reduce-transparency fallback to plain opaque surfaces (see components/GlassFill.tsx).
     "ALTER TABLE settings ADD COLUMN glass_surfaces INTEGER DEFAULT 1",
     // Android real backdrop blur behind glass (2026-07-18) — default on; off falls back to the
-    // translucent wash. No effect on iOS/web. See components/BlurTarget.tsx.
+    // translucent wash. No effect on iOS/web.
+    // ORPHANED (2026-07-18 glass simplification): the blur-target subsystem this column gated
+    // (components/BlurTarget.tsx) was deleted — nothing reads/writes glass_blur any more.
+    // Left in place per the never-drop-columns invariant.
     "ALTER TABLE settings ADD COLUMN glass_blur INTEGER DEFAULT 1",
     // Perf/tap fix (2026-07-18): the per-card dimezis backdrop blur was the heaviest glass cost
     // and could intercept taps on Android, so flip it OFF for everyone (the settings row is
