@@ -65,6 +65,13 @@
  *   - `swipeEnabled: true` is the whole point of this migration. app/(tabs)/scan.tsx
  *     temporarily flips it off via `navigation.setOptions` while an OCR scan is
  *     processing or one of its modals is open, so a stray swipe can't abandon that flow.
+ *   - **`animationEnabled: Platform.OS !== 'web'` (2026-07-18, web-only stuck-scroll fix)**:
+ *     BottomNav taps on web drive the pager via an animated JS `scrollTo` (no real native
+ *     pager there) that can be interrupted mid-flight, leaving `scrollLeft` at a
+ *     non-page-boundary value — two adjacent screens visibly overlapping. Disabling the
+ *     animation on web makes tap-navigation snap instantly, closing that window; swipe
+ *     gestures still animate (react-navigation only applies this flag to programmatic
+ *     `navigate()`). Native is untouched — its slide is the whole point of this migration.
  *   - **Active-tab tracking for the shared background**: the pager's own navigator state
  *     (`state.routes[state.index].name`) is read inside the `tabBar` render prop, same
  *     place BottomNav reads it to highlight the active icon — there's no other hook that
@@ -84,7 +91,7 @@
  *     sceneStyle override first.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, Platform, StyleSheet, View } from 'react-native';
 import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
@@ -151,7 +158,21 @@ export default function TabsLayout() {
 
       <TopTabs
         tabBarPosition="bottom"
-        screenOptions={{ swipeEnabled: true, lazy: false, sceneStyle: { backgroundColor: 'transparent' } }}
+        screenOptions={{
+          swipeEnabled: true,
+          lazy: false,
+          // Web-only: tapping BottomNav drives this via an animated JS scrollTo (there's no
+          // native pager on web), and that animation can get interrupted mid-flight — the
+          // web preview's DOM inspector caught it stuck at a non-page-boundary scrollLeft,
+          // rendering two adjacent screens side by side (2026-07-18). Disabling it on web
+          // makes tap-navigation jump instantly instead of animating, which removes the
+          // window for that interruption; swipe gestures still animate regardless of this
+          // flag (react-navigation only applies it to programmatic navigate() calls). Native
+          // keeps its animated slide — real react-native-pager-view doesn't have this failure
+          // mode, and that slide is the whole point of this migration (see file header).
+          animationEnabled: Platform.OS !== 'web',
+          sceneStyle: { backgroundColor: 'transparent' },
+        }}
         tabBar={(props: MaterialTopTabBarProps) => (
           <TabBarWithBackgroundSync {...props} insetsBottom={insets.bottom} onActiveRouteChange={setActiveRouteName} />
         )}
