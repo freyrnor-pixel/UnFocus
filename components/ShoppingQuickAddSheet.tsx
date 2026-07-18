@@ -167,7 +167,7 @@ const baseStyles = StyleSheet.create({
   },
   nameInput: {
     fontSize: FontSize.xl,
-    fontWeight: '500',
+    fontFamily: Fonts.medium,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
   },
@@ -178,5 +178,5 @@ const baseStyles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText: { fontWeight: '700', fontSize: FontSize.md },
+  saveBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 });

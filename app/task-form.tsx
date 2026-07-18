@@ -363,7 +363,7 @@ export default function TaskFormScreen() {
                     style={[
                       styles.weekChipNum,
                       { color: theme.text },
-                      active && { color: theme.accentInk, fontWeight: '700' },
+                      active && { color: theme.accentInk, fontFamily: Fonts.bold },
                     ]}
                   >
                     {wd.dayNum}
@@ -451,7 +451,7 @@ export default function TaskFormScreen() {
                     }}
                     scaleTo={0.97}
                   >
-                    <Text style={[styles.durationText, { color: theme.text }, active && { color: theme.accentInk, fontWeight: '700' }]}>
+                    <Text style={[styles.durationText, { color: theme.text }, active && { color: theme.accentInk, fontFamily: Fonts.bold }]}>
                       {m}m
                     </Text>
                   </PressableScale>

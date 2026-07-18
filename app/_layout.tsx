@@ -99,7 +99,7 @@ import { Asset } from 'expo-asset';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import * as NavigationBar from 'expo-navigation-bar';
-import { MAX_FONT_SCALE } from '@/constants/theme';
+import { Fonts, MAX_FONT_SCALE } from '@/constants/theme';
 import { initDb } from '@/lib/db';
 import { saveAutoBackup } from '@/lib/backup';
 import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
@@ -131,6 +131,31 @@ import AppModalHost from '@/components/AppModal';
 // clipping/overflow.
 (RNText as any).defaultProps = { ...(RNText as any).defaultProps, maxFontSizeMultiplier: MAX_FONT_SCALE };
 (RNTextInput as any).defaultProps = { ...(RNTextInput as any).defaultProps, maxFontSizeMultiplier: MAX_FONT_SCALE };
+
+// Global rounded-Nunito default for EVERY <Text>/<TextInput> — even ones that pass their own
+// `style` (2026-07-18 "font varies where it should be identical" fix). This was the app-wide root
+// cause: React only applies `defaultProps.style` when a component passes NO style prop, so the
+// ~170 text styles that set only size/colour (no `fontFamily`) fell through to the platform system
+// face (Roboto/SF) while their neighbours that DID name a Fonts.* family rendered Nunito — the
+// visible drift. (Styles that set only `fontWeight` were a second cause, now converted to
+// Fonts.*; Nunito is a static multi-weight family, so weight comes from the family name, not
+// `fontWeight`.) Prepending the default family into the rendered element's style array — the
+// standard RN "global font" technique — means an explicit `fontFamily` in a component's own style
+// STILL wins (later entries override), while everything else finally lands on Nunito regular.
+function patchDefaultFontFamily(Component: any) {
+  if (!Component?.render || Component.__nunitoPatched) return;
+  const originalRender = Component.render;
+  Component.render = function nunitoPatchedRender(...args: any[]) {
+    const element = originalRender.apply(this, args);
+    if (!element) return element;
+    return React.cloneElement(element, {
+      style: [{ fontFamily: Fonts.regular }, (element.props as any)?.style],
+    });
+  };
+  Component.__nunitoPatched = true;
+}
+patchDefaultFontFamily(RNText);
+patchDefaultFontFamily(RNTextInput);
 
 // Hold the native splash screen up (instead of letting it auto-hide on the first JS
 // frame) so the app reveals ONCE, fully painted — fonts, icon glyphs and the decoded

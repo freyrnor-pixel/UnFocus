@@ -134,7 +134,7 @@ const baseStyles = StyleSheet.create({
   name: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   tempPill: { borderRadius: Radius.full, paddingHorizontal: 6, paddingVertical: 1 },
-  tempPillText: { fontSize: 10, fontWeight: '700' },
+  tempPillText: { fontSize: 10, fontFamily: Fonts.bold },
   qtyMeta: { fontSize: FontSize.xs },
   priceCol: { alignItems: 'flex-end', minWidth: 60 },
   priceText: { fontSize: FontSize.xs, textAlign: 'right' },

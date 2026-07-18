@@ -24,7 +24,7 @@
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { todayStr } from '@/lib/date';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import PressableScale from '@/components/PressableScale';
@@ -189,8 +189,8 @@ export default function DatePickerCalendar({ value, onChange, dayLabels, monthLa
                   <Text style={[
                     styles.dayText,
                     { color: theme.text },
-                    isSelected && { color: theme.accentInk, fontWeight: '700' },
-                    !isSelected && isToday && { color: theme.accent, fontWeight: '600' },
+                    isSelected && { color: theme.accentInk, fontFamily: Fonts.bold },
+                    !isSelected && isToday && { color: theme.accent, fontFamily: Fonts.semibold },
                   ]}>
                     {day}
                   </Text>
@@ -220,13 +220,13 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: Spacing.xs,
   },
   navBtn: { padding: Spacing.sm },
-  navArrow: { fontSize: 26, lineHeight: 30, fontWeight: '300' },
-  monthYear: { fontSize: FontSize.md, fontWeight: '700' },
+  navArrow: { fontSize: 26, lineHeight: 30, fontFamily: Fonts.regular },
+  monthYear: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   todayBtn: { alignSelf: 'center', paddingVertical: Spacing.xs, paddingHorizontal: Spacing.sm, marginBottom: Spacing.xs },
-  todayBtnText: { fontSize: FontSize.xs, fontWeight: '600' },
+  todayBtnText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   weekRow: { flexDirection: 'row', justifyContent: 'space-around' },
   cell: { width: CELL, height: CELL, alignItems: 'center', justifyContent: 'center' },
-  weekLabel: { fontSize: FontSize.xs, fontWeight: '600' },
+  weekLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   dayCircle: {
     width: 34,
     height: 34,

@@ -96,6 +96,7 @@ export default function HomeNotesCard() {
   return (
     <Surface
       surfaceContext="ambient"
+      borderColor={domainColor.accent}
       style={[styles.card, !expanded && styles.cardCollapsed]}
     >
       <View style={styles.cardContent}>
@@ -180,7 +181,7 @@ export default function HomeNotesCard() {
             onPress={() => { tap(); setExpanded((v) => !v); }}
             scaleTo={0.97}
           >
-            <Text style={[styles.footerBtnText, { color: theme.accent }]}>
+            <Text style={[styles.footerBtnText, { color: domainColor.accent }]}>
               {expanded ? t.home.notesCollapse : t.home.notesExpand}
             </Text>
           </PressableScale>

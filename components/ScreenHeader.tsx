@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     // sm, not xs (2026-07-16): the tester reported the "Fokus-modus" label too small
     // next to the (correctly sized) title.
     fontSize: FontSize.sm,
-    fontWeight: '600',
+    fontFamily: Fonts.semibold,
   },
   title: {
     // ⚠️ NO `flex: 1` here — THE root cause of the 7-fix header-clip saga (2026-07-16,
@@ -473,6 +473,6 @@ const styles = StyleSheet.create({
   },
   back: {
     fontSize: FontSize.md,
-    fontWeight: '600',
+    fontFamily: Fonts.semibold,
   },
 });

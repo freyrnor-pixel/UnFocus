@@ -46,7 +46,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
-import { FontSize, Radius, Spacing, Shadow, getGlow } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Shadow, getGlow } from '@/constants/theme';
 import { Duration } from '@/constants/motion';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { goToSite, SITE_ITEMS, SiteItem, TAB_ROUTE_NAME } from '@/lib/siteNav';
@@ -200,6 +200,6 @@ const baseStyles = StyleSheet.create({
   },
   label: {
     fontSize: FontSize.xs,
-    fontWeight: '600',
+    fontFamily: Fonts.semibold,
   },
 });

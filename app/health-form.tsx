@@ -104,7 +104,7 @@ function DateChipPicker({
                 style={[
                   styles.weekChipNum,
                   { color: theme.text },
-                  active && { color: theme.accentInk, fontWeight: '700' },
+                  active && { color: theme.accentInk, fontFamily: Fonts.bold },
                 ]}
               >
                 {wd.dayNum}

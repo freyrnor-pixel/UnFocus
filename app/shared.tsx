@@ -37,7 +37,7 @@ import { formatDisplayDate } from '@/lib/date';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import ScreenScaffold from '@/components/ScreenScaffold';
-import { FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 type Tab = 'tasks' | 'shopping';
@@ -260,18 +260,18 @@ const baseStyles = StyleSheet.create({
     gap: 3,
   },
   tab: { flex: 1, paddingVertical: Spacing.sm, borderRadius: Radius.sm, alignItems: 'center' },
-  tabText: { fontSize: FontSize.sm, fontWeight: '600' },
+  tabText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   emptyCard: { borderRadius: Radius.md, padding: Spacing.lg, alignItems: 'center' },
   emptyText: { fontSize: FontSize.sm, textAlign: 'center', lineHeight: 20 },
   section: { gap: Spacing.xs },
-  sectionLabel: { fontSize: FontSize.sm, fontWeight: '600' },
+  sectionLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   card: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 2 },
   doneBtn: {
     width: 24, height: 24, borderRadius: Radius.full, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
   },
-  doneMark: { fontSize: FontSize.xs, fontWeight: '700' },
+  doneMark: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   rowContent: { flex: 1 },
   rowLabel: { fontSize: FontSize.md },
   rowMeta: { fontSize: FontSize.xs, marginTop: 1 },

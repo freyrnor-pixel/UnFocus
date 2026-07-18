@@ -46,7 +46,7 @@
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Radius, Spacing, FontSize } from '@/constants/theme';
+import { Fonts, Radius, Spacing, FontSize } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
@@ -154,7 +154,7 @@ const baseStyles = StyleSheet.create({
   },
   title: {
     fontSize: FontSize.md,
-    fontWeight: '600',
+    fontFamily: Fonts.semibold,
   },
   subtitle: {
     fontSize: FontSize.sm,
@@ -167,7 +167,7 @@ const baseStyles = StyleSheet.create({
   },
   badgeText: {
     fontSize: FontSize.xs,
-    fontWeight: '600',
+    fontFamily: Fonts.semibold,
   },
   body: {
     paddingHorizontal: Spacing.md,

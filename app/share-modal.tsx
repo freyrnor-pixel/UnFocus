@@ -44,7 +44,7 @@ import Button from '@/components/Button';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PressableScale from '@/components/PressableScale';
 import { todayStr, formatDisplayDate } from '@/lib/date';
-import { FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 export default function ShareModal() {
@@ -237,8 +237,8 @@ const baseStyles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: Spacing.xs,
   },
-  cardTitle: { fontSize: FontSize.md, fontWeight: '700' },
-  toggleAll: { fontSize: FontSize.sm, fontWeight: '600' },
+  cardTitle: { fontSize: FontSize.md, fontFamily: Fonts.bold },
+  toggleAll: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   explain: { fontSize: FontSize.xs, lineHeight: 17, marginBottom: Spacing.xs },
   emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.md },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.xs },
@@ -246,7 +246,7 @@ const baseStyles = StyleSheet.create({
     width: 22, height: 22, borderRadius: Radius.full, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
   },
-  checkMark: { fontSize: FontSize.xs, fontWeight: '700' },
+  checkMark: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   itemText: { flex: 1 },
   itemLabel: { fontSize: FontSize.md },
   itemSub: { fontSize: FontSize.xs, marginTop: 1 },
@@ -256,7 +256,7 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
   },
-  qrTitle: { fontSize: FontSize.xl, fontWeight: '700' },
+  qrTitle: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
   qrInstructions: { fontSize: FontSize.sm, textAlign: 'center', lineHeight: 20 },
   qrWrap: {
     borderRadius: Radius.md,
@@ -268,5 +268,5 @@ const baseStyles = StyleSheet.create({
     padding: Spacing.md,
     alignItems: 'center',
   },
-  doneBtnText: { fontSize: FontSize.md, fontWeight: '700' },
+  doneBtnText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
 });

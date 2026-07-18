@@ -53,7 +53,7 @@ import Button from '@/components/Button';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import { Switch as FormSwitch } from '@/components/FormControls';
 import PressableScale from '@/components/PressableScale';
-import { FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 const QR_BG = '#000000';
@@ -274,7 +274,7 @@ const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   explain: { fontSize: FontSize.sm, lineHeight: 20 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  toggleLabel: { fontSize: FontSize.md, fontWeight: '600' },
+  toggleLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.md },
   peerRow: {
     flexDirection: 'row',
@@ -284,24 +284,24 @@ const baseStyles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   peerText: { flex: 1 },
-  peerName: { fontSize: FontSize.md, fontWeight: '600' },
+  peerName: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   peerSub: { fontSize: FontSize.xs, marginTop: 1 },
-  removeLink: { fontSize: FontSize.sm, fontWeight: '600' },
+  removeLink: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
 
   wizardSafe: { flex: 1 },
   wizardContent: { flex: 1, padding: Spacing.lg, gap: Spacing.md, justifyContent: 'center' },
-  wizardTitle: { fontSize: FontSize.xl, fontWeight: '700', textAlign: 'center' },
+  wizardTitle: { fontSize: FontSize.xl, fontFamily: Fonts.bold, textAlign: 'center' },
   wizardCancel: { alignItems: 'center', paddingVertical: Spacing.sm },
-  wizardCancelText: { fontSize: FontSize.sm, fontWeight: '600' },
+  wizardCancelText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   qrWrap: { alignItems: 'center', marginVertical: Spacing.md },
 
   qrModal: { flex: 1 },
   qrSafeArea: { flex: 1 },
   qrHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.md },
-  qrTitle: { fontSize: FontSize.xl, fontWeight: '700' },
+  qrTitle: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
   qrHint: { textAlign: 'center', fontSize: FontSize.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
   qrCamera: { flex: 1 },
-  backLink: { fontSize: FontSize.sm, fontWeight: '700' },
+  backLink: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   qrOverlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   qrFrame: { width: 220, height: 220, borderWidth: 2, borderRadius: Radius.md, backgroundColor: 'transparent' },
 });

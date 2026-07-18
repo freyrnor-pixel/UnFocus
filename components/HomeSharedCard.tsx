@@ -57,7 +57,7 @@ export default function HomeSharedCard() {
   }
 
   return (
-    <Surface surfaceContext="ambient" style={[styles.card, styles.cardRow]}>
+    <Surface surfaceContext="ambient" borderColor={theme.accent} style={[styles.card, styles.cardRow]}>
       <View style={[styles.accent, { backgroundColor: theme.accent }]} />
       <View style={styles.cardContent}>
 
