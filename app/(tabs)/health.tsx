@@ -91,7 +91,7 @@ import { useT } from '@/lib/i18n';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { todayStr, dateStr, getWeekDates, getMonthDates } from '@/lib/date';
 import { SEVERITY_COLORS, severities } from '@/lib/severity';
-import { FontSize, Radius, Shadow, Spacing, Fonts } from '@/constants/theme';
+import { FontSize, Radius, Shadow, Spacing, Fonts, Type } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
@@ -914,7 +914,7 @@ const baseStyles = StyleSheet.create({
   // Decision 043 rule 2: Spacing.xl above every section (This week / Habits).
   overviewCardRow: { borderRadius: Radius.md, marginTop: Spacing.xl },
   overviewCardContent: { flex: 1, padding: Spacing.md },
-  sectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, marginBottom: Spacing.sm },
+  sectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size, marginBottom: Spacing.sm },
   overviewAilment: { marginTop: Spacing.sm },
   overviewRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   ailmentWeekStrip: {
@@ -940,7 +940,7 @@ const baseStyles = StyleSheet.create({
   // hairline, so it reads as a tappable section that belongs with the rest.
   navLinkWrap: { marginTop: Spacing.sm },
   navCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md },
-  navCardText: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  navCardText: { flex: 1, fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
 
   // ─── Habits section (ported from the removed app/habits.tsx) ─────────────────
   // Now boxed in a <SectionCard> (2026-07-17): the section's inner controls stack with a
@@ -957,7 +957,7 @@ const baseStyles = StyleSheet.create({
     borderRadius: Radius.full,
     borderWidth: 1,
   },
-  profileChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  profileChipText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   section: { gap: Spacing.sm },
   habitsEmptyCard: { borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', justifyContent: 'center' },
   sectionCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
@@ -990,7 +990,7 @@ const baseStyles = StyleSheet.create({
   habitIcon: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
   habitTitleWrap: { flex: 1 },
   habitTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  habitTitle: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  habitTitle: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
   titleMetaRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 2, flexWrap: 'wrap' },
   streakWrap: { gap: 2 },
   streakHead: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },

@@ -140,7 +140,7 @@ import { todayStr } from '@/lib/date';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
 import { selection, warning, heavy } from '@/lib/haptics';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
 
 type SettingsTab = 'generelt' | 'handle' | 'varsler' | 'moduser';
 const TAB_BAR_HEIGHT = 48;
@@ -1353,12 +1353,12 @@ const baseStyles = StyleSheet.create({
   // from `section`'s own gap:Spacing.sm, so neither header style carries its own margin.
   // (Most former sectionTitle/tabSectionLabel headers are now ExpandableCard's own title —
   // tabSectionLabel survives for the few single-toggle cards that stayed plain, uncollapsed.)
-  groupHeader: { fontSize: FontSize.xl, fontFamily: Fonts.bold, marginTop: Spacing.sm },
+  groupHeader: { fontFamily: Type.heading.fontFamily, fontSize: Type.heading.size, lineHeight: Math.round(Type.heading.size * Type.heading.line), marginTop: Spacing.sm },
   descText: { fontSize: FontSize.xs, marginTop: Spacing.sm, lineHeight: 18 },
   essentialsCard: { padding: Spacing.md, borderWidth: 2 },
   essentialsLabel: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   card: { padding: Spacing.md },
-  fieldLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, marginBottom: Spacing.xs },
+  fieldLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size, marginBottom: Spacing.xs },
   divider: { height: 1, marginVertical: Spacing.md },
   workHoursRow: { flexDirection: 'row', gap: Spacing.md },
   workHoursCol: { flex: 1 },
@@ -1381,7 +1381,7 @@ const baseStyles = StyleSheet.create({
   switchLabel: { fontSize: FontSize.md, fontFamily: Fonts.medium },
   switchHint: { fontSize: FontSize.xs, marginTop: Spacing.xs },
   dangerBtn: { paddingVertical: Spacing.sm },
-  dangerBtnText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  dangerBtnText: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
   peopleChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.md },
   peopleChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -1401,7 +1401,7 @@ const baseStyles = StyleSheet.create({
     padding: Spacing.md, borderRadius: Radius.md, justifyContent: 'center',
   },
   langFlag: { fontSize: 24 },
-  langText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  langText: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
   tabsScroll: {
     borderBottomWidth: 1,
   },
@@ -1413,5 +1413,5 @@ const baseStyles = StyleSheet.create({
     borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
   tabLabel: { fontSize: FontSize.sm },
-  tabSectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
+  tabSectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
 });

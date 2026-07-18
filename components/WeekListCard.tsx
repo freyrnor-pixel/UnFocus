@@ -62,7 +62,7 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { listProgress } from '@/lib/shoppingGroups';
@@ -644,11 +644,11 @@ const baseStyles = StyleSheet.create({
   header: { gap: Spacing.xs },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
   nameTapTarget: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexShrink: 1 },
-  name: { fontSize: FontSize.lg, fontFamily: Fonts.bold, flexShrink: 1 },
+  name: { fontFamily: Type.heading.fontFamily, fontSize: Type.heading.size, flexShrink: 1 },
   repeatIcon: {},
   nameInput: {
-    fontSize: FontSize.lg,
-    fontFamily: Fonts.bold,
+    fontFamily: Type.heading.fontFamily,
+    fontSize: Type.heading.size,
     borderWidth: 1,
     borderRadius: Radius.sm,
     paddingVertical: Spacing.xs,
@@ -669,7 +669,7 @@ const baseStyles = StyleSheet.create({
   compactProgressText: { fontSize: FontSize.sm },
   bodyGap: { gap: Spacing.md },
   emptyState: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.md },
-  emptyTitle: { fontSize: FontSize.md, fontFamily: Fonts.semibold, textAlign: 'center' },
+  emptyTitle: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size, textAlign: 'center' },
   emptySubtitle: { fontSize: FontSize.sm, textAlign: 'center' },
   section: { gap: Spacing.xs },
   // Visual-audit 2026-07-11: a surfaceMuted card behind the label + rule so "sub-headers"
@@ -748,7 +748,7 @@ const baseStyles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     minHeight: 40,
   },
-  monthlyTriggerText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  monthlyTriggerText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   monthlyPanel: { gap: Spacing.xs },
   monthlySearch: {
     borderRadius: Radius.sm,
@@ -764,7 +764,7 @@ const baseStyles = StyleSheet.create({
     paddingVertical: Spacing.md,
     minHeight: 44,
   },
-  monthlyPanelName: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  monthlyPanelName: { flex: 1, fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
   monthlyPanelPrice: { fontSize: FontSize.xs },
   monthlyAddBtn: {
     width: 26,

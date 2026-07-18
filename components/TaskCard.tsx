@@ -62,7 +62,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Fonts, FontSize, Radius, Spacing, contrastOn, getElevation, getGlow } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Type, contrastOn, getElevation, getGlow } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0 } from '@/lib/date';
@@ -722,7 +722,7 @@ const styles = StyleSheet.create({
     minHeight: 36,
     justifyContent: 'center',
   },
-  forChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  forChipText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   assigneeCue: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -745,7 +745,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   titleTap: { flex: 1, paddingVertical: 4 },
-  title: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  title: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
   timeLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   // Leading "Sent" indicator on shared-out rows (merged Shared section).
   dirChip: {
@@ -763,8 +763,8 @@ const styles = StyleSheet.create({
     minHeight: 44,
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.md,
-    fontSize: FontSize.md,
-    fontFamily: Fonts.semibold,
+    fontFamily: Type.bodyStrong.fontFamily,
+    fontSize: Type.bodyStrong.size,
   },
   stepsWrap: { gap: Spacing.xs, paddingTop: Spacing.sm },
   stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
   },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  toggleLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  toggleLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   dateWrap: { gap: Spacing.sm },
   timeRow: { flexDirection: 'row', gap: Spacing.lg },
   timeCol: { gap: 4 },

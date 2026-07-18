@@ -189,7 +189,7 @@ import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { groupByDish, computeListGroups, listProgress } from '@/lib/shoppingGroups';
 import { formatKr } from '@/lib/money';
 import { getDomainColor } from '@/lib/domainColor';
@@ -1303,7 +1303,7 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.md },
   // Embedded first-run setting inside the ⓘ hint (weekly/monthly reset).
   hintSetting: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.xs },
-  hintSettingLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  hintSettingLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   hintDayRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   hintDayChip: {
     minWidth: 40,
@@ -1339,7 +1339,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  tabText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  tabText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold },
   tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
@@ -1350,7 +1350,7 @@ const styles = StyleSheet.create({
 
   catalogCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md },
   catalogHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  catalogHeaderTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
+  catalogHeaderTitle: { fontFamily: Type.heading.fontFamily, fontSize: Type.heading.size },
   catalogHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   // Bordered trigger pill — matches WeekListCard's monthlyTrigger shape, the one shared
   // "tap to open a fuller add flow" affordance (design-consistency pass).
@@ -1364,14 +1364,14 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     minHeight: 40,
   },
-  addTriggerText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  addTriggerText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   addTriggerRow: { flexDirection: 'row', gap: Spacing.sm },
   addTriggerFlex: { flex: 1 },
   resetIconBtn: { alignItems: 'center', justifyContent: 'center' },
 
   dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: Spacing.lg },
   dialogBox: { borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', maxWidth: 340, gap: Spacing.lg },
-  dialogMessage: { fontSize: FontSize.md, fontFamily: Fonts.semibold, textAlign: 'center' },
+  dialogMessage: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size, textAlign: 'center' },
   dialogBtns: { flexDirection: 'row', gap: Spacing.sm },
   dialogBtn: { flex: 1, borderRadius: Radius.md, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.sm },
   dialogBtnNo: { backgroundColor: '#1E3A5F' },
@@ -1383,7 +1383,7 @@ const styles = StyleSheet.create({
   totalLine: { fontSize: FontSize.md, fontFamily: Fonts.bold, textAlign: 'right', marginTop: 4 },
 
   unsavedBanner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, borderRadius: Radius.md, padding: Spacing.sm },
-  unsavedBannerText: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  unsavedBannerText: { flex: 1, fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
 
   // Weekly "Unallocated" card
   unallocatedCard: { borderRadius: Radius.md },
@@ -1391,7 +1391,7 @@ const styles = StyleSheet.create({
   unallocatedAccent: { width: 4, alignSelf: 'stretch' },
   unallocatedContent: { flex: 1, padding: Spacing.md, gap: Spacing.sm },
   unallocatedHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  unallocatedTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
+  unallocatedTitle: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
   unallocatedHint: { fontSize: FontSize.xs },
   unallocatedGroupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm, paddingTop: Spacing.sm, paddingBottom: 4 },
   unallocatedGroupName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.bold },
@@ -1409,7 +1409,7 @@ const styles = StyleSheet.create({
   // (Decision 043 rule 2's fixed anatomy — Fonts.semibold/FontSize.lg — is only for the
   // section title itself, sectionLabel below; this row is a repeatable foldout control).
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: Radius.sm },
-  sectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
+  sectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
   // Visual-audit 2026-07-11: gives Monthly-tab section titles the same surfaceMuted-card
   // treatment plans.tsx's sectionHeader() already applies — was bare text, flat/low-contrast
   // against the particle background.
@@ -1430,5 +1430,5 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     paddingVertical: Spacing.md,
   },
-  newListTriggerText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  newListTriggerText: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
 });

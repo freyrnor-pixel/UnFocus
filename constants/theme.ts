@@ -14,6 +14,10 @@
  * (16) — there is no separate `Layout` token; a prior `Layout.cardPadding/cardGap/maxVisible`
  * export was removed 2026-07-12 (zero call sites, docs disagreed with it — see
  * HANDOFF_SPACING_PASS.md).
+ * `Type` (2026-07-18 typography pass) is an additive role map (display/title/heading/
+ * subheading/body/bodyStrong/label/caption) — `size` still goes through `getFontSize`, `line`
+ * is a lineHeight ratio. `FontSize.*` stays the base scale; not every call site is migrated
+ * (see AGENTS.md's type-migration follow-up list).
  *
  * Connections:
  *   Imports → —
@@ -184,6 +188,24 @@ export const Fonts = {
   semibold: 'Nunito_600SemiBold',
   bold: 'Nunito_700Bold',
   extrabold: 'Nunito_800ExtraBold',
+} as const;
+
+/**
+ * Refined Nunito hierarchy (additive, 2026-07-18 typography pass) — `FontSize.*` stays the
+ * source of truth for the many existing call sites; `Type` is a higher-level role map for
+ * new/converted call sites. `size` is the base pt fed through `getFontSize(size,
+ * settings.fontSize)` at the call site (same pattern as existing code); `line` is a
+ * lineHeight *ratio* (multiply by the scaled size), not a fixed pt value.
+ */
+export const Type = {
+  display: { fontFamily: Fonts.extrabold, size: 34, line: 1.15 },
+  title: { fontFamily: Fonts.extrabold, size: 26, line: 1.20 },
+  heading: { fontFamily: Fonts.bold, size: 20, line: 1.25 },
+  subheading: { fontFamily: Fonts.semibold, size: 17, line: 1.30 },
+  body: { fontFamily: Fonts.regular, size: 16, line: 1.45 },
+  bodyStrong: { fontFamily: Fonts.semibold, size: 16, line: 1.45 },
+  label: { fontFamily: Fonts.semibold, size: 14, line: 1.30 },
+  caption: { fontFamily: Fonts.medium, size: 13, line: 1.35 },
 } as const;
 
 export type ElevationLevel = 'flat' | 'raised' | 'floating';

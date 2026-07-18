@@ -27,6 +27,8 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+// Label stays on FontSize/Fonts.bold rather than a Type role (2026-07-18 typography pass) —
+// no Type entry fits a short CTA pill label; Type is for headings/body/captions.
 import { FontSize, Fonts, getMaterialStyle, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
