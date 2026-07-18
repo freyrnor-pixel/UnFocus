@@ -37,7 +37,7 @@
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/liveSync, lib/syncService, store/useSettingsStore
  *   Used by → app/inventory-edit.tsx, app/shopping.tsx, components/ShoppingQuickAddSheet.tsx,
- *             components/AddItemSheet.tsx (type), components/AddDishSheet.tsx (add), components/UpdateSheet.tsx (type),
+ *             components/AddItemSheet.tsx (type), components/AddDishToMonthlySheet.tsx (add), components/UpdateSheet.tsx (type),
  *             components/MonthlyTableRow.tsx (type), components/ShoppingRow.tsx (type), components/WeekListCard.tsx (type),
  *             components/SharedRequestsSection.tsx (add), components/MonthlyResetSummaryModal.tsx (MonthlyResetSummary),
  *             lib/shoppingGroups.ts (type); app/shopping.tsx hydrates via load() in its on-focus effect (Phase 5 — no global bootstrap yet)

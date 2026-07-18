@@ -11,7 +11,7 @@
  * sticky bar (Decision 011 A2-1) holds the 4-tab switcher plus a per-tab summary line.
  *
  * Connections:
- *   Imports → components/AddItemSheet, components/HintCard,
+ *   Imports → components/AddItemSheet, components/AddDishToMonthlySheet, components/HintCard,
  *             components/AppModal (showAppModal),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
  *             components/ExpandableCard, components/FlightOverlay (FlightPill, Flight, FlightRect),
@@ -163,6 +163,7 @@ import ShoppingRow from '@/components/ShoppingRow';
 import EmptyState from '@/components/EmptyState';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
 import AddItemSheet from '@/components/AddItemSheet';
+import AddDishToMonthlySheet from '@/components/AddDishToMonthlySheet';
 import UpdateSheet from '@/components/UpdateSheet';
 import MonthlyResetSummaryModal from '@/components/MonthlyResetSummaryModal';
 import SharedRequestsSection from '@/components/SharedRequestsSection';
@@ -256,6 +257,7 @@ export default function ShoppingScreen() {
   const [monthlyDateInput, setMonthlyDateInput] = useState('');
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
   const [addToCatalogOpen, setAddToCatalogOpen] = useState(false);
+  const [addDishOpen, setAddDishOpen] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
   const [confirmUndo, setConfirmUndo] = useState<(() => void) | null>(null);
   /** Shows a toast; pass `undo` to add an inline "Undo" action (Decision 044a). */
@@ -970,16 +972,31 @@ export default function ShoppingScreen() {
                     for "tap to open a fuller add flow", instead of the old circular AddFAB
                     bubble that read as a third, different add affordance on this screen. */}
                 {!catalogLocked && (
-                  <PressableScale
-                    style={[styles.addTrigger, { borderColor: theme.accent }]}
-                    onPress={() => setAddToCatalogOpen(true)}
-                    accessibilityRole="button"
-                    accessibilityLabel={t.catalogueAddNewBtn}
-                    scaleTo={0.97}
-                  >
-                    <Ionicons name="add-circle-outline" size={16} color={theme.accent} />
-                    <Text style={[styles.addTriggerText, { color: theme.accent }]}>{t.catalogueAddNewBtn}</Text>
-                  </PressableScale>
+                  <View style={styles.addTriggerRow}>
+                    <PressableScale
+                      style={[styles.addTrigger, styles.addTriggerFlex, { borderColor: theme.accent }]}
+                      onPress={() => setAddToCatalogOpen(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t.catalogueAddNewBtn}
+                      scaleTo={0.97}
+                    >
+                      <Ionicons name="add-circle-outline" size={16} color={theme.accent} />
+                      <Text style={[styles.addTriggerText, { color: theme.accent }]}>{t.catalogueAddNewBtn}</Text>
+                    </PressableScale>
+                    {/* Add a whole dish (its ingredients) to the Monthly list in place — the
+                        in-tab counterpart to the Food tab's "Add to monthly list", so meals can
+                        be planned for the month without leaving this tab. */}
+                    <PressableScale
+                      style={[styles.addTrigger, styles.addTriggerFlex, { borderColor: theme.accent }]}
+                      onPress={() => setAddDishOpen(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t.addDishBtn}
+                      scaleTo={0.97}
+                    >
+                      <Ionicons name="restaurant-outline" size={16} color={theme.accent} />
+                      <Text style={[styles.addTriggerText, { color: theme.accent }]}>{t.addDishBtn}</Text>
+                    </PressableScale>
+                  </View>
                 )}
               </View>
 
@@ -1214,6 +1231,12 @@ export default function ShoppingScreen() {
         onAdd={handleAddItem}
       />
 
+      <AddDishToMonthlySheet
+        visible={addDishOpen}
+        onClose={() => setAddDishOpen(false)}
+        onAdded={(dishName) => setConfirm(t.dishAddedToMonthly(dishName))}
+      />
+
       <UpdateSheet visible={updateItem !== null} item={updateItem} onClose={() => setUpdateItem(null)} onSave={handleUpdateSave} onDelete={handleUpdateDelete} />
 
       <MonthlyResetSummaryModal visible={resetSummary !== null} summary={resetSummary} onClose={() => setResetSummary(null)} />
@@ -1342,6 +1365,8 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   addTriggerText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  addTriggerRow: { flexDirection: 'row', gap: Spacing.sm },
+  addTriggerFlex: { flex: 1 },
   resetIconBtn: { alignItems: 'center', justifyContent: 'center' },
 
   dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: Spacing.lg },
