@@ -65,8 +65,20 @@ describe('glass settings', () => {
     expect(useSettingsStore.getState().glassSurfaces).toBe(true);
   });
 
-  it('glassBlur (Android backdrop blur) defaults on', () => {
+  it('glassBlur (Android backdrop blur) defaults OFF', () => {
+    // 2026-07-18: the per-card dimezis backdrop blur was the heaviest glass cost and could
+    // intercept taps on Android, so it now defaults off (users can re-enable in Settings).
+    // Existing installs are flipped off by a one-time UPDATE migration in lib/db.ts.
     const { useSettingsStore } = require('@/store/useSettingsStore');
-    expect(useSettingsStore.getState().glassBlur).toBe(true);
+    expect(useSettingsStore.getState().glassBlur).toBe(false);
+  });
+});
+
+describe('voice settings', () => {
+  it('voiceNotesEnabled defaults ON so the task-form mic is available out of the box', () => {
+    // 2026-07-18: enabled by default; existing installs flipped on by a one-time UPDATE
+    // migration in lib/db.ts. Notes/Home mic buttons render regardless of this flag.
+    const { useSettingsStore } = require('@/store/useSettingsStore');
+    expect(useSettingsStore.getState().voiceNotesEnabled).toBe(true);
   });
 });
