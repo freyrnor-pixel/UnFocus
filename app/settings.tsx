@@ -520,7 +520,7 @@ export default function SettingsScreen() {
           <>
             {/* Focus mode */}
             <View style={styles.section}>
-              <Surface style={[styles.essentialsCard, { borderColor: theme.accent }]} tint={theme.accentSoft}>
+              <Surface style={styles.essentialsCard} borderColor={theme.accent}>
                 <View style={styles.switchRow}>
                   <View style={styles.switchTextCol}>
                     <Text style={[styles.essentialsLabel, { color: theme.text }]}>{t.config.essentials.label}</Text>

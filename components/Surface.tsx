@@ -123,11 +123,13 @@ const GLASS_BLUR_INTENSITY: Record<SurfaceContext, number> = {
 // through, so they stay denser. GlassFill additionally floors the wash on Android, where
 // the backdrop blur is unavailable and opacity is the only contrast lever.
 const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
-  // Ambient at 0.72 (2026-07-18 vision tune): a denser, opaque-leaning NEUTRAL frost so the card
-  // reads as a solid frosted-glass keycap — the colour comes from the keycap EDGE and the field
-  // in the gaps, not from the field bleeding through a thin fill. Still lets a whisper of the
-  // field tint the pane. (GlassFill floors at 0.56 on Android; 0.72 clears it.)
-  ambient: 0.72,
+  // Ambient at 0.94 (2026-07-18 vision: fill MUST read neutral). A near-opaque NEUTRAL frost so
+  // the colorful ScreenBackground field does NOT bleed through and tint the fill — at 0.72 the
+  // ~28% show-through tinted every default card with the field hue (all Health cards read teal),
+  // which is exactly the "card fill still has colour" that's wrong. The colour belongs to the
+  // keycap EDGE, the field in the GAPS between cards, and the CTAs — never the fill. The frosted
+  // quality comes from the specular/scrim highlights + the edge, not from translucency.
+  ambient: 0.94,
   overlay: 0.8,
 };
 

@@ -13,7 +13,7 @@
  * modal) — this replaces the old standalone /meals screen and the "Create grouping" screen.
  *
  * Connections:
- *   Imports → constants/theme (getMaterialStyle, contrastOn, tokens), constants/motion (Spring),
+ *   Imports → constants/theme (contrastOn, tokens), constants/motion (Spring),
  *             lib/useAppTheme, lib/i18n, lib/haptics, lib/money (formatKr), lib/domainColor,
  *             components/Surface, components/PressableScale, components/AddRow,
  *             components/Badge (difficulty pill), components/SlideSelector (difficulty picker),
@@ -67,7 +67,7 @@ import AnimatedChevron from '@/components/AnimatedChevron';
 import { useMealStore, MealType, Difficulty, Dish, dishTotalPrice } from '@/store/useMealStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
-import { getMaterialStyle, contrastOn, Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { contrastOn, Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { useMountedTransition } from '@/lib/useMountedTransition';
@@ -300,12 +300,10 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
     <View style={styles.root}>
       {MEAL_ORDER.map(({ value: mealType, icon }) => {
         const color = MEAL_COLORS[mealType];
-        const mat = getMaterialStyle(color);
-        const ink = contrastOn(mat.contrastBase);
         const mealDishes = byMeal.get(mealType) ?? [];
         const sectionOpen = openSections[mealType];
         return (
-          <Surface key={mealType} tint={color} style={styles.section}>
+          <Surface key={mealType} borderColor={color} style={styles.section}>
             <PressableScale
               style={styles.sectionHeader}
               onPress={() => toggleSection(mealType)}
@@ -315,24 +313,24 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
               scaleTo={0.99}
               releaseSpring={Spring.calm}
             >
-              <Ionicons name={icon} size={20} color={ink} />
-              <Text style={[styles.sectionTitle, { color: ink }]}>{t.mealTypes[mealType]}</Text>
-              <AnimatedChevron open={sectionOpen} color={ink} size={18} />
+              <Ionicons name={icon} size={20} color={color} />
+              <Text style={[styles.sectionTitle, { color }]}>{t.mealTypes[mealType]}</Text>
+              <AnimatedChevron open={sectionOpen} color={color} size={18} />
               <PressableScale
-                style={[styles.addDishBtn, { borderColor: ink }]}
+                style={[styles.addDishBtn, { borderColor: color }]}
                 onPress={(e) => { e.stopPropagation(); openNewDishModal(mealType); }}
                 accessibilityRole="button"
                 accessibilityLabel={t.addDishToMealBtn}
                 hitSlop={6}
                 scaleTo={0.9}
               >
-                <Ionicons name="add" size={18} color={ink} />
+                <Ionicons name="add" size={18} color={color} />
               </PressableScale>
             </PressableScale>
 
             <Collapsible open={sectionOpen}>
             {mealDishes.length === 0 ? (
-              <Text style={[styles.sectionEmpty, { color: ink }]}>{t.foodEmptyHint}</Text>
+              <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.foodEmptyHint}</Text>
             ) : (
               <View style={styles.dishList}>
                 {mealDishes.map((dish) => {
