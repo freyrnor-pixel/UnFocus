@@ -9,6 +9,7 @@
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/dishSeed (DISH_SEED), lib/i18n (getTranslations)
  *   Used by → components/FoodTab.tsx (the Shopping screen's in-place "Food" tab — dish CRUD +
+ *             push-to-list), components/AddDishToMonthlySheet.tsx (Monthly tab dish picker →
  *             push-to-list), app/(tabs)/shopping.tsx (indirect, via FoodTab)
  *   Data    → defines a Zustand store; owns SQLite tables dishes and ingredients (1-to-many)
  *
