@@ -488,6 +488,7 @@ const en = {
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
   boughtThisWeekSection: (n: number) => `Bought this week (${n})`,
   inListSection: (n: number) => `In list (${n})`,
+  toBuySection: (n: number) => `To buy (${n})`,
   inCartSection: (n: number) => `In cart (${n})`,
   purchasedSection: (n: number) => `Purchased (${n})`,
   fromMonthlySection: 'From monthly list',
@@ -1682,6 +1683,7 @@ const no: typeof en = {
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
   boughtThisWeekSection: (n: number) => `Kjøpt denne uken (${n})`,
   inListSection: (n: number) => `I listen (${n})`,
+  toBuySection: (n: number) => `Å kjøpe (${n})`,
   inCartSection: (n: number) => `I kurven (${n})`,
   purchasedSection: (n: number) => `Kjøpt (${n})`,
   fromMonthlySection: 'Fra månedsliste',
