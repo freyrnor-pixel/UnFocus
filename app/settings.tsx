@@ -621,6 +621,18 @@ export default function SettingsScreen() {
                     </View>
                     <FormSwitch checked={settings.glassSurfaces} onChange={(v) => settings.update({ glassSurfaces: v })} />
                   </View>
+                  {settings.glassSurfaces && (
+                    <>
+                      <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                      <View style={styles.switchRow}>
+                        <View style={styles.switchTextCol}>
+                          <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.glassBlur}</Text>
+                          <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.glassBlurHint}</Text>
+                        </View>
+                        <FormSwitch checked={settings.glassBlur} onChange={(v) => settings.update({ glassBlur: v })} />
+                      </View>
+                    </>
+                  )}
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.accessibility.fontSize}</Text>
                   <SegmentedControl

@@ -615,6 +615,9 @@ export function initDb() {
     // Glass surface finish toggle ("Glass, take two", 2026-07-17) — default on; off is a
     // user-facing reduce-transparency fallback to plain opaque surfaces (see components/GlassFill.tsx).
     "ALTER TABLE settings ADD COLUMN glass_surfaces INTEGER DEFAULT 1",
+    // Android real backdrop blur behind glass (2026-07-18) — default on; off falls back to the
+    // translucent wash. No effect on iOS/web. See components/BlurTarget.tsx.
+    "ALTER TABLE settings ADD COLUMN glass_blur INTEGER DEFAULT 1",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

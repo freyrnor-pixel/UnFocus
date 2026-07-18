@@ -125,6 +125,7 @@ import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
 import ScreenHeader from '@/components/ScreenHeader';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
+import { BlurTargetProvider, BlurTargetSource } from '@/components/BlurTarget';
 
 /** A host component (View) ref that can be measured in window coordinates. */
 type Measurable = {
@@ -237,6 +238,7 @@ export default function ScreenScaffold({
   // Debug-mode band outline (see the headerBlock style below). Field selector, so this
   // only re-renders when the toggle itself flips.
   const debugModeEnabled = useSettingsStore((s) => s.debugModeEnabled);
+  const glassBlur = useSettingsStore((s) => s.glassBlur);
   // Belt-and-suspenders for Android: if safe-area-context under-reports the top
   // inset (it can read 0 before the first window-insets dispatch), fall back to
   // the reliable native status-bar height so the header never sits behind the
@@ -340,12 +342,19 @@ export default function ScreenScaffold({
     </View>
   );
 
-  return (
+  const scaffold = (
     <SafeAreaView style={[styles.safeArea, ownBackground && { backgroundColor: bgColor }]}>
       {/* L1: Background — skipped when a parent (the tabs pager) already renders a
           shared instance behind this screen (see ownBackground doc above), or when
-          plainBackground asks for a flat white/black fill with no accent blob. */}
-      {ownBackground && !plainBackground && (isHome ? <HomeHeroBackground /> : <ScreenBackground />)}
+          plainBackground asks for a flat white/black fill with no accent blob. When this
+          screen owns its backdrop it's wrapped as the Android backdrop-blur target so ambient
+          glass cards can frost it (components/BlurTarget.tsx); tab screens (ownBackground=false)
+          instead consume the shared target from app/(tabs)/_layout.tsx. */}
+      {ownBackground && !plainBackground && (
+        <BlurTargetSource enabled={glassBlur} style={StyleSheet.absoluteFill}>
+          {isHome ? <HomeHeroBackground /> : <ScreenBackground />}
+        </BlurTargetSource>
+      )}
 
       {/* L2: Particle overlay — same ownBackground gating as L1; also dropped for plainBackground. */}
       {ownBackground && !plainBackground && <ParticleBackground />}
@@ -397,6 +406,11 @@ export default function ScreenScaffold({
       )}
     </SafeAreaView>
   );
+
+  // Provide the Android backdrop-blur target only when this screen renders its own backdrop;
+  // otherwise defer to the shared provider from app/(tabs)/_layout.tsx (a null provider here
+  // would shadow it and suppress the blur on the tab screens).
+  return ownBackground && !plainBackground ? <BlurTargetProvider>{scaffold}</BlurTargetProvider> : scaffold;
 }
 
 const styles = StyleSheet.create({

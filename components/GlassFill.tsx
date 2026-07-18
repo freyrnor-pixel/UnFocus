@@ -14,9 +14,10 @@
  *
  * Connections:
  *   Imports → constants/theme (MaterialStyle), lib/useAppTheme (useAccessibility),
- *             expo-blur, expo-linear-gradient, react-native-svg, react-native-reanimated
+ *             store/useSettingsStore (glassBlur), expo-blur, expo-linear-gradient,
+ *             react-native-svg, react-native-reanimated
  *   Used by → components/Surface, components/Button, components/AddFAB
- *   Data    → reads reducedMotion via useAccessibility()
+ *   Data    → reads reducedMotion via useAccessibility(); glassBlur from the settings store
  *
  * Edit notes:
  *   - Needs a measured size for the SVG rim/specular + the sheen travel, so the SVG and
@@ -24,9 +25,12 @@
  *   - react-native-svg `<Stop>` honours the alpha inside an rgba() `stopColor`, so the
  *     rim/specular gradient stops are passed the material's rgba tokens directly — no alpha
  *     parsing needed.
- *   - Android BlurView keeps `experimentalBlurMethod="none"` (per Surface's long-standing
- *     note): the native blur was misconfigured/broken and intercepted touches; the wash is
- *     near-opaque so disabling it is visually near-invisible. iOS uses its native blur.
+ *   - Android BlurView uses real blur only for the AMBIENT backdrop, via a `blurTarget` ref
+ *     (components/BlurTarget.tsx) + `blurMethod="dimezisBlurViewSdk31Plus"`, and only when the
+ *     `glassBlur` setting is on. Without a target (buttons/FAB/overlay, or the setting off) it
+ *     stays `'none'` and the floored wash carries contrast — the earlier misconfigured
+ *     no-target dimezis path intercepted touches, which is why targets are required. iOS/web
+ *     ignore blurMethod/blurTarget and use their own native/backdrop-filter blur.
  *   - The drifting sheen is the only continuous animation here; it is gated on
  *     useAccessibility().reducedMotion AND cancelled on unmount. The Surface/Button glass-off
  *     path simply doesn't render GlassFill at all (see those files).
@@ -46,6 +50,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { MaterialStyle } from '@/constants/theme';
 import { useAccessibility } from '@/lib/useAppTheme';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 const TRANSPARENT_WHITE = 'rgba(255, 255, 255, 0)';
 
@@ -76,6 +81,13 @@ type Props = {
   drift?: boolean;
   /** Rim stroke width; defaults to the material border width. */
   borderWidth?: number;
+  /**
+   * Ambient backdrop blur target (Android only) — the BlurTargetView ref from
+   * components/BlurTarget.tsx. Passed by Surface for the `ambient` context so the card frosts
+   * the real backdrop on Android SDK 31+. Omitted for overlay/button/FAB glass (they keep the
+   * wash) and ignored on iOS/web (their BlurView already blurs the true backdrop).
+   */
+  blurTargetRef?: React.RefObject<View | null>;
 };
 
 export default function GlassFill({
@@ -87,15 +99,20 @@ export default function GlassFill({
   showSheen,
   drift = true,
   borderWidth,
+  blurTargetRef,
 }: Props) {
   const { reducedMotion } = useAccessibility();
+  const glassBlur = useSettingsStore((s) => s.glassBlur);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const sw = borderWidth ?? mat.borderWidth;
-  // The reference glass stays translucent (~0.46) and leans on the backdrop blur+saturate for
-  // legibility. Android has no working backdrop blur (see note below), so floor the wash there
-  // to keep text contrast; iOS/web keep the glassy low-opacity look.
+  // Android real backdrop blur is available only when a blur target was provided AND the
+  // setting is on (SDK < 31 falls back to 'none' inside expo-blur regardless). When it's active
+  // the frost carries legibility like iOS/web, so the wash can stay translucent; otherwise
+  // Android has no backdrop blur, so floor the wash to keep text contrast.
+  const androidNativeBlur = Platform.OS === 'android' && glassBlur && !!blurTargetRef;
   const rawWash = washAlpha ?? mat.washAlpha;
-  const effectiveWash = Platform.OS === 'android' ? Math.max(rawWash, 0.82) : rawWash;
+  const needsWashFloor = Platform.OS === 'android' && !androidNativeBlur;
+  const effectiveWash = needsWashFloor ? Math.max(rawWash, 0.82) : rawWash;
   const wash = withAlpha(mat.backgroundColor, effectiveWash);
 
   const onLayout = (e: LayoutChangeEvent) => {
@@ -130,11 +147,14 @@ export default function GlassFill({
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill} onLayout={onLayout}>
-      {/* 1. Frost */}
+      {/* 1. Frost. Android: real blur of the ambient backdrop target when available
+          (dimezisBlurViewSdk31Plus → hardware RenderEffect, auto-fallback to 'none' < SDK 31),
+          otherwise 'none' (the wash carries it). iOS/web ignore blurMethod/blurTarget. */}
       <BlurView
         tint={tint}
         intensity={blurIntensity}
-        experimentalBlurMethod={Platform.OS === 'android' ? 'none' : undefined}
+        blurMethod={Platform.OS === 'android' ? (androidNativeBlur ? 'dimezisBlurViewSdk31Plus' : 'none') : undefined}
+        blurTarget={androidNativeBlur ? blurTargetRef : undefined}
         style={StyleSheet.absoluteFill}
       />
       {/* 1b. Saturation/brightness lift (reference backdrop = saturate(1.6) brightness(1.04)).

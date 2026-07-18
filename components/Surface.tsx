@@ -69,6 +69,7 @@ import { getElevation, getLayeredShadow, getMaterialStyle, Radius } from '@/cons
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import GlassFill from '@/components/GlassFill';
+import { useBlurTarget } from '@/components/BlurTarget';
 
 /**
  * Which backdrop a glass Surface frosts (Decision 008). 'ambient' (default) sits
@@ -143,6 +144,11 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
   const theme = useAppTheme();
   const isDark = useIsDark();
   const glass = useSettingsStore((s) => s.glassSurfaces);
+  // Android backdrop-blur target (components/BlurTarget.tsx). Only ambient cards frost the
+  // shared backdrop; overlay surfaces sit over live content in (sometimes) a separate native
+  // window, so they never take a target. `ready` gates the ref until its node is attached.
+  const blurTarget = useBlurTarget();
+  const blurTargetRef = surfaceContext === 'ambient' && blurTarget?.ready ? blurTarget.ref : undefined;
   const base = tint ?? theme.surface;
   const mat = getMaterialStyle(base);
   // Glass-off (reduce-transparency) path uses the legacy single shadow; glass-on uses the
@@ -207,6 +213,7 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
             washAlpha={GLASS_WASH_ALPHA[surfaceContext]}
             tint={isDark ? 'dark' : 'light'}
             showSheen={showSheen}
+            blurTargetRef={blurTargetRef}
           />
         )}
         <View style={[content, padding]}>{children}</View>
