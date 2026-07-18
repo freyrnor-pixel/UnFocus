@@ -28,8 +28,13 @@
  * Edit notes:
  *   - Glass surface (simplified 2026-07-18): BlurView frost (overlay/chrome only) + colour
  *     wash (see Surface.tsx) so text on cards keeps the same contrast guarantees regardless
- *     of what's blurred behind. `MaterialStyle` dropped its rim/specular/scrim/drift-sheen
- *     tokens in this pass — GlassFill now renders at most 2 layers.
+ *     of what's blurred behind.
+ *   - "Glass, take two" (2026-07-18): `MaterialStyle` re-gained three STATIC take-two tokens —
+ *     `rim` (fix 1, gradient border ring), `scrim` (fix 2, top-down text scrim), `specular`
+ *     (fix 3, top-left highlight blob) — plus `fillGradient` (primary/danger button top-lit
+ *     fill). All mode-aware via getMaterialStyle's `mode` arg. The drifting "sheen" (fix 4)
+ *     stays OUT — it was the persistent-sluggishness driver (see GlassFill's header). Rim is
+ *     drawn by Surface/Button; scrim/specular/fillGradient by GlassFill.
  *   - Purposeful Depth System (2026-07-14): `getElevation('flat'|'raised'|'floating')`
  *     is the go-forward depth token — flat=read-only, raised=tappable at rest,
  *     floating=the one focused/active surface. Used by PressableScale's `depth` prop,
@@ -62,6 +67,11 @@ function rgbToHex(r: number, g: number, b: number): string {
 function lighten(hex: string, amount: number): string {
   const [r, g, b] = hexToRgb(hex);
   return rgbToHex(r + (255 - r) * amount, g + (255 - g) * amount, b + (255 - b) * amount);
+}
+
+function darken(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(r * (1 - amount), g * (1 - amount), b * (1 - amount));
 }
 
 /**
@@ -266,6 +276,20 @@ export const Shadow = {
 
 // ─── Materials: glass surface finish ─────────────────────────────────────────
 
+/** Light vs dark tuning for the take-two glass recipe (rim/scrim/specular alphas). */
+export type MaterialMode = 'light' | 'dark';
+
+/** expo-linear-gradient requires ≥2 colour/location stops — a tuple, not a plain array. */
+type GradientColors = readonly [string, string, ...string[]];
+type GradientStops = readonly [number, number, ...number[]];
+
+/** Directional rim-light border (fix 1) — a 135° gradient rendered as a padding-ring. */
+export type RimGradient = { colors: GradientColors; locations: GradientStops };
+/** Adaptive top-down white scrim behind text (fix 2) — a vertical gradient. */
+export type ScrimGradient = { colors: GradientColors; locations: GradientStops };
+/** Soft top-left specular highlight (fix 3) — an SVG radial blob (percent geometry). */
+export type Specular = { cx: string; cy: string; rx: string; ry: string; centerOpacity: number; edgeOffset: string };
+
 export type MaterialStyle = {
   backgroundColor: string;
   borderWidth: number;
@@ -288,6 +312,18 @@ export type MaterialStyle = {
    * returns a near-opaque value so a CTA's ink keeps its contrast over busy backdrops.
    */
   washAlpha: number;
+  /**
+   * Take-two static glass layers (2026-07-18 "Glass, take two", re-added after the
+   * simplification): all mode-aware, all static (no per-frame/looping effect — the drifting
+   * "sheen", fix 4, is deliberately NOT here; see GlassFill's header). `rim` is the gradient
+   * border ring (Surface/Button render it, not GlassFill); `scrim`/`specular` are rendered by
+   * GlassFill as fill overlays; `fillGradient` is the primary/danger button's top-lit vertical
+   * fill, pre-alpha'd to `washAlpha`.
+   */
+  rim: RimGradient;
+  scrim: ScrimGradient;
+  specular: Specular;
+  fillGradient: GradientColors;
 };
 
 const MATERIAL_BORDER_WIDTH = 1.5;
@@ -300,14 +336,60 @@ export type MaterialVariant = 'card' | 'button';
  * Spread the border/shadow keys onto the outer (shadow-casting) view and
  * `backgroundColor` + the take-two layer colours onto components/GlassFill.tsx.
  * `variant` tunes fill density: `'card'` (default) stays glassy-translucent; `'button'`
- * returns a near-opaque wash + stronger scrim so action labels stay WCAG-legible.
+ * returns a near-opaque wash so action labels stay WCAG-legible. `mode` ('light'|'dark')
+ * tunes the take-two rim/scrim/specular alphas — a full-strength white streak reads as a
+ * harsh line on near-black, so dark mode dims all three. Callers that render the take-two
+ * layers (Surface, Button, AddFAB via GlassFill) MUST pass their current mode; FoodTab and
+ * the other back-compat consumers only read backgroundColor/border/contrastBase and can omit it.
  */
-export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'): MaterialStyle {
+export function getMaterialStyle(base: string, variant: MaterialVariant = 'card', mode: MaterialMode = 'light'): MaterialStyle {
   const isButton = variant === 'button';
+  const isDark = mode === 'dark';
   // Frosted-pane look from the base colour's own hue (lightened, not blended toward
   // an unrelated icy-blue) — every feature colour keeps its identity. Buttons lighten far
   // less so a CTA's accent stays close to its true hue and keeps `accentInk`'s contrast.
   const tinted = lighten(base, isButton ? 0.06 : 0.16);
+  // Ambient content cards ride translucent (~0.66-0.8, set by the Surface caller per
+  // surfaceContext) — a tinted wash alone reads as frosted without per-frame blur, the
+  // simplified glass finish's power win. Buttons lean denser for CTA ink contrast. (The card
+  // ambient value bumped 0.62 → 0.66 in "Glass, take two" for a denser adaptive scrim base.)
+  const washAlpha = isButton ? 0.9 : 0.66;
+
+  // Rim light (fix 1): directional 135° gradient border, bright top-left → faint bottom-right.
+  const rim: RimGradient = isDark
+    ? {
+        colors: [rgba('#FFFFFF', 0.55), rgba('#FFFFFF', 0.14), rgba('#FFFFFF', 0.03)],
+        locations: [0, 0.3, 1],
+      }
+    : {
+        colors: [rgba('#FFFFFF', 0.92), rgba('#FFFFFF', 0.5), rgba('#FFFFFF', 0.14), rgba('#FFFFFF', 0.03)],
+        locations: [0, 0.26, 0.55, 1],
+      };
+
+  // Adaptive scrim (fix 2): soft top-down white behind text, faded out by ~58% of the height.
+  const scrim: ScrimGradient = {
+    colors: [rgba('#FFFFFF', isDark ? 0.14 : 0.42), rgba('#FFFFFF', 0)],
+    locations: [0, 0.58],
+  };
+
+  // Specular highlight (fix 3): soft top-left radial blob (percent geometry, objectBoundingBox).
+  const specular: Specular = {
+    cx: '16%',
+    cy: '6%',
+    rx: '48%',
+    ry: '60%',
+    centerOpacity: isDark ? 0.34 : 0.6,
+    edgeOffset: '72%',
+  };
+
+  // Primary/danger button top-lit vertical fill (lighten → base → darken), pre-alpha'd to the
+  // wash so GlassFill can drop it in as a straight replacement for the flat wash layer.
+  const fillGradient: GradientColors = [
+    rgba(lighten(base, 0.12), washAlpha),
+    rgba(base, washAlpha),
+    rgba(darken(base, 0.1), washAlpha),
+  ];
+
   return {
     backgroundColor: rgba(tinted, 0.84),
     borderWidth: MATERIAL_BORDER_WIDTH,
@@ -318,10 +400,11 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
     shadowRadius: 16,
     elevation: 6,
     contrastBase: tinted,
-    // Ambient content cards ride translucent (~0.62-0.8, set by the Surface caller per
-    // surfaceContext) — a tinted wash alone reads as frosted without per-frame blur, the
-    // simplified glass finish's power win. Buttons lean denser for CTA ink contrast.
-    washAlpha: isButton ? 0.9 : 0.62,
+    washAlpha,
+    rim,
+    scrim,
+    specular,
+    fillGradient,
   };
 }
 

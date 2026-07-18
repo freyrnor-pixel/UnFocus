@@ -1,9 +1,10 @@
 /**
- * glassMaterial.test.ts — the simplified glass model's pure token logic (frost + wash + glow,
- * 2026-07-18): getMaterialStyle's trimmed MaterialStyle + card-vs-button tuning,
- * getLayeredShadow's three-pass depth, getGlow's colored halo, and the glassSurfaces setting
- * default. Native/visual rendering (GlassFill's blur/wash) is out of scope here — that needs
- * a device or the web preview.
+ * glassMaterial.test.ts — the glass model's pure token logic (frost + wash + glow + the
+ * "Glass, take two" static rim/scrim/specular/fillGradient, 2026-07-18): getMaterialStyle's
+ * MaterialStyle + card-vs-button + light-vs-dark tuning, getLayeredShadow's three-pass depth,
+ * getGlow's colored halo, and the glassSurfaces setting default. Native/visual rendering
+ * (GlassFill's blur/gradient/svg layers) is out of scope here — that needs a device or the web
+ * preview.
  */
 import { getMaterialStyle, getLayeredShadow, getGlow, rgba, MaterialVariant } from '@/constants/theme';
 
@@ -43,6 +44,48 @@ describe('getMaterialStyle', () => {
     const card = getMaterialStyle(base, 'card');
     const btn = getMaterialStyle(base, 'button');
     expect(btn.washAlpha).toBeGreaterThan(card.washAlpha);
+  });
+
+  it('ambient card wash sits at the bumped 0.66 base (Glass, take two)', () => {
+    expect(getMaterialStyle(base, 'card').washAlpha).toBeCloseTo(0.66);
+  });
+});
+
+describe('getMaterialStyle — take-two static layers', () => {
+  const base = '#3366CC';
+
+  it('rim/scrim gradients have matching-length colour + location stops (expo-linear-gradient contract)', () => {
+    const mat = getMaterialStyle(base, 'card', 'light');
+    expect(mat.rim.colors.length).toBeGreaterThanOrEqual(2);
+    expect(mat.rim.colors.length).toBe(mat.rim.locations.length);
+    expect(mat.scrim.colors.length).toBe(mat.scrim.locations.length);
+    // Scrim fades to fully transparent white so text below it isn't washed out.
+    expect(mat.scrim.colors[mat.scrim.colors.length - 1]).toBe(rgba('#FFFFFF', 0));
+  });
+
+  it('dark mode dims the rim + specular vs light (no harsh white streak on near-black)', () => {
+    const light = getMaterialStyle(base, 'card', 'light');
+    const dark = getMaterialStyle(base, 'card', 'dark');
+    // Brightest rim stop: light starts at 0.92, dark at 0.55.
+    expect(light.rim.colors[0]).toBe(rgba('#FFFFFF', 0.92));
+    expect(dark.rim.colors[0]).toBe(rgba('#FFFFFF', 0.55));
+    expect(dark.specular.centerOpacity).toBeLessThan(light.specular.centerOpacity);
+  });
+
+  it('specular blob is anchored to the top-left corner', () => {
+    const { specular } = getMaterialStyle(base, 'card', 'light');
+    expect(specular.cx).toBe('16%');
+    expect(specular.cy).toBe('6%');
+    expect(specular.edgeOffset).toBe('72%');
+  });
+
+  it('button fillGradient runs light→base→dark, pre-alpha`d to the button wash', () => {
+    const mat = getMaterialStyle('#3366CC', 'button', 'light');
+    expect(mat.fillGradient).toHaveLength(3);
+    // Every stop carries the button wash alpha (0.9) so it drops in for the flat wash.
+    mat.fillGradient.forEach((c) => expect(c).toContain(', 0.9)'));
+    // Middle stop is the base hue itself.
+    expect(mat.fillGradient[1]).toBe(rgba('#3366CC', 0.9));
   });
 });
 

@@ -78,7 +78,7 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
   const glass = useSettingsStore((s) => s.glassSurfaces);
   const t = useT();
   const dimension = DIMENSION[size];
-  const mat = getMaterialStyle(theme.accent, 'button');
+  const mat = getMaterialStyle(theme.accent, 'button', isDark ? 'dark' : 'light');
   // Purposeful glow (2026-07-18): only the floating 'lg' FAB, always on, regardless of the
   // glassSurfaces toggle — see the file header's Glow edit note.
   const glowShadow = size === 'lg' ? getGlow(theme.accent, 'strong').boxShadow : [];
