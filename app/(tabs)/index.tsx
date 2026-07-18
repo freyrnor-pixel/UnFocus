@@ -92,7 +92,7 @@ import { todayStr } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { computeListGroups } from '@/lib/shoppingGroups';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { FontSize, Fonts, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Spacing, Type } from '@/constants/theme';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useNotesStore } from '@/store/useNotesStore';
 import { SharedShoppingItem, SharedTask, useSharedStore } from '@/store/useSharedStore';
@@ -388,12 +388,14 @@ const baseStyles = StyleSheet.create({
   // Embedded first-run settings inside the ⓘ hint (notification opt-in).
   hintSetting: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.sm },
   hintSettingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
-  hintSettingLabel: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  hintSettingLabel: { flex: 1, fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   // marginBottom matches every card's own trailing marginBottom (Spacing.sm) so the
   // greeting→first-preview gap equals the gaps between previews (each = card marginBottom
   // + section marginTop). Without it the first gap was 8px short — the "uneven" rhythm.
   header: { marginBottom: Spacing.sm },
-  greeting: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold },
+  // Home's big "Hei, Name" greeting — the screen's title role (2026-07-18: was xxl/semibold,
+  // now Type.title for the refreshed hierarchy).
+  greeting: { fontFamily: Type.title.fontFamily, fontSize: Type.title.size, lineHeight: Math.round(Type.title.size * Type.title.line) },
   dateLabel: { fontSize: FontSize.sm, marginTop: Spacing.xs, textTransform: 'capitalize', fontFamily: Fonts.regular },
   section: { marginTop: Spacing.xl },
   pointsText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },

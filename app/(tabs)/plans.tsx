@@ -107,7 +107,7 @@ import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { tap } from '@/lib/haptics';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { Spring } from '@/constants/motion';
 import { getDomainColor } from '@/lib/domainColor';
 
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
   },
   hintSettingText: { flex: 1 },
-  hintSettingLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  hintSettingLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   hintSettingHint: { fontSize: FontSize.xs, marginTop: 2 },
   stickyBar: { flex: 1, paddingHorizontal: Spacing.md, justifyContent: 'center' },
   tabsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  tabText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  tabText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   // Visual-audit 2026-07-11: was bare muted text floating on the particle background
   // (low contrast in practice even though the token itself passes AA) — a card behind
   // it, matching HomeNotesCard's empty-state treatment, gives it real footing. Every
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
   doneZone: { marginTop: Spacing.sm, borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm },
   personFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm },
   personChip: { borderRadius: Radius.full, borderWidth: 1, paddingVertical: 6, paddingHorizontal: Spacing.md, minHeight: 34, justifyContent: 'center' },
-  personChipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  personChipText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   // The Whenever "New task" card — a plain bordered card (not a translucent Surface) so its
   // full edge stays visible, with the Whenever-blue rail matching the section's task cards.
   addRowCard: {

@@ -425,7 +425,10 @@ const styles = StyleSheet.create({
     // (react-native-web) resolves the same style from content (41dp), so web never
     // reproduced it. Width is owned by titleWrap's flex:1 on the row axis; the Text
     // needs no flex at all.
-    fontFamily: Fonts.bold,
+    // extrabold (2026-07-18 typography pass) to match the Type.title role's weight — this
+    // is a fontFamily-only change, it does NOT touch getHeaderMetrics' fontSize/lineHeight
+    // math (see the file-level edit note above on why that must stay untouched).
+    fontFamily: Fonts.extrabold,
     // fontSize AND lineHeight are applied INLINE from getHeaderMetrics (pre-scaled), with
     // `allowFontScaling={false}` on the Text — see the comment at titleNode and the
     // getHeaderMetrics doc for the double-scaling bug this arrangement fixes. Do NOT put a
