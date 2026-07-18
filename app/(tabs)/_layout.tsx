@@ -98,7 +98,9 @@ import BottomNav, { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
+import { BlurTargetProvider, BlurTargetSource } from '@/components/BlurTarget';
 import { useAccessibility } from '@/lib/useAppTheme';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { TAB_ROUTE_NAME } from '@/lib/siteNav';
 
 type TabBarSyncProps = MaterialTopTabBarProps & {
@@ -122,6 +124,7 @@ function TabBarWithBackgroundSync({ insetsBottom, onActiveRouteChange, ...tabBar
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { reducedMotion } = useAccessibility();
+  const glassBlur = useSettingsStore((s) => s.glassBlur);
   const [activeRouteName, setActiveRouteName] = useState<string>(TAB_ROUTE_NAME['/']!);
   const isHomeActive = activeRouteName === TAB_ROUTE_NAME['/'];
 
@@ -147,16 +150,22 @@ export default function TabsLayout() {
   }, [isHomeActive, reducedMotion, heroOpacity]);
 
   return (
-    <View style={{ flex: 1 }}>
-      {/* Shared L1/L2 background, rendered once behind the whole pager (see file header).
-          Both L1 layers stay mounted; the hero cross-fades over the plain backdrop. */}
-      <ScreenBackground />
-      <Animated.View style={[StyleSheet.absoluteFill, { opacity: heroOpacity }]} pointerEvents="none">
-        <HomeHeroBackground />
-      </Animated.View>
-      <ParticleBackground />
+    <BlurTargetProvider>
+      <View style={{ flex: 1 }}>
+        {/* Shared L1/L2 background, rendered once behind the whole pager (see file header).
+            Both L1 layers stay mounted; the hero cross-fades over the plain backdrop.
+            The two STATIC layers are wrapped as the Android backdrop-blur target so ambient
+            glass cards can frost them (components/BlurTarget.tsx); ParticleBackground stays
+            OUTSIDE the target — it animates every frame, which would force a per-frame re-blur. */}
+        <BlurTargetSource enabled={glassBlur} style={StyleSheet.absoluteFill}>
+          <ScreenBackground />
+          <Animated.View style={[StyleSheet.absoluteFill, { opacity: heroOpacity }]} pointerEvents="none">
+            <HomeHeroBackground />
+          </Animated.View>
+        </BlurTargetSource>
+        <ParticleBackground />
 
-      <TopTabs
+        <TopTabs
         tabBarPosition="bottom"
         screenOptions={{
           swipeEnabled: true,
@@ -183,7 +192,8 @@ export default function TabsLayout() {
         <TopTabs.Screen name="index" />
         <TopTabs.Screen name="health" />
         <TopTabs.Screen name="scan" />
-      </TopTabs>
-    </View>
+        </TopTabs>
+      </View>
+    </BlurTargetProvider>
   );
 }

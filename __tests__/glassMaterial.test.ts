@@ -59,9 +59,14 @@ describe('getLayeredShadow', () => {
   });
 });
 
-describe('glassSurfaces setting', () => {
-  it('defaults on so a fresh install shows glass', () => {
+describe('glass settings', () => {
+  it('glassSurfaces defaults on so a fresh install shows glass', () => {
     const { useSettingsStore } = require('@/store/useSettingsStore');
     expect(useSettingsStore.getState().glassSurfaces).toBe(true);
+  });
+
+  it('glassBlur (Android backdrop blur) defaults on', () => {
+    const { useSettingsStore } = require('@/store/useSettingsStore');
+    expect(useSettingsStore.getState().glassBlur).toBe(true);
   });
 });

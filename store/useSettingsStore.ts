@@ -95,6 +95,14 @@ export type Settings = {
    * falls back to plain opaque surfaces — a user-facing reduce-transparency mode.
    */
   glassSurfaces: boolean;
+  /**
+   * Real backdrop blur behind ambient glass on Android (2026-07-18). On (default) uses
+   * expo-blur's Dimezis blur-target path so cards actually frost the backdrop on SDK 31+;
+   * off (or SDK < 31) falls back to the translucent wash. No effect on iOS/web (they always
+   * blur). Exposed as a toggle so it can be dropped if it costs performance or touch response
+   * on a given device.
+   */
+  glassBlur: boolean;
   fontSize: FontSizePref;
   // Left-handed mode
   leftHanded: boolean;
@@ -203,6 +211,7 @@ function rowToSettings(row: Row): Settings {
     reducedMotion: readBool(row, 'reduced_motion'),
     particlesEnabled: readInt(row, 'particles_enabled', 1) !== 0,
     glassSurfaces: readInt(row, 'glass_surfaces', 1) !== 0,
+    glassBlur: readInt(row, 'glass_blur', 1) !== 0,
     fontSize: readEnum<FontSizePref>(row, 'font_size', ['small', 'default', 'large'], 'default'),
     leftHanded: readBool(row, 'left_handed'),
     persistentNotifEnabled: readBool(row, 'persistent_notif_enabled'),
@@ -263,6 +272,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   reducedMotion: { col: 'reduced_motion', to: bool },
   particlesEnabled: { col: 'particles_enabled', to: bool },
   glassSurfaces: { col: 'glass_surfaces', to: bool },
+  glassBlur: { col: 'glass_blur', to: bool },
   fontSize: { col: 'font_size' },
   leftHanded: { col: 'left_handed', to: bool },
   persistentNotifEnabled: { col: 'persistent_notif_enabled', to: bool },
@@ -323,6 +333,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   reducedMotion: false,
   particlesEnabled: true,
   glassSurfaces: true,
+  glassBlur: true,
   fontSize: 'default' as FontSizePref,
   leftHanded: false,
   persistentNotifEnabled: false,
