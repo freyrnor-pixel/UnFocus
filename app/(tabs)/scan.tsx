@@ -84,7 +84,7 @@ import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
 import { decodeSharePayload } from '@/lib/share';
 import { parseReceiptText, findFuzzyMatch, ParsedReceiptItem as ParsedItem } from '@/lib/receipt';
-import { FontSize, Radius, Shadow, Spacing, rgba } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Shadow, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { getScreenColor } from '@/lib/screenColor';
 
@@ -767,19 +767,19 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
   },
-  budgetPillText: { fontSize: FontSize.xs, fontWeight: '700' },
-  backLink: { fontSize: FontSize.sm, fontWeight: '700' },
+  budgetPillText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  backLink: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   tipCardRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md, paddingLeft: Spacing.lg },
   tipAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
   tipIcon: {},
   tipText: { flex: 1, fontSize: FontSize.sm, lineHeight: 20 },
 
   storeSection: { gap: Spacing.sm },
-  sectionLabel: { fontSize: FontSize.xs, fontWeight: '700', letterSpacing: 0.07 },
+  sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, letterSpacing: 0.07 },
   storeScroll: {},
   storeRow: { flexDirection: 'row', gap: Spacing.sm },
   storeChip: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.full },
-  storeChipText: { fontSize: FontSize.sm, fontWeight: '500' },
+  storeChipText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
 
   primaryButton: {
     borderRadius: Radius.lg,
@@ -792,7 +792,7 @@ const baseStyles = StyleSheet.create({
     shadowRadius: 11,
     elevation: 8,
   },
-  primaryButtonText: { fontSize: FontSize.xl, fontWeight: '700' },
+  primaryButtonText: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
 
   optionList: { gap: Spacing.sm },
   optionCardRow: {
@@ -810,7 +810,7 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  optionLabel: { flex: 1, fontSize: FontSize.md, fontWeight: '600' },
+  optionLabel: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
 
   // SCANNING MODE
   scanningContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.lg, paddingHorizontal: Spacing.xl },
@@ -821,7 +821,7 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scanningTitle: { fontSize: FontSize.lg, fontWeight: '600', textAlign: 'center' },
+  scanningTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, textAlign: 'center' },
   scanningSubtitle: { fontSize: FontSize.sm, textAlign: 'center' },
 
   // RESULT MODE
@@ -834,12 +834,12 @@ const baseStyles = StyleSheet.create({
     gap: Spacing.sm,
   },
   checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  checkMark: { fontSize: FontSize.xs, fontWeight: '700' },
-  itemName: { flex: 1, fontSize: FontSize.md, fontWeight: '500' },
+  checkMark: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  itemName: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.medium },
   itemQty: { fontSize: FontSize.sm, minWidth: 40 },
-  itemPrice: { fontSize: FontSize.sm, fontWeight: '600', minWidth: 44, textAlign: 'right' },
+  itemPrice: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, minWidth: 44, textAlign: 'right' },
   totalRow: { paddingTop: Spacing.sm, paddingBottom: Spacing.sm, alignItems: 'flex-end' },
-  totalText: { fontSize: FontSize.sm, fontWeight: '600' },
+  totalText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
 
   categoryChip: {
     alignSelf: 'flex-start',
@@ -849,7 +849,7 @@ const baseStyles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     borderRadius: Radius.sm,
   },
-  categoryChipText: { fontSize: FontSize.xs, fontWeight: '500' },
+  categoryChipText: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
   categoryGrid: { maxHeight: 280 },
   categoryGridContent: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, paddingVertical: Spacing.sm },
   categoryOption: {
@@ -859,7 +859,7 @@ const baseStyles = StyleSheet.create({
     borderRadius: Radius.sm,
     alignItems: 'center',
   },
-  categoryOptionText: { fontSize: FontSize.sm, fontWeight: '500', textAlign: 'center' },
+  categoryOptionText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },
 
   // BUTTONS
   confirmButton: {
@@ -869,7 +869,7 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     marginTop: Spacing.sm,
   },
-  confirmButtonText: { fontSize: FontSize.md, fontWeight: '700' },
+  confirmButtonText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   cancelButton: {
     borderRadius: Radius.md,
     borderWidth: 1,
@@ -878,7 +878,7 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
-  cancelButtonText: { fontSize: FontSize.md, fontWeight: '600' },
+  cancelButtonText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
 
   // MANUAL MODE
   manualInput: {
@@ -902,17 +902,17 @@ const baseStyles = StyleSheet.create({
     ...Shadow.fab,
   },
   sheetHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: Radius.full },
-  sheetTitle: { fontSize: FontSize.xl, fontWeight: '700' },
-  sheetLabel: { fontSize: FontSize.sm, fontWeight: '600', marginTop: Spacing.xs },
+  sheetTitle: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
+  sheetLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, marginTop: Spacing.xs },
   sheetInput: { borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSize.lg },
   sheetButtons: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
   sheetCancelBtn: {
     flex: 1, borderRadius: Radius.md, padding: Spacing.md,
     alignItems: 'center', borderWidth: 1,
   },
-  sheetCancelText: { fontWeight: '600', fontSize: FontSize.md },
+  sheetCancelText: { fontFamily: Fonts.semibold, fontSize: FontSize.md },
   sheetAddBtn: { flex: 2, borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center' },
-  sheetAddText: { fontWeight: '700', fontSize: FontSize.md },
+  sheetAddText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 
   // QR SCANNER
   qrModal: { flex: 1 },
@@ -923,7 +923,7 @@ const baseStyles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: Spacing.md,
   },
-  qrTitle: { fontSize: FontSize.xl, fontWeight: '700' },
+  qrTitle: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
   qrHint: { textAlign: 'center', fontSize: FontSize.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
   qrCamera: { flex: 1 },
   qrOverlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },

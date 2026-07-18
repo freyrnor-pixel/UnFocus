@@ -43,7 +43,7 @@ import { formatKr } from '@/lib/money';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PressableScale from '@/components/PressableScale';
-import { FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 export default function BudgetScreen() {
@@ -258,27 +258,27 @@ export default function BudgetScreen() {
 const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.md },
   card: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm, ...Shadow.card },
-  spentText: { fontSize: FontSize.lg, fontWeight: '700' },
+  spentText: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   track: { height: 10, borderRadius: Radius.full, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: Radius.full },
   hintText: { fontSize: FontSize.sm, lineHeight: 20 },
   paceRow: { gap: 2, marginTop: Spacing.xs },
-  paceFigure: { fontSize: FontSize.md, fontWeight: '700' },
+  paceFigure: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   section: { gap: Spacing.xs },
-  sectionLabel: { fontSize: FontSize.sm, fontWeight: '600' },
+  sectionLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   emptyText: { fontSize: FontSize.sm, textAlign: 'center', lineHeight: 20 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 4 },
   rowContent: { flex: 1 },
-  rowLabel: { fontSize: FontSize.md, fontWeight: '600' },
+  rowLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   rowMeta: { fontSize: FontSize.xs, marginTop: 1 },
-  rowTotal: { fontSize: FontSize.md, fontWeight: '600' },
+  rowTotal: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   monthSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs },
-  monthText: { fontSize: FontSize.md, fontWeight: '600' },
-  monthNavText: { fontSize: FontSize.sm, fontWeight: '600' },
+  monthText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  monthNavText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   budgetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  editBudgetLink: { fontSize: FontSize.sm, fontWeight: '600' },
+  editBudgetLink: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   setBudgetBtn: { borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', marginTop: Spacing.sm },
-  setBudgetBtnText: { fontWeight: '700', fontSize: FontSize.md },
+  setBudgetBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
   backdrop: { ...StyleSheet.absoluteFill },
   kvWrapper: { flex: 1, justifyContent: 'flex-end' },
   budgetSheet: {
@@ -296,9 +296,9 @@ const baseStyles = StyleSheet.create({
     paddingBottom: Spacing.sm,
     borderBottomWidth: 1,
   },
-  sheetHeaderTitle: { fontSize: FontSize.lg, fontWeight: '700' },
+  sheetHeaderTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   sheetCancel: { fontSize: FontSize.md },
-  sheetSave: { fontSize: FontSize.md, fontWeight: '700' },
-  sheetLabel: { fontSize: FontSize.sm, fontWeight: '600', marginTop: Spacing.xs },
+  sheetSave: { fontSize: FontSize.md, fontFamily: Fonts.bold },
+  sheetLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, marginTop: Spacing.xs },
   sheetInput: { borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSize.lg },
 });

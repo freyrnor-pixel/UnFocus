@@ -277,7 +277,7 @@ const baseStyles = StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.sm,
   },
-  formLabel: { fontSize: FontSize.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  formLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   chip: {
     borderWidth: 1.5,
@@ -285,7 +285,7 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
   },
-  chipText: { fontSize: FontSize.sm, fontWeight: '600' },
+  chipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   input: {
     borderWidth: 1.5,
     borderRadius: Radius.md,
@@ -294,7 +294,7 @@ const baseStyles = StyleSheet.create({
   },
   formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.md, marginTop: Spacing.xs },
   formCancelBtn: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm },
-  formCancelText: { fontSize: FontSize.sm, fontWeight: '600' },
+  formCancelText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   formSaveBtn: { borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
-  formSaveText: { fontSize: FontSize.sm, fontWeight: '700' },
+  formSaveText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
 });

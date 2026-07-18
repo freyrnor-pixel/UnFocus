@@ -165,6 +165,7 @@ export default function HomeShoppingCard({
   return (
     <Surface
       surfaceContext="ambient"
+      borderColor={domainColor.accent}
       style={[styles.card, !expanded && styles.cardCollapsed]}
     >
       <View style={styles.cardContent}>
@@ -279,7 +280,7 @@ export default function HomeShoppingCard({
             onPress={() => { tap(); setExpanded((v) => !v); }}
             scaleTo={0.97}
           >
-            <Text style={[styles.footerBtnText, { color: theme.accent }]}>
+            <Text style={[styles.footerBtnText, { color: domainColor.accent }]}>
               {expanded ? t.home.shoppingCollapse : t.home.shoppingExpand}
             </Text>
           </PressableScale>

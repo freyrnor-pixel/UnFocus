@@ -36,7 +36,7 @@
 import React, { useState } from 'react';
 import { LayoutAnimation, Platform, StyleSheet, Text, UIManager, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import PressableScale from '@/components/PressableScale';
@@ -163,7 +163,7 @@ const baseStyles = StyleSheet.create({
   text: {
     fontSize: FontSize.sm,
     lineHeight: 20,
-    fontWeight: '500',
+    fontFamily: Fonts.medium,
   },
   example: {
     fontSize: FontSize.xs,

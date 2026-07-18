@@ -530,7 +530,7 @@ const baseStyles = StyleSheet.create({
   reminderPreview: { fontSize: FontSize.xs, fontStyle: 'italic', marginTop: Spacing.xs },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   stepperBtn: { width: 40, height: 40, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
-  stepperBtnText: { fontSize: FontSize.xl, fontWeight: '300', lineHeight: 40 },
+  stepperBtnText: { fontSize: FontSize.xl, fontFamily: Fonts.regular, lineHeight: 40 },
   stepperValue: { fontSize: FontSize.xl, fontFamily: Fonts.bold, minWidth: 30, textAlign: 'center' },
   disclosure: {
     borderWidth: 1.5,

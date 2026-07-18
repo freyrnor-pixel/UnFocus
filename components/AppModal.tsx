@@ -41,7 +41,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
-import { FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { getTranslations } from '@/lib/i18n';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: FontSize.lg,
-    fontWeight: '700',
+    fontFamily: Fonts.bold,
     textAlign: 'center',
   },
   message: {
@@ -194,6 +194,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: FontSize.md,
-    fontWeight: '700',
+    fontFamily: Fonts.bold,
   },
 });

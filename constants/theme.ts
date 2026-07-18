@@ -393,7 +393,7 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
   // Adaptive scrim (fix 2): a soft matte veil behind text — much lighter than the old glossy
   // 0.42 sheen (2026-07-18: dropped toward a frosted, non-glary finish), fading out by half height.
   const scrim: ScrimGradient = {
-    colors: [rgba('#FFFFFF', isDark ? 0.08 : 0.16), rgba('#FFFFFF', 0)],
+    colors: [rgba('#FFFFFF', isDark ? 0.10 : 0.22), rgba('#FFFFFF', 0)],
     locations: [0, 0.5],
   };
 
@@ -405,7 +405,7 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
     cy: '8%',
     rx: '78%',
     ry: '70%',
-    centerOpacity: isDark ? 0.1 : 0.16,
+    centerOpacity: isDark ? 0.12 : 0.19,
     edgeOffset: '82%',
   };
 

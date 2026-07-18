@@ -73,18 +73,18 @@
  *     ScreenScaffold's `contentPadding` double-reserving `BOTTOM_NAV_HEIGHT` on top of the
  *     clearance the tab pager already gives every `bottomNav={false}` screen; fixed there
  *     (see ScreenScaffold.tsx's own edit notes), not here.
- *   - **Bottom fade (visual-audit, 2026-07-17)**: a long, virtualized catalogue is almost
- *     always mid-scroll, so the viewport's bottom edge hard-clips a row — a stark contrast
- *     against the first row's deliberately rounded top corner. A `LinearGradient`
- *     (`transparent` → `theme.bg`, `pointerEvents="none"`) sits absolutely pinned over the
- *     FlatList's bottom edge to soften that clip into a "more below" fade instead of a flat
- *     cut. It degrades harmlessly at the true end of a short list too, since it just fades
- *     into more of the same `theme.surface`-coloured `listFiller` sitting underneath it.
+ *   - **Notepad container (2026-07-18)**: the FlatList lives inside a rounded, `overflow:hidden`
+ *     `card` View that ends ABOVE the bottom nav (root's `paddingBottom`), so the catalogue reads
+ *     as a contained notepad sheet within the screen rather than running flush under the nav bar.
+ *     The rounded, clipped bottom turns a long list's mid-scroll hard clip into a clean rounded
+ *     edge. This replaced the old `LinearGradient` fade-to-`theme.bg` band, which painted a flat
+ *     white/black strip over the colourful field and read as the list being "bordered off / cut
+ *     off" behind the nav. Horizontal inset moved from `listContent` onto `root` so the clipping
+ *     card aligns with the rows.
  */
 import React, { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
@@ -308,6 +308,15 @@ export default function CatalogueTab({ onNotify, header }: Props) {
 
   return (
     <View style={styles.root}>
+      {/* Notepad container (2026-07-18): the catalogue is clipped into a rounded, contained
+          sheet that ends ABOVE the bottom nav (root's paddingBottom), so it reads like a
+          notepad sitting within the screen instead of running flush under — and getting
+          "bordered off" behind — the nav bar. overflow:hidden rounds the bottom edge for a
+          long, virtualized list too (mid-scroll rows clip against the rounded corner rather
+          than a hard cut against the nav). Replaces the old fade-to-theme.bg band, which
+          painted a flat white/black strip over the colourful field and read as the "cut off"
+          the report described. */}
+      <View style={styles.card}>
       <FlatList
         style={styles.flatList}
         data={items}
@@ -334,26 +343,22 @@ export default function CatalogueTab({ onNotify, header }: Props) {
         maxToRenderPerBatch={20}
         removeClippedSubviews
       />
-      {/* Bottom fade (visual-audit, 2026-07-17): a long catalogue is virtualized and almost
-          always mid-scroll, so the visible viewport's bottom edge hard-clips a row — a stark
-          contrast against the top row's deliberate rounded corner. This soft fade to the
-          screen background reads as "more below, keep scrolling" instead of a broken cut,
-          and blends harmlessly into the (already background-coloured) listFiller once the
-          real end of the list is reached. pointerEvents="none" so taps still reach the list. */}
-      <LinearGradient
-        colors={['transparent', theme.bg]}
-        style={styles.bottomFade}
-        pointerEvents="none"
-      />
+      </View>
     </View>
   );
 }
 
 const baseStyles = StyleSheet.create({
-  root: { flex: 1 },
+  // root owns the horizontal inset (was on listContent) so the clipping `card` aligns with the
+  // rows, plus a bottom gap so the notepad's rounded bottom clears the nav with the colourful
+  // field showing beneath it — "rounded within the screen", not tucked under the nav bar.
+  root: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md },
+  // The notepad sheet: fills the remaining height and rounds + clips its BOTTOM edge (the top is
+  // the floating hint/add-row chrome, which reads fine square). overflow:hidden is what turns a
+  // mid-scroll hard clip into a clean rounded bottom on the long, virtualized list.
+  card: { flex: 1, borderBottomLeftRadius: Radius.md, borderBottomRightRadius: Radius.md, overflow: 'hidden' },
   flatList: { flex: 1 },
-  bottomFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: Spacing.xl },
-  listContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, flexGrow: 1 },
+  listContent: { paddingBottom: Spacing.md, flexGrow: 1 },
   listHeader: { gap: Spacing.md, paddingBottom: Spacing.md },
   addRowCard: { paddingHorizontal: Spacing.md },
   addPriceInput: { width: 76, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8, fontSize: FontSize.sm },
