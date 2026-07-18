@@ -10,7 +10,8 @@
  *   Imports → react-native, react-native-safe-area-context, components/ScreenBackground, components/HomeHeroBackground,
  *             components/ParticleBackground, components/ScreenHeader (now also passed `isHome`, so
  *             ScreenHeader can gate its OTA "update available" button to Home only), components/BottomNav,
- *             lib/useAppTheme, store/useSettingsStore (debugModeEnabled → debug band outline)
+ *             lib/useAppTheme, lib/screenColor (ScreenColorContext — per-screen frosted tint,
+ *             provided to the scroll body only), store/useSettingsStore (debugModeEnabled → debug band outline)
  *   Used by → every app screen (app/(tabs)/index.tsx, app/(tabs)/shopping.tsx, etc.); also
  *             exports ScrollIntoViewContext, consumed by components/AddRow.tsx to scroll
  *             itself above the keyboard on focus (see that Edit note below)
@@ -119,6 +120,7 @@ import { Keyboard, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getHeaderMetrics } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { ScreenColorContext } from '@/lib/screenColor';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
@@ -191,6 +193,13 @@ type Props = {
    * Settings screen (app/settings.tsx). Only affects screens that opt in.
    */
   plainBackground?: boolean;
+  /**
+   * Per-screen dominant hue (lib/screenColor.ts) — provided to the scroll body only (NOT the
+   * header/chrome, which stay neutral), so every ambient Surface in this screen's content
+   * picks it up as its frosted tint. The 5 tab screens pass their screen colour; sub-tier
+   * screens omit it (Surfaces fall back to the neutral surface base). See ScreenColorContext.
+   */
+  screenColor?: string;
   /** Forwarded to the internal ScrollView — e.g. to cancel an in-flight FlightOverlay
    *  animation on scroll (components/FlightOverlay.tsx). Omit for identical behavior. */
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
@@ -220,6 +229,7 @@ export default function ScreenScaffold({
   bottomNav = true,
   ownBackground = true,
   plainBackground = false,
+  screenColor,
   onScroll,
   scrollable = true,
 }: Props) {
@@ -352,8 +362,12 @@ export default function ScreenScaffold({
 
       {/* L3: Content — swipe-between-sites navigation now lives one level up, in
           app/(tabs)/_layout.tsx's pager, so tab screens render their scroll content
-          directly with no per-screen swipe wrapper. */}
-      {scrollContent}
+          directly with no per-screen swipe wrapper. Wrapped in ScreenColorContext so this
+          screen's ambient Surfaces adopt the per-screen frosted tint; the header/chrome
+          (L4/L5) sit OUTSIDE this provider and stay neutral. */}
+      <ScreenColorContext.Provider value={screenColor ?? null}>
+        {scrollContent}
+      </ScreenColorContext.Provider>
 
       {/* L4: Top block (ScreenHeader) — extended up behind the status bar and
           padded down by the top inset so the bar content clears it. */}

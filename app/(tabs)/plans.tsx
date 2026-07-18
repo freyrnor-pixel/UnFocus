@@ -21,7 +21,7 @@
  *             components/SectionRail, components/SectionCard, components/TaskCard, components/AddRow,
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron
  *             (animated "Finished (n)" done-zone reveal), constants/theme, lib/date, lib/domainColor, lib/haptics,
- *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, store/useTaskStore,
+ *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, store/useTaskStore,
  *             store/useSettingsStore
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → reads/writes useTaskStore (tasks/steps); SharedTasksSection reads useSharedStore
@@ -110,6 +110,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { Spring } from '@/constants/motion';
 import { getDomainColor } from '@/lib/domainColor';
+import { getScreenColor } from '@/lib/screenColor';
 
 type Tab = 'all' | 'today' | 'week';
 
@@ -391,6 +392,7 @@ export default function TasksScreen() {
       tier="site"
       bottomNav={false}
       ownBackground={false}
+      screenColor={getScreenColor(theme, 'plans').base}
       stickyBelowHeader={stickyBelowHeader}
       stickyBelowHeaderHeight={STICKY_HEIGHT}
       infoActive={hintOpen}

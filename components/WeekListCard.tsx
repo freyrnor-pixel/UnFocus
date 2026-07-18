@@ -30,8 +30,9 @@
  *   - **2026-07-18 planned/made colour coding**: the card name is an always-editable
  *     TextInput header (no more tap-to-reveal `editing` state). The card edge + mode pill
  *     are colour-keyed to lock state — amber (`theme.warn`) "Planning"/planned while
- *     unlocked, green (`getDomainColor(theme,'shop').accent`) "Shopping"/made once locked,
- *     and the made card gets a soft green `getGlow()` halo via an outer wrapper View. The
+ *     unlocked, green (`getDomainColor(theme,'shop').accent`) "Shopping"/made once locked.
+ *     (2026-07-18: the extra green `getGlow()` halo + its wrapper View were removed — glossy
+ *     halos read as the plastic "toy tile" look; the edge colour alone carries the state.) The
  *     items sub-label is dropped in planning (the name header is enough) and reads
  *     "To buy (n)" (`t.toBuySection`) in shopping.
  *   - `dishGroups` prop is kept so this card can flatten dish items into the right section
@@ -69,7 +70,7 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
-import { Fonts, FontSize, getGlow, Radius, Spacing, Type } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { listProgress } from '@/lib/shoppingGroups';
@@ -255,12 +256,12 @@ export default function WeekListCard({
   const showInListSection = totalInList > 0 || !list.locked;
 
   // Planned vs made colour coding: a list you're still building (planning, unlocked)
-  // wears a calm amber "draft" edge; once switched to shopping (locked, "made") it
-  // takes the green shop accent edge and lights up with a soft green glow halo.
+  // wears a calm amber "draft" edge; once switched to shopping (locked, "made") it takes
+  // the green shop accent edge. (2026-07-18: dropped the extra green glow halo — glossy
+  // halos read as the plastic "toy tile" look; the edge colour alone carries the state.)
   const edgeColor = list.locked ? domainColor.accent : theme.warn;
 
   return (
-    <View style={list.locked ? [styles.glowWrap, getGlow(domainColor.accent, 'soft')] : undefined}>
     <Surface borderColor={edgeColor} style={styles.cardRow}>
       <View style={styles.cardContent}>
       {/* ── Card header: title + mode toggle + rename/settings/delete icons ── */}
@@ -661,13 +662,11 @@ export default function WeekListCard({
       </View>
       </View>
     </Surface>
-    </View>
   );
 }
 
 const baseStyles = StyleSheet.create({
   cardRow: { borderRadius: Radius.md },
-  glowWrap: { borderRadius: Radius.md },
   cardContent: { flex: 1, padding: Spacing.md, gap: Spacing.md },
   header: { gap: Spacing.xs },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },

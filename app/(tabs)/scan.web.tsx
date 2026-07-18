@@ -6,7 +6,7 @@
  * "not available" placeholder instead of the full scanner.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, lib/i18n
+ *   Imports → components/ScreenScaffold, lib/i18n, lib/useAppTheme, lib/screenColor
  *   Used by → Expo Router route "/scan" (web bundle resolves this over scan.tsx)
  *   Data    → none
  */
@@ -14,11 +14,14 @@ import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { useT } from '@/lib/i18n';
+import { useAppTheme } from '@/lib/useAppTheme';
+import { getScreenColor } from '@/lib/screenColor';
 
 export default function ScanScreenWeb() {
   const t = useT();
+  const theme = useAppTheme();
   return (
-    <ScreenScaffold title={t.shopping.scan} tier="site" bottomNav={false} ownBackground={false}>
+    <ScreenScaffold title={t.shopping.scan} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'scan').base}>
       <Text style={styles.text}>{t.webPreview.notAvailable}</Text>
     </ScreenScaffold>
   );
