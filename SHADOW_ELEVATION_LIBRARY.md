@@ -2,6 +2,20 @@
 
 Complete reference for shadow definitions, depth perception, and elevation levels in UnFocus. Shadows create visual hierarchy and guide user attention.
 
+> ⚠️ **STALE — flagged, not yet reconciled.** This file documents only the legacy
+> `Shadow` map (still present in `constants/theme.ts` for its ~15 existing call
+> sites, but not the go-forward pattern) and uses token names (`theme.white`,
+> `theme.orange`, `theme.cream`) that don't exist in the current `ThemePalette`
+> (see `constants/colors.ts` — actual names are `surface`/`accent`/`bg`/etc.).
+> Current cards/buttons/the FAB get their depth from `getLayeredShadow(shadowColor,
+> level)` (a themed three-pass `boxShadow`, applied by `components/Surface.tsx`)
+> or the newer `getElevation('flat'|'raised'|'floating')` 3-tier system — not
+> `Shadow.card`/`cardHeavy`/`fab` directly. Purposeful active/focus state also gets
+> a separate colored halo, `getGlow(color, 'soft'|'strong')` (2026-07-18) — a
+> two-pass `boxShadow` applied only to the FAB and the single focused element per
+> screen, never decoration. Treat `constants/theme.ts` as the source of truth
+> until this file gets a full reconciliation pass.
+
 ---
 
 ## 🌑 Shadow System

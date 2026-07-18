@@ -364,7 +364,10 @@ both logged complete — Surface.tsx exists with `surfaceContext` prop.
   omitted, Surface itself reads `bubbleMaterial` from settings, so this
   component no longer needs its own `useSettingsStore` read (simplification
   enabled by consuming Surface rather than duplicating its default-resolution
-  logic).
+  logic). [Annotation, 2026-07-18: `bubbleMaterial`/`Surface material` never
+  shipped as described — Surface takes no `material` prop and there's no such
+  setting in code. Left as-is (historical log entry); see AGENTS.md's
+  "Materials" note for the actual frost + wash + glow model.]
 - Token remap: `theme.textLight`→`textMuted`, `theme.orangeLight`→`accentSoft`,
   `theme.brown`→`accent` (badge text on `accentSoft` fill), `theme.grayLight`→
   `border` (body top rule).

@@ -114,6 +114,12 @@ pattern in the old code.
    translucent surfaces picking up the user's bubble material (glass /
    metal / rock / paper / plain) from `useSettingsStore.bubbleMaterial`.
    Reuse the material handling in `Surface.tsx`; do not re-implement.
+   [Annotation, 2026-07-18: the metal/rock/paper/plain `bubbleMaterial`
+   finish system described here was never implemented — no such setting
+   exists in code. The material that *did* ship is glass-only, and was
+   simplified to frost + wash + glow that same date; see AGENTS.md's
+   "Materials" gotcha for the current model. Not editing the resolution
+   above per this log's own rule — flagging it as stale instead.]
 5. **Chrome inside the blocks** — varies by screen tier:
 
    - **Top-level screens** (the 5 BottomNav sites: Shopping, Plans, Home,

@@ -1,12 +1,11 @@
 /**
- * glassMaterial.test.ts — "Glass, take two" token logic + the glassSurfaces setting default.
- *
- * Covers the pure, headless bits of the surface-material overhaul: getMaterialStyle's
- * card-vs-button tuning, getLayeredShadow's three-pass depth, and that the new
- * glassSurfaces toggle defaults on (a fresh install shows glass). Native/visual rendering
- * (GlassFill's blur/rim/specular) is out of scope here — that needs a device.
+ * glassMaterial.test.ts — the simplified glass model's pure token logic (frost + wash + glow,
+ * 2026-07-18): getMaterialStyle's trimmed MaterialStyle + card-vs-button tuning,
+ * getLayeredShadow's three-pass depth, getGlow's colored halo, and the glassSurfaces setting
+ * default. Native/visual rendering (GlassFill's blur/wash) is out of scope here — that needs
+ * a device or the web preview.
  */
-import { getMaterialStyle, getLayeredShadow } from '@/constants/theme';
+import { getMaterialStyle, getLayeredShadow, getGlow, rgba, MaterialVariant } from '@/constants/theme';
 
 // Keep the settings-store import DB-free: the module reaches @/lib/db via dataAccess at
 // import time, and load() isn't called here, so a minimal stub is enough.
@@ -23,21 +22,45 @@ jest.mock('@/lib/db', () => ({
 describe('getMaterialStyle', () => {
   const base = '#3366CC';
 
-  it('exposes the take-two layer tokens', () => {
-    const mat = getMaterialStyle(base);
-    expect(mat.rimColors).toHaveLength(3);
-    expect(mat.specularColor).toMatch(/rgba\(255, 255, 255/);
-    expect(mat.scrimColor).toMatch(/rgba\(/);
-    expect(mat.driftSheenColor).toMatch(/rgba\(/);
-    expect(typeof mat.washAlpha).toBe('number');
-    // Back-compat: existing keys still present for FoodTab's direct consumer.
+  it.each<MaterialVariant>(['card', 'button'])('%s variant returns the trimmed MaterialStyle with sane values', (variant) => {
+    const mat = getMaterialStyle(base, variant);
+    expect(mat.backgroundColor).toMatch(/^rgba\(/);
+    expect(mat.borderWidth).toBeGreaterThan(0);
+    expect(mat.borderColor).toMatch(/^rgba\(/);
+    expect(mat.borderTopColor).toMatch(/^rgba\(/);
+    expect(mat.borderBottomColor).toMatch(/^rgba\(/);
+    expect(mat.shadowOpacity).toBeGreaterThan(0);
+    expect(mat.shadowRadius).toBeGreaterThan(0);
+    expect(mat.elevation).toBeGreaterThan(0);
+    // Back-compat: contrastBase is the opaque hex equivalent — FoodTab's direct consumer
+    // (and contrastOn() callers generally) need a parsable hex, not the translucent fill.
     expect(mat.contrastBase).toMatch(/^#/);
+    expect(mat.washAlpha).toBeGreaterThan(0);
+    expect(mat.washAlpha).toBeLessThanOrEqual(1);
   });
 
-  it('button variant is denser (higher wash, stronger scrim) than card for CTA contrast', () => {
+  it('button variant is denser (higher wash) than card for CTA contrast', () => {
     const card = getMaterialStyle(base, 'card');
     const btn = getMaterialStyle(base, 'button');
     expect(btn.washAlpha).toBeGreaterThan(card.washAlpha);
+  });
+});
+
+describe('getGlow', () => {
+  const color = '#3366CC';
+
+  it('returns a two-pass boxShadow halo tinted with the passed color', () => {
+    const glow = getGlow(color, 'soft');
+    expect(glow.boxShadow).toHaveLength(2);
+    expect(glow.boxShadow[0].color).toBe(rgba(color, 0.34));
+    expect(glow.boxShadow[1].color).toBe(rgba(color, 0.17));
+  });
+
+  it("'strong' has a larger radius and higher alpha than 'soft'", () => {
+    const soft = getGlow(color, 'soft');
+    const strong = getGlow(color, 'strong');
+    expect(strong.boxShadow[0].blurRadius).toBeGreaterThan(soft.boxShadow[0].blurRadius);
+    expect(strong.boxShadow[0].color).toBe(rgba(color, 0.55));
   });
 });
 
@@ -61,16 +84,11 @@ describe('getLayeredShadow', () => {
 
 describe('glass settings', () => {
   it('glassSurfaces defaults on so a fresh install shows glass', () => {
+    // glassBlur (the Android backdrop-blur toggle) was removed in the 2026-07-18
+    // simplification along with the BlurTarget system it gated — glassSurfaces (the
+    // reduce-transparency a11y toggle) is the only glass setting left.
     const { useSettingsStore } = require('@/store/useSettingsStore');
     expect(useSettingsStore.getState().glassSurfaces).toBe(true);
-  });
-
-  it('glassBlur (Android backdrop blur) defaults OFF', () => {
-    // 2026-07-18: the per-card dimezis backdrop blur was the heaviest glass cost and could
-    // intercept taps on Android, so it now defaults off (users can re-enable in Settings).
-    // Existing installs are flipped off by a one-time UPDATE migration in lib/db.ts.
-    const { useSettingsStore } = require('@/store/useSettingsStore');
-    expect(useSettingsStore.getState().glassBlur).toBe(false);
   });
 });
 
