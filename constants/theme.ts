@@ -335,7 +335,14 @@ export type MaterialStyle = {
   fillGradient: GradientColors;
 };
 
-const MATERIAL_BORDER_WIDTH = 1.5;
+// The outer rim (keycap chamfer) ring thickness — Surface/Button set the padding-ring gap to this.
+const MATERIAL_BORDER_WIDTH = 2.5;
+/**
+ * The inner keyline width (the "double keycap" second edge) — Surface/Button/AddFAB draw a border
+ * of this width, colored `mat.innerLine`, on the inner mask just inside the rim chamfer. Kept as a
+ * shared constant so the compound edge (rim gap + this) stays consistent across every glass surface.
+ */
+export const MATERIAL_INNER_LINE_WIDTH = 2;
 
 /** Card vs. button tuning for the glass recipe (buttons lean denser/opaquer for CTA contrast). */
 export type MaterialVariant = 'card' | 'button';

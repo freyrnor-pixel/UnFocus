@@ -68,7 +68,7 @@
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getElevation, getLayeredShadow, getMaterialStyle, Radius } from '@/constants/theme';
+import { getElevation, getLayeredShadow, getMaterialStyle, MATERIAL_INNER_LINE_WIDTH, Radius } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useScreenColor } from '@/lib/screenColor';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -119,12 +119,13 @@ const GLASS_BLUR_INTENSITY: Record<SurfaceContext, number> = {
 // through, so they stay denser. GlassFill additionally floors the wash on Android, where
 // the backdrop blur is unavailable and opacity is the only contrast lever.
 const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
-  // Ambient dropped 0.66 → 0.55 → 0.44 (2026-07-18 "colored glass" → "crisper glass" retune): a
-  // genuinely translucent frosted pane so the backdrop reads THROUGH the hue as real glass, not an
-  // opaque pastel tile — the crisp hue-tinted keycap edge now carries the card's definition, so the
-  // fill can lean lighter without the card dissolving. (GlassFill floors this at 0.7 on Android,
-  // where there's no real backdrop blur and opacity is the only text-contrast lever.)
-  ambient: 0.44,
+  // Ambient dropped 0.66 → 0.55 → 0.44 → 0.36 (2026-07-18 "colored glass" → "crisper glass" →
+  // "thicker/clearer" retune): a genuinely translucent frosted pane so the backdrop reads THROUGH
+  // the hue as real glass, not an opaque pastel tile — the thick hue-tinted keycap edge now carries
+  // the card's definition, so the fill can lean lighter without the card dissolving. (GlassFill
+  // floors this at 0.6 on Android, where there's no real backdrop blur and opacity is the only
+  // text-contrast lever.)
+  ambient: 0.36,
   overlay: 0.8,
 };
 
@@ -239,9 +240,10 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
           style={[
             styles.mask,
             // Inner line = the second edge of the "raised keycap (double)" (2026-07-18 retune):
-            // a crisp 1px hue-tinted line (mat.innerLine) just inside the rim chamfer, so the card
-            // reads as a physically raised key. A `borderColor` prop (domain-coded card) still wins.
-            { borderRadius: innerRadius, borderWidth: 1, borderColor: borderColor ?? mat.innerLine },
+            // a crisp hue-tinted keyline (mat.innerLine, MATERIAL_INNER_LINE_WIDTH) just inside the
+            // rim chamfer, so the card reads as a physically raised key. A `borderColor` prop
+            // (domain-coded card) still wins.
+            { borderRadius: innerRadius, borderWidth: MATERIAL_INNER_LINE_WIDTH, borderColor: borderColor ?? mat.innerLine },
           ]}
         >
           <GlassFill

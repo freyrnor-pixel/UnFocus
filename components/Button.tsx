@@ -32,7 +32,7 @@ import { ActivityIndicator, StyleSheet, Text, View, ViewStyle, StyleProp } from 
 import { Ionicons } from '@expo/vector-icons';
 // Label stays on FontSize/Fonts.bold rather than a Type role (2026-07-18 typography pass) —
 // no Type entry fits a short CTA pill label; Type is for headings/body/captions.
-import { FontSize, Fonts, getMaterialStyle, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, getMaterialStyle, MATERIAL_INNER_LINE_WIDTH, Radius, Spacing } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -138,7 +138,7 @@ export default function Button({
           end={{ x: 0, y: 1 }}
           style={[styles.ring, { borderRadius: Radius.full, padding: mat.borderWidth }]}
         >
-          <View style={[styles.pillMask, { borderRadius: Radius.full, borderWidth: 1, borderColor: mat.innerLine, paddingVertical: vertPad, paddingHorizontal: horizPad }]}>
+          <View style={[styles.pillMask, { borderRadius: Radius.full, borderWidth: MATERIAL_INNER_LINE_WIDTH, borderColor: mat.innerLine, paddingVertical: vertPad, paddingHorizontal: horizPad }]}>
             <GlassFill
               mat={mat}
               radius={Radius.full}

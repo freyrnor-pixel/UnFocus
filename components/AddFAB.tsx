@@ -45,7 +45,7 @@ import React from 'react';
 import { StyleSheet, Text, ViewStyle, StyleProp } from 'react-native';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { Fonts, getGlow, getLayeredShadow, getMaterialStyle, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, getGlow, getLayeredShadow, getMaterialStyle, MATERIAL_INNER_LINE_WIDTH, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
 import PressableScale from '@/components/PressableScale';
@@ -102,10 +102,10 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
           ? {
               backgroundColor: 'transparent',
               overflow: 'hidden',
-              // Raised-keycap inner line (2026-07-18 retune): a crisp 1px hue-tinted edge so the
-              // glass FAB matches cards/buttons. No outer rim ring here — the inner line plus the
-              // always-on accent glow is enough definition for a 56px circle.
-              borderWidth: 1,
+              // Raised-keycap inner line (2026-07-18 retune): a crisp hue-tinted edge so the glass
+              // FAB matches cards/buttons. No outer rim ring here — the inner line plus the always-on
+              // accent glow is enough definition for a 56px circle.
+              borderWidth: MATERIAL_INNER_LINE_WIDTH,
               borderColor: mat.innerLine,
               boxShadow: [...getLayeredShadow(theme.shadow, 'floating'), ...glowShadow],
             }
