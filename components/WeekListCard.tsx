@@ -359,6 +359,9 @@ export default function WeekListCard({
               {/* Inline add row — only shown when unlocked (planning mode) */}
               {!list.locked && (
                 <View>
+                  {/* Two-line add control: search on its own line, then the
+                      qty stepper + confirm button — de-crammed so it reads as a
+                      tidy group instead of five controls jammed on one row. */}
                   <View style={styles.inlineAddRow}>
                     <TextInput
                       ref={addInputRef}
@@ -373,49 +376,53 @@ export default function WeekListCard({
                       returnKeyType="done"
                       onSubmitEditing={handleSubmitAddRow}
                     />
-                    <View style={styles.inlineQtyGroup}>
-                      <PressableScale
-                        style={[styles.inlineQtyBtn, { backgroundColor: theme.surfaceMuted }]}
-                        onPress={() => setAddQty((q) => Math.max(1, q - 1))}
-                        hitSlop={6}
-                        scaleTo={0.9}
-                      >
-                        <Text style={[styles.inlineQtyBtnText, { color: theme.text }]}>−</Text>
-                      </PressableScale>
-                      <Text style={[styles.inlineQtyVal, { color: theme.text }]}>{addQty}</Text>
-                      <PressableScale
-                        style={[styles.inlineQtyBtn, { backgroundColor: theme.surfaceMuted }]}
-                        onPress={() => setAddQty((q) => q + 1)}
-                        hitSlop={6}
-                        scaleTo={0.9}
-                      >
-                        <Text style={[styles.inlineQtyBtnText, { color: theme.text }]}>+</Text>
-                      </PressableScale>
+                    <View style={styles.inlineAddControls}>
+                      <View style={styles.inlineQtyGroup}>
+                        <PressableScale
+                          style={[styles.inlineQtyBtn, { backgroundColor: theme.surfaceMuted }]}
+                          onPress={() => setAddQty((q) => Math.max(1, q - 1))}
+                          hitSlop={6}
+                          scaleTo={0.9}
+                        >
+                          <Text style={[styles.inlineQtyBtnText, { color: theme.text }]}>−</Text>
+                        </PressableScale>
+                        <Text style={[styles.inlineQtyVal, { color: theme.text }]}>{addQty}</Text>
+                        <PressableScale
+                          style={[styles.inlineQtyBtn, { backgroundColor: theme.surfaceMuted }]}
+                          onPress={() => setAddQty((q) => q + 1)}
+                          hitSlop={6}
+                          scaleTo={0.9}
+                        >
+                          <Text style={[styles.inlineQtyBtnText, { color: theme.text }]}>+</Text>
+                        </PressableScale>
+                      </View>
+                      <View style={styles.inlineAddConfirmGroup}>
+                        {addPrice > 0 && (
+                          <Text style={[styles.inlineLineTotal, { color: theme.textMuted }]}>
+                            {formatKr(addPrice * addQty, 0)}
+                          </Text>
+                        )}
+                        <PressableScale
+                          style={[
+                            styles.inlineAddConfirmBtn,
+                            { backgroundColor: addName.trim() ? theme.good : theme.surfaceMuted },
+                          ]}
+                          onPress={handleSubmitAddRow}
+                          disabled={!addName.trim()}
+                          hitSlop={4}
+                          scaleTo={0.95}
+                        >
+                          <Text
+                            style={[
+                              styles.inlineAddConfirmText,
+                              { color: addName.trim() ? theme.textInverse : theme.textMuted },
+                            ]}
+                          >
+                            {t.a11yAdd}
+                          </Text>
+                        </PressableScale>
+                      </View>
                     </View>
-                    {addPrice > 0 && (
-                      <Text style={[styles.inlineLineTotal, { color: theme.textMuted }]}>
-                        {formatKr(addPrice * addQty, 0)}
-                      </Text>
-                    )}
-                    <PressableScale
-                      style={[
-                        styles.inlineAddConfirmBtn,
-                        { backgroundColor: addName.trim() ? theme.good : theme.surfaceMuted },
-                      ]}
-                      onPress={handleSubmitAddRow}
-                      disabled={!addName.trim()}
-                      hitSlop={4}
-                      scaleTo={0.95}
-                    >
-                      <Text
-                        style={[
-                          styles.inlineAddConfirmText,
-                          { color: addName.trim() ? theme.textInverse : theme.textMuted },
-                        ]}
-                      >
-                        {t.a11yAdd}
-                      </Text>
-                    </PressableScale>
                   </View>
 
                   {/* Catalog search results */}
@@ -619,19 +626,27 @@ export default function WeekListCard({
           </View>
         )}
 
-        {/* ── Shopping done button ── */}
-        <PressableScale
-          style={[
-            styles.doneShoppingBtn,
-            { backgroundColor: theme.good, opacity: progress.inCart === 0 ? CHECKED_OPACITY : 1 },
-          ]}
-          onPress={onDoneShopping}
-          disabled={progress.inCart === 0}
-          pointerEvents={progress.inCart === 0 ? 'none' : 'auto'}
-          scaleTo={0.95}
-        >
-          <Text style={[styles.doneShoppingText, { color: theme.textInverse }]}>{t.doneShoppingBtn}</Text>
-        </PressableScale>
+        {/* ── Bottom slot: green "done" CTA while shopping, calm status bar while planning ──
+            Colour signals actionability — green = a real action you can take now
+            (finish shopping), neutral = informational (still building the list). ── */}
+        {list.locked ? (
+          <PressableScale
+            style={[
+              styles.doneShoppingBtn,
+              { backgroundColor: theme.good, opacity: progress.inCart === 0 ? CHECKED_OPACITY : 1 },
+            ]}
+            onPress={onDoneShopping}
+            disabled={progress.inCart === 0}
+            pointerEvents={progress.inCart === 0 ? 'none' : 'auto'}
+            scaleTo={0.95}
+          >
+            <Text style={[styles.doneShoppingText, { color: theme.textInverse }]}>{t.doneShoppingBtn}</Text>
+          </PressableScale>
+        ) : (
+          <View style={[styles.modeStatusBar, { backgroundColor: theme.surfaceMuted }]}>
+            <Text style={[styles.modeStatusText, { color: theme.textMuted }]}>{t.planModeActiveLabel}</Text>
+          </View>
+        )}
       </View>
       </View>
     </Surface>
@@ -688,20 +703,19 @@ const baseStyles = StyleSheet.create({
   sectionTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, textAlign: 'right', paddingTop: Spacing.xs },
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, borderLeftWidth: 3 },
   rowDivider: { height: 1 },
-  // Inline add row
+  // Inline add row — a two-line group: search on top, controls below
   inlineAddRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,
-    minHeight: 44,
   },
   inlineAddInput: {
-    flex: 1,
     fontSize: FontSize.sm,
     fontFamily: Fonts.regular,
     paddingVertical: Spacing.xs,
+    minHeight: 30,
   },
+  inlineAddControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
+  inlineAddConfirmGroup: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   inlineQtyGroup: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   inlineQtyBtn: {
     width: 26,
@@ -717,8 +731,8 @@ const baseStyles = StyleSheet.create({
   // reads less ambiguously (the "+" alone was easy to mistake for something else,
   // since the row already has its own qty-stepper "+"/"−" buttons right next to it).
   inlineAddConfirmBtn: {
-    minHeight: 30,
-    paddingHorizontal: Spacing.sm,
+    minHeight: 40,
+    paddingHorizontal: Spacing.md,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -746,7 +760,7 @@ const baseStyles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm,
-    minHeight: 40,
+    minHeight: 44,
   },
   monthlyTriggerText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   monthlyPanel: { gap: Spacing.xs },
@@ -785,6 +799,10 @@ const baseStyles = StyleSheet.create({
     minHeight: 44,
   },
   monthlyFooterBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
-  doneShoppingBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', minHeight: 44 },
+  doneShoppingBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
   doneShoppingText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
+  // Planning-mode bottom slot: same footprint as the done button, neutral colour
+  // so it reads as a status label (not a green "do this now" CTA).
+  modeStatusBar: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
+  modeStatusText: { fontFamily: Fonts.semibold, fontSize: FontSize.sm, letterSpacing: 0.3 },
 });
