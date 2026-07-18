@@ -16,8 +16,9 @@
  *   - Secondary is soft-tint fill (accentSoft), NOT border.
  *   - Disabled state is opacity 0.45 applied over the variant's own colours — never swap fill for disabled.
  *   - Glass: primary/secondary/danger render components/GlassFill (frost + wash + scrim +
- *     specular) inside a rim-light gradient padding-ring (fix 1, at Radius.full) over a
- *     transparent PressableScale (so the frost blurs the screen, not a solid fill) with the
+ *     specular) inside a "raised keycap (double)" edge — a VERTICAL hue-tinted rim gradient
+ *     padding-ring (fix 1, at Radius.full) PLUS a crisp 1px hue-tinted inner line (mat.innerLine)
+ *     on the pill mask — over a transparent PressableScale (so the frost blurs the screen, not a solid fill) with the
  *     near-opaque `'button'` material for CTA contrast. Primary/danger swap the flat wash for
  *     the top-lit `mat.fillGradient` (lighten→base→darken); secondary keeps the flat wash + rim
  *     edge only. `ghost` (no fill) is never glass. Off when settings.glassSurfaces is false —
@@ -125,17 +126,19 @@ export default function Button({
       ]}
     >
       {useGlass ? (
-        // Rim light (fix 1) scaled to the pill: a 135° gradient padding-ring at Radius.full,
-        // with the frost/wash/scrim/specular masked inside. Primary/danger swap the flat wash
-        // for the top-lit fillGradient.
+        // Raised-keycap edge scaled to the pill (2026-07-18 retune): a VERTICAL hue-tinted rim
+        // padding-ring at Radius.full (top→bottom, matching Surface — was a 135° diagonal) PLUS a
+        // crisp 1px hue-tinted inner line (mat.innerLine) on the mask = the "double keycap". The
+        // frost/wash/scrim/specular are masked inside; primary/danger swap the flat wash for the
+        // top-lit fillGradient.
         <LinearGradient
           colors={mat.rim.colors}
           locations={mat.rim.locations}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          end={{ x: 0, y: 1 }}
           style={[styles.ring, { borderRadius: Radius.full, padding: mat.borderWidth }]}
         >
-          <View style={[styles.pillMask, { borderRadius: Radius.full, paddingVertical: vertPad, paddingHorizontal: horizPad }]}>
+          <View style={[styles.pillMask, { borderRadius: Radius.full, borderWidth: 1, borderColor: mat.innerLine, paddingVertical: vertPad, paddingHorizontal: horizPad }]}>
             <GlassFill
               mat={mat}
               radius={Radius.full}

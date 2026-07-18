@@ -6,7 +6,7 @@
  * (GlassFill's blur/gradient/svg layers) is out of scope here — that needs a device or the web
  * preview.
  */
-import { getMaterialStyle, getLayeredShadow, getGlow, rgba, MaterialVariant } from '@/constants/theme';
+import { getMaterialStyle, getLayeredShadow, getGlow, rgba, lighten, darken, MaterialVariant } from '@/constants/theme';
 
 // Keep the settings-store import DB-free: the module reaches @/lib/db via dataAccess at
 // import time, and load() isn't called here, so a minimal stub is enough.
@@ -63,16 +63,40 @@ describe('getMaterialStyle — take-two static layers', () => {
     expect(mat.scrim.colors[mat.scrim.colors.length - 1]).toBe(rgba('#FFFFFF', 0));
   });
 
-  it('dark mode dims the rim + specular vs light (no harsh white streak on near-black)', () => {
+  it('raised-keycap rim is hue-tinted (not pure white) with a crisp top-weighted lit band', () => {
+    const light = getMaterialStyle(base, 'card', 'light');
+    // Rim top stop is derived from the base hue (lighten), NOT a pure-white streak — so the edge
+    // tints to the surface's own colour (2026-07-18 retune). base #3366CC → lighten keeps a blue cast.
+    expect(light.rim.colors[0]).toBe(rgba(lighten(base, 0.42), 0.85));
+    expect(light.rim.colors[0]).not.toBe(rgba('#FFFFFF', 0.85));
+    // Bright band pushed to the top edge (crisp lit lip, not a half-height fade): mid stop ≤ 0.25.
+    expect(light.rim.locations[1]).toBeLessThanOrEqual(0.25);
+    // Bottom rim stop is a soft dark hue-shadow (the chamfer's shadowed edge), not white.
+    expect(light.rim.colors[light.rim.colors.length - 1]).toBe(rgba(darken(base, 0.14), 0.34));
+  });
+
+  it('dark mode dims the rim + specular vs light (no harsh streak on near-black)', () => {
     const light = getMaterialStyle(base, 'card', 'light');
     const dark = getMaterialStyle(base, 'card', 'dark');
-    // Keycap-bevel rim: bright translucent-white TOP stop, light 0.6 / dark 0.22 (muted off
-    // the old plastic 0.92/0.55 for a frosted, non-glossy edge), fading to a dark bottom stop.
-    expect(light.rim.colors[0]).toBe(rgba('#FFFFFF', 0.6));
-    expect(dark.rim.colors[0]).toBe(rgba('#FFFFFF', 0.22));
-    // Bottom rim stop is a soft dark shadow (the chamfer's shadowed edge), not white.
-    expect(light.rim.colors[light.rim.colors.length - 1]).toBe(rgba('#000000', 0.14));
+    // Dark-mode rim top lip is lower-alpha than light so it doesn't glare on near-black.
+    const lightTopAlpha = Number(light.rim.colors[0].match(/,\s*([\d.]+)\)$/)![1]);
+    const darkTopAlpha = Number(dark.rim.colors[0].match(/,\s*([\d.]+)\)$/)![1]);
+    expect(darkTopAlpha).toBeLessThan(lightTopAlpha);
     expect(dark.specular.centerOpacity).toBeLessThan(light.specular.centerOpacity);
+  });
+
+  it('exposes a hue-tinted innerLine (the "double keycap" second edge), brighter in light mode', () => {
+    const light = getMaterialStyle(base, 'card', 'light');
+    const dark = getMaterialStyle(base, 'card', 'dark');
+    // Present, and a parsable rgba() (Surface/Button/AddFAB draw it as the inner mask border).
+    expect(light.innerLine).toMatch(/^rgba\(/);
+    expect(dark.innerLine).toMatch(/^rgba\(/);
+    // Hue-tinted, not neutral grey/white — derived from the base.
+    expect(light.innerLine).toBe(rgba(lighten(base, 0.06), 0.5));
+    // Light mode reads more present than dark (higher alpha) so the edge stays calm on near-black.
+    const lightAlpha = Number(light.innerLine.match(/,\s*([\d.]+)\)$/)![1]);
+    const darkAlpha = Number(dark.innerLine.match(/,\s*([\d.]+)\)$/)![1]);
+    expect(lightAlpha).toBeGreaterThan(darkAlpha);
   });
 
   it('specular is a wide, diffuse top sheen (frosted, not a tight glossy bead)', () => {

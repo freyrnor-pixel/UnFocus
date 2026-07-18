@@ -48,9 +48,10 @@
  *     shadow/elevation in `style` is intentionally dropped — owned by the material.
  *   - Glass-off card edge is `theme.border` (opaque) so a plain card keeps a visible calm
  *     edge (2026-07-12 redesign); light mode keeps the material's brighter `borderTopColor`
- *     as a top-lit highlight, dark mode a uniform themed edge. Glass-ON replaces that flat
- *     border with the rim gradient ring (bright top-left → faint bottom-right) plus a hairline
- *     theme.border on the mask as the never-edgeless fallback.
+ *     as a top-lit highlight, dark mode a uniform themed edge. Glass-ON is a "raised keycap
+ *     (double)" edge: the outer rim gradient ring (bright hue-tinted top lip → soft dark bottom)
+ *     PLUS a crisp 1px hue-tinted inner line (mat.innerLine) on the mask — the two edges read as
+ *     a physically raised key; the inner line also doubles as the never-edgeless fallback.
  *   - shadowColor comes from the active theme's `shadow` token (not a fixed
  *     black), so depth itself shifts hue with the colour theme.
  *   - Pass `tint` for a non-default base (e.g. theme.offWhite for empty
@@ -211,13 +212,13 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
     );
   }
 
-  // Glass-on: the rim light (fix 1) IS the border — a 135° gradient rendered as a padding-ring
-  // (expo-linear-gradient has no gradient-border primitive). The outer view keeps the layered
-  // shadow (NOT the gradient, or it'd be clipped) + the caller's layout; the ring shows through
-  // its `padding: borderWidth` gap; the overflow:hidden mask inside clips the frost/wash/scrim/
-  // specular and carries a hairline theme.border so a card never goes fully edgeless where the
-  // rim fades to near-transparent (its bottom-right). A `borderColor` prop (domain-coded card)
-  // overrides the rim with a solid coloured ring instead.
+  // Glass-on: the rim light (fix 1) IS the outer border — a vertical hue-tinted gradient rendered
+  // as a padding-ring (expo-linear-gradient has no gradient-border primitive). The outer view
+  // keeps the layered shadow (NOT the gradient, or it'd be clipped) + the caller's layout; the
+  // ring shows through its `padding: borderWidth` gap; the overflow:hidden mask inside clips the
+  // frost/wash/scrim/specular and carries a crisp 1px hue-tinted inner line (mat.innerLine) — the
+  // second edge of the raised-keycap double, which also keeps a card from ever going fully
+  // edgeless. A `borderColor` prop (domain-coded card) overrides both with a solid coloured ring.
   const innerRadius = Math.max(0, radius - mat.borderWidth);
   const rimColors = borderColor ? ([borderColor, borderColor] as const) : mat.rim.colors;
   return (
@@ -235,7 +236,10 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
         <View
           style={[
             styles.mask,
-            { borderRadius: innerRadius, borderWidth: StyleSheet.hairlineWidth, borderColor: borderColor ?? theme.border },
+            // Inner line = the second edge of the "raised keycap (double)" (2026-07-18 retune):
+            // a crisp 1px hue-tinted line (mat.innerLine) just inside the rim chamfer, so the card
+            // reads as a physically raised key. A `borderColor` prop (domain-coded card) still wins.
+            { borderRadius: innerRadius, borderWidth: 1, borderColor: borderColor ?? mat.innerLine },
           ]}
         >
           <GlassFill
