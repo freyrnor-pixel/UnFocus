@@ -78,38 +78,44 @@ export default function ScreenBackground({ activeRoute }: Props) {
   const { reducedMotion } = useAccessibility();
   const color = getScreenColor(theme, activeRoute).base;
 
-  // A/B crossfade: `current` is the shown colour; `from` is the colour we're fading out of.
+  // A/B crossfade: `current` is the shown colour; `fadingFrom` is the colour fading out (or null
+  // once settled). `anim` goes 0→1 to fade the incoming layer in over the outgoing one.
   const [current, setCurrent] = useState(color);
-  const fromColor = useRef(color);
+  const [fadingFrom, setFadingFrom] = useState<string | null>(null);
   const anim = useRef(new Animated.Value(1)).current; // 1 = current fully shown
 
   useEffect(() => {
     if (color === current) return;
-    fromColor.current = current; // the previously-shown colour fades out
+    setFadingFrom(current); // the previously-shown colour fades out
     setCurrent(color);
     if (reducedMotion) {
       anim.setValue(1);
+      setFadingFrom(null);
       return;
     }
     anim.setValue(0);
     const a = Animated.timing(anim, { toValue: 1, duration: 320, useNativeDriver: true });
-    a.start();
-    return () => a.stop();
+    // Clear the outgoing layer when the fade finishes so the steady state is ALWAYS the current
+    // colour at full opacity — independent of whether `anim` actually ticked. A safety timeout
+    // covers platforms where the native-driver callback may not fire (e.g. the static web export,
+    // where the animation doesn't run) so the field can never get stuck on the previous hue.
+    a.start(({ finished }) => { if (finished) setFadingFrom(null); });
+    const safety = setTimeout(() => setFadingFrom(null), 400);
+    return () => { a.stop(); clearTimeout(safety); };
   }, [color, current, reducedMotion, anim]);
-
-  const showChanging = current !== fromColor.current;
 
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.bg, overflow: 'hidden' }]} pointerEvents="none">
-      {showChanging && (
+      {fadingFrom !== null && (
         <Animated.View
           pointerEvents="none"
           style={[StyleSheet.absoluteFill, { opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]}
         >
-          <Field colors={fieldColors(fromColor.current, isDark, theme.bg)} />
+          <Field colors={fieldColors(fadingFrom, isDark, theme.bg)} />
         </Animated.View>
       )}
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: showChanging ? anim : 1 }]}>
+      {/* Current layer: full opacity once settled (fadingFrom cleared), or fading in during a change. */}
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: fadingFrom !== null ? anim : 1 }]}>
         <Field colors={fieldColors(current, isDark, theme.bg)} />
       </Animated.View>
     </View>
