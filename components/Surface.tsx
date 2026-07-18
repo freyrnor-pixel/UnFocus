@@ -119,13 +119,12 @@ const GLASS_BLUR_INTENSITY: Record<SurfaceContext, number> = {
 // through, so they stay denser. GlassFill additionally floors the wash on Android, where
 // the backdrop blur is unavailable and opacity is the only contrast lever.
 const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
-  // Ambient dropped 0.66 → 0.55 → 0.44 → 0.36 (2026-07-18 "colored glass" → "crisper glass" →
-  // "thicker/clearer" retune): a genuinely translucent frosted pane so the backdrop reads THROUGH
-  // the hue as real glass, not an opaque pastel tile — the thick hue-tinted keycap edge now carries
-  // the card's definition, so the fill can lean lighter without the card dissolving. (GlassFill
-  // floors this at 0.6 on Android, where there's no real backdrop blur and opacity is the only
-  // text-contrast lever.)
-  ambient: 0.36,
+  // Ambient 0.66 → 0.55 → 0.44 → 0.36 → 0.44 (2026-07-18 "colored glass" → "crisper" → "thicker" →
+  // "bold keycap" retune): 0.36 read as real glass but pushed secondary text below a legible
+  // contrast, so it's nudged back to 0.44 — still clearly translucent (backdrop shows through the
+  // hue), but with enough body for text. The thick, value-contrasted keycap edge carries the card's
+  // definition. (GlassFill floors this at 0.6 on Android — no real backdrop blur there.)
+  ambient: 0.44,
   overlay: 0.8,
 };
 

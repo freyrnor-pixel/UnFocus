@@ -336,13 +336,13 @@ export type MaterialStyle = {
 };
 
 // The outer rim (keycap chamfer) ring thickness — Surface/Button set the padding-ring gap to this.
-const MATERIAL_BORDER_WIDTH = 2.5;
+const MATERIAL_BORDER_WIDTH = 3;
 /**
  * The inner keyline width (the "double keycap" second edge) — Surface/Button/AddFAB draw a border
  * of this width, colored `mat.innerLine`, on the inner mask just inside the rim chamfer. Kept as a
  * shared constant so the compound edge (rim gap + this) stays consistent across every glass surface.
  */
-export const MATERIAL_INNER_LINE_WIDTH = 2;
+export const MATERIAL_INNER_LINE_WIDTH = 3;
 
 /** Card vs. button tuning for the glass recipe (buttons lean denser/opaquer for CTA contrast). */
 export type MaterialVariant = 'card' | 'button';
@@ -381,28 +381,35 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
   // bottom edge. Paired with `innerLine` below, this is the "double keycap": a bright outer lip
   // + a cool inner line, so cards/buttons read as physically raised keys. Surface renders this
   // ring top→bottom (start {0,0} → end {0,1}); Button now matches (vertical, not diagonal).
+  // Rim = raised-keycap chamfer, tuned for VALUE CONTRAST (2026-07-18 "bold keycap" retune): the
+  // earlier hue-on-hue edge couldn't pop (a blue line on a blue card has no contrast, however wide),
+  // so the rim now runs a bright, near-white-but-hue-tinted TOP lip (high alpha) → faint mid → a
+  // genuinely DARK bottom shadow. Bright-top + dark-bottom is a real light/dark bevel that reads at
+  // a glance, still hue-derived (lighten/darken of the base, not pure #FFF/#000). Locations keep the
+  // lit band crisp at the top. Surface/Button render it top→bottom.
   const rim: RimGradient = isDark
     ? {
-        colors: [rgba(lighten(base, 0.34), 0.42), rgba(lighten(base, 0.05), 0.08), rgba('#000000', 0.42)],
-        locations: [0, 0.25, 1],
+        colors: [rgba(lighten(base, 0.45), 0.55), rgba(lighten(base, 0.05), 0.06), rgba('#000000', 0.55)],
+        locations: [0, 0.2, 1],
       }
     : {
-        colors: [rgba(lighten(base, 0.5), 0.92), rgba(lighten(base, 0.06), 0.16), rgba(darken(base, 0.22), 0.48)],
-        locations: [0, 0.2, 1],
+        colors: [rgba(lighten(base, 0.72), 0.95), rgba(lighten(base, 0.08), 0.12), rgba(darken(base, 0.38), 0.6)],
+        locations: [0, 0.18, 1],
       };
 
-  // Inner line (the "double" of the double keycap): a crisp, hue-tinted keyline the callers draw
-  // on the inner mask, just inside the rim chamfer. Tuned for real CONTRAST (2026-07-18 retune) —
-  // a DEEPENED base hue in light mode (a darker keyline reads crisp against the lighter fill, like
-  // a typewriter keycap's keyline) and a LIGHTENED hue in dark mode — kept calm via alpha rather
-  // than by washing it toward the fill. This is the defined second edge (was a pale, near-invisible line).
-  const innerLine = isDark ? rgba(lighten(base, 0.26), 0.45) : rgba(darken(base, 0.1), 0.55);
+  // Inner line (the "double" of the double keycap): a THICK, high-contrast keyline the callers draw
+  // on the inner mask, just inside the rim chamfer. Value-contrasted against the fill so it actually
+  // reads — a strongly DEEPENED base hue in light mode (a dark keyline against the light translucent
+  // fill), a strongly LIGHTENED hue in dark mode. This is the defined second edge; hue-matched pale
+  // lines (earlier attempts) were invisible.
+  const innerLine = isDark ? rgba(lighten(base, 0.4), 0.6) : rgba(darken(base, 0.3), 0.72);
 
-  // Adaptive scrim (fix 2): a soft matte veil behind text — much lighter than the old glossy
-  // 0.42 sheen (2026-07-18: dropped toward a frosted, non-glary finish), fading out by half height.
+  // Adaptive scrim (fix 2): a soft matte veil behind text. Bumped (2026-07-18 "bold keycap") to give
+  // the header/label text more backing now that the fill leans translucent — enough to keep text
+  // legible over the calm backdrop, still fading out by half height so it isn't a glary sheen.
   const scrim: ScrimGradient = {
-    colors: [rgba('#FFFFFF', isDark ? 0.08 : 0.16), rgba('#FFFFFF', 0)],
-    locations: [0, 0.5],
+    colors: [rgba('#FFFFFF', isDark ? 0.12 : 0.26), rgba('#FFFFFF', 0)],
+    locations: [0, 0.55],
   };
 
   // Specular (fix 3): a wide, diffuse top sheen — NOT a tight mirror bead. Widened and
@@ -432,8 +439,8 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
     // a bright lit top, a cool mid, a soft hue-dark bottom. Read by the glass-OFF fallback and by
     // back-compat direct consumers (e.g. FoodTab) that don't render the rim gradient themselves.
     borderColor: innerLine,
-    borderTopColor: isDark ? rgba(lighten(base, 0.34), 0.55) : rgba(lighten(base, 0.5), 0.8),
-    borderBottomColor: isDark ? rgba('#000000', 0.38) : rgba(darken(base, 0.22), 0.46),
+    borderTopColor: isDark ? rgba(lighten(base, 0.45), 0.6) : rgba(lighten(base, 0.72), 0.9),
+    borderBottomColor: isDark ? rgba('#000000', 0.5) : rgba(darken(base, 0.38), 0.58),
     shadowOpacity: 0.16,
     shadowRadius: 16,
     elevation: 6,

@@ -65,14 +65,14 @@ describe('getMaterialStyle — take-two static layers', () => {
 
   it('raised-keycap rim is hue-tinted (not pure white) with a crisp top-weighted lit band', () => {
     const light = getMaterialStyle(base, 'card', 'light');
-    // Rim top stop is derived from the base hue (lighten), NOT a pure-white streak — so the edge
-    // tints to the surface's own colour (2026-07-18 retune). base #3366CC → lighten keeps a blue cast.
-    expect(light.rim.colors[0]).toBe(rgba(lighten(base, 0.5), 0.92));
-    expect(light.rim.colors[0]).not.toBe(rgba('#FFFFFF', 0.92));
+    // Rim top stop is a bright, hue-tinted lit lip (lighten), NOT a pure-white streak — high value
+    // for a real light/dark bevel, still carrying the base hue (2026-07-18 bold-keycap retune).
+    expect(light.rim.colors[0]).toBe(rgba(lighten(base, 0.72), 0.95));
+    expect(light.rim.colors[0]).not.toBe(rgba('#FFFFFF', 0.95));
     // Bright band pushed to the top edge (crisp lit lip, not a half-height fade): mid stop ≤ 0.25.
     expect(light.rim.locations[1]).toBeLessThanOrEqual(0.25);
-    // Bottom rim stop is a dark hue-shadow (the chamfer's shadowed edge), not white.
-    expect(light.rim.colors[light.rim.colors.length - 1]).toBe(rgba(darken(base, 0.22), 0.48));
+    // Bottom rim stop is a genuinely DARK hue-shadow (the chamfer's shadowed edge) for contrast.
+    expect(light.rim.colors[light.rim.colors.length - 1]).toBe(rgba(darken(base, 0.38), 0.6));
   });
 
   it('dark mode dims the rim + specular vs light (no harsh streak on near-black)', () => {
@@ -91,10 +91,11 @@ describe('getMaterialStyle — take-two static layers', () => {
     // Present, and a parsable rgba() (Surface/Button/AddFAB draw it as the inner mask border).
     expect(light.innerLine).toMatch(/^rgba\(/);
     expect(dark.innerLine).toMatch(/^rgba\(/);
-    // Hue-tinted, not neutral grey/white — a DEEPENED base hue in light mode (a darker keyline
-    // reads crisp against the lighter fill), a LIGHTENED hue in dark mode.
-    expect(light.innerLine).toBe(rgba(darken(base, 0.1), 0.55));
-    expect(dark.innerLine).toBe(rgba(lighten(base, 0.26), 0.45));
+    // Hue-tinted, not neutral grey/white — a strongly DEEPENED base hue in light mode (a dark
+    // keyline with real value contrast against the light translucent fill), a strongly LIGHTENED
+    // hue in dark mode.
+    expect(light.innerLine).toBe(rgba(darken(base, 0.3), 0.72));
+    expect(dark.innerLine).toBe(rgba(lighten(base, 0.4), 0.6));
   });
 
   it('specular is a wide, diffuse top sheen (frosted, not a tight glossy bead)', () => {
