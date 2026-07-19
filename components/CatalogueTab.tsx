@@ -83,8 +83,11 @@
  *     `displayItems`. A vertical alphabet column (`indexBar`) sits as a sibling to the FlatList inside
  *     the notepad `card` (a `cardInner` row wraps both) — a fixed reserved gutter, not an absolute
  *     overlay, so long row names never run under it. A single `PanResponder` on the column maps the
- *     touch's `locationY` (÷ measured bar height × letter count) to a letter and `scrollToIndex`es the
- *     FlatList to that letter's first item (empty letters resolve forward, contacts-style). The
+ *     touch's ABSOLUTE screen Y (`gestureState.moveY` − the bar top captured on grant, NOT
+ *     `nativeEvent.locationY` — locationY is relative to whichever view is under the finger, so it
+ *     snaps to A/Å once the finger drifts sideways off the column) ÷ measured bar height × letter
+ *     count to a letter, and `scrollToIndex`es the FlatList to that letter's first item (empty
+ *     letters resolve forward, contacts-style). The
  *     responder + its helpers are stable (`useCallback([])` reading refs — `scrubRef` holds the latest
  *     letters/first-index map, `barHeightRef` the measured height) so the responder isn't rebuilt each
  *     render. `selection()` haptic + a centered letter bubble (`scrubBubble`) fire on each letter change.
@@ -245,6 +248,11 @@ export default function CatalogueTab({ onNotify, header }: Props) {
   const scrubRef = useRef(scrubData);
   scrubRef.current = scrubData;
   const barHeightRef = useRef(0);
+  // Absolute (screen) Y of the bar's top edge, captured on grant. We map with the touch's
+  // ABSOLUTE Y (gestureState.moveY) minus this, NOT nativeEvent.locationY — locationY is
+  // measured against whatever view is under the finger, so once the finger slides sideways off
+  // the column onto a list row it collapses to the row's frame and the letter snaps to A/Å.
+  const barTopRef = useRef(0);
   const lastLetterRef = useRef<string | null>(null);
 
   // Resolve a letter to a row index; an empty letter jumps forward to the next present
@@ -263,12 +271,15 @@ export default function CatalogueTab({ onNotify, header }: Props) {
     return 0;
   }, []);
 
+  // `relativeY` is the touch's Y relative to the bar's top edge (clamped into the bar), so the
+  // selected letter always tracks the finger's vertical placement — even when the finger has
+  // drifted horizontally off the column.
   const handleScrub = useCallback(
-    (locationY: number) => {
+    (relativeY: number) => {
       const { letters } = scrubRef.current;
       const h = barHeightRef.current;
       if (!h || letters.length === 0) return;
-      const i = Math.max(0, Math.min(letters.length - 1, Math.floor((locationY / h) * letters.length)));
+      const i = Math.max(0, Math.min(letters.length - 1, Math.floor((relativeY / h) * letters.length)));
       const letter = letters[i];
       if (letter === lastLetterRef.current) return;
       lastLetterRef.current = letter;
@@ -289,8 +300,14 @@ export default function CatalogueTab({ onNotify, header }: Props) {
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: (e) => handleScrub(e.nativeEvent.locationY),
-        onPanResponderMove: (e) => handleScrub(e.nativeEvent.locationY),
+        // On grant the finger is over the bar, so locationY is valid there and lets us derive the
+        // bar's absolute top (pageY − locationY) once. Every subsequent move then maps with the
+        // absolute screen Y (moveY) − that top, which stays correct off-column.
+        onPanResponderGrant: (e) => {
+          barTopRef.current = e.nativeEvent.pageY - e.nativeEvent.locationY;
+          handleScrub(e.nativeEvent.locationY);
+        },
+        onPanResponderMove: (_e, g) => handleScrub(g.moveY - barTopRef.current),
         onPanResponderRelease: endScrub,
         onPanResponderTerminate: endScrub,
       }),
