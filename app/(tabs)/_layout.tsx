@@ -62,6 +62,15 @@
  *     headless web preview doesn't exercise native touch), so BEFORE this merges, verify
  *     inline add/tap controls (Habits AddRow, Shopping/Plans "+") work on a real build. If
  *     they regress, this single line goes back to `lazy: true`.
+ *   - **Native swipe-feel patch (2026-07-19, needs a build — NOT OTA)**: the finger-swipe
+ *     between tabs is native react-native-pager-view (ViewPager2 on Android). Its physics
+ *     (fling/settle) are AOSP defaults and expose NO JS prop — the only reachable lever is
+ *     the gesture-capture threshold, which upstream sets to 2x touch-slop (~16dp), giving a
+ *     "sticky, slow to start" feel vs a native Samsung/OneUI pager (~1x slop). `patches/
+ *     react-native-pager-view+8.0.1.patch` (applied via patch-package postinstall) drops that
+ *     to 1x slop in NestedScrollableHost.kt. It's native, so it only takes effect in a fresh
+ *     build (maintainer-cut), not via OTA. If tab swipes ever start stealing vertical-scroll
+ *     drags on a list, that patch's factor is the knob to dial back.
  *   - `swipeEnabled: true` is the whole point of this migration. app/(tabs)/scan.tsx
  *     temporarily flips it off via `navigation.setOptions` while an OCR scan is
  *     processing or one of its modals is open, so a stray swipe can't abandon that flow.
