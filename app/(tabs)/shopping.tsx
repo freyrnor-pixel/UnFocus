@@ -38,6 +38,13 @@
  *             startup by app/_layout.tsx). FoodTab additionally drives useMealStore.
  *
  * Edit notes:
+ *   - **Tab bar restyle (2026-07-19)**: the 4-tab switcher's active indicator changed from
+ *     a thin bottom underline (`AnimatedTabUnderline`) to a BottomNav-style rounded, colored
+ *     box — an absolute-fill `Animated.View` (`styles.tabActiveHighlight`, `Radius.sm`,
+ *     `rgba(accent, 0.14)` fill + `rgba(accent, 0.4)` 1px border) behind the label, faded
+ *     in/out per tab via the same `Duration.control` timing BottomNav's `activeHighlight`
+ *     uses. Each tab keeps its own `accent` from `TAB_META` (weekly=good, others=accent/
+ *     mealDomainColor), so the box color still differs per tab.
  *   - **Sticky-bar label fix (visual-audit, 2026-07-11)**: the summary-row ternary fell
  *     through to a `tab === 'food' ? foodTabLabel : catalogueTabLabel` catch-all for any
  *     tab that wasn't `'monthly'` or `'weekly'`-with-a-`focusedList` — so a fresh/empty
@@ -156,7 +163,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TextInput, View } from 'react-native';
-import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
@@ -177,7 +184,6 @@ import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import ExpandableCard from '@/components/ExpandableCard';
 import PressableScale from '@/components/PressableScale';
-import AnimatedTabUnderline from '@/components/AnimatedTabUnderline';
 import WeekListCard from '@/components/WeekListCard';
 import FlightOverlay, { FlightRow, Flight, FlightRect } from '@/components/FlightOverlay';
 import FoodTab from '@/components/FoodTab';
@@ -194,7 +200,8 @@ import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
-import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Type, rgba } from '@/constants/theme';
+import { Duration } from '@/constants/motion';
 import { groupByDish, computeListGroups, listProgress } from '@/lib/shoppingGroups';
 import { formatKr } from '@/lib/money';
 import { getDomainColor } from '@/lib/domainColor';
@@ -785,7 +792,18 @@ export default function ShoppingScreen() {
               accessibilityLabel={label}
               scaleTo={0.97}
             >
-              <AnimatedTabUnderline active={isActive} color={accent} />
+              {isActive && (
+                <Animated.View
+                  pointerEvents="none"
+                  entering={reducedMotion ? undefined : FadeIn.duration(Duration.control)}
+                  exiting={reducedMotion ? undefined : FadeOut.duration(Duration.control)}
+                  style={[
+                    StyleSheet.absoluteFill,
+                    styles.tabActiveHighlight,
+                    { backgroundColor: rgba(accent, 0.14), borderColor: rgba(accent, 0.4) },
+                  ]}
+                />
+              )}
               <Text style={[styles.tabText, { color: isActive ? accent : theme.textMuted }]} numberOfLines={1}>
                 {label}
               </Text>
@@ -1356,8 +1374,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 40,
     gap: Spacing.xs,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    borderRadius: Radius.sm,
+  },
+  tabActiveHighlight: {
+    borderRadius: Radius.sm,
+    borderWidth: 1,
   },
   tabText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
