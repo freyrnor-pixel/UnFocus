@@ -44,7 +44,8 @@
  *             done-zone, and footer all share one `containerLayout` LinearTransition so the
  *             whole card reflows together instead of siblings snapping ahead of the rows),
  *             constants/theme (incl. getGlow), constants/motion, lib/haptics, lib/i18n,
- *             lib/useAppTheme (incl. useAccessibility), lib/domainColor, store/useTaskStore (Task type only)
+ *             lib/useAppTheme (incl. useAccessibility), lib/domainColor, components/CardAccent
+ *             (badge+wash gradient move, read-only Home header), store/useTaskStore (Task type only)
  *   Used by → app/(tabs)/index.tsx (Home — read-only preview off-focus per Decision 009a, and
  *             non-readOnly essential-filtered surface in Focus mode per 009 #4). Reads
  *             settings.planTimelineHorizontal there and passes it down as the `horizontal`
@@ -159,6 +160,7 @@ import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppThem
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { getDomainColor } from '@/lib/domainColor';
+import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 
 type Props = {
   /** Tasks scheduled for the viewed date (already filtered by the caller). */
@@ -639,8 +641,11 @@ export default function PlanTaskCard({
 
         {/* Section header — only in read-only (Home preview) mode */}
         {readOnly && (
+          <>
+          <CardAccentWash domain="plan" style={styles.headerWash} />
           <PressableScale onPress={() => router.push('/plans')} style={styles.headerRowPressable} scaleTo={0.97}>
             <View style={styles.headerRow}>
+              <CardAccentBadge domain="plan" size={32} />
               <Text style={[styles.headerTitle, { color: theme.text }]}>{t.home.todaysPlans}</Text>
               {pendingCount > 0 && (
                 <View style={[styles.badge, { backgroundColor: domainColor.soft }]}>
@@ -661,6 +666,7 @@ export default function PlanTaskCard({
               />
             )}
           </PressableScale>
+          </>
         )}
 
         {showEmpty ? (
@@ -816,6 +822,7 @@ const baseStyles = StyleSheet.create({
   doneRows: { paddingBottom: Spacing.sm },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
+  headerWash: { top: -Spacing.md, left: -Spacing.md, right: -Spacing.md },
   headerRowPressable: { marginBottom: Spacing.sm },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   // Persistent "now" indicator (visual-audit 2026-07-11) — always visible in the header,

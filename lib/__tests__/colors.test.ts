@@ -20,6 +20,7 @@ const REQUIRED_TOKENS = [
   'shadow', 'overlay',
   'hintBg', 'hintBorder', 'hintAccent',
   'featTask', 'featPlan', 'featHabit', 'featShop', 'featMeal', 'featBudget', 'featNote', 'featHealth', 'featScan',
+  'cardPlan', 'cardTask', 'cardHabit', 'cardHealth', 'cardMeal', 'cardShop', 'cardBudget', 'cardNote', 'cardScan',
 ] as const;
 
 describe('Decision 006 — Colour Theme Token Layer', () => {

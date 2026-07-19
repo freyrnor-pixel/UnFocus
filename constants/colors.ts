@@ -12,7 +12,9 @@
  *   Semantic state: good, goodSoft, bad, badSoft, warn, warnSoft
  *   Depth: shadow, overlay
  *   Hint card: hintBg, hintBorder, hintAccent
- *   Feature accents: featTask, featPlan, featHabit, featShop, featMeal, featBudget, featNote, featHealth, featScan
+ *   Feature accents (screen hues — lib/screenColor.ts): featTask, featPlan, featHabit, featShop, featMeal, featBudget, featNote, featHealth, featScan
+ *   Card identity ramp (blue→violet — lib/domainColor.ts, drives card badge+wash+edge): cardTask,
+ *     cardPlan, cardHabit, cardShop, cardMeal, cardBudget, cardNote, cardHealth, cardScan
  *   Priority ramp (reserved, unwired — no live UI/DB reads this yet): priorityHigh,
  *     priorityHighSoft, priorityMedium, priorityMediumSoft, priorityLow, priorityLowSoft
  *   Category palette (reserved, unwired — no live UI/DB reads this yet): categoryWork,
@@ -79,6 +81,21 @@ export interface ThemePalette {
   featNote: string;        // Note type bubble
   featHealth: string;      // Health type bubble
   featScan: string;        // Scan screen hue (violet) — per-screen color, no domain bubble
+
+  // ── Card identity ramp (blue→violet, octet+scan) ─────────────────────────
+  // A cohesive ordered ramp that colours each CARD TYPE (lib/domainColor.ts), distinct from the
+  // feat* screen hues above. Cards read as one family (never random) and re-tint per scheme; the
+  // hue drives the CardAccent badge + header wash + the domain-coded card's edge. Ordered by the
+  // same routine sequence as feat* (plan→task→habit→health→meal→shop→budget→note, +scan violet).
+  cardPlan: string;
+  cardTask: string;
+  cardHabit: string;
+  cardHealth: string;
+  cardMeal: string;
+  cardShop: string;
+  cardBudget: string;
+  cardNote: string;
+  cardScan: string;
 
   // ── Priority ramp (reserved — no live feature reads these yet) ────────────
   priorityHigh: string;
@@ -149,13 +166,16 @@ const defaultLight: ThemePalette = {
   textInverse: '#FFFFFF',
   border: '#D3DBE6',
   borderStrong: '#2B5FD9',
-  accent: '#3B6FE0',
+  // accent = Save/primary action colour. Aligned to the card-accent DS's --color-primary (#2563EB),
+  // a hair more saturated than the prior #3B6FE0 — action colour stays constant across all cards.
+  accent: '#2563EB',
   accentSoft: '#CFE0FB',
   accentInk: '#FFFFFF',
   good: '#1FA974',
   goodSoft: '#C4EFDD',
-  bad: '#E1556B',
-  badSoft: '#FBDDE2',
+  // bad = Delete/destructive colour. Aligned to the DS --status-danger (#EF4444 / soft #FEE2E2).
+  bad: '#EF4444',
+  badSoft: '#FEE2E2',
   warn: '#BF7A1C',
   warnSoft: '#FBEBD3',
   shadow: 'rgba(38,58,92,0.10)',
@@ -189,6 +209,21 @@ const defaultLight: ThemePalette = {
   // Scan screen hue — violet, distinct from featPlan indigo. Per-screen color only
   // (Scan has no domain bubble); read via lib/screenColor.ts (2026-07-18).
   featScan: '#9B72E3',
+
+  // Card identity ramp (2026-07-19 "Card accent system"): a cohesive blue→violet ramp for CARD
+  // colour, separate from the feat* screen hues above. Values are the design-system ramp
+  // (guidelines/colors-card-accent.html) laid across the routine sequence — habit/health/meal/shop
+  // land on the DS's exact --feature-* hexes. Drives CardAccent's badge+wash + the card's edge
+  // (lib/domainColor.ts); screens keep their feat* hues (decision: cards-only palette scope).
+  cardPlan: '#2572AA',
+  cardTask: '#2A6EC0',
+  cardHabit: '#3468D3',
+  cardHealth: '#4865D7',
+  cardMeal: '#5761DA',
+  cardShop: '#635DDB',
+  cardBudget: '#7059DA',
+  cardNote: '#7C53D9',
+  cardScan: '#894DD8',
 
   // Reserved priority/category ramps from the 2026-07-14 Claude Design brief — no live
   // feature reads these yet (dormant `priority` SQLite column, unwired category concept).
@@ -253,6 +288,18 @@ const defaultDark: ThemePalette = {
   featNote: '#FBD24B',   // 8 · yellow
   // Scan screen hue — violet (per-screen color only; see lib/screenColor.ts, 2026-07-18).
   featScan: '#BE9DF7',
+
+  // Card identity ramp (dark): each light stop lightened ~0.20 for legibility on the dark surface,
+  // same approach the dark feat* octet uses; hue order preserved. See the light block for rationale.
+  cardPlan: '#518EBB',
+  cardTask: '#558BCD',
+  cardHabit: '#5D86DC',
+  cardHealth: '#6D84DF',
+  cardMeal: '#7981E1',
+  cardShop: '#827DE2',
+  cardBudget: '#8D7AE1',
+  cardNote: '#9675E1',
+  cardScan: '#A171E0',
 
   // Reserved priority/category ramps — dark values from the 2026-07-14 Claude Design brief.
   priorityHigh: '#F0685A',
