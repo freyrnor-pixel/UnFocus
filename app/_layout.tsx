@@ -77,8 +77,10 @@
  *     health-form, health-log, automations, notes, the 4 modals) still pushes on top
  *     of it exactly as before —
  *     the pager only replaced how the 5 main sites relate to each other.
- *   - Stack `screenOptions.animation: 'default'` (Decision 033) turns on platform-native
- *     push/pop transitions; the modal screens keep their explicit `slide_from_bottom`.
+ *   - Stack `screenOptions.animation` (Decision 033, amended 2026-07-19): iOS keeps the
+ *     native `default` horizontal push; Android uses `slide_from_right` instead of its
+ *     abrupt fade+slide `default`, so sub-screens open with one calm horizontal slide on
+ *     both platforms (smoother, not slower, no bob). Modal screens keep `slide_from_bottom`.
  *   - <AppModalHost/> mounted here (Session A2·2) so showAppModal() works from any screen.
  *   - useFeedbackStore (debug notes) loads here like every other store; the debug-mode
  *     gate now lives per-anchor in components/DebugNoteAnchor.tsx / ScreenHeader instead
@@ -358,10 +360,16 @@ export default function RootLayout() {
         screenOptions={{
           contentStyle: { backgroundColor: theme.bg },
           headerShown: false,
-          // Decision 033: platform-default native stack transitions (iOS horizontal push,
-          // Android slide/fade). OS reduce-motion is honoured by the native stack; the in-app
-          // reducedMotion setting does NOT gate this (it governs Reanimated only).
-          animation: 'default',
+          // Decision 033 (amended 2026-07-19): smooth horizontal push for sub-screens.
+          // iOS `default` is ALREADY the decelerating horizontal card push, so it's kept
+          // as-is. Android `default` is a fast fade+slide that reads as an abrupt "clicky"
+          // pop — swapped to `slide_from_right`, the same horizontal translate with a
+          // decelerate interpolator, so both platforms now open sub-screens with one calm
+          // slide (smoother, NOT slower, and no spring/overshoot "bob"). OS reduce-motion is
+          // honoured by the native stack; the in-app reducedMotion setting does NOT gate this
+          // (it governs Reanimated only). NB: the 5 main tabs are a separate surface — a
+          // react-native-pager-view native slide in app/(tabs)/_layout.tsx, not this Stack.
+          animation: Platform.OS === 'android' ? 'slide_from_right' : 'default',
         }}
       >
         <Stack.Screen name="(tabs)" />
