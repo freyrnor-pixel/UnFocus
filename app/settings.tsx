@@ -1435,6 +1435,15 @@ const baseStyles = StyleSheet.create({
     borderRadius: Radius.sm,
     borderWidth: 1,
   },
-  tabLabel: { fontSize: FontSize.sm },
+  // Bumped from FontSize.sm (14) — read as too small once the tab got a visible rounded
+  // frame around it (2026-07-19 visual-audit). includeFontPadding/textAlignVertical fix
+  // Android's Nunito vertical-centering offset inside the line box (same fix as
+  // ScreenHeader.tsx's title — see HEADER_CLIP_DEBUG.md).
+  tabLabel: {
+    fontSize: FontSize.md,
+    lineHeight: Math.round(FontSize.md * Type.label.line),
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
   tabSectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
 });
