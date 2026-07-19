@@ -1,0 +1,21 @@
+diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
+index 87b58d0..8fb86ab 100644
+--- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
++++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
+@@ -72,8 +72,14 @@ class NestedScrollableHost : FrameLayout {
+       val dy = e.y - initialY
+       val isVpHorizontal = orientation == ORIENTATION_HORIZONTAL
+ 
+-      // assuming ViewPager2 touch-slop is 2x touch-slop of child
+-      val scaledDx = dx.absoluteValue * if (isVpHorizontal) .5f else 1f
++      // UnFocus patch (patches/react-native-pager-view+8.0.1.patch): the upstream `.5f`
++      // makes a horizontal pager wait for 2x touch-slop (~16dp of finger travel) before it
++      // captures the swipe — the "sticky, slow to start" feel vs a native Samsung/OneUI pager,
++      // which grabs at ~1x slop (~8dp). Raising the horizontal factor to 1f captures at 1x
++      // slop and also turns the parallel/perpendicular test below into a clean 45° split
++      // (pages when |dx| >= |dy|, otherwise the child scroll keeps the gesture). This is the
++      // single tuning knob: dial back toward .75f/.5f if it ever steals vertical-scroll drags.
++      val scaledDx = dx.absoluteValue * if (isVpHorizontal) 1f else 1f
+       val scaledDy = dy.absoluteValue * if (isVpHorizontal) 1f else .5f
+ 
+       if (scaledDx > touchSlop || scaledDy > touchSlop) {
