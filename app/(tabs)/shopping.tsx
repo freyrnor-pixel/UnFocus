@@ -8,7 +8,10 @@
  * dish-grouped + ungrouped curated items, an add-to-monthly divider, purchased-this-month
  * history). "Food" renders components/FoodTab (dish library + push-to-list) and
  * "Catalogue" renders components/CatalogueTab (the master item catalogue). A screen-level
- * sticky bar (Decision 011 A2-1) holds the 4-tab switcher plus a per-tab summary line.
+ * sticky bar (Decision 011 A2-1) holds the 4-tab switcher plus a per-tab summary line. A
+ * bordered Budget pill sits at the top of the shared intro chrome (all 4 tabs) and pushes
+ * to app/budget.tsx — the only entry point into Budget now (2026-07-19; it used to also be
+ * reachable from app/(tabs)/scan.tsx, removed).
  *
  * Connections:
  *   Imports → components/AddItemSheet, components/AddDishToMonthlySheet, components/HintCard,
@@ -830,6 +833,18 @@ export default function ShoppingScreen() {
   // scrolling with the rows.
   const shoppingIntro = (
     <>
+      <PressableScale
+        style={[styles.budgetPill, { borderColor: theme.featBudget }]}
+        onPress={() => router.push('/budget')}
+        accessibilityRole="button"
+        accessibilityLabel={t.budget.title}
+        hitSlop={6}
+        scaleTo={0.97}
+      >
+        <Ionicons name="wallet-outline" size={14} color={theme.featBudget} />
+        <Text style={[styles.budgetPillText, { color: theme.featBudget }]}>{t.budget.title}</Text>
+      </PressableScale>
+
       <HintCard text={t.hints.shopping.text} open={hintOpen} noPill>
         <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
           <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.weeklyResetDay}</Text>
@@ -1357,6 +1372,20 @@ const styles = StyleSheet.create({
   catalogHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   catalogHeaderTitle: { fontFamily: Type.heading.fontFamily, fontSize: Type.heading.size },
   catalogHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  // Budget entry point (moved here from app/(tabs)/scan.tsx, 2026-07-19 — Budget is only
+  // reachable via Shopping now). Bordered pill, same family as addTrigger below, right-aligned
+  // above the shared intro chrome so it's visible on every tab.
+  budgetPill: {
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  budgetPillText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   // Bordered trigger pill — matches WeekListCard's monthlyTrigger shape, the one shared
   // "tap to open a fuller add flow" affordance (design-consistency pass).
   addTrigger: {
