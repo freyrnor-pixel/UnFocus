@@ -313,19 +313,25 @@ export default function ScreenScaffold({
   // Same chrome-clearing padding the ScrollView uses, so a non-scrollable child (which
   // owns its own FlatList) starts below the floating header/sticky bar and clears the
   // bottom nav.
-  // bottomNav gates the reservation, not just tier: the 5 pager tab screens (Shopping/
-  // Plans/Home/Health/Scan) all pass bottomNav={false} because app/(tabs)/_layout.tsx's
-  // pager already renders the real BottomNav as a SIBLING tab-bar container — react-
-  // navigation sizes each page to stop exactly above it, so this screen's own box never
-  // overlaps the real nav. Reserving BOTTOM_NAV_HEIGHT here too (previously keyed on
-  // `tier === 'site'` alone, true for every real screen) double-counted that clearance:
-  // harmless-looking extra scroll-past-the-end padding on ScrollView screens, but a hard,
-  // visible shortfall on Catalogue's non-scrollable FlatList box (bug report 2026-07-17 —
-  // the list hard-clipped ~72dp above where the real nav actually sits, leaving a bare gap).
-  const reserveBottomNav = tier === 'site' && bottomNav;
+  // Bottom-nav clearance is keyed on `scrollable`, not `bottomNav` (2026-07-19 fix). The floating
+  // BottomNav sits OVER the scene for every site-tier screen — the 5 pager tab screens (Shopping/
+  // Plans/Home/Health/Scan) get it from app/(tabs)/_layout.tsx's tab-bar container, and it overlaps
+  // the scene rather than the pager sizing each page above it (the earlier assumption). With no
+  // reserve, the last card on a scrollable tab screen scrolled UNDER the opaque nav and was cut off
+  // (device bug report: Home's bottom Week-list card half-hidden behind the nav). So reserve
+  // BOTTOM_NAV_HEIGHT whenever a site screen owns a ScrollView. Just BOTTOM_NAV_HEIGHT, NOT
+  // + bottomInset: the outer SafeAreaView already pads this ScrollView by the bottom inset, so the
+  // content already clears the system inset — one more BOTTOM_NAV_HEIGHT lands the last item exactly
+  // at the nav's top edge (adding the inset again would over-reserve and leave a blank gap above the
+  // nav). The Catalogue tab is the ONE site screen that passes `scrollable={false}` (its FlatList
+  // self-scrolls); it's excluded here and manages its own bottom gap (the notepad `paddingBottom` in
+  // CatalogueTab), which is what the 2026-07-17 change was really protecting — reserving here shrank
+  // that flex-bounded box and hard-clipped the list above the nav.
+  const reserveBottomNav = tier === 'site' && scrollable;
+  const bottomNavClearance = BOTTOM_NAV_HEIGHT;
   const contentPadding = {
     paddingTop: HEADER_HEIGHT + (stickyBelowHeader ? stickyBelowHeaderHeight : 0),
-    ...(reserveBottomNav ? { paddingBottom: BOTTOM_NAV_HEIGHT } : null),
+    ...(reserveBottomNav ? { paddingBottom: bottomNavClearance } : null),
   };
 
   const scrollContent = scrollable ? (
@@ -334,7 +340,7 @@ export default function ScreenScaffold({
       style={styles.scrollView}
       contentContainerStyle={[styles.contentContainer, contentPadding]}
       scrollIndicatorInsets={{
-        bottom: reserveBottomNav ? BOTTOM_NAV_HEIGHT : 0,
+        bottom: reserveBottomNav ? bottomNavClearance : 0,
       }}
       keyboardShouldPersistTaps="handled"
       onScroll={handleScroll}
