@@ -318,17 +318,17 @@ export default function ScreenScaffold({
   // Plans/Home/Health/Scan) get it from app/(tabs)/_layout.tsx's tab-bar container, and it overlaps
   // the scene rather than the pager sizing each page above it (the earlier assumption). With no
   // reserve, the last card on a scrollable tab screen scrolled UNDER the opaque nav and was cut off
-  // (device bug report: Home's bottom Week-list card half-hidden behind the nav). So reserve
-  // BOTTOM_NAV_HEIGHT whenever a site screen owns a ScrollView. Just BOTTOM_NAV_HEIGHT, NOT
-  // + bottomInset: the outer SafeAreaView already pads this ScrollView by the bottom inset, so the
-  // content already clears the system inset — one more BOTTOM_NAV_HEIGHT lands the last item exactly
-  // at the nav's top edge (adding the inset again would over-reserve and leave a blank gap above the
-  // nav). The Catalogue tab is the ONE site screen that passes `scrollable={false}` (its FlatList
-  // self-scrolls); it's excluded here and manages its own bottom gap (the notepad `paddingBottom` in
-  // CatalogueTab), which is what the 2026-07-17 change was really protecting — reserving here shrank
-  // that flex-bounded box and hard-clipped the list above the nav.
+  // (device report: Home's bottom Week-list card half-hidden behind the nav, still cut with a
+  // BOTTOM_NAV_HEIGHT-only reserve). Reserve the nav's FULL painted height — BOTTOM_NAV_HEIGHT +
+  // bottomInset — whenever a site screen owns a ScrollView. The pager renders the tab bar at
+  // `height: BOTTOM_NAV_HEIGHT + insets.bottom` and its scene fills the area BEHIND it (the outer
+  // SafeAreaView does not shrink this ScrollView clear of it), so the last item only fully clears
+  // the nav when the reserve includes the inset. The Catalogue tab is the ONE site screen that
+  // passes `scrollable={false}` (its FlatList self-scrolls); it's excluded here and manages its own
+  // bottom gap (the notepad `paddingBottom` in CatalogueTab), which is what the 2026-07-17 change
+  // was really protecting — reserving here shrank that flex-bounded box and hard-clipped the list.
   const reserveBottomNav = tier === 'site' && scrollable;
-  const bottomNavClearance = BOTTOM_NAV_HEIGHT;
+  const bottomNavClearance = BOTTOM_NAV_HEIGHT + bottomInset;
   const contentPadding = {
     paddingTop: HEADER_HEIGHT + (stickyBelowHeader ? stickyBelowHeaderHeight : 0),
     ...(reserveBottomNav ? { paddingBottom: bottomNavClearance } : null),

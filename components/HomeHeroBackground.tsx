@@ -1,11 +1,11 @@
 /**
  * HomeHeroBackground.tsx — ambient hero backdrop for the home screen, behind TreeWatermark.
  *
- * Theme-adaptive: "Serene Mist" (light) is a soft blue-sky gradient with a
- * glowing orb halo centered behind the tree; "Deep Focus" (dark) is the same
- * structure on a navy sky. A ground fade at the bottom keeps list content legible.
- * Sky and ground use true linear gradients (expo-linear-gradient) and the orb halo
- * is a true SVG radial gradient. This backdrop is now fully STATIC — no looping motion.
+ * NEUTRAL as of 2026-07-19 ("remove the background colour"): a soft near-`theme.bg` mist with a
+ * faint neutral orb halo centered behind the tree, built from the theme's neutral tokens (was a
+ * blue "Serene Mist" / navy "Deep Focus" sky — the main colour in Home's backdrop). A ground fade
+ * at the bottom keeps list content legible. Sky and ground use true linear gradients
+ * (expo-linear-gradient) and the orb halo is a true SVG radial gradient. Fully STATIC — no motion.
  *
  * Connections:
  *   Imports → lib/useAppTheme (useIsDark), expo-linear-gradient, react-native-svg
@@ -36,7 +36,8 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
-import { useIsDark } from '@/lib/useAppTheme';
+import { rgba } from '@/constants/theme';
+import { useAppTheme } from '@/lib/useAppTheme';
 
 /** Soft radial glow behind the tree — a true SVG radial gradient (smooth falloff),
  *  replacing the old stacked concentric-circle fake so it reads as a real glow, not
@@ -60,19 +61,18 @@ function OrbHalo({ size, color }: { size: number; color: string }) {
 }
 
 export default function HomeHeroBackground() {
-  const isDark = useIsDark();
+  const theme = useAppTheme();
 
-  const palette = isDark
-    ? {
-        sky: ['#0d1f3e', '#112449', '#162e56'] as const,
-        orb: '#4682f0',
-        ground: ['rgba(11,22,46,0)', 'rgba(11,22,46,0.55)', 'rgba(11,22,46,0.85)'] as const,
-      }
-    : {
-        sky: ['#6fa8e8', '#a8cdf0', '#eaf4fc'] as const,
-        orb: '#a9cdf5',
-        ground: ['rgba(246,250,255,0)', 'rgba(246,250,255,0.55)', 'rgba(246,250,255,0.85)'] as const,
-      };
+  // Neutral hero (2026-07-19 "remove the background colour"): the old blue/navy "Serene Mist" sky
+  // + blue orb was the main colour in Home's backdrop. It's now built from the theme's NEUTRAL
+  // tokens — a soft near-bg mist with a faint neutral orb of depth behind the tree — so Home reads
+  // as the same calm neutral background as every other screen, with colour reserved for the card
+  // borders/accents. Ground fades into theme.bg to keep list content legible.
+  const palette = {
+    sky: [theme.surfaceMuted, theme.bg, theme.surface] as const,
+    orb: theme.border,
+    ground: [rgba(theme.bg, 0), rgba(theme.bg, 0.55), rgba(theme.bg, 0.85)] as const,
+  };
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">

@@ -34,12 +34,12 @@
  *     ("no more than a few simultaneous moving elements"). Don't grow this back.
  *   - `particlesEnabled` defaults to true in the settings store — users see particles from
  *     first launch and can opt out in Settings → Accessibility.
- *   - **Calm backdrop (imageStyle opacity):** the tree renders as a faint watermark
- *     (~0.3 light / ~0.4 dark), not full-bleed at full saturation — a full-opacity blue
- *     tree behind every screen read as a heavy, muddy "general tint" that fought the
- *     content's own colour. The near-neutral theme.bg base shows through from
- *     ScreenBackground underneath, so domain-coloured cards/section pills/accents pop.
- *     Tune the two opacity values here to dial the backdrop's presence up/down.
+ *   - **Neutral backdrop (imageStyle opacity):** the watercolour tree is a BLUE image, so even a
+ *     "faint" 0.3/0.4 watermark tinted the whole backdrop blue. Per maintainer direction to remove
+ *     background colour, it's dropped to a whisper (~0.07 light / ~0.10 dark) — a barely-there brand
+ *     watermark over the neutral theme.bg from ScreenBackground — and the rising dots + orb are now
+ *     neutral grey (theme tokens), not blue. Colour lives only in card borders/accents. Tune the two
+ *     opacity values here (or the palette above) to dial the backdrop's presence — but keep it neutral.
  *   - **Cached backdrop (expo-image):** this uses `ImageBackground` from expo-image, not
  *     react-native, for its memory+disk decoded-bitmap cache — so the backdrop decodes
  *     once (warmed at boot in app/_layout.tsx's Asset.loadAsync) and paints instantly on
@@ -57,7 +57,7 @@ import {
 } from 'react-native';
 import { ImageBackground } from 'expo-image';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
-import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
+import { useIsDark, useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 // ─── Assets ──────────────────────────────────────────────────────────────────
@@ -179,28 +179,30 @@ function OrbHalo({ color }: { color: string }) {
 
 export default function ParticleBackground() {
   const isDark = useIsDark();
+  const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
   const particlesEnabled = useSettingsStore((s) => s.particlesEnabled);
 
   const showParticles = particlesEnabled && !reducedMotion;
   const bgPair = BG_DEFAULT;
 
-  const palette = isDark
-    ? {
-        dot: '#8ab4ff',
-        orb: '#5580d8',
-      }
-    : {
-        dot: '#2a5fc4',
-        orb: '#90bef5',
-      };
+  // Neutral ambient (2026-07-19 "remove the background colour"): the rising dots + orb halo were a
+  // saturated blue; they're now the theme's neutral grey tokens so the ambient motion adds gentle
+  // depth without painting colour into the backdrop. Colour lives only in card borders/accents.
+  const palette = {
+    dot: theme.textMuted,
+    orb: theme.border,
+  };
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <ImageBackground
         source={isDark ? bgPair.dark : bgPair.light}
         style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-        imageStyle={{ opacity: isDark ? 0.4 : 0.3 }}
+        // Dropped from 0.3/0.4 to a whisper (2026-07-19 "remove the background colour"): the
+        // watercolour tree is a blue image, so at 0.3 it tinted the whole backdrop blue. Kept as a
+        // barely-there brand watermark rather than removed outright, so Home still has a faint tree.
+        imageStyle={{ opacity: isDark ? 0.1 : 0.07 }}
         contentFit="cover"
         // expo-image (not RN's ImageBackground): keeps a memory+disk decoded-bitmap
         // cache, so the same backdrop is instant on every screen that mounts one instead
