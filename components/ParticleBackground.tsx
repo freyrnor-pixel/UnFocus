@@ -177,7 +177,7 @@ function OrbHalo({ color }: { color: string }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function ParticleBackground() {
+function ParticleBackground() {
   const isDark = useIsDark();
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
@@ -226,6 +226,14 @@ export default function ParticleBackground() {
     </View>
   );
 }
+
+// Memoised: always mounted behind the tabs pager and takes NO props, but its parent
+// (app/(tabs)/_layout.tsx) re-renders on every tab change (it tracks the active route in
+// state to cross-fade the hero layer). Without memo, that re-render reconciles the OrbHalo
+// SVG radial + the animated dot views on each swipe boundary. React.memo skips the
+// parent-driven re-render; its own hooks (isDark/particlesEnabled/reducedMotion/theme) still
+// re-render it when those actually change (memo only gates prop changes, and there are none).
+export default React.memo(ParticleBackground);
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 

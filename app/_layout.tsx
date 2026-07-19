@@ -38,7 +38,10 @@
  *       - Tier B (deferred via InteractionManager.runAfterInteractions):
  *         Feedback, Inbox, Peers, Receipt — only back screens 2+ swipes from Home
  *         (Scan's receipt parsing) or non-tab screens, so a beat of extra latency
- *         is imperceptible.
+ *         is imperceptible. syncWidgetsAndOverview() also runs here (not inline in
+ *         the boot tick): its buildWidgetSnapshot() does synchronous store walks +
+ *         a DB write before its first await, which used to block the held splash /
+ *         first paint for work that never needs to be ready before the app is visible.
  *   - Cold-load asset warming (2026-07-16): the icon glyph fonts (Ionicons +
  *     MaterialCommunityIcons `.font`) are preloaded via useFonts alongside Nunito so
  *     icons paint on the first frame instead of loading their font on first mount and
@@ -226,9 +229,6 @@ export default function RootLayout() {
     useNotesStore.getState().load();
     useMealStore.getState().load();
     useCatalogStore.getState().load();
-    // Today's tasks/shopping are ready now: push them to the home-screen widgets
-    // + the persistent overview notification.
-    void syncWidgetsAndOverview();
     // Decode the backdrop image (+ icons/logos) into cache before we hide the splash,
     // so the first screen and every pushed sub-screen paint their ImageBackground from
     // a warm cache instead of decoding + fading in ("each screen loads in"). Flip
@@ -255,6 +255,14 @@ export default function RootLayout() {
       useInboxStore.getState().load();
       usePeersStore.getState().load();
       useReceiptStore.getState().load();
+      // Push today's tasks/shopping to the home-screen widgets + persistent overview
+      // notification. Deferred to Tier B (was synchronous in the boot tick): its
+      // buildWidgetSnapshot() walks every store, localises strings, and writes the
+      // widget_snapshot row — all synchronously before the first `await`, so calling
+      // it inline blocked the held splash / first paint. The widgets already render
+      // from the last saved snapshot via the headless handler, so refreshing them a
+      // beat after the app is visible is imperceptible and off the cold-start critical path.
+      void syncWidgetsAndOverview();
     });
     return () => clearTimeout(assetTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
