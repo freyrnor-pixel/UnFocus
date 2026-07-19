@@ -1,11 +1,12 @@
 /**
- * DebugNoteAnchor.tsx — long-press-to-annotate wrapper for debug-mode feedback notes.
+ * DebugNoteAnchor.tsx — tap-to-annotate wrapper for debug-mode feedback notes.
  *
  * Wraps a card/header's content so that, when Debug mode is on (settings.debugModeEnabled),
- * holding it opens a small text composer tied to a stable `id`. A saved note shows as a
- * small bubble badge in the corner; tapping the badge reopens the composer pre-filled for
- * editing. Clearing the text and saving deletes the note. When Debug mode is off, this
- * renders `children` directly with zero wrapping overhead.
+ * a transparent overlay captures a tap (or long-press) and opens a small text composer tied
+ * to a stable `id`. A saved note shows as a small bubble badge in the corner; tapping the
+ * badge reopens the composer pre-filled for editing. Clearing the text and saving deletes
+ * the note. When Debug mode is off, this renders `children` directly with zero wrapping
+ * overhead — the overlay only exists while Debug mode is on.
  *
  * Connections:
  *   Imports → constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, store/useFeedbackStore,
@@ -21,17 +22,21 @@
  *     card/section anchors use hard-coded ids (e.g. `home.notesPreview`, `plans.dayView`).
  *     NEVER key an anchor off translated title text — that orphans the note on language change.
  *   - One anchor per visual region: never wrap a section AND a child button inside it (they'd
- *     stack overlapping long-press targets/badges). Pick the outermost meaningful card, or a
- *     single primary button — not both.
+ *     stack overlapping tap targets/badges). Pick the outermost meaningful card, or a single
+ *     primary button — not both.
  *   - One note per `id` — saving overwrites; saving empty text deletes it.
  *   - **`style` is preserved even when Debug mode is off** (plain `<View style={style}>`,
- *     no long-press/bubble machinery mounted) — callers lean on this prop for real layout
+ *     no overlay/bubble machinery mounted) — callers lean on this prop for real layout
  *     (e.g. Home's section `marginTop`), not just annotation chrome, so it can't silently
  *     disappear for the vast majority of users who never turn Debug mode on.
- *   - The outer long-press Pressable only sets `onLongPress` (no `onPress`), so normal taps
- *     on interactive children (buttons inside a wrapped card) still resolve to those children
- *     via RN's responder negotiation (the deepest view that claims the responder wins)
- *     instead of being swallowed by this wrapper.
+ *   - **Tap-to-annotate via a capturing overlay, NOT onLongPress.** An earlier version wrapped
+ *     children in a `Pressable onLongPress` and relied on RN responder negotiation to let taps
+ *     fall through to interactive children — but the opposite happened: buttons/cards won the
+ *     touch and long-press never fired, so "pressing only opened the item, never a note." The
+ *     overlay (`StyleSheet.absoluteFill`, rendered on top of children) reliably captures the
+ *     tap regardless of what's underneath. Trade-off: a wrapped button does NOT perform its
+ *     normal action while Debug mode is on — that's intended (Debug mode = annotate mode).
+ *     BottomNav is never wrapped, so tabs stay navigable; turn Debug off to use content again.
  */
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleProp, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
@@ -90,9 +95,23 @@ function AnnotatedAnchor({ id, label, children, style }: Props) {
 
   return (
     <View style={[styles.wrap, style]}>
-      <Pressable onLongPress={openComposer} delayLongPress={500}>
-        {children}
-      </Pressable>
+      {children}
+
+      {/* Debug mode is a dedicated "leave feedback" mode: while it's on, a transparent
+          overlay sits ON TOP of the wrapped card/button and captures a tap to open the
+          note composer. This is why a wrapped button no longer navigates while debug is
+          on — the whole point is to annotate it, not use it. A long-press works too. The
+          overlay is the reliable path: a plain onLongPress wrapper loses to interactive
+          children (buttons/cards win the touch), which is the "pressing only opens them"
+          bug. Turn debug off (header bug icon) to use the app normally again. */}
+      <Pressable
+        style={StyleSheet.absoluteFill}
+        onPress={openComposer}
+        onLongPress={openComposer}
+        delayLongPress={400}
+        accessibilityRole="button"
+        accessibilityLabel={existing ? t.debug.editNote : t.debug.noteForLabel(label)}
+      />
 
       {existing && (
         <Pressable

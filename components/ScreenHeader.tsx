@@ -88,7 +88,7 @@
  *     dev/debug builds, so the button never renders there.
  */
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, AppState, LayoutChangeEvent, Linking, PixelRatio, Platform, Share, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
+import { ActivityIndicator, AppState, Linking, PixelRatio, Platform, Share, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
@@ -140,28 +140,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // `allowFontScaling={false}` and applies them verbatim; see the doc on getHeaderMetrics
   // for the double-scaling bug that arrangement fixes.
   const fontScale = PixelRatio.getFontScale();
-  const { titleFontSize, titleLineHeight, headerHeight } = getHeaderMetrics(fontScale);
-
-  // On-device header diagnostics (debug mode only): the title's measured box from
-  // onLayout, rendered as a tiny caption inside the band. The header clip never
-  // reproduced headlessly (Android-native; no emulator here, web lacks SP scaling),
-  // so testers screenshot these numbers instead of sessions shipping blind fixes —
-  // see HEADER_CLIP_DEBUG.md.
-  const [titleBox, setTitleBox] = useState<{ h: number; y: number } | null>(null);
-  const onTitleLayout = debugModeEnabled
-    ? (e: LayoutChangeEvent) => {
-        const { height, y } = e.nativeEvent.layout;
-        setTitleBox((prev) => (prev && prev.h === height && prev.y === y ? prev : { h: height, y }));
-      }
-    : undefined;
-  // Language-neutral shorthand, numbers only (no i18n needed): OS fontScale, applied
-  // title fontSize/lineHeight, band height, then the title's measured height @ y-offset.
-  const debugCaption = debugModeEnabled ? (
-    <Text allowFontScaling={false} numberOfLines={1} style={styles.debugCaption}>
-      {`fs${fontScale.toFixed(2)} fz${titleFontSize} lh${titleLineHeight} bh${headerHeight}` +
-        (titleBox ? ` t${Math.round(titleBox.h)}@${Math.round(titleBox.y)}` : '')}
-    </Text>
-  ) : null;
+  const { titleFontSize, titleLineHeight } = getHeaderMetrics(fontScale);
 
   // useUpdates() is reactive: isUpdateAvailable flips when a NEW server update is found;
   // isUpdatePending flips when one has finished DOWNLOADING and is waiting for a reload to
@@ -391,11 +370,8 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
         style={[
           styles.title,
           { color: theme.text, textAlign: align, fontSize: titleFontSize, lineHeight: titleLineHeight },
-          // Debug mode: GREEN outline = the title Text's own frame (see debugCaption note).
-          debugModeEnabled && styles.debugTitleOutline,
         ]}
         numberOfLines={1}
-        onLayout={onTitleLayout}
       >
         {title}
       </Text>
@@ -419,7 +395,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
       </View>
     );
     return (
-      <Surface surfaceContext="overlay" style={[styles.header, style]} borderColor={debugModeEnabled ? '#FF3B30' : undefined}>
+      <Surface surfaceContext="overlay" style={[styles.header, style]}>
         {leftHanded ? (
           <>
             {controlsGroup}
@@ -431,7 +407,6 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
             {controlsGroup}
           </>
         )}
-        {debugCaption}
       </Surface>
     );
   }
@@ -439,7 +414,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // Sub tier: back link (iOS) leftmost, title immediately right of it and left-aligned,
   // right slot for the screen-specific action. Not mirrored (back link is platform-fixed).
   return (
-    <Surface surfaceContext="overlay" style={[styles.header, style]} borderColor={debugModeEnabled ? '#FF3B30' : undefined}>
+    <Surface surfaceContext="overlay" style={[styles.header, style]}>
       {Platform.OS === 'ios' && onBack ? (
         <PressableScale onPress={onBack} hitSlop={8} scaleTo={0.97}>
           <Text style={[styles.back, { color: theme.accent }]}>{t.back}</Text>
@@ -449,7 +424,6 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
       {titleNode('left')}
 
       <View style={styles.rightSlot}>{headerRight}</View>
-      {debugCaption}
     </Surface>
   );
 }
@@ -519,26 +493,6 @@ const styles = StyleSheet.create({
     minWidth: 32,
     alignItems: 'flex-end',
     justifyContent: 'center',
-  },
-  // Debug-mode-only header diagnostics (see HEADER_CLIP_DEBUG.md): numbers-only caption
-  // pinned to the band's bottom-left. Loud fixed color on purpose — it must be readable
-  // in a tester's screenshot on any theme, and it only exists while Debug mode is on.
-  debugCaption: {
-    position: 'absolute',
-    bottom: 1,
-    left: Spacing.md,
-    fontSize: 9,
-    color: '#E91E63',
-    zIndex: 10,
-  },
-  // Debug-mode outline for the title Text frame (GREEN). Together with the RED Surface
-  // edge (borderColor prop on the header Surface) and the BLUE headerBlock outline in
-  // ScreenScaffold, a single tester screenshot shows exactly which box clips: cut at
-  // green = the Text frame; at red = the Surface mask; at blue = the band; at none of
-  // them = an overlapping foreign view.
-  debugTitleOutline: {
-    borderWidth: 1,
-    borderColor: '#00C853',
   },
   back: {
     fontSize: FontSize.md,
