@@ -77,6 +77,7 @@ import { useHabitStore, Habit, HabitKind, HabitLog } from '@/store/useHabitStore
 import { useSettingsStore } from '@/store/useSettingsStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
+import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import Surface from '@/components/Surface';
 import SectionCard from '@/components/SectionCard';
 import AddRow from '@/components/AddRow';
@@ -731,7 +732,8 @@ export default function HealthScreen() {
         <View style={styles.content}>
           <HintCard text={t.hints.health.text} open={hintOpen} noPill />
 
-          {/* This week */}
+          {/* This week — debug notes: one anchor per region (the card, not its inner rows). */}
+          <DebugNoteAnchor id="health.overview" label="Health — This week">
           <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
             <View style={styles.overviewCardContent}>
               <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.thisWeekLabel}</Text>
@@ -788,8 +790,10 @@ export default function HealthScreen() {
               })}
             </View>
           </Surface>
+          </DebugNoteAnchor>
 
           {/* Health-log — sectioned overview of every issue ever logged, and where new entries are added */}
+          <DebugNoteAnchor id="health.nav" label="Health — Log link">
           <PressableScale
             onPress={() => router.push('/health-log')}
             accessibilityRole="button"
@@ -803,10 +807,13 @@ export default function HealthScreen() {
               <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
             </Surface>
           </PressableScale>
+          </DebugNoteAnchor>
 
           {/* Habits — embedded section (no separate /habits screen; ported in full), boxed in
               a single hue-edged SectionCard so the whole section (filter · view tabs · cards ·
-              add row) reads as one group instead of loose controls on the backdrop (2026-07-17). */}
+              add row) reads as one group instead of loose controls on the backdrop (2026-07-17).
+              Debug notes: anchor the whole habits section (not the inner habit cards/add row). */}
+          <DebugNoteAnchor id="health.habits" label="Health — Habits">
           <SectionCard hue={habitDomainColor.accent} label={t.habitsTitle} contentStyle={styles.habitsSectionContent}>
             {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
             <Collapsible open={showHabitProfiles}>
@@ -903,6 +910,7 @@ export default function HealthScreen() {
               />
             )}
           </SectionCard>
+          </DebugNoteAnchor>
 
           <View style={{ height: Spacing.xl + Spacing.xxl }} />
         </View>

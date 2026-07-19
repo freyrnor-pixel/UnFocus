@@ -10,16 +10,19 @@
  * Connections:
  *   Imports → constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, store/useFeedbackStore,
  *             store/useSettingsStore, expo-router (usePathname — recorded as export context)
- *   Used by → components/ScreenHeader.tsx (every screen's title), app/(tabs)/index.tsx (Home's
- *             greeting/notes/shared/plans/shopping sections)
+ *   Used by → components/ScreenHeader.tsx (every screen's title = the per-screen note),
+ *             app/(tabs)/index.tsx (Home sections), plus the main cards/sections on the
+ *             other four tab screens (shopping/plans/health/scan)
  *   Data    → reads/writes useFeedbackStore (feedback_notes table)
  *
  * Edit notes:
- *   - `id` must be a STABLE key — ScreenHeader keys its title wrap off the (translated)
- *     title text for simplicity, so switching app language mid-testing orphans that
- *     screen's header note (it stays in the DB/Export, just no longer shows as attached
- *     to that header). Acceptable for a debug-only feature; callers with a real stable
- *     key (e.g. Home's card ids) should prefer that over translated text.
+ *   - `id` must be a STABLE, language-neutral key. ScreenHeader keys its title wrap off
+ *     `screen:${pathname}` (the route) so the whole-screen note survives a language switch;
+ *     card/section anchors use hard-coded ids (e.g. `home.notesPreview`, `plans.dayView`).
+ *     NEVER key an anchor off translated title text — that orphans the note on language change.
+ *   - One anchor per visual region: never wrap a section AND a child button inside it (they'd
+ *     stack overlapping long-press targets/badges). Pick the outermost meaningful card, or a
+ *     single primary button — not both.
  *   - One note per `id` — saving overwrites; saving empty text deletes it.
  *   - **`style` is preserved even when Debug mode is off** (plain `<View style={style}>`,
  *     no long-press/bubble machinery mounted) — callers lean on this prop for real layout

@@ -77,6 +77,7 @@ import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { formatKr } from '@/lib/money';
 import HintCard from '@/components/HintCard';
+import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { goToSite } from '@/lib/siteNav';
@@ -540,7 +541,9 @@ export default function ScanScreen() {
               <Text style={[styles.tipText, { color: theme.text }]}>{t.scanHintBanner}</Text>
             </Surface>
 
-            {/* Primary camera button — the hero action. */}
+            {/* Primary camera button — the hero action. Debug notes: anchor this one button
+                (not the option cards below) — one DebugNoteAnchor per region. */}
+            <DebugNoteAnchor id="scan.takePhoto" label="Scan — Take photo">
             <PressableScale
               style={[styles.primaryButton, { backgroundColor: theme.accent, shadowColor: theme.shadow }]}
               onPress={takePhoto}
@@ -549,6 +552,7 @@ export default function ScanScreen() {
               <Ionicons name="camera-outline" size={46} color={theme.accentInk} />
               <Text style={[styles.primaryButtonText, { color: theme.accentInk }]}>{t.takePhoto}</Text>
             </PressableScale>
+            </DebugNoteAnchor>
 
             {/* Other ways to add — consistent bordered option cards with a tinted icon
                 badge each, so they read as distinct choices instead of flat colour blocks. */}
@@ -602,6 +606,8 @@ export default function ScanScreen() {
           <View style={styles.content}>
             <HintCard text={t.itemsSelectedCount(selectedCount, parsedItems.length)} example="" />
 
+            {/* Debug notes: anchor the found-items card (not each row/checkbox inside). */}
+            <DebugNoteAnchor id="scan.items" label="Scan — Found items">
             <Surface style={styles.itemsCard}>
               {parsedItems.map((item, i) => (
                 <View key={i}>
@@ -637,6 +643,7 @@ export default function ScanScreen() {
                 <Text style={[styles.totalText, { color: theme.textMuted }]}>{t.totalAmount(formatKr(totalPrice, 2))}</Text>
               </View>
             </Surface>
+            </DebugNoteAnchor>
 
             <PressableScale style={[styles.confirmButton, { backgroundColor: theme.accent }]} onPress={addToList} scaleTo={0.95}>
               <Text style={[styles.confirmButtonText, { color: theme.accentInk }]}>{t.addToListButton(selectedCount)}</Text>
