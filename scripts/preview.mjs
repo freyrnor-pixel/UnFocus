@@ -160,6 +160,10 @@ async function main() {
     await clickText(page, 'All tasks');
     await page.waitForTimeout(500);
     const taskTitle = `Preview check ${Date.now()}`;
+    // AddRow now collapses to a "+ New task" bar (accessibilityLabel = placeholder); tap it
+    // to expand the actual input before typing (2026-07-19 "+ makes a new row" change).
+    await page.getByRole('button', { name: 'New task', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(400);
     const taskInput = page.getByPlaceholder('New task').first();
     await taskInput.fill(taskTitle);
     await taskInput.press('Enter');
@@ -183,6 +187,11 @@ async function main() {
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
     const habitTitle = `Preview habit ${Date.now()}`;
+    // Same collapse/expand as the task AddRow: tap the "+ Add habit" bar first.
+    const habitAddBar = page.getByRole('button', { name: 'Add habit', exact: true }).first();
+    await habitAddBar.scrollIntoViewIfNeeded();
+    await habitAddBar.click({ timeout: 10000 });
+    await page.waitForTimeout(400);
     const habitInput = page.getByPlaceholder('Add habit').first();
     await habitInput.scrollIntoViewIfNeeded();
     await habitInput.fill(habitTitle);
