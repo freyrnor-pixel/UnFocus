@@ -20,8 +20,10 @@
  *     domain cards already use (Decision: dropped whole-card tint, 2026-07-14). Because the
  *     box itself now carries the hue, rows inside it no longer need their own per-card
  *     `railColor` left edge — drop it at the call site to avoid double-coding.
- *   - Header is the shared `<SectionRail>` so the tinted-pill label + count stay consistent
- *     with the rest of the app; pass `right` through for a header-side control (e.g. a toggle).
+ *   - Header is the shared `<SectionRail>` (dot + ALL-CAPS title + hairline rule) so the label
+ *     + count stay consistent with the rest of the app; pass `right` through for a header-side
+ *     control (e.g. a toggle). Top padding is tightened (Spacing.sm) so the header hugs the
+ *     card's top edge and reads high on the card.
  *   - `contentStyle` spreads onto the inner content wrapper (below the header) for callers
  *     that need to override the default gap between rows.
  */
@@ -58,7 +60,13 @@ export default function SectionCard({ hue, label, count, right, style, contentSt
 const styles = StyleSheet.create({
   // Decision 043 rule 2: Spacing.xl above every section. Padding is routed to the inner
   // content view by Surface, so the header pill + rows sit inset from the card edge.
-  card: { marginTop: Spacing.xl, borderRadius: Radius.md, padding: Spacing.md },
+  card: {
+    marginTop: Spacing.xl,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    paddingTop: Spacing.sm,
+  },
   // The rows/empty state stack below the header, with the same inter-row gap the loose
   // sections used (Spacing.sm). SectionRail carries its own marginBottom, so no extra
   // top gap is added here.

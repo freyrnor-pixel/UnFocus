@@ -154,7 +154,7 @@ import HomePreviewEmpty from '@/components/HomePreviewEmpty';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import { Task } from '@/store/useTaskStore';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, Type, getGlow, rgba } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, getGlow, rgba } from '@/constants/theme';
 import { Duration, Ease, Spring } from '@/constants/motion';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
@@ -831,7 +831,7 @@ const baseStyles = StyleSheet.create({
   nowChipDot: { width: 6, height: 6, borderRadius: Radius.full },
   nowChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   progressBar: { marginTop: Spacing.xs },
-  headerTitle: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
+  headerTitle: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8 },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
 });

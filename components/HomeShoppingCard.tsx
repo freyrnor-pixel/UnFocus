@@ -306,7 +306,7 @@ const baseStyles = StyleSheet.create({
   titleRowPressable: { marginBottom: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   progressBar: { marginTop: Spacing.xs },
-  title: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, flexShrink: 1 },
+  title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8, flexShrink: 1 },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   // Wells removed (2026-07-13 grouping pass): rows sit directly on the card face.
