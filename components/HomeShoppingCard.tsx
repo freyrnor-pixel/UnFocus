@@ -7,7 +7,8 @@
  * Shopping screen.
  *
  * Connections:
- *   Imports → components/Surface, components/ExpandableCard, components/FlightOverlay
+ *   Imports → components/Surface, components/ExpandableCard, components/CardAccent
+ *             (badge+wash gradient move), components/FlightOverlay
  *             (FlightRect type only), components/ShoppingRow, components/PressableScale,
  *             components/ProgressBar, components/HomePreviewEmpty, constants/theme, lib/haptics,
  *             lib/i18n, lib/shoppingGroups (listProgress), lib/useAppTheme, lib/domainColor,
@@ -51,6 +52,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import ExpandableCard from '@/components/ExpandableCard';
+import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 import ShoppingRow from '@/components/ShoppingRow';
 import PressableScale from '@/components/PressableScale';
 import HomePreviewEmpty from '@/components/HomePreviewEmpty';
@@ -169,10 +171,13 @@ export default function HomeShoppingCard({
       style={[styles.card, !expanded && styles.cardCollapsed]}
     >
       <View style={styles.cardContent}>
+        {/* Header wash — the "one gradient move" (bled past the content padding to the card edge). */}
+        <CardAccentWash domain="shop" style={styles.headerWash} />
 
         {/* Title row */}
         <PressableScale onPress={handleTitlePress} style={styles.titleRowPressable} scaleTo={0.97}>
           <View style={styles.titleRow}>
+            <CardAccentBadge domain="shop" size={32} />
             <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
               {list?.name ?? t.shoppingTitle}
             </Text>
@@ -296,6 +301,8 @@ const baseStyles = StyleSheet.create({
   // few items are in the list — see constants/theme.ts.
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   cardContent: { flex: 1, padding: Spacing.md },
+  // Bleed the wash band past cardContent's padding so it spans the full card width and touches the top.
+  headerWash: { top: -Spacing.md, left: -Spacing.md, right: -Spacing.md },
   titleRowPressable: { marginBottom: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   progressBar: { marginTop: Spacing.xs },

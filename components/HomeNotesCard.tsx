@@ -9,7 +9,8 @@
  * (always-render-header per Decision 043 rule 4) — it does not render nothing/null.
  *
  * Connections:
- *   Imports → components/Surface, components/PressableScale, components/HomePreviewEmpty,
+ *   Imports → components/Surface, components/PressableScale, components/CardAccent
+ *             (badge+wash gradient move), components/HomePreviewEmpty,
  *             components/Collapsible + components/AnimatedChevron (checked-zone clip reveal),
  *             constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, lib/domainColor,
  *             lib/useVoiceCapture, store/useNotesStore
@@ -44,6 +45,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
+import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 import HomePreviewEmpty from '@/components/HomePreviewEmpty';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
@@ -100,12 +102,15 @@ export default function HomeNotesCard() {
       style={[styles.card, !expanded && styles.cardCollapsed]}
     >
       <View style={styles.cardContent}>
+        {/* Header wash — the "one gradient move" (bled past the content padding to the card edge). */}
+        <CardAccentWash domain="note" style={styles.headerWash} />
 
         {/* Title row — title/badge (navigates to /notes) and the mic button are siblings,
             not nested Pressables, so tapping the mic doesn't also fire the title's navigate. */}
         <View style={styles.titleRow}>
           <PressableScale onPress={handleTitlePress} style={styles.titleLeftPressable} scaleTo={0.97}>
             <View style={styles.titleLeft}>
+              <CardAccentBadge domain="note" size={32} />
               <Text style={[styles.title, { color: theme.text }]}>{t.notes.title}</Text>
               {activeNotes.length > 0 && (
                 <View style={[styles.badge, { backgroundColor: domainColor.soft, borderColor: rgba(domainColor.accent, 0.4) }]}>
@@ -240,6 +245,8 @@ const baseStyles = StyleSheet.create({
   // little content one of them has (e.g. a single note) — see constants/theme.ts.
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   cardContent: { flex: 1, padding: Spacing.md },
+  // Bleed the wash band past cardContent's padding so it spans the full card width and touches the top.
+  headerWash: { top: -Spacing.md, left: -Spacing.md, right: -Spacing.md },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm, gap: Spacing.sm },
   titleLeftPressable: { flexShrink: 1 },
   titleLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
