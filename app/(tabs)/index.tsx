@@ -48,8 +48,10 @@
  *     `horizontal={settings.planTimelineHorizontal}` is threaded to both PlanTaskCard mounts
  *     (Focus + preview) so the rail-orientation setting applies in both modes.
  *   - **Notes preview = HomeNotesCard**: reads useNotesStore, shows first 5 active notes with
- *     inline toggle-checked, quick-add (→ /notes), and "See all →" link. When empty it renders
- *     the shared HomePreviewEmpty block at the compact resting height (does NOT self-hide).
+ *     inline toggle-checked, a mic button for voice-capture notes, a trailing AddRow to type a
+ *     new note's title directly (no navigation away from Home), and a title tap → /notes for
+ *     the full screen / "See all →" when the list overflows. When empty it renders the shared
+ *     HomePreviewEmpty block at the compact resting height (does NOT self-hide).
  *   - **Shopping preview = HomeShoppingCard**: shows first 4 items flat when collapsed; full
  *     nested dish-group ExpandableCard structure when expanded. Reorder intentionally omitted
  *     (Decision 011 R1). Tick-to-buy, cart-collect, stepper, and catalog-vs-adhoc remove preserved.
