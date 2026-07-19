@@ -23,7 +23,8 @@
  *             store/useFeedbackStore, store/useHabitStore, store/useHealthStore, store/useInboxStore,
  *             store/useMealStore, store/useNotesStore, store/usePeersStore, store/useReceiptStore,
  *             store/useSharedStore, store/useShoppingListStore, store/useShoppingStore,
- *             store/useTaskStore, components/AppModal
+ *             store/useTaskStore, components/AppModal,
+ *             components/WelcomeReveal (animated brand-reveal shown once per cold launch)
  *   Used by → router layout — defines the Stack
  *
  * Edit notes:
@@ -82,6 +83,11 @@
  *     abrupt fade+slide `default`, so sub-screens open with one calm horizontal slide on
  *     both platforms (smoother, not slower, no bob). Modal screens keep `slide_from_bottom`.
  *   - <AppModalHost/> mounted here (Session A2·2) so showAppModal() works from any screen.
+ *   - <WelcomeReveal/> (2026-07-19): animated tree brand-reveal overlaid above the Stack,
+ *     gated on `showWelcome` (starts true, flipped off by its onDone). Plays once per cold
+ *     launch — it bridges the native splash and the app (same themed bg → tree bloom →
+ *     dissolve). OTA-safe (pure JS/Reanimated); the native splash it hands off from is
+ *     tuned separately in app.json (build-gated).
  *   - useFeedbackStore (debug notes) loads here like every other store; the debug-mode
  *     gate now lives per-anchor in components/DebugNoteAnchor.tsx / ScreenHeader instead
  *     of a single global overlay mount.
@@ -127,6 +133,7 @@ import { useShoppingListStore } from '@/store/useShoppingListStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import AppModalHost from '@/components/AppModal';
+import WelcomeReveal from '@/components/WelcomeReveal';
 
 // Cap OS-level font scaling (Dynamic Type / Android font size) so it can't overflow the
 // app's chrome — BottomNav, FAB, chips, etc. (MAX_FONT_SCALE lives in constants/theme.ts,
@@ -207,6 +214,14 @@ export default function RootLayout() {
   // screen), so this reads as launch, not a block. A timeout floor guarantees we never
   // hang on a slow/failed decode.
   const [assetsReady, setAssetsReady] = useState(false);
+
+  // Animated brand-reveal shown once per cold launch (components/WelcomeReveal.tsx). This
+  // RootLayout mounts once per process cold start, so `true` here means "every cold launch"
+  // — it does NOT replay on a warm resume (AppState → active) or on re-renders; only the
+  // overlay's onDone flips it off. It renders above the Stack right as the native splash
+  // hides (the appReady gate below returns null until then), so launch reads as
+  // native splash → tree bloom → app, one continuous moment.
+  const [showWelcome, setShowWelcome] = useState(true);
 
   // One-shot cold-start bootstrap in a single mount effect: initDb(), settings,
   // then the Tier A stores that back the first screens (synchronous getAllSync
@@ -390,6 +405,7 @@ export default function RootLayout() {
       </Stack>
       <AppModalHost />
       </SafeAreaProvider>
+      {showWelcome && <WelcomeReveal onDone={() => setShowWelcome(false)} />}
     </GestureHandlerRootView>
   );
 }

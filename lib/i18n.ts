@@ -316,6 +316,7 @@ const en = {
   // Onboarding
   welcomeHeading: 'UnFocus',
   welcomeSub: 'A simple everyday app for people who don\'t want to spend energy keeping track of things. Set it up once — and let the app do the rest.',
+  welcomeTagline: 'One less thing to keep track of.',
   features: [
     { icon: 'checkbox-outline', text: "Stay on top of today's plans — without remembering everything yourself" },
     { icon: 'cart-outline', text: 'Shopping lists that reset themselves each week' },
@@ -1520,6 +1521,7 @@ const no: typeof en = {
   deleteConfirmBtn: 'Slett',
   welcomeHeading: 'UnFocus',
   welcomeSub: 'En enkel hverdagsapp laget for deg som ikke ønsker å bruke energi på å holde styr på ting. Sett den opp én gang — og la appen gjøre resten.',
+  welcomeTagline: 'Én ting mindre å holde styr på.',
   features: [
     { icon: 'checkbox-outline', text: 'Hold styr på dagens planer — uten å huske alt selv' },
     { icon: 'cart-outline', text: 'Handlelister som setter seg selv opp hver uke' },
