@@ -42,8 +42,9 @@
  *         header height/paddingTop += topInset, bottom-nav height/paddingBottom += bottomInset.
  *     topInset floors insets.top with StatusBar.currentHeight on Android as a safety net for the
  *     brief window where safe-area-context can report 0 before the first insets dispatch.
- *   - isHome=true mounts HomeHeroBackground; false uses ScreenBackground — only when
- *     ownBackground is true (see below)
+ *   - Background: ScreenBackground (the shared blue field + corner branches) is the base on
+ *     every screen when ownBackground is true; isHome=true additionally layers HomeHeroBackground
+ *     (an additive focal glow) on top of it (see below)
  *   - **ownBackground (added for the static-swipe-background fix)**: the 5 pager tab
  *     sites (app/(tabs)/*) pass ownBackground={false} because each one used to mount
  *     its own L1/L2 background instance, so swiping the pager visibly slid two
@@ -360,8 +361,16 @@ export default function ScreenScaffold({
     <SafeAreaView style={[styles.safeArea, ownBackground && { backgroundColor: bgColor }]}>
       {/* L1: Background — skipped when a parent (the tabs pager) already renders a
           shared instance behind this screen (see ownBackground doc above), or when
-          plainBackground asks for a flat white/black fill with no accent blob. */}
-      {ownBackground && !plainBackground && (isHome ? <HomeHeroBackground /> : <ScreenBackground />)}
+          plainBackground asks for a flat white/black fill with no accent blob.
+          ScreenBackground is the shared blue field + branches (base); HomeHeroBackground
+          is now an ADDITIVE focal glow layered ON TOP of it for isHome screens, not a
+          standalone backdrop — so render the base always and add the glow on Home. */}
+      {ownBackground && !plainBackground && (
+        <>
+          <ScreenBackground />
+          {isHome && <HomeHeroBackground />}
+        </>
+      )}
 
       {/* L2: Particle overlay — same ownBackground gating as L1; also dropped for plainBackground. */}
       {ownBackground && !plainBackground && <ParticleBackground />}

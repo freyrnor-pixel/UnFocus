@@ -1,128 +1,56 @@
 /**
- * HomeHeroBackground.tsx — ambient hero backdrop for the home screen, behind TreeWatermark.
+ * HomeHeroBackground.tsx — a soft extra focal glow that gives the Home tab a touch more warmth.
  *
- * NEUTRAL as of 2026-07-19 ("remove the background colour"): a soft near-`theme.bg` mist with a
- * faint neutral orb halo centered behind the tree, built from the theme's neutral tokens (was a
- * blue "Serene Mist" / navy "Deep Focus" sky — the main colour in Home's backdrop). A ground fade
- * at the bottom keeps list content legible. Sky and ground use true linear gradients
- * (expo-linear-gradient) and the orb halo is a true SVG radial gradient. Fully STATIC — no motion.
+ * As of 2026-07-19 (abstract-branch background) this is a single ADDITIVE upper-centre glow
+ * layered OVER the shared ScreenBackground (gradient + corner branches). ScreenBackground now
+ * carries the whole field on every screen, so Home no longer needs its own sky/orb/ground stack —
+ * it just gets one stronger blue focal glow, cross-faded in when Home is focused (see
+ * app/(tabs)/_layout.tsx). Transparent everywhere else so the shared field shows through. Fully
+ * STATIC — no motion (the ambient drift comes from ParticleBackground).
  *
  * Connections:
- *   Imports → lib/useAppTheme (useIsDark), expo-linear-gradient, react-native-svg
- *   Used by → app/(tabs)/_layout.tsx (hoisted behind the whole tabs pager, cross-faded
- *             in when the home tab is focused — see that file's header), layered over
- *             ScreenBackground. components/ScreenScaffold still mounts it directly
- *             (isHome prop) for any isHome screen with ownBackground=true.
+ *   Imports → lib/useAppTheme (useIsDark), react-native-svg
+ *   Used by → app/(tabs)/_layout.tsx (hoisted behind the whole tabs pager, cross-faded in when
+ *             the home tab is focused — see that file's header), layered over ScreenBackground.
+ *             components/ScreenScaffold still mounts it directly (isHome prop) for any isHome
+ *             screen with ownBackground=true.
  *
  * Edit notes:
- *   - Render as the first child inside the SafeAreaView, same contract as
- *     ScreenBackground: absolutely positioned, pointerEvents="none".
- *   - **No looping motion here anymore.** The old rising-dots + pulse-rings loops were
- *     removed (2026-07, screen-swipe smoothness): ParticleBackground is always mounted
- *     behind the pager and already supplies the ambient rising-dot field, so on Home the
- *     two stacked ~16 animated dots — pure overdraw the pager fought each swipe frame,
- *     and a violation of ANIMATION_GUIDELINES §6 ("no more than a few simultaneous moving
- *     elements"). The static sky/orb/ground carry the hero's identity on their own; the
- *     ambient motion comes from ParticleBackground. Because it's static, no reducedMotion
- *     gate is needed here.
- *   - Sky and ground are now true LinearGradient components (Decision 007).
- *   - The orb is centered at 50%/50%, same anchor as TreeWatermark's
- *     centered wrap in app/index.tsx, so the halo sits behind the tree
- *     rather than floating independently. It is a true SVG RadialGradient
- *     (smooth falloff) — the older concentric-circle fake was replaced so it
- *     no longer reads as banded color blocks.
+ *   - Render as the first child inside the SafeAreaView, same contract as ScreenBackground:
+ *     absolutely positioned, pointerEvents="none". Transparent — it only ADDS a glow.
+ *   - No looping motion here — ParticleBackground supplies the ambient rising-dot field; a static
+ *     glow keeps swipes cheap (ANIMATION_GUIDELINES §6). Because it's static, no reducedMotion gate.
+ *   - The glow is centred at 50%/34% (upper third), reinforcing ScreenBackground's own focal glow
+ *     so Home reads a shade brighter/warmer than the other tabs.
  */
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet } from 'react-native';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
-import { rgba } from '@/constants/theme';
-import { useAppTheme } from '@/lib/useAppTheme';
-
-/** Soft radial glow behind the tree — a true SVG radial gradient (smooth falloff),
- *  replacing the old stacked concentric-circle fake so it reads as a real glow, not
- *  banded color blocks. */
-function OrbHalo({ size, color }: { size: number; color: string }) {
-  return (
-    <View pointerEvents="none" style={[styles.orbWrap, { width: size, height: size, marginLeft: -size / 2, marginTop: -size / 2 }]}>
-      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <Defs>
-          <RadialGradient id="orbHalo" cx="50%" cy="50%" rx="50%" ry="50%">
-            <Stop offset="0%" stopColor={color} stopOpacity="0.42" />
-            <Stop offset="45%" stopColor={color} stopOpacity="0.2" />
-            <Stop offset="75%" stopColor={color} stopOpacity="0.06" />
-            <Stop offset="100%" stopColor={color} stopOpacity="0" />
-          </RadialGradient>
-        </Defs>
-        <Rect x={0} y={0} width={size} height={size} fill="url(#orbHalo)" />
-      </Svg>
-    </View>
-  );
-}
+import { useIsDark } from '@/lib/useAppTheme';
 
 function HomeHeroBackground() {
-  const theme = useAppTheme();
-
-  // Neutral hero (2026-07-19 "remove the background colour"): the old blue/navy "Serene Mist" sky
-  // + blue orb was the main colour in Home's backdrop. It's now built from the theme's NEUTRAL
-  // tokens — a soft near-bg mist with a faint neutral orb of depth behind the tree — so Home reads
-  // as the same calm neutral background as every other screen, with colour reserved for the card
-  // borders/accents. Ground fades into theme.bg to keep list content legible.
-  const palette = {
-    sky: [theme.surfaceMuted, theme.bg, theme.surface] as const,
-    orb: theme.border,
-    ground: [rgba(theme.bg, 0), rgba(theme.bg, 0.55), rgba(theme.bg, 0.85)] as const,
-  };
+  const isDark = useIsDark();
+  // A stronger blue focal glow than ScreenBackground's base top-glow, so fading it in on Home
+  // lifts the upper-centre a touch. Additive over the shared field (transparent elsewhere).
+  const color = isDark ? 'rgb(90,150,255)' : 'rgb(140,180,255)';
+  const peak = isDark ? 0.32 : 0.22;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* Sky gradient */}
-      <LinearGradient
-        colors={palette.sky}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.6 }}
-        style={styles.sky}
-      />
-
-      <OrbHalo size={280} color={palette.orb} />
-
-      {/* Ground fade gradient */}
-      <LinearGradient
-        colors={palette.ground}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={styles.groundFade}
-      />
-    </View>
+    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} preserveAspectRatio="xMidYMid slice">
+      <Defs>
+        <RadialGradient id="homeHeroGlow" cx="50%" cy="34%" rx="70%" ry="46%">
+          <Stop offset="0" stopColor={color} stopOpacity={peak} />
+          <Stop offset="0.55" stopColor={color} stopOpacity={peak * 0.38} />
+          <Stop offset="1" stopColor={color} stopOpacity="0" />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill="url(#homeHeroGlow)" />
+    </Svg>
   );
 }
 
-// Memoised: this layer stays mounted behind the whole tabs pager and takes NO props, but
-// its parent (app/(tabs)/_layout.tsx) re-renders on every tab change (it tracks the active
-// route in state to cross-fade this layer's opacity). Without memo, that re-render reconciles
-// this SVG radial + two LinearGradients right at the swipe boundary — a per-swipe hitch.
-// React.memo skips the parent-driven re-render; the theme hook still re-renders it on a real
-// theme change (memo only gates prop changes, and there are none).
+// Memoised: this layer stays mounted behind the whole tabs pager and takes NO props, but its
+// parent (app/(tabs)/_layout.tsx) re-renders on every tab change (it tracks the active route in
+// state to cross-fade this layer's opacity). Without memo, that re-render reconciles this SVG
+// radial right at the swipe boundary. useIsDark still re-renders it on a real theme change.
 export default React.memo(HomeHeroBackground);
-
-const styles = StyleSheet.create({
-  sky: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '60%',
-  },
-  orbWrap: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-  },
-  groundFade: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 150,
-  },
-});

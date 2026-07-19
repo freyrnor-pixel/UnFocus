@@ -149,9 +149,8 @@ export default function TabsLayout() {
   return (
       <View style={{ flex: 1 }}>
         {/* Shared L1/L2 background, rendered once behind the whole pager (see file header).
-            Both L1 layers stay mounted; the hero cross-fades over the plain backdrop.
-            `activeRoute` drives the per-screen blob hue (lib/screenColor.ts) — the backdrop
-            crossfades to the active tab's colour so a screen reads as its own colour family. */}
+            ScreenBackground is the shared blue field + corner branch accents (same on every
+            tab); HomeHeroBackground is an extra focal glow that cross-fades in over it on Home. */}
         <ScreenBackground activeRoute={activeRouteName} />
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: heroOpacity }]} pointerEvents="none">
           <HomeHeroBackground />
