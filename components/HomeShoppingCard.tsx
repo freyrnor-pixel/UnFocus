@@ -300,9 +300,12 @@ const baseStyles = StyleSheet.create({
   // Collapsed-only floor so Notes/Plans/Shopping read as the same size regardless of how
   // few items are in the list — see constants/theme.ts.
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
-  cardContent: { flex: 1, padding: Spacing.md },
-  // Bleed the wash band past cardContent's padding so it spans the full card width and touches the top.
-  headerWash: { top: -Spacing.md, left: -Spacing.md, right: -Spacing.md },
+  // Tighter top padding (Spacing.sm) so the header hugs the card's top edge and sits high in
+  // the wash band, away from the white fade — matches the dot-header cards (SectionCard).
+  cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.sm },
+  // Bleed the wash band past cardContent's padding so it spans the full card width and touches
+  // the top (top offset == -paddingTop so the band starts exactly at the card edge).
+  headerWash: { top: -Spacing.sm, left: -Spacing.md, right: -Spacing.md },
   titleRowPressable: { marginBottom: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   progressBar: { marginTop: Spacing.xs },

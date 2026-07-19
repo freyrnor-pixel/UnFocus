@@ -736,7 +736,9 @@ const baseStyles = StyleSheet.create({
   // few tasks (or how compact the time gaps) today has — see constants/theme.ts. Content can
   // still grow taller than this floor (e.g. widely time-spaced tasks) — it's a min, not a cap.
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
-  cardContent: { flex: 1, padding: Spacing.md, position: 'relative' },
+  // Tighter top padding (Spacing.sm) so the header hugs the card's top edge and sits high in
+  // the wash band, away from the white fade — matches the dot-header cards (SectionCard).
+  cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.sm, position: 'relative' },
   rail: { paddingVertical: Spacing.xs },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
 
@@ -822,7 +824,7 @@ const baseStyles = StyleSheet.create({
   doneRows: { paddingBottom: Spacing.sm },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
-  headerWash: { top: -Spacing.md, left: -Spacing.md, right: -Spacing.md },
+  headerWash: { top: -Spacing.sm, left: -Spacing.md, right: -Spacing.md },
   headerRowPressable: { marginBottom: Spacing.sm },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   // Persistent "now" indicator (visual-audit 2026-07-11) — always visible in the header,
