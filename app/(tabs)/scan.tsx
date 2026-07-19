@@ -9,7 +9,7 @@
  *
  * Connections:
  *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, lib/screenColor, store/useCatalogStore, store/useReceiptStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons), @react-navigation/material-top-tabs + @react-navigation/native (types only, for the swipeEnabled guard)
- *   Used by → Expo Router route "/scan" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx; reached from app/(tabs)/shopping.tsx's post-trip receipt pop-up (autoCapture) and app/budget.tsx header link
+ *   Used by → Expo Router route "/scan" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx; reached from app/(tabs)/shopping.tsx's post-trip receipt pop-up (autoCapture)
  *   Data    → confirmed items write to FOUR stores: useShoppingStore (shopping_items) + useReceiptStore.addReceipt (receipts) + useCatalogStore.recordPurchases (purchase_log, linked via receipt_id, + store_items); QR import writes useSharedStore (shared_shopping_items / shared_tasks); scaled fontSize via useScaledStyles()
  *
  * Edit notes:
@@ -18,9 +18,8 @@
  *     backdrop behind the whole pager instead) for idle/result/manual modes; the transient
  *     'scanning' mode is a bare centered SafeAreaView, same as before this screen moved
  *     under app/(tabs)/.
- *   - The old ScreenHeader right-slot "Budget" link is now an in-content top link on the idle screen
- *     (site-tier headers render Focus-mode on the right, so a header link can't live there — same
- *     in-content-toolbar precedent as meals.tsx).
+ *   - No Budget entry point here anymore (2026-07-19): the in-content top link that used to open
+ *     app/budget.tsx was removed — Budget is reached only from app/(tabs)/shopping.tsx's header now.
  *   - QR scanner modal is FIXED DARK CAMERA CHROME (Decision 025): '#000' background + fixed white
  *     title/frame, theme-independent (Decision 006's light-first tokens don't fit a live viewfinder,
  *     and textInverse flips dark in dark themes). The colored Cancel link stays on `accent`.
@@ -525,15 +524,6 @@ export default function ScanScreen() {
       <>
         <ScreenScaffold title={t.scanReceipt} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'scan').base}>
           <View style={styles.content}>
-            <PressableScale
-              style={[styles.budgetPill, { backgroundColor: rgba(theme.featBudget, 0.16) }]}
-              onPress={() => goToSite(router, pathname, '/budget')}
-              hitSlop={6}
-              scaleTo={0.97}
-            >
-              <Text style={[styles.budgetPillText, { color: theme.featBudget }]}>{t.budget.title}</Text>
-            </PressableScale>
-
             {/* Tip — subtle bordered card with an info glyph, not a flat colour block. */}
             <Surface style={styles.tipCardRow}>
               <View style={[styles.tipAccent, { backgroundColor: theme.good }]} />
@@ -768,13 +758,6 @@ const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.md },
 
   // IDLE MODE
-  budgetPill: {
-    alignSelf: 'flex-end',
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-  },
-  budgetPillText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   backLink: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   tipCardRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md, paddingLeft: Spacing.lg },
   tipAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },

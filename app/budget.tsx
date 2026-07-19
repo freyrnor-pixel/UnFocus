@@ -3,16 +3,17 @@
  *
  * Compares a selected month's scanned/manual receipt total (useReceiptStore) against
  * the optional monthly budget set in Settings, with a gentle progress bar, month selector,
- * receipt list, and per-store breakdown. Budget can be set/edited inline. Reached via a
- * quick-action button on app/shopping.tsx (router.push) or the header link on app/scan.tsx
- * (goToSite, replacing scan) — not in BottomNav. Shopping sits underneath, so back()
+ * receipt list, and per-store breakdown. Budget can be set/edited inline. Reached only via
+ * the bordered Budget pill at the top of app/(tabs)/shopping.tsx's shared intro chrome
+ * (router.push) — not in BottomNav, and no longer reachable from app/(tabs)/scan.tsx
+ * (2026-07-19: that entry point was removed). Shopping sits underneath, so back()
  * returns there.
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/PressableScale,
  *             constants/theme, lib/date, lib/i18n, lib/useAppTheme, store/useReceiptStore,
  *             store/useSettingsStore
- *   Used by → Expo Router route "/budget"; reached via app/shopping.tsx (quick action) or app/scan.tsx (header link)
+ *   Used by → Expo Router route "/budget"; reached via app/(tabs)/shopping.tsx's Budget pill (router.push)
  *   Data    → reads useReceiptStore (receipts table, receipts/months/receiptsForMonth/totalForMonth/receiptsByStore) and useSettingsStore (monthlyBudgetNok, monthlyResetDate, lastMonthlyReset); writes via useSettingsStore.update (monthlyBudgetNok)
  *
  * Edit notes:
