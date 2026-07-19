@@ -533,6 +533,9 @@ const en = {
   catalogueDeleteItemLabel: 'Delete item',
   catalogueEmpty: 'No items yet — add one above.',
   catalogueItemAdded: (name: string) => `${name} added ✓`,
+  catalogueSearchClearLabel: 'Clear search',
+  catalogueNoMatches: 'No items match your search.',
+  catalogueIndexScrubLabel: 'Jump to letter',
   category: 'Category',
   shoppingCategories: {
     produce: 'Fruit & veg',
@@ -1731,6 +1734,9 @@ const no: typeof en = {
   catalogueDeleteItemLabel: 'Slett vare',
   catalogueEmpty: 'Ingen varer ennå — legg til en over.',
   catalogueItemAdded: (name: string) => `${name} lagt til ✓`,
+  catalogueSearchClearLabel: 'Tøm søk',
+  catalogueNoMatches: 'Ingen varer samsvarer med søket.',
+  catalogueIndexScrubLabel: 'Hopp til bokstav',
   category: 'Kategori',
   shoppingCategories: {
     produce: 'Frukt og grønt',

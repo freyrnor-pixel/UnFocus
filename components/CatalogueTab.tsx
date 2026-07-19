@@ -12,9 +12,14 @@
  * both the week lists and the Food tab draw item names/prices from (autocomplete), so
  * edits here flow everywhere.
  *
+ * A search field at the top of the list header filters the rows by name (case-insensitive
+ * substring), and a vertical A–Z scrubber down the right edge (hold-and-drag, contacts-style)
+ * jumps the list to the first item under the touched letter — see the "Search + A–Z scrubber"
+ * edit note below.
+ *
  * Connections:
- *   Imports → constants/theme (tokens), lib/useAppTheme, lib/i18n, lib/haptics,
- *             lib/money (formatKr), lib/domainColor, components/Surface,
+ *   Imports → constants/theme (tokens), lib/useAppTheme, lib/i18n, lib/haptics (success/heavy/
+ *             selection), lib/money (formatKr), lib/domainColor, components/Surface,
  *             components/PressableScale, components/AddRow, store/useCatalogStore,
  *             @expo/vector-icons
  *   Used by → app/(tabs)/shopping.tsx (rendered when the Catalogue tab is active, with
@@ -73,6 +78,20 @@
  *     ScreenScaffold's `contentPadding` double-reserving `BOTTOM_NAV_HEIGHT` on top of the
  *     clearance the tab pager already gives every `bottomNav={false}` screen; fixed there
  *     (see ScreenScaffold.tsx's own edit notes), not here.
+ *   - **Search + A–Z scrubber (2026-07-19)**: a search `TextInput` (in the list header, above the
+ *     add row) filters `items` → `displayItems` by case-insensitive substring; the FlatList renders
+ *     `displayItems`. A vertical alphabet column (`indexBar`) sits as a sibling to the FlatList inside
+ *     the notepad `card` (a `cardInner` row wraps both) — a fixed reserved gutter, not an absolute
+ *     overlay, so long row names never run under it. A single `PanResponder` on the column maps the
+ *     touch's `locationY` (÷ measured bar height × letter count) to a letter and `scrollToIndex`es the
+ *     FlatList to that letter's first item (empty letters resolve forward, contacts-style). The
+ *     responder + its helpers are stable (`useCallback([])` reading refs — `scrubRef` holds the latest
+ *     letters/first-index map, `barHeightRef` the measured height) so the responder isn't rebuilt each
+ *     render. `selection()` haptic + a centered letter bubble (`scrubBubble`) fire on each letter change.
+ *     The scrubber is hidden while searching or when the list is short (`SCRUB_MIN_ITEMS`), since a
+ *     jumbled/short list has nothing to scrub. No `getItemLayout` (rows aren't strictly fixed height —
+ *     the inline edit row differs); `onScrollToIndexFailed` seeds an approximate offset then retries, the
+ *     standard fallback for far jumps into not-yet-rendered rows under `removeClippedSubviews`.
  *   - **Notepad container (2026-07-18)**: the FlatList lives inside a rounded, `overflow:hidden`
  *     `card` View that ends ABOVE the bottom nav (root's `paddingBottom`), so the catalogue reads
  *     as a contained notepad sheet within the screen rather than running flush under the nav bar.
@@ -82,8 +101,8 @@
  *     off" behind the nav. Horizontal inset moved from `listContent` onto `root` so the clipping
  *     card aligns with the rows.
  */
-import React, { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { FlatList, PanResponder, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
@@ -93,9 +112,15 @@ import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { ThemePalette } from '@/constants/colors';
 import { useT } from '@/lib/i18n';
-import { success, heavy } from '@/lib/haptics';
+import { success, heavy, selection } from '@/lib/haptics';
 import { formatKr } from '@/lib/money';
 import { getDomainColor } from '@/lib/domainColor';
+
+/** Fixed Norwegian alphabet for the A–Z scrubber (æ/ø/å after z). '#' is appended only when
+ *  some item name starts with a non-letter, so digit/symbol rows are still reachable. */
+const SCRUB_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ'.split('');
+/** Below this row count the scrubber is hidden — a short list scrolls fine without it. */
+const SCRUB_MIN_ITEMS = 12;
 
 type Props = {
   onNotify: (msg: string) => void;
@@ -182,9 +207,95 @@ export default function CatalogueTab({ onNotify, header }: Props) {
   const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState('');
 
+  const [query, setQuery] = useState('');
+
   // `items` already arrives Norwegian-collated from useCatalogStore (sorted once in
   // load() + kept sorted by every mutation), so this tab renders it directly — no
   // per-mount sort, which is what used to add a "loading" beat when opening this tab.
+  // The search box filters that already-sorted list by case-insensitive substring; an
+  // empty query returns the original array reference (no allocation / no re-render churn).
+  const displayItems = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((i) => i.name.toLowerCase().includes(q));
+  }, [items, query]);
+
+  // ── A–Z scrubber ──────────────────────────────────────────────────────────────────
+  const flatListRef = useRef<FlatList<StoreItem>>(null);
+  const [activeLetter, setActiveLetter] = useState<string | null>(null);
+  // Only worth showing on a long, unfiltered list (a filtered/short list has nothing to scrub).
+  const showScrubber = query.trim().length === 0 && displayItems.length >= SCRUB_MIN_ITEMS;
+
+  // Letters to render + first-row-index for each present letter, derived from what's on screen.
+  const scrubData = useMemo(() => {
+    const firstIndex: Record<string, number> = {};
+    let hasHash = false;
+    displayItems.forEach((it, i) => {
+      const c = (it.name.trim()[0] || '').toUpperCase();
+      const bucket = SCRUB_ALPHABET.includes(c) ? c : '#';
+      if (bucket === '#') hasHash = true;
+      if (firstIndex[bucket] === undefined) firstIndex[bucket] = i;
+    });
+    const letters = hasHash ? [...SCRUB_ALPHABET, '#'] : SCRUB_ALPHABET;
+    return { firstIndex, letters };
+  }, [displayItems]);
+
+  // Refs let the PanResponder's stable handlers always read the latest data/measurements
+  // without rebuilding the responder on every render.
+  const scrubRef = useRef(scrubData);
+  scrubRef.current = scrubData;
+  const barHeightRef = useRef(0);
+  const lastLetterRef = useRef<string | null>(null);
+
+  // Resolve a letter to a row index; an empty letter jumps forward to the next present
+  // letter (falling back to the previous one), so every letter on the bar goes somewhere.
+  const resolveIndex = useCallback((letter: string) => {
+    const { letters, firstIndex } = scrubRef.current;
+    const start = letters.indexOf(letter);
+    for (let k = start; k < letters.length; k++) {
+      const idx = firstIndex[letters[k]];
+      if (idx !== undefined) return idx;
+    }
+    for (let k = start - 1; k >= 0; k--) {
+      const idx = firstIndex[letters[k]];
+      if (idx !== undefined) return idx;
+    }
+    return 0;
+  }, []);
+
+  const handleScrub = useCallback(
+    (locationY: number) => {
+      const { letters } = scrubRef.current;
+      const h = barHeightRef.current;
+      if (!h || letters.length === 0) return;
+      const i = Math.max(0, Math.min(letters.length - 1, Math.floor((locationY / h) * letters.length)));
+      const letter = letters[i];
+      if (letter === lastLetterRef.current) return;
+      lastLetterRef.current = letter;
+      setActiveLetter(letter);
+      selection();
+      flatListRef.current?.scrollToIndex({ index: resolveIndex(letter), animated: false, viewPosition: 0 });
+    },
+    [resolveIndex]
+  );
+
+  const endScrub = useCallback(() => {
+    lastLetterRef.current = null;
+    setActiveLetter(null);
+  }, []);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (e) => handleScrub(e.nativeEvent.locationY),
+        onPanResponderMove: (e) => handleScrub(e.nativeEvent.locationY),
+        onPanResponderRelease: endScrub,
+        onPanResponderTerminate: endScrub,
+      }),
+    [handleScrub, endScrub]
+  );
 
   function handleAdd() {
     const name = addName.trim();
@@ -276,6 +387,34 @@ export default function CatalogueTab({ onNotify, header }: Props) {
   const listHeader = (
     <View style={styles.listHeader}>
       {header}
+      {/* ── Search ── filters the catalogue by name (case-insensitive substring). Sits above
+          the add row; hides the A–Z scrubber while a query is active (the filtered list is
+          short and no longer in a scannable A→Å run). */}
+      <Surface style={styles.searchCard}>
+        <View style={[styles.searchRow, { backgroundColor: theme.surfaceMuted }]}>
+          <Ionicons name="search" size={16} color={theme.textMuted} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            value={query}
+            onChangeText={setQuery}
+            placeholder={t.catalogueSearchPlaceholder}
+            placeholderTextColor={theme.textMuted}
+            returnKeyType="search"
+            autoCorrect={false}
+            clearButtonMode="never"
+          />
+          {query.length > 0 && (
+            <Pressable
+              onPress={() => setQuery('')}
+              hitSlop={8}
+              accessibilityLabel={t.catalogueSearchClearLabel}
+              style={({ pressed }) => (pressed ? { opacity: 0.5 } : null)}
+            >
+              <Ionicons name="close-circle" size={18} color={theme.textMuted} />
+            </Pressable>
+          )}
+        </View>
+      </Surface>
       {/* ── Top: add-new-item row ── the shared AddRow (name input + price extra), always
           visible at the top of this long, alphabetized reference list. */}
       <Surface style={styles.addRowCard}>
@@ -303,6 +442,9 @@ export default function CatalogueTab({ onNotify, header }: Props) {
       {items.length === 0 && (
         <Text style={[styles.empty, { color: theme.textMuted }]}>{t.catalogueEmpty}</Text>
       )}
+      {items.length > 0 && displayItems.length === 0 && (
+        <Text style={[styles.empty, { color: theme.textMuted }]}>{t.catalogueNoMatches}</Text>
+      )}
     </View>
   );
 
@@ -317,9 +459,11 @@ export default function CatalogueTab({ onNotify, header }: Props) {
           painted a flat white/black strip over the colourful field and read as the "cut off"
           the report described. */}
       <View style={styles.card}>
+      <View style={styles.cardInner}>
       <FlatList
+        ref={flatListRef}
         style={styles.flatList}
-        data={items}
+        data={displayItems}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         // extraData: re-render rows when edit mode toggles (editingId) or the theme changes,
@@ -334,7 +478,7 @@ export default function CatalogueTab({ onNotify, header }: Props) {
         // to consume that leftover space (flexGrow on both it and listContent below) keeps the
         // card's rounded-bottom silhouette flush near the nav instead of stopping short — the
         // real last row no longer carries rowLast itself (see renderItem/CatalogueRow above).
-        ListFooterComponent={items.length > 0 ? <View style={[styles.listFiller, { backgroundColor: theme.surface }]} /> : null}
+        ListFooterComponent={displayItems.length > 0 ? <View style={[styles.listFiller, { backgroundColor: theme.surface }]} /> : null}
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -342,7 +486,47 @@ export default function CatalogueTab({ onNotify, header }: Props) {
         windowSize={11}
         maxToRenderPerBatch={20}
         removeClippedSubviews
+        // A far scrub jump can target a row not yet realised (removeClippedSubviews + no
+        // getItemLayout): seed an approximate offset, then retry the exact scroll once nearby
+        // rows have mounted. Standard FlatList fallback.
+        onScrollToIndexFailed={(info) => {
+          flatListRef.current?.scrollToOffset({ offset: Math.max(0, info.averageItemLength * info.index), animated: false });
+          setTimeout(() => {
+            if (displayItems.length > info.index) {
+              flatListRef.current?.scrollToIndex({ index: info.index, animated: false, viewPosition: 0 });
+            }
+          }, 60);
+        }}
       />
+      {/* ── A–Z scrubber ── hold-and-drag column reserved as a sibling gutter (not an overlay),
+          so long row names never run underneath. onLayout feeds its height to the touch→letter math. */}
+      {showScrubber && (
+        <View
+          style={styles.indexBar}
+          onLayout={(e) => { barHeightRef.current = e.nativeEvent.layout.height; }}
+          accessibilityLabel={t.catalogueIndexScrubLabel}
+          {...panResponder.panHandlers}
+        >
+          {scrubData.letters.map((L) => (
+            <Text
+              key={L}
+              style={[styles.indexLetter, { color: activeLetter === L ? theme.accent : theme.textMuted }]}
+              allowFontScaling={false}
+            >
+              {L}
+            </Text>
+          ))}
+        </View>
+      )}
+      </View>
+      {/* Centered letter bubble shown while scrubbing (iOS-contacts feel). */}
+      {activeLetter && (
+        <View pointerEvents="none" style={styles.scrubBubble}>
+          <Text style={[styles.scrubBubbleText, { color: theme.accentInk }]} allowFontScaling={false}>
+            {activeLetter}
+          </Text>
+        </View>
+      )}
       </View>
     </View>
   );
@@ -357,9 +541,21 @@ const baseStyles = StyleSheet.create({
   // the floating hint/add-row chrome, which reads fine square). overflow:hidden is what turns a
   // mid-scroll hard clip into a clean rounded bottom on the long, virtualized list.
   card: { flex: 1, borderBottomLeftRadius: Radius.md, borderBottomRightRadius: Radius.md, overflow: 'hidden' },
+  // Wraps the FlatList + A–Z scrubber side by side; the scrubber is a reserved gutter, not an
+  // overlay, so it never sits on top of a long row name.
+  cardInner: { flex: 1, flexDirection: 'row' },
   flatList: { flex: 1 },
   listContent: { paddingBottom: Spacing.md, flexGrow: 1 },
   listHeader: { gap: Spacing.md, paddingBottom: Spacing.md },
+  searchCard: { paddingHorizontal: Spacing.md },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8 },
+  searchInput: { flex: 1, fontSize: FontSize.sm, padding: 0 },
+  // A–Z scrubber column: fills the card height so touch-Y ÷ height × letters maps uniformly.
+  indexBar: { width: 22, justifyContent: 'space-evenly', alignItems: 'center', paddingVertical: Spacing.xs },
+  indexLetter: { fontSize: 11, lineHeight: 13, fontFamily: Fonts.bold, textAlign: 'center' },
+  // Centered floating letter shown while dragging the scrubber.
+  scrubBubble: { position: 'absolute', alignSelf: 'center', top: '38%', width: 68, height: 68, borderRadius: Radius.full, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
+  scrubBubbleText: { fontSize: 34, fontFamily: Fonts.extrabold },
   addRowCard: { paddingHorizontal: Spacing.md },
   addPriceInput: { width: 76, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8, fontSize: FontSize.sm },
   empty: { fontSize: FontSize.sm, paddingVertical: Spacing.md, textAlign: 'center' },
