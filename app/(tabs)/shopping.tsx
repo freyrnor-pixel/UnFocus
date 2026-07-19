@@ -1372,7 +1372,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 40,
+    minHeight: 44,
     gap: Spacing.xs,
     borderRadius: Radius.sm,
   },
@@ -1380,7 +1380,17 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
     borderWidth: 1,
   },
-  tabText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
+  // Bumped from Type.label.size (14) — read as too small once the tab got a visible
+  // rounded frame around it (2026-07-19 visual-audit). includeFontPadding/textAlignVertical
+  // fix Android's Nunito vertical-centering offset inside the line box (same fix as
+  // ScreenHeader.tsx's title — see HEADER_CLIP_DEBUG.md).
+  tabText: {
+    fontFamily: Type.label.fontFamily,
+    fontSize: FontSize.md,
+    lineHeight: Math.round(FontSize.md * Type.label.line),
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold },
   tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },

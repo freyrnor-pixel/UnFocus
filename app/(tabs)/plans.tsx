@@ -585,14 +585,24 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 40,
+    minHeight: 44,
     borderRadius: Radius.sm,
   },
   tabActiveHighlight: {
     borderRadius: Radius.sm,
     borderWidth: 1,
   },
-  tabText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
+  // Bumped from Type.label.size (14) — read as too small once the tab got a visible
+  // rounded frame around it (2026-07-19 visual-audit). includeFontPadding/textAlignVertical
+  // fix Android's Nunito vertical-centering offset inside the line box (same fix as
+  // ScreenHeader.tsx's title — see HEADER_CLIP_DEBUG.md).
+  tabText: {
+    fontFamily: Type.label.fontFamily,
+    fontSize: FontSize.md,
+    lineHeight: Math.round(FontSize.md * Type.label.line),
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
   // Visual-audit 2026-07-11: was bare muted text floating on the particle background
   // (low contrast in practice even though the token itself passes AA) — a card behind
   // it, matching HomeNotesCard's empty-state treatment, gives it real footing. Every
