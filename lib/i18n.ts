@@ -1210,7 +1210,7 @@ const en = {
   debug: {
     toggleLabel: 'Debug mode',
     toggleHint: 'Lets you leave notes on cards and headers for the developer.',
-    howToUse: 'Tap the bug icon in the top header to turn note-taking on or off. Long-press any card, button, or the screen title to add a note — a small bubble marks it, tap the bubble to edit or clear it. Then use the green checkmark in the header to email all your notes, or the red circle to delete them all.',
+    howToUse: 'Tap the bug icon in the top header to turn note-taking on or off. While it is on, tap any card, button, or the screen title to add a note — a small bubble marks it, tap the bubble to edit or clear it. (Buttons won’t do their normal thing while note-taking is on — that’s expected; turn it off to use the app again.) Then use the green checkmark in the header to email all your notes, or the red circle to delete them all.',
     editNote: 'Edit note',
     noteForLabel: (label: string) => `Note — ${label}`,
     composerPlaceholder: "What's on your mind?",
@@ -2383,7 +2383,7 @@ const no: typeof en = {
   debug: {
     toggleLabel: 'Feilsøkingsmodus',
     toggleHint: 'Lar deg legge igjen notater på kort og topptekster til utvikleren.',
-    howToUse: 'Trykk på feil-ikonet (bug) i toppmenyen for å slå notater av eller på. Hold inne et kort, en knapp eller skjermtittelen for å legge til en notis — en liten boble markerer den, trykk på boblen for å redigere eller slette. Bruk den grønne haken i toppmenyen for å sende alle notatene på e-post, eller den røde sirkelen for å slette dem alle.',
+    howToUse: 'Trykk på feil-ikonet (bug) i toppmenyen for å slå notater av eller på. Mens det er på, trykk på et kort, en knapp eller skjermtittelen for å legge til en notis — en liten boble markerer den, trykk på boblen for å redigere eller slette. (Knapper gjør ikke sin vanlige handling mens notatmodus er på — det er meningen; slå den av for å bruke appen igjen.) Bruk den grønne haken i toppmenyen for å sende alle notatene på e-post, eller den røde sirkelen for å slette dem alle.',
     editNote: 'Rediger notat',
     noteForLabel: (label: string) => `Notat — ${label}`,
     composerPlaceholder: 'Hva tenker du på?',
