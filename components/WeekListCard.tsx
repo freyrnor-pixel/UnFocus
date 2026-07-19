@@ -70,7 +70,7 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
-import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Type, contrastOn } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { listProgress } from '@/lib/shoppingGroups';
@@ -161,6 +161,9 @@ export default function WeekListCard({
   const [monthlySessionAdds, setMonthlySessionAdds] = useState<string[]>([]);
 
   // Inline add row state
+  // Collapsed by default: the weekly add row shows a "+ <placeholder>" bar (matching
+  // components/AddRow) and only expands into the input + qty + confirm when tapped.
+  const [addExpanded, setAddExpanded] = useState(false);
   const [addName, setAddName] = useState('');
   const [addQty, setAddQty] = useState(1);
   const [addPrice, setAddPrice] = useState(0);
@@ -202,6 +205,19 @@ export default function WeekListCard({
     setAddName('');
     setAddQty(1);
     setAddPrice(0);
+    setAddExpanded(false); // discrete: back to the "+" bar after each save
+  }
+
+  function expandAddRow() {
+    setAddExpanded(true);
+    requestAnimationFrame(() => addInputRef.current?.focus());
+  }
+
+  function discardAddRow() {
+    setAddName('');
+    setAddQty(1);
+    setAddPrice(0);
+    setAddExpanded(false);
   }
 
   // Flatten dish-grouped items into the appropriate section buckets.
@@ -368,8 +384,26 @@ export default function WeekListCard({
                 </View>
               ))}
 
-              {/* Inline add row — only shown when unlocked (planning mode) */}
-              {!list.locked && (
+              {/* Inline add row — only shown when unlocked (planning mode).
+                  Collapsed to a "+ <placeholder>" bar (matching components/AddRow); tapping it
+                  expands into the input + qty stepper + Save/Discard controls. */}
+              {!list.locked && !addExpanded && (
+                <PressableScale
+                  style={styles.inlineAddBar}
+                  onPress={expandAddRow}
+                  scaleTo={0.97}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.addItemInputPlaceholder}
+                >
+                  <View style={[styles.inlineAddBarChip, { backgroundColor: theme.good }]}>
+                    <Ionicons name="add" size={16} color={contrastOn(theme.good)} />
+                  </View>
+                  <Text style={[styles.inlineAddBarLabel, { color: theme.textMuted }]} numberOfLines={1}>
+                    {t.addItemInputPlaceholder}
+                  </Text>
+                </PressableScale>
+              )}
+              {!list.locked && addExpanded && (
                 <View>
                   {/* Two-line add control: search on its own line, then the
                       qty stepper + confirm button — de-crammed so it reads as a
@@ -387,6 +421,7 @@ export default function WeekListCard({
                       placeholderTextColor={theme.textMuted}
                       returnKeyType="done"
                       onSubmitEditing={handleSubmitAddRow}
+                      onBlur={() => { if (!addName.trim()) setAddExpanded(false); }}
                     />
                     <View style={styles.inlineAddControls}>
                       <View style={styles.inlineQtyGroup}>
@@ -414,6 +449,16 @@ export default function WeekListCard({
                             {formatKr(addPrice * addQty, 0)}
                           </Text>
                         )}
+                        <PressableScale
+                          style={styles.inlineDiscardBtn}
+                          onPress={discardAddRow}
+                          hitSlop={4}
+                          scaleTo={0.9}
+                          accessibilityRole="button"
+                          accessibilityLabel={t.a11yDiscardRow}
+                        >
+                          <Ionicons name="close" size={18} color={theme.textMuted} />
+                        </PressableScale>
                         <PressableScale
                           style={[
                             styles.inlineAddConfirmBtn,
@@ -715,6 +760,29 @@ const baseStyles = StyleSheet.create({
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, borderLeftWidth: 3 },
   rowDivider: { height: 1 },
   // Inline add row — a two-line group: search on top, controls below
+  // Collapsed add bar — "+ <placeholder>" (mirrors components/AddRow's collapsed state).
+  inlineAddBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    minHeight: 40,
+  },
+  inlineAddBarChip: {
+    width: 24,
+    height: 24,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineAddBarLabel: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.regular },
+  inlineDiscardBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   inlineAddRow: {
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,

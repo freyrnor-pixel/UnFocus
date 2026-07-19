@@ -11,7 +11,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/MonthlyTableRow, components/AnimatedListItem
  *             (catalog row add/remove fade), components/UpdateSheet,
- *             components/AddItemSheet, components/EmptyState, components/PressableScale,
+ *             components/InlineAddItem, components/EmptyState,
  *             constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, store/useShoppingStore
  *   Used by → Expo Router route "/inventory-edit"
  *   Data    → useShoppingStore (shopping_items, status === 'catalog' rows only)
@@ -31,17 +31,15 @@
  *     same as every other Phase 5 screen so far — this screen does not self-load.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem } from '@/store/useShoppingStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import UpdateSheet from '@/components/UpdateSheet';
-import AddItemSheet from '@/components/AddItemSheet';
+import InlineAddItem from '@/components/InlineAddItem';
 import EmptyState from '@/components/EmptyState';
-import PressableScale from '@/components/PressableScale';
 import { success, heavy } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -59,7 +57,6 @@ export default function InventoryEditScreen() {
   const removeWithSource = useShoppingStore((s) => s.removeWithSource);
   const setPendingRestock = useShoppingStore((s) => s.setPendingRestock);
 
-  const [showAddSheet, setShowAddSheet] = useState(false);
   // Gate row entrance so only catalog items added after mount fade in (not the whole list).
   const hasMounted = useRef(false);
   useEffect(() => {
@@ -85,7 +82,6 @@ export default function InventoryEditScreen() {
       targetQuantity: input.targetQuantity,
       status: 'catalog',
     });
-    setShowAddSheet(false);
     success();
   }
 
@@ -107,21 +103,11 @@ export default function InventoryEditScreen() {
     <>
       <ScreenScaffold title={t.inventoryEditTitle} tier="sub" onBack={() => router.back()}>
         <View style={styles.content}>
-          {/* Design-consistency pass: replaced the floating circular AddFAB (disconnected
-              from the list it fed) with a bordered trigger pill attached above the list —
-              matching the shared "tap to open a fuller add flow" shape (Shopping's
-              monthlyTrigger/addTrigger, automations.tsx/health-log.tsx's addTrigger).
-              AddItemSheet needs multiple fields, so it isn't a single-field AddRow candidate. */}
-          <PressableScale
-            style={[styles.addTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
-            onPress={() => setShowAddSheet(true)}
-            accessibilityRole="button"
-            accessibilityLabel={t.addItemBtn}
-            scaleTo={0.97}
-          >
-            <Ionicons name="add-circle-outline" size={18} color={theme.accent} />
-            <Text style={[styles.addTriggerText, { color: theme.accent }]}>{t.addItemBtn}</Text>
-          </PressableScale>
+          {/* "+ Add item" collapses to a bar and expands into the full add form IN PLACE
+              (no modal) — the multi-field catalog-add counterpart to components/AddRow, so
+              adding a staple uses the same "+ makes a new row, with Add/Discard" affordance
+              as everywhere else. Replaced the AddItemSheet modal (2026-07-19). */}
+          <InlineAddItem label={t.addItemBtn} onAdd={handleAddItem} />
 
           {catalogItems.length === 0 ? (
             <EmptyState title={t.emptyMonthlyList} />
@@ -146,11 +132,6 @@ export default function InventoryEditScreen() {
         </View>
       </ScreenScaffold>
 
-      <AddItemSheet
-        visible={showAddSheet}
-        onClose={() => setShowAddSheet(false)}
-        onAdd={handleAddItem}
-      />
 
       <UpdateSheet
         visible={updateItem !== null}
@@ -165,19 +146,6 @@ export default function InventoryEditScreen() {
 
 const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.sm },
-  // Bordered trigger pill — same shape as Shopping's monthlyTrigger/addTrigger/newListTrigger
-  // and automations.tsx/health-log.tsx's addTrigger (design-consistency pass).
-  addTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.xs,
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
-    minHeight: 40,
-  },
-  addTriggerText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   card: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, ...Shadow.card },
   rowDivider: { height: 1 },
   bottomSpacer: { height: 24 },
