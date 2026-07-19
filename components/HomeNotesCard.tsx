@@ -10,7 +10,7 @@
  *
  * Connections:
  *   Imports → components/Surface, components/PressableScale, components/CardAccent
- *             (badge+wash gradient move), components/HomePreviewEmpty,
+ *             (badge+wash gradient move), components/HomePreviewEmpty, components/AddRow,
  *             components/Collapsible + components/AnimatedChevron (checked-zone clip reveal),
  *             constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, lib/domainColor,
  *             lib/useVoiceCapture, store/useNotesStore
@@ -26,7 +26,11 @@
  *   - **Empty state**: an empty list renders the shared `HomePreviewEmpty` (icon disc + the
  *     `t.notes.emptyState` message), which fills the resting floor as one inviting block
  *     instead of leaving a bare band under a single line of text.
- *   - Note rows are read-only previews (no inline TextInput) — editing is the /notes screen's job.
+ *   - Existing note rows are read-only previews (no inline TextInput) — editing them is the
+ *     /notes screen's job. The only inline TextInput here is the trailing AddRow, which
+ *     *creates* a new note (title-only, mirrors Health's add-habit / Plans' add-task AddRow
+ *     flow) rather than editing one — it calls addNote() + updateNote(id, {header}) on submit,
+ *     so a typed quick note is a sibling of the mic's voice-note create, not a variant of it.
  *   - Checked notes are shown in a dimmed collapsed sub-section only when fully expanded,
  *     mirroring PlanTaskCard's done zone.
  *   - **Inline mic button (title row)**: records a voice note without leaving Home, via
@@ -47,6 +51,7 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 import HomePreviewEmpty from '@/components/HomePreviewEmpty';
+import AddRow from '@/components/AddRow';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
@@ -73,12 +78,22 @@ export default function HomeNotesCard() {
 
   const [expanded, setExpanded] = useState(false);
   const [checkedOpen, setCheckedOpen] = useState(false);
+  const [noteDraft, setNoteDraft] = useState('');
 
   const { listening, toggle: toggleVoiceCapture } = useVoiceCapture((text) => {
     const note = addNote();
     updateNote(note.id, { body: text });
     success();
   });
+
+  function commitNoteDraft() {
+    const trimmed = noteDraft.trim();
+    if (!trimmed) return;
+    const note = addNote();
+    updateNote(note.id, { header: trimmed });
+    setNoteDraft('');
+    success();
+  }
 
   const activeNotes = notes.filter((n) => !n.checked);
   const checkedNotes = notes.filter((n) => n.checked);
@@ -178,6 +193,18 @@ export default function HomeNotesCard() {
             </View>
           </View>
         )}
+
+        {/* Type-to-add: a title-only quick-create, mirrors Health's add-habit / Plans'
+            add-task AddRow (bottom-of-list, hairline divider — no nested "well" box, since
+            this card's rows already sit flush per the 2026-07-13 wells-removed pass). */}
+        <AddRow
+          placeholder={t.notes.addNote}
+          value={noteDraft}
+          onChangeText={setNoteDraft}
+          onSubmit={commitNoteDraft}
+          accent={domainColor.accent}
+          accessibilityLabel={t.notes.addNote}
+        />
 
         {/* Expand/collapse active notes */}
         {showToggle && (
