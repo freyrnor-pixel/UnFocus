@@ -45,9 +45,10 @@
  *   - Cold-load asset warming (2026-07-16): the icon glyph fonts (Ionicons +
  *     MaterialCommunityIcons `.font`) are preloaded via useFonts alongside Nunito so
  *     icons paint on the first frame instead of loading their font on first mount and
- *     popping in. The bundled images (bg-light/dark, icon, monochrome) are decoded into
- *     cache via Asset.loadAsync in the boot effect; `assetsReady` flips on settle (with a
- *     1.5s timeout floor) so the backdrop is ready before the splash hides.
+ *     popping in. The bundled images (icon, monochrome) are decoded into cache via
+ *     Asset.loadAsync in the boot effect; `assetsReady` flips on settle (with a 1.5s timeout
+ *     floor). (The backdrop is now pure SVG — components/ScreenBackground — so there's no
+ *     backdrop image to decode any more; the warm list is just the icon/logo glyphs.)
  *   - Native splash "one clean reveal" (2026-07-16, needs the 1.4.0 build): the native
  *     splash is HELD via SplashScreen.preventAutoHideAsync() at module scope, and hidden
  *     in onLayoutRootView only once fonts + settings + assets are all ready. Until then
@@ -239,8 +240,6 @@ export default function RootLayout() {
     const markAssetsReady = () => { if (!settled) { settled = true; setAssetsReady(true); } };
     const assetTimeout = setTimeout(markAssetsReady, 1500);
     void Asset.loadAsync([
-      require('../assets/bg-light.png'),
-      require('../assets/bg-dark.png'),
       require('../assets/icon.png'),
       require('../assets/android-icon-monochrome.png'),
     ]).then(markAssetsReady).catch(markAssetsReady);
