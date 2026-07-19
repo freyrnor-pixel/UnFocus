@@ -11,20 +11,24 @@
  * live scrolling content, not the calm ScreenBackground backdrop — the ambient default
  * let scrolled text read through it.
  *
- * Also owns two self-contained, opt-out-by-default extras (2026-07-13): every screen's
- * title is long-press-annotatable via DebugNoteAnchor (debug notes), and site-tier headers
- * show a debug-mode "export all notes" icon plus (Home only) an OTA "update available" icon.
- * Both read their own state directly from settings/expo-updates — no props threaded down
- * from individual screens.
+ * Also owns the self-contained debug-mode controls (2026-07-13, expanded 2026-07-19): every
+ * screen's title is long-press-annotatable via DebugNoteAnchor (the title anchor is keyed
+ * `screen:${pathname}` = the whole-screen note), and site-tier headers carry a bug-icon
+ * toggle that flips `settings.debugModeEnabled` from anywhere. When debug is on, a green
+ * checkmark (email ALL notes via mailto:, Share fallback) and a red circle (delete all,
+ * confirmed) appear next to it. Home also shows an OTA "update available" icon. All read
+ * their own state directly from settings/feedback/expo-updates — no props threaded down.
  *
  * Connections:
- *   Imports → constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, store/useSettingsStore,
+ *   Imports → constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, lib/feedbackMail
+ *             (buildDebugNotesMailUrl/formatDebugNotesMessage), store/useSettingsStore,
  *             store/useFeedbackStore, components/Surface, components/PressableScale,
  *             components/DebugNoteAnchor, components/AppModal (showAppModal), expo-router,
- *             expo-updates, react-native (Share, AppState, ActivityIndicator)
+ *             expo-updates, expo-constants, react-native (Share, Linking, AppState, ActivityIndicator)
  *   Used by → ScreenScaffold (composition layer)
- *   Data    → reads `leftHanded`/`debugModeEnabled` from the settings store; reads/exports
- *             useFeedbackStore's notes; reads expo-updates' isEnabled/checkForUpdateAsync
+ *   Data    → reads `leftHanded`/`debugModeEnabled` + writes `debugModeEnabled` (bug toggle)
+ *             on the settings store; reads/emails/clears useFeedbackStore's notes; reads
+ *             expo-updates' isEnabled/checkForUpdateAsync
  *
  * Edit notes:
  *   - tier='site' is for top-level screens (Shopping, Plans, Home, Health, Scan)
@@ -84,14 +88,16 @@
  *     dev/debug builds, so the button never renders there.
  */
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, AppState, LayoutChangeEvent, PixelRatio, Platform, Share, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
-import { useRouter } from 'expo-router';
+import { ActivityIndicator, AppState, LayoutChangeEvent, Linking, PixelRatio, Platform, Share, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
+import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
+import Constants from 'expo-constants';
 import { FontSize, Fonts, Spacing, getHeaderMetrics } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
+import { buildDebugNotesMailUrl, formatDebugNotesMessage } from '@/lib/feedbackMail';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useFeedbackStore } from '@/store/useFeedbackStore';
 import Surface from '@/components/Surface';
@@ -123,7 +129,10 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const router = useRouter();
   const leftHanded = useSettingsStore((s) => s.leftHanded);
   const debugModeEnabled = useSettingsStore((s) => s.debugModeEnabled);
+  const updateSettings = useSettingsStore((s) => s.update);
   const feedbackNotes = useFeedbackStore((s) => s.notes);
+  const clearAllNotes = useFeedbackStore((s) => s.clearAll);
+  const pathname = usePathname();
 
   // Descender-safe title metrics, from the shared header helper (see getHeaderMetrics in
   // constants/theme.ts) so they stay in lockstep with the band height ScreenScaffold
@@ -204,19 +213,50 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
     }
   }
 
-  async function handleExportPress() {
+  // Toggle debug/annotate mode from the header bug icon — no notification re-sync needed
+  // for this key, so a plain settings.update() is enough (matches how Settings toggles it).
+  function handleDebugTogglePress() {
+    tap();
+    updateSettings({ debugModeEnabled: !debugModeEnabled });
+  }
+
+  // Green checkmark: email every note. Reuses the Send Feedback mailto: pattern
+  // (buildDebugNotesMailUrl + Linking) with a Share-sheet fallback when no mail client
+  // is available — OTA-safe, no expo-mail-composer dependency.
+  async function handleEmailNotesPress() {
     tap();
     if (feedbackNotes.length === 0) return;
-    const date = new Date().toISOString().slice(0, 10);
-    const lines = [t.debug.exportHeading(date), ''];
-    for (const n of feedbackNotes) {
-      lines.push(`${n.anchorLabel} (${n.screen})`, n.note, '');
+    const heading = t.debug.exportHeading(new Date().toISOString().slice(0, 10));
+    const info = {
+      appVersion: Constants.expoConfig?.version ?? '—',
+      runtimeVersion: String(Updates.runtimeVersion ?? '—'),
+      platform: Platform.OS,
+      osVersion: Platform.Version,
+    };
+    const url = buildDebugNotesMailUrl(feedbackNotes, info, 'Unfocus@hlynsson.no', t.debug.mailSubject, heading);
+    try {
+      if (await Linking.canOpenURL(url)) {
+        await Linking.openURL(url);
+        return;
+      }
+    } catch {
+      // fall through to Share
     }
     try {
-      await Share.share({ message: lines.join('\n').trim() });
+      await Share.share({ message: formatDebugNotesMessage(feedbackNotes, heading) });
     } catch {
       // user cancelled or the share sheet failed — nothing to recover, no-op
     }
+  }
+
+  // Red delete circle: clear ALL notes, behind the shared reset-confirm modal.
+  function handleDeleteAllPress() {
+    tap();
+    if (feedbackNotes.length === 0) return;
+    showAppModal(t.resetConfirmTitle(t.debug.resetNotes.toLowerCase()), t.resetConfirmBody, [
+      { text: t.cancel, style: 'cancel' },
+      { text: t.resetConfirmBtn, style: 'destructive', onPress: () => clearAllNotes() },
+    ]);
   }
 
   const handleSettingsPress = () => {
@@ -298,23 +338,50 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
     </PressableScale>
   ) : null;
 
-  // Debug-mode "export all notes" icon (site-tier only) — dimmed, not hidden, when empty
-  // (matches the old DebugOverlay's disabled-button convention).
-  const exportButton = debugModeEnabled ? (
+  // Debug/annotate toggle (site-tier only) — ALWAYS shown so testers can turn note-taking
+  // on from anywhere; filled bug + accent tint when active. The email + delete satellites
+  // below only appear once it's on.
+  const bugButton = (
     <PressableScale
-      onPress={handleExportPress}
+      onPress={handleDebugTogglePress}
       hitSlop={8}
       accessibilityRole="button"
-      accessibilityLabel={t.debug.exportNotes}
+      accessibilityLabel={t.debug.toggleLabel}
+      accessibilityState={{ selected: debugModeEnabled }}
+      scaleTo={0.9}
+    >
+      <Ionicons name={debugModeEnabled ? 'bug' : 'bug-outline'} size={22} color={debugModeEnabled ? theme.accent : theme.text} />
+    </PressableScale>
+  );
+  // Green checkmark: email all notes. Dimmed, not hidden, when there are none.
+  const emailButton = debugModeEnabled ? (
+    <PressableScale
+      onPress={handleEmailNotesPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={t.debug.emailNotes}
       scaleTo={0.9}
       style={feedbackNotes.length === 0 ? styles.dimmed : undefined}
     >
-      <Ionicons name="share-outline" size={22} color={theme.text} />
+      <Ionicons name="checkmark-circle" size={24} color={theme.good} />
+    </PressableScale>
+  ) : null;
+  // Red circle: delete all notes (confirmed). Dimmed when empty.
+  const deleteButton = debugModeEnabled ? (
+    <PressableScale
+      onPress={handleDeleteAllPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={t.debug.deleteAllNotes}
+      scaleTo={0.9}
+      style={feedbackNotes.length === 0 ? styles.dimmed : undefined}
+    >
+      <Ionicons name="close-circle" size={24} color={theme.bad} />
     </PressableScale>
   ) : null;
 
   const titleNode = (align: 'left' | 'right') => (
-    <DebugNoteAnchor id={`header:${title}`} label={title} style={styles.titleWrap}>
+    <DebugNoteAnchor id={`screen:${pathname}`} label={title} style={styles.titleWrap}>
       {/* allowFontScaling MUST stay false: fontSize + lineHeight below are already scaled
           by getHeaderMetrics. With scaling left on, RN multiplies BOTH by the OS font
           scale again (Android treats them as SP — TextAttributes.effectiveLineHeight),
@@ -336,11 +403,13 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   );
 
   if (tier === 'site') {
-    // Grouped controls. Order (right-handed, left-to-right): [update] [export] [ⓘ info]
-    // [Focus mode] [gear]. Gear is outermost on whichever side the group sits (Decision 034).
-    // Left-handed mirrors the whole row. Items that don't apply to this screen are null/filtered.
+    // Grouped controls. Order (right-handed, left-to-right): [update] [bug] [✓ email]
+    // [✕ delete] [ⓘ info] [Focus mode] [gear]. The bug toggle is always present; the green
+    // email + red delete only render when debug mode is on (they're null otherwise). Gear is
+    // outermost on whichever side the group sits (Decision 034). Left-handed mirrors the whole
+    // row. Items that don't apply to this screen are null/filtered.
     const focusButtonOrNull = onToggleFocus ? focusButton : null;
-    const controlItems = [updateButton, exportButton, infoButton, focusButtonOrNull, gearButton].filter(Boolean) as React.ReactNode[];
+    const controlItems = [updateButton, bugButton, emailButton, deleteButton, infoButton, focusButtonOrNull, gearButton].filter(Boolean) as React.ReactNode[];
     const controls = leftHanded ? [...controlItems].reverse() : controlItems;
     const controlsGroup = (
       <View style={styles.controls}>

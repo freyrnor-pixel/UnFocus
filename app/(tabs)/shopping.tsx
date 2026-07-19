@@ -185,6 +185,7 @@ import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
 import ProgressBar from '@/components/ProgressBar';
 import HintCard from '@/components/HintCard';
+import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import { success, heavy, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining } from '@/lib/date';
@@ -882,7 +883,9 @@ export default function ShoppingScreen() {
       {tab === 'catalogue' ? (
         <CatalogueTab onNotify={setConfirm} header={shoppingIntro} />
       ) : (
-      <View style={styles.content}>
+      // Debug notes: one anchor for the whole list region (all non-catalogue tabs). Don't
+      // also wrap the inner cards/rows — one DebugNoteAnchor per region (no nesting).
+      <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
         {shoppingIntro}
 
         {tab === 'monthly' && (
@@ -1224,7 +1227,7 @@ export default function ShoppingScreen() {
 
         {/* Catalogue renders above (scrollable={false} branch) as its own virtualising
             FlatList — it is NOT one of the content-View tabs. */}
-      </View>
+      </DebugNoteAnchor>
       )}
 
       <AddItemSheet

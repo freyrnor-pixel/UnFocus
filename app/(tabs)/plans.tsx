@@ -91,6 +91,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
+import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import SharedTasksSection from '@/components/SharedTasksSection';
 import SectionRail from '@/components/SectionRail';
 import SectionCard from '@/components/SectionCard';
@@ -463,17 +464,20 @@ export default function TasksScreen() {
               </View>
             </SectionCard>
 
-            <SectionCard hue={repeatingHue} label={t.tasksSectionRecurring} count={recurringAll.length}>
-              {recurringAll.length === 0 ? (
-                <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionRecurringEmpty}</Text>
-              ) : (
-                <View style={styles.cardStack}>
-                  {recurringAll.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} showDelete showShareOut onToggleDone={handleToggleDone} />
-                  ))}
-                </View>
-              )}
-            </SectionCard>
+            {/* Debug notes: one anchor per region — wrap the section card, not its inner rows. */}
+            <DebugNoteAnchor id="plans.recurring" label="Plans — Recurring">
+              <SectionCard hue={repeatingHue} label={t.tasksSectionRecurring} count={recurringAll.length}>
+                {recurringAll.length === 0 ? (
+                  <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionRecurringEmpty}</Text>
+                ) : (
+                  <View style={styles.cardStack}>
+                    {recurringAll.map((tk) => (
+                      <TaskCard key={tk.id} task={tk} showDelete showShareOut onToggleDone={handleToggleDone} />
+                    ))}
+                  </View>
+                )}
+              </SectionCard>
+            </DebugNoteAnchor>
 
             <SharedTasksSection sentTasks={sharedOutAll} onToggleDone={handleToggleDone} />
           </>
@@ -482,18 +486,21 @@ export default function TasksScreen() {
         {/* ── TODAY ── */}
         {tab === 'today' && (
           <>
-            <SectionCard hue={theme.accent} label={t.tasksTabToday} count={todayList.length}>
-              {/* Add row sits between the tasks and the collapsed "Done" zone (DoneSplitList
-                  footer) so the active/white containers stay grouped and green "Done" is last. */}
-              <DoneSplitList
-                tasks={todayList}
-                emptyText={t.noPlansToday}
-                footer={<InlineTaskAdd date={today} accent={theme.accent} assignee={personFilter ?? ''} wrapped />}
-                renderCard={(tk) => (
-                  <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={handleToggleDone} />
-                )}
-              />
-            </SectionCard>
+            {/* Debug notes: anchor the day-view section (not its inner task rows). */}
+            <DebugNoteAnchor id="plans.dayView" label="Plans — Today">
+              <SectionCard hue={theme.accent} label={t.tasksTabToday} count={todayList.length}>
+                {/* Add row sits between the tasks and the collapsed "Done" zone (DoneSplitList
+                    footer) so the active/white containers stay grouped and green "Done" is last. */}
+                <DoneSplitList
+                  tasks={todayList}
+                  emptyText={t.noPlansToday}
+                  footer={<InlineTaskAdd date={today} accent={theme.accent} assignee={personFilter ?? ''} wrapped />}
+                  renderCard={(tk) => (
+                    <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={handleToggleDone} />
+                  )}
+                />
+              </SectionCard>
+            </DebugNoteAnchor>
 
             <SectionCard hue={wheneverHue} label={t.tasksSectionWhenever} count={undatedWhenever.length}>
               <DoneSplitList
