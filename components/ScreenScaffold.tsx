@@ -118,7 +118,7 @@
  */
 import React, { useCallback, useRef } from 'react';
 import { Keyboard, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { getHeaderMetrics } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { ScreenColorContext } from '@/lib/screenColor';
@@ -304,7 +304,9 @@ export default function ScreenScaffold({
   // content padding here only accounts for the floating chrome (header + sticky bar +
   // BottomNav), NOT the insets (adding them here would double-count). The absolute
   // header/bottom blocks apply the insets themselves, since absolute children ignore
-  // SafeAreaView's padding.
+  // SafeAreaView's padding. NOTE: on the pager tab scenes the SafeAreaView omits its
+  // bottom edge (see `safeAreaEdges` below) — the tab-bar wrapper already owns the
+  // bottom inset there, so this ScrollView pads only top/left/right.
   //
   // HEADER_HEIGHT is added to the top so the first content item starts *below* the
   // translucent glass header instead of scrolling behind it on mount (the header still
@@ -314,24 +316,31 @@ export default function ScreenScaffold({
   // Same chrome-clearing padding the ScrollView uses, so a non-scrollable child (which
   // owns its own FlatList) starts below the floating header/sticky bar and clears the
   // bottom nav.
-  // Bottom-nav clearance is keyed on `scrollable`, not `bottomNav` (2026-07-19 fix). The floating
-  // BottomNav sits OVER the scene for every site-tier screen — the 5 pager tab screens (Shopping/
-  // Plans/Home/Health/Scan) get it from app/(tabs)/_layout.tsx's tab-bar container, and it overlaps
-  // the scene rather than the pager sizing each page above it (the earlier assumption). With no
-  // reserve, the last card on a scrollable tab screen scrolled UNDER the opaque nav and was cut off.
-  // Reserve only BOTTOM_NAV_HEIGHT here — NOT + bottomInset. The bottom inset is already accounted
-  // for by the outer SafeAreaView (no `edges` override), which pads this in-flow ScrollView into the
-  // safe area (see the "SafeAreaView pads the in-flow ScrollView" notes above). The nav wrapper is
-  // `height: BOTTOM_NAV_HEIGHT + insets.bottom`, but its inset portion overlaps the SafeAreaView's
-  // own bottom padding, so BOTTOM_NAV_HEIGHT lands the last item exactly at the nav's top edge.
-  // Adding the inset again double-counts it and leaves a ~bottomInset blank band below the last card
-  // (the over-reserve seen 2026-07-19: dead space between the last card and the nav). The Catalogue
-  // tab is the ONE site screen that passes `scrollable={false}` (its FlatList self-scrolls); it's
-  // excluded here and manages its own bottom gap (the notepad `paddingBottom` in CatalogueTab), which
-  // is what the 2026-07-17 change was really protecting — reserving here shrank that flex-bounded box
-  // and hard-clipped the list.
-  const reserveBottomNav = tier === 'site' && scrollable;
-  const bottomNavClearance = BOTTOM_NAV_HEIGHT;
+  // Bottom-nav clearance — the 5 pager tab screens do NOT need any (2026-07-19 root-cause fix).
+  // Their BottomNav is app/(tabs)/_layout.tsx's tab bar, which react-native-tab-view lays out as a
+  // plain flex sibling BELOW the scene: with tabBarPosition="bottom" its container is a flex column
+  // rendering [pager (flex:1), tabBar (fixed height)], so the pager — and therefore this in-flow
+  // ScrollView — is already bounded ABOVE the bar and ends exactly at its top edge. The bar never
+  // overlaps the scene (verified in node_modules/react-native-tab-view/lib/module/TabView.js). So
+  // any paddingBottom reserve here is pure dead space that pushes the last card up (the ~72px blank
+  // band that was reported). The earlier "the nav overlaps the scene, reserve its height" premise
+  // (2026-07-19 #240/#241) was a misdiagnosis; a cutoff at reserve 0 is geometrically impossible
+  // when the bar is a sibling below the scene.
+  //   `pagerTabScene` = these non-overlapping tab scenes. For them: no reserve, AND the outer
+  //   SafeAreaView omits its bottom edge (see `safeAreaEdges` below) because the tab-bar wrapper
+  //   already owns the bottom safe-area inset (`paddingBottom: insets.bottom` in _layout.tsx) —
+  //   double-padding it here just re-adds a ~bottomInset gap.
+  //   Reserve is kept only for the standalone ABSOLUTE nav path (`bottomNav === true`, styles
+  //   .bottomBlock — position:absolute, bottom:0, genuinely overlapping), which no real screen uses
+  //   today but stays correct if re-enabled: reserve its full painted height (BOTTOM_NAV_HEIGHT +
+  //   bottomInset). The Catalogue tab (`scrollable={false}`) is untouched — it self-scrolls and
+  //   manages its own notepad bottom gap (protecting the 2026-07-17 fix).
+  const pagerTabScene = tier === 'site' && !bottomNav && scrollable;
+  const reserveBottomNav = tier === 'site' && bottomNav && scrollable;
+  const bottomNavClearance = BOTTOM_NAV_HEIGHT + bottomInset;
+  const safeAreaEdges: Edge[] = pagerTabScene
+    ? ['top', 'left', 'right']
+    : ['top', 'right', 'bottom', 'left'];
   const contentPadding = {
     paddingTop: HEADER_HEIGHT + (stickyBelowHeader ? stickyBelowHeaderHeight : 0),
     ...(reserveBottomNav ? { paddingBottom: bottomNavClearance } : null),
@@ -360,7 +369,7 @@ export default function ScreenScaffold({
   );
 
   const scaffold = (
-    <SafeAreaView style={[styles.safeArea, ownBackground && { backgroundColor: bgColor }]}>
+    <SafeAreaView edges={safeAreaEdges} style={[styles.safeArea, ownBackground && { backgroundColor: bgColor }]}>
       {/* L1: Background — skipped when a parent (the tabs pager) already renders a
           shared instance behind this screen (see ownBackground doc above), or when
           plainBackground asks for a flat white/black fill with no accent blob.
