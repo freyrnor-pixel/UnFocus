@@ -60,7 +60,7 @@ function OrbHalo({ size, color }: { size: number; color: string }) {
   );
 }
 
-export default function HomeHeroBackground() {
+function HomeHeroBackground() {
   const theme = useAppTheme();
 
   // Neutral hero (2026-07-19 "remove the background colour"): the old blue/navy "Serene Mist" sky
@@ -96,6 +96,14 @@ export default function HomeHeroBackground() {
     </View>
   );
 }
+
+// Memoised: this layer stays mounted behind the whole tabs pager and takes NO props, but
+// its parent (app/(tabs)/_layout.tsx) re-renders on every tab change (it tracks the active
+// route in state to cross-fade this layer's opacity). Without memo, that re-render reconciles
+// this SVG radial + two LinearGradients right at the swipe boundary — a per-swipe hitch.
+// React.memo skips the parent-driven re-render; the theme hook still re-renders it on a real
+// theme change (memo only gates prop changes, and there are none).
+export default React.memo(HomeHeroBackground);
 
 const styles = StyleSheet.create({
   sky: {
