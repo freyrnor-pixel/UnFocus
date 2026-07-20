@@ -246,7 +246,7 @@ function rowToSettings(row: Row): Settings {
     freyrSeedIds: readStr(row, 'freyr_seed_ids'),
     planTimelineHorizontal: readBool(row, 'plan_timeline_horizontal'),
     seenScreenHints: readJson<string[]>(row, 'seen_screen_hints', []),
-    homeCardOrder: readJson<string[]>(row, 'home_card_order', ['notes', 'plans', 'shopping']),
+    homeCardOrder: readJson<string[]>(row, 'home_card_order', ['plans', 'notes', 'shopping']),
   };
 }
 
@@ -368,7 +368,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   freyrSeedIds: '',
   planTimelineHorizontal: false,
   seenScreenHints: [],
-  homeCardOrder: ['notes', 'plans', 'shopping'],
+  homeCardOrder: ['plans', 'notes', 'shopping'],
   loaded: false,
   workModeSessionOverride: false,
 

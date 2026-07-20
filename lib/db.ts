@@ -633,6 +633,11 @@ export function initDb() {
     // components/HomeCardManager.tsx. JSON array of kind ids; a kind missing from the array
     // is a removed card, re-addable from the "Add a card" picker.
     "ALTER TABLE settings ADD COLUMN home_card_order TEXT DEFAULT '[\"notes\",\"plans\",\"shopping\"]'",
+    // Home preview card default order → Tasks/Notes/Shopping (2026-07-20). The column above
+    // seeded every existing install with notes/plans/shopping; move rows still holding that exact
+    // untouched default to the new order (Tasks first). Anyone who reordered or removed a card has
+    // a different value and is left alone — same targeted approach as the voice_notes_enabled reset.
+    "UPDATE settings SET home_card_order = '[\"plans\",\"notes\",\"shopping\"]' WHERE home_card_order = '[\"notes\",\"plans\",\"shopping\"]'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

@@ -27,8 +27,8 @@
  *             components/PressableScale, constants/theme,
  *             lib/date (todayStr, dateStr, getWeekRangeContaining), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
- *             computeListGroups, listProgress), lib/useAppTheme, lib/useFirstVisitHint,
- *             lib/domainColor, lib/screenColor,
+ *             computeListGroups, listProgress), lib/reorder (reorderByDrag), lib/useAppTheme,
+ *             lib/useFirstVisitHint, lib/domainColor, lib/screenColor,
  *             store/useSettingsStore, store/useShoppingListStore,
  *             store/useShoppingStore (incl. UNALLOCATED_LIST_ID), @expo/vector-icons (Ionicons)
  *   Used by → Expo Router route "/shopping" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
@@ -203,6 +203,7 @@ import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { Fonts, FontSize, Radius, Spacing, Type, rgba } from '@/constants/theme';
 import { Duration } from '@/constants/motion';
 import { groupByDish, computeListGroups, listProgress } from '@/lib/shoppingGroups';
+import { reorderByDrag } from '@/lib/reorder';
 import { formatKr } from '@/lib/money';
 import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
@@ -238,16 +239,6 @@ type DragState = {
   mergeTargetDish: string | null;
 };
 
-/** Insertion index for `centerY` against a snapshot of each row's last-measured layout. */
-function computeTargetIndex(centerY: number, order: string[], snapshot: Record<string, { y: number; height: number }>): number {
-  for (let i = 0; i < order.length; i++) {
-    const layout = snapshot[order[i]];
-    if (!layout) continue;
-    const rowCenter = layout.y + layout.height / 2;
-    if (centerY < rowCenter) return i;
-  }
-  return order.length - 1;
-}
 
 export default function ShoppingScreen() {
   const theme = useAppTheme();
@@ -707,16 +698,17 @@ export default function ShoppingScreen() {
         if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         return { ...prev, mergeTargetDish };
       }
-      // 2. Otherwise, in-section reorder preview (unchanged Decision 011 R1 behavior).
+      // 2. Otherwise, in-section reorder preview (Decision 011 R1). Rebuild the order by pulling
+      //    the dragged row out and re-inserting it at the finger's stable insertion index — see
+      //    lib/reorder.ts for why this can't oscillate (fixes the old up/down flicker).
       const snapshot = dragSnapshotRef.current;
-      const currentIndex = prev.order.indexOf(itemId);
-      const targetIndex = Object.keys(snapshot).length ? computeTargetIndex(centerY, prev.order, snapshot) : currentIndex;
       let order = prev.order;
-      if (targetIndex !== currentIndex && targetIndex >= 0) {
-        order = [...prev.order];
-        order.splice(currentIndex, 1);
-        order.splice(targetIndex, 0, itemId);
-        if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      if (Object.keys(snapshot).length) {
+        const next = reorderByDrag(centerY, prev.order, itemId, snapshot);
+        if (next.some((id, i) => id !== prev.order[i])) {
+          if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          order = next;
+        }
       }
       if (order === prev.order && prev.mergeTargetDish === null) return prev;
       return { ...prev, order, mergeTargetDish: null };
