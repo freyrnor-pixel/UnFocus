@@ -24,7 +24,7 @@
  *             components/ScreenScaffold, components/SharedRequestsSection,
  *             components/ShoppingRow, components/Surface, components/UpdateSheet,
  *             components/WeekListCard, components/FoodTab, components/CatalogueTab,
- *             components/PressableScale, constants/theme,
+ *             components/PressableScale, components/TabBoxHighlight, constants/theme,
  *             lib/date (todayStr, dateStr, getWeekRangeContaining), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
  *             computeListGroups, listProgress), lib/reorder (reorderByDrag), lib/useAppTheme,
@@ -38,13 +38,13 @@
  *             startup by app/_layout.tsx). FoodTab additionally drives useMealStore.
  *
  * Edit notes:
- *   - **Tab bar restyle (2026-07-19)**: the 4-tab switcher's active indicator changed from
- *     a thin bottom underline (`AnimatedTabUnderline`) to a BottomNav-style rounded, colored
- *     box — an absolute-fill `Animated.View` (`styles.tabActiveHighlight`, `Radius.sm`,
- *     `rgba(accent, 0.14)` fill + `rgba(accent, 0.4)` 1px border) behind the label, faded
- *     in/out per tab via the same `Duration.control` timing BottomNav's `activeHighlight`
- *     uses. Each tab keeps its own `accent` from `TAB_META` (weekly=good, others=accent/
- *     mealDomainColor), so the box color still differs per tab.
+ *   - **Tab bar (2026-07-20, shared component)**: the 4-tab switcher's active indicator is
+ *     `components/TabBoxHighlight.tsx` — always renders a bordered box behind the label
+ *     (white `theme.surface` fill + `theme.border` edge at rest, crossfading to a tinted
+ *     `accent` fill + border when active) instead of the old "box only appears when active"
+ *     look. Each tab passes its own `accent` from `TAB_META` (weekly=good, others=accent/
+ *     mealDomainColor), so the active box color still differs per tab. Same shared component
+ *     as app/(tabs)/plans.tsx and app/settings.tsx's tab bars.
  *   - **Sticky-bar label fix (visual-audit, 2026-07-11)**: the summary-row ternary fell
  *     through to a `tab === 'food' ? foodTabLabel : catalogueTabLabel` catch-all for any
  *     tab that wasn't `'monthly'` or `'weekly'`-with-a-`focusedList` — so a fresh/empty
@@ -163,7 +163,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TextInput, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, ZoomIn, ZoomOut } from 'react-native-reanimated';
+import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
@@ -195,13 +195,13 @@ import IconButton from '@/components/IconButton';
 import ProgressBar from '@/components/ProgressBar';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
+import TabBoxHighlight from '@/components/TabBoxHighlight';
 import { success, heavy, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
-import { Fonts, FontSize, Radius, Spacing, Type, rgba } from '@/constants/theme';
-import { Duration } from '@/constants/motion';
+import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { groupByDish, computeListGroups, listProgress } from '@/lib/shoppingGroups';
 import { reorderByDrag } from '@/lib/reorder';
 import { formatKr } from '@/lib/money';
@@ -781,18 +781,7 @@ export default function ShoppingScreen() {
               accessibilityLabel={label}
               scaleTo={0.97}
             >
-              {isActive && (
-                <Animated.View
-                  pointerEvents="none"
-                  entering={reducedMotion ? undefined : FadeIn.duration(Duration.control)}
-                  exiting={reducedMotion ? undefined : FadeOut.duration(Duration.control)}
-                  style={[
-                    StyleSheet.absoluteFill,
-                    styles.tabActiveHighlight,
-                    { backgroundColor: rgba(accent, 0.14), borderColor: rgba(accent, 0.4) },
-                  ]}
-                />
-              )}
+              <TabBoxHighlight active={isActive} accent={accent} />
               <Text style={[styles.tabText, { color: isActive ? accent : theme.textMuted }]} numberOfLines={1}>
                 {label}
               </Text>
@@ -1358,10 +1347,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
     gap: Spacing.xs,
     borderRadius: Radius.sm,
-  },
-  tabActiveHighlight: {
-    borderRadius: Radius.sm,
-    borderWidth: 1,
   },
   // Bumped from Type.label.size (14) — read as too small once the tab got a visible
   // rounded frame around it (2026-07-19 visual-audit). includeFontPadding/textAlignVertical

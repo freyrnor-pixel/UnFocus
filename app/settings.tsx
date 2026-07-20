@@ -40,8 +40,8 @@
  * Connections:
  *   Imports → components/AppModal, components/ConfirmationBanner, components/FormControls,
  *             components/ScreenScaffold, components/SectionDivider, components/Surface,
- *             components/ExpandableCard, components/PressableScale, constants/theme,
- *             lib/domainColor, lib/backup
+ *             components/ExpandableCard, components/PressableScale, components/TabBoxHighlight,
+ *             constants/theme, lib/domainColor, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
  *             saveAutoBackup/chooseAutoBackupLocation), lib/childLock, lib/feedbackMail, lib/freyrModeSeed,
  *             lib/haptics, lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
@@ -59,13 +59,12 @@
  *             syncAllTaskCalendarEvents / syncAllHabitReminders / syncNotificationCategories
  *
  * Edit notes:
- *   - **Tab bar restyle (2026-07-19)**: the horizontally-scrollable tab bar's active
- *     indicator changed from a thin bottom underline (the now-deleted
- *     `AnimatedTabUnderline`) to a BottomNav-style rounded, colored box — an absolute-fill
- *     `Animated.View` (`styles.tabActiveHighlight`, `Radius.sm`, `rgba(theme.accent, 0.14)`
- *     fill + `rgba(theme.accent, 0.4)` 1px border) behind the label, faded in/out via
- *     `Duration.control` (matches app/(tabs)/shopping.tsx and app/(tabs)/plans.tsx,
- *     restyled the same way).
+ *   - **Tab bar (2026-07-20, shared component)**: the horizontally-scrollable tab bar's
+ *     active indicator is `components/TabBoxHighlight.tsx` — always renders a bordered box
+ *     behind the label (white `theme.surface` fill + `theme.border` edge at rest, crossfading
+ *     to a tinted `theme.accent` fill + border when active) instead of the old "box only
+ *     appears when active" look, which left inactive tabs looking bare. Same shared component
+ *     as app/(tabs)/shopping.tsx and app/(tabs)/plans.tsx's tab bars.
  *   - applyAndSync() is the single write path: updates settings AND fires the right notification
  *     re-sync based on which keys changed — route every settings change through it, never
  *     settings.update() directly. Quiet-hours keys re-sync task notifications; language or
@@ -111,7 +110,6 @@
  */
 import React, { useState } from 'react';
 import { Linking, Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -144,11 +142,11 @@ import { isSyncAvailable } from '@/lib/syncService';
 import { buildFeedbackMailUrl } from '@/lib/feedbackMail';
 import { useT, getTranslations } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
-import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
+import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
 import { selection, warning, heavy } from '@/lib/haptics';
-import { FontSize, Fonts, Radius, Spacing, Type, rgba } from '@/constants/theme';
-import { Duration } from '@/constants/motion';
+import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
+import TabBoxHighlight from '@/components/TabBoxHighlight';
 
 type SettingsTab = 'generelt' | 'handle' | 'varsler' | 'moduser';
 const TAB_BAR_HEIGHT = 48;
@@ -165,7 +163,6 @@ export default function SettingsScreen() {
   const router = useRouter();
   const settings = useSettingsStore();
   const theme = useAppTheme();
-  const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
   const syncTaskNotifs = useTaskStore((s) => s.syncAllTaskNotifications);
@@ -500,18 +497,7 @@ export default function SettingsScreen() {
             onPress={() => setTab(tb.key)}
             scaleTo={0.97}
           >
-            {active && (
-              <Animated.View
-                pointerEvents="none"
-                entering={reducedMotion ? undefined : FadeIn.duration(Duration.control)}
-                exiting={reducedMotion ? undefined : FadeOut.duration(Duration.control)}
-                style={[
-                  StyleSheet.absoluteFill,
-                  styles.tabActiveHighlight,
-                  { backgroundColor: rgba(theme.accent, 0.14), borderColor: rgba(theme.accent, 0.4) },
-                ]}
-              />
-            )}
+            <TabBoxHighlight active={active} />
             <Text style={[
               styles.tabLabel,
               { color: active ? theme.accent : theme.textMuted },
@@ -1430,10 +1416,6 @@ const baseStyles = StyleSheet.create({
   tabItem: {
     paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
     borderRadius: Radius.sm,
-  },
-  tabActiveHighlight: {
-    borderRadius: Radius.sm,
-    borderWidth: 1,
   },
   // Bumped from FontSize.sm (14) — read as too small once the tab got a visible rounded
   // frame around it (2026-07-19 visual-audit). includeFontPadding/textAlignVertical fix
