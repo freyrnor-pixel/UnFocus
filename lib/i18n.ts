@@ -770,6 +770,12 @@ const en = {
     notesCollapse: 'Show less',
     shoppingExpand: 'Show full list',
     shoppingCollapse: 'Show less',
+    manageCards: {
+      done: 'Done',
+      add: 'Add a card',
+      remove: (label: string) => `Remove ${label}`,
+      kinds: { notes: 'Notes', plans: 'Plans', shopping: 'Shopping' },
+    },
   },
   health: {
     habits: 'Habits',
@@ -1157,7 +1163,7 @@ const en = {
   },
   hints: {
     home: {
-      text: "See today's notes, plans and shopping at a glance.",
+      text: "See today's notes, plans and shopping at a glance. Hold a card to rearrange, remove, or add one back.",
       example: '',
     },
     taskForm: {
@@ -2150,6 +2156,12 @@ const no: typeof en = {
     notesCollapse: 'Vis mindre',
     shoppingExpand: 'Vis full liste',
     shoppingCollapse: 'Vis mindre',
+    manageCards: {
+      done: 'Ferdig',
+      add: 'Legg til kort',
+      remove: (label: string) => `Fjern ${label}`,
+      kinds: { notes: 'Notater', plans: 'Oppgaver', shopping: 'Handleliste' },
+    },
   },
   health: {
     habits: 'Vaner',
@@ -2334,7 +2346,7 @@ const no: typeof en = {
   },
   hints: {
     home: {
-      text: 'Se dagens notater, planer og handleliste på ett blikk.',
+      text: 'Se dagens notater, planer og handleliste på ett blikk. Hold et kort for å ordne, fjerne eller legge det til igjen.',
       example: '',
     },
     taskForm: {

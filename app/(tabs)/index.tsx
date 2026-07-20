@@ -10,7 +10,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HomeNotesCard,
- *             components/HomeSharedCard, components/HomeShoppingCard,
+ *             components/HomeSharedCard, components/HomeShoppingCard, components/HomeCardManager,
  *             components/FlightOverlay (FlightPill, Flight, FlightRect), components/DebugNoteAnchor,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, lib/notifications, lib/reminders,
@@ -32,8 +32,10 @@
  *     the settings toggle (previously inert) and the header eye are ONE feature: a saved default
  *     plus a live session toggle, not two unrelated things that happened to share the name "Focus".
  *     The header eye toggles it (props threaded through ScreenScaffold → ScreenHeader).
- *     ON: hides the Notes + Shopping previews + points (no input affordances), leaving only
- *     the Plans surface filtered to `importance === 'essential'` (Decision 018 — the two-value
+ *     ON: hides the hint card, Shared preview, and points (input/triage affordances); Notes
+ *     and Shopping keep rendering in Focus mode (this note previously claimed they were
+ *     hidden too — the code never gated them on `!focusMode`; corrected here). Plans is
+ *     filtered to `importance === 'essential'` (Decision 018 — the two-value
  *     `importance` field IS the intensity model; no energy path). The done-toggle stays live in
  *     focus (completing a task is "doing the thing", not input), so PlanTaskCard is mounted
  *     non-readOnly but WITHOUT `onPressTask`/`onSeeMore` — the row done-dot works, tap-through to
@@ -53,8 +55,18 @@
  *     the full screen / "See all →" when the list overflows. When empty it renders the shared
  *     HomePreviewEmpty block at the compact resting height (does NOT self-hide).
  *   - **Shopping preview = HomeShoppingCard**: shows first 4 items flat when collapsed; full
- *     nested dish-group ExpandableCard structure when expanded. Reorder intentionally omitted
- *     (Decision 011 R1). Tick-to-buy, cart-collect, stepper, and catalog-vs-adhoc remove preserved.
+ *     nested dish-group ExpandableCard structure when expanded. Tick-to-buy, cart-collect,
+ *     stepper, and catalog-vs-adhoc remove preserved.
+ *   - **Home preview card management (2026-07-19)**: off-Focus, Notes/Plans/Shopping render via
+ *     `HomeCardManager` (components/HomeCardManager.tsx) in `settings.homeCardOrder` order —
+ *     holding any card enters an edit mode where all three become draggable and get a delete
+ *     badge, plus an "Add a card" tile to bring back a removed one (max one of each). The old
+ *     "Reorder intentionally omitted, Decision 011 R1" note here no longer applies — that was
+ *     about the full /shopping screen's cross-group hit-testing; this reuses DraggableTaskRow
+ *     but not that complexity, since Home's cards are plain flat siblings. `renderHomeCard(kind)`
+ *     is the per-kind render function passed to it; `sanitizeHomeCardOrder` defends against a
+ *     corrupt/legacy settings row. Focus mode renders the same three kinds directly (see below)
+ *     with no edit-mode chrome — hold-to-manage is off-Focus only.
  *   - **Deliberately NOT ported**: DayTimeline/TaskItem/NextTaskCard Plans stack, Backlog + Habits
  *     previews, SharedRequestsSection(kind='task'), update-ready banner, work-mode banner,
  *     CoverScreen / SiteSwipeView chrome, automation trigger ('shopping_opened').
@@ -86,6 +98,7 @@ import PlanTaskCard from '@/components/PlanTaskCard';
 import HomeNotesCard from '@/components/HomeNotesCard';
 import HomeSharedCard from '@/components/HomeSharedCard';
 import HomeShoppingCard from '@/components/HomeShoppingCard';
+import HomeCardManager from '@/components/HomeCardManager';
 import FlightOverlay, { FlightPill, Flight, FlightRect } from '@/components/FlightOverlay';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
@@ -105,6 +118,23 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { requestPermissions } from '@/lib/notifications';
 import { syncReminders } from '@/lib/reminders';
+
+// Home preview card management (hold-to-manage, components/HomeCardManager.tsx). These
+// are the only kinds HomeCardManager knows about — HomeSharedCard is a separate,
+// automatic/data-driven inbox, not a discretionary card, so it stays outside this set.
+const HOME_CARD_KINDS = ['notes', 'plans', 'shopping'] as const;
+type HomeCardKind = (typeof HOME_CARD_KINDS)[number];
+
+/** Defensive parse for the persisted order: drop unknown/duplicate kinds, fall back to the default order if the result is empty (corrupt/legacy row). */
+function sanitizeHomeCardOrder(order: string[]): HomeCardKind[] {
+  const seen = new Set<string>();
+  const clean = order.filter((k): k is HomeCardKind => {
+    if (seen.has(k) || !(HOME_CARD_KINDS as readonly string[]).includes(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  return clean.length > 0 ? clean : [...HOME_CARD_KINDS];
+}
 
 export default function HomeScreen() {
   const t = useT();
@@ -177,7 +207,18 @@ export default function HomeScreen() {
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
   const userName = useSettingsStore((s) => s.userName);
   const planTimelineHorizontal = useSettingsStore((s) => s.planTimelineHorizontal);
+  const homeCardOrderRaw = useSettingsStore((s) => s.homeCardOrder);
   const updateSettings = useSettingsStore((s) => s.update);
+
+  const homeCardOrder = useMemo(() => sanitizeHomeCardOrder(homeCardOrderRaw), [homeCardOrderRaw]);
+  const homeCardLabels = useMemo(
+    () => ({
+      notes: t.home.manageCards.kinds.notes,
+      plans: t.home.manageCards.kinds.plans,
+      shopping: t.home.manageCards.kinds.shopping,
+    }),
+    [t]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -252,6 +293,54 @@ export default function HomeScreen() {
     [router, pathname]
   );
 
+  // Renders one managed Home card by kind — HomeCardManager owns the reorder/delete/add
+  // chrome around this, Home still owns the actual card JSX/props (unchanged from before
+  // the hold-to-manage refactor, just split into a per-kind function so it can be driven
+  // by the user's homeCardOrder instead of a fixed block).
+  function renderHomeCard(kind: string) {
+    switch (kind as HomeCardKind) {
+      case 'notes':
+        return (
+          <DebugNoteAnchor id="home.notesPreview" label="Home — Notes preview" style={styles.section}>
+            <HomeNotesCard />
+          </DebugNoteAnchor>
+        );
+      case 'plans':
+        return (
+          <DebugNoteAnchor id="home.plansPreview" label="Home — Plans preview" style={styles.section}>
+            <PlanTaskCard
+              tasks={todayTasks}
+              allTasks={tasks}
+              readOnly
+              onToggleTask={handleToggleTask}
+              horizontal={planTimelineHorizontal}
+            />
+          </DebugNoteAnchor>
+        );
+      case 'shopping':
+        return (
+          <DebugNoteAnchor id="home.shoppingPreview" label="Home — Shopping preview" style={styles.section}>
+            <HomeShoppingCard
+              list={currentShoppingList}
+              dishGroups={dishGroups}
+              ungroupedUnchecked={ungroupedUnchecked}
+              checked={checked}
+              onToggle={handleToggleShopping}
+              onCollect={handleCollectShopping}
+              onRemove={handleRemoveShoppingItem}
+              onIncrement={handleIncrementShopping}
+              onDecrement={handleDecrementShopping}
+              onNavigateToShopping={handleNavigateToShopping}
+              inStockLabel={t.inStockLabel}
+              onFlightStart={handleFlightStart}
+            />
+          </DebugNoteAnchor>
+        );
+      default:
+        return null;
+    }
+  }
+
   // All hooks above must run on every render (Rules of Hooks), so this loading
   // guard sits below them rather than up among the useMemo block.
   if (!settingsLoaded || !setupComplete) {
@@ -318,58 +407,49 @@ export default function HomeScreen() {
             </View>
           </DebugNoteAnchor>
 
-          {/* Notes preview — HomeNotesCard (real Notes / useNotesStore). Always visible. */}
-          <DebugNoteAnchor id="home.notesPreview" label="Home — Notes preview" style={styles.section}>
-            <HomeNotesCard />
-          </DebugNoteAnchor>
-
           {/* Shared preview — HomeSharedCard (incoming shared tasks + shopping). Self-hides
               when nothing is incoming — gated here too (not just inside HomeSharedCard) so no
               empty `section`-margin wrapper is mounted in that case (see hasIncomingShared
-              above). Hidden in Focus mode (an input/triage surface). */}
+              above). Hidden in Focus mode (an input/triage surface). Sits outside the
+              hold-to-manage stack below — it's automatic/data-driven, not a discretionary
+              card (Decision: home preview card management, 2026-07-19). */}
           {!focusMode && hasIncomingShared && (
             <DebugNoteAnchor id="home.sharedPreview" label="Home — Shared preview" style={styles.section}>
               <HomeSharedCard />
             </DebugNoteAnchor>
           )}
 
-          {/* Plans preview = the shared PlanTaskCard day-view (Decision 009a). */}
-          <DebugNoteAnchor id="home.plansPreview" label="Home — Plans preview" style={styles.section}>
-            {focusMode ? (
-              <PlanTaskCard
-                tasks={visibleTasks}
-                allTasks={tasks}
-                onToggleTask={handleToggleTask}
-                horizontal={planTimelineHorizontal}
-              />
-            ) : (
-              <PlanTaskCard
-                tasks={todayTasks}
-                allTasks={tasks}
-                readOnly
-                onToggleTask={handleToggleTask}
-                horizontal={planTimelineHorizontal}
-              />
-            )}
-          </DebugNoteAnchor>
-
-          {/* Shopping preview — HomeShoppingCard. Always visible. */}
-          <DebugNoteAnchor id="home.shoppingPreview" label="Home — Shopping preview" style={styles.section}>
-            <HomeShoppingCard
-              list={currentShoppingList}
-              dishGroups={dishGroups}
-              ungroupedUnchecked={ungroupedUnchecked}
-              checked={checked}
-              onToggle={handleToggleShopping}
-              onCollect={handleCollectShopping}
-              onRemove={handleRemoveShoppingItem}
-              onIncrement={handleIncrementShopping}
-              onDecrement={handleDecrementShopping}
-              onNavigateToShopping={handleNavigateToShopping}
-              inStockLabel={t.inStockLabel}
-              onFlightStart={handleFlightStart}
+          {/* Notes/Plans/Shopping previews — user-manageable (hold-to-reorder/remove/add,
+              components/HomeCardManager.tsx), order+visibility from settings.homeCardOrder.
+              Focus mode keeps its pre-existing fixed layout (Plans filtered to essential
+              tasks, non-readOnly for the done-toggle) with no edit-mode chrome — hold-to-manage
+              is only reachable off-Focus. Notes/Shopping still render in Focus mode too,
+              same as before this refactor (Focus mode only changes Plans' content/props). */}
+          {focusMode ? (
+            homeCardOrder.map((kind) =>
+              kind === 'plans' ? (
+                <DebugNoteAnchor key={kind} id="home.plansPreview" label="Home — Plans preview" style={styles.section}>
+                  <PlanTaskCard
+                    tasks={visibleTasks}
+                    allTasks={tasks}
+                    onToggleTask={handleToggleTask}
+                    horizontal={planTimelineHorizontal}
+                  />
+                </DebugNoteAnchor>
+              ) : (
+                <React.Fragment key={kind}>{renderHomeCard(kind)}</React.Fragment>
+              )
+            )
+          ) : (
+            <HomeCardManager
+              order={homeCardOrder}
+              labels={homeCardLabels}
+              onReorder={(next) => updateSettings({ homeCardOrder: next })}
+              onRemove={(kind) => updateSettings({ homeCardOrder: homeCardOrder.filter((k) => k !== kind) })}
+              onAdd={(kind) => updateSettings({ homeCardOrder: [...homeCardOrder, kind] })}
+              renderCard={renderHomeCard}
             />
-          </DebugNoteAnchor>
+          )}
 
           {/* Gentle points */}
           {!focusMode && completedCount > 0 && (

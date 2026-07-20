@@ -628,6 +628,11 @@ export function initDb() {
     // Voice notes on by default (2026-07-18): enable the task-form Title mic out of the box.
     // Runs once; the setting was new + defaulted off, so nobody had deliberately turned it off.
     "UPDATE settings SET voice_notes_enabled = 1",
+    // Home preview card management (2026-07-19): user-chosen order/visibility of Home's
+    // Notes/Plans/Shopping previews — see store/useSettingsStore.ts (homeCardOrder) and
+    // components/HomeCardManager.tsx. JSON array of kind ids; a kind missing from the array
+    // is a removed card, re-addable from the "Add a card" picker.
+    "ALTER TABLE settings ADD COLUMN home_card_order TEXT DEFAULT '[\"notes\",\"plans\",\"shopping\"]'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
