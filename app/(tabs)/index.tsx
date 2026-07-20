@@ -157,7 +157,6 @@ export default function HomeScreen() {
   const tasks = useTaskStore((s) => s.tasks);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
   const toggleTask = useTaskStore((s) => s.toggle);
-  const completedCountFn = useTaskStore((s) => s.completedCount);
 
   const shoppingItems = useShoppingStore((s) => s.items);
   const toggleShoppingItem = useShoppingStore((s) => s.toggleCheck);
@@ -192,6 +191,10 @@ export default function HomeScreen() {
   const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   const homeCardOrderRaw = useSettingsStore((s) => s.homeCardOrder);
   const updateSettings = useSettingsStore((s) => s.update);
+  // All-time counter, maintained by useTaskStore (toggle/completeDirect/remove/
+  // clearAll) so it survives pruneOldData() pruning old completed tasks — see
+  // store/useTaskStore.ts's "All-time completed-task counter" edit note.
+  const completedCount = useSettingsStore((s) => s.lifetimeCompletedTasks);
 
   const homeCardOrder = useMemo(() => sanitizeHomeCardOrder(homeCardOrderRaw), [homeCardOrderRaw]);
   const homeCardLabels = useMemo(
@@ -213,11 +216,9 @@ export default function HomeScreen() {
 
   // These derived views used to recompute on EVERY render (each is a full-array filter/
   // sort; computeListGroups also groups by dish). Memoise them on the store state they read
-  // — `tasksForDate`/`completedCount`/`currentList` are stable store fn refs, so `tasks` /
+  // — `tasksForDate`/`currentList` are stable store fn refs, so `tasks` /
   // `shoppingLists` / `shoppingItems` are the real inputs that should drive recompute.
   const todayTasks = useMemo(() => tasksForDate(today), [tasksForDate, today, tasks]);
-
-  const completedCount = useMemo(() => completedCountFn(), [completedCountFn, tasks]);
 
   // currentList is a fn ref; `shoppingLists` is the real input, so memo on it (this also
   // replaces the old `void shoppingLists` render-subscription hack).

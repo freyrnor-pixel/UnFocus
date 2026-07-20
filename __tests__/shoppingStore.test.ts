@@ -71,7 +71,7 @@ describe('monthlyReset', () => {
   it('reverts purchased/week items to catalog, drops temporaries, clears flags and trips', () => {
     useShoppingStore.setState({
       items: [
-        item({ id: 'purchased', status: 'purchased', shoppingTripId: 't1', pendingRestock: true }),
+        item({ id: 'purchased', status: 'purchased', shoppingTripId: 't1', listId: 'L1', pendingRestock: true }),
         item({ id: 'temp', status: 'catalog', isTemporary: true }),
         item({ id: 'week', status: 'inWeeklyList', listId: 'L1' }),
         item({ id: 'perm', status: 'catalog', pendingRestock: true }),
@@ -91,6 +91,12 @@ describe('monthlyReset', () => {
     expect(purchased.shoppingTripId).toBeUndefined();
     expect(purchased.pendingRestock).toBe(false);
     expect(items.find((i) => i.id === 'week')!.status).toBe('catalog');
+
+    // Every item reverted to 'catalog' must not carry a stale listId (2026-07-20 fix) —
+    // "Items never carry listId once status='catalog'" per this store's own invariant.
+    expect(items.filter((i) => i.status === 'catalog').every((i) => i.listId === undefined)).toBe(
+      true
+    );
 
     // Permanent catalog item survives, only its pendingRestock is cleared.
     const perm = items.find((i) => i.id === 'perm')!;

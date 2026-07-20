@@ -10,7 +10,7 @@
  *
  * Connections:
  *   Imports → —
- *   Used by → app/scan.tsx
+ *   Used by → app/scan.tsx, store/useCatalogStore.ts (findFuzzyMatch — recordPurchases() dedup)
  *   Data    → none (pure functions)
  *
  * Edit notes:

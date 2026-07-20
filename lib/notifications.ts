@@ -3,7 +3,8 @@
  *
  * Configures the foreground notification handler and exposes language-agnostic
  * schedule/cancel helpers (weekly, monthly, per-task one-off, recurring weekly
- * task, daily/habit, persistent overview, snooze re-nudge). Callers pass
+ * task, recurring daily task, daily/habit, persistent overview, snooze
+ * re-nudge). Callers pass
  * already-localised Content; this module never builds strings itself. Uses
  * stable identifiers so re-scheduling replaces. Also owns quiet-hours time math
  * (isWithinQuietHours/pushPastQuietHours) and the interactive "Done"/"Remind me
@@ -190,11 +191,39 @@ export async function scheduleWeeklyTaskNotifications(
   }
 }
 
+// Recurring DAILY task reminder: a real repeating native trigger, mirroring
+// scheduleWeeklyTaskNotifications — unlike monthly recurrence, "every day" has
+// a direct native trigger so no next-occurrence/re-arm dance is needed.
+export async function scheduleDailyTaskNotification(
+  id: string,
+  hour: number,
+  minute: number,
+  content: Content,
+  end?: { hour: number; minute: number; content: Content }
+) {
+  await cancelTaskNotification(id);
+  await Notifications.scheduleNotificationAsync({
+    identifier: `task-${id}-daily`,
+    content: { ...content, data: { taskId: id }, categoryIdentifier: 'task-reminder' },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute },
+  }).catch(ignore);
+  if (end) {
+    await Notifications.scheduleNotificationAsync({
+      identifier: `task-${id}-daily-end`,
+      content: { ...end.content, data: { taskId: id, isEnd: true }, categoryIdentifier: 'task-reminder' },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: end.hour, minute: end.minute },
+    }).catch(ignore);
+  }
+}
+
 export async function cancelTaskNotification(id: string) {
-  // Clears both the one-off reminders and every weekly occurrence (start + end
-  // for each of the seven possible days), so it works whatever kind the task is.
+  // Clears the one-off reminders, the daily-recurring pair, and every weekly
+  // occurrence (start + end for each of the seven possible days), so it works
+  // whatever kind the task is.
   await Notifications.cancelScheduledNotificationAsync(`task-${id}`).catch(ignore);
   await Notifications.cancelScheduledNotificationAsync(`task-end-${id}`).catch(ignore);
+  await Notifications.cancelScheduledNotificationAsync(`task-${id}-daily`).catch(ignore);
+  await Notifications.cancelScheduledNotificationAsync(`task-${id}-daily-end`).catch(ignore);
   for (let d = 0; d < 7; d++) {
     await Notifications.cancelScheduledNotificationAsync(`task-${id}-s${d}`).catch(ignore);
     await Notifications.cancelScheduledNotificationAsync(`task-${id}-e${d}`).catch(ignore);

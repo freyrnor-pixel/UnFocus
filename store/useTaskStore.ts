@@ -12,16 +12,20 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, lib/notifications, lib/taskNotifications,
+ *             lib/taskRecurrence (taskOccursOn — re-exported here for existing callers/tests),
  *             lib/taskCalendar (reserve-only calendar mirroring), lib/liveSync, lib/syncService,
- *             store/useAutomationStore, store/useSettingsStore,
+ *             store/useAutomationStore, store/useSettingsStore (also lifetimeCompletedTasks,
+ *             incremented/decremented here — see Edit notes),
  *             store/useSharedStore (setSharedOut emits an outgoing shared_tasks row)
  *   Used by → components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
- *             components/TaskCard.tsx, app/task-form.tsx, app/(tabs)/plans.tsx
+ *             components/TaskCard.tsx, app/task-form.tsx, app/(tabs)/plans.tsx, app/_layout.tsx
+ *             (syncMonthlyTaskNotifications, on boot + every foreground)
  *
  *   Recurrence (Tasks/Oppgaver redesign): `recurring` is 'none'|'daily'|'weekly'|'monthly';
- *   taskOccursOn(task, date) resolves an occurrence (weekly week-interval parity, monthly
- *   day-of-month clamp or nth/last weekday, has_start_date as a start boundary). Start/Finish
- *   time-box → duration_minutes is derived on save so PlanTaskCard is unchanged.
+ *   taskOccursOn(task, date) (lib/taskRecurrence.ts) resolves an occurrence (weekly
+ *   week-interval parity, monthly day-of-month clamp or nth/last weekday, has_start_date
+ *   as a start boundary). Start/Finish time-box → duration_minutes is derived on save so
+ *   PlanTaskCard is unchanged.
  *   Data    → defines a Zustand store; owns SQLite tables `tasks` and `task_steps`; fires the
  *             'task_completed' automation trigger on toggle-to-done / completeDirect
  *
@@ -42,7 +46,20 @@
  *     `lib/notifications.ts`'s `cancelTaskNotification`. Notification copy is baked in
  *     at schedule time, so call `syncAllTaskNotifications()` after a settings/language
  *     change to re-schedule every task. Quiet hours SHIFT a task reminder past the
- *     window (habits skip instead — see lib/habitNotifications.ts).
+ *     window (habits skip instead — see lib/habitNotifications.ts). Daily-recurring
+ *     tasks get a real repeating native trigger (like weekly); monthly-recurring tasks
+ *     don't have one (no native "day-of-month, clamped"/"nth weekday" repeat), so
+ *     they're scheduled as a one-off for their next occurrence and re-armed via
+ *     `syncMonthlyTaskNotifications()` — called from app/_layout.tsx on boot and on
+ *     every foreground, not just once ever.
+ *   - **All-time completed-task counter (2026-07-20).** `completedCount()` was removed
+ *     (single UI consumer, app/(tabs)/index.tsx, now reads `settings.lifetimeCompletedTasks`
+ *     directly) because it used to be a live `tasks.filter(t => t.done).length` scan —
+ *     unsafe now that `pruneOldData()` (lib/db.ts) actually prunes old completed dated
+ *     tasks. `toggle()`/`completeDirect()` increment `settings.lifetimeCompletedTasks` on
+ *     a not-done→done transition; `toggle()` (the reverse) and `remove()` (of a done task)
+ *     decrement it (clamped at 0); `clearAll()` resets it to 0 — same observable behaviour
+ *     as the old live scan, just no longer tied to row presence.
  *   - **Calendar mirroring (reserve-only, 2026-07-17) — WIRED.** `add`/`update` call the
  *     local `syncTaskCalendar(task)` wrapper (mirrors `syncTaskNotification`'s shape),
  *     which delegates to `lib/taskCalendar.ts`'s `syncTaskCalendarEvent` and writes the
@@ -99,7 +116,8 @@ import {
   tx,
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
-import { dayOfWeekMon0, dateStr } from '@/lib/date';
+import { dateStr } from '@/lib/date';
+import { taskOccursOn } from '@/lib/taskRecurrence';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useSharedStore } from '@/store/useSharedStore';
@@ -201,63 +219,12 @@ export type TaskInput = {
   // calendarEventId is deliberately absent — system-managed only, see Task's own comment.
 };
 
-const ORDINAL_NUM: Record<Exclude<MonthOrdinal, 'last'>, number> = {
-  first: 1,
-  second: 2,
-  third: 3,
-  fourth: 4,
-};
-
-/** Local Monday (00:00, noon-anchored) of the week containing `dateStr`. */
-function mondayOf(date: string): Date {
-  const d = new Date(date + 'T12:00:00');
-  d.setDate(d.getDate() - dayOfWeekMon0(d));
-  return d;
-}
-
-/** Whole weeks between the Mondays of two dates (b − a); can be negative. */
-function weeksBetweenMondays(a: string, b: string): number {
-  return Math.round((mondayOf(b).getTime() - mondayOf(a).getTime()) / (7 * 86400000));
-}
-
-/**
- * Does `task` have an occurrence on `date` (YYYY-MM-DD)?
- *  - none    → only its own date (a dated one-off; undated Whenever tasks never match a date)
- *  - daily   → every day (from the start boundary, if any)
- *  - weekly  → selected weekday AND on-parity with `weekInterval`, anchored on the
- *              start date (or an epoch Monday when undated)
- *  - monthly → day-of-month (clamped when the month is shorter) OR nth/last weekday
- * `hasStartDate` acts as a start boundary for recurring tasks (no earlier occurrences).
- */
-export function taskOccursOn(task: Task, date: string): boolean {
-  if (task.recurring === 'none') return task.date === date;
-  if (task.hasStartDate && date < task.date) return false;
-
-  const d = new Date(date + 'T12:00:00');
-  const mon0 = dayOfWeekMon0(d);
-
-  if (task.recurring === 'daily') return true;
-
-  if (task.recurring === 'weekly') {
-    if (!task.recurringDays.includes(mon0)) return false;
-    const interval = task.weekInterval > 0 ? task.weekInterval : 1;
-    if (interval === 1) return true;
-    const anchor = task.hasStartDate ? task.date : '1970-01-05'; // a Monday
-    const weeks = weeksBetweenMondays(anchor, date);
-    return ((weeks % interval) + interval) % interval === 0;
-  }
-
-  // monthly
-  const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-  if (task.monthlyMode === 'ordinal') {
-    if (mon0 !== task.monthWeekday) return false;
-    const dom = d.getDate();
-    if (task.monthOrdinal === 'last') return dom + 7 > daysInMonth;
-    return Math.floor((dom - 1) / 7) + 1 === ORDINAL_NUM[task.monthOrdinal];
-  }
-  const target = Math.min(Math.max(1, task.monthDay), daysInMonth);
-  return d.getDate() === target;
-}
+// taskOccursOn lives in lib/taskRecurrence.ts (extracted 2026-07-20 so
+// lib/taskNotifications.ts can also use it, for monthly reminders, without a
+// store→notifications→store import cycle) — re-exported here so existing
+// callers/tests (__tests__/taskOccursOn.test.ts) importing it from this file
+// keep working unchanged.
+export { taskOccursOn };
 
 /** Derive time-box duration (minutes) from Start→Finish; undefined when either is unset or the span is non-positive. */
 function deriveDurationMinutes(time?: string, finishTime?: string): number | undefined {
@@ -287,11 +254,14 @@ type TaskStore = {
   /** Toggle the "shared out" flag; turning it on also emits an outgoing shared_tasks row. */
   setSharedOut: (id: string, on: boolean) => void;
   backlogTasks: (today: string) => Task[];
-  completedCount: () => number;
   /** First pending task for the focus view, respecting work-mode filter. */
   focusTask: (date: string, workModeActive: boolean) => Task | null;
   /** Re-schedule every task's reminder (after a settings/language change). */
   syncAllTaskNotifications: () => void;
+  /** Re-arm monthly-recurring tasks' reminders for their next occurrence (no native
+   *  repeating trigger covers "day-of-month, clamped"/"nth weekday") — called from
+   *  app/_layout.tsx on boot and on every foreground. */
+  syncMonthlyTaskNotifications: () => void;
   /** Re-sync every eligible task's mirrored calendar event (after calendarSyncEnabled flips on). */
   syncAllTaskCalendarEvents: () => void;
   /** Write a new sort_order (by array position) for every id in orderedIds. */
@@ -316,6 +286,18 @@ function syncTaskNotification(task: Task): void {
 function syncTaskRow(id: string): void {
   touchRow('tasks', id, useSettingsStore.getState().deviceId);
   broadcastRow('tasks', id);
+}
+
+/**
+ * Adjust the all-time completed-task counter (settings.lifetimeCompletedTasks),
+ * clamped at 0. Call sites: toggle() (+1/-1 either direction), completeDirect()
+ * (+1), remove() (-1, only if the removed task was done). See the file header's
+ * "All-time completed-task counter" edit note for why this exists instead of
+ * scanning `tasks` for `done`.
+ */
+function bumpLifetimeCompletedTasks(delta: 1 | -1): void {
+  const settings = useSettingsStore.getState();
+  settings.update({ lifetimeCompletedTasks: Math.max(0, settings.lifetimeCompletedTasks + delta) });
 }
 
 function rowToTask(row: Row): Task {
@@ -507,6 +489,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       ),
     }));
     get().update(id, { done: willBeDone });
+    bumpLifetimeCompletedTasks(willBeDone ? 1 : -1);
     if (willBeDone) {
       useAutomationStore.getState().fireTrigger('task_completed');
     }
@@ -522,6 +505,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       ),
     }));
     get().update(id, { done: true });
+    bumpLifetimeCompletedTasks(1);
     useAutomationStore.getState().fireTrigger('task_completed');
   },
 
@@ -533,15 +517,17 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       db.runSync('UPDATE tasks SET follows_task_id = NULL WHERE follows_task_id = ?', [id]);
       // Soft-delete (Decision 038b tombstone), not a hard DELETE: a synced row must
       // stay long enough to tell a peer it's gone, or a stale peer copy would undo
-      // the delete on next sync. pruneOldData() only hard-deletes non-recurring tasks
-      // past task_date (lib/db.ts) — a tombstoned recurring task, or one deleted well
-      // before its own task_date, can sit around longer; harmless (still filtered out
-      // of every read via `deleted_at IS NULL`), just not swept as promptly.
+      // the delete on next sync. pruneOldData() only hard-deletes non-recurring,
+      // dated (has_start_date=1), DONE tasks past task_date (lib/db.ts) — a
+      // tombstoned recurring/undone/undated task can sit around longer; harmless
+      // (still filtered out of every read via `deleted_at IS NULL`), just not
+      // swept as promptly.
       softDelete('tasks', id, useSettingsStore.getState().deviceId);
     });
     void cancelTaskNotification(id);
     if (task?.calendarEventId) void cancelTaskCalendarEvent(task.calendarEventId);
     broadcastRow('tasks', id);
+    if (task?.done) bumpLifetimeCompletedTasks(-1);
     set((s) => ({
       tasks: s.tasks
         .filter((t) => t.id !== id)
@@ -675,6 +661,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     db.runSync('DELETE FROM tasks');
     ids.forEach((id) => void cancelTaskNotification(id));
     calendarEventIds.forEach((eventId) => void cancelTaskCalendarEvent(eventId));
+    useSettingsStore.getState().update({ lifetimeCompletedTasks: 0 });
     set({ tasks: [] });
   },
 
@@ -718,10 +705,6 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       .sort((a, b) => a.date.localeCompare(b.date));
   },
 
-  completedCount() {
-    return get().tasks.filter((t) => t.done).length;
-  },
-
   focusTask(date, workModeActive) {
     // workModeActive is retained in the signature for callers, but no longer
     // narrows the candidate set — task Importance (its former filter) was removed.
@@ -741,6 +724,12 @@ export const useTaskStore = create<TaskStore>((set, get) => {
 
   syncAllTaskNotifications() {
     get().tasks.forEach(syncTaskNotification);
+  },
+
+  syncMonthlyTaskNotifications() {
+    get()
+      .tasks.filter((t) => t.recurring === 'monthly')
+      .forEach(syncTaskNotification);
   },
 
   syncAllTaskCalendarEvents() {

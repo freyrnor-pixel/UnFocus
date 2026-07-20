@@ -19,15 +19,24 @@
  *     deliberately different.
  *   - One-off tasks fire once (skipped if done/past); weekly-recurring tasks fire on
  *     every selected weekday; time-box tasks additionally get an "end" reminder.
+ *   - Daily-recurring tasks (2026-07-20) get a real repeating native DAILY trigger,
+ *     same idea as weekly. Monthly-recurring tasks have no native trigger that
+ *     expresses "day-of-month, clamped" or "nth/last weekday", so they're scheduled
+ *     as a one-off for their NEXT occurrence only (lib/taskRecurrence.ts's
+ *     nextOccurrenceDate) — the caller (useTaskStore's syncMonthlyTaskNotifications,
+ *     called from app/_layout.tsx on boot + every foreground) re-arms it for the
+ *     following occurrence once the current one has passed.
  */
 import type { Task } from '@/store/useTaskStore';
 import type { Language } from '@/store/useSettingsStore';
-import { toExpoWeekday } from '@/lib/date';
+import { toExpoWeekday, dateStr } from '@/lib/date';
 import { parseTimeStrict } from '@/lib/time';
 import { getTranslations } from '@/lib/i18n';
+import { nextOccurrenceDate } from '@/lib/taskRecurrence';
 import {
   scheduleTaskNotification,
   scheduleWeeklyTaskNotifications,
+  scheduleDailyTaskNotification,
   cancelTaskNotification,
   pushPastQuietHours,
   WeeklyTaskOccurrence,
@@ -130,6 +139,49 @@ export function syncTaskNotification(task: Task, s: TaskNotifSettings): void {
       task.id,
       occurrences.map((o) => deferOccurrencePastQuietHours(o, s))
     );
+    return;
+  }
+
+  if (task.recurring === 'daily') {
+    const pushed = s.quietHoursEnabled
+      ? pushPastQuietHours(hour, minute, s.quietHoursStart, s.quietHoursEnd)
+      : { hour, minute };
+    if (task.taskType === 'time-box') {
+      const endTotal = pushed.hour * 60 + pushed.minute + (task.durationMinutes ?? 30);
+      void scheduleDailyTaskNotification(task.id, pushed.hour, pushed.minute, minimalContent, {
+        hour: Math.floor((endTotal % 1440) / 60),
+        minute: endTotal % 60,
+        content: minimalContent,
+      });
+    } else {
+      void scheduleDailyTaskNotification(task.id, pushed.hour, pushed.minute, minimalContent);
+    }
+    return;
+  }
+
+  if (task.recurring === 'monthly') {
+    const nextDate = nextOccurrenceDate(task, dateStr(new Date()));
+    if (!nextDate) {
+      void cancelTaskNotification(task.id);
+      return;
+    }
+    const start = new Date(`${nextDate}T${task.time}:00`);
+    if (isNaN(start.getTime())) {
+      void cancelTaskNotification(task.id);
+      return;
+    }
+    if (task.taskType === 'time-box') {
+      const dur = task.durationMinutes ?? 30;
+      const end = new Date(start.getTime() + dur * 60 * 1000);
+      void scheduleTaskNotification(
+        task.id,
+        deferPastQuietHours(start, s),
+        minimalContent,
+        { date: deferPastQuietHours(end, s), content: minimalContent }
+      );
+    } else {
+      void scheduleTaskNotification(task.id, deferPastQuietHours(start, s), minimalContent);
+    }
     return;
   }
 
