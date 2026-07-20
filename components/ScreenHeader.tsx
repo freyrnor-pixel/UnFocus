@@ -391,7 +391,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    // Spacing.md (not .sm) top+bottom so this row's own height exactly fills
+    // getHeaderMetrics' headerHeight (titleLineHeight + Spacing.sm*2 + Spacing.md — the two
+    // constants sum the same either way since Spacing.md === Spacing.sm*2). Surface's inner
+    // content view isn't stretched to the band's full height (it sizes to its own content,
+    // see Surface.tsx's mask/content split), so with the old Spacing.sm padding the row fell
+    // short of the band and sat top-aligned inside it, reading as "not centered" — the extra
+    // Spacing.md of band slack all landed below the title as dead space instead of split
+    // above/below it. Matching the row's own height to the band removes that leftover gap.
+    paddingVertical: Spacing.md,
     gap: Spacing.md,
     // Edge-to-edge top bar (no side margins), not a floating card — rounding here has
     // no visual purpose and, since the glass Surface now fills the whole fixed-height
@@ -429,6 +437,9 @@ const styles = StyleSheet.create({
     // room for descenders (j/g/p/y) AND top accents (å/ø).
     includeFontPadding: false,
     textAlignVertical: 'center',
+    // All-caps title (2026-07-20 header-prominence pass) — visual only (textTransform),
+    // so screen readers and DebugNoteAnchor's note label still get the original-case string.
+    textTransform: 'uppercase',
   },
   titleWrap: {
     flex: 1,

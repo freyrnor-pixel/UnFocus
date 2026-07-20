@@ -9,7 +9,7 @@
  * fits the padded row. The consuming Text must apply these values with
  * allowFontScaling={false} — that part is a code-comment contract, not testable headlessly.
  */
-import { FontSize, HEADER_TITLE_LINE_RATIO, MAX_FONT_SCALE, Spacing, getHeaderMetrics } from '@/constants/theme';
+import { HEADER_TITLE_BASE_SIZE, HEADER_TITLE_LINE_RATIO, MAX_FONT_SCALE, Spacing, getHeaderMetrics } from '@/constants/theme';
 
 describe('getHeaderMetrics', () => {
   const scales = [0.85, 1.0, 1.15, 1.3, 1.4, 1.5, 2.0];
@@ -19,7 +19,7 @@ describe('getHeaderMetrics', () => {
     // The scale the metrics are built from is capped at the app-wide max.
     expect(fontScale).toBe(Math.min(raw, MAX_FONT_SCALE));
     // fontSize is the base title size scaled once by that capped scale.
-    expect(titleFontSize).toBe(Math.round(FontSize.xxl * fontScale));
+    expect(titleFontSize).toBe(Math.round(HEADER_TITLE_BASE_SIZE * fontScale));
     // Line box keeps ≥ the descender-safe ratio over the fontSize it will render with.
     expect(titleLineHeight).toBeGreaterThanOrEqual(titleFontSize * HEADER_TITLE_LINE_RATIO);
     // Band = line box + the header row's vertical padding + slack, so the row can never
