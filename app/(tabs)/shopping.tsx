@@ -20,6 +20,7 @@
  *             components/ExpandableCard, components/FlightOverlay (FlightPill, Flight, FlightRect),
  *             components/IconButton,
  *             components/ListSettingsSheet, components/MonthlyResetSummaryModal,
+ *             components/MonthlyResetReviewSheet,
  *             components/MonthlyTableRow, components/ProgressBar, components/SavedListsModal,
  *             components/ScreenScaffold, components/SharedRequestsSection,
  *             components/ShoppingRow, components/Surface, components/UpdateSheet,
@@ -128,8 +129,12 @@
  *     settings/shopping/list/catalog — it only runs the behavior that's more than hydration:
  *     advanceRecurringLists(today) (re-loading shopping items after ONLY when it returns
  *     true, i.e. it actually rolled a list forward — a no-op focus skips the reload so the
- *     list doesn't reflow after paint) and the automatic payday-boundary monthly-reset detection
- *     (buildMonthlyResetSummary BEFORE monthlyReset, then persists lastMonthlyReset).
+ *     list doesn't reflow after paint) and the automatic payday-boundary monthly-reset
+ *     detection, which now just opens MonthlyResetReviewSheet (resetReviewVisible) instead
+ *     of resetting immediately — see that component's header and finalizeMonthlyReset()
+ *     below for the actual buildMonthlyResetSummary()/monthlyReset()/lastMonthlyReset
+ *     sequence, which now only runs once the user dismisses the sheet (Skip or Confirm),
+ *     not at trigger-detection time.
  *   - The 'shopping_opened' automation trigger fires once per mount; rules are already loaded
  *     by _layout's startup bootstrap. "Shopping done!"'s Scan/Upload choices route to /scan
  *     (autoCapture camera/library); Skip commits the trip in place.
@@ -180,6 +185,7 @@ import InlineAddItem from '@/components/InlineAddItem';
 import AddDishToMonthlySheet from '@/components/AddDishToMonthlySheet';
 import UpdateSheet from '@/components/UpdateSheet';
 import MonthlyResetSummaryModal from '@/components/MonthlyResetSummaryModal';
+import MonthlyResetReviewSheet from '@/components/MonthlyResetReviewSheet';
 import SharedRequestsSection from '@/components/SharedRequestsSection';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import { showAppModal } from '@/components/AppModal';
@@ -273,6 +279,7 @@ export default function ShoppingScreen() {
   }, []);
   const [purchasedExpanded, setPurchasedExpanded] = useState<string | null>(null);
   const [resetSummary, setResetSummary] = useState<MonthlyResetSummary | null>(null);
+  const [resetReviewVisible, setResetReviewVisible] = useState(false);
   const [savedListsListId, setSavedListsListId] = useState<string | null>(null);
   const [listSettingsListId, setListSettingsListId] = useState<string | null>(null);
   // Decision 029: seed from the module-level session flag so the lock state survives
@@ -378,27 +385,36 @@ export default function ShoppingScreen() {
       // Automatic payday-boundary reset: once per period, when today's day-of-month
       // has reached monthlyResetDate and we haven't already reset for this period.
       // Read settings via getState() (not a render-time selector) so we see the latest
-      // persisted values. buildMonthlyResetSummary() must run BEFORE monthlyReset()
-      // clears the purchased rows it reads.
+      // persisted values. Opens the interactive review sheet rather than resetting
+      // immediately — lastMonthlyReset is only stamped once the user actually
+      // dismisses it (finalizeMonthlyReset), so a backgrounded/killed app with the
+      // sheet still open just re-opens it next focus instead of silently skipping
+      // the period.
       const periodKey = today.slice(0, 7); // YYYY-MM
       const settings = useSettingsStore.getState();
       const alreadyResetThisPeriod = settings.lastMonthlyReset.slice(0, 7) === periodKey;
-      if (!alreadyResetThisPeriod && new Date().getDate() >= settings.monthlyResetDate) {
-        setResetSummary(buildMonthlyResetSummary());
-        monthlyReset();
-        updateSettings({ lastMonthlyReset: today });
+      if (!alreadyResetThisPeriod && !resetReviewVisible && new Date().getDate() >= settings.monthlyResetDate) {
+        setResetReviewVisible(true);
       }
 
       return () => {
         setHintOpen(false);
       };
-    }, [loadShopping, advanceRecurringLists, buildMonthlyResetSummary, monthlyReset, updateSettings])
+    }, [loadShopping, advanceRecurringLists, resetReviewVisible])
   );
 
   const catalogItems = useMemo(
     () => items.filter((i) => i.status === 'catalog').sort((a, b) => a.name.localeCompare(b.name)),
     [items]
   );
+  // Per-list item counts for MonthlyResetReviewSheet's "N items" meta line.
+  const itemCountByListId = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const i of items) {
+      if (i.status === 'inWeeklyList' && i.listId) counts[i.listId] = (counts[i.listId] ?? 0) + 1;
+    }
+    return counts;
+  }, [items]);
   const { dishGroups: catalogDishGroups, ungrouped: ungroupedRestItems } = useMemo(
     () => groupByDish(catalogItems),
     [catalogItems]
@@ -612,8 +628,19 @@ export default function ShoppingScreen() {
 
   function handleConfirmReset() {
     setResetConfirmVisible(false);
+    setResetReviewVisible(true);
+  }
+
+  /** Finalizes the monthly reset — fired by MonthlyResetReviewSheet's Skip (empty array)
+   *  or Confirm (chosen discards). Discards run first so buildMonthlyResetSummary()/
+   *  monthlyReset() see final list state, though order doesn't actually matter functionally
+   *  since monthlyReset() filters by item status, not list_id. */
+  function finalizeMonthlyReset(discardedListIds: string[]) {
+    discardedListIds.forEach(removeList);
     setResetSummary(buildMonthlyResetSummary());
     monthlyReset();
+    updateSettings({ lastMonthlyReset: todayStr() });
+    setResetReviewVisible(false);
   }
 
   // ── Decision 011 R1 reorder + Decision 022 drag-to-merge (screen-owned, window-coordinate) ──
@@ -1260,6 +1287,15 @@ export default function ShoppingScreen() {
 
       <UpdateSheet visible={updateItem !== null} item={updateItem} onClose={() => setUpdateItem(null)} onSave={handleUpdateSave} onDelete={handleUpdateDelete} />
 
+      <MonthlyResetReviewSheet
+        visible={resetReviewVisible}
+        lists={nonTemplateLists}
+        itemCountByListId={itemCountByListId}
+        catalogItems={catalogItems}
+        onReorderLists={(order) => order.forEach((id, i) => useShoppingListStore.getState().update(id, { sortOrder: i }))}
+        onSetInventoryQty={(id, qty) => update(id, { inventoryQty: qty })}
+        onFinalize={finalizeMonthlyReset}
+      />
       <MonthlyResetSummaryModal visible={resetSummary !== null} summary={resetSummary} onClose={() => setResetSummary(null)} />
 
       <SavedListsModal

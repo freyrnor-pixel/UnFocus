@@ -77,3 +77,20 @@ describe('advanceRecurringLists return contract', () => {
     expect(useShoppingListStore.getState().lists.length).toBe(2);
   });
 });
+
+describe('load() ordering', () => {
+  afterEach(() => {
+    useShoppingListStore.setState({ lists: [] });
+    jest.clearAllMocks();
+  });
+
+  it('orders by sort_order, not start_date, so a reorder actually sticks', () => {
+    const db = jest.requireMock('@/lib/db').default;
+    db.getAllSync.mockReturnValue([]);
+    useShoppingListStore.getState().load();
+    expect(db.getAllSync).toHaveBeenCalledWith(
+      expect.stringContaining('ORDER BY sort_order'),
+      expect.anything()
+    );
+  });
+});
