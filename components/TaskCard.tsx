@@ -5,7 +5,7 @@
  *   - variant="full" (All-tasks): tap the row to open an inline editor. While the
  *     editor is open the card is in *edit mode* — small Discard / Save buttons sit at the
  *     BOTTOM of the expanded editor (next to Delete) and edits are buffered in a local
- *     draft (nothing persists until Save). The editor holds: an editable title, importance,
+ *     draft (nothing persists until Save). The editor holds: an editable title,
  *     a steps checklist, a "Repeat" switch + per-mode recurrence options, a "Set time"
  *     toggle + calendar, and an
  *     optional Start/Finish time-box pair. For an existing task, Steps and the
@@ -189,7 +189,6 @@ function TaskCard({
     }
     update(task.id, {
       title: trimmed,
-      importance: draft.importance,
       hasStartDate: draft.hasStartDate,
       date: draft.date,
       time: draft.time,
@@ -403,16 +402,6 @@ function TaskCard({
               placeholder={t.taskTitlePlaceholder}
               placeholderTextColor={theme.textMuted}
               returnKeyType="done"
-            />
-
-            {/* Importance */}
-            <SlideSelector
-              options={[
-                { value: 'regular', label: t.taskNormal },
-                { value: 'essential', label: t.taskImportant },
-              ]}
-              value={draft.importance}
-              onChange={(v) => patch({ importance: v as Task['importance'] })}
             />
 
             {/* For — person/profile assignment (People/family mode). Mirrors habit-form. */}

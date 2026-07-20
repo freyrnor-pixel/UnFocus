@@ -81,7 +81,6 @@ export default function SharedRequestsSection({ kind }: Props) {
       done: false,
       recurring: 'none',
       recurringDays: [],
-      importance: 'regular',
       sortOrder: 0,
       hasStartDate: false,
     });

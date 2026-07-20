@@ -1,11 +1,10 @@
 /**
  * habit-form.tsx — add / edit a habit
  *
- * Sub-screen (Decision 001 tier='sub') for one habit: icon, title, General/Essential
- * importance (mirrors Task's Decision 018 field), category, daily goal, recurrence, an
- * optional child-profile assignment, and the three-mode daily reminder picker (Once /
- * Several times / Every…, Decision 016). An `id` route param switches it to edit mode
- * (with delete).
+ * Sub-screen (Decision 001 tier='sub') for one habit: icon, title, category, daily
+ * goal, recurrence, an optional child-profile assignment, and the three-mode daily
+ * reminder picker (Once / Several times / Every…, Decision 016). An `id` route param
+ * switches it to edit mode (with delete).
  *
  * Build/break kind and the cue→craving→response→reward "atomic habits" steps were
  * removed (habits are now simple, task-shaped) — `kind` is written as 'neutral' and the
@@ -50,7 +49,6 @@ import {
   HabitCategory,
   HabitReminderMode,
 } from '@/store/useHabitStore';
-import type { Importance } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -63,6 +61,7 @@ import HabitIcon, { HABIT_ICON_NAMES } from '@/components/HabitIcon';
 import Button from '@/components/Button';
 import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
+import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 
@@ -121,6 +120,7 @@ export default function HabitForm() {
   const removeHabit = useHabitStore((s) => s.remove);
   const childProfiles = useSettingsStore((s) => s.childProfiles);
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
+  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
 
   const theme = useAppTheme();
   const t = useT();
@@ -133,7 +133,8 @@ export default function HabitForm() {
   const [category, setCategory] = useState<HabitCategory>(existing?.category ?? 'other');
   const [dailyGoal, setDailyGoal] = useState(existing?.dailyGoal ?? 1);
   const [childName, setChildName] = useState(existing?.childName ?? (params.childName ?? ''));
-  const [importance, setImportance] = useState<Importance>(existing?.importance ?? 'regular');
+  const [energyEnabled, setEnergyEnabled] = useState(existing?.energyEnabled ?? false);
+  const [energyValue, setEnergyValue] = useState(existing?.energyValue ?? 1);
 
   const [notificationEnabled, setNotificationEnabled] = useState(existing?.notificationEnabled ?? false);
   // Recipe fields: prefer the persisted recipe (Decision 016 Q3); fall back to the old
@@ -194,7 +195,8 @@ export default function HabitForm() {
       reminderStart: notificationEnabled && reminderMode !== 'single' ? reminderStart : null,
       reminderEnd: notificationEnabled && reminderMode !== 'single' ? reminderEnd : null,
       childName,
-      importance,
+      energyEnabled,
+      energyValue,
     };
     if (isEdit && params.id) {
       updateHabit(params.id, payload);
@@ -246,18 +248,21 @@ export default function HabitForm() {
           />
         </View>
 
-        {/* Mode — Decision 018 (General/Essential, no energy picker), mirrors task-form.tsx */}
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: theme.textMuted }]}>{t.importanceLabel}</Text>
-          <SegmentedControl
-            options={[
-              { value: 'regular', label: t.importanceRegular },
-              { value: 'essential', label: t.importanceEssential },
-            ]}
-            value={importance}
-            onChange={(v) => setImportance(v as Importance)}
-          />
-        </View>
+        {/* Energy — optional signed per-habit value (only when the Energy system is on) */}
+        {energySystemEnabled && (
+          <>
+            <Surface style={styles.notifRow}>
+              <Text style={[styles.notifLabel, { color: theme.text }]}>{t.energyConsumeLabel}</Text>
+              <Switch checked={energyEnabled} onChange={setEnergyEnabled} />
+            </Surface>
+            {energyEnabled && (
+              <View style={[styles.field, styles.energyStepperRow]}>
+                <Text style={[styles.label, { color: theme.textMuted }]}>{t.energyCostLabel}</Text>
+                <Stepper value={energyValue} onChange={setEnergyValue} signed accessibilityLabel={t.energyCostLabel} />
+              </View>
+            )}
+          </>
+        )}
 
         {/* For — profile assignment */}
         {peopleModeEnabled && childProfiles.length > 0 && (
@@ -526,6 +531,7 @@ const baseStyles = StyleSheet.create({
     padding: Spacing.md,
   },
   notifLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  energyStepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   timeFieldWrap: { gap: Spacing.sm, marginTop: Spacing.sm },
   reminderPreview: { fontSize: FontSize.xs, fontStyle: 'italic', marginTop: Spacing.xs },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },

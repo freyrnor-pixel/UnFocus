@@ -20,7 +20,7 @@
  *             lib/widgets/sync (syncWidgetsAndOverview — pushes today to the home-screen widgets
  *             + persistent overview notification), lib/useAppTheme,
  *             store/useSettingsStore, store/useAutomationStore, store/useCatalogStore,
- *             store/useFeedbackStore, store/useHabitStore, store/useHealthStore, store/useInboxStore,
+ *             store/useEnergyStore, store/useFeedbackStore, store/useHabitStore, store/useHealthStore, store/useInboxStore,
  *             store/useMealStore, store/useNotesStore, store/usePeersStore, store/useReceiptStore,
  *             store/useSharedStore, store/useShoppingListStore, store/useShoppingStore,
  *             store/useTaskStore, components/AppModal,
@@ -122,6 +122,7 @@ import { useAutomationStore } from '@/store/useAutomationStore';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { useFeedbackStore } from '@/store/useFeedbackStore';
 import { useHabitStore } from '@/store/useHabitStore';
+import { useEnergyStore } from '@/store/useEnergyStore';
 import { useHealthStore } from '@/store/useHealthStore';
 import { useInboxStore } from '@/store/useInboxStore';
 import { useMealStore } from '@/store/useMealStore';
@@ -241,6 +242,7 @@ export default function RootLayout() {
     useSharedStore.getState().load();
     useHabitStore.getState().load();
     useHealthStore.getState().load();
+    useEnergyStore.getState().load(); // Home Energy meter — per-period capacity overrides
     // Notes → Home's notes preview; Meal + Catalog → the Shopping tab. These back
     // content on the FIRST screens, so they load synchronously here (not Tier B)
     // or that content visibly pops in a beat after first paint.

@@ -46,8 +46,7 @@
  *             constants/theme (incl. getGlow), constants/motion, lib/haptics, lib/i18n,
  *             lib/useAppTheme (incl. useAccessibility), lib/domainColor, components/CardAccent
  *             (badge+wash gradient move, read-only Home header), store/useTaskStore (Task type only)
- *   Used by → app/(tabs)/index.tsx (Home — read-only preview off-focus per Decision 009a, and
- *             non-readOnly essential-filtered surface in Focus mode per 009 #4). Reads
+ *   Used by → app/(tabs)/index.tsx (Home — read-only day-view preview per Decision 009a). Reads
  *             settings.planTimelineHorizontal there and passes it down as the `horizontal`
  *             prop — this component stays store-free/presentational. NOTE: the full /plans
  *             (Tasks/Oppgaver) screen no longer renders this day-view — it was rebuilt into
@@ -458,7 +457,6 @@ export default function PlanTaskCard({
               {timed && task.taskType === 'time-box' && (
                 <Text style={[styles.durationText, { color: theme.textMuted }]}>–{minutesToLabel(timed.end)}</Text>
               )}
-              {task.importance === 'essential' && !task.done && <Ionicons name="star" size={12} color={theme.accent} />}
               {!timed && !task.done ? (
                 <View style={[styles.followerBadge, { backgroundColor: theme.surfaceMuted, borderColor: theme.border, borderWidth: 1 }]}>
                   <Text style={[styles.followerBadgeText, { color: theme.textMuted }]}>{t.dayViewAnytimeBadge}</Text>
@@ -510,9 +508,6 @@ export default function PlanTaskCard({
           >
             {task.title}
           </Text>
-          {task.importance === 'essential' && !task.done && (
-            <Ionicons name="star" size={11} color={theme.accent} style={styles.hStar} />
-          )}
         </View>
         <View style={styles.hDoneRow}>{doneToggle(task, isHappeningNow)}</View>
       </PressableScale>
@@ -797,7 +792,6 @@ const baseStyles = StyleSheet.create({
   hRailRow: { height: H_RAIL_HEIGHT, alignItems: 'center', justifyContent: 'center' },
   hContent: { height: H_CONTENT_HEIGHT, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 2 },
   hTitle: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },
-  hStar: { marginTop: 2 },
   hDoneRow: { paddingTop: Spacing.xs },
   hConnectorWrap: { height: H_RAIL_HEIGHT, justifyContent: 'center' },
   hConnector: { height: 2 },

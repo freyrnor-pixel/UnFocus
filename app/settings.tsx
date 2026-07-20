@@ -6,7 +6,7 @@
  * ScreenScaffold's `stickyBelowHeader`; each tab is its own scroll of cards
  * (local `tab` state, no router routes).
  *
- * - Generelt: Focus mode toggle → [Profil (name + language) / Utseende (dark mode) /
+ * - Generelt: Energy system toggle → [Profil (name + language) / Utseende (dark mode) /
  *   Tilgjengelighet (reduced motion, particles, glass surfaces, font size, left-handed,
  *   horizontal plans timeline)] one merged panel → Data group (debug mode toggle, then [Local account
  *   (Decision 039 — device-only profile: name + create date, auto-backup toggle,
@@ -32,7 +32,7 @@
  * is exactly the grouping pattern ExpandableCard's own header already documents (Decision 043
  * rule 1 / WeekListCard's dish-group rows) — multiple ExpandableCards as siblings inside one
  * caller-owned Surface, each getting its own hairline top divider for separation. Destructive
- * (Reset data) and single-toggle cards with no accordion body (Focus mode, Debug mode,
+ * (Reset data) and single-toggle cards with no accordion body (Energy system, Debug mode,
  * Skolemodus, Freyr-modus) stay their own standalone card — folding a warning-red destructive
  * card into a neutral panel would bury its visual distinctiveness, and a plain toggle has
  * nothing to collapse.
@@ -50,7 +50,7 @@
  *             lib/useAppTheme, store/useFeedbackStore, store/useHabitStore, store/useSettingsStore,
  *             store/useShoppingStore, store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
- *   Data    → useSettingsStore (settings table; incl. essentialsModeEnabled, quietHours*,
+ *   Data    → useSettingsStore (settings table; incl. energySystemEnabled/energy*Capacity, quietHours*,
  *             monthlyBudgetNok, taskNotificationsEnabled, habitNotificationsEnabled,
  *             persistentNotifEnabled, voiceNotesEnabled/contactsEnabled/locationEnabled/
  *             calendarSyncEnabled — the "Device features" card); reset actions touch
@@ -79,8 +79,9 @@
  *     settings.quietHours.hint.
  *   - TimePickerWheel was never ported into this repo — all HH:MM entry uses FormControls.Input
  *     (free-text, matching the precedent set by task-form.tsx / habit-form.tsx).
- *   - essentialsModeEnabled is the underlying field/DB column name (unchanged) — its user-facing
- *     label is "Focus mode" / "Fokus-modus".
+ *   - The Energy system (energySystemEnabled + energyDailyCapacity/energyWeeklyCapacity) is
+ *     the first card on the Generelt tab; when on it reveals the default day/week capacity
+ *     steppers. Per-period overrides live on the Home Energy meter (components/EnergyMeter.tsx).
  *   - Send Feedback card (2026-07-13): always visible (not gated on debugModeEnabled) — a
  *     free-text composer that builds a mailto: URL (lib/feedbackMail's buildFeedbackMailUrl,
  *     addressed to Unfocus@hlynsson.no, footer includes app/runtime version + platform) and
@@ -122,6 +123,7 @@ import { Input, Switch as FormSwitch, SegmentedControl } from '@/components/Form
 import { showAppModal } from '@/components/AppModal';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import PressableScale from '@/components/PressableScale';
+import Stepper from '@/components/Stepper';
 import {
   useSettingsStore,
   Settings,
@@ -319,13 +321,13 @@ export default function SettingsScreen() {
     if (keys.some((k) => ['remindersEnabled', 'reminderTime', 'weeklyResetDay', 'monthlyResetDate', 'language'].includes(k))) {
       void syncReminders();
     }
-    if (keys.some((k) => ['taskNotificationsEnabled', 'language', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'essentialsModeEnabled'].includes(k))) {
+    if (keys.some((k) => ['taskNotificationsEnabled', 'language', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd'].includes(k))) {
       syncTaskNotifs();
     }
     if (keys.includes('calendarSyncEnabled')) {
       syncTaskCalendarEvents();
     }
-    if (keys.includes('language') || keys.includes('habitNotificationsEnabled') || keys.includes('essentialsModeEnabled')) {
+    if (keys.includes('language') || keys.includes('habitNotificationsEnabled')) {
       syncHabitNotifs();
       if (keys.includes('language')) {
         const tNew = getTranslations(useSettingsStore.getState().language);
@@ -528,19 +530,40 @@ export default function SettingsScreen() {
       <View style={styles.content}>
         {tab === 'generelt' && (
           <>
-            {/* Focus mode */}
+            {/* Energy system — optional per-task energy budget (replaces Focus mode).
+                Master toggle + default day/week capacity (revealed when on). */}
             <View style={styles.section}>
               <Surface style={styles.essentialsCard} borderColor={theme.accent}>
                 <View style={styles.switchRow}>
                   <View style={styles.switchTextCol}>
-                    <Text style={[styles.essentialsLabel, { color: theme.text }]}>{t.config.essentials.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.essentials.hint}</Text>
+                    <Text style={[styles.essentialsLabel, { color: theme.text }]}>{t.settings.energy.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.energy.hint}</Text>
                   </View>
                   <FormSwitch
-                    checked={settings.essentialsModeEnabled}
-                    onChange={(v) => { selection(); settings.update({ essentialsModeEnabled: v }); }}
+                    checked={settings.energySystemEnabled}
+                    onChange={(v) => { selection(); settings.update({ energySystemEnabled: v }); }}
                   />
                 </View>
+                {settings.energySystemEnabled && (
+                  <View style={styles.energyCapacityRows}>
+                    <View style={styles.energyCapacityRow}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.dailyCapacity}</Text>
+                      <Stepper
+                        value={settings.energyDailyCapacity}
+                        onChange={(n) => settings.update({ energyDailyCapacity: n })}
+                        min={0}
+                      />
+                    </View>
+                    <View style={styles.energyCapacityRow}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.weeklyCapacity}</Text>
+                      <Stepper
+                        value={settings.energyWeeklyCapacity}
+                        onChange={(n) => settings.update({ energyWeeklyCapacity: n })}
+                        min={0}
+                      />
+                    </View>
+                  </View>
+                )}
               </Surface>
             </View>
 
@@ -1370,6 +1393,8 @@ const baseStyles = StyleSheet.create({
   descText: { fontSize: FontSize.xs, marginTop: Spacing.sm, lineHeight: 18 },
   essentialsCard: { padding: Spacing.md, borderWidth: 2 },
   essentialsLabel: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
+  energyCapacityRows: { marginTop: Spacing.md, gap: Spacing.sm },
+  energyCapacityRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
   card: { padding: Spacing.md },
   fieldLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size, marginBottom: Spacing.xs },
   divider: { height: 1, marginVertical: Spacing.md },

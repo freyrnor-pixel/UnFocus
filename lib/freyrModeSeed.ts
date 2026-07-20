@@ -84,9 +84,9 @@ export function seedFreyrMode(): FreyrSeedIds {
   const today = todayStr();
   const taskStore = useTaskStore.getState();
   const taskIds = [
-    taskStore.add({ title: 'Kattekasse', date: today, time: '21:00', taskType: 'start-at', done: false, recurring: 'daily', recurringDays: [], importance: 'regular', sortOrder: 0 }).id,
-    taskStore.add({ title: 'Puss tenner', date: today, time: '07:30', taskType: 'start-at', done: false, recurring: 'daily', recurringDays: [], importance: 'regular', sortOrder: 0 }).id,
-    taskStore.add({ title: 'Puss tenner', date: today, time: '21:45', taskType: 'start-at', done: false, recurring: 'daily', recurringDays: [], importance: 'regular', sortOrder: 0 }).id,
+    taskStore.add({ title: 'Kattekasse', date: today, time: '21:00', taskType: 'start-at', done: false, recurring: 'daily', recurringDays: [], sortOrder: 0 }).id,
+    taskStore.add({ title: 'Puss tenner', date: today, time: '07:30', taskType: 'start-at', done: false, recurring: 'daily', recurringDays: [], sortOrder: 0 }).id,
+    taskStore.add({ title: 'Puss tenner', date: today, time: '21:45', taskType: 'start-at', done: false, recurring: 'daily', recurringDays: [], sortOrder: 0 }).id,
   ];
 
   const waterTimes = waterReminderTimes();
@@ -111,7 +111,9 @@ export function seedFreyrMode(): FreyrSeedIds {
     reminderEnd: '22:00',
     routineOrder: 0,
     childName: '',
-    importance: 'regular',
+    // Drinking water restores energy (+1) — the canonical positive-energy example.
+    energyEnabled: true,
+    energyValue: 1,
   });
 
   const noteIds = [

@@ -35,7 +35,6 @@ const baseSettings: TaskNotifSettings = {
   quietHoursEnabled: false,
   quietHoursStart: '21:00',
   quietHoursEnd: '08:00',
-  essentialsModeEnabled: false,
 };
 
 function task(overrides: Partial<Task>): Task {
@@ -53,7 +52,8 @@ function task(overrides: Partial<Task>): Task {
     monthDay: 1,
     monthOrdinal: 'first',
     monthWeekday: 0,
-    importance: 'regular',
+    energyEnabled: false,
+    energyValue: 1,
     sortOrder: 0,
     hint: '',
     followsTaskId: null,
@@ -72,23 +72,6 @@ describe('gating', () => {
     syncTaskNotification(task({}), { ...baseSettings, taskNotificationsEnabled: false });
     expect(cancel).toHaveBeenCalledWith('t1');
     expect(schedule).not.toHaveBeenCalled();
-  });
-
-  it('cancels a non-essential task when Focus mode is on', () => {
-    syncTaskNotification(task({ importance: 'regular' }), {
-      ...baseSettings,
-      essentialsModeEnabled: true,
-    });
-    expect(cancel).toHaveBeenCalledWith('t1');
-    expect(schedule).not.toHaveBeenCalled();
-  });
-
-  it('still schedules an essential task when Focus mode is on', () => {
-    syncTaskNotification(task({ importance: 'essential' }), {
-      ...baseSettings,
-      essentialsModeEnabled: true,
-    });
-    expect(schedule).toHaveBeenCalledTimes(1);
   });
 
   it('cancels when the task has no time', () => {

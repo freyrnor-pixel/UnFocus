@@ -4,7 +4,7 @@
  *
  * Habits SKIP any occurrence that falls inside quiet hours (Decision 016 Q4) —
  * the deliberate opposite of tasks, which shift. Also covers multi-time
- * scheduling, the enable/active/Focus-mode gates, and the always-cancel-first
+ * scheduling, the enable/active gates, and the always-cancel-first
  * contract. Only the scheduling primitives and i18n are mocked; the real
  * isWithinQuietHours math (lib/notifications) is kept.
  */
@@ -38,7 +38,6 @@ const baseSettings: HabitNotifSettings = {
   quietHoursEnabled: false,
   quietHoursStart: '21:00',
   quietHoursEnd: '08:00',
-  essentialsModeEnabled: false,
 };
 
 function habit(overrides: Partial<Habit>): Habit {
@@ -48,7 +47,6 @@ function habit(overrides: Partial<Habit>): Habit {
     notificationEnabled: true,
     notificationTimes: ['08:00'],
     active: true,
-    importance: 'regular',
     ...overrides,
   } as Habit;
 }
@@ -73,14 +71,6 @@ describe('gating (nothing scheduled)', () => {
 
   it('schedules nothing when there are no reminder times', () => {
     syncHabitReminder(habit({ notificationTimes: [] }), baseSettings);
-    expect(schedule).not.toHaveBeenCalled();
-  });
-
-  it('cancels a non-essential habit when Focus mode is on', () => {
-    syncHabitReminder(habit({ importance: 'regular' }), {
-      ...baseSettings,
-      essentialsModeEnabled: true,
-    });
     expect(schedule).not.toHaveBeenCalled();
   });
 });
