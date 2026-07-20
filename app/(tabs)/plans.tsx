@@ -20,7 +20,8 @@
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedTasksSection,
  *             components/SectionRail, components/SectionCard, components/TaskCard, components/AddRow,
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron
- *             (animated "Finished (n)" done-zone reveal), constants/theme, lib/date, lib/domainColor, lib/haptics,
+ *             (animated "Finished (n)" done-zone reveal), components/TabBoxHighlight, constants/theme,
+ *             lib/date, lib/domainColor, lib/haptics,
  *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, store/useTaskStore,
  *             store/useSettingsStore
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
@@ -28,13 +29,12 @@
  *             internally for incoming shares + accepts the sharedOut tasks as its "sent" half
  *
  * Edit notes:
- *   - **Tab bar restyle (2026-07-19)**: the sticky Today/This week/All tasks switcher's
- *     active indicator changed from a thin bottom underline (the now-deleted
- *     `AnimatedTabUnderline`) to a BottomNav-style rounded, colored box — an absolute-fill
- *     `Animated.View` (`styles.tabActiveHighlight`, `Radius.sm`, `rgba(theme.accent, 0.14)`
- *     fill + `rgba(theme.accent, 0.4)` 1px border) behind the label, faded in/out via
- *     `Duration.control` (matches app/(tabs)/shopping.tsx and app/settings.tsx, restyled
- *     the same way).
+ *   - **Tab bar (2026-07-20, shared component)**: the sticky Today/This week/All tasks
+ *     switcher's active indicator is `components/TabBoxHighlight.tsx` — always renders a
+ *     bordered box behind the label (white `theme.surface` fill + `theme.border` edge at
+ *     rest, crossfading to a tinted `theme.accent` fill + border when active) instead of the
+ *     old "box only appears when active" look. Same shared component as
+ *     app/(tabs)/shopping.tsx and app/settings.tsx's tab bars.
  *   - **Tab order (2026-07-14)**: Today → This week → All tasks (was All → Today → Week).
  *   - **Unfinished/finished split (2026-07-14)**: the local `<DoneSplitList>` component
  *     (defined just above `TasksScreen`) filters a section's tasks into unfinished (always
@@ -96,7 +96,6 @@
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
@@ -108,15 +107,16 @@ import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
+import TabBoxHighlight from '@/components/TabBoxHighlight';
 import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
-import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
+import { useAppTheme } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { tap } from '@/lib/haptics';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { Fonts, FontSize, Radius, Spacing, Type, rgba } from '@/constants/theme';
-import { Spring, Duration } from '@/constants/motion';
+import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
+import { Spring } from '@/constants/motion';
 import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
 
@@ -273,7 +273,6 @@ const STICKY_HEIGHT = 56;
 
 export default function TasksScreen() {
   const theme = useAppTheme();
-  const { reducedMotion } = useAccessibility();
   const t = useT();
   // Section hues (color-rail redesign): each list section carries a stable domain accent —
   // Whenever = task (blue), Repeating = meal (orange — was plan/indigo, too close to
@@ -386,18 +385,7 @@ export default function TasksScreen() {
               onPress={() => setTab(tabOption)}
               scaleTo={0.97}
             >
-              {isActive && (
-                <Animated.View
-                  pointerEvents="none"
-                  entering={reducedMotion ? undefined : FadeIn.duration(Duration.control)}
-                  exiting={reducedMotion ? undefined : FadeOut.duration(Duration.control)}
-                  style={[
-                    StyleSheet.absoluteFill,
-                    styles.tabActiveHighlight,
-                    { backgroundColor: rgba(theme.accent, 0.14), borderColor: rgba(theme.accent, 0.4) },
-                  ]}
-                />
-              )}
+              <TabBoxHighlight active={isActive} />
               <Text style={[styles.tabText, { color: isActive ? theme.accent : theme.textMuted }]}>{label}</Text>
             </PressableScale>
           );
@@ -587,10 +575,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 44,
     borderRadius: Radius.sm,
-  },
-  tabActiveHighlight: {
-    borderRadius: Radius.sm,
-    borderWidth: 1,
   },
   // Bumped from Type.label.size (14) — read as too small once the tab got a visible
   // rounded frame around it (2026-07-19 visual-audit). includeFontPadding/textAlignVertical
