@@ -36,12 +36,14 @@
  *   - `PressableScale`'s own default (`haptic=true`) already fires a light tap haptic on
  *     every press — no separate haptic call is needed here.
  *   - **Keycap box, every item, always (2026-07-20)**: each non-centre item now carries a
- *     permanent bordered box — `theme.surfaceMuted` fill + `theme.border` edge at rest,
- *     crossfading (via `useToggleColor`, same hook `IconButton` uses) to `theme.accentSoft`
- *     fill + `theme.accent` edge when active — instead of the old "nothing until selected"
- *     look, which read as visually empty/unstyled. Matches the app-wide "keycap" convention
- *     (2026-07-18 "border around icons and buttons" decision) that `IconButton` and
- *     `SlideSelector`'s track already follow.
+ *     permanent bordered box — `theme.surface` (white/near-white card fill, NOT the grey
+ *     `surfaceMuted` sunken tone) + `theme.border` edge at rest, crossfading (via
+ *     `useToggleColor`, same hook `IconButton` uses) to `theme.accentSoft` fill + `theme.accent`
+ *     edge when active — instead of the old "nothing until selected" look, which read as
+ *     visually empty/unstyled, and a since-reverted grey-`surfaceMuted` pass that read as
+ *     flat/lifeless against the also-grey-ish frosted bar behind it. `theme.surface` reads as
+ *     a distinct raised white card against the bar's frosted `overlay`-context wash, so every
+ *     tab has a visible bordered chip at rest, not just the active one.
  *   - **Purposeful glow (2026-07-18, optional per design pass)**: the active tab's box adds
  *     `getGlow(theme.accent, 'soft')` on top of the crossfade — only while active, never on
  *     every item (it's a static conditional, not animated, matching "icon/label colour swaps
@@ -49,7 +51,7 @@
  *     already reads as "lit" via its permanent accent fill + `Shadow.fab`, so it's left alone.
  *   - **Active fill uses `theme.accentSoft`** (the app-wide active/selected tint — same token
  *     as IconButton's active state, Button secondary, etc.), NOT `theme.surfaceMuted` —
- *     surfaceMuted is the neutral grey INACTIVE fill; reusing it for active state is what
+ *     surfaceMuted is the neutral grey sunken tone; reusing it for active state is what
  *     made an earlier pass read as a plain "grey box" instead of a colored selected state.
  */
 import React from 'react';
@@ -150,7 +152,7 @@ function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
   const theme = useAppTheme();
   const iconColor = active ? theme.accent : theme.textMuted;
   const boxStyle = useToggleColor(active, {
-    backgroundColor: [theme.surfaceMuted, theme.accentSoft],
+    backgroundColor: [theme.surface, theme.accentSoft],
     borderColor: [theme.border, theme.accent],
   });
 
