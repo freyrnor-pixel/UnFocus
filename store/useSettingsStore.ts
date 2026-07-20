@@ -20,6 +20,9 @@
  * planTimelineHorizontal switches the Plans day-view rail (components/PlanTaskCard.tsx)
  * between the default vertical rail and a horizontal one; read by app/(tabs)/index.tsx
  * and passed down as a prop (PlanTaskCard itself stays store-free/presentational).
+ * homeCardOrder is the ordered/filtered list of Home preview "kind" ids the user has
+ * chosen to keep visible (hold-to-manage, components/HomeCardManager.tsx) — a kind
+ * missing from the array is a user-removed card.
  *
  * Connections:
  *   Imports → lib/dataAccess, lib/id
@@ -168,6 +171,11 @@ export type Settings = {
   // ⓘ hint has already auto-expanded once; a key not present means "first visit — open
   // the hint". Replaces the old setup-wizard steps, which taught these settings up front.
   seenScreenHints: string[];
+  // Home preview card management (2026-07-19) — ordered list of visible Home preview
+  // "kind" ids ('notes'/'plans'/'shopping'); a kind missing from the array is a
+  // user-removed card. Managed by components/HomeCardManager.tsx via hold-to-edit on
+  // Home; see app/(tabs)/index.tsx.
+  homeCardOrder: string[];
 };
 
 type SettingsStore = Settings & {
@@ -238,6 +246,7 @@ function rowToSettings(row: Row): Settings {
     freyrSeedIds: readStr(row, 'freyr_seed_ids'),
     planTimelineHorizontal: readBool(row, 'plan_timeline_horizontal'),
     seenScreenHints: readJson<string[]>(row, 'seen_screen_hints', []),
+    homeCardOrder: readJson<string[]>(row, 'home_card_order', ['notes', 'plans', 'shopping']),
   };
 }
 
@@ -298,6 +307,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   freyrSeedIds: { col: 'freyr_seed_ids' },
   planTimelineHorizontal: { col: 'plan_timeline_horizontal', to: bool },
   seenScreenHints: { col: 'seen_screen_hints', to: (v) => JSON.stringify(v) },
+  homeCardOrder: { col: 'home_card_order', to: (v) => JSON.stringify(v) },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -358,6 +368,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   freyrSeedIds: '',
   planTimelineHorizontal: false,
   seenScreenHints: [],
+  homeCardOrder: ['notes', 'plans', 'shopping'],
   loaded: false,
   workModeSessionOverride: false,
 
