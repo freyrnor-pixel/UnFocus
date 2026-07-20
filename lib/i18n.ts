@@ -910,7 +910,6 @@ const en = {
   // --- end W-D additions ---
   // Habits — shame-free labels (Proposal 5)
   habits: {
-    streakLabel: 'day streak',
     notYetToday: 'Not yet today',
     // --- W-D additions ---
     doneToday: 'Done today',
@@ -919,7 +918,7 @@ const en = {
     // --- end W-D additions ---
     restDay: 'Rest day',
     restingToday: 'Resting today',
-    restDayHint: 'Resting keeps your streak — no catching up needed.',
+    restDayHint: "Resting today — this habit's energy just sits still, no reward or penalty.",
   },
   // IFTTT-style automations
   automations: {
@@ -1805,7 +1804,6 @@ const no: typeof en = {
   holidaysHint: 'Helligdager behandles som helgedager — jobb-modus og varsler er av.',
   // Habits
   habits: {
-    streakLabel: 'dagers streak',
     notYetToday: 'Ikke ennå i dag',
     // --- W-D additions ---
     doneToday: 'Fullført i dag',
@@ -1814,7 +1812,7 @@ const no: typeof en = {
     // --- end W-D additions ---
     restDay: 'Hviledag',
     restingToday: 'Hviler i dag',
-    restDayHint: 'Hvile bevarer streaken din — ingen innhenting nødvendig.',
+    restDayHint: 'Du hviler i dag — energien for denne vanen står stille, verken belønning eller straff.',
   },
   automations: {
     title: 'Automatiseringer',
