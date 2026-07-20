@@ -1632,7 +1632,7 @@ const no: typeof en = {
   fromMealsSection: 'Fra middagene dine',
   addOneToWeekly: '+ Legg til',
   weeklyTabLabel: 'Ukelister',
-  monthlyTabLabel: 'Månedsliste',
+  monthlyTabLabel: 'Måned',
   // --- Katalog/Ukeliste redesign ---
   inWeeklyListSection: 'Handleliste',
   purchasedThisMonthSection: 'Kjøpt denne måneden',

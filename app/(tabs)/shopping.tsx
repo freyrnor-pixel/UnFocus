@@ -1388,13 +1388,19 @@ const styles = StyleSheet.create({
   // Edge-to-edge frosted strip (Surface overlay) — square corners, no floating-card rounding.
   stickyGlass: { borderRadius: 0 },
   tabsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  // flexGrow without a pinned flexBasis (2026-07-20: was `flex: 1`, i.e. flexBasis:0 — an equal
+  // 4-way split regardless of label length, which clipped the longer Norwegian "Månedsliste" to
+  // "Månedsli…"). flexBasis defaults to each box's own content width (label + padding), so a
+  // longer label gets a wider box; flexGrow still divides any leftover row width across all four.
   tab: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44,
     gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
     borderRadius: Radius.sm,
   },
   // Bumped from Type.label.size (14) — read as too small once the tab got a visible
