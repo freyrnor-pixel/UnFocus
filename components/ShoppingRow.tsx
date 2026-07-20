@@ -12,8 +12,8 @@
  * Connections:
  *   Imports → components/Badge, components/FlightOverlay (FlightRect type only), components/InventoryIcon,
  *             components/PressableScale, constants/theme, constants/motion (Duration/Ease tokens),
- *             lib/date, lib/haptics, lib/i18n, lib/useAppTheme,
- *             react-native-gesture-handler, react-native-reanimated,
+ *             lib/date, lib/haptics, lib/i18n, lib/shoppingCategories (categoryLabel),
+ *             lib/useAppTheme, react-native-gesture-handler, react-native-reanimated,
  *             store/useShoppingStore (ShoppingItem type + recentlyAddedIds, see Decision 044b note)
  *   Used by → components/WeekListCard.tsx, app/(tabs)/shopping.tsx (weekly rows +
  *             purchased-history rows), components/HomeShoppingCard.tsx (Home shopping
@@ -116,6 +116,11 @@
  *     scope. The ref for measuring must live on the outer `styles.wrap` Animated.View, NOT
  *     the `GestureDetector`-wrapped `styles.row` one below it — GestureDetector clones its
  *     child and would silently overwrite a ref placed there.
+ *   - **Category tag (2026-07-20 shopping-cleanup pass):** line 2 shows a small bordered
+ *     `categoryLabel(t, item.category)` tag when the item has a non-'other' category set —
+ *     a visual grouping cue only, reading straight off `item.category`. Deliberately does NOT
+ *     resort/regroup this list's rows (would fight WeekListCard's drag-reorder); Monthly's
+ *     ungrouped rows get an actual category-cluster resort instead, in shopping.tsx.
  */
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -138,6 +143,7 @@ import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
+import { categoryLabel } from '@/lib/shoppingCategories';
 import { selection, heavy } from '@/lib/haptics';
 import InventoryIcon from '@/components/InventoryIcon';
 import { Badge } from '@/components/Badge';
@@ -380,6 +386,15 @@ function ShoppingRow({
                 {item.amount}{item.unit ? ` ${item.unit}` : ''}
               </Text>
 
+              {/* Category tag — a visual grouping cue only, never a resort/regroup, so it
+                  never fights this list's own drag-reorder. Hidden for the default/unset
+                  'other' category to stay quiet for anyone who never picks one. */}
+              {item.category && item.category !== 'other' && (
+                <Text style={[styles.categoryTag, { color: theme.textMuted, borderColor: theme.border }]} numberOfLines={1}>
+                  {categoryLabel(t, item.category)}
+                </Text>
+              )}
+
               {showStepper && (
                 <View style={styles.stepper}>
                   <PressableScale
@@ -468,6 +483,7 @@ const baseStyles = StyleSheet.create({
   priceTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   line2: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Spacing.sm, marginTop: 2 },
   meta: { fontSize: FontSize.xs },
+  categoryTag: { fontSize: FontSize.xs, borderWidth: 1, borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   stepBtn: {
     width: 20,

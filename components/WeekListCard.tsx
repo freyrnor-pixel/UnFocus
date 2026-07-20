@@ -2,28 +2,42 @@
  * WeekListCard.tsx — one per-list container per weekly ShoppingList row.
  *
  * Simplified layout (2026-07-06 redesign): three clean sections — In list
- * (all unchecked items, ungrouped and dish-grouped flattened together, plus an
- * always-visible inline add row when unlocked), In cart (all checked items),
+ * (all unchecked items, ungrouped and dish-grouped flattened together, plus a shared
+ * components/InlineAddItem add row when unlocked), In cart (all checked items),
  * Purchased (completed trip items for this list, collapsed). An optional
  * From-monthly-list panel appears inline inside the In list section, in place
- * of the "Legg til fra månedsliste" trigger button, when the user opens the
- * monthly add panel — it closes back to the trigger when they tap the Save
+ * of the "more ways to add" link (see 2026-07-20 note below), when the user opens the
+ * monthly add panel — it closes back to the link when they tap the Save
  * additions / Undo additions footer buttons. Each section shows a price total
  * footer. Dish groups are no longer rendered as nested ExpandableCards; all
  * items are flat rows.
  *
  * Connections:
- *   Imports → components/ExpandableCard, components/FlightOverlay (FlightRect type only), components/IconButton,
- *             components/Surface, components/ShoppingRow (CHECKED_OPACITY), constants/theme,
- *             lib/i18n, lib/money (formatKr), lib/shoppingGroups (listProgress, listTotal),
- *             lib/useAppTheme, lib/haptics, lib/domainColor,
- *             store/useCatalogStore (StoreItem, suggest),
+ *   Imports → components/AppModal (showAppModal), components/ExpandableCard,
+ *             components/FlightOverlay (FlightRect type only), components/IconButton,
+ *             components/InlineAddItem, components/Surface, components/ShoppingRow
+ *             (CHECKED_OPACITY), constants/theme, lib/i18n, lib/money (formatKr),
+ *             lib/shoppingCategories (categoryPresets), lib/shoppingGroups (listProgress,
+ *             listTotal), lib/useAppTheme, lib/haptics, lib/domainColor,
  *             store/useShoppingListStore (ShoppingList type), store/useShoppingStore
  *             (ShoppingItem type)
  *   Used by → app/shopping.tsx
  *   Data    → none directly — every item/group/callback is owned by the parent
  *
  * Edit notes:
+ *   - **2026-07-20 shopping-cleanup pass**: replaced the previous hand-rolled inline add row
+ *     (own TextInput + catalog-search dropdown + qty stepper, duplicating InlineAddItem) with
+ *     the shared `components/InlineAddItem` — same form Monthly and inventory-edit use, so
+ *     Weekly no longer maintains a second, differently-styled add form. Also replaced the
+ *     3-icon header row (bookmark/settings/trash) with one kebab (`ellipsis-vertical`) opening
+ *     a `showAppModal` chooser (`openListOptions`), and merged the always-visible "Add from
+ *     monthly list" pill into a quiet "more ways to add" text link (`openAddChooser`) whose
+ *     `showAppModal` chooser offers "From monthly list" (opens the existing in-place panel,
+ *     unchanged) and "From a dish" (calls the new `onOpenDishSheet` prop up to shopping.tsx,
+ *     which opens the shared `AddDishSheet` targeted at this list's id — lands ingredients
+ *     directly in this list, skipping the Unallocated bucket entirely). Net: the primary "+"
+ *     add bar still expands directly (zero extra taps for the common case); only the two
+ *     less-common paths sit behind the chooser.
  *   - 2026-07-06 redesign: removed AddDivider + lock icon. Replaced with inline add row
  *     (TextInput + catalog search dropdown + qty controls + price total, visible only
  *     when unlocked) and a mode-toggle pill button ("Shopping" locked / "Planning" unlocked).
@@ -65,21 +79,23 @@
  *     component. This component owns no flight state, same as every other mutation
  *     callback here.
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
-import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
-import { Fonts, FontSize, Radius, Spacing, Type, contrastOn } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { listProgress } from '@/lib/shoppingGroups';
 import { formatKr } from '@/lib/money';
+import { categoryPresets } from '@/lib/shoppingCategories';
 import Surface from '@/components/Surface';
 import IconButton from '@/components/IconButton';
 import ExpandableCard from '@/components/ExpandableCard';
 import PressableScale from '@/components/PressableScale';
 import ShoppingRow, { CHECKED_OPACITY } from '@/components/ShoppingRow';
+import InlineAddItem from '@/components/InlineAddItem';
+import { showAppModal } from '@/components/AppModal';
 import type { FlightRect } from '@/components/FlightOverlay';
 import { getDomainColor } from '@/lib/domainColor';
 import { Ionicons } from '@expo/vector-icons';
@@ -103,7 +119,7 @@ type Props = {
   onIncrementItem: (item: ShoppingItem) => void;
   onDecrementItem: (item: ShoppingItem) => void;
   /** Inline add row submission — called when the user confirms adding a new item. */
-  onAddInlineItem: (input: { name: string; price: number; qty: number }) => void;
+  onAddInlineItem: (input: { name: string; price: number; qty: number; category?: string }) => void;
   /** Decrement a cart item — at qty=1 moves it back to "In list"; at qty>1 splits one unit back. */
   onDecrementCartItem: (item: ShoppingItem) => void;
   /** The curated monthly-list items (status 'catalog') shown in the "add from monthly" panel. */
@@ -111,6 +127,8 @@ type Props = {
   /** Move a monthly-list item into this week list (parent → addToWeeklyFromCatalog). */
   onAddMonthlyToWeek: (item: ShoppingItem) => void;
   onDoneShopping: () => void;
+  /** Opens the shared AddDishSheet targeted at this list (parent sets dishSheetTarget). */
+  onOpenDishSheet: () => void;
   /** Renders one reorderable "In list" ungrouped row — parent wraps it in DraggableTaskRow. */
   renderReorderableRow: (item: ShoppingItem, index: number, total: number) => React.ReactNode;
   /** Hands the "In cart" section header's native node up so the screen can measureInWindow()
@@ -147,6 +165,7 @@ export default function WeekListCard({
   monthlyItems,
   onAddMonthlyToWeek,
   onDoneShopping,
+  onOpenDishSheet,
   renderReorderableRow,
   registerCartHeaderNode,
   onFlightStart,
@@ -159,21 +178,6 @@ export default function WeekListCard({
   const [monthlyPreviewOpen, setMonthlyPreviewOpen] = useState(false);
   const [monthlySearch, setMonthlySearch] = useState('');
   const [monthlySessionAdds, setMonthlySessionAdds] = useState<string[]>([]);
-
-  // Inline add row state
-  // Collapsed by default: the weekly add row shows a "+ <placeholder>" bar (matching
-  // components/AddRow) and only expands into the input + qty + confirm when tapped.
-  const [addExpanded, setAddExpanded] = useState(false);
-  const [addName, setAddName] = useState('');
-  const [addQty, setAddQty] = useState(1);
-  const [addPrice, setAddPrice] = useState(0);
-  const addInputRef = useRef<TextInput>(null);
-
-  const suggest = useCatalogStore((s) => s.suggest);
-  const addSearchResults = useMemo(
-    () => (addName.trim().length >= 1 ? suggest(addName.trim(), 5) : []),
-    [addName, suggest]
-  );
 
   useEffect(() => {
     setNameInput(list.name);
@@ -193,31 +197,26 @@ export default function WeekListCard({
     else if (!trimmed) setNameInput(list.name); // don't leave the box empty
   }
 
-  function handleSelectSuggestion(result: StoreItem) {
-    setAddName(result.name);
-    setAddPrice(result.price);
+  // Kebab menu (Saved lists / List settings / Delete) — replaces 3 separately-visible
+  // IconButtons with one entry point, reusing the app's existing showAppModal chooser.
+  function openListOptions() {
+    showAppModal(list.name, undefined, [
+      { text: t.savedListsButtonLabel, onPress: onOpenSavedLists },
+      { text: t.listSettingsButtonLabel, onPress: onOpenListSettings },
+      { text: t.deleteListButtonLabel, style: 'destructive', onPress: onDelete },
+      { text: t.cancel, style: 'cancel' },
+    ]);
   }
 
-  function handleSubmitAddRow() {
-    const name = addName.trim();
-    if (!name) return;
-    onAddInlineItem({ name, price: addPrice, qty: addQty });
-    setAddName('');
-    setAddQty(1);
-    setAddPrice(0);
-    setAddExpanded(false); // discrete: back to the "+" bar after each save
-  }
-
-  function expandAddRow() {
-    setAddExpanded(true);
-    requestAnimationFrame(() => addInputRef.current?.focus());
-  }
-
-  function discardAddRow() {
-    setAddName('');
-    setAddQty(1);
-    setAddPrice(0);
-    setAddExpanded(false);
+  // "More ways to add" chooser — reached via a quiet text link below the primary add bar,
+  // so the two less-common add paths (from monthly, from a dish) don't compete visually
+  // with the main "+ Add item" affordance for attention.
+  function openAddChooser() {
+    showAppModal(t.addMoreWaysTitle, undefined, [
+      { text: t.addFromMonthlyOption, onPress: () => setMonthlyPreviewOpen(true) },
+      { text: t.addFromDishOption, onPress: onOpenDishSheet },
+      { text: t.cancel, style: 'cancel' },
+    ]);
   }
 
   // Flatten dish-grouped items into the appropriate section buckets.
@@ -322,9 +321,7 @@ export default function WeekListCard({
                 {list.locked ? t.shoppingModeBtn : t.planningModeBtn}
               </Text>
             </PressableScale>
-            <IconButton icon="bookmark-outline" label={t.savedListsButtonLabel} onPress={onOpenSavedLists} size={30} />
-            <IconButton icon="options-outline" label={t.listSettingsButtonLabel} onPress={onOpenListSettings} size={30} />
-            <IconButton icon="trash-outline" label={t.deleteListButtonLabel} onPress={onDelete} size={30} color={theme.bad} />
+            <IconButton icon="ellipsis-vertical" label={t.listOptionsButtonLabel} onPress={openListOptions} size={30} />
           </View>
         </View>
 
@@ -356,171 +353,62 @@ export default function WeekListCard({
               </View>
             )}
 
-            <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.good }]}>
-              {ungroupedUnchecked.map((item, idx) => (
-                <View key={item.id}>
-                  {renderReorderableRow(item, idx, ungroupedUnchecked.length)}
-                  {(idx < ungroupedUnchecked.length - 1 || dishUnchecked.length > 0 || !list.locked) && (
-                    <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                  )}
-                </View>
-              ))}
-              {dishUnchecked.map((item, idx) => (
-                <View key={item.id}>
-                  <ShoppingRow
-                    item={item}
-                    variant="planned"
-                    onToggle={() => onToggleItem(item)}
-                    onRemove={() => onRemoveItem(item)}
-                    onIncrement={() => onIncrementItem(item)}
-                    onDecrement={() => onDecrementItem(item)}
-                    inStockLabel={t.inStockLabel}
-                    locked={list.locked}
-                    onFlightStart={(rect) => onFlightStart?.(item, rect)}
-                  />
-                  {(idx < dishUnchecked.length - 1 || !list.locked) && (
-                    <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                  )}
-                </View>
-              ))}
-
-              {/* Inline add row — only shown when unlocked (planning mode).
-                  Collapsed to a "+ <placeholder>" bar (matching components/AddRow); tapping it
-                  expands into the input + qty stepper + Save/Discard controls. */}
-              {!list.locked && !addExpanded && (
-                <PressableScale
-                  style={styles.inlineAddBar}
-                  onPress={expandAddRow}
-                  scaleTo={0.97}
-                  accessibilityRole="button"
-                  accessibilityLabel={t.addItemInputPlaceholder}
-                >
-                  <View style={[styles.inlineAddBarChip, { backgroundColor: theme.good }]}>
-                    <Ionicons name="add" size={16} color={contrastOn(theme.good)} />
+            {(ungroupedUnchecked.length > 0 || dishUnchecked.length > 0) && (
+              <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.good }]}>
+                {ungroupedUnchecked.map((item, idx) => (
+                  <View key={item.id}>
+                    {renderReorderableRow(item, idx, ungroupedUnchecked.length)}
+                    {(idx < ungroupedUnchecked.length - 1 || dishUnchecked.length > 0) && (
+                      <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+                    )}
                   </View>
-                  <Text style={[styles.inlineAddBarLabel, { color: theme.textMuted }]} numberOfLines={1}>
-                    {t.addItemInputPlaceholder}
-                  </Text>
-                </PressableScale>
-              )}
-              {!list.locked && addExpanded && (
-                <View>
-                  {/* Two-line add control: search on its own line, then the
-                      qty stepper + confirm button — de-crammed so it reads as a
-                      tidy group instead of five controls jammed on one row. */}
-                  <View style={styles.inlineAddRow}>
-                    <TextInput
-                      ref={addInputRef}
-                      style={[styles.inlineAddInput, { color: theme.text }]}
-                      value={addName}
-                      onChangeText={(v) => {
-                        setAddName(v);
-                        if (!v.trim()) setAddPrice(0);
-                      }}
-                      placeholder={t.addItemInputPlaceholder}
-                      placeholderTextColor={theme.textMuted}
-                      returnKeyType="done"
-                      onSubmitEditing={handleSubmitAddRow}
-                      onBlur={() => { if (!addName.trim()) setAddExpanded(false); }}
+                ))}
+                {dishUnchecked.map((item, idx) => (
+                  <View key={item.id}>
+                    <ShoppingRow
+                      item={item}
+                      variant="planned"
+                      onToggle={() => onToggleItem(item)}
+                      onRemove={() => onRemoveItem(item)}
+                      onIncrement={() => onIncrementItem(item)}
+                      onDecrement={() => onDecrementItem(item)}
+                      inStockLabel={t.inStockLabel}
+                      locked={list.locked}
+                      onFlightStart={(rect) => onFlightStart?.(item, rect)}
                     />
-                    <View style={styles.inlineAddControls}>
-                      <View style={styles.inlineQtyGroup}>
-                        <PressableScale
-                          style={[styles.inlineQtyBtn, { backgroundColor: theme.surfaceMuted }]}
-                          onPress={() => setAddQty((q) => Math.max(1, q - 1))}
-                          hitSlop={6}
-                          scaleTo={0.9}
-                        >
-                          <Text style={[styles.inlineQtyBtnText, { color: theme.text }]}>−</Text>
-                        </PressableScale>
-                        <Text style={[styles.inlineQtyVal, { color: theme.text }]}>{addQty}</Text>
-                        <PressableScale
-                          style={[styles.inlineQtyBtn, { backgroundColor: theme.surfaceMuted }]}
-                          onPress={() => setAddQty((q) => q + 1)}
-                          hitSlop={6}
-                          scaleTo={0.9}
-                        >
-                          <Text style={[styles.inlineQtyBtnText, { color: theme.text }]}>+</Text>
-                        </PressableScale>
-                      </View>
-                      <View style={styles.inlineAddConfirmGroup}>
-                        {addPrice > 0 && (
-                          <Text style={[styles.inlineLineTotal, { color: theme.textMuted }]}>
-                            {formatKr(addPrice * addQty, 0)}
-                          </Text>
-                        )}
-                        <PressableScale
-                          style={styles.inlineDiscardBtn}
-                          onPress={discardAddRow}
-                          hitSlop={4}
-                          scaleTo={0.9}
-                          accessibilityRole="button"
-                          accessibilityLabel={t.a11yDiscardRow}
-                        >
-                          <Ionicons name="close" size={18} color={theme.textMuted} />
-                        </PressableScale>
-                        <PressableScale
-                          style={[
-                            styles.inlineAddConfirmBtn,
-                            { backgroundColor: addName.trim() ? theme.good : theme.surfaceMuted },
-                          ]}
-                          onPress={handleSubmitAddRow}
-                          disabled={!addName.trim()}
-                          hitSlop={4}
-                          scaleTo={0.95}
-                        >
-                          <Text
-                            style={[
-                              styles.inlineAddConfirmText,
-                              { color: addName.trim() ? theme.textInverse : theme.textMuted },
-                            ]}
-                          >
-                            {t.a11yAdd}
-                          </Text>
-                        </PressableScale>
-                      </View>
-                    </View>
+                    {idx < dishUnchecked.length - 1 && (
+                      <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+                    )}
                   </View>
+                ))}
+              </View>
+            )}
 
-                  {/* Catalog search results */}
-                  {addSearchResults.length > 0 && (
-                    <View style={[styles.addSearchDropdown, { backgroundColor: theme.surfaceMuted }]}>
-                      {addSearchResults.map((result, idx) => (
-                        <View key={result.id}>
-                          <PressableScale
-                            style={styles.addSearchRow}
-                            onPress={() => handleSelectSuggestion(result)}
-                            scaleTo={0.97}
-                          >
-                            <Text style={[styles.addSearchName, { color: theme.text }]} numberOfLines={1}>
-                              {result.name}
-                            </Text>
-                            {result.price > 0 && (
-                              <Text style={[styles.addSearchPrice, { color: theme.textMuted }]}>
-                                {formatKr(result.price, 0)}
-                              </Text>
-                            )}
-                          </PressableScale>
-                          {idx < addSearchResults.length - 1 && (
-                            <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                          )}
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              )}
-            </View>
+            {/* Inline add row — only shown when unlocked (planning mode), as its own
+                element below the rows list (matching how the Monthly tab places its
+                InlineAddItem, rather than nested inside the bordered rows box). Shared
+                components/InlineAddItem (same "+ makes a new row" idiom as the Monthly tab
+                and inventory-edit) replaces the previous hand-rolled add row so Weekly and
+                Monthly no longer maintain two differently-styled add forms. */}
+            {!list.locked && (
+              <InlineAddItem
+                label={t.addItemInputPlaceholder}
+                accent={theme.good}
+                showTemporaryToggle={false}
+                categories={categoryPresets(t)}
+                onAdd={({ name, price, targetQuantity, category }) =>
+                  onAddInlineItem({ name, price, qty: targetQuantity, category })
+                }
+              />
+            )}
 
-            {/* Add from monthly list trigger — always visible in planning mode */}
+            {/* Quiet secondary link — the two less-common add paths (from monthly, from a
+                dish) sit behind one chooser instead of two permanently-visible pill buttons
+                competing with the primary add bar above. */}
             {!list.locked && !monthlyPreviewOpen && (
-              <PressableScale
-                style={[styles.monthlyTrigger, { borderColor: theme.good }]}
-                onPress={() => setMonthlyPreviewOpen(true)}
-                scaleTo={0.97}
-              >
-                <Ionicons name="calendar-outline" size={16} color={theme.good} />
-                <Text style={[styles.monthlyTriggerText, { color: theme.good }]}>{t.addFromMonthlyBtn}</Text>
+              <PressableScale style={styles.addMoreLink} onPress={openAddChooser} scaleTo={0.97}>
+                <Ionicons name="ellipsis-horizontal" size={14} color={theme.textMuted} />
+                <Text style={[styles.addMoreLinkText, { color: theme.textMuted }]}>{t.addMoreWaysLink}</Text>
               </PressableScale>
             )}
 
@@ -759,89 +647,17 @@ const baseStyles = StyleSheet.create({
   sectionTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, textAlign: 'right', paddingTop: Spacing.xs },
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, borderLeftWidth: 3 },
   rowDivider: { height: 1 },
-  // Inline add row — a two-line group: search on top, controls below
-  // Collapsed add bar — "+ <placeholder>" (mirrors components/AddRow's collapsed state).
-  inlineAddBar: {
+  // Quiet secondary "more ways to add" link — deliberately subordinate to InlineAddItem's
+  // own pill-shaped "+" bar (no border/fill of its own) so it doesn't compete for attention.
+  addMoreLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    minHeight: 40,
-  },
-  inlineAddBarChip: {
-    width: 24,
-    height: 24,
-    borderRadius: Radius.full,
-    alignItems: 'center',
     justifyContent: 'center',
-  },
-  inlineAddBarLabel: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.regular },
-  inlineDiscardBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inlineAddRow: {
     gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-  },
-  inlineAddInput: {
-    fontSize: FontSize.sm,
-    fontFamily: Fonts.regular,
     paddingVertical: Spacing.xs,
-    minHeight: 30,
+    minHeight: 32,
   },
-  inlineAddControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
-  inlineAddConfirmGroup: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  inlineQtyGroup: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  inlineQtyBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: Radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inlineQtyBtnText: { fontSize: FontSize.md, fontFamily: Fonts.bold, lineHeight: 20 },
-  inlineQtyVal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, minWidth: 20, textAlign: 'center' },
-  inlineLineTotal: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, minWidth: 40, textAlign: 'right' },
-  // Visual-audit 2026-07-11: was an icon-only "+" circle — a plain-text "Add" pill
-  // reads less ambiguously (the "+" alone was easy to mistake for something else,
-  // since the row already has its own qty-stepper "+"/"−" buttons right next to it).
-  inlineAddConfirmBtn: {
-    minHeight: 40,
-    paddingHorizontal: Spacing.md,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inlineAddConfirmText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
-  addSearchDropdown: {
-    borderRadius: Radius.sm,
-    marginTop: Spacing.xs,
-    overflow: 'hidden',
-  },
-  addSearchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.sm,
-    gap: Spacing.sm,
-  },
-  addSearchName: { flex: 1, fontSize: FontSize.sm },
-  addSearchPrice: { fontSize: FontSize.xs },
-  // Monthly panel section styles
-  monthlyTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.xs,
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
-    minHeight: 44,
-  },
-  monthlyTriggerText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
+  addMoreLinkText: { fontFamily: Type.label.fontFamily, fontSize: FontSize.xs },
   monthlyPanel: { gap: Spacing.xs },
   monthlySearch: {
     borderRadius: Radius.sm,

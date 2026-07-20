@@ -1,8 +1,9 @@
 /**
- * shoppingGroups.ts — dish-grouping helpers for shopping items.
+ * shoppingGroups.ts — dish- and category-grouping helpers for shopping items.
  *
  * Pure functions shared by every screen that needs to bucket ShoppingItem rows by
- * their optional dishName (the "From meals" grouping Week lists and Monthly both use).
+ * their optional dishName (the "From meals" grouping Week lists and Monthly both use) or
+ * by category (Monthly's category-cluster dividers).
  *
  * Connections:
  *   Imports → store/useShoppingStore (ShoppingItem type)
@@ -11,6 +12,9 @@
  *   Data    → none — pure functions over arrays passed in by the caller
  *
  * Edit notes:
+ *   - groupByCategory() is Monthly-only — Weekly's "In list" rows keep their user-dragged
+ *     orderIndex order and only get a per-row category tag, not a resort/regroup, so a manual
+ *     drag never gets undone by a category re-cluster.
  *   - Not memoized — same cost as the inline filters this was extracted from; callers
  *     that render every frame should wrap calls in their own useMemo.
  *   - groupByDish() is also used standalone by the Monthly tab (no listId/status notion
@@ -71,6 +75,23 @@ export function computeListGroups(items: ShoppingItem[], listId: string) {
  *  own ShoppingItem[] (see R4). */
 export function dishGroupAllChecked(items: ShoppingItem[]): boolean {
   return items.length > 0 && items.every((i) => i.checked);
+}
+
+/** Buckets items by their category field (default 'other' for blank/undefined), sorted by
+ *  category then name — used for the Monthly tab's quiet category-cluster dividers. Not used
+ *  for Weekly's "In list" rows, which stay in their user-dragged orderIndex order instead. */
+export function groupByCategory(items: ShoppingItem[]): [string, ShoppingItem[]][] {
+  const map = new Map<string, ShoppingItem[]>();
+  for (const item of items) {
+    const key = item.category?.trim() || 'other';
+    const group = map.get(key);
+    if (group) group.push(item);
+    else map.set(key, [item]);
+  }
+  for (const group of map.values()) {
+    group.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 }
 
 /** One shared remaining/in-cart/percent calculation for a list — see header note.
