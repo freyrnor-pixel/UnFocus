@@ -58,7 +58,9 @@ values already proven in the app — reuse them instead of inventing new ones:
 
 ```ts
 // Snappy — button press-release (components/PressableScale.tsx)
-withSpring(1, { damping: 18, stiffness: 320 });
+// damping 26 (not 18) — enough to avoid a multi-cycle "bobbing" overshoot on release,
+// while keeping the settle quick and tactile.
+withSpring(1, { damping: 26, stiffness: 320 });
 ```
 
 The habit-card pulse in `app/habits.tsx` still uses the legacy `Animated` API with
