@@ -177,12 +177,13 @@ export const MAX_FONT_SCALE = 1.4;
  * SP conversion, which is why the web preview could never reproduce the clip.)
  */
 export const HEADER_TITLE_LINE_RATIO = 1.45; // headroom over Nunito Bold's ~1.36 natural ratio
-// Header prominence pass (2026-07-20): the title reads a size above the general-purpose
-// `FontSize.xxl` (28) it used to share with onboarding headings — a screen title is the
-// single most important label on the bar and was getting lost at body-heading size. Kept as
-// its own token (not a bump to FontSize.xxl itself) since that scale is reused by unrelated
-// onboarding screens this pass isn't meant to touch.
-export const HEADER_TITLE_BASE_SIZE = 32;
+// Header prominence pass (2026-07-20): kept as its own token (not a bump to FontSize.xxl
+// itself) since that scale is reused by unrelated onboarding screens this pass isn't meant
+// to touch. Same-day follow-up dialed the size back to 28 (matching the old FontSize.xxl
+// this token was split from) after the initial 32 + uppercase + centering fix together read
+// as too large — the uppercase casing and the row's centering (paddingVertical: Spacing.md
+// in ScreenHeader.tsx, which must stay put — see that file's comment) are kept.
+export const HEADER_TITLE_BASE_SIZE = 28;
 export function getHeaderMetrics(rawFontScale: number) {
   const fontScale = Math.min(rawFontScale, MAX_FONT_SCALE);
   // The OS text-size scale is applied HERE, once — the title Text opts out of RN's own

@@ -37,13 +37,18 @@
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/liveSync, lib/syncService, store/useSettingsStore
  *   Used by → app/inventory-edit.tsx, app/shopping.tsx, components/ShoppingQuickAddSheet.tsx,
- *             components/AddItemSheet.tsx (type), components/AddDishToMonthlySheet.tsx (add), components/UpdateSheet.tsx (type),
+ *             components/AddItemSheet.tsx (type), components/AddDishSheet.tsx (add), components/UpdateSheet.tsx (type),
  *             components/MonthlyTableRow.tsx (type), components/ShoppingRow.tsx (type), components/WeekListCard.tsx (type),
  *             components/SharedRequestsSection.tsx (add), components/MonthlyResetSummaryModal.tsx (MonthlyResetSummary),
  *             lib/shoppingGroups.ts (type); app/shopping.tsx hydrates via load() in its on-focus effect (Phase 5 — no global bootstrap yet)
  *   Data    → defines a Zustand store; owns SQLite tables shopping_items + shopping_trips
  *
  * Edit notes:
+ *   - **Category threading (2026-07-20 shopping-cleanup pass)**: `ShoppingItemInput.category`
+ *     is optional — `add()` previously always hardcoded `category: 'other'`, ignoring any
+ *     caller-supplied value; it now uses `item.category ?? 'other'`. Callers are the two
+ *     `InlineAddItem` add forms in app/(tabs)/shopping.tsx (Weekly + Monthly), which surface
+ *     the previously invisible category field as an optional chip picker.
  *   - **LAN live-sync wiring (Decision 038, app integration) — WIRED, narrow scope.**
  *     `add`/`update` (the sole write path for toggleCheck/toggleCollected/adjustAmount/
  *     putBackToInventory/addToWeeklyFromCatalog/setPendingRestock — everything routes
@@ -163,6 +168,7 @@ export type ShoppingItemInput = {
   isTemporary?: boolean;
   targetQuantity?: number;
   dishName?: string;
+  category?: string;
 };
 
 export type ShoppingTrip = {
@@ -398,7 +404,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
       listType: (item.listType as 'weekly' | 'monthly') || 'weekly',
       store: item.store,
       price: item.price,
-      category: 'other',
+      category: item.category ?? 'other',
       monthlyAllocated: 0,
       monthlySourceId: undefined,
       inventoryQty: item.inventoryQty ?? 0,

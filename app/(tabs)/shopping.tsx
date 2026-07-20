@@ -14,8 +14,8 @@
  * reachable from app/(tabs)/scan.tsx, removed).
  *
  * Connections:
- *   Imports → components/InlineAddItem, components/AddDishToMonthlySheet, components/HintCard,
- *             components/AppModal (showAppModal),
+ *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
+ *             components/HintCard, components/AppModal (showAppModal),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
  *             components/ExpandableCard, components/FlightOverlay (FlightPill, Flight, FlightRect),
  *             components/IconButton,
@@ -28,7 +28,9 @@
  *             components/PressableScale, components/TabBoxHighlight, constants/theme,
  *             lib/date (todayStr, dateStr, getWeekRangeContaining), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
- *             computeListGroups, listProgress), lib/reorder (reorderByDrag), lib/useAppTheme,
+ *             groupByCategory, computeListGroups, listProgress),
+ *             lib/shoppingCategories (categoryPresets, categoryLabel),
+ *             lib/reorder (reorderByDrag), lib/useAppTheme,
  *             lib/useFirstVisitHint, lib/domainColor, lib/screenColor,
  *             store/useSettingsStore, store/useShoppingListStore,
  *             store/useShoppingStore (incl. UNALLOCATED_LIST_ID), @expo/vector-icons (Ionicons)
@@ -39,6 +41,19 @@
  *             startup by app/_layout.tsx). FoodTab additionally drives useMealStore.
  *
  * Edit notes:
+ *   - **Shopping-cleanup pass (2026-07-20)**: `addDishOpen` (boolean) became `dishSheetTarget`
+ *     (`AddDishTarget | null`, from components/AddDishSheet) so the one shared `<AddDishSheet>`
+ *     mount near the bottom of this file serves both Monthly's "Legg til rett" trigger
+ *     (`{mode:'monthly'}`) and any Weekly WeekListCard's new "From a dish" add-chooser option
+ *     (`{mode:'weekly', listId}`, via the `onOpenDishSheet` prop wired at the WeekListCard call
+ *     site) — a weekly target writes straight into that list, skipping the Unallocated bucket
+ *     entirely; the Food-tab → Unallocated → `handleAllocate` path is untouched and still works
+ *     for staging a dish before a dated list exists. Also added `ungroupedCategoryGroups`
+ *     (`groupByCategory` over Monthly's `ungroupedRestItems`) — only resorts into
+ *     quiet-captioned clusters when more than one category is actually present; the common
+ *     (nobody's categorised anything) case renders flat, unchanged. `handleAddItem` and the
+ *     Weekly `onAddInlineItem` callback both now thread an optional `category` through to
+ *     `add()`.
  *   - **Tab bar (2026-07-20, shared component)**: the 4-tab switcher's active indicator is
  *     `components/TabBoxHighlight.tsx` — always renders a bordered box behind the label
  *     (white `theme.surface` fill + `theme.border` edge at rest, crossfading to a tinted
@@ -182,7 +197,7 @@ import ShoppingRow from '@/components/ShoppingRow';
 import EmptyState from '@/components/EmptyState';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
 import InlineAddItem from '@/components/InlineAddItem';
-import AddDishToMonthlySheet from '@/components/AddDishToMonthlySheet';
+import AddDishSheet, { AddDishTarget } from '@/components/AddDishSheet';
 import UpdateSheet from '@/components/UpdateSheet';
 import MonthlyResetSummaryModal from '@/components/MonthlyResetSummaryModal';
 import MonthlyResetReviewSheet from '@/components/MonthlyResetReviewSheet';
@@ -211,7 +226,8 @@ import { todayStr, dateStr, getWeekRangeContaining } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
-import { groupByDish, computeListGroups, listProgress } from '@/lib/shoppingGroups';
+import { groupByDish, groupByCategory, computeListGroups, listProgress } from '@/lib/shoppingGroups';
+import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { reorderByDrag } from '@/lib/reorder';
 import { formatKr } from '@/lib/money';
 import { getDomainColor } from '@/lib/domainColor';
@@ -269,7 +285,9 @@ export default function ShoppingScreen() {
   // updates the setting, leaving it blank keeps the current value.
   const [monthlyDateInput, setMonthlyDateInput] = useState('');
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
-  const [addDishOpen, setAddDishOpen] = useState(false);
+  // Which target the shared AddDishSheet is pushing into — Monthly's own trigger, or a
+  // specific Weekly list's "From a dish" add-chooser option. null = sheet closed.
+  const [dishSheetTarget, setDishSheetTarget] = useState<AddDishTarget | null>(null);
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
   const [confirmUndo, setConfirmUndo] = useState<(() => void) | null>(null);
   /** Shows a toast; pass `undo` to add an inline "Undo" action (Decision 044a). */
@@ -419,6 +437,12 @@ export default function ShoppingScreen() {
     () => groupByDish(catalogItems),
     [catalogItems]
   );
+  // Category clusters for Monthly's ungrouped rows only — Weekly's own ungroupedUnchecked
+  // keeps its user-dragged orderIndex order instead (see lib/shoppingGroups.ts note).
+  const ungroupedCategoryGroups = useMemo(
+    () => groupByCategory(ungroupedRestItems),
+    [ungroupedRestItems]
+  );
 
   // Running total of the curated Monthly list (price × targetQuantity per row).
   const monthlyTotal = useMemo(
@@ -519,8 +543,8 @@ export default function ShoppingScreen() {
     ]);
   }
 
-  function handleAddItem(input: { name: string; price: number; targetQuantity: number; isTemporary: boolean }) {
-    add({ name: input.name, amount: '1', unit: '', listType: 'monthly', store: '', price: input.price, inventoryQty: 0, isTemporary: input.isTemporary, targetQuantity: input.targetQuantity, status: 'catalog' });
+  function handleAddItem(input: { name: string; price: number; targetQuantity: number; isTemporary: boolean; category?: string }) {
+    add({ name: input.name, amount: '1', unit: '', listType: 'monthly', store: '', price: input.price, inventoryQty: 0, isTemporary: input.isTemporary, targetQuantity: input.targetQuantity, status: 'catalog', category: input.category });
     success();
     setConfirm(t.itemAddedToInventory(input.name));
   }
@@ -993,22 +1017,51 @@ export default function ShoppingScreen() {
                       </View>
                     )}
                     {ungroupedRestItems.length > 0 && (
-                      <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                        {ungroupedRestItems.map((item, idx) => (
-                          <View key={item.id}>
-                            <MonthlyTableRow
-                              item={item}
-                              onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
-                              onPress={!catalogLocked ? () => setUpdateItem(item) : undefined}
-                              onIncrement={!catalogLocked ? () => handleMonthlyQty(item, 1) : undefined}
-                              onDecrement={!catalogLocked ? () => handleMonthlyQty(item, -1) : undefined}
-                              onRemove={!catalogLocked ? () => removeWithSource(item.id) : undefined}
-                              temporaryLabel={t.temporaryBadge}
-                            />
-                            {idx < ungroupedRestItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+                      // More than one category present → cluster with a quiet caption divider
+                      // per category; otherwise (the common case — nobody's categorised
+                      // anything yet) render flat, same as before, with no extra chrome.
+                      ungroupedCategoryGroups.length > 1 ? (
+                        ungroupedCategoryGroups.map(([catKey, catItems]) => (
+                          <View key={catKey}>
+                            <Text style={[styles.categoryClusterLabel, { color: theme.textMuted }]}>
+                              {categoryLabel(t, catKey)}
+                            </Text>
+                            <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                              {catItems.map((item, idx) => (
+                                <View key={item.id}>
+                                  <MonthlyTableRow
+                                    item={item}
+                                    onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
+                                    onPress={!catalogLocked ? () => setUpdateItem(item) : undefined}
+                                    onIncrement={!catalogLocked ? () => handleMonthlyQty(item, 1) : undefined}
+                                    onDecrement={!catalogLocked ? () => handleMonthlyQty(item, -1) : undefined}
+                                    onRemove={!catalogLocked ? () => removeWithSource(item.id) : undefined}
+                                    temporaryLabel={t.temporaryBadge}
+                                  />
+                                  {idx < catItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+                                </View>
+                              ))}
+                            </View>
                           </View>
-                        ))}
-                      </View>
+                        ))
+                      ) : (
+                        <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                          {ungroupedRestItems.map((item, idx) => (
+                            <View key={item.id}>
+                              <MonthlyTableRow
+                                item={item}
+                                onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
+                                onPress={!catalogLocked ? () => setUpdateItem(item) : undefined}
+                                onIncrement={!catalogLocked ? () => handleMonthlyQty(item, 1) : undefined}
+                                onDecrement={!catalogLocked ? () => handleMonthlyQty(item, -1) : undefined}
+                                onRemove={!catalogLocked ? () => removeWithSource(item.id) : undefined}
+                                temporaryLabel={t.temporaryBadge}
+                              />
+                              {idx < ungroupedRestItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+                            </View>
+                          ))}
+                        </View>
+                      )
                     )}
                     {monthlyTotal > 0 && (
                       <Text style={[styles.totalLine, { color: theme.text }]}>{t.monthlyListTotal(formatKr(monthlyTotal, 0))}</Text>
@@ -1032,6 +1085,7 @@ export default function ShoppingScreen() {
                     <InlineAddItem
                       label={t.catalogueAddNewBtn}
                       onAdd={handleAddItem}
+                      categories={categoryPresets(t)}
                       style={styles.addItemSpacing}
                     />
                     {/* Add a whole dish (its ingredients) to the Monthly list in place — the
@@ -1039,7 +1093,7 @@ export default function ShoppingScreen() {
                         be planned for the month without leaving this tab. */}
                     <PressableScale
                       style={[styles.addTrigger, styles.addItemSpacing, { borderColor: theme.accent }]}
-                      onPress={() => setAddDishOpen(true)}
+                      onPress={() => setDishSheetTarget({ mode: 'monthly' })}
                       accessibilityRole="button"
                       accessibilityLabel={t.addDishBtn}
                       scaleTo={0.97}
@@ -1196,6 +1250,7 @@ export default function ShoppingScreen() {
                       targetQuantity: input.qty,
                       status: 'inWeeklyList',
                       listId: list.id,
+                      category: input.category,
                     });
                     success();
                     setConfirm(t.itemAddedToList(input.name));
@@ -1207,6 +1262,7 @@ export default function ShoppingScreen() {
                     setConfirm(t.itemAddedToList(item.name));
                   }}
                   onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
+                  onOpenDishSheet={() => setDishSheetTarget({ mode: 'weekly', listId: list.id })}
                   registerCartHeaderNode={(node) => handleRegisterCartHeaderNode(list.id, node)}
                   onFlightStart={(item, rect) => handleFlightStart(list.id, item, rect)}
                   renderReorderableRow={(item) => (
@@ -1279,10 +1335,13 @@ export default function ShoppingScreen() {
       </DebugNoteAnchor>
       )}
 
-      <AddDishToMonthlySheet
-        visible={addDishOpen}
-        onClose={() => setAddDishOpen(false)}
-        onAdded={(dishName) => setConfirm(t.dishAddedToMonthly(dishName))}
+      <AddDishSheet
+        visible={dishSheetTarget !== null}
+        onClose={() => setDishSheetTarget(null)}
+        onAdded={(dishName) =>
+          setConfirm(dishSheetTarget?.mode === 'weekly' ? t.dishAddedToWeek(dishName) : t.dishAddedToMonthly(dishName))
+        }
+        target={dishSheetTarget ?? { mode: 'monthly' }}
       />
 
       <UpdateSheet visible={updateItem !== null} item={updateItem} onClose={() => setUpdateItem(null)} onSave={handleUpdateSave} onDelete={handleUpdateDelete} />
@@ -1492,6 +1551,16 @@ const styles = StyleSheet.create({
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md },
   rowDivider: { height: 1 },
   section: { gap: Spacing.sm },
+  // Quiet category-cluster caption (Monthly's ungrouped rows only) — lighter-weight than
+  // sectionHeaderRow's bordered/backgrounded treatment, just a small label above each cluster.
+  categoryClusterLabel: {
+    fontSize: FontSize.xs,
+    fontFamily: Fonts.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+    marginTop: Spacing.xs,
+  },
   // Pill background so the per-trip disclosure toggle stays legible over busy backgrounds
   // (Decision 043 rule 2's fixed anatomy — Fonts.semibold/FontSize.lg — is only for the
   // section title itself, sectionLabel below; this row is a repeatable foldout control).

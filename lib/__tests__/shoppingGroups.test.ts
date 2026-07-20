@@ -10,6 +10,7 @@
 import type { ShoppingItem } from '@/store/useShoppingStore';
 import {
   groupByDish,
+  groupByCategory,
   computeListGroups,
   dishGroupAllChecked,
   listProgress,
@@ -50,6 +51,29 @@ describe('groupByDish', () => {
 
   it('returns empty groups for an empty input', () => {
     expect(groupByDish([])).toEqual({ dishGroups: [], ungrouped: [] });
+  });
+});
+
+describe('groupByCategory', () => {
+  it('buckets by category, sorts groups by key and items by name within a group', () => {
+    const items = [
+      item({ id: 'a', category: 'dairy', name: 'Milk' }),
+      item({ id: 'b', category: 'produce', name: 'Banana' }),
+      item({ id: 'c', category: 'produce', name: 'Apple' }),
+    ];
+    const groups = groupByCategory(items);
+    expect(groups.map(([key]) => key)).toEqual(['dairy', 'produce']);
+    expect(groups[1][1].map((i) => i.id)).toEqual(['c', 'b']);
+  });
+
+  it('defaults a blank/unset category to "other"', () => {
+    const items = [item({ id: 'a', category: '' }), item({ id: 'b', category: undefined })];
+    const groups = groupByCategory(items);
+    expect(groups).toEqual([['other', [items[0], items[1]]]]);
+  });
+
+  it('returns an empty array for an empty input', () => {
+    expect(groupByCategory([])).toEqual([]);
   });
 });
 
