@@ -97,6 +97,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import ScreenScaffold from '@/components/ScreenScaffold';
+import Surface from '@/components/Surface';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import SharedTasksSection from '@/components/SharedTasksSection';
@@ -372,9 +373,10 @@ export default function TasksScreen() {
   // Shared = shop green (inside SharedTasksSection); Today/Week day groups use the neutral accent.
 
   const stickyBelowHeader = (
-    // Transparent strip (no backgroundColor): the ambient screen background shows AROUND the
-    // opaque tab chips instead of a flat theme.bg band (2026-07-20).
-    <View style={styles.stickyBar}>
+    // Frosted-glass strip (same overlay Surface as the header): the ambient background reads
+    // softly through the frost AROUND the opaque tab chips, and content scrolling behind the
+    // sticky strip blurs instead of showing through raw (2026-07-20). borderRadius:0 = edge-to-edge.
+    <Surface surfaceContext="overlay" style={[styles.stickyBar, styles.stickyGlass]}>
       <View style={styles.tabsRow}>
         {(['today', 'week', 'all'] as Tab[]).map((tabOption) => {
           const isActive = tab === tabOption;
@@ -393,7 +395,7 @@ export default function TasksScreen() {
           );
         })}
       </View>
-    </View>
+    </Surface>
   );
 
   return (
@@ -570,6 +572,8 @@ const styles = StyleSheet.create({
   hintSettingLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   hintSettingHint: { fontSize: FontSize.xs, marginTop: 2 },
   stickyBar: { flex: 1, paddingHorizontal: Spacing.md, justifyContent: 'center' },
+  // Edge-to-edge frosted strip (Surface overlay) — square corners, no floating-card rounding.
+  stickyGlass: { borderRadius: 0 },
   tabsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   tab: {
     flex: 1,

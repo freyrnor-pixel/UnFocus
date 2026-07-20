@@ -773,9 +773,10 @@ export default function ShoppingScreen() {
   const summaryVisible = tab === 'weekly' && !!focusedList && !!focusedProgress;
   const stickyHeight = summaryVisible ? STICKY_HEIGHT : STICKY_HEIGHT_TABS;
   const stickyBelowHeader = (
-    // Transparent strip (no backgroundColor): the ambient screen background shows AROUND
-    // the opaque tab chips instead of a flat theme.bg band (2026-07-20).
-    <View style={styles.stickyBar}>
+    // Frosted-glass strip (same overlay Surface as the header): the ambient background reads
+    // softly through the frost AROUND the opaque tab chips, and content scrolling behind the
+    // sticky strip blurs instead of showing through raw (2026-07-20). borderRadius:0 = edge-to-edge.
+    <Surface surfaceContext="overlay" style={[styles.stickyBar, styles.stickyGlass]}>
       <View style={styles.tabsRow}>
         {TAB_META.map(({ value, label, accent, count }) => {
           const isActive = tab === value;
@@ -827,7 +828,7 @@ export default function ShoppingScreen() {
           <ProgressBar value={focusedProgress.pct} state="good" height={6} style={styles.stickyProgressBar} />
         </View>
       ) : null}
-    </View>
+    </Surface>
   );
 
   // Screen intro chrome (first-run hint + incoming shared requests), shared by every tab.
@@ -1348,6 +1349,8 @@ const styles = StyleSheet.create({
   dishGroupsWrap: { gap: Spacing.xs },
 
   stickyBar: { flex: 1, paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, gap: 2 },
+  // Edge-to-edge frosted strip (Surface overlay) — square corners, no floating-card rounding.
+  stickyGlass: { borderRadius: 0 },
   tabsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   tab: {
     flex: 1,
