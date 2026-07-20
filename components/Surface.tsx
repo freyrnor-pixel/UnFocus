@@ -205,6 +205,18 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
     else if (!OWNED_KEYS.has(key)) outer[key] = flat[key];
   }
   const radius = (flat.borderRadius as number | undefined) ?? Radius.md;
+  // The mask's flexGrow:1 (below) only exists to let the fill reach the floor of an outer
+  // view the CALLER has explicitly forced taller than its content (minHeight/height/flex —
+  // e.g. Home's cardCollapsed minHeight, or ScreenScaffold's headerFill flex:1). For a
+  // hug-content card (no such key — e.g. a small alignSelf:'center' pill/chip), the outer
+  // view has no definite main-axis size of its own to distribute, and on Android this can
+  // resolve the "available space" as the ScrollView's effectively-unbounded measure spec
+  // instead of the CSS-spec content-hug behavior web/iOS give it — growing the chip into a
+  // full-height bar (2026-07-20 bug: the Habits "X / Y goals met today" summary chip).
+  // Gating flexGrow on an explicit forced-height key keeps the legitimate stretch cases
+  // working while stopping hug-content chips from growing unbounded.
+  const growsToFillOuter = 'minHeight' in flat || 'height' in flat || 'flex' in flat || 'flexGrow' in flat;
+  const maskGrowStyle = { flexGrow: growsToFillOuter ? 1 : 0 };
 
   // Glass-on: the layered box-shadow OWNS depth on the outer view (don't also set the single
   // shadow*/elevation keys — they'd double up). Glass-off: keep the legacy single shadow.
@@ -238,7 +250,7 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
           shadowStyle,
         ]}
       >
-        <View style={[styles.mask, { borderRadius: radius, backgroundColor: mat.contrastBase }]}>
+        <View style={[styles.mask, maskGrowStyle, { borderRadius: radius, backgroundColor: mat.contrastBase }]}>
           <View style={[content, padding]}>{children}</View>
         </View>
       </View>
@@ -257,6 +269,7 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
       <View
         style={[
           styles.mask,
+          maskGrowStyle,
           {
             borderRadius: radius,
             borderWidth: EDGE_WIDTH,
@@ -282,11 +295,8 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
 const styles = StyleSheet.create({
   // alignSelf:'stretch' so the fill always spans the full card WIDTH even when the caller's
   // style centers content on the outer view (otherwise the mask shrink-wraps its children
-  // and floats as a narrower box inside the bordered card). flexGrow:1 does the same for the
-  // main axis (HEIGHT): when the outer view is forced taller than its content — e.g. Home's
-  // collapsed preview cards with minHeight:HOME_PREVIEW_CARD_MIN_HEIGHT — the mask grows to
-  // fill the floor so the fill (blur + wash) covers the whole card instead of leaving a bare,
-  // transparent band inside the border below the content. No-op for content-sized cards
-  // (zero free space to distribute).
-  mask: { overflow: 'hidden', alignSelf: 'stretch', flexGrow: 1 },
+  // and floats as a narrower box inside the bordered card). The HEIGHT counterpart
+  // (flexGrow) is applied conditionally via `maskGrowStyle` above, not baked in here — see
+  // that comment for why.
+  mask: { overflow: 'hidden', alignSelf: 'stretch' },
 });
