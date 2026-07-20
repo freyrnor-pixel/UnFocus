@@ -1,9 +1,9 @@
 /**
  * ScreenHeader.tsx — the standard screen top bar with tier-aware chrome.
  *
- * Tier 'site' (Decision 034): title left-aligned; Settings (gear) + Focus-mode (eye)
- * grouped in the opposite corner. Right-handed (default): title upper-left, controls
- * upper-right (Focus then gear outermost). Left-handed mirrors the whole row — controls
+ * Tier 'site' (Decision 034): title left-aligned; the Settings (gear) and other
+ * controls grouped in the opposite corner. Right-handed (default): title upper-left,
+ * controls upper-right (gear outermost). Left-handed mirrors the whole row — controls
  * upper-left (gear outermost), title upper-right — so the controls stay thumb-reachable.
  * Tier 'sub': back link left (iOS only), title immediately right of it and left-aligned,
  * right slot for the screen-specific action (not mirrored). Wrapped in a translucent
@@ -33,20 +33,8 @@
  * Edit notes:
  *   - tier='site' is for top-level screens (Shopping, Plans, Home, Health, Scan)
  *   - tier='sub' is for sub-screens (forms, editors, modals)
- *   - **Focus-mode toggle (Decisions 009 #4 / 001a / 018)**: the right-slot eye is a live
- *     toggle ONLY when the screen passes `onToggleFocus`. Both Home (filters plans) AND Health
- *     (filters its Habits section) wire it — the screens that own a "focus to essentials" view;
- *     Shopping/Tasks/Scan omit both props. Its user-facing label is "Calm view" (`t.calmView*`)
- *     — deliberately distinct from the persisted Settings "Focus mode" (`config.essentials`) so
- *     the two names don't collide (Point 2). `focusActive` drives the filled ('eye') vs outline
- *     ('eye-outline') glyph and the accent tint. Ephemeral per session, so a screen that omits
- *     the props leaves the eye a harmless no-op placeholder (its historical Phase-1 state)
- *     rather than showing an active control that does nothing. A screen that wires the toggle
- *     additionally gets a "Focus mode" text label next to the icon (reuses
- *     `t.config.essentials.label`) — the eye alone was too non-obvious an affordance; the label
- *     is gated on `onToggleFocus` so it never appears on the inert placeholder elsewhere.
  *   - Settings (gear) press navigates to /settings. Site-tier chrome placement is
- *     handedness-aware (reads `leftHanded`, Decision 034): title + the grouped gear/eye
+ *     handedness-aware (reads `leftHanded`, Decision 034): title + the grouped controls
  *     controls swap sides together — controls right (title left) by default, both left
  *     (title right) when left-handed. gear is always the outermost control.
  *   - iOS-only back link on sub-screens; Android uses system back
@@ -116,15 +104,12 @@ type Props = {
   onBack?: () => void;
   headerRight?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
-  /** Focus-mode toggle (Home + Health). When provided, the focus button is live. */
-  focusActive?: boolean;
-  onToggleFocus?: () => void;
-  /** Info/hint toggle (optional). When provided, an ⓘ icon appears left of the focus button. */
+  /** Info/hint toggle (optional). When provided, an ⓘ icon appears in the header controls. */
   infoActive?: boolean;
   onInfoToggle?: () => void;
 };
 
-export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, focusActive, onToggleFocus, infoActive, onInfoToggle }: Props) {
+export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, infoActive, onInfoToggle }: Props) {
   const t = useT();
   const theme = useAppTheme();
   const router = useRouter();
@@ -243,12 +228,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
     router.push('/settings');
   };
 
-  const handleFocusPress = () => {
-    // Live only when a screen wires it (Home + Health, per Decisions 009 #4 / 018). Elsewhere a no-op.
-    onToggleFocus?.();
-  };
-
-  // Site-tier chrome: the settings gear and the Focus-mode eye. Their corners follow
+  // Site-tier chrome: the settings gear and sibling controls. Their corners follow
   // the `leftHanded` setting (whose label promises it "moves the menu button to the
   // left side"): gear sits top-right by default, and swaps to top-left when left-handed.
   const gearButton = (
@@ -278,28 +258,6 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
       />
     </PressableScale>
   ) : null;
-
-  const focusButton = (
-    <PressableScale
-      onPress={handleFocusPress}
-      hitSlop={8}
-      accessibilityRole="button"
-      accessibilityState={{ selected: !!focusActive }}
-      accessibilityLabel={focusActive ? t.calmViewActive : t.calmViewInactive}
-      style={styles.focusButton}
-      scaleTo={0.9}
-    >
-      {/* Label only where the toggle is live (Home) — elsewhere nothing is shown. */}
-      {onToggleFocus && (
-        <Text
-          style={[styles.focusLabel, { color: focusActive ? theme.accent : theme.textMuted }]}
-          numberOfLines={1}
-        >
-          {t.config.essentials.label}
-        </Text>
-      )}
-    </PressableScale>
-  );
 
   // Home-only OTA update icon (see edit notes) — a small spinner while fetching.
   const updateButton = isHome && updateAvailable ? (
@@ -381,12 +339,11 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
 
   if (tier === 'site') {
     // Grouped controls. Order (right-handed, left-to-right): [update] [bug] [✓ email]
-    // [✕ delete] [ⓘ info] [Focus mode] [gear]. The bug toggle is always present; the green
+    // [✕ delete] [ⓘ info] [gear]. The bug toggle is always present; the green
     // email + red delete only render when debug mode is on (they're null otherwise). Gear is
     // outermost on whichever side the group sits (Decision 034). Left-handed mirrors the whole
     // row. Items that don't apply to this screen are null/filtered.
-    const focusButtonOrNull = onToggleFocus ? focusButton : null;
-    const controlItems = [updateButton, bugButton, emailButton, deleteButton, infoButton, focusButtonOrNull, gearButton].filter(Boolean) as React.ReactNode[];
+    const controlItems = [updateButton, bugButton, emailButton, deleteButton, infoButton, gearButton].filter(Boolean) as React.ReactNode[];
     const controls = leftHanded ? [...controlItems].reverse() : controlItems;
     const controlsGroup = (
       <View style={styles.controls}>
@@ -447,17 +404,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-  },
-  focusButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  focusLabel: {
-    // sm, not xs (2026-07-16): the tester reported the "Fokus-modus" label too small
-    // next to the (correctly sized) title.
-    fontSize: FontSize.sm,
-    fontFamily: Fonts.semibold,
   },
   title: {
     // ⚠️ NO `flex: 1` here — THE root cause of the 7-fix header-clip saga (2026-07-16,

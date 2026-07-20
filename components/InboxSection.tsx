@@ -73,7 +73,6 @@ export default function InboxSection() {
       done: false,
       recurring: 'none',
       recurringDays: [],
-      importance: 'regular',
       sortOrder: 0,
     });
   }

@@ -25,30 +25,14 @@
  *
  * Edit notes:
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus effect
- *     only reseeds Focus mode's ephemeral default (see below) — no per-screen initDb/load.
- *   - **Focus mode (Decisions 009 #4 / 018)**: Home-only, session-ephemeral local state. Its
- *     DEFAULT is seeded from the persisted `essentialsModeEnabled` "Focus mode" setting on every
- *     focus-in, and leaving the screen resets it back to that default (not a hardcoded OFF) — so
- *     the settings toggle (previously inert) and the header eye are ONE feature: a saved default
- *     plus a live session toggle, not two unrelated things that happened to share the name "Focus".
- *     The header eye toggles it (props threaded through ScreenScaffold → ScreenHeader).
- *     ON: hides the hint card, Shared preview, and points (input/triage affordances); Notes
- *     and Shopping keep rendering in Focus mode (this note previously claimed they were
- *     hidden too — the code never gated them on `!focusMode`; corrected here). Plans is
- *     filtered to `importance === 'essential'` (Decision 018 — the two-value
- *     `importance` field IS the intensity model; no energy path). The done-toggle stays live in
- *     focus (completing a task is "doing the thing", not input), so PlanTaskCard is mounted
- *     non-readOnly but WITHOUT `onPressTask`/`onSeeMore` — the row done-dot works, tap-through to
- *     the editor does not. Completing the last essential task → PlanTaskCard's own gentle
- *     `dayViewAllDone` state (Decision 009 #4 "gentle done-state, not an empty screen").
- *   - **Plans preview = PlanTaskCard read-only (Decision 009a)**: OFF-focus, the preview IS the
+ *     only resets the first-visit hint on blur — no per-screen initDb/load.
+ *   - **Plans preview = PlanTaskCard read-only (Decision 009a)**: the preview IS the
  *     day-view rendered read-only, with a "See everything →" link to /plans. Not a bespoke card.
  *     `readOnly` only disables row tap-through here (no `onPressTask`/`onSeeMore` passed) — the
  *     done-toggle stays live because `onToggleTask` is passed alongside `readOnly`, so tapping a
  *     task's checkbox toggles it done without opening the editor.
  *     `allTasks` (full store) is passed so Decision 020 cross-date followers surface.
- *     `horizontal={settings.planTimelineHorizontal}` is threaded to both PlanTaskCard mounts
- *     (Focus + preview) so the rail-orientation setting applies in both modes.
+ *     `horizontal={settings.planTimelineHorizontal}` is threaded to the PlanTaskCard mount.
  *   - **Notes preview = HomeNotesCard**: reads useNotesStore, shows first 5 active notes with
  *     inline toggle-checked, a mic button for voice-capture notes, a trailing AddRow to type a
  *     new note's title directly (no navigation away from Home), and a title tap → /notes for
@@ -65,12 +49,11 @@
  *     about the full /shopping screen's cross-group hit-testing; this reuses DraggableTaskRow
  *     but not that complexity, since Home's cards are plain flat siblings. `renderHomeCard(kind)`
  *     is the per-kind render function passed to it; `sanitizeHomeCardOrder` defends against a
- *     corrupt/legacy settings row. Focus mode renders the same three kinds directly (see below)
- *     with no edit-mode chrome — hold-to-manage is off-Focus only.
+ *     corrupt/legacy settings row.
  *   - **Deliberately NOT ported**: DayTimeline/TaskItem/NextTaskCard Plans stack, Backlog + Habits
  *     previews, SharedRequestsSection(kind='task'), update-ready banner, work-mode banner,
  *     CoverScreen / SiteSwipeView chrome, automation trigger ('shopping_opened').
- *   - **"More" links (Decision 036)**: off-Focus chips to /notes and /meals. Reachability is
+ *   - **"More" links (Decision 036)**: chips to /notes and /meals. Reachability is
  *     data-independent — always shown, independent of whether the previews have any content.
  *   - All visible strings via useT(); today is todayStr() (YYYY-MM-DD).
  *   - **Bottom whitespace (visual-audit, 2026-07-11)**: `content`'s trailing padding was
@@ -95,6 +78,7 @@ import { NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Switch, Text, View
 import { useRouter, usePathname, useFocusEffect } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PlanTaskCard from '@/components/PlanTaskCard';
+import EnergyMeter from '@/components/EnergyMeter';
 import HomeNotesCard from '@/components/HomeNotesCard';
 import HomeSharedCard from '@/components/HomeSharedCard';
 import HomeShoppingCard from '@/components/HomeShoppingCard';
@@ -144,8 +128,6 @@ export default function HomeScreen() {
   const styles = useScaledStyles(baseStyles);
   const today = todayStr();
 
-  // Focus mode: Home-only, ephemeral (Decisions 009 #4 / 018). Reset on blur below.
-  const [focusMode, setFocusMode] = useState(false);
   const [hintOpen, setHintOpen] = useFirstVisitHint('home');
 
   // Flight animation (Phase 1, 2026-07-11) — mirrors app/(tabs)/shopping.tsx's screen-level
@@ -207,6 +189,7 @@ export default function HomeScreen() {
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
   const userName = useSettingsStore((s) => s.userName);
   const planTimelineHorizontal = useSettingsStore((s) => s.planTimelineHorizontal);
+  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   const homeCardOrderRaw = useSettingsStore((s) => s.homeCardOrder);
   const updateSettings = useSettingsStore((s) => s.update);
 
@@ -222,16 +205,7 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Focus mode's default is the persisted "Focus mode" setting
-      // (essentialsModeEnabled). The header eye still toggles it live for the
-      // session; leaving Home resets it back to that default. This keeps the
-      // toggle ephemeral within a session (Decision 009 #4) while making the
-      // settings toggle — which was otherwise inert — the source of the default,
-      // so the two "Focus mode" surfaces are one coherent feature, not two.
-      const defaultFocus = useSettingsStore.getState().essentialsModeEnabled;
-      setFocusMode(defaultFocus);
       return () => {
-        setFocusMode(defaultFocus);
         setHintOpen(false);
       };
     }, [])
@@ -242,10 +216,6 @@ export default function HomeScreen() {
   // — `tasksForDate`/`completedCount`/`currentList` are stable store fn refs, so `tasks` /
   // `shoppingLists` / `shoppingItems` are the real inputs that should drive recompute.
   const todayTasks = useMemo(() => tasksForDate(today), [tasksForDate, today, tasks]);
-  const visibleTasks = useMemo(
-    () => (focusMode ? todayTasks.filter((task) => task.importance === 'essential') : todayTasks),
-    [focusMode, todayTasks]
-  );
 
   const completedCount = useMemo(() => completedCountFn(), [completedCountFn, tasks]);
 
@@ -356,16 +326,13 @@ export default function HomeScreen() {
         bottomNav={false}
         ownBackground={false}
         screenColor={getScreenColor(theme, 'index').base}
-        focusActive={focusMode}
-        onToggleFocus={() => setFocusMode((v) => !v)}
         infoActive={hintOpen}
         onInfoToggle={() => setHintOpen((v) => !v)}
         onScroll={handleScreenScroll}
       >
         <View style={styles.content}>
-          {!focusMode && (
-            <HintCard text={t.hints.home.text} open={hintOpen} noPill>
-              <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
+          <HintCard text={t.hints.home.text} open={hintOpen} noPill>
+            <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
                 <View style={styles.hintSettingRow}>
                   <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.taskNotifications}</Text>
                   <Switch
@@ -394,8 +361,7 @@ export default function HomeScreen() {
                   />
                 </View>
               </View>
-            </HintCard>
-          )}
+          </HintCard>
 
           {/* Greeting */}
           <DebugNoteAnchor id="home.greeting" label="Home — Greeting">
@@ -407,52 +373,38 @@ export default function HomeScreen() {
             </View>
           </DebugNoteAnchor>
 
+          {/* Energy meter — only when the Energy system is enabled (settings). */}
+          {energySystemEnabled && (
+            <View style={styles.section}>
+              <EnergyMeter />
+            </View>
+          )}
+
           {/* Shared preview — HomeSharedCard (incoming shared tasks + shopping). Self-hides
               when nothing is incoming — gated here too (not just inside HomeSharedCard) so no
               empty `section`-margin wrapper is mounted in that case (see hasIncomingShared
               above). Hidden in Focus mode (an input/triage surface). Sits outside the
               hold-to-manage stack below — it's automatic/data-driven, not a discretionary
               card (Decision: home preview card management, 2026-07-19). */}
-          {!focusMode && hasIncomingShared && (
+          {hasIncomingShared && (
             <DebugNoteAnchor id="home.sharedPreview" label="Home — Shared preview" style={styles.section}>
               <HomeSharedCard />
             </DebugNoteAnchor>
           )}
 
           {/* Notes/Plans/Shopping previews — user-manageable (hold-to-reorder/remove/add,
-              components/HomeCardManager.tsx), order+visibility from settings.homeCardOrder.
-              Focus mode keeps its pre-existing fixed layout (Plans filtered to essential
-              tasks, non-readOnly for the done-toggle) with no edit-mode chrome — hold-to-manage
-              is only reachable off-Focus. Notes/Shopping still render in Focus mode too,
-              same as before this refactor (Focus mode only changes Plans' content/props). */}
-          {focusMode ? (
-            homeCardOrder.map((kind) =>
-              kind === 'plans' ? (
-                <DebugNoteAnchor key={kind} id="home.plansPreview" label="Home — Plans preview" style={styles.section}>
-                  <PlanTaskCard
-                    tasks={visibleTasks}
-                    allTasks={tasks}
-                    onToggleTask={handleToggleTask}
-                    horizontal={planTimelineHorizontal}
-                  />
-                </DebugNoteAnchor>
-              ) : (
-                <React.Fragment key={kind}>{renderHomeCard(kind)}</React.Fragment>
-              )
-            )
-          ) : (
-            <HomeCardManager
-              order={homeCardOrder}
-              labels={homeCardLabels}
-              onReorder={(next) => updateSettings({ homeCardOrder: next })}
-              onRemove={(kind) => updateSettings({ homeCardOrder: homeCardOrder.filter((k) => k !== kind) })}
-              onAdd={(kind) => updateSettings({ homeCardOrder: [...homeCardOrder, kind] })}
-              renderCard={renderHomeCard}
-            />
-          )}
+              components/HomeCardManager.tsx), order+visibility from settings.homeCardOrder. */}
+          <HomeCardManager
+            order={homeCardOrder}
+            labels={homeCardLabels}
+            onReorder={(next) => updateSettings({ homeCardOrder: next })}
+            onRemove={(kind) => updateSettings({ homeCardOrder: homeCardOrder.filter((k) => k !== kind) })}
+            onAdd={(kind) => updateSettings({ homeCardOrder: [...homeCardOrder, kind] })}
+            renderCard={renderHomeCard}
+          />
 
           {/* Gentle points */}
-          {!focusMode && completedCount > 0 && (
+          {completedCount > 0 && (
             <View style={styles.section}>
               <Text style={[styles.pointsText, { color: theme.textMuted }]}>
                 {t.smallThingsCount(completedCount)}

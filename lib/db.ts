@@ -9,7 +9,7 @@
  * Connections:
  *   Imports → lib/date, lib/sqlite
  *   Used by → app/_layout.tsx, lib/backup.ts, lib/liveSync.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useInboxStore.ts, store/useMealStore.ts, store/useNotesStore.ts, store/usePeersStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
- *   Data    → owns ALL SQLite tables: settings, tasks, shopping_items, shopping_trips, shopping_lists, dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the energy check-in feature; table/pruning kept per the never-drop-tables rule, no longer written to), inbox_items, receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key), widget_snapshot (single-row localised cache for the Android home-screen widgets — lib/widgets/snapshot.ts)
+ *   Data    → owns ALL SQLite tables: settings, tasks, shopping_items, shopping_trips, shopping_lists, dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the old low/med/high energy check-in; table/pruning kept per the never-drop-tables rule, no longer written to), energy_budgets (LIVE — 2026-07-20 energy-budget system: per-period capacity overrides; store/useEnergyStore.ts), inbox_items, receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key), widget_snapshot (single-row localised cache for the Android home-screen widgets — lib/widgets/snapshot.ts)
  *
  * Edit notes:
  *   - Add columns via the `migrations` array ONLY — never edit a CREATE TABLE to
@@ -203,6 +203,20 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS energy_logs (
       log_date TEXT PRIMARY KEY,
       level TEXT DEFAULT 'medium'
+    );
+
+    -- Energy system (2026-07-20): per-period Energy capacity OVERRIDES only.
+    -- period_key is either a day key 'YYYY-MM-DD' or a week key 'w:YYYY-MM-DD'
+    -- (the 'w:'-prefixed Monday of that week — the prefix both avoids a PK clash
+    -- with the same-dated day key and keeps week keys out of the day-shaped prune
+    -- GLOB below). A missing row means "use the settings default"
+    -- (energy_daily_capacity / energy_weekly_capacity), so only user-set overrides
+    -- are persisted here. Consumed/gained energy is NOT stored — it's derived from
+    -- completed tasks + met habits (energy_enabled, summing signed energy_value) in
+    -- lib/energy.ts.
+    CREATE TABLE IF NOT EXISTS energy_budgets (
+      period_key TEXT PRIMARY KEY,
+      capacity INTEGER NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS inbox_items (
@@ -638,6 +652,21 @@ export function initDb() {
     // untouched default to the new order (Tasks first). Anyone who reordered or removed a card has
     // a different value and is left alone — same targeted approach as the voice_notes_enabled reset.
     "UPDATE settings SET home_card_order = '[\"plans\",\"notes\",\"shopping\"]' WHERE home_card_order = '[\"notes\",\"plans\",\"shopping\"]'",
+    // Energy system (2026-07-20): optional per-task/per-habit energy-budget model
+    // that replaces the removed Focus mode / task Importance. Master toggle plus a
+    // default day- and week-capacity live on settings; each task OR habit can opt in
+    // with a SIGNED per-item energy_value — positive RESTORES energy (e.g. drinking
+    // water = +1), negative DRAINS it (a dreaded chore = −2). Completing/meeting the
+    // item applies its value to that day's (and week's) budget. See
+    // store/useEnergyStore.ts, lib/energy.ts, and the energy_budgets table
+    // (per-period capacity overrides).
+    "ALTER TABLE settings ADD COLUMN energy_system_enabled INTEGER DEFAULT 0",
+    "ALTER TABLE settings ADD COLUMN energy_daily_capacity INTEGER DEFAULT 10",
+    "ALTER TABLE settings ADD COLUMN energy_weekly_capacity INTEGER DEFAULT 50",
+    "ALTER TABLE tasks ADD COLUMN energy_enabled INTEGER DEFAULT 0",
+    "ALTER TABLE tasks ADD COLUMN energy_value INTEGER DEFAULT 1",
+    "ALTER TABLE habits ADD COLUMN energy_enabled INTEGER DEFAULT 0",
+    "ALTER TABLE habits ADD COLUMN energy_value INTEGER DEFAULT 1",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
@@ -684,6 +713,9 @@ export function pruneOldData() {
     db.runSync('DELETE FROM shared_shopping_items WHERE created_at < ?', [c]);
     db.runSync('DELETE FROM receipts WHERE receipt_date < ?', [c]);
     db.runSync('DELETE FROM energy_logs WHERE log_date < ?', [c]);
+    // Only day-shaped keys ('YYYY-MM-DD') are dated history; 'w:'-prefixed week
+    // keys don't match the GLOB and are left as config.
+    db.runSync("DELETE FROM energy_budgets WHERE period_key GLOB '____-__-__' AND period_key < ?", [c]);
     db.runSync('DELETE FROM inbox_items WHERE created_at < ?', [c]);
   } catch { /* never block startup on cleanup */ }
 }

@@ -2,11 +2,11 @@
  * task-form.tsx — add / edit a task
  *
  * Sub-screen (Decision 001 tier='sub') for creating or editing a single task: title,
- * date, time (or "Whenever"), type (start-at / time-box with duration), General/
- * Essential mode (Decision 018), weekly recurrence, steps, a freeform "next time"
- * hint (Decision 019), and a one-to-one "then → pick a task" follow-up link
- * (Decision 020). Presence of an `id` route param switches it into edit mode (with
- * a confirm-gated delete action).
+ * date, time (or "Whenever"), type (start-at / time-box with duration), an optional
+ * per-task Energy cost (2026-07-20 — only shown when the Energy system is on), weekly
+ * recurrence, steps, a freeform "next time" hint (Decision 019), and a one-to-one
+ * "then → pick a task" follow-up link (Decision 020). Presence of an `id` route param
+ * switches it into edit mode (with a confirm-gated delete action).
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
@@ -36,8 +36,12 @@
  *     `useTaskStore.followerCycleChain(existing.id)` (self + every transitive predecessor)
  *     so picking one can never create a cycle. Follower changes call `setFollower()`
  *     immediately on tap — same immediate-persist pattern as Steps, not gated behind Save.
- *   - Decision 018: Importance is presented as General/Essential (existing `importance`
- *     field) — no energy/battery picker.
+ *   - **Energy (2026-07-20)**: the Energy block (an "Affects energy" Switch + a signed −/+
+ *     Stepper for the value) renders only when `settings.energySystemEnabled`. Both
+ *     `energyEnabled` and `energyValue` always persist; completing an energy task later
+ *     applies its signed value (positive restores, negative drains) to the day/week budget
+ *     (lib/energy.ts, components/EnergyMeter.tsx). This replaced the old Decision 018
+ *     General/Essential importance picker.
  *   - On save a ConfirmationBanner is shown, then navigation is briefly delayed (~900ms) so
  *     it's visible. Delete is confirm-gated via confirmDelete()/showAppModal.
  *   - **Reserve-only device features (2026-07-17)**: a mic button beside the Title Input
@@ -56,7 +60,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Contact, ContactField } from 'expo-contacts';
 import * as Contacts from 'expo-contacts';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useTaskStore, TaskType, Recurring, Importance } from '@/store/useTaskStore';
+import { useTaskStore, TaskType, Recurring } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -71,6 +75,7 @@ import HintCard from '@/components/HintCard';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import DatePickerCalendar from '@/components/DatePickerCalendar';
 import IconButton from '@/components/IconButton';
+import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
 import Button from '@/components/Button';
 import { showAppModal } from '@/components/AppModal';
@@ -98,6 +103,7 @@ export default function TaskFormScreen() {
   const voiceNotesEnabled = useSettingsStore((s) => s.voiceNotesEnabled);
   const contactsEnabled = useSettingsStore((s) => s.contactsEnabled);
   const locationEnabled = useSettingsStore((s) => s.locationEnabled);
+  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
 
   // The post-save banner delays router.back() ~900ms; clear it on unmount so a user who
   // navigates away first doesn't trigger a late back()/setState on an unmounted screen.
@@ -118,7 +124,8 @@ export default function TaskFormScreen() {
   const [duration, setDuration] = useState(existing?.durationMinutes != null ? String(existing.durationMinutes) : '');
   const [recurring, setRecurring] = useState<Recurring>(existing?.recurring ?? 'none');
   const [recurringDays, setRecurringDays] = useState<number[]>(existing?.recurringDays ?? []);
-  const [importance, setImportance] = useState<Importance>(existing?.importance ?? 'regular');
+  const [energyEnabled, setEnergyEnabled] = useState(existing?.energyEnabled ?? false);
+  const [energyValue, setEnergyValue] = useState(existing?.energyValue ?? 1);
   const [hint, setHint] = useState(existing?.hint ?? '');
   const [contactName, setContactName] = useState(existing?.contactName ?? '');
   const [contactPhone, setContactPhone] = useState(existing?.contactPhone ?? '');
@@ -236,7 +243,8 @@ export default function TaskFormScreen() {
       done: existing?.done ?? false,
       recurring,
       recurringDays: recurring === 'weekly' ? recurringDays : [],
-      importance,
+      energyEnabled,
+      energyValue,
       sortOrder: existing?.sortOrder ?? 0,
       hint: hint.trim(),
       contactName: contactName.trim() || undefined,
@@ -469,18 +477,21 @@ export default function TaskFormScreen() {
           </View>
         )}
 
-        {/* Mode — Decision 018 (General/Essential, no energy picker) */}
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: theme.textMuted }]}>{t.importanceLabel}</Text>
-          <SegmentedControl
-            options={[
-              { value: 'regular', label: t.importanceRegular },
-              { value: 'essential', label: t.importanceEssential },
-            ]}
-            value={importance}
-            onChange={(v) => setImportance(v as Importance)}
-          />
-        </View>
+        {/* Energy — optional per-task energy cost (only when the Energy system is on) */}
+        {energySystemEnabled && (
+          <View style={styles.field}>
+            <View style={styles.switchRow}>
+              <Text style={[styles.switchLabel, { color: theme.textMuted }]}>{t.energyConsumeLabel}</Text>
+              <Switch checked={energyEnabled} onChange={setEnergyEnabled} />
+            </View>
+            {energyEnabled && (
+              <View style={styles.energyCostRow}>
+                <Text style={[styles.label, { color: theme.textMuted }]}>{t.energyCostLabel}</Text>
+                <Stepper value={energyValue} onChange={setEnergyValue} signed accessibilityLabel={t.energyCostLabel} />
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Recurring */}
         <View style={styles.field}>
@@ -704,6 +715,7 @@ const baseStyles = StyleSheet.create({
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   switchLabel: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  energyCostRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.sm },
   wheneverHint: { fontSize: FontSize.sm, marginTop: Spacing.xs },
   durationRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, alignItems: 'center' },
   durationChip: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.full },

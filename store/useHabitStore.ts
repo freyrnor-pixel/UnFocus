@@ -24,10 +24,10 @@
  *   - markRestDay() toggles the rest_day flag on a habit_logs row (upserting one if it doesn't
  *     exist yet) — a no-shame opt-out, framed as "Resting today" in app/(tabs)/health.tsx, never
  *     "skipped". computeStreak() there treats a rest day like a met day so the streak survives it.
- *   - **`importance`** (`'regular'|'essential'`) mirrors Task's Decision 018 field exactly (same
- *     type, imported from useTaskStore). Gates both Focus-mode visibility (health.tsx filters the
- *     embedded Habits section to essential habits when focus is on) and notification scheduling
- *     (syncHabitReminder → lib/habitNotifications.ts, same `essentialsModeEnabled` gate as tasks).
+ *   - **`energyEnabled`/`energyValue`** (2026-07-20) — optional Energy-system participation.
+ *     When energyEnabled, MEETING the habit on a day applies the signed energyValue (positive
+ *     restores energy, negative drains) to that day's/week's budget (lib/energy.ts,
+ *     components/EnergyMeter.tsx). Only matters when settings.energySystemEnabled.
  *   - **Decision 016 Q2 — no legacy `notificationTime` field.** `notificationTimes` is the
  *     sole live source of truth; the `notification_time` DB column is dead (never read/written
  *     here — see lib/db.ts's header for the precedent).
@@ -54,7 +54,6 @@ import {
 import { generateId } from '@/lib/id';
 import { dateStr } from '@/lib/date';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import type { Importance } from '@/store/useTaskStore';
 import { syncHabitReminder as scheduleHabitReminder, cancelHabitReminders } from '@/lib/habitNotifications';
 
 export type HabitKind = 'build' | 'break' | 'neutral';
@@ -91,8 +90,12 @@ export type Habit = {
   active: boolean;
   createdAt: string;
   childName: string;
-  /** General/Essential (mirrors Task's importance, Decision 018) — gates Focus-mode visibility + notifications. */
-  importance: Importance;
+  /** Energy system (2026-07-20) — when energyEnabled, MEETING this habit on a day
+   *  applies a SIGNED energyValue to that day's/week's budget (positive restores,
+   *  e.g. drinking water = +1; negative drains). Only affects anything when
+   *  settings.energySystemEnabled. See lib/energy.ts. */
+  energyEnabled: boolean;
+  energyValue: number;
 };
 
 export type HabitLog = {
@@ -128,7 +131,6 @@ function syncHabitReminder(habit: Habit): void {
     quietHoursEnabled: s.quietHoursEnabled,
     quietHoursStart: s.quietHoursStart,
     quietHoursEnd: s.quietHoursEnd,
-    essentialsModeEnabled: s.essentialsModeEnabled,
   });
 }
 
@@ -159,7 +161,8 @@ function rowToHabit(row: Row): Habit {
     active: readInt(row, 'active', 1) !== 0,
     createdAt: readStr(row, 'created_at'),
     childName: readStr(row, 'child_name'),
-    importance: (readStr(row, 'importance') || 'regular') as Importance,
+    energyEnabled: readBool(row, 'energy_enabled'),
+    energyValue: readInt(row, 'energy_value', 1),
   };
 }
 
@@ -198,7 +201,8 @@ const HABIT_COLUMNS: FieldMap<Habit> = {
   active: { col: 'active', to: (v) => (v ? 1 : 0) },
   createdAt: { col: 'created_at' },
   childName: { col: 'child_name', to: (v) => v || '' },
-  importance: { col: 'importance', to: (v) => v ?? 'regular' },
+  energyEnabled: { col: 'energy_enabled', to: (v) => (v ? 1 : 0) },
+  energyValue: { col: 'energy_value', to: (v) => v ?? 1 },
 };
 
 export const useHabitStore = create<HabitStore>((set, get) => ({

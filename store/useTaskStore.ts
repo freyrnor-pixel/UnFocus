@@ -4,7 +4,9 @@
  * "then" follower link).
  *
  * Zustand store for to-do tasks: one-off and weekly-recurring, start-at and
- * time-box types, with importance (General/Essential — Decision 018), a
+ * time-box types, with an optional per-task Energy value (energyEnabled/energyValue,
+ * 2026-07-20 — a signed value applied to the day/week budget on completion; see
+ * lib/energy.ts), a
  * manual sortOrder, and a backlog view. Real Phase 5 port replacing the
  * Decision 015 notImplemented stub.
  *
@@ -109,7 +111,6 @@ import { broadcastRow } from '@/lib/syncService';
 
 export type TaskType = 'start-at' | 'time-box';
 export type Recurring = 'none' | 'daily' | 'weekly' | 'monthly';
-export type Importance = 'regular' | 'essential';
 /** Monthly recurrence: pinned to a day-of-month, or an nth/last weekday. */
 export type MonthlyMode = 'day' | 'ordinal';
 export type MonthOrdinal = 'first' | 'second' | 'third' | 'fourth' | 'last';
@@ -135,8 +136,13 @@ export type Task = {
   monthDay: number; // 1–31 (monthlyMode 'day')
   monthOrdinal: MonthOrdinal; // (monthlyMode 'ordinal')
   monthWeekday: number; // 0=Mon … 6=Sun (monthlyMode 'ordinal')
-  importance: Importance;
-  /** Manual drag-sort position within the task's Important/General section. */
+  /** Energy system (2026-07-20) — when energyEnabled, completing this task applies a
+   *  SIGNED energyValue to the day/week budget (positive restores, negative drains;
+   *  lib/energy.ts). Both persist regardless of the master toggle; they only affect
+   *  anything when settings.energySystemEnabled. */
+  energyEnabled: boolean;
+  energyValue: number;
+  /** Manual drag-sort position within the task's section. */
   sortOrder: number;
   /** Decision 019 — freeform "makes it easier next time" note. Display-only. */
   hint: string;
@@ -180,7 +186,8 @@ export type TaskInput = {
   monthDay?: number;
   monthOrdinal?: MonthOrdinal;
   monthWeekday?: number;
-  importance: Importance;
+  energyEnabled?: boolean;
+  energyValue?: number;
   sortOrder: number;
   hint?: string;
   followsTaskId?: string | null;
@@ -328,7 +335,8 @@ function rowToTask(row: Row): Task {
     monthDay: readInt(row, 'recurring_month_day', 1) || 1,
     monthOrdinal: readStr(row, 'recurring_month_ordinal', 'first') as MonthOrdinal,
     monthWeekday: readInt(row, 'recurring_month_weekday', 0),
-    importance: readStr(row, 'importance', 'regular') as Importance,
+    energyEnabled: readBool(row, 'energy_enabled'),
+    energyValue: readInt(row, 'energy_value', 1),
     sortOrder: readInt(row, 'sort_order'),
     hint: readStr(row, 'hint', ''),
     followsTaskId: readStr(row, 'follows_task_id') || null,
@@ -361,7 +369,8 @@ const TASK_COLUMNS: FieldMap<Task> = {
   monthDay: { col: 'recurring_month_day', to: (v) => v ?? 1 },
   monthOrdinal: { col: 'recurring_month_ordinal', to: (v) => v ?? 'first' },
   monthWeekday: { col: 'recurring_month_weekday', to: (v) => v ?? 0 },
-  importance: { col: 'importance', to: (v) => v ?? 'regular' },
+  energyEnabled: { col: 'energy_enabled', to: (v) => (v ? 1 : 0) },
+  energyValue: { col: 'energy_value', to: (v) => v ?? 1 },
   sortOrder: { col: 'sort_order', to: (v) => v ?? 0 },
   hint: { col: 'hint', to: (v) => v ?? '' },
   hasStartDate: { col: 'has_start_date', to: (v) => (v ? 1 : 0) },
@@ -448,6 +457,8 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       monthDay: t.monthDay ?? 1,
       monthOrdinal: t.monthOrdinal ?? 'first',
       monthWeekday: t.monthWeekday ?? 0,
+      energyEnabled: t.energyEnabled ?? false,
+      energyValue: t.energyValue ?? 1,
       hasStartDate: t.hasStartDate ?? false,
       sharedOut: t.sharedOut ?? false,
       assignee: t.assignee ?? '',
@@ -712,9 +723,11 @@ export const useTaskStore = create<TaskStore>((set, get) => {
   },
 
   focusTask(date, workModeActive) {
+    // workModeActive is retained in the signature for callers, but no longer
+    // narrows the candidate set — task Importance (its former filter) was removed.
+    void workModeActive;
     const candidates = get().tasksForDate(date).filter((t) => {
       if (t.done) return false;
-      if (workModeActive && t.importance !== 'essential') return false;
       return true;
     });
     const sorted = candidates.sort((a, b) => {

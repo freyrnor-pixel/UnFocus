@@ -13,7 +13,7 @@
  *             @/components/Button
  *   Used by → Expo Router route "/onboarding" (pushed from onboarding/intro.tsx)
  *   Data    → useSettingsStore (writes `userName`, `setupComplete`,
- *             `essentialsModeEnabled`, `showPoints`); schedules reminders via
+ *             `showPoints`); schedules reminders via
  *             syncReminders() + useTaskStore.syncAllTaskNotifications()
  *
  * Edit notes:
@@ -57,7 +57,6 @@ export default function OnboardingName() {
     settings.update({
       userName: name.trim(),
       setupComplete: true,
-      essentialsModeEnabled: false,
       showPoints: true,
     });
     // Notifications default OFF (no notification step). If a flag ended up enabled,

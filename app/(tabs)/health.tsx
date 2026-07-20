@@ -53,20 +53,6 @@
  *     AddRow → addTask flow; long-press a habit card to edit the rest in /habit-form. This
  *     replaced the old header "+" AddFAB (which navigated straight to the form). Week/Month
  *     views show plain, non-interactive empty-state text (they dropped their `onAddHabit` prop).
- *   - **Focus mode (mirrors Home's Decision 009 #4 / 018 pattern, scoped to Habits only)**:
- *     Health-only, session-ephemeral — its default is seeded from the persisted
- *     `essentialsModeEnabled` setting on every focus-in and resets back to that default on
- *     blur, same as Home. ON: habit cards (today/week/month) are filtered to
- *     `importance === 'essential'`; the inline add-habit row and "add child profile"
- *     affordances hide (no input surfaces in focus, matching Home); a habit card's
- *     long-press-to-edit is disabled but the done/increment/rest-day actions stay live
- *     (doing the habit is the point, not input). The symptom summary above is NOT filtered
- *     by focus mode — this screen's focus toggle only narrows Habits, since symptoms have
- *     no importance concept.
- *   - **Habit importance** mirrors Task's Decision 018 field (`regular`/`essential`,
- *     app/habit-form.tsx) — an essential habit shows a small star next to its title, same
- *     as PlanTaskCard's task star. It also gates habit *notifications* (see
- *     lib/habitNotifications.ts) via the same persisted `essentialsModeEnabled` setting.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -326,7 +312,6 @@ function HabitCard({
           <View style={styles.habitTitleWrap}>
             <View style={styles.habitTitleRow}>
               <Text style={[styles.habitTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
-              {habit.importance === 'essential' && <Ionicons name="star" size={12} color={accent} />}
             </View>
             <View style={styles.titleMetaRow}>
               <StreakBadge streak={streak} color={accent} theme={theme} />
@@ -592,16 +577,9 @@ export default function HealthScreen() {
   const addHabitQuick = useHabitStore((s) => s.add);
   const [habitDraft, setHabitDraft] = useState('');
 
-  // Focus mode: Health-only, ephemeral, scoped to the Habits section (see header notes).
-  const [focusMode, setFocusMode] = useState(false);
-
   useFocusEffect(
     useCallback(() => {
-      // Focus mode's default is the persisted "Focus mode" setting (essentialsModeEnabled),
-      // same seeding pattern as Home (app/(tabs)/index.tsx).
-      const defaultFocus = useSettingsStore.getState().essentialsModeEnabled;
-      setFocusMode(defaultFocus);
-      return () => { setHintOpen(false); setFocusMode(defaultFocus); };
+      return () => { setHintOpen(false); };
     }, [])
   );
 
@@ -649,14 +627,9 @@ export default function HealthScreen() {
     () => (showHabitProfiles ? habits.filter((h) => h.childName === selectedProfile) : habits),
     [showHabitProfiles, habits, selectedProfile]
   );
-  // Focus mode narrows every Habits view (today/week/month) to essential habits only.
-  const focusFilteredHabits = useMemo(
-    () => (focusMode ? profileHabits.filter((h) => h.importance === 'essential') : profileHabits),
-    [focusMode, profileHabits]
-  );
   const visibleHabits = useMemo(
-    () => focusFilteredHabits.filter((h) => shouldShowHabitOnDate(h, today)),
-    [focusFilteredHabits, today]
+    () => profileHabits.filter((h) => shouldShowHabitOnDate(h, today)),
+    [profileHabits, today]
   );
 
   // Gate habit-card entrance so only habits added after mount fade in (not the whole list).
@@ -675,11 +648,8 @@ export default function HealthScreen() {
   );
 
   const onEditHabit = useCallback((id: string) => {
-    // Long-press-to-edit is an input action — disabled in Focus mode, same as
-    // Home's Plans preview (Decision 009 #4): only the done/increment actions stay live.
-    if (focusMode) return;
     router.push({ pathname: '/habit-form', params: { id } });
-  }, [router, focusMode]);
+  }, [router]);
 
   const habitTabs: { key: HabitViewTab; label: string }[] = [
     { key: 'today', label: t.habitToday },
@@ -710,7 +680,8 @@ export default function HealthScreen() {
       reminderEnd: null,
       routineOrder: 0,
       childName: selectedProfile || '',
-      importance: 'regular',
+      energyEnabled: false,
+      energyValue: 1,
     });
     setHabitDraft('');
     success();
@@ -724,8 +695,6 @@ export default function HealthScreen() {
         bottomNav={false}
         ownBackground={false}
         screenColor={getScreenColor(theme, 'health').base}
-        focusActive={focusMode}
-        onToggleFocus={() => setFocusMode((v) => !v)}
         infoActive={hintOpen}
         onInfoToggle={() => setHintOpen((v) => !v)}
       >
@@ -879,26 +848,24 @@ export default function HealthScreen() {
                 </View>
 
                 {/* Inline quick-add row (replaces the old "+" bubble). Title-only create with
-                    defaults; long-press a habit to edit the rest. Hidden in Focus mode. */}
-                {!focusMode && (
-                  <Surface borderColor={habitDomainColor.accent} style={styles.habitAddRowCard}>
-                    <AddRow
-                      placeholder={t.health.addHabit}
-                      value={habitDraft}
-                      onChangeText={setHabitDraft}
-                      onSubmit={commitHabit}
-                      accent={habitDomainColor.accent}
-                      showDivider={false}
-                      accessibilityLabel={t.health.addHabit}
-                    />
-                  </Surface>
-                )}
+                    defaults; long-press a habit to edit the rest. */}
+                <Surface borderColor={habitDomainColor.accent} style={styles.habitAddRowCard}>
+                  <AddRow
+                    placeholder={t.health.addHabit}
+                    value={habitDraft}
+                    onChangeText={setHabitDraft}
+                    onSubmit={commitHabit}
+                    accent={habitDomainColor.accent}
+                    showDivider={false}
+                    accessibilityLabel={t.health.addHabit}
+                  />
+                </Surface>
               </>
             )}
 
             {habitTab === 'week' && (
               <WeekView
-                habits={focusFilteredHabits}
+                habits={profileHabits}
                 today={today}
                 lang={lang}
                 theme={theme}
@@ -906,7 +873,7 @@ export default function HealthScreen() {
             )}
             {habitTab === 'month' && (
               <MonthView
-                habits={focusFilteredHabits}
+                habits={profileHabits}
                 today={today}
                 theme={theme}
               />

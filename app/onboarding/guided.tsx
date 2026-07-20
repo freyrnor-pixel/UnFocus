@@ -54,10 +54,9 @@ export default function GuidedScreen() {
   }
 
   function goExplore() {
-    // W-E: new-user defaults — start with Focus/Essentials mode OFF (Notes/Shopping
-    // previews visible) and points visible. Onboarding-only. Schedule reminders the
+    // W-E: new-user defaults — points visible. Onboarding-only. Schedule reminders the
     // same way the name-step finish() does, so Explore users aren't left unscheduled.
-    settings.update({ showHints: true, setupComplete: true, essentialsModeEnabled: false, showPoints: true });
+    settings.update({ showHints: true, setupComplete: true, showPoints: true });
     if (settings.taskNotificationsEnabled || settings.remindersEnabled) {
       requestPermissions().finally(() => {
         syncReminders();

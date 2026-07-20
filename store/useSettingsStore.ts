@@ -3,7 +3,8 @@
  *
  * Zustand store mirroring the one settings row: user name, language,
  * dark mode, reminder/notification toggles (including quiet hours, task/habit notification toggles), reset cadence,
- * work/essentials modes, onboarding state, accessibility flags, monthly
+ * work mode, the optional Energy system (energySystemEnabled + default day/week
+ * capacities — see store/useEnergyStore.ts), onboarding state, accessibility flags, monthly
  * grocery budget (monthlyBudgetNok), the local account
  * (accountName/accountCreated — device-only profile, Decision 039), and the debug
  * overlay's enable flag.
@@ -85,7 +86,6 @@ export type Settings = {
   workHoursEnd: string;
   enforceWorkHours: boolean;
   workDays: number[];
-  essentialsModeEnabled: boolean;
   showPoints: boolean;
   showHints: boolean;
   language: Language;
@@ -164,7 +164,7 @@ export type Settings = {
   // record of exactly which rows the seed created, so disabling removes only those.
   freyrModeEnabled: boolean;
   freyrSeedIds: string;
-  // Plans day-view rail orientation (Home preview + Focus mode) — see
+  // Plans day-view rail orientation (Home preview) — see
   // components/PlanTaskCard.tsx. false = vertical rail (default), true = horizontal.
   planTimelineHorizontal: boolean;
   // First-run per-screen hints (onboarding slim-down 2026-07-13). Screen keys whose
@@ -176,6 +176,15 @@ export type Settings = {
   // user-removed card. Managed by components/HomeCardManager.tsx via hold-to-edit on
   // Home; see app/(tabs)/index.tsx.
   homeCardOrder: string[];
+  // Energy system (2026-07-20) — optional per-task energy-budget model replacing the
+  // removed Focus mode / task Importance. energySystemEnabled is the master toggle;
+  // when off, all energy UI is hidden. energyDailyCapacity / energyWeeklyCapacity are
+  // the DEFAULT capacities (a plain number) used when no per-period override exists in
+  // energy_budgets (store/useEnergyStore.ts). Consumed energy is derived from completed
+  // energy-tasks (lib/energy.ts), never stored on settings.
+  energySystemEnabled: boolean;
+  energyDailyCapacity: number;
+  energyWeeklyCapacity: number;
 };
 
 type SettingsStore = Settings & {
@@ -204,7 +213,6 @@ function rowToSettings(row: Row): Settings {
     workHoursEnd: readStr(row, 'work_hours_end', '17:00'),
     enforceWorkHours: readBool(row, 'enforce_work_hours'),
     workDays: readJson<number[]>(row, 'work_days', [0, 1, 2, 3, 4]),
-    essentialsModeEnabled: readBool(row, 'essentials_mode_enabled'),
     showPoints: readBool(row, 'show_points'),
     showHints: readInt(row, 'show_hints', 1) !== 0,
     language: readEnum<Language>(row, 'language', ['en', 'no'], 'no'),
@@ -247,6 +255,9 @@ function rowToSettings(row: Row): Settings {
     planTimelineHorizontal: readBool(row, 'plan_timeline_horizontal'),
     seenScreenHints: readJson<string[]>(row, 'seen_screen_hints', []),
     homeCardOrder: readJson<string[]>(row, 'home_card_order', ['plans', 'notes', 'shopping']),
+    energySystemEnabled: readBool(row, 'energy_system_enabled'),
+    energyDailyCapacity: readInt(row, 'energy_daily_capacity', 10),
+    energyWeeklyCapacity: readInt(row, 'energy_weekly_capacity', 50),
   };
 }
 
@@ -265,7 +276,6 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   workHoursEnd: { col: 'work_hours_end' },
   enforceWorkHours: { col: 'enforce_work_hours', to: bool },
   workDays: { col: 'work_days', to: (v) => JSON.stringify(v) },
-  essentialsModeEnabled: { col: 'essentials_mode_enabled', to: bool },
   showPoints: { col: 'show_points', to: bool },
   showHints: { col: 'show_hints', to: bool },
   language: { col: 'language' },
@@ -308,6 +318,9 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   planTimelineHorizontal: { col: 'plan_timeline_horizontal', to: bool },
   seenScreenHints: { col: 'seen_screen_hints', to: (v) => JSON.stringify(v) },
   homeCardOrder: { col: 'home_card_order', to: (v) => JSON.stringify(v) },
+  energySystemEnabled: { col: 'energy_system_enabled', to: bool },
+  energyDailyCapacity: { col: 'energy_daily_capacity' },
+  energyWeeklyCapacity: { col: 'energy_weekly_capacity' },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -323,7 +336,6 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   workHoursEnd: '17:00',
   enforceWorkHours: false,
   workDays: [0, 1, 2, 3, 4],
-  essentialsModeEnabled: false,
   showPoints: false,
   showHints: true,
   language: 'no' as Language,
@@ -369,6 +381,9 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   planTimelineHorizontal: false,
   seenScreenHints: [],
   homeCardOrder: ['plans', 'notes', 'shopping'],
+  energySystemEnabled: false,
+  energyDailyCapacity: 10,
+  energyWeeklyCapacity: 50,
   loaded: false,
   workModeSessionOverride: false,
 

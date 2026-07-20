@@ -19,10 +19,6 @@
  *     deliberately different.
  *   - One-off tasks fire once (skipped if done/past); weekly-recurring tasks fire on
  *     every selected weekday; time-box tasks additionally get an "end" reminder.
- *   - **Focus mode gating**: `essentialsModeEnabled` (the persisted "Focus mode" default,
- *     not the Home screen's ephemeral session toggle) suppresses notifications for any
- *     task whose `importance !== 'essential'` — mirrors the same field's Home-preview
- *     visibility filtering (app/(tabs)/index.tsx), applied to scheduling instead.
  */
 import type { Task } from '@/store/useTaskStore';
 import type { Language } from '@/store/useSettingsStore';
@@ -44,8 +40,6 @@ export type TaskNotifSettings = {
   quietHoursEnabled: boolean;
   quietHoursStart: string;
   quietHoursEnd: string;
-  /** Focus mode's persisted default — when on, only essential tasks get notified (mirrors visibility filtering). */
-  essentialsModeEnabled: boolean;
 };
 
 /** Pushes a notification's fire time past quiet hours, if enabled — the task itself keeps its real time, only the reminder is deferred. */
@@ -80,11 +74,6 @@ function deferOccurrencePastQuietHours(o: WeeklyTaskOccurrence, s: TaskNotifSett
  */
 export function syncTaskNotification(task: Task, s: TaskNotifSettings): void {
   if (!s.taskNotificationsEnabled || !task.time) {
-    void cancelTaskNotification(task.id);
-    return;
-  }
-  // Focus mode (persisted default): only essential tasks get notified.
-  if (s.essentialsModeEnabled && task.importance !== 'essential') {
     void cancelTaskNotification(task.id);
     return;
   }

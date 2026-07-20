@@ -41,7 +41,7 @@ const TABLE_COLUMNS: Record<SyncTable, string[]> = {
   tasks: [
     'title', 'task_date', 'task_time', 'task_type', 'duration_minutes', 'done',
     'recurring', 'recurring_days', 'created_at', 'sort_order', 'hint', 'follows_task_id',
-    'importance',
+    'energy_enabled', 'energy_value',
   ],
   shopping_items: [
     'name', 'amount', 'unit', 'list_type', 'checked', 'store', 'price', 'created_at', 'list_id',

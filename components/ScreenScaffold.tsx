@@ -165,9 +165,6 @@ type Props = {
   stickyBelowHeader?: React.ReactNode;
   /** Rendered height of `stickyBelowHeader` — required whenever that prop is passed. */
   stickyBelowHeaderHeight?: number;
-  /** Focus-mode toggle (Home only, Decisions 009 #4 / 018) — forwarded to the header. */
-  focusActive?: boolean;
-  onToggleFocus?: () => void;
   /** Info/hint toggle — forwarded to the header ⓘ button. */
   infoActive?: boolean;
   onInfoToggle?: () => void;
@@ -222,8 +219,6 @@ export default function ScreenScaffold({
   headerRight,
   stickyBelowHeader,
   stickyBelowHeaderHeight = 0,
-  focusActive,
-  onToggleFocus,
   infoActive,
   onInfoToggle,
   bottomNav = true,
@@ -405,8 +400,6 @@ export default function ScreenScaffold({
           isHome={isHome}
           onBack={onBack}
           headerRight={headerRight}
-          focusActive={focusActive}
-          onToggleFocus={onToggleFocus}
           infoActive={infoActive}
           onInfoToggle={onInfoToggle}
         />

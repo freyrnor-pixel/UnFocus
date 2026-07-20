@@ -83,7 +83,6 @@ export default function SharedTasksSection({ sentTasks, onToggleDone }: Props) {
       done: false,
       recurring: 'none',
       recurringDays: [],
-      importance: 'regular',
       sortOrder: 0,
       hasStartDate: false,
     });

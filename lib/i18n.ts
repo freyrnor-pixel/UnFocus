@@ -65,7 +65,6 @@ const en = {
   currentPlansLabel: "Today's plans",
   seeEverythingLink: 'See everything →',
   doneTasksLabel: 'Done today',
-  plansEssentialsHidden: (n: number) => `+ ${n} regular plan${n !== 1 ? 's' : ''} hidden →`,
   timelineEmpty: 'Nothing planned — enjoy your day',
   timelineNow: 'Now',
   // Day-view rail (components/PlanTaskCard.tsx — full /plans screen + read-only Home preview)
@@ -96,8 +95,6 @@ const en = {
   taskSave: 'Save',
   taskDiscard: 'Discard',
   taskRecurringToggle: 'Repeat',
-  taskNormal: 'Normal',
-  taskImportant: 'Important',
   taskStartSpecificDate: 'Set time',
   taskStartLabel: 'Start',
   taskFinishLabel: 'Finish',
@@ -122,10 +119,18 @@ const en = {
   emptyWeeklyList: 'Nothing here yet — add your first item.',
   emptyMonthlyList: 'Nothing here yet — add your first staple item.',
   smallThingsCount: (n: number) => `You've done ${n} thing${n !== 1 ? 's' : ''} — small things add up!`,
-  // Home-only ephemeral eye toggle — distinct from the persisted Settings "Focus mode"
-  // (config.essentials). Named "Calm view" to avoid the two colliding (Point 2).
-  calmViewActive: 'Calm view on',
-  calmViewInactive: 'Calm view off',
+  // Home Energy meter (components/EnergyMeter.tsx)
+  energyMeter: {
+    title: 'Energy',
+    today: 'Today',
+    thisWeek: 'This week',
+    remaining: (n: number) => `${n} left`,
+    usedOf: (used: number, cap: number) => `${used} / ${cap} used`,
+    editTitle: 'Adjust energy',
+    todayCapacity: "Today's energy",
+    weekCapacity: "This week's energy",
+    done: 'Done',
+  },
   a11yAdd: 'Add',
   a11yDiscardRow: 'Discard new row',
   focusBanner: '⭐ Essential plans only — tap to see all',
@@ -169,9 +174,10 @@ const en = {
   typeTimeBox: 'Time block (duration)',
   durationLabel: 'Duration (minutes)',
   durationPlaceholder: 'min',
-  importanceLabel: 'Mode',
-  importanceRegular: 'General',
-  importanceEssential: '⭐ Essential',
+  // Energy system (task-form + habit-form)
+  energyConsumeLabel: 'Affects energy',
+  energyConsumeHint: 'Give it a signed value — positive restores energy (like drinking water), negative drains it. Applied to your day and week budget when finished.',
+  energyCostLabel: 'Energy value',
   importantSectionLabel: 'Important',
   generalSectionLabel: 'General',
   emptySectionHint: 'Drag a task here',
@@ -795,7 +801,6 @@ const en = {
   darkModeToggle: 'Dark mode',
   darkModeToggleHint: 'Follows your device unless overridden',
   dailyOverview: 'Daily overview',
-  focusLabel: 'Focus',
   inStockLabel: 'In stock',
   addSheetTitle: 'Add to list',
   inventoryLabel: (n: number) => `${n} in stock`,
@@ -945,6 +950,13 @@ const en = {
   },
   // Accessibility settings (Proposal 4)
   settings: {
+    // Energy system (Generelt tab) — optional per-task energy budget.
+    energy: {
+      label: 'Energy system',
+      hint: 'Give tasks and habits a signed energy value and track a daily and weekly budget — positive restores energy (like drinking water), negative drains it.',
+      dailyCapacity: 'Daily energy',
+      weeklyCapacity: 'Weekly energy',
+    },
     accessibility: {
       title: 'Accessibility',
       reducedMotion: 'Reduced motion',
@@ -984,17 +996,6 @@ const en = {
   config: {
     // Top-level skip affordance for non-essential onboarding steps
     skipForNow: "I'll set this later",
-    // Focus mode (settings + onboarding "start simple" choice) — formerly "Essentials Mode"
-    essentials: {
-      label: 'Focus mode',
-      hint: 'Starts Home and Health showing only the essentials — key plans and habits. The eye in the top bar toggles it any time.',
-      onboardingTitle: 'Want to start simple?',
-      onboardingSub: 'See only the essentials at first. You can switch to the full view whenever you like.',
-      optionOn: 'Start simple',
-      optionOnDesc: 'Show only essential plans — less overwhelm',
-      optionOff: 'Show everything',
-      optionOffDesc: 'See all your plans from the start',
-    },
     // Section headers for the grouped settings screen
     sections: {
       appearance: 'Appearance',
@@ -1284,7 +1285,6 @@ const no: typeof en = {
   currentPlansLabel: 'Dagens planer',
   seeEverythingLink: 'Se alt →',
   doneTasksLabel: 'Ferdig i dag',
-  plansEssentialsHidden: (n: number) => `+ ${n} vanlige planer skjult →`,
   timelineEmpty: 'Ingenting planlagt — nyt dagen',
   timelineNow: 'Nå',
   // Day-view rail (components/PlanTaskCard.tsx — full /plans screen + read-only Home preview)
@@ -1315,8 +1315,6 @@ const no: typeof en = {
   taskSave: 'Lagre',
   taskDiscard: 'Forkast',
   taskRecurringToggle: 'Gjenta',
-  taskNormal: 'Vanlig',
-  taskImportant: 'Viktig',
   taskStartSpecificDate: 'Tidspunkt',
   taskStartLabel: 'Start',
   taskFinishLabel: 'Slutt',
@@ -1341,8 +1339,18 @@ const no: typeof en = {
   emptyWeeklyList: 'Ingenting her ennå — legg til din første vare.',
   emptyMonthlyList: 'Ingenting her ennå — legg til din første faste vare.',
   smallThingsCount: (n: number) => `Du har fullført ${n} ting — småting teller!`,
-  calmViewActive: 'Ro-visning på',
-  calmViewInactive: 'Ro-visning av',
+  // Home Energy-måler (components/EnergyMeter.tsx)
+  energyMeter: {
+    title: 'Energi',
+    today: 'I dag',
+    thisWeek: 'Denne uken',
+    remaining: (n: number) => `${n} igjen`,
+    usedOf: (used: number, cap: number) => `${used} / ${cap} brukt`,
+    editTitle: 'Juster energi',
+    todayCapacity: 'Energi i dag',
+    weekCapacity: 'Energi denne uken',
+    done: 'Ferdig',
+  },
   a11yAdd: 'Legg til',
   a11yDiscardRow: 'Forkast ny rad',
   focusBanner: '⭐ Kun viktige planer — trykk for å se alle',
@@ -1385,9 +1393,10 @@ const no: typeof en = {
   typeTimeBox: 'Fra da til da (timer)',
   durationLabel: 'Varighet (minutter)',
   durationPlaceholder: 'min',
-  importanceLabel: 'Modus',
-  importanceRegular: 'Generelt',
-  importanceEssential: '⭐ Viktig',
+  // Energy system (task-form + habit-form)
+  energyConsumeLabel: 'Påvirker energi',
+  energyConsumeHint: 'Gi den en verdi med fortegn — positiv gir energi (som å drikke vann), negativ tapper. Legges til dags- og ukebudsjettet når den er ferdig.',
+  energyCostLabel: 'Energiverdi',
   importantSectionLabel: 'Viktig',
   generalSectionLabel: 'Generelt',
   emptySectionHint: 'Dra en oppgave her',
@@ -1819,6 +1828,13 @@ const no: typeof en = {
     },
   },
   settings: {
+    // Energisystem (Generelt-fanen) — valgfritt energibudsjett per oppgave.
+    energy: {
+      label: 'Energisystem',
+      hint: 'Gi oppgaver og vaner en energiverdi med fortegn og følg et dags- og ukebudsjett — positiv gir energi (som å drikke vann), negativ tapper.',
+      dailyCapacity: 'Energi per dag',
+      weeklyCapacity: 'Energi per uke',
+    },
     accessibility: {
       title: 'Tilgjengelighet',
       reducedMotion: 'Redusert bevegelse',
@@ -1856,16 +1872,6 @@ const no: typeof en = {
   // --- W-E Config additions (grouped settings + onboarding) ---
   config: {
     skipForNow: 'Jeg ordner dette senere',
-    essentials: {
-      label: 'Fokus-modus',
-      hint: 'Starter hjem og helse med kun det viktigste — viktige planer og vaner. Øyet i topplinjen slår det av og på når du vil.',
-      onboardingTitle: 'Vil du starte enkelt?',
-      onboardingSub: 'Se bare det viktigste til å begynne med. Du kan bytte til full visning når du vil.',
-      optionOn: 'Start enkelt',
-      optionOnDesc: 'Vis bare viktige planer — mindre overveldende',
-      optionOff: 'Vis alt',
-      optionOffDesc: 'Se alle planene dine fra start',
-    },
     sections: {
       appearance: 'Utseende',
       notifications: 'Varsler',
@@ -2181,7 +2187,6 @@ const no: typeof en = {
   darkModeToggle: 'Mørk modus',
   darkModeToggleHint: 'Følger enheten med mindre du overstyrer',
   dailyOverview: 'Dagoversikt',
-  focusLabel: 'Fokus',
   inStockLabel: 'På lager',
   addSheetTitle: 'Legg til i liste',
   inventoryLabel: (n: number) => `${n} på lager`,
