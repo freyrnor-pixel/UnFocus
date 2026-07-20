@@ -42,9 +42,12 @@
  *     `components/TabBoxHighlight.tsx` — always renders a bordered box behind the label
  *     (white `theme.surface` fill + `theme.border` edge at rest, crossfading to a tinted
  *     `accent` fill + border when active) instead of the old "box only appears when active"
- *     look. Each tab passes its own `accent` from `TAB_META` (weekly=good, others=accent/
- *     mealDomainColor), so the active box color still differs per tab. Same shared component
- *     as app/(tabs)/plans.tsx and app/settings.tsx's tab bars.
+ *     look. Same shared component as app/(tabs)/plans.tsx and app/settings.tsx's tab bars.
+ *     Every tab's `accent` in `TAB_META` is the neutral brand `theme.accent` (blue), so the
+ *     active-box hue matches Plans, Health's SlideSelector, and the bottom nav — one
+ *     consistent "selected" colour app-wide (visual-audit 2026-07-20: Weekly's old green
+ *     `theme.good` + Food's meal-domain accent read as a competing selection colour against
+ *     the blue nav on the same screen).
  *   - **Sticky-bar label fix (visual-audit, 2026-07-11)**: the summary-row ternary fell
  *     through to a `tab === 'food' ? foodTabLabel : catalogueTabLabel` catch-all for any
  *     tab that wasn't `'monthly'` or `'weekly'`-with-a-`focusedList` — so a fresh/empty
@@ -754,14 +757,16 @@ export default function ShoppingScreen() {
     setDragState(null);
   }
 
+  // Active-tab selection colour is the neutral brand accent (theme.accent) for EVERY tab,
+  // so this in-app tab bar's "selected" hue matches Plans, Health's SlideSelector, AND the
+  // bottom nav (visual-audit 2026-07-20: Weekly's old green `theme.good` + Food's meal-domain
+  // accent read as a second, competing "selected" colour on the same screen as the blue nav).
+  // The Weekly cross-tab tick cue below stays `theme.good` — that's a status confirmation,
+  // not the selection colour.
   const TAB_META: { value: Tab; label: string; accent: string; count: number }[] = [
-    { value: 'weekly', label: t.weeklyTabLabel, accent: theme.good, count: ukelisteBadge },
+    { value: 'weekly', label: t.weeklyTabLabel, accent: theme.accent, count: ukelisteBadge },
     { value: 'monthly', label: t.monthlyTabLabel, accent: theme.accent, count: 0 },
-    { value: 'food', label: t.foodTabLabel, accent: mealDomainColor.accent, count: 0 },
-    // Catalogue is a static reference list, not an active-shopping view, so it doesn't
-    // borrow the shop-domain rose accent (visual-audit 2026-07-13: read as an alarming
-    // red for a prominent active-tab label+underline) — reuses the same neutral brand
-    // accent as Monthly instead.
+    { value: 'food', label: t.foodTabLabel, accent: theme.accent, count: 0 },
     { value: 'catalogue', label: t.catalogueTabLabel, accent: theme.accent, count: 0 },
   ];
 
