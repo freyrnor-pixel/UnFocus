@@ -416,7 +416,7 @@ function WeekView({
 
   if (visibleHabits.length === 0) {
     return (
-      <Surface style={styles.habitsEmptyCard}>
+      <Surface style={styles.habitsEmptyCard} borderColor={theme.border}>
         <EmptyState title={t.noHabitsYet} />
       </Surface>
     );
@@ -502,7 +502,7 @@ function MonthView({
 
   if (visibleHabits.length === 0) {
     return (
-      <Surface style={styles.habitsEmptyCard}>
+      <Surface style={styles.habitsEmptyCard} borderColor={theme.border}>
         <EmptyState title={t.noHabitsYet} />
       </Surface>
     );
@@ -864,7 +864,9 @@ export default function HealthScreen() {
 
                 <View style={styles.section}>
                   {visibleHabits.length === 0 ? (
-                    <Surface borderColor={habitDomainColor.accent} style={styles.sectionCard}>
+                    // Neutral edge to match the Week/Month empty placeholders (theme.border,
+                    // not the habit domain hue) — quiet "nothing here yet", not a coded surface.
+                    <Surface borderColor={theme.border} style={styles.sectionCard}>
                       <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
                     </Surface>
                   ) : (

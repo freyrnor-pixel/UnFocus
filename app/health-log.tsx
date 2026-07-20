@@ -131,7 +131,7 @@ export default function HealthLogScreen() {
         </Surface>
 
         {sections.length === 0 ? (
-          <Surface style={styles.emptyCard}>
+          <Surface style={styles.emptyCard} borderColor={theme.border}>
             <EmptyState title={t.noLogsGentle} />
           </Surface>
         ) : (
