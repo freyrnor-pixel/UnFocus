@@ -13,9 +13,9 @@
  *
  * Connections:
  *   Imports → @react-navigation/material-top-tabs (MaterialTopTabBarProps type),
- *             react-native-reanimated (FadeIn/FadeOut for the active-tab highlight),
- *             expo-router, constants/theme (incl. getGlow), constants/motion, lib/i18n, lib/siteNav,
- *             lib/useAppTheme (incl. useAccessibility), components/PressableScale, components/Surface
+ *             react-native-reanimated (Animated.View for the per-item keycap crossfade),
+ *             expo-router, constants/theme (incl. getGlow), lib/i18n, lib/siteNav,
+ *             lib/useAppTheme, lib/useToggleColor, components/PressableScale, components/Surface
  *   Used by → app/(tabs)/_layout.tsx (as the pager's tabBar); components/ScreenScaffold
  *             (standalone fallback via bottomNav=true — currently unused by any real screen)
  *   Data    → none (presentational; navigation only)
@@ -27,33 +27,41 @@
  *     and Settings → Automations. If SITE_ITEMS' length or item order changes again,
  *     update the slice indices below to match.
  *   - Centre item (index 2, home) is rendered with gradient + shadow (design system style).
- *   - Left items (indices 0–1) and right items (indices 3–4) are simple icon buttons.
+ *   - Left items (indices 0–1) and right items (indices 3–4) are rendered by `NavTabItem`,
+ *     a small subcomponent (below) so each gets its own `useToggleColor` hook instance.
  *   - BOTTOM_NAV_HEIGHT is exported for screens needing to offset overlays.
  *   - Active-tab detection: tab-bar mode reads `state.routes[state.index].name` and
  *     matches it against SITE_ITEMS via lib/siteNav.ts's TAB_ROUTE_NAME; standalone mode
  *     falls back to `usePathname() === item.route`.
  *   - `PressableScale`'s own default (`haptic=true`) already fires a light tap haptic on
  *     every press — no separate haptic call is needed here.
- *   - **Purposeful glow (2026-07-18, optional per design pass)**: the active-tab
- *     highlight layer carries `getGlow(theme.accent, 'soft')` alongside its existing fill —
- *     only the active (non-centre) tab, never every item. The centre FAB-style button
+ *   - **Keycap box, every item, always (2026-07-20)**: each non-centre item now carries a
+ *     permanent bordered box — `theme.surfaceMuted` fill + `theme.border` edge at rest,
+ *     crossfading (via `useToggleColor`, same hook `IconButton` uses) to `theme.accentSoft`
+ *     fill + `theme.accent` edge when active — instead of the old "nothing until selected"
+ *     look, which read as visually empty/unstyled. Matches the app-wide "keycap" convention
+ *     (2026-07-18 "border around icons and buttons" decision) that `IconButton` and
+ *     `SlideSelector`'s track already follow.
+ *   - **Purposeful glow (2026-07-18, optional per design pass)**: the active tab's box adds
+ *     `getGlow(theme.accent, 'soft')` on top of the crossfade — only while active, never on
+ *     every item (it's a static conditional, not animated, matching "icon/label colour swaps
+ *     instantly on top" from useToggleColor's own doc comment). The centre FAB-style button
  *     already reads as "lit" via its permanent accent fill + `Shadow.fab`, so it's left alone.
- *   - **Active-tab highlight fill (2026-07-20)**: uses `theme.accentSoft` (the app-wide
- *     active/selected tint — same token as IconButton's active state, Button secondary,
- *     etc.), NOT `theme.surfaceMuted`. surfaceMuted is a neutral grey meant for sunken/
- *     inactive surfaces, which is why an earlier pass using it here still read as "grey
- *     box" instead of a colored selected state.
+ *   - **Active fill uses `theme.accentSoft`** (the app-wide active/selected tint — same token
+ *     as IconButton's active state, Button secondary, etc.), NOT `theme.surfaceMuted` —
+ *     surfaceMuted is the neutral grey INACTIVE fill; reusing it for active state is what
+ *     made an earlier pass read as a plain "grey box" instead of a colored selected state.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
 import { Fonts, FontSize, Radius, Spacing, Shadow, getGlow } from '@/constants/theme';
-import { Duration } from '@/constants/motion';
-import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
+import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useToggleColor } from '@/lib/useToggleColor';
 import { goToSite, SITE_ITEMS, SiteItem, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
@@ -67,7 +75,6 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   const pathname = usePathname();
   const t = useT();
   const theme = useAppTheme();
-  const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
 
   const leftItems = SITE_ITEMS.slice(0, 2);
@@ -92,55 +99,20 @@ export default function BottomNav({ state, navigation }: Props = {}) {
     goToSite(router, pathname, item.route);
   }
 
-  const renderItem = (item: SiteItem, isCentre = false) => {
+  const renderCentre = (item: SiteItem) => {
     const active = isActive(item);
-    const iconColor = active ? theme.accent : theme.textMuted;
-
-    if (isCentre) {
-      return (
-        <PressableScale
-          key={item.key}
-          scaleTo={0.90}
-          accessibilityRole="button"
-          accessibilityLabel={t.nav[item.key]}
-          accessibilityState={{ selected: active }}
-          style={[styles.centreButton, { backgroundColor: theme.accent, ...Shadow.fab }]}
-          onPress={() => handlePress(item)}
-          hitSlop={8}
-        >
-          <Ionicons name={active ? item.activeIcon : item.icon} size={24} color={theme.accentInk} />
-        </PressableScale>
-      );
-    }
-
     return (
       <PressableScale
         key={item.key}
-        scaleTo={0.97}
+        scaleTo={0.90}
         accessibilityRole="button"
         accessibilityLabel={t.nav[item.key]}
         accessibilityState={{ selected: active }}
-        style={styles.item}
+        style={[styles.centreButton, { backgroundColor: theme.accent, ...Shadow.fab }]}
         onPress={() => handlePress(item)}
-        hitSlop={6}
+        hitSlop={8}
       >
-        {active && (
-          <Animated.View
-            pointerEvents="none"
-            entering={reducedMotion ? undefined : FadeIn.duration(Duration.control)}
-            exiting={reducedMotion ? undefined : FadeOut.duration(Duration.control)}
-            style={[StyleSheet.absoluteFill, styles.activeHighlight, { backgroundColor: theme.accentSoft }, getGlow(theme.accent, 'soft')]}
-          />
-        )}
-        <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={iconColor} />
-        <Text
-          style={[styles.label, { color: iconColor }]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.8}
-        >
-          {t.nav[item.key]}
-        </Text>
+        <Ionicons name={active ? item.activeIcon : item.icon} size={24} color={theme.accentInk} />
       </PressableScale>
     );
   };
@@ -148,15 +120,64 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   return (
     <Surface surfaceContext="overlay" style={styles.bar}>
       <View style={styles.leftGroup}>
-        {leftItems.map((item) => renderItem(item, false))}
+        {leftItems.map((item) => (
+          <NavTabItem key={item.key} item={item} label={t.nav[item.key]} active={isActive(item)} onPress={() => handlePress(item)} styles={styles} />
+        ))}
       </View>
 
-      {renderItem(centreItem, true)}
+      {renderCentre(centreItem)}
 
       <View style={styles.rightGroup}>
-        {rightItems.map((item) => renderItem(item, false))}
+        {rightItems.map((item) => (
+          <NavTabItem key={item.key} item={item} label={t.nav[item.key]} active={isActive(item)} onPress={() => handlePress(item)} styles={styles} />
+        ))}
       </View>
     </Surface>
+  );
+}
+
+type NavTabItemProps = {
+  item: SiteItem;
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  styles: typeof baseStyles;
+};
+
+// Own component (not a plain render function) so each item gets its own useToggleColor
+// hook instance — the keycap box crossfades independently per tab.
+function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
+  const theme = useAppTheme();
+  const iconColor = active ? theme.accent : theme.textMuted;
+  const boxStyle = useToggleColor(active, {
+    backgroundColor: [theme.surfaceMuted, theme.accentSoft],
+    borderColor: [theme.border, theme.accent],
+  });
+
+  return (
+    <PressableScale
+      scaleTo={0.97}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+      style={styles.item}
+      onPress={onPress}
+      hitSlop={6}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, styles.itemBox, boxStyle, active && getGlow(theme.accent, 'soft')]}
+      />
+      <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={iconColor} />
+      <Text
+        style={[styles.label, { color: iconColor }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+      >
+        {label}
+      </Text>
+    </PressableScale>
   );
 }
 
@@ -191,10 +212,11 @@ const baseStyles = StyleSheet.create({
     // ("Handleliste", "Oppgaver") on one line without ellipsis truncation.
     paddingHorizontal: 2,
   },
-  // Active-tab highlight — an absolutely-filled layer behind the icon/label that fades in/out
-  // as the active tab changes (icon/label colour still swaps instantly on top).
-  activeHighlight: {
+  // Keycap box behind the icon/label — always rendered (fill + border crossfade between
+  // inactive/active via useToggleColor in NavTabItem, same pattern as IconButton).
+  itemBox: {
     borderRadius: Radius.sm,
+    borderWidth: 1.5,
   },
   centreButton: {
     width: 56,
