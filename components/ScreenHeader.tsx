@@ -34,16 +34,17 @@
  *   - tier='site' is for top-level screens (Shopping, Plans, Home, Health, Scan)
  *   - tier='sub' is for sub-screens (forms, editors, modals)
  *   - **Focus-mode toggle (Decisions 009 #4 / 001a / 018)**: the right-slot eye is a live
- *     toggle ONLY when the screen passes `onToggleFocus` (Home does). Its user-facing label
- *     is "Calm view" (`t.calmView*`) — deliberately distinct from the persisted Settings
- *     "Focus mode" (`config.essentials`) so the two names don't collide (Point 2). `focusActive` drives
- *     the filled ('eye') vs outline ('eye-outline') glyph and the accent tint. Focus mode is
- *     Home-only + ephemeral, so every other site screen omits both props and the eye stays a
- *     harmless no-op placeholder (its historical Phase-1 state) rather than showing an active
- *     control that does nothing. Home additionally gets a "Focus mode" text label next to the
- *     icon (reuses `t.config.essentials.label`) — the eye alone was too non-obvious an
- *     affordance; the label is gated on `onToggleFocus` so it never appears on the inert
- *     placeholder elsewhere.
+ *     toggle ONLY when the screen passes `onToggleFocus`. Both Home (filters plans) AND Health
+ *     (filters its Habits section) wire it — the screens that own a "focus to essentials" view;
+ *     Shopping/Tasks/Scan omit both props. Its user-facing label is "Calm view" (`t.calmView*`)
+ *     — deliberately distinct from the persisted Settings "Focus mode" (`config.essentials`) so
+ *     the two names don't collide (Point 2). `focusActive` drives the filled ('eye') vs outline
+ *     ('eye-outline') glyph and the accent tint. Ephemeral per session, so a screen that omits
+ *     the props leaves the eye a harmless no-op placeholder (its historical Phase-1 state)
+ *     rather than showing an active control that does nothing. A screen that wires the toggle
+ *     additionally gets a "Focus mode" text label next to the icon (reuses
+ *     `t.config.essentials.label`) — the eye alone was too non-obvious an affordance; the label
+ *     is gated on `onToggleFocus` so it never appears on the inert placeholder elsewhere.
  *   - Settings (gear) press navigates to /settings. Site-tier chrome placement is
  *     handedness-aware (reads `leftHanded`, Decision 034): title + the grouped gear/eye
  *     controls swap sides together — controls right (title left) by default, both left
@@ -115,7 +116,7 @@ type Props = {
   onBack?: () => void;
   headerRight?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
-  /** Focus-mode toggle (Home only). When provided, the focus button is live. */
+  /** Focus-mode toggle (Home + Health). When provided, the focus button is live. */
   focusActive?: boolean;
   onToggleFocus?: () => void;
   /** Info/hint toggle (optional). When provided, an ⓘ icon appears left of the focus button. */
@@ -243,7 +244,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   };
 
   const handleFocusPress = () => {
-    // Live only when a screen wires it (Home, per Decisions 009 #4 / 018). Elsewhere a no-op.
+    // Live only when a screen wires it (Home + Health, per Decisions 009 #4 / 018). Elsewhere a no-op.
     onToggleFocus?.();
   };
 

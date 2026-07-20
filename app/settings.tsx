@@ -659,7 +659,10 @@ export default function SettingsScreen() {
 
             {/* ===== DATA ===== */}
             <SectionDivider />
-            <Text style={[styles.groupHeader, { color: theme.bad }]}>{t.config.sections.data}</Text>
+            {/* Neutral (not danger-red): this group leads with the non-destructive Send
+                Feedback + debug cards; the genuinely destructive resets deeper in the group
+                keep their own red styling (dangerBtnText/theme.bad + badSoft card border). */}
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.data}</Text>
 
             {/* Send Feedback (2026-07-13) — always visible, not gated on debug mode.
                 Free-text composer → mailto: via Linking, falling back to the OS share

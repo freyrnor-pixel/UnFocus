@@ -987,7 +987,7 @@ const en = {
     // Focus mode (settings + onboarding "start simple" choice) — formerly "Essentials Mode"
     essentials: {
       label: 'Focus mode',
-      hint: 'Start Home showing only essential plans. The eye in the top bar toggles it any time.',
+      hint: 'Starts Home and Health showing only the essentials — key plans and habits. The eye in the top bar toggles it any time.',
       onboardingTitle: 'Want to start simple?',
       onboardingSub: 'See only the essentials at first. You can switch to the full view whenever you like.',
       optionOn: 'Start simple',
@@ -1858,7 +1858,7 @@ const no: typeof en = {
     skipForNow: 'Jeg ordner dette senere',
     essentials: {
       label: 'Fokus-modus',
-      hint: 'Start hjem-skjermen med kun viktige planer. Øyet i topplinjen slår det av og på når du vil.',
+      hint: 'Starter hjem og helse med kun det viktigste — viktige planer og vaner. Øyet i topplinjen slår det av og på når du vil.',
       onboardingTitle: 'Vil du starte enkelt?',
       onboardingSub: 'Se bare det viktigste til å begynne med. Du kan bytte til full visning når du vil.',
       optionOn: 'Start enkelt',
