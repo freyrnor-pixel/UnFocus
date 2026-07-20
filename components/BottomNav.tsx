@@ -38,6 +38,11 @@
  *     highlight layer carries `getGlow(theme.accent, 'soft')` alongside its existing fill —
  *     only the active (non-centre) tab, never every item. The centre FAB-style button
  *     already reads as "lit" via its permanent accent fill + `Shadow.fab`, so it's left alone.
+ *   - **Active-tab highlight fill (2026-07-20)**: uses `theme.accentSoft` (the app-wide
+ *     active/selected tint — same token as IconButton's active state, Button secondary,
+ *     etc.), NOT `theme.surfaceMuted`. surfaceMuted is a neutral grey meant for sunken/
+ *     inactive surfaces, which is why an earlier pass using it here still read as "grey
+ *     box" instead of a colored selected state.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -124,7 +129,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
             pointerEvents="none"
             entering={reducedMotion ? undefined : FadeIn.duration(Duration.control)}
             exiting={reducedMotion ? undefined : FadeOut.duration(Duration.control)}
-            style={[StyleSheet.absoluteFill, styles.activeHighlight, { backgroundColor: theme.surfaceMuted }, getGlow(theme.accent, 'soft')]}
+            style={[StyleSheet.absoluteFill, styles.activeHighlight, { backgroundColor: theme.accentSoft }, getGlow(theme.accent, 'soft')]}
           />
         )}
         <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={iconColor} />
