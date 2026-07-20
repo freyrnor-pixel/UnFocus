@@ -372,7 +372,9 @@ export default function TasksScreen() {
   // Shared = shop green (inside SharedTasksSection); Today/Week day groups use the neutral accent.
 
   const stickyBelowHeader = (
-    <View style={[styles.stickyBar, { backgroundColor: theme.bg }]}>
+    // Transparent strip (no backgroundColor): the ambient screen background shows AROUND the
+    // opaque tab chips instead of a flat theme.bg band (2026-07-20).
+    <View style={styles.stickyBar}>
       <View style={styles.tabsRow}>
         {(['today', 'week', 'all'] as Tab[]).map((tabOption) => {
           const isActive = tab === tabOption;

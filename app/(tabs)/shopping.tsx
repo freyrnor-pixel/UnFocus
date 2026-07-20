@@ -773,7 +773,9 @@ export default function ShoppingScreen() {
   const summaryVisible = tab === 'weekly' && !!focusedList && !!focusedProgress;
   const stickyHeight = summaryVisible ? STICKY_HEIGHT : STICKY_HEIGHT_TABS;
   const stickyBelowHeader = (
-    <View style={[styles.stickyBar, { backgroundColor: theme.bg }]}>
+    // Transparent strip (no backgroundColor): the ambient screen background shows AROUND
+    // the opaque tab chips instead of a flat theme.bg band (2026-07-20).
+    <View style={styles.stickyBar}>
       <View style={styles.tabsRow}>
         {TAB_META.map(({ value, label, accent, count }) => {
           const isActive = tab === value;
@@ -1205,7 +1207,10 @@ export default function ShoppingScreen() {
             })}
 
             {nonTemplateLists.length === 0 && unallocatedItems.length === 0 && (
-              <Surface style={styles.weekEmptyCard}>
+              // Neutral edge (theme.border) instead of the default screen-hue edge, so this
+              // empty placeholder reads as a quiet "nothing here yet", not a coded surface
+              // (2026-07-20 unify placeholder cards).
+              <Surface style={styles.weekEmptyCard} borderColor={theme.border}>
                 <EmptyState
                   icon="cart-outline"
                   title={t.weekEmptyTitle}

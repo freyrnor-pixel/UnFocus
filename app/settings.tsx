@@ -485,7 +485,7 @@ export default function SettingsScreen() {
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      style={[styles.tabsScroll, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}
+      style={[styles.tabsScroll, { borderBottomColor: theme.border }]}
       contentContainerStyle={styles.tabsRow}
     >
       {TABS.map((tb) => {
