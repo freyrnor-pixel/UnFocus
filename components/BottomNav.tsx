@@ -44,11 +44,21 @@
  *     flat/lifeless against the also-grey-ish frosted bar behind it. `theme.surface` reads as
  *     a distinct raised white card against the bar's frosted `overlay`-context wash, so every
  *     tab has a visible bordered chip at rest, not just the active one.
+ *   - **Real depth, not just an outline (2026-07-20, same-day follow-up)**: a flat single-tone
+ *     border alone read as "plain borders" rather than an actual button — every item's box now
+ *     also carries `getLayeredShadow(theme.shadow, 'raised')` (the same three-pass depth token
+ *     Surface/Button use elsewhere), always on, so the keycap visibly lifts off the bar at rest
+ *     instead of relying on the border alone to sell "tappable." Radius bumped `Radius.sm` →
+ *     `Radius.md` to match Surface/Button's card/pill radius instead of a smaller, flatter-looking
+ *     chip corner.
  *   - **Purposeful glow (2026-07-18, optional per design pass)**: the active tab's box adds
  *     `getGlow(theme.accent, 'soft')` on top of the crossfade — only while active, never on
  *     every item (it's a static conditional, not animated, matching "icon/label colour swaps
- *     instantly on top" from useToggleColor's own doc comment). The centre FAB-style button
- *     already reads as "lit" via its permanent accent fill + `Shadow.fab`, so it's left alone.
+ *     instantly on top" from useToggleColor's own doc comment). Concatenated onto the resting
+ *     `boxShadow` array (not assigned over it) since both the depth and the glow are `boxShadow`
+ *     — setting the key twice would silently drop the depth layers when active. The centre
+ *     FAB-style button already reads as "lit" via its permanent accent fill + `Shadow.fab`, so
+ *     it's left alone.
  *   - **Active fill uses `theme.accentSoft`** (the app-wide active/selected tint — same token
  *     as IconButton's active state, Button secondary, etc.), NOT `theme.surfaceMuted` —
  *     surfaceMuted is the neutral grey sunken tone; reusing it for active state is what
@@ -61,7 +71,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
-import { Fonts, FontSize, Radius, Spacing, Shadow, getGlow } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Shadow, getGlow, getLayeredShadow } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useToggleColor } from '@/lib/useToggleColor';
 import { goToSite, SITE_ITEMS, SiteItem, TAB_ROUTE_NAME } from '@/lib/siteNav';
@@ -155,6 +165,12 @@ function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
     backgroundColor: [theme.surface, theme.accentSoft],
     borderColor: [theme.border, theme.accent],
   });
+  // Real depth (not just an outline) so the keycap reads as a raised, physical button —
+  // same `getLayeredShadow` three-pass depth Surface/Button use, not a bespoke shadow recipe.
+  // Active tabs layer the existing purposeful glow on top of (not instead of) that depth —
+  // both are `boxShadow` arrays, so they must be concatenated, not spread onto the same key.
+  const restShadow = getLayeredShadow(theme.shadow, 'raised');
+  const boxShadow = active ? [...restShadow, ...getGlow(theme.accent, 'soft').boxShadow] : restShadow;
 
   return (
     <PressableScale
@@ -168,7 +184,7 @@ function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
     >
       <Animated.View
         pointerEvents="none"
-        style={[StyleSheet.absoluteFill, styles.itemBox, boxStyle, active && getGlow(theme.accent, 'soft')]}
+        style={[StyleSheet.absoluteFill, styles.itemBox, boxStyle, { boxShadow }]}
       />
       <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={iconColor} />
       <Text
@@ -217,7 +233,7 @@ const baseStyles = StyleSheet.create({
   // Keycap box behind the icon/label — always rendered (fill + border crossfade between
   // inactive/active via useToggleColor in NavTabItem, same pattern as IconButton).
   itemBox: {
-    borderRadius: Radius.sm,
+    borderRadius: Radius.md,
     borderWidth: 1.5,
   },
   centreButton: {
