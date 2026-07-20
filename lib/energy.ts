@@ -35,9 +35,14 @@ export function weekKey(date: string): string {
   return `w:${getWeekDates(date)[0]}`;
 }
 
-/** True when a habit counts as "met" on `date` (its logged count reached the daily goal). */
+/**
+ * True when a habit counts as "met" on `date` (its logged count reached the daily goal).
+ * A rest day is neither met nor missed — it's excluded so energy simply doesn't move for
+ * that habit that day (no reward for resting, no penalty either).
+ */
 function habitMetOn(habit: Habit, logs: HabitLog[], date: string): boolean {
   const log = logs.find((l) => l.habitId === habit.id && l.logDate === date);
+  if (log?.restDay) return false;
   return (log?.count ?? 0) >= habit.dailyGoal;
 }
 

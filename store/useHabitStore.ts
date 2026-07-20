@@ -2,7 +2,8 @@
  * useHabitStore.ts — habits and their daily completion logs
  *
  * Zustand store for habits (with optional per-habit daily reminders) and the per-day
- * count logs that drive streaks. Schedules each habit's notification when added/updated
+ * count logs the UI reads for progress dots/week strip/energy. Schedules each habit's
+ * notification when added/updated
  * and exposes syncAllHabitReminders for re-scheduling. NOTE: the build/break `kind`
  * distinction and the cue/craving/response/reward fields are no longer used by the UI
  * (habits are now simple/task-shaped) — the columns and type members are retained for
@@ -18,16 +19,20 @@
  *
  * Edit notes:
  *   - Per-habit daily reminders are scheduled here via syncHabitReminder() (ids `habit-<id>-<i>`, one per time in notificationTimes); call syncAllHabitReminders() after a language change since strings are baked in.
- *   - load() only fetches active habits and the last 35 days of logs (streak window) — not full history.
+ *   - load() only fetches active habits and the last 35 days of logs — not full history.
  *   - User-facing notification strings go through getTranslations(useSettingsStore.getState().language), NOT useT.
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
  *   - markRestDay() toggles the rest_day flag on a habit_logs row (upserting one if it doesn't
  *     exist yet) — a no-shame opt-out, framed as "Resting today" in app/(tabs)/health.tsx, never
- *     "skipped". computeStreak() there treats a rest day like a met day so the streak survives it.
+ *     "skipped". No streak system exists to protect (removed 2026-07-20) — a rest day is purely
+ *     neutral: lib/energy.ts's habitMetOn excludes it from that day's Energy delta entirely, so
+ *     it's neither a reward nor a penalty, just a day the habit's energy sits still.
  *   - **`energyEnabled`/`energyValue`** (2026-07-20) — optional Energy-system participation.
- *     When energyEnabled, MEETING the habit on a day applies the signed energyValue (positive
- *     restores energy, negative drains) to that day's/week's budget (lib/energy.ts,
- *     components/EnergyMeter.tsx). Only matters when settings.energySystemEnabled.
+ *     When energyEnabled, MEETING the habit on a day (and not resting) applies the signed
+ *     energyValue (positive restores energy, negative drains) to that day's/week's budget
+ *     (lib/energy.ts, components/EnergyMeter.tsx). Also shown directly on the habit card as a
+ *     small +/- pill (app/(tabs)/health.tsx's EnergyBadge) — replaced the old streak badge.
+ *     Only matters when settings.energySystemEnabled.
  *   - **Decision 016 Q2 — no legacy `notificationTime` field.** `notificationTimes` is the
  *     sole live source of truth; the `notification_time` DB column is dead (never read/written
  *     here — see lib/db.ts's header for the precedent).
@@ -116,7 +121,7 @@ type HabitStore = {
   reorder: (id: string, direction: 'up' | 'down') => void;
   increment: (habitId: string, date: string) => void;
   decrement: (habitId: string, date: string) => void;
-  /** Toggle a day between "resting" and normal — no-shame opt-out that keeps the streak alive. */
+  /** Toggle a day between "resting" and normal — no-shame opt-out; neutral for Energy (lib/energy.ts). */
   markRestDay: (habitId: string, date: string) => void;
   /** Re-schedule every habit's daily reminder (after a language or quiet-hours change). */
   syncAllHabitReminders: () => void;

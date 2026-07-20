@@ -76,6 +76,15 @@ describe('energyDeltaForDay', () => {
     expect(energyDeltaForDay(DAY, [], [h], [log('w', DAY, 2)])).toBe(1);
   });
 
+  it('excludes a rest-day habit from the delta — no reward, no penalty', () => {
+    const h = habit({ id: 'w', energyEnabled: true, energyValue: 1, dailyGoal: 1 });
+    const restLog: HabitLog = { id: 'w-rest', habitId: 'w', logDate: DAY, count: 0, restDay: true };
+    expect(energyDeltaForDay(DAY, [], [h], [restLog])).toBe(0);
+    // Even if count happens to reach goal, resting still excludes it.
+    const restLogMet: HabitLog = { id: 'w-rest2', habitId: 'w', logDate: DAY, count: 1, restDay: true };
+    expect(energyDeltaForDay(DAY, [], [h], [restLogMet])).toBe(0);
+  });
+
   it('adds task and habit deltas together', () => {
     const tasks = [task({ done: true, energyEnabled: true, energyValue: -2 })];
     const habits = [habit({ id: 'w', energyEnabled: true, energyValue: 1, dailyGoal: 1 })];

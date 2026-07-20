@@ -43,10 +43,14 @@
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus
  *     effect only reseeds Focus mode's ephemeral default (see below).
  *   - **Habits section (ported from the removed app/habits.tsx)**: today/week/month view
- *     tabs, an optional child-profile selector, and per-habit cards (streak, progress dots,
- *     week strip, rest-day toggle) — the same sub-components/helpers habits.tsx used
- *     (HabitCard/WeekView/MonthView, shouldShowHabitOnDate/computeStreak/habitColor/
- *     progressColor), now module-scope in this file instead of their own screen.
+ *     tabs, an optional child-profile selector, and per-habit cards (progress dots, week
+ *     strip, rest-day toggle) — the same sub-components/helpers habits.tsx used
+ *     (HabitCard/WeekView/MonthView, shouldShowHabitOnDate/habitColor/progressColor), now
+ *     module-scope in this file instead of their own screen.
+ *   - **No streaks (2026-07-20)**: the habit card shows an Energy badge (habit.energyValue,
+ *     from the optional Energy system, lib/energy.ts) instead of a streak counter — only
+ *     for habits with `energyEnabled`. Rest day no longer needs to "protect" anything (it
+ *     never drove Energy) — see lib/energy.ts's habitMetOn for the exemption.
  *   - **Add-habit affordance (2026-07-13 rows pass)**: an inline `AddRow` at the bottom of
  *     the Today habit list is the add-habit trigger — a title-only quick-create with sensible
  *     defaults (icon/goal/recurrence via `commitHabit` → useHabitStore.add), matching Plans'
@@ -76,7 +80,7 @@ import SlideSelector from '@/components/SlideSelector';
 import PressableScale from '@/components/PressableScale';
 import { useT } from '@/lib/i18n';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
-import { todayStr, dateStr, getWeekDates, getMonthDates } from '@/lib/date';
+import { todayStr, getWeekDates, getMonthDates } from '@/lib/date';
 import { SEVERITY_COLORS, severities } from '@/lib/severity';
 import { FontSize, Radius, Shadow, Spacing, Fonts, Type } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
@@ -119,33 +123,6 @@ function shouldShowHabitOnDate(habit: Habit, dateStr: string): boolean {
   return true;
 }
 
-/**
- * Current streak: consecutive met days (count ≥ dailyGoal, or marked as a rest day)
- * ending today (or yesterday if today isn't met yet). Rest days count as met.
- */
-function computeStreak(habitId: string, goal: number, today: string, logs: HabitLog[]): number {
-  if (goal <= 0) return 0;
-  const byDate = new Map<string, HabitLog>();
-  for (const l of logs) if (l.habitId === habitId) byDate.set(l.logDate, l);
-  const metOn = (date: string) => {
-    const log = byDate.get(date);
-    if (!log) return false;
-    return log.restDay || log.count >= goal;
-  };
-  let streak = 0;
-  const cursor = new Date(today + 'T12:00:00');
-  if (!metOn(today)) cursor.setDate(cursor.getDate() - 1);
-  for (let i = 0; i < 35; i++) {
-    if (metOn(dateStr(cursor))) {
-      streak++;
-      cursor.setDate(cursor.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
-
 const DAY_ABBR = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const DAY_ABBR_NO = ['M', 'T', 'O', 'T', 'F', 'L', 'S'];
 
@@ -172,23 +149,17 @@ function ProgressDots({ count, goal, kind, theme }: { count: number; goal: numbe
   );
 }
 
-function StreakBadge({ streak, color, theme }: { streak: number; color: string; theme: ThemePalette }) {
-  const t = useT();
+// No streaks (2026-07-20) — habits with the optional Energy system enabled show their
+// signed energy value instead (positive restores the day's/week's budget, negative drains
+// it — lib/energy.ts). Habits without energyEnabled show nothing here.
+function EnergyBadge({ value, theme }: { value: number; theme: ThemePalette }) {
   const styles = useScaledStyles(baseStyles);
-  const dots = Math.min(streak, 7);
+  const positive = value >= 0;
+  const color = positive ? theme.good : theme.bad;
   return (
-    <View style={styles.streakWrap}>
-      <View style={styles.streakHead}>
-        <Text style={[styles.streakNum, { color }]}>{streak}</Text>
-        <Text style={[styles.streakLabel, { color: theme.textMuted }]}>{t.habits.streakLabel}</Text>
-      </View>
-      {streak > 0 && (
-        <View style={styles.streakDots}>
-          {Array.from({ length: dots }, (_, i) => (
-            <View key={i} style={[styles.streakDot, { backgroundColor: color }]} />
-          ))}
-        </View>
-      )}
+    <View style={[styles.energyPill, { borderColor: color }]}>
+      <Ionicons name="battery-charging-outline" size={11} color={color} />
+      <Text style={[styles.energyPillText, { color }]}>{positive ? `+${value}` : `${value}`}</Text>
     </View>
   );
 }
@@ -253,10 +224,6 @@ function HabitCard({
   const isDone = ratio >= 1;
 
   const accent = habitColor(habit.kind, theme);
-  const streak = useMemo(
-    () => computeStreak(habit.id, habit.dailyGoal, today, logs),
-    [habit.id, habit.dailyGoal, today, logs],
-  );
 
   const prevDone = useRef(isDone);
   const [glow, setGlow] = useState(0);
@@ -289,7 +256,7 @@ function HabitCard({
 
   // Decision 043 rule 3 / Decision 014 downstream to-do: progress/done state reads from
   // the 4px accent bar only — the card body stays theme.surface regardless of state
-  // (donePill/checkmark/ProgressDots/StreakBadge already carry the "done" signal).
+  // (donePill/checkmark/ProgressDots already carry the "done" signal).
   const barColor = isDone ? accent : progressColor(ratio, habit.kind, theme);
 
   return (
@@ -314,7 +281,7 @@ function HabitCard({
               <Text style={[styles.habitTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
             </View>
             <View style={styles.titleMetaRow}>
-              <StreakBadge streak={streak} color={accent} theme={theme} />
+              {habit.energyEnabled && <EnergyBadge value={habit.energyValue} theme={theme} />}
               {isDone && (
                 <View style={[styles.donePill, { backgroundColor: accent }]}>
                   <Text style={[styles.donePillText, { color: theme.accentInk }]}>{t.habits.doneToday}</Text>
@@ -971,12 +938,16 @@ const baseStyles = StyleSheet.create({
   habitTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   habitTitle: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
   titleMetaRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 2, flexWrap: 'wrap' },
-  streakWrap: { gap: 2 },
-  streakHead: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
-  streakNum: { fontSize: FontSize.lg, fontFamily: Fonts.extrabold },
-  streakLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
-  streakDots: { flexDirection: 'row', gap: 3 },
-  streakDot: { width: 6, height: 6, borderRadius: Radius.full },
+  energyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+  },
+  energyPillText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   donePill: {
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.sm,
