@@ -254,7 +254,8 @@ export default function ScreenScaffold({
   // them with allowFontScaling={false}, so RN can't rescale them a second time (Android
   // treats style fontSize/lineHeight as SP and multiplies by the font scale when scaling
   // is on — the double-scaling behind the header-clip bug; see the getHeaderMetrics doc in
-  // constants/theme.ts and HEADER_CLIP_DEBUG.md). ~73 at 1.0x, ~89 at the 1.4x cap.
+  // constants/theme.ts and HEADER_CLIP_DEBUG.md). ~79 at 1.0x, ~98 at the 1.4x cap (bumped
+  // from ~73/~89 alongside the 2026-07-20 header-prominence title-size increase).
   const { headerHeight: HEADER_HEIGHT } = getHeaderMetrics(PixelRatio.getFontScale());
 
   const scrollRef = useRef<ScrollView>(null);
