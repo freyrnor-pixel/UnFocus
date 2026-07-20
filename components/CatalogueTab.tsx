@@ -553,7 +553,10 @@ const baseStyles = StyleSheet.create({
   // root owns the horizontal inset (was on listContent) so the clipping `card` aligns with the
   // rows, plus a bottom gap so the notepad's rounded bottom clears the nav with the colourful
   // field showing beneath it — "rounded within the screen", not tucked under the nav bar.
-  root: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md },
+  // paddingTop matches shopping.tsx's `content` wrapper (padding: Spacing.md) used by the other
+  // 3 tabs, so the shared `header` chrome (incl. the Budget pill) starts the same distance below
+  // the sticky tab bar on every tab instead of sitting higher here (visual-audit 2026-07-20).
+  root: { flex: 1, paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.md },
   // The notepad sheet: fills the remaining height and rounds + clips its BOTTOM edge (the top is
   // the floating hint/add-row chrome, which reads fine square). overflow:hidden is what turns a
   // mid-scroll hard clip into a clean rounded bottom on the long, virtualized list.

@@ -204,7 +204,9 @@ const defaultLight: ThemePalette = {
   featHealth: '#17BEB0', // 4 · teal     — track health (off red/`bad`)
   featMeal: '#E88A52',   // 5 · orange   — eat (2026-07-18: muted off neon #F5843A, less candy)
   featShop: '#3DAF6F',   // 6 · green    — shop (2026-07-18: muted off neon #34C06A, less candy)
-  featBudget: '#F0A81E', // 7 · amber    — money
+  featBudget: '#D69420', // 7 · amber    — money (2026-07-20: deepened/desaturated off the
+  // brighter #F0A81E — that shade read as too loud/candy next to the tab bar's new neutral
+  // blue selection accent; same hue family, calmer)
   featNote: '#E6BC1C',   // 8 · yellow   — reflect / note
   // Scan screen hue — violet, distinct from featPlan indigo. Per-screen color only
   // (Scan has no domain bubble); read via lib/screenColor.ts (2026-07-18).
@@ -284,7 +286,8 @@ const defaultDark: ThemePalette = {
   featHealth: '#2DD4C4', // 4 · teal
   featMeal: '#F09763',   // 5 · orange (2026-07-18: muted off neon #FF9A55)
   featShop: '#50C68C',   // 6 · green  (2026-07-18: muted off neon #45D588)
-  featBudget: '#FBBF3C', // 7 · amber
+  featBudget: '#EAB84C', // 7 · amber (2026-07-20: deepened/desaturated off #FBBF3C, dark mirror
+  // of the light-mode change above — same reasoning, less neon against the blue tab bar)
   featNote: '#FBD24B',   // 8 · yellow
   // Scan screen hue — violet (per-screen color only; see lib/screenColor.ts, 2026-07-18).
   featScan: '#BE9DF7',
