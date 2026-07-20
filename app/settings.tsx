@@ -482,13 +482,17 @@ export default function SettingsScreen() {
   }
 
   const tabBar = (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={[styles.tabsScroll, { borderBottomColor: theme.border }]}
-      contentContainerStyle={styles.tabsRow}
-    >
-      {TABS.map((tb) => {
+    // Frosted-glass strip (same overlay Surface as the header): the flat backdrop reads through
+    // the frost AROUND the opaque tab chips, and content scrolling behind the sticky strip blurs
+    // instead of showing through raw (2026-07-20). borderRadius:0 = edge-to-edge.
+    <Surface surfaceContext="overlay" style={styles.tabsGlass}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabsScroll}
+        contentContainerStyle={styles.tabsRow}
+      >
+        {TABS.map((tb) => {
         const active = tab === tb.key;
         return (
           <PressableScale
@@ -508,7 +512,8 @@ export default function SettingsScreen() {
           </PressableScale>
         );
       })}
-    </ScrollView>
+      </ScrollView>
+    </Surface>
   );
 
   return (
@@ -1410,8 +1415,11 @@ const baseStyles = StyleSheet.create({
   },
   langFlag: { fontSize: 24 },
   langText: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
+  // Edge-to-edge frosted strip (Surface overlay) wraps this horizontal tab scroller — square
+  // corners, no floating-card rounding. The Surface owns the edge, so no border here.
+  tabsGlass: { flex: 1, borderRadius: 0 },
   tabsScroll: {
-    borderBottomWidth: 1,
+    flexGrow: 0,
   },
   tabsRow: {
     flexDirection: 'row', paddingHorizontal: Spacing.md, gap: Spacing.xs,
