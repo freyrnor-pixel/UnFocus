@@ -52,6 +52,10 @@
  *     add/remove/edit only, never the checkmark. Every constructor of a ShoppingList
  *     (add/advanceRecurringLists/saveAsTemplate/instantiateTemplate/backfillOrphanedItems)
  *     defaults it to false (unlocked) so a freshly created list is immediately editable.
+ *   - `load()` orders by `sort_order` (2026-07-20) — previously ordered by `start_date`,
+ *     which meant `sortOrder` was written on every constructor but never actually affected
+ *     card order. Now a drag-reorder (e.g. from components/MonthlyResetReviewSheet.tsx)
+ *     changes real app-wide list order, not just an ephemeral view.
  */
 import { create } from 'zustand';
 import db from '@/lib/db';
@@ -248,7 +252,9 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
   lists: [],
 
   load() {
-    const lists = loadAll('shopping_lists', rowToList, { orderBy: 'start_date' });
+    // Ordered by sort_order (not start_date) so a drag-reorder — e.g. from
+    // MonthlyResetReviewSheet — actually changes card order app-wide.
+    const lists = loadAll('shopping_lists', rowToList, { orderBy: 'sort_order' });
     set({ lists: backfillOrphanedItems(lists) });
   },
 

@@ -50,18 +50,31 @@ async function clickText(page, text, opts = {}) {
 }
 
 // Some screens show a one-off info modal on first visit (e.g. Shopping's
-// "Monthly list reset" summary, gated on real date math — expected app
+// pre-reset MonthlyResetReviewSheet, or its follow-up read-only
+// MonthlyResetSummaryModal — both gated on real date math, a fresh profile's
+// first Shopping visit always has an unset lastMonthlyReset — expected app
 // behaviour, not a bug). Dismiss it if present so it doesn't block the next
-// click; no-op if no modal is showing.
+// click; no-op if no modal is showing. "Skip" (the review sheet's ghost
+// button) is deliberately equivalent to any other way of leaving that sheet —
+// see components/MonthlyResetReviewSheet.tsx's header — so clicking it here
+// is exactly the same "just get past this" behavior as "Got it" below.
 async function dismissModalIfPresent(page) {
-  for (const label of ['Got it', "Got it →", 'OK']) {
-    const btn = page.getByText(label, { exact: true }).first();
-    if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
-      console.log(`  (dismissing modal: "${label}")`);
-      await btn.click({ timeout: 3000 }).catch(() => {});
-      await page.waitForTimeout(300);
-      return;
+  // Bounded loop, not a single dismiss: Skip on the review sheet immediately opens the
+  // follow-up read-only summary modal (Got it) in the same tick — so a fresh profile's
+  // first Shopping visit needs two dismissals in a row, not one.
+  for (let i = 0; i < 3; i++) {
+    let dismissedAny = false;
+    for (const label of ['Skip', 'Got it', "Got it →", 'OK']) {
+      const btn = page.getByText(label, { exact: true }).first();
+      if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
+        console.log(`  (dismissing modal: "${label}")`);
+        await btn.click({ timeout: 3000 }).catch(() => {});
+        await page.waitForTimeout(300);
+        dismissedAny = true;
+        break;
+      }
     }
+    if (!dismissedAny) return;
   }
 }
 
