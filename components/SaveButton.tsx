@@ -35,6 +35,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { FontSize, Fonts, Radius } from '@/constants/theme';
+import { Spring } from '@/constants/motion';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { tap as hapticTap } from '@/lib/haptics';
 
@@ -97,7 +98,7 @@ export function SaveButton({ visible, onPress, label }: SaveButtonProps) {
         if (!reducedMotion) pressScale.value = withTiming(0.95, { duration: 60 });
       }}
       onPressOut={() => {
-        if (!reducedMotion) pressScale.value = withSpring(1, { damping: 18, stiffness: 320 });
+        if (!reducedMotion) pressScale.value = withSpring(1, Spring.snappy);
       }}
       disabled={!visible}
       accessibilityRole="button"

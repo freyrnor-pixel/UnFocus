@@ -58,6 +58,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
 import { tap } from '@/lib/haptics';
 import { useAccessibility } from '@/lib/useAppTheme';
+import { Spring } from '@/constants/motion';
 
 type Props = {
   children: React.ReactNode;
@@ -121,7 +122,7 @@ export default function DraggableTaskRow({
     .enabled(!isOpen)
     .onStart(() => {
       lifted.value = 1;
-      scale.value = reducedMotion ? 1.03 : withSpring(1.03, { damping: 18, stiffness: 320 });
+      scale.value = reducedMotion ? 1.03 : withSpring(1.03, Spring.snappy);
       lastReportedY.value = 0;
       runOnJS(tap)();
       runOnJS(captureStart)();
