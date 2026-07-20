@@ -17,9 +17,11 @@
  *   Data    → none directly — callbacks drive the parent's drag/livePreview state
  *
  * Edit notes:
- *   - Pan only activates after a ~180ms hold (`activateAfterLongPress`), not on a bare vertical
+ *   - Pan only activates after a ~400ms hold (`activateAfterLongPress`), not on a bare vertical
  *     offset — deliberate, so a quick vertical swipe still scrolls the parent's ScrollView
- *     normally; only a held-then-dragged touch claims the row for reordering. `failOffsetX`
+ *     normally; only a held-then-dragged touch claims the row for reordering. The 400ms matches
+ *     DebugNoteAnchor's long-press (a bare 180ms felt too twitchy — the row grabbed on the way
+ *     into a scroll, on both the shopping list and Home's hold-to-manage cards). `failOffsetX`
  *     still lets a fast horizontal swipe fall through to a swipe-nav view immediately.
  *   - Disabled outright (`.enabled(!isOpen)`) while the wrapped row is expanded — dragging only
  *     ever applies to collapsed rows, so an open card's scrolling/typing is never contested.
@@ -114,7 +116,7 @@ export default function DraggableTaskRow({
   }
 
   const pan = Gesture.Pan()
-    .activateAfterLongPress(180)
+    .activateAfterLongPress(400)
     .failOffsetX([-12, 12])
     .enabled(!isOpen)
     .onStart(() => {

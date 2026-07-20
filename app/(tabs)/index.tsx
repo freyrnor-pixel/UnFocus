@@ -122,7 +122,7 @@ import { syncReminders } from '@/lib/reminders';
 // Home preview card management (hold-to-manage, components/HomeCardManager.tsx). These
 // are the only kinds HomeCardManager knows about — HomeSharedCard is a separate,
 // automatic/data-driven inbox, not a discretionary card, so it stays outside this set.
-const HOME_CARD_KINDS = ['notes', 'plans', 'shopping'] as const;
+const HOME_CARD_KINDS = ['plans', 'notes', 'shopping'] as const;
 type HomeCardKind = (typeof HOME_CARD_KINDS)[number];
 
 /** Defensive parse for the persisted order: drop unknown/duplicate kinds, fall back to the default order if the result is empty (corrupt/legacy row). */

@@ -20,10 +20,10 @@ import db from '@/lib/db';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 describe('homeCardOrder', () => {
-  it('defaults to notes/plans/shopping when the settings row has no value', () => {
+  it('defaults to plans/notes/shopping (Tasks first) when the settings row has no value', () => {
     (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1 });
     useSettingsStore.getState().load();
-    expect(useSettingsStore.getState().homeCardOrder).toEqual(['notes', 'plans', 'shopping']);
+    expect(useSettingsStore.getState().homeCardOrder).toEqual(['plans', 'notes', 'shopping']);
   });
 
   it('reads a persisted order back from the JSON column', () => {

@@ -5,13 +5,13 @@
  * any card enters an edit mode where every card becomes draggable and gets a delete (×)
  * badge, plus an "Add a card" tile for re-adding a removed kind. Mirrors
  * DraggableTaskRow's "owns no data" contract — reorder/remove/add are bubbled to the
- * parent via callbacks; this component only owns edit-mode state and its own (smaller —
- * flat sibling list, no cross-group merge) version of Decision 011 R1's window-space
- * drag hit-testing (app/(tabs)/shopping.tsx's computeTargetIndex, ported flat).
+ * parent via callbacks; this component only owns edit-mode state and drives the shared
+ * flat-list drag math (lib/reorder.reorderByDrag — the same stable, no-flicker insertion
+ * used by app/(tabs)/shopping.tsx's in-section reorder).
  *
  * Connections:
  *   Imports → components/DraggableTaskRow, components/PressableScale, constants/theme,
- *             lib/haptics, lib/i18n, lib/useAppTheme
+ *             lib/haptics, lib/i18n, lib/reorder (reorderByDrag), lib/useAppTheme
  *   Used by → app/(tabs)/index.tsx (Home's Notes/Plans/Shopping preview stack)
  *   Data    → none — pure presentational, all mutations bubbled up via callbacks
  *
@@ -22,9 +22,9 @@
  *     larger block; accepted trade-off vs. threading expand state through three
  *     separately-owned card components for this.
  *   - A long-press on ANY card both enters edit mode AND starts that card's drag in one
- *     motion (DraggableTaskRow's onDragStart already fires ~180ms into the hold, even
- *     with zero movement) — there's no separate "tap Edit first" step, matching "holding
- *     a card makes them all reorderable."
+ *     motion (DraggableTaskRow's onDragStart fires ~400ms into the hold, even with zero
+ *     movement) — there's no separate "tap Edit first" step, matching "holding a card makes
+ *     them all reorderable."
  *   - Relies on the Android LayoutAnimation global enable that ExpandableCard.tsx sets at
  *     module scope (same assumption DraggableTaskRow.tsx documents) — HomeShoppingCard
  *     imports ExpandableCard, so it's already set by the time this mounts on Home.
@@ -40,6 +40,7 @@ import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
+import { reorderByDrag } from '@/lib/reorder';
 
 type Props = {
   /** Ordered, currently-visible kind ids (e.g. ['notes', 'shopping']). */
@@ -53,20 +54,6 @@ type Props = {
 };
 
 type DragState = { kind: string; order: string[] };
-
-/** Flat-list version of app/(tabs)/shopping.tsx's computeTargetIndex — no dish-group merge target since Home's cards are plain siblings under one parent. */
-function computeTargetIndex(
-  centerY: number,
-  order: string[],
-  snapshot: Record<string, { y: number; height: number }>
-): number {
-  for (let i = 0; i < order.length; i++) {
-    const layout = snapshot[order[i]];
-    if (!layout) continue;
-    if (centerY < layout.y + layout.height / 2) return i;
-  }
-  return order.length - 1;
-}
 
 export default function HomeCardManager({ order, labels, onReorder, onRemove, onAdd, renderCard }: Props) {
   const theme = useAppTheme();
@@ -104,14 +91,11 @@ export default function HomeCardManager({ order, labels, onReorder, onRemove, on
   function handleDragMove(kind: string, centerY: number) {
     setDrag((prev) => {
       if (!prev || prev.kind !== kind) return prev;
-      const currentIndex = prev.order.indexOf(kind);
-      const targetIndex = Object.keys(snapshot.current).length
-        ? computeTargetIndex(centerY, prev.order, snapshot.current)
-        : currentIndex;
-      if (targetIndex === currentIndex || targetIndex < 0) return prev;
-      const next = [...prev.order];
-      next.splice(currentIndex, 1);
-      next.splice(targetIndex, 0, kind);
+      if (!Object.keys(snapshot.current).length) return prev;
+      // Stable, no-flicker insertion (lib/reorder): re-inserts the dragged card at the finger's
+      // position among the OTHERS, so a completed swap can't bounce back under the finger.
+      const next = reorderByDrag(centerY, prev.order, kind, snapshot.current);
+      if (!next.some((k, i) => k !== prev.order[i])) return prev;
       if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       return { ...prev, order: next };
     });
