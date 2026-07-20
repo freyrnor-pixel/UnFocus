@@ -51,6 +51,12 @@
  *     instead of relying on the border alone to sell "tappable." Radius bumped `Radius.sm` →
  *     `Radius.md` to match Surface/Button's card/pill radius instead of a smaller, flatter-looking
  *     chip corner.
+ *   - **Border dropped, fill + shadow kept (2026-07-20, later same-day follow-up)**: the
+ *     `theme.border`/`theme.accent` border stroke from the "Keycap box" pass above read as
+ *     "too punchy" (bordered look on every tab, all the time) per direct user feedback — removed
+ *     `borderWidth`/`borderColor` entirely. The white `theme.surface` fill and `getLayeredShadow`
+ *     depth (both from the two bullets above) are kept, so tabs still read as raised, tappable
+ *     cards without the outlined look. Don't re-add a border here without checking this note.
  *   - **Purposeful glow (2026-07-18, optional per design pass)**: the active tab's box adds
  *     `getGlow(theme.accent, 'soft')` on top of the crossfade — only while active, never on
  *     every item (it's a static conditional, not animated, matching "icon/label colour swaps
@@ -163,7 +169,6 @@ function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
   const iconColor = active ? theme.accent : theme.textMuted;
   const boxStyle = useToggleColor(active, {
     backgroundColor: [theme.surface, theme.accentSoft],
-    borderColor: [theme.border, theme.accent],
   });
   // Real depth (not just an outline) so the keycap reads as a raised, physical button —
   // same `getLayeredShadow` three-pass depth Surface/Button use, not a bespoke shadow recipe.
@@ -234,7 +239,6 @@ const baseStyles = StyleSheet.create({
   // inactive/active via useToggleColor in NavTabItem, same pattern as IconButton).
   itemBox: {
     borderRadius: Radius.md,
-    borderWidth: 1.5,
   },
   centreButton: {
     width: 56,
