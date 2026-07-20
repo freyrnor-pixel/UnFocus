@@ -23,9 +23,20 @@
  *
  * Edit notes:
  *   - All visible strings go through useT(); colour theme comes from useAppTheme().
- *   - recurrenceDays is always saved as [] here (weekday selection not exposed in this
- *     form) — matches the old app; only 'daily' is offered since nothing else is enforced
- *     anywhere in the app yet.
+ *   - **Recurrence (2026-07-20)**: Daily/Weekly/Monthly picker, matching the
+ *     daily/weekly/monthly-aware `shouldShowHabitToday()` already in
+ *     app/(tabs)/health.tsx. Weekly saves `recurrenceDays` as the selected weekday
+ *     indices (same dayLabels-driven chip picker as task-form.tsx's weekly recurrence);
+ *     Monthly saves it as a single-element `[dayOfMonth]` (1–28, via Stepper). 'one-time'
+ *     stays out of the picker — health.tsx currently treats it identically to 'daily' with
+ *     no distinct behaviour, so exposing it would be a no-op that reads as broken.
+ *   - **Keyboard fix (2026-07-20)**: the whole screen is wrapped in a `KeyboardAvoidingView`
+ *     (iOS `padding` only — Android already resizes the window via
+ *     `windowSoftInputMode=resize`, so a second RN-level shrink would double up and misplace
+ *     content, see ScreenScaffold's header note). Fixes the title input (and any lower field,
+ *     e.g. the notification start/end times) being covered by the keyboard on iOS, since
+ *     ScreenScaffold itself has no keyboard-avoidance for a plain sub-screen ScrollView (only
+ *     components/AddRow.tsx's `ScrollIntoViewContext` handles that, for list-row inputs).
  *   - **Decision 016 Q2 (drop mirror)**: no `notificationTime` field anywhere in this
  *     form or its save payload — `notificationTimes` is the sole source of truth.
  *   - **Decision 016 Q3 (recipe columns, 3B-ii)**: `reminderMode`/`reminderCount`/
@@ -41,12 +52,13 @@
  *     every time field is a plain FormControls.Input (HH:MM text).
  */
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   useHabitStore,
   HabitCategory,
+  HabitRecurrence,
   HabitReminderMode,
 } from '@/store/useHabitStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -132,6 +144,13 @@ export default function HabitForm() {
   const [icon, setIcon] = useState(existing?.icon ?? 'star-outline');
   const [category, setCategory] = useState<HabitCategory>(existing?.category ?? 'other');
   const [dailyGoal, setDailyGoal] = useState(existing?.dailyGoal ?? 1);
+  const [recurrence, setRecurrence] = useState<HabitRecurrence>(existing?.recurrence ?? 'daily');
+  const [weekDays, setWeekDays] = useState<number[]>(
+    existing?.recurrence === 'weekly' ? existing.recurrenceDays : []
+  );
+  const [monthDay, setMonthDay] = useState(
+    existing?.recurrence === 'monthly' ? (existing.recurrenceDays[0] ?? 1) : 1
+  );
   const [childName, setChildName] = useState(existing?.childName ?? (params.childName ?? ''));
   const [energyEnabled, setEnergyEnabled] = useState(existing?.energyEnabled ?? false);
   const [energyValue, setEnergyValue] = useState(existing?.energyValue ?? 1);
@@ -166,9 +185,13 @@ export default function HabitForm() {
     reminderEnd
   );
 
+  function toggleWeekDay(d: number) {
+    setWeekDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
+  }
+
   // Advanced fields start collapsed; open by default in edit mode if any already hold a value.
   const [showMore, setShowMore] = useState<boolean>(
-    isEdit && !!(existing && (existing.dailyGoal > 1 || existing.category !== 'other'))
+    isEdit && !!(existing && (existing.dailyGoal > 1 || existing.category !== 'other' || existing.recurrence !== 'daily'))
   );
 
   function save() {
@@ -185,8 +208,8 @@ export default function HabitForm() {
       response: '',
       reward: '',
       dailyGoal,
-      recurrence: 'daily' as const,
-      recurrenceDays: [],
+      recurrence,
+      recurrenceDays: recurrence === 'weekly' ? weekDays : recurrence === 'monthly' ? [monthDay] : [],
       notificationEnabled,
       notificationTimes,
       reminderMode: notificationEnabled ? reminderMode : null,
@@ -224,6 +247,7 @@ export default function HabitForm() {
   const categoryKeys: HabitCategory[] = ['physical', 'mental', 'health', 'nutrition', 'sleep', 'work', 'wellbeing', 'other'];
 
   return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
     <ScreenScaffold
       title={isEdit ? t.habitFormEdit : t.habitFormTitle}
       tier="sub"
@@ -479,10 +503,50 @@ export default function HabitForm() {
               </ScrollView>
             </View>
 
-            {/* Recurrence — only 'daily' behaves as labelled today; nothing else is enforced. */}
+            {/* Recurrence — how often the habit resets/shows up */}
             <View style={styles.field}>
               <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitRecurrence}</Text>
-              <SegmentedControl options={[{ value: 'daily', label: t.habitRecurrenceDaily }]} value="daily" onChange={() => {}} />
+              <SegmentedControl
+                options={[
+                  { value: 'daily', label: t.habitRecurrenceDaily },
+                  { value: 'weekly', label: t.habitRecurrenceWeekly },
+                  { value: 'monthly', label: t.habitRecurrenceMonthly },
+                ]}
+                value={recurrence}
+                onChange={(v) => setRecurrence(v as HabitRecurrence)}
+              />
+              {recurrence === 'weekly' && (
+                <View style={styles.daysRow}>
+                  {t.dayLabels.map((label, i) => {
+                    const active = weekDays.includes(i);
+                    return (
+                      <PressableScale
+                        key={i}
+                        style={[
+                          styles.dayChip,
+                          { backgroundColor: theme.surfaceMuted },
+                          active && { backgroundColor: theme.accent },
+                        ]}
+                        onPress={() => {
+                          tap();
+                          toggleWeekDay(i);
+                        }}
+                        scaleTo={0.97}
+                      >
+                        <Text style={[styles.dayText, { color: theme.text }, active && { color: theme.accentInk }]}>
+                          {label.slice(0, 2)}
+                        </Text>
+                      </PressableScale>
+                    );
+                  })}
+                </View>
+              )}
+              {recurrence === 'monthly' && (
+                <View style={[styles.energyStepperRow, { marginTop: Spacing.sm }]}>
+                  <Text style={[styles.label, { color: theme.textMuted }]}>{t.taskMonthlyByDay}</Text>
+                  <Stepper value={monthDay} onChange={setMonthDay} min={1} max={28} accessibilityLabel={t.taskMonthlyByDay} />
+                </View>
+              )}
             </View>
 
             {/* Daily goal stepper */}
@@ -514,12 +578,17 @@ export default function HabitForm() {
         )}
       </View>
     </ScreenScaffold>
+    </KeyboardAvoidingView>
   );
 }
 
 const baseStyles = StyleSheet.create({
+  flex: { flex: 1 },
   content: { padding: Spacing.md, gap: Spacing.lg },
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
+  daysRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm, flexWrap: 'wrap' },
+  dayChip: { width: 44, height: 44, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  dayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   chip: { paddingHorizontal: Spacing.sm, paddingVertical: 6, borderRadius: Radius.full },
