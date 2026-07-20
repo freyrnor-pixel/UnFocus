@@ -12,7 +12,8 @@
  * narrower CatalogSuggestion shape is a structural subset — they keep compiling.
  *
  * Connections:
- *   Imports → lib/catalogSeed, lib/db, lib/dataAccess, lib/id
+ *   Imports → lib/catalogSeed, lib/db, lib/dataAccess, lib/id, lib/receipt (findFuzzyMatch —
+ *             recordPurchases() dedup, 2026-07-20)
  *   Used by → components/AddItemSheet.tsx, components/AddDishSheet.tsx (suggest),
  *             components/CatalogueTab.tsx (the Shopping screen's "Catalogue" tab — addItem/
  *             updateItem/removeItem CRUD), components/FoodTab.tsx + components/WeekListCard.tsx
@@ -29,6 +30,9 @@
  *     'seed' rows with lib/catalogSeed.ts when the seed version changes, but never overwrites a price once a real purchase sets it to 'purchase'.
  *   - purchase_log is append-only and pruned by RETENTION_DAYS in lib/db.ts; recordPurchases() also upserts the catalog row's store/category, but only raises price — a new purchase price below the existing catalog price never lowers it (store/category still update unconditionally).
  *   - recordPurchases()'s optional receiptId links each purchase_log row to a receipts row (purchase_log.receipt_id) for a future budget screen — pass it whenever a receipt was already created; omit it for purchases with no receipt (e.g. manual catalog edits).
+ *   - recordPurchases() matches a purchased name against the catalog via findFuzzyMatch
+ *     (lib/receipt.ts), not exact equality (2026-07-20) — an OCR near-miss updates the
+ *     existing catalog row instead of inserting a permanent near-duplicate.
  *   - resetItemPrice(id, newPrice) directly updates a store_items row's price and sets price_source = 'purchase' — escape hatch for correcting misread OCR prices.
  *   - addItem/updateItem/removeItem back the Catalogue tab's manual CRUD. removeItem SOFT-deletes
  *     (sets `deleted = 1`) rather than DELETEing, because seedCatalog() re-inserts every seed row
@@ -45,6 +49,7 @@ import db from '@/lib/db';
 import { Row, loadAll, insertRow, readStr, readReal, tx } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
 import { CATALOG_SEED } from '@/lib/catalogSeed';
+import { findFuzzyMatch } from '@/lib/receipt';
 
 export type StoreItem = {
   id: string;
@@ -198,7 +203,13 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
         });
       } catch { /* logging is best-effort */ }
 
-      const idx = next.findIndex((i) => i.name.toLowerCase() === name.toLowerCase());
+      // Fuzzy, not exact, match: an OCR-scanned name that's a near-miss of an
+      // existing catalog entry (whitespace, a 1-2 char misread) should update
+      // that row instead of permanently bloating the catalog with a near-dupe
+      // (2026-07-20 — same matcher app/scan.tsx already uses for the Katalog
+      // price-match, applied here to the catalog-insert path too).
+      const matchedName = findFuzzyMatch(name, next.map((i) => i.name));
+      const idx = matchedName ? next.findIndex((i) => i.name === matchedName) : -1;
       if (idx >= 0) {
         // Catalog price only ever moves up from a real purchase — a lower price
         // on a later receipt (sale, different store) doesn't overwrite the

@@ -3,7 +3,8 @@
  *
  * Opens the shared `unfocus.db` handle and exports it as default. initDb()
  * creates every table/index and runs idempotent ALTER-TABLE migrations;
- * pruneOldData() trims dated history older than RETENTION_DAYS (365). All Zustand
+ * pruneOldData() trims dated history older than RETENTION_DAYS (365) — called
+ * from app/_layout.tsx's boot effect, right after initDb(). All Zustand
  * stores import this db handle to run their queries.
  *
  * Connections:
@@ -17,7 +18,13 @@
  *     "column already exists" errors.
  *   - pruneOldData() deliberately spares config-like tables (recurring tasks,
  *     dishes, habits, catalog, settings) and user-authored persistent content
- *     (notes); only dated/append-only rows are pruned.
+ *     (notes); only dated/append-only rows are pruned. For `tasks` specifically,
+     only rows that are non-recurring AND has_start_date=1 AND done=1 are ever
+     deleted — undone backlog tasks and undated Whenever tasks (has_start_date=0,
+     whose task_date is just a creation stamp, not a deadline) are never pruned
+     at any age. `settings.lifetime_completed_tasks` (incremented/decremented by
+     store/useTaskStore.ts) exists precisely so completedCount doesn't derive
+     from `tasks` row presence, which pruning would otherwise silently corrupt.
  *   - `tasks.follows_task_id` (Decision 020) has no real FOREIGN KEY constraint —
  *     SQLite can't ALTER TABLE to add one to an existing table. It lives on the
  *     FOLLOWER row and points at its predecessor's id; ON DELETE SET NULL is
@@ -667,6 +674,14 @@ export function initDb() {
     "ALTER TABLE tasks ADD COLUMN energy_value INTEGER DEFAULT 1",
     "ALTER TABLE habits ADD COLUMN energy_enabled INTEGER DEFAULT 0",
     "ALTER TABLE habits ADD COLUMN energy_value INTEGER DEFAULT 1",
+    // Long-run health pass (2026-07-20): pruneOldData() is now actually called
+    // (see app/_layout.tsx), so completedCount can no longer be a live scan of
+    // `tasks` — a pruned year-old completed task would silently drop the count.
+    // This persisted counter is incremented/decremented by useTaskStore instead
+    // (see its toggle/completeDirect/remove/clearAll). Backfilled once from the
+    // current done-task count so existing users don't see it reset to 0.
+    "ALTER TABLE settings ADD COLUMN lifetime_completed_tasks INTEGER DEFAULT 0",
+    "UPDATE settings SET lifetime_completed_tasks = (SELECT COUNT(*) FROM tasks WHERE done = 1) WHERE id = 1 AND lifetime_completed_tasks = 0",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
@@ -705,7 +720,15 @@ export function pruneOldData() {
   cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
   const c = dateStr(cutoff);
   try {
-    db.runSync("DELETE FROM tasks WHERE recurring = 'none' AND task_date < ?", [c]);
+    // Only completed, dated, non-recurring tasks are safe to forget: undone
+    // tasks are still live backlog (backlogTasks() surfaces them regardless of
+    // age), undated Whenever tasks (has_start_date=0) use `task_date` as their
+    // creation date rather than a real deadline, and recurring definitions are
+    // config, not dated history.
+    db.runSync(
+      "DELETE FROM tasks WHERE recurring = 'none' AND has_start_date = 1 AND done = 1 AND task_date < ?",
+      [c]
+    );
     db.runSync('DELETE FROM health_logs WHERE log_date < ?', [c]);
     db.runSync('DELETE FROM habit_logs WHERE log_date < ?', [c]);
     db.runSync('DELETE FROM purchase_log WHERE purchased_at < ?', [c]);

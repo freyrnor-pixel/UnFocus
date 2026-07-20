@@ -6,6 +6,10 @@
  * writes, so mocking '@/lib/db' to no-op the writes lets the real ranking /
  * price-learning logic run and be asserted on state. We seed `items` directly
  * with setState rather than through load() (which would run the seed + a DB read).
+ *
+ * recordPurchases() matches against the catalog via findFuzzyMatch (lib/receipt.ts),
+ * not exact equality (2026-07-20) — see the dedicated test below for an OCR-near-miss
+ * case, which asserts it updates the existing row instead of inserting a duplicate.
  */
 jest.mock('@/lib/db', () => ({
   __esModule: true,
@@ -143,6 +147,29 @@ describe('recordPurchases price learning', () => {
       .recordPurchases([{ name: '  ', price: 5, store: '', wasOnList: false }]);
     useCatalogStore.getState().recordPurchases([]);
     expect(useCatalogStore.getState().items).toHaveLength(0);
+  });
+
+  it('fuzzy-matches an OCR near-miss to the existing item instead of duplicating it (2026-07-20)', () => {
+    useCatalogStore.setState({ items: [item({ id: '1', name: 'Yoghurt', price: 10 })] });
+    // "Yoghurrt" (one extra letter) is a 1-edit-distance near-miss, not an exact match.
+    useCatalogStore
+      .getState()
+      .recordPurchases([{ name: 'Yoghurrt', price: 15, store: 'A', wasOnList: false }]);
+    const { items } = useCatalogStore.getState();
+    expect(items).toHaveLength(1);
+    expect(items[0].name).toBe('Yoghurt'); // existing catalog spelling wins, not the OCR text
+    expect(items[0].price).toBe(15);
+  });
+
+  it('still inserts a genuinely new item that is not a close match to anything', () => {
+    useCatalogStore.setState({ items: [item({ id: '1', name: 'Yoghurt' })] });
+    useCatalogStore
+      .getState()
+      .recordPurchases([{ name: 'Toothpaste', price: 40, store: '', wasOnList: false }]);
+    expect(useCatalogStore.getState().items.map((i) => i.name).sort()).toEqual([
+      'Toothpaste',
+      'Yoghurt',
+    ]);
   });
 });
 

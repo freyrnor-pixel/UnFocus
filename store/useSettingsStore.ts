@@ -24,6 +24,10 @@
  * homeCardOrder is the ordered/filtered list of Home preview "kind" ids the user has
  * chosen to keep visible (hold-to-manage, components/HomeCardManager.tsx) — a kind
  * missing from the array is a user-removed card.
+ * lifetimeCompletedTasks (2026-07-20) is an internal, non-UI counter — the all-time
+ * completed-task count, maintained by store/useTaskStore.ts so it survives
+ * pruneOldData() pruning old completed tasks out of the `tasks` table; read
+ * directly by app/(tabs)/index.tsx.
  *
  * Connections:
  *   Imports → lib/dataAccess, lib/id
@@ -185,6 +189,12 @@ export type Settings = {
   energySystemEnabled: boolean;
   energyDailyCapacity: number;
   energyWeeklyCapacity: number;
+  // All-time completed-task counter (2026-07-20 long-run health pass) — lives here
+  // rather than being derived from `tasks` row presence, since pruneOldData() now
+  // actually prunes old completed dated tasks. Incremented/decremented by
+  // store/useTaskStore.ts at the same sites that fire the 'task_completed'
+  // automation trigger (plus remove()/clearAll()); read directly by app/(tabs)/index.tsx.
+  lifetimeCompletedTasks: number;
 };
 
 type SettingsStore = Settings & {
@@ -258,6 +268,7 @@ function rowToSettings(row: Row): Settings {
     energySystemEnabled: readBool(row, 'energy_system_enabled'),
     energyDailyCapacity: readInt(row, 'energy_daily_capacity', 10),
     energyWeeklyCapacity: readInt(row, 'energy_weekly_capacity', 50),
+    lifetimeCompletedTasks: readInt(row, 'lifetime_completed_tasks', 0),
   };
 }
 
@@ -321,6 +332,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   energySystemEnabled: { col: 'energy_system_enabled', to: bool },
   energyDailyCapacity: { col: 'energy_daily_capacity' },
   energyWeeklyCapacity: { col: 'energy_weekly_capacity' },
+  lifetimeCompletedTasks: { col: 'lifetime_completed_tasks' },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -384,6 +396,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   energySystemEnabled: false,
   energyDailyCapacity: 10,
   energyWeeklyCapacity: 50,
+  lifetimeCompletedTasks: 0,
   loaded: false,
   workModeSessionOverride: false,
 

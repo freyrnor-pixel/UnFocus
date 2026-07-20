@@ -626,13 +626,17 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
    *  5. Permanent catalog items are never deleted — only their status/flags move.
    */
   monthlyReset() {
+    // list_id is cleared in both UPDATEs below (2026-07-20 fix) — per this store's
+    // own invariant ("Items never carry listId once status='catalog'", see the
+    // listId/orderIndex edit note above), a catalog-status row must not keep
+    // pointing at a shopping_lists row that monthly reset just orphaned.
     db.runSync(
-      "UPDATE shopping_items SET status = 'catalog', shopping_trip_id = NULL, purchased_at = NULL, checked = 0, collected = 0 WHERE shopping_trip_id IS NOT NULL"
+      "UPDATE shopping_items SET status = 'catalog', shopping_trip_id = NULL, purchased_at = NULL, checked = 0, collected = 0, list_id = NULL WHERE shopping_trip_id IS NOT NULL"
     );
     db.runSync('DELETE FROM shopping_trips');
     db.runSync('DELETE FROM shopping_items WHERE is_temporary = 1');
     db.runSync('UPDATE shopping_items SET pending_restock = 0');
-    db.runSync("UPDATE shopping_items SET status = 'catalog', checked = 0, collected = 0 WHERE status = 'inWeeklyList'");
+    db.runSync("UPDATE shopping_items SET status = 'catalog', checked = 0, collected = 0, list_id = NULL WHERE status = 'inWeeklyList'");
 
     set((s) => ({
       trips: [],
@@ -640,7 +644,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
         .filter((i) => !i.isTemporary)
         .map((i) => {
           if (i.shoppingTripId || i.status === 'inWeeklyList') {
-            return { ...i, status: 'catalog' as const, shoppingTripId: undefined, purchasedAt: undefined, pendingRestock: false, checked: false, collected: false };
+            return { ...i, status: 'catalog' as const, shoppingTripId: undefined, purchasedAt: undefined, pendingRestock: false, checked: false, collected: false, listId: undefined };
           }
           return { ...i, pendingRestock: false };
         }),

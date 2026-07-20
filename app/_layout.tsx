@@ -28,6 +28,12 @@
  *   Used by → router layout — defines the Stack
  *
  * Edit notes:
+ *   - **Retention pruning (2026-07-20) — WIRED.** `pruneOldData()` (lib/db.ts) now
+ *     actually runs, right after `initDb()` in the boot effect. Monthly recurring
+ *     tasks' reminders are re-armed for their next occurrence in the same boot
+ *     effect and again on every foreground (see `useTaskStore.getState().syncMonthlyTaskNotifications()`
+ *     call sites below) since there's no native repeating trigger that expresses
+ *     "day-of-month, clamped"/"nth weekday" — see lib/taskNotifications.ts.
  *   - Settings + all stores hydrate in one mount effect (see the effect comment):
  *       - Tier A (synchronous, same tick): Automation, Task, Shopping,
  *         ShoppingList, Shared, Habit, Health, plus Notes, Meal and Catalog —
@@ -112,7 +118,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import * as NavigationBar from 'expo-navigation-bar';
 import { Fonts, MAX_FONT_SCALE } from '@/constants/theme';
-import { initDb } from '@/lib/db';
+import { initDb, pruneOldData } from '@/lib/db';
 import { saveAutoBackup } from '@/lib/backup';
 import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
 import { startSync, stopSync } from '@/lib/syncService';
@@ -234,9 +240,15 @@ export default function RootLayout() {
   useEffect(() => {
     const t0 = __DEV__ ? Date.now() : 0;
     try { initDb(); } catch { /* DB init failed — proceed anyway */ }
+    try { pruneOldData(); } catch { /* never block startup on cleanup */ }
     loadSettings();
     useAutomationStore.getState().load();
     useTaskStore.getState().load();
+    // Monthly recurring tasks have no native "day-of-month, clamped"/"nth
+    // weekday" repeating trigger, so their reminder is scheduled as a one-off
+    // for the next occurrence and re-armed here (and again on every foreground
+    // below) rather than only once ever.
+    useTaskStore.getState().syncMonthlyTaskNotifications();
     useShoppingStore.getState().load();
     useShoppingListStore.getState().load();
     useSharedStore.getState().load();
@@ -334,6 +346,9 @@ export default function RootLayout() {
         useTaskStore.getState().load();
         useShoppingStore.getState().load();
         useNotesStore.getState().load();
+        // Re-arm any monthly recurring task's reminder for its next occurrence
+        // (see the boot-effect call site's comment above).
+        useTaskStore.getState().syncMonthlyTaskNotifications();
       }
       if (state === 'active' || state === 'background') {
         void syncWidgetsAndOverview();

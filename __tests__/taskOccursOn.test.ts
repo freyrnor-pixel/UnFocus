@@ -1,11 +1,17 @@
 /**
- * taskOccursOn.test.ts — unit tests for the recurrence resolver in
- * store/useTaskStore.ts (taskOccursOn).
+ * taskOccursOn.test.ts — unit tests for the recurrence resolver (taskOccursOn)
+ * and the next-occurrence lookup (nextOccurrenceDate), both in lib/taskRecurrence.ts
+ * (extracted from store/useTaskStore.ts 2026-07-20, which re-exports taskOccursOn
+ * for backwards compatibility — this file still imports it from the store to also
+ * exercise that re-export path).
  *
- * This is the single function that decides which tasks show up on a given day —
- * one-off, daily, weekly (incl. every-N-weeks parity), and monthly (day-of-month
- * clamped, or nth/last weekday). The store imports the SQLite handle at top
- * level, so '@/lib/db' is mocked to keep the suite headless (same pattern as
+ * taskOccursOn is the single function that decides which tasks show up on a given
+ * day — one-off, daily, weekly (incl. every-N-weeks parity), and monthly
+ * (day-of-month clamped, or nth/last weekday). nextOccurrenceDate scans forward
+ * from a date to find the next occurrence — used by lib/taskNotifications.ts to
+ * schedule a monthly recurring task's reminder (no native trigger expresses
+ * "day-of-month, clamped"/"nth weekday"). The store imports the SQLite handle at
+ * top level, so '@/lib/db' is mocked to keep the suite headless (same pattern as
  * shoppingListStore.test.ts). Reference dates below (all 2026):
  *   Mon 07-13, Wed 07-15, Thu 07-16, Sun 07-19, Wed 07-22, Wed 07-29.
  */
@@ -22,6 +28,7 @@ jest.mock('@/lib/db', () => ({
 
 import { taskOccursOn } from '@/store/useTaskStore';
 import type { Task } from '@/store/useTaskStore';
+import { nextOccurrenceDate } from '@/lib/taskRecurrence';
 
 function task(overrides: Partial<Task>): Task {
   return {
@@ -127,5 +134,46 @@ describe('recurring "monthly" (ordinal weekday)', () => {
     });
     expect(taskOccursOn(t, '2026-07-27')).toBe(true); // last Monday of July 2026
     expect(taskOccursOn(t, '2026-07-20')).toBe(false); // 3rd Monday, not last
+  });
+});
+
+describe('nextOccurrenceDate', () => {
+  it('returns fromDate itself when it already matches', () => {
+    const t = task({ recurring: 'monthly', monthlyMode: 'day', monthDay: 15 });
+    expect(nextOccurrenceDate(t, '2026-07-15')).toBe('2026-07-15');
+  });
+
+  it('finds the next day-of-month occurrence, crossing into the next month', () => {
+    const t = task({ recurring: 'monthly', monthlyMode: 'day', monthDay: 15 });
+    expect(nextOccurrenceDate(t, '2026-07-16')).toBe('2026-08-15');
+  });
+
+  it('finds the next occurrence across a clamped short month (Feb)', () => {
+    const t = task({ recurring: 'monthly', monthlyMode: 'day', monthDay: 31 });
+    expect(nextOccurrenceDate(t, '2026-02-01')).toBe('2026-02-28');
+  });
+
+  it('finds the next last-weekday-of-month occurrence', () => {
+    const t = task({
+      recurring: 'monthly',
+      monthlyMode: 'ordinal',
+      monthOrdinal: 'last',
+      monthWeekday: 0, // Monday
+    });
+    // Last Monday of July 2026 is 07-27; searching from 07-28 should land on
+    // the last Monday of August (08-31).
+    expect(nextOccurrenceDate(t, '2026-07-28')).toBe('2026-08-31');
+  });
+
+  it('returns null when no occurrence falls within maxDays', () => {
+    const t = task({ recurring: 'monthly', monthlyMode: 'day', monthDay: 15 });
+    expect(nextOccurrenceDate(t, '2026-07-16', 10)).toBeNull();
+  });
+
+  it('respects a start-date boundary in the future', () => {
+    const t = task({ recurring: 'monthly', monthlyMode: 'day', monthDay: 5, hasStartDate: true, date: '2026-09-01' });
+    // Without the boundary this would match 2026-08-05; the start date pushes
+    // the first valid occurrence to September.
+    expect(nextOccurrenceDate(t, '2026-07-16')).toBe('2026-09-05');
   });
 });

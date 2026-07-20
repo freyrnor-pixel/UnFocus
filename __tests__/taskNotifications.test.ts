@@ -6,6 +6,12 @@
  * SHIFTS the reminder past quiet hours (tasks shift, habits skip; Decision 016
  * Q4). Settings are passed in, so we only mock the scheduling primitives and
  * i18n; the real pushPastQuietHours math (from lib/notifications) is kept.
+ *
+ * Daily-recurring tasks (2026-07-20) get a real repeating native trigger, tested
+ * below the weekly block. Monthly-recurring tasks don't have one, so they're
+ * scheduled as a one-off for their NEXT occurrence (lib/taskRecurrence.ts's
+ * nextOccurrenceDate) — those tests fix the system clock with fake timers since
+ * "next occurrence" is relative to "today".
  */
 jest.mock('@/lib/notifications', () => {
   const actual = jest.requireActual('@/lib/notifications');
@@ -14,6 +20,7 @@ jest.mock('@/lib/notifications', () => {
     ...actual,
     scheduleTaskNotification: jest.fn(),
     scheduleWeeklyTaskNotifications: jest.fn(),
+    scheduleDailyTaskNotification: jest.fn(),
     cancelTaskNotification: jest.fn().mockResolvedValue(undefined),
   };
 });
@@ -27,6 +34,7 @@ import type { Task } from '@/store/useTaskStore';
 
 const schedule = notif.scheduleTaskNotification as jest.Mock;
 const scheduleWeekly = notif.scheduleWeeklyTaskNotifications as jest.Mock;
+const scheduleDaily = notif.scheduleDailyTaskNotification as jest.Mock;
 const cancel = notif.cancelTaskNotification as jest.Mock;
 
 const baseSettings: TaskNotifSettings = {
@@ -133,5 +141,81 @@ describe('weekly-recurring tasks', () => {
     const [, occurrences] = scheduleWeekly.mock.calls[0];
     expect(occurrences[0].hour).toBe(8);
     expect(occurrences[0].minute).toBe(0);
+  });
+});
+
+describe('daily-recurring tasks (2026-07-20 — real repeating native trigger, like weekly)', () => {
+  it('schedules a single daily occurrence at the task time', () => {
+    syncTaskNotification(task({ recurring: 'daily', time: '09:30' }), baseSettings);
+    expect(scheduleDaily).toHaveBeenCalledTimes(1);
+    const [id, hour, minute, , end] = scheduleDaily.mock.calls[0];
+    expect(id).toBe('t1');
+    expect(hour).toBe(9);
+    expect(minute).toBe(30);
+    expect(end).toBeUndefined();
+  });
+
+  it('also schedules an end reminder for a time-box task', () => {
+    syncTaskNotification(
+      task({ recurring: 'daily', taskType: 'time-box', time: '09:00', durationMinutes: 45 }),
+      baseSettings
+    );
+    const [, , , , end] = scheduleDaily.mock.calls[0];
+    expect(end).toEqual({ hour: 9, minute: 45, content: expect.anything() });
+  });
+
+  it('shifts a daily occurrence that lands in quiet hours', () => {
+    syncTaskNotification(task({ recurring: 'daily', time: '22:00' }), {
+      ...baseSettings,
+      quietHoursEnabled: true,
+    });
+    const [, hour, minute] = scheduleDaily.mock.calls[0];
+    expect(hour).toBe(8);
+    expect(minute).toBe(0);
+  });
+
+  it('never falls through to the one-off scheduler', () => {
+    syncTaskNotification(task({ recurring: 'daily' }), baseSettings);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+});
+
+describe('monthly-recurring tasks (2026-07-20 — next-occurrence one-off, re-armed by the caller)', () => {
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-20T09:00:00'));
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('schedules the next day-of-month occurrence as a one-off', () => {
+    syncTaskNotification(
+      task({ recurring: 'monthly', monthlyMode: 'day', monthDay: 15, time: '10:00' }),
+      baseSettings
+    );
+    expect(schedule).toHaveBeenCalledTimes(1);
+    const [id, date] = schedule.mock.calls[0];
+    expect(id).toBe('t1');
+    // "today" is 2026-07-20 (day 15 already passed this month) → next is Aug 15.
+    expect(date.getFullYear()).toBe(2026);
+    expect(date.getMonth()).toBe(7); // 0-indexed: August
+    expect(date.getDate()).toBe(15);
+    expect(date.getHours()).toBe(10);
+  });
+
+  it('finds the current month when the day is still upcoming', () => {
+    syncTaskNotification(
+      task({ recurring: 'monthly', monthlyMode: 'day', monthDay: 25, time: '10:00' }),
+      baseSettings
+    );
+    const [, date] = schedule.mock.calls[0];
+    expect(date.getMonth()).toBe(6); // July
+    expect(date.getDate()).toBe(25);
+  });
+
+  it('never falls through to the weekly/daily scheduler', () => {
+    syncTaskNotification(task({ recurring: 'monthly', monthlyMode: 'day', monthDay: 25 }), baseSettings);
+    expect(scheduleWeekly).not.toHaveBeenCalled();
+    expect(scheduleDaily).not.toHaveBeenCalled();
   });
 });
