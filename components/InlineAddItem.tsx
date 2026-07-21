@@ -174,14 +174,15 @@ export default function InlineAddItem({
         </View>
       )}
 
-      <Input
-        label={t.estimertPrisLabel}
-        value={price}
-        onChangeText={setPrice}
-        keyboardType="decimal-pad"
-        placeholder="0"
-        style={styles.priceInputSpacing}
-      />
+      <View style={styles.priceFieldWrap}>
+        <Input
+          label={t.estimertPrisLabel}
+          value={price}
+          onChangeText={setPrice}
+          keyboardType="decimal-pad"
+          placeholder="0"
+        />
+      </View>
 
       {categories && categories.length > 0 && (
         <>
@@ -278,7 +279,7 @@ const baseStyles = StyleSheet.create({
   addBarLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   panel: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md },
   label: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginTop: Spacing.sm, marginBottom: 4 },
-  priceInputSpacing: { marginTop: Spacing.sm },
+  priceFieldWrap: { marginTop: Spacing.sm },
   suggestionsBox: { borderRadius: Radius.sm, marginTop: 4, borderWidth: 1, overflow: 'hidden' },
   suggestionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm },
   suggestionName: { flex: 1, fontSize: FontSize.sm },
