@@ -202,6 +202,13 @@ type Props = {
    * screens omit it (Surfaces fall back to the neutral surface base). See ScreenColorContext.
    */
   screenColor?: string;
+  /**
+   * Optional override colour for the small filler strip between the header and the
+   * sticky-below-header block (default: the page background `theme.bg`). Plans passes
+   * `theme.surface` so that seam reads white/clean instead of the grey-blue backdrop
+   * (debug-note 2026-07-21). Only affects the gap filler, not the header or scroll body.
+   */
+  stickyGapColor?: string;
   /** Forwarded to the internal ScrollView — e.g. to cancel an in-flight FlightOverlay
    *  animation on scroll (components/FlightOverlay.tsx). Omit for identical behavior. */
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
@@ -230,6 +237,7 @@ export default function ScreenScaffold({
   ownBackground = true,
   plainBackground = false,
   screenColor,
+  stickyGapColor,
   onScroll,
   scrollable = true,
 }: Props) {
@@ -423,7 +431,7 @@ export default function ScreenScaffold({
           scrolled content flash through underneath. */}
       {stickyBelowHeader && (
         <>
-          <View style={[styles.stickyGapFiller, { top: HEADER_HEIGHT + topInset, height: stickyGap, backgroundColor: bgColor }]} />
+          <View style={[styles.stickyGapFiller, { top: HEADER_HEIGHT + topInset, height: stickyGap, backgroundColor: stickyGapColor ?? bgColor }]} />
           <View style={[styles.stickyBlock, { top: HEADER_HEIGHT + topInset + stickyGap, height: stickyBelowHeaderHeight }]}>
             {stickyBelowHeader}
           </View>

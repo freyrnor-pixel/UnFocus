@@ -65,9 +65,10 @@
  *     vertical padding and `title`'s font size were bumped back up on 2026-07-15 (user
  *     feedback: text/spacing read as too tight) — the slimness now comes from the rail-gap
  *     tuning alone, not from cramped row content.
- *   - **Empty state**: an empty day (`showEmpty`) renders the shared `HomePreviewEmpty` (icon
- *     disc + `t.timelineEmpty`), filling the resting floor as one inviting block. The distinct
- *     "all done" state keeps its own `t.dayViewAllDone` line — it's a reward, not an empty card.
+ *   - **Empty state**: an empty day (`showEmpty`) renders the shared `HomePreviewEmpty`
+ *     (left-aligned `t.timelineEmpty`) plus, in the read-only Home preview, a dashed "add a
+ *     plan" ghost row that deep-links to /plans. The distinct "all done" state keeps its own
+ *     `t.dayViewAllDone` line — it's a reward, not an empty card.
  *   - **Decision 014 (revised 2026-07-14)**: the card face is a `<Surface>` with a
  *     domain-colored border (`borderColor={getDomainColor(theme,'plan').accent}`) on a plain
  *     `theme.surface` fill, so the section reads as belonging to Plans without washing the
@@ -439,7 +440,10 @@ export default function PlanTaskCard({
           <View
             style={[
               styles.rowCard,
-              { backgroundColor: isHappeningNow ? rgba(theme.accent, 0.1) : theme.surfaceMuted },
+              // Ordinary rows: a soft accent wash instead of drab grey (debug-note 2026-07-21)
+              // — still clearly set apart from plain-surface cards, but warmer. The
+              // happening-now row keeps the stronger tint + glow so hierarchy is preserved.
+              { backgroundColor: isHappeningNow ? rgba(theme.accent, 0.1) : rgba(theme.accent, 0.05) },
               isHappeningNow && getGlow(domainColor.accent),
             ]}
           >
@@ -665,7 +669,24 @@ export default function PlanTaskCard({
         )}
 
         {showEmpty ? (
-          <HomePreviewEmpty icon="calendar-outline" text={t.timelineEmpty} domainColor={domainColor} />
+          <View style={styles.emptyWrap}>
+            <HomePreviewEmpty text={t.timelineEmpty} domainColor={domainColor} />
+            {/* Ghost "add" row (debug-note 2026-07-21) — an empty day should still offer a
+                place to add something. The Home preview is read-only, so it deep-links to
+                the Plans tab rather than creating inline. */}
+            {readOnly && (
+              <PressableScale
+                onPress={() => router.push('/plans')}
+                style={[styles.emptyAddRow, { borderColor: theme.border }]}
+                scaleTo={0.97}
+                accessibilityRole="button"
+                accessibilityLabel={t.timelineEmptyAdd}
+              >
+                <Ionicons name="add" size={16} color={domainColor.accent} />
+                <Text style={[styles.emptyAddText, { color: theme.textMuted }]}>{t.timelineEmptyAdd}</Text>
+              </PressableScale>
+            )}
+          </View>
         ) : allDone ? (
           <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.dayViewAllDone}</Text>
         ) : horizontal ? (
@@ -736,6 +757,19 @@ const baseStyles = StyleSheet.create({
   cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.sm, position: 'relative' },
   rail: { paddingVertical: Spacing.xs },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
+  // Empty-day ghost add row: fills the resting height, add affordance pinned below the message.
+  emptyWrap: { flex: 1 },
+  emptyAddRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  emptyAddText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
 
   // Vertical rail row: [lineCol][contentCol][doneCol], alignItems 'stretch' so each
   // column's height matches the row's real (content-driven) height. lineCol's own

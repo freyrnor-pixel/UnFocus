@@ -16,6 +16,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 /** Icon names offered in the habit-form picker — anything else is treated as legacy emoji text. */
 export const HABIT_ICON_NAMES = [
+  // 'ellipse-outline' is the neutral "to-do" default (2026-07-21) — listed first so it
+  // reads as the picker's baseline choice; a star implies reward, against the app's tone.
+  'ellipse-outline',
   'water-outline', 'walk-outline', 'book-outline', 'flower-outline', 'nutrition-outline',
   'medical-outline', 'moon-outline', 'barbell-outline', 'brush-outline', 'leaf-outline',
   'cafe-outline', 'phone-portrait-outline', 'ban-outline', 'beer-outline', 'game-controller-outline',

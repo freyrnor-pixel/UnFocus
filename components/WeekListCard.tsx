@@ -6,8 +6,8 @@
  * components/InlineAddItem add row when unlocked), In cart (all checked items),
  * Purchased (completed trip items for this list, collapsed). An optional
  * From-monthly-list panel appears inline inside the In list section, in place
- * of the "more ways to add" link (see 2026-07-20 note below), when the user opens the
- * monthly add panel — it closes back to the link when they tap the Save
+ * of the two secondary add buttons (see 2026-07-21 note below), when the user opens the
+ * monthly add panel — it closes back to the buttons when they tap the Save
  * additions / Undo additions footer buttons. Each section shows a price total
  * footer. Dish groups are no longer rendered as nested ExpandableCards; all
  * items are flat rows.
@@ -30,14 +30,14 @@
  *     the shared `components/InlineAddItem` — same form Monthly and inventory-edit use, so
  *     Weekly no longer maintains a second, differently-styled add form. Also replaced the
  *     3-icon header row (bookmark/settings/trash) with one kebab (`ellipsis-vertical`) opening
- *     a `showAppModal` chooser (`openListOptions`), and merged the always-visible "Add from
- *     monthly list" pill into a quiet "more ways to add" text link (`openAddChooser`) whose
- *     `showAppModal` chooser offers "From monthly list" (opens the existing in-place panel,
- *     unchanged) and "From a dish" (calls the new `onOpenDishSheet` prop up to shopping.tsx,
- *     which opens the shared `AddDishSheet` targeted at this list's id — lands ingredients
- *     directly in this list, skipping the Unallocated bucket entirely). Net: the primary "+"
- *     add bar still expands directly (zero extra taps for the common case); only the two
- *     less-common paths sit behind the chooser.
+ *     a `showAppModal` chooser (`openListOptions`).
+ *   - **2026-07-21 add-paths pass**: the two secondary add paths are now visible buttons below
+ *     the primary add bar (`addOptionsRow`), replacing the earlier hidden "more ways to add…"
+ *     text link + `showAppModal` chooser (felt unnatural). "From monthly" opens the existing
+ *     in-place panel (`setMonthlyPreviewOpen`, unchanged); "From a dish" calls the
+ *     `onOpenDishSheet` prop up to shopping.tsx, which opens the shared `AddDishSheet` targeted
+ *     at this list's id — lands ingredients directly in this list, skipping the Unallocated
+ *     bucket. The primary "+" add bar (`InlineAddItem`) stays the visual primary.
  *   - 2026-07-06 redesign: removed AddDivider + lock icon. Replaced with inline add row
  *     (TextInput + catalog search dropdown + qty controls + price total, visible only
  *     when unlocked) and a mode-toggle pill button ("Shopping" locked / "Planning" unlocked).
@@ -204,17 +204,6 @@ export default function WeekListCard({
       { text: t.savedListsButtonLabel, onPress: onOpenSavedLists },
       { text: t.listSettingsButtonLabel, onPress: onOpenListSettings },
       { text: t.deleteListButtonLabel, style: 'destructive', onPress: onDelete },
-      { text: t.cancel, style: 'cancel' },
-    ]);
-  }
-
-  // "More ways to add" chooser — reached via a quiet text link below the primary add bar,
-  // so the two less-common add paths (from monthly, from a dish) don't compete visually
-  // with the main "+ Add item" affordance for attention.
-  function openAddChooser() {
-    showAppModal(t.addMoreWaysTitle, undefined, [
-      { text: t.addFromMonthlyOption, onPress: () => setMonthlyPreviewOpen(true) },
-      { text: t.addFromDishOption, onPress: onOpenDishSheet },
       { text: t.cancel, style: 'cancel' },
     ]);
   }
@@ -402,14 +391,33 @@ export default function WeekListCard({
               />
             )}
 
-            {/* Quiet secondary link — the two less-common add paths (from monthly, from a
-                dish) sit behind one chooser instead of two permanently-visible pill buttons
-                competing with the primary add bar above. */}
+            {/* The two secondary add paths as visible buttons (debug-note 2026-07-21) — a
+                hidden "more ways to add…" link that opened an action sheet felt unnatural, so
+                "From monthly" / "From a dish" now sit in plain sight below the primary add bar,
+                styled as quiet secondary buttons so the inline add stays the visual primary. */}
             {!list.locked && !monthlyPreviewOpen && (
-              <PressableScale style={styles.addMoreLink} onPress={openAddChooser} scaleTo={0.97}>
-                <Ionicons name="ellipsis-horizontal" size={14} color={theme.textMuted} />
-                <Text style={[styles.addMoreLinkText, { color: theme.textMuted }]}>{t.addMoreWaysLink}</Text>
-              </PressableScale>
+              <View style={styles.addOptionsRow}>
+                <PressableScale
+                  style={[styles.addOptionBtn, { borderColor: theme.border }]}
+                  onPress={() => setMonthlyPreviewOpen(true)}
+                  scaleTo={0.97}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.addFromMonthlyOption}
+                >
+                  <Ionicons name="repeat-outline" size={15} color={theme.good} />
+                  <Text style={[styles.addOptionText, { color: theme.text }]} numberOfLines={1}>{t.addFromMonthlyOption}</Text>
+                </PressableScale>
+                <PressableScale
+                  style={[styles.addOptionBtn, { borderColor: theme.border }]}
+                  onPress={onOpenDishSheet}
+                  scaleTo={0.97}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.addFromDishOption}
+                >
+                  <Ionicons name="restaurant-outline" size={15} color={theme.good} />
+                  <Text style={[styles.addOptionText, { color: theme.text }]} numberOfLines={1}>{t.addFromDishOption}</Text>
+                </PressableScale>
+              </View>
             )}
 
             {/* ── FROM MONTHLY LIST panel (ephemeral) — opens in place of the trigger
@@ -647,17 +655,21 @@ const baseStyles = StyleSheet.create({
   sectionTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, textAlign: 'right', paddingTop: Spacing.xs },
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, borderLeftWidth: 3 },
   rowDivider: { height: 1 },
-  // Quiet secondary "more ways to add" link — deliberately subordinate to InlineAddItem's
-  // own pill-shaped "+" bar (no border/fill of its own) so it doesn't compete for attention.
-  addMoreLink: {
+  // Two visible secondary add buttons ("From monthly" / "From a dish") — quiet bordered
+  // pills that sit below InlineAddItem's primary "+" bar without competing with it.
+  addOptionsRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
+  addOptionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.xs,
-    paddingVertical: Spacing.xs,
-    minHeight: 32,
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
   },
-  addMoreLinkText: { fontFamily: Type.label.fontFamily, fontSize: FontSize.xs },
+  addOptionText: { fontFamily: Type.label.fontFamily, fontSize: FontSize.sm },
   monthlyPanel: { gap: Spacing.xs },
   monthlySearch: {
     borderRadius: Radius.sm,

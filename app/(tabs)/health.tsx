@@ -65,7 +65,7 @@ import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore, HealthLog } from '@/store/useHealthStore';
-import { useHabitStore, Habit, HabitKind, HabitLog } from '@/store/useHabitStore';
+import { useHabitStore, Habit, HabitKind } from '@/store/useHabitStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
@@ -128,29 +128,6 @@ function shouldShowHabitOnDate(habit: Habit, dateStr: string): boolean {
 
 const DAY_ABBR = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const DAY_ABBR_NO = ['M', 'T', 'O', 'T', 'F', 'L', 'S'];
-
-function ProgressDots({ count, goal, kind, theme }: { count: number; goal: number; kind: HabitKind; theme: ThemePalette }) {
-  const styles = useScaledStyles(baseStyles);
-  const dots = Math.min(goal, 8);
-  const filled = Math.min(count, dots);
-  return (
-    <View style={styles.dots}>
-      {Array.from({ length: dots }, (_, i) => {
-        const isDone = i < filled;
-        const color = progressColor(filled / dots, kind, theme);
-        return (
-          <View
-            key={i}
-            style={[
-              styles.dot,
-              { borderColor: color, backgroundColor: isDone ? color : 'transparent' },
-            ]}
-          />
-        );
-      })}
-    </View>
-  );
-}
 
 // No streaks (2026-07-20) — habits with the optional Energy system enabled show their
 // signed energy value instead (positive restores the day's/week's budget, negative drains
@@ -259,7 +236,7 @@ function HabitCard({
 
   // Decision 043 rule 3 / Decision 014 downstream to-do: progress/done state reads from
   // the 4px accent bar only — the card body stays theme.surface regardless of state
-  // (donePill/checkmark/ProgressDots already carry the "done" signal).
+  // (donePill/checkmark already carry the "done" signal).
   const barColor = isDone ? accent : progressColor(ratio, habit.kind, theme);
 
   return (
@@ -283,7 +260,6 @@ function HabitCard({
               <Text style={[styles.habitTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
             </View>
             <View style={styles.titleMetaRow}>
-              {habit.energyEnabled && <EnergyBadge value={habit.energyValue} theme={theme} />}
               {isDone && (
                 <View style={[styles.donePill, { backgroundColor: accent }]}>
                   <Text style={[styles.donePillText, { color: theme.accentInk }]}>{t.habits.doneToday}</Text>
@@ -299,7 +275,9 @@ function HabitCard({
             tint="transparent"
             color={theme.textMuted}
           />
-          <ProgressDots count={count} goal={habit.dailyGoal} kind={habit.kind} theme={theme} />
+          {/* Small progress-dots circle replaced with the Energy +/- indicator (debug-note
+              2026-07-21) — informational, shown only when this habit opts into Energy. */}
+          {habit.energyEnabled && <EnergyBadge value={habit.energyValue} theme={theme} />}
           <PressableScale
             style={[styles.adjBtn, { backgroundColor: theme.surface }]}
             onPress={() => decrement(habit.id, today)}
@@ -531,7 +509,6 @@ export default function HealthScreen() {
   const logs = useHealthStore((s) => s.logs);
 
   const habits = useHabitStore((s) => s.habits);
-  const habitLogs = useHabitStore((s) => s.logs);
 
   const lang = useSettingsStore((s) => s.language);
   const childProfiles = useSettingsStore((s) => s.childProfiles);
@@ -595,10 +572,9 @@ export default function HealthScreen() {
   // Profile filter row shows only in People/family mode with at least one profile
   // (management moved to Settings — this screen only *filters* by person now).
   const showHabitProfiles = peopleModeEnabled && childProfiles.length > 0;
-  // Memoise the habit filter chain + metCount (perf sweep 2026-07-15): these used to
-  // re-filter the full habits array (and metCount re-scanned habitLogs per visible habit)
-  // on every render of this large screen. Only recompute when their real inputs change.
-  // Only filter by person when the filter UI is actually shown; otherwise (People mode
+  // Memoise the habit filter chain (perf sweep 2026-07-15): this used to re-filter the
+  // full habits array on every render of this large screen. Only recompute on real input
+  // changes. Only filter by person when the filter UI is actually shown; otherwise (People mode
   // off) show every habit so profile-assigned habits don't silently disappear.
   const profileHabits = useMemo(
     () => (showHabitProfiles ? habits.filter((h) => h.childName === selectedProfile) : habits),
@@ -614,15 +590,6 @@ export default function HealthScreen() {
   useEffect(() => {
     hasMountedHabits.current = true;
   }, []);
-
-  const metCount = useMemo(
-    () =>
-      visibleHabits.filter((h) => {
-        const log = habitLogs.find((l) => l.habitId === h.id && l.logDate === today);
-        return (log?.count ?? 0) >= h.dailyGoal;
-      }).length,
-    [visibleHabits, habitLogs, today]
-  );
 
   const onEditHabit = useCallback((id: string) => {
     router.push({ pathname: '/habit-form', params: { id } });
@@ -641,7 +608,9 @@ export default function HealthScreen() {
     // at their defaults (icon/goal/recurrence/notifications) — editable later via the form.
     addHabitQuick({
       title,
-      icon: '⭐',
+      // Neutral "to-do" marker default (debug-note 2026-07-21) — a star reads as a
+      // reward/rating, against the app's no-shame framing. Custom icons still pickable.
+      icon: 'ellipse-outline',
       kind: 'neutral',
       category: 'other',
       cue: '', craving: '', response: '', reward: '',
@@ -734,25 +703,22 @@ export default function HealthScreen() {
                   </PressableScale>
                 );
               })}
+              {/* Open full log — folded into the This week card (debug-note 2026-07-21):
+                  one consolidated card instead of a separate nav card below. Shown even on
+                  an empty week so there's always a clear way into the full log. */}
+              <PressableScale
+                onPress={() => router.push('/health-log')}
+                accessibilityRole="button"
+                accessibilityLabel={t.healthLogTitle}
+                scaleTo={0.98}
+                style={[styles.overviewLogLink, { borderTopColor: theme.border }]}
+              >
+                <Ionicons name="document-text-outline" size={18} color={healthDomainColor.accent} />
+                <Text style={[styles.navCardText, { color: theme.text }]}>{t.healthLogTitle}</Text>
+                <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+              </PressableScale>
             </View>
           </Surface>
-          </DebugNoteAnchor>
-
-          {/* Health-log — sectioned overview of every issue ever logged, and where new entries are added */}
-          <DebugNoteAnchor id="health.nav" label="Health — Log link">
-          <PressableScale
-            onPress={() => router.push('/health-log')}
-            accessibilityRole="button"
-            accessibilityLabel={t.healthLogTitle}
-            scaleTo={0.98}
-            style={styles.navLinkWrap}
-          >
-            <Surface borderColor={healthDomainColor.accent} style={styles.navCard}>
-              <Ionicons name="document-text-outline" size={20} color={healthDomainColor.accent} />
-              <Text style={[styles.navCardText, { color: theme.text }]}>{t.healthLogTitle}</Text>
-              <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
-            </Surface>
-          </PressableScale>
           </DebugNoteAnchor>
 
           {/* Habits — embedded section (no separate /habits screen; ported in full), boxed in
@@ -800,14 +766,8 @@ export default function HealthScreen() {
 
             {habitTab === 'today' && (
               <>
-                {visibleHabits.length > 0 && (
-                  <Surface borderColor={habitDomainColor.accent} style={styles.summaryChip}>
-                    <Text style={[styles.summaryChipText, { color: metCount === visibleHabits.length ? theme.good : theme.textMuted }]}>
-                      {metCount} / {visibleHabits.length} {t.habitSummaryLabel}
-                    </Text>
-                  </Surface>
-                )}
-
+                {/* "X / Y done" tally removed (debug-note 2026-07-21): a score reintroduces
+                    the shame/reward framing the app deliberately avoids. */}
                 <View style={styles.section}>
                   {visibleHabits.length === 0 ? (
                     // Neutral edge to match the Week/Month empty placeholders (theme.border,
@@ -892,10 +852,16 @@ const baseStyles = StyleSheet.create({
   overviewFill: { height: 8, borderRadius: Radius.full },
   overviewCount: { fontSize: FontSize.xs, width: 28, textAlign: 'right' },
   emptyText: { fontSize: FontSize.sm },
-  // Health-log entry as a grouped card (2026-07-12 redesign) instead of bare text +
-  // hairline, so it reads as a tappable section that belongs with the rest.
-  navLinkWrap: { marginTop: Spacing.sm },
-  navCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md },
+  // Health-log link, folded into the foot of the This week card (2026-07-21) — a hairline
+  // top border makes it read as a card footer rather than another symptom row.
+  overviewLogLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+  },
   navCardText: { flex: 1, fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
 
   // ─── Habits section (ported from the removed app/habits.tsx) ─────────────────
@@ -919,13 +885,6 @@ const baseStyles = StyleSheet.create({
   sectionCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   // Inline habit quick-add row card (mirrors Plans' addRowCard).
   habitAddRowCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, marginTop: Spacing.sm },
-  summaryChip: {
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    alignSelf: 'center',
-  },
-  summaryChipText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   dashedAddText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
 
   // Habit card — Decision 043 rule 3: progress/done state lives on the 4px accent bar
@@ -964,12 +923,6 @@ const baseStyles = StyleSheet.create({
     paddingVertical: 2,
   },
   donePillText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-  dots: { flexDirection: 'row', gap: 3 },
-  dot: {
-    width: 9, height: 9,
-    borderRadius: Radius.full,
-    borderWidth: 1.5,
-  },
   adjBtn: {
     width: 30, height: 30,
     borderRadius: Radius.full,

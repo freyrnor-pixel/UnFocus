@@ -524,8 +524,10 @@ export default function ScanScreen() {
       <>
         <ScreenScaffold title={t.scanReceipt} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'scan').base}>
           <View style={styles.content}>
-            {/* Tip — subtle bordered card with an info glyph, not a flat colour block. */}
-            <Surface style={styles.tipCardRow}>
+            {/* Tip — subtle bordered card with an info glyph, not a flat colour block.
+                Edge tinted to the inner accent (theme.good) so border matches content,
+                not the violet screen hue (debug-note 2026-07-21). */}
+            <Surface borderColor={theme.good} style={styles.tipCardRow}>
               <View style={[styles.tipAccent, { backgroundColor: theme.good }]} />
               <Ionicons name="bulb-outline" size={18} color={theme.good} style={styles.tipIcon} />
               <Text style={[styles.tipText, { color: theme.text }]}>{t.scanHintBanner}</Text>
@@ -553,7 +555,7 @@ export default function ScanScreen() {
                 { icon: 'qr-code-outline' as const, color: theme.good, label: t.scanQrCode, onPress: openQrScanner },
               ].map((opt) => (
                 <PressableScale key={opt.label} onPress={opt.onPress} scaleTo={0.98}>
-                  <Surface style={styles.optionCardRow}>
+                  <Surface borderColor={opt.color} style={styles.optionCardRow}>
                     <View style={[styles.optionBadge, { backgroundColor: rgba(opt.color, 0.16) }]}>
                       <Ionicons name={opt.icon} size={22} color={opt.color} />
                     </View>
@@ -598,7 +600,7 @@ export default function ScanScreen() {
 
             {/* Debug notes: anchor the found-items card (not each row/checkbox inside). */}
             <DebugNoteAnchor id="scan.items" label="Scan — Found items">
-            <Surface style={styles.itemsCard}>
+            <Surface borderColor={theme.accent} style={styles.itemsCard}>
               {parsedItems.map((item, i) => (
                 <View key={i}>
                   <PressableScale style={[styles.itemRow, { borderBottomColor: theme.border }]} onPress={() => toggleItem(i)} scaleTo={0.97}>

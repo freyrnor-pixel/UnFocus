@@ -403,6 +403,7 @@ export default function TasksScreen() {
       bottomNav={false}
       ownBackground={false}
       screenColor={getScreenColor(theme, 'plans').base}
+      stickyGapColor={theme.surface}
       stickyBelowHeader={stickyBelowHeader}
       stickyBelowHeaderHeight={STICKY_HEIGHT}
       infoActive={hintOpen}
@@ -495,6 +496,18 @@ export default function TasksScreen() {
         {/* ── TODAY ── */}
         {tab === 'today' && (
           <>
+            {/* Whenever always sits on top (debug-note 2026-07-21) — undated tasks lead, the
+                dated Today section follows. */}
+            <SectionCard hue={wheneverHue} label={t.tasksSectionWhenever} count={undatedWhenever.length}>
+              <DoneSplitList
+                tasks={undatedWhenever}
+                emptyText={t.tasksSectionWheneverEmpty}
+                renderCard={(tk) => (
+                  <TaskCard key={tk.id} task={tk} variant="steps" onToggleDone={handleToggleDone} />
+                )}
+              />
+            </SectionCard>
+
             {/* Debug notes: anchor the day-view section (not its inner task rows). */}
             <DebugNoteAnchor id="plans.dayView" label="Plans — Today">
               <SectionCard hue={theme.accent} label={t.tasksTabToday} count={todayList.length}>
@@ -510,7 +523,13 @@ export default function TasksScreen() {
                 />
               </SectionCard>
             </DebugNoteAnchor>
+          </>
+        )}
 
+        {/* ── THIS WEEK ── */}
+        {tab === 'week' && (
+          <>
+            {/* Whenever always sits on top (debug-note 2026-07-21) — before the weekday groups. */}
             <SectionCard hue={wheneverHue} label={t.tasksSectionWhenever} count={undatedWhenever.length}>
               <DoneSplitList
                 tasks={undatedWhenever}
@@ -520,12 +539,7 @@ export default function TasksScreen() {
                 )}
               />
             </SectionCard>
-          </>
-        )}
 
-        {/* ── THIS WEEK ── */}
-        {tab === 'week' && (
-          <>
             {weekGroups.map((group, i) => (
               <SectionCard key={group.date} hue={theme.accent} label={t.dayFull[i]} count={group.tasks.length}>
                 {/* Add row between tasks and the collapsed "Done" zone — same grouping as Today. */}
@@ -539,16 +553,6 @@ export default function TasksScreen() {
                 />
               </SectionCard>
             ))}
-
-            <SectionCard hue={wheneverHue} label={t.tasksSectionWhenever} count={undatedWhenever.length}>
-              <DoneSplitList
-                tasks={undatedWhenever}
-                emptyText={t.tasksSectionWheneverEmpty}
-                renderCard={(tk) => (
-                  <TaskCard key={tk.id} task={tk} variant="steps" onToggleDone={handleToggleDone} />
-                )}
-              />
-            </SectionCard>
           </>
         )}
       </View>

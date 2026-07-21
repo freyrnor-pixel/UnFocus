@@ -164,7 +164,7 @@ export function initDb() {
     CREATE TABLE IF NOT EXISTS habits (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
-      icon TEXT DEFAULT '⭐',
+      icon TEXT DEFAULT 'ellipse-outline',
       kind TEXT DEFAULT 'build',
       category TEXT DEFAULT 'other',
       cue TEXT DEFAULT '',

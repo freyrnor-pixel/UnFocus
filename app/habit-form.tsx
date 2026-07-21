@@ -153,7 +153,7 @@ export default function HabitForm() {
   const existing = isEdit ? habits.find((h) => h.id === params.id) : undefined;
 
   const [title, setTitle] = useState(existing?.title ?? '');
-  const [icon, setIcon] = useState(existing?.icon ?? 'star-outline');
+  const [icon, setIcon] = useState(existing?.icon ?? 'ellipse-outline');
   const [category, setCategory] = useState<HabitCategory>(existing?.category ?? 'other');
   const [dailyGoal, setDailyGoal] = useState(existing?.dailyGoal ?? 1);
   const [recurrence, setRecurrence] = useState<HabitRecurrence>(existing?.recurrence ?? 'daily');

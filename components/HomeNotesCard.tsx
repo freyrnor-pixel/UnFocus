@@ -23,7 +23,7 @@
  *     applied only while `!expanded`, so this card reads the same size as
  *     PlanTaskCard/HomeShoppingCard when light — then grows per note row above it;
  *     `noteRow`'s paddingVertical was trimmed to `Spacing.xs` for a slimmer collapsed row.
- *   - **Empty state**: an empty list renders the shared `HomePreviewEmpty` (icon disc + the
+ *   - **Empty state**: an empty list renders the shared `HomePreviewEmpty` (left-aligned
  *     `t.notes.emptyState` message), which fills the resting floor as one inviting block
  *     instead of leaving a bare band under a single line of text.
  *   - Existing note rows are read-only previews (no inline TextInput) — editing them is the
@@ -154,7 +154,7 @@ export default function HomeNotesCard() {
 
         {/* Active note rows */}
         {activeNotes.length === 0 ? (
-          <HomePreviewEmpty icon="mic-outline" text={t.notes.emptyState} domainColor={domainColor} />
+          <HomePreviewEmpty text={t.notes.emptyState} domainColor={domainColor} />
         ) : (
           <View style={styles.rowsContainer}>
             <View style={styles.rows}>
