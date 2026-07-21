@@ -52,6 +52,13 @@
  *   - `glassBlur` was removed (2026-07-18 glass simplification — the Android blur-target
  *     subsystem it gated no longer exists). Its `glass_blur` SQLite column is intentionally
  *     left orphaned (never drop columns) — see lib/db.ts's migration comment.
+ *   - **`energySystemEnabled` defaults to `true` (2026-07-21)**: was `false`, on user feedback
+ *     that the Home Energy meter (app/(tabs)/index.tsx, gated on this flag) should be visible
+ *     out of the box rather than opt-in. This `defaultSettings` value only matters before
+ *     load() resolves the real DB row; the actual default for fresh installs is set by
+ *     lib/db.ts's `energy_system_enabled` migration (`DEFAULT 1`) — see that file's comment on
+ *     why editing an existing migration's DEFAULT is safe (PRAGMA user_version gates re-runs,
+ *     so already-migrated devices, and anyone who explicitly toggled it, are unaffected).
  */
 import { create } from 'zustand';
 import {
@@ -393,7 +400,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   planTimelineHorizontal: false,
   seenScreenHints: [],
   homeCardOrder: ['plans', 'notes', 'shopping'],
-  energySystemEnabled: false,
+  energySystemEnabled: true,
   energyDailyCapacity: 10,
   energyWeeklyCapacity: 50,
   lifetimeCompletedTasks: 0,

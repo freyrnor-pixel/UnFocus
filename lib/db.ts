@@ -667,7 +667,10 @@ export function initDb() {
     // item applies its value to that day's (and week's) budget. See
     // store/useEnergyStore.ts, lib/energy.ts, and the energy_budgets table
     // (per-period capacity overrides).
-    "ALTER TABLE settings ADD COLUMN energy_system_enabled INTEGER DEFAULT 0",
+    // DEFAULT 1 only takes effect for installs that haven't reached this migration index yet
+    // (PRAGMA user_version gates re-runs) — i.e. brand-new installs default the Energy system
+    // on; devices that already applied this migration keep whatever value they have, untouched.
+    "ALTER TABLE settings ADD COLUMN energy_system_enabled INTEGER DEFAULT 1",
     "ALTER TABLE settings ADD COLUMN energy_daily_capacity INTEGER DEFAULT 10",
     "ALTER TABLE settings ADD COLUMN energy_weekly_capacity INTEGER DEFAULT 50",
     "ALTER TABLE tasks ADD COLUMN energy_enabled INTEGER DEFAULT 0",
