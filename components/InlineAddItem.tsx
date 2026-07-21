@@ -38,6 +38,11 @@
  *   - Resets every field on collapse (Add or Discard), so re-expanding starts clean.
  *   - `categories` (from lib/shoppingCategories.ts's categoryPresets()) drives the chip row;
  *     omitting it renders nothing — no layout gap, no forced choice.
+ *   - The "Ønsket antall" stepper's label defaults to t.onsketAntallLabel ("target quantity at
+ *     reset") — accurate for the two catalog callers (Monthly tab, inventory-edit), since
+ *     catalog rows restock to that target at monthly reset. WeekListCard passes
+ *     `quantityLabel={t.onsketAntallWeeklyLabel}` to override it, since Weekly items are never
+ *     reset — the field there is just "how many do you want."
  */
 import React, { useMemo, useState } from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
@@ -67,6 +72,10 @@ type Props = {
   /** Optional preset category chips (value+label). Omit to render no category row at all —
    *  the default, unchanged behavior for callers that don't pass this (e.g. inventory-edit). */
   categories?: { value: string; label: string }[];
+  /** Override the quantity stepper's label. Defaults to t.onsketAntallLabel ("target quantity
+   *  at reset"), which is only true for catalog rows (Monthly tab, inventory-edit) — pass
+   *  t.onsketAntallWeeklyLabel from WeekListCard, since Weekly items are never reset. */
+  quantityLabel?: string;
 };
 
 export default function InlineAddItem({
@@ -76,6 +85,7 @@ export default function InlineAddItem({
   style,
   showTemporaryToggle = true,
   categories,
+  quantityLabel,
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -212,7 +222,7 @@ export default function InlineAddItem({
         </>
       )}
 
-      <Text style={[styles.label, { color: theme.textMuted }]}>{t.onsketAntallLabel}</Text>
+      <Text style={[styles.label, { color: theme.textMuted }]}>{quantityLabel ?? t.onsketAntallLabel}</Text>
       <View style={styles.stepperRow}>
         <PressableScale
           style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted }]}
