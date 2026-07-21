@@ -19,6 +19,7 @@
  *             components/AddRow, components/AnimatedListItem (habit add/remove fade),
  *             components/CompletionGlow, components/HabitIcon,
  *             components/EmptyState, components/SlideSelector, components/PressableScale,
+ *             components/IconButton (per-row habit edit button),
  *             constants/theme, constants/colors, lib/date, lib/db, lib/haptics, lib/i18n,
  *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor, lib/screenColor,
  *             store/useHealthStore, store/useHabitStore, store/useSettingsStore
@@ -54,7 +55,8 @@
  *   - **Add-habit affordance (2026-07-13 rows pass)**: an inline `AddRow` at the bottom of
  *     the Today habit list is the add-habit trigger — a title-only quick-create with sensible
  *     defaults (icon/goal/recurrence via `commitHabit` → useHabitStore.add), matching Plans'
- *     AddRow → addTask flow; long-press a habit card to edit the rest in /habit-form. This
+ *     AddRow → addTask flow; tap a habit card's settings-gear icon (2026-07-21, replaced
+ *     long-press) to edit the rest in /habit-form. This
  *     replaced the old header "+" AddFAB (which navigated straight to the form). Week/Month
  *     views show plain, non-interactive empty-state text (they dropped their `onAddHabit` prop).
  */
@@ -78,6 +80,7 @@ import HabitIcon from '@/components/HabitIcon';
 import EmptyState from '@/components/EmptyState';
 import SlideSelector from '@/components/SlideSelector';
 import PressableScale from '@/components/PressableScale';
+import IconButton from '@/components/IconButton';
 import { useT } from '@/lib/i18n';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { todayStr, getWeekDates, getMonthDates } from '@/lib/date';
@@ -262,7 +265,6 @@ function HabitCard({
   return (
     <PressableScale
       onPress={() => setExpanded((v) => !v)}
-      onLongPress={() => onEdit(habit.id)}
       scaleTo={0.97}
     >
       <View style={[styles.habitCard, { backgroundColor: theme.surface }]}>
@@ -289,6 +291,14 @@ function HabitCard({
               )}
             </View>
           </View>
+          <IconButton
+            icon="settings-outline"
+            label={t.habits.editButtonLabel}
+            onPress={() => onEdit(habit.id)}
+            size={26}
+            tint="transparent"
+            color={theme.textMuted}
+          />
           <ProgressDots count={count} goal={habit.dailyGoal} kind={habit.kind} theme={theme} />
           <PressableScale
             style={[styles.adjBtn, { backgroundColor: theme.surface }]}
@@ -539,8 +549,8 @@ export default function HealthScreen() {
   const [habitTab, setHabitTab] = useState<HabitViewTab>('today');
   const [selectedProfile, setSelectedProfile] = useState<string>('');
   // Inline quick-add (replaces the old "+" bubble → form nav): create a habit from just a
-  // title with sensible defaults; the rest (icon/goal/recurrence) is edited later by
-  // long-pressing the habit → /habit-form. Mirrors Plans' AddRow → addTask flow.
+  // title with sensible defaults; the rest (icon/goal/recurrence) is edited later via
+  // the card's settings-gear icon → /habit-form. Mirrors Plans' AddRow → addTask flow.
   const addHabitQuick = useHabitStore((s) => s.add);
   const [habitDraft, setHabitDraft] = useState('');
 
@@ -815,7 +825,7 @@ export default function HealthScreen() {
                 </View>
 
                 {/* Inline quick-add row (replaces the old "+" bubble). Title-only create with
-                    defaults; long-press a habit to edit the rest. */}
+                    defaults; tap a habit's settings-gear icon to edit the rest. */}
                 <Surface borderColor={habitDomainColor.accent} style={styles.habitAddRowCard}>
                   <AddRow
                     placeholder={t.health.addHabit}
