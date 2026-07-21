@@ -14,10 +14,11 @@
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
  *             components/Collapsible (animated "More options" disclosure),
  *             components/HintCard, components/HabitIcon, components/Button, components/AppModal,
- *             components/PressableScale, lib/haptics, lib/i18n, lib/useAppTheme,
+ *             components/PressableScale, components/Stepper, lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useHabitStore, store/useSettingsStore
  *   Used by → Expo Router route "/habit-form"; reached from app/(tabs)/health.tsx's
- *             embedded Habits section (AddFAB "+" and long-press-to-edit on a habit card)
+ *             embedded Habits section (AddFAB "+" and each habit card's settings-gear
+ *             IconButton, 2026-07-21 — replaced the old long-press-to-edit gesture)
  *   Data    → useHabitStore (habits table) via add/update/remove; toggling the notification
  *             (or editing its recipe) reschedules the habit's reminders through the store
  *
@@ -50,6 +51,12 @@
  *     recurrence live behind a "more options" disclosure (t.habits.moreOptions/fewerOptions).
  *   - No TimePickerWheel (never ported into this repo, same precedent as task-form.tsx) —
  *     every time field is a plain FormControls.Input (HH:MM text).
+ *   - **Style consistency pass (2026-07-21)**: the daily-goal and reminder-count steppers
+ *     now use the shared `Stepper` component (already used here for energy/monthDay)
+ *     instead of hand-rolled −/+ circles, and the chip/dayChip/iconBtn pill selectors all
+ *     got a `theme.border` (active: `theme.accent`) outline to match the "raised keycap"
+ *     border convention IconButton/Surface use elsewhere — the flat, borderless fills
+ *     read as visually inconsistent with the rest of the app.
  */
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -300,8 +307,8 @@ export default function HabitForm() {
                     key={name || '__me__'}
                     style={[
                       styles.chip,
-                      { backgroundColor: theme.surfaceMuted },
-                      active && { backgroundColor: theme.accent },
+                      { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                      active && { backgroundColor: theme.accent, borderColor: theme.accent },
                     ]}
                     onPress={() => {
                       tap();
@@ -353,23 +360,7 @@ export default function HabitForm() {
             {reminderMode === 'count' && (
               <View style={styles.timeFieldWrap}>
                 <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitReminderCountLabel}</Text>
-                <View style={styles.stepper}>
-                  <PressableScale
-                    style={[styles.stepperBtn, { backgroundColor: theme.surfaceMuted }]}
-                    onPress={() => setReminderCount((c) => Math.max(2, c - 1))}
-                    scaleTo={0.9}
-                  >
-                    <Text style={[styles.stepperBtnText, { color: theme.text }]}>−</Text>
-                  </PressableScale>
-                  <Text style={[styles.stepperValue, { color: theme.text }]}>{reminderCount}</Text>
-                  <PressableScale
-                    style={[styles.stepperBtn, { backgroundColor: theme.accent }]}
-                    onPress={() => setReminderCount((c) => Math.min(12, c + 1))}
-                    scaleTo={0.9}
-                  >
-                    <Text style={[styles.stepperBtnText, { color: theme.accentInk }]}>+</Text>
-                  </PressableScale>
-                </View>
+                <Stepper value={reminderCount} onChange={setReminderCount} min={2} max={12} accessibilityLabel={t.habitReminderCountLabel} />
               </View>
             )}
 
@@ -384,8 +375,8 @@ export default function HabitForm() {
                         key={min}
                         style={[
                           styles.chip,
-                          { backgroundColor: theme.surfaceMuted },
-                          active && { backgroundColor: theme.accent },
+                          { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                          active && { backgroundColor: theme.accent, borderColor: theme.accent },
                         ]}
                         onPress={() => {
                           tap();
@@ -455,8 +446,8 @@ export default function HabitForm() {
                         key={iconName}
                         style={[
                           styles.iconBtn,
-                          { backgroundColor: theme.surfaceMuted },
-                          active && { backgroundColor: theme.accent },
+                          { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                          active && { backgroundColor: theme.accent, borderColor: theme.accent },
                         ]}
                         onPress={() => {
                           tap();
@@ -484,8 +475,8 @@ export default function HabitForm() {
                         key={cat}
                         style={[
                           styles.chip,
-                          { backgroundColor: theme.surfaceMuted },
-                          active && { backgroundColor: theme.accent },
+                          { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                          active && { backgroundColor: theme.accent, borderColor: theme.accent },
                         ]}
                         onPress={() => {
                           tap();
@@ -524,8 +515,8 @@ export default function HabitForm() {
                         key={i}
                         style={[
                           styles.dayChip,
-                          { backgroundColor: theme.surfaceMuted },
-                          active && { backgroundColor: theme.accent },
+                          { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                          active && { backgroundColor: theme.accent, borderColor: theme.accent },
                         ]}
                         onPress={() => {
                           tap();
@@ -550,25 +541,9 @@ export default function HabitForm() {
             </View>
 
             {/* Daily goal stepper */}
-            <View style={styles.field}>
+            <View style={[styles.field, styles.energyStepperRow]}>
               <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitDailyGoal}</Text>
-              <View style={styles.stepper}>
-                <PressableScale
-                  style={[styles.stepperBtn, { backgroundColor: theme.surfaceMuted }]}
-                  onPress={() => setDailyGoal((g) => Math.max(1, g - 1))}
-                  scaleTo={0.9}
-                >
-                  <Text style={[styles.stepperBtnText, { color: theme.text }]}>−</Text>
-                </PressableScale>
-                <Text style={[styles.stepperValue, { color: theme.text }]}>{dailyGoal}</Text>
-                <PressableScale
-                  style={[styles.stepperBtn, { backgroundColor: theme.accent }]}
-                  onPress={() => setDailyGoal((g) => Math.min(20, g + 1))}
-                  scaleTo={0.9}
-                >
-                  <Text style={[styles.stepperBtnText, { color: theme.accentInk }]}>+</Text>
-                </PressableScale>
-              </View>
+              <Stepper value={dailyGoal} onChange={setDailyGoal} min={1} max={20} accessibilityLabel={t.habitDailyGoal} />
             </View>
           </>
         </Collapsible>
@@ -587,11 +562,11 @@ const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.lg },
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   daysRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm, flexWrap: 'wrap' },
-  dayChip: { width: 44, height: 44, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  dayChip: { width: 44, height: 44, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
   dayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  chip: { paddingHorizontal: Spacing.sm, paddingVertical: 6, borderRadius: Radius.full },
+  chip: { paddingHorizontal: Spacing.sm, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1.5 },
   chipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   notifRow: {
     flexDirection: 'row',
@@ -603,10 +578,6 @@ const baseStyles = StyleSheet.create({
   energyStepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   timeFieldWrap: { gap: Spacing.sm, marginTop: Spacing.sm },
   reminderPreview: { fontSize: FontSize.xs, fontStyle: 'italic', marginTop: Spacing.xs },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  stepperBtn: { width: 40, height: 40, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
-  stepperBtnText: { fontSize: FontSize.xl, fontFamily: Fonts.regular, lineHeight: 40 },
-  stepperValue: { fontSize: FontSize.xl, fontFamily: Fonts.bold, minWidth: 30, textAlign: 'center' },
   disclosure: {
     borderWidth: 1.5,
     borderStyle: 'dashed',
@@ -616,6 +587,6 @@ const baseStyles = StyleSheet.create({
   },
   disclosureText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   iconRow: { flexDirection: 'row', gap: Spacing.xs, paddingVertical: Spacing.xs },
-  iconBtn: { width: 40, height: 40, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { width: 40, height: 40, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
   deleteBtn: { marginTop: Spacing.md },
 });

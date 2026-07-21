@@ -932,6 +932,7 @@ const en = {
     moreOptions: 'More options',
     fewerOptions: 'Fewer options',
     // --- end W-D additions ---
+    editButtonLabel: 'Edit habit',
     restDay: 'Rest day',
     restingToday: 'Resting today',
     restDayHint: "Resting today — this habit's energy just sits still, no reward or penalty.",
@@ -1842,6 +1843,7 @@ const no: typeof en = {
     moreOptions: 'Flere valg',
     fewerOptions: 'Færre valg',
     // --- end W-D additions ---
+    editButtonLabel: 'Rediger vane',
     restDay: 'Hviledag',
     restingToday: 'Hviler i dag',
     restDayHint: 'Du hviler i dag — energien for denne vanen står stille, verken belønning eller straff.',
