@@ -1,9 +1,11 @@
 /**
  * PressableScale.tsx — Pressable with a tactile spring scale-bounce on press.
  *
- * Drop-in replacement for Pressable that dips to ~0.94 scale over 80ms on press-in and
- * springs back on release (~150ms, with a single felt overshoot pop — 2026-07-21 retune,
- * see constants/motion.ts's Spring.snappy comment), giving every button tactile feedback. Also
+ * Drop-in replacement for Pressable that dips to ~0.94 scale over 80ms on press-in (bumped
+ * from 60ms, 2026-07-21, so the press-down itself reads as a deliberate compression rather
+ * than a snap — see ANIMATION_GUIDELINES.md §1) and springs back on release (~150ms,
+ * near-critically-damped, no bounce — see constants/motion.ts's Spring.snappy comment for why),
+ * giving every button tactile feedback. Also
  * dips opacity to 0.85 in sync with the scale (derived from the same shared value,
  * no extra tuning). Fires a light haptic on a completed press (onPress) by
  * default — not on press-in/touch-down, so a touch that starts on a button but

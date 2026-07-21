@@ -48,15 +48,19 @@ export const Ease = {
 };
 
 /** The proven snappy spring (from PressableScale) for tactile press/toggle spring-backs.
- *  Tuned (2026-07-20) to damping 26 (was 18) to kill a multi-cycle "bobbing" overshoot on
- *  small header icon buttons — but at damping 26 (ζ≈0.73) the release settles almost
- *  immediately with barely any overshoot, which real-device feedback (2026-07-21) reported
- *  as "buttons don't feel like they animate at all." Rebalanced to damping 22 / stiffness 420
- *  (ζ≈0.54): a single clear overshoot pop, and the higher stiffness raises the settle speed
- *  enough that the residual ripple resolves faster than the old 18/320 case did, instead of
- *  lingering into a perceptible bob. */
+ *  Tuned (2026-07-20) to damping 26 (was 18), then again (2026-07-21, tester feedback "still
+ *  too bobbing") to damping 36. Reanimated's spring model is a standard mass-spring-damper
+ *  with mass 1, so critical damping = 2*sqrt(stiffness) — for stiffness 320 that's ~35.8.
+ *  Damping 26 was a ratio of ~0.73 (still meaningfully underdamped: a real, visible overshoot
+ *  and a couple of settle oscillations, not just a slow perceptual fade) — 36 lands right at
+ *  critical (~1.0), which removes the bounce entirely while keeping the same high stiffness
+ *  for a fast settle. Don't lower this back below ~34 without re-verifying on device.
+ *  (2026-07-21, same day: a separate report that "buttons don't feel animated" landed around
+ *  the same time as the above — resolved as press-in duration, not release bounce; see
+ *  PressableScale's 80ms press-in. Release stays critically damped; don't reintroduce overshoot
+ *  here without fresh on-device confirmation, since the 36 value above was tester-validated.) */
 export const Spring = {
-  snappy: { damping: 22, stiffness: 420 },
+  snappy: { damping: 36, stiffness: 320 },
   /** Near-critically-damped — settles with almost no overshoot. Use for section/accordion
    *  toggle headers (Tasks "Done" zone, ExpandableCard) where even the calmer `snappy`
    *  spring's bounce reads as too energetic for a repeatedly-tapped list control. */

@@ -685,6 +685,15 @@ export function initDb() {
     // current done-task count so existing users don't see it reset to 0.
     "ALTER TABLE settings ADD COLUMN lifetime_completed_tasks INTEGER DEFAULT 0",
     "UPDATE settings SET lifetime_completed_tasks = (SELECT COUNT(*) FROM tasks WHERE done = 1) WHERE id = 1 AND lifetime_completed_tasks = 0",
+    // Backfill: the star->ellipse-outline default-icon change (2026-07-21, app/(tabs)/health.tsx's
+    // quick-add) only affected NEW habits — existing rows saved under the old default kept the
+    // literal star emoji forever, so it kept showing in Today/Week/Month (reported as "star icon
+    // still not replaced"). '⭐' was never a picker-selectable value (only Ionicons glyph names
+    // are, see HabitIcon.tsx), so any row holding it is unambiguously a leftover default, not a
+    // deliberate choice — safe to backfill. `'star-outline'` (the old habit-form.tsx default,
+    // still a real picker option today) is deliberately left untouched since it can't be
+    // distinguished from an intentional pick after the fact.
+    "UPDATE habits SET icon = 'ellipse-outline' WHERE icon = '⭐'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
