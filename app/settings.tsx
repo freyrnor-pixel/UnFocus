@@ -574,7 +574,7 @@ export default function SettingsScreen() {
                 note). */}
             <View style={styles.section}>
               <Surface style={styles.card}>
-                <ExpandableCard title={t.sectionProfile} accentColor={theme.accent}>
+                <ExpandableCard title={t.sectionProfile} accentColor={theme.accent} first>
                   <Input
                     label={t.yourName}
                     value={name}
@@ -818,7 +818,7 @@ export default function SettingsScreen() {
                 the account rides along in the local backup file below. */}
             <View style={styles.section}>
               <Surface style={styles.card}>
-                <ExpandableCard title={t.account.title} accentColor={theme.accent}>
+                <ExpandableCard title={t.account.title} accentColor={theme.accent} first>
                   <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
                     {settings.accountCreated ? t.account.descActive : t.account.descNone}
                   </Text>
@@ -930,7 +930,7 @@ export default function SettingsScreen() {
                 end of the tab as a "danger zone at the bottom" (2026-07-13 layering pass). */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderWidth: 1, borderColor: theme.badSoft }]}>
-                <ExpandableCard title={t.sectionReset} accentColor={theme.bad}>
+                <ExpandableCard title={t.sectionReset} accentColor={theme.bad} first>
                   <Text style={[styles.descText, { color: theme.bad, marginBottom: Spacing.sm, marginTop: 0 }]}>{t.config.desc.dataNote}</Text>
                   <PressableScale style={styles.dangerBtn} onPress={() => confirmReset(t.resetMonthly.toLowerCase(), monthlyReset)} scaleTo={0.93}>
                     <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetMonthly}</Text>
@@ -966,7 +966,7 @@ export default function SettingsScreen() {
                 accordion body, so folding them in would add chrome with nothing to hide. */}
             <View style={styles.section}>
               <Surface style={styles.card}>
-                <ExpandableCard title={t.config.sections.workMode} accentColor={theme.accent}>
+                <ExpandableCard title={t.config.sections.workMode} accentColor={theme.accent} first>
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.workModeDesc}</Text>
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
                   <View style={styles.switchRow}>
@@ -1186,7 +1186,7 @@ export default function SettingsScreen() {
         {tab === 'handle' && (
           <View style={styles.section}>
             <Surface style={styles.card}>
-              <ExpandableCard title={t.sectionShopping} accentColor={getDomainColor(theme, 'shop').accent}>
+              <ExpandableCard title={t.sectionShopping} accentColor={getDomainColor(theme, 'shop').accent} first>
                 <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.weeklyResetDay}</Text>
                 <View style={styles.dayRow}>
                   {DAY_LABELS.map((label, i) => (
@@ -1267,7 +1267,7 @@ export default function SettingsScreen() {
                 to each float in their own Surface card). */}
             <View style={styles.section}>
               <Surface style={styles.card}>
-                <ExpandableCard title={t.weeklyReminders} accentColor={theme.accent}>
+                <ExpandableCard title={t.weeklyReminders} accentColor={theme.accent} first>
                   <View style={styles.switchRow}>
                     <View style={styles.switchTextCol}>
                       <Text style={[styles.switchLabel, { color: theme.text }]}>{t.weeklyReminders}</Text>

@@ -36,7 +36,8 @@
  *     region (WeekListCard, HomeShoppingCard, shopping.tsx's Monthly catalog card), so this
  *     component does NOT render its own Surface — that would be Surface-inside-Surface.
  *     The row is a plain View with a hairline top divider (`theme.border`) for grouping;
- *     `accentColor` still tints the left accent bar only.
+ *     `accentColor` still tints the left accent bar only. Pass `first` on the first (or only)
+ *     card in a Surface to suppress that divider — see the `first` prop doc above.
  *   - Optional controlled mode: pass both `open` and `onToggle` to let the parent own the
  *     open/closed state (needed when a screen must aggregate state across many instances,
  *     e.g. per-task dirty tracking). Omit both and it behaves exactly as before (internal
@@ -64,6 +65,13 @@ type Props = {
   open?: boolean;
   onToggle?: () => void;
   accentColor?: string;
+  /**
+   * Pass true on the first (or only) ExpandableCard inside a Surface. The hairline top
+   * divider exists to separate stacked cards from each other, but on the first one it has
+   * nothing above it to separate from — flush against the Surface's rounded top edge it reads
+   * as a flat, square-cornered line cutting across an otherwise rounded card (2026-07-21 fix).
+   */
+  first?: boolean;
 };
 
 export default function ExpandableCard({
@@ -77,6 +85,7 @@ export default function ExpandableCard({
   open: controlledOpen,
   onToggle,
   accentColor,
+  first = false,
 }: Props) {
   const isControlled = controlledOpen !== undefined;
   const [openState, setOpenState] = useState(defaultOpen);
@@ -94,7 +103,7 @@ export default function ExpandableCard({
   }
 
   return (
-    <View style={[styles.card, styles.cardRow, { borderTopColor: theme.border }]}>
+    <View style={[styles.card, styles.cardRow, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }]}>
       {accentColor ? <View style={[styles.accent, { backgroundColor: accentColor }]} /> : null}
       <View style={styles.cardContent}>
         <PressableScale style={styles.header} onPress={toggle} scaleTo={0.97} releaseSpring={Spring.calm}>
@@ -127,7 +136,6 @@ export default function ExpandableCard({
 
 const baseStyles = StyleSheet.create({
   card: {
-    borderTopWidth: StyleSheet.hairlineWidth,
     marginBottom: Spacing.sm,
   },
   cardRow: {

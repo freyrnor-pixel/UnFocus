@@ -348,6 +348,25 @@ const MATERIAL_BORDER_WIDTH = 1.5;
 export type MaterialVariant = 'card' | 'button';
 
 /**
+ * The raised-keycap rim gradient recipe, extracted so callers whose edge hue differs from
+ * their fill hue (Surface's `edgeHue` — a domain/screen colour — vs. its neutral frosted
+ * `base` fill) can compute a rim from that different hue without duplicating the colour math.
+ * `getMaterialStyle` calls this with its own `base` for `mat.rim` (Button/AddFAB); Surface.tsx
+ * calls it directly with `edgeHue`.
+ */
+export function computeRimGradient(base: string, isDark: boolean): RimGradient {
+  return isDark
+    ? {
+        colors: [rgba(lighten(base, 0.28), 0.34), rgba(lighten(base, 0.05), 0.08), rgba('#000000', 0.34)],
+        locations: [0, 0.25, 1],
+      }
+    : {
+        colors: [rgba(lighten(base, 0.42), 0.85), rgba(lighten(base, 0.08), 0.18), rgba(darken(base, 0.14), 0.34)],
+        locations: [0, 0.22, 1],
+      };
+}
+
+/**
  * Computes glass surface-finish tokens from a single base colour.
  * Spread the border/shadow keys onto the outer (shadow-casting) view and
  * `backgroundColor` + the take-two layer colours onto components/GlassFill.tsx.
@@ -379,17 +398,10 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
   // band pushed hard to the TOP edge (locations 0 → 0.22) so it reads CRISP — a sharp lit lip,
   // not the old soft half-height fade — then a faint mid and a soft dark hue-shadow at the
   // bottom edge. Paired with `innerLine` below, this is the "double keycap": a bright outer lip
-  // + a cool inner line, so cards/buttons read as physically raised keys. Surface renders this
-  // ring top→bottom (start {0,0} → end {0,1}); Button now matches (vertical, not diagonal).
-  const rim: RimGradient = isDark
-    ? {
-        colors: [rgba(lighten(base, 0.28), 0.34), rgba(lighten(base, 0.05), 0.08), rgba('#000000', 0.34)],
-        locations: [0, 0.25, 1],
-      }
-    : {
-        colors: [rgba(lighten(base, 0.42), 0.85), rgba(lighten(base, 0.08), 0.18), rgba(darken(base, 0.14), 0.34)],
-        locations: [0, 0.22, 1],
-      };
+  // + a cool inner line, so cards/buttons read as physically raised keys. Rendered top→bottom
+  // (start {0,0} → end {0,1}) by Button and Surface (2026-07-21: Surface switched to this same
+  // gradient-ring recipe — see computeRimGradient below and its call site in Surface.tsx).
+  const rim: RimGradient = computeRimGradient(base, isDark);
 
   // Inner line (the "double" of the double keycap): a crisp, cool, hue-tinted 1px line the
   // callers draw on the inner mask, just inside the rim chamfer. Restrained (calm) but present

@@ -10,27 +10,29 @@
  * still spans the full card).
  *
  * Connections:
- *   Imports → constants/theme (getElevation, getLayeredShadow), lib/useAppTheme,
- *             store/useSettingsStore (glassSurfaces), components/GlassFill
+ *   Imports → constants/theme (getElevation, getLayeredShadow, getMaterialStyle,
+ *             computeRimGradient), lib/useAppTheme, store/useSettingsStore (glassSurfaces),
+ *             components/GlassFill, expo-linear-gradient
  *   Used by → app screens that render a "card" surface (see grep for `<Surface`)
  *   Data    → reads `glassSurfaces` from the settings store
  *
  * Edit notes:
  *   - The glass finish (frost + wash + scrim + specular) lives in the shared
  *     components/GlassFill.tsx; Surface owns the outer view (layered shadow + layout), the THIN
- *     beveled EDGE (a single ~1.5px border with per-side top-light/bottom-shadow bevel colours),
- *     the overflow:hidden mask, and the style-splitting contract. The `surfaceContext` prop
- *     (`'ambient'` default | `'overlay'`) selects GlassFill's blur intensity AND wash alpha —
- *     ambient cards get NO BlurView (wash-only, cheapest path); overlay surfaces
- *     (sheets/modals/nav) get a real frost. What sits *behind* the card (ScreenBackground
- *     colour field for ambient, live scrolling content for overlay) is decided by where the
- *     caller mounts the Surface, not here.
+ *     beveled EDGE (a translucent gradient ring, ~1.5px thick), the overflow:hidden mask, and the
+ *     style-splitting contract. The `surfaceContext` prop (`'ambient'` default | `'overlay'`)
+ *     selects GlassFill's blur intensity AND wash alpha — ambient cards get NO BlurView
+ *     (wash-only, cheapest path); overlay surfaces (sheets/modals/nav) get a real frost. What
+ *     sits *behind* the card (ScreenBackground colour field for ambient, live scrolling content
+ *     for overlay) is decided by where the caller mounts the Surface, not here.
  *   - **Colour-architecture inversion (2026-07-18, retuned)**: the translucent FILL frosts the
  *     ScreenBackground FIELD showing through behind the card, so every card on a screen shares
  *     one uniform frosted hue; the domain/screen COLOUR lives ONLY in the thin beveled EDGE. The
- *     border is a real RN border on the mask (NOT a full-rect gradient ring behind the fill) —
+ *     edge is a translucent gradient ring (not an opaque full-rect gradient behind the fill) —
  *     that's what stops each card bleeding its own edge colour through the fill (the earlier
- *     thick-ring version tinted every card's whole face, reading as a multi-hue screen).
+ *     thick opaque-ring version tinted every card's whole face, reading as a multi-hue screen).
+ *     (2026-07-21: the ring moved from a single View's per-side-coloured border to a
+ *     `LinearGradient` fill — see the EDGE_WIDTH comment below for why.)
  *   - Glass-off path: `settings.glassSurfaces` false renders a plain opaque card
  *     (mat.contrastBase fill, themed border, legacy single shadow) — the demo's non-glass
  *     fallback, exposed to users as a reduce-transparency toggle. GlassFill isn't mounted
@@ -52,11 +54,14 @@
  *     height. Any backgroundColor, border colors/width, or
  *     shadow/elevation in `style` is intentionally dropped — owned by the material.
  *   - Glass-off card edge is `theme.border` (opaque) so a plain card keeps a visible calm
- *     edge (2026-07-12 redesign); light mode keeps the material's brighter `borderTopColor`
- *     as a top-lit highlight, dark mode a uniform themed edge. Glass-ON is a THIN beveled edge
- *     (~1.5px, `bevelEdge()`): one border line with a lit top / true-hue sides / darker bottom,
- *     in the edge hue (screen hue, or the `borderColor`/`tint` override) — a raised key without
- *     the old thick-ring heft, and thin enough that the colour reads as an accent, not a frame.
+ *     edge (2026-07-12 redesign), uniformly on all sides in both light and dark mode (2026-07-21:
+ *     dropped the light-mode-only `borderTopColor` highlight override — same per-side-colour +
+ *     borderRadius corner-rendering risk as the glass-on edge, not worth it for a subtle
+ *     highlight in the already-lower-priority reduce-transparency fallback). Glass-ON is a THIN
+ *     beveled edge (~1.5px, `computeRimGradient()`): a vertical gradient ring, lit top → true-hue
+ *     mid → darker bottom, in the edge hue (screen hue, or the `borderColor`/`tint` override) — a
+ *     raised key without the old thick-ring heft, and thin enough that the colour reads as an
+ *     accent, not a frame.
  *   - shadowColor comes from the active theme's `shadow` token (not a fixed
  *     black), so depth itself shifts hue with the colour theme.
  *   - Pass `tint` for a non-default base (e.g. theme.offWhite for empty
@@ -72,7 +77,8 @@
  */
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import { darken, getElevation, getLayeredShadow, getMaterialStyle, lighten, Radius } from '@/constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { computeRimGradient, getElevation, getLayeredShadow, getMaterialStyle, Radius } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useScreenColor } from '@/lib/screenColor';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -134,23 +140,19 @@ const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
   overlay: 0.8,
 };
 
-// Thin beveled edge (2026-07-18 "make borders thinner"): a single hairline-ish border, not the old
-// thick gradient padding-ring + inner line. `EDGE_WIDTH` is the whole border now — one crisp line
-// with a top-light/bottom-shadow bevel (per-side colours) that still reads as a raised key without
-// the heft. Kept as a real RN border on the mask (not a full-rect LinearGradient) precisely so the
-// translucent fill frosts the SCREEN FIELD behind the card — colour only in this thin edge — which
-// is what keeps every card on a screen a single, uniform frosted hue instead of each bleeding its
-// own domain colour through the fill (the multi-hue "some screens one hue, others more" report).
+// Thin beveled edge (2026-07-18 "make borders thinner"; 2026-07-21 "fix corner rendering"): a
+// single thin ring, still just `EDGE_WIDTH` thick — no heftier than before. It's now a translucent
+// vertical gradient (computeRimGradient, keyed on the domain/screen edge hue, not the neutral fill)
+// drawn as a `LinearGradient` fill clipped by `borderRadius`, rather than a single `View`'s border
+// with three different per-side colours (top/side/bottom). RN's native border renderer doesn't
+// reliably curve/blend different border colours around a rounded corner (worse on Android) — the
+// corner can render as a flat cut even though the card's fill looks properly rounded. A gradient
+// FILL clipped by borderRadius has no such issue on any platform, since there's no per-side border
+// colour blending involved at all. Same technique Button.tsx already uses for its rim (see
+// getMaterialStyle's `rim`/computeRimGradient in constants/theme.ts) — Surface just needed its own
+// hue input (`edgeHue`, not the fill's `base`) since its edge and fill colours are deliberately
+// different (see the colour-architecture inversion note above).
 const EDGE_WIDTH = 1.5;
-
-// Per-side bevel colours from one hue: a lit top lip, the true hue on the sides, a darker shadow at
-// the bottom — a thin shaded edge that reads as a raised key. Opaque so a domain edge stays crisp
-// against a same-hue field (e.g. a blue-edged card on the blue Home field).
-function bevelEdge(hue: string, isDark: boolean): { top: string; side: string; bottom: string } {
-  return isDark
-    ? { top: lighten(hue, 0.24), side: hue, bottom: darken(hue, 0.20) }
-    : { top: lighten(hue, 0.14), side: hue, bottom: darken(hue, 0.22) };
-}
 
 const PADDING_KEYS = new Set([
   'padding', 'paddingHorizontal', 'paddingVertical',
@@ -188,7 +190,7 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
   // the green shopping preview, indigo plans, note-coloured notes — so the edge matches that card's
   // own icon/badge instead of the generic screen hue), then `tint`, then the screen hue (so an
   // un-coded card on a tab carries that screen's edge colour), then a calm neutral edge for
-  // sub-tier screens (no hue). Whatever wins becomes the thin beveled border's hue (bevelEdge).
+  // sub-tier screens (no hue). Whatever wins becomes the thin beveled ring's hue (computeRimGradient).
   const edgeHue = borderColor ?? tint ?? (glass && screenHue ? screenHue : theme.border);
   // Glass-off (reduce-transparency) path uses the legacy single shadow; glass-on uses the
   // three-pass layered shadow. Both deepen to the `floating` tier when `elevated`.
@@ -243,8 +245,11 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
             // Opaque themed edge (2026-07-12 redesign): the material's default border is a
             // translucent white (rgba('#FFFFFF',0.5)) that vanishes on light-mode cards,
             // leaving them edgeless. Use theme.border so every card has a visible, calm edge.
+            // Uniform on every side (2026-07-21: dropped the light-mode-only borderTopColor
+            // highlight — a different top color than the sides/bottom hits the same
+            // borderRadius-corner-blend risk as the glass-on edge; see the EDGE_WIDTH comment).
             borderColor: borderColor ?? theme.border,
-            borderTopColor: borderColor ?? (isDark ? theme.border : mat.borderTopColor),
+            borderTopColor: borderColor ?? theme.border,
             borderBottomColor: borderColor ?? theme.border,
           },
           shadowStyle,
@@ -257,42 +262,48 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
     );
   }
 
-  // Glass-on: a THIN beveled edge (top-light → bottom-shadow) drawn as a real border on the
-  // overflow-hidden mask, over a TRANSLUCENT frosted fill. Because the border is a real RN border
-  // (not a full-rect gradient ring behind the fill), the fill frosts the SCREEN FIELD showing
-  // through — so every card on a screen shares one uniform frosted hue and the colour lives only in
-  // this thin edge (2026-07-18: thinner borders + fix the per-card multi-hue frost bleed).
-  const rim = bevelEdge(edgeHue, isDark);
+  // Glass-on: a THIN beveled edge (top-light → bottom-shadow), drawn as a TRANSLUCENT
+  // `LinearGradient` fill clipped by `borderRadius` — not a single View's border with three
+  // different per-side colours (the old approach): RN's native border renderer doesn't reliably
+  // curve/blend different border colours around a rounded corner (worse on Android), which could
+  // render the corner as a flat cut even though the fill looks properly rounded. A gradient FILL
+  // respecting borderRadius has no such issue on any platform. Because the gradient's colours are
+  // themselves translucent (computeRimGradient's alphas), the fill still frosts the SCREEN FIELD
+  // showing through the ring itself — so every card on a screen shares one uniform frosted hue and
+  // the colour lives only in this thin edge (2026-07-18: thinner borders + fix the per-card
+  // multi-hue frost bleed; 2026-07-21: fix the corner-rendering bug).
+  const rim = computeRimGradient(edgeHue, isDark);
   const innerRadius = Math.max(0, radius - EDGE_WIDTH);
   return (
     <View style={[outer, { borderRadius: radius }, shadowStyle]}>
-      <View
-        style={[
-          styles.mask,
-          maskGrowStyle,
-          {
-            borderRadius: radius,
-            borderWidth: EDGE_WIDTH,
-            borderColor: rim.side,
-            borderTopColor: rim.top,
-            borderBottomColor: rim.bottom,
-          },
-        ]}
+      <LinearGradient
+        colors={rim.colors}
+        locations={rim.locations}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={[styles.ring, maskGrowStyle, { borderRadius: radius, padding: EDGE_WIDTH }]}
       >
-        <GlassFill
-          mat={mat}
-          radius={innerRadius}
-          blurIntensity={GLASS_BLUR_INTENSITY[surfaceContext]}
-          washAlpha={GLASS_WASH_ALPHA[surfaceContext]}
-          tint={isDark ? 'dark' : 'light'}
-        />
-        <View style={[content, padding]}>{children}</View>
-      </View>
+        <View style={[styles.mask, maskGrowStyle, { borderRadius: innerRadius }]}>
+          <GlassFill
+            mat={mat}
+            radius={innerRadius}
+            blurIntensity={GLASS_BLUR_INTENSITY[surfaceContext]}
+            washAlpha={GLASS_WASH_ALPHA[surfaceContext]}
+            tint={isDark ? 'dark' : 'light'}
+          />
+          <View style={[content, padding]}>{children}</View>
+        </View>
+      </LinearGradient>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Glass-on only: the gradient ring (the LinearGradient in the render above) sits between the
+  // outer shadow-casting view and the mask, `padding: EDGE_WIDTH` revealing itself as a thin ring
+  // around the mask. alignSelf:'stretch' so it spans the full card width; the HEIGHT counterpart
+  // (flexGrow) is applied conditionally via `maskGrowStyle`, same as `mask` below.
+  ring: { alignSelf: 'stretch' },
   // alignSelf:'stretch' so the fill always spans the full card WIDTH even when the caller's
   // style centers content on the outer view (otherwise the mask shrink-wraps its children
   // and floats as a narrower box inside the bordered card). The HEIGHT counterpart
