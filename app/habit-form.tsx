@@ -47,8 +47,10 @@
  *     fields relevant to the current mode are persisted (others null) — see save().
  *     Legacy habits (or ones saved before this session) have `reminderMode === null` and
  *     fall back to the old length-based inference.
- *   - Essentials shown by default: Title → Notification. Icon, category, daily goal, and
- *     recurrence live behind a "more options" disclosure (t.habits.moreOptions/fewerOptions).
+ *   - Essentials shown by default (2026-07-21, tester feedback "most important settings
+ *     hidden"): Title → Notification → Recurrence → Daily goal. Only icon and category
+ *     (cosmetic/organizational, not load-bearing) live behind a "more options" disclosure
+ *     (t.habits.moreOptions/fewerOptions).
  *   - No TimePickerWheel (never ported into this repo, same precedent as task-form.tsx) —
  *     every time field is a plain FormControls.Input (HH:MM text).
  *   - **Style consistency pass (2026-07-21)**: the daily-goal and reminder-count steppers
@@ -201,9 +203,10 @@ export default function HabitForm() {
     setWeekDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
   }
 
-  // Advanced fields start collapsed; open by default in edit mode if any already hold a value.
+  // Advanced fields (icon/category only, see below) start collapsed; open by default in edit
+  // mode if either already holds a non-default value.
   const [showMore, setShowMore] = useState<boolean>(
-    isEdit && !!(existing && (existing.dailyGoal > 1 || existing.category !== 'other' || existing.recurrence !== 'daily'))
+    isEdit && !!(existing && (existing.category !== 'other' || (existing.icon !== 'ellipse-outline' && existing.icon !== '⭐')))
   );
 
   function save() {
@@ -423,7 +426,63 @@ export default function HabitForm() {
           </View>
         )}
 
-        {/* More options disclosure */}
+        {/* Recurrence — how often the habit resets/shows up. Shown by default (not behind
+            "more options"): together with Daily goal below, this is what actually determines
+            whether the habit shows up and when — arguably more load-bearing than the title
+            itself, so hiding it read as the form skipping its most important settings. */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitRecurrence}</Text>
+          <SegmentedControl
+            options={[
+              { value: 'daily', label: t.habitRecurrenceDaily },
+              { value: 'weekly', label: t.habitRecurrenceWeekly },
+              { value: 'monthly', label: t.habitRecurrenceMonthly },
+            ]}
+            value={recurrence}
+            onChange={(v) => setRecurrence(v as HabitRecurrence)}
+          />
+          {recurrence === 'weekly' && (
+            <View style={styles.daysRow}>
+              {t.dayLabels.map((label, i) => {
+                const active = weekDays.includes(i);
+                return (
+                  <PressableScale
+                    key={i}
+                    style={[
+                      styles.dayChip,
+                      { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                      active && { backgroundColor: theme.accent, borderColor: theme.accent },
+                    ]}
+                    onPress={() => {
+                      tap();
+                      toggleWeekDay(i);
+                    }}
+                    scaleTo={0.97}
+                  >
+                    <Text style={[styles.dayText, { color: theme.text }, active && { color: theme.accentInk }]}>
+                      {label.slice(0, 2)}
+                    </Text>
+                  </PressableScale>
+                );
+              })}
+            </View>
+          )}
+          {recurrence === 'monthly' && (
+            <View style={[styles.energyStepperRow, { marginTop: Spacing.sm }]}>
+              <Text style={[styles.label, { color: theme.textMuted }]}>{t.taskMonthlyByDay}</Text>
+              <Stepper value={monthDay} onChange={setMonthDay} min={1} max={28} accessibilityLabel={t.taskMonthlyByDay} />
+            </View>
+          )}
+        </View>
+
+        {/* Daily goal stepper — shown by default alongside Recurrence, same reasoning. */}
+        <View style={[styles.field, styles.energyStepperRow]}>
+          <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitDailyGoal}</Text>
+          <Stepper value={dailyGoal} onChange={setDailyGoal} min={1} max={20} accessibilityLabel={t.habitDailyGoal} />
+        </View>
+
+        {/* More options disclosure — icon/category only now; both are cosmetic/organizational,
+            not load-bearing, so they stay tucked away by default. */}
         <PressableScale
           style={[styles.disclosure, { borderColor: theme.border }]}
           onPress={() => {
@@ -497,58 +556,6 @@ export default function HabitForm() {
                   })}
                 </View>
               </ScrollView>
-            </View>
-
-            {/* Recurrence — how often the habit resets/shows up */}
-            <View style={styles.field}>
-              <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitRecurrence}</Text>
-              <SegmentedControl
-                options={[
-                  { value: 'daily', label: t.habitRecurrenceDaily },
-                  { value: 'weekly', label: t.habitRecurrenceWeekly },
-                  { value: 'monthly', label: t.habitRecurrenceMonthly },
-                ]}
-                value={recurrence}
-                onChange={(v) => setRecurrence(v as HabitRecurrence)}
-              />
-              {recurrence === 'weekly' && (
-                <View style={styles.daysRow}>
-                  {t.dayLabels.map((label, i) => {
-                    const active = weekDays.includes(i);
-                    return (
-                      <PressableScale
-                        key={i}
-                        style={[
-                          styles.dayChip,
-                          { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                          active && { backgroundColor: theme.accent, borderColor: theme.accent },
-                        ]}
-                        onPress={() => {
-                          tap();
-                          toggleWeekDay(i);
-                        }}
-                        scaleTo={0.97}
-                      >
-                        <Text style={[styles.dayText, { color: theme.text }, active && { color: theme.accentInk }]}>
-                          {label.slice(0, 2)}
-                        </Text>
-                      </PressableScale>
-                    );
-                  })}
-                </View>
-              )}
-              {recurrence === 'monthly' && (
-                <View style={[styles.energyStepperRow, { marginTop: Spacing.sm }]}>
-                  <Text style={[styles.label, { color: theme.textMuted }]}>{t.taskMonthlyByDay}</Text>
-                  <Stepper value={monthDay} onChange={setMonthDay} min={1} max={28} accessibilityLabel={t.taskMonthlyByDay} />
-                </View>
-              )}
-            </View>
-
-            {/* Daily goal stepper */}
-            <View style={[styles.field, styles.energyStepperRow]}>
-              <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitDailyGoal}</Text>
-              <Stepper value={dailyGoal} onChange={setDailyGoal} min={1} max={20} accessibilityLabel={t.habitDailyGoal} />
             </View>
           </>
         </Collapsible>

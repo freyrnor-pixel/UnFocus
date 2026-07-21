@@ -18,10 +18,10 @@
  * exists as a separate, valid way to stage a dish before a dated list exists.
  *
  * Connections:
- *   Imports → components/Surface, components/PressableScale, constants/theme, lib/i18n,
- *             lib/money (formatKr), lib/haptics (success), lib/useAppTheme,
- *             store/useMealStore (dishes + dishTotalPrice), store/useShoppingStore (add),
- *             @expo/vector-icons, react-native-reanimated
+ *   Imports → components/Surface, components/PressableScale, constants/theme,
+ *             constants/motion (Spring), lib/i18n, lib/money (formatKr), lib/haptics (success),
+ *             lib/useAppTheme, store/useMealStore (dishes + dishTotalPrice),
+ *             store/useShoppingStore (add), @expo/vector-icons, react-native-reanimated
  *   Used by → app/(tabs)/shopping.tsx (Monthly tab "Add dish" trigger, mounts one shared
  *             instance whose `target` switches based on which tab/list opened it),
  *             components/WeekListCard.tsx (indirectly, via the "From a dish" add-chooser
@@ -57,6 +57,7 @@ import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppThem
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
 import { success } from '@/lib/haptics';
+import { Spring } from '@/constants/motion';
 import { useMealStore, MealType, Dish, dishTotalPrice } from '@/store/useMealStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import Surface from '@/components/Surface';
@@ -104,7 +105,7 @@ export default function AddDishSheet({ visible, onClose, onAdded, target }: Prop
         scale.value = 1;
       } else {
         opacity.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
-        scale.value = withSpring(1, { damping: 18, stiffness: 320 });
+        scale.value = withSpring(1, Spring.snappy);
       }
     } else if (mounted) {
       if (reducedMotion) {
