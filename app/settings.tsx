@@ -108,6 +108,9 @@
  *     contact/location blocks stay hidden and calendar mirroring stays inert until a user
  *     opts in here. The other three toggles were previously unreachable (fully wired in
  *     useSettingsStore but no UI anywhere) — this card is what makes them reachable.
+ *   - **Card spacing (2026-07-21)**: `baseStyles.content`'s gap dropped from `Spacing.xl` (32,
+ *     Decision 043 rule 2) to `Spacing.lg` (24) — it read as too much dead air between cards
+ *     vs. every other screen's `Spacing.md`/`lg` content gap, per direct feedback.
  */
 import React, { useState } from 'react';
 import { Linking, Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
@@ -1382,8 +1385,9 @@ export default function SettingsScreen() {
 }
 
 const baseStyles = StyleSheet.create({
-  // Decision 043 rule 2: Spacing.xl above every section.
-  content: { padding: Spacing.md, gap: Spacing.xl },
+  // Was Spacing.xl (32) per Decision 043 rule 2 — read as too much dead air between cards
+  // vs. every other screen's content gap (Spacing.md/lg); brought down to match (2026-07-21).
+  content: { padding: Spacing.md, gap: Spacing.lg },
   section: { gap: Spacing.sm },
   // Decision 043 rule 2 fixed anatomy: Fonts.semibold/FontSize.lg; below-spacing comes
   // from `section`'s own gap:Spacing.sm, so neither header style carries its own margin.

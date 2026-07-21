@@ -981,7 +981,7 @@ const en = {
     // Energy system (Generelt tab) — optional per-task energy budget.
     energy: {
       label: 'Energy system',
-      hint: 'Give tasks and habits a signed energy value and track a daily and weekly budget — positive restores energy (like drinking water), negative drains it.',
+      hint: 'Track a daily and weekly energy budget — tasks and habits can restore or drain it.',
       dailyCapacity: 'Daily energy',
       weeklyCapacity: 'Weekly energy',
     },
@@ -1887,7 +1887,7 @@ const no: typeof en = {
     // Energisystem (Generelt-fanen) — valgfritt energibudsjett per oppgave.
     energy: {
       label: 'Energisystem',
-      hint: 'Gi oppgaver og vaner en energiverdi med fortegn og følg et dags- og ukebudsjett — positiv gir energi (som å drikke vann), negativ tapper.',
+      hint: 'Følg et dags- og ukebudsjett for energi — oppgaver og vaner kan gi eller tappe energi.',
       dailyCapacity: 'Energi per dag',
       weeklyCapacity: 'Energi per uke',
     },
