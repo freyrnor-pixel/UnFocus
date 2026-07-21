@@ -54,7 +54,11 @@ export const Ease = {
  *  Damping 26 was a ratio of ~0.73 (still meaningfully underdamped: a real, visible overshoot
  *  and a couple of settle oscillations, not just a slow perceptual fade) — 36 lands right at
  *  critical (~1.0), which removes the bounce entirely while keeping the same high stiffness
- *  for a fast settle. Don't lower this back below ~34 without re-verifying on device. */
+ *  for a fast settle. Don't lower this back below ~34 without re-verifying on device.
+ *  (2026-07-21, same day: a separate report that "buttons don't feel animated" landed around
+ *  the same time as the above — resolved as press-in duration, not release bounce; see
+ *  PressableScale's 80ms press-in. Release stays critically damped; don't reintroduce overshoot
+ *  here without fresh on-device confirmation, since the 36 value above was tester-validated.) */
 export const Spring = {
   snappy: { damping: 36, stiffness: 320 },
   /** Near-critically-damped — settles with almost no overshoot. Use for section/accordion

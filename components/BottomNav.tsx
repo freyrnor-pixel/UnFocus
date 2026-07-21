@@ -69,22 +69,35 @@
  *     as IconButton's active state, Button secondary, etc.), NOT `theme.surfaceMuted` —
  *     surfaceMuted is the neutral grey sunken tone; reusing it for active state is what
  *     made an earlier pass read as a plain "grey box" instead of a colored selected state.
+ *   - **Keycap bevel ring (2026-07-21)**: a flat single-tone border was tried on the tab boxes
+ *     and reverted the same day ("Border dropped..." note above) for reading too punchy. This is
+ *     a different technique — the same rim-gradient bevel (`computeRimGradient`, light-top/
+ *     dark-bottom, 3 stops) Button.tsx/Surface.tsx already use — gated behind
+ *     `settings.glassSurfaces`, off entirely when that setting is off. Each tab's box, and the
+ *     centre FAB, wrap their existing fill in a `LinearGradient` ring (`padding: EDGE_WIDTH`);
+ *     the fill becomes the inner "double keycap" line, unchanged otherwise. Ring hue snaps
+ *     instantly between `theme.border` (inactive) / `theme.accent` (active) — only the fill
+ *     itself keeps crossfading via `useToggleColor`, matching this file's existing "colour swaps
+ *     instantly on top" convention for anything not the fill.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
-import { Fonts, FontSize, Radius, Spacing, Shadow, getGlow, getLayeredShadow } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { Fonts, FontSize, Radius, Spacing, Shadow, getGlow, getLayeredShadow, computeRimGradient } from '@/constants/theme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useToggleColor } from '@/lib/useToggleColor';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { goToSite, SITE_ITEMS, SiteItem, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
 
 export const BOTTOM_NAV_HEIGHT = 72;
+const EDGE_WIDTH = 1.5;
 
 type Props = Partial<Pick<MaterialTopTabBarProps, 'state' | 'navigation'>>;
 
@@ -93,6 +106,8 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   const pathname = usePathname();
   const t = useT();
   const theme = useAppTheme();
+  const isDark = useIsDark();
+  const glass = useSettingsStore((s) => s.glassSurfaces);
   const styles = useScaledStyles(baseStyles);
 
   const leftItems = SITE_ITEMS.slice(0, 2);
@@ -119,6 +134,8 @@ export default function BottomNav({ state, navigation }: Props = {}) {
 
   const renderCentre = (item: SiteItem) => {
     const active = isActive(item);
+    const icon = <Ionicons name={active ? item.activeIcon : item.icon} size={24} color={theme.accentInk} />;
+    const centreRim = computeRimGradient(theme.accent, isDark);
     return (
       <PressableScale
         key={item.key}
@@ -126,11 +143,23 @@ export default function BottomNav({ state, navigation }: Props = {}) {
         accessibilityRole="button"
         accessibilityLabel={t.nav[item.key]}
         accessibilityState={{ selected: active }}
-        style={[styles.centreButton, { backgroundColor: theme.accent, ...Shadow.fab }]}
+        style={[styles.centreButton, Shadow.fab, glass ? null : { backgroundColor: theme.accent }]}
         onPress={() => handlePress(item)}
         hitSlop={8}
       >
-        <Ionicons name={active ? item.activeIcon : item.icon} size={24} color={theme.accentInk} />
+        {glass ? (
+          <LinearGradient
+            colors={centreRim.colors}
+            locations={centreRim.locations}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={{ width: '100%', height: '100%', borderRadius: Radius.full, padding: EDGE_WIDTH, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <View style={{ width: '100%', height: '100%', borderRadius: Radius.full - EDGE_WIDTH, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' }}>
+              {icon}
+            </View>
+          </LinearGradient>
+        ) : icon}
       </PressableScale>
     );
   };
@@ -166,6 +195,8 @@ type NavTabItemProps = {
 // hook instance — the keycap box crossfades independently per tab.
 function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
+  const glass = useSettingsStore((s) => s.glassSurfaces);
   const iconColor = active ? theme.accent : theme.textMuted;
   const boxStyle = useToggleColor(active, {
     backgroundColor: [theme.surface, theme.accentSoft],
@@ -176,6 +207,18 @@ function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
   // both are `boxShadow` arrays, so they must be concatenated, not spread onto the same key.
   const restShadow = getLayeredShadow(theme.shadow, 'raised');
   const boxShadow = active ? [...restShadow, ...getGlow(theme.accent, 'soft').boxShadow] : restShadow;
+  const rim = computeRimGradient(active ? theme.accent : theme.border, isDark);
+  const box = (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFill,
+        styles.itemBox,
+        boxStyle,
+        { boxShadow, borderRadius: glass ? Radius.md - EDGE_WIDTH : Radius.md },
+      ]}
+    />
+  );
 
   return (
     <PressableScale
@@ -187,10 +230,18 @@ function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
       onPress={onPress}
       hitSlop={6}
     >
-      <Animated.View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFill, styles.itemBox, boxStyle, { boxShadow }]}
-      />
+      {glass ? (
+        <LinearGradient
+          pointerEvents="none"
+          colors={rim.colors}
+          locations={rim.locations}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={[StyleSheet.absoluteFill, { borderRadius: Radius.md, padding: EDGE_WIDTH }]}
+        >
+          {box}
+        </LinearGradient>
+      ) : box}
       <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={iconColor} />
       <Text
         style={[styles.label, { color: iconColor }]}

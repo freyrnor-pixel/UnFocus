@@ -87,7 +87,7 @@ primitive: **`components/PressableScale.tsx`**. Use it instead of hand-rolling
 </PressableScale>
 ```
 
-- Press-in: scales to `scaleTo` over 60ms (`withTiming`), fires a light haptic (`haptic` prop, default `true`)
+- Press-in: scales to `scaleTo` over 80ms (`withTiming`), fires a light haptic (`haptic` prop, default `true`)
 - Press-out: springs back to 1.0 (`withSpring({ damping: 36, stiffness: 320 })`, `Spring.snappy` in `constants/motion.ts`)
 - Honors `useAccessibility().reducedMotion` automatically — skips the scale animation when set, haptic still fires
 
@@ -236,7 +236,7 @@ Paste this block at the top of any animation/interaction/haptics prompt for this
 When implementing animations, button interactions, or haptics for UnFocus:
 
 TIMING:
-  - Button press scale-down: 60-100ms, ease-out (withTiming)
+  - Button press scale-down: 80-100ms, ease-out (withTiming)
   - Button spring-back: withSpring({ damping: 18-40, stiffness: 200-700 })
   - Card/panel transitions: 200-250ms, ease-out
   - Modal entry: 300-350ms, ease-out

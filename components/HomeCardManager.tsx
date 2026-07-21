@@ -154,7 +154,7 @@ export default function HomeCardManager({ order, labels, onReorder, onRemove, on
           <View>
             {renderCard(kind)}
             {editMode && (
-              <Pressable
+              <PressableScale
                 style={[
                   styles.removeBadge,
                   { backgroundColor: theme.bad, borderColor: theme.surface },
@@ -162,12 +162,13 @@ export default function HomeCardManager({ order, labels, onReorder, onRemove, on
                 ]}
                 onPress={() => handleRemove(kind)}
                 hitSlop={8}
+                scaleTo={0.9}
                 disabled={order.length <= 1}
                 accessibilityRole="button"
                 accessibilityLabel={t.home.manageCards.remove(labels[kind] ?? kind)}
               >
                 <Ionicons name="close" size={12} color={theme.accentInk} />
-              </Pressable>
+              </PressableScale>
             )}
           </View>
         </DraggableTaskRow>
