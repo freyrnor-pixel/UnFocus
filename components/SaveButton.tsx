@@ -15,7 +15,7 @@
  *   - Uses react-native-reanimated v4 (withTiming for opacity + scale)
  *   - Button is disabled when not visible (opacity < 1)
  *   - Press feedback is a second `pressScale` shared value multiplied into the same
- *     transform as the entrance/exit `scale` (PressableScale's timing: 60ms down,
+ *     transform as the entrance/exit `scale` (PressableScale's timing: 80ms down,
  *     spring back) — kept separate so press-in/out never fights the visibility tween.
  *   - `theme` prop dropped in favor of internal useAppTheme() — established Phase 3
  *     convention (see NoteRow.tsx/MonthlyTableRow.tsx headers). Fill is `accent`,
@@ -95,7 +95,7 @@ export function SaveButton({ visible, onPress, label }: SaveButtonProps) {
       }}
       onPressIn={() => {
         if (!visible) return;
-        if (!reducedMotion) pressScale.value = withTiming(0.95, { duration: 60 });
+        if (!reducedMotion) pressScale.value = withTiming(0.95, { duration: 80 });
       }}
       onPressOut={() => {
         if (!reducedMotion) pressScale.value = withSpring(1, Spring.snappy);

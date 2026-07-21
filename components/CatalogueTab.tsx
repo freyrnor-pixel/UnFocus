@@ -421,14 +421,15 @@ export default function CatalogueTab({ onNotify, header }: Props) {
             clearButtonMode="never"
           />
           {query.length > 0 && (
-            <Pressable
+            <PressableScale
               onPress={() => setQuery('')}
               hitSlop={8}
+              scaleTo={0.9}
               accessibilityLabel={t.catalogueSearchClearLabel}
-              style={({ pressed }) => (pressed ? { opacity: 0.5 } : null)}
+              accessibilityRole="button"
             >
               <Ionicons name="close-circle" size={18} color={theme.textMuted} />
-            </Pressable>
+            </PressableScale>
           )}
         </View>
       </Surface>
