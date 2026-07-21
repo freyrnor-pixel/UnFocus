@@ -21,7 +21,7 @@
  *             components/IconButton,
  *             components/ListSettingsSheet, components/MonthlyResetSummaryModal,
  *             components/MonthlyResetReviewSheet,
- *             components/MonthlyTableRow, components/ProgressBar, components/SavedListsModal,
+ *             components/MonthlyTableRow, components/SavedListsModal,
  *             components/ScreenScaffold, components/SharedRequestsSection,
  *             components/ShoppingRow, components/Surface, components/UpdateSheet,
  *             components/WeekListCard, components/FoodTab, components/CatalogueTab,
@@ -105,14 +105,13 @@
  *     names "sticky headers... nav bar" as the overlay use case — `ScreenHeader`/`BottomNav`
  *     also use `overlay` (the earlier doc-vs-source inconsistency flagged here has since
  *     been fixed in both files).
- *     Reserved sticky height is now conditional: `STICKY_HEIGHT` (tab row + summary row) only
- *     when the Weekly summary row actually renders, else `STICKY_HEIGHT_TABS` (tab row only),
- *     so non-Weekly tabs don't reserve empty space above the first card (visual-audit gap fix).
- *   - **A2-1 focused list**: `focusedListId` picks which non-template list's summary the
- *     sticky bar shows (Decision 017 Q3/Q4 — focused-list-only, never an aggregate).
- *     Falls back to the first list when nothing is explicitly focused yet or the focused
- *     list was deleted. WeekListCard's own compact progress line (non-focused lists only)
- *     calls `onFocus` to switch it — see WeekListCard.tsx's header note.
+ *     Reserved sticky height is always `STICKY_HEIGHT_TABS` (tab row only) — the Weekly
+ *     summary row under the tabs was removed (debug-note 2026-07-21).
+ *   - **A2-1 focused list**: `focusedListId` still picks which non-template list is the
+ *     focused one (Decision 017 Q3/Q4), now feeding only WeekListCard's `focused` prop (the
+ *     sticky summary row that used to read it is gone). Falls back to the first list when
+ *     nothing is explicitly focused yet or the focused list was deleted. WeekListCard's own
+ *     compact progress line (non-focused lists only) calls `onFocus` to switch it.
  *   - **A2-4 body order**: SharedRequestsSection →
  *     per-list WeekListCards (each carrying its own collapsed
  *     "Bought this week" history — see WeekListCard.tsx) → "create new list" card. Monthly
@@ -216,7 +215,6 @@ import SavedListsModal from '@/components/SavedListsModal';
 import ListSettingsSheet from '@/components/ListSettingsSheet';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
-import ProgressBar from '@/components/ProgressBar';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TabBoxHighlight from '@/components/TabBoxHighlight';
@@ -246,11 +244,9 @@ type Tab = 'weekly' | 'monthly' | 'food' | 'catalogue';
  */
 let catalogLockedSession = true;
 
-// Reserved sticky-bar height. The summary row (focused list name + progress) only renders
-// on the Weekly tab, so reserving the full height on every tab left a large empty gap above
-// the first card (visual-audit finding). Reserve the tab-row-only height otherwise, matching
-// Plans' 56 so the tab→first-card gap is consistent across the two list screens.
-const STICKY_HEIGHT = 116;
+// Reserved sticky-bar height — just the tab row now (the focused-list name + progress summary
+// row under the tabs was removed 2026-07-21). Matches Plans so the tab→first-card gap is
+// consistent across the two list screens.
 const STICKY_HEIGHT_TABS = 60;
 
 type DragState = {
@@ -489,11 +485,6 @@ export default function ShoppingScreen() {
   );
   const unlockedListCount = useMemo(() => nonTemplateLists.filter((l) => !l.locked).length, [nonTemplateLists]);
 
-  const focusedGroups = useMemo(
-    () => (focusedList ? computeListGroups(items, focusedList.id) : null),
-    [items, focusedList]
-  );
-
   const purchasedByListId = useMemo(() => {
     const map = new Map<string, ShoppingItem[]>();
     for (const item of items.filter((i) => i.status === 'purchased')) {
@@ -504,7 +495,6 @@ export default function ShoppingScreen() {
     }
     return map;
   }, [items]);
-  const focusedProgress = useMemo(() => (focusedGroups ? listProgress(focusedGroups) : null), [focusedGroups]);
 
   // Monthly checkbox (Decision 044a): moves the item straight to the focused weekly
   // list instead of staging it for a separate confirm step. Undoable via the toast.
@@ -821,8 +811,9 @@ export default function ShoppingScreen() {
     { value: 'catalogue', label: t.catalogueTabLabel, accent: theme.accent, count: 0 },
   ];
 
-  const summaryVisible = tab === 'weekly' && !!focusedList && !!focusedProgress;
-  const stickyHeight = summaryVisible ? STICKY_HEIGHT : STICKY_HEIGHT_TABS;
+  // Sticky strip is now just the tab row (debug-note 2026-07-21: the date + amount summary
+  // row under the tabs was removed), so it always reserves the tab-only height.
+  const stickyHeight = STICKY_HEIGHT_TABS;
   const stickyBelowHeader = (
     // Frosted-glass strip (same overlay Surface as the header): the ambient background reads
     // softly through the frost AROUND the opaque tab chips, and content scrolling behind the
@@ -865,20 +856,9 @@ export default function ShoppingScreen() {
         })}
       </View>
 
-      {/* Visual-audit 2026-07-11: dropped the plain tab-name echo here for monthly/food/
-          catalogue/weekly-without-a-list — the active tab button above already names it,
-          so a second "Monthly list"/"Katalog" line right underneath was pure repetition.
-          This row only earns its place when it carries information the tab button
-          doesn't: the focused list's own name + live progress. */}
-      {tab === 'weekly' && focusedList && focusedProgress ? (
-        <View style={styles.stickySummaryRow}>
-          <Text style={[styles.stickyListName, { color: theme.text }]} numberOfLines={1}>{focusedList.name}</Text>
-          <Text style={[styles.stickyProgressText, { color: theme.textMuted }]}>
-            {t.shoppingRemaining(focusedProgress.remaining, focusedProgress.inCart)}
-          </Text>
-          <ProgressBar value={focusedProgress.pct} state="good" height={6} style={styles.stickyProgressBar} />
-        </View>
-      ) : null}
+      {/* The focused-list name + live-progress summary row under the tabs was removed
+          (debug-note 2026-07-21) — the per-list card already carries its own name and
+          progress, so the sticky strip is now just the tab row. */}
     </Surface>
   );
 
@@ -1476,10 +1456,6 @@ const styles = StyleSheet.create({
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold },
   tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
-  stickySummaryRow: { gap: 4, paddingBottom: Spacing.xs },
-  stickyListName: { fontSize: FontSize.md, fontFamily: Fonts.bold },
-  stickyProgressText: { fontSize: FontSize.xs },
-  stickyProgressBar: { marginTop: 2 },
 
   catalogCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md },
   catalogHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

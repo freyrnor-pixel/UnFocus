@@ -145,7 +145,7 @@ function rowToHabit(row: Row): Habit {
   return {
     id: readStr(row, 'id'),
     title: readStr(row, 'title'),
-    icon: readStr(row, 'icon') || '⭐',
+    icon: readStr(row, 'icon') || 'ellipse-outline',
     kind: (readStr(row, 'kind') || 'build') as HabitKind,
     category: (readStr(row, 'category') || 'other') as HabitCategory,
     cue: readStr(row, 'cue'),

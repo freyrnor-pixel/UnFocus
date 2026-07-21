@@ -66,6 +66,7 @@ const en = {
   seeEverythingLink: 'See everything →',
   doneTasksLabel: 'Done today',
   timelineEmpty: 'Nothing planned — enjoy your day',
+  timelineEmptyAdd: 'Add a plan',
   timelineNow: 'Now',
   // Day-view rail (components/PlanTaskCard.tsx — full /plans screen + read-only Home preview)
   dayViewGapUntil: (time: string) => `Nothing until ${time}`,
@@ -1314,6 +1315,7 @@ const no: typeof en = {
   seeEverythingLink: 'Se alt →',
   doneTasksLabel: 'Ferdig i dag',
   timelineEmpty: 'Ingenting planlagt — nyt dagen',
+  timelineEmptyAdd: 'Legg til en plan',
   timelineNow: 'Nå',
   // Day-view rail (components/PlanTaskCard.tsx — full /plans screen + read-only Home preview)
   dayViewGapUntil: (time: string) => `Ingenting før ${time}`,

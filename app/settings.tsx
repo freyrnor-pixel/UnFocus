@@ -576,7 +576,7 @@ export default function SettingsScreen() {
                 ExpandableCard's own header already documents — see its "Decision 043 rule 1"
                 note). */}
             <View style={styles.section}>
-              <Surface style={styles.card}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <ExpandableCard title={t.sectionProfile} accentColor={theme.accent} first>
                   <Input
                     label={t.yourName}
@@ -700,7 +700,7 @@ export default function SettingsScreen() {
                 sheet if no mail client is configured. Separate from the debug-notes
                 export below, which is a testers' anchor-note tool. */}
             <View style={styles.section}>
-              <Surface style={styles.card}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <Text style={[styles.switchLabel, { color: theme.text }]}>{t.feedback.cardTitle}</Text>
                 <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs }]}>{t.feedback.cardDesc}</Text>
                 <View style={{ marginTop: Spacing.sm }}>
@@ -725,7 +725,7 @@ export default function SettingsScreen() {
 
             {/* Debug mode */}
             <View style={styles.section}>
-              <Surface style={styles.card}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <View style={styles.switchRow}>
                   <View style={styles.switchTextCol}>
                     <Text style={[styles.switchLabel, { color: theme.text }]}>{t.debug.toggleLabel}</Text>
@@ -767,7 +767,7 @@ export default function SettingsScreen() {
                 immediately re-syncs every eligible task; the other three are read directly
                 by task-form.tsx at render time, no background job to kick. */}
             <View style={styles.section}>
-              <Surface style={styles.card}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.permissions.sectionTitle}</Text>
                 <View style={styles.switchRow}>
                   <View style={styles.switchTextCol}>
@@ -820,7 +820,7 @@ export default function SettingsScreen() {
                 Decision 039: device-only, user-held profile. No server, no credentials;
                 the account rides along in the local backup file below. */}
             <View style={styles.section}>
-              <Surface style={styles.card}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <ExpandableCard title={t.account.title} accentColor={theme.accent} first>
                   <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
                     {settings.accountCreated ? t.account.descActive : t.account.descNone}
@@ -968,7 +968,7 @@ export default function SettingsScreen() {
                 and Freyr-modus stay standalone below — they're single-toggle cards with no
                 accordion body, so folding them in would add chrome with nothing to hide. */}
             <View style={styles.section}>
-              <Surface style={styles.card}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <ExpandableCard title={t.config.sections.workMode} accentColor={theme.accent} first>
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.workModeDesc}</Text>
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -1156,7 +1156,7 @@ export default function SettingsScreen() {
             {/* SKOLEMODUS — standalone: single-toggle card with no accordion body. */}
             <View style={styles.section}>
               <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.schoolMode.label}</Text>
-              <Surface style={styles.card}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <View style={styles.switchRow}>
                   <View style={styles.switchTextCol}>
                     <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.schoolMode.label}</Text>
@@ -1173,7 +1173,7 @@ export default function SettingsScreen() {
             {/* FREYR-MODUS */}
             <View style={styles.section}>
               <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.freyrMode.label}</Text>
-              <Surface style={styles.card}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <View style={styles.switchRow}>
                   <View style={styles.switchTextCol}>
                     <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.freyrMode.label}</Text>
@@ -1188,7 +1188,7 @@ export default function SettingsScreen() {
 
         {tab === 'handle' && (
           <View style={styles.section}>
-            <Surface style={styles.card}>
+            <Surface style={[styles.card, { borderColor: theme.border }]}>
               <ExpandableCard title={t.sectionShopping} accentColor={getDomainColor(theme, 'shop').accent} first>
                 <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.weeklyResetDay}</Text>
                 <View style={styles.dayRow}>
@@ -1269,7 +1269,7 @@ export default function SettingsScreen() {
             {/* UKENTLIG / GENERELLE — one panel (2026-07-13 layering pass: these two used
                 to each float in their own Surface card). */}
             <View style={styles.section}>
-              <Surface style={styles.card}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <ExpandableCard title={t.weeklyReminders} accentColor={theme.accent} first>
                   <View style={styles.switchRow}>
                     <View style={styles.switchTextCol}>
@@ -1363,7 +1363,7 @@ export default function SettingsScreen() {
             {/* AUTOMATISERING — the only entry point to the automations screen (Decision 036). */}
             <View style={styles.section}>
               <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.nav.automations}</Text>
-              <Surface style={styles.card}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <PressableScale style={styles.switchRow} onPress={() => router.push('/automations')} scaleTo={0.97}>
                   <View style={styles.switchTextCol}>
                     <Text style={[styles.switchLabel, { color: theme.text }]}>{t.nav.automations}</Text>
@@ -1399,7 +1399,10 @@ const baseStyles = StyleSheet.create({
   essentialsLabel: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   energyCapacityRows: { marginTop: Spacing.md, gap: Spacing.sm },
   energyCapacityRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
-  card: { padding: Spacing.md },
+  // Each settings group reads as one rounded, bordered block — the whole lined-up set of
+  // rows shares 4 rounded corners + a crisp 1px edge, matching Plans' "New task" card
+  // (debug-note 2026-07-21). borderColor is applied inline (theme-dependent).
+  card: { padding: Spacing.md, borderRadius: Radius.md, borderWidth: 1 },
   fieldLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size, marginBottom: Spacing.xs },
   divider: { height: 1, marginVertical: Spacing.md },
   workHoursRow: { flexDirection: 'row', gap: Spacing.md },
