@@ -385,6 +385,7 @@ export default function WeekListCard({
                 accent={theme.good}
                 showTemporaryToggle={false}
                 categories={categoryPresets(t)}
+                quantityLabel={t.onsketAntallWeeklyLabel}
                 onAdd={({ name, price, targetQuantity, category }) =>
                   onAddInlineItem({ name, price, qty: targetQuantity, category })
                 }
