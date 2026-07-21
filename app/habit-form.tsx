@@ -56,7 +56,12 @@
  *     instead of hand-rolled −/+ circles, and the chip/dayChip/iconBtn pill selectors all
  *     got a `theme.border` (active: `theme.accent`) outline to match the "raised keycap"
  *     border convention IconButton/Surface use elsewhere — the flat, borderless fills
- *     read as visually inconsistent with the rest of the app.
+ *     read as visually inconsistent with the rest of the app. `dayChip` also switched from
+ *     a fixed 44px circle + wrap to `flex:1`/`aspectRatio:1` so all 7 weekday chips fit on
+ *     one row (was dropping "Sø" to its own row on typical phone widths) — same fix applied
+ *     to task-form.tsx's identical weekly picker. The recurrence-picker label was renamed
+ *     from "Resets"/"Nullstilles" to "Interval"/"Intervall" — "Resets" read as a settings
+ *     action, not a description of the Daily/Weekly/Monthly cadence picker below it.
  */
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -561,8 +566,8 @@ const baseStyles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: Spacing.md, gap: Spacing.lg },
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
-  daysRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm, flexWrap: 'wrap' },
-  dayChip: { width: 44, height: 44, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
+  daysRow: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.sm },
+  dayChip: { flex: 1, aspectRatio: 1, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
   dayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },

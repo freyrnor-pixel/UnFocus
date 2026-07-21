@@ -27,6 +27,11 @@
  *   - Edit vs. add is keyed off the `id` param resolved against the store; save()/performDelete()
  *     then router.back().
  *   - recurringDays is only persisted when recurring === 'weekly' (cleared to [] otherwise).
+ *   - **Day-chip row (2026-07-21)**: `dayChip` is `flex:1`/`aspectRatio:1` (not a fixed
+ *     44px circle) so all 7 weekday chips always fit on one row regardless of screen
+ *     width — a fixed-width chip + wrap let "Sø" (Sun) drop to its own row on narrower
+ *     phones. Bordered (`theme.border`/`theme.accent` active) to match the rest of the
+ *     app's pill-selector convention; same pattern as habit-form.tsx's weekly picker.
  *   - **No TimePickerWheel** — that component was never ported into this repo (Phase 3d's
  *     scope didn't include it). Time entry uses a plain FormControls.Input (HH:MM text),
  *     per this session's own instruction to use FormControls for all inputs, rather than
@@ -508,8 +513,8 @@ export default function TaskFormScreen() {
                     key={i}
                     style={[
                       styles.dayChip,
-                      { backgroundColor: theme.surfaceMuted },
-                      active && { backgroundColor: theme.accent },
+                      { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                      active && { backgroundColor: theme.accent, borderColor: theme.accent },
                     ]}
                     onPress={() => toggleDay(i)}
                     scaleTo={0.97}
@@ -726,8 +731,8 @@ const baseStyles = StyleSheet.create({
   weekChipDay: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   weekChipNum: { fontSize: FontSize.sm },
   calToggleBtn: { alignSelf: 'flex-start' },
-  daysRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm, flexWrap: 'wrap' },
-  dayChip: { width: 44, height: 44, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  daysRow: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.sm },
+  dayChip: { flex: 1, aspectRatio: 1, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
   dayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   thenRow: {
     flexDirection: 'row',

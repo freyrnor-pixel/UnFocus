@@ -20,6 +20,9 @@
  *     translateX, ~150ms ease-out; snaps under reducedMotion) that moves between segments
  *     rather than a per-segment background hard-swap, and fires a `selection()` haptic on
  *     change (same motion contract as components/SlideSelector.tsx).
+ *   - **Bordered track (2026-07-21)**: `segmentWrap` got a `theme.border` outline to match
+ *     the "raised keycap" border convention IconButton/chips use elsewhere — it previously
+ *     had no border at all, reading as visually flatter/plainer than the rest of the app.
  */
 import React, { useEffect, useState } from 'react';
 import {
@@ -143,7 +146,7 @@ export function SegmentedControl({ options, value, onChange, style }: SegmentedC
   };
 
   return (
-    <View style={[styles.segmentWrap, { backgroundColor: theme.surfaceMuted }, style]} onLayout={onLayout}>
+    <View style={[styles.segmentWrap, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }, style]} onLayout={onLayout}>
       {/* Sliding raised-surface indicator — rendered first so it paints beneath the labels. */}
       {segW > 0 && (
         <Animated.View
@@ -238,6 +241,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
     padding: 4,
     minHeight: 44,
+    borderWidth: 1.5,
   },
   segment: {
     flex: 1,
