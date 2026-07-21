@@ -48,12 +48,15 @@ export const Ease = {
 };
 
 /** The proven snappy spring (from PressableScale) for tactile press/toggle spring-backs.
- *  Tuned (2026-07-20) to damping 26 (was 18) — the old value was underdamped enough to
- *  visibly overshoot and settle in a couple of oscillations ("bobbing"), most noticeable
- *  on small header icon buttons held/pressed repeatedly. 26/320 keeps a quick, tactile
- *  settle with only a faint overshoot instead of a multi-cycle wobble. */
+ *  Tuned (2026-07-20) to damping 26 (was 18), then again (2026-07-21, tester feedback "still
+ *  too bobbing") to damping 36. Reanimated's spring model is a standard mass-spring-damper
+ *  with mass 1, so critical damping = 2*sqrt(stiffness) — for stiffness 320 that's ~35.8.
+ *  Damping 26 was a ratio of ~0.73 (still meaningfully underdamped: a real, visible overshoot
+ *  and a couple of settle oscillations, not just a slow perceptual fade) — 36 lands right at
+ *  critical (~1.0), which removes the bounce entirely while keeping the same high stiffness
+ *  for a fast settle. Don't lower this back below ~34 without re-verifying on device. */
 export const Spring = {
-  snappy: { damping: 26, stiffness: 320 },
+  snappy: { damping: 36, stiffness: 320 },
   /** Near-critically-damped — settles with almost no overshoot. Use for section/accordion
    *  toggle headers (Tasks "Done" zone, ExpandableCard) where even the calmer `snappy`
    *  spring's bounce reads as too energetic for a repeatedly-tapped list control. */

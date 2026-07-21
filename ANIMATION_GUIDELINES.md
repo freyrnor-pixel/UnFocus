@@ -58,9 +58,10 @@ values already proven in the app — reuse them instead of inventing new ones:
 
 ```ts
 // Snappy — button press-release (components/PressableScale.tsx)
-// damping 26 (not 18) — enough to avoid a multi-cycle "bobbing" overshoot on release,
-// while keeping the settle quick and tactile.
-withSpring(1, { damping: 26, stiffness: 320 });
+// damping 36 (was 26, then 18) — 320 stiffness means critical damping is ~35.8
+// (2*sqrt(stiffness)), so 36 is the first value that actually removes the overshoot
+// instead of just shortening it; both earlier values still visibly "bobbed" on release.
+withSpring(1, { damping: 36, stiffness: 320 });
 ```
 
 The habit-card pulse in `app/habits.tsx` still uses the legacy `Animated` API with
@@ -87,7 +88,7 @@ primitive: **`components/PressableScale.tsx`**. Use it instead of hand-rolling
 ```
 
 - Press-in: scales to `scaleTo` over 60ms (`withTiming`), fires a light haptic (`haptic` prop, default `true`)
-- Press-out: springs back to 1.0 (`withSpring({ damping: 18, stiffness: 320 })`)
+- Press-out: springs back to 1.0 (`withSpring({ damping: 36, stiffness: 320 })`, `Spring.snappy` in `constants/motion.ts`)
 - Honors `useAccessibility().reducedMotion` automatically — skips the scale animation when set, haptic still fires
 
 ### Scale values by button type — pass as `scaleTo`
