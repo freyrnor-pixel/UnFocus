@@ -115,11 +115,16 @@
  *     the nav actually sits, leaving a bare gap even on a long, fully-populated list — reported
  *     as a "cut off" bug. Fixed by keying both `contentPadding.paddingBottom` and the
  *     ScrollView's `scrollIndicatorInsets.bottom` on `tier === 'site' && bottomNav` instead.
+ *   - **stickyGap (2026-07-20)**: `stickyBelowHeader` (Plans/Shopping/Settings' in-screen tab
+ *     bars) used to sit flush against the header's bottom edge with zero gap, reading as
+ *     cramped. A `Spacing.sm` filler strip (painted `bgColor`, same treatment as headerBlock's
+ *     own backgroundColor) now sits between them, and the sticky block + content's top padding
+ *     shift down by the same amount. Zero-cost for screens that don't pass `stickyBelowHeader`.
  */
 import React, { useCallback, useRef } from 'react';
 import { Keyboard, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
-import { getHeaderMetrics } from '@/constants/theme';
+import { getHeaderMetrics, Spacing } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { ScreenColorContext } from '@/lib/screenColor';
 import ScreenBackground from '@/components/ScreenBackground';
@@ -333,8 +338,13 @@ export default function ScreenScaffold({
   const safeAreaEdges: Edge[] = pagerTabScene
     ? ['top', 'left', 'right']
     : ['top', 'right', 'bottom', 'left'];
+  // Breathing room between the header band and a screen-owned stickyBelowHeader strip
+  // (Plans/Shopping/Settings' tab bars) — those floated flush against the header's
+  // bottom edge with zero gap, reading as cramped (2026-07-20 visual-audit). Zero when
+  // there's no sticky strip so screens without one are unaffected.
+  const stickyGap = stickyBelowHeader ? Spacing.sm : 0;
   const contentPadding = {
-    paddingTop: HEADER_HEIGHT + (stickyBelowHeader ? stickyBelowHeaderHeight : 0),
+    paddingTop: HEADER_HEIGHT + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
     ...(reserveBottomNav ? { paddingBottom: bottomNavClearance } : null),
   };
 
@@ -406,11 +416,18 @@ export default function ScreenScaffold({
         />
       </View>
 
-      {/* L4.5: optional sticky-below-header block (e.g. a screen-owned summary bar) */}
+      {/* L4.5: optional sticky-below-header block (e.g. a screen-owned summary bar).
+          A small filler strip (stickyGap) sits between the header and the block itself —
+          painted with the page background, same treatment as headerBlock's own
+          backgroundColor, so it reads as calm chrome spacing rather than a hole letting
+          scrolled content flash through underneath. */}
       {stickyBelowHeader && (
-        <View style={[styles.stickyBlock, { top: HEADER_HEIGHT + topInset, height: stickyBelowHeaderHeight }]}>
-          {stickyBelowHeader}
-        </View>
+        <>
+          <View style={[styles.stickyGapFiller, { top: HEADER_HEIGHT + topInset, height: stickyGap, backgroundColor: bgColor }]} />
+          <View style={[styles.stickyBlock, { top: HEADER_HEIGHT + topInset + stickyGap, height: stickyBelowHeaderHeight }]}>
+            {stickyBelowHeader}
+          </View>
+        </>
       )}
 
       {/* L5: Bottom block (BottomNav, site-tier only) — extended down behind the
@@ -452,6 +469,12 @@ const styles = StyleSheet.create({
   // so Surface routes it to its outer shadow view and its mask (flexGrow:1) frosts the height.
   headerFill: {
     flex: 1,
+  },
+  stickyGapFiller: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 99,
   },
   stickyBlock: {
     position: 'absolute',
