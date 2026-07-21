@@ -567,7 +567,15 @@ const baseStyles = StyleSheet.create({
   cardInner: { flex: 1, flexDirection: 'row' },
   flatList: { flex: 1 },
   listContent: { paddingBottom: Spacing.md, flexGrow: 1 },
-  listHeader: { gap: Spacing.md, paddingBottom: Spacing.md },
+  // No paddingBottom here (2026-07-21 fix): `card`/`cardInner` have no background fill — the
+  // floating search/add-row chrome sits directly over the screen's ambient artwork by design
+  // (see "Notepad container" note above), but a trailing gap after the LAST header card exposed
+  // that same ambient background as a persistent seam between the chrome and the first solid
+  // row. Barely visible at rest, it became a jarring blank strip once scrolled partway (the
+  // chrome clips to a sliver while the seam stays full-size) — reported as "blank space under
+  // the tab row". `gap` still spaces the header's own cards apart; only the trailing pad is gone,
+  // so the last card now sits flush against the first row with no background showing through.
+  listHeader: { gap: Spacing.md },
   searchCard: { paddingHorizontal: Spacing.md },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8 },
   searchInput: { flex: 1, fontSize: FontSize.sm, padding: 0 },
