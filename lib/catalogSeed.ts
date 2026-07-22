@@ -55,7 +55,7 @@ export const CATALOG_SEED: SeedItem[] = [
   { name: 'Fennikel', category: 'produce', price: 24.90 },
   // REMA 1000 additions
   { name: 'Aubergine Løsvekt', category: 'produce', price: 58.44 },
-  { name: 'Gulrot 15x1 Kg Prima', category: 'produce', price: 18.90 },
+  { name: 'Gulrot 1kg Prima', category: 'produce', price: 18.90 },
   { name: 'Stangselleri', category: 'produce', price: 24.90 },
 
   // Meieri
@@ -87,12 +87,12 @@ export const CATALOG_SEED: SeedItem[] = [
   { name: 'Egg 18pk M Prima Lavpris', category: 'dairy', price: 59.90 },
   { name: 'Litago Sjokolademelk 1L Tine', category: 'dairy', price: 32.90 },
   { name: 'Meierismør 500g Tine', category: 'dairy', price: 61.40 },
-  { name: 'Mozzarella Revet 22% 180g R', category: 'dairy', price: 37.90 },
+  { name: 'Mozzarella Revet 22% 180g', category: 'dairy', price: 37.90 },
   { name: 'Parmigiano Reggiano Revet 80g', category: 'dairy', price: 42.50 },
   { name: 'Q Helmelk 3.7% (1.75 L)', category: 'dairy', price: 40.90 },
   { name: 'Skinkeost 175g Tube Kavli', category: 'dairy', price: 35.90 },
   { name: 'Skyr Mini Banan Pose (90 g)', category: 'dairy', price: 15.90 },
-  { name: 'Skyr Mini Br.bær Pose (90 g)', category: 'dairy', price: 15.90 },
+  { name: 'Skyr Mini Bringebær Pose (90 g)', category: 'dairy', price: 15.90 },
   { name: 'Tine Yoghurt Kirsebær (500 g)', category: 'dairy', price: 25.40 },
   { name: 'Tine Yoghurt Vanilje (500 g)', category: 'dairy', price: 23.90 },
   { name: 'Yoghurt Vanilje Gresk Type 730G Tine', category: 'dairy', price: 49.90 },
@@ -118,7 +118,7 @@ export const CATALOG_SEED: SeedItem[] = [
   { name: 'Kokt Skinke 150g Nordfjord', category: 'meat', price: 24.90 },
   { name: 'Kyllingkjøttdeig 400G Solvinge', category: 'meat', price: 59.90 },
   { name: 'Paprikaskinke 220g (Nordfjord)', category: 'meat', price: 42.50 },
-  { name: 'Prima Lavpris 400 G (Kyllingkjøttdeig)', category: 'meat', price: 64.90 },
+  { name: 'Kyllingkjøttdeig Prima Lavpris 400g', category: 'meat', price: 54.90 },
   { name: 'Svinekjøttdeig 20% 300G', category: 'meat', price: 31.90 },
 
   // Fisk
@@ -132,8 +132,6 @@ export const CATALOG_SEED: SeedItem[] = [
   { name: 'Sild i lake', category: 'fish', price: 29.90 },
   { name: 'Fiskepinner', category: 'fish', price: 59.90 },
   { name: 'Klippfisk', category: 'fish', price: 139.90 },
-  // REMA 1000 additions
-  { name: 'Rotfrukter M/laks 8m 190g Nestle', category: 'fish', price: 24.90 },
 
   // Brød og bakst
   { name: 'Grovbrød', category: 'bread', price: 34.90 },
@@ -188,7 +186,7 @@ export const CATALOG_SEED: SeedItem[] = [
   { name: 'Lasagne 200g (Toro)', category: 'canned', price: 39.90 },
   { name: 'Meksikansk Gryte 189g (Toro)', category: 'canned', price: 36.90 },
   { name: 'Tomater Finhakkede 400g Petti', category: 'canned', price: 20.90 },
-  { name: 'Tomatpurè 180g Stavland', category: 'canned', price: 19.90 },
+  { name: 'Tomatpuré 180g Stavland', category: 'canned', price: 19.90 },
   { name: 'Tomatpuré 140g', category: 'canned', price: 8.90 },
 
   // Tørrmat
@@ -229,9 +227,9 @@ export const CATALOG_SEED: SeedItem[] = [
   { name: 'Flerkornsgrøt Eple/Fersken 8m (Semper 120g)', category: 'dry', price: 18.90 },
   { name: 'Grøt Eple & Fersken 6m (Semper 120g)', category: 'dry', price: 18.90 },
   { name: 'Grøt Pære & Aprikos 6m (Semper 120g)', category: 'dry', price: 24.90 },
+  { name: 'Rotfrukter M/laks 8m 190g Nestle', category: 'dry', price: 24.90 },
   { name: 'Havregranola Naturell 4-korn Urkraft (430 G)', category: 'dry', price: 42.00 },
   { name: 'Havregryn Lettkokte 1.2kg Urkraft', category: 'dry', price: 21.90 },
-  { name: 'Håndsåpe Harmoni 500ML R', category: 'dry', price: 19.90 },
   { name: 'Kanel Malt 67g Toro', category: 'dry', price: 21.10 },
   { name: 'Kardemomme 46g Toro', category: 'dry', price: 35.90 },
   { name: 'Lasagne Plater 500g Barilla', category: 'dry', price: 41.90 },
@@ -241,7 +239,7 @@ export const CATALOG_SEED: SeedItem[] = [
   { name: 'Sukker 1Kg Dansukker', category: 'dry', price: 35.90 },
   { name: 'Sweet Baby Rays Barbecue Sauce 510g', category: 'dry', price: 46.90 },
   { name: 'Taco Sauce Hot 230g Santa Maria', category: 'dry', price: 20.40 },
-  { name: 'Taco Spice Mix R', category: 'dry', price: 11.00 },
+  { name: 'Taco Spice Mix', category: 'dry', price: 11.00 },
   { name: 'Tørrgjær Original 65g Idun (5 Pos)', category: 'dry', price: 19.40 },
   { name: 'Urt Koriander 6X15g Flow Vikin', category: 'dry', price: 16.00 },
   { name: 'Worcester Sauce 150ml (Heinz)', category: 'dry', price: 37.40 },
@@ -312,9 +310,10 @@ export const CATALOG_SEED: SeedItem[] = [
   { name: 'Stearinlys', category: 'cleaning', price: 39.90 },
   { name: 'Strikkeposer (frysebagger)', category: 'cleaning', price: 29.90 },
   // REMA 1000 additions
-  { name: 'Kjøkkenpapir 6-pack', category: 'cleaning', price: 59.50 },
+  { name: 'Håndsåpe Harmoni 500ML', category: 'cleaning', price: 19.90 },
+  { name: 'Kjøkkenpapir 6-pack', category: 'cleaning', price: 99.90 },
   { name: 'Mikrofiberklut Universal', category: 'cleaning', price: 19.90 },
-  { name: 'Toalettpapir 24PK R', category: 'cleaning', price: 79.90 },
+  { name: 'Toalettpapir 24PK', category: 'cleaning', price: 169.90 },
 
   // Personlig pleie
   { name: 'Sjampo', category: 'personal', price: 59.90 },
@@ -341,5 +340,5 @@ export const CATALOG_SEED: SeedItem[] = [
   { name: 'Mild Trippel Dusj 220ml Asan', category: 'personal', price: 26.90 },
   { name: 'Otrivin Voksne Mentol 1mg/ml', category: 'personal', price: 79.90 },
   { name: 'Tannbørste Step 1 Baby', category: 'personal', price: 27.90 },
-  { name: 'Tanntråd 2 I 1 Flosser R (32 Stk)', category: 'personal', price: 19.90 },
+  { name: 'Tanntråd 2 I 1 Flosser (32 Stk)', category: 'personal', price: 19.90 },
 ];
