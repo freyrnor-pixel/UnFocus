@@ -694,6 +694,12 @@ export function initDb() {
     // still a real picker option today) is deliberately left untouched since it can't be
     // distinguished from an intentional pick after the fact.
     "UPDATE habits SET icon = 'ellipse-outline' WHERE icon = '⭐'",
+    // Saved-lists redesign (2026-07-22): links a live weekly list back to the saved/
+    // template list it was instantiated from, so the Saved-lists section can mark that
+    // template "in use" and WeekListCard can offer a sync-back action. NULL for lists
+    // started empty and for template rows themselves. See store/useShoppingListStore.ts
+    // (instantiateTemplate/syncListToTemplate).
+    "ALTER TABLE shopping_lists ADD COLUMN source_template_id TEXT DEFAULT NULL",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

@@ -1,11 +1,14 @@
 /**
  * SavedListsModal.tsx — saved/template shopping lists popup.
  *
- * Opened from WeekListCard's bookmark icon (weekly list header). Lists every
- * isTemplate=true shopping_lists row; tapping one instantiates it as a fresh
- * live list for the current week (useShoppingListStore.instantiateTemplate).
- * A bottom row lets the user save the list currently being viewed as a new
- * template (useShoppingListStore.saveAsTemplate).
+ * Opened from WeekListCard's kebab menu ("Saved lists") and the Weekly tab's "+ New
+ * list" chooser. Lists every isTemplate=true shopping_lists row; tapping one routes
+ * through app/(tabs)/shopping.tsx's `addTemplateToWeek` (current week, same dedup +
+ * instantiateTemplate path components/SavedListsSection.tsx's drag/tap flow uses) rather
+ * than calling useShoppingListStore.instantiateTemplate directly — see that component's
+ * header for the 2026-07-22 drag/sync-back redesign this now shares logic with. A bottom
+ * row lets the user save the list currently being viewed as a new template
+ * (useShoppingListStore.saveAsTemplate).
  *
  * Connections:
  *   Imports → components/AnimatedBottomSheet, components/Surface, components/PressableScale,
