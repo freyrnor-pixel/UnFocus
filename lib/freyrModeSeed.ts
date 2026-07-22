@@ -12,11 +12,13 @@
  *
  * Connections:
  *   Imports → lib/date, store/useHabitStore, store/useNotesStore, store/useShoppingStore,
- *             store/useTaskStore, store/useSettingsStore
+ *             store/useMonthlyListStore, store/useTaskStore, store/useSettingsStore
  *   Used by → app/settings.tsx
  *   Data    → writes shopping_items (status='catalog', list_type='monthly'), tasks, habits, notes
  *     via each store's own add()/update()/remove() — no direct SQL here. Also overwrites
- *     (and restores) settings.energySystemEnabled/energyDailyCapacity/monthlyBudgetNok.
+ *     (and restores) settings.energySystemEnabled/energyDailyCapacity, and the seeded
+ *     Monthly list's own budgetNok (store/useMonthlyListStore.ts — see the 2026-07-22 note
+ *     below; budget is per-list now, not a settings field).
  *
  * Edit notes:
  *   - Item/task/note/habit text is Norwegian and NOT translated, matching lib/catalogSeed.ts's
@@ -33,11 +35,19 @@
  *     a Task — that recurrence mode (lib/habitRecurrence.ts) is exactly "N times this
  *     week, no fixed days," so it doesn't need pinning to arbitrary weekdays like the
  *     Task-based items above.
+ *   - **Shopping — Monthly redesign (2026-07-22, merged same day)**: seeded catalog items
+ *     are tagged onto the first Monthly list (`useMonthlyListStore`'s `lists[0]`) so they
+ *     actually show up on a card — without a monthlyListId they'd be silently orphaned
+ *     (invisible in every list). The "10 000 NOK" demo budget is likewise set on THAT
+ *     list's own budgetNok (not a global settings field any more — budget is per list) via
+ *     `monthlyBudget: {listId, prevBudgetNok}`, restored on unseed. Both fall back to a
+ *     no-op only if the user has deleted every Monthly list before enabling Freyr-mode.
  */
 import { todayStr } from '@/lib/date';
 import { useHabitStore, Habit } from '@/store/useHabitStore';
 import { useNotesStore } from '@/store/useNotesStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
+import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
@@ -47,7 +57,10 @@ export type FreyrSeedIds = {
   habitIds: string[];
   noteIds: string[];
   /** Settings values overwritten by seedFreyrMode(), to restore on unseed. Null until first seeded. */
-  prevSettings: { energySystemEnabled: boolean; energyDailyCapacity: number; monthlyBudgetNok: number } | null;
+  prevSettings: { energySystemEnabled: boolean; energyDailyCapacity: number } | null;
+  /** The Monthly list seedFreyrMode() set a demo budget on, and what it was before —
+   *  null if there was no Monthly list to tag at seed time (nothing to restore). */
+  monthlyBudget: { listId: string; prevBudgetNok: number } | null;
 };
 
 export const EMPTY_FREYR_SEED_IDS: FreyrSeedIds = {
@@ -56,6 +69,7 @@ export const EMPTY_FREYR_SEED_IDS: FreyrSeedIds = {
   habitIds: [],
   noteIds: [],
   prevSettings: null,
+  monthlyBudget: null,
 };
 
 export function parseFreyrSeedIds(json: string): FreyrSeedIds {
@@ -95,11 +109,12 @@ function addNote(header: string): string {
 /** Creates the Freyr-mode starter set and returns exactly the ids/settings it created/overwrote. */
 export function seedFreyrMode(): FreyrSeedIds {
   const shoppingStore = useShoppingStore.getState();
+  const monthlyListId = useMonthlyListStore.getState().lists[0]?.id;
   const shoppingItemIds = [
-    shoppingStore.add({ name: 'Dopapir', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 1 }),
-    shoppingStore.add({ name: 'Melk', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 4 }),
-    shoppingStore.add({ name: 'Håndsåpe', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 1 }),
-    shoppingStore.add({ name: 'Bleier', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 6 }),
+    shoppingStore.add({ name: 'Dopapir', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 1, monthlyListId }),
+    shoppingStore.add({ name: 'Melk', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 4, monthlyListId }),
+    shoppingStore.add({ name: 'Håndsåpe', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 1, monthlyListId }),
+    shoppingStore.add({ name: 'Bleier', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 6, monthlyListId }),
   ];
 
   const today = todayStr();
@@ -235,19 +250,30 @@ export function seedFreyrMode(): FreyrSeedIds {
   const prevSettings = {
     energySystemEnabled: settings.energySystemEnabled,
     energyDailyCapacity: settings.energyDailyCapacity,
-    monthlyBudgetNok: settings.monthlyBudgetNok,
   };
-  // Energy: 15/day. Budget: 10 000 NOK/month.
-  settings.update({ energySystemEnabled: true, energyDailyCapacity: 15, monthlyBudgetNok: 10000 });
+  // Energy: 15/day.
+  settings.update({ energySystemEnabled: true, energyDailyCapacity: 15 });
 
-  return { shoppingItemIds, taskIds, habitIds, noteIds, prevSettings };
+  // Budget: 10 000 NOK/month, set on the same Monthly list the catalog items above were
+  // tagged onto (budget is per list now, not a global setting) — no-op if there's no list.
+  let monthlyBudget: FreyrSeedIds['monthlyBudget'] = null;
+  if (monthlyListId) {
+    const monthlyListStore = useMonthlyListStore.getState();
+    const list = monthlyListStore.lists.find((l) => l.id === monthlyListId);
+    monthlyBudget = { listId: monthlyListId, prevBudgetNok: list?.budgetNok ?? 0 };
+    monthlyListStore.setBudget(monthlyListId, 10000);
+  }
+
+  return { shoppingItemIds, taskIds, habitIds, noteIds, prevSettings, monthlyBudget };
 }
 
-/** Removes exactly the rows a prior seedFreyrMode() call created, and restores the settings it overwrote. */
+/** Removes exactly the rows a prior seedFreyrMode() call created, and restores the settings/
+ *  budget it overwrote. */
 export function unseedFreyrMode(ids: FreyrSeedIds): void {
   ids.shoppingItemIds.forEach((id) => useShoppingStore.getState().remove(id));
   ids.taskIds.forEach((id) => useTaskStore.getState().remove(id));
   ids.habitIds.forEach((id) => useHabitStore.getState().remove(id));
   ids.noteIds.forEach((id) => useNotesStore.getState().remove(id));
   if (ids.prevSettings) useSettingsStore.getState().update(ids.prevSettings);
+  if (ids.monthlyBudget) useMonthlyListStore.getState().setBudget(ids.monthlyBudget.listId, ids.monthlyBudget.prevBudgetNok);
 }

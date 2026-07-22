@@ -51,7 +51,7 @@
  *             store/useShoppingStore, store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
  *   Data    → useSettingsStore (settings table; incl. energySystemEnabled/energy*Capacity, quietHours*,
- *             monthlyBudgetNok, taskNotificationsEnabled, habitNotificationsEnabled,
+ *             monthlyResetDate, taskNotificationsEnabled, habitNotificationsEnabled,
  *             persistentNotifEnabled, voiceNotesEnabled/contactsEnabled/locationEnabled/
  *             calendarSyncEnabled — the "Device features" card); reset actions touch
  *             useTaskStore (tasks) and useShoppingStore (shopping_items via monthlyReset);
@@ -59,6 +59,12 @@
  *             syncAllTaskCalendarEvents / syncAllHabitReminders / syncNotificationCategories
  *
  * Edit notes:
+ *   - **Monthly budget moved out (2026-07-22)**: the "handle" tab used to have a Monthly
+ *     budget Input here, writing the single global `monthlyBudgetNok` setting. Budget is per
+ *     Monthly list now (store/useMonthlyListStore.ts) — edited from that list's own Budget
+ *     pill on the Shopping screen's Monthly tab (→ app/budget.tsx), not from Settings. The
+ *     `monthlyResetDate` field just above it is unaffected (still one global payday-boundary
+ *     date, shared by every list).
  *   - **Tab bar (2026-07-20, shared component)**: the horizontally-scrollable tab bar's
  *     active indicator is `components/TabBoxHighlight.tsx` — always renders a bordered box
  *     behind the label (white `theme.surface` fill + `theme.border` edge at rest, crossfading
@@ -183,9 +189,6 @@ export default function SettingsScreen() {
   const [name, setName] = useState(settings.userName);
   const [accountNameInput, setAccountNameInput] = useState(settings.accountName);
   const [monthlyDateInput, setMonthlyDateInput] = useState(String(settings.monthlyResetDate));
-  const [monthlyBudgetInput, setMonthlyBudgetInput] = useState(
-    settings.monthlyBudgetNok > 0 ? String(settings.monthlyBudgetNok) : ''
-  );
   // Send Feedback (2026-07-13) — free-text composer, mailed via mailto:.
   const [feedbackText, setFeedbackText] = useState('');
   // Child mode (Decision 038c) — local input for the parent password entry/exit.
@@ -1235,31 +1238,6 @@ export default function SettingsScreen() {
                   maxLength={2}
                 />
                 <Text style={[styles.paydayHint, { color: theme.textMuted }]}>{t.monthlyDateInputHint}</Text>
-
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-                <Input
-                  label={t.settings.monthlyBudget.label}
-                  value={monthlyBudgetInput}
-                  onChangeText={setMonthlyBudgetInput}
-                  onBlur={() => {
-                    if (monthlyBudgetInput.trim() === '') {
-                      settings.update({ monthlyBudgetNok: 0 });
-                      return;
-                    }
-                    const n = parseFloat(monthlyBudgetInput.replace(',', '.'));
-                    if (!isNaN(n) && n >= 0) {
-                      settings.update({ monthlyBudgetNok: n });
-                    } else {
-                      setMonthlyBudgetInput(settings.monthlyBudgetNok > 0 ? String(settings.monthlyBudgetNok) : '');
-                      setInputWarning(t.invalidMonthlyBudgetMsg);
-                    }
-                  }}
-                  keyboardType="number-pad"
-                  placeholder={t.settings.monthlyBudget.placeholder}
-                  maxLength={6}
-                />
-                <Text style={[styles.paydayHint, { color: theme.textMuted }]}>{t.settings.monthlyBudget.hint}</Text>
               </ExpandableCard>
             </Surface>
           </View>

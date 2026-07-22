@@ -9,8 +9,8 @@
  *
  * Connections:
  *   Imports → lib/date, lib/sqlite
- *   Used by → app/_layout.tsx, lib/backup.ts, lib/liveSync.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useInboxStore.ts, store/useMealStore.ts, store/useNotesStore.ts, store/usePeersStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
- *   Data    → owns ALL SQLite tables: settings, tasks, shopping_items, shopping_trips, shopping_lists, dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the old low/med/high energy check-in; table/pruning kept per the never-drop-tables rule, no longer written to), energy_budgets (LIVE — 2026-07-20 energy-budget system: per-period capacity overrides; store/useEnergyStore.ts), inbox_items, receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key), widget_snapshot (single-row localised cache for the Android home-screen widgets — lib/widgets/snapshot.ts)
+ *   Used by → app/_layout.tsx, lib/backup.ts, lib/liveSync.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useInboxStore.ts, store/useMealStore.ts, store/useMonthlyListStore.ts, store/useNotesStore.ts, store/usePeersStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
+ *   Data    → owns ALL SQLite tables: settings, tasks, shopping_items, shopping_trips, shopping_lists, monthly_lists (multiple, named, budgeted Monthly/Katalog lists — store/useMonthlyListStore.ts), dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the old low/med/high energy check-in; table/pruning kept per the never-drop-tables rule, no longer written to), energy_budgets (LIVE — 2026-07-20 energy-budget system: per-period capacity overrides; store/useEnergyStore.ts), inbox_items, receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key), widget_snapshot (single-row localised cache for the Android home-screen widgets — lib/widgets/snapshot.ts)
  *
  * Edit notes:
  *   - Add columns via the `migrations` array ONLY — never edit a CREATE TABLE to
@@ -700,6 +700,36 @@ export function initDb() {
     // started empty and for template rows themselves. See store/useShoppingListStore.ts
     // (instantiateTemplate/syncListToTemplate).
     "ALTER TABLE shopping_lists ADD COLUMN source_template_id TEXT DEFAULT NULL",
+    // Shopping — Monthly redesign (2026-07-22): multiple, named, independently-budgeted
+    // Monthly ("Katalog") lists, replacing the single global Katalog + the single global
+    // monthly_budget_nok/last_monthly_reset settings. Mirrors shopping_lists (weekly) in
+    // shape — see store/useMonthlyListStore.ts. shopping_items.monthly_list_id is only
+    // meaningful for status='catalog' rows and rows carrying from_catalog=1 (it travels
+    // with the row through inWeeklyList/purchased, same pattern as list_id for weekly);
+    // receipts.monthly_list_id tags a purchase to the Monthly list its spend counts
+    // against (app/(tabs)/scan.tsx). The existing single Katalog + its budget/lastReset
+    // are migrated onto one auto-created default list so nothing is lost.
+    `CREATE TABLE IF NOT EXISTS monthly_lists (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      budget_nok REAL DEFAULT 0,
+      locked INTEGER DEFAULT 0,
+      sort_order INTEGER DEFAULT 0,
+      last_reset TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
+    "ALTER TABLE shopping_items ADD COLUMN monthly_list_id TEXT DEFAULT NULL",
+    "ALTER TABLE receipts ADD COLUMN monthly_list_id TEXT DEFAULT NULL",
+    `INSERT INTO monthly_lists (id, name, budget_nok, locked, sort_order, last_reset, created_at)
+     SELECT 'default-monthly', 'Monthly',
+       COALESCE((SELECT monthly_budget_nok FROM settings WHERE id = 1), 0),
+       0, 0,
+       COALESCE((SELECT last_monthly_reset FROM settings WHERE id = 1), ''),
+       datetime('now')
+     WHERE NOT EXISTS (SELECT 1 FROM monthly_lists)`,
+    "UPDATE shopping_items SET monthly_list_id = 'default-monthly' WHERE monthly_list_id IS NULL AND (status = 'catalog' OR from_catalog = 1)",
+    "UPDATE receipts SET monthly_list_id = 'default-monthly' WHERE monthly_list_id IS NULL",
+    "CREATE INDEX IF NOT EXISTS idx_shopping_items_monthly_list ON shopping_items(monthly_list_id)",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

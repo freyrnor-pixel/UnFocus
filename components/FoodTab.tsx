@@ -67,6 +67,8 @@ import AnimatedChevron from '@/components/AnimatedChevron';
 import { useMealStore, MealType, Difficulty, Dish, dishTotalPrice } from '@/store/useMealStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
+import { useMonthlyListStore } from '@/store/useMonthlyListStore';
+import { showAppModal } from '@/components/AppModal';
 import { contrastOn, Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -125,6 +127,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
   const removeIngredient = useMealStore((s) => s.removeIngredient);
   const suggest = useCatalogStore((s) => s.suggest);
   const shoppingAdd = useShoppingStore((s) => s.add);
+  const monthlyLists = useMonthlyListStore((s) => s.lists);
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   // Meal-type sections (the dish-list containers) collapse independently, collapsed by
@@ -269,12 +272,11 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
     onAddedToWeek?.(addedIds);
   }
 
-  function handleAddToMonthly(dish: Dish) {
-    if (dish.ingredients.length === 0) {
-      onNotify(t.addToListNoIngredients);
-      setPopupDish(null);
-      return;
-    }
+  // Shopping — Monthly redesign (2026-07-22): a dish's ingredients now need a target
+  // Monthly list, not just "the" catalog. Auto-picks the only list in the common
+  // single-list case (no extra tap); with 2+ lists, asks which one via the same lightweight
+  // showAppModal chooser app/(tabs)/shopping.tsx's handleAllocate uses for weekly lists.
+  function pushDishToMonthlyList(dish: Dish, monthlyListId: string) {
     for (const ing of dish.ingredients) {
       shoppingAdd({
         name: ing.name,
@@ -287,11 +289,34 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
         status: 'catalog',
         targetQuantity: parseInt(ing.amount, 10) || 1,
         dishName: dish.name,
+        monthlyListId,
       });
     }
     success();
     setPopupDish(null);
     onNotify(t.dishAddedToMonthly(dish.name));
+  }
+
+  function handleAddToMonthly(dish: Dish) {
+    if (dish.ingredients.length === 0) {
+      onNotify(t.addToListNoIngredients);
+      setPopupDish(null);
+      return;
+    }
+    if (monthlyLists.length === 0) {
+      onNotify(t.monthlyListsEmpty);
+      setPopupDish(null);
+      return;
+    }
+    if (monthlyLists.length === 1) {
+      pushDishToMonthlyList(dish, monthlyLists[0].id);
+      return;
+    }
+    setPopupDish(null);
+    showAppModal(t.allocateToListTitle, '', [
+      ...monthlyLists.map((l) => ({ text: l.name, onPress: () => pushDishToMonthlyList(dish, l.id) })),
+      { text: t.cancel, style: 'cancel' as const },
+    ]);
   }
 
   const canSaveDish = !!dishName.trim();

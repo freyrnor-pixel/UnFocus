@@ -1,8 +1,10 @@
 /**
- * shoppingStore.test.ts — unit tests for the two lifecycle transitions in
- * store/useShoppingStore.ts: doneShopping() and monthlyReset().
+ * shoppingStore.test.ts — unit tests for the lifecycle transitions in
+ * store/useShoppingStore.ts: doneShopping(), monthlyReset(), resetMonthlyList()
+ * (Shopping — Monthly redesign, 2026-07-22), restoreDeleted(), and add()'s
+ * monthlyListId-scoped catalog dedupe.
  *
- * Both mirror their raw-SQL bulk transitions into the in-memory `items` list via
+ * These mirror their raw-SQL bulk transitions into the in-memory `items` list via
  * set(), so a no-op '@/lib/db' mock lets the JS state-machine be asserted without
  * a real database. State is seeded with setState directly.
  */
@@ -105,6 +107,73 @@ describe('monthlyReset', () => {
 
     // All trips deleted.
     expect(useShoppingStore.getState().trips).toHaveLength(0);
+  });
+});
+
+describe('resetMonthlyList (Shopping — Monthly redesign, 2026-07-22)', () => {
+  it("only reverts the given list's items, leaves other lists' items and ALL trips untouched", () => {
+    useShoppingStore.setState({
+      items: [
+        item({ id: 'a-purchased', status: 'purchased', shoppingTripId: 't1', listId: 'W1', monthlyListId: 'M1', pendingRestock: true }),
+        item({ id: 'a-temp', status: 'catalog', isTemporary: true, monthlyListId: 'M1' }),
+        item({ id: 'a-week', status: 'inWeeklyList', listId: 'W1', monthlyListId: 'M1' }),
+        item({ id: 'a-perm', status: 'catalog', pendingRestock: true, monthlyListId: 'M1' }),
+        // Different Monthly list — must be completely untouched by resetting M1.
+        item({ id: 'b-purchased', status: 'purchased', shoppingTripId: 't1', listId: 'W1', monthlyListId: 'M2' }),
+        item({ id: 'b-perm', status: 'catalog', pendingRestock: true, monthlyListId: 'M2' }),
+      ],
+      trips: [{ id: 't1', completedAt: 'x', label: 'L', monthResetDate: 1, listId: 'W1' }],
+    });
+
+    useShoppingStore.getState().resetMonthlyList('M1');
+    const items = useShoppingStore.getState().items;
+
+    expect(items.find((i) => i.id === 'a-temp')).toBeUndefined();
+    const aPurchased = items.find((i) => i.id === 'a-purchased')!;
+    expect(aPurchased.status).toBe('catalog');
+    expect(aPurchased.shoppingTripId).toBeUndefined();
+    expect(aPurchased.pendingRestock).toBe(false);
+    expect(items.find((i) => i.id === 'a-week')!.status).toBe('catalog');
+    expect(items.find((i) => i.id === 'a-perm')!.pendingRestock).toBe(false);
+
+    // M2's items are exactly as they started — a per-list reset must not leak across lists.
+    const bPurchased = items.find((i) => i.id === 'b-purchased')!;
+    expect(bPurchased.status).toBe('purchased');
+    expect(bPurchased.shoppingTripId).toBe('t1');
+    expect(items.find((i) => i.id === 'b-perm')!.pendingRestock).toBe(true);
+
+    // Unlike monthlyReset(), a per-list reset never deletes shopping_trips — a trip can hold
+    // items from several Monthly lists at once (M2's item is still checked out against it).
+    expect(useShoppingStore.getState().trips).toHaveLength(1);
+  });
+});
+
+describe('add — catalog dedupe is scoped by monthlyListId (2026-07-22)', () => {
+  it('does not merge same-named catalog items across two different Monthly lists', () => {
+    useShoppingStore.setState({ items: [], trips: [] });
+    const input = { name: 'Milk', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog' as const, targetQuantity: 1 };
+
+    const idA = useShoppingStore.getState().add({ ...input, monthlyListId: 'M1' });
+    const idB = useShoppingStore.getState().add({ ...input, monthlyListId: 'M2' });
+
+    expect(idA).not.toBe(idB);
+    const items = useShoppingStore.getState().items;
+    expect(items).toHaveLength(2);
+    expect(items.find((i) => i.id === idA)!.monthlyListId).toBe('M1');
+    expect(items.find((i) => i.id === idB)!.monthlyListId).toBe('M2');
+  });
+
+  it('still merges (increments targetQuantity) for the same name within the SAME Monthly list', () => {
+    useShoppingStore.setState({ items: [], trips: [] });
+    const input = { name: 'Milk', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog' as const, targetQuantity: 1, monthlyListId: 'M1' };
+
+    const idA = useShoppingStore.getState().add(input);
+    const idB = useShoppingStore.getState().add(input);
+
+    expect(idA).toBe(idB);
+    const items = useShoppingStore.getState().items;
+    expect(items).toHaveLength(1);
+    expect(items[0].targetQuantity).toBe(2);
   });
 });
 

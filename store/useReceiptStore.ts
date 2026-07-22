@@ -3,12 +3,12 @@
  *
  * Zustand store for the `receipts` table: one row per confirmed scan/manual
  * grocery trip (date, store, total, category, month). Feeds app/budget.tsx's
- * spend-vs-budget view and per-month/per-store breakdowns; app/scan.tsx creates
+ * spend-vs-budget view and per-month/per-store breakdowns; app/(tabs)/scan.tsx creates
  * a receipt right before logging its items via useCatalogStore.recordPurchases(purchases, receipt.id).
  *
  * Connections:
  *   Imports → lib/date, lib/dataAccess, lib/id
- *   Used by → app/budget.tsx, app/scan.tsx
+ *   Used by → app/budget.tsx, app/(tabs)/scan.tsx
  *   Data    → defines a Zustand store; owns SQLite table receipts; purchase_log rows link back via the optional receipt_id passed into useCatalogStore.recordPurchases
  *
  * Edit notes:
@@ -16,6 +16,12 @@
  *   - months() returns distinct month values sorted descending (newest first); receiptsByStore(month) sums receipts per store for a given month.
  *   - load() fetches all receipts into memory — same small-table assumption as useEnergyStore; revisit if receipt volume grows beyond a year of history (pruneOldData() already trims rows past RETENTION_DAYS).
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
+ *   - **Shopping — Monthly redesign (2026-07-22)**: `monthlyListId` tags which Monthly list
+ *     (store/useMonthlyListStore.ts) this spend counts against — set by scan.tsx's picker
+ *     (skipped/auto-picked when only one list exists). Deliberately NOT surfaced as new
+ *     store methods (receiptsForMonth/totalForMonth/etc. stay whole-app) — app/budget.tsx
+ *     filters the plain `receipts` array by monthlyListId itself before doing the same
+ *     month/store grouping it already did, so this store's surface stays small.
  */
 import { create } from 'zustand';
 import { Row, loadAll, insertRow, readStr, readReal } from '@/lib/dataAccess';
@@ -29,6 +35,8 @@ export type Receipt = {
   total: number;
   category: string;
   month: string; // YYYY-MM
+  /** Which Monthly list (store/useMonthlyListStore.ts) this spend counts against; undefined for pre-redesign receipts. */
+  monthlyListId?: string;
 };
 
 export type ReceiptInput = {
@@ -36,6 +44,7 @@ export type ReceiptInput = {
   store: string;
   total: number;
   category?: string;
+  monthlyListId?: string;
 };
 
 type ReceiptStore = {
@@ -56,6 +65,7 @@ function rowToReceipt(row: Row): Receipt {
     total: readReal(row, 'total'),
     category: readStr(row, 'category') || 'other',
     month: readStr(row, 'month'),
+    monthlyListId: readStr(row, 'monthly_list_id') || undefined,
   };
 }
 
@@ -76,6 +86,7 @@ export const useReceiptStore = create<ReceiptStore>((set, get) => ({
       total: input.total,
       category: input.category ?? 'other',
       month,
+      monthly_list_id: input.monthlyListId ?? null,
     });
     const receipt: Receipt = {
       id,
@@ -84,6 +95,7 @@ export const useReceiptStore = create<ReceiptStore>((set, get) => ({
       total: input.total,
       category: input.category ?? 'other',
       month,
+      monthlyListId: input.monthlyListId,
     };
     set((s) => ({ receipts: [receipt, ...s.receipts] }));
     return receipt;

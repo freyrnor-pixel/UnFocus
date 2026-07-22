@@ -2,13 +2,14 @@
  * AddDishSheet.tsx — pick saved dishes and add them to the Monthly list, or a specific
  * week list, in place.
  *
- * Centered modal opened from the Monthly tab's "Add dish" trigger, or from a Weekly
+ * Centered modal opened from a Monthly list card's "Add dish" trigger, or from a Weekly
  * WeekListCard's add-chooser ("From a dish"). Lists every saved dish grouped by meal type;
- * tapping one pushes its ingredients onto the `target` (Monthly's status:'catalog' rows, or
- * directly into a given week list's status:'inWeeklyList' rows), both carrying dishName so
- * shopping.tsx's groupByDish() renders it as one expandable dish container. The sheet stays
- * open so several dishes can be added in one pass — added dishes show a checkmark; "Close"
- * dismisses.
+ * tapping one pushes its ingredients onto the `target` (a specific Monthly list's
+ * status:'catalog' rows, tagged with that list's monthlyListId — Shopping/Monthly redesign
+ * 2026-07-22 — or directly into a given week list's status:'inWeeklyList' rows), both
+ * carrying dishName so shopping.tsx's groupByDish() renders it as one expandable dish
+ * container. The sheet stays open so several dishes can be added in one pass — added dishes
+ * show a checkmark; "Close" dismisses.
  *
  * This is the in-place counterpart to FoodTab's "Add to week list"/"Add to monthly list"
  * popup — same push shape, but reachable directly from the tab you're already adding items
@@ -66,8 +67,9 @@ import PressableScale from '@/components/PressableScale';
 /** Meal-type render order — mirrors FoodTab's MEAL_ORDER so sections read the same everywhere. */
 const MEAL_ORDER: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack', 'kveldsmat'];
 
-/** Where a picked dish's ingredients get pushed. */
-export type AddDishTarget = { mode: 'monthly' } | { mode: 'weekly'; listId: string };
+/** Where a picked dish's ingredients get pushed. Monthly targets a specific named Monthly
+ *  list (store/useMonthlyListStore.ts) since Shopping — Monthly redesign (2026-07-22). */
+export type AddDishTarget = { mode: 'monthly'; listId: string } | { mode: 'weekly'; listId: string };
 
 type Props = {
   visible: boolean;
@@ -169,6 +171,7 @@ export default function AddDishSheet({ visible, onClose, onAdded, target }: Prop
           status: 'catalog',
           targetQuantity: parseInt(ing.amount, 10) || 1,
           dishName: dish.name,
+          monthlyListId: target.listId,
         });
       }
     }
