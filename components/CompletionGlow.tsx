@@ -16,7 +16,9 @@
  *
  * Connections:
  *   Imports → react-native-reanimated, constants/theme, lib/useAppTheme
- *   Used by → components/PlanTaskCard.tsx (card-level task-completion glow), app/(tabs)/health.tsx (habit completion, embedded Habits section)
+ *   Used by → (none currently) — superseded 2026-07-22 by components/GlowPulse.tsx, which unifies
+ *             state/action glow (breathing focal halo + static persistent halo). Kept as a ready
+ *             one-shot bloom primitive; wire it up again if a transient completion flash is wanted.
  *   Data    → reads reducedMotion via useAccessibility(); colour from useAppTheme().good
  *
  * Edit notes:

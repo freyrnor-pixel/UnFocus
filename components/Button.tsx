@@ -6,7 +6,8 @@
  *
  * Connections:
  *   Imports → constants/theme (getMaterialStyle), lib/useAppTheme, store/useSettingsStore
- *             (glassSurfaces), components/PressableScale, components/GlassFill
+ *             (glassSurfaces), components/PressableScale, components/GlassFill,
+ *             components/GlowPulse (optional `emphasis` breathing CTA halo)
  *   Used by → all screens for standard action buttons
  *   Data    → reads `glassSurfaces` from the settings store
  *
@@ -31,6 +32,10 @@
  *   - Purposeful Depth System (2026-07-14): primary/secondary/danger pass PressableScale's
  *     `depth="raised"` (solid-fill, physical — reads as tappable); `ghost` (text-only) stays
  *     flat/unset since it has no fill to cast a shadow from.
+ *   - **`emphasis` (2026-07-22, reserve-only)**: opt-in breathing `GlowPulse` halo behind the
+ *     PRIMARY variant to draw the eye to the single main action on a screen (reduces "which
+ *     button" load). Wrapped in a non-clipping relative View (glass path sets overflow:hidden).
+ *     Ignored on non-primary/disabled. Use on at most one button per screen.
  */
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
@@ -43,6 +48,7 @@ import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import PressableScale from '@/components/PressableScale';
 import GlassFill from '@/components/GlassFill';
+import GlowPulse from '@/components/GlowPulse';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 type Size = 'sm' | 'md' | 'lg';
@@ -56,6 +62,8 @@ type Props = {
   iconRight?: keyof typeof Ionicons.glyphMap;
   disabled?: boolean;
   loading?: boolean;
+  /** Reserve-only: give the primary CTA a gentle breathing glow to mark the ONE main action on a screen. */
+  emphasis?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -72,6 +80,7 @@ export default function Button({
   iconRight,
   disabled,
   loading,
+  emphasis,
   style,
 }: Props) {
   const theme = useAppTheme();
@@ -113,7 +122,7 @@ export default function Button({
     </View>
   );
 
-  return (
+  const button = (
     <PressableScale
       onPress={onPress}
       disabled={disabled || loading}
@@ -168,6 +177,19 @@ export default function Button({
       )}
     </PressableScale>
   );
+
+  // Reserve-only emphasis: a single breathing halo behind the primary CTA. Wrapped in a
+  // non-clipping relative View because the glass path sets overflow:'hidden' (which would clip
+  // the halo's boxShadow). Use on at most one button per screen (ANIMATION_GUIDELINES §6/§9).
+  if (emphasis && variant === 'primary' && !disabled) {
+    return (
+      <View style={[styles.emphasisWrap, style]}>
+        <GlowPulse active color={theme.accent} mode="breathe" level="strong" radius={Radius.full} />
+        {button}
+      </View>
+    );
+  }
+  return button;
 }
 
 const styles = StyleSheet.create({
@@ -178,6 +200,7 @@ const styles = StyleSheet.create({
   },
   // Glass-on only: the rim gradient ring fills the pressable, and the mask inside it clips the
   // glass fill + centres the label. flexGrow/alignSelf so both fill the fixed-height pill.
+  emphasisWrap: { position: 'relative', borderRadius: Radius.full },
   ring: { alignSelf: 'stretch', flexGrow: 1 },
   pillMask: { overflow: 'hidden', flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
   content: {

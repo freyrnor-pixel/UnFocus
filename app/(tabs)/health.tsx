@@ -17,7 +17,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/Surface,
  *             components/AddRow, components/AnimatedListItem (habit add/remove fade),
- *             components/CompletionGlow, components/HabitIcon,
+ *             components/GlowPulse (done-state static halo), components/HabitIcon,
  *             components/EmptyState, components/SlideSelector, components/PressableScale,
  *             components/IconButton (per-row habit edit button),
  *             constants/theme, constants/colors, lib/date, lib/db, lib/haptics, lib/i18n,
@@ -61,7 +61,7 @@
  *     views show plain, non-interactive empty-state text (they dropped their `onAddHabit` prop).
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore, HealthLog } from '@/store/useHealthStore';
@@ -75,7 +75,7 @@ import SectionCard from '@/components/SectionCard';
 import AddRow from '@/components/AddRow';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Collapsible from '@/components/Collapsible';
-import CompletionGlow from '@/components/CompletionGlow';
+import GlowPulse from '@/components/GlowPulse';
 import HabitIcon from '@/components/HabitIcon';
 import EmptyState from '@/components/EmptyState';
 import SlideSelector from '@/components/SlideSelector';
@@ -87,7 +87,7 @@ import { todayStr, getWeekDates, getMonthDates } from '@/lib/date';
 import { SEVERITY_COLORS, severities } from '@/lib/severity';
 import { FontSize, Radius, Shadow, Spacing, Fonts, Type } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
-import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
 import { success, selection } from '@/lib/haptics';
@@ -194,7 +194,6 @@ function HabitCard({
   const decrement = useHabitStore((s) => s.decrement);
   const markRestDay = useHabitStore((s) => s.markRestDay);
   const t = useT();
-  const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
 
   const log = logs.find((l) => l.habitId === habit.id && l.logDate === today);
@@ -206,33 +205,12 @@ function HabitCard({
   const accent = habitColor(habit.kind, theme);
 
   const prevDone = useRef(isDone);
-  const [glow, setGlow] = useState(0);
   useEffect(() => {
     if (isDone && !prevDone.current) {
       success();
-      setGlow((g) => g + 1);
     }
     prevDone.current = isDone;
   }, [isDone]);
-
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const pulseRef = useRef<Animated.CompositeAnimation | null>(null);
-
-  useEffect(() => {
-    if (isDone && !reducedMotion) {
-      pulseRef.current = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.2, duration: 650, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 650, useNativeDriver: true }),
-        ])
-      );
-      pulseRef.current.start();
-    } else {
-      pulseRef.current?.stop();
-      pulseAnim.setValue(1);
-    }
-    return () => { pulseRef.current?.stop(); };
-  }, [isDone, reducedMotion]);
 
   // Decision 043 rule 3 / Decision 014 downstream to-do: progress/done state reads from
   // the 4px accent bar only — the card body stays theme.surface regardless of state
@@ -244,17 +222,18 @@ function HabitCard({
       onPress={() => setExpanded((v) => !v)}
       scaleTo={0.97}
     >
+      <View style={styles.habitGlowWrap}>
+      <GlowPulse active={isDone} color={accent} mode="static" radius={Radius.md} />
       <View style={[styles.habitCard, { backgroundColor: theme.surface }]}>
         <View style={[styles.habitAccent, { backgroundColor: barColor }]} />
         <View style={styles.habitCardContent}>
-        <CompletionGlow trigger={glow} color={accent} />
 
         <View style={styles.cardHeader}>
-          <Animated.View style={[styles.habitIcon, { transform: [{ scale: pulseAnim }] }]}>
+          <View style={styles.habitIcon}>
             {isDone
               ? <Ionicons name="checkmark" size={22} color={accent} />
               : <HabitIcon icon={habit.icon} size={22} color={accent} />}
-          </Animated.View>
+          </View>
           <View style={styles.habitTitleWrap}>
             <View style={styles.habitTitleRow}>
               <Text style={[styles.habitTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
@@ -331,6 +310,7 @@ function HabitCard({
           </View>
         )}
         </View>
+      </View>
       </View>
     </PressableScale>
   );
@@ -887,6 +867,9 @@ const baseStyles = StyleSheet.create({
   habitAddRowCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, marginTop: Spacing.sm },
   dashedAddText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
 
+  // Wraps the (overflow-clipped) habit card so the done-state GlowPulse halo, whose boxShadow
+  // extends beyond the card box, isn't clipped. Position:relative for the absolute-fill halo.
+  habitGlowWrap: { position: 'relative', borderRadius: Radius.md },
   // Habit card — Decision 043 rule 3: progress/done state lives on the 4px accent bar
   // only (habitAccent); the card body/border never recolors (see barColor in HabitCard).
   habitCard: {
@@ -895,7 +878,6 @@ const baseStyles = StyleSheet.create({
     overflow: 'hidden',
   },
   habitAccent: { width: 4, alignSelf: 'stretch' },
-  // CompletionGlow (a direct child) absolute-fills this, so it must stay position:relative.
   habitCardContent: { flex: 1, padding: Spacing.md, position: 'relative' },
   cardHeader: {
     flexDirection: 'row',

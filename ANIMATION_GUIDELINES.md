@@ -148,11 +148,20 @@ Real implementations in this codebase, with where they differ from generic best-
   `CompletionGlow` bloom instead — scale 1→1.05 over 300ms ease-out, opacity 1→0.7→0 over
   300ms+400ms ease-out (`withSequence`/`withTiming`, ~700ms total) — paired with `success()`
   fired from `handleToggle`. Mirrors the habit-card glow pattern (`app/habits.tsx`) below.
-- **Habit completion**: same `CompletionGlow` + `success()` on the rising edge of "done today"
-  (`app/habits.tsx`), plus an infinite 1300ms scale-pulse (1.0↔1.2) while the day's goal stays
-  met. There is **no separate "streak extended" bounce/haptic** — extending a streak and
-  finishing today's goal are normally the same user action, so a second celebration would
-  double-fire alongside the one above. Don't add one without first checking it can't double-fire.
+- **Habit completion (retuned 2026-07-22)**: `success()` fires on the rising edge of "done
+  today" (`app/(tabs)/health.tsx`). The visual done-state is now a single calm `GlowPulse`
+  (`mode="static"`) halo behind the card, plus the accent bar + checkmark + "Done today" pill.
+  The earlier infinite scale-pulse (1.0↔1.2) and the one-shot `CompletionGlow` bloom were
+  **removed** — five simultaneous "done" cues (bar + icon + pulse + pill + bloom) were more
+  visual load than signal. There is **no separate "streak extended" bounce/haptic**.
+- **Breathing state glow (`components/GlowPulse.tsx`, 2026-07-22)**: the app's slow "breath" for
+  marking state/action. `mode="breathe"` loops a coloured `getGlow` halo's opacity 0.45↔1.0 on a
+  ~2.4s cycle (2×1200ms `Easing.inOut(Easing.ease)`, `withRepeat(..., -1, true)`); `mode="static"`
+  is a steady halo. **Rule: breathe = the ONE active/focal element on a screen** (PlanTaskCard
+  "happening now" row, editing TaskCard, an `emphasis` primary Button); **static = persistent or
+  repeated states** (done habits — a list can show many, so they must not each loop). Reduce-motion
+  turns breathe into static (keeps the state cue, drops the motion). Never more than one breathing
+  halo visible at once (see §9 ≤3-simultaneous / no-gratuitous-loops).
 - **Focus mode entry**: fires `confirm()` once on mount (`app/focus.tsx`). There's currently no
   fade-out of "non-relevant" UI on entry — the screen only ever shows one task at a time, so
   there's nothing else on screen to fade.
@@ -242,6 +251,8 @@ TIMING:
   - Modal entry: 300-350ms, ease-out
   - Modal exit: 200-250ms, ease-in (exit always faster than enter)
   - Celebration animations: 500-700ms, spring
+  - Breathing state glow (GlowPulse): ~2.4s cycle (2×1200ms Easing.inOut), opacity 0.45↔1.0,
+    looped — the one sanctioned always-on loop, and only on a single focal element (reduce-motion → static)
   - Nothing over 400ms unless it's a celebration
 
 BUTTONS:

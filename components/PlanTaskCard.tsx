@@ -43,9 +43,10 @@
  *             LinearTransition for rail rows revealed by the Show more/less toggle — rail,
  *             done-zone, and footer all share one `containerLayout` LinearTransition so the
  *             whole card reflows together instead of siblings snapping ahead of the rows),
- *             constants/theme (incl. getGlow), constants/motion, lib/haptics, lib/i18n,
+ *             constants/theme, constants/motion, lib/haptics, lib/i18n,
  *             lib/useAppTheme (incl. useAccessibility), lib/domainColor, components/CardAccent
- *             (badge+wash gradient move, read-only Home header), store/useTaskStore (Task type only)
+ *             (badge+wash gradient move, read-only Home header), components/GlowPulse
+ *             (breathing "happening now" halo), store/useTaskStore (Task type only)
  *   Used by → app/(tabs)/index.tsx (Home — read-only day-view preview per Decision 009a). Reads
  *             settings.planTimelineHorizontal there and passes it down as the `horizontal`
  *             prop — this component stays store-free/presentational. NOTE: the full /plans
@@ -106,10 +107,11 @@
  *     checkbox fill + strikethrough (plus the success() haptic in handleToggle) IS the
  *     feedback. The habit-card glow (app/(tabs)/health.tsx) is untouched — this was
  *     Home/Plans-specific.
- *   - **Purposeful glow (2026-07-18)**: the "happening now" row's `rowCard` (vertical rail
- *     only, `renderRow`) gets `getGlow(domainColor.accent)` alongside its existing accent
- *     tint fill — `isHappeningNow` is true for at most one entry at a time, so this never
- *     glows more than a single row. `renderColumn` (horizontal rail) is left as-is.
+ *   - **Purposeful glow (2026-07-18, breathing 2026-07-22)**: the "happening now" row's
+ *     `rowCard` (vertical rail only, `renderRow`) gets a breathing `GlowPulse` halo
+ *     (mode="breathe", domainColor.accent) alongside its accent tint fill — `isHappeningNow`
+ *     is true for at most one entry at a time, so only a single row ever breathes.
+ *     `renderColumn` (horizontal rail) is left as-is.
  *   - `styles.dot` is now the checkmark-circle toggle ONLY (moved to the row's own fixed-
  *     width `doneCol`/`hDoneRow`, right of / below the content, so it lines up across every
  *     row regardless of title length). `styles.timeBox` is the rail's position marker —
@@ -154,13 +156,14 @@ import HomePreviewEmpty from '@/components/HomePreviewEmpty';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import { Task } from '@/store/useTaskStore';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, getGlow, rgba } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
 import { Duration, Ease, Spring } from '@/constants/motion';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { getDomainColor } from '@/lib/domainColor';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
+import GlowPulse from '@/components/GlowPulse';
 
 type Props = {
   /** Tasks scheduled for the viewed date (already filtered by the caller). */
@@ -444,9 +447,9 @@ export default function PlanTaskCard({
               // — still clearly set apart from plain-surface cards, but warmer. The
               // happening-now row keeps the stronger tint + glow so hierarchy is preserved.
               { backgroundColor: isHappeningNow ? rgba(theme.accent, 0.1) : rgba(theme.accent, 0.05) },
-              isHappeningNow && getGlow(domainColor.accent),
             ]}
           >
+            <GlowPulse active={!!isHappeningNow} color={domainColor.accent} mode="breathe" radius={Radius.sm} />
             <View style={styles.titleRow}>
               <Text
                 numberOfLines={1}
