@@ -11,8 +11,8 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/PressableScale,
- *             constants/theme, lib/date, lib/i18n, lib/useAppTheme, store/useReceiptStore,
- *             store/useSettingsStore
+ *             constants/theme, lib/date, lib/budget (computeSpendPace), lib/i18n,
+ *             lib/useAppTheme, store/useReceiptStore, store/useSettingsStore
  *   Used by → Expo Router route "/budget"; reached via app/(tabs)/shopping.tsx's Budget pill (router.push)
  *   Data    → reads useReceiptStore (receipts table, receipts/months/receiptsForMonth/totalForMonth/receiptsByStore) and useSettingsStore (monthlyBudgetNok, monthlyResetDate, lastMonthlyReset); writes via useSettingsStore.update (monthlyBudgetNok)
  *
@@ -26,10 +26,11 @@
  *     color rule (Decision 025); on-track uses `good`.
  *   - Budget progress bar always compares against the live monthlyBudgetNok, even when viewing past months.
  *   - Daily-spend pace (Decision 026): under the progress bar, actualPerDay (spend since lastMonthlyReset ÷
- *     inclusive days elapsed) vs. budgetedPerDay (monthlyBudgetNok ÷ payday-to-payday periodLength). Over-pace
- *     tints the figure with the `warn` token (never `bad`/red, no-shame rule); on/under uses `good`. Hidden when
- *     no budget is set or lastMonthlyReset is empty. Uses live receipts, so it always reflects the current period
- *     regardless of the selected month.
+ *     inclusive days elapsed) vs. budgetedPerDay (monthlyBudgetNok ÷ payday-to-payday periodLength), computed
+ *     via lib/budget.ts's computeSpendPace() — shared with the Shopping screen's Monthly tab and the Home
+ *     Shopping preview card, which show the same figure. Over-pace tints the figure with the `warn` token
+ *     (never `bad`/red, no-shame rule); on/under uses `good`. Hidden when no budget is set or lastMonthlyReset
+ *     is empty. Uses live receipts, so it always reflects the current period regardless of the selected month.
  *   - No AddFAB — a budget is a single value to edit, not a list. The editor sheet's Cancel/Save
  *     live in a header row at the top (matching app/task-form.tsx's pattern).
  */
@@ -39,8 +40,9 @@ import { useRouter } from 'expo-router';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useT } from '@/lib/i18n';
-import { currentMonthStr, todayStr, formatDisplayDate } from '@/lib/date';
+import { currentMonthStr, formatDisplayDate } from '@/lib/date';
 import { formatKr } from '@/lib/money';
+import { computeSpendPace } from '@/lib/budget';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PressableScale from '@/components/PressableScale';
@@ -78,29 +80,10 @@ export default function BudgetScreen() {
   const pct = hasBudget ? Math.min(100, (spent / monthlyBudgetNok) * 100) : 0;
   const barColor = overBudget ? theme.warn : theme.good;
 
-  // Daily spend vs. daily budget pace (Decision 026). No new DB column — derived
-  // from receipts dated on/after lastMonthlyReset and the payday-to-payday period.
-  // Only shown when a budget is set and a reset boundary exists.
-  const pace = (() => {
-    if (!hasBudget || !lastMonthlyReset) return null;
-    const parse = (s: string) => {
-      const [y, m, d] = s.split('-').map(Number);
-      return new Date(y, m - 1, d);
-    };
-    const MS_PER_DAY = 86400000;
-    const resetD = parse(lastMonthlyReset);
-    const todayD = parse(todayStr());
-    const daysElapsed = Math.max(1, Math.round((todayD.getTime() - resetD.getTime()) / MS_PER_DAY) + 1);
-    // periodLength = payday-to-payday: this reset date → next reset date (option B).
-    const nextResetD = new Date(resetD.getFullYear(), resetD.getMonth() + 1, monthlyResetDate);
-    const periodLength = Math.max(1, Math.round((nextResetD.getTime() - resetD.getTime()) / MS_PER_DAY));
-    const spendSoFar = receipts_all
-      .filter((r) => r.date >= lastMonthlyReset)
-      .reduce((sum, r) => sum + r.total, 0);
-    const actualPerDay = spendSoFar / daysElapsed;
-    const budgetedPerDay = monthlyBudgetNok / periodLength;
-    return { actualPerDay, budgetedPerDay, overPace: actualPerDay > budgetedPerDay };
-  })();
+  // Daily spend vs. daily budget pace (Decision 026), shared with app/(tabs)/shopping.tsx
+  // and HomeShoppingCard's Home preview via lib/budget.ts's computeSpendPace(). Only
+  // shown when a budget is set and a reset boundary exists (see that function's header).
+  const pace = computeSpendPace(receipts_all, monthlyBudgetNok, monthlyResetDate, lastMonthlyReset);
 
   function saveBudget() {
     const newBudget = parseFloat(budgetInput.replace(',', '.')) || 0;

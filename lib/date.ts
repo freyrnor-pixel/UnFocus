@@ -28,6 +28,12 @@ export function dateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** Parse a `YYYY-MM-DD` string into a local Date (midnight). Inverse of dateStr(). */
+export function parseDateStr(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 /** Current local month as `YYYY-MM` (e.g. receipts/budget tracking). */
 export function currentMonthStr(): string {
   return todayStr().slice(0, 7);

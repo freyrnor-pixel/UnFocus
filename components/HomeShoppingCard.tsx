@@ -12,10 +12,11 @@
  *             (FlightRect type only), components/ShoppingRow, components/PressableScale,
  *             components/ProgressBar, components/HomePreviewEmpty, constants/theme, lib/haptics,
  *             lib/i18n, lib/shoppingGroups (listProgress), lib/useAppTheme, lib/domainColor,
- *             expo-router, store/useShoppingStore (ShoppingItem type),
+ *             lib/budget (SpendPace type only), expo-router, store/useShoppingStore (ShoppingItem type),
  *             store/useShoppingListStore (ShoppingList type)
  *   Used by → app/(tabs)/index.tsx (Home shopping preview)
- *   Data    → pure presentational; all mutations bubbled up via callbacks (parent owns the stores)
+ *   Data    → pure presentational; all mutations bubbled up via callbacks (parent owns the stores);
+ *             the `pace` prop is likewise computed by the parent (lib/budget.ts's computeSpendPace())
  *
  * Edit notes:
  *   - **Collapsed sizing (2026-07-13)**: `cardCollapsed` (minHeight:
@@ -38,6 +39,11 @@
  *   - **Touch target (2026-07-11)**: the collapsed-preview check circle is visually 22x22
  *     but `hitSlop={13}` brings the tappable area to ~48dp, meeting Android's minimum
  *     touch-target size (the expanded/full-list rows reuse ShoppingRow, fixed separately).
+ *   - **Spend-pace line (2026-07-22)**: an optional `pace` prop (Decision 026 — actual kr/day
+ *     spent since lastMonthlyReset vs. budgeted kr/day for the payday-to-payday period) renders
+ *     right under the title row's progress bar, tinted `theme.warn`/`theme.good` same as
+ *     app/budget.tsx's own pace row (never `bad`/red, no-shame rule). Omitted entirely when the
+ *     parent passes null/undefined (no budget set yet, or no monthly reset has happened).
  *   - **Flight animation (Phase 1, 2026-07-11)**: two destination anchors depending on mode —
  *     expanded rows (real `ShoppingRow`s) fly to the "In cart" section label (`cartHeaderRef`,
  *     always mounted whenever `checked.length > 0`); collapsed-preview rows (hand-rolled, not
@@ -66,6 +72,7 @@ import { ShoppingItem } from '@/store/useShoppingStore';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { listProgress } from '@/lib/shoppingGroups';
 import { getDomainColor } from '@/lib/domainColor';
+import { SpendPace } from '@/lib/budget';
 
 const COLLAPSED_COUNT = 5;
 
@@ -83,6 +90,9 @@ type Props = {
   inStockLabel: string;
   /** See "Flight animation" edit note above. Omit to keep today's fade-only toggle. */
   onFlightStart?: (item: ShoppingItem, from: FlightRect, to: FlightRect) => void;
+  /** Spend-vs-budget pace (Decision 026, lib/budget.ts's computeSpendPace()) — null/undefined
+   *  hides the line (no budget set yet, or no monthly reset has happened). */
+  pace?: SpendPace | null;
 };
 
 export default function HomeShoppingCard({
@@ -98,6 +108,7 @@ export default function HomeShoppingCard({
   onNavigateToShopping,
   inStockLabel,
   onFlightStart,
+  pace,
 }: Props) {
   const t = useT();
   const router = useRouter();
@@ -196,6 +207,15 @@ export default function HomeShoppingCard({
             />
           )}
         </PressableScale>
+
+        {pace && (
+          <Text
+            style={[styles.paceText, { color: pace.overPace ? theme.warn : theme.good }]}
+            numberOfLines={1}
+          >
+            {t.budget.perDaySpend(String(Math.round(pace.actualPerDay)), String(Math.round(pace.budgetedPerDay)))}
+          </Text>
+        )}
 
         {totalCount === 0 ? (
           <HomePreviewEmpty text={t.shoppingEmpty} domainColor={domainColor} />
@@ -309,6 +329,7 @@ const baseStyles = StyleSheet.create({
   titleRowPressable: { marginBottom: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   progressBar: { marginTop: Spacing.xs },
+  paceText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginBottom: Spacing.sm },
   title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8, flexShrink: 1 },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
