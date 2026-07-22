@@ -25,7 +25,7 @@
  *   - markRestDay() toggles the rest_day flag on a habit_logs row (upserting one if it doesn't
  *     exist yet) — a no-shame opt-out, framed as "Resting today" in app/(tabs)/health.tsx, never
  *     "skipped". No streak system exists to protect (removed 2026-07-20) — a rest day is purely
- *     neutral: lib/energy.ts's habitMetOn excludes it from that day's Energy delta entirely, so
+ *     neutral: lib/habitRecurrence.ts's habitMetOn excludes it from that day's Energy delta entirely, so
  *     it's neither a reward nor a penalty, just a day the habit's energy sits still.
  *   - **`energyEnabled`/`energyValue`** (2026-07-20) — optional Energy-system participation.
  *     When energyEnabled, MEETING the habit on a day (and not resting) applies the signed
@@ -62,7 +62,10 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { syncHabitReminder as scheduleHabitReminder, cancelHabitReminders } from '@/lib/habitNotifications';
 
 export type HabitKind = 'build' | 'break' | 'neutral';
-export type HabitRecurrence = 'daily' | 'weekly' | 'monthly' | 'one-time';
+/** 'weekly-flexible' (2026-07-22) — due every day of the week; met once the week's
+ *  cumulative logged count reaches dailyGoal (reused as a per-week target in this
+ *  mode), regardless of which specific days it happened on. See lib/habitRecurrence.ts. */
+export type HabitRecurrence = 'daily' | 'weekly' | 'monthly' | 'one-time' | 'weekly-flexible';
 export type HabitCategory =
   | 'physical' | 'mental' | 'health' | 'nutrition'
   | 'sleep' | 'work' | 'wellbeing' | 'other';

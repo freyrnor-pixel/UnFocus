@@ -124,9 +124,11 @@ function noteText(header: string, body: string): string {
   return src.split('\n')[0].slice(0, 60);
 }
 
-/** Whether a habit is scheduled today — mirrors sync.ts dueToday / health.tsx shouldShowHabitOnDate. */
+/** Whether a habit is scheduled today — mirrors lib/habitRecurrence.ts's habitOccursOn
+ *  (kept as a free-standing primitive-args version here since this runs off raw SQL
+ *  rows, not hydrated Habit objects). */
 function dueToday(recurrence: string, days: number[], today: string): boolean {
-  if (recurrence === 'daily' || recurrence === 'one-time') return true;
+  if (recurrence === 'daily' || recurrence === 'one-time' || recurrence === 'weekly-flexible') return true;
   const date = new Date(today + 'T12:00:00');
   if (recurrence === 'weekly') {
     if (days.length === 0) return true;
@@ -214,6 +216,10 @@ export function buildHeadlessSnapshot(): WidgetSnapshot | null {
         try { days = JSON.parse(h.recurrence_days || '[]'); } catch { days = []; }
         return dueToday(h.recurrence, Array.isArray(days) ? days : [], today);
       });
+      // Same-day-only approximation: for a 'weekly-flexible' habit this checks only
+      // today's count against the (per-week) goal, not the week's cumulative total —
+      // a widget-preview simplification, same spirit as the tasks note above. The
+      // in-app Habits screen (lib/habitRecurrence.ts) is the accurate source.
       const isDone = (h: { id: string; daily_goal: number }) => {
         const log = logByHabit.get(h.id);
         return !!log && (!!log.rest_day || log.count >= Math.max(1, h.daily_goal || 1));
