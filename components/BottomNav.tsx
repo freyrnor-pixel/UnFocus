@@ -13,9 +13,10 @@
  *
  * Connections:
  *   Imports → @react-navigation/material-top-tabs (MaterialTopTabBarProps type),
- *             react-native-reanimated (Animated.View for the per-item keycap crossfade),
- *             expo-router, constants/theme (incl. getGlow), lib/i18n, lib/siteNav,
- *             lib/useAppTheme, lib/useToggleColor, components/PressableScale, components/Surface
+ *             react-native-reanimated (useSharedValue/useAnimatedStyle/withTiming for the
+ *             sliding pill), expo-router, constants/theme (incl. getGlow), constants/motion
+ *             (Duration/Ease), lib/i18n, lib/siteNav, lib/useAppTheme (incl. useAccessibility),
+ *             components/PressableScale, components/Surface
  *   Used by → app/(tabs)/_layout.tsx (as the pager's tabBar); components/ScreenScaffold
  *             (standalone fallback via bottomNav=true — currently unused by any real screen)
  *   Data    → none (presentational; navigation only)
@@ -27,14 +28,27 @@
  *     and Settings → Automations. If SITE_ITEMS' length or item order changes again,
  *     update the slice indices below to match.
  *   - Centre item (index 2, home) is rendered with gradient + shadow (design system style).
- *   - Left items (indices 0–1) and right items (indices 3–4) are rendered by `NavTabItem`,
- *     a small subcomponent (below) so each gets its own `useToggleColor` hook instance.
+ *   - Left items (indices 0–1) and right items (indices 3–4) are each wrapped in a `NavGroup`
+ *     (below), which owns the shared sliding pill for that side and renders its items as
+ *     plain `NavTabItem`s (icon + label only, no per-item box).
  *   - BOTTOM_NAV_HEIGHT is exported for screens needing to offset overlays.
  *   - Active-tab detection: tab-bar mode reads `state.routes[state.index].name` and
  *     matches it against SITE_ITEMS via lib/siteNav.ts's TAB_ROUTE_NAME; standalone mode
  *     falls back to `usePathname() === item.route`.
  *   - `PressableScale`'s own default (`haptic=true`) already fires a light tap haptic on
  *     every press — no separate haptic call is needed here.
+ *   - **Sliding pill indicator, not per-item boxes (2026-07-22)**: the 2026-07-18 through
+ *     2026-07-21 passes below gave every tab — active or not — its own permanent shadow+bevel
+ *     box, the same elevation recipe the outer `Surface` bar uses on itself; five independently
+ *     "raised" objects nested inside one raised bar read as scattered chips, not one integrated
+ *     control. Replaced with `NavGroup`: one shared pill per side that slides (Reanimated
+ *     `translateX`) to whichever tab is active, reusing `components/SlideSelector.tsx`'s
+ *     track-measure-and-slide math (`onLayout` → equal segment width → `withTiming`, snapping
+ *     instantly under `reducedMotion`). Only the active tab is ever "raised" now — inactive tabs
+ *     are flush icon+label with no box, so there's no per-item shadow/rim left to compete with
+ *     the bar's own. The centre FAB (`renderCentre`) is untouched; it's a single item, not a
+ *     group, and already had its own distinct treatment. The bullets below are kept for history
+ *     but describe boxes that no longer exist.
  *   - **Keycap box, every item, always (2026-07-20)**: each non-centre item now carries a
  *     permanent bordered box — `theme.surface` (white/near-white card fill, NOT the grey
  *     `surfaceMuted` sunken tone) + `theme.border` edge at rest, crossfading (via
@@ -59,12 +73,11 @@
  *     cards without the outlined look. Don't re-add a border here without checking this note.
  *   - **Purposeful glow (2026-07-18, optional per design pass)**: the active tab's box adds
  *     `getGlow(theme.accent, 'soft')` on top of the crossfade — only while active, never on
- *     every item (it's a static conditional, not animated, matching "icon/label colour swaps
- *     instantly on top" from useToggleColor's own doc comment). Concatenated onto the resting
- *     `boxShadow` array (not assigned over it) since both the depth and the glow are `boxShadow`
- *     — setting the key twice would silently drop the depth layers when active. The centre
- *     FAB-style button already reads as "lit" via its permanent accent fill + `Shadow.fab`, so
- *     it's left alone.
+ *     every item. Concatenated onto the resting `boxShadow` array (not assigned over it) since
+ *     both the depth and the glow are `boxShadow` — setting the key twice would silently drop
+ *     the depth layers when active. The centre FAB-style button already reads as "lit" via its
+ *     permanent accent fill + `Shadow.fab`, so it's left alone. (Now lives on the shared pill —
+ *     see the 2026-07-22 bullet above.)
  *   - **Active fill uses `theme.accentSoft`** (the app-wide active/selected tint — same token
  *     as IconButton's active state, Button secondary, etc.), NOT `theme.surfaceMuted` —
  *     surfaceMuted is the neutral grey sunken tone; reusing it for active state is what
@@ -73,24 +86,22 @@
  *     and reverted the same day ("Border dropped..." note above) for reading too punchy. This is
  *     a different technique — the same rim-gradient bevel (`computeRimGradient`, light-top/
  *     dark-bottom, 3 stops) Button.tsx/Surface.tsx already use — gated behind
- *     `settings.glassSurfaces`, off entirely when that setting is off. Each tab's box, and the
- *     centre FAB, wrap their existing fill in a `LinearGradient` ring (`padding: EDGE_WIDTH`);
- *     the fill becomes the inner "double keycap" line, unchanged otherwise. Ring hue snaps
- *     instantly between `theme.border` (inactive) / `theme.accent` (active) — only the fill
- *     itself keeps crossfading via `useToggleColor`, matching this file's existing "colour swaps
- *     instantly on top" convention for anything not the fill.
+ *     `settings.glassSurfaces`, off entirely when that setting is off. The fill becomes the inner
+ *     "double keycap" line, unchanged otherwise. Now that only the pill (always the active tab)
+ *     carries this, the ring hue is always `theme.accent` — the `theme.border` (inactive) branch
+ *     the old per-item rim needed no longer applies.
  */
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import React, { useEffect, useState } from 'react';
+import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
 import { Fonts, FontSize, Radius, Spacing, Shadow, getGlow, getLayeredShadow, computeRimGradient } from '@/constants/theme';
-import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
-import { useToggleColor } from '@/lib/useToggleColor';
+import { Duration, Ease } from '@/constants/motion';
+import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { goToSite, SITE_ITEMS, SiteItem, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import PressableScale from '@/components/PressableScale';
@@ -166,20 +177,102 @@ export default function BottomNav({ state, navigation }: Props = {}) {
 
   return (
     <Surface surfaceContext="overlay" style={styles.bar}>
-      <View style={styles.leftGroup}>
-        {leftItems.map((item) => (
-          <NavTabItem key={item.key} item={item} label={t.nav[item.key]} active={isActive(item)} onPress={() => handlePress(item)} styles={styles} />
-        ))}
-      </View>
+      <NavGroup
+        items={leftItems}
+        isActive={isActive}
+        onPress={handlePress}
+        label={(item) => t.nav[item.key]}
+        styles={styles}
+        groupStyle={styles.leftGroup}
+      />
 
       {renderCentre(centreItem)}
 
-      <View style={styles.rightGroup}>
-        {rightItems.map((item) => (
-          <NavTabItem key={item.key} item={item} label={t.nav[item.key]} active={isActive(item)} onPress={() => handlePress(item)} styles={styles} />
-        ))}
-      </View>
+      <NavGroup
+        items={rightItems}
+        isActive={isActive}
+        onPress={handlePress}
+        label={(item) => t.nav[item.key]}
+        styles={styles}
+        groupStyle={styles.rightGroup}
+      />
     </Surface>
+  );
+}
+
+type NavGroupProps = {
+  items: SiteItem[];
+  isActive: (item: SiteItem) => boolean;
+  onPress: (item: SiteItem) => void;
+  label: (item: SiteItem) => string;
+  styles: typeof baseStyles;
+  groupStyle: typeof baseStyles.leftGroup;
+};
+
+// Own component (not a plain render function) so each side gets its own measured track +
+// shared-value pair — the pill slides independently per side. Reuses the track-measure-and-
+// slide math from components/SlideSelector.tsx (segments are flex:1, so segW = (trackW -
+// gap*(n-1)) / n, and translateX steps by segW + gap), adapted to this bar's own material
+// (shadow + glow + rim bevel on the pill, not SlideSelector's flat accent fill).
+function NavGroup({ items, isActive, onPress, label, styles, groupStyle }: NavGroupProps) {
+  const theme = useAppTheme();
+  const isDark = useIsDark();
+  const glass = useSettingsStore((s) => s.glassSurfaces);
+  const { reducedMotion } = useAccessibility();
+  const [track, setTrack] = useState({ w: 0, h: 0 });
+
+  const n = items.length;
+  const activeIndex = Math.max(0, items.findIndex(isActive));
+  const segW = track.w > 0 ? (track.w - Spacing.sm * (n - 1)) / n : 0;
+
+  const tx = useSharedValue(0);
+  useEffect(() => {
+    const to = activeIndex * (segW + Spacing.sm);
+    tx.value = reducedMotion ? to : withTiming(to, { duration: Duration.control, easing: Ease.enter });
+  }, [activeIndex, segW, reducedMotion, tx]);
+
+  const pillStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
+
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setTrack((prev) => (prev.w === width && prev.h === height ? prev : { w: width, h: height }));
+  };
+
+  // The pill only ever marks the active tab, so its rim is always accent-hued (the old
+  // per-item rim's inactive/theme.border branch no longer applies).
+  const rim = computeRimGradient(theme.accent, isDark);
+  const pillShadow = [...getLayeredShadow(theme.shadow, 'raised'), ...getGlow(theme.accent, 'soft').boxShadow];
+
+  return (
+    <View style={groupStyle} onLayout={onLayout}>
+      {segW > 0 && (
+        <Animated.View pointerEvents="none" style={[styles.pill, { width: segW, height: track.h }, pillStyle]}>
+          {glass ? (
+            <LinearGradient
+              colors={rim.colors}
+              locations={rim.locations}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={{ flex: 1, borderRadius: Radius.md, padding: EDGE_WIDTH }}
+            >
+              <View style={{ flex: 1, borderRadius: Radius.md - EDGE_WIDTH, backgroundColor: theme.accentSoft, boxShadow: pillShadow }} />
+            </LinearGradient>
+          ) : (
+            <View style={{ flex: 1, borderRadius: Radius.md, backgroundColor: theme.accentSoft, boxShadow: pillShadow }} />
+          )}
+        </Animated.View>
+      )}
+      {items.map((item) => (
+        <NavTabItem
+          key={item.key}
+          item={item}
+          label={label(item)}
+          active={isActive(item)}
+          onPress={() => onPress(item)}
+          styles={styles}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -191,34 +284,9 @@ type NavTabItemProps = {
   styles: typeof baseStyles;
 };
 
-// Own component (not a plain render function) so each item gets its own useToggleColor
-// hook instance — the keycap box crossfades independently per tab.
 function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
   const theme = useAppTheme();
-  const isDark = useIsDark();
-  const glass = useSettingsStore((s) => s.glassSurfaces);
   const iconColor = active ? theme.accent : theme.textMuted;
-  const boxStyle = useToggleColor(active, {
-    backgroundColor: [theme.surface, theme.accentSoft],
-  });
-  // Real depth (not just an outline) so the keycap reads as a raised, physical button —
-  // same `getLayeredShadow` three-pass depth Surface/Button use, not a bespoke shadow recipe.
-  // Active tabs layer the existing purposeful glow on top of (not instead of) that depth —
-  // both are `boxShadow` arrays, so they must be concatenated, not spread onto the same key.
-  const restShadow = getLayeredShadow(theme.shadow, 'raised');
-  const boxShadow = active ? [...restShadow, ...getGlow(theme.accent, 'soft').boxShadow] : restShadow;
-  const rim = computeRimGradient(active ? theme.accent : theme.border, isDark);
-  const box = (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        StyleSheet.absoluteFill,
-        styles.itemBox,
-        boxStyle,
-        { boxShadow, borderRadius: glass ? Radius.md - EDGE_WIDTH : Radius.md },
-      ]}
-    />
-  );
 
   return (
     <PressableScale
@@ -230,18 +298,6 @@ function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
       onPress={onPress}
       hitSlop={6}
     >
-      {glass ? (
-        <LinearGradient
-          pointerEvents="none"
-          colors={rim.colors}
-          locations={rim.locations}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={[StyleSheet.absoluteFill, { borderRadius: Radius.md, padding: EDGE_WIDTH }]}
-        >
-          {box}
-        </LinearGradient>
-      ) : box}
       <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={iconColor} />
       <Text
         style={[styles.label, { color: iconColor }]}
@@ -286,10 +342,13 @@ const baseStyles = StyleSheet.create({
     // ("Handleliste", "Oppgaver") on one line without ellipsis truncation.
     paddingHorizontal: 2,
   },
-  // Keycap box behind the icon/label — always rendered (fill + border crossfade between
-  // inactive/active via useToggleColor in NavTabItem, same pattern as IconButton).
-  itemBox: {
-    borderRadius: Radius.md,
+  // Shared sliding pill (NavGroup) — absolutely positioned, translateX-animated to sit
+  // behind whichever tab in the group is active. width/height are set inline per render
+  // from the measured track (see NavGroup); only translateX is the animated shared value.
+  pill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   centreButton: {
     width: 56,
