@@ -34,7 +34,8 @@
  *   Imports → components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
  *             components/IconButton, components/FormControls (Switch), components/AppModal,
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron (animated
- *             steps/editor reveal + rotating chevron), constants/theme (incl. getElevation, getGlow), lib/date, lib/haptics, lib/i18n, lib/id,
+ *             steps/editor reveal + rotating chevron), components/GlowPulse (breathing editing halo),
+ *             constants/theme (incl. getElevation), lib/date, lib/haptics, lib/i18n, lib/id,
  *             lib/useAppTheme, store/useTaskStore, store/useSettingsStore (People/family mode:
  *             peopleModeEnabled + childProfiles gate the "For" assignee chip row)
  *   Used by → app/(tabs)/plans.tsx
@@ -52,17 +53,17 @@
  *     editor SAVES whatever's there (the task is simply not-done until ticked) rather than
  *     discarding — the up-arrow is never a destructive X. Only a brand-new card with no
  *     title is dropped (nothing to keep). Explicit Discard stays the deliberate abandon path.
- *   - **Purposeful Depth System (2026-07-14)**: the card's static resting elevation is
- *     `getElevation('raised', theme.shadow)`; while `editing` it bumps to `'floating'` —
- *     the deepest thing on screen, anchoring attention on the card being worked on
- *     (focus-pop). Reuses the already-tracked `editing` boolean, no new state.
- *   - **Purposeful glow (2026-07-18)**: `editing` also adds `getGlow(theme.accent)` alongside
- *     the existing `borderColor: theme.accent` — augments the border cue, doesn't replace it.
+ *   - **Purposeful Depth System (2026-07-14)**: the card's elevation stays
+ *     `getElevation('raised', theme.shadow)` in both resting and editing states.
+ *   - **Purposeful glow (2026-07-18, breathing 2026-07-22)**: `editing` marks focus with a
+ *     breathing `GlowPulse` (mode="breathe", theme.accent) alongside `borderColor: theme.accent`.
+ *     The two cues (border + breath) replaced the earlier floating-elevation bump + static glow
+ *     stack — same focus signal, less visual load.
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Fonts, FontSize, Radius, Spacing, Type, contrastOn, getElevation, getGlow } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Type, contrastOn, getElevation } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0 } from '@/lib/date';
@@ -77,6 +78,7 @@ import IconButton from '@/components/IconButton';
 import { Switch } from '@/components/FormControls';
 import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
+import GlowPulse from '@/components/GlowPulse';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 
@@ -289,12 +291,12 @@ function TaskCard({
       <View
         style={[
           styles.card,
-          getElevation(editing ? 'floating' : 'raised', theme.shadow),
+          getElevation('raised', theme.shadow),
           { backgroundColor: tinted ? theme.accentSoft : theme.surface, borderColor: editing ? theme.accent : theme.border },
           railColor && { borderLeftWidth: 4, borderLeftColor: railColor },
-          editing && getGlow(theme.accent),
         ]}
       >
+        <GlowPulse active={editing} color={theme.accent} mode="breathe" radius={Radius.md} />
         {/* ── Collapsed row ── */}
         {/* Anatomy (2026-07-13 redesign): [sent chip?] · title (flex) · assignee · time · ◯ circle · ⌄ chevron.
             The done-circle sits to the RIGHT of the title and to the LEFT of the expand chevron. */}
