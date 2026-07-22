@@ -22,12 +22,13 @@
  *             components/IconButton,
  *             components/ListSettingsSheet, components/MonthlyResetSummaryModal,
  *             components/MonthlyResetReviewSheet,
- *             components/MonthlyTableRow, components/SavedListsModal,
+ *             components/MonthlyTableRow, components/SavedListsModal, components/SavedListsSection,
  *             components/ScreenScaffold, components/SharedRequestsSection,
  *             components/ShoppingFilterBar, components/ShoppingRow, components/Surface,
  *             components/UpdateSheet, components/WeekListCard, components/FoodTab,
  *             components/CatalogueTab,
- *             components/PressableScale, components/TabBoxHighlight, constants/theme,
+ *             components/PressableScale, components/TabBoxHighlight, components/SectionDivider,
+ *             constants/theme,
  *             lib/date (todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle,
  *             dateRangeForCycleWeek, formatDateRange), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
@@ -48,6 +49,28 @@
  *             startup by app/_layout.tsx). FoodTab additionally drives useMealStore.
  *
  * Edit notes:
+ *   - **Saved-lists drag + sync-back (2026-07-22)**: `components/SavedListsSection` renders
+ *     as an expandable accordion above the week sections, listing every template list —
+ *     drag a row (screen-owned `handleSavedListDragStart/Move/End`, reusing the week-drag's
+ *     `weekSectionNodes`/`weekSectionRectsRef` registry) or tap it for a "Week 1-4" chooser
+ *     onto a week section to instantiate it there (`addTemplateToWeek`, also now the shared
+ *     path for the older per-list `SavedListsModal`'s onSelectTemplate). `instantiateTemplate`
+ *     took a `today` string before and always targeted "the week containing today" — it now
+ *     takes an explicit `startDate`/`endDate` so a drop can target ANY week-of-cycle section,
+ *     and every instantiated list stamps `sourceTemplateId` back to its template.
+ *     `addTemplateToWeek` blocks (toast `t.templateAlreadyInWeek`) instantiating the SAME
+ *     template into a week section that already has a list sourced from it — only a
+ *     per-section duplicate is blocked; the same template can still be used across different
+ *     weeks. `usedTemplateIds` (derived from every live list's `sourceTemplateId`) marks a
+ *     template "in use" in SavedListsSection without removing or disabling it, so it's still
+ *     copyable elsewhere. WeekListCard's kebab menu gained a "Sync to saved list" entry
+ *     (`onSyncToTemplate`, shown only when `list.sourceTemplateId` is set) that calls the new
+ *     `syncListToTemplate` store action — overwrites the template's items with this list's
+ *     current ones — then re-runs `loadShopping()` since that store action writes
+ *     shopping_items rows directly, same reload-after-direct-write pattern as
+ *     advanceRecurringLists. The week-section render guard also changed from
+ *     `nonTemplateLists.length > 0` to `(nonTemplateLists.length > 0 || templateLists.length >
+ *     0)` — a saved list needs a drop target even before the first live list exists.
  *   - **Spend-pace line (2026-07-22, made per-list later the same day)**: each Monthly list
  *     card shows its OWN pace figure (`view.pace` inside `monthlyListViews`, actual kr/day
  *     since that list's own lastReset vs. its own budgetedNok, paced over the payday-to-payday
@@ -290,6 +313,7 @@ import FlightOverlay, { FlightRow, Flight, FlightRect } from '@/components/Fligh
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab from '@/components/CatalogueTab';
 import SavedListsModal from '@/components/SavedListsModal';
+import SavedListsSection from '@/components/SavedListsSection';
 import ListSettingsSheet from '@/components/ListSettingsSheet';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
@@ -297,6 +321,7 @@ import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TabBoxHighlight from '@/components/TabBoxHighlight';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
+import SectionDivider from '@/components/SectionDivider';
 import { success, heavy, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
@@ -406,6 +431,14 @@ export default function ShoppingScreen() {
   const weekSectionNodes = useRef<Map<number, any>>(new Map());
   const weekSectionRectsRef = useRef<Record<number, { y: number; height: number }>>({});
 
+  // ── Saved-lists drag (2026-07-22): drag a row out of the SavedListsSection accordion
+  // onto a week section to instantiate it there. Reuses the same weekSectionNodes/
+  // weekSectionRectsRef registry the list-to-list week-reassign drag above measures —
+  // both drags target the same 4 sections, just from a different source. ──
+  type SavedListDragState = { templateId: string; targetWeek: number | null };
+  const [savedListDrag, setSavedListDrag] = useState<SavedListDragState | null>(null);
+  const savedListDragRef = useRef<SavedListDragState | null>(null);
+
   // ── Decision 011 R1 reorder + Decision 022 drag-to-merge (all window-coordinate based) ──
   // Native nodes are registered by DraggableTaskRow (reorder rows) and WeekListCard (dish-group
   // cards) so this screen can measureInWindow() them at drag-start into a shared window space —
@@ -474,6 +507,7 @@ export default function ShoppingScreen() {
   const setListActiveWeeks = useShoppingListStore((s) => s.setActiveWeeks);
   const saveListAsTemplate = useShoppingListStore((s) => s.saveAsTemplate);
   const instantiateTemplate = useShoppingListStore((s) => s.instantiateTemplate);
+  const syncListToTemplate = useShoppingListStore((s) => s.syncListToTemplate);
   const addList = useShoppingListStore((s) => s.add);
   const removeList = useShoppingListStore((s) => s.remove);
   const advanceRecurringLists = useShoppingListStore((s) => s.advanceRecurringLists);
@@ -482,6 +516,12 @@ export default function ShoppingScreen() {
 
   const nonTemplateLists = useMemo(() => lists.filter((l) => !l.isTemplate), [lists]);
   const templateLists = useMemo(() => lists.filter((l) => l.isTemplate), [lists]);
+  // Marks a saved list "in use" in SavedListsSection without removing/disabling it — a
+  // template stays copyable into other weeks even once it's been used somewhere.
+  const usedTemplateIds = useMemo(
+    () => new Set(nonTemplateLists.map((l) => l.sourceTemplateId).filter((id): id is string => !!id)),
+    [nonTemplateLists]
+  );
   const focusedList = useMemo(
     () => nonTemplateLists.find((l) => l.id === focusedListId) ?? nonTemplateLists[0],
     [nonTemplateLists, focusedListId]
@@ -1152,6 +1192,79 @@ export default function ShoppingScreen() {
     setConfirm(t.listMovedToWeek(state.targetWeek));
   }
 
+  // ── Saved-lists drag: drag a SavedListsSection row onto a week section to instantiate
+  // it there. Reuses weekSectionNodes/weekSectionRectsRef (already measuring the 4 week
+  // sections for the list-to-list drag above) — only the drop target lookup differs. ──
+
+  function handleSavedListDragStart(templateId: string) {
+    weekSectionRectsRef.current = {};
+    for (const [week, node] of weekSectionNodes.current.entries()) {
+      node?.measureInWindow?.((_x: number, y: number, _w: number, h: number) => {
+        weekSectionRectsRef.current[week] = { y, height: h };
+      });
+    }
+    const state: SavedListDragState = { templateId, targetWeek: null };
+    savedListDragRef.current = state;
+    setSavedListDrag(state);
+  }
+
+  function handleSavedListDragMove(templateId: string, centerY: number) {
+    let targetWeek: number | null = null;
+    for (const weekStr in weekSectionRectsRef.current) {
+      const week = Number(weekStr);
+      const r = weekSectionRectsRef.current[week];
+      if (centerY >= r.y && centerY <= r.y + r.height) {
+        targetWeek = week;
+        break;
+      }
+    }
+    setSavedListDrag((prev) => {
+      if (!prev || prev.templateId !== templateId || prev.targetWeek === targetWeek) return prev;
+      const next = { ...prev, targetWeek };
+      savedListDragRef.current = next;
+      return next;
+    });
+  }
+
+  function handleSavedListDragEnd(templateId: string) {
+    const state = savedListDragRef.current;
+    savedListDragRef.current = null;
+    setSavedListDrag(null);
+    if (!state || state.templateId !== templateId || state.targetWeek == null) return;
+    addTemplateToWeek(templateId, state.targetWeek);
+  }
+
+  /** Instantiates a saved list into the given week-of-cycle section — shared by the drag
+   *  drop above, SavedListsSection's tap-to-choose-week fallback, and the older per-list
+   *  SavedListsModal popup. Enforces "only one instance of a given saved list per week
+   *  section" (a template already in a DIFFERENT week is fine — only same-week duplicates
+   *  are blocked, matching the per-section dedup rule, not a global one). */
+  function addTemplateToWeek(templateId: string, week: number) {
+    const alreadyInWeek = (listsByWeek[week] ?? []).some((l) => l.sourceTemplateId === templateId);
+    if (alreadyInWeek) {
+      warning();
+      setConfirm(t.templateAlreadyInWeek(week));
+      return;
+    }
+    const { startDate, endDate } = dateRangeForCycleWeek(todayStr(), monthlyResetDate, week, weeklyResetDay);
+    const newId = instantiateTemplate(templateId, startDate, endDate);
+    if (newId) {
+      success();
+      setConfirm(t.templateAppliedToast);
+      setFocusedListId(newId);
+    }
+  }
+
+  /** Pushes a copied list's current items back to the saved list it came from — the
+   *  "sync back" action in WeekListCard's kebab menu (only shown when sourceTemplateId is
+   *  set). syncListToTemplate writes shopping_items rows directly, so refresh useShoppingStore. */
+  function handleSyncListToTemplate(list: ShoppingList) {
+    if (!syncListToTemplate(list.id)) return;
+    loadShopping();
+    success();
+    setConfirm(t.listSyncedToast);
+  }
+
   // Active-tab selection colour is the neutral brand accent (theme.accent) for EVERY tab,
   // so this in-app tab bar's "selected" hue matches Plans, Health's SlideSelector, AND the
   // bottom nav (visual-audit 2026-07-20: Weekly's old green `theme.good` + Food's meal-domain
@@ -1620,25 +1733,41 @@ export default function ShoppingScreen() {
               </Surface>
             )}
 
+            {/* ── Saved lists: expandable accordion, drag (or tap-to-choose-week) a saved
+                list into a week section below to instantiate it there. ── */}
+            <SavedListsSection
+              templates={templateLists}
+              usedTemplateIds={usedTemplateIds}
+              onDragStart={handleSavedListDragStart}
+              onDragMove={handleSavedListDragMove}
+              onDragEnd={handleSavedListDragEnd}
+              onQuickAdd={addTemplateToWeek}
+            />
+
             {/* ── Weekly lists, grouped into one section per week of the monthly cycle ──
                 All 4 sections always render (each registers itself as a drag-drop target
-                via handleRegisterWeekSectionNode) once at least one list exists — with zero
-                lists there's nothing to drag yet, so the big EmptyState placeholder below
-                covers that case instead of 4 redundant "no lists here" sections. */}
-            {nonTemplateLists.length > 0 && [1, 2, 3, 4].map((week) => {
+                via handleRegisterWeekSectionNode) once at least one list OR saved list
+                exists — a saved list needs somewhere to be dropped even before the first
+                live list is created. With neither, there's nothing to drag yet, so the big
+                EmptyState placeholder below covers that case instead of 4 redundant "no
+                lists here" sections. */}
+            {(nonTemplateLists.length > 0 || templateLists.length > 0) && [1, 2, 3, 4].map((week) => {
               const weekRange = dateRangeForCycleWeek(todayStr(), monthlyResetDate, week, weeklyResetDay);
               const weekLists = listsByWeek[week] ?? [];
-              const isDropTarget = weekDrag != null && weekDrag.targetWeek === week && weekDrag.startWeek !== week;
+              const isDropTarget =
+                (weekDrag != null && weekDrag.targetWeek === week && weekDrag.startWeek !== week) ||
+                (savedListDrag != null && savedListDrag.targetWeek === week);
 
               return (
-                <View
-                  key={week}
-                  ref={(node) => handleRegisterWeekSectionNode(week, node)}
-                  style={[
-                    styles.weekSection,
-                    isDropTarget && { borderColor: theme.accent, backgroundColor: theme.accentSoft },
-                  ]}
-                >
+                <React.Fragment key={week}>
+                  {week > 1 && <SectionDivider />}
+                  <View
+                    ref={(node) => handleRegisterWeekSectionNode(week, node)}
+                    style={[
+                      styles.weekSection,
+                      isDropTarget && { borderColor: theme.accent, backgroundColor: theme.accentSoft },
+                    ]}
+                  >
                   <View style={styles.weekSectionHeaderRow}>
                     <Text style={[styles.weekSectionLabel, { color: theme.text }]}>{t.weekNumberChip(week)}</Text>
                     <Text style={[styles.weekSectionRange, { color: theme.textMuted }]}>
@@ -1685,6 +1814,7 @@ export default function ShoppingScreen() {
                             onOpenSavedLists={() => setSavedListsListId(list.id)}
                             onOpenListSettings={() => setListSettingsListId(list.id)}
                             onDelete={() => handleDeleteList(list.id)}
+                            onSyncToTemplate={() => handleSyncListToTemplate(list)}
                             onToggleItem={(item) => toggle(item.id)}
                             onRemoveItem={handleRemoveWeeklyItem}
                             onIncrementItem={(item) => adjustAmount(item.id, 1)}
@@ -1751,11 +1881,12 @@ export default function ShoppingScreen() {
                       );
                     })
                   )}
-                </View>
+                  </View>
+                </React.Fragment>
               );
             })}
 
-            {nonTemplateLists.length === 0 && unallocatedItems.length === 0 && (
+            {nonTemplateLists.length === 0 && unallocatedItems.length === 0 && templateLists.length === 0 && (
               // Neutral edge (theme.border) instead of the default screen-hue edge, so this
               // empty placeholder reads as a quiet "nothing here yet", not a coded surface
               // (2026-07-20 unify placeholder cards).
@@ -1826,13 +1957,7 @@ export default function ShoppingScreen() {
         visible={savedListsListId !== null}
         templates={templateLists}
         onClose={() => setSavedListsListId(null)}
-        onSelectTemplate={(id) => {
-          const newId = instantiateTemplate(id, todayStr());
-          if (newId) {
-            success();
-            setConfirm(t.templateAppliedToast);
-          }
-        }}
+        onSelectTemplate={(id) => addTemplateToWeek(id, weekOfMonthlyCycle(todayStr(), monthlyResetDate))}
         onSaveCurrentAsTemplate={() => {
           if (!savedListsListId) return;
           saveListAsTemplate(savedListsListId);

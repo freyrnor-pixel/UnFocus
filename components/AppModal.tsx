@@ -20,6 +20,9 @@
  *     single module-level listener ref, not React context.
  *   - Only one request is held at a time, same as Alert.alert — a second call while a popup
  *     is showing replaces it.
+ *   - A button's onPress can itself call showAppModal() again (e.g. a menu's "Delete"
+ *     option opening a confirm dialog) — dismiss() guards against that with a `seq`
+ *     counter so its own exit animation doesn't clobber the freshly-queued modal.
  *   - Tapping the backdrop or the Android back button dismisses without running any
  *     button's onPress, matching Android's default cancelable Alert.alert behaviour.
  *   - Entrance/exit timing follows ANIMATION_GUIDELINES.md §1 (320ms ease-out in /
@@ -30,7 +33,7 @@
  *     card would. Blur comes from Surface's BlurView; this file never imports expo-blur
  *     directly.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
@@ -73,9 +76,11 @@ export default function AppModalHost() {
   const { reducedMotion } = useAccessibility();
   const [request, setRequest] = useState<AppModalRequest | null>(null);
   const progress = useSharedValue(0);
+  const seq = useRef(0);
 
   useEffect(() => {
     listener = (req) => {
+      seq.current += 1;
       setRequest(req);
       progress.value = reducedMotion ? 1 : withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
     };
@@ -85,14 +90,18 @@ export default function AppModalHost() {
   }, [reducedMotion, progress]);
 
   function dismiss(onPress?: () => void) {
+    const mySeq = seq.current;
     onPress?.();
+    // onPress may have called showAppModal() again (e.g. a menu option opening a
+    // confirm dialog) — if so, don't run our own exit animation over its entrance.
+    if (seq.current !== mySeq) return;
     if (reducedMotion) {
       progress.value = 0;
       setRequest(null);
       return;
     }
     progress.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.cubic) }, (done) => {
-      if (done) runOnJS(setRequest)(null);
+      if (done && seq.current === mySeq) runOnJS(setRequest)(null);
     });
   }
 
