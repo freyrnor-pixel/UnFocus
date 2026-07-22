@@ -14,6 +14,7 @@ import {
   getMonthDates,
   getWeekRangeContaining,
   weekOfMonthlyCycle,
+  dateRangeForCycleWeek,
   formatDisplayDate,
   formatDateRange,
 } from '@/lib/date';
@@ -102,6 +103,37 @@ describe('weekOfMonthlyCycle', () => {
   });
   it('clamps a 5th week back into week 4', () => {
     expect(weekOfMonthlyCycle('2026-01-31', 1)).toBe(4); // 30 days in
+  });
+});
+
+describe('dateRangeForCycleWeek', () => {
+  it('is the inverse of weekOfMonthlyCycle: week 3 lands back in the same Mon–Sun span', () => {
+    // '2026-01-15' is week 3 of the reset-day-1 cycle per the weekOfMonthlyCycle test above,
+    // and its own Mon–Sun (resetDay=0) week is 2026-01-12..18.
+    expect(dateRangeForCycleWeek('2026-01-15', 1, 3, 0)).toEqual({
+      startDate: '2026-01-12',
+      endDate: '2026-01-18',
+    });
+  });
+  it('week 1 is the boundary week itself', () => {
+    expect(dateRangeForCycleWeek('2026-01-01', 1, 1, 0)).toEqual({
+      startDate: '2025-12-29',
+      endDate: '2026-01-04',
+    });
+  });
+  it('steps forward 7 days per week number', () => {
+    expect(dateRangeForCycleWeek('2026-01-01', 1, 2, 0)).toEqual({
+      startDate: '2026-01-05',
+      endDate: '2026-01-11',
+    });
+  });
+  it('respects weeklyResetDay when naming the returned span', () => {
+    // monthlyResetDate=15, today already past it this month, so the boundary stays this
+    // month; weeklyResetDay=1 (Tuesday) still names the week by its own Mon–Sun span.
+    expect(dateRangeForCycleWeek('2026-01-20', 15, 1, 1)).toEqual({
+      startDate: '2026-01-12',
+      endDate: '2026-01-18',
+    });
   });
 });
 

@@ -106,6 +106,30 @@ export function weekOfMonthlyCycle(today: string, monthlyResetDate: number): num
 }
 
 /**
+ * Inverse of weekOfMonthlyCycle: the Mon–Sun shopping-week range for week `week`
+ * (1–4) of the monthly cycle that `today` currently sits in. Finds the same cycle
+ * boundary weekOfMonthlyCycle() anchors to, steps forward `(week-1)*7` days, then
+ * hands that date to getWeekRangeContaining() so the result is a real shopping
+ * week (respecting `weeklyResetDay`), not just a raw 7-day slice from the
+ * boundary. Used to reassign a dragged weekly list to a different week-of-cycle
+ * section.
+ */
+export function dateRangeForCycleWeek(
+  today: string,
+  monthlyResetDate: number,
+  week: number,
+  weeklyResetDay: number
+): { startDate: string; endDate: string } {
+  const d = new Date(today + 'T12:00:00');
+  const boundary = new Date(d);
+  boundary.setDate(monthlyResetDate);
+  if (d.getDate() < monthlyResetDate) boundary.setMonth(boundary.getMonth() - 1);
+  const target = new Date(boundary);
+  target.setDate(boundary.getDate() + (week - 1) * 7);
+  return getWeekRangeContaining(dateStr(target), weeklyResetDay);
+}
+
+/**
  * Render a stored `YYYY-MM-DD` key as a user-facing date string (Norwegian date
  * display — code-only, no ledger number; see Decision 028's numbering note).
  * Norwegian convention is DD.MM.YYYY; English keeps the ISO `YYYY-MM-DD` form.
