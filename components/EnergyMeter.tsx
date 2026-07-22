@@ -5,6 +5,10 @@
  * capacity + the net signed value of every energy task completed / energy habit
  * met in the period (lib/energy.ts). Tapping the edit affordance reveals two
  * steppers to override today's and this week's capacity (store/useEnergyStore.ts).
+ * Also warns (small alert icon + message) when everything still SCHEDULED for
+ * the day/week — done or not — would take that period's capacity negative
+ * (lib/energy.ts's plannedEnergyDeltaForDay/Week), so an over-committed day/week
+ * is visible before anything on it has actually happened.
  *
  * Renders nothing unless settings.energySystemEnabled — the whole system is opt-in.
  *
@@ -28,7 +32,7 @@ import { Fonts, FontSize, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
-import { energyDeltaForDay, energyDeltaForWeek } from '@/lib/energy';
+import { energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek } from '@/lib/energy';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
@@ -61,6 +65,10 @@ export default function EnergyMeter() {
   const weekCapacity = capacityForWeek(today);
   const dayCurrent = dayCapacity + energyDeltaForDay(today, tasks, habits, habitLogs);
   const weekCurrent = weekCapacity + energyDeltaForWeek(today, tasks, habits, habitLogs);
+
+  // Over-committed = if everything still scheduled for the period happened, capacity would go negative.
+  const dayPlannedOver = -Math.min(0, dayCapacity + plannedEnergyDeltaForDay(today, tasks, habits));
+  const weekPlannedOver = -Math.min(0, weekCapacity + plannedEnergyDeltaForWeek(today, tasks, habits));
 
   const row = (label: string, current: number, capacity: number) => {
     const value = capacity > 0 ? current / capacity : 0;
@@ -99,7 +107,19 @@ export default function EnergyMeter() {
       </View>
 
       {row(t.energyMeter.today, dayCurrent, dayCapacity)}
+      {dayPlannedOver > 0 && (
+        <View style={styles.warningRow}>
+          <Ionicons name="alert-circle" size={14} color={theme.warn} />
+          <Text style={[styles.warningText, { color: theme.warn }]}>{t.energyMeter.overCommittedDay(dayPlannedOver)}</Text>
+        </View>
+      )}
       {row(t.energyMeter.thisWeek, weekCurrent, weekCapacity)}
+      {weekPlannedOver > 0 && (
+        <View style={styles.warningRow}>
+          <Ionicons name="alert-circle" size={14} color={theme.warn} />
+          <Text style={[styles.warningText, { color: theme.warn }]}>{t.energyMeter.overCommittedWeek(weekPlannedOver)}</Text>
+        </View>
+      )}
 
       <Collapsible open={editing}>
         <View style={styles.editor}>
@@ -126,6 +146,8 @@ const styles = StyleSheet.create({
   meterLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   meterLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   meterValue: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  warningRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  warningText: { flex: 1, fontSize: FontSize.xs, fontFamily: Fonts.medium },
   editor: { gap: Spacing.sm, paddingTop: Spacing.sm },
   editRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   editLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
