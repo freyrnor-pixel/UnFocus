@@ -32,16 +32,23 @@
  *             groupByCategory, computeListGroups, listProgress),
  *             lib/shoppingCategories (categoryPresets, categoryLabel),
  *             lib/reorder (reorderByDrag), lib/useAppTheme,
- *             lib/useFirstVisitHint, lib/domainColor, lib/screenColor,
- *             store/useSettingsStore, store/useShoppingListStore,
+ *             lib/useFirstVisitHint, lib/domainColor, lib/screenColor, lib/budget (computeSpendPace),
+ *             store/useSettingsStore, store/useShoppingListStore, store/useReceiptStore,
  *             store/useShoppingStore (incl. UNALLOCATED_LIST_ID), @expo/vector-icons (Ionicons)
  *   Used by → Expo Router route "/shopping" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → useShoppingStore (items/trips) + useShoppingListStore (lists, incl. each
- *             list's locked/isTemplate state) + useSettingsStore (monthlyResetDate).
+ *             list's locked/isTemplate state) + useSettingsStore (monthlyResetDate, monthlyBudgetNok,
+ *             lastMonthlyReset) + useReceiptStore (receipts, feeds the Monthly tab's spend-pace line).
  *             CatalogueTab/WeekListCard/FoodTab read useCatalogStore internally (loaded at
  *             startup by app/_layout.tsx). FoodTab additionally drives useMealStore.
  *
  * Edit notes:
+ *   - **Spend-pace line (2026-07-22)**: the Monthly tab's header row now shows a `shoppingPace`
+ *     figure (actual kr/day since lastMonthlyReset vs. budgeted kr/day for the payday-to-payday
+ *     period) under the title/Budget-pill row, via lib/budget.ts's computeSpendPace() — the same
+ *     calculation and copy (`t.budget.perDaySpend`) as app/budget.tsx's own pace row and the Home
+ *     Shopping preview card (components/HomeShoppingCard.tsx). Hidden (returns null) when no
+ *     budget is set or no monthly reset has happened yet.
  *   - **Budget-scoping + unsaved-badge pass (2026-07-22)**: the "Budsjett" pill moved out of
  *     `shoppingIntro` (was rendered on all 4 tabs) into the Monthly tab's own
  *     `catalogHeaderRow`/`catalogHeaderActions`, inline with the reset/lock icons — Budget is a
@@ -215,6 +222,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useReceiptStore } from '@/store/useReceiptStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import ShoppingRow from '@/components/ShoppingRow';
 import EmptyState from '@/components/EmptyState';
@@ -253,6 +261,7 @@ import { groupByDish, groupByCategory, computeListGroups, listProgress } from '@
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { reorderByDrag } from '@/lib/reorder';
 import { formatKr } from '@/lib/money';
+import { computeSpendPace } from '@/lib/budget';
 import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
 
@@ -387,6 +396,9 @@ export default function ShoppingScreen() {
   const recentlyAddedIds = useShoppingStore((s) => s.recentlyAddedIds);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
+  const monthlyBudgetNok = useSettingsStore((s) => s.monthlyBudgetNok);
+  const lastMonthlyReset = useSettingsStore((s) => s.lastMonthlyReset);
+  const receipts = useReceiptStore((s) => s.receipts);
 
   const lists = useShoppingListStore((s) => s.lists);
   const renameList = useShoppingListStore((s) => s.rename);
@@ -483,6 +495,12 @@ export default function ShoppingScreen() {
   const monthlyTotal = useMemo(
     () => catalogItems.reduce((sum, i) => sum + i.price * i.targetQuantity, 0),
     [catalogItems]
+  );
+  // Spend-vs-budget pace (Decision 026), shared with app/budget.tsx and the Home Shopping
+  // preview card via lib/budget.ts's computeSpendPace() — null when no budget is set yet.
+  const shoppingPace = useMemo(
+    () => computeSpendPace(receipts, monthlyBudgetNok, monthlyResetDate, lastMonthlyReset),
+    [receipts, monthlyBudgetNok, monthlyResetDate, lastMonthlyReset]
   );
   // Weekly "Unallocated" bucket — dish ingredients pushed to the week from the Food tab
   // that haven't been assigned to a dated list yet (status inWeeklyList, sentinel listId).
@@ -1001,6 +1019,12 @@ export default function ShoppingScreen() {
                 />
               </View>
             </View>
+
+            {shoppingPace && (
+              <Text style={[styles.spendPaceText, { color: shoppingPace.overPace ? theme.warn : theme.good }]}>
+                {t.budget.perDaySpend(String(Math.round(shoppingPace.actualPerDay)), String(Math.round(shoppingPace.budgetedPerDay)))}
+              </Text>
+            )}
 
             <View style={styles.bodyGap}>
               {/* SECTION 1 — Monthly list (things the user has added) */}
@@ -1536,6 +1560,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
   },
   budgetPillText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  // Spend-vs-budget pace line (Decision 026) — sits under the header row, above the
+  // Monthly list sections. Same figure/copy as app/budget.tsx's own pace row.
+  spendPaceText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, marginTop: Spacing.xs },
   // Bordered trigger pill — matches WeekListCard's monthlyTrigger shape, the one shared
   // "tap to open a fuller add flow" affordance (design-consistency pass).
   addTrigger: {
