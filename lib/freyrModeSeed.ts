@@ -9,7 +9,7 @@
  * on disable; app/settings.tsx owns that read/write.
  *
  * Connections:
- *   Imports → lib/date, store/useHabitStore, store/useNotesStore, store/useShoppingStore, store/useTaskStore
+ *   Imports → lib/date, store/useHabitStore, store/useNotesStore, store/useShoppingStore, store/useMonthlyListStore, store/useTaskStore
  *   Used by → app/settings.tsx
  *   Data    → writes shopping_items (status='catalog', list_type='monthly'), tasks, habits, notes
  *     via each store's own add()/update()/remove() — no direct SQL here.
@@ -21,11 +21,17 @@
  *     stores' add(). addHabitAndCaptureId() diffs the habit list before/after to
  *     recover the new id — don't call this seed function concurrently with anything
  *     else that adds a habit, or the diff could pick up the wrong row.
+ *   - **Shopping — Monthly redesign (2026-07-22)**: seeded catalog items are tagged onto
+ *     the first Monthly list (`useMonthlyListStore`'s `lists[0]`) so they actually show up
+ *     on a card — without a monthlyListId they'd be silently orphaned (invisible in every
+ *     list). Falls back to no tag (matching pre-redesign, unlikely-but-possible) only if
+ *     the user has deleted every Monthly list before enabling Freyr-mode.
  */
 import { todayStr } from '@/lib/date';
 import { useHabitStore, Habit } from '@/store/useHabitStore';
 import { useNotesStore } from '@/store/useNotesStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
+import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { useTaskStore } from '@/store/useTaskStore';
 
 export type FreyrSeedIds = {
@@ -74,11 +80,12 @@ function addNote(header: string): string {
 /** Creates the Freyr-mode starter set and returns exactly the ids it created. */
 export function seedFreyrMode(): FreyrSeedIds {
   const shoppingStore = useShoppingStore.getState();
+  const monthlyListId = useMonthlyListStore.getState().lists[0]?.id;
   const shoppingItemIds = [
-    shoppingStore.add({ name: 'Dopapir', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 1 }),
-    shoppingStore.add({ name: 'Melk', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 4 }),
-    shoppingStore.add({ name: 'Håndsåpe', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 1 }),
-    shoppingStore.add({ name: 'Bleier', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 6 }),
+    shoppingStore.add({ name: 'Dopapir', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 1, monthlyListId }),
+    shoppingStore.add({ name: 'Melk', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 4, monthlyListId }),
+    shoppingStore.add({ name: 'Håndsåpe', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 1, monthlyListId }),
+    shoppingStore.add({ name: 'Bleier', amount: '1', unit: '', listType: 'monthly', store: '', price: 0, inventoryQty: 0, status: 'catalog', targetQuantity: 6, monthlyListId }),
   ];
 
   const today = todayStr();

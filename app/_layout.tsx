@@ -21,7 +21,7 @@
  *             + persistent overview notification), lib/useAppTheme,
  *             store/useSettingsStore, store/useAutomationStore, store/useCatalogStore,
  *             store/useEnergyStore, store/useFeedbackStore, store/useHabitStore, store/useHealthStore, store/useInboxStore,
- *             store/useMealStore, store/useNotesStore, store/usePeersStore, store/useReceiptStore,
+ *             store/useMealStore, store/useMonthlyListStore, store/useNotesStore, store/usePeersStore, store/useReceiptStore,
  *             store/useSharedStore, store/useShoppingListStore, store/useShoppingStore,
  *             store/useTaskStore, components/AppModal,
  *             components/WelcomeReveal (animated brand-reveal shown once per cold launch)
@@ -137,6 +137,7 @@ import { usePeersStore } from '@/store/usePeersStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useSharedStore } from '@/store/useSharedStore';
 import { useShoppingListStore } from '@/store/useShoppingListStore';
+import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import AppModalHost from '@/components/AppModal';
@@ -251,6 +252,7 @@ export default function RootLayout() {
     useTaskStore.getState().syncMonthlyTaskNotifications();
     useShoppingStore.getState().load();
     useShoppingListStore.getState().load();
+    useMonthlyListStore.getState().load();
     useSharedStore.getState().load();
     useHabitStore.getState().load();
     useHealthStore.getState().load();

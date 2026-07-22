@@ -15,14 +15,16 @@
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, lib/notifications, lib/reminders,
  *             lib/budget (computeSpendPace), store/useTaskStore, store/useNotesStore, store/useSharedStore,
- *             store/useShoppingStore, store/useShoppingListStore, store/useSettingsStore, store/useReceiptStore
+ *             store/useShoppingStore, store/useShoppingListStore, store/useMonthlyListStore, store/useSettingsStore, store/useReceiptStore
  *   Used by → Expo Router route "/" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → reads useTaskStore (tasks) + useNotesStore (notes) + useSharedStore (incoming
  *             shared tasks/shopping) + useShoppingStore (items) +
  *             useShoppingListStore (currentList(today)) + useReceiptStore (receipts, for the
  *             Shopping preview card's spend-pace line); mutates via toggle / toggleCheck /
  *             toggleCollected / adjustAmount / putBackToInventory / removeWithSource.
- *             Settings via useSettingsStore (incl. monthlyBudgetNok/monthlyResetDate/lastMonthlyReset).
+ *             Settings via useSettingsStore (monthlyResetDate) + useMonthlyListStore (each list's
+ *             own budgetNok/lastReset — Shopping/Monthly redesign, 2026-07-22, replacing the old
+ *             single global monthlyBudgetNok/lastMonthlyReset settings).
  *
  * Edit notes:
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus effect
@@ -42,9 +44,12 @@
  *   - **Shopping preview = HomeShoppingCard**: shows first 4 items flat when collapsed; full
  *     nested dish-group ExpandableCard structure when expanded. Tick-to-buy, cart-collect,
  *     stepper, and catalog-vs-adhoc remove preserved. Also passed a `pace` prop (Decision 026,
- *     lib/budget.ts's computeSpendPace() over useReceiptStore + the budget settings) — the same
- *     actual-vs-budgeted kr/day figure shown on app/budget.tsx and the Shopping screen's Monthly
- *     tab; null (card shows nothing extra) until a budget is set and a monthly reset has happened.
+ *     lib/budget.ts's computeSpendPace() over useReceiptStore + useMonthlyListStore) — an
+ *     aggregate across every Monthly list (summed budget vs. every tagged receipt, paced
+ *     against the most recently reset list — see the shoppingPace memo below), the same shape
+ *     of figure shown on app/budget.tsx (there, one specific list) and the Shopping screen's
+ *     Monthly tab (there, each list's own); null (card shows nothing extra) until at least one
+ *     list has a budget set and has been through a reset.
  *   - **Home preview card management (2026-07-19)**: off-Focus, Notes/Plans/Shopping render via
  *     `HomeCardManager` (components/HomeCardManager.tsx) in `settings.homeCardOrder` order —
  *     holding any card enters an edit mode where all three become draggable and get a delete
@@ -102,6 +107,7 @@ import { useNotesStore } from '@/store/useNotesStore';
 import { SharedShoppingItem, SharedTask, useSharedStore } from '@/store/useSharedStore';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import { useShoppingListStore } from '@/store/useShoppingListStore';
+import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
@@ -198,9 +204,8 @@ export default function HomeScreen() {
   const planTimelineHorizontal = useSettingsStore((s) => s.planTimelineHorizontal);
   const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   const homeCardOrderRaw = useSettingsStore((s) => s.homeCardOrder);
-  const monthlyBudgetNok = useSettingsStore((s) => s.monthlyBudgetNok);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
-  const lastMonthlyReset = useSettingsStore((s) => s.lastMonthlyReset);
+  const monthlyLists = useMonthlyListStore((s) => s.lists);
   const updateSettings = useSettingsStore((s) => s.update);
   // All-time counter, maintained by useTaskStore (toggle/completeDirect/remove/
   // clearAll) so it survives pruneOldData() pruning old completed tasks — see
@@ -247,11 +252,19 @@ export default function HomeScreen() {
 
   // Spend-vs-budget pace (Decision 026), shared with app/budget.tsx and the Shopping
   // screen's Monthly tab via lib/budget.ts's computeSpendPace() — null when no budget
-  // is set yet, in which case HomeShoppingCard just omits the line.
-  const shoppingPace = useMemo(
-    () => computeSpendPace(receipts, monthlyBudgetNok, monthlyResetDate, lastMonthlyReset),
-    [receipts, monthlyBudgetNok, monthlyResetDate, lastMonthlyReset]
-  );
+  // is set yet, in which case HomeShoppingCard just omits the line. Shopping — Monthly
+  // redesign (2026-07-22): budget is per Monthly list now, so this ONE preview line
+  // aggregates across every list — total budget (sum of each list's budgetNok) vs. every
+  // receipt tagged to any Monthly list, paced against the most recently reset list's
+  // lastReset (in the common single-list case this is exactly that list's own boundary,
+  // unchanged from before). A per-list breakdown lives on the Shopping screen itself.
+  const shoppingPace = useMemo(() => {
+    const totalBudget = monthlyLists.reduce((sum, l) => sum + l.budgetNok, 0);
+    const listIds = new Set(monthlyLists.map((l) => l.id));
+    const taggedReceipts = receipts.filter((r) => r.monthlyListId && listIds.has(r.monthlyListId));
+    const latestReset = monthlyLists.map((l) => l.lastReset).filter(Boolean).sort().pop() ?? '';
+    return computeSpendPace(taggedReceipts, totalBudget, monthlyResetDate, latestReset);
+  }, [receipts, monthlyLists, monthlyResetDate]);
 
   const greeting = () => {
     const h = new Date().getHours();

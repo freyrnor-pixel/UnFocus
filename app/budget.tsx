@@ -1,43 +1,54 @@
 /**
- * budget.tsx — monthly grocery budget vs. receipts (AP-06B) with month navigation & store breakdown
+ * budget.tsx — one Monthly list's grocery budget vs. its tagged receipts (AP-06B, made
+ * per-list by the Shopping/Monthly redesign, 2026-07-22), with month navigation & store breakdown
  *
- * Compares a selected month's scanned/manual receipt total (useReceiptStore) against
- * the optional monthly budget set in Settings, with a gentle progress bar, month selector,
- * receipt list, and per-store breakdown. Budget can be set/edited inline. Reached only via
- * the bordered Budget pill at the top of app/(tabs)/shopping.tsx's shared intro chrome
- * (router.push) — not in BottomNav, and no longer reachable from app/(tabs)/scan.tsx
- * (2026-07-19: that entry point was removed). Shopping sits underneath, so back()
- * returns there.
+ * Compares a selected month's scanned/manual receipt total — filtered to receipts TAGGED to
+ * this specific Monthly list (useReceiptStore's monthlyListId, set by app/(tabs)/scan.tsx's
+ * list picker) — against that list's own budget (store/useMonthlyListStore.ts's budgetNok),
+ * with a gentle progress bar, month selector, receipt list, and per-store breakdown. Budget
+ * can be set/edited inline. Reached via the bordered Budget pill on a specific Monthly list
+ * card in app/(tabs)/shopping.tsx (router.push with a `listId` param) — not in BottomNav.
+ * Shopping sits underneath, so back() returns there.
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/PressableScale,
  *             constants/theme, lib/date, lib/budget (computeSpendPace), lib/i18n,
- *             lib/useAppTheme, store/useReceiptStore, store/useSettingsStore
- *   Used by → Expo Router route "/budget"; reached via app/(tabs)/shopping.tsx's Budget pill (router.push)
- *   Data    → reads useReceiptStore (receipts table, receipts/months/receiptsForMonth/totalForMonth/receiptsByStore) and useSettingsStore (monthlyBudgetNok, monthlyResetDate, lastMonthlyReset); writes via useSettingsStore.update (monthlyBudgetNok)
+ *             lib/useAppTheme, store/useReceiptStore, store/useMonthlyListStore, store/useSettingsStore
+ *   Used by → Expo Router route "/budget"; reached via a Monthly list card's Budget pill (router.push, listId param)
+ *   Data    → reads useReceiptStore (receipts table, filtered locally by monthlyListId — this
+ *             store's own receiptsForMonth/totalForMonth/receiptsByStore methods operate on
+ *             ALL receipts and are deliberately not used here) and useMonthlyListStore (the
+ *             list's own budgetNok/lastReset) + useSettingsStore (monthlyResetDate, still
+ *             global — see that store's header); writes via useMonthlyListStore.setBudget
  *
  * Edit notes:
  *   - Decision 001 tier='sub' ScreenScaffold (no BottomNav; back arrow to Shopping). Old SafeAreaView/
  *     ScreenHeader/SiteSwipeView/BottomNav chrome dropped — the scaffold owns it.
- *   - Month selector uses left/right navigation (← Older / Newer →) to browse available months (derived from distinct receipt months, sorted descending).
- *   - No budget set (monthlyBudgetNok <= 0) shows "Set budget" button inline; hasBudget shows "Edit budget" link.
- *   - Per-store breakdown sums receipts by store for the selected month, sorted by amount descending.
+ *   - **Per-list (2026-07-22)**: `listId` route param picks which Monthly list this screen is
+ *     for; falls back to the first list (`monthlyLists[0]`) when the param is missing/stale
+ *     (e.g. an old deep link) so the screen never renders blank. When zero Monthly lists exist
+ *     at all, renders a minimal "no list" state instead of crashing on an undefined list.
+ *   - Month selector uses left/right navigation (← Older / Newer →) to browse available months (derived from this list's own receipt months, sorted descending).
+ *   - No budget set (budgetNok <= 0) shows "Set budget" button inline; hasBudget shows "Edit budget" link.
+ *   - Per-store breakdown sums this list's receipts by store for the selected month, sorted by amount descending.
  *   - Over-budget bar uses the Decision 006 `warn` token (gentle amber, never `bad`/red) per the no-shame
  *     color rule (Decision 025); on-track uses `good`.
- *   - Budget progress bar always compares against the live monthlyBudgetNok, even when viewing past months.
- *   - Daily-spend pace (Decision 026): under the progress bar, actualPerDay (spend since lastMonthlyReset ÷
- *     inclusive days elapsed) vs. budgetedPerDay (monthlyBudgetNok ÷ payday-to-payday periodLength), computed
- *     via lib/budget.ts's computeSpendPace() — shared with the Shopping screen's Monthly tab and the Home
- *     Shopping preview card, which show the same figure. Over-pace tints the figure with the `warn` token
- *     (never `bad`/red, no-shame rule); on/under uses `good`. Hidden when no budget is set or lastMonthlyReset
- *     is empty. Uses live receipts, so it always reflects the current period regardless of the selected month.
+ *   - Budget progress bar always compares against the list's live budgetNok, even when viewing past months.
+ *   - Daily-spend pace (Decision 026): under the progress bar, actualPerDay (spend since this list's own
+ *     lastReset ÷ inclusive days elapsed) vs. budgetedPerDay (budgetNok ÷ payday-to-payday periodLength),
+ *     computed via lib/budget.ts's computeSpendPace() — shared with the Shopping screen's Monthly tab and
+ *     the Home Shopping preview card (that one aggregates across lists — see app/(tabs)/index.tsx). Over-pace
+ *     tints the figure with the `warn` token (never `bad`/red, no-shame rule); on/under uses `good`. Hidden
+ *     when no budget is set or this list has never been reset. Uses live receipts, so it always reflects the
+ *     current period regardless of the selected month.
  *   - No AddFAB — a budget is a single value to edit, not a list. The editor sheet's Cancel/Save
  *     live in a header row at the top (matching app/task-form.tsx's pattern).
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View, Pressable, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useReceiptStore } from '@/store/useReceiptStore';
+import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useT } from '@/lib/i18n';
 import { currentMonthStr, formatDisplayDate } from '@/lib/date';
@@ -51,30 +62,40 @@ import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 export default function BudgetScreen() {
   const router = useRouter();
+  const { listId } = useLocalSearchParams<{ listId?: string }>();
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
 
   const lang = useSettingsStore((s) => s.language);
-  const monthlyBudgetNok = useSettingsStore((s) => s.monthlyBudgetNok);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
-  const lastMonthlyReset = useSettingsStore((s) => s.lastMonthlyReset);
-  const updateSettings = useSettingsStore((s) => s.update);
-  const receipts_all = useReceiptStore((s) => s.receipts);
-  const totalForMonth = useReceiptStore((s) => s.totalForMonth);
-  const receiptsForMonth = useReceiptStore((s) => s.receiptsForMonth);
-  const getMonths = useReceiptStore((s) => s.months);
-  const receiptsByStore = useReceiptStore((s) => s.receiptsByStore);
+  const monthlyLists = useMonthlyListStore((s) => s.lists);
+  const setListBudget = useMonthlyListStore((s) => s.setBudget);
+  const receiptsAll = useReceiptStore((s) => s.receipts);
+
+  const list = monthlyLists.find((l) => l.id === listId) ?? monthlyLists[0];
+  const listReceipts = useMemo(
+    () => (list ? receiptsAll.filter((r) => r.monthlyListId === list.id) : []),
+    [receiptsAll, list]
+  );
 
   const defaultMonth = currentMonthStr();
   const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
   const [budgetEditorVisible, setBudgetEditorVisible] = useState(false);
-  const [budgetInput, setBudgetInput] = useState(String(monthlyBudgetNok || ''));
-  const months = getMonths();
+  const [budgetInput, setBudgetInput] = useState(String(list?.budgetNok || ''));
+  const months = useMemo(() => [...new Set(listReceipts.map((r) => r.month))].sort().reverse(), [listReceipts]);
 
-  const spent = totalForMonth(selectedMonth);
-  const receipts = receiptsForMonth(selectedMonth);
-  const storeBreakdown = receiptsByStore(selectedMonth);
+  const monthlyBudgetNok = list?.budgetNok ?? 0;
+  const spent = useMemo(
+    () => listReceipts.filter((r) => r.month === selectedMonth).reduce((sum, r) => sum + r.total, 0),
+    [listReceipts, selectedMonth]
+  );
+  const receipts = useMemo(() => listReceipts.filter((r) => r.month === selectedMonth), [listReceipts, selectedMonth]);
+  const storeBreakdown = useMemo(() => {
+    const byStore: Record<string, number> = {};
+    for (const r of receipts) byStore[r.store] = (byStore[r.store] || 0) + r.total;
+    return byStore;
+  }, [receipts]);
   const hasBudget = monthlyBudgetNok > 0;
   const overBudget = hasBudget && spent > monthlyBudgetNok;
   const pct = hasBudget ? Math.min(100, (spent / monthlyBudgetNok) * 100) : 0;
@@ -82,18 +103,31 @@ export default function BudgetScreen() {
 
   // Daily spend vs. daily budget pace (Decision 026), shared with app/(tabs)/shopping.tsx
   // and HomeShoppingCard's Home preview via lib/budget.ts's computeSpendPace(). Only
-  // shown when a budget is set and a reset boundary exists (see that function's header).
-  const pace = computeSpendPace(receipts_all, monthlyBudgetNok, monthlyResetDate, lastMonthlyReset);
+  // shown when a budget is set and this list has a reset boundary (see that function's header).
+  const pace = computeSpendPace(listReceipts, monthlyBudgetNok, monthlyResetDate, list?.lastReset ?? '');
 
   function saveBudget() {
+    if (!list) return;
     const newBudget = parseFloat(budgetInput.replace(',', '.')) || 0;
-    updateSettings({ monthlyBudgetNok: newBudget });
+    setListBudget(list.id, newBudget);
     setBudgetEditorVisible(false);
+  }
+
+  if (!list) {
+    return (
+      <ScreenScaffold title={t.budget.title} tier="sub" onBack={() => router.back()}>
+        <View style={styles.content}>
+          <Surface style={styles.card}>
+            <Text style={[styles.hintText, { color: theme.textMuted }]}>{t.monthlyListsEmpty}</Text>
+          </Surface>
+        </View>
+      </ScreenScaffold>
+    );
   }
 
   return (
     <>
-      <ScreenScaffold title={t.budget.title} tier="sub" onBack={() => router.back()}>
+      <ScreenScaffold title={t.budget.titleForList(list.name)} tier="sub" onBack={() => router.back()}>
         <View style={styles.content}>
           {/* Month selector */}
           {months.length > 1 && (

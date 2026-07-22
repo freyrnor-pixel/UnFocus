@@ -21,7 +21,7 @@
  *             lib/i18n, lib/money (formatKr), lib/shoppingCategories (categoryPresets),
  *             lib/shoppingGroups (listProgress, listTotal), lib/useAppTheme, lib/haptics,
  *             lib/domainColor, store/useShoppingListStore (ShoppingList type),
- *             store/useShoppingStore (ShoppingItem type)
+ *             store/useShoppingStore (ShoppingItem type), store/useMonthlyListStore (MonthlyList type)
  *   Used by → app/shopping.tsx
  *   Data    → none directly — every item/group/callback is owned by the parent
  *
@@ -104,6 +104,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
+import { MonthlyList } from '@/store/useMonthlyListStore';
 import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -159,8 +160,12 @@ type Props = {
   onAddInlineItem: (input: { name: string; price: number; qty: number; category?: string }) => void;
   /** Decrement a cart item — at qty=1 moves it back to "In list"; at qty>1 splits one unit back. */
   onDecrementCartItem: (item: ShoppingItem) => void;
-  /** The curated monthly-list items (status 'catalog') shown in the "add from monthly" popup. */
+  /** The curated monthly-list items (status 'catalog', across every Monthly list) shown in
+   *  the "add from monthly" popup. */
   monthlyItems: ShoppingItem[];
+  /** Every Monthly list, in display order — AddFromMonthlyModal sections monthlyItems under
+   *  each one's name header (Shopping/Monthly redesign, 2026-07-22). */
+  monthlyLists: MonthlyList[];
   /** Move a batch of monthly-list items into this week list in one go (parent loops
    *  addToWeeklyFromCatalog and shows a single consolidated toast). */
   onAddMonthlyItemsToWeek: (items: ShoppingItem[]) => void;
@@ -206,6 +211,7 @@ export default function WeekListCard({
   onAddInlineItem,
   onDecrementCartItem,
   monthlyItems,
+  monthlyLists,
   onAddMonthlyItemsToWeek,
   onDoneShopping,
   onOpenDishSheet,
@@ -528,6 +534,7 @@ export default function WeekListCard({
             <AddFromMonthlyModal
               visible={monthlyPreviewOpen}
               items={monthlyItems}
+              lists={monthlyLists}
               onAdd={onAddMonthlyItemsToWeek}
               onClose={() => setMonthlyPreviewOpen(false)}
             />

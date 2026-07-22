@@ -86,6 +86,14 @@
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
  *   - isTemporary purges on monthly reset; permanent catalog items are never
  *     deleted by reset, only their status/pendingRestock move.
+ *   - **Shopping — Monthly redesign (2026-07-22)**: `monthlyListId` scopes a row to one of
+ *     the multiple named lists owned by store/useMonthlyListStore.ts — set once at creation
+ *     (status='catalog') and left untouched through every later status flip, same as
+ *     fromCatalog. `monthlyReset()` (the payday-boundary, whole-household reset) stays
+ *     unfiltered — it still resets every list at once and deletes ALL trips. The new
+ *     `resetMonthlyList(listId)` is the per-list manual "reset this list" action — scoped by
+ *     monthlyListId and deliberately leaves shopping_trips alone (a trip can span items from
+ *     several Monthly lists).
  *   - **Decision 044b — `recentlyAddedIds`**: ephemeral (non-persisted, non-synced) map of
  *     ids added or moved-to-weekly in the last 1.8s, set by `markRecentlyAdded()` and
  *     self-clearing via `setTimeout`. `add()` and `addToWeeklyFromCatalog()` call it on
@@ -145,6 +153,10 @@ export type ShoppingItem = {
   orderIndex?: number;
   /** Which Week list this row belongs to (status === 'inWeeklyList' rows only). */
   listId?: string;
+  /** Which Monthly list (store/useMonthlyListStore.ts) this row belongs to. Set at
+   *  creation for status='catalog' rows and travels unchanged through inWeeklyList/
+   *  purchased (same pattern as fromCatalog) so per-list reset/spend can still find it. */
+  monthlyListId?: string;
   /** 'catalog' | 'staged' | 'inWeeklyList' | 'purchased' — the row's lifecycle stage. */
   status: ShoppingStatus;
   /** ISO datetime stamped by doneShopping(); only set once status === 'purchased'. */
@@ -172,6 +184,7 @@ export type ShoppingItemInput = {
   inventoryQty: number;
   status: string;
   listId?: string;
+  monthlyListId?: string;
   isTemporary?: boolean;
   targetQuantity?: number;
   dishName?: string;
@@ -231,6 +244,12 @@ type ShoppingStore = {
   setPendingRestock: (id: string, pending: boolean) => void;
   doneShopping: (listId: string, label: string, monthResetDate: number) => string;
   monthlyReset: () => void;
+  /** Scoped variant of monthlyReset() — reverts only ONE Monthly list's items back to
+   *  'catalog' (its purchased/inWeeklyList rows, temporary items deleted, pendingRestock
+   *  cleared). Unlike monthlyReset(), does NOT touch shopping_trips — a trip is a weekly
+   *  checkout event that can hold items from several Monthly lists at once, so only this
+   *  list's own item rows are affected. Used by each list's own manual reset icon. */
+  resetMonthlyList: (listId: string) => void;
   buildMonthlyResetSummary: () => MonthlyResetSummary;
 };
 
@@ -259,6 +278,7 @@ function rowToItem(row: Row): ShoppingItem {
     collected: readBool(row, 'collected'),
     fromCatalog: readBool(row, 'from_catalog'),
     listId: readStr(row, 'list_id') || undefined,
+    monthlyListId: readStr(row, 'monthly_list_id') || undefined,
     orderIndex: readInt(row, 'order_index'),
   };
 }
@@ -298,6 +318,7 @@ const ITEM_COLUMNS: FieldMap<ShoppingItem> = {
   collected: { col: 'collected', to: (v) => (v ? 1 : 0) },
   fromCatalog: { col: 'from_catalog', to: (v) => (v ? 1 : 0) },
   listId: { col: 'list_id', to: (v) => v ?? null },
+  monthlyListId: { col: 'monthly_list_id', to: (v) => v ?? null },
   orderIndex: { col: 'order_index', to: (v) => v ?? 0 },
 };
 
@@ -311,7 +332,9 @@ const ITEM_COLUMNS: FieldMap<ShoppingItem> = {
 function mergeDuplicateItems(items: ShoppingItem[]): ShoppingItem[] {
   const groups = new Map<string, ShoppingItem[]>();
   for (const item of items) {
-    const key = `${item.status}|${item.name.trim().toLowerCase()}|${item.dishName ?? ''}`;
+    // Catalog rows are additionally keyed by monthlyListId — see add()'s matching dedupe
+    // guard above; two Monthly lists with the same item name must never merge together.
+    const key = `${item.status}|${item.name.trim().toLowerCase()}|${item.dishName ?? ''}|${item.status === 'catalog' ? item.monthlyListId ?? '' : ''}`;
     const group = groups.get(key);
     if (group) group.push(item);
     else groups.set(key, [item]);
@@ -392,7 +415,11 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
         i.status === status &&
         i.listId === item.listId &&
         i.name.trim().toLowerCase() === trimmedName.toLowerCase() &&
-        (i.dishName ?? undefined) === (item.dishName ?? undefined)
+        (i.dishName ?? undefined) === (item.dishName ?? undefined) &&
+        // Only catalog rows are scoped by monthlyListId — two Monthly lists with the same
+        // item name must stay separate rows; a weekly/purchased row's origin list doesn't
+        // affect its own dedupe (matches fromCatalog's existing list-agnostic behavior there).
+        (status !== 'catalog' || (i.monthlyListId ?? undefined) === (item.monthlyListId ?? undefined))
     );
     if (existing) {
       const patch: Partial<Omit<ShoppingItem, 'id'>> =
@@ -433,6 +460,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
       collected: false,
       fromCatalog,
       listId: item.listId,
+      monthlyListId: item.monthlyListId,
       orderIndex,
     };
     insertRow('shopping_items', rowValues(newItem, ITEM_COLUMNS));
@@ -662,6 +690,31 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
       items: s.items
         .filter((i) => !i.isTemporary)
         .map((i) => {
+          if (i.shoppingTripId || i.status === 'inWeeklyList') {
+            return { ...i, status: 'catalog' as const, shoppingTripId: undefined, purchasedAt: undefined, pendingRestock: false, checked: false, collected: false, listId: undefined };
+          }
+          return { ...i, pendingRestock: false };
+        }),
+    }));
+  },
+
+  resetMonthlyList(listId) {
+    db.runSync(
+      "UPDATE shopping_items SET status = 'catalog', shopping_trip_id = NULL, purchased_at = NULL, checked = 0, collected = 0, list_id = NULL WHERE shopping_trip_id IS NOT NULL AND monthly_list_id = ?",
+      [listId]
+    );
+    db.runSync('DELETE FROM shopping_items WHERE is_temporary = 1 AND monthly_list_id = ?', [listId]);
+    db.runSync('UPDATE shopping_items SET pending_restock = 0 WHERE monthly_list_id = ?', [listId]);
+    db.runSync(
+      "UPDATE shopping_items SET status = 'catalog', checked = 0, collected = 0, list_id = NULL WHERE status = 'inWeeklyList' AND monthly_list_id = ?",
+      [listId]
+    );
+
+    set((s) => ({
+      items: s.items
+        .filter((i) => !(i.monthlyListId === listId && i.isTemporary))
+        .map((i) => {
+          if (i.monthlyListId !== listId) return i;
           if (i.shoppingTripId || i.status === 'inWeeklyList') {
             return { ...i, status: 'catalog' as const, shoppingTripId: undefined, purchasedAt: undefined, pendingRestock: false, checked: false, collected: false, listId: undefined };
           }

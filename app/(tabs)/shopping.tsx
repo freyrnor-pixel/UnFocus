@@ -4,14 +4,15 @@
  * Tabbed shopping screen. The "Week lists" tab renders an "Unallocated" card (dish
  * ingredients pushed to the week from the Food tab, sentinel listId UNALLOCATED_LIST_ID)
  * then one WeekListCard per non-template shopping_lists row plus an empty "create new
- * list" card. The "Monthly list" tab is a single lock-gated card (staging tray,
- * dish-grouped + ungrouped curated items, an add-to-monthly divider, purchased-this-month
- * history). "Food" renders components/FoodTab (dish library + push-to-list) and
- * "Catalogue" renders components/CatalogueTab (the master item catalogue). A screen-level
- * sticky bar (Decision 011 A2-1) holds the 4-tab switcher plus a per-tab summary line. A
- * bordered Budget pill sits at the top of the shared intro chrome (all 4 tabs) and pushes
- * to app/budget.tsx — the only entry point into Budget now (2026-07-19; it used to also be
- * reachable from app/(tabs)/scan.tsx, removed).
+ * list" card. The "Monthly" tab (Shopping/Monthly redesign, 2026-07-22) renders one
+ * lock-gated card PER named Monthly list (store/useMonthlyListStore.ts) — each with its
+ * own tap-to-rename name, own budget pill (→ app/budget.tsx, listId param), own manual
+ * reset icon, dish-grouped + ungrouped curated items, add-to-list triggers, and
+ * purchased-this-month history — plus a "+ New list" row and a small relocated "reset all
+ * lists" link at the bottom. Replaces the old single global Katalog card. "Food" renders
+ * components/FoodTab (dish library + push-to-list) and "Catalogue" renders
+ * components/CatalogueTab (the master item catalogue). A screen-level sticky bar
+ * (Decision 011 A2-1) holds the 4-tab switcher plus a per-tab summary line.
  *
  * Connections:
  *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
@@ -34,22 +35,28 @@
  *             lib/shoppingCategories (categoryPresets, categoryLabel),
  *             lib/reorder (reorderByDrag), lib/useAppTheme,
  *             lib/useFirstVisitHint, lib/domainColor, lib/screenColor, lib/budget (computeSpendPace),
- *             store/useSettingsStore, store/useShoppingListStore, store/useReceiptStore,
+ *             store/useSettingsStore, store/useShoppingListStore, store/useMonthlyListStore,
+ *             store/useReceiptStore, components/NewMonthlyListRow,
  *             store/useShoppingStore (incl. UNALLOCATED_LIST_ID), @expo/vector-icons (Ionicons)
  *   Used by → Expo Router route "/shopping" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → useShoppingStore (items/trips) + useShoppingListStore (lists, incl. each
- *             list's locked/isTemplate state) + useSettingsStore (monthlyResetDate, monthlyBudgetNok,
- *             lastMonthlyReset) + useReceiptStore (receipts, feeds the Monthly tab's spend-pace line).
+ *             list's locked/isTemplate state) + useMonthlyListStore (Monthly lists, each with
+ *             its own budgetNok/lastReset/locked) + useSettingsStore (monthlyResetDate — still
+ *             one global payday-boundary date, shared by every Monthly list) + useReceiptStore
+ *             (receipts, each list's own pace line filters by monthlyListId).
  *             CatalogueTab/WeekListCard/FoodTab read useCatalogStore internally (loaded at
  *             startup by app/_layout.tsx). FoodTab additionally drives useMealStore.
  *
  * Edit notes:
- *   - **Spend-pace line (2026-07-22)**: the Monthly tab's header row now shows a `shoppingPace`
- *     figure (actual kr/day since lastMonthlyReset vs. budgeted kr/day for the payday-to-payday
- *     period) under the title/Budget-pill row, via lib/budget.ts's computeSpendPace() — the same
- *     calculation and copy (`t.budget.perDaySpend`) as app/budget.tsx's own pace row and the Home
- *     Shopping preview card (components/HomeShoppingCard.tsx). Hidden (returns null) when no
- *     budget is set or no monthly reset has happened yet.
+ *   - **Spend-pace line (2026-07-22, made per-list later the same day)**: each Monthly list
+ *     card shows its OWN pace figure (`view.pace` inside `monthlyListViews`, actual kr/day
+ *     since that list's own lastReset vs. its own budgetedNok, paced over the payday-to-payday
+ *     period) under its header row, via lib/budget.ts's computeSpendPace() fed only that
+ *     list's receipts (useReceiptStore rows tagged with its id) — same calculation/copy
+ *     (`t.budget.perDaySpend`) as app/budget.tsx's own pace row for that list. The Home Shopping
+ *     preview card (components/HomeShoppingCard.tsx) shows one AGGREGATE figure instead (summed
+ *     budget vs. every tagged receipt) — see app/(tabs)/index.tsx's shoppingPace memo. Hidden
+ *     (returns null) for a list with no budget set or that's never been reset.
  *   - **Weekly redesign: week sections + per-list draft save/discard (2026-07-22)**: the
  *     Weekly tab's lists are no longer a flat `nonTemplateLists.map`. `listsByWeek`
  *     (useMemo, keyed 1-4 via `weekOfMonthlyCycle`) buckets them into one section per week
@@ -215,10 +222,23 @@
  *     ConfirmationBanner is a plain absolutely-positioned overlay (not a `<Modal>` like
  *     the sheets below it), so nesting it in scrollable content would make it scroll
  *     away instead of staying fixed near the top of the screen.
- *   - Monthly/Katalog tab is a light, functional but NOT redesigned port (Decision 011
- *     A2-3: "Monthly stays... untouched by A2-2"; A2-1/A2-4 only target the weekly tab
- *     per Decision 011's own grounding note) — Surface replaces the old Container, but
- *     the section order/behavior is otherwise unchanged from the old app.
+ *   - **Shopping — Monthly redesign (2026-07-22)**: the Monthly tab was previously a single
+ *     lock-gated global Katalog card (Decision 011 A2-3 had left it a light, unredesigned
+ *     port). It now renders `monthlyListViews` (one view-model per store/useMonthlyListStore.ts
+ *     row) — each list gets the SAME full section layout the old single card had (dish groups,
+ *     ungrouped rows, add-item/add-dish triggers, purchased-this-month), just scoped by
+ *     `monthlyListId`. The shared name+category filter bar sits once above every card, not
+ *     once per card. `catalogLockedSession`/Decision 029's session-only lock is GONE — each
+ *     list's lock is now persisted (`monthly_lists.locked`), same as weekly's
+ *     `shopping_lists.locked` (a deliberate behavior change: a locked Monthly list now stays
+ *     locked across an app restart, where the old single card always re-locked on cold start).
+ *     Each list also gets its own lightweight manual reset (`resetListConfirmId` →
+ *     `resetMonthlyList(listId)`, no review sheet) alongside a relocated "reset ALL lists"
+ *     link at the bottom of the tab, which still opens the full interactive
+ *     MonthlyResetReviewSheet (weekly-list keep/discard + inventory qty) — the same flow the
+ *     automatic payday-boundary trigger uses. Existing users' single Katalog + its budget/
+ *     lastReset migrate onto one auto-created "Monthly" default list (see lib/db.ts's
+ *     migrations) so nothing is lost.
  *   - Decision 011a/R4 dish-checkbox wiring (2026-07-02, Phase 4): this session flagged
  *     dish groups as "read-only... no parent/child checkbox binding attempted." Closed
  *     now — toggleDish() here is the bulk roll-up/roll-down action R4 calls for, reusing
@@ -245,6 +265,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore';
+import { useMonthlyListStore, MonthlyList } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
@@ -275,6 +296,7 @@ import IconButton from '@/components/IconButton';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TabBoxHighlight from '@/components/TabBoxHighlight';
+import NewMonthlyListRow from '@/components/NewMonthlyListRow';
 import { success, heavy, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
@@ -290,17 +312,6 @@ import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
 
 type Tab = 'weekly' | 'monthly' | 'food' | 'catalogue';
-
-/**
- * Decision 029 — catalog lock persistence. The Monthly catalog's lock is a
- * session-scoped convenience lock (distinct from week-list locks, which are
- * per-row persisted in `shopping_lists.locked`). Holding it at module level lets
- * it survive in-session navigation away from and back to this screen, while a
- * fresh module evaluation on cold start re-locks it. Deliberately NOT a SQLite
- * column — persisting it would wrongly survive an app restart, contradicting
- * "re-lock on launch."
- */
-let catalogLockedSession = true;
 
 // Reserved sticky-bar height — just the tab row now (the focused-list name + progress summary
 // row under the tabs was removed 2026-07-21). Matches Plans so the tab→first-card gap is
@@ -354,23 +365,22 @@ export default function ShoppingScreen() {
   const [resetReviewVisible, setResetReviewVisible] = useState(false);
   const [savedListsListId, setSavedListsListId] = useState<string | null>(null);
   const [listSettingsListId, setListSettingsListId] = useState<string | null>(null);
-  // Decision 029: seed from the module-level session flag so the lock state survives
-  // navigating away and back; the setter mirrors every change back to it so it outlives
-  // this screen's mount but not the process (cold start re-evaluates the module → locked).
-  const [catalogLocked, setCatalogLockedState] = useState(catalogLockedSession);
-  const setCatalogLocked = useCallback((next: boolean | ((v: boolean) => boolean)) => {
-    setCatalogLockedState((prev) => {
-      const resolved = typeof next === 'function' ? (next as (v: boolean) => boolean)(prev) : next;
-      catalogLockedSession = resolved;
-      return resolved;
-    });
-  }, []);
   const [updateItem, setUpdateItem] = useState<ShoppingItem | null>(null);
+  // Global "reset every Monthly list now" confirm (relocated 2026-07-22 — see the header's
+  // Monthly-lists edit note). Distinct from resetListConfirmId below, which is one list's
+  // own lightweight manual reset.
   const [resetConfirmVisible, setResetConfirmVisible] = useState(false);
   // Monthly tab's name+category filter (category was previously display-only — a tag +
   // cluster divider — this makes it an actual filter, same ShoppingFilterBar Weekly uses).
+  // Shared across every Monthly list card (one search box, not one per list — 2026-07-22).
   const [monthlyTabSearch, setMonthlyTabSearch] = useState('');
   const [monthlyTabCategory, setMonthlyTabCategory] = useState<string | null>(null);
+  // One list's lightweight "reset this list" confirm — id of the list being confirmed, or null.
+  const [resetListConfirmId, setResetListConfirmId] = useState<string | null>(null);
+  // Tap-to-edit name field, per Monthly list (mirrors WeekListCard's nameEditing/nameInput
+  // pattern) — id of the list currently being renamed, or null.
+  const [editingMonthlyListId, setEditingMonthlyListId] = useState<string | null>(null);
+  const [monthlyListNameInput, setMonthlyListNameInput] = useState('');
 
   // ── Card collapse (2026-07-22 redesign: collapsed by default) ──
   const [expandedListIds, setExpandedListIds] = useState<Record<string, boolean>>({});
@@ -439,16 +449,22 @@ export default function ShoppingScreen() {
   const adjustAmount = useShoppingStore((s) => s.adjustAmount);
   const doneShopping = useShoppingStore((s) => s.doneShopping);
   const monthlyReset = useShoppingStore((s) => s.monthlyReset);
+  const resetMonthlyList = useShoppingStore((s) => s.resetMonthlyList);
   const buildMonthlyResetSummary = useShoppingStore((s) => s.buildMonthlyResetSummary);
   const reorderItem = useShoppingStore((s) => s.reorder);
   const mergeItems = useShoppingStore((s) => s.mergeItems);
   const recentlyAddedIds = useShoppingStore((s) => s.recentlyAddedIds);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
-  const monthlyBudgetNok = useSettingsStore((s) => s.monthlyBudgetNok);
-  const lastMonthlyReset = useSettingsStore((s) => s.lastMonthlyReset);
   const receipts = useReceiptStore((s) => s.receipts);
   const language = useSettingsStore((s) => s.language);
+
+  const monthlyLists = useMonthlyListStore((s) => s.lists);
+  const addMonthlyList = useMonthlyListStore((s) => s.add);
+  const renameMonthlyList = useMonthlyListStore((s) => s.rename);
+  const toggleMonthlyListLocked = useMonthlyListStore((s) => s.toggleLocked);
+  const removeMonthlyList = useMonthlyListStore((s) => s.remove);
+  const stampAllMonthlyListsReset = useMonthlyListStore((s) => s.stampAllReset);
 
   const lists = useShoppingListStore((s) => s.lists);
   const renameList = useShoppingListStore((s) => s.rename);
@@ -509,7 +525,10 @@ export default function ShoppingScreen() {
     }, [loadShopping, advanceRecurringLists, resetReviewVisible])
   );
 
-  const catalogItems = useMemo(
+  // Flat, all-lists-combined catalog — used only by AddFromMonthlyModal (Weekly's "Add from
+  // monthly" popup groups these by list itself) and MonthlyResetReviewSheet's whole-household
+  // inventory review. Per-list rendering below uses monthlyListViews instead.
+  const allCatalogItems = useMemo(
     () => items.filter((i) => i.status === 'catalog').sort((a, b) => a.name.localeCompare(b.name)),
     [items]
   );
@@ -521,38 +540,44 @@ export default function ShoppingScreen() {
     }
     return counts;
   }, [items]);
-  // Monthly tab's name+category filter narrows what's *visible* — monthlyTotal below still
-  // sums the full unfiltered catalogItems.
-  const filteredCatalogItems = useMemo(() => {
-    const q = monthlyTabSearch.trim().toLowerCase();
-    return catalogItems.filter(
-      (i) => (!q || i.name.toLowerCase().includes(q)) && (monthlyTabCategory == null || i.category === monthlyTabCategory)
-    );
-  }, [catalogItems, monthlyTabSearch, monthlyTabCategory]);
-  const { dishGroups: catalogDishGroups, ungrouped: ungroupedRestItems } = useMemo(
-    () => groupByDish(filteredCatalogItems),
-    [filteredCatalogItems]
-  );
-  // Category clusters for Monthly's ungrouped rows only — Weekly's own ungroupedUnchecked
-  // keeps its user-dragged orderIndex order instead (see lib/shoppingGroups.ts note). Skipped
-  // once a specific category is picked in the filter bar — every row already shares that one
-  // category, so a divider would be redundant.
-  const ungroupedCategoryGroups = useMemo(
-    () => (monthlyTabCategory == null ? groupByCategory(ungroupedRestItems) : []),
-    [ungroupedRestItems, monthlyTabCategory]
-  );
 
-  // Running total of the curated Monthly list (price × targetQuantity per row).
-  const monthlyTotal = useMemo(
-    () => catalogItems.reduce((sum, i) => sum + i.price * i.targetQuantity, 0),
-    [catalogItems]
-  );
-  // Spend-vs-budget pace (Decision 026), shared with app/budget.tsx and the Home Shopping
-  // preview card via lib/budget.ts's computeSpendPace() — null when no budget is set yet.
-  const shoppingPace = useMemo(
-    () => computeSpendPace(receipts, monthlyBudgetNok, monthlyResetDate, lastMonthlyReset),
-    [receipts, monthlyBudgetNok, monthlyResetDate, lastMonthlyReset]
-  );
+  // Shopping — Monthly redesign (2026-07-22): one view-model per named Monthly list, each
+  // scoped by monthlyListId — replaces the old single-catalog memos above. The name+category
+  // filter (monthlyTabSearch/monthlyTabCategory) is shared across every list's card (one
+  // search box, not one per list) but narrows each list's *visible* rows independently;
+  // monthlyTotal still sums that list's full unfiltered catalog. Each list's spend-pace
+  // (lib/budget.ts's computeSpendPace()) uses its OWN budgetNok/lastReset and only the
+  // receipts tagged to it (useReceiptStore's monthlyListId) — null until that list has a
+  // budget set and has been through at least one reset (same contract as before, now per list).
+  const monthlyListViews = useMemo(() => {
+    const q = monthlyTabSearch.trim().toLowerCase();
+    return monthlyLists.map((list) => {
+      const catalogItems = items
+        .filter((i) => i.status === 'catalog' && i.monthlyListId === list.id)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      const filteredCatalogItems = catalogItems.filter(
+        (i) => (!q || i.name.toLowerCase().includes(q)) && (monthlyTabCategory == null || i.category === monthlyTabCategory)
+      );
+      const { dishGroups: catalogDishGroups, ungrouped: ungroupedRestItems } = groupByDish(filteredCatalogItems);
+      // Skipped once a specific category is picked — every visible row already shares that
+      // one category, so a cluster divider would be redundant (mirrors the old single-list logic).
+      const ungroupedCategoryGroups = monthlyTabCategory == null ? groupByCategory(ungroupedRestItems) : [];
+      const monthlyTotal = catalogItems.reduce((sum, i) => sum + i.price * i.targetQuantity, 0);
+      const purchasedByTrip = trips
+        .map((trip) => ({
+          trip,
+          tripItems: items.filter((i) => i.status === 'purchased' && i.shoppingTripId === trip.id && i.monthlyListId === list.id),
+        }))
+        .filter((g) => g.tripItems.length > 0);
+      const listReceipts = receipts.filter((r) => r.monthlyListId === list.id);
+      const pace = computeSpendPace(listReceipts, list.budgetNok, monthlyResetDate, list.lastReset);
+      return { list, catalogItems, filteredCatalogItems, catalogDishGroups, ungroupedRestItems, ungroupedCategoryGroups, monthlyTotal, purchasedByTrip, pace };
+    });
+  }, [monthlyLists, items, trips, receipts, monthlyTabSearch, monthlyTabCategory, monthlyResetDate]);
+  // Whether ANY list currently has an item — gates showing the shared search/category bar,
+  // mirroring the old single-list `catalogItems.length > 0` gate.
+  const anyMonthlyItems = useMemo(() => monthlyListViews.some((v) => v.catalogItems.length > 0), [monthlyListViews]);
+
   // Weekly "Unallocated" bucket — dish ingredients pushed to the week from the Food tab
   // that haven't been assigned to a dated list yet (status inWeeklyList, sentinel listId).
   const unallocatedItems = useMemo(
@@ -563,13 +588,6 @@ export default function ShoppingScreen() {
     () => groupByDish(unallocatedItems),
     [unallocatedItems]
   );
-
-  const purchasedByTrip = useMemo(() => {
-    const purchased = items.filter((i) => i.status === 'purchased' && i.shoppingTripId);
-    return trips
-      .map((trip) => ({ trip, tripItems: purchased.filter((i) => i.shoppingTripId === trip.id) }))
-      .filter((g) => g.tripItems.length > 0);
-  }, [items, trips]);
 
   const ukelisteBadge = useMemo(
     () =>
@@ -640,8 +658,8 @@ export default function ShoppingScreen() {
     ]);
   }
 
-  function handleAddItem(input: { name: string; price: number; targetQuantity: number; isTemporary: boolean; category?: string }) {
-    add({ name: input.name, amount: '1', unit: '', listType: 'monthly', store: '', price: input.price, inventoryQty: 0, isTemporary: input.isTemporary, targetQuantity: input.targetQuantity, status: 'catalog', category: input.category });
+  function handleAddItem(listId: string, input: { name: string; price: number; targetQuantity: number; isTemporary: boolean; category?: string }) {
+    add({ name: input.name, amount: '1', unit: '', listType: 'monthly', store: '', price: input.price, inventoryQty: 0, isTemporary: input.isTemporary, targetQuantity: input.targetQuantity, status: 'catalog', category: input.category, monthlyListId: listId });
     success();
     setConfirm(t.itemAddedToInventory(input.name));
   }
@@ -742,6 +760,10 @@ export default function ShoppingScreen() {
     ]);
   }
 
+  /** "Reset all Monthly lists now" — the full interactive review flow (weekly-list
+   *  keep/discard + inventory qty), relocated out of the single old Monthly card's header
+   *  now that there are multiple list cards. Still the same flow the automatic
+   *  payday-boundary trigger opens. */
   function handleManualMonthlyReset() {
     warning();
     setResetConfirmVisible(true);
@@ -752,16 +774,51 @@ export default function ShoppingScreen() {
     setResetReviewVisible(true);
   }
 
-  /** Finalizes the monthly reset — fired by MonthlyResetReviewSheet's Skip (empty array)
-   *  or Confirm (chosen discards). Discards run first so buildMonthlyResetSummary()/
+  /** Finalizes the ALL-lists monthly reset — fired by MonthlyResetReviewSheet's Skip (empty
+   *  array) or Confirm (chosen discards). Discards run first so buildMonthlyResetSummary()/
    *  monthlyReset() see final list state, though order doesn't actually matter functionally
-   *  since monthlyReset() filters by item status, not list_id. */
+   *  since monthlyReset() filters by item status, not list_id. Stamps every Monthly list's
+   *  own lastReset (drives each list's own spend-pace — see store/useMonthlyListStore.ts)
+   *  AND the global settings.lastMonthlyReset, which is kept write-only here purely as the
+   *  once-per-period bookkeeping flag the automatic payday-boundary detection above reads
+   *  (settings.monthlyBudgetNok, the OTHER half of the old global pair, is genuinely unused
+   *  now — budget is per list). */
   function finalizeMonthlyReset(discardedListIds: string[]) {
     discardedListIds.forEach(removeList);
     setResetSummary(buildMonthlyResetSummary());
     monthlyReset();
+    stampAllMonthlyListsReset(todayStr());
     updateSettings({ lastMonthlyReset: todayStr() });
     setResetReviewVisible(false);
+  }
+
+  /** One list's own lightweight "reset this list" — no review sheet, just this list's
+   *  catalog/purchased/temporary items back to a clean slate (see resetMonthlyList's header
+   *  note for exactly what moves). */
+  function handleResetOneList(listId: string) {
+    resetMonthlyList(listId);
+    useMonthlyListStore.getState().update(listId, { lastReset: todayStr() });
+    heavy();
+    setResetListConfirmId(null);
+  }
+
+  function handleDeleteMonthlyList(listId: string) {
+    warning();
+    showAppModal(t.deleteListConfirmTitle, t.deleteListConfirmBody, [
+      { text: t.cancel, style: 'cancel' },
+      { text: t.deleteList, style: 'destructive', onPress: () => removeMonthlyList(listId) },
+    ]);
+  }
+
+  function startMonthlyListNameEdit(list: MonthlyList) {
+    setMonthlyListNameInput(list.name);
+    setEditingMonthlyListId(list.id);
+  }
+
+  function commitMonthlyListRename(list: MonthlyList) {
+    const trimmed = monthlyListNameInput.trim();
+    if (trimmed && trimmed !== list.name) renameMonthlyList(list.id, trimmed);
+    setEditingMonthlyListId(null);
   }
 
   // ── Per-list draft snapshot: capture/clear/save/discard/revert + lock-confirm ──
@@ -1224,213 +1281,271 @@ export default function ShoppingScreen() {
         {shoppingIntro}
 
         {tab === 'monthly' && (
-          <Surface style={styles.catalogCard}>
-            {/* Title on the left groups with the reset/lock actions on the right
-                (space-between) — the previous right-aligned-only layout left a big empty
-                gap between the tab label and the icons (2026-07-12 redesign). */}
-            <View style={styles.catalogHeaderRow}>
-              <Text style={[styles.catalogHeaderTitle, { color: theme.text }]}>{t.monthlyListSection}</Text>
-              <View style={styles.catalogHeaderActions}>
-                <PressableScale
-                  style={[styles.budgetPill, { borderColor: theme.featBudget }]}
-                  onPress={() => router.push('/budget')}
-                  accessibilityRole="button"
-                  accessibilityLabel={t.budget.title}
-                  hitSlop={6}
-                  scaleTo={0.97}
-                >
-                  <Ionicons name="wallet-outline" size={14} color={theme.featBudget} />
-                  <Text style={[styles.budgetPillText, { color: theme.featBudget }]}>{t.budget.title}</Text>
-                </PressableScale>
-                <PressableScale
-                  style={styles.resetIconBtn}
-                  onPress={handleManualMonthlyReset}
-                  hitSlop={6}
-                  accessibilityLabel={t.resetMonthlyListAction}
-                  scaleTo={0.93}
-                >
-                  <Ionicons name="refresh-circle" size={32} color={theme.bad} />
-                </PressableScale>
-                <IconButton
-                  icon={catalogLocked ? 'lock-closed' : 'lock-open-outline'}
-                  label={catalogLocked ? t.unlockListButtonLabel : t.lockListButtonLabel}
-                  onPress={() => setCatalogLocked((v) => !v)}
-                  active={catalogLocked}
-                />
-              </View>
-            </View>
-
-            {shoppingPace && (
-              <Text style={[styles.spendPaceText, { color: shoppingPace.overPace ? theme.warn : theme.good }]}>
-                {t.budget.perDaySpend(String(Math.round(shoppingPace.actualPerDay)), String(Math.round(shoppingPace.budgetedPerDay)))}
-              </Text>
+          <>
+            {/* Shared name+category filter — one search box narrows every list's visible
+                rows at once, rather than one filter bar per card (2026-07-22 redesign). */}
+            {anyMonthlyItems && (
+              <ShoppingFilterBar
+                search={monthlyTabSearch}
+                onSearchChange={setMonthlyTabSearch}
+                category={monthlyTabCategory}
+                onCategoryChange={setMonthlyTabCategory}
+                placeholder={t.monthlyPreviewSearchPlaceholder}
+              />
             )}
 
-            <View style={styles.bodyGap}>
-              {/* SECTION 1 — Monthly list (things the user has added) */}
-              <View style={styles.section}>
-                <View style={[styles.sectionTitleCard, { backgroundColor: theme.surfaceMuted }]}>
-                  <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.monthlyListSection}</Text>
-                </View>
-                {catalogItems.length > 0 && (
-                  <ShoppingFilterBar
-                    search={monthlyTabSearch}
-                    onSearchChange={setMonthlyTabSearch}
-                    category={monthlyTabCategory}
-                    onCategoryChange={setMonthlyTabCategory}
-                    placeholder={t.monthlyPreviewSearchPlaceholder}
-                  />
-                )}
-                {catalogItems.length === 0 ? (
-                  <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.monthlyListEmpty}</Text>
-                ) : filteredCatalogItems.length === 0 ? (
-                  <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.monthlyPreviewEmpty}</Text>
-                ) : (
-                  <>
-                    {catalogDishGroups.length > 0 && (
-                      <View style={styles.dishGroupsWrap}>
-                        {catalogDishGroups.map(([dishName, groupItems]) => (
-                          <ExpandableCard key={dishName} title={dishName} subtitle={t.ingredientsCount(groupItems.length)} accentColor={theme.accent} defaultOpen={false}>
-                            {groupItems.map((item, idx) => (
-                              <View key={item.id}>
-                                <MonthlyTableRow
-                                  item={item}
-                                  onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
-                                  onPress={!catalogLocked ? () => setUpdateItem(item) : undefined}
-                                  onIncrement={!catalogLocked ? () => handleMonthlyQty(item, 1) : undefined}
-                                  onDecrement={!catalogLocked ? () => handleMonthlyQty(item, -1) : undefined}
-                                  onRemove={!catalogLocked ? () => removeWithSource(item.id) : undefined}
-                                  temporaryLabel={t.temporaryBadge}
-                                />
-                                {idx < groupItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
-                              </View>
-                            ))}
-                          </ExpandableCard>
-                        ))}
-                      </View>
-                    )}
-                    {ungroupedRestItems.length > 0 && (
-                      // More than one category present → cluster with a quiet caption divider
-                      // per category; otherwise (the common case — nobody's categorised
-                      // anything yet) render flat, same as before, with no extra chrome.
-                      ungroupedCategoryGroups.length > 1 ? (
-                        ungroupedCategoryGroups.map(([catKey, catItems]) => (
-                          <View key={catKey}>
-                            <Text style={[styles.categoryClusterLabel, { color: theme.textMuted }]}>
-                              {categoryLabel(t, catKey)}
-                            </Text>
-                            <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                              {catItems.map((item, idx) => (
-                                <View key={item.id}>
-                                  <MonthlyTableRow
-                                    item={item}
-                                    onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
-                                    onPress={!catalogLocked ? () => setUpdateItem(item) : undefined}
-                                    onIncrement={!catalogLocked ? () => handleMonthlyQty(item, 1) : undefined}
-                                    onDecrement={!catalogLocked ? () => handleMonthlyQty(item, -1) : undefined}
-                                    onRemove={!catalogLocked ? () => removeWithSource(item.id) : undefined}
-                                    temporaryLabel={t.temporaryBadge}
-                                  />
-                                  {idx < catItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
-                                </View>
-                              ))}
-                            </View>
-                          </View>
-                        ))
-                      ) : (
-                        <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                          {ungroupedRestItems.map((item, idx) => (
-                            <View key={item.id}>
-                              <MonthlyTableRow
-                                item={item}
-                                onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
-                                onPress={!catalogLocked ? () => setUpdateItem(item) : undefined}
-                                onIncrement={!catalogLocked ? () => handleMonthlyQty(item, 1) : undefined}
-                                onDecrement={!catalogLocked ? () => handleMonthlyQty(item, -1) : undefined}
-                                onRemove={!catalogLocked ? () => removeWithSource(item.id) : undefined}
-                                temporaryLabel={t.temporaryBadge}
-                              />
-                              {idx < ungroupedRestItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
-                            </View>
-                          ))}
-                        </View>
-                      )
-                    )}
-                    {monthlyTotal > 0 && (
-                      <Text style={[styles.totalLine, { color: theme.text }]}>{t.monthlyListTotal(formatKr(monthlyTotal, 0))}</Text>
-                    )}
-                  </>
-                )}
-                {/* Add an item straight to the Monthly list. The full item catalogue now
-                    lives in its own "Catalogue" tab (CatalogueTab); this keeps a direct
-                    add-to-monthly affordance where the catalogue section used to sit.
-                    Design-consistency pass: a bordered trigger pill (opens the AddItemSheet)
-                    matching WeekListCard's "Add from monthly list" trigger — one shared shape
-                    for "tap to open a fuller add flow", instead of the old circular AddFAB
-                    bubble that read as a third, different add affordance on this screen. */}
-                {!catalogLocked && (
-                  <>
-                    {/* "+ Add item" collapses to a bar and expands into the full add form IN
-                        PLACE (no modal) — the multi-field counterpart to components/AddRow, so
-                        adding to Monthly uses the same "+ makes a new row, with Add/Discard"
-                        affordance as everywhere else. Replaced the AddItemSheet modal
-                        (2026-07-19). */}
-                    <InlineAddItem
-                      label={t.catalogueAddNewBtn}
-                      onAdd={handleAddItem}
-                      categories={categoryPresets(t)}
-                      style={styles.addItemSpacing}
-                    />
-                    {/* Add a whole dish (its ingredients) to the Monthly list in place — the
-                        in-tab counterpart to the Food tab's "Add to monthly list", so meals can
-                        be planned for the month without leaving this tab. */}
-                    <PressableScale
-                      style={[styles.addTrigger, styles.addItemSpacing, { borderColor: theme.accent }]}
-                      onPress={() => setDishSheetTarget({ mode: 'monthly' })}
-                      accessibilityRole="button"
-                      accessibilityLabel={t.addDishBtn}
-                      scaleTo={0.97}
-                    >
-                      <Ionicons name="restaurant-outline" size={16} color={theme.accent} />
-                      <Text style={[styles.addTriggerText, { color: theme.accent }]}>{t.addDishBtn}</Text>
-                    </PressableScale>
-                  </>
-                )}
-              </View>
-
-              {purchasedByTrip.length > 0 && (
-                <View style={styles.section}>
-                  <View style={[styles.sectionTitleCard, { backgroundColor: theme.surfaceMuted }]}>
-                    <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.purchasedThisMonthSection}</Text>
-                  </View>
-                  {purchasedByTrip.map(({ trip, tripItems }) => {
-                    const expanded = purchasedExpanded === trip.id;
-                    return (
-                      <View key={trip.id}>
-                        <PressableScale style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]} onPress={() => setPurchasedExpanded(expanded ? null : trip.id)} scaleTo={0.97}>
-                          <Text style={[styles.weekLabel, { color: theme.textMuted }]}>{trip.label}</Text>
-                          <Text style={[styles.disclosureChevron, { color: theme.textMuted }]}>{expanded ? '▲' : '▼'}</Text>
-                        </PressableScale>
-                        {expanded && (
-                          // Decision 043 rule 1: this already sits inside the Monthly tab's
-                          // outer Surface (catalogCard) — plain View + theme.surface fill,
-                          // matching every sibling rowsCard, instead of a second glass layer.
-                          <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                            {tripItems.map((item, idx) => (
-                              <View key={item.id}>
-                                <ShoppingRow item={item} variant="purchased" onToggle={() => {}} onRemove={() => removeWithSource(item.id)} />
-                                {idx < tripItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
-                              </View>
-                            ))}
-                          </View>
+            {monthlyListViews.length === 0 ? (
+              <Surface style={styles.catalogCard}>
+                <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+                  {t.monthlyListsEmpty}
+                </Text>
+              </Surface>
+            ) : (
+              monthlyListViews.map((view) => {
+                const list = view.list;
+                const locked = list.locked;
+                return (
+                  <Surface key={list.id} style={styles.catalogCard}>
+                    {/* Title on the left groups with the reset/lock actions on the right
+                        (space-between) — the previous right-aligned-only layout left a big empty
+                        gap between the tab label and the icons (2026-07-12 redesign). */}
+                    <View style={styles.catalogHeaderRow}>
+                      <View style={styles.monthlyNameWrap}>
+                        {editingMonthlyListId === list.id ? (
+                          <TextInput
+                            style={[styles.monthlyNameInput, { color: theme.text, borderColor: theme.border }]}
+                            value={monthlyListNameInput}
+                            onChangeText={setMonthlyListNameInput}
+                            placeholder={t.newMonthlyListNamePlaceholder}
+                            placeholderTextColor={theme.textMuted}
+                            onSubmitEditing={() => commitMonthlyListRename(list)}
+                            onBlur={() => commitMonthlyListRename(list)}
+                            returnKeyType="done"
+                            autoFocus
+                          />
+                        ) : (
+                          <PressableScale
+                            onPress={() => !locked && startMonthlyListNameEdit(list)}
+                            style={styles.monthlyNamePreviewBtn}
+                            scaleTo={0.98}
+                            disabled={locked}
+                          >
+                            <Text style={[styles.catalogHeaderTitle, { color: theme.text }]} numberOfLines={1}>{list.name}</Text>
+                          </PressableScale>
                         )}
                       </View>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          </Surface>
+                      <View style={styles.catalogHeaderActions}>
+                        <PressableScale
+                          style={[styles.budgetPill, { borderColor: theme.featBudget }]}
+                          onPress={() => router.push({ pathname: '/budget', params: { listId: list.id } })}
+                          accessibilityRole="button"
+                          accessibilityLabel={t.budget.title}
+                          hitSlop={6}
+                          scaleTo={0.97}
+                        >
+                          <Ionicons name="wallet-outline" size={14} color={theme.featBudget} />
+                          <Text style={[styles.budgetPillText, { color: theme.featBudget }]}>{t.budget.title}</Text>
+                        </PressableScale>
+                        <PressableScale
+                          style={styles.resetIconBtn}
+                          onPress={() => { warning(); setResetListConfirmId(list.id); }}
+                          hitSlop={6}
+                          accessibilityLabel={t.resetMonthlyListAction}
+                          scaleTo={0.93}
+                        >
+                          <Ionicons name="refresh-circle" size={32} color={theme.bad} />
+                        </PressableScale>
+                        <IconButton
+                          icon={locked ? 'lock-closed' : 'lock-open-outline'}
+                          label={locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
+                          onPress={() => toggleMonthlyListLocked(list.id)}
+                          active={locked}
+                        />
+                        {!locked && (
+                          <IconButton
+                            icon="trash-outline"
+                            label={t.deleteMonthlyListAction}
+                            onPress={() => handleDeleteMonthlyList(list.id)}
+                          />
+                        )}
+                      </View>
+                    </View>
+
+                    {view.pace && (
+                      <Text style={[styles.spendPaceText, { color: view.pace.overPace ? theme.warn : theme.good }]}>
+                        {t.budget.perDaySpend(String(Math.round(view.pace.actualPerDay)), String(Math.round(view.pace.budgetedPerDay)))}
+                      </Text>
+                    )}
+
+                    <View style={styles.bodyGap}>
+                      {/* SECTION 1 — this list's items (things the user has added) */}
+                      <View style={styles.section}>
+                        <View style={[styles.sectionTitleCard, { backgroundColor: theme.surfaceMuted }]}>
+                          <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.monthlyListSection}</Text>
+                        </View>
+                        {view.catalogItems.length === 0 ? (
+                          <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.monthlyListEmpty}</Text>
+                        ) : view.filteredCatalogItems.length === 0 ? (
+                          <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.monthlyPreviewEmpty}</Text>
+                        ) : (
+                          <>
+                            {view.catalogDishGroups.length > 0 && (
+                              <View style={styles.dishGroupsWrap}>
+                                {view.catalogDishGroups.map(([dishName, groupItems]) => (
+                                  <ExpandableCard key={dishName} title={dishName} subtitle={t.ingredientsCount(groupItems.length)} accentColor={theme.accent} defaultOpen={false}>
+                                    {groupItems.map((item, idx) => (
+                                      <View key={item.id}>
+                                        <MonthlyTableRow
+                                          item={item}
+                                          onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
+                                          onPress={!locked ? () => setUpdateItem(item) : undefined}
+                                          onIncrement={!locked ? () => handleMonthlyQty(item, 1) : undefined}
+                                          onDecrement={!locked ? () => handleMonthlyQty(item, -1) : undefined}
+                                          onRemove={!locked ? () => removeWithSource(item.id) : undefined}
+                                          temporaryLabel={t.temporaryBadge}
+                                        />
+                                        {idx < groupItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+                                      </View>
+                                    ))}
+                                  </ExpandableCard>
+                                ))}
+                              </View>
+                            )}
+                            {view.ungroupedRestItems.length > 0 && (
+                              // More than one category present → cluster with a quiet caption divider
+                              // per category; otherwise (the common case — nobody's categorised
+                              // anything yet) render flat, same as before, with no extra chrome.
+                              view.ungroupedCategoryGroups.length > 1 ? (
+                                view.ungroupedCategoryGroups.map(([catKey, catItems]) => (
+                                  <View key={catKey}>
+                                    <Text style={[styles.categoryClusterLabel, { color: theme.textMuted }]}>
+                                      {categoryLabel(t, catKey)}
+                                    </Text>
+                                    <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                                      {catItems.map((item, idx) => (
+                                        <View key={item.id}>
+                                          <MonthlyTableRow
+                                            item={item}
+                                            onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
+                                            onPress={!locked ? () => setUpdateItem(item) : undefined}
+                                            onIncrement={!locked ? () => handleMonthlyQty(item, 1) : undefined}
+                                            onDecrement={!locked ? () => handleMonthlyQty(item, -1) : undefined}
+                                            onRemove={!locked ? () => removeWithSource(item.id) : undefined}
+                                            temporaryLabel={t.temporaryBadge}
+                                          />
+                                          {idx < catItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+                                        </View>
+                                      ))}
+                                    </View>
+                                  </View>
+                                ))
+                              ) : (
+                                <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                                  {view.ungroupedRestItems.map((item, idx) => (
+                                    <View key={item.id}>
+                                      <MonthlyTableRow
+                                        item={item}
+                                        onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
+                                        onPress={!locked ? () => setUpdateItem(item) : undefined}
+                                        onIncrement={!locked ? () => handleMonthlyQty(item, 1) : undefined}
+                                        onDecrement={!locked ? () => handleMonthlyQty(item, -1) : undefined}
+                                        onRemove={!locked ? () => removeWithSource(item.id) : undefined}
+                                        temporaryLabel={t.temporaryBadge}
+                                      />
+                                      {idx < view.ungroupedRestItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+                                    </View>
+                                  ))}
+                                </View>
+                              )
+                            )}
+                            {view.monthlyTotal > 0 && (
+                              <Text style={[styles.totalLine, { color: theme.text }]}>{t.monthlyListTotal(formatKr(view.monthlyTotal, 0))}</Text>
+                            )}
+                          </>
+                        )}
+                        {/* Add an item straight to this list. The full item catalogue now
+                            lives in its own "Catalogue" tab (CatalogueTab); this keeps a direct
+                            add-to-monthly affordance where the catalogue section used to sit.
+                            Design-consistency pass: a bordered trigger pill (opens the AddItemSheet)
+                            matching WeekListCard's "Add from monthly list" trigger — one shared shape
+                            for "tap to open a fuller add flow", instead of the old circular AddFAB
+                            bubble that read as a third, different add affordance on this screen. */}
+                        {!locked && (
+                          <>
+                            {/* "+ Add item" collapses to a bar and expands into the full add form IN
+                                PLACE (no modal) — the multi-field counterpart to components/AddRow, so
+                                adding to Monthly uses the same "+ makes a new row, with Add/Discard"
+                                affordance as everywhere else. Replaced the AddItemSheet modal
+                                (2026-07-19). */}
+                            <InlineAddItem
+                              label={t.catalogueAddNewBtn}
+                              onAdd={(input) => handleAddItem(list.id, input)}
+                              categories={categoryPresets(t)}
+                              style={styles.addItemSpacing}
+                            />
+                            {/* Add a whole dish (its ingredients) to this list in place — the
+                                in-tab counterpart to the Food tab's "Add to monthly list", so meals can
+                                be planned for the month without leaving this tab. */}
+                            <PressableScale
+                              style={[styles.addTrigger, styles.addItemSpacing, { borderColor: theme.accent }]}
+                              onPress={() => setDishSheetTarget({ mode: 'monthly', listId: list.id })}
+                              accessibilityRole="button"
+                              accessibilityLabel={t.addDishBtn}
+                              scaleTo={0.97}
+                            >
+                              <Ionicons name="restaurant-outline" size={16} color={theme.accent} />
+                              <Text style={[styles.addTriggerText, { color: theme.accent }]}>{t.addDishBtn}</Text>
+                            </PressableScale>
+                          </>
+                        )}
+                      </View>
+
+                      {view.purchasedByTrip.length > 0 && (
+                        <View style={styles.section}>
+                          <View style={[styles.sectionTitleCard, { backgroundColor: theme.surfaceMuted }]}>
+                            <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.purchasedThisMonthSection}</Text>
+                          </View>
+                          {view.purchasedByTrip.map(({ trip, tripItems }) => {
+                            const expanded = purchasedExpanded === trip.id;
+                            return (
+                              <View key={trip.id}>
+                                <PressableScale style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]} onPress={() => setPurchasedExpanded(expanded ? null : trip.id)} scaleTo={0.97}>
+                                  <Text style={[styles.weekLabel, { color: theme.textMuted }]}>{trip.label}</Text>
+                                  <Text style={[styles.disclosureChevron, { color: theme.textMuted }]}>{expanded ? '▲' : '▼'}</Text>
+                                </PressableScale>
+                                {expanded && (
+                                  // Decision 043 rule 1: this already sits inside the list's own
+                                  // outer Surface (catalogCard) — plain View + theme.surface fill,
+                                  // matching every sibling rowsCard, instead of a second glass layer.
+                                  <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                                    {tripItems.map((item, idx) => (
+                                      <View key={item.id}>
+                                        <ShoppingRow item={item} variant="purchased" onToggle={() => {}} onRemove={() => removeWithSource(item.id)} />
+                                        {idx < tripItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+                                      </View>
+                                    ))}
+                                  </View>
+                                )}
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  </Surface>
+                );
+              })
+            )}
+
+            <NewMonthlyListRow onCreate={(name) => addMonthlyList({ name })} />
+
+            {monthlyListViews.length > 0 && (
+              <PressableScale style={styles.resetAllRow} onPress={handleManualMonthlyReset} scaleTo={0.97}>
+                <Ionicons name="refresh-outline" size={14} color={theme.textMuted} />
+                <Text style={[styles.resetAllText, { color: theme.textMuted }]}>{t.resetAllMonthlyListsAction}</Text>
+              </PressableScale>
+            )}
+          </>
         )}
 
         {tab === 'weekly' && (
@@ -1593,7 +1708,8 @@ export default function ShoppingScreen() {
                               success();
                               setConfirm(t.itemAddedToList(input.name));
                             }}
-                            monthlyItems={catalogItems}
+                            monthlyItems={allCatalogItems}
+                            monthlyLists={monthlyLists}
                             onAddMonthlyItemsToWeek={(monthlyItemsToAdd) => {
                               for (const item of monthlyItemsToAdd) {
                                 addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, list.id);
@@ -1690,7 +1806,7 @@ export default function ShoppingScreen() {
         onAdded={(dishName) =>
           setConfirm(dishSheetTarget?.mode === 'weekly' ? t.dishAddedToWeek(dishName) : t.dishAddedToMonthly(dishName))
         }
-        target={dishSheetTarget ?? { mode: 'monthly' }}
+        target={dishSheetTarget ?? { mode: 'monthly', listId: monthlyLists[0]?.id ?? '' }}
       />
 
       <UpdateSheet visible={updateItem !== null} item={updateItem} onClose={() => setUpdateItem(null)} onSave={handleUpdateSave} onDelete={handleUpdateDelete} />
@@ -1699,7 +1815,7 @@ export default function ShoppingScreen() {
         visible={resetReviewVisible}
         lists={nonTemplateLists}
         itemCountByListId={itemCountByListId}
-        catalogItems={catalogItems}
+        catalogItems={allCatalogItems}
         onReorderLists={(order) => order.forEach((id, i) => useShoppingListStore.getState().update(id, { sortOrder: i }))}
         onSetInventoryQty={(id, qty) => update(id, { inventoryQty: qty })}
         onFinalize={finalizeMonthlyReset}
@@ -1748,12 +1864,36 @@ export default function ShoppingScreen() {
     <Modal visible={resetConfirmVisible} transparent animationType="fade" onRequestClose={() => setResetConfirmVisible(false)}>
       <View style={styles.dialogOverlay}>
         <View style={[styles.dialogBox, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.dialogMessage, { color: theme.text }]}>{t.resetMonthlyListConfirmTitle}</Text>
+          <Text style={[styles.dialogMessage, { color: theme.text }]}>{t.resetAllMonthlyListsConfirmTitle}</Text>
+          <Text style={[styles.dialogBody, { color: theme.textMuted }]}>{t.resetAllMonthlyListsConfirmBody}</Text>
           <View style={styles.dialogBtns}>
             <PressableScale style={[styles.dialogBtn, styles.dialogBtnNo]} onPress={() => setResetConfirmVisible(false)} scaleTo={0.97}>
               <Text style={styles.dialogBtnText}>{t.no}</Text>
             </PressableScale>
             <PressableScale style={[styles.dialogBtn, styles.dialogBtnYes]} onPress={handleConfirmReset} scaleTo={0.93}>
+              <Text style={styles.dialogBtnText}>{t.yes}</Text>
+            </PressableScale>
+          </View>
+        </View>
+      </View>
+    </Modal>
+
+    {/* One list's own lightweight "reset this list" confirm (2026-07-22) — no review sheet,
+        see resetMonthlyList's header note for exactly what it clears. */}
+    <Modal visible={resetListConfirmId !== null} transparent animationType="fade" onRequestClose={() => setResetListConfirmId(null)}>
+      <View style={styles.dialogOverlay}>
+        <View style={[styles.dialogBox, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.dialogMessage, { color: theme.text }]}>{t.resetMonthlyListConfirmTitle}</Text>
+          <Text style={[styles.dialogBody, { color: theme.textMuted }]}>{t.resetMonthlyListConfirmBody}</Text>
+          <View style={styles.dialogBtns}>
+            <PressableScale style={[styles.dialogBtn, styles.dialogBtnNo]} onPress={() => setResetListConfirmId(null)} scaleTo={0.97}>
+              <Text style={styles.dialogBtnText}>{t.no}</Text>
+            </PressableScale>
+            <PressableScale
+              style={[styles.dialogBtn, styles.dialogBtnYes]}
+              onPress={() => { if (resetListConfirmId) handleResetOneList(resetListConfirmId); }}
+              scaleTo={0.93}
+            >
               <Text style={styles.dialogBtnText}>{t.yes}</Text>
             </PressableScale>
           </View>
@@ -1865,9 +2005,26 @@ const styles = StyleSheet.create({
   addItemSpacing: { marginTop: Spacing.sm },
   resetIconBtn: { alignItems: 'center', justifyContent: 'center' },
 
+  // Shopping — Monthly redesign (2026-07-22): tap-to-edit Monthly list name, mirroring
+  // WeekListCard's nameEditing/nameInput idiom (greyed placeholder disappears once typed).
+  monthlyNameWrap: { flex: 1, minWidth: 0 },
+  monthlyNamePreviewBtn: { paddingVertical: 2 },
+  monthlyNameInput: {
+    fontFamily: Type.heading.fontFamily,
+    fontSize: Type.heading.size,
+    borderBottomWidth: 1,
+    paddingVertical: 2,
+  },
+  // Relocated global "reset every list" entry point — a quiet text row under the list
+  // cards + "+ New list", not a prominent icon (each list's own reset icon is the primary
+  // affordance now).
+  resetAllRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: Spacing.sm },
+  resetAllText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
+
   dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: Spacing.lg },
   dialogBox: { borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', maxWidth: 340, gap: Spacing.lg },
   dialogMessage: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size, textAlign: 'center' },
+  dialogBody: { fontSize: FontSize.sm, textAlign: 'center', marginTop: -Spacing.sm },
   dialogBtns: { flexDirection: 'row', gap: Spacing.sm },
   dialogBtn: { flex: 1, borderRadius: Radius.md, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.sm },
   dialogBtnNo: { backgroundColor: '#1E3A5F' },

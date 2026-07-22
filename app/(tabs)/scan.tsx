@@ -8,9 +8,9 @@
  * shopping/task payloads into the shared store.
  *
  * Connections:
- *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, lib/screenColor, store/useCatalogStore, store/useReceiptStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons), @react-navigation/material-top-tabs + @react-navigation/native (types only, for the swipeEnabled guard)
+ *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, lib/screenColor, store/useCatalogStore, store/useReceiptStore, store/useMonthlyListStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons), @react-navigation/material-top-tabs + @react-navigation/native (types only, for the swipeEnabled guard)
  *   Used by → Expo Router route "/scan" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx; reached from app/(tabs)/shopping.tsx's post-trip receipt pop-up (autoCapture)
- *   Data    → confirmed items write to FOUR stores: useShoppingStore (shopping_items) + useReceiptStore.addReceipt (receipts) + useCatalogStore.recordPurchases (purchase_log, linked via receipt_id, + store_items); QR import writes useSharedStore (shared_shopping_items / shared_tasks); scaled fontSize via useScaledStyles()
+ *   Data    → confirmed items write to FOUR stores: useShoppingStore (shopping_items) + useReceiptStore.addReceipt (receipts, tagged with a monthlyListId — Shopping/Monthly redesign 2026-07-22, picked via renderMonthlyListSelector() when 2+ Monthly lists exist) + useCatalogStore.recordPurchases (purchase_log, linked via receipt_id, + store_items); QR import writes useSharedStore (shared_shopping_items / shared_tasks); scaled fontSize via useScaledStyles()
  *
  * Edit notes:
  *   - Decision 001 tier='site' ScreenScaffold (bottomNav={false} — the tabs pager renders
@@ -72,6 +72,7 @@ import { useShoppingStore } from '@/store/useShoppingStore';
 import { useSharedStore } from '@/store/useSharedStore';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
+import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { formatKr } from '@/lib/money';
@@ -112,6 +113,7 @@ export default function ScanScreen() {
   const recordPurchases = useCatalogStore((s) => s.recordPurchases);
   const catalogStoreItems = useCatalogStore((s) => s.items);
   const addReceipt = useReceiptStore((s) => s.addReceipt);
+  const monthlyLists = useMonthlyListStore((s) => s.lists);
   const addSharedShopping = useSharedStore((s) => s.addSharedShopping);
   const addSharedTasks = useSharedStore((s) => s.addSharedTasks);
   const t = useT();
@@ -124,6 +126,14 @@ export default function ScanScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
   const [selectedStore, setSelectedStore] = useState('');
+  // Shopping — Monthly redesign (2026-07-22): which Monthly list this receipt's spend counts
+  // against (useReceiptStore's monthlyListId). '' = not explicitly picked — falls back to the
+  // first list at add-time (effectiveMonthlyListId below), same auto-pick as the single-list
+  // common case, where the picker UI doesn't even render.
+  const [selectedMonthlyListId, setSelectedMonthlyListId] = useState('');
+  // Falls back to the first Monthly list when nothing's explicitly picked (the picker UI
+  // itself only renders once there's more than one list to choose between).
+  const effectiveMonthlyListId = selectedMonthlyListId || monthlyLists[0]?.id;
   const [manualText, setManualText] = useState('');
   const [manualPrice, setManualPrice] = useState('');
   const [customStoreVisible, setCustomStoreVisible] = useState(false);
@@ -272,7 +282,7 @@ export default function ScanScreen() {
     const price = lines.length === 1 ? parseFloat(manualPrice.replace(',', '.')) || 0 : 0;
     let receiptId: string | undefined;
     if (selectedStore && price > 0) {
-      const receipt = addReceipt({ date: todayStr(), store: selectedStore, total: price, category: 'groceries' });
+      const receipt = addReceipt({ date: todayStr(), store: selectedStore, total: price, category: 'groceries', monthlyListId: effectiveMonthlyListId });
       receiptId = receipt.id;
       recordPurchases([{ name: lines[0], store: selectedStore, price, wasOnList: false }], receiptId);
     }
@@ -318,6 +328,7 @@ export default function ScanScreen() {
           store: selectedStore,
           total: selected.reduce((sum, item) => sum + item.price, 0),
           category: 'groceries',
+          monthlyListId: effectiveMonthlyListId,
         }).id
       : undefined;
 
@@ -430,6 +441,39 @@ export default function ScanScreen() {
                 {selectedStore && !NORWEGIAN_STORES.includes(selectedStore) ? selectedStore : t.otherStore}
               </Text>
             </PressableScale>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // Shopping — Monthly redesign (2026-07-22): which Monthly list this receipt's spend
+  // counts against. Only rendered once there's actually a choice to make (2+ lists) — the
+  // common single-list case shows no extra UI at all, matching "keep the logic complex, but
+  // usage simple."
+  function renderMonthlyListSelector() {
+    if (monthlyLists.length < 2) return null;
+    return (
+      <View style={styles.storeSection}>
+        <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.monthlyListSection.toUpperCase()}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.storeScroll}>
+          <View style={styles.storeRow}>
+            {monthlyLists.map((list) => (
+              <PressableScale
+                key={list.id}
+                style={[
+                  styles.storeChip,
+                  { borderWidth: 1, borderColor: theme.border },
+                  effectiveMonthlyListId === list.id && { backgroundColor: theme.accent, borderColor: theme.accent },
+                ]}
+                onPress={() => setSelectedMonthlyListId(list.id)}
+                scaleTo={0.97}
+              >
+                <Text style={[styles.storeChipText, { color: theme.text }, effectiveMonthlyListId === list.id && { color: theme.accentInk }]} numberOfLines={1}>
+                  {list.name}
+                </Text>
+              </PressableScale>
+            ))}
           </View>
         </ScrollView>
       </View>
@@ -597,6 +641,7 @@ export default function ScanScreen() {
         <ScreenScaffold title={t.foundOnReceipt} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'scan').base}>
           <View style={styles.content}>
             <HintCard text={t.itemsSelectedCount(selectedCount, parsedItems.length)} example="" />
+            {renderMonthlyListSelector()}
 
             {/* Debug notes: anchor the found-items card (not each row/checkbox inside). */}
             <DebugNoteAnchor id="scan.items" label="Scan — Found items">
@@ -695,6 +740,7 @@ export default function ScanScreen() {
             <HintCard text={t.manualEntryHint} example="" />
 
             {renderStoreSelector()}
+            {renderMonthlyListSelector()}
 
             <TextInput
               ref={manualInputRef}

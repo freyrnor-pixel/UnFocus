@@ -480,6 +480,12 @@ const en = {
   weekNumberChip: (n: number) => `Week ${n}`,
   // Shopping redesign — monthly two-section + weekly inline/preview + grouping screen
   monthlyListSection: 'Monthly list',
+  // Shopping — Monthly redesign (2026-07-22): multiple named, budgeted Monthly lists
+  newMonthlyListBtn: 'New list',
+  newMonthlyListNamePlaceholder: 'List name',
+  createMonthlyListBtn: 'Create',
+  monthlyListsEmpty: 'No monthly lists yet — create one to get started.',
+  deleteMonthlyListAction: 'Delete this list',
   weekEmptyTitle: 'No lists this week yet',
   weekEmptyBody: 'Make a new list below to start planning your shopping.',
   catalogueSection: 'Catalogue',
@@ -549,9 +555,12 @@ const en = {
   addMoreWaysTitle: 'Add items',
   addFromMonthlyOption: 'From monthly',
   addFromDishOption: 'From a dish',
-  resetMonthlyListAction: 'Reset monthly list now',
-  resetMonthlyListConfirmTitle: 'Reset monthly list?',
-  resetMonthlyListConfirmBody: 'This clears temporary items and logs a fresh reset period. It normally happens automatically on your reset date.',
+  resetMonthlyListAction: 'Reset this list now',
+  resetMonthlyListConfirmTitle: 'Reset this list?',
+  resetMonthlyListConfirmBody: 'This clears temporary items and starts a fresh reset period for this list only.',
+  resetAllMonthlyListsAction: 'Reset all monthly lists now',
+  resetAllMonthlyListsConfirmTitle: 'Reset all monthly lists?',
+  resetAllMonthlyListsConfirmBody: 'This clears temporary items across every monthly list and logs a fresh reset period. It normally happens automatically on your reset date.',
   // --- Shopping/Food redesign: in-place Food + Catalogue tabs, Unallocated section ---
   foodTabLabel: 'Food',
   catalogueTabLabel: 'Catalogue',
@@ -1165,6 +1174,9 @@ const en = {
   // AP-06B — receipts + monthly grocery budget (app/budget.tsx)
   budget: {
     title: 'Budget',
+    // Shopping — Monthly redesign (2026-07-22): budget is per Monthly list now; the
+    // screen title names which list is being viewed.
+    titleForList: (listName: string) => `${listName} — Budget`,
     spentOfBudget: (spent: string, budget: string) => `${spent} kr of ${budget} kr this month`,
     overBudgetHint: "A bit over this month — here's where it went.",
     onTrackHint: 'Right on track this month.',
@@ -1732,6 +1744,11 @@ const no: typeof en = {
   listActiveWeeksLabel: 'Aktive uker i måneden',
   weekNumberChip: (n: number) => `Uke ${n}`,
   monthlyListSection: 'Månedsliste',
+  newMonthlyListBtn: 'Ny liste',
+  newMonthlyListNamePlaceholder: 'Listenavn',
+  createMonthlyListBtn: 'Opprett',
+  monthlyListsEmpty: 'Ingen månedslister ennå — opprett en for å komme i gang.',
+  deleteMonthlyListAction: 'Slett denne listen',
   weekEmptyTitle: 'Ingen lister denne uken ennå',
   weekEmptyBody: 'Lag en ny liste under for å begynne å planlegge handelen.',
   catalogueSection: 'Katalog',
@@ -1801,9 +1818,12 @@ const no: typeof en = {
   addMoreWaysTitle: 'Legg til varer',
   addFromMonthlyOption: 'Fra månedsliste',
   addFromDishOption: 'Fra en rett',
-  resetMonthlyListAction: 'Nullstill månedsliste nå',
-  resetMonthlyListConfirmTitle: 'Nullstille månedslisten?',
-  resetMonthlyListConfirmBody: 'Dette fjerner midlertidige varer og logger en ny nullstillingsperiode. Dette skjer vanligvis automatisk på nullstillingsdatoen din.',
+  resetMonthlyListAction: 'Nullstill denne listen nå',
+  resetMonthlyListConfirmTitle: 'Nullstille denne listen?',
+  resetMonthlyListConfirmBody: 'Dette fjerner midlertidige varer og starter en ny nullstillingsperiode for denne listen.',
+  resetAllMonthlyListsAction: 'Nullstill alle månedslister nå',
+  resetAllMonthlyListsConfirmTitle: 'Nullstille alle månedslister?',
+  resetAllMonthlyListsConfirmBody: 'Dette fjerner midlertidige varer på tvers av alle månedslister og logger en ny nullstillingsperiode. Dette skjer vanligvis automatisk på nullstillingsdatoen din.',
   // --- Shopping/Food redesign: in-place Food + Catalogue tabs, Unallocated section ---
   foodTabLabel: 'Mat',
   catalogueTabLabel: 'Katalog',
@@ -2391,6 +2411,7 @@ const no: typeof en = {
   // AP-06B — kvitteringer + månedlig handlebudsjett (app/budget.tsx)
   budget: {
     title: 'Budsjett',
+    titleForList: (listName: string) => `${listName} — Budsjett`,
     spentOfBudget: (spent: string, budget: string) => `${spent} kr av ${budget} kr denne måneden`,
     overBudgetHint: 'Litt over denne måneden — her er hvor pengene gikk.',
     onTrackHint: 'Helt i rute denne måneden.',

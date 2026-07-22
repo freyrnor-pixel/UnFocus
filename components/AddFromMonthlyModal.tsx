@@ -6,16 +6,19 @@
  * `Modal` popped up in the middle of the screen over a backdrop, following the same shell
  * `components/AppModal.tsx` uses (transparent Modal + backdrop dismiss + Animated scale/opacity
  * entrance + `Surface surfaceContext="overlay"` card) but sized for a scrollable list instead of
- * a small alert. The user scrolls the whole monthly list, checks off however many items they
- * want, then commits them all in one batch via the footer's "Add (n)" button — nothing is added
- * to the weekly list until that button is pressed, so Cancel needs no rollback/undo logic.
+ * a small alert. The user scrolls the whole monthly catalog (now potentially several named
+ * Monthly lists — Shopping/Monthly redesign 2026-07-22), checks off however many items they
+ * want across any of them, then commits them all in one batch via the footer's "Add (n)"
+ * button — nothing is added to the weekly list until that button is pressed, so Cancel needs
+ * no rollback/undo logic.
  *
  * Connections:
  *   Imports → components/PressableScale, components/ShoppingFilterBar, components/Surface,
  *             components/FormControls (Checkbox), constants/theme, lib/i18n, lib/money (formatKr),
- *             lib/useAppTheme, react-native-reanimated, store/useShoppingStore (ShoppingItem type)
+ *             lib/useAppTheme, react-native-reanimated, store/useShoppingStore (ShoppingItem type),
+ *             store/useMonthlyListStore (MonthlyList type)
  *   Used by → components/WeekListCard.tsx (rendered once per card, replacing the inline panel)
- *   Data    → none directly — `items` and the batch `onAdd` callback are owned by the parent
+ *   Data    → none directly — `items`/`lists` and the batch `onAdd` callback are owned by the parent
  *
  * Edit notes:
  *   - Local `selectedIds`/search/category state resets every time `visible` flips false→true
@@ -23,6 +26,12 @@
  *     session's selection never leaks into the next time this list's "Add from monthly" opens.
  *   - Timing/easing follow ANIMATION_GUIDELINES.md's modal enter/exit band (320ms ease-out in /
  *     220ms ease-in out), gated by useAccessibility().reducedMotion — same as AppModal.tsx.
+ *   - **Grouped-by-list (2026-07-22)**: items are sectioned under each Monthly list's own name
+ *     header, stacked in vertical order (`lists` prop order — store/useMonthlyListStore.ts's
+ *     sortOrder) — "a scrollable preview of the Monthly list[s] with the different lists in
+ *     vertical order." A section is skipped entirely once that list has zero items surviving
+ *     the shared search/category filter. Selection/commit stays flat across all lists — the
+ *     footer's "Add (n)" counts and adds every checked item regardless of which section it's in.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -42,15 +51,18 @@ import PressableScale from '@/components/PressableScale';
 import ShoppingFilterBar from '@/components/ShoppingFilterBar';
 import { Checkbox } from '@/components/FormControls';
 import { ShoppingItem } from '@/store/useShoppingStore';
+import { MonthlyList } from '@/store/useMonthlyListStore';
 
 type Props = {
   visible: boolean;
   items: ShoppingItem[];
+  /** Every Monthly list, in display order — used to section `items` under a name header. */
+  lists: MonthlyList[];
   onAdd: (items: ShoppingItem[]) => void;
   onClose: () => void;
 };
 
-export default function AddFromMonthlyModal({ visible, items, onAdd, onClose }: Props) {
+export default function AddFromMonthlyModal({ visible, items, lists, onAdd, onClose }: Props) {
   const theme = useAppTheme();
   const t = useT();
   const { reducedMotion } = useAccessibility();
@@ -95,6 +107,11 @@ export default function AddFromMonthlyModal({ visible, items, onAdd, onClose }: 
   const filteredItems = items.filter(
     (i) => (!q || i.name.toLowerCase().includes(q)) && (category == null || i.category === category)
   );
+  // Section the filtered items under each Monthly list's own name, in list display order —
+  // skips a list entirely once it has no surviving items (no empty section headers).
+  const sections = lists
+    .map((list) => ({ list, listItems: filteredItems.filter((i) => i.monthlyListId === list.id) }))
+    .filter((s) => s.listItems.length > 0);
 
   function toggleSelected(id: string) {
     setSelectedIds((prev) => {
@@ -130,30 +147,37 @@ export default function AddFromMonthlyModal({ visible, items, onAdd, onClose }: 
               placeholder={t.monthlyPreviewSearchPlaceholder}
             />
 
-            {filteredItems.length === 0 ? (
+            {sections.length === 0 ? (
               <Text style={[styles.empty, { color: theme.textMuted }]}>{t.monthlyPreviewEmpty}</Text>
             ) : (
               <ScrollView style={styles.scroll}>
-                {filteredItems.map((item, idx) => {
-                  const lineTotal = item.price > 0 ? item.price * (parseInt(item.amount, 10) || 1) : null;
-                  return (
-                    <View key={item.id}>
-                      <View style={styles.row}>
-                        <Checkbox
-                          checked={selectedIds.has(item.id)}
-                          onChange={() => toggleSelected(item.id)}
-                          label={item.name}
-                        />
-                        {lineTotal !== null && (
-                          <Text style={[styles.rowPrice, { color: theme.textMuted }]}>{formatKr(lineTotal, 0)}</Text>
-                        )}
-                      </View>
-                      {idx < filteredItems.length - 1 && (
-                        <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                      )}
-                    </View>
-                  );
-                })}
+                {sections.map(({ list, listItems }, sectionIdx) => (
+                  <View key={list.id} style={sectionIdx > 0 && styles.sectionSpacing}>
+                    <Text style={[styles.sectionHeader, { color: theme.textMuted }]} numberOfLines={1}>
+                      {list.name}
+                    </Text>
+                    {listItems.map((item, idx) => {
+                      const lineTotal = item.price > 0 ? item.price * (parseInt(item.amount, 10) || 1) : null;
+                      return (
+                        <View key={item.id}>
+                          <View style={styles.row}>
+                            <Checkbox
+                              checked={selectedIds.has(item.id)}
+                              onChange={() => toggleSelected(item.id)}
+                              label={item.name}
+                            />
+                            {lineTotal !== null && (
+                              <Text style={[styles.rowPrice, { color: theme.textMuted }]}>{formatKr(lineTotal, 0)}</Text>
+                            )}
+                          </View>
+                          {idx < listItems.length - 1 && (
+                            <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
               </ScrollView>
             )}
 
@@ -207,6 +231,8 @@ const styles = StyleSheet.create({
   },
   scroll: { flexGrow: 0 },
   empty: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.md },
+  sectionHeader: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: Spacing.xs },
+  sectionSpacing: { marginTop: Spacing.md },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
