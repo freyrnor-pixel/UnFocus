@@ -137,6 +137,12 @@ describe('plannedEnergyDeltaForDay', () => {
     const habits = [habit({ energyEnabled: true, energyValue: 1, recurrence: 'daily' })];
     expect(plannedEnergyDeltaForDay(DAY, tasks, habits)).toBe(-1);
   });
+
+  it('excludes a weekly-flexible habit from any single day\'s planned total', () => {
+    // It isn't pinned to a specific day, so attributing it to one day would be arbitrary.
+    const h = habit({ energyEnabled: true, energyValue: -1, recurrence: 'weekly-flexible', dailyGoal: 3 });
+    expect(plannedEnergyDeltaForDay(DAY, [], [h])).toBe(0);
+  });
 });
 
 describe('plannedEnergyDeltaForWeek', () => {
@@ -147,5 +153,11 @@ describe('plannedEnergyDeltaForWeek', () => {
       task({ id: 'nextwk', date: '2026-07-20', recurring: 'none', done: false, energyEnabled: true, energyValue: 5 }), // outside week
     ];
     expect(plannedEnergyDeltaForWeek(DAY, tasks, [])).toBe(1);
+  });
+
+  it('counts a weekly-flexible habit exactly once for the week, not once per day', () => {
+    const h = habit({ energyEnabled: true, energyValue: -1, recurrence: 'weekly-flexible', dailyGoal: 3 });
+    // If this were summed per-day like a normal habit, it would be -7 (once per day of the week).
+    expect(plannedEnergyDeltaForWeek(DAY, [], [h])).toBe(-1);
   });
 });

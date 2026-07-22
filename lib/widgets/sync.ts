@@ -34,6 +34,7 @@
 import { Platform } from 'react-native';
 import { todayStr } from '@/lib/date';
 import { getTranslations } from '@/lib/i18n';
+import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 import { refreshPersistentNotification, cancelPersistentNotification } from '@/lib/notifications';
 import { saveWidgetSnapshot, type WidgetSnapshot } from './snapshot';
 import { renderWidgetByName, WIDGET_NAMES } from './WidgetViews';
@@ -56,21 +57,6 @@ const ACCENT = {
   habits: '#16A34A',
   health: '#E11D48',
 };
-
-/** Whether a habit is scheduled for `today` — mirrors shouldShowHabitOnDate in app/(tabs)/health.tsx. */
-function dueToday(h: Habit, today: string): boolean {
-  if (h.recurrence === 'daily' || h.recurrence === 'one-time') return true;
-  const date = new Date(today + 'T12:00:00');
-  if (h.recurrence === 'weekly') {
-    if (h.recurrenceDays.length === 0) return true;
-    return h.recurrenceDays.includes((date.getDay() + 6) % 7); // 0 = Mon
-  }
-  if (h.recurrence === 'monthly') {
-    if (h.recurrenceDays.length === 0) return true;
-    return date.getDate() === h.recurrenceDays[0];
-  }
-  return true;
-}
 
 /** First non-empty line of a note's header/body, trimmed for a one-line widget preview. */
 function noteText(header: string, body: string): string {
@@ -110,12 +96,14 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
     .slice(0, PREVIEW)
     .map((n) => ({ id: n.id, header: noteText(n.header, n.body), checked: n.checked }));
 
-  // ── Habits (scheduled for today) — done = today's log met the goal (or a rest day). ──
+  // ── Habits (scheduled for today) — done = today's log met the goal (or a rest day),
+  //    or (for a 'weekly-flexible' habit) the week's cumulative count reached it. ──
   const habitState = useHabitStore.getState();
-  const todayHabits = habitState.habits.filter((h) => h.active && dueToday(h, today));
+  const todayHabits = habitState.habits.filter((h) => h.active && habitOccursOn(h, today));
   const habitDone = (h: Habit) => {
     const log = habitState.logs.find((l) => l.habitId === h.id && l.logDate === today);
-    return !!log && (log.restDay || log.count >= h.dailyGoal);
+    if (log?.restDay) return true;
+    return habitProgress(h, habitState.logs, today).isDone;
   };
   const habitItems = todayHabits.slice(0, PREVIEW).map((h) => ({ id: h.id, title: h.title, done: habitDone(h) }));
   const habitsRemaining = todayHabits.filter((h) => !habitDone(h)).length;

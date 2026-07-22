@@ -29,6 +29,10 @@
  *     see the "Freyr-mode" task description for the source spec. Energy values follow
  *     lib/energy.ts's signed convention (positive restores, negative drains); weekday
  *     numbers follow the app-wide 0=Mon…6=Sun convention (lib/taskRecurrence.ts).
+ *   - "Gå ut med Eyja" ("at least 3x/week, any day") is a `weekly-flexible` HABIT, not
+ *     a Task — that recurrence mode (lib/habitRecurrence.ts) is exactly "N times this
+ *     week, no fixed days," so it doesn't need pinning to arbitrary weekdays like the
+ *     Task-based items above.
  */
 import { todayStr } from '@/lib/date';
 import { useHabitStore, Habit } from '@/store/useHabitStore';
@@ -125,8 +129,6 @@ export function seedFreyrMode(): FreyrSeedIds {
     taskStore.add({ title: 'Stå opp med Eyja', date: today, time: '08:00', taskType: 'start-at', done: false, recurring: 'weekly', recurringDays: WEEKEND, energyEnabled: true, energyValue: -1, sortOrder: 10 }).id,
     // Plan date night, once a month (pinned to the 1st, no fixed day given) — consumes 1 Energy.
     taskStore.add({ title: 'Planlegg date night', date: today, taskType: 'start-at', done: false, recurring: 'monthly', recurringDays: [], monthlyMode: 'day', monthDay: 1, energyEnabled: true, energyValue: -1, sortOrder: 11 }).id,
-    // Go outside with Eyja, at least 3x/week (Mon/Wed/Fri as a concrete default) — consumes 1 Energy.
-    taskStore.add({ title: 'Gå ut med Eyja', date: today, taskType: 'start-at', done: false, recurring: 'weekly', recurringDays: [MON, WED, FRI], energyEnabled: true, energyValue: -1, sortOrder: 12 }).id,
   ];
 
   const waterTimes = waterReminderTimes();
@@ -211,6 +213,15 @@ export function seedFreyrMode(): FreyrSeedIds {
       notificationEnabled: true, notificationTimes: ['22:30'],
       reminderMode: 'single', reminderCount: null, reminderIntervalMin: null, reminderStart: null, reminderEnd: null,
       routineOrder: 8, childName: '', energyEnabled: false, energyValue: 0,
+    }),
+    // Go outside with Eyja, at least 3x/week, any day (weekly-flexible) — consumes 1 Energy.
+    addHabitAndCaptureId({
+      title: 'Gå ut med Eyja', icon: '🌳', kind: 'neutral', category: 'physical',
+      cue: '', craving: '', response: '', reward: '',
+      dailyGoal: 3, recurrence: 'weekly-flexible', recurrenceDays: [],
+      notificationEnabled: false, notificationTimes: [],
+      reminderMode: null, reminderCount: null, reminderIntervalMin: null, reminderStart: null, reminderEnd: null,
+      routineOrder: 9, childName: '', energyEnabled: true, energyValue: -1,
     }),
   ];
 
