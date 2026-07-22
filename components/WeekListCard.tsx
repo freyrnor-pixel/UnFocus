@@ -4,27 +4,38 @@
  * Simplified layout (2026-07-06 redesign): three clean sections — In list
  * (all unchecked items, ungrouped and dish-grouped flattened together, plus a shared
  * components/InlineAddItem add row when unlocked), In cart (all checked items),
- * Purchased (completed trip items for this list, collapsed). An optional
- * From-monthly-list panel appears inline inside the In list section, in place
- * of the two secondary add buttons (see 2026-07-21 note below), when the user opens the
- * monthly add panel — it closes back to the buttons when they tap the Save
- * additions / Undo additions footer buttons. Each section shows a price total
- * footer. Dish groups are no longer rendered as nested ExpandableCards; all
- * items are flat rows.
+ * Purchased (completed trip items for this list, collapsed). "Add from monthly" opens
+ * components/AddFromMonthlyModal as a centered popup (2026-07-22 — replaced the old
+ * inline in-card panel; see that component's header). A components/ShoppingFilterBar
+ * (name search + category dropdown) sits above In list/In cart — when active it flattens
+ * both sections into plain filtered ShoppingRows (no drag reorder); inactive, everything
+ * renders exactly as before. Each section shows a price total footer. Dish groups are no
+ * longer rendered as nested ExpandableCards; all items are flat rows.
  *
  * Connections:
- *   Imports → components/AppModal (showAppModal), components/ExpandableCard,
- *             components/FlightOverlay (FlightRect type only), components/IconButton,
- *             components/InlineAddItem, components/Surface, components/ShoppingRow
- *             (CHECKED_OPACITY), constants/theme, lib/i18n, lib/money (formatKr),
- *             lib/shoppingCategories (categoryPresets), lib/shoppingGroups (listProgress,
- *             listTotal), lib/useAppTheme, lib/haptics, lib/domainColor,
- *             store/useShoppingListStore (ShoppingList type), store/useShoppingStore
- *             (ShoppingItem type)
+ *   Imports → components/AddFromMonthlyModal, components/AppModal (showAppModal),
+ *             components/ExpandableCard, components/FlightOverlay (FlightRect type only),
+ *             components/IconButton, components/InlineAddItem, components/ShoppingFilterBar,
+ *             components/Surface, components/ShoppingRow (CHECKED_OPACITY), constants/theme,
+ *             lib/i18n, lib/money (formatKr), lib/shoppingCategories (categoryPresets),
+ *             lib/shoppingGroups (listProgress, listTotal), lib/useAppTheme, lib/haptics,
+ *             lib/domainColor, store/useShoppingListStore (ShoppingList type),
+ *             store/useShoppingStore (ShoppingItem type)
  *   Used by → app/shopping.tsx
  *   Data    → none directly — every item/group/callback is owned by the parent
  *
  * Edit notes:
+ *   - **2026-07-22 popup + filter pass**: "Add from monthly" now pops a centered
+ *     `AddFromMonthlyModal` (checkbox multi-select, batch commit via "Add (n)") instead of
+ *     swapping an inline panel into the card — see that component's own header for the
+ *     batch-add/no-rollback rationale. The old `monthlySessionAdds`/`handleCancelMonthly`
+ *     undo-by-name tracking is gone along with it (nothing is added until the modal's Add
+ *     button fires, so Cancel needs no rollback). `onAddMonthlyToWeek` (per-item prop) was
+ *     replaced by `onAddMonthlyItemsToWeek` (batch prop) — shopping.tsx now loops the store
+ *     call and shows one consolidated toast instead of one per item. Also added
+ *     `ShoppingFilterBar` (`listSearch`/`listCategory` state) above In list — category was
+ *     previously a display-only tag (`ShoppingRow`'s tag, `groupByCategory` on Monthly); this
+ *     is the first place it actually filters/searches the Weekly list.
  *   - **2026-07-20 shopping-cleanup pass**: replaced the previous hand-rolled inline add row
  *     (own TextInput + catalog-search dropdown + qty stepper, duplicating InlineAddItem) with
  *     the shared `components/InlineAddItem` — same form Monthly and inventory-edit use, so
@@ -33,11 +44,12 @@
  *     a `showAppModal` chooser (`openListOptions`).
  *   - **2026-07-21 add-paths pass**: the two secondary add paths are now visible buttons below
  *     the primary add bar (`addOptionsRow`), replacing the earlier hidden "more ways to add…"
- *     text link + `showAppModal` chooser (felt unnatural). "From monthly" opens the existing
- *     in-place panel (`setMonthlyPreviewOpen`, unchanged); "From a dish" calls the
- *     `onOpenDishSheet` prop up to shopping.tsx, which opens the shared `AddDishSheet` targeted
- *     at this list's id — lands ingredients directly in this list, skipping the Unallocated
- *     bucket. The primary "+" add bar (`InlineAddItem`) stays the visual primary.
+ *     text link + `showAppModal` chooser (felt unnatural). "From monthly" opens the
+ *     `AddFromMonthlyModal` popup (`setMonthlyPreviewOpen`, since 2026-07-22 no longer an
+ *     inline panel — see the note above); "From a dish" calls the `onOpenDishSheet` prop up to
+ *     shopping.tsx, which opens the shared `AddDishSheet` targeted at this list's id — lands
+ *     ingredients directly in this list, skipping the Unallocated bucket. The primary "+" add
+ *     bar (`InlineAddItem`) stays the visual primary.
  *   - 2026-07-06 redesign: removed AddDivider + lock icon. Replaced with inline add row
  *     (TextInput + catalog search dropdown + qty controls + price total, visible only
  *     when unlocked) and a mode-toggle pill button ("Shopping" locked / "Planning" unlocked).
@@ -53,15 +65,6 @@
  *     buckets without the parent having to recompute.
  *   - `renderReorderableRow` is still used for ungroupedUnchecked items only (drag reorder).
  *     Dish-grouped unchecked items render as plain ShoppingRow (no drag wrapper).
- *   - **2026-07-12 UX fix**: the monthly panel used to render as its own section ahead of
- *     "In list", so opening it (via a trigger button living at the bottom of "In list")
- *     made the card reorder above where the user had just tapped. It now renders inline,
- *     swapped in for the trigger button's own slot, and its confirm/cancel controls moved
- *     from a cramped icon-only row (squeezed next to the section label) to a labeled
- *     two-button footer below the item rows.
- *   - Monthly session tracking: `monthlySessionAdds` records item names added while the
- *     monthly panel is open. ✓ clears the tracking and closes; × calls onRemoveItem for
- *     every fromCatalog weekly item whose name was tracked, then clears and closes.
  *   - listProgress() is still called here for the compact progress line on non-focused lists
  *     and the "Shopping done!" disabled state — same helper, same data.
  *   - Outer card border is `getDomainColor(theme,'shop').accent` (Surface's `borderColor` prop,
@@ -95,6 +98,8 @@ import ExpandableCard from '@/components/ExpandableCard';
 import PressableScale from '@/components/PressableScale';
 import ShoppingRow, { CHECKED_OPACITY } from '@/components/ShoppingRow';
 import InlineAddItem from '@/components/InlineAddItem';
+import AddFromMonthlyModal from '@/components/AddFromMonthlyModal';
+import ShoppingFilterBar from '@/components/ShoppingFilterBar';
 import { showAppModal } from '@/components/AppModal';
 import type { FlightRect } from '@/components/FlightOverlay';
 import { getDomainColor } from '@/lib/domainColor';
@@ -122,10 +127,11 @@ type Props = {
   onAddInlineItem: (input: { name: string; price: number; qty: number; category?: string }) => void;
   /** Decrement a cart item — at qty=1 moves it back to "In list"; at qty>1 splits one unit back. */
   onDecrementCartItem: (item: ShoppingItem) => void;
-  /** The curated monthly-list items (status 'catalog') shown in the "add from monthly" panel. */
+  /** The curated monthly-list items (status 'catalog') shown in the "add from monthly" popup. */
   monthlyItems: ShoppingItem[];
-  /** Move a monthly-list item into this week list (parent → addToWeeklyFromCatalog). */
-  onAddMonthlyToWeek: (item: ShoppingItem) => void;
+  /** Move a batch of monthly-list items into this week list in one go (parent loops
+   *  addToWeeklyFromCatalog and shows a single consolidated toast). */
+  onAddMonthlyItemsToWeek: (items: ShoppingItem[]) => void;
   onDoneShopping: () => void;
   /** Opens the shared AddDishSheet targeted at this list (parent sets dishSheetTarget). */
   onOpenDishSheet: () => void;
@@ -163,7 +169,7 @@ export default function WeekListCard({
   onAddInlineItem,
   onDecrementCartItem,
   monthlyItems,
-  onAddMonthlyToWeek,
+  onAddMonthlyItemsToWeek,
   onDoneShopping,
   onOpenDishSheet,
   renderReorderableRow,
@@ -176,8 +182,8 @@ export default function WeekListCard({
   const t = useT();
   const [nameInput, setNameInput] = useState(list.name);
   const [monthlyPreviewOpen, setMonthlyPreviewOpen] = useState(false);
-  const [monthlySearch, setMonthlySearch] = useState('');
-  const [monthlySessionAdds, setMonthlySessionAdds] = useState<string[]>([]);
+  const [listSearch, setListSearch] = useState('');
+  const [listCategory, setListCategory] = useState<string | null>(null);
 
   useEffect(() => {
     setNameInput(list.name);
@@ -186,8 +192,8 @@ export default function WeekListCard({
   useEffect(() => {
     if (list.locked) {
       setMonthlyPreviewOpen(false);
-      setMonthlySessionAdds([]);
-      setMonthlySearch('');
+      setListSearch('');
+      setListCategory(null);
     }
   }, [list.locked]);
 
@@ -224,36 +230,23 @@ export default function WeekListCard({
   const inCartTotal = calcSectionTotal(allChecked);
   const purchasedTotal = calcSectionTotal(purchased);
 
-  const filteredMonthlyItems = useMemo(() => {
-    const q = monthlySearch.trim().toLowerCase();
-    if (!q) return monthlyItems;
-    return monthlyItems.filter((i) => i.name.toLowerCase().includes(q));
-  }, [monthlyItems, monthlySearch]);
-
-  function handleAddMonthlyItem(item: ShoppingItem) {
-    const name = item.name.trim().toLowerCase();
-    setMonthlySessionAdds((prev) => (prev.includes(name) ? prev : [...prev, name]));
-    onAddMonthlyToWeek(item);
-  }
-
-  function handleConfirmMonthly() {
-    setMonthlyPreviewOpen(false);
-    setMonthlySessionAdds([]);
-    setMonthlySearch('');
-  }
-
-  function handleCancelMonthly() {
-    const allWeeklyItems = [...ungroupedUnchecked, ...checked, ...dishUnchecked, ...dishChecked];
-    for (const name of monthlySessionAdds) {
-      const weeklyItem = allWeeklyItems.find(
-        (i) => i.name.trim().toLowerCase() === name && i.fromCatalog
-      );
-      if (weeklyItem) onRemoveItem(weeklyItem);
-    }
-    setMonthlyPreviewOpen(false);
-    setMonthlySessionAdds([]);
-    setMonthlySearch('');
-  }
+  // Real name+category filter (Decision: category becomes an actual filter, not just a
+  // display tag) — inactive (empty search, no category picked) renders exactly as before,
+  // drag-reorder intact. Active flattens "In list"/"In cart" into plain filtered rows.
+  const filterActive = listSearch.trim().length > 0 || listCategory !== null;
+  const matchesFilter = useMemo(() => {
+    const q = listSearch.trim().toLowerCase();
+    return (item: ShoppingItem) =>
+      (!q || item.name.toLowerCase().includes(q)) && (listCategory == null || item.category === listCategory);
+  }, [listSearch, listCategory]);
+  const filteredInList = useMemo(
+    () => (filterActive ? [...ungroupedUnchecked, ...dishUnchecked].filter(matchesFilter) : []),
+    [filterActive, ungroupedUnchecked, dishUnchecked, matchesFilter]
+  );
+  const filteredInCart = useMemo(
+    () => (filterActive ? allChecked.filter(matchesFilter) : []),
+    [filterActive, allChecked, matchesFilter]
+  );
 
   const totalInList = ungroupedUnchecked.length + dishUnchecked.length;
   const totalInCart = allChecked.length;
@@ -342,35 +335,70 @@ export default function WeekListCard({
               </View>
             )}
 
-            {(ungroupedUnchecked.length > 0 || dishUnchecked.length > 0) && (
-              <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.good }]}>
-                {ungroupedUnchecked.map((item, idx) => (
-                  <View key={item.id}>
-                    {renderReorderableRow(item, idx, ungroupedUnchecked.length)}
-                    {(idx < ungroupedUnchecked.length - 1 || dishUnchecked.length > 0) && (
-                      <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                    )}
-                  </View>
-                ))}
-                {dishUnchecked.map((item, idx) => (
-                  <View key={item.id}>
-                    <ShoppingRow
-                      item={item}
-                      variant="planned"
-                      onToggle={() => onToggleItem(item)}
-                      onRemove={() => onRemoveItem(item)}
-                      onIncrement={() => onIncrementItem(item)}
-                      onDecrement={() => onDecrementItem(item)}
-                      inStockLabel={t.inStockLabel}
-                      locked={list.locked}
-                      onFlightStart={(rect) => onFlightStart?.(item, rect)}
-                    />
-                    {idx < dishUnchecked.length - 1 && (
-                      <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                    )}
-                  </View>
-                ))}
-              </View>
+            {(totalInList > 0 || totalInCart > 0) && (
+              <ShoppingFilterBar
+                search={listSearch}
+                onSearchChange={setListSearch}
+                category={listCategory}
+                onCategoryChange={setListCategory}
+                placeholder={t.weeklyListSearchPlaceholder}
+              />
+            )}
+
+            {filterActive ? (
+              filteredInList.length > 0 && (
+                <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.good }]}>
+                  {filteredInList.map((item, idx) => (
+                    <View key={item.id}>
+                      <ShoppingRow
+                        item={item}
+                        variant="planned"
+                        onToggle={() => onToggleItem(item)}
+                        onRemove={() => onRemoveItem(item)}
+                        onIncrement={() => onIncrementItem(item)}
+                        onDecrement={() => onDecrementItem(item)}
+                        inStockLabel={t.inStockLabel}
+                        locked={list.locked}
+                        onFlightStart={(rect) => onFlightStart?.(item, rect)}
+                      />
+                      {idx < filteredInList.length - 1 && (
+                        <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )
+            ) : (
+              (ungroupedUnchecked.length > 0 || dishUnchecked.length > 0) && (
+                <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.good }]}>
+                  {ungroupedUnchecked.map((item, idx) => (
+                    <View key={item.id}>
+                      {renderReorderableRow(item, idx, ungroupedUnchecked.length)}
+                      {(idx < ungroupedUnchecked.length - 1 || dishUnchecked.length > 0) && (
+                        <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+                      )}
+                    </View>
+                  ))}
+                  {dishUnchecked.map((item, idx) => (
+                    <View key={item.id}>
+                      <ShoppingRow
+                        item={item}
+                        variant="planned"
+                        onToggle={() => onToggleItem(item)}
+                        onRemove={() => onRemoveItem(item)}
+                        onIncrement={() => onIncrementItem(item)}
+                        onDecrement={() => onDecrementItem(item)}
+                        inStockLabel={t.inStockLabel}
+                        locked={list.locked}
+                        onFlightStart={(rect) => onFlightStart?.(item, rect)}
+                      />
+                      {idx < dishUnchecked.length - 1 && (
+                        <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )
             )}
 
             {/* Inline add row — only shown when unlocked (planning mode), as its own
@@ -396,7 +424,7 @@ export default function WeekListCard({
                 hidden "more ways to add…" link that opened an action sheet felt unnatural, so
                 "From monthly" / "From a dish" now sit in plain sight below the primary add bar,
                 styled as quiet secondary buttons so the inline add stays the visual primary. */}
-            {!list.locked && !monthlyPreviewOpen && (
+            {!list.locked && (
               <View style={styles.addOptionsRow}>
                 <PressableScale
                   style={[styles.addOptionBtn, { borderColor: theme.border }]}
@@ -421,90 +449,17 @@ export default function WeekListCard({
               </View>
             )}
 
-            {/* ── FROM MONTHLY LIST panel (ephemeral) — opens in place of the trigger
-                above, right where the user tapped, instead of jumping to a separate
-                section ahead of "In list". ── */}
-            {!list.locked && monthlyPreviewOpen && (
-              <View style={styles.monthlyPanel}>
-                <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
-                  <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.fromMonthlySection}</Text>
-                  <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />
-                </View>
-
-                <TextInput
-                  style={[styles.monthlySearch, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                  value={monthlySearch}
-                  onChangeText={setMonthlySearch}
-                  placeholder={t.monthlyPreviewSearchPlaceholder}
-                  placeholderTextColor={theme.textMuted}
-                />
-
-                {filteredMonthlyItems.length === 0 ? (
-                  <Text style={[styles.monthlyEmpty, { color: theme.textMuted }]}>{t.monthlyPreviewEmpty}</Text>
-                ) : (
-                  <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                    {filteredMonthlyItems.map((item, idx) => {
-                      const isAdded = monthlySessionAdds.includes(item.name.trim().toLowerCase());
-                      const lineTotal = item.price > 0 ? item.price * (parseInt(item.amount, 10) || 1) : null;
-                      return (
-                        <View key={item.id}>
-                          <PressableScale
-                            style={styles.monthlyPanelRow}
-                            onPress={() => handleAddMonthlyItem(item)}
-                            disabled={isAdded}
-                            scaleTo={0.97}
-                          >
-                            <Text style={[styles.monthlyPanelName, { color: theme.text }]} numberOfLines={1}>
-                              {item.name}
-                            </Text>
-                            {lineTotal !== null && (
-                              <Text style={[styles.monthlyPanelPrice, { color: theme.textMuted }]}>
-                                {formatKr(lineTotal, 0)}
-                              </Text>
-                            )}
-                            {isAdded ? (
-                              <Ionicons name="checkmark-circle" size={22} color={theme.good} />
-                            ) : (
-                              <View style={[styles.monthlyAddBtn, { backgroundColor: theme.good }]}>
-                                <Ionicons name="add" size={16} color={theme.textInverse} />
-                              </View>
-                            )}
-                          </PressableScale>
-                          {idx < filteredMonthlyItems.length - 1 && (
-                            <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                          )}
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
-
-                <View style={styles.monthlyFooter}>
-                  <PressableScale
-                    style={[styles.monthlyFooterBtn, { backgroundColor: theme.good }]}
-                    onPress={handleConfirmMonthly}
-                    accessibilityLabel={t.saveMonthlyAddsLabel}
-                    scaleTo={0.95}
-                  >
-                    <Ionicons name="checkmark-circle" size={18} color={theme.textInverse} />
-                    <Text style={[styles.monthlyFooterBtnText, { color: theme.textInverse }]}>
-                      {t.saveMonthlyAddsLabel}
-                    </Text>
-                  </PressableScale>
-                  <PressableScale
-                    style={[styles.monthlyFooterBtn, { backgroundColor: theme.surfaceMuted }]}
-                    onPress={handleCancelMonthly}
-                    accessibilityLabel={t.removeMonthlyAddsLabel}
-                    scaleTo={0.97}
-                  >
-                    <Ionicons name="close-circle" size={18} color={theme.bad} />
-                    <Text style={[styles.monthlyFooterBtnText, { color: theme.bad }]}>
-                      {t.removeMonthlyAddsLabel}
-                    </Text>
-                  </PressableScale>
-                </View>
-              </View>
-            )}
+            {/* "Add from monthly" now pops out as a centered modal (see AddFromMonthlyModal)
+                instead of an inline in-card panel — the user scrolls the whole monthly list
+                and checks off items, committing them all in one batch via its "Add (n)"
+                button. Nothing lands in the weekly list until that button is pressed, so
+                there's no undo/rollback needed here on cancel. */}
+            <AddFromMonthlyModal
+              visible={monthlyPreviewOpen}
+              items={monthlyItems}
+              onAdd={onAddMonthlyItemsToWeek}
+              onClose={() => setMonthlyPreviewOpen(false)}
+            />
 
             {inListTotal > 0 && (
               <Text style={[styles.sectionTotal, { color: theme.textMuted }]}>
@@ -525,7 +480,7 @@ export default function WeekListCard({
               <View style={[styles.sectionRule, { backgroundColor: theme.accent }]} />
             </View>
             <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.accent }]}>
-              {allChecked.map((item, idx) => (
+              {(filterActive ? filteredInCart : allChecked).map((item, idx, arr) => (
                 <View key={item.id}>
                   <ShoppingRow
                     item={item}
@@ -536,7 +491,7 @@ export default function WeekListCard({
                     onDecrement={() => onDecrementCartItem(item)}
                     locked={list.locked}
                   />
-                  {idx < allChecked.length - 1 && (
+                  {idx < arr.length - 1 && (
                     <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
                   )}
                 </View>
@@ -671,42 +626,6 @@ const baseStyles = StyleSheet.create({
     borderWidth: 1,
   },
   addOptionText: { fontFamily: Type.label.fontFamily, fontSize: FontSize.sm },
-  monthlyPanel: { gap: Spacing.xs },
-  monthlySearch: {
-    borderRadius: Radius.sm,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    fontSize: FontSize.sm,
-  },
-  monthlyEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm, textAlign: 'center' },
-  monthlyPanelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    minHeight: 44,
-  },
-  monthlyPanelName: { flex: 1, fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
-  monthlyPanelPrice: { fontSize: FontSize.xs },
-  monthlyAddBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  monthlyFooter: { flexDirection: 'row', gap: Spacing.sm },
-  monthlyFooterBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.md,
-    minHeight: 44,
-  },
-  monthlyFooterBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   doneShoppingBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
   doneShoppingText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
   // Planning-mode bottom slot: same footprint as the done button, neutral colour
