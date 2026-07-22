@@ -19,11 +19,25 @@
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, lib/i18n, store/useSettingsStore
  *   Used by → app/shopping.tsx, components/WeekListCard.tsx (type), components/ListSettingsSheet.tsx (type),
- *             components/SavedListsModal.tsx (type)
+ *             components/SavedListsModal.tsx (type), components/SavedListsSection.tsx (type)
  *   Data    → defines a Zustand store; owns SQLite table shopping_lists; also writes
  *             shopping_items rows directly (list_id backfill + recurrence/template item copies)
  *
  * Edit notes:
+ *   - **Saved-lists drag/sync redesign (2026-07-22):** `instantiateTemplate(id, today)`
+ *     became `instantiateTemplate(id, startDate, endDate)` — the caller now picks the
+ *     target week-of-cycle span (e.g. app/shopping.tsx's `addTemplateToWeek`, driven by a
+ *     drag-drop onto a week section or a tap-to-choose-week chooser) instead of the store
+ *     always defaulting to "today's week". Every instantiated list now stamps
+ *     `sourceTemplateId` back to the template it came from — drives the "already in this
+ *     week" one-per-section dedup check (app/shopping.tsx) and the "in use" badge in
+ *     components/SavedListsSection.tsx. New `syncListToTemplate(listId)` overwrites the
+ *     source template's items with the live list's current items (delete + re-copy via
+ *     copyOpenItemsToList) — the "sync back" action surfaced in WeekListCard's kebab menu
+ *     once a list has a sourceTemplateId. `saveAsTemplate()` explicitly nulls
+ *     `sourceTemplateId` on the new template row (its `...list` spread would otherwise
+ *     inherit the source list's own sourceTemplateId) — a template is never itself
+ *     "sourced from" another template.
  *   - currentList(today) only ever returns a non-template list — templates are
  *     excluded by construction, so their items (same status='inWeeklyList' shape,
  *     just parented to a template's list_id) never leak into the active weekly view.
@@ -97,6 +111,9 @@ export type ShoppingList = {
   locked: boolean;
   sortOrder: number;
   createdAt: string;
+  /** The saved/template list this live list was instantiated from (undefined for lists
+   *  started empty and for template rows themselves). See instantiateTemplate/syncListToTemplate. */
+  sourceTemplateId?: string;
 };
 
 type ShoppingListAddInput = {
@@ -128,8 +145,15 @@ type ShoppingListStore = {
    *  when it actually created ≥1 list, so callers can skip a reload when nothing changed. */
   advanceRecurringLists: (today: string) => boolean;
   saveAsTemplate: (id: string) => void;
-  /** Creates a live list from a template, dated to the current week. Returns the new list's id. */
-  instantiateTemplate: (id: string, today: string) => string | undefined;
+  /** Creates a live list from a template, dated to the given [startDate, endDate] span
+   *  (the caller picks the target week — e.g. the week-of-cycle section a saved list was
+   *  dragged/dropped into). Returns the new list's id; stamps sourceTemplateId so the
+   *  Saved-lists section can mark the template "in use" and the new list can sync back. */
+  instantiateTemplate: (id: string, startDate: string, endDate: string) => string | undefined;
+  /** Overwrites the list's source template's items with this list's current items —
+   *  the "sync back" action once a copied list has been edited. Returns false if the
+   *  list has no sourceTemplateId or that template no longer exists. */
+  syncListToTemplate: (listId: string) => boolean;
 };
 
 /** Parse the `active_weeks` CSV ("1,3") into a sorted, de-duped 1–4 int array. */
@@ -157,6 +181,7 @@ function rowToList(row: Row): ShoppingList {
     locked: readBool(row, 'locked'),
     sortOrder: readInt(row, 'sort_order'),
     createdAt: readStr(row, 'created_at'),
+    sourceTemplateId: readStr(row, 'source_template_id') || undefined,
   };
 }
 
@@ -173,6 +198,7 @@ const LIST_COLUMNS: FieldMap<ShoppingList> = {
   locked: { col: 'locked', to: (v) => (v ? 1 : 0) },
   sortOrder: { col: 'sort_order' },
   createdAt: { col: 'created_at' },
+  sourceTemplateId: { col: 'source_template_id', to: (v) => v ?? null },
 };
 
 /** Auto-computed list name from its date span, in the user's current language. */
@@ -388,17 +414,18 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
       isCustomName: true,
       locked: false,
       createdAt: new Date().toISOString(),
+      // A template is never itself "sourced from" another template — even if `list` was
+      // instantiated from one, this fresh template stands on its own.
+      sourceTemplateId: undefined,
     };
     insertRow('shopping_lists', rowValues(template, LIST_COLUMNS));
     copyOpenItemsToList(list.id, templateId);
     set((s) => ({ lists: [...s.lists, template] }));
   },
 
-  instantiateTemplate(id, today) {
+  instantiateTemplate(id, startDate, endDate) {
     const template = get().lists.find((l) => l.id === id && l.isTemplate);
     if (!template) return undefined;
-    const weeklyResetDay = useSettingsStore.getState().weeklyResetDay;
-    const { startDate, endDate } = getWeekRangeContaining(today, weeklyResetDay);
     const newId = generateId();
     const newList: ShoppingList = {
       id: newId,
@@ -413,10 +440,24 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
       locked: false,
       sortOrder: get().lists.filter((l) => !l.isTemplate).length,
       createdAt: new Date().toISOString(),
+      sourceTemplateId: template.id,
     };
     insertRow('shopping_lists', rowValues(newList, LIST_COLUMNS));
     copyOpenItemsToList(template.id, newId);
     set((s) => ({ lists: [...s.lists, newList] }));
     return newId;
+  },
+
+  syncListToTemplate(listId) {
+    const list = get().lists.find((l) => l.id === listId);
+    if (!list || !list.sourceTemplateId) return false;
+    const template = get().lists.find((l) => l.id === list.sourceTemplateId && l.isTemplate);
+    if (!template) return false;
+    // Replace the template's current items outright (not a merge) — same "fresh unchecked
+    // copy" shape as copyOpenItemsToList produces, so the template goes right back to
+    // looking like a newly-instantiated version of this list.
+    db.runSync("DELETE FROM shopping_items WHERE list_id = ? AND status = 'inWeeklyList'", [template.id]);
+    copyOpenItemsToList(listId, template.id);
+    return true;
   },
 }));

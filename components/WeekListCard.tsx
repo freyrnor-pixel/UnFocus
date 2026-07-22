@@ -26,6 +26,11 @@
  *   Data    → none directly — every item/group/callback is owned by the parent
  *
  * Edit notes:
+ *   - **Saved-lists sync-back (2026-07-22)**: `openListOptions`'s kebab menu gains a "Sync
+ *     to saved list" entry (`onSyncToTemplate`) whenever `list.sourceTemplateId` is set —
+ *     i.e. this list was instantiated from a saved list via components/SavedListsSection.tsx
+ *     (drag or tap-to-choose-week) or the older SavedListsModal popup. The parent
+ *     (app/shopping.tsx's `handleSyncListToTemplate`) owns the actual overwrite.
  *   - **2026-07-22 redesign pass (Shopping screen redesign)**: card is now collapsed by
  *     default — the whole body (below the header row) is wrapped in `Collapsible`, driven
  *     by the parent-owned `expanded`/`onToggleExpand` props (lifted, not local state, so
@@ -151,6 +156,9 @@ type Props = {
   onOpenSavedLists: () => void;
   onOpenListSettings: () => void;
   onDelete: () => void;
+  /** Pushes this list's current items back to its source saved list (only meaningful,
+   *  and only shown in the kebab menu, when list.sourceTemplateId is set). */
+  onSyncToTemplate: () => void;
   onToggleItem: (item: ShoppingItem) => void;
   onRemoveItem: (item: ShoppingItem) => void;
   onIncrementItem: (item: ShoppingItem) => void;
@@ -199,6 +207,7 @@ export default function WeekListCard({
   onOpenSavedLists,
   onOpenListSettings,
   onDelete,
+  onSyncToTemplate,
   onToggleItem,
   onRemoveItem,
   onIncrementItem,
@@ -256,9 +265,12 @@ export default function WeekListCard({
   function openListOptions() {
     showAppModal(list.name, undefined, [
       { text: t.savedListsButtonLabel, onPress: onOpenSavedLists },
+      // Only offered once this list was itself instantiated from a saved list — nothing
+      // to sync back for a list that was started empty.
+      ...(list.sourceTemplateId ? [{ text: t.syncListButtonLabel, onPress: onSyncToTemplate }] : []),
       { text: t.listSettingsButtonLabel, onPress: onOpenListSettings },
-      { text: t.deleteListButtonLabel, style: 'destructive', onPress: onDelete },
-      { text: t.cancel, style: 'cancel' },
+      { text: t.deleteListButtonLabel, style: 'destructive' as const, onPress: onDelete },
+      { text: t.cancel, style: 'cancel' as const },
     ]);
   }
 

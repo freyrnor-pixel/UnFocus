@@ -94,3 +94,62 @@ describe('load() ordering', () => {
     );
   });
 });
+
+describe('instantiateTemplate', () => {
+  afterEach(() => {
+    useShoppingListStore.setState({ lists: [] });
+    jest.clearAllMocks();
+  });
+
+  it('returns undefined when the id is not a template', () => {
+    useShoppingListStore.setState({ lists: [makeList({ id: 't1', isTemplate: false })] });
+    const id = useShoppingListStore.getState().instantiateTemplate('t1', '2026-07-20', '2026-07-26');
+    expect(id).toBeUndefined();
+  });
+
+  it('creates a live list dated to the given range and stamps sourceTemplateId back to the template', () => {
+    useShoppingListStore.setState({
+      lists: [makeList({ id: 't1', isTemplate: true, isCustomName: true, name: 'Weekly staples' })],
+    });
+    const newId = useShoppingListStore.getState().instantiateTemplate('t1', '2026-07-20', '2026-07-26');
+    expect(newId).toBeDefined();
+    const created = useShoppingListStore.getState().lists.find((l) => l.id === newId)!;
+    expect(created.startDate).toBe('2026-07-20');
+    expect(created.endDate).toBe('2026-07-26');
+    expect(created.isTemplate).toBe(false);
+    expect(created.sourceTemplateId).toBe('t1');
+  });
+});
+
+describe('syncListToTemplate', () => {
+  afterEach(() => {
+    useShoppingListStore.setState({ lists: [] });
+    jest.clearAllMocks();
+  });
+
+  it('returns false when the list has no sourceTemplateId', () => {
+    useShoppingListStore.setState({ lists: [makeList({ id: 'l1', sourceTemplateId: undefined })] });
+    expect(useShoppingListStore.getState().syncListToTemplate('l1')).toBe(false);
+  });
+
+  it('returns false when the source template no longer exists', () => {
+    useShoppingListStore.setState({ lists: [makeList({ id: 'l1', sourceTemplateId: 'missing-template' })] });
+    expect(useShoppingListStore.getState().syncListToTemplate('l1')).toBe(false);
+  });
+
+  it('deletes the template\'s items and re-copies from the live list when both exist', () => {
+    useShoppingListStore.setState({
+      lists: [
+        makeList({ id: 'l1', sourceTemplateId: 't1' }),
+        makeList({ id: 't1', isTemplate: true }),
+      ],
+    });
+    const db = jest.requireMock('@/lib/db').default;
+    db.getAllSync.mockReturnValue([]); // copyOpenItemsToList finds nothing to copy
+    expect(useShoppingListStore.getState().syncListToTemplate('l1')).toBe(true);
+    expect(db.runSync).toHaveBeenCalledWith(
+      expect.stringContaining('DELETE FROM shopping_items'),
+      ['t1']
+    );
+  });
+});
