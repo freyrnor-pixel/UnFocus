@@ -26,7 +26,8 @@
  *             components/ShoppingFilterBar, components/ShoppingRow, components/Surface,
  *             components/UpdateSheet, components/WeekListCard, components/FoodTab,
  *             components/CatalogueTab,
- *             components/PressableScale, components/TabBoxHighlight, constants/theme,
+ *             components/PressableScale, components/TabBoxHighlight, components/SectionDivider,
+ *             constants/theme,
  *             lib/date (todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle,
  *             dateRangeForCycleWeek, formatDateRange), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
@@ -275,6 +276,7 @@ import IconButton from '@/components/IconButton';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TabBoxHighlight from '@/components/TabBoxHighlight';
+import SectionDivider from '@/components/SectionDivider';
 import { success, heavy, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
@@ -1516,14 +1518,15 @@ export default function ShoppingScreen() {
               const isDropTarget = weekDrag != null && weekDrag.targetWeek === week && weekDrag.startWeek !== week;
 
               return (
-                <View
-                  key={week}
-                  ref={(node) => handleRegisterWeekSectionNode(week, node)}
-                  style={[
-                    styles.weekSection,
-                    isDropTarget && { borderColor: theme.accent, backgroundColor: theme.accentSoft },
-                  ]}
-                >
+                <React.Fragment key={week}>
+                  {week > 1 && <SectionDivider />}
+                  <View
+                    ref={(node) => handleRegisterWeekSectionNode(week, node)}
+                    style={[
+                      styles.weekSection,
+                      isDropTarget && { borderColor: theme.accent, backgroundColor: theme.accentSoft },
+                    ]}
+                  >
                   <View style={styles.weekSectionHeaderRow}>
                     <Text style={[styles.weekSectionLabel, { color: theme.text }]}>{t.weekNumberChip(week)}</Text>
                     <Text style={[styles.weekSectionRange, { color: theme.textMuted }]}>
@@ -1635,7 +1638,8 @@ export default function ShoppingScreen() {
                       );
                     })
                   )}
-                </View>
+                  </View>
+                </React.Fragment>
               );
             })}
 

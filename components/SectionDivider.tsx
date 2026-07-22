@@ -6,7 +6,7 @@
  *
  * Connections:
  *   Imports → components/TreeWatermark, constants/theme, lib/useAppTheme
- *   Used by → (not yet mounted — Phase 3a foundational port; screens wire this in later)
+ *   Used by → app/(tabs)/shopping.tsx (between UKE 1-4 week sections on the Weekly tab)
  */
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
