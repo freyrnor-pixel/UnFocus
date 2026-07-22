@@ -24,13 +24,18 @@
  *
  * Edit notes:
  *   - All visible strings go through useT(); colour theme comes from useAppTheme().
- *   - **Recurrence (2026-07-20)**: Daily/Weekly/Monthly picker, matching the
- *     daily/weekly/monthly-aware `shouldShowHabitToday()` already in
- *     app/(tabs)/health.tsx. Weekly saves `recurrenceDays` as the selected weekday
- *     indices (same dayLabels-driven chip picker as task-form.tsx's weekly recurrence);
- *     Monthly saves it as a single-element `[dayOfMonth]` (1–28, via Stepper). 'one-time'
- *     stays out of the picker — health.tsx currently treats it identically to 'daily' with
- *     no distinct behaviour, so exposing it would be a no-op that reads as broken.
+ *   - **Recurrence (2026-07-20)**: Daily/Weekly/Monthly/Flexible picker, matching
+ *     lib/habitRecurrence.ts's habitOccursOn. Weekly saves `recurrenceDays` as the
+ *     selected weekday indices (same dayLabels-driven chip picker as task-form.tsx's
+ *     weekly recurrence); Monthly saves it as a single-element `[dayOfMonth]` (1–28,
+ *     via Stepper). 'one-time' stays out of the picker — health.tsx currently treats
+ *     it identically to 'daily' with no distinct behaviour, so exposing it would be a
+ *     no-op that reads as broken.
+ *   - **'weekly-flexible' (2026-07-22, "Flexible")**: "N times this week, any day" —
+ *     due every day (no weekday chips shown), met once the week's cumulative logged
+ *     count reaches the goal. Reuses the `dailyGoal` field as a per-week target in
+ *     this mode (only its label switches to habitWeeklyGoal) rather than adding a new
+ *     DB column — see lib/habitRecurrence.ts.
  *   - **Keyboard fix (2026-07-20)**: the whole screen is wrapped in a `KeyboardAvoidingView`
  *     (iOS `padding` only — Android already resizes the window via
  *     `windowSoftInputMode=resize`, so a second RN-level shrink would double up and misplace
@@ -437,10 +442,14 @@ export default function HabitForm() {
               { value: 'daily', label: t.habitRecurrenceDaily },
               { value: 'weekly', label: t.habitRecurrenceWeekly },
               { value: 'monthly', label: t.habitRecurrenceMonthly },
+              { value: 'weekly-flexible', label: t.habitRecurrenceWeeklyFlexible },
             ]}
             value={recurrence}
             onChange={(v) => setRecurrence(v as HabitRecurrence)}
           />
+          {recurrence === 'weekly-flexible' && (
+            <Text style={[styles.reminderPreview, { color: theme.textMuted }]}>{t.habitRecurrenceWeeklyFlexibleHint}</Text>
+          )}
           {recurrence === 'weekly' && (
             <View style={styles.daysRow}>
               {t.dayLabels.map((label, i) => {
@@ -475,9 +484,13 @@ export default function HabitForm() {
           )}
         </View>
 
-        {/* Daily goal stepper — shown by default alongside Recurrence, same reasoning. */}
+        {/* Daily/weekly goal stepper — shown by default alongside Recurrence, same reasoning.
+            Reuses the same `dailyGoal` field as a per-week target when recurrence is
+            'weekly-flexible' (lib/habitRecurrence.ts) — only the label changes. */}
         <View style={[styles.field, styles.energyStepperRow]}>
-          <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitDailyGoal}</Text>
+          <Text style={[styles.label, { color: theme.textMuted }]}>
+            {recurrence === 'weekly-flexible' ? t.habitWeeklyGoal : t.habitDailyGoal}
+          </Text>
           <Stepper value={dailyGoal} onChange={setDailyGoal} min={1} max={20} accessibilityLabel={t.habitDailyGoal} />
         </View>
 

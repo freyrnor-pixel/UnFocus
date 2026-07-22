@@ -46,7 +46,8 @@
  *   - **Habits section (ported from the removed app/habits.tsx)**: today/week/month view
  *     tabs, an optional child-profile selector, and per-habit cards (progress dots, week
  *     strip, rest-day toggle) — the same sub-components/helpers habits.tsx used
- *     (HabitCard/WeekView/MonthView, shouldShowHabitOnDate/habitColor/progressColor), now
+ *     (HabitCard/WeekView/MonthView, habitColor/progressColor — occurrence/progress now
+ *     come from lib/habitRecurrence.ts), now
  *     module-scope in this file instead of their own screen.
  *   - **No streaks (2026-07-20)**: the habit card shows an Energy badge (habit.energyValue,
  *     from the optional Energy system, lib/energy.ts) instead of a streak counter — only
@@ -84,6 +85,7 @@ import IconButton from '@/components/IconButton';
 import { useT } from '@/lib/i18n';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { todayStr, getWeekDates, getMonthDates } from '@/lib/date';
+import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 import { SEVERITY_COLORS, severities } from '@/lib/severity';
 import { FontSize, Radius, Shadow, Spacing, Fonts, Type } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
@@ -108,22 +110,19 @@ function progressColor(ratio: number, _kind: HabitKind, theme: ThemePalette): st
   return theme.border;
 }
 
-/** Determine whether a habit should be shown on a given date based on its recurrence setting. */
-function shouldShowHabitOnDate(habit: Habit, dateStr: string): boolean {
-  if (habit.recurrence === 'daily') return true;
-  if (habit.recurrence === 'one-time') return true;
-  if (habit.recurrence === 'weekly') {
-    if (habit.recurrenceDays.length === 0) return true;
-    const date = new Date(dateStr + 'T12:00:00');
-    const dayOfWeek = (date.getDay() + 6) % 7; // 0 = Mon, 6 = Sun
-    return habit.recurrenceDays.includes(dayOfWeek);
-  }
-  if (habit.recurrence === 'monthly') {
-    if (habit.recurrenceDays.length === 0) return true;
-    const date = new Date(dateStr + 'T12:00:00');
-    return date.getDate() === habit.recurrenceDays[0];
-  }
-  return true;
+// shouldShowHabitOnDate lived here; now lib/habitRecurrence.ts's habitOccursOn (also
+// used by lib/energy.ts and lib/widgets/sync.ts, so the "is this due" logic exists
+// in exactly one place, including 'weekly-flexible' support).
+
+/**
+ * A single day's dot-fill ratio for the Week/Month grids and WeekStrip. For a
+ * `weekly-flexible` habit each day is binary (did anything get logged that day?) —
+ * dividing by the weekly goal would leave every day's dot barely filled. Fixed-
+ * schedule habits keep the existing count/dailyGoal ratio.
+ */
+function dotRatio(habit: Habit, count: number): number {
+  if (habit.recurrence === 'weekly-flexible') return count > 0 ? 1 : 0;
+  return habit.dailyGoal > 0 ? Math.min(count / habit.dailyGoal, 1) : 0;
 }
 
 const DAY_ABBR = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -145,9 +144,9 @@ function EnergyBadge({ value, theme }: { value: number; theme: ThemePalette }) {
 }
 
 function WeekStrip({
-  habitId, today, goal, kind, lang, theme,
+  habit, today, kind, lang, theme,
 }: {
-  habitId: string; today: string; goal: number; kind: HabitKind; lang: string; theme: ThemePalette;
+  habit: Habit; today: string; kind: HabitKind; lang: string; theme: ThemePalette;
 }) {
   const logs = useHabitStore((s) => s.logs);
   const weekDates = useMemo(() => getWeekDates(today), [today]);
@@ -157,9 +156,9 @@ function WeekStrip({
   return (
     <View style={styles.weekStrip}>
       {weekDates.map((date, i) => {
-        const log = logs.find((l) => l.habitId === habitId && l.logDate === date);
+        const log = logs.find((l) => l.habitId === habit.id && l.logDate === date);
         const count = log?.count ?? 0;
-        const ratio = goal > 0 ? Math.min(count / goal, 1) : 0;
+        const ratio = dotRatio(habit, count);
         const isFuture = date > today;
         const isRest = !!log?.restDay;
         // Rest days get a solid textMuted fill — distinct from both "met" and "missed".
@@ -197,10 +196,9 @@ function HabitCard({
   const styles = useScaledStyles(baseStyles);
 
   const log = logs.find((l) => l.habitId === habit.id && l.logDate === today);
-  const count = log?.count ?? 0;
   const isRestToday = log?.restDay ?? false;
-  const ratio = habit.dailyGoal > 0 ? Math.min(count / habit.dailyGoal, 1) : 0;
-  const isDone = ratio >= 1;
+  const { count, goal, ratio, isDone } = habitProgress(habit, logs, today);
+  const isWeeklyFlexible = habit.recurrence === 'weekly-flexible';
 
   const accent = habitColor(habit.kind, theme);
 
@@ -239,6 +237,11 @@ function HabitCard({
               <Text style={[styles.habitTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
             </View>
             <View style={styles.titleMetaRow}>
+              {isWeeklyFlexible && (
+                <Text style={[styles.weeklyProgressText, { color: theme.textMuted }]}>
+                  {t.habits.weeklyProgress(count, goal)}
+                </Text>
+              )}
               {isDone && (
                 <View style={[styles.donePill, { backgroundColor: accent }]}>
                   <Text style={[styles.donePillText, { color: theme.accentInk }]}>{t.habits.doneToday}</Text>
@@ -279,9 +282,8 @@ function HabitCard({
           <View style={styles.expanded}>
             <View style={[styles.weekStripWrap, { borderTopColor: theme.border }]}>
               <WeekStrip
-                habitId={habit.id}
+                habit={habit}
                 today={today}
-                goal={habit.dailyGoal}
                 kind={habit.kind}
                 lang={lang}
                 theme={theme}
@@ -330,7 +332,7 @@ function WeekView({
   const styles = useScaledStyles(baseStyles);
 
   const visibleHabits = useMemo(
-    () => habits.filter((h) => weekDates.some((d) => shouldShowHabitOnDate(h, d))),
+    () => habits.filter((h) => weekDates.some((d) => habitOccursOn(h, d))),
     [habits, weekDates]
   );
 
@@ -366,7 +368,7 @@ function WeekView({
           </View>
           {weekDates.map((date) => {
             const log = logs.find((l) => l.habitId === habit.id && l.logDate === date);
-            const ratio = habit.dailyGoal > 0 ? Math.min((log?.count ?? 0) / habit.dailyGoal, 1) : 0;
+            const ratio = dotRatio(habit, log?.count ?? 0);
             const isFuture = date > today;
             const color = isFuture ? theme.border : progressColor(ratio, habit.kind, theme);
             const filled = !isFuture && ratio > 0;
@@ -416,7 +418,7 @@ function MonthView({
   }, [today]);
 
   const visibleHabits = useMemo(
-    () => habits.filter((h) => dates.some((d) => shouldShowHabitOnDate(h, d))),
+    () => habits.filter((h) => dates.some((d) => habitOccursOn(h, d))),
     [habits, dates]
   );
 
@@ -460,7 +462,7 @@ function MonthView({
             <View style={styles.monthDots}>
               {dates.map((date) => {
                 const log = logs.find((l) => l.habitId === habit.id && l.logDate === date);
-                const ratio = habit.dailyGoal > 0 ? Math.min((log?.count ?? 0) / habit.dailyGoal, 1) : 0;
+                const ratio = dotRatio(habit, log?.count ?? 0);
                 const isFuture = date > today;
                 const color = isFuture ? theme.border : progressColor(ratio, habit.kind, theme);
                 const filled = !isFuture && ratio > 0;
@@ -561,7 +563,7 @@ export default function HealthScreen() {
     [showHabitProfiles, habits, selectedProfile]
   );
   const visibleHabits = useMemo(
-    () => profileHabits.filter((h) => shouldShowHabitOnDate(h, today)),
+    () => profileHabits.filter((h) => habitOccursOn(h, today)),
     [profileHabits, today]
   );
 
@@ -905,6 +907,7 @@ const baseStyles = StyleSheet.create({
     paddingVertical: 2,
   },
   donePillText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  weeklyProgressText: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
   adjBtn: {
     width: 30, height: 30,
     borderRadius: Radius.full,

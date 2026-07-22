@@ -13,6 +13,9 @@
  * This answers "if everything on the books happens, do I have enough Energy?",
  * distinct from "current" which only reflects what's already been completed —
  * used to warn about an over-committed day/week before anything's done.
+ * `weekly-flexible` habits (lib/habitRecurrence.ts — "N times this week, any day")
+ * aren't pinned to a specific day, so they're excluded from any single day's planned
+ * total and instead added once to the WEEK's planned total.
  *
  * These helpers are deliberately pure (they take plain arrays, no store/DB
  * access) so they're trivially unit-testable and reused by
@@ -20,7 +23,8 @@
  *
  * Connections:
  *   Imports → lib/date (getWeekDates), lib/taskRecurrence (taskOccursOn),
- *             store type imports (Task/Habit/HabitLog)
+ *             lib/habitRecurrence (habitOccursOn, habitMetOn), store type imports
+ *             (Task/Habit/HabitLog)
  *   Used by → store/useEnergyStore.ts, components/EnergyMeter.tsx, __tests__/energy.test.ts
  *   Data    → none (pure functions)
  *
@@ -30,6 +34,7 @@
  */
 import { getWeekDates } from '@/lib/date';
 import { taskOccursOn } from '@/lib/taskRecurrence';
+import { habitOccursOn, habitMetOn } from '@/lib/habitRecurrence';
 import type { Task } from '@/store/useTaskStore';
 import type { Habit, HabitLog } from '@/store/useHabitStore';
 
@@ -41,17 +46,6 @@ export function dayKey(date: string): string {
 /** Week period key ('w:'-prefixed Monday) for the Mon–Sun week containing `date`. */
 export function weekKey(date: string): string {
   return `w:${getWeekDates(date)[0]}`;
-}
-
-/**
- * True when a habit counts as "met" on `date` (its logged count reached the daily goal).
- * A rest day is neither met nor missed — it's excluded so energy simply doesn't move for
- * that habit that day (no reward for resting, no penalty either).
- */
-function habitMetOn(habit: Habit, logs: HabitLog[], date: string): boolean {
-  const log = logs.find((l) => l.habitId === habit.id && l.logDate === date);
-  if (log?.restDay) return false;
-  return (log?.count ?? 0) >= habit.dailyGoal;
 }
 
 /**
@@ -87,26 +81,13 @@ export function energyDeltaForWeek(
   );
 }
 
-/** Whether `habit` is scheduled to occur on `date` — mirrors dueToday()/shouldShowHabitOnDate() elsewhere. */
-function habitOccursOn(habit: Habit, date: string): boolean {
-  if (habit.recurrence === 'daily' || habit.recurrence === 'one-time') return true;
-  const d = new Date(date + 'T12:00:00');
-  if (habit.recurrence === 'weekly') {
-    if (habit.recurrenceDays.length === 0) return true;
-    return habit.recurrenceDays.includes((d.getDay() + 6) % 7); // 0 = Mon
-  }
-  if (habit.recurrence === 'monthly') {
-    if (habit.recurrenceDays.length === 0) return true;
-    return d.getDate() === habit.recurrenceDays[0];
-  }
-  return true;
-}
-
 /**
  * Net signed energy PLANNED for a day: every energy-enabled task/habit scheduled
  * to occur that day, regardless of whether it's been completed/met yet — unlike
  * energyDeltaForDay, which only counts what's actually done. Used to warn about an
- * over-committed day before anything on it has happened.
+ * over-committed day before anything on it has happened. `weekly-flexible` habits
+ * are excluded here (see plannedEnergyDeltaForWeek) since they aren't pinned to a
+ * specific day.
  */
 export function plannedEnergyDeltaForDay(date: string, tasks: Task[], habits: Habit[]): number {
   let total = 0;
@@ -114,12 +95,22 @@ export function plannedEnergyDeltaForDay(date: string, tasks: Task[], habits: Ha
     if (t.energyEnabled && taskOccursOn(t, date)) total += t.energyValue;
   }
   for (const h of habits) {
-    if (h.energyEnabled && habitOccursOn(h, date)) total += h.energyValue;
+    if (h.energyEnabled && h.recurrence !== 'weekly-flexible' && habitOccursOn(h, date)) total += h.energyValue;
   }
   return total;
 }
 
-/** Net signed energy PLANNED across the Mon–Sun week containing `date` (see plannedEnergyDeltaForDay). */
+/**
+ * Net signed energy PLANNED across the Mon–Sun week containing `date` (see
+ * plannedEnergyDeltaForDay). Each `weekly-flexible` habit's value is added exactly
+ * ONCE for the week (it isn't pinned to any single day, so it can't be summed per-day
+ * without over-counting it up to 7x).
+ */
 export function plannedEnergyDeltaForWeek(date: string, tasks: Task[], habits: Habit[]): number {
-  return getWeekDates(date).reduce((sum, d) => sum + plannedEnergyDeltaForDay(d, tasks, habits), 0);
+  const dayTotal = getWeekDates(date).reduce((sum, d) => sum + plannedEnergyDeltaForDay(d, tasks, habits), 0);
+  const flexibleTotal = habits.reduce(
+    (sum, h) => sum + (h.energyEnabled && h.recurrence === 'weekly-flexible' ? h.energyValue : 0),
+    0
+  );
+  return dayTotal + flexibleTotal;
 }
