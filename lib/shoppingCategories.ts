@@ -9,7 +9,9 @@
  * Connections:
  *   Imports → lib/i18n (Translations type only)
  *   Used by → components/InlineAddItem.tsx (Weekly + Monthly add forms), app/(tabs)/shopping.tsx
- *             (Monthly category clustering)
+ *             (Monthly category clustering + Monthly-tab filter), components/ShoppingFilterBar.tsx
+ *             (category dropdown, used by WeekListCard.tsx, AddFromMonthlyModal.tsx and the
+ *             Monthly tab — category is now an actual filter, not just a display tag)
  *   Data    → none — pure preset list + label lookup
  */
 import { Translations } from '@/lib/i18n';

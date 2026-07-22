@@ -23,8 +23,9 @@
  *             components/MonthlyResetReviewSheet,
  *             components/MonthlyTableRow, components/SavedListsModal,
  *             components/ScreenScaffold, components/SharedRequestsSection,
- *             components/ShoppingRow, components/Surface, components/UpdateSheet,
- *             components/WeekListCard, components/FoodTab, components/CatalogueTab,
+ *             components/ShoppingFilterBar, components/ShoppingRow, components/Surface,
+ *             components/UpdateSheet, components/WeekListCard, components/FoodTab,
+ *             components/CatalogueTab,
  *             components/PressableScale, components/TabBoxHighlight, constants/theme,
  *             lib/date (todayStr, dateStr, getWeekRangeContaining), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
@@ -41,6 +42,20 @@
  *             startup by app/_layout.tsx). FoodTab additionally drives useMealStore.
  *
  * Edit notes:
+ *   - **Popup + real category filter pass (2026-07-22)**: Weekly's "Add from monthly" now opens
+ *     `components/AddFromMonthlyModal` as a centered popup (checkbox multi-select, batch
+ *     commit) instead of WeekListCard's old inline panel — `onAddMonthlyToWeek` (per-item) was
+ *     replaced by `onAddMonthlyItemsToWeek` (batch; loops `addToWeeklyFromCatalog` here and
+ *     shows one consolidated toast, `t.itemsAddedToList`, instead of one per item). Also added
+ *     `ShoppingFilterBar` (name search + category dropdown) to the Monthly tab
+ *     (`monthlyTabSearch`/`monthlyTabCategory` state) — `catalogItems` is filtered into
+ *     `filteredCatalogItems` before feeding `groupByDish`/`groupByCategory`; picking a specific
+ *     category skips the category-cluster-divider step (`ungroupedCategoryGroups` returns `[]`)
+ *     since every visible row already shares that category. `monthlyTotal` still sums the full
+ *     unfiltered `catalogItems` — the filter narrows what's visible, not the running total. The
+ *     same `ShoppingFilterBar` is used on Weekly (see WeekListCard.tsx) — category was
+ *     previously display-only everywhere (a tag + cluster divider); this is the first place
+ *     either tab actually filters/searches by it.
  *   - **Shopping-cleanup pass (2026-07-20)**: `addDishOpen` (boolean) became `dishSheetTarget`
  *     (`AddDishTarget | null`, from components/AddDishSheet) so the one shared `<AddDishSheet>`
  *     mount near the bottom of this file serves both Monthly's "Legg til rett" trigger
@@ -208,6 +223,7 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import ExpandableCard from '@/components/ExpandableCard';
 import PressableScale from '@/components/PressableScale';
 import WeekListCard from '@/components/WeekListCard';
+import ShoppingFilterBar from '@/components/ShoppingFilterBar';
 import FlightOverlay, { FlightRow, Flight, FlightRect } from '@/components/FlightOverlay';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab from '@/components/CatalogueTab';
@@ -309,6 +325,10 @@ export default function ShoppingScreen() {
   }, []);
   const [updateItem, setUpdateItem] = useState<ShoppingItem | null>(null);
   const [resetConfirmVisible, setResetConfirmVisible] = useState(false);
+  // Monthly tab's name+category filter (category was previously display-only — a tag +
+  // cluster divider — this makes it an actual filter, same ShoppingFilterBar Weekly uses).
+  const [monthlyTabSearch, setMonthlyTabSearch] = useState('');
+  const [monthlyTabCategory, setMonthlyTabCategory] = useState<string | null>(null);
 
   // ── Decision 011 R1 reorder + Decision 022 drag-to-merge (all window-coordinate based) ──
   // Native nodes are registered by DraggableTaskRow (reorder rows) and WeekListCard (dish-group
@@ -429,15 +449,25 @@ export default function ShoppingScreen() {
     }
     return counts;
   }, [items]);
+  // Monthly tab's name+category filter narrows what's *visible* — monthlyTotal below still
+  // sums the full unfiltered catalogItems.
+  const filteredCatalogItems = useMemo(() => {
+    const q = monthlyTabSearch.trim().toLowerCase();
+    return catalogItems.filter(
+      (i) => (!q || i.name.toLowerCase().includes(q)) && (monthlyTabCategory == null || i.category === monthlyTabCategory)
+    );
+  }, [catalogItems, monthlyTabSearch, monthlyTabCategory]);
   const { dishGroups: catalogDishGroups, ungrouped: ungroupedRestItems } = useMemo(
-    () => groupByDish(catalogItems),
-    [catalogItems]
+    () => groupByDish(filteredCatalogItems),
+    [filteredCatalogItems]
   );
   // Category clusters for Monthly's ungrouped rows only — Weekly's own ungroupedUnchecked
-  // keeps its user-dragged orderIndex order instead (see lib/shoppingGroups.ts note).
+  // keeps its user-dragged orderIndex order instead (see lib/shoppingGroups.ts note). Skipped
+  // once a specific category is picked in the filter bar — every row already shares that one
+  // category, so a divider would be redundant.
   const ungroupedCategoryGroups = useMemo(
-    () => groupByCategory(ungroupedRestItems),
-    [ungroupedRestItems]
+    () => (monthlyTabCategory == null ? groupByCategory(ungroupedRestItems) : []),
+    [ungroupedRestItems, monthlyTabCategory]
   );
 
   // Running total of the curated Monthly list (price × targetQuantity per row).
@@ -970,8 +1000,19 @@ export default function ShoppingScreen() {
                 <View style={[styles.sectionTitleCard, { backgroundColor: theme.surfaceMuted }]}>
                   <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.monthlyListSection}</Text>
                 </View>
+                {catalogItems.length > 0 && (
+                  <ShoppingFilterBar
+                    search={monthlyTabSearch}
+                    onSearchChange={setMonthlyTabSearch}
+                    category={monthlyTabCategory}
+                    onCategoryChange={setMonthlyTabCategory}
+                    placeholder={t.monthlyPreviewSearchPlaceholder}
+                  />
+                )}
                 {catalogItems.length === 0 ? (
                   <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.monthlyListEmpty}</Text>
+                ) : filteredCatalogItems.length === 0 ? (
+                  <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.monthlyPreviewEmpty}</Text>
                 ) : (
                   <>
                     {catalogDishGroups.length > 0 && (
@@ -1236,10 +1277,16 @@ export default function ShoppingScreen() {
                     setConfirm(t.itemAddedToList(input.name));
                   }}
                   monthlyItems={catalogItems}
-                  onAddMonthlyToWeek={(item) => {
-                    addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, list.id);
+                  onAddMonthlyItemsToWeek={(monthlyItemsToAdd) => {
+                    for (const item of monthlyItemsToAdd) {
+                      addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, list.id);
+                    }
                     success();
-                    setConfirm(t.itemAddedToList(item.name));
+                    setConfirm(
+                      monthlyItemsToAdd.length === 1
+                        ? t.itemAddedToList(monthlyItemsToAdd[0].name)
+                        : t.itemsAddedToList(monthlyItemsToAdd.length)
+                    );
                   }}
                   onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
                   onOpenDishSheet={() => setDishSheetTarget({ mode: 'weekly', listId: list.id })}
