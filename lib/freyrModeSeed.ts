@@ -3,43 +3,55 @@
  *
  * "Freyr-mode" is a settings toggle (Additional modes tab) that one-shot creates a
  * fixed starter set of rows across four stores (monthly shopping catalog, tasks,
- * one habit, notes) and, when turned back off, removes exactly those rows — never
- * anything the user added themselves. The ids created by seedFreyrMode() must be
- * persisted (useSettingsStore's freyrSeedIds) and passed back into unseedFreyrMode()
- * on disable; app/settings.tsx owns that read/write.
+ * habits, notes) plus three Energy-system settings (energySystemEnabled,
+ * energyDailyCapacity, monthlyBudgetNok), and, when turned back off, removes exactly
+ * those rows and restores exactly those settings — never anything the user added or
+ * changed themselves. The ids created by seedFreyrMode() (and the settings values it
+ * overwrote) must be persisted (useSettingsStore's freyrSeedIds) and passed back into
+ * unseedFreyrMode() on disable; app/settings.tsx owns that read/write.
  *
  * Connections:
- *   Imports → lib/date, store/useHabitStore, store/useNotesStore, store/useShoppingStore, store/useTaskStore
+ *   Imports → lib/date, store/useHabitStore, store/useNotesStore, store/useShoppingStore,
+ *             store/useTaskStore, store/useSettingsStore
  *   Used by → app/settings.tsx
  *   Data    → writes shopping_items (status='catalog', list_type='monthly'), tasks, habits, notes
- *     via each store's own add()/update()/remove() — no direct SQL here.
+ *     via each store's own add()/update()/remove() — no direct SQL here. Also overwrites
+ *     (and restores) settings.energySystemEnabled/energyDailyCapacity/monthlyBudgetNok.
  *
  * Edit notes:
- *   - Item/task/note text is Norwegian and NOT translated, matching lib/catalogSeed.ts's
+ *   - Item/task/note/habit text is Norwegian and NOT translated, matching lib/catalogSeed.ts's
  *     precedent (only UI chrome follows the user's language; seeded content doesn't).
  *   - useHabitStore.add() doesn't return the created row, unlike the other three
  *     stores' add(). addHabitAndCaptureId() diffs the habit list before/after to
  *     recover the new id — don't call this seed function concurrently with anything
  *     else that adds a habit, or the diff could pick up the wrong row.
+ *   - This is Freyr's actual personal routine (2026-07-22), not placeholder content —
+ *     see the "Freyr-mode" task description for the source spec. Energy values follow
+ *     lib/energy.ts's signed convention (positive restores, negative drains); weekday
+ *     numbers follow the app-wide 0=Mon…6=Sun convention (lib/taskRecurrence.ts).
  */
 import { todayStr } from '@/lib/date';
 import { useHabitStore, Habit } from '@/store/useHabitStore';
 import { useNotesStore } from '@/store/useNotesStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 export type FreyrSeedIds = {
   shoppingItemIds: string[];
   taskIds: string[];
-  habitId: string | null;
+  habitIds: string[];
   noteIds: string[];
+  /** Settings values overwritten by seedFreyrMode(), to restore on unseed. Null until first seeded. */
+  prevSettings: { energySystemEnabled: boolean; energyDailyCapacity: number; monthlyBudgetNok: number } | null;
 };
 
 export const EMPTY_FREYR_SEED_IDS: FreyrSeedIds = {
   shoppingItemIds: [],
   taskIds: [],
-  habitId: null,
+  habitIds: [],
   noteIds: [],
+  prevSettings: null,
 };
 
 export function parseFreyrSeedIds(json: string): FreyrSeedIds {
@@ -51,12 +63,17 @@ export function parseFreyrSeedIds(json: string): FreyrSeedIds {
   }
 }
 
-/** Every-2-hours reminder times from 08:00 through 22:00 inclusive. */
+/** Every-2-hours reminder times from 08:00 through 20:00 inclusive. */
 function waterReminderTimes(): string[] {
   const times: string[] = [];
-  for (let h = 8; h <= 22; h += 2) times.push(`${String(h).padStart(2, '0')}:00`);
+  for (let h = 8; h <= 20; h += 2) times.push(`${String(h).padStart(2, '0')}:00`);
   return times;
 }
+
+// Weekday numbers (0=Mon…6=Sun) — matches taskOccursOn/habit recurrenceDays app-wide.
+const MON = 0, TUE = 1, WED = 2, THU = 3, FRI = 4, SAT = 5, SUN = 6;
+const WEEKDAYS = [MON, TUE, WED, THU, FRI];
+const WEEKEND = [SAT, SUN];
 
 function addHabitAndCaptureId(input: Omit<Habit, 'id' | 'createdAt' | 'active'>): string {
   const before = new Set(useHabitStore.getState().habits.map((h) => h.id));
@@ -71,7 +88,7 @@ function addNote(header: string): string {
   return note.id;
 }
 
-/** Creates the Freyr-mode starter set and returns exactly the ids it created. */
+/** Creates the Freyr-mode starter set and returns exactly the ids/settings it created/overwrote. */
 export function seedFreyrMode(): FreyrSeedIds {
   const shoppingStore = useShoppingStore.getState();
   const shoppingItemIds = [
@@ -84,37 +101,118 @@ export function seedFreyrMode(): FreyrSeedIds {
   const today = todayStr();
   const taskStore = useTaskStore.getState();
   const taskIds = [
-    taskStore.add({ title: 'Kattekasse', date: today, time: '21:00', taskType: 'start-at', done: false, recurring: 'daily', recurringDays: [], sortOrder: 0 }).id,
-    taskStore.add({ title: 'Puss tenner', date: today, time: '07:30', taskType: 'start-at', done: false, recurring: 'daily', recurringDays: [], sortOrder: 0 }).id,
-    taskStore.add({ title: 'Puss tenner', date: today, time: '21:45', taskType: 'start-at', done: false, recurring: 'daily', recurringDays: [], sortOrder: 0 }).id,
+    // Cat litter box, every day at 21:00 — consumes 1 Energy.
+    taskStore.add({ title: 'Kattekasse', date: today, time: '21:00', taskType: 'start-at', done: false, recurring: 'daily', recurringDays: [], energyEnabled: true, energyValue: -1, sortOrder: 0 }).id,
+    // Diaper changes, every day, whenever — consumes 1 Energy.
+    taskStore.add({ title: 'Bleieskift', date: today, taskType: 'start-at', done: false, recurring: 'daily', recurringDays: [], energyEnabled: true, energyValue: -1, sortOrder: 1 }).id,
+    // Bathing Eyja, Tue/Thu/Sat, whenever — consumes 2 Energy.
+    taskStore.add({ title: 'Bade Eyja', date: today, taskType: 'start-at', done: false, recurring: 'weekly', recurringDays: [TUE, THU, SAT], energyEnabled: true, energyValue: -2, sortOrder: 2 }).id,
+    // Laundry, every day at 17:30 — consumes 1 Energy.
+    taskStore.add({ title: 'Klesvask', date: today, time: '17:30', taskType: 'start-at', done: false, recurring: 'daily', recurringDays: [], energyEnabled: true, energyValue: -1, sortOrder: 3 }).id,
+    // Make the bed, Sunday at 21:30 — consumes 1 Energy.
+    taskStore.add({ title: 'Re opp sengen', date: today, time: '21:30', taskType: 'start-at', done: false, recurring: 'weekly', recurringDays: [SUN], energyEnabled: true, energyValue: -1, sortOrder: 4 }).id,
+    // Wash bedsheets, every Sunday at 13:00 — consumes 1 Energy.
+    taskStore.add({ title: 'Vaske sengetøy', date: today, time: '13:00', taskType: 'start-at', done: false, recurring: 'weekly', recurringDays: [SUN], energyEnabled: true, energyValue: -1, sortOrder: 5 }).id,
+    // Shopping, Tuesday and Friday at 16:00 — consumes 2 Energy.
+    taskStore.add({ title: 'Handle', date: today, time: '16:00', taskType: 'start-at', done: false, recurring: 'weekly', recurringDays: [TUE, FRI], energyEnabled: true, energyValue: -2, sortOrder: 6 }).id,
+    // Plan next week's shopping, Saturday at 20:30 — consumes 1 Energy.
+    taskStore.add({ title: 'Planlegg neste ukes handleliste', date: today, time: '20:30', taskType: 'start-at', done: false, recurring: 'weekly', recurringDays: [SAT], energyEnabled: true, energyValue: -1, sortOrder: 7 }).id,
+    // General house chores, Sat+Sun 14:00–15:00 — consumes 2 Energy.
+    taskStore.add({ title: 'Husarbeid', date: today, time: '14:00', finishTime: '15:00', taskType: 'time-box', done: false, recurring: 'weekly', recurringDays: WEEKEND, energyEnabled: true, energyValue: -2, sortOrder: 8 }).id,
+    // Take Eyja to kindergarten, Mon+Fri at 07:30 — consumes 1 Energy.
+    taskStore.add({ title: 'Følge Eyja i barnehagen', date: today, time: '07:30', taskType: 'start-at', done: false, recurring: 'weekly', recurringDays: [MON, FRI], energyEnabled: true, energyValue: -1, sortOrder: 9 }).id,
+    // Wake up with Eyja, Sat+Sun at 08:00 — consumes 1 Energy.
+    taskStore.add({ title: 'Stå opp med Eyja', date: today, time: '08:00', taskType: 'start-at', done: false, recurring: 'weekly', recurringDays: WEEKEND, energyEnabled: true, energyValue: -1, sortOrder: 10 }).id,
+    // Plan date night, once a month (pinned to the 1st, no fixed day given) — consumes 1 Energy.
+    taskStore.add({ title: 'Planlegg date night', date: today, taskType: 'start-at', done: false, recurring: 'monthly', recurringDays: [], monthlyMode: 'day', monthDay: 1, energyEnabled: true, energyValue: -1, sortOrder: 11 }).id,
+    // Go outside with Eyja, at least 3x/week (Mon/Wed/Fri as a concrete default) — consumes 1 Energy.
+    taskStore.add({ title: 'Gå ut med Eyja', date: today, taskType: 'start-at', done: false, recurring: 'weekly', recurringDays: [MON, WED, FRI], energyEnabled: true, energyValue: -1, sortOrder: 12 }).id,
   ];
 
   const waterTimes = waterReminderTimes();
-  const habitId = addHabitAndCaptureId({
-    title: 'Drikk vann',
-    icon: '💧',
-    kind: 'neutral',
-    category: 'health',
-    cue: '',
-    craving: '',
-    response: '',
-    reward: '',
-    dailyGoal: waterTimes.length,
-    recurrence: 'daily',
-    recurrenceDays: [],
-    notificationEnabled: true,
-    notificationTimes: waterTimes,
-    reminderMode: 'interval',
-    reminderCount: null,
-    reminderIntervalMin: 120,
-    reminderStart: '08:00',
-    reminderEnd: '22:00',
-    routineOrder: 0,
-    childName: '',
-    // Drinking water restores energy (+1) — the canonical positive-energy example.
-    energyEnabled: true,
-    energyValue: 1,
-  });
+  const habitIds = [
+    // Drink water every 2h, 08:00–20:00, every day — no Energy.
+    addHabitAndCaptureId({
+      title: 'Drikk vann', icon: '💧', kind: 'neutral', category: 'health',
+      cue: '', craving: '', response: '', reward: '',
+      dailyGoal: waterTimes.length, recurrence: 'daily', recurrenceDays: [],
+      notificationEnabled: true, notificationTimes: waterTimes,
+      reminderMode: 'interval', reminderCount: null, reminderIntervalMin: 120, reminderStart: '08:00', reminderEnd: '20:00',
+      routineOrder: 0, childName: '', energyEnabled: false, energyValue: 0,
+    }),
+    // Lunch, 12:00, every day — gives 2 Energy.
+    addHabitAndCaptureId({
+      title: 'Lunsj', icon: '🍽️', kind: 'neutral', category: 'nutrition',
+      cue: '', craving: '', response: '', reward: '',
+      dailyGoal: 1, recurrence: 'daily', recurrenceDays: [],
+      notificationEnabled: true, notificationTimes: ['12:00'],
+      reminderMode: 'single', reminderCount: null, reminderIntervalMin: null, reminderStart: null, reminderEnd: null,
+      routineOrder: 1, childName: '', energyEnabled: true, energyValue: 2,
+    }),
+    // Dinner, 16:00, every day — gives 2 Energy.
+    addHabitAndCaptureId({
+      title: 'Middag', icon: '🍲', kind: 'neutral', category: 'nutrition',
+      cue: '', craving: '', response: '', reward: '',
+      dailyGoal: 1, recurrence: 'daily', recurrenceDays: [],
+      notificationEnabled: true, notificationTimes: ['16:00'],
+      reminderMode: 'single', reminderCount: null, reminderIntervalMin: null, reminderStart: null, reminderEnd: null,
+      routineOrder: 2, childName: '', energyEnabled: true, energyValue: 2,
+    }),
+    // Remove a stress factor, every day, whenever — gives 2 Energy.
+    addHabitAndCaptureId({
+      title: 'Fjern en stressfaktor', icon: '🧘', kind: 'neutral', category: 'wellbeing',
+      cue: '', craving: '', response: '', reward: '',
+      dailyGoal: 1, recurrence: 'daily', recurrenceDays: [],
+      notificationEnabled: false, notificationTimes: [],
+      reminderMode: null, reminderCount: null, reminderIntervalMin: null, reminderStart: null, reminderEnd: null,
+      routineOrder: 3, childName: '', energyEnabled: true, energyValue: 2,
+    }),
+    // Notice/add a stress factor, every day, whenever — consumes 2 Energy.
+    addHabitAndCaptureId({
+      title: 'Merk en stressfaktor', icon: '⚠️', kind: 'neutral', category: 'wellbeing',
+      cue: '', craving: '', response: '', reward: '',
+      dailyGoal: 1, recurrence: 'daily', recurrenceDays: [],
+      notificationEnabled: false, notificationTimes: [],
+      reminderMode: null, reminderCount: null, reminderIntervalMin: null, reminderStart: null, reminderEnd: null,
+      routineOrder: 4, childName: '', energyEnabled: true, energyValue: -2,
+    }),
+    // Brush teeth, Mon–Fri 21:30 — gives 1 Energy.
+    addHabitAndCaptureId({
+      title: 'Puss tenner (hverdager)', icon: '🪥', kind: 'neutral', category: 'health',
+      cue: '', craving: '', response: '', reward: '',
+      dailyGoal: 1, recurrence: 'weekly', recurrenceDays: WEEKDAYS,
+      notificationEnabled: true, notificationTimes: ['21:30'],
+      reminderMode: 'single', reminderCount: null, reminderIntervalMin: null, reminderStart: null, reminderEnd: null,
+      routineOrder: 5, childName: '', energyEnabled: true, energyValue: 1,
+    }),
+    // Go to bed, Mon–Fri 22:15 — gives 1 Energy.
+    addHabitAndCaptureId({
+      title: 'Legg deg (hverdager)', icon: '🛌', kind: 'neutral', category: 'sleep',
+      cue: '', craving: '', response: '', reward: '',
+      dailyGoal: 1, recurrence: 'weekly', recurrenceDays: WEEKDAYS,
+      notificationEnabled: true, notificationTimes: ['22:15'],
+      reminderMode: 'single', reminderCount: null, reminderIntervalMin: null, reminderStart: null, reminderEnd: null,
+      routineOrder: 6, childName: '', energyEnabled: true, energyValue: 1,
+    }),
+    // Brush teeth, Sat–Sun 22:00 — gives 1 Energy.
+    addHabitAndCaptureId({
+      title: 'Puss tenner (helg)', icon: '🪥', kind: 'neutral', category: 'health',
+      cue: '', craving: '', response: '', reward: '',
+      dailyGoal: 1, recurrence: 'weekly', recurrenceDays: WEEKEND,
+      notificationEnabled: true, notificationTimes: ['22:00'],
+      reminderMode: 'single', reminderCount: null, reminderIntervalMin: null, reminderStart: null, reminderEnd: null,
+      routineOrder: 7, childName: '', energyEnabled: true, energyValue: 1,
+    }),
+    // Go to bed, Sat–Sun 22:30 — no Energy.
+    addHabitAndCaptureId({
+      title: 'Legg deg (helg)', icon: '🛌', kind: 'neutral', category: 'sleep',
+      cue: '', craving: '', response: '', reward: '',
+      dailyGoal: 1, recurrence: 'weekly', recurrenceDays: WEEKEND,
+      notificationEnabled: true, notificationTimes: ['22:30'],
+      reminderMode: 'single', reminderCount: null, reminderIntervalMin: null, reminderStart: null, reminderEnd: null,
+      routineOrder: 8, childName: '', energyEnabled: false, energyValue: 0,
+    }),
+  ];
 
   const noteIds = [
     addNote('Oppdater appen'),
@@ -122,13 +220,23 @@ export function seedFreyrMode(): FreyrSeedIds {
     addNote('Lag en liste'),
   ];
 
-  return { shoppingItemIds, taskIds, habitId: habitId || null, noteIds };
+  const settings = useSettingsStore.getState();
+  const prevSettings = {
+    energySystemEnabled: settings.energySystemEnabled,
+    energyDailyCapacity: settings.energyDailyCapacity,
+    monthlyBudgetNok: settings.monthlyBudgetNok,
+  };
+  // Energy: 15/day. Budget: 10 000 NOK/month.
+  settings.update({ energySystemEnabled: true, energyDailyCapacity: 15, monthlyBudgetNok: 10000 });
+
+  return { shoppingItemIds, taskIds, habitIds, noteIds, prevSettings };
 }
 
-/** Removes exactly the rows a prior seedFreyrMode() call created. */
+/** Removes exactly the rows a prior seedFreyrMode() call created, and restores the settings it overwrote. */
 export function unseedFreyrMode(ids: FreyrSeedIds): void {
   ids.shoppingItemIds.forEach((id) => useShoppingStore.getState().remove(id));
   ids.taskIds.forEach((id) => useTaskStore.getState().remove(id));
-  if (ids.habitId) useHabitStore.getState().remove(ids.habitId);
+  ids.habitIds.forEach((id) => useHabitStore.getState().remove(id));
   ids.noteIds.forEach((id) => useNotesStore.getState().remove(id));
+  if (ids.prevSettings) useSettingsStore.getState().update(ids.prevSettings);
 }

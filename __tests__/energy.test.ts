@@ -4,10 +4,13 @@
  * Covers the signed day/week deltas: an energy-enabled task counts only when done
  * and dated to that day; an energy-enabled habit counts only when met (log count ≥
  * daily goal) that day; positive values restore, negative drain; the week delta is
- * the sum across the Mon–Sun week; and week key formatting. Pure functions — no DB,
- * no store; plain objects cast to the store types.
+ * the sum across the Mon–Sun week; and week key formatting. Also covers the
+ * "planned" variants (plannedEnergyDeltaForDay/Week), which count every
+ * energy-enabled task/habit SCHEDULED for the period regardless of done/met status
+ * (used to warn about an over-committed day/week before anything's completed).
+ * Pure functions — no DB, no store; plain objects cast to the store types.
  */
-import { dayKey, weekKey, energyDeltaForDay, energyDeltaForWeek } from '@/lib/energy';
+import { dayKey, weekKey, energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek } from '@/lib/energy';
 import type { Task } from '@/store/useTaskStore';
 import type { Habit, HabitLog } from '@/store/useHabitStore';
 
@@ -100,5 +103,49 @@ describe('energyDeltaForWeek', () => {
       task({ id: 'nextwk', date: '2026-07-20', done: true, energyEnabled: true, energyValue: 5 }), // outside week
     ];
     expect(energyDeltaForWeek(DAY, tasks, [], [])).toBe(1);
+  });
+});
+
+describe('plannedEnergyDeltaForDay', () => {
+  it('ignores tasks that are not energy-enabled', () => {
+    expect(plannedEnergyDeltaForDay(DAY, [task({ energyEnabled: false, energyValue: 5 })], [])).toBe(0);
+  });
+
+  it('counts a scheduled energy task even when not done yet', () => {
+    expect(plannedEnergyDeltaForDay(DAY, [task({ done: false, energyEnabled: true, energyValue: -3 })], [])).toBe(-3);
+  });
+
+  it('ignores a one-off energy task dated to another day', () => {
+    expect(plannedEnergyDeltaForDay(DAY, [task({ date: '2026-07-16', recurring: 'none', energyEnabled: true, energyValue: 5 })], [])).toBe(0);
+  });
+
+  it('counts a daily energy habit even when not yet met that day', () => {
+    const h = habit({ energyEnabled: true, energyValue: 2, recurrence: 'daily', dailyGoal: 3 });
+    expect(plannedEnergyDeltaForDay(DAY, [], [h])).toBe(2);
+  });
+
+  it('only counts a weekly habit on its scheduled weekdays', () => {
+    // DAY (2026-07-15) is a Wednesday → Mon-indexed weekday 2.
+    const onDay = habit({ id: 'w1', energyEnabled: true, energyValue: 1, recurrence: 'weekly', recurrenceDays: [2] });
+    const offDay = habit({ id: 'w2', energyEnabled: true, energyValue: 1, recurrence: 'weekly', recurrenceDays: [0] });
+    expect(plannedEnergyDeltaForDay(DAY, [], [onDay])).toBe(1);
+    expect(plannedEnergyDeltaForDay(DAY, [], [offDay])).toBe(0);
+  });
+
+  it('sums scheduled task and habit deltas together', () => {
+    const tasks = [task({ done: false, energyEnabled: true, energyValue: -2 })];
+    const habits = [habit({ energyEnabled: true, energyValue: 1, recurrence: 'daily' })];
+    expect(plannedEnergyDeltaForDay(DAY, tasks, habits)).toBe(-1);
+  });
+});
+
+describe('plannedEnergyDeltaForWeek', () => {
+  it('sums scheduled (not just completed) deltas across the Mon–Sun week', () => {
+    const tasks = [
+      task({ id: 'mon', date: '2026-07-13', recurring: 'none', done: false, energyEnabled: true, energyValue: 2 }),
+      task({ id: 'wed', date: '2026-07-15', recurring: 'none', done: false, energyEnabled: true, energyValue: -1 }),
+      task({ id: 'nextwk', date: '2026-07-20', recurring: 'none', done: false, energyEnabled: true, energyValue: 5 }), // outside week
+    ];
+    expect(plannedEnergyDeltaForWeek(DAY, tasks, [])).toBe(1);
   });
 });
