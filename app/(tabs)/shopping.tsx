@@ -42,6 +42,15 @@
  *             startup by app/_layout.tsx). FoodTab additionally drives useMealStore.
  *
  * Edit notes:
+ *   - **Budget-scoping + unsaved-badge pass (2026-07-22)**: the "Budsjett" pill moved out of
+ *     `shoppingIntro` (was rendered on all 4 tabs) into the Monthly tab's own
+ *     `catalogHeaderRow`/`catalogHeaderActions`, inline with the reset/lock icons — Budget is a
+ *     monthly-spend concept, so it now shows only there, and every other tab lost that extra row
+ *     of vertical space. Weekly's "Unsaved: N list(s) still unlocked" banner (a full-width
+ *     unbordered sentence) was replaced with a small icon+count badge (`styles.unsavedBadge`,
+ *     lock-open icon + number) — `t.unsavedShoppingBanner(n)` is now only the accessibilityLabel,
+ *     not visible text. Also shortened WeekListCard's `addFromMonthlyOption`/`addFromDishOption`
+ *     i18n strings (were truncating in Norwegian inside their half-width bordered buttons).
  *   - **Popup + real category filter pass (2026-07-22)**: Weekly's "Add from monthly" now opens
  *     `components/AddFromMonthlyModal` as a centered popup (checkbox multi-select, batch
  *     commit) instead of WeekListCard's old inline panel — `onAddMonthlyToWeek` (per-item) was
@@ -898,18 +907,6 @@ export default function ShoppingScreen() {
   // scrolling with the rows.
   const shoppingIntro = (
     <>
-      <PressableScale
-        style={[styles.budgetPill, { borderColor: theme.featBudget }]}
-        onPress={() => router.push('/budget')}
-        accessibilityRole="button"
-        accessibilityLabel={t.budget.title}
-        hitSlop={6}
-        scaleTo={0.97}
-      >
-        <Ionicons name="wallet-outline" size={14} color={theme.featBudget} />
-        <Text style={[styles.budgetPillText, { color: theme.featBudget }]}>{t.budget.title}</Text>
-      </PressableScale>
-
       <HintCard text={t.hints.shopping.text} open={hintOpen} noPill>
         <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
           <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.weeklyResetDay}</Text>
@@ -976,6 +973,17 @@ export default function ShoppingScreen() {
             <View style={styles.catalogHeaderRow}>
               <Text style={[styles.catalogHeaderTitle, { color: theme.text }]}>{t.monthlyListSection}</Text>
               <View style={styles.catalogHeaderActions}>
+                <PressableScale
+                  style={[styles.budgetPill, { borderColor: theme.featBudget }]}
+                  onPress={() => router.push('/budget')}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.budget.title}
+                  hitSlop={6}
+                  scaleTo={0.97}
+                >
+                  <Ionicons name="wallet-outline" size={14} color={theme.featBudget} />
+                  <Text style={[styles.budgetPillText, { color: theme.featBudget }]}>{t.budget.title}</Text>
+                </PressableScale>
                 <PressableScale
                   style={styles.resetIconBtn}
                   onPress={handleManualMonthlyReset}
@@ -1164,8 +1172,12 @@ export default function ShoppingScreen() {
         {tab === 'weekly' && (
           <>
             {unlockedListCount > 0 && (
-              <View style={[styles.unsavedBanner, { backgroundColor: theme.accentSoft }]}>
-                <Text style={[styles.unsavedBannerText, { color: theme.accent }]}>{t.unsavedShoppingBanner(unlockedListCount)}</Text>
+              <View
+                style={[styles.unsavedBadge, { backgroundColor: theme.accentSoft }]}
+                accessibilityLabel={t.unsavedShoppingBanner(unlockedListCount)}
+              >
+                <Ionicons name="lock-open-outline" size={13} color={theme.accent} />
+                <Text style={[styles.unsavedBadgeText, { color: theme.accent }]}>{unlockedListCount}</Text>
               </View>
             )}
 
@@ -1509,10 +1521,12 @@ const styles = StyleSheet.create({
   catalogHeaderTitle: { fontFamily: Type.heading.fontFamily, fontSize: Type.heading.size },
   catalogHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   // Budget entry point (moved here from app/(tabs)/scan.tsx, 2026-07-19 — Budget is only
-  // reachable via Shopping now). Bordered pill, same family as addTrigger below, right-aligned
-  // above the shared intro chrome so it's visible on every tab.
+  // reachable via Shopping now; relocated again 2026-07-22 from the shared shoppingIntro
+  // chrome, where it repeated on all 4 tabs, into the Monthly tab's own header row —
+  // Budget is a monthly-spend concept, so it now shows only there). Bordered pill, same
+  // family as addTrigger below, inline with the reset/lock icons (no alignSelf needed —
+  // sits in a row, not standalone).
   budgetPill: {
-    alignSelf: 'flex-end',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -1551,8 +1565,18 @@ const styles = StyleSheet.create({
   sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, borderRadius: Radius.sm, borderWidth: 1 },
   totalLine: { fontSize: FontSize.md, fontFamily: Fonts.bold, textAlign: 'right', marginTop: 4 },
 
-  unsavedBanner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, borderRadius: Radius.md, padding: Spacing.sm },
-  unsavedBannerText: { flex: 1, fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
+  // Compact icon+count indicator (2026-07-22) — replaces an earlier full-sentence banner
+  // that read as an unstyled strip of text; self-start so it doesn't stretch full-width.
+  unsavedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  unsavedBadgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
 
   // Weekly "Unallocated" card
   unallocatedCard: { borderRadius: Radius.md },
