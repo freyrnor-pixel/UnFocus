@@ -14,7 +14,8 @@
  *
  * Connections:
  *   Imports → components/AddFromMonthlyModal, components/AppModal (showAppModal),
- *             components/ExpandableCard, components/FlightOverlay (FlightRect type only),
+ *             components/Collapsible, components/ExpandableCard,
+ *             components/FlightOverlay (FlightRect type only),
  *             components/IconButton, components/InlineAddItem, components/ShoppingFilterBar,
  *             components/Surface, components/ShoppingRow (CHECKED_OPACITY), constants/theme,
  *             lib/i18n, lib/money (formatKr), lib/shoppingCategories (categoryPresets),
@@ -25,6 +26,23 @@
  *   Data    → none directly — every item/group/callback is owned by the parent
  *
  * Edit notes:
+ *   - **2026-07-22 redesign pass (Shopping screen redesign)**: card is now collapsed by
+ *     default — the whole body (below the header row) is wrapped in `Collapsible`, driven
+ *     by the parent-owned `expanded`/`onToggleExpand` props (lifted, not local state, so
+ *     shopping.tsx's cross-week drag can gate on it the same way DraggableTaskRow already
+ *     gates item-row dragging on "not open"). The Planning/Shopping mode pill is gone —
+ *     the lock icon (`lock-closed`/`lock-open-outline`, same convention as the Monthly tab's
+ *     catalog lock) toggles lock state directly via `onToggleLock`; the card edge is always
+ *     the shop-green domain accent now (no more amber-while-unlocked). New `dirty` prop
+ *     (parent diffs live state against a snapshot captured at unlock) shows Save/Discard
+ *     icon buttons beside the lock icon while true (`onSaveChanges`/`onDiscardChanges`) —
+ *     the old always-visible "Plan mode active" status bar is gone; locking while dirty is
+ *     the parent's job (`onToggleLock` may itself prompt before actually toggling — see
+ *     shopping.tsx's `requestLock`). The name field is now tap-to-edit: a non-custom-named
+ *     list shows a muted "Shopping list" preview (`t.shoppingListPlaceholder`) instead of
+ *     the auto date-range text; tapping swaps it for an autoFocused TextInput (`nameEditing`
+ *     state) — the underlying auto date-range name is unchanged, it just isn't shown as the
+ *     default header text anymore.
  *   - **2026-07-22 popup + filter pass**: "Add from monthly" now pops a centered
  *     `AddFromMonthlyModal` (checkbox multi-select, batch commit via "Add (n)") instead of
  *     swapping an inline panel into the card — see that component's own header for the
@@ -95,6 +113,7 @@ import { categoryPresets } from '@/lib/shoppingCategories';
 import Surface from '@/components/Surface';
 import IconButton from '@/components/IconButton';
 import ExpandableCard from '@/components/ExpandableCard';
+import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
 import ShoppingRow, { CHECKED_OPACITY } from '@/components/ShoppingRow';
 import InlineAddItem from '@/components/InlineAddItem';
@@ -114,6 +133,19 @@ type Props = {
   checked: ShoppingItem[];
   /** Items with status='purchased' for this list (completed trips). */
   purchased: ShoppingItem[];
+  /** Collapsed by default (Decision 2026-07-22) — parent owns this so the screen-level
+   *  week-drag can gate on it (a card is only draggable between week sections while
+   *  collapsed, matching DraggableTaskRow's existing "no drag while open" convention). */
+  expanded: boolean;
+  onToggleExpand: () => void;
+  /** True once this list's live state differs from the snapshot captured at unlock —
+   *  parent owns the snapshot/diff (app/(tabs)/shopping.tsx), this only renders the
+   *  Save/Discard affordance when true. */
+  dirty: boolean;
+  onSaveChanges: () => void;
+  onDiscardChanges: () => void;
+  /** Pressing the lock icon — parent decides whether to lock straight away or, if
+   *  `dirty`, prompt to save/discard first (see shopping.tsx's requestLock). */
   onToggleLock: () => void;
   onRename: (name: string) => void;
   onOpenSavedLists: () => void;
@@ -157,6 +189,11 @@ export default function WeekListCard({
   ungroupedUnchecked,
   checked,
   purchased,
+  expanded,
+  onToggleExpand,
+  dirty,
+  onSaveChanges,
+  onDiscardChanges,
   onToggleLock,
   onRename,
   onOpenSavedLists,
@@ -180,14 +217,24 @@ export default function WeekListCard({
   const styles = useScaledStyles(baseStyles);
   const domainColor = getDomainColor(theme, 'shop');
   const t = useT();
-  const [nameInput, setNameInput] = useState(list.name);
+  // Tap-to-edit name field (2026-07-22): a non-custom-named list shows a muted "Shopping
+  // list" preview instead of the auto date-range text; tapping it swaps the preview Text
+  // for an autoFocused TextInput (preview "disappears", box is "selected"). A custom-named
+  // list shows its real name as the (still tappable) preview instead.
+  const [nameEditing, setNameEditing] = useState(false);
+  const [nameInput, setNameInput] = useState(list.isCustomName ? list.name : '');
   const [monthlyPreviewOpen, setMonthlyPreviewOpen] = useState(false);
   const [listSearch, setListSearch] = useState('');
   const [listCategory, setListCategory] = useState<string | null>(null);
 
   useEffect(() => {
-    setNameInput(list.name);
-  }, [list.id, list.name]);
+    setNameInput(list.isCustomName ? list.name : '');
+    setNameEditing(false);
+  }, [list.id, list.name, list.isCustomName]);
+
+  function startNameEdit() {
+    setNameEditing(true);
+  }
 
   useEffect(() => {
     if (list.locked) {
@@ -200,7 +247,8 @@ export default function WeekListCard({
   function commitRename() {
     const trimmed = nameInput.trim();
     if (trimmed && trimmed !== list.name) onRename(trimmed);
-    else if (!trimmed) setNameInput(list.name); // don't leave the box empty
+    else if (!trimmed) setNameInput(list.isCustomName ? list.name : ''); // falls back to the preview placeholder
+    setNameEditing(false);
   }
 
   // Kebab menu (Saved lists / List settings / Delete) — replaces 3 separately-visible
@@ -252,30 +300,43 @@ export default function WeekListCard({
   const totalInCart = allChecked.length;
   const showInListSection = totalInList > 0 || !list.locked;
 
-  // Planned vs made colour coding: a list you're still building (planning, unlocked)
-  // wears a calm amber "draft" edge; once switched to shopping (locked, "made") it takes
-  // the green shop accent edge. (2026-07-18: dropped the extra green glow halo — glossy
-  // halos read as the plastic "toy tile" look; the edge colour alone carries the state.)
-  const edgeColor = list.locked ? domainColor.accent : theme.warn;
+  // Card edge is always the shopping-green domain accent now (2026-07-22) — the old
+  // amber-while-unlocked/green-while-locked coding read as "not appealing" and was
+  // dropped; lock state is carried entirely by the lock icon + Save/Discard buttons below.
+  const edgeColor = domainColor.accent;
 
   return (
     <Surface borderColor={edgeColor} style={styles.cardRow}>
       <View style={styles.cardContent}>
-      {/* ── Card header: title + mode toggle + rename/settings/delete icons ── */}
+      {/* ── Card header: tap-to-edit name + expand/collapse + save/discard/lock/settings ── */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          {/* Always-editable name text-box — the list's header. Commits on blur/submit. */}
+          {/* Tap-to-edit name (2026-07-22): a non-custom list shows a muted "Shopping list"
+              preview (not the auto date-range text); tapping swaps it for an autoFocused
+              TextInput. A custom-named list previews its real name, still tappable to rename. */}
           <View style={styles.nameWrap}>
-            <TextInput
-              style={[styles.nameInput, { color: theme.text, borderColor: theme.border }]}
-              value={nameInput}
-              onChangeText={setNameInput}
-              placeholder={t.listRenamePlaceholder}
-              placeholderTextColor={theme.textMuted}
-              onSubmitEditing={commitRename}
-              onBlur={commitRename}
-              returnKeyType="done"
-            />
+            {nameEditing ? (
+              <TextInput
+                style={[styles.nameInput, { color: theme.text, borderColor: theme.border }]}
+                value={nameInput}
+                onChangeText={setNameInput}
+                placeholder={t.shoppingListPlaceholder}
+                placeholderTextColor={theme.textMuted}
+                onSubmitEditing={commitRename}
+                onBlur={commitRename}
+                returnKeyType="done"
+                autoFocus
+              />
+            ) : (
+              <PressableScale onPress={startNameEdit} style={styles.namePreviewBtn} scaleTo={0.98}>
+                <Text
+                  style={[styles.namePreviewText, { color: list.isCustomName ? theme.text : theme.textMuted }]}
+                  numberOfLines={1}
+                >
+                  {list.isCustomName ? list.name : t.shoppingListPlaceholder}
+                </Text>
+              </PressableScale>
+            )}
             {list.isRecurring && (
               <IconButton
                 icon="repeat"
@@ -290,24 +351,33 @@ export default function WeekListCard({
           </View>
 
           <View style={styles.iconRow}>
-            {/* Mode pill, colour-coded to the card state — amber "Planning" (planned)
-                / green "Shopping" (made) — matching the card edge. */}
-            <PressableScale
-              style={[styles.modeToggle, { backgroundColor: list.locked ? domainColor.accent : theme.warn }]}
+            {/* Save/Discard (2026-07-22) — only shown once this list's draft actually
+                differs from its last-locked snapshot (parent-computed `dirty`). Replaces
+                the old always-visible Planning/Shopping mode pill. */}
+            {dirty && (
+              <>
+                <IconButton icon="checkmark-circle-outline" label={t.listSaveButtonLabel} onPress={onSaveChanges} color={theme.good} size={30} />
+                <IconButton icon="arrow-undo-outline" label={t.listDiscardButtonLabel} onPress={onDiscardChanges} color={theme.bad} size={30} />
+              </>
+            )}
+            <IconButton
+              icon={list.locked ? 'lock-closed' : 'lock-open-outline'}
+              label={list.locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
               onPress={onToggleLock}
-              accessibilityRole="button"
-              accessibilityLabel={list.locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
-              scaleTo={0.97}
-            >
-              <Text style={[styles.modeToggleText, { color: theme.textInverse }]}>
-                {list.locked ? t.shoppingModeBtn : t.planningModeBtn}
-              </Text>
-            </PressableScale>
+              active={list.locked}
+              size={30}
+            />
             <IconButton icon="ellipsis-vertical" label={t.listOptionsButtonLabel} onPress={openListOptions} size={30} />
+            <IconButton
+              icon={expanded ? 'chevron-up' : 'chevron-down'}
+              label={expanded ? t.collapseListLabel : t.expandListLabel}
+              onPress={onToggleExpand}
+              size={30}
+            />
           </View>
         </View>
 
-        {!focused && progress.total > 0 && (
+        {!expanded && progress.total > 0 && (
           <PressableScale onPress={onFocus} style={styles.compactProgressRow} scaleTo={0.97}>
             <Text style={[styles.compactProgressText, { color: theme.textMuted }]}>
               {t.shoppingRemaining(progress.remaining, progress.inCart)}
@@ -316,6 +386,7 @@ export default function WeekListCard({
         )}
       </View>
 
+      <Collapsible open={expanded}>
       <View style={styles.bodyGap}>
         {progress.total === 0 && list.locked && (
           <View style={styles.emptyState}>
@@ -535,10 +606,10 @@ export default function WeekListCard({
           </View>
         )}
 
-        {/* ── Bottom slot: green "done" CTA while shopping, calm status bar while planning ──
-            Colour signals actionability — green = a real action you can take now
-            (finish shopping), neutral = informational (still building the list). ── */}
-        {list.locked ? (
+        {/* ── Bottom slot: green "done" CTA while shopping; nothing while planning ──
+            (the old "Plan mode active" status bar was removed 2026-07-22 — the
+            Save/Discard buttons + lock icon already say everything it did). ── */}
+        {list.locked && (
           <PressableScale
             style={[
               styles.doneShoppingBtn,
@@ -551,12 +622,9 @@ export default function WeekListCard({
           >
             <Text style={[styles.doneShoppingText, { color: theme.textInverse }]}>{t.doneShoppingBtn}</Text>
           </PressableScale>
-        ) : (
-          <View style={[styles.modeStatusBar, { backgroundColor: theme.surfaceMuted }]}>
-            <Text style={[styles.modeStatusText, { color: theme.textMuted }]}>{t.planModeActiveLabel}</Text>
-          </View>
         )}
       </View>
+      </Collapsible>
       </View>
     </Surface>
   );
@@ -578,16 +646,18 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     flex: 1,
   },
-  iconRow: { flexDirection: 'row', alignItems: 'center', gap: 0 },
-  modeToggle: {
-    borderRadius: Radius.full,
+  // Tap-to-edit preview (2026-07-22) — same padding footprint as nameInput but no
+  // border/background, so swapping between preview Text and TextInput doesn't jump layout.
+  namePreviewBtn: {
+    flex: 1,
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
-    minHeight: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  modeToggleText: { fontSize: FontSize.xs, fontFamily: Fonts.bold, letterSpacing: 0.3 },
+  namePreviewText: {
+    fontFamily: Type.heading.fontFamily,
+    fontSize: Type.heading.size,
+  },
+  iconRow: { flexDirection: 'row', alignItems: 'center', gap: 0 },
   compactProgressRow: { paddingVertical: Spacing.xs },
   compactProgressText: { fontSize: FontSize.sm },
   bodyGap: { gap: Spacing.md },
@@ -628,8 +698,4 @@ const baseStyles = StyleSheet.create({
   addOptionText: { fontFamily: Type.label.fontFamily, fontSize: FontSize.sm },
   doneShoppingBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
   doneShoppingText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
-  // Planning-mode bottom slot: same footprint as the done button, neutral colour
-  // so it reads as a status label (not a green "do this now" CTA).
-  modeStatusBar: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
-  modeStatusText: { fontFamily: Fonts.semibold, fontSize: FontSize.sm, letterSpacing: 0.3 },
 });

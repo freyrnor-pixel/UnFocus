@@ -44,6 +44,13 @@
  *   Data    → defines a Zustand store; owns SQLite tables shopping_items + shopping_trips
  *
  * Edit notes:
+ *   - **restoreDeleted() (2026-07-22, per-list draft undo)**: rewrites every column of a
+ *     caller-held ShoppingItem snapshot back onto its row and clears deleted_at — the
+ *     resurrection half of app/(tabs)/shopping.tsx's unlock→edit→"Discard changes" flow
+ *     (removeWithSource/remove during the edit soft-delete a row; discarding calls this to
+ *     bring it back exactly as it was). Only for rows whose id already exists in the table
+ *     (soft-delete never hard-deletes — see the remove()/removeWithSource() note below) —
+ *     it's an UPDATE, not an upsert.
  *   - **Category threading (2026-07-20 shopping-cleanup pass)**: `ShoppingItemInput.category`
  *     is optional — `add()` previously always hardcoded `category: 'other'`, ignoring any
  *     caller-supplied value; it now uses `item.category ?? 'other'`. Callers are the two
@@ -210,6 +217,12 @@ type ShoppingStore = {
   putBackToInventory: (id: string) => void;
   remove: (id: string) => void;
   removeWithSource: (id: string) => void;
+  /** Resurrects a row previously soft-deleted (or status-flipped) in this session by
+   *  rewriting every column from a caller-held snapshot and clearing deleted_at.
+   *  Used by app/(tabs)/shopping.tsx's per-list draft "Discard changes" to undo an
+   *  item removal/merge made while a list was unlocked. `item` must be a full
+   *  ShoppingItem previously read from `items` (not a partial patch). */
+  restoreDeleted: (item: ShoppingItem) => void;
   /** Swaps orderIndex with the adjacent item sharing the same listId (mirrors useHabitStore.reorder). */
   reorder: (id: string, direction: 'up' | 'down') => void;
   /** Decision 022 — merge the source row into the target (dish) row: sum amounts, adopt target group, delete source. */
@@ -513,6 +526,12 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     softDelete('shopping_items', id, useSettingsStore.getState().deviceId);
     broadcastRow('shopping_items', id);
     set((s) => ({ items: s.items.filter((i) => i.id !== id) }));
+  },
+
+  restoreDeleted(item) {
+    updateRow('shopping_items', { ...rowValues(item, ITEM_COLUMNS), deleted_at: null }, 'id = ?', [item.id]);
+    set((s) => (s.items.some((i) => i.id === item.id) ? s : { items: [...s.items, item] }));
+    syncItemRow(item.id);
   },
 
   reorder(id, direction) {

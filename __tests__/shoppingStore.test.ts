@@ -107,3 +107,24 @@ describe('monthlyReset', () => {
     expect(useShoppingStore.getState().trips).toHaveLength(0);
   });
 });
+
+describe('restoreDeleted', () => {
+  it('resurrects a snapshot that is missing from items (undoes a soft-delete)', () => {
+    useShoppingStore.setState({ items: [], trips: [] });
+    const snapshot = item({ id: 'gone', name: 'Milk', status: 'inWeeklyList', listId: 'L1', checked: true });
+
+    useShoppingStore.getState().restoreDeleted(snapshot);
+
+    const items = useShoppingStore.getState().items;
+    expect(items.find((i) => i.id === 'gone')).toEqual(snapshot);
+  });
+
+  it('is a no-op on the in-memory list for a row that never left it', () => {
+    const present = item({ id: 'still-here', status: 'inWeeklyList', listId: 'L1' });
+    useShoppingStore.setState({ items: [present], trips: [] });
+
+    useShoppingStore.getState().restoreDeleted(present);
+
+    expect(useShoppingStore.getState().items).toEqual([present]);
+  });
+});

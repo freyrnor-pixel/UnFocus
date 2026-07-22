@@ -27,7 +27,8 @@
  *             components/UpdateSheet, components/WeekListCard, components/FoodTab,
  *             components/CatalogueTab,
  *             components/PressableScale, components/TabBoxHighlight, constants/theme,
- *             lib/date (todayStr, dateStr, getWeekRangeContaining), lib/haptics (success,
+ *             lib/date (todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle,
+ *             dateRangeForCycleWeek, formatDateRange), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
  *             groupByCategory, computeListGroups, listProgress),
  *             lib/shoppingCategories (categoryPresets, categoryLabel),
@@ -49,6 +50,29 @@
  *     calculation and copy (`t.budget.perDaySpend`) as app/budget.tsx's own pace row and the Home
  *     Shopping preview card (components/HomeShoppingCard.tsx). Hidden (returns null) when no
  *     budget is set or no monthly reset has happened yet.
+ *   - **Weekly redesign: week sections + per-list draft save/discard (2026-07-22)**: the
+ *     Weekly tab's lists are no longer a flat `nonTemplateLists.map`. `listsByWeek`
+ *     (useMemo, keyed 1-4 via `weekOfMonthlyCycle`) buckets them into one section per week
+ *     of the monthly cycle; all 4 sections always render (once ≥1 list exists) since each
+ *     is a drag-drop target, registered via `handleRegisterWeekSectionNode`/
+ *     `weekSectionRectsRef`. Each collapsed `WeekListCard` (collapsed by default now —
+ *     `expandedListIds`) is wrapped in a screen-owned `DraggableTaskRow` instance (a SECOND,
+ *     independent one alongside the existing item-level reorder rows) — dropping it over a
+ *     different section's measured rect (`handleWeekDragStart/Move/End`, same
+ *     measureInWindow window-space idiom as the item drag-to-merge code) reassigns the
+ *     list's startDate/endDate via `dateRangeForCycleWeek` (+ recomputes `name` if
+ *     `!isCustomName`) through `updateList`.
+ *     Separately, each list now supports a **full local draft**: unlocking captures a
+ *     snapshot (`listSnapshots`, keyed by list id: name/isCustomName/its inWeeklyList
+ *     items) via `captureListSnapshot`; `dirtyByListId` (useMemo) diffs live state against
+ *     it on every render. WeekListCard's Save/Discard buttons call
+ *     `handleSaveListChanges` (re-baselines the snapshot) / `handleDiscardListChanges`
+ *     (→ `revertListToSnapshot`, which undoes adds via `putBackToInventory`/
+ *     `removeWithSource` and undoes removes/edits via the new `restoreDeleted` store action
+ *     + `update`). Pressing the lock icon while dirty (`handleToggleLock` → `requestLock`)
+ *     opens a `showAppModal` "Save & lock / Discard & lock / Cancel" prompt instead of
+ *     locking straight away. `unsavedListCount` (was `unlockedListCount`) now counts
+ *     actually-dirty lists for the sticky-bar badge, not just unlocked ones.
  *   - **Budget-scoping + unsaved-badge pass (2026-07-22)**: the "Budsjett" pill moved out of
  *     `shoppingIntro` (was rendered on all 4 tabs) into the Monthly tab's own
  *     `catalogHeaderRow`/`catalogHeaderActions`, inline with the reset/lock icons — Budget is a
@@ -253,7 +277,7 @@ import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TabBoxHighlight from '@/components/TabBoxHighlight';
 import { success, heavy, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
-import { todayStr, dateStr, getWeekRangeContaining } from '@/lib/date';
+import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
@@ -348,6 +372,30 @@ export default function ShoppingScreen() {
   const [monthlyTabSearch, setMonthlyTabSearch] = useState('');
   const [monthlyTabCategory, setMonthlyTabCategory] = useState<string | null>(null);
 
+  // ── Card collapse (2026-07-22 redesign: collapsed by default) ──
+  const [expandedListIds, setExpandedListIds] = useState<Record<string, boolean>>({});
+  function toggleListExpanded(listId: string) {
+    setExpandedListIds((s) => ({ ...s, [listId]: !s[listId] }));
+  }
+
+  // ── Per-list draft snapshot (2026-07-22 redesign: full local draft + save/discard) ──
+  // Captured when a list is unlocked (the baseline "last locked" state); cleared on Save
+  // or Discard. Presence + a live-vs-snapshot diff (dirtyByListId below) drives the
+  // Save/Discard buttons and the lock-with-unsaved-changes confirm. A brand-new list has
+  // no snapshot until it's locked once, so Save/Discard never appears for it — nothing to
+  // revert to yet (see requestLock below).
+  type ListSnapshot = { name: string; isCustomName: boolean; items: ShoppingItem[] };
+  const [listSnapshots, setListSnapshots] = useState<Record<string, ListSnapshot>>({});
+
+  // ── Week-section drag (2026-07-22 redesign: reassign a list's week by dragging its
+  // collapsed card between week-of-cycle sections; window-coordinate hit-testing, same
+  // measureInWindow idiom as the item drag-to-merge / flight-animation code below) ──
+  type WeekDragState = { listId: string; startWeek: number; targetWeek: number | null };
+  const [weekDrag, setWeekDrag] = useState<WeekDragState | null>(null);
+  const weekDragRef = useRef<WeekDragState | null>(null);
+  const weekSectionNodes = useRef<Map<number, any>>(new Map());
+  const weekSectionRectsRef = useRef<Record<number, { y: number; height: number }>>({});
+
   // ── Decision 011 R1 reorder + Decision 022 drag-to-merge (all window-coordinate based) ──
   // Native nodes are registered by DraggableTaskRow (reorder rows) and WeekListCard (dish-group
   // cards) so this screen can measureInWindow() them at drag-start into a shared window space —
@@ -387,6 +435,7 @@ export default function ShoppingScreen() {
   const addToWeeklyFromCatalog = useShoppingStore((s) => s.addToWeeklyFromCatalog);
   const putBackToInventory = useShoppingStore((s) => s.putBackToInventory);
   const removeWithSource = useShoppingStore((s) => s.removeWithSource);
+  const restoreDeleted = useShoppingStore((s) => s.restoreDeleted);
   const adjustAmount = useShoppingStore((s) => s.adjustAmount);
   const doneShopping = useShoppingStore((s) => s.doneShopping);
   const monthlyReset = useShoppingStore((s) => s.monthlyReset);
@@ -399,10 +448,12 @@ export default function ShoppingScreen() {
   const monthlyBudgetNok = useSettingsStore((s) => s.monthlyBudgetNok);
   const lastMonthlyReset = useSettingsStore((s) => s.lastMonthlyReset);
   const receipts = useReceiptStore((s) => s.receipts);
+  const language = useSettingsStore((s) => s.language);
 
   const lists = useShoppingListStore((s) => s.lists);
   const renameList = useShoppingListStore((s) => s.rename);
   const toggleListLocked = useShoppingListStore((s) => s.toggleLocked);
+  const updateList = useShoppingListStore((s) => s.update);
   const setListRecurring = useShoppingListStore((s) => s.setRecurring);
   const setListActiveWeeks = useShoppingListStore((s) => s.setActiveWeeks);
   const saveListAsTemplate = useShoppingListStore((s) => s.saveAsTemplate);
@@ -540,7 +591,6 @@ export default function ShoppingScreen() {
     () => tab !== 'weekly' && items.some((i) => i.status === 'inWeeklyList' && recentlyAddedIds[i.id]),
     [tab, items, recentlyAddedIds]
   );
-  const unlockedListCount = useMemo(() => nonTemplateLists.filter((l) => !l.locked).length, [nonTemplateLists]);
 
   const purchasedByListId = useMemo(() => {
     const map = new Map<string, ShoppingItem[]>();
@@ -714,6 +764,140 @@ export default function ShoppingScreen() {
     setResetReviewVisible(false);
   }
 
+  // ── Per-list draft snapshot: capture/clear/save/discard/revert + lock-confirm ──
+
+  /** Canonical per-item key for the dirty diff — only fields the draft actually tracks. */
+  function draftItemKey(i: ShoppingItem): string {
+    return JSON.stringify([i.name, i.amount, i.checked, i.dishName ?? '', i.category ?? '', i.price, i.orderIndex ?? 0, i.collected, i.targetQuantity]);
+  }
+
+  function captureListSnapshot(list: ShoppingList) {
+    const snapItems = items
+      .filter((i) => i.listId === list.id && i.status === 'inWeeklyList')
+      .map((i) => ({ ...i }));
+    setListSnapshots((s) => ({ ...s, [list.id]: { name: list.name, isCustomName: list.isCustomName, items: snapItems } }));
+  }
+
+  function clearListSnapshot(listId: string) {
+    setListSnapshots((s) => {
+      if (!(listId in s)) return s;
+      const next = { ...s };
+      delete next[listId];
+      return next;
+    });
+  }
+
+  // Diffs each snapshotted list's live items/name against its snapshot. A list with no
+  // snapshot (never unlocked-then-edited this session) is never dirty.
+  const dirtyByListId = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    for (const listId in listSnapshots) {
+      const snap = listSnapshots[listId];
+      const list = nonTemplateLists.find((l) => l.id === listId);
+      if (!list) continue;
+      const currentKeys = items
+        .filter((i) => i.listId === listId && i.status === 'inWeeklyList')
+        .map((i) => `${i.id}:${draftItemKey(i)}`)
+        .sort();
+      const snapKeys = snap.items.map((i) => `${i.id}:${draftItemKey(i)}`).sort();
+      map[listId] =
+        list.name !== snap.name ||
+        currentKeys.length !== snapKeys.length ||
+        currentKeys.some((k, idx) => k !== snapKeys[idx]);
+    }
+    return map;
+  }, [listSnapshots, nonTemplateLists, items]);
+
+  // Sticky-bar badge (2026-07-22): now counts lists with actual unsaved changes, not just
+  // "unlocked" ones — a freshly unlocked-but-untouched list no longer trips the badge.
+  const unsavedListCount = useMemo(
+    () => Object.values(dirtyByListId).filter(Boolean).length,
+    [dirtyByListId]
+  );
+
+  // Groups non-template lists into the 4 week-of-monthly-cycle sections (1-4) — every
+  // section renders even when empty, since each must exist as a drag-drop target.
+  const listsByWeek = useMemo(() => {
+    const map: Record<number, ShoppingList[]> = { 1: [], 2: [], 3: [], 4: [] };
+    for (const list of nonTemplateLists) {
+      const week = weekOfMonthlyCycle(list.startDate, monthlyResetDate);
+      (map[week] ?? (map[week] = [])).push(list);
+    }
+    return map;
+  }, [nonTemplateLists, monthlyResetDate]);
+
+  /** Rewrites the live store back to exactly what `snap` captured — undoes any add/
+   *  remove/toggle/qty/merge/rename made since the snapshot, via the same store actions
+   *  those operations normally go through (so LWW/sync stamping stays correct). */
+  function revertListToSnapshot(listId: string, snap: ListSnapshot) {
+    const currentItems = items.filter((i) => i.listId === listId && i.status === 'inWeeklyList');
+    const snapById = new Map(snap.items.map((i) => [i.id, i]));
+    const curById = new Map(currentItems.map((i) => [i.id, i]));
+
+    // Undo additions made since the snapshot.
+    for (const cur of currentItems) {
+      if (snapById.has(cur.id)) continue;
+      if (cur.fromCatalog) putBackToInventory(cur.id);
+      else removeWithSource(cur.id);
+    }
+    // Undo removals/merges (resurrect) and any other field changes (qty/checked/dish/etc).
+    for (const snapItem of snap.items) {
+      const cur = curById.get(snapItem.id);
+      if (!cur) {
+        restoreDeleted(snapItem);
+      } else if (draftItemKey(cur) !== draftItemKey(snapItem)) {
+        update(snapItem.id, {
+          name: snapItem.name,
+          amount: snapItem.amount,
+          checked: snapItem.checked,
+          dishName: snapItem.dishName,
+          category: snapItem.category,
+          price: snapItem.price,
+          orderIndex: snapItem.orderIndex,
+          collected: snapItem.collected,
+          targetQuantity: snapItem.targetQuantity,
+        });
+      }
+    }
+  }
+
+  function handleSaveListChanges(list: ShoppingList) {
+    captureListSnapshot(list);
+    success();
+  }
+
+  function handleDiscardListChanges(list: ShoppingList) {
+    const snap = listSnapshots[list.id];
+    if (!snap) return;
+    revertListToSnapshot(list.id, snap);
+    if (list.name !== snap.name || list.isCustomName !== snap.isCustomName) {
+      updateList(list.id, { name: snap.name, isCustomName: snap.isCustomName });
+    }
+    clearListSnapshot(list.id);
+    warning();
+  }
+
+  /** Lock icon handler: unlocking (currently locked) just captures a fresh baseline and
+   *  unlocks, no confirmation needed. Locking (currently unlocked) prompts to save or
+   *  discard first if the list is dirty — a bare direct lock otherwise. */
+  function handleToggleLock(list: ShoppingList) {
+    if (list.locked) {
+      captureListSnapshot(list);
+      toggleListLocked(list.id);
+      return;
+    }
+    if (!dirtyByListId[list.id]) {
+      toggleListLocked(list.id);
+      return;
+    }
+    warning();
+    showAppModal(t.unsavedListChangesTitle, t.unsavedListChangesBody, [
+      { text: t.saveAndLockBtn, onPress: () => { handleSaveListChanges(list); toggleListLocked(list.id); } },
+      { text: t.discardAndLockBtn, style: 'destructive', onPress: () => { handleDiscardListChanges(list); toggleListLocked(list.id); } },
+      { text: t.cancel, style: 'cancel' },
+    ]);
+  }
+
   // ── Decision 011 R1 reorder + Decision 022 drag-to-merge (screen-owned, window-coordinate) ──
 
   function handleRegisterRowNode(listId: string, itemId: string, node: any) {
@@ -853,6 +1037,62 @@ export default function ShoppingScreen() {
       }
     }
     setDragState(null);
+  }
+
+  // ── Week-section drag: drag a collapsed WeekListCard between "week of the monthly
+  // cycle" sections to reassign its date range. Same measureInWindow window-space idiom
+  // as the item drag-to-merge above — the dragged card measures itself (DraggableTaskRow),
+  // the 4 week sections are measured once at drag-start via registered nodes. ──
+
+  function handleRegisterWeekSectionNode(week: number, node: any) {
+    if (node) weekSectionNodes.current.set(week, node);
+    else weekSectionNodes.current.delete(week);
+  }
+
+  function handleWeekDragStart(list: ShoppingList) {
+    weekSectionRectsRef.current = {};
+    for (const [week, node] of weekSectionNodes.current.entries()) {
+      node?.measureInWindow?.((_x: number, y: number, _w: number, h: number) => {
+        weekSectionRectsRef.current[week] = { y, height: h };
+      });
+    }
+    const startWeek = weekOfMonthlyCycle(list.startDate, monthlyResetDate);
+    const state: WeekDragState = { listId: list.id, startWeek, targetWeek: startWeek };
+    weekDragRef.current = state;
+    setWeekDrag(state);
+  }
+
+  function handleWeekDragMove(listId: string, centerY: number) {
+    let targetWeek: number | null = null;
+    for (const weekStr in weekSectionRectsRef.current) {
+      const week = Number(weekStr);
+      const r = weekSectionRectsRef.current[week];
+      if (centerY >= r.y && centerY <= r.y + r.height) {
+        targetWeek = week;
+        break;
+      }
+    }
+    setWeekDrag((prev) => {
+      if (!prev || prev.listId !== listId || prev.targetWeek === targetWeek) return prev;
+      const next = { ...prev, targetWeek };
+      weekDragRef.current = next;
+      return next;
+    });
+  }
+
+  function handleWeekDragEnd(listId: string) {
+    const state = weekDragRef.current;
+    weekDragRef.current = null;
+    setWeekDrag(null);
+    if (!state || state.listId !== listId || state.targetWeek == null || state.targetWeek === state.startWeek) return;
+    const list = nonTemplateLists.find((l) => l.id === listId);
+    if (!list) return;
+    const { startDate, endDate } = dateRangeForCycleWeek(todayStr(), monthlyResetDate, state.targetWeek, weeklyResetDay);
+    const patch: Partial<ShoppingList> = { startDate, endDate };
+    if (!list.isCustomName) patch.name = formatDateRange(startDate, endDate, t.monthsShort, language);
+    updateList(listId, patch);
+    success();
+    setConfirm(t.listMovedToWeek(state.targetWeek));
   }
 
   // Active-tab selection colour is the neutral brand accent (theme.accent) for EVERY tab,
@@ -1195,13 +1435,13 @@ export default function ShoppingScreen() {
 
         {tab === 'weekly' && (
           <>
-            {unlockedListCount > 0 && (
+            {unsavedListCount > 0 && (
               <View
                 style={[styles.unsavedBadge, { backgroundColor: theme.accentSoft }]}
-                accessibilityLabel={t.unsavedShoppingBanner(unlockedListCount)}
+                accessibilityLabel={t.unsavedShoppingBanner(unsavedListCount)}
               >
                 <Ionicons name="lock-open-outline" size={13} color={theme.accent} />
-                <Text style={[styles.unsavedBadgeText, { color: theme.accent }]}>{unlockedListCount}</Text>
+                <Text style={[styles.unsavedBadgeText, { color: theme.accent }]}>{unsavedListCount}</Text>
               </View>
             )}
 
@@ -1265,91 +1505,137 @@ export default function ShoppingScreen() {
               </Surface>
             )}
 
-            {nonTemplateLists.map((list) => {
-              const groups = computeListGroups(items, list.id);
-              const groupsProgress = listProgress(groups);
-              const order = groups.ungroupedUnchecked.map((i) => i.id);
-              const displayUngrouped =
-                drag && drag.listId === list.id
-                  ? (drag.order.map((id) => groups.ungroupedUnchecked.find((i) => i.id === id)).filter(Boolean) as ShoppingItem[])
-                  : groups.ungroupedUnchecked;
+            {/* ── Weekly lists, grouped into one section per week of the monthly cycle ──
+                All 4 sections always render (each registers itself as a drag-drop target
+                via handleRegisterWeekSectionNode) once at least one list exists — with zero
+                lists there's nothing to drag yet, so the big EmptyState placeholder below
+                covers that case instead of 4 redundant "no lists here" sections. */}
+            {nonTemplateLists.length > 0 && [1, 2, 3, 4].map((week) => {
+              const weekRange = dateRangeForCycleWeek(todayStr(), monthlyResetDate, week, weeklyResetDay);
+              const weekLists = listsByWeek[week] ?? [];
+              const isDropTarget = weekDrag != null && weekDrag.targetWeek === week && weekDrag.startWeek !== week;
 
               return (
-                <WeekListCard
-                  key={list.id}
-                  list={list}
-                  focused={focusedList?.id === list.id}
-                  onFocus={() => setFocusedListId(list.id)}
-                  dishGroups={groups.dishGroups}
-                  ungroupedUnchecked={displayUngrouped}
-                  checked={groups.checked}
-                  purchased={purchasedByListId.get(list.id) ?? []}
-                  onToggleLock={() => toggleListLocked(list.id)}
-                  onRename={(name) => renameList(list.id, name)}
-                  onOpenSavedLists={() => setSavedListsListId(list.id)}
-                  onOpenListSettings={() => setListSettingsListId(list.id)}
-                  onDelete={() => handleDeleteList(list.id)}
-                  onToggleItem={(item) => toggle(item.id)}
-                  onRemoveItem={handleRemoveWeeklyItem}
-                  onIncrementItem={(item) => adjustAmount(item.id, 1)}
-                  onDecrementItem={(item) => adjustAmount(item.id, -1)}
-                  onDecrementCartItem={handleDecrementCartItem}
-                  onAddInlineItem={(input) => {
-                    add({
-                      name: input.name,
-                      amount: String(input.qty),
-                      unit: '',
-                      listType: 'weekly',
-                      store: '',
-                      price: input.price,
-                      inventoryQty: 0,
-                      isTemporary: false,
-                      targetQuantity: input.qty,
-                      status: 'inWeeklyList',
-                      listId: list.id,
-                      category: input.category,
-                    });
-                    success();
-                    setConfirm(t.itemAddedToList(input.name));
-                  }}
-                  monthlyItems={catalogItems}
-                  onAddMonthlyItemsToWeek={(monthlyItemsToAdd) => {
-                    for (const item of monthlyItemsToAdd) {
-                      addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, list.id);
-                    }
-                    success();
-                    setConfirm(
-                      monthlyItemsToAdd.length === 1
-                        ? t.itemAddedToList(monthlyItemsToAdd[0].name)
-                        : t.itemsAddedToList(monthlyItemsToAdd.length)
-                    );
-                  }}
-                  onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
-                  onOpenDishSheet={() => setDishSheetTarget({ mode: 'weekly', listId: list.id })}
-                  registerCartHeaderNode={(node) => handleRegisterCartHeaderNode(list.id, node)}
-                  onFlightStart={(item, rect) => handleFlightStart(list.id, item, rect)}
-                  renderReorderableRow={(item) => (
-                    <DraggableTaskRow
-                      isOpen={false}
-                      registerNode={(node) => handleRegisterRowNode(list.id, item.id, node)}
-                      onDragStart={() => handleDragStart(list.id, item.id, item.name, order)}
-                      onDragMove={(centerY) => handleDragMove(list.id, item.id, centerY)}
-                      onDragEnd={() => handleDragEnd(list.id, item.id)}
-                    >
-                      <ShoppingRow
-                        item={item}
-                        variant="planned"
-                        onToggle={() => toggle(item.id)}
-                        onRemove={() => handleRemoveWeeklyItem(item)}
-                        onIncrement={() => adjustAmount(item.id, 1)}
-                        onDecrement={() => adjustAmount(item.id, -1)}
-                        inStockLabel={t.inStockLabel}
-                        locked={list.locked}
-                        onFlightStart={(rect) => handleFlightStart(list.id, item, rect)}
-                      />
-                    </DraggableTaskRow>
+                <View
+                  key={week}
+                  ref={(node) => handleRegisterWeekSectionNode(week, node)}
+                  style={[
+                    styles.weekSection,
+                    isDropTarget && { borderColor: theme.accent, backgroundColor: theme.accentSoft },
+                  ]}
+                >
+                  <View style={styles.weekSectionHeaderRow}>
+                    <Text style={[styles.weekSectionLabel, { color: theme.text }]}>{t.weekNumberChip(week)}</Text>
+                    <Text style={[styles.weekSectionRange, { color: theme.textMuted }]}>
+                      {formatDateRange(weekRange.startDate, weekRange.endDate, t.monthsShort, language)}
+                    </Text>
+                  </View>
+
+                  {weekLists.length === 0 ? (
+                    <Text style={[styles.weekSectionEmptyText, { color: theme.textMuted }]}>{t.weekSectionEmpty}</Text>
+                  ) : (
+                    weekLists.map((list) => {
+                      const groups = computeListGroups(items, list.id);
+                      const groupsProgress = listProgress(groups);
+                      const order = groups.ungroupedUnchecked.map((i) => i.id);
+                      const displayUngrouped =
+                        drag && drag.listId === list.id
+                          ? (drag.order.map((id) => groups.ungroupedUnchecked.find((i) => i.id === id)).filter(Boolean) as ShoppingItem[])
+                          : groups.ungroupedUnchecked;
+                      const expanded = !!expandedListIds[list.id];
+
+                      return (
+                        <DraggableTaskRow
+                          key={list.id}
+                          isOpen={expanded}
+                          onDragStart={() => handleWeekDragStart(list)}
+                          onDragMove={(centerY) => handleWeekDragMove(list.id, centerY)}
+                          onDragEnd={() => handleWeekDragEnd(list.id)}
+                        >
+                          <WeekListCard
+                            list={list}
+                            focused={focusedList?.id === list.id}
+                            onFocus={() => setFocusedListId(list.id)}
+                            expanded={expanded}
+                            onToggleExpand={() => toggleListExpanded(list.id)}
+                            dirty={!!dirtyByListId[list.id]}
+                            onSaveChanges={() => handleSaveListChanges(list)}
+                            onDiscardChanges={() => handleDiscardListChanges(list)}
+                            dishGroups={groups.dishGroups}
+                            ungroupedUnchecked={displayUngrouped}
+                            checked={groups.checked}
+                            purchased={purchasedByListId.get(list.id) ?? []}
+                            onToggleLock={() => handleToggleLock(list)}
+                            onRename={(name) => renameList(list.id, name)}
+                            onOpenSavedLists={() => setSavedListsListId(list.id)}
+                            onOpenListSettings={() => setListSettingsListId(list.id)}
+                            onDelete={() => handleDeleteList(list.id)}
+                            onToggleItem={(item) => toggle(item.id)}
+                            onRemoveItem={handleRemoveWeeklyItem}
+                            onIncrementItem={(item) => adjustAmount(item.id, 1)}
+                            onDecrementItem={(item) => adjustAmount(item.id, -1)}
+                            onDecrementCartItem={handleDecrementCartItem}
+                            onAddInlineItem={(input) => {
+                              add({
+                                name: input.name,
+                                amount: String(input.qty),
+                                unit: '',
+                                listType: 'weekly',
+                                store: '',
+                                price: input.price,
+                                inventoryQty: 0,
+                                isTemporary: false,
+                                targetQuantity: input.qty,
+                                status: 'inWeeklyList',
+                                listId: list.id,
+                                category: input.category,
+                              });
+                              success();
+                              setConfirm(t.itemAddedToList(input.name));
+                            }}
+                            monthlyItems={catalogItems}
+                            onAddMonthlyItemsToWeek={(monthlyItemsToAdd) => {
+                              for (const item of monthlyItemsToAdd) {
+                                addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, list.id);
+                              }
+                              success();
+                              setConfirm(
+                                monthlyItemsToAdd.length === 1
+                                  ? t.itemAddedToList(monthlyItemsToAdd[0].name)
+                                  : t.itemsAddedToList(monthlyItemsToAdd.length)
+                              );
+                            }}
+                            onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
+                            onOpenDishSheet={() => setDishSheetTarget({ mode: 'weekly', listId: list.id })}
+                            registerCartHeaderNode={(node) => handleRegisterCartHeaderNode(list.id, node)}
+                            onFlightStart={(item, rect) => handleFlightStart(list.id, item, rect)}
+                            renderReorderableRow={(item) => (
+                              <DraggableTaskRow
+                                isOpen={false}
+                                registerNode={(node) => handleRegisterRowNode(list.id, item.id, node)}
+                                onDragStart={() => handleDragStart(list.id, item.id, item.name, order)}
+                                onDragMove={(centerY) => handleDragMove(list.id, item.id, centerY)}
+                                onDragEnd={() => handleDragEnd(list.id, item.id)}
+                              >
+                                <ShoppingRow
+                                  item={item}
+                                  variant="planned"
+                                  onToggle={() => toggle(item.id)}
+                                  onRemove={() => handleRemoveWeeklyItem(item)}
+                                  onIncrement={() => adjustAmount(item.id, 1)}
+                                  onDecrement={() => adjustAmount(item.id, -1)}
+                                  inStockLabel={t.inStockLabel}
+                                  locked={list.locked}
+                                  onFlightStart={(rect) => handleFlightStart(list.id, item, rect)}
+                                />
+                              </DraggableTaskRow>
+                            )}
+                          />
+                        </DraggableTaskRow>
+                      );
+                    })
                   )}
-                />
+                </View>
               );
             })}
 
@@ -1649,6 +1935,22 @@ const styles = StyleSheet.create({
   weekLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
 
   weekEmptyCard: { borderRadius: Radius.md, paddingVertical: Spacing.sm, marginBottom: Spacing.md },
+  // One section per week of the monthly cycle (2026-07-22) — a plain bordered region (not
+  // a Surface: WeekListCard is already its own Surface-backed card, so this stays a quiet
+  // grouping frame). borderColor/backgroundColor go transparent at rest, tinted to
+  // theme.accent/accentSoft only while a dragged card's centerY is over this section.
+  weekSection: {
+    borderWidth: 1,
+    borderColor: 'transparent',
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  weekSectionHeaderRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm, paddingHorizontal: Spacing.xs },
+  weekSectionLabel: { fontFamily: Fonts.bold, fontSize: FontSize.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
+  weekSectionRange: { fontSize: FontSize.xs },
+  weekSectionEmptyText: { fontSize: FontSize.sm, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs },
   // Same bordered-pill trigger family as monthlyTrigger/addTrigger, sized up (paddingVertical
   // md, larger icon+text) since this is the primary action on the Weekly tab.
   newListTrigger: {
