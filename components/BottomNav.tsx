@@ -222,7 +222,12 @@ function NavGroup({ items, isActive, onPress, label, styles, groupStyle }: NavGr
   const [track, setTrack] = useState({ w: 0, h: 0 });
 
   const n = items.length;
-  const activeIndex = Math.max(0, items.findIndex(isActive));
+  const rawActiveIndex = items.findIndex(isActive);
+  // Unlike SlideSelector (always a genuine selection), a side group can have NO active
+  // item — the centre Home tab has no group of its own. Math.max(0, -1) would otherwise
+  // default to index 0, painting a pill on Shopping/Health whenever Home is selected.
+  const hasActive = rawActiveIndex !== -1;
+  const activeIndex = Math.max(0, rawActiveIndex);
   const segW = track.w > 0 ? (track.w - Spacing.sm * (n - 1)) / n : 0;
 
   const tx = useSharedValue(0);
@@ -245,7 +250,7 @@ function NavGroup({ items, isActive, onPress, label, styles, groupStyle }: NavGr
 
   return (
     <View style={groupStyle} onLayout={onLayout}>
-      {segW > 0 && (
+      {segW > 0 && hasActive && (
         <Animated.View pointerEvents="none" style={[styles.pill, { width: segW, height: track.h }, pillStyle]}>
           {glass ? (
             <LinearGradient
