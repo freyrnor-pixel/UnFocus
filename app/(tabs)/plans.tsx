@@ -412,7 +412,7 @@ export default function TasksScreen() {
       bottomNav={false}
       ownBackground={false}
       screenColor={getScreenColor(theme, 'plans').base}
-      stickyGapColor={theme.surface}
+      stickyGapColor="transparent"
       stickyBelowHeader={stickyBelowHeader}
       stickyBelowHeaderHeight={STICKY_HEIGHT}
       infoActive={hintOpen}
@@ -583,8 +583,10 @@ const styles = StyleSheet.create({
   hintSettingLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   hintSettingHint: { fontSize: FontSize.xs, marginTop: 2 },
   stickyBar: { flex: 1, paddingHorizontal: Spacing.md, justifyContent: 'center' },
-  // Edge-to-edge frosted strip (Surface overlay) — square corners, no floating-card rounding.
-  stickyGlass: { borderRadius: 0 },
+  // Floats with the same side margins + Radius.lg rounding as ScreenHeader's own floated
+  // card (2026-07-23) — it used to be edge-to-edge/square, which read as sticking out past
+  // the now-floated (margined, rounded) header sitting directly above it.
+  stickyGlass: { marginHorizontal: Spacing.md, borderRadius: Radius.lg },
   // Visual-audit 2026-07-11: was bare muted text floating on the particle background
   // (low contrast in practice even though the token itself passes AA) — a card behind
   // it, matching HomeNotesCard's empty-state treatment, gives it real footing. Every
