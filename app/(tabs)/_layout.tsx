@@ -92,6 +92,18 @@
  *     overlay's opacity (both L1 layers stay mounted — no remount). This only fires when the
  *     focused route actually changes (not continuously while dragging), so the fade starts at
  *     the swipe boundary rather than sliding with the drag. reducedMotion snaps instead.
+ *   - **Background parallax (2026-07-23)**: the shared L1/L2 background group is wrapped in
+ *     an Animated.View that drifts horizontally with the pager's live scroll `position` (a
+ *     react-navigation Animated node, 0..4, lifted up from the tab bar via onPosition) — a
+ *     small ±MAX_PARALLAX px translate, same direction as the content but far less, reading
+ *     as depth rather than "each screen has its own picture" (the layer is oversized by
+ *     MAX_PARALLAX per side so the drift never bares an edge). Null under reducedMotion, so
+ *     the backdrop stays fixed exactly as before. It's a subtle counter to the fixed backdrop,
+ *     not a re-coupling — the drift is a fraction of the content's full-width slide.
+ *   - **Floated bottom-nav (2026-07-23)**: TabBarWithBackgroundSync's wrapper now insets the
+ *     bar with NAV_FLOAT_GAP (sides + below the safe-area inset) so BottomNav reads as a
+ *     floating panel off the screen edges; the wrapper height grows by NAV_FLOAT_GAP*2 so the
+ *     bar keeps its natural BOTTOM_NAV_HEIGHT. Pairs with the floated header in ScreenScaffold.
  *   - **Scene background must stay transparent**: @react-navigation/material-top-tabs's
  *     MaterialTopTabView wraps every route in `sceneStyle: { backgroundColor: colors.background }`
  *     by default (react-navigation theme background, opaque) — that painted over this
@@ -102,7 +114,7 @@
  *     ever goes flat again after a react-navigation/expo-router upgrade, check this
  *     sceneStyle override first.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Platform, StyleSheet, View } from 'react-native';
 import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -112,20 +124,48 @@ import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
 import { useAccessibility } from '@/lib/useAppTheme';
 import { TAB_ROUTE_NAME } from '@/lib/siteNav';
+import { Spacing } from '@/constants/theme';
+
+// Max horizontal drift (px) of the shared background as you swipe across the 5 tabs — a
+// subtle parallax that adds depth without re-coupling the backdrop to the swipe the way a
+// per-screen background did (see file header). The layer is oversized by this much on each
+// side so the drift never reveals a bare edge.
+const MAX_PARALLAX = 14;
+// Gap that floats the bottom-nav bar off the screen edges (sides + below the safe-area inset)
+// so the bar reads as a floating panel rather than a bar welded to the bottom frame.
+const NAV_FLOAT_GAP = Spacing.sm;
 
 type TabBarSyncProps = MaterialTopTabBarProps & {
   insetsBottom: number;
   onActiveRouteChange: (routeName: string) => void;
+  onPosition: (position: Animated.AnimatedInterpolation<number>) => void;
 };
 
-function TabBarWithBackgroundSync({ insetsBottom, onActiveRouteChange, ...tabBarProps }: TabBarSyncProps) {
+function TabBarWithBackgroundSync({ insetsBottom, onActiveRouteChange, onPosition, ...tabBarProps }: TabBarSyncProps) {
   const activeRouteName = tabBarProps.state.routes[tabBarProps.state.index]?.name;
   React.useEffect(() => {
     if (activeRouteName) onActiveRouteChange(activeRouteName);
   }, [activeRouteName, onActiveRouteChange]);
+  // Lift the pager's live scroll `position` (a react-navigation Animated node, 0..n across
+  // tabs, updated continuously during a swipe) up to TabsLayout so it can drive the shared
+  // background's parallax drift. It's a stable node — this fires once on mount.
+  const position = tabBarProps.position;
+  React.useEffect(() => {
+    if (position) onPosition(position);
+  }, [position, onPosition]);
 
+  // Float the bar: side margins + a gap below the safe-area inset. The extra NAV_FLOAT_GAP
+  // (top + bottom) is added to the wrapper height so BottomNav's bar keeps its natural
+  // BOTTOM_NAV_HEIGHT (height − paddings) and just sits inset from the frame.
   return (
-    <View style={{ height: BOTTOM_NAV_HEIGHT + insetsBottom, paddingBottom: insetsBottom }}>
+    <View
+      style={{
+        height: BOTTOM_NAV_HEIGHT + insetsBottom + NAV_FLOAT_GAP * 2,
+        paddingTop: NAV_FLOAT_GAP,
+        paddingBottom: insetsBottom + NAV_FLOAT_GAP,
+        paddingHorizontal: Spacing.md,
+      }}
+    >
       <BottomNav {...tabBarProps} />
     </View>
   );
@@ -136,6 +176,30 @@ export default function TabsLayout() {
   const { reducedMotion } = useAccessibility();
   const [activeRouteName, setActiveRouteName] = useState<string>(TAB_ROUTE_NAME['/']!);
   const isHomeActive = activeRouteName === TAB_ROUTE_NAME['/'];
+
+  // The pager's live scroll position (0..4 across the 5 tabs), lifted up from the tab bar
+  // (see TabBarWithBackgroundSync). Drives a subtle horizontal parallax on the shared
+  // background so the backdrop drifts a little as you swipe — same direction as the content
+  // but far less, reading as depth. Null until the first tab-bar render sets it; disabled
+  // entirely under reducedMotion (the backdrop just stays fixed, as before).
+  const [pagerPosition, setPagerPosition] = useState<Animated.AnimatedInterpolation<number> | null>(null);
+  const onPosition = useCallback((p: Animated.AnimatedInterpolation<number>) => {
+    setPagerPosition((prev) => prev ?? p);
+  }, []);
+  const bgParallax =
+    reducedMotion || !pagerPosition
+      ? null
+      : {
+          transform: [
+            {
+              translateX: pagerPosition.interpolate({
+                inputRange: [0, 1, 2, 3, 4],
+                outputRange: [MAX_PARALLAX, MAX_PARALLAX / 2, 0, -MAX_PARALLAX / 2, -MAX_PARALLAX],
+                extrapolate: 'clamp',
+              }),
+            },
+          ],
+        };
 
   // Both backgrounds stay mounted; we cross-fade the hero layer's opacity instead of
   // swapping which one is mounted (see file header). ScreenBackground sits underneath at
@@ -162,12 +226,18 @@ export default function TabsLayout() {
       <View style={{ flex: 1 }}>
         {/* Shared L1/L2 background, rendered once behind the whole pager (see file header).
             ScreenBackground is the shared blue field + corner branch accents (same on every
-            tab); HomeHeroBackground is an extra focal glow that cross-fades in over it on Home. */}
-        <ScreenBackground activeRoute={activeRouteName} />
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity: heroOpacity }]} pointerEvents="none">
-          <HomeHeroBackground />
+            tab); HomeHeroBackground is an extra focal glow that cross-fades in over it on Home.
+            The whole group lives in a parallax layer that drifts ±MAX_PARALLAX horizontally
+            with the pager scroll — oversized by MAX_PARALLAX on each side (styles.bgLayer) so
+            the drift never exposes a bare edge. bgParallax is null under reducedMotion (or
+            before the position node arrives), leaving the backdrop fixed as before. */}
+        <Animated.View style={[styles.bgLayer, bgParallax]} pointerEvents="none">
+          <ScreenBackground activeRoute={activeRouteName} />
+          <Animated.View style={[StyleSheet.absoluteFill, { opacity: heroOpacity }]} pointerEvents="none">
+            <HomeHeroBackground />
+          </Animated.View>
+          <ParticleBackground />
         </Animated.View>
-        <ParticleBackground />
 
         <TopTabs
         tabBarPosition="bottom"
@@ -187,7 +257,7 @@ export default function TabsLayout() {
           sceneStyle: { backgroundColor: 'transparent' },
         }}
         tabBar={(props: MaterialTopTabBarProps) => (
-          <TabBarWithBackgroundSync {...props} insetsBottom={insets.bottom} onActiveRouteChange={setActiveRouteName} />
+          <TabBarWithBackgroundSync {...props} insetsBottom={insets.bottom} onActiveRouteChange={setActiveRouteName} onPosition={onPosition} />
         )}
       >
         {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, plans, home, health, habits */}
@@ -200,3 +270,15 @@ export default function TabsLayout() {
       </View>
   );
 }
+
+const styles = StyleSheet.create({
+  // Oversized by MAX_PARALLAX on the left/right so the background can drift horizontally
+  // (parallax) without ever revealing a bare strip at the screen edge.
+  bgLayer: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: -MAX_PARALLAX,
+    right: -MAX_PARALLAX,
+  },
+});

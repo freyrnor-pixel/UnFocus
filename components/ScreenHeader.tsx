@@ -43,11 +43,14 @@
  *     controls swap sides together — controls right (title left) by default, both left
  *     (title right) when left-handed. gear is always the outermost control.
  *   - iOS-only back link on sub-screens; Android uses system back
- *   - **Square corners (2026-07-13)**: `styles.header` forces `borderRadius: 0` — the
- *     header is an edge-to-edge full-width bar (no side margins), so Surface's default
- *     rounded-card corners had no floating card to belong to and, once the glass fill
- *     was stretched flush against the first content row, read as chopped-off corners.
- *     Don't re-add rounding here without also reintroducing a gap below the header.
+ *   - **Corners are decided by ScreenScaffold, not here (updated 2026-07-23)**: `styles.header`
+ *     still defaults `borderRadius: 0`, but ScreenScaffold's floated-header pass now passes a
+ *     `borderRadius: Radius.lg` in the `style` prop (which wins over styles.header in the array)
+ *     for every screen EXCEPT plainBackground (Settings). Floating is safe to round because the
+ *     scaffold also adds side margins and a gap below the header, so the old failure mode — a
+ *     rounded bottom corner colliding with the first content row's square corner (the reason 0
+ *     was forced on 2026-07-13) — no longer applies. Settings keeps the square edge-to-edge
+ *     app-bar. Don't hard-code rounding back on here; it's the scaffold's call per screen.
  *   - **Header title clip — the full story (2026-07-16, see HEADER_CLIP_DEBUG.md)**: TWO
  *     real defects, fixed in rounds. (1) THE root cause: `styles.title` had `flex: 1` — once
  *     the Text was wrapped in titleWrap (a COLUMN View, added with DebugNoteAnchor Jul 13),
