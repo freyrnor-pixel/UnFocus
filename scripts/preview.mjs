@@ -163,6 +163,25 @@ async function main() {
       await shot(page, shotName);
     }
 
+    // Food and Catalogue are button-launched sub-screens off Shopping (UX audit F1,
+    // 2026-07-23), not tabs — click through each via in-app navigation (same in-memory-DB
+    // constraint as above) and back, confirming both render past onboarding's gate.
+    console.log('> Shopping -> Food button');
+    await page.getByRole('button', { name: 'Shopping', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await page.getByRole('button', { name: 'Food', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await shot(page, 'food');
+    await page.goBack();
+    await page.waitForTimeout(800);
+
+    console.log('> Shopping -> Catalogue button');
+    await page.getByRole('button', { name: 'Catalogue', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await shot(page, 'catalogue');
+    await page.goBack();
+    await page.waitForTimeout(800);
+
     console.log('> back to Home tab');
     await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(1000);

@@ -1,5 +1,5 @@
 /**
- * FoodTab.tsx — the Shopping screen's in-place "Food" tab (dish library + push-to-list).
+ * FoodTab.tsx — dish library + push-to-list list UI.
  *
  * Renders one glass Surface section per meal type (breakfast/lunch/dinner/snack/kveldsmat),
  * each tinted with that meal's colour ("a touch of colour by type"). Each meal-type section
@@ -21,7 +21,8 @@
  *             store/useMealStore (Dish/MealType/Difficulty/dishTotalPrice + CRUD incl.
  *             duplicateDish), store/useCatalogStore (suggest, StoreItem),
  *             store/useShoppingStore (add + UNALLOCATED_LIST_ID), @expo/vector-icons
- *   Used by → app/(tabs)/shopping.tsx (rendered when the Food tab is active)
+ *   Used by → app/food.tsx (its own button-launched sub-screen as of 2026-07-23, UX audit
+ *             F1 — was app/(tabs)/shopping.tsx's in-place "Food" tab before that)
  *   Data    → useMealStore (dishes/ingredients), useShoppingStore.add (weekly/monthly pushes),
  *             useCatalogStore.suggest (ingredient price autocomplete)
  *

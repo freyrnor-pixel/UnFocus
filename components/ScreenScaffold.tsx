@@ -97,8 +97,9 @@
  *     is passed, so screens that don't use it pay no extra event-bridge cost.
  *   - **scrollable (perf, 2026-07-15)**: default true. When false, children render in a plain
  *     flex View (chrome padding still applied) instead of the internal ScrollView, so a child
- *     can own scrolling with a virtualising FlatList. Used by app/(tabs)/shopping.tsx on the
- *     Catalogue tab, whose ~286-row list can't virtualise inside a same-axis ScrollView (nested
+ *     can own scrolling with a virtualising FlatList. Used by app/catalogue.tsx (was
+ *     app/(tabs)/shopping.tsx's in-place Catalogue tab before UX audit F1, 2026-07-23),
+ *     whose ~286-row list can't virtualise inside a same-axis ScrollView (nested
  *     VirtualizedList). ScrollToEndContext is a no-op in this mode — a self-scrolling FlatList
  *     manages keeping its own AddRow above the keyboard.
  *   - **contentPadding's bottom reservation is gated on `bottomNav`, not just `tier`
@@ -110,7 +111,7 @@
  *     BOTTOM_NAV_HEIGHT again here double-counted that clearance for every screen that
  *     currently exists (no real screen passes `bottomNav={true}` today). On a ScrollView
  *     screen this only wasted a bit of scroll-past-the-end padding, easy to miss. On the
- *     Catalogue tab's non-scrollable FlatList box (`scrollable={false}`, see above), the same
+ *     Catalogue screen's non-scrollable FlatList box (`scrollable={false}`, see above), the same
  *     padding shrinks a real flex-bounded viewport, so the list hard-clipped ~72dp above where
  *     the nav actually sits, leaving a bare gap even on a long, fully-populated list — reported
  *     as a "cut off" bug. Fixed by keying both `contentPadding.paddingBottom` and the
@@ -346,7 +347,7 @@ export default function ScreenScaffold({
   //   Reserve is kept only for the standalone ABSOLUTE nav path (`bottomNav === true`, styles
   //   .bottomBlock — position:absolute, bottom:0, genuinely overlapping), which no real screen uses
   //   today but stays correct if re-enabled: reserve its full painted height (BOTTOM_NAV_HEIGHT +
-  //   bottomInset). The Catalogue tab (`scrollable={false}`) is untouched — it self-scrolls and
+  //   bottomInset). The Catalogue screen (`scrollable={false}`) is untouched — it self-scrolls and
   //   manages its own notepad bottom gap (protecting the 2026-07-17 fix).
   const pagerTabScene = tier === 'site' && !bottomNav && scrollable;
   const reserveBottomNav = tier === 'site' && bottomNav && scrollable;

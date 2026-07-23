@@ -1,5 +1,5 @@
 /**
- * CatalogueTab.tsx — the Shopping screen's in-place "Catalogue" tab.
+ * CatalogueTab.tsx — the master item catalogue's list UI.
  *
  * The master list of known items (store_items via useCatalogStore), rendered as one
  * flat list sorted alphabetically by name (Decision, visual-audit 2026-07-11 —
@@ -9,7 +9,7 @@
  * toggle (design-consistency pass: one shared "add a row" shape app-wide instead of a
  * bespoke toggle-open form). Each existing row shows name + price, is tappable to edit
  * in place (name/price/save), and has a delete button. The catalogue is the single basis
- * both the week lists and the Food tab draw item names/prices from (autocomplete), so
+ * both the week lists and the Food screen draw item names/prices from (autocomplete), so
  * edits here flow everywhere.
  *
  * A search field at the top of the list header filters the rows by name (case-insensitive
@@ -22,8 +22,9 @@
  *             selection), lib/money (formatKr), lib/domainColor, components/Surface,
  *             components/PressableScale, components/AddRow, store/useCatalogStore,
  *             @expo/vector-icons
- *   Used by → app/(tabs)/shopping.tsx (rendered when the Catalogue tab is active, with
- *             ScreenScaffold in scrollable={false} mode so THIS FlatList owns scrolling)
+ *   Used by → app/catalogue.tsx (its own button-launched sub-screen as of 2026-07-23, UX
+ *             audit F1 — was app/(tabs)/shopping.tsx's in-place "Catalogue" tab before that),
+ *             with ScreenScaffold in scrollable={false} mode so THIS FlatList owns scrolling
  *   Data    → useCatalogStore.addItem/updateItem/removeItem (+ items list)
  *
  * Edit notes:
@@ -32,8 +33,8 @@
  *     Shopping scaffold's shared ScrollView (a FlatList there would be a nested same-axis
  *     VirtualizedList), which fully mounted every row — each a PressableScale carrying its
  *     own Reanimated shared-value/animated-style, so ~570 animated nodes mounted per open
- *     and re-mounted on every tab switch. Now app/(tabs)/shopping.tsx passes
- *     `scrollable={false}` to ScreenScaffold on the Catalogue tab so this FlatList is the
+ *     and re-mounted on every tab switch. Now app/catalogue.tsx passes
+ *     `scrollable={false}` to ScreenScaffold so this FlatList is the
  *     scroller. The old CATALOGUE_INITIAL_WINDOW / visibleCount / InteractionManager
  *     deferral is gone — virtualization caps the mounted-row count directly instead of just
  *     deferring the full expansion past the first frame.
@@ -50,9 +51,11 @@
  *     from useCatalogStore (sorted once in load(), kept sorted by every mutation), so this tab
  *     feeds `items` straight to the FlatList. The old `sortedItems` useMemo re-collated all ~286
  *     rows with localeCompare('no') on every mount — a synchronous beat every time the tab opened.
- *   - **`header` prop**: the Shopping screen's hint card + SharedRequestsSection are handed in
- *     as the FlatList's ListHeaderComponent (above the add row) so they still scroll with the
- *     list — the Catalogue tab renders outside the screen's normal padded content View.
+ *   - **`header` prop** (currently unused — app/catalogue.tsx passes none): when given,
+ *     renders as the FlatList's ListHeaderComponent (above the add row) so it scrolls with
+ *     the list. Shopping's old in-place Catalogue tab used to hand in its shared hint card
+ *     + SharedRequestsSection this way, back when this rendered as one of Shopping's own
+ *     tabs outside the screen's normal padded content View.
  *   - New items are still authored into the 'other' category (no picker in the add row,
  *     per the spec's "name, price, delete, save") — `category` is kept on the row (used
  *     by autocomplete elsewhere) even though this tab no longer groups/displays by it.
