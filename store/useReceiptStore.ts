@@ -3,12 +3,12 @@
  *
  * Zustand store for the `receipts` table: one row per confirmed scan/manual
  * grocery trip (date, store, total, category, month). Feeds app/budget.tsx's
- * spend-vs-budget view and per-month/per-store breakdowns; app/(tabs)/scan.tsx creates
+ * spend-vs-budget view and per-month/per-store breakdowns; app/scan.tsx creates
  * a receipt right before logging its items via useCatalogStore.recordPurchases(purchases, receipt.id).
  *
  * Connections:
  *   Imports → lib/date, lib/dataAccess, lib/id
- *   Used by → app/budget.tsx, app/(tabs)/scan.tsx
+ *   Used by → app/budget.tsx, app/scan.tsx
  *   Data    → defines a Zustand store; owns SQLite table receipts; purchase_log rows link back via the optional receipt_id passed into useCatalogStore.recordPurchases
  *
  * Edit notes:

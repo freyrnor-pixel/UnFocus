@@ -10,8 +10,8 @@
  *   Imports → constants/theme, lib/useAppTheme,
  *             lib/i18n (useT), components/PressableScale
  *   Used by → app/(tabs)/index.tsx, app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx,
- *             app/(tabs)/health.tsx (this-week summary + embedded Habits section),
- *             app/(tabs)/scan.tsx, app/task-form.tsx, app/meals.tsx, app/habit-form.tsx,
+ *             app/(tabs)/health.tsx (this-week summary), app/(tabs)/habits.tsx,
+ *             app/scan.tsx, app/task-form.tsx, app/meals.tsx, app/habit-form.tsx,
  *             app/notes.tsx, app/health-form.tsx, app/health-log.tsx
  *   Data    → reads colours from
  *             useAppTheme(); scaled fontSize via useScaledStyles()

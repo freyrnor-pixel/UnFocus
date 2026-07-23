@@ -15,7 +15,7 @@
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme (useAppTheme, useAccessibility), lib/haptics,
  *             components/PressableScale, react-native-reanimated
- *   Used by → components/TaskCard.tsx, app/(tabs)/health.tsx (Today/Week/Month view tabs)
+ *   Used by → components/TaskCard.tsx, app/(tabs)/habits.tsx (Today/Week/Month view tabs)
  *   Data    → none (controlled; value/options/onChange from props)
  *
  * Edit notes:

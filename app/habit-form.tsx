@@ -16,9 +16,10 @@
  *             components/HintCard, components/HabitIcon, components/Button, components/AppModal,
  *             components/PressableScale, components/Stepper, components/GoalPicker, lib/haptics,
  *             lib/i18n, lib/useAppTheme, store/useHabitStore, store/useSettingsStore
- *   Used by → Expo Router route "/habit-form"; reached from app/(tabs)/health.tsx's
- *             embedded Habits section (AddFAB "+" and each habit card's settings-gear
- *             IconButton, 2026-07-21 — replaced the old long-press-to-edit gesture)
+ *   Used by → Expo Router route "/habit-form"; reached from app/(tabs)/habits.tsx (its own
+ *             bottom-nav tab as of 2026-07-23 — was embedded in health.tsx before that;
+ *             each habit card's settings-gear IconButton, 2026-07-21 — replaced the old
+ *             long-press-to-edit gesture)
  *   Data    → useHabitStore (habits table) via add/update/remove; toggling the notification
  *             (or editing its recipe) reschedules the habit's reminders through the store
  *
@@ -28,7 +29,7 @@
  *     lib/habitRecurrence.ts's habitOccursOn. Weekly saves `recurrenceDays` as the
  *     selected weekday indices (same dayLabels-driven chip picker as task-form.tsx's
  *     weekly recurrence); Monthly saves it as a single-element `[dayOfMonth]` (1–28,
- *     via Stepper). 'one-time' stays out of the picker — health.tsx currently treats
+ *     via Stepper). 'one-time' stays out of the picker — habits.tsx currently treats
  *     it identically to 'daily' with no distinct behaviour, so exposing it would be a
  *     no-op that reads as broken.
  *   - **'weekly-flexible' (2026-07-22, "Flexible")**: "N times this week, any day" —

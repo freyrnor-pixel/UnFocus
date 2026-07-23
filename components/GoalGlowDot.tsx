@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → constants/theme (getGlow, rgba), lib/goalStrength (decayedStrength)
- *   Used by → components/GoalPicker.tsx, components/TaskCard.tsx, app/(tabs)/health.tsx (HabitCard)
+ *   Used by → components/GoalPicker.tsx, components/TaskCard.tsx, app/(tabs)/habits.tsx (HabitCard)
  *   Data    → none; pure presentational (reads a raw strength + timestamp, decays on render)
  *
  * Edit notes:

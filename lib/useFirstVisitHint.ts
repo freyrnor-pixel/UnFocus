@@ -12,7 +12,7 @@
  *   Imports → react-native (LayoutAnimation/Platform/UIManager), expo-router (useFocusEffect),
  *             store/useSettingsStore, lib/useAppTheme (useAccessibility)
  *   Used by → app/(tabs)/index.tsx, app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx,
- *             app/(tabs)/health.tsx
+ *             app/(tabs)/health.tsx, app/(tabs)/habits.tsx
  *   Data    → reads/writes useSettingsStore.seenScreenHints (persisted)
  *
  * Edit notes:

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // preview.mjs — Playwright driver for the web preview: walks onboarding, screenshots
-// every main tab, and exercises "add a task" (Tasks) + "add a habit" (Health) — each
+// every main tab, and exercises "add a task" (Tasks) + "add a habit" (Habits) — each
 // verified to survive a tab round-trip — to prove two stores' write→read paths through
 // the in-memory sql.js DB, not just static render. Chromium is pre-installed under
 // PLAYWRIGHT_BROWSERS_PATH; never `playwright install`.
@@ -93,6 +93,12 @@ async function main() {
     if (msg.type() === 'error') consoleErrors.push(msg.text());
   });
 
+  // Wrapped in try/finally so a thrown locator/timeout error (e.g. a renamed tab button)
+  // still closes the browser — an uncaught throw here used to skip browser.close()
+  // entirely, leaving the Chromium process open and the whole script hanging forever
+  // instead of failing fast (found 2026-07-23 when the Scan→Habits tab rename did
+  // exactly this).
+  try {
   if (onlyRoute) {
     console.log(`> focused check: ${onlyRoute}`);
     await page.goto(`${BASE_URL}${onlyRoute}`, { waitUntil: 'networkidle', timeout: 30000 });
@@ -149,7 +155,7 @@ async function main() {
     // Navigate via the in-app BottomNav (client-side route change), NOT page.goto() —
     // the DB is in-memory (sql.js fallback, see lib/sqlite.web.ts); a full page
     // navigation reloads the bundle and wipes it, bouncing back to onboarding.
-    for (const [tab, shotName] of [['Shopping', 'shopping'], ['Tasks', 'plans'], ['Health', 'health'], ['Scan', 'scan']]) {
+    for (const [tab, shotName] of [['Shopping', 'shopping'], ['Tasks', 'plans'], ['Health', 'health'], ['Habits', 'habits']]) {
       console.log(`> ${tab} tab`);
       await page.getByRole('button', { name: tab, exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(1000);
@@ -193,10 +199,11 @@ async function main() {
     await shot(page, 'task-persisted-check');
 
     // Exercise a second store's write path: add a habit via the inline AddRow at the
-    // bottom of Health's Habits section (placeholder = t.health.addHabit), then confirm
-    // it round-trips through the in-memory sql.js DB after a tab away-and-back.
+    // bottom of the Habits tab (placeholder = t.health.addHabit; habits split out of
+    // Health into its own tab 2026-07-23, UX audit E1), then confirm it round-trips
+    // through the in-memory sql.js DB after a tab away-and-back.
     console.log('> add a habit (store logic check)');
-    await page.getByRole('button', { name: 'Health', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Habits', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
     const habitTitle = `Preview habit ${Date.now()}`;
@@ -214,7 +221,7 @@ async function main() {
 
     await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(500);
-    await page.getByRole('button', { name: 'Health', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Habits', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
     const habitPersisted = await page.getByText(habitTitle, { exact: true }).first().isVisible().catch(() => false);
@@ -263,8 +270,10 @@ async function main() {
   console.log(`> console errors: ${consoleErrors.length}`);
   consoleErrors.forEach((e) => console.log('  [console.error]', e));
 
-  await browser.close();
   if (pageErrors.length > 0) process.exitCode = 1;
+  } finally {
+    await browser.close();
+  }
 }
 
 main().catch((err) => {

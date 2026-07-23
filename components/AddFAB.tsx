@@ -11,9 +11,7 @@
  *   Imports → constants/theme (getLayeredShadow, getMaterialStyle), lib/useAppTheme, lib/i18n,
  *             store/useSettingsStore (glassSurfaces), components/BottomNav (BOTTOM_NAV_HEIGHT),
  *             components/PressableScale, components/GlassFill
- *   Used by → app/health-log.tsx (symptom log FAB), app/(tabs)/health.tsx (embedded Habits
- *             section's inline "sm" add — the former app/habits.tsx's own AddFAB),
- *             app/automations.tsx,
+ *   Used by → app/health-log.tsx (symptom log FAB), app/automations.tsx,
  *             app/(tabs)/shopping.tsx (Monthly list's lower-right
  *             "add item" bubble, size="sm" — visual-audit 2026-07-11); also
  *             components/VoiceNoteFAB.tsx (FAB_LG_SIZE/FAB_DEFAULT_BOTTOM

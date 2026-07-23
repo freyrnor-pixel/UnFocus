@@ -2,7 +2,7 @@
  * screenColor.test.ts — per-screen hue mapping (lib/screenColor.ts).
  *
  * Verifies each of the 5 tab routes resolves to its intended dominant hue (day-arc:
- * shopping=green, plans=indigo, home=blue, health=teal, scan=violet), that the 'home'
+ * shopping=green, plans=indigo, home=blue, health=teal, habits=violet), that the 'home'
  * alias matches 'index', that the five hues are all distinct, and that unknown/sub-tier
  * routes fall back to the calm `accent`.
  */
@@ -18,7 +18,7 @@ describe('getScreenColor', () => {
     expect(getScreenColor(light, 'plans').base).toBe(light.featPlan);
     expect(getScreenColor(light, 'index').base).toBe(light.featTask);
     expect(getScreenColor(light, 'health').base).toBe(light.featHealth);
-    expect(getScreenColor(light, 'scan').base).toBe(light.featScan);
+    expect(getScreenColor(light, 'habits').base).toBe(light.featScan);
   });
 
   it("'home' is an alias for 'index' (blue)", () => {
@@ -27,7 +27,7 @@ describe('getScreenColor', () => {
   });
 
   it('the five screen hues are all distinct', () => {
-    const hues = ['shopping', 'plans', 'index', 'health', 'scan'].map((r) => getScreenColor(light, r).base);
+    const hues = ['shopping', 'plans', 'index', 'health', 'habits'].map((r) => getScreenColor(light, r).base);
     expect(new Set(hues).size).toBe(5);
   });
 

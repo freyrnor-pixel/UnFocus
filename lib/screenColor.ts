@@ -11,7 +11,9 @@
  * is untouched — it still comes from getStatusColor / theme tokens, never from here.
  *
  * Screen → hue (day-arc, distinct): shopping→green, plans→indigo, home→blue, health→teal,
- * scan→violet. Reuses the feat* octet where it fits; Scan uses the dedicated featScan violet.
+ * habits→violet. Reuses the feat* octet where it fits. Habits inherits the featScan violet
+ * (2026-07-23, UX audit E1/E2 nav swap) — Scan no longer needs a screen-hue slot since it
+ * moved off the bottom nav to a pushed sub-screen (which doesn't render this per-tab hue).
  *
  * Connections:
  *   Imports → constants/colors (ThemePalette), constants/theme (rgba), react
@@ -22,7 +24,7 @@
  *
  * Edit notes:
  *   - Route names are react-navigation route names from the tab pager: 'shopping', 'plans',
- *     'index' (Home), 'health', 'scan'. 'home' is accepted as an alias for 'index'.
+ *     'index' (Home), 'health', 'habits'. 'home' is accepted as an alias for 'index'.
  *   - getScreenColor falls back to `accent` for any unknown route so non-tab / sub-tier
  *     screens (which don't wrap a provider) stay on the calm default.
  */
@@ -30,7 +32,7 @@ import React from 'react';
 import { ThemePalette } from '@/constants/colors';
 import { rgba } from '@/constants/theme';
 
-export type ScreenKey = 'shopping' | 'plans' | 'index' | 'home' | 'health' | 'scan';
+export type ScreenKey = 'shopping' | 'plans' | 'index' | 'home' | 'health' | 'habits';
 
 const SCREEN_TOKEN: Record<ScreenKey, keyof ThemePalette> = {
   shopping: 'featShop',   // green
@@ -38,7 +40,7 @@ const SCREEN_TOKEN: Record<ScreenKey, keyof ThemePalette> = {
   index: 'featTask',      // blue (Home)
   home: 'featTask',       // blue (alias)
   health: 'featHealth',   // teal
-  scan: 'featScan',       // violet
+  habits: 'featScan',     // violet (inherited from the retired Scan tab slot)
 };
 
 export type ScreenHue = {

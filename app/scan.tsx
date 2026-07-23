@@ -7,17 +7,25 @@
  * categories, and confirms. Also hosts a QR scanner that imports shared
  * shopping/task payloads into the shared store.
  *
+ * **Moved out of the bottom-nav pager (2026-07-23, UX audit finding E2)**: this used to
+ * be one of the 5 co-mounted `app/(tabs)/*` sites (Decision 036); a permanent nav-bar
+ * seat for an occasional-use action, and its name ("Scan") only advertised receipt OCR
+ * even though it also did QR-share-import — a name-vs-content mismatch, and a candidate
+ * for trimming the always-visible tab set. Nothing about the scan/QR functionality
+ * itself changed — it's reached via a "Scan" button on app/(tabs)/shopping.tsx's header
+ * instead of a bottom tab.
+ *
  * Connections:
- *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, lib/screenColor, store/useCatalogStore, store/useReceiptStore, store/useMonthlyListStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons), @react-navigation/material-top-tabs + @react-navigation/native (types only, for the swipeEnabled guard)
- *   Used by → Expo Router route "/scan" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx; reached from app/(tabs)/shopping.tsx's post-trip receipt pop-up (autoCapture)
+ *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, lib/screenColor, store/useCatalogStore, store/useReceiptStore, store/useMonthlyListStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons)
+ *   Used by → Expo Router route "/scan"; pushed from app/(tabs)/shopping.tsx's header
+ *             "Scan" button, and its post-trip receipt pop-up (autoCapture param)
  *   Data    → confirmed items write to FOUR stores: useShoppingStore (shopping_items) + useReceiptStore.addReceipt (receipts, tagged with a monthlyListId — Shopping/Monthly redesign 2026-07-22, picked via renderMonthlyListSelector() when 2+ Monthly lists exist) + useCatalogStore.recordPurchases (purchase_log, linked via receipt_id, + store_items); QR import writes useSharedStore (shared_shopping_items / shared_tasks); scaled fontSize via useScaledStyles()
  *
  * Edit notes:
- *   - Decision 001 tier='site' ScreenScaffold (bottomNav={false} — the tabs pager renders
- *     BottomNav itself; ownBackground={false} — app/(tabs)/_layout.tsx renders one shared
- *     backdrop behind the whole pager instead) for idle/result/manual modes; the transient
- *     'scanning' mode is a bare centered SafeAreaView, same as before this screen moved
- *     under app/(tabs)/.
+ *   - Decision 001 tier='sub' ScreenScaffold (back arrow, own background) for idle/result/
+ *     manual modes — changed from tier='site' (2026-07-23) now that this isn't a pager
+ *     sibling anymore; the transient 'scanning' mode stays a bare centered SafeAreaView,
+ *     unchanged by the move.
  *   - No Budget entry point here anymore (2026-07-19): the in-content top link that used to open
  *     app/budget.tsx was removed — Budget is reached only from app/(tabs)/shopping.tsx's header now.
  *   - QR scanner modal is FIXED DARK CAMERA CHROME (Decision 025): '#000' background + fixed white
@@ -35,17 +43,14 @@
  *   - Both add paths create shopping_items rows with status='inWeeklyList' (not 'catalog').
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen has no
  *     per-screen focus-load.
- *   - **Pager-swipe guard:** this screen is one of the tabs pager's 5 co-mounted sites, so a
- *     horizontal swipe is always live over it. While mode==='scanning' (OCR in flight) or any
- *     overlay (QR modal, custom-store sheet, category picker) is open, an effect flips the
- *     pager's swipeEnabled off via navigation.setOptions so a stray swipe can't abandon that
- *     flow — reverted the instant the mode/overlay clears. Deliberately NOT a full route split
- *     (e.g. a pushed app/scan-camera.tsx): 'scanning' holds no live camera resource (the photo
- *     is already captured via ImagePicker by the time this mode renders — it's just the
- *     OCR-wait pulse animation), and the QR CameraView already lives inside a React Native
- *     Modal (its own native layer, unaffected by the pager underneath) — so there's no
- *     persistent-camera-in-a-hidden-pager-page risk to design around, only the UX risk this
- *     guard closes.
+ *   - **No more pager-swipe guard (removed 2026-07-23)**: while this was a co-mounted pager
+ *     tab, an effect flipped the pager's `swipeEnabled` off via `navigation.setOptions`
+ *     during OCR/overlay so a stray swipe couldn't abandon the flow. Now that it's a pushed
+ *     sub-screen, a swipe can't reach the pager underneath it at all — the guard is gone,
+ *     along with its `useNavigation`/`MaterialTopTabNavigationProp` imports.
+ *   - `mountedRef` still guards the OCR pipeline's deferred setState (100ms picker hop +
+ *     1800ms result hold) from firing after this screen unmounts — same contract as before,
+ *     just "unmounts" now means "user navigated back" instead of "pager swiped away."
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated } from 'react-native';
@@ -65,9 +70,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRouter, usePathname, useLocalSearchParams } from 'expo-router';
-import type { MaterialTopTabNavigationProp } from '@react-navigation/material-top-tabs';
-import type { ParamListBase } from '@react-navigation/native';
+import { useRouter, usePathname, useLocalSearchParams } from 'expo-router';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useSharedStore } from '@/store/useSharedStore';
 import { useCatalogStore } from '@/store/useCatalogStore';
@@ -87,7 +90,6 @@ import { decodeSharePayload } from '@/lib/share';
 import { parseReceiptText, findFuzzyMatch, ParsedReceiptItem as ParsedItem } from '@/lib/receipt';
 import { Fonts, FontSize, Radius, Shadow, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
-import { getScreenColor } from '@/lib/screenColor';
 
 // Fixed camera-chrome colours (Decision 025) — theme-independent, always white-on-black.
 const QR_BG = '#000000';
@@ -105,7 +107,6 @@ type ScreenMode = 'idle' | 'scanning' | 'result' | 'manual';
 export default function ScanScreen() {
   const router = useRouter();
   const pathname = usePathname();
-  const navigation = useNavigation<MaterialTopTabNavigationProp<ParamListBase>>();
   const { autoCapture } = useLocalSearchParams<{ autoCapture?: 'camera' | 'library' }>();
   const addShopping = useShoppingStore((s) => s.add);
   const updateShoppingItem = useShoppingStore((s) => s.update);
@@ -148,7 +149,7 @@ export default function ScanScreen() {
   const pulseRef = useRef<Animated.CompositeAnimation | null>(null);
   const autoCaptureFired = useRef(false);
   // Guards the deferred setState in the OCR pipeline (100ms picker hop + 1800ms result
-  // hold) from firing after this pager tab unmounts.
+  // hold) from firing after this screen unmounts.
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -163,17 +164,6 @@ export default function ScanScreen() {
     if (autoCapture === 'camera') takePhoto();
     else if (autoCapture === 'library') pickImage();
   }, [autoCapture]);
-
-  // This screen is one of the pager's 5 co-mounted tabs (app/(tabs)/_layout.tsx). A stray
-  // horizontal swipe mid-OCR or with an overlay sheet open would abandon that flow with no
-  // way back to it (the pager just shows another tab) — briefly disable the pager's own
-  // swipe for the duration instead. `scanning` has no camera hardware held open (the photo
-  // is already captured via ImagePicker by this point; this mode is just the OCR wait
-  // screen), so this is a UX guard, not a resource-safety one.
-  useEffect(() => {
-    const disableSwipe = mode === 'scanning' || qrScanVisible || customStoreVisible || categoryPickerVisible;
-    navigation.setOptions({ swipeEnabled: !disableSwipe });
-  }, [navigation, mode, qrScanVisible, customStoreVisible, categoryPickerVisible]);
 
   // Pulsing animation for scanning state. Captured in a ref and stopped on mode-change/
   // unmount — an uncaptured Animated.loop keeps running (and drawing) forever once the
@@ -566,7 +556,7 @@ export default function ScanScreen() {
   if (mode === 'idle') {
     return (
       <>
-        <ScreenScaffold title={t.scanReceipt} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'scan').base}>
+        <ScreenScaffold title={t.scanReceipt} tier="sub" onBack={() => router.back()}>
           <View style={styles.content}>
             {/* Tip — subtle bordered card with an info glyph, not a flat colour block.
                 Edge tinted to the inner accent (theme.good) so border matches content,
@@ -638,7 +628,7 @@ export default function ScanScreen() {
   if (mode === 'result' && parsedItems.length > 0) {
     return (
       <>
-        <ScreenScaffold title={t.foundOnReceipt} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'scan').base}>
+        <ScreenScaffold title={t.foundOnReceipt} tier="sub" onBack={() => router.back()}>
           <View style={styles.content}>
             <HintCard text={t.itemsSelectedCount(selectedCount, parsedItems.length)} example="" />
             {renderMonthlyListSelector()}
@@ -735,7 +725,7 @@ export default function ScanScreen() {
   if (mode === 'manual') {
     return (
       <>
-        <ScreenScaffold title={t.manualEntryTitle} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'scan').base}>
+        <ScreenScaffold title={t.manualEntryTitle} tier="sub" onBack={() => router.back()}>
           <View style={styles.content}>
             <HintCard text={t.manualEntryHint} example="" />
 

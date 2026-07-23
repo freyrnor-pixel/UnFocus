@@ -10,7 +10,7 @@
  *   Used by → components/PressableScale, components/SharedRequestsSection, task/habit
  *             completion flows, app/shopping.tsx (sheet swipe-to-close), destructive
  *             confirmations in app/automations.tsx, app/habit-form.tsx, app/settings.tsx,
- *             app/(tabs)/health.tsx (embedded Habits section)
+ *             app/(tabs)/habits.tsx
  *   Data    → none
  *
  * Edit notes:

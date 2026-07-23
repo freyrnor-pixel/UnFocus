@@ -26,7 +26,7 @@
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme, lib/i18n, lib/haptics, components/PressableScale,
  *             components/ScreenScaffold (ScrollIntoViewContext), @expo/vector-icons
- *   Used by → app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx, app/(tabs)/health.tsx,
+ *   Used by → app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx, app/(tabs)/habits.tsx,
  *             app/automations.tsx, app/health-log.tsx,
  *             components/CatalogueTab.tsx
  *             (replaces AddDivider + the floating/inline AddFAB + dashed new-cards)
