@@ -921,6 +921,7 @@ const en = {
   // Health screen
   healthTitle: 'Health',
   thisWeekLabel: 'This week',
+  quickLogLabel: 'Quick log',
   healthLogTitle: 'Health-log',
   noLogs: 'No symptoms logged yet',
   logSymptomTrigger: '+ Log symptom',
@@ -2401,6 +2402,7 @@ const no: typeof en = {
   // --- end W-C additions ---
   healthTitle: 'Helse',
   thisWeekLabel: 'Denne uken',
+  quickLogLabel: 'Hurtiglogg',
   healthLogTitle: 'Helse-logg',
   noLogs: 'Ingen loggede symptomer enda',
   logSymptomTrigger: '+ Logg symptom',
