@@ -1428,7 +1428,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'shopping').base} stickyGapColor={theme.surface} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={() => router.push('/share-modal?kind=s')} onScanPress={() => router.push('/scan')} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'shopping').base} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={() => router.push('/share-modal?kind=s')} onScanPress={() => router.push('/scan')} onScroll={handleScreenScroll}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
@@ -2115,8 +2115,10 @@ const styles = StyleSheet.create({
   dishGroupsWrap: { gap: Spacing.xs },
 
   stickyBar: { flex: 1, paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, gap: 2 },
-  // Edge-to-edge frosted strip (Surface overlay) — square corners, no floating-card rounding.
-  stickyGlass: { borderRadius: 0 },
+  // Floats with the same side margins + Radius.lg rounding as ScreenHeader's own floated
+  // card (2026-07-23) — it used to be edge-to-edge/square, which read as sticking out past
+  // the now-floated (margined, rounded) header sitting directly above it.
+  stickyGlass: { marginHorizontal: Spacing.md, borderRadius: Radius.lg },
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold },
   tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
