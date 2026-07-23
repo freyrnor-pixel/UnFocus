@@ -1079,6 +1079,7 @@ const en = {
       workMode: 'Work Mode',
       data: 'Data',
       additionalModes: 'Additional modes',
+      advanced: 'Advanced',
     },
     // Settings screen top-level tab labels
     tabs: {
@@ -2027,6 +2028,7 @@ const no: typeof en = {
       workMode: 'Jobb-modus',
       data: 'Data',
       additionalModes: 'Tilleggsmoduser',
+      advanced: 'Avansert',
     },
     tabs: {
       general: 'Generelt',

@@ -967,10 +967,12 @@ export default function SettingsScreen() {
 
         {tab === 'moduser' && (
           <>
-            {/* JOBB-MODUS / FORELDREMODUS / PERSONER — one panel (2026-07-13 layering
-                pass: these three used to each float in their own Surface card). Skolemodus
-                and Freyr-modus stay standalone below — they're single-toggle cards with no
-                accordion body, so folding them in would add chrome with nothing to hide. */}
+            {/* JOBB-MODUS stays top-level (most commonly used of these modes); FORELDREMODUS /
+                PERSONER / SKOLEMODUS / FREYR-MODUS move behind an "Advanced" accordion (UX audit
+                F2, 2026-07-23) — rare/power-user modes that don't need to compete with Work
+                mode for first-screen attention. Was: all three (Jobb/Foreldre/Personer) as
+                siblings in one panel (2026-07-13 layering pass), Skolemodus/Freyr-modus each
+                their own standalone single-toggle card below. */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <ExpandableCard title={t.config.sections.workMode} accentColor={theme.accent} first>
@@ -1057,8 +1059,13 @@ export default function SettingsScreen() {
                   </View>
                 </ExpandableCard>
 
+                {/* ADVANCED (UX audit F2, 2026-07-23) — Foreldremodus/Personer/Skolemodus/
+                    Freyr-modus grouped behind one collapsed-by-default accordion, so the
+                    first screen stays scannable and Work mode (kept top-level above) doesn't
+                    have to compete with four rarer/power-user modes for attention. */}
+                <ExpandableCard title={t.config.sections.advanced} accentColor={theme.textMuted}>
                 {/* FORELDREMODUS (Parent mode / Child mode) */}
-                <ExpandableCard title={t.childModeTitle} accentColor={theme.accent}>
+                <ExpandableCard title={t.childModeTitle} accentColor={theme.accent} first>
                   <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeDesc}</Text>
                   {settings.childMode ? (
                     <>
@@ -1154,13 +1161,10 @@ export default function SettingsScreen() {
                     </>
                   )}
                 </ExpandableCard>
-              </Surface>
-            </View>
 
-            {/* SKOLEMODUS — standalone: single-toggle card with no accordion body. */}
-            <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.schoolMode.label}</Text>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                {/* SKOLEMODUS — single-toggle, no accordion body of its own; just a row
+                    inside Advanced now (was its own standalone Surface card). */}
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <View style={styles.switchRow}>
                   <View style={styles.switchTextCol}>
                     <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.schoolMode.label}</Text>
@@ -1171,13 +1175,9 @@ export default function SettingsScreen() {
                     onChange={(v) => { selection(); settings.update({ schoolModeEnabled: v }); }}
                   />
                 </View>
-              </Surface>
-            </View>
 
-            {/* FREYR-MODUS */}
-            <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.config.freyrMode.label}</Text>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                {/* FREYR-MODUS — same treatment as Skolemodus above. */}
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <View style={styles.switchRow}>
                   <View style={styles.switchTextCol}>
                     <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.freyrMode.label}</Text>
@@ -1185,6 +1185,7 @@ export default function SettingsScreen() {
                   </View>
                   <FormSwitch checked={settings.freyrModeEnabled} onChange={handleToggleFreyrMode} />
                 </View>
+                </ExpandableCard>
               </Surface>
             </View>
           </>
