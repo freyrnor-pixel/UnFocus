@@ -100,10 +100,15 @@
  *     MAX_PARALLAX per side so the drift never bares an edge). Null under reducedMotion, so
  *     the backdrop stays fixed exactly as before. It's a subtle counter to the fixed backdrop,
  *     not a re-coupling — the drift is a fraction of the content's full-width slide.
- *   - **Floated bottom-nav (2026-07-23)**: TabBarWithBackgroundSync's wrapper now insets the
- *     bar with NAV_FLOAT_GAP (sides + below the safe-area inset) so BottomNav reads as a
- *     floating panel off the screen edges; the wrapper height grows by NAV_FLOAT_GAP*2 so the
- *     bar keeps its natural BOTTOM_NAV_HEIGHT. Pairs with the floated header in ScreenScaffold.
+ *   - **Floated bottom-nav — side-only (2026-07-23, amended)**: TabBarWithBackgroundSync's
+ *     wrapper insets the bar with NAV_FLOAT_GAP on the LEFT/RIGHT ONLY (a small margin, smaller
+ *     than the per-screen cards' Spacing.md), flush at the top and flush at the bottom apart
+ *     from the safe-area inset. Wrapper height is exactly BOTTOM_NAV_HEIGHT + insetsBottom, so
+ *     the bar keeps its natural BOTTOM_NAV_HEIGHT and the wrapper matches ScreenScaffold's
+ *     bottomNavClearance (BOTTOM_NAV_HEIGHT + insets.bottom). The original pass floated it on
+ *     ALL sides (top + bottom NAV_FLOAT_GAP, Spacing.md sides), which left an empty "blank
+ *     border" frame of background around the bar — removed here. The floated header in
+ *     ScreenScaffold is unchanged.
  *   - **Scene background must stay transparent**: @react-navigation/material-top-tabs's
  *     MaterialTopTabView wraps every route in `sceneStyle: { backgroundColor: colors.background }`
  *     by default (react-navigation theme background, opaque) — that painted over this
@@ -131,8 +136,10 @@ import { Spacing } from '@/constants/theme';
 // per-screen background did (see file header). The layer is oversized by this much on each
 // side so the drift never reveals a bare edge.
 const MAX_PARALLAX = 14;
-// Gap that floats the bottom-nav bar off the screen edges (sides + below the safe-area inset)
-// so the bar reads as a floating panel rather than a bar welded to the bottom frame.
+// Side-only float gap for the bottom-nav bar: a small left/right margin — deliberately
+// SMALLER than the per-screen content cards' Spacing.md (16) side margin — so the bar reads
+// as a floating panel without an empty frame around it. The top is flush (no gap above) and
+// the bottom is the safe-area inset only (no extra gap below), per the "no blank border" pass.
 const NAV_FLOAT_GAP = Spacing.sm;
 
 type TabBarSyncProps = MaterialTopTabBarProps & {
@@ -154,16 +161,19 @@ function TabBarWithBackgroundSync({ insetsBottom, onActiveRouteChange, onPositio
     if (position) onPosition(position);
   }, [position, onPosition]);
 
-  // Float the bar: side margins + a gap below the safe-area inset. The extra NAV_FLOAT_GAP
-  // (top + bottom) is added to the wrapper height so BottomNav's bar keeps its natural
-  // BOTTOM_NAV_HEIGHT (height − paddings) and just sits inset from the frame.
+  // Float the bar on the SIDES ONLY: a small left/right margin (NAV_FLOAT_GAP), flush at the
+  // top (no gap above) and flush at the bottom apart from the safe-area inset. The wrapper
+  // height is exactly BOTTOM_NAV_HEIGHT + insetsBottom, so the bar keeps its natural
+  // BOTTOM_NAV_HEIGHT and the wrapper matches ScreenScaffold's bottomNavClearance
+  // (BOTTOM_NAV_HEIGHT + insets.bottom) precisely. This removed the empty "blank border"
+  // frame the earlier all-sides float (top + bottom + Spacing.md sides) left around the bar.
   return (
     <View
       style={{
-        height: BOTTOM_NAV_HEIGHT + insetsBottom + NAV_FLOAT_GAP * 2,
-        paddingTop: NAV_FLOAT_GAP,
-        paddingBottom: insetsBottom + NAV_FLOAT_GAP,
-        paddingHorizontal: Spacing.md,
+        height: BOTTOM_NAV_HEIGHT + insetsBottom,
+        paddingTop: 0,
+        paddingBottom: insetsBottom,
+        paddingHorizontal: NAV_FLOAT_GAP,
       }}
     >
       <BottomNav {...tabBarProps} />
