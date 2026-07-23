@@ -78,13 +78,22 @@
  *     match the rendered content's actual height — it drives the ScrollView's top content
  *     padding so the first real content item isn't permanently hidden under the two floating
  *     blocks (mirrors the header's own float, which every current screen already accepts).
- *   - **headerBlock backgroundColor (visual-audit fix, 2026-07-11)**: `headerBlock` has an
- *     explicit height (`HEADER_HEIGHT + topInset`), but `ScreenHeader`'s glass `Surface`
- *     shrink-wraps to its own (shorter) content height, leaving a transparent sliver at the
- *     bottom of the block that let scrolled-past L3 content show through unblurred — most
- *     visible on Settings, where `stickyBelowHeader` sits glued right under it. Fixed by
- *     giving `headerBlock` `backgroundColor: theme.bg` so any shortfall is covered by the
- *     page background instead of a hole.
+ *   - **headerBlock backgroundColor (visual-audit fix, 2026-07-11; amended 2026-07-23)**:
+ *     `headerBlock` has an explicit height, but `ScreenHeader`'s glass `Surface` shrink-wraps
+ *     to its own (shorter) content height, leaving a transparent sliver at the bottom of the
+ *     block that let scrolled-past L3 content show through unblurred. The `headerFill` flex:1
+ *     style stretches the Surface to fill the band, which is what actually closes that sliver;
+ *     the block's `backgroundColor` fill is only still needed for the non-floating
+ *     (plainBackground) path. As of the floated-header pass the block is `transparent` when
+ *     `floatChrome` so the ScreenBackground shows in the side/top gaps around the glass —
+ *     the stretched glass still covers content under the header itself.
+ *   - **Floated header (2026-07-23, nothing-touches-the-edges)**: `floatChrome`
+ *     (= !plainBackground) insets the header with `headerFloatV` (top+bottom gaps) and
+ *     `headerFloatH` (side margins), rounds the glass (Radius.lg, via the style prop), and
+ *     makes the block transparent. `headerBlockHeight` folds the gaps into the block height so
+ *     the glass Surface still fills exactly HEADER_HEIGHT; `contentTopClear` and the sticky
+ *     block/filler tops all derive from it so content and any stickyBelowHeader bar still clear
+ *     the floated header. Pairs with the floated bottom nav in app/(tabs)/_layout.tsx.
  *   - **keyboardShouldPersistTaps (visual-audit, 2026-07-11)**: the in-flow ScrollView now
  *     sets `keyboardShouldPersistTaps="handled"` so a first tap on an on-screen control (e.g.
  *     an autocomplete suggestion row while an inline add-item input is focused) is delivered
@@ -125,7 +134,7 @@
 import React, { useCallback, useRef } from 'react';
 import { Keyboard, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
-import { getHeaderMetrics, Spacing } from '@/constants/theme';
+import { getHeaderMetrics, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { ScreenColorContext } from '@/lib/screenColor';
 import ScreenBackground from '@/components/ScreenBackground';
@@ -280,6 +289,21 @@ export default function ScreenScaffold({
   // from ~73/~89 alongside the 2026-07-20 header-prominence title-size increase).
   const { headerHeight: HEADER_HEIGHT } = getHeaderMetrics(PixelRatio.getFontScale());
 
+  // Float the header off the screen edges (nothing-touches-the-edges pass, 2026-07-23): a
+  // small gap above (below the status bar) and below (before content), side margins, and
+  // rounded glass corners, so the header reads as a floating panel with the ScreenBackground
+  // showing around it — pairs with the floated bottom nav in app/(tabs)/_layout.tsx. Skipped
+  // for plainBackground (Settings), which keeps the conventional edge-to-edge app-bar look
+  // against its flat white/black fill (a floating pill on a flat field would read as an
+  // invisible-margin box). headerFloatV is applied top AND bottom, so the block grows by 2×
+  // and the glass Surface (headerFill flex:1) still fills exactly HEADER_HEIGHT.
+  const floatChrome = !plainBackground;
+  const headerFloatV = floatChrome ? Spacing.sm : 0;
+  const headerFloatH = floatChrome ? Spacing.md : 0;
+  const headerBlockHeight = HEADER_HEIGHT + topInset + headerFloatV * 2;
+  // How far below the safe-area top the header footprint ends — what content must clear.
+  const contentTopClear = headerBlockHeight - topInset;
+
   const scrollRef = useRef<ScrollView>(null);
   // Live scroll offset, so scrollIntoView can convert a window-space overlap into an
   // absolute scrollTo target. Tracked on every scroll frame (cheap — a single ref write).
@@ -361,7 +385,7 @@ export default function ScreenScaffold({
   // there's no sticky strip so screens without one are unaffected.
   const stickyGap = stickyBelowHeader ? Spacing.sm : 0;
   const contentPadding = {
-    paddingTop: HEADER_HEIGHT + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
+    paddingTop: contentTopClear + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
     ...(reserveBottomNav ? { paddingBottom: bottomNavClearance } : null),
   };
 
@@ -418,11 +442,21 @@ export default function ScreenScaffold({
           padded down by the top inset so the bar content clears it. */}
       <View style={[
         styles.headerBlock,
-        { height: HEADER_HEIGHT + topInset, paddingTop: topInset, backgroundColor: bgColor },
+        {
+          height: headerBlockHeight,
+          paddingTop: topInset + headerFloatV,
+          paddingBottom: headerFloatV,
+          paddingHorizontal: headerFloatH,
+          // Floating: transparent so the ScreenBackground shows in the side/top gaps around
+          // the glass. Non-floating (Settings): keep the flat fill so nothing shows through.
+          backgroundColor: floatChrome ? 'transparent' : bgColor,
+        },
         plainBackground && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },
       ]}>
         <ScreenHeader
-          style={styles.headerFill}
+          // Round the glass only when floating (there's now a gap below it, so the old
+          // "rounded corner collides with the first content row" problem doesn't apply).
+          style={[styles.headerFill, floatChrome && { borderRadius: Radius.lg }]}
           title={title}
           tier={tier}
           isHome={isHome}
@@ -442,8 +476,8 @@ export default function ScreenScaffold({
           scrolled content flash through underneath. */}
       {stickyBelowHeader && (
         <>
-          <View style={[styles.stickyGapFiller, { top: HEADER_HEIGHT + topInset, height: stickyGap, backgroundColor: stickyGapColor ?? bgColor }]} />
-          <View style={[styles.stickyBlock, { top: HEADER_HEIGHT + topInset + stickyGap, height: stickyBelowHeaderHeight }]}>
+          <View style={[styles.stickyGapFiller, { top: headerBlockHeight, height: stickyGap, backgroundColor: stickyGapColor ?? bgColor }]} />
+          <View style={[styles.stickyBlock, { top: headerBlockHeight + stickyGap, height: stickyBelowHeaderHeight }]}>
             {stickyBelowHeader}
           </View>
         </>

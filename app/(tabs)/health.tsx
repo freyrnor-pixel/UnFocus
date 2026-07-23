@@ -1,13 +1,20 @@
 /**
- * health.tsx — health / symptom log (this-week overview)
+ * health.tsx — health / symptom log (quick-log + this-week overview)
  *
  * Shows only the current Mon–Sun week's symptom activity, grouped by catalog
  * symptom (predefined + custom) with a per-day severity strip. Tapping a
  * symptom's row opens its full history (app/health-detail.tsx). A "Health-log"
  * link opens the sectioned overview of every issue ever logged
- * (app/health-log.tsx), which is also where new entries are added — this
- * screen itself has no symptom-log add affordance (Decision: the old inline "+ Log
- * symptom" FAB + editable card list were removed in favour of a dedicated form).
+ * (app/health-log.tsx), for browsing history or adding a multi-field entry
+ * (severity/dates/notes) via app/health-form.tsx.
+ *
+ * A "Quick log" card above the weekly summary (2026-07-23) lets a symptom be
+ * recorded straight from this tab: type a name + optionally pick a severity,
+ * it saves instantly (dated today, no notes/times) — no navigation. This
+ * reinstates an add affordance on this screen (after an earlier same-day
+ * decision removed the old FAB in favour of the dedicated form) but keeps it
+ * deliberately essentials-only; the full form stays the place for richer
+ * entries and for editing.
  *
  * **Habits moved out (2026-07-23, UX audit finding E1)**: this screen used to also
  * embed a full Habits section (today/week/month views, per-habit cards) below the
@@ -19,12 +26,13 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/Surface,
- *             components/PressableScale, components/DebugNoteAnchor,
+ *             components/PressableScale, components/DebugNoteAnchor, components/AddRow,
  *             constants/theme, lib/date, lib/i18n, lib/severity, lib/useAppTheme,
  *             lib/useFirstVisitHint, lib/domainColor, lib/screenColor, store/useHealthStore
  *   Used by → Expo Router route "/health" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx (BottomNav "Health" tab)
- *   Data    → useHealthStore (health_logs + symptoms catalog, read-only here — add/edit/delete
- *             live in app/health-form.tsx)
+ *   Data    → useHealthStore — reads `logs` for the weekly summary, and calls `add()` +
+ *             `ensureSymptom()` directly for the Quick log card (full multi-field edit/delete
+ *             still lives in app/health-form.tsx)
  *
  * Edit notes:
  *   - Decision 001 tier='site' scaffold (BottomNav + header chrome).
@@ -32,12 +40,14 @@
  *     logic is unchanged, just windowed to `getWeekDates(today)` instead of a 30-day cutoff.
  *   - Grouping key is the symptom id when present, else the (lowercased) ailment string for
  *     legacy rows — same convention as health-log.tsx/health-detail.tsx.
- *   - Add/edit/delete + the per-symptom 90-day history view live in app/health-form.tsx and
- *     app/health-detail.tsx respectively, so this screen is a pure read-only weekly summary.
+ *   - Quick log card: essentials-only (name + severity, dated today, no notes/times) instant
+ *     save via useHealthStore's existing add()/ensureSymptom() — no new DB columns. Editing an
+ *     entry's times/notes, or the full picker/typeahead, still goes through app/health-form.tsx
+ *     (via app/health-detail.tsx or app/health-log.tsx's own AddRow).
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus
  *     effect only closes the hint on blur.
  */
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,10 +57,11 @@ import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
+import AddRow from '@/components/AddRow';
 import { useT } from '@/lib/i18n';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { todayStr, getWeekDates } from '@/lib/date';
-import { SEVERITY_COLORS, severities } from '@/lib/severity';
+import { SEVERITY_COLORS, severities, severityInk } from '@/lib/severity';
 import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
@@ -59,13 +70,18 @@ import { getScreenColor } from '@/lib/screenColor';
 export default function HealthScreen() {
   const router = useRouter();
   const logs = useHealthStore((s) => s.logs);
+  const addLog = useHealthStore((s) => s.add);
+  const ensureSymptom = useHealthStore((s) => s.ensureSymptom);
 
   const [hintOpen, setHintOpen] = useFirstVisitHint('health');
+  const [quickDraft, setQuickDraft] = useState('');
+  const [quickSeverity, setQuickSeverity] = useState(3);
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const healthDomainColor = getDomainColor(theme, 'health');
   const SEVERITIES = severities();
+  const severityLabel = (value: number) => t.severityLabels[value - 1] ?? '';
 
   useFocusEffect(
     useCallback(() => {
@@ -104,6 +120,24 @@ export default function HealthScreen() {
     router.push({ pathname: '/health-detail', params: { symptomId, ailment, name } });
   }
 
+  function handleQuickLog() {
+    const name = quickDraft.trim();
+    if (!name) return;
+    const sym = ensureSymptom(name);
+    addLog({
+      date: todayStr(),
+      startTime: '',
+      endDate: '',
+      endTime: '',
+      ailment: sym.name,
+      symptomId: sym.id,
+      severity: quickSeverity,
+      notes: '',
+    });
+    setQuickDraft('');
+    setQuickSeverity(3);
+  }
+
   return (
     <>
       <ScreenScaffold
@@ -117,6 +151,50 @@ export default function HealthScreen() {
       >
         <View style={styles.content}>
           <HintCard text={t.hints.health.text} open={hintOpen} noPill />
+
+          {/* Quick log — essentials-only instant record (name + severity, dated today). */}
+          <DebugNoteAnchor id="health.quickLog" label="Health — Quick log">
+          <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
+            <View style={styles.overviewCardContent}>
+              <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.quickLogLabel}</Text>
+              <AddRow
+                placeholder={t.logSymptomTrigger}
+                value={quickDraft}
+                onChangeText={setQuickDraft}
+                onSubmit={handleQuickLog}
+                accent={healthDomainColor.accent}
+                confirmIcon="checkmark"
+                showDivider={false}
+                accessibilityLabel={t.logSymptomTrigger}
+              />
+              {quickDraft.trim().length > 0 && (
+                <View style={styles.quickSeverityRow}>
+                  <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.severityLabel}</Text>
+                  <View style={styles.quickSeverityChips}>
+                    {SEVERITIES.map((s) => {
+                      const active = quickSeverity === s.value;
+                      return (
+                        <PressableScale
+                          key={s.value}
+                          onPress={() => setQuickSeverity(s.value)}
+                          style={[
+                            styles.quickSevChip,
+                            { backgroundColor: s.color },
+                            active && { borderColor: theme.text, borderWidth: 2 },
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={severityLabel(s.value)}
+                        >
+                          <Text style={[styles.quickSevChipText, { color: severityInk(s.value) }]}>{s.value}</Text>
+                        </PressableScale>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+            </View>
+          </Surface>
+          </DebugNoteAnchor>
 
           {/* This week — debug notes: one anchor per region (the card, not its inner rows). */}
           <DebugNoteAnchor id="health.overview" label="Health — This week">
@@ -205,6 +283,19 @@ const baseStyles = StyleSheet.create({
   overviewCardRow: { borderRadius: Radius.md, marginTop: Spacing.xl },
   overviewCardContent: { flex: 1, padding: Spacing.md },
   sectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size, marginBottom: Spacing.sm },
+  quickSeverityRow: { marginTop: Spacing.sm, gap: Spacing.xs },
+  quickSeverityLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
+  quickSeverityChips: { flexDirection: 'row', gap: Spacing.xs },
+  quickSevChip: {
+    width: 28,
+    height: 28,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0,
+    borderColor: 'transparent',
+  },
+  quickSevChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   overviewAilment: { marginTop: Spacing.sm },
   overviewRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   ailmentWeekStrip: {

@@ -20,7 +20,7 @@
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedTasksSection,
  *             components/SectionRail, components/SectionCard, components/TaskCard, components/AddRow,
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron
- *             (animated "Finished (n)" done-zone reveal), components/TabBoxHighlight, constants/theme,
+ *             (animated "Finished (n)" done-zone reveal), components/TabSlider, constants/theme,
  *             expo-router (useLocalSearchParams — `tab`/`expandTaskId`, see below), lib/date,
  *             lib/domainColor, lib/haptics,
  *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, store/useTaskStore,
@@ -32,12 +32,11 @@
  *             internally for incoming shares + accepts the sharedOut tasks as its "sent" half
  *
  * Edit notes:
- *   - **Tab bar (2026-07-20, shared component)**: the sticky Today/This week/All tasks
- *     switcher's active indicator is `components/TabBoxHighlight.tsx` — always renders a
- *     bordered box behind the label (white `theme.surface` fill + `theme.border` edge at
- *     rest, crossfading to a tinted `theme.accent` fill + border when active) instead of the
- *     old "box only appears when active" look. Same shared component as
- *     app/(tabs)/shopping.tsx and app/settings.tsx's tab bars.
+ *   - **Tab bar (2026-07-23, shared component)**: the sticky Today/This week/All tasks
+ *     switcher is `components/TabSlider.tsx` — a single accent pill SLIDES between the
+ *     three equal-width segments (Reanimated, same motion as the Day/Week/Month
+ *     `SlideSelector`), replacing the old per-tab `TabBoxHighlight` boxes. Same shared
+ *     component as app/(tabs)/shopping.tsx and app/settings.tsx's tab bars.
  *   - **Tab order (2026-07-14)**: Today → This week → All tasks (was All → Today → Week).
  *   - **Unfinished/finished split (2026-07-14)**: the local `<DoneSplitList>` component
  *     (defined just above `TasksScreen`) filters a section's tasks into unfinished (always
@@ -117,7 +116,7 @@ import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
-import TabBoxHighlight from '@/components/TabBoxHighlight';
+import TabSlider from '@/components/TabSlider';
 import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -395,24 +394,14 @@ export default function TasksScreen() {
     // softly through the frost AROUND the opaque tab chips, and content scrolling behind the
     // sticky strip blurs instead of showing through raw (2026-07-20). borderRadius:0 = edge-to-edge.
     <Surface surfaceContext="overlay" style={[styles.stickyBar, styles.stickyGlass]}>
-      <View style={styles.tabsRow}>
-        {(['today', 'week', 'all'] as Tab[]).map((tabOption) => {
-          const isActive = tab === tabOption;
-          const label =
-            tabOption === 'all' ? t.tasksTabAll : tabOption === 'today' ? t.tasksTabToday : t.tasksTabWeek;
-          return (
-            <PressableScale
-              key={tabOption}
-              style={styles.tab}
-              onPress={() => setTab(tabOption)}
-              scaleTo={0.97}
-            >
-              <TabBoxHighlight active={isActive} />
-              <Text style={[styles.tabText, { color: isActive ? theme.accent : theme.textMuted }]}>{label}</Text>
-            </PressableScale>
-          );
-        })}
-      </View>
+      <TabSlider
+        value={tab}
+        onChange={setTab}
+        options={(['today', 'week', 'all'] as Tab[]).map((tabOption) => ({
+          value: tabOption,
+          label: tabOption === 'all' ? t.tasksTabAll : tabOption === 'today' ? t.tasksTabToday : t.tasksTabWeek,
+        }))}
+      />
     </Surface>
   );
 
@@ -596,25 +585,6 @@ const styles = StyleSheet.create({
   stickyBar: { flex: 1, paddingHorizontal: Spacing.md, justifyContent: 'center' },
   // Edge-to-edge frosted strip (Surface overlay) — square corners, no floating-card rounding.
   stickyGlass: { borderRadius: 0 },
-  tabsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-    borderRadius: Radius.sm,
-  },
-  // Bumped from Type.label.size (14) — read as too small once the tab got a visible
-  // rounded frame around it (2026-07-19 visual-audit). includeFontPadding/textAlignVertical
-  // fix Android's Nunito vertical-centering offset inside the line box (same fix as
-  // ScreenHeader.tsx's title — see HEADER_CLIP_DEBUG.md).
-  tabText: {
-    fontFamily: Type.label.fontFamily,
-    fontSize: FontSize.md,
-    lineHeight: Math.round(FontSize.md * Type.label.line),
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-  },
   // Visual-audit 2026-07-11: was bare muted text floating on the particle background
   // (low contrast in practice even though the token itself passes AA) — a card behind
   // it, matching HomeNotesCard's empty-state treatment, gives it real footing. Every

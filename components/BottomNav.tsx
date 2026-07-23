@@ -385,6 +385,10 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     gap: Spacing.md,
+    // Floating pill: app/(tabs)/_layout.tsx now insets this bar off the screen edges
+    // (NAV_FLOAT_GAP), so an explicit rounded corner makes it read as a floating panel
+    // rather than an edge-to-edge bar. Radius.lg matches the header's floated corner.
+    borderRadius: Radius.lg,
   },
   leftGroup: {
     flexDirection: 'row',

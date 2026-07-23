@@ -26,6 +26,9 @@
  *     table and is left untouched by pruning.
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
  *   - add() returns the created log (not void) so app/health.tsx can seed its lifted edit state.
+ *   - app/(tabs)/health.tsx's Quick log card also calls add()/ensureSymptom() directly (essentials-
+ *     only instant entry: name + severity, dated today, no notes/times) alongside health-form.tsx's
+ *     full multi-field usage.
  */
 import { create } from 'zustand';
 import db from '@/lib/db';
