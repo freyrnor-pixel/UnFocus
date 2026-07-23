@@ -1085,11 +1085,14 @@ const en = {
       additionalModes: 'Additional modes',
       advanced: 'Advanced',
     },
-    // Settings screen top-level tab labels
+    // Settings screen top-level tab labels — kept short on purpose: this tab bar is
+    // a non-scrolling, equal-width 4-way split (components/TabSlider.tsx `sizing="equal"`),
+    // so a long label like "Notifications"/"Shopping" would truncate or force scrolling.
     tabs: {
       general: 'General',
       lists: 'Lists',
-      notifications: 'Notifications',
+      shopping: 'Shop',
+      notifications: 'Alerts',
       appearance: 'Appearance',
       additionalModes: 'Modes',
     },
@@ -2039,6 +2042,7 @@ const no: typeof en = {
     tabs: {
       general: 'Generelt',
       lists: 'Lister',
+      shopping: 'Handle',
       notifications: 'Varsler',
       appearance: 'Utseende',
       additionalModes: 'Modi',

@@ -1,8 +1,8 @@
 /**
  * settings.tsx — app settings
  *
- * Tabbed settings screen (Decision 001 tier='sub') — a horizontally-scrollable tab bar
- * (Generelt | Planer | Handle | Varsler) sits directly under the header as
+ * Tabbed settings screen (Decision 001 tier='sub') — a non-scrolling, equal-width 4-tab bar
+ * (Generelt | Handle | Varsler | Modi) sits directly under the header as
  * ScreenScaffold's `stickyBelowHeader`; each tab is its own scroll of cards
  * (local `tab` state, no router routes).
  *
@@ -77,11 +77,14 @@
  *     pill on the Shopping screen's Monthly tab (→ app/budget.tsx), not from Settings. The
  *     `monthlyResetDate` field just above it is unaffected (still one global payday-boundary
  *     date, shared by every list).
- *   - **Tab bar (2026-07-23, shared component)**: the horizontally-scrollable tab bar is
- *     `components/TabSlider.tsx` (`sizing="scroll"`) — a single accent pill SLIDES to sit
+ *   - **Tab bar (updated 2026-07-23, never scrollable)**: the 4-tab bar is
+ *     `components/TabSlider.tsx` (`sizing="equal"`) — a single accent pill SLIDES to sit
  *     behind whichever category tab is active (same motion as the Day/Week/Month
- *     `SlideSelector`), replacing the old per-tab `TabBoxHighlight` boxes. Same shared
- *     component as app/(tabs)/shopping.tsx and app/(tabs)/plans.tsx's tab bars.
+ *     `SlideSelector`), replacing the old per-tab `TabBoxHighlight` boxes. TabSlider has no
+ *     scroll mode at all (by design — see its own header), so all four tabs must fit in one
+ *     row: `config.tabs.*` labels are kept to single short words ("Shop", "Alerts", not
+ *     "Shopping", "Notifications") specifically so they never truncate or need to scroll.
+ *     Same shared component as app/(tabs)/shopping.tsx and app/(tabs)/plans.tsx's tab bars.
  *   - applyAndSync() is the single write path: updates settings AND fires the right notification
  *     re-sync based on which keys changed — route every settings change through it, never
  *     settings.update() directly. Quiet-hours keys re-sync task notifications; language or
@@ -316,7 +319,7 @@ export default function SettingsScreen() {
 
   const TABS: { key: SettingsTab; label: string }[] = [
     { key: 'generelt', label: t.config.tabs.general },
-    { key: 'handle', label: t.nav.shop },
+    { key: 'handle', label: t.config.tabs.shopping },
     { key: 'varsler', label: t.config.tabs.notifications },
     { key: 'moduser', label: t.config.tabs.additionalModes },
   ];
@@ -508,7 +511,7 @@ export default function SettingsScreen() {
     // read as mismatched/glitchy once the header started floating with gaps around it.
     <Surface surfaceContext="overlay" style={styles.tabsGlass}>
       <TabSlider
-        sizing="scroll"
+        sizing="equal"
         value={tab}
         onChange={setTab}
         options={TABS.map((tb) => ({ value: tb.key, label: tb.label }))}
@@ -1434,9 +1437,6 @@ const baseStyles = StyleSheet.create({
   // the two read as one consistent floating-chrome language instead of a rounded card
   // sitting above a flush edge-to-edge box (2026-07-23 fix).
   tabsGlass: { flex: 1, marginHorizontal: Spacing.md, borderRadius: Radius.lg },
-  tabsScroll: {
-    flexGrow: 0,
-  },
   // Small inset from the card's own inner edge — the sliding-pill track
   // (components/TabSlider.tsx) draws its own bordered/filled track and reads better with a
   // touch of breathing room than sitting flush against the card's rounded corners.
