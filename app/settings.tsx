@@ -110,9 +110,10 @@
  *     isSyncAvailable()) gates whether the card shows the link or an "unavailable" note, since
  *     the native transport modules aren't linked outside a real build.
  *   - **Device features card (2026-07-17)**: four toggles (voice/contacts/location/calendar)
- *     for the reserve-only native surface — all default off, so app/task-form.tsx's mic/
- *     contact/location blocks stay hidden and calendar mirroring stays inert until a user
- *     opts in here. The other three toggles were previously unreachable (fully wired in
+ *     for the reserve-only native surface — all default off, so components/TaskCard.tsx's
+ *     mic/contact/location blocks (was app/task-form.tsx's, retired 2026-07-23) stay hidden
+ *     and calendar mirroring stays inert until a user opts in here. The other three toggles
+ *     were previously unreachable (fully wired in
  *     useSettingsStore but no UI anywhere) — this card is what makes them reachable.
  *   - **Card spacing (2026-07-21)**: `baseStyles.content`'s gap dropped from `Spacing.xl` (32,
  *     Decision 043 rule 2) to `Spacing.lg` (24) — it read as too much dead air between cards
@@ -764,12 +765,13 @@ export default function SettingsScreen() {
             </View>
 
             {/* Device features (2026-07-17) — Settings toggles for the reserve-only native
-                surface: voice dictation (task-form mic), contacts (attach-to-task), location
+                surface: voice dictation (title mic), contacts (attach-to-task), location
                 (tag-with-my-location), calendar (mirror timed tasks). All four default off;
-                each gates its own task-form/store wiring — see app/task-form.tsx and
-                store/useTaskStore.ts. Calendar goes through applyAndSync so toggling it
-                immediately re-syncs every eligible task; the other three are read directly
-                by task-form.tsx at render time, no background job to kick. */}
+                each gates its own editor/store wiring — see components/TaskCard.tsx (was
+                app/task-form.tsx, retired 2026-07-23) and store/useTaskStore.ts. Calendar
+                goes through applyAndSync so toggling it immediately re-syncs every eligible
+                task; the other three are read directly by TaskCard at render time, no
+                background job to kick. */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.permissions.sectionTitle}</Text>

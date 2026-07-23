@@ -10,7 +10,7 @@
  *   Imports → react-native-reanimated (useSharedValue/useAnimatedStyle/withTiming/runOnJS),
  *             constants/motion (Duration, Ease), lib/useAppTheme (useAccessibility)
  *   Used by → components/TaskCard.tsx, components/PlanTaskCard.tsx, components/ExpandableCard.tsx,
- *             app/(tabs)/plans.tsx, app/task-form.tsx, app/health-form.tsx, app/habit-form.tsx,
+ *             app/(tabs)/plans.tsx, app/health-form.tsx, app/habit-form.tsx,
  *             app/automations.tsx, app/(tabs)/habits.tsx (person-filter reveal)
  *   Data    → none (controlled via the `open` prop)
  *

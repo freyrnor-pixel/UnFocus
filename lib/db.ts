@@ -646,7 +646,7 @@ export function initDb() {
     // and could intercept taps on Android, so flip it OFF for everyone (the settings row is
     // already seeded above, so this also covers fresh installs). Users can re-enable in Settings.
     "UPDATE settings SET glass_blur = 0",
-    // Voice notes on by default (2026-07-18): enable the task-form Title mic out of the box.
+    // Voice notes on by default (2026-07-18): enable the task title mic out of the box.
     // Runs once; the setting was new + defaulted off, so nobody had deliberately turned it off.
     "UPDATE settings SET voice_notes_enabled = 1",
     // Home preview card management (2026-07-19): user-chosen order/visibility of Home's

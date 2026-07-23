@@ -21,10 +21,13 @@
  *             components/SectionRail, components/SectionCard, components/TaskCard, components/AddRow,
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron
  *             (animated "Finished (n)" done-zone reveal), components/TabBoxHighlight, constants/theme,
- *             lib/date, lib/domainColor, lib/haptics,
+ *             expo-router (useLocalSearchParams — `tab`/`expandTaskId`, see below), lib/date,
+ *             lib/domainColor, lib/haptics,
  *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, store/useTaskStore,
  *             store/useSettingsStore
- *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
+ *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx;
+ *             also reached with `?tab=all&expandTaskId=…` from app/notes.tsx's "Add to plans"
+ *             (UX audit B1, 2026-07-23 — creates the task, then lands here with its editor open)
  *   Data    → reads/writes useTaskStore (tasks/steps); SharedTasksSection reads useSharedStore
  *             internally for incoming shares + accepts the sharedOut tasks as its "sent" half
  *
@@ -80,6 +83,11 @@
  *     bar is the commit point for edits; creation goes through the Whenever AddRow, which
  *     calls addTask() directly on submit (no local draft rows). TaskCard still supports an
  *     `isNew` draft mode but plans no longer uses it (candidate for later cleanup).
+ *   - **`expandTaskId` (UX audit B1, 2026-07-23)**: app/notes.tsx's "Add to plans" creates
+ *     the task the same way the Whenever AddRow does, then navigates here with the new
+ *     task's id — the Whenever section's TaskCard passes `autoExpand={tk.id === expandTaskId}`
+ *     so that ONE card's editor opens automatically. Distinct from `isNew`: the task is
+ *     already a real store row by the time it arrives, just handed a "start open" cue.
  *   - Section selectors: Whenever = recurring 'none' & !sharedOut (All tab includes dated
  *     one-offs); Recurring = recurring !== 'none' & !sharedOut; Shared = sharedOut (sent) +
  *     useSharedStore 'in' rows (received). In Today / This week the "Whenever" section is
@@ -94,8 +102,9 @@
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus effect
  *     only seeds the first-run blank draft (see below).
  */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import HintCard from '@/components/HintCard';
@@ -305,6 +314,17 @@ export default function TasksScreen() {
   // Inline "add a row" input for the Whenever section — the one add affordance on this screen.
   const [wheneverInput, setWheneverInput] = useState('');
 
+  // Arriving from app/notes.tsx's "Add to plans" (UX audit B1, 2026-07-23): it creates
+  // the task then navigates here with the new task's id so its TaskCard editor opens
+  // automatically (see the Whenever section's `autoExpand` prop below). This pager tab
+  // stays mounted (lazy:false), so a param change alone won't remount TaskCard — but the
+  // task itself is brand new, so its TaskCard is always a fresh mount the first time it
+  // appears in `wheneverAll`, which is what actually seeds `autoExpand` correctly.
+  const { tab: tabParam, expandTaskId } = useLocalSearchParams<{ tab?: Tab; expandTaskId?: string }>();
+  useEffect(() => {
+    if (tabParam) setTab(tabParam);
+  }, [tabParam]);
+
   const today = todayStr();
 
   // Person filter predicate — identity unless People/family mode is on AND a specific
@@ -454,7 +474,7 @@ export default function TasksScreen() {
               {wheneverAll.length > 0 && (
                 <View style={styles.cardStack}>
                   {wheneverAll.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} showDelete showShareOut onToggleDone={handleToggleDone} />
+                    <TaskCard key={tk.id} task={tk} showDelete showShareOut autoExpand={tk.id === expandTaskId} onToggleDone={handleToggleDone} />
                   ))}
                 </View>
               )}

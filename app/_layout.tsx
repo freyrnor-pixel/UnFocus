@@ -82,9 +82,11 @@
  *     one <Stack.Screen name="(tabs)" /> covering app/(tabs)/_layout.tsx's material-top-tabs
  *     pager (see that file + lib/siteNav.ts).
  *     Everything else (onboarding, inventory-edit, scan, food, catalogue, budget, shared,
- *     health-detail, health-form, health-log, automations, notes, the 4 modals) still
- *     pushes on top of it exactly as before — the pager only replaced how the 5 main
- *     sites relate to each other. Scan moved from being one of those 5 to one of this
+ *     health-detail, health-form, health-log, automations, notes, the 3 remaining modals
+ *     — capture/habit-form/share-modal; task-form was the 4th until it was retired,
+ *     2026-07-23, UX audit B1 — see components/TaskCard.tsx) still pushes on top of it
+ *     exactly as before — the pager only replaced how the 5 main sites relate to each
+ *     other. Scan moved from being one of those 5 to one of this
  *     "everything else" group (2026-07-23) when it dropped off the bottom nav; food/
  *     catalogue joined the same group the same day when they dropped off Shopping's
  *     sticky tab row (UX audit F1) in favor of button-launched sub-screens.
@@ -427,7 +429,6 @@ export default function RootLayout() {
         <Stack.Screen name="automations" />
         <Stack.Screen name="notes" />
         <Stack.Screen name="capture" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="task-form" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="habit-form" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="share-modal" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       </Stack>

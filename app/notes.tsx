@@ -6,13 +6,15 @@
  * load() already orders by `checked, sort_order`. Each note renders as a NoteRow (header +
  * checkmark + delete, shopping/plans quick-action buttons, body textarea). The shopping
  * button opens ShoppingQuickAddSheet in place (no navigation away from this screen); the
- * plans button pushes /task-form with the note's header prefilled as the new task's title.
+ * plans button creates the task directly and lands on Plans with its TaskCard editor
+ * already open (UX audit B1, 2026-07-23 — used to push the now-retired /task-form with
+ * the note's header prefilled; see `addToPlans` below).
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/NoteRow,
  *             components/AnimatedListItem (note add/remove fade), components/VoiceNoteFAB,
- *             components/ShoppingQuickAddSheet, constants/theme,
- *             lib/i18n, lib/useAppTheme, store/useNotesStore
+ *             components/ShoppingQuickAddSheet, constants/theme, lib/date (todayStr),
+ *             lib/i18n, lib/useAppTheme, store/useNotesStore, store/useTaskStore
  *   Used by → Expo Router route "/notes", reached via Home's "More → Notes" link
  *             (no BottomNav tab by design — Decision 036; note editing itself is Decision 012)
  *   Data    → reads/writes useNotesStore (notes table) directly — no draft buffer, since a
@@ -33,13 +35,14 @@
  *   - Deep link `unfocus:///notes?capture=voice` (the Notes home-screen widget's mic button)
  *     lands here with `capture==='voice'` → VoiceNoteFAB `autoStart` begins recording on mount.
  *   - Store hydration happens once at startup in app/_layout.tsx; edits made in /capture
- *     (edit affordance) or /task-form land in the same shared store, so they're reflected
- *     on return without a per-screen focus-load.
+ *     (edit affordance) land in the same shared store, so they're reflected on return
+ *     without a per-screen focus-load.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useNotesStore } from '@/store/useNotesStore';
+import { useTaskStore } from '@/store/useTaskStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import NoteRow from '@/components/NoteRow';
@@ -47,6 +50,7 @@ import AnimatedListItem from '@/components/AnimatedListItem';
 import VoiceNoteFAB from '@/components/VoiceNoteFAB';
 import ShoppingQuickAddSheet from '@/components/ShoppingQuickAddSheet';
 import { useT } from '@/lib/i18n';
+import { todayStr } from '@/lib/date';
 import { FontSize, Fonts, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
@@ -63,6 +67,7 @@ export default function NotesScreen() {
   const updateNote = useNotesStore((s) => s.update);
   const toggleChecked = useNotesStore((s) => s.toggleChecked);
   const removeNote = useNotesStore((s) => s.remove);
+  const addTask = useTaskStore((s) => s.add);
 
   const [shoppingSheetVisible, setShoppingSheetVisible] = useState(false);
   // Gate row entrance so only notes added after mount fade in (not the whole list on load).
@@ -74,8 +79,31 @@ export default function NotesScreen() {
   const activeNotes = notes.filter((n) => !n.checked);
   const checkedNotes = notes.filter((n) => n.checked);
 
-  function openTaskForm(title: string) {
-    router.push({ pathname: '/task-form', params: { title } });
+  // "Add to plans" (UX audit B1, 2026-07-23): used to push the now-retired /task-form
+  // with the note's header prefilled. TaskCard is the one task editor now, so this
+  // creates the task directly (same undated/non-recurring "Whenever" shape
+  // app/(tabs)/plans.tsx's own AddRow uses) and lands on Plans with that task's
+  // TaskCard editor already open (`expandTaskId` → `autoExpand`, see plans.tsx).
+  function addToPlans(title: string) {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    const task = addTask({
+      title: trimmed,
+      date: todayStr(),
+      taskType: 'start-at',
+      done: false,
+      recurring: 'none',
+      recurringDays: [],
+      weekInterval: 1,
+      monthlyMode: 'day',
+      monthDay: 1,
+      monthOrdinal: 'first',
+      monthWeekday: 0,
+      sortOrder: 0,
+      hasStartDate: false,
+      assignee: '',
+    });
+    router.navigate({ pathname: '/plans', params: { tab: 'all', expandTaskId: task.id } });
   }
 
   function renderRow(note: (typeof notes)[number]) {
@@ -87,7 +115,7 @@ export default function NotesScreen() {
           onHeaderCommit={(text) => updateNote(note.id, { header: text })}
           onBodyCommit={(text) => updateNote(note.id, { body: text })}
           onShoppingPress={() => setShoppingSheetVisible(true)}
-          onPlansPress={() => openTaskForm(note.header)}
+          onPlansPress={() => addToPlans(note.header)}
           onDelete={() => removeNote(note.id)}
         />
       </AnimatedListItem>
