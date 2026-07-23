@@ -57,6 +57,27 @@
  *             either directly (UX audit F1, 2026-07-23).
  *
  * Edit notes:
+ *   - **Card-header declutter pass (2026-07-23)**: several small UI cleanups across both
+ *     tabs' list cards. (1) Monthly's "Add dish" trigger (`addTrigger`) now matches the
+ *     "Add new item" bar (`InlineAddItem`)'s shape/background/text style — they used to
+ *     look like two different affordances. (2) `NewMonthlyListRow`'s collapsed trigger and
+ *     this file's own Weekly "+ New list" trigger (`newListTrigger`) are both now a
+ *     big-ish plain white/surface button with just a "+" glyph (icon-only,
+ *     accessibilityLabel carries the name) instead of a smaller accent-tinted labeled
+ *     pill. (3) The lock icon on both WeekListCard and each Monthly list card moved out of
+ *     the crowded right-side action row and now sits beside the list name on the left —
+ *     same `onToggleLock`/locked-gating behavior, just relocated; it still fully works,
+ *     nothing was removed. (4) Monthly list cards gained a kebab (⋮) menu
+ *     (`openMonthlyListOptions`) that now holds "Reset this list" and "Delete this list" —
+ *     previously a separate 32px `refresh-circle` icon + a conditionally-shown trash
+ *     IconButton, both stacked in the same row as Budget/Manage-inventory/Lock/Delete.
+ *     (5) The Monthly tab's per-card "Monthly list" section label above the items list is
+ *     gone — redundant with the card's own name header and the fact it's already in the
+ *     Monthly tab. (6) "Save as template" moved from a button at the bottom of
+ *     `SavedListsModal` into a direct entry in WeekListCard's kebab menu
+ *     (`onSaveAsTemplate`/`handleSaveListAsTemplate`) — see that component's header for why
+ *     (the old button made no sense in the "+ New list → Saved lists" browse context,
+ *     where there's no "current list" yet to save).
  *   - **Saved-lists drag + sync-back (2026-07-22)**: `components/SavedListsSection` renders
  *     as an expandable accordion above the week sections, listing every template list —
  *     drag a row (screen-owned `handleSavedListDragStart/Move/End`, reusing the week-drag's
@@ -870,6 +891,18 @@ export default function ShoppingScreen() {
     ]);
   }
 
+  /** Kebab menu (2026-07-23 declutter pass) — Reset and Delete moved off the header's
+   *  action row (which also carries the Budget pill + Manage inventory icon) into one
+   *  overflow entry point, same "tuck rare actions behind ⋮" convention WeekListCard's
+   *  openListOptions already uses. */
+  function openMonthlyListOptions(list: MonthlyList) {
+    showAppModal(list.name, undefined, [
+      { text: t.resetMonthlyListAction, onPress: () => { warning(); setResetListConfirmId(list.id); } },
+      ...(!list.locked ? [{ text: t.deleteMonthlyListAction, style: 'destructive' as const, onPress: () => handleDeleteMonthlyList(list.id) }] : []),
+      { text: t.cancel, style: 'cancel' as const },
+    ]);
+  }
+
   function startMonthlyListNameEdit(list: MonthlyList) {
     setMonthlyListNameInput(list.name);
     setEditingMonthlyListId(list.id);
@@ -1285,6 +1318,15 @@ export default function ShoppingScreen() {
     setConfirm(t.listSyncedToast);
   }
 
+  /** Saves this list's current items as a new saved/template list — the kebab menu's
+   *  direct "Save as template" entry (2026-07-23, moved out of the SavedListsModal
+   *  bottom button — see WeekListCard's header). */
+  function handleSaveListAsTemplate(list: ShoppingList) {
+    saveListAsTemplate(list.id);
+    success();
+    setConfirm(t.listSavedAsTemplateToast);
+  }
+
   // Active-tab selection colour is the neutral brand accent (theme.accent) for EVERY tab,
   // so this in-app tab bar's "selected" hue matches Plans, Health's SlideSelector, AND the
   // bottom nav (visual-audit 2026-07-20: Weekly's old green `theme.good` + Food's meal-domain
@@ -1466,6 +1508,16 @@ export default function ShoppingScreen() {
                         gap between the tab label and the icons (2026-07-12 redesign). */}
                     <View style={styles.catalogHeaderRow}>
                       <View style={styles.monthlyNameWrap}>
+                        {/* Lock sits beside the name (2026-07-23 declutter pass) — same
+                            relocation as WeekListCard's lock icon, out of the crowded
+                            action row and next to the title it describes. */}
+                        <IconButton
+                          icon={locked ? 'lock-closed' : 'lock-open-outline'}
+                          label={locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
+                          onPress={() => toggleMonthlyListLocked(list.id)}
+                          active={locked}
+                          size={22}
+                        />
                         {editingMonthlyListId === list.id ? (
                           <TextInput
                             style={[styles.monthlyNameInput, { color: theme.text, borderColor: theme.border }]}
@@ -1501,33 +1553,16 @@ export default function ShoppingScreen() {
                           <Ionicons name="wallet-outline" size={14} color={theme.featBudget} />
                           <Text style={[styles.budgetPillText, { color: theme.featBudget }]}>{t.budget.title}</Text>
                         </PressableScale>
-                        <PressableScale
-                          style={styles.resetIconBtn}
-                          onPress={() => { warning(); setResetListConfirmId(list.id); }}
-                          hitSlop={6}
-                          accessibilityLabel={t.resetMonthlyListAction}
-                          scaleTo={0.93}
-                        >
-                          <Ionicons name="refresh-circle" size={32} color={theme.bad} />
-                        </PressableScale>
                         <IconButton
                           icon="file-tray-full-outline"
                           label={t.manageInventoryAction}
                           onPress={() => router.push({ pathname: '/inventory-edit', params: { listId: list.id } })}
                         />
                         <IconButton
-                          icon={locked ? 'lock-closed' : 'lock-open-outline'}
-                          label={locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
-                          onPress={() => toggleMonthlyListLocked(list.id)}
-                          active={locked}
+                          icon="ellipsis-vertical"
+                          label={t.listOptionsButtonLabel}
+                          onPress={() => openMonthlyListOptions(list)}
                         />
-                        {!locked && (
-                          <IconButton
-                            icon="trash-outline"
-                            label={t.deleteMonthlyListAction}
-                            onPress={() => handleDeleteMonthlyList(list.id)}
-                          />
-                        )}
                       </View>
                     </View>
 
@@ -1538,11 +1573,11 @@ export default function ShoppingScreen() {
                     )}
 
                     <View style={styles.bodyGap}>
-                      {/* SECTION 1 — this list's items (things the user has added) */}
+                      {/* SECTION 1 — this list's items (things the user has added). No separate
+                          "Monthly list" sub-header (2026-07-23 declutter pass) — the card already
+                          shows this list's own name above, and it being a Monthly list is implied
+                          by living in the Monthly tab, so the extra label was pure redundancy. */}
                       <View style={styles.section}>
-                        <View style={[styles.sectionTitleCard, { backgroundColor: theme.surfaceMuted }]}>
-                          <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.monthlyListSection}</Text>
-                        </View>
                         {view.catalogItems.length === 0 ? (
                           <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.monthlyListEmpty}</Text>
                         ) : view.filteredCatalogItems.length === 0 ? (
@@ -1645,15 +1680,18 @@ export default function ShoppingScreen() {
                             />
                             {/* Add a whole dish (its ingredients) to this list in place — the
                                 in-tab counterpart to the Food tab's "Add to monthly list", so meals can
-                                be planned for the month without leaving this tab. */}
+                                be planned for the month without leaving this tab. Styled to match
+                                InlineAddItem's "Add item" bar above (2026-07-23) — same shape,
+                                background, and text treatment, so the two add actions read as one
+                                consistent affordance instead of two different-looking buttons. */}
                             <PressableScale
-                              style={[styles.addTrigger, styles.addItemSpacing, { borderColor: theme.accent }]}
+                              style={[styles.addTrigger, styles.addItemSpacing, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
                               onPress={() => setDishSheetTarget({ mode: 'monthly', listId: list.id })}
                               accessibilityRole="button"
                               accessibilityLabel={t.addDishBtn}
                               scaleTo={0.97}
                             >
-                              <Ionicons name="restaurant-outline" size={16} color={theme.accent} />
+                              <Ionicons name="restaurant-outline" size={18} color={theme.accent} />
                               <Text style={[styles.addTriggerText, { color: theme.accent }]}>{t.addDishBtn}</Text>
                             </PressableScale>
                           </>
@@ -1862,6 +1900,7 @@ export default function ShoppingScreen() {
                             onOpenListSettings={() => setListSettingsListId(list.id)}
                             onDelete={() => handleDeleteList(list.id)}
                             onSyncToTemplate={() => handleSyncListToTemplate(list)}
+                            onSaveAsTemplate={() => handleSaveListAsTemplate(list)}
                             onToggleItem={(item) => toggle(item.id)}
                             onRemoveItem={handleRemoveWeeklyItem}
                             onIncrementItem={(item) => adjustAmount(item.id, 1)}
@@ -1948,11 +1987,12 @@ export default function ShoppingScreen() {
 
             {/* Creating a new list has no single text field to fill (it's auto-named by
                 date range, then offers a start-empty/from-saved choice), so it doesn't fit
-                the AddRow shape — it's a "tap to open a chooser" trigger like the other two
-                on this screen (monthlyTrigger, the Monthly-tab addTrigger), just sized more
-                prominently since it's the primary action on this tab. */}
+                the AddRow shape — it's a "tap to open a chooser" trigger. Big-ish plain
+                white/surface button, just a plus sign (2026-07-23 simplification, matching
+                the Monthly tab's NewMonthlyListRow trigger) — was a smaller accent-tinted
+                bordered pill with an icon+label. */}
             <PressableScale
-              style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+              style={[styles.newListTrigger, { borderColor: theme.border, backgroundColor: theme.surface }]}
               onPress={() =>
                 showAppModal(t.newWeeklyListTitle, '', [
                   { text: t.startEmptyList, onPress: handleCreateNewWeeklyList },
@@ -1964,8 +2004,7 @@ export default function ShoppingScreen() {
               accessibilityLabel={t.newWeeklyListTitle}
               scaleTo={0.97}
             >
-              <Ionicons name="add-circle-outline" size={20} color={theme.accent} />
-              <Text style={[styles.newListTriggerText, { color: theme.accent }]}>{t.newWeeklyListTitle}</Text>
+              <Ionicons name="add" size={26} color={theme.accent} />
             </PressableScale>
           </>
         )}
@@ -1999,12 +2038,6 @@ export default function ShoppingScreen() {
         templates={templateLists}
         onClose={() => setSavedListsListId(null)}
         onSelectTemplate={(id) => addTemplateToWeek(id, weekOfMonthlyCycle(todayStr(), monthlyResetDate))}
-        onSaveCurrentAsTemplate={() => {
-          if (!savedListsListId) return;
-          saveListAsTemplate(savedListsListId);
-          success();
-          setConfirm(t.listSavedAsTemplateToast);
-        }}
       />
 
       <ListSettingsSheet
@@ -2147,7 +2180,9 @@ const styles = StyleSheet.create({
   // Monthly list sections. Same figure/copy as app/budget.tsx's own pace row.
   spendPaceText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, marginTop: Spacing.xs },
   // Bordered trigger pill — matches WeekListCard's monthlyTrigger shape, the one shared
-  // "tap to open a fuller add flow" affordance (design-consistency pass).
+  // "tap to open a fuller add flow" affordance (design-consistency pass). Matched to
+  // InlineAddItem's collapsed "addBar" shape (2026-07-23) so "Add item" and "Add dish"
+  // read as the same affordance — same padding/minHeight/background/text style.
   addTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2156,17 +2191,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm,
-    minHeight: 40,
+    paddingHorizontal: Spacing.md,
+    minHeight: 44,
   },
-  addTriggerText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
+  addTriggerText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   addItemSpacing: { marginTop: Spacing.sm },
-  resetIconBtn: { alignItems: 'center', justifyContent: 'center' },
 
   // Shopping — Monthly redesign (2026-07-22): tap-to-edit Monthly list name, mirroring
   // WeekListCard's nameEditing/nameInput idiom (greyed placeholder disappears once typed).
-  monthlyNameWrap: { flex: 1, minWidth: 0 },
-  monthlyNamePreviewBtn: { paddingVertical: 2 },
+  // Row layout (2026-07-23) so the lock icon sits inline right before the name.
+  monthlyNameWrap: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  monthlyNamePreviewBtn: { flex: 1, minWidth: 0, paddingVertical: 2 },
   monthlyNameInput: {
+    flex: 1,
+    minWidth: 0,
     fontFamily: Type.heading.fontFamily,
     fontSize: Type.heading.size,
     borderBottomWidth: 1,
@@ -2265,16 +2303,14 @@ const styles = StyleSheet.create({
   weekSectionLabel: { fontFamily: Fonts.bold, fontSize: FontSize.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
   weekSectionRange: { fontSize: FontSize.xs },
   weekSectionEmptyText: { fontSize: FontSize.sm, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs },
-  // Same bordered-pill trigger family as monthlyTrigger/addTrigger, sized up (paddingVertical
-  // md, larger icon+text) since this is the primary action on the Weekly tab.
+  // Big-ish plain white/surface "+" button (2026-07-23) — primary action on the Weekly tab.
   newListTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
     borderWidth: 1,
     borderRadius: Radius.lg,
     paddingVertical: Spacing.md,
+    minHeight: 56,
   },
-  newListTriggerText: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
 });

@@ -26,6 +26,17 @@
  *   Data    → none directly — every item/group/callback is owned by the parent
  *
  * Edit notes:
+ *   - **"Save as template" moved into the kebab (2026-07-23)**: `openListOptions` gains a
+ *     direct `t.saveListAsTemplateBtn` entry (`onSaveAsTemplate` prop) — was a button at
+ *     the bottom of the `SavedListsModal` browse popup, which only made sense when that
+ *     modal was opened from an existing list (opened instead from the Weekly tab's "+ New
+ *     list" chooser to START a list, there's no "current list" to save). One direct tap
+ *     here instead of open-modal → scroll → tap.
+ *   - **Header declutter (2026-07-23)**: the lock icon moved out of the right-side action
+ *     row (which could stack up to 4 icons — Save, Discard, kebab, expand) into the
+ *     `nameWrap` on the left, right before the name — it describes this list's edit state,
+ *     so it reads naturally beside the title. Locking still works exactly the same
+ *     (`onToggleLock`/Save-Discard-dirty flow untouched), just relocated.
  *   - **Saved-lists sync-back (2026-07-22)**: `openListOptions`'s kebab menu gains a "Sync
  *     to saved list" entry (`onSyncToTemplate`) whenever `list.sourceTemplateId` is set —
  *     i.e. this list was instantiated from a saved list via components/SavedListsSection.tsx
@@ -160,6 +171,10 @@ type Props = {
   /** Pushes this list's current items back to its source saved list (only meaningful,
    *  and only shown in the kebab menu, when list.sourceTemplateId is set). */
   onSyncToTemplate: () => void;
+  /** Saves this list's current items as a brand-new saved/template list — a direct kebab
+   *  entry (2026-07-23) instead of a button buried at the bottom of the "Saved lists"
+   *  browse modal. */
+  onSaveAsTemplate: () => void;
   onToggleItem: (item: ShoppingItem) => void;
   onRemoveItem: (item: ShoppingItem) => void;
   onIncrementItem: (item: ShoppingItem) => void;
@@ -213,6 +228,7 @@ export default function WeekListCard({
   onOpenListSettings,
   onDelete,
   onSyncToTemplate,
+  onSaveAsTemplate,
   onToggleItem,
   onRemoveItem,
   onIncrementItem,
@@ -271,6 +287,10 @@ export default function WeekListCard({
   function openListOptions() {
     showAppModal(list.name, undefined, [
       { text: t.savedListsButtonLabel, onPress: onOpenSavedLists },
+      // Direct "save as template" entry (2026-07-23) — was a button at the bottom of the
+      // "Saved lists" browse modal, moved here so it's one tap instead of open-modal +
+      // scroll + tap.
+      { text: t.saveListAsTemplateBtn, onPress: onSaveAsTemplate },
       // Only offered once this list was itself instantiated from a saved list — nothing
       // to sync back for a list that was started empty.
       ...(list.sourceTemplateId ? [{ text: t.syncListButtonLabel, onPress: onSyncToTemplate }] : []),
@@ -333,6 +353,16 @@ export default function WeekListCard({
               preview (not the auto date-range text); tapping swaps it for an autoFocused
               TextInput. A custom-named list previews its real name, still tappable to rename. */}
           <View style={styles.nameWrap}>
+            {/* Lock sits beside the name (2026-07-23 declutter pass) — it describes this
+                list's edit state, so it reads naturally next to the title instead of
+                competing with Save/Discard/kebab/expand in the action row. */}
+            <IconButton
+              icon={list.locked ? 'lock-closed' : 'lock-open-outline'}
+              label={list.locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
+              onPress={onToggleLock}
+              active={list.locked}
+              size={22}
+            />
             {nameEditing ? (
               <TextInput
                 style={[styles.nameInput, { color: theme.text, borderColor: theme.border }]}
@@ -378,13 +408,6 @@ export default function WeekListCard({
                 <IconButton icon="arrow-undo-outline" label={t.listDiscardButtonLabel} onPress={onDiscardChanges} color={theme.bad} size={30} />
               </>
             )}
-            <IconButton
-              icon={list.locked ? 'lock-closed' : 'lock-open-outline'}
-              label={list.locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
-              onPress={onToggleLock}
-              active={list.locked}
-              size={30}
-            />
             <IconButton icon="ellipsis-vertical" label={t.listOptionsButtonLabel} onPress={openListOptions} size={30} />
             <IconButton
               icon={expanded ? 'chevron-up' : 'chevron-down'}

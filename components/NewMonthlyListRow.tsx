@@ -9,6 +9,10 @@
  * silently makes an unnamed list (the button stays disabled until the trimmed name is
  * non-empty).
  *
+ * **Collapsed trigger (2026-07-23 simplification)**: a big-ish plain white/surface button
+ * with just a "+" glyph (icon-only, `accessibilityLabel` carries "New list" for screen
+ * readers) — was a smaller accent-tinted bordered pill with an icon+text label.
+ *
  * Connections:
  *   Imports → components/FormControls (Input), components/PressableScale, constants/theme,
  *             lib/i18n, lib/useAppTheme, lib/haptics
@@ -51,16 +55,18 @@ export default function NewMonthlyListRow({ onCreate }: Props) {
   }
 
   if (!expanded) {
+    // Big-ish plain white/surface button, just a plus sign (2026-07-23 simplification —
+    // was a smaller accent-tinted bordered pill with an icon+label; the label is now
+    // carried by accessibilityLabel only, same icon-only convention as components/AddFAB).
     return (
       <PressableScale
-        style={[styles.addBar, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+        style={[styles.addBar, { borderColor: theme.border, backgroundColor: theme.surface }]}
         onPress={() => setExpanded(true)}
         accessibilityRole="button"
         accessibilityLabel={t.newMonthlyListBtn}
         scaleTo={0.97}
       >
-        <Ionicons name="add-circle-outline" size={18} color={theme.accent} />
-        <Text style={[styles.addBarLabel, { color: theme.accent }]} numberOfLines={1}>{t.newMonthlyListBtn}</Text>
+        <Ionicons name="add" size={26} color={theme.accent} />
       </PressableScale>
     );
   }
@@ -101,14 +107,11 @@ const baseStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.xs,
     borderWidth: 1,
     borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    minHeight: 44,
+    paddingVertical: Spacing.md,
+    minHeight: 56,
   },
-  addBarLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   panel: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
   actionsRow: { flexDirection: 'row', gap: Spacing.sm },
   ghostBtn: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: Radius.md },
