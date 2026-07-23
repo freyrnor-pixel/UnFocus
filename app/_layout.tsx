@@ -81,11 +81,13 @@
  *     2026-07-23 E1/E2 nav swap) are no longer separate Stack.Screen entries — they're
  *     one <Stack.Screen name="(tabs)" /> covering app/(tabs)/_layout.tsx's material-top-tabs
  *     pager (see that file + lib/siteNav.ts).
- *     Everything else (onboarding, inventory-edit, scan, budget, shared, health-detail,
- *     health-form, health-log, automations, notes, the 4 modals) still pushes on top
- *     of it exactly as before — the pager only replaced how the 5 main sites relate to
- *     each other. Scan moved from being one of those 5 to one of this "everything else"
- *     group (2026-07-23) when it dropped off the bottom nav.
+ *     Everything else (onboarding, inventory-edit, scan, food, catalogue, budget, shared,
+ *     health-detail, health-form, health-log, automations, notes, the 4 modals) still
+ *     pushes on top of it exactly as before — the pager only replaced how the 5 main
+ *     sites relate to each other. Scan moved from being one of those 5 to one of this
+ *     "everything else" group (2026-07-23) when it dropped off the bottom nav; food/
+ *     catalogue joined the same group the same day when they dropped off Shopping's
+ *     sticky tab row (UX audit F1) in favor of button-launched sub-screens.
  *   - Stack `screenOptions.animation` (Decision 033, amended 2026-07-19): iOS keeps the
  *     native `default` horizontal push; Android uses `slide_from_right` instead of its
  *     abrupt fade+slide `default`, so sub-screens open with one calm horizontal slide on
@@ -414,6 +416,8 @@ export default function RootLayout() {
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="inventory-edit" />
         <Stack.Screen name="scan" />
+        <Stack.Screen name="food" />
+        <Stack.Screen name="catalogue" />
         <Stack.Screen name="budget" />
         <Stack.Screen name="shared" />
         <Stack.Screen name="pair-device" />

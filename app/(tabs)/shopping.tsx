@@ -1,18 +1,25 @@
 /**
- * shopping.tsx — Shopping hub with four in-place tabs: Weekly, Monthly, Food, Catalogue.
+ * shopping.tsx — Shopping hub with two in-place tabs (Weekly, Monthly) plus two
+ * button-launched sub-screens (Food, Catalogue).
+ *
+ * **Down from four in-place tabs to two, plus buttons (UX audit F1, 2026-07-23)**: Food
+ * and Catalogue used to be full sticky-tab peers of Weekly/Monthly, but they're opened
+ * far less often — screen-overload candidate the audit flagged. They're now
+ * `foodCatalogueLinks`, a small two-button row (pushing `/food` and `/catalogue`) shown
+ * above the list content on both remaining tabs, rather than their own tab-bar slots.
+ * `components/FoodTab`/`components/CatalogueTab` themselves are unchanged — only where
+ * they're mounted moved (see app/food.tsx / app/catalogue.tsx).
  *
  * Tabbed shopping screen. The "Week lists" tab renders an "Unallocated" card (dish
- * ingredients pushed to the week from the Food tab, sentinel listId UNALLOCATED_LIST_ID)
+ * ingredients pushed to the week from the Food screen, sentinel listId UNALLOCATED_LIST_ID)
  * then one WeekListCard per non-template shopping_lists row plus an empty "create new
  * list" card. The "Monthly" tab (Shopping/Monthly redesign, 2026-07-22) renders one
  * lock-gated card PER named Monthly list (store/useMonthlyListStore.ts) — each with its
  * own tap-to-rename name, own budget pill (→ app/budget.tsx, listId param), own manual
  * reset icon, dish-grouped + ungrouped curated items, add-to-list triggers, and
  * purchased-this-month history — plus a "+ New list" row and a small relocated "reset all
- * lists" link at the bottom. Replaces the old single global Katalog card. "Food" renders
- * components/FoodTab (dish library + push-to-list) and "Catalogue" renders
- * components/CatalogueTab (the master item catalogue). A screen-level sticky bar
- * (Decision 011 A2-1) holds the 4-tab switcher plus a per-tab summary line.
+ * lists" link at the bottom. Replaces the old single global Katalog card. A screen-level
+ * sticky bar (Decision 011 A2-1) holds the 2-tab switcher plus a per-tab summary line.
  *
  * Connections:
  *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
@@ -25,8 +32,7 @@
  *             components/MonthlyTableRow, components/SavedListsModal, components/SavedListsSection,
  *             components/ScreenScaffold, components/SharedRequestsSection,
  *             components/ShoppingFilterBar, components/ShoppingRow, components/Surface,
- *             components/UpdateSheet, components/WeekListCard, components/FoodTab,
- *             components/CatalogueTab,
+ *             components/UpdateSheet, components/WeekListCard,
  *             components/PressableScale, components/TabBoxHighlight, components/SectionDivider,
  *             constants/theme,
  *             lib/date (todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle,
@@ -45,8 +51,10 @@
  *             its own budgetNok/lastReset/locked) + useSettingsStore (monthlyResetDate — still
  *             one global payday-boundary date, shared by every Monthly list) + useReceiptStore
  *             (receipts, each list's own pace line filters by monthlyListId).
- *             CatalogueTab/WeekListCard/FoodTab read useCatalogStore internally (loaded at
- *             startup by app/_layout.tsx). FoodTab additionally drives useMealStore.
+ *             WeekListCard reads useCatalogStore internally (loaded at startup by
+ *             app/_layout.tsx); app/food.tsx/app/catalogue.tsx's FoodTab/CatalogueTab do too
+ *             (FoodTab additionally drives useMealStore) — this screen no longer mounts
+ *             either directly (UX audit F1, 2026-07-23).
  *
  * Edit notes:
  *   - **Saved-lists drag + sync-back (2026-07-22)**: `components/SavedListsSection` renders
@@ -326,8 +334,6 @@ import PressableScale from '@/components/PressableScale';
 import WeekListCard from '@/components/WeekListCard';
 import ShoppingFilterBar from '@/components/ShoppingFilterBar';
 import FlightOverlay, { FlightRow, Flight, FlightRect } from '@/components/FlightOverlay';
-import FoodTab from '@/components/FoodTab';
-import CatalogueTab from '@/components/CatalogueTab';
 import SavedListsModal from '@/components/SavedListsModal';
 import SavedListsSection from '@/components/SavedListsSection';
 import ListSettingsSheet from '@/components/ListSettingsSheet';
@@ -352,7 +358,7 @@ import { computeSpendPace } from '@/lib/budget';
 import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
 
-type Tab = 'weekly' | 'monthly' | 'food' | 'catalogue';
+type Tab = 'weekly' | 'monthly';
 
 // Reserved sticky-bar height — just the tab row now (the focused-list name + progress summary
 // row under the tabs was removed 2026-07-21). Matches Plans so the tab→first-card gap is
@@ -377,6 +383,7 @@ export default function ShoppingScreen() {
   const router = useRouter();
   const { reducedMotion } = useAccessibility();
   const mealDomainColor = getDomainColor(theme, 'meal');
+  const shopDomainColor = getDomainColor(theme, 'shop');
 
   // Fire the 'shopping_opened' automation trigger once per screen visit (mount).
   // Rules are already loaded by app/_layout.tsx's startup bootstrap.
@@ -1288,8 +1295,6 @@ export default function ShoppingScreen() {
   const TAB_META: { value: Tab; label: string; accent: string; count: number }[] = [
     { value: 'weekly', label: t.weeklyTabLabel, accent: theme.accent, count: ukelisteBadge },
     { value: 'monthly', label: t.monthlyTabLabel, accent: theme.accent, count: 0 },
-    { value: 'food', label: t.foodTabLabel, accent: theme.accent, count: 0 },
-    { value: 'catalogue', label: t.catalogueTabLabel, accent: theme.accent, count: 0 },
   ];
 
   // Sticky strip is now just the tab row (debug-note 2026-07-21: the date + amount summary
@@ -1343,10 +1348,7 @@ export default function ShoppingScreen() {
     </Surface>
   );
 
-  // Screen intro chrome (first-run hint + incoming shared requests), shared by every tab.
-  // Extracted so the Catalogue tab — which renders its own FlatList outside the padded
-  // content View (scrollable={false}) — can hand it in as that list's header and keep it
-  // scrolling with the rows.
+  // Screen intro chrome (first-run hint + incoming shared requests), shared by both tabs.
   const shoppingIntro = (
     <>
       <HintCard text={t.hints.shopping.text} open={hintOpen} noPill>
@@ -1396,16 +1398,47 @@ export default function ShoppingScreen() {
     </>
   );
 
+  // Food and Catalogue moved off the sticky tab row to button-launched sub-screens
+  // (UX audit F1, 2026-07-23) — Weekly/Monthly are the two things a user opens
+  // constantly; Food (dish library) and Catalogue (master item list) are visited far
+  // less often and didn't need to be permanent peers of the two shopping lists.
+  const foodCatalogueLinks = (
+    <View style={styles.subScreenLinksRow}>
+      <PressableScale
+        style={styles.subScreenLinkBtn}
+        onPress={() => router.push('/food')}
+        accessibilityRole="button"
+        accessibilityLabel={t.foodTabLabel}
+        scaleTo={0.97}
+      >
+        <Surface borderColor={mealDomainColor.accent} style={styles.subScreenLinkCard}>
+          <Ionicons name="restaurant-outline" size={18} color={mealDomainColor.accent} />
+          <Text style={[styles.subScreenLinkText, { color: theme.text }]}>{t.foodTabLabel}</Text>
+        </Surface>
+      </PressableScale>
+      <PressableScale
+        style={styles.subScreenLinkBtn}
+        onPress={() => router.push('/catalogue')}
+        accessibilityRole="button"
+        accessibilityLabel={t.catalogueTabLabel}
+        scaleTo={0.97}
+      >
+        <Surface borderColor={shopDomainColor.accent} style={styles.subScreenLinkCard}>
+          <Ionicons name="list-outline" size={18} color={shopDomainColor.accent} />
+          <Text style={[styles.subScreenLinkText, { color: theme.text }]}>{t.catalogueTabLabel}</Text>
+        </Surface>
+      </PressableScale>
+    </View>
+  );
+
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'shopping').base} scrollable={tab !== 'catalogue'} stickyGapColor={theme.surface} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={() => router.push('/share-modal?kind=s')} onScanPress={() => router.push('/scan')} onScroll={handleScreenScroll}>
-      {tab === 'catalogue' ? (
-        <CatalogueTab onNotify={setConfirm} header={shoppingIntro} />
-      ) : (
-      // Debug notes: one anchor for the whole list region (all non-catalogue tabs). Don't
-      // also wrap the inner cards/rows — one DebugNoteAnchor per region (no nesting).
+    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'shopping').base} stickyGapColor={theme.surface} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={() => router.push('/share-modal?kind=s')} onScanPress={() => router.push('/scan')} onScroll={handleScreenScroll}>
+      {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
+          cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
         {shoppingIntro}
+        {foodCatalogueLinks}
 
         {tab === 'monthly' && (
           <>
@@ -1942,13 +1975,7 @@ export default function ShoppingScreen() {
           </>
         )}
 
-        {/* Food — dishes, in place (Point: "Food is just another tab, not another screen") */}
-        {tab === 'food' && <FoodTab onNotify={setConfirm} />}
-
-        {/* Catalogue renders above (scrollable={false} branch) as its own virtualising
-            FlatList — it is NOT one of the content-View tabs. */}
       </DebugNoteAnchor>
-      )}
 
       <AddDishSheet
         visible={dishSheetTarget !== null}
@@ -2072,6 +2099,22 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     minWidth: 64,
   },
+  // Food/Catalogue entry-point buttons (UX audit F1, 2026-07-23) — shown above the list
+  // content on both Weekly and Monthly, since either sub-screen is reachable regardless
+  // of which shopping list tab is active.
+  subScreenLinksRow: { flexDirection: 'row', gap: Spacing.sm },
+  subScreenLinkBtn: { flex: 1 },
+  subScreenLinkCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    justifyContent: 'center',
+  },
+  subScreenLinkText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+
   // Decision 043 rule 2: Spacing.xl above each of the Monthly tab's two named sections.
   bodyGap: { gap: Spacing.xl },
   dishGroupsWrap: { gap: Spacing.xs },
