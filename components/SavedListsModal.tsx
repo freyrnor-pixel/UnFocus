@@ -1,21 +1,28 @@
 /**
- * SavedListsModal.tsx — saved/template shopping lists popup.
+ * SavedListsModal.tsx — saved/template shopping lists browse-and-pick popup.
  *
  * Opened from WeekListCard's kebab menu ("Saved lists") and the Weekly tab's "+ New
  * list" chooser. Lists every isTemplate=true shopping_lists row; tapping one routes
  * through app/(tabs)/shopping.tsx's `addTemplateToWeek` (current week, same dedup +
  * instantiateTemplate path components/SavedListsSection.tsx's drag/tap flow uses) rather
  * than calling useShoppingListStore.instantiateTemplate directly — see that component's
- * header for the 2026-07-22 drag/sync-back redesign this now shares logic with. A bottom
- * row lets the user save the list currently being viewed as a new template
- * (useShoppingListStore.saveAsTemplate).
+ * header for the 2026-07-22 drag/sync-back redesign this now shares logic with.
+ *
+ * **"Save as template" moved out (2026-07-23 declutter pass)**: this modal used to also
+ * carry a bottom "Save current list as template" button, but that only made sense when
+ * opened from an existing list's kebab — opened from the Weekly tab's "+ New list"
+ * chooser (browsing to START a new list) there's no "current list" yet, so the button sat
+ * there meaninglessly. It's now its own direct entry in WeekListCard's kebab menu
+ * (`onSaveAsTemplate`), right beside "Saved lists" — one tap instead of opening this
+ * modal, scrolling past the template list, and tapping a button at the bottom. This modal
+ * is now a pure browse-and-pick popup — no `onSaveCurrentAsTemplate` prop.
  *
  * Connections:
  *   Imports → components/AnimatedBottomSheet, components/Surface, components/PressableScale,
  *             constants/theme, lib/i18n, lib/useAppTheme, store/useShoppingListStore
  *             (ShoppingList type only)
  *   Used by → app/(tabs)/shopping.tsx
- *   Data    → none directly — `templates` and both callbacks are owned by the parent
+ *   Data    → none directly — `templates` and the callback are owned by the parent
  *
  * Edit notes:
  *   - **Decision 044b (2026-07-09):** the backdrop+slide-up shell now comes from
@@ -50,21 +57,15 @@ type Props = {
   templates: ShoppingList[];
   onClose: () => void;
   onSelectTemplate: (id: string) => void;
-  onSaveCurrentAsTemplate: () => void;
 };
 
-export default function SavedListsModal({ visible, templates, onClose, onSelectTemplate, onSaveCurrentAsTemplate }: Props) {
+export default function SavedListsModal({ visible, templates, onClose, onSelectTemplate }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
 
   function handleSelect(id: string) {
     onSelectTemplate(id);
-    onClose();
-  }
-
-  function handleSaveCurrent() {
-    onSaveCurrentAsTemplate();
     onClose();
   }
 
@@ -88,11 +89,6 @@ export default function SavedListsModal({ visible, templates, onClose, onSelectT
             ))}
           </ScrollView>
         )}
-
-        <PressableScale style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={handleSaveCurrent} scaleTo={0.95}>
-          <Ionicons name="add" size={18} color={theme.accentInk} />
-          <Text style={[styles.saveBtnText, { color: theme.accentInk }]}>{t.saveListAsTemplateBtn}</Text>
-        </PressableScale>
       </Surface>
     </AnimatedBottomSheet>
   );
@@ -117,6 +113,4 @@ const baseStyles = StyleSheet.create({
   rowIcon: { width: 32, height: 32, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   rowText: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
   emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.lg },
-  saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, borderRadius: Radius.md, paddingVertical: Spacing.md, minHeight: 44 },
-  saveBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 });
