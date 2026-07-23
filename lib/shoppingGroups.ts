@@ -8,10 +8,15 @@
  * Connections:
  *   Imports → store/useShoppingStore (ShoppingItem type)
  *   Used by → app/shopping.tsx, components/WeekListCard.tsx (dishGroupAllChecked),
- *             components/HomeShoppingCard.tsx (listProgress)
+ *             components/HomeShoppingCard.tsx (listProgress), app/inventory-edit.tsx
+ *             (catalogItemsForList)
  *   Data    → none — pure functions over arrays passed in by the caller
  *
  * Edit notes:
+ *   - catalogItemsForList() (UX audit C2, 2026-07-23) is the one place that filters a Monthly
+ *     list's status='catalog' rows — extracted so app/(tabs)/shopping.tsx's Monthly view and
+ *     the resurrected app/inventory-edit.tsx (its "Manage inventory" entry point) can't drift
+ *     into two slightly-different copies of the same filter/sort again.
  *   - groupByCategory() is Monthly-only — Weekly's "In list" rows keep their user-dragged
  *     orderIndex order and only get a per-row category tag, not a resort/regroup, so a manual
  *     drag never gets undone by a category re-cluster.
@@ -39,6 +44,15 @@
  *     checked state, not by bucket membership.
  */
 import { ShoppingItem } from '@/store/useShoppingStore';
+
+/** One Monthly list's permanent-inventory rows (status='catalog'), name-sorted. Shared by
+ *  app/(tabs)/shopping.tsx's Monthly view and app/inventory-edit.tsx (UX audit C2, 2026-07-23)
+ *  so both read the exact same slice instead of duplicating the filter/sort. */
+export function catalogItemsForList(items: ShoppingItem[], listId: string): ShoppingItem[] {
+  return items
+    .filter((i) => i.status === 'catalog' && i.monthlyListId === listId)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
 
 /** Buckets items into dish groups (sorted by dish name) and an ungrouped leftover list. */
 export function groupByDish(items: ShoppingItem[]): { dishGroups: [string, ShoppingItem[]][]; ungrouped: ShoppingItem[] } {

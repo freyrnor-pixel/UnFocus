@@ -1,19 +1,22 @@
 /**
  * ShoppingRow.tsx — single row in the weekly shopping list: two-line layout,
- * swipe-left to remove, drag-reorder via the parent wrapping this row in
+ * trailing × to remove, drag-reorder via the parent wrapping this row in
  * DraggableTaskRow.
  *
  * Decision 011 A2-2 redesign — NOT a faithful clone of the old row. Line 1:
  * leading check · name · price-total (right-aligned). Line 2 (smaller/dimmed):
  * qty+unit · qty stepper (−/badge/+) · in-stock label. The old inline
- * move-chevrons are retired (Ripple R1) and remove is no longer a static
- * trailing button (Ripple R2) — both replaced by gesture surfaces.
+ * move-chevrons are retired (Ripple R1). **UX audit A1 (2026-07-23,
+ * SCREEN_FUNCTIONS_AUDIT.md finding A1):** swipe-left-to-remove was dropped —
+ * it was the only place in the app using swipe for delete (everywhere else
+ * uses a trailing icon), so a user who learned it here found it didn't work
+ * on Monthly/Catalogue/Plans/Notes/Health/Shared. Removal is now the same
+ * trailing × button every other row in the app uses.
  *
  * Connections:
  *   Imports → components/Badge, components/FlightOverlay (FlightRect type only), components/InventoryIcon,
  *             components/PressableScale, constants/theme, constants/motion (Duration/Ease tokens),
- *             lib/date, lib/haptics, lib/i18n, lib/useAppTheme, react-native-gesture-handler,
- *             react-native-reanimated,
+ *             lib/date, lib/haptics, lib/i18n, lib/useAppTheme, react-native-reanimated,
  *             store/useShoppingStore (ShoppingItem type + recentlyAddedIds, see Decision 044b note)
  *   Used by → components/WeekListCard.tsx, app/(tabs)/shopping.tsx (weekly rows +
  *             purchased-history rows), components/HomeShoppingCard.tsx (Home shopping
@@ -39,27 +42,16 @@
  *     `children`. ShoppingRow has no drag-related props; it only needs to render cleanly
  *     as a plain child. The old inline move-up/move-down chevrons are gone entirely, not
  *     kept as a fallback.
- *   - **R2 (swipe-left remove):** implemented as a horizontal `Gesture.Pan`, disambiguated
- *     from vertical scrolling via `activeOffsetX([-12, 12])` + `failOffsetY([-10, 10])` —
- *     the same disambiguation idiom the old per-screen SiteSwipeView used before the
- *     site-pager migration replaced it with a native pager gesture; kept here rather than
- *     inventing new thresholds. A background reveal layer (colored per the catalog/
- *     ad-hoc branch) fades in as the row slides left; releasing past `COMMIT_THRESHOLD`
- *     (or a fast enough flick, `SWIPE_VELOCITY_THRESHOLD`, same 800 magnitude as that old
- *     precedent) animates the row off-screen and calls `onRemove`; releasing short of
- *     that snaps back to 0. `selection()` fires once on crossing the commit threshold
- *     mid-drag, `heavy()` fires once the swipe actually commits — mirrors the existing
- *     tap/drag haptic-timing contract in ANIMATION_GUIDELINES.md §4 (fire at the moment of
- *     the visual event, not before/after). `locked` disables the gesture outright
- *     (`.enabled(!locked)`) rather than dimming a button, since remove is no longer a button.
- *   - The trailing remove reveal shows `InventoryIcon` (not "×") for `item.fromCatalog` rows
- *     on 'planned'/'cart' variants — those rows originated in the standing Katalog, so the
- *     parent's `onRemove` should put them back to status='catalog' instead of deleting them.
- *     'purchased' rows and non-catalog (ad-hoc) rows keep the plain "×" look — this component
- *     doesn't decide which store action runs, only which icon/reveal-tint to show. Preserved
- *     1:1 from the old row per Decision 011 R2 ("same store actions, new gesture surface"),
- *     including the old row's icon-color choice (fromCatalog reveal uses `bad`, not a
- *     "positive" token, even though putting back to inventory isn't strictly destructive).
+ *   - **Trailing remove button (A1, replaces the old swipe gesture):** a single trailing
+ *     `deleteBtn` (hidden on 'purchased' rows, disabled when `locked`) calls `heavy()` then
+ *     `onRemove()` directly — no gesture, no reveal animation. It shows `InventoryIcon` (not
+ *     "×") for `item.fromCatalog` rows on 'planned'/'cart' variants — those rows originated in
+ *     the standing Katalog, so the parent's `onRemove` should put them back to
+ *     status='catalog' instead of deleting them. 'purchased' rows and non-catalog (ad-hoc)
+ *     rows keep the plain "×" look — this component doesn't decide which store action runs,
+ *     only which icon to show. Icon color choice (fromCatalog uses `bad`, not a "positive"
+ *     token, even though putting back to inventory isn't strictly destructive) is preserved
+ *     from the old swipe-reveal's convention.
  *   - `dimmed` (`CHECKED_OPACITY`) applies to 'purchased' rows and to 'cart' rows once
  *     collected — NOT to every cart row, since "moved to cart" alone should stay fully
  *     opaque. Same constant reused by the "Shopping done" disabled state on the shopping
@@ -113,9 +105,7 @@
  *     `FlightOverlay` clone (see ANIMATION_GUIDELINES.md). Only wired for the forward
  *     'planned'-and-unchecked → 'In cart' direction (`willFly`) — reverse toggles keep
  *     today's fade-only behavior, matching FLIGHT_ANIMATION_HANDOFF.md's stated Phase 1
- *     scope. The ref for measuring must live on the outer `styles.wrap` Animated.View, NOT
- *     the `GestureDetector`-wrapped `styles.row` one below it — GestureDetector clones its
- *     child and would silently overwrite a ref placed there.
+ *     scope. The ref for measuring lives on the outer `styles.wrap` Animated.View.
  *   - **Category tag removed (2026-07-22)**: line 2 used to show a small bordered
  *     `categoryLabel(t, item.category)` tag — a pure display "marking" with no functional
  *     tie to anything. Now that `components/ShoppingFilterBar.tsx` gives Weekly/Monthly a
@@ -124,15 +114,13 @@
  *     filter bar (WeekListCard.tsx) instead of reading it off each row.
  */
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
   withSequence,
-  runOnJS,
   FadeInDown,
   FadeOut,
   LinearTransition,
@@ -144,7 +132,7 @@ import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
-import { selection, heavy } from '@/lib/haptics';
+import { heavy } from '@/lib/haptics';
 import InventoryIcon from '@/components/InventoryIcon';
 import { Badge } from '@/components/Badge';
 import PressableScale from '@/components/PressableScale';
@@ -159,12 +147,6 @@ const MAX_QTY = 99;
 /** Shared "marked as done" dim amount — reuse this anywhere an item/button needs the same
  * reduced-opacity treatment (e.g. the disabled "Shopping done" button on the shopping screen). */
 export const CHECKED_OPACITY = 0.55;
-
-/** Swipe-left-to-remove tuning — same disambiguation/threshold idiom as SiteSwipeView.tsx,
- * the only other horizontal-swipe precedent in this codebase. */
-const MAX_SWIPE = -96;
-const COMMIT_THRESHOLD = -64;
-const SWIPE_VELOCITY_THRESHOLD = 800;
 
 type Props = {
   item: ShoppingItem;
@@ -196,11 +178,7 @@ function ShoppingRow({
   const styles = useScaledStyles(baseStyles);
   const t = useT();
   const { reducedMotion } = useAccessibility();
-  const { width } = useWindowDimensions();
   const rowRef = useRef<any>(null);
-
-  const translateX = useSharedValue(0);
-  const crossedThreshold = useSharedValue(false);
 
   const qty = parseInt(item.amount, 10);
   const isNumeric = !isNaN(qty) && qty > 0;
@@ -252,7 +230,8 @@ function ShoppingRow({
   const priceTotal = item.price > 0 && isNumeric ? item.price * qty : null;
   const isPutBack = item.fromCatalog && variant !== 'purchased';
 
-  function commitRemove() {
+  function handleRemovePress() {
+    heavy();
     onRemove();
   }
 
@@ -271,45 +250,6 @@ function ShoppingRow({
     }
   }
 
-  const pan = Gesture.Pan()
-    .enabled(!locked)
-    .activeOffsetX([-12, 12])
-    .failOffsetY([-10, 10])
-    .onUpdate((e) => {
-      const next = Math.max(MAX_SWIPE, Math.min(0, e.translationX));
-      translateX.value = next;
-      if (next < COMMIT_THRESHOLD && !crossedThreshold.value) {
-        crossedThreshold.value = true;
-        runOnJS(selection)();
-      } else if (next >= COMMIT_THRESHOLD && crossedThreshold.value) {
-        crossedThreshold.value = false;
-      }
-    })
-    .onEnd((e) => {
-      const commit = translateX.value < COMMIT_THRESHOLD || e.velocityX < -SWIPE_VELOCITY_THRESHOLD;
-      crossedThreshold.value = false;
-      if (commit) {
-        runOnJS(heavy)();
-        if (reducedMotion) {
-          runOnJS(commitRemove)();
-        } else {
-          translateX.value = withTiming(-width, { duration: 200 }, (finished) => {
-            if (finished) runOnJS(commitRemove)();
-          });
-        }
-      } else {
-        translateX.value = reducedMotion ? 0 : withTiming(0, { duration: 150 });
-      }
-    });
-
-  const contentStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
-
-  const revealStyle = useAnimatedStyle(() => ({
-    opacity: Math.min(1, Math.abs(translateX.value) / Math.abs(COMMIT_THRESHOLD)),
-  }));
-
   const highlightStyle = useAnimatedStyle(() => ({ opacity: highlight.value }));
 
   return (
@@ -320,134 +260,118 @@ function ShoppingRow({
       exiting={willFly ? undefined : (reducedMotion ? undefined : FadeOut.duration(Duration.cardOut).easing(Ease.exit))}
       layout={reducedMotion ? undefined : LinearTransition.duration(Duration.listMove).easing(Ease.move)}
     >
-      <Animated.View
-        style={[styles.reveal, { backgroundColor: isPutBack ? theme.badSoft : theme.surfaceMuted }, revealStyle]}
-      >
-        {isPutBack ? <InventoryIcon size={20} color={theme.bad} /> : <Ionicons name="close" size={22} color={theme.textMuted} />}
-      </Animated.View>
+      <Animated.View style={[styles.row, dimmed && styles.rowChecked, { backgroundColor: theme.surface }]}>
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.highlight, { backgroundColor: theme.goodSoft, borderColor: theme.good }, highlightStyle]}
+        />
+        <PressableScale
+          style={[
+            styles.check,
+            variant === 'planned' && (item.checked
+              ? { backgroundColor: theme.good, borderColor: theme.good }
+              : { borderColor: theme.good }),
+            variant === 'cart' && { backgroundColor: theme.good, borderColor: theme.good },
+            variant === 'purchased' && { backgroundColor: theme.good, borderColor: theme.good },
+          ]}
+          onPress={handleCheckPress}
+          disabled={variant === 'purchased'}
+          hitSlop={13}
+          scaleTo={0.97}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: !!item.checked }}
+          accessibilityLabel={item.name}
+        >
+          {variant === 'planned' && (item.checked
+            ? <Ionicons name="checkmark" size={14} color={theme.textInverse} />
+            : <Ionicons name="add" size={16} color={theme.good} />)}
+          {variant === 'cart' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
+          {variant === 'purchased' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
+        </PressableScale>
 
-      <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.row, dimmed && styles.rowChecked, contentStyle, { backgroundColor: theme.surface }]}>
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.highlight, { backgroundColor: theme.goodSoft, borderColor: theme.good }, highlightStyle]}
-          />
-          <PressableScale
-            style={[
-              styles.check,
-              variant === 'planned' && (item.checked
-                ? { backgroundColor: theme.good, borderColor: theme.good }
-                : { borderColor: theme.good }),
-              variant === 'cart' && { backgroundColor: theme.good, borderColor: theme.good },
-              variant === 'purchased' && { backgroundColor: theme.good, borderColor: theme.good },
-            ]}
-            onPress={handleCheckPress}
-            disabled={variant === 'purchased'}
-            hitSlop={13}
-            scaleTo={0.97}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: !!item.checked }}
-            accessibilityLabel={item.name}
-            // Swipe-left removes the row, but that gesture is invisible to screen
-            // readers — expose the same destructive action via the a11y rotor so
-            // it's reachable without the swipe. (Put-back vs delete matches the
-            // swipe's own behaviour for catalog vs ad-hoc items.)
-            accessibilityActions={variant === 'purchased' || locked ? undefined : [
-              { name: 'remove', label: isPutBack ? t.putBackItemLabel : t.removeItemLabel },
-            ]}
-            onAccessibilityAction={(e) => {
-              if (e.nativeEvent.actionName === 'remove') onRemove();
-            }}
-          >
-            {variant === 'planned' && (item.checked
-              ? <Ionicons name="checkmark" size={14} color={theme.textInverse} />
-              : <Ionicons name="add" size={16} color={theme.good} />)}
-            {variant === 'cart' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
-            {variant === 'purchased' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
-          </PressableScale>
-
-          <View style={styles.lines}>
-            <View style={styles.line1}>
-              <Text
-                style={[styles.name, { color: theme.text }, dimmed && { color: theme.textMuted, textDecorationLine: 'line-through' }]}
-                numberOfLines={1}
-              >
-                {item.name}
+        <View style={styles.lines}>
+          <View style={styles.line1}>
+            <Text
+              style={[styles.name, { color: theme.text }, dimmed && { color: theme.textMuted, textDecorationLine: 'line-through' }]}
+              numberOfLines={1}
+            >
+              {item.name}
+            </Text>
+            {priceTotal !== null && (
+              <Text style={[styles.priceTotal, { color: dimmed ? theme.textMuted : theme.text }]}>
+                {formatKr(priceTotal, 0)}
               </Text>
-              {priceTotal !== null && (
-                <Text style={[styles.priceTotal, { color: dimmed ? theme.textMuted : theme.text }]}>
-                  {formatKr(priceTotal, 0)}
-                </Text>
-              )}
-            </View>
-
-            <View style={styles.line2}>
-              <Text style={[styles.meta, { color: theme.textMuted }]}>
-                {item.amount}{item.unit ? ` ${item.unit}` : ''}
-              </Text>
-
-              {showStepper && (
-                <View style={styles.stepper}>
-                  <PressableScale
-                    style={[
-                      styles.stepBtn,
-                      canDecrement
-                        ? { backgroundColor: theme.accent, borderColor: theme.accent }
-                        : { backgroundColor: 'transparent', borderColor: theme.border },
-                    ]}
-                    onPress={onDecrement}
-                    disabled={!canDecrement}
-                    hitSlop={4}
-                    accessibilityLabel={t.decreaseQty}
-                    scaleTo={0.9}
-                  >
-                    <Ionicons name="remove" size={12} color={canDecrement ? theme.accentInk : theme.border} />
-                  </PressableScale>
-                  <Badge label={String(safeQty)} style={styles.stepBadge} />
-                  <PressableScale
-                    style={[
-                      styles.stepBtn,
-                      canIncrement
-                        ? { backgroundColor: theme.accent, borderColor: theme.accent }
-                        : { backgroundColor: 'transparent', borderColor: theme.border },
-                    ]}
-                    onPress={onIncrement}
-                    disabled={!canIncrement}
-                    hitSlop={4}
-                    accessibilityLabel={t.increaseQty}
-                    scaleTo={0.9}
-                  >
-                    <Ionicons name="add" size={12} color={canIncrement ? theme.accentInk : theme.border} />
-                  </PressableScale>
-                </View>
-              )}
-
-              {item.inventoryQty > 0 && inStockLabel ? (
-                <Text style={[styles.meta, { color: theme.good }]}>{inStockLabel}: {item.inventoryQty}</Text>
-              ) : null}
-            </View>
+            )}
           </View>
 
-          {variant !== 'purchased' && (
-            <PressableScale style={styles.deleteBtn} onPress={onRemove} hitSlop={8} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
-              <Ionicons name="close-outline" size={18} color={theme.textMuted} />
-            </PressableScale>
-          )}
-        </Animated.View>
-      </GestureDetector>
+          <View style={styles.line2}>
+            <Text style={[styles.meta, { color: theme.textMuted }]}>
+              {item.amount}{item.unit ? ` ${item.unit}` : ''}
+            </Text>
+
+            {showStepper && (
+              <View style={styles.stepper}>
+                <PressableScale
+                  style={[
+                    styles.stepBtn,
+                    canDecrement
+                      ? { backgroundColor: theme.accent, borderColor: theme.accent }
+                      : { backgroundColor: 'transparent', borderColor: theme.border },
+                  ]}
+                  onPress={onDecrement}
+                  disabled={!canDecrement}
+                  hitSlop={4}
+                  accessibilityLabel={t.decreaseQty}
+                  scaleTo={0.9}
+                >
+                  <Ionicons name="remove" size={12} color={canDecrement ? theme.accentInk : theme.border} />
+                </PressableScale>
+                <Badge label={String(safeQty)} style={styles.stepBadge} />
+                <PressableScale
+                  style={[
+                    styles.stepBtn,
+                    canIncrement
+                      ? { backgroundColor: theme.accent, borderColor: theme.accent }
+                      : { backgroundColor: 'transparent', borderColor: theme.border },
+                  ]}
+                  onPress={onIncrement}
+                  disabled={!canIncrement}
+                  hitSlop={4}
+                  accessibilityLabel={t.increaseQty}
+                  scaleTo={0.9}
+                >
+                  <Ionicons name="add" size={12} color={canIncrement ? theme.accentInk : theme.border} />
+                </PressableScale>
+              </View>
+            )}
+
+            {item.inventoryQty > 0 && inStockLabel ? (
+              <Text style={[styles.meta, { color: theme.good }]}>{inStockLabel}: {item.inventoryQty}</Text>
+            ) : null}
+          </View>
+        </View>
+
+        {variant !== 'purchased' && (
+          <PressableScale
+            style={styles.deleteBtn}
+            onPress={handleRemovePress}
+            disabled={locked}
+            hitSlop={8}
+            accessibilityLabel={isPutBack ? t.putBackItemLabel : t.removeItemLabel}
+            scaleTo={0.93}
+          >
+            {isPutBack
+              ? <InventoryIcon size={18} color={locked ? theme.textMuted : theme.bad} />
+              : <Ionicons name="close-outline" size={18} color={locked ? theme.border : theme.textMuted} />}
+          </PressableScale>
+        )}
+      </Animated.View>
     </Animated.View>
   );
 }
 
 const baseStyles = StyleSheet.create({
   wrap: { position: 'relative' },
-  reveal: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: Radius.md,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    paddingRight: Spacing.md,
-  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -36,7 +36,8 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/liveSync, lib/syncService, store/useSettingsStore
- *   Used by → app/shopping.tsx, components/ShoppingQuickAddSheet.tsx,
+ *   Used by → app/shopping.tsx, app/inventory-edit.tsx (add/update/removeWithSource),
+ *             components/ShoppingQuickAddSheet.tsx,
  *             components/AddItemSheet.tsx (type), components/AddDishSheet.tsx (add), components/UpdateSheet.tsx (type),
  *             components/MonthlyTableRow.tsx (type), components/ShoppingRow.tsx (type), components/WeekListCard.tsx (type),
  *             components/SharedRequestsSection.tsx (add), components/MonthlyResetSummaryModal.tsx (MonthlyResetSummary),
