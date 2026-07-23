@@ -4,12 +4,13 @@
  * A small reusable control: a minus button, the current value, and a plus button.
  * Clamps to optional min/max and steps by `step` (default 1). Fires a light haptic
  * tap on each press. Lifted from the inline pattern in components/MonthlyTableRow.tsx
- * so the Energy system (task-form cost, Settings default capacity, the Home meter's
- * per-period override) can share one control.
+ * so the Energy system (per-task cost in components/TaskCard.tsx, Settings default
+ * capacity, the Home meter's per-period override) can share one control.
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme, lib/haptics, components/PressableScale
- *   Used by → app/task-form.tsx, app/settings.tsx, components/EnergyMeter.tsx
+ *   Used by → components/TaskCard.tsx (was app/task-form.tsx, retired 2026-07-23),
+ *             app/settings.tsx, components/EnergyMeter.tsx
  *   Data    → none (controlled — parent owns the value)
  */
 import React from 'react';

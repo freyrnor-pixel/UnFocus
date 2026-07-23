@@ -198,6 +198,9 @@ const en = {
   thenTaskChange: 'Change',
   thenTaskRemove: 'Remove link',
   thenTaskEmptyList: 'No eligible tasks to link',
+  // TaskCard's collapsed-by-default reveal for Energy/Hint/Contact/Location/Goal/Then
+  // (UX audit B1/F3 — ported from the retired app/task-form.tsx, 2026-07-23)
+  taskAdvancedOptions: 'Advanced options',
   // Task form — voice dictation (reserve-only, lib/useVoiceCapture.ts), gated on settings.voiceNotesEnabled
   taskVoiceTitleLabel: 'Dictate title',
   taskVoiceTitleStop: 'Stop dictating title',
@@ -1312,8 +1315,9 @@ const en = {
     resetNotes: 'Reset all notes',
   },
   // Device features (2026-07-17) — Settings toggles for the reserve-only native
-  // surface (voice/contacts/location/calendar); gates app/task-form.tsx's mic
-  // button and contact/location blocks, and store/useTaskStore.ts's calendar sync.
+  // surface (voice/contacts/location/calendar); gates components/TaskCard.tsx's mic
+  // button and contact/location blocks (was app/task-form.tsx's, retired 2026-07-23),
+  // and store/useTaskStore.ts's calendar sync.
   permissions: {
     sectionTitle: 'Device features',
     voiceNotes: { label: 'Voice dictation', hint: 'Dictate the task title by voice.' },
@@ -1497,6 +1501,7 @@ const no: typeof en = {
   thenTaskChange: 'Endre',
   thenTaskRemove: 'Fjern lenke',
   thenTaskEmptyList: 'Ingen aktuelle oppgaver å lenke',
+  taskAdvancedOptions: 'Avanserte valg',
   // Task form — talediktering (reserve-only, lib/useVoiceCapture.ts), styrt av settings.voiceNotesEnabled
   taskVoiceTitleLabel: 'Diktér tittel',
   taskVoiceTitleStop: 'Stopp diktering',
