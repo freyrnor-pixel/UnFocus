@@ -95,13 +95,24 @@
  *     had no active tab (Home selected, or the other side active). Tapping straight into a
  *     group's second slot (Home → Plans/"Tasks", or Home → Habits) then mounted the pill at that
  *     stale slot-0 position and animated it over — read as the pill sliding in from the wrong
- *     side. Fixed by only driving `tx` while the pill is actually visible, and snapping (not
- *     animating) on the first visible render after an appearance, reserving `withTiming` for
- *     genuine in-group moves (Shopping ↔ Plans, Health ↔ Habits). See `wasVisibleRef` below.
+ *     side.
+ *   - **Home-anchored entry/exit (2026-07-23, same-day follow-up)**: the fix above made fresh
+ *     appearances snap instantly with no slide at all, which read as an abrupt pop when arriving
+ *     from Home, and a group's pill still hard-vanished (no exit animation) when leaving to Home.
+ *     Replaced with `homeEdge`-anchored motion: each `NavGroup` knows which of its two slots sits
+ *     next to the centre Home button (left group's last slot / right group's first slot, passed
+ *     in as the `homeEdge` prop). Arriving in a group fresh now starts the pill at that
+ *     Home-adjacent slot and slides (`Ease.enter`) to the real target — reads as coming from
+ *     Home. Leaving a group (most commonly to Home) slides the pill back to that same
+ *     Home-adjacent slot (`Ease.exit`) before unmounting (via the `withTiming` completion
+ *     callback + `runOnJS`), instead of vanishing instantly. `withTiming` is still reserved for
+ *     genuine in-group moves (Shopping ↔ Plans, Health ↔ Habits) and Home-anchor moves alike;
+ *     only `reducedMotion` skips straight to the final position. See `settledRef`/`homeIndex`
+ *     below (supersedes the now-removed `wasVisibleRef`).
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -192,6 +203,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
         label={(item) => t.nav[item.key]}
         styles={styles}
         groupStyle={styles.leftGroup}
+        homeEdge="end"
       />
 
       {renderCentre(centreItem)}
@@ -203,6 +215,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
         label={(item) => t.nav[item.key]}
         styles={styles}
         groupStyle={styles.rightGroup}
+        homeEdge="start"
       />
     </Surface>
   );
@@ -215,6 +228,11 @@ type NavGroupProps = {
   label: (item: SiteItem) => string;
   styles: typeof baseStyles;
   groupStyle: typeof baseStyles.leftGroup;
+  // Which end of this group's track sits next to the centre Home button — 'end' for the
+  // left group (Plans is the neighbour), 'start' for the right group (Health is the
+  // neighbour). Anchors the pill's entry/exit animation so Home transitions read as a
+  // slide to/from Home instead of a hard pop/vanish.
+  homeEdge: 'start' | 'end';
 };
 
 // Own component (not a plain render function) so each side gets its own measured track +
@@ -222,7 +240,7 @@ type NavGroupProps = {
 // slide math from components/SlideSelector.tsx (segments are flex:1, so segW = (trackW -
 // gap*(n-1)) / n, and translateX steps by segW + gap), adapted to this bar's own material
 // (shadow + glow + rim bevel on the pill, not SlideSelector's flat accent fill).
-function NavGroup({ items, isActive, onPress, label, styles, groupStyle }: NavGroupProps) {
+function NavGroup({ items, isActive, onPress, label, styles, groupStyle, homeEdge }: NavGroupProps) {
   const theme = useAppTheme();
   const isDark = useIsDark();
   const glass = useSettingsStore((s) => s.glassSurfaces);
@@ -237,28 +255,47 @@ function NavGroup({ items, isActive, onPress, label, styles, groupStyle }: NavGr
   const hasActive = rawActiveIndex !== -1;
   const activeIndex = Math.max(0, rawActiveIndex);
   const segW = track.w > 0 ? (track.w - Spacing.sm * (n - 1)) / n : 0;
+  // The slot nearest Home — the pill's entry/exit anchor (see NavGroupProps.homeEdge).
+  const homeIndex = homeEdge === 'end' ? n - 1 : 0;
 
   const tx = useSharedValue(0);
-  // Tracks whether the pill was actually rendered (hasActive && segW measured) on the
-  // previous run — NOT just hasActive — so a fresh appearance in this group (e.g. Home →
-  // Plans, skipping Shopping) snaps straight to place instead of animating in from
-  // whatever slot-0 offset `tx` was last parked at while invisible. Only a genuine
-  // in-group move (Shopping ↔ Plans, Health ↔ Habits) should actually slide.
-  const wasVisibleRef = useRef(false);
+  const [mounted, setMounted] = useState(false);
+  // Whether the pill is currently settled on a real slot in THIS group (as opposed to
+  // unmounted, or mid a Home entry/exit anchor move) — only a genuine in-group move
+  // (Shopping ↔ Plans, Health ↔ Habits) should slide directly between two real slots;
+  // arriving from or leaving to Home instead anchors through homeIndex below.
+  const settledRef = useRef(false);
+
   useEffect(() => {
-    const visible = hasActive && segW > 0;
-    if (!visible) {
-      wasVisibleRef.current = false;
-      return;
+    if (segW === 0) return;
+    const step = segW + Spacing.sm;
+
+    if (hasActive) {
+      const to = activeIndex * step;
+      if (!settledRef.current) {
+        // Fresh appearance in this group (from Home, or from the other side) — start the
+        // pill at the Home-adjacent slot and slide to the real target, so it always reads
+        // as arriving from Home.
+        setMounted(true);
+        tx.value = homeIndex * step;
+      }
+      tx.value = reducedMotion ? to : withTiming(to, { duration: Duration.control, easing: Ease.enter });
+      settledRef.current = true;
+    } else if (settledRef.current) {
+      // Leaving this group (most commonly to Home) — slide back to the Home-adjacent slot,
+      // then unmount, so departing reads as heading toward Home instead of vanishing.
+      settledRef.current = false;
+      const to = homeIndex * step;
+      if (reducedMotion) {
+        tx.value = to;
+        setMounted(false);
+      } else {
+        tx.value = withTiming(to, { duration: Duration.control, easing: Ease.exit }, (finished) => {
+          if (finished) runOnJS(setMounted)(false);
+        });
+      }
     }
-    const to = activeIndex * (segW + Spacing.sm);
-    if (reducedMotion || !wasVisibleRef.current) {
-      tx.value = to;
-    } else {
-      tx.value = withTiming(to, { duration: Duration.control, easing: Ease.enter });
-    }
-    wasVisibleRef.current = true;
-  }, [hasActive, activeIndex, segW, reducedMotion, tx]);
+  }, [hasActive, activeIndex, segW, homeIndex, reducedMotion, tx]);
 
   const pillStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
 
@@ -274,7 +311,7 @@ function NavGroup({ items, isActive, onPress, label, styles, groupStyle }: NavGr
 
   return (
     <View style={groupStyle} onLayout={onLayout}>
-      {segW > 0 && hasActive && (
+      {segW > 0 && mounted && (
         <Animated.View pointerEvents="none" style={[styles.pill, { width: segW, height: track.h }, pillStyle]}>
           {glass ? (
             <LinearGradient
