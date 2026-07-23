@@ -90,8 +90,16 @@
  *     "double keycap" line, unchanged otherwise. Now that only the pill (always the active tab)
  *     carries this, the ring hue is always `theme.accent` — the `theme.border` (inactive) branch
  *     the old per-item rim needed no longer applies.
+ *   - **Fixed: pill popping in from the wrong slot (2026-07-23)**: `NavGroup`'s driving effect
+ *     used to run unconditionally every render, snapping `tx` back to slot 0 whenever the group
+ *     had no active tab (Home selected, or the other side active). Tapping straight into a
+ *     group's second slot (Home → Plans/"Tasks", or Home → Habits) then mounted the pill at that
+ *     stale slot-0 position and animated it over — read as the pill sliding in from the wrong
+ *     side. Fixed by only driving `tx` while the pill is actually visible, and snapping (not
+ *     animating) on the first visible render after an appearance, reserving `withTiming` for
+ *     genuine in-group moves (Shopping ↔ Plans, Health ↔ Habits). See `wasVisibleRef` below.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -231,10 +239,26 @@ function NavGroup({ items, isActive, onPress, label, styles, groupStyle }: NavGr
   const segW = track.w > 0 ? (track.w - Spacing.sm * (n - 1)) / n : 0;
 
   const tx = useSharedValue(0);
+  // Tracks whether the pill was actually rendered (hasActive && segW measured) on the
+  // previous run — NOT just hasActive — so a fresh appearance in this group (e.g. Home →
+  // Plans, skipping Shopping) snaps straight to place instead of animating in from
+  // whatever slot-0 offset `tx` was last parked at while invisible. Only a genuine
+  // in-group move (Shopping ↔ Plans, Health ↔ Habits) should actually slide.
+  const wasVisibleRef = useRef(false);
   useEffect(() => {
+    const visible = hasActive && segW > 0;
+    if (!visible) {
+      wasVisibleRef.current = false;
+      return;
+    }
     const to = activeIndex * (segW + Spacing.sm);
-    tx.value = reducedMotion ? to : withTiming(to, { duration: Duration.control, easing: Ease.enter });
-  }, [activeIndex, segW, reducedMotion, tx]);
+    if (reducedMotion || !wasVisibleRef.current) {
+      tx.value = to;
+    } else {
+      tx.value = withTiming(to, { duration: Duration.control, easing: Ease.enter });
+    }
+    wasVisibleRef.current = true;
+  }, [hasActive, activeIndex, segW, reducedMotion, tx]);
 
   const pillStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
 
