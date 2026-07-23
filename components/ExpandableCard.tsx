@@ -10,8 +10,9 @@
  *             lib/useAppTheme, components/PressableScale,
  *             components/Collapsible (body reveal), components/AnimatedChevron (arrow)
  *   Used by → components/WeekListCard.tsx (dish groups + collapsed "bought this week"
- *             history, uncontrolled), app/shopping.tsx (Monthly catalog dish groups);
- *             later Phase 3/6 sessions may also wire this into InboxSection/meals/health
+ *             history, uncontrolled), app/shopping.tsx (Monthly catalog dish groups),
+ *             app/settings.tsx (merged setting-group panels — passes `rounded`, see that
+ *             prop's doc below); later Phase 3/6 sessions may also wire this into InboxSection/meals/health
  *             per Decision 009. NOTE: PlanTaskCard does NOT wrap ExpandableCard — Decision
  *             009a redesigned the Plans preview into a bespoke proportional-rail day-view
  *             (its collapsed state still shows content, which ExpandableCard's hide-all-body
@@ -72,6 +73,15 @@ type Props = {
    * as a flat, square-cornered line cutting across an otherwise rounded card (2026-07-21 fix).
    */
   first?: boolean;
+  /**
+   * Settings-only variant (app/settings.tsx, 2026-07-23): each row gets its own rounded,
+   * sunken (theme.surfaceMuted) background and a small gap instead of a flush hairline
+   * divider — reads as a stack of individually rounded rows rather than one flat merged
+   * block. Default false preserves the original flush-divider look for every other caller
+   * (WeekListCard, shopping.tsx) — this does NOT nest another Surface (still respects
+   * Decision 043 rule 1's no-Surface-in-Surface rule above), it's a plain tinted background.
+   */
+  rounded?: boolean;
 };
 
 export default function ExpandableCard({
@@ -86,6 +96,7 @@ export default function ExpandableCard({
   onToggle,
   accentColor,
   first = false,
+  rounded = false,
 }: Props) {
   const isControlled = controlledOpen !== undefined;
   const [openState, setOpenState] = useState(defaultOpen);
@@ -103,7 +114,15 @@ export default function ExpandableCard({
   }
 
   return (
-    <View style={[styles.card, styles.cardRow, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }]}>
+    <View
+      style={[
+        styles.card,
+        styles.cardRow,
+        rounded
+          ? [styles.cardRounded, { backgroundColor: theme.surfaceMuted }, !first && styles.cardRoundedGap]
+          : !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
+      ]}
+    >
       {accentColor ? <View style={[styles.accent, { backgroundColor: accentColor }]} /> : null}
       <View style={styles.cardContent}>
         <PressableScale style={styles.header} onPress={toggle} scaleTo={0.97} releaseSpring={Spring.calm}>
@@ -140,6 +159,15 @@ const baseStyles = StyleSheet.create({
   },
   cardRow: {
     flexDirection: 'row',
+  },
+  // `rounded` variant (Settings only, see the prop doc above): each row is its own rounded,
+  // sunken tile instead of a flush divider-separated slice of one flat block.
+  cardRounded: {
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+  },
+  cardRoundedGap: {
+    marginTop: Spacing.xs,
   },
   accent: {
     width: 4,
