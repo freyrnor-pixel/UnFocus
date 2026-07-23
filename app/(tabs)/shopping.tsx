@@ -33,7 +33,7 @@
  *             components/ScreenScaffold, components/SharedRequestsSection,
  *             components/ShoppingFilterBar, components/ShoppingRow, components/Surface,
  *             components/UpdateSheet, components/WeekListCard,
- *             components/PressableScale, components/TabBoxHighlight, components/SectionDivider,
+ *             components/PressableScale, components/TabSlider, components/SectionDivider,
  *             constants/theme,
  *             lib/date (todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle,
  *             dateRangeForCycleWeek, formatDateRange), lib/haptics (success,
@@ -154,16 +154,15 @@
  *     (nobody's categorised anything) case renders flat, unchanged. `handleAddItem` and the
  *     Weekly `onAddInlineItem` callback both now thread an optional `category` through to
  *     `add()`.
- *   - **Tab bar (2026-07-20, shared component)**: the 4-tab switcher's active indicator is
- *     `components/TabBoxHighlight.tsx` — always renders a bordered box behind the label
- *     (white `theme.surface` fill + `theme.border` edge at rest, crossfading to a tinted
- *     `accent` fill + border when active) instead of the old "box only appears when active"
- *     look. Same shared component as app/(tabs)/plans.tsx and app/settings.tsx's tab bars.
- *     Every tab's `accent` in `TAB_META` is the neutral brand `theme.accent` (blue), so the
- *     active-box hue matches Plans, Health's SlideSelector, and the bottom nav — one
- *     consistent "selected" colour app-wide (visual-audit 2026-07-20: Weekly's old green
- *     `theme.good` + Food's meal-domain accent read as a competing selection colour against
- *     the blue nav on the same screen).
+ *   - **Tab bar (2026-07-23, shared component)**: the Weekly/Monthly switcher is
+ *     `components/TabSlider.tsx` — a single accent pill SLIDES between the two content-sized
+ *     segments (same motion as the Day/Week/Month `SlideSelector`), replacing the old
+ *     per-tab `TabBoxHighlight` boxes. Same shared component as app/(tabs)/plans.tsx and
+ *     app/settings.tsx's tab bars. Every tab's `accent` in `TAB_META` is the neutral brand
+ *     `theme.accent` (blue), so the pill's hue matches Plans, Health's SlideSelector, and the
+ *     bottom nav — one consistent "selected" colour app-wide (visual-audit 2026-07-20: Weekly's
+ *     old green `theme.good` + Food's meal-domain accent read as a competing selection colour
+ *     against the blue nav on the same screen).
  *   - **Sticky-bar label fix (visual-audit, 2026-07-11)**: the summary-row ternary fell
  *     through to a `tab === 'food' ? foodTabLabel : catalogueTabLabel` catch-all for any
  *     tab that wasn't `'monthly'` or `'weekly'`-with-a-`focusedList` — so a fresh/empty
@@ -341,7 +340,7 @@ import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
-import TabBoxHighlight from '@/components/TabBoxHighlight';
+import TabSlider from '@/components/TabSlider';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
 import SectionDivider from '@/components/SectionDivider';
 import { success, heavy, warning } from '@/lib/haptics';
@@ -1297,6 +1296,37 @@ export default function ShoppingScreen() {
     { value: 'monthly', label: t.monthlyTabLabel, accent: theme.accent, count: 0 },
   ];
 
+  // Decision 044b's cross-tab cue (a tick popping onto Weekly when an add from
+  // Monthly/Food lands there while the user is looking elsewhere) and the list-count
+  // badge are baked into each option's `accessory` node here, since TabSlider itself
+  // doesn't know about either — it just renders whatever node it's given after the label.
+  const tabSliderOptions = TAB_META.map(({ value, label, accent, count }) => {
+    const isActive = tab === value;
+    return {
+      value,
+      label,
+      color: accent,
+      accessory: (
+        <>
+          {count > 0 && (
+            <View style={[styles.tabBadge, { backgroundColor: isActive ? accent : theme.surfaceMuted }]}>
+              <Text style={[styles.tabBadgeText, { color: isActive ? theme.accentInk : theme.textMuted }]}>{count}</Text>
+            </View>
+          )}
+          {value === 'weekly' && weeklyAddCue && (
+            <Animated.View
+              entering={reducedMotion ? undefined : ZoomIn.duration(200)}
+              exiting={reducedMotion ? undefined : ZoomOut.duration(150)}
+              style={[styles.tabCue, { backgroundColor: theme.good }]}
+            >
+              <Ionicons name="checkmark" size={10} color={theme.textInverse} />
+            </Animated.View>
+          )}
+        </>
+      ),
+    };
+  });
+
   // Sticky strip is now just the tab row (debug-note 2026-07-21: the date + amount summary
   // row under the tabs was removed), so it always reserves the tab-only height.
   const stickyHeight = STICKY_HEIGHT_TABS;
@@ -1305,42 +1335,7 @@ export default function ShoppingScreen() {
     // softly through the frost AROUND the opaque tab chips, and content scrolling behind the
     // sticky strip blurs instead of showing through raw (2026-07-20). borderRadius:0 = edge-to-edge.
     <Surface surfaceContext="overlay" style={[styles.stickyBar, styles.stickyGlass]}>
-      <View style={styles.tabsRow}>
-        {TAB_META.map(({ value, label, accent, count }) => {
-          const isActive = tab === value;
-          return (
-            <PressableScale
-              key={value}
-              style={styles.tab}
-              onPress={() => setTab(value)}
-              accessibilityRole="button"
-              accessibilityLabel={label}
-              scaleTo={0.97}
-            >
-              <TabBoxHighlight active={isActive} accent={accent} />
-              <Text style={[styles.tabText, { color: isActive ? accent : theme.textMuted }]} numberOfLines={1}>
-                {label}
-              </Text>
-              {count > 0 && (
-                <View style={[styles.tabBadge, { backgroundColor: isActive ? accent : theme.surfaceMuted }]}>
-                  <Text style={[styles.tabBadgeText, { color: isActive ? theme.accentInk : theme.textMuted }]}>{count}</Text>
-                </View>
-              )}
-              {/* Decision 044b — cross-tab cue: a small tick pops onto the Weekly tab when an
-                  add from Monthly/Food just landed there while the user is looking elsewhere. */}
-              {value === 'weekly' && weeklyAddCue && (
-                <Animated.View
-                  entering={reducedMotion ? undefined : ZoomIn.duration(200)}
-                  exiting={reducedMotion ? undefined : ZoomOut.duration(150)}
-                  style={[styles.tabCue, { backgroundColor: theme.good }]}
-                >
-                  <Ionicons name="checkmark" size={10} color={theme.textInverse} />
-                </Animated.View>
-              )}
-            </PressableScale>
-          );
-        })}
-      </View>
+      <TabSlider sizing="content" value={tab} onChange={setTab} options={tabSliderOptions} />
 
       {/* The focused-list name + live-progress summary row under the tabs was removed
           (debug-note 2026-07-21) — the per-list card already carries its own name and
@@ -2122,33 +2117,6 @@ const styles = StyleSheet.create({
   stickyBar: { flex: 1, paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, gap: 2 },
   // Edge-to-edge frosted strip (Surface overlay) — square corners, no floating-card rounding.
   stickyGlass: { borderRadius: 0 },
-  tabsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  // flexGrow without a pinned flexBasis (2026-07-20: was `flex: 1`, i.e. flexBasis:0 — an equal
-  // 4-way split regardless of label length, which clipped the longer Norwegian "Månedsliste" to
-  // "Månedsli…"). flexBasis defaults to each box's own content width (label + padding), so a
-  // longer label gets a wider box; flexGrow still divides any leftover row width across all four.
-  tab: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radius.sm,
-  },
-  // Bumped from Type.label.size (14) — read as too small once the tab got a visible
-  // rounded frame around it (2026-07-19 visual-audit). includeFontPadding/textAlignVertical
-  // fix Android's Nunito vertical-centering offset inside the line box (same fix as
-  // ScreenHeader.tsx's title — see HEADER_CLIP_DEBUG.md).
-  tabText: {
-    fontFamily: Type.label.fontFamily,
-    fontSize: FontSize.md,
-    lineHeight: Math.round(FontSize.md * Type.label.line),
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-  },
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold },
   tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
