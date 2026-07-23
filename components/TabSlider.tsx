@@ -168,7 +168,7 @@ export default function TabSlider<T extends string | number>({
 
 const styles = StyleSheet.create({
   wrap: {
-    borderRadius: Radius.full,
+    borderRadius: Radius.sm,
     borderWidth: 1,
   },
   row: {
@@ -180,12 +180,12 @@ const styles = StyleSheet.create({
   pill: {
     position: 'absolute',
     left: 0,
-    borderRadius: Radius.full,
+    borderRadius: Radius.sm,
   },
   segment: {
     flexDirection: 'row',
     minHeight: 38,
-    borderRadius: Radius.full,
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
