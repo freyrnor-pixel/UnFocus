@@ -1,20 +1,27 @@
 /**
- * TaskCard.tsx — one task as an expandable row for the Tasks/Oppgaver screen.
+ * TaskCard.tsx — one task as an expandable row for the Tasks/Oppgaver screen; the app's
+ * ONE task editor (UX audit B1, 2026-07-23 — app/task-form.tsx is retired).
  *
  * Two variants:
  *   - variant="full" (All-tasks): tap the row to open an inline editor. While the
  *     editor is open the card is in *edit mode* — small Discard / Save buttons sit at the
  *     BOTTOM of the expanded editor (next to Delete) and edits are buffered in a local
- *     draft (nothing persists until Save). The editor holds: an editable title,
- *     a steps checklist, a "Repeat" switch + per-mode recurrence options, a "Set time"
- *     toggle + calendar, and an
- *     optional Start/Finish time-box pair. For an existing task, Steps and the
- *     Shared-out / Delete affordances persist immediately (they bypass the draft). A
- *     card with `isNew` starts expanded, has no title autoFocus (keeps the keyboard down
- *     on creation), and its steps live on `draft.steps` instead — there's no store row
- *     yet to write them to — until Save calls `onCommitNew(draft)`, whose caller
- *     (plans.tsx) creates the task then replays the buffered steps via `addStep`.
- *     Discard on a new card calls `onDiscardNew()` and drops any buffered steps.
+ *     draft (nothing persists until Save). The editor holds: an editable title (+ optional
+ *     voice-dictation mic), a "For" assignee row (People/family mode), a steps checklist,
+ *     a "Repeat" switch + per-mode recurrence options, a "Set time" toggle + calendar, an
+ *     optional Start/Finish time-box pair, a collapsed-by-default **Advanced options**
+ *     reveal (Energy cost, a freeform Hint, an attached Contact, a tagged Location, a Goal
+ *     link, and a one-to-one "Then" follower — all ported from the retired task-form,
+ *     2026-07-23), and a Shared-out toggle. For an existing task, Steps, Then, Shared-out,
+ *     and Delete persist immediately (they bypass the draft). A card with `isNew` starts
+ *     expanded, has no title autoFocus (keeps the keyboard down on creation), and its
+ *     steps live on `draft.steps` instead — there's no store row yet to write them to —
+ *     until Save calls `onCommitNew(draft)`, whose caller (plans.tsx) creates the task then
+ *     replays the buffered steps via `addStep`. Discard on a new card calls `onDiscardNew()`
+ *     and drops any buffered steps. `autoExpand` (distinct from `isNew`) starts an
+ *     already-committed task's editor open without changing save semantics — used when
+ *     arriving from elsewhere with a specific task to edit (e.g. app/notes.tsx's "Add to
+ *     plans", which creates the task then lands here instead of pushing the old task-form).
  *   - variant="steps" (Today / This week): the row expands to show ONLY the steps
  *     checklist — no settings. A task with no steps has a card but no expand arrow.
  *
@@ -32,25 +39,40 @@
  *
  * Connections:
  *   Imports → components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
- *             components/IconButton, components/FormControls (Switch), components/AppModal,
+ *             components/IconButton, components/Stepper, components/Button, components/GoalPicker,
+ *             components/FormControls (Switch), components/AppModal,
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron (animated
- *             steps/editor reveal + rotating chevron), components/GlowPulse (breathing editing halo),
- *             constants/theme (incl. getElevation), lib/date, lib/haptics, lib/i18n, lib/id,
- *             lib/useAppTheme, components/GoalGlowDot, store/useTaskStore, store/useGoalStore,
+ *             steps/editor/advanced reveal + rotating chevrons), components/GlowPulse (breathing editing halo),
+ *             constants/theme (incl. getElevation, rgba), lib/date, lib/haptics, lib/i18n, lib/id,
+ *             lib/useAppTheme, lib/useVoiceCapture, lib/location (getCurrentTaskLocation),
+ *             expo-contacts, components/GoalGlowDot, store/useTaskStore, store/useGoalStore,
  *             store/useSettingsStore (People/family mode: peopleModeEnabled + childProfiles gate
- *             the "For" assignee chip row)
- *   Used by → app/(tabs)/plans.tsx
- *   Data    → reads the passed `task` + its linked goal (useGoalStore, for the glow dot); writes
- *             via useTaskStore (update/steps/remove/setSharedOut) for committed tasks; a new
- *             (draft) card writes nothing until onCommitNew fires.
+ *             the "For" assignee chip row; voiceNotesEnabled/contactsEnabled/locationEnabled/
+ *             energySystemEnabled gate the matching Advanced-options rows)
+ *   Used by → app/(tabs)/plans.tsx; app/notes.tsx (indirectly — creates the task, then this
+ *             screen's `autoExpand` opens its editor, replacing the old push to /task-form)
+ *   Data    → reads the passed `task` + its linked goal (useGoalStore, for the glow dot) +
+ *             the full task list (useTaskStore, for the Then-follower picker's candidates/
+ *             cycle-guard); writes via useTaskStore (update/steps/remove/setSharedOut/
+ *             setFollower) for committed tasks; a new (draft) card writes nothing until
+ *             onCommitNew fires.
  *
  * Edit notes:
  *   - There is no lock and no per-field immediate save for settings: the Discard/Save bar
- *     is the commit point. Only Shared-out and Delete bypass the draft outright; Steps
- *     bypass the draft for an existing task but are draft-buffered for `isNew`.
+ *     is the commit point. Only Shared-out, Then, and Delete bypass the draft outright;
+ *     Steps bypass the draft for an existing task but are draft-buffered for `isNew`.
  *   - Day↔Week promote/demote: selecting all 7 weekdays promotes Week→Day; unselecting any
  *     weekday in Day demotes to Week with the remaining days (all in the draft).
  *   - Save is disabled while the title is blank, so blank tasks can't be created.
+ *   - **`durationMinutes` fix (2026-07-23, discovered while consolidating the editor)**:
+ *     `lib/taskNotifications.ts`'s end-of-timebox reminder, `lib/taskCalendar.ts`'s mirrored
+ *     event, and `PlanTaskCard`'s day-view rail all read `task.durationMinutes` for a
+ *     time-box task's length — NOT `finishTime` (this card's own display-only "10:00–10:30"
+ *     label). `handleSave` now derives `durationMinutes` from `time`/`finishTime` so those
+ *     three consumers get the right value regardless of which editor set it — previously
+ *     only the retired task-form ever wrote `durationMinutes` (via a separate duration-chip
+ *     picker), so a time-box task saved through THIS card's Start/Finish fields silently
+ *     kept a stale or default (30min) duration everywhere except its own row label.
  *   - **Collapse = keep-as-unfinished (2026-07-12)**: tapping the chevron to close an open
  *     editor SAVES whatever's there (the task is simply not-done until ticked) rather than
  *     discarding — the up-arrow is never a destructive X. Only a brand-new card with no
@@ -62,10 +84,12 @@
  *     The two cues (border + breath) replaced the earlier floating-elevation bump + static glow
  *     stack — same focus signal, less visual load.
  */
-import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Fonts, FontSize, Radius, Spacing, Type, contrastOn, getElevation } from '@/constants/theme';
+import { Contact, ContactField } from 'expo-contacts';
+import * as Contacts from 'expo-contacts';
+import { Fonts, FontSize, Radius, Spacing, Type, contrastOn, getElevation, rgba } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0 } from '@/lib/date';
@@ -74,11 +98,16 @@ import { generateId } from '@/lib/id';
 import { Task, TaskStep, useTaskStore } from '@/store/useTaskStore';
 import { useGoalStore } from '@/store/useGoalStore';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
+import { GoalPicker } from '@/components/GoalPicker';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useVoiceCapture } from '@/lib/useVoiceCapture';
+import { getCurrentTaskLocation } from '@/lib/location';
 import SlideSelector from '@/components/SlideSelector';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import DatePickerCalendar from '@/components/DatePickerCalendar';
 import IconButton from '@/components/IconButton';
+import Stepper from '@/components/Stepper';
+import Button from '@/components/Button';
 import { Switch } from '@/components/FormControls';
 import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
@@ -87,6 +116,14 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
+/** HH:MM -> minutes since midnight, or null if unparseable. Same convention as
+ *  components/PlanTaskCard.tsx's own (unexported) helper of the same name. */
+function toMinutes(time: string): number | null {
+  const [h, m] = time.split(':').map((n) => parseInt(n, 10));
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  return h * 60 + m;
+}
 
 type Props = {
   task: Task;
@@ -104,6 +141,10 @@ type Props = {
   sharedDirection?: 'in' | 'out';
   /** Draft card for a not-yet-created task: starts expanded; Save → onCommitNew. */
   isNew?: boolean;
+  /** Start this existing (already-committed) task's editor open — e.g. arriving from
+   *  Notes' "Add to plans" (app/notes.tsx), which creates the task then lands here.
+   *  Unlike `isNew`, this doesn't change save semantics, just the initial expand state. */
+  autoExpand?: boolean;
   /** New-card Save: hand the assembled draft back to the parent to persist. */
   onCommitNew?: (draft: Task) => void;
   /** New-card Discard: drop the draft in the parent. */
@@ -120,6 +161,7 @@ function TaskCard({
   railColor,
   sharedDirection,
   isNew,
+  autoExpand,
   onCommitNew,
   onDiscardNew,
   onToggleDone,
@@ -132,19 +174,33 @@ function TaskCard({
   const toggleStep = useTaskStore((s) => s.toggleStep);
   const removeStep = useTaskStore((s) => s.removeStep);
   const setSharedOut = useTaskStore((s) => s.setSharedOut);
+  const setFollower = useTaskStore((s) => s.setFollower);
+  const followerCycleChain = useTaskStore((s) => s.followerCycleChain);
+  const allTasks = useTaskStore((s) => s.tasks);
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
   const childProfiles = useSettingsStore((s) => s.childProfiles);
+  const voiceNotesEnabled = useSettingsStore((s) => s.voiceNotesEnabled);
+  const contactsEnabled = useSettingsStore((s) => s.contactsEnabled);
+  const locationEnabled = useSettingsStore((s) => s.locationEnabled);
+  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   const showPeople = peopleModeEnabled && childProfiles.length > 0;
   // Goals — the linked goal (if any), for the living-glow dot next to the title.
   const goal = useGoalStore((s) => (task.goalId ? s.goals.find((g) => g.id === task.goalId) ?? null : null));
 
   const stepsOnly = variant === 'steps';
 
-  const [expanded, setExpanded] = useState(!!isNew);
+  const [expanded, setExpanded] = useState(!!isNew || !!autoExpand);
   const [showCalendar, setShowCalendar] = useState(false);
   const [newStep, setNewStep] = useState('');
   // Buffered edits (full variant only). Initialised from the task on first expand.
   const [draft, setDraft] = useState<Task>(task);
+  // Advanced options (Energy/Hint/Contact/Location/Goal/Then — ported from the retired
+  // app/task-form.tsx, UX audit B1/F3, 2026-07-23): collapsed by default, one reveal
+  // toggle, same progressive-disclosure pattern as the rest of this editor.
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [thenPickerOpen, setThenPickerOpen] = useState(false);
+  const [locationBusy, setLocationBusy] = useState(false);
+  const { listening: titleListening, toggle: toggleTitleVoice } = useVoiceCapture((text) => patch({ title: text }));
 
   // A new (unsaved) card has no store row yet, so its steps live on the local draft
   // (buffered into task_steps by the parent's onCommitNew, alongside the task itself).
@@ -190,7 +246,17 @@ function TaskCard({
     const trimmed = draft.title.trim();
     if (!trimmed) return;
     const taskType = draft.time && draft.finishTime ? 'time-box' : 'start-at';
-    const committed: Task = { ...draft, title: trimmed, taskType };
+    // durationMinutes is the field lib/taskNotifications.ts, lib/taskCalendar.ts, and
+    // PlanTaskCard's day-view rail actually read for a time-box task's end — finishTime
+    // is this card's own display convenience (the collapsed row's "10:00–10:30" label).
+    // Without this, a time-box task saved here would silently keep whatever stale
+    // durationMinutes it had (or default to 30) regardless of the finish time just picked.
+    const startMin = draft.time ? toMinutes(draft.time) : null;
+    const endMin = draft.finishTime ? toMinutes(draft.finishTime) : null;
+    const durationMinutes = taskType === 'time-box' && startMin != null && endMin != null
+      ? Math.max(1, endMin - startMin)
+      : draft.durationMinutes;
+    const committed: Task = { ...draft, title: trimmed, taskType, durationMinutes };
     if (isNew) {
       onCommitNew?.(committed);
       return;
@@ -202,6 +268,7 @@ function TaskCard({
       time: draft.time,
       finishTime: draft.finishTime,
       taskType,
+      durationMinutes,
       recurring: draft.recurring,
       recurringDays: draft.recurringDays,
       weekInterval: draft.weekInterval,
@@ -210,9 +277,18 @@ function TaskCard({
       monthOrdinal: draft.monthOrdinal,
       monthWeekday: draft.monthWeekday,
       assignee: draft.assignee,
+      energyEnabled: draft.energyEnabled,
+      energyValue: draft.energyValue,
+      hint: draft.hint,
+      goalId: draft.goalId,
+      contactName: draft.contactName,
+      contactPhone: draft.contactPhone,
+      locationLat: draft.locationLat,
+      locationLng: draft.locationLng,
     });
     setExpanded(false);
     setShowCalendar(false);
+    setAdvancedOpen(false);
   }
 
   function handleDiscard() {
@@ -224,6 +300,79 @@ function TaskCard({
     setDraft(task);
     setExpanded(false);
     setShowCalendar(false);
+    setAdvancedOpen(false);
+  }
+
+  // Contact (reserve-only) — snapshot only, no live device-contact-id link (UnFocus is
+  // local-only; a device contact id isn't portable across devices/LAN live-sync). Ported
+  // from app/task-form.tsx (UX audit B1); buffered on the draft like every other field here.
+  async function handlePickContact() {
+    tap();
+    await Contacts.requestPermissionsAsync();
+    const picked = await Contact.presentPicker();
+    if (!picked) return;
+    const details = await picked.getDetails([
+      ContactField.FULL_NAME,
+      ContactField.GIVEN_NAME,
+      ContactField.FAMILY_NAME,
+      ContactField.PHONES,
+    ]);
+    const name = details.fullName || [details.givenName, details.familyName].filter(Boolean).join(' ');
+    if (!name) return;
+    patch({ contactName: name, contactPhone: details.phones?.[0]?.number ?? '' });
+  }
+
+  function handleRemoveContact() {
+    tap();
+    patch({ contactName: '', contactPhone: '' });
+  }
+
+  function handleCallContact() {
+    if (draft.contactPhone) Linking.openURL(`tel:${draft.contactPhone}`);
+  }
+
+  // Location (reserve-only) — foreground one-shot fix only; no reverse geocoding.
+  async function handleAddLocation() {
+    tap();
+    setLocationBusy(true);
+    const result = await getCurrentTaskLocation();
+    setLocationBusy(false);
+    if (result.status === 'denied') {
+      showAppModal(t.permissionTitle, t.taskLocationPermissionBody);
+      return;
+    }
+    if (result.status === 'error') {
+      showAppModal(t.permissionTitle, t.taskLocationErrorBody);
+      return;
+    }
+    patch({ locationLat: result.location.lat, locationLng: result.location.lng });
+  }
+
+  function handleRemoveLocation() {
+    tap();
+    patch({ locationLat: undefined, locationLng: undefined });
+  }
+
+  // "Then" — Decision 020, one-to-one follower link. Bypasses the draft and persists
+  // immediately (same immediate-persist convention as Steps/Shared-out above), since it
+  // reads/writes a DIFFERENT task row (the follower's followsTaskId), not this one's draft.
+  const currentFollower = !isNew ? allTasks.find((tk) => tk.followsTaskId === task.id) : undefined;
+  const followerCandidates = useMemo(() => {
+    if (isNew) return [];
+    const excluded = new Set(followerCycleChain(task.id));
+    return allTasks.filter((tk) => !excluded.has(tk.id));
+  }, [isNew, task.id, allTasks, followerCycleChain]);
+
+  function pickFollower(followerId: string) {
+    tap();
+    setFollower(task.id, followerId);
+    setThenPickerOpen(false);
+  }
+
+  function removeFollower() {
+    if (!currentFollower) return;
+    tap();
+    setFollower(task.id, null);
   }
 
   function toggleRepeat(on: boolean) {
@@ -411,15 +560,40 @@ function TaskCard({
         {!stepsOnly && (
           <Collapsible open={editing}>
           <View style={styles.editor}>
-            {/* Editable title */}
-            <TextInput
-              style={[styles.titleInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
-              value={draft.title}
-              onChangeText={(v) => patch({ title: v })}
-              placeholder={t.taskTitlePlaceholder}
-              placeholderTextColor={theme.textMuted}
-              returnKeyType="done"
-            />
+            {/* Editable title — mic button (reserve-only voice dictation, ported from
+                app/task-form.tsx per UX audit B1) sits beside it when enabled; same
+                bordered-chip style as components/HomeNotesCard.tsx's mic (UX audit D2). */}
+            <View style={styles.titleFieldRow}>
+              <TextInput
+                style={[styles.titleInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                value={draft.title}
+                onChangeText={(v) => patch({ title: v })}
+                placeholder={t.taskTitlePlaceholder}
+                placeholderTextColor={theme.textMuted}
+                returnKeyType="done"
+              />
+              {voiceNotesEnabled && (
+                <PressableScale
+                  onPress={toggleTitleVoice}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={titleListening ? t.taskVoiceTitleStop : t.taskVoiceTitleLabel}
+                  scaleTo={0.9}
+                >
+                  <View
+                    style={[
+                      styles.micButton,
+                      {
+                        backgroundColor: titleListening ? theme.badSoft : theme.surfaceMuted,
+                        borderColor: rgba(titleListening ? theme.bad : theme.accent, 0.4),
+                      },
+                    ]}
+                  >
+                    <Ionicons name={titleListening ? 'stop' : 'mic'} size={15} color={titleListening ? theme.bad : theme.accent} />
+                  </View>
+                </PressableScale>
+              )}
+            </View>
 
             {/* For — person/profile assignment (People/family mode). Mirrors habit-form. */}
             {showPeople && (
@@ -654,6 +828,160 @@ function TaskCard({
               </View>
             )}
 
+            {/* Advanced options — Energy/Hint/Contact/Location/Goal/Then, ported from the
+                retired app/task-form.tsx (UX audit B1: one canonical task editor) behind a
+                progressive-disclosure reveal (UX audit F3) so the common case (title/date/
+                time/repeat) stays the whole editor for most tasks. */}
+            <PressableScale
+              style={styles.advancedToggle}
+              onPress={() => { tap(); setAdvancedOpen((v) => !v); }}
+              accessibilityRole="button"
+              accessibilityLabel={t.taskAdvancedOptions}
+              accessibilityState={{ expanded: advancedOpen }}
+              scaleTo={0.98}
+            >
+              <Text style={[styles.toggleLabel, { color: theme.accent }]}>{t.taskAdvancedOptions}</Text>
+              <AnimatedChevron open={advancedOpen} size={16} color={theme.accent} />
+            </PressableScale>
+            <Collapsible open={advancedOpen}>
+              <View style={styles.advancedWrap}>
+                {/* Energy — optional per-task energy cost (only when the Energy system is on) */}
+                {energySystemEnabled && (
+                  <View style={styles.field}>
+                    <View style={styles.toggleRow}>
+                      <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.energyConsumeLabel}</Text>
+                      <Switch checked={draft.energyEnabled} onChange={(v) => patch({ energyEnabled: v })} />
+                    </View>
+                    {draft.energyEnabled && (
+                      <View style={styles.energyCostRow}>
+                        <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.energyCostLabel}</Text>
+                        <Stepper value={draft.energyValue} onChange={(v) => patch({ energyValue: v })} signed accessibilityLabel={t.energyCostLabel} />
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* Hint — Decision 019, freeform "next time" note, display-only */}
+                <View style={styles.field}>
+                  <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskHintLabel}</Text>
+                  <TextInput
+                    style={[styles.hintInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                    value={draft.hint}
+                    onChangeText={(v) => patch({ hint: v })}
+                    placeholder={t.taskHintPlaceholder}
+                    placeholderTextColor={theme.textMuted}
+                    multiline
+                  />
+                </View>
+
+                {/* Contact — reserve-only, attach a name+phone snapshot, tap-to-call */}
+                {contactsEnabled && (
+                  <View style={styles.field}>
+                    <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskContactLabel}</Text>
+                    {draft.contactName ? (
+                      <View style={[styles.thenRow, { backgroundColor: theme.surfaceMuted }]}>
+                        <PressableScale onPress={handleCallContact} disabled={!draft.contactPhone} style={{ flex: 1 }} scaleTo={0.98}>
+                          <Text style={[styles.thenRowText, { color: theme.text }]} numberOfLines={1}>
+                            {draft.contactName}
+                            {draft.contactPhone ? ` · ${draft.contactPhone}` : ''}
+                          </Text>
+                        </PressableScale>
+                        <IconButton icon="close-circle" label={t.taskContactRemove} onPress={handleRemoveContact} size={26} />
+                      </View>
+                    ) : (
+                      <>
+                        <Text style={[styles.wheneverHint, { color: theme.textMuted }]}>{t.taskContactNone}</Text>
+                        <Button label={t.taskContactPick} variant="secondary" size="sm" onPress={handlePickContact} style={styles.thenPickBtn} />
+                      </>
+                    )}
+                  </View>
+                )}
+
+                {/* Location — reserve-only, foreground "tag my current location", no reverse geocoding */}
+                {locationEnabled && (
+                  <View style={styles.field}>
+                    <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskLocationLabel}</Text>
+                    {draft.locationLat != null && draft.locationLng != null ? (
+                      <View style={[styles.thenRow, { backgroundColor: theme.surfaceMuted }]}>
+                        <View style={styles.locationRowContent}>
+                          <Ionicons name="location" size={16} color={theme.accent} />
+                          <Text style={[styles.thenRowText, { color: theme.text }]}>{t.taskLocationTagged}</Text>
+                        </View>
+                        <IconButton icon="close-circle" label={t.taskLocationRemove} onPress={handleRemoveLocation} size={26} />
+                      </View>
+                    ) : (
+                      <>
+                        <Text style={[styles.wheneverHint, { color: theme.textMuted }]}>{t.taskLocationNone}</Text>
+                        <Button
+                          label={t.taskLocationAdd}
+                          variant="secondary"
+                          size="sm"
+                          onPress={handleAddLocation}
+                          loading={locationBusy}
+                          style={styles.thenPickBtn}
+                        />
+                      </>
+                    )}
+                  </View>
+                )}
+
+                {/* Goal — connect this task to a Goal (create/select/delete inline) */}
+                <View style={styles.field}>
+                  <GoalPicker value={draft.goalId} onChange={(id) => patch({ goalId: id })} />
+                </View>
+
+                {/* Then — Decision 020, one-to-one follower link, immediate-persist (see
+                    pickFollower/removeFollower above) — gated on an existing task, same as Steps. */}
+                {!isNew && (
+                  <View style={styles.field}>
+                    <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.thenTaskLabel}</Text>
+                    {currentFollower ? (
+                      <View style={[styles.thenRow, { backgroundColor: theme.surfaceMuted }]}>
+                        <Text style={[styles.thenRowText, { color: theme.text }]} numberOfLines={1}>
+                          {currentFollower.title}
+                        </Text>
+                        <IconButton icon="close-circle" label={t.thenTaskRemove} onPress={removeFollower} size={26} />
+                      </View>
+                    ) : (
+                      <>
+                        <Text style={[styles.wheneverHint, { color: theme.textMuted }]}>{t.thenTaskNone}</Text>
+                        <Button
+                          label={t.thenTaskPick}
+                          variant="secondary"
+                          size="sm"
+                          onPress={() => setThenPickerOpen((v) => !v)}
+                          style={styles.thenPickBtn}
+                        />
+                      </>
+                    )}
+                    {thenPickerOpen && !currentFollower && (
+                      <View style={[styles.thenPickerList, { backgroundColor: theme.surfaceMuted }]}>
+                        {followerCandidates.length === 0 ? (
+                          <Text style={[styles.wheneverHint, { color: theme.textMuted }]}>{t.thenTaskEmptyList}</Text>
+                        ) : (
+                          followerCandidates.map((candidate, i) => (
+                            <PressableScale
+                              key={candidate.id}
+                              style={[
+                                styles.thenPickerRow,
+                                i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
+                              ]}
+                              onPress={() => pickFollower(candidate.id)}
+                              scaleTo={0.97}
+                            >
+                              <Text style={[styles.thenPickerRowText, { color: theme.text }]} numberOfLines={1}>
+                                {candidate.title}
+                              </Text>
+                            </PressableScale>
+                          ))
+                        )}
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            </Collapsible>
+
             {/* Shared out toggle (persists immediately — emits an outgoing shared row) */}
             {showShareOut && !isNew && (
               <View style={styles.toggleRow}>
@@ -819,6 +1147,34 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bold,
     textAlign: 'center',
   },
+  titleFieldRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  micButton: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  advancedToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.xs },
+  advancedWrap: { gap: Spacing.md },
+  field: { gap: Spacing.xs },
+  hintInput: {
+    minHeight: 40,
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    fontSize: FontSize.sm,
+  },
+  energyCostRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.xs },
+  wheneverHint: { fontSize: FontSize.sm },
+  locationRowContent: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  thenRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  thenRowText: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  thenPickBtn: { alignSelf: 'flex-start' },
+  thenPickerList: { borderRadius: Radius.md, marginTop: Spacing.xs, overflow: 'hidden' },
+  thenPickerRow: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
+  thenPickerRowText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
 });
 
 // React.memo: re-render only on own prop changes, not every parent-list render (perf sweep 2026-07-15).

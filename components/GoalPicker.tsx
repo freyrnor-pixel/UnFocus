@@ -5,13 +5,14 @@
  * or a muted "not linked" state; opens an inline list of existing goals to pick from, each
  * with a delete affordance; and offers an inline "new goal" input to create one on the spot.
  * There is no dedicated Goals screen — create/select/delete all happen here. Modeled on the
- * "Then" follower picker in app/task-form.tsx.
+ * "Then" follower picker in components/TaskCard.tsx (was app/task-form.tsx, retired 2026-07-23).
  *
  * Connections:
  *   Imports → components/Button, components/IconButton, components/PressableScale,
  *             components/GoalGlowDot, components/FormControls (Input), constants/theme,
  *             lib/useAppTheme, lib/i18n, lib/haptics, store/useGoalStore, components/AppModal
- *   Used by → app/task-form.tsx, app/habit-form.tsx
+ *   Used by → components/TaskCard.tsx (was app/task-form.tsx, retired 2026-07-23, UX audit
+ *             B1 — see that file's header), app/habit-form.tsx
  *   Data    → reads/writes useGoalStore (goals table) via add/rename/remove; the selected
  *             goalId is owned by the parent form and flows in via `value`/`onChange`
  *

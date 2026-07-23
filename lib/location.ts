@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → expo-location
- *   Used by → app/task-form.tsx
+ *   Used by → components/TaskCard.tsx (was app/task-form.tsx, retired 2026-07-23)
  *   Data    → none (returns lat/lng to the caller; no SQLite/store access)
  *
  * Edit notes:

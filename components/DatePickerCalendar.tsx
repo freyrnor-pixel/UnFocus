@@ -7,7 +7,7 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/date, lib/useAppTheme, components/PressableScale
- *   Used by → app/task-form.tsx, app/health-form.tsx
+ *   Used by → components/TaskCard.tsx (was app/task-form.tsx, retired 2026-07-23), app/health-form.tsx
  *   Data    → none (presentational); value/onChange/labels all come from props; scaled fontSize via useScaledStyles()
  *
  * Edit notes:

@@ -19,7 +19,8 @@
  *             store/useSharedStore (setSharedOut emits an outgoing shared_tasks row),
  *             store/useGoalStore (registerProgress on toggle-to-done when a task has a goalId)
  *   Used by → components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
- *             components/TaskCard.tsx, app/task-form.tsx, app/(tabs)/plans.tsx, app/_layout.tsx
+ *             components/TaskCard.tsx (the one task editor — app/task-form.tsx retired
+ *             2026-07-23, UX audit B1), app/(tabs)/plans.tsx, app/_layout.tsx
  *             (syncMonthlyTaskNotifications, on boot + every foreground)
  *
  *   Recurrence (Tasks/Oppgaver redesign): `recurring` is 'none'|'daily'|'weekly'|'monthly';
@@ -86,8 +87,8 @@
  *     action — never write `followsTaskId` through the generic `update()` patch,
  *     since a follower change can touch a SECOND row (clearing whoever previously
  *     followed the same predecessor, to keep the 1:1 invariant). `followerCycleChain(id)`
- *     walks the predecessor chain from `id` backward (self included) — the task-form's
- *     "then → pick a task" picker must exclude every id in that chain from its
+ *     walks the predecessor chain from `id` backward (self included) — TaskCard's "Then"
+ *     "pick a task" picker must exclude every id in that chain from its
  *     candidate list, or picking one would create a cycle (A→B→…→A). `remove()`
  *     clears any row's `followsTaskId` that pointed at the deleted task in the same
  *     transaction as the delete (SQLite can't ALTER TABLE to add a real FK here — see
