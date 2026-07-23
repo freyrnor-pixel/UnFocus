@@ -10,7 +10,7 @@
  * Connections:
  *   Imports → react-native-reanimated (FadeInDown/FadeOutDown/LinearTransition), constants/motion,
  *             lib/useAppTheme (useAccessibility)
- *   Used by → app/notes.tsx, app/(tabs)/health.tsx, app/inventory-edit.tsx, app/health-log.tsx
+ *   Used by → app/notes.tsx, app/(tabs)/health.tsx, app/health-log.tsx
  *   Data    → none (driven by props)
  *
  * Edit notes:

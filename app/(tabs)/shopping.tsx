@@ -237,9 +237,13 @@
  *   - The 'shopping_opened' automation trigger fires once per mount; rules are already loaded
  *     by _layout's startup bootstrap. "Shopping done!"'s Scan/Upload choices route to /scan
  *     (autoCapture camera/library); Skip commits the trip in place.
- *   - **Still dropped, flagged not silently absorbed**: the header's Share pill (site-tier
- *     ScreenHeader has no custom-right slot — only sub-tier does); SiteSwipeView's
- *     swipe-between-screens wrapper (Phase 3e, not ported, not required by A2-1/A2-4).
+ *   - **Share pill restored (2026-07-23)**: re-wired via `ScreenScaffold`'s new optional
+ *     `onSharePress` (site-tier header controls), pushing `/share-modal?kind=s` — see
+ *     SCREEN_FUNCTIONS_AUDIT.md finding C1. Plans doesn't need the same treatment: its
+ *     per-task "Shared out" switch (`components/TaskCard.tsx`) already writes directly to
+ *     `useSharedStore` without a QR step.
+ *   - **Still dropped**: SiteSwipeView's swipe-between-screens wrapper (Phase 3e, not
+ *     ported, not required by A2-1/A2-4).
  *   - `ConfirmationBanner` renders as a sibling of `<ScreenScaffold>`, not inside its
  *     children — ScreenScaffold's children render inside its internal ScrollView, and
  *     ConfirmationBanner is a plain absolutely-positioned overlay (not a `<Modal>` like
@@ -1384,7 +1388,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'shopping').base} scrollable={tab !== 'catalogue'} stickyGapColor={theme.surface} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'shopping').base} scrollable={tab !== 'catalogue'} stickyGapColor={theme.surface} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={() => router.push('/share-modal?kind=s')} onScroll={handleScreenScroll}>
       {tab === 'catalogue' ? (
         <CatalogueTab onNotify={setConfirm} header={shoppingIntro} />
       ) : (

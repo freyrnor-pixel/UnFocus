@@ -173,6 +173,8 @@ type Props = {
   /** Info/hint toggle — forwarded to the header ⓘ button. */
   infoActive?: boolean;
   onInfoToggle?: () => void;
+  /** Site-tier only — forwarded to the header's optional share icon. */
+  onSharePress?: () => void;
   /**
    * Whether this screen renders its own BottomNav block. Only applies to
    * `tier === 'site'`. Default true. The 5 tab sites (app/(tabs)/*) pass false,
@@ -235,6 +237,7 @@ export default function ScreenScaffold({
   stickyBelowHeaderHeight = 0,
   infoActive,
   onInfoToggle,
+  onSharePress,
   bottomNav = true,
   ownBackground = true,
   plainBackground = false,
@@ -423,6 +426,7 @@ export default function ScreenScaffold({
           headerRight={headerRight}
           infoActive={infoActive}
           onInfoToggle={onInfoToggle}
+          onSharePress={onSharePress}
         />
       </View>
 

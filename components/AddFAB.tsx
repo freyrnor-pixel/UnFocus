@@ -14,7 +14,7 @@
  *   Used by → app/health-log.tsx (symptom log FAB), app/(tabs)/health.tsx (embedded Habits
  *             section's inline "sm" add — the former app/habits.tsx's own AddFAB),
  *             app/automations.tsx,
- *             app/inventory-edit.tsx, app/(tabs)/shopping.tsx (Monthly list's lower-right
+ *             app/(tabs)/shopping.tsx (Monthly list's lower-right
  *             "add item" bubble, size="sm" — visual-audit 2026-07-11); also
  *             components/VoiceNoteFAB.tsx (FAB_LG_SIZE/FAB_DEFAULT_BOTTOM
  *             constants only, not the component itself — app/notes.tsx dropped AddFAB in favour of

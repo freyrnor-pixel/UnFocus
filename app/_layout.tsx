@@ -80,7 +80,7 @@
  *   - The 5 main sites (Home/Shopping/Plans/Health/Scan) are no longer separate
  *     Stack.Screen entries — they're one <Stack.Screen name="(tabs)" /> covering
  *     app/(tabs)/_layout.tsx's material-top-tabs pager (see that file + lib/siteNav.ts).
- *     Everything else (onboarding, inventory-edit, budget, shared, health-detail,
+ *     Everything else (onboarding, budget, shared, health-detail,
  *     health-form, health-log, automations, notes, the 4 modals) still pushes on top
  *     of it exactly as before —
  *     the pager only replaced how the 5 main sites relate to each other.
@@ -410,7 +410,6 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="onboarding" />
-        <Stack.Screen name="inventory-edit" />
         <Stack.Screen name="budget" />
         <Stack.Screen name="shared" />
         <Stack.Screen name="pair-device" />

@@ -15,14 +15,14 @@
  * inventory (staples) add stop opening a centered modal and instead use the same on-page
  * collapse→expand "+ makes a new row" affordance as everything else (2026-07-19). Extended
  * (2026-07-20 shopping-cleanup pass) to also replace WeekListCard's previously hand-rolled,
- * separately-styled inline add row — `showTemporaryToggle`/`categories` are optional so the two
- * older callers (Monthly tab, inventory-edit) are unaffected by default.
+ * separately-styled inline add row — `showTemporaryToggle`/`categories` are optional so the
+ * older caller (Monthly tab) is unaffected by default.
  *
  * Connections:
  *   Imports → components/FormControls (Input, Switch), components/PressableScale,
  *             constants/theme, lib/i18n, lib/money, lib/useAppTheme, lib/haptics,
  *             store/useCatalogStore, @expo/vector-icons
- *   Used by → app/(tabs)/shopping.tsx (Monthly tab catalog add), app/inventory-edit.tsx,
+ *   Used by → app/(tabs)/shopping.tsx (Monthly tab catalog add),
  *             components/WeekListCard.tsx (Weekly tab's "In list" add row)
  *   Data    → none directly — creation flows out via onAdd (payload now optionally carries
  *             `category`); the parent calls useShoppingStore.add()/update(). Reads
@@ -39,7 +39,7 @@
  *   - `categories` (from lib/shoppingCategories.ts's categoryPresets()) drives the chip row;
  *     omitting it renders nothing — no layout gap, no forced choice.
  *   - The "Ønsket antall" stepper's label defaults to t.onsketAntallLabel ("target quantity at
- *     reset") — accurate for the two catalog callers (Monthly tab, inventory-edit), since
+ *     reset") — accurate for the catalog caller (Monthly tab), since
  *     catalog rows restock to that target at monthly reset. WeekListCard passes
  *     `quantityLabel={t.onsketAntallWeeklyLabel}` to override it, since Weekly items are never
  *     reset — the field there is just "how many do you want."
@@ -70,10 +70,10 @@ type Props = {
   /** Hide the "Midlertidig" toggle — Weekly items aren't temporary catalog rows. Default true. */
   showTemporaryToggle?: boolean;
   /** Optional preset category chips (value+label). Omit to render no category row at all —
-   *  the default, unchanged behavior for callers that don't pass this (e.g. inventory-edit). */
+   *  the default, unchanged behavior for callers that don't pass this (e.g. Monthly tab). */
   categories?: { value: string; label: string }[];
   /** Override the quantity stepper's label. Defaults to t.onsketAntallLabel ("target quantity
-   *  at reset"), which is only true for catalog rows (Monthly tab, inventory-edit) — pass
+   *  at reset"), which is only true for catalog rows (Monthly tab) — pass
    *  t.onsketAntallWeeklyLabel from WeekListCard, since Weekly items are never reset. */
   quantityLabel?: string;
 };
