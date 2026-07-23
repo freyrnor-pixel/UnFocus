@@ -9,8 +9,8 @@
  *
  * Connections:
  *   Imports → lib/date, lib/sqlite
- *   Used by → app/_layout.tsx, lib/backup.ts, lib/liveSync.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useInboxStore.ts, store/useMealStore.ts, store/useMonthlyListStore.ts, store/useNotesStore.ts, store/usePeersStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
- *   Data    → owns ALL SQLite tables: settings, tasks, shopping_items, shopping_trips, shopping_lists, monthly_lists (multiple, named, budgeted Monthly/Katalog lists — store/useMonthlyListStore.ts), dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the old low/med/high energy check-in; table/pruning kept per the never-drop-tables rule, no longer written to), energy_budgets (LIVE — 2026-07-20 energy-budget system: per-period capacity overrides; store/useEnergyStore.ts), inbox_items, receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key), widget_snapshot (single-row localised cache for the Android home-screen widgets — lib/widgets/snapshot.ts)
+ *   Used by → app/_layout.tsx, lib/backup.ts, lib/liveSync.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useGoalStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useInboxStore.ts, store/useMealStore.ts, store/useMonthlyListStore.ts, store/useNotesStore.ts, store/usePeersStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
+ *   Data    → owns ALL SQLite tables: settings, tasks (with nullable goal_id → goals), shopping_items, shopping_trips, shopping_lists, monthly_lists (multiple, named, budgeted Monthly/Katalog lists — store/useMonthlyListStore.ts), dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the old low/med/high energy check-in; table/pruning kept per the never-drop-tables rule, no longer written to), energy_budgets (LIVE — 2026-07-20 energy-budget system: per-period capacity overrides; store/useEnergyStore.ts), inbox_items, receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key), widget_snapshot (single-row localised cache for the Android home-screen widgets — lib/widgets/snapshot.ts), goals (2026-07-23 — lightweight user goals with a decaying "living glow" strength; tasks/habits carry a nullable goal_id pointer to one — store/useGoalStore.ts)
  *
  * Edit notes:
  *   - Add columns via the `migrations` array ONLY — never edit a CREATE TABLE to
@@ -730,6 +730,22 @@ export function initDb() {
     "UPDATE shopping_items SET monthly_list_id = 'default-monthly' WHERE monthly_list_id IS NULL AND (status = 'catalog' OR from_catalog = 1)",
     "UPDATE receipts SET monthly_list_id = 'default-monthly' WHERE monthly_list_id IS NULL",
     "CREATE INDEX IF NOT EXISTS idx_shopping_items_monthly_list ON shopping_items(monthly_list_id)",
+    // Goals (2026-07-23): lightweight, name-only goals users create from the task/habit
+    // form pickers and connect tasks/habits to. `strength`/`strength_updated_at` back the
+    // "living glow" — nudged up when a linked task/habit is worked, decayed toward 0 on
+    // read (lib/goalStrength.ts, store/useGoalStore.ts). No dedicated Goals screen. The
+    // link is a nullable goal_id pointer on tasks/habits (app-enforced ON DELETE SET NULL,
+    // like follows_task_id — SQLite can't ALTER TABLE to add a real FK to an existing table).
+    `CREATE TABLE IF NOT EXISTS goals (
+      id TEXT PRIMARY KEY,
+      title TEXT DEFAULT '',
+      color TEXT DEFAULT '',
+      strength REAL DEFAULT 0,
+      strength_updated_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
+    "ALTER TABLE tasks ADD COLUMN goal_id TEXT DEFAULT NULL",
+    "ALTER TABLE habits ADD COLUMN goal_id TEXT DEFAULT NULL",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

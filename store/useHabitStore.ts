@@ -11,11 +11,12 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/habitNotifications, store/useSettingsStore,
- *             store/useTaskStore (Importance type only)
+ *             store/useGoalStore (registerProgress on increment when a habit has a goalId)
  *   Used by → app/habit-form.tsx, app/(tabs)/health.tsx (embedded Habits section — the former
  *             standalone app/habits.tsx was folded directly into it, no separate route anymore);
  *             app/_layout.tsx, app/settings.tsx
- *   Data    → defines a Zustand store; owns SQLite tables habits and habit_logs; schedules per-habit daily notifications
+ *   Data    → defines a Zustand store; owns SQLite tables habits and habit_logs; schedules per-habit
+ *             daily notifications; `habits.goal_id` is a nullable app-enforced pointer to a `goals` row
  *
  * Edit notes:
  *   - Per-habit daily reminders are scheduled here via syncHabitReminder() (ids `habit-<id>-<i>`, one per time in notificationTimes); call syncAllHabitReminders() after a language change since strings are baked in.
@@ -59,6 +60,7 @@ import {
 import { generateId } from '@/lib/id';
 import { dateStr } from '@/lib/date';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useGoalStore } from '@/store/useGoalStore';
 import { syncHabitReminder as scheduleHabitReminder, cancelHabitReminders } from '@/lib/habitNotifications';
 
 export type HabitKind = 'build' | 'break' | 'neutral';
@@ -104,6 +106,10 @@ export type Habit = {
    *  settings.energySystemEnabled. See lib/energy.ts. */
   energyEnabled: boolean;
   energyValue: number;
+  /** Goals (2026-07-23) — id of the Goal this habit is connected to, or null. Logging the
+   *  habit (increment) nudges that goal's strength up. Set through the normal add/update
+   *  payload (a plain nullable pointer). */
+  goalId: string | null;
 };
 
 export type HabitLog = {
@@ -118,7 +124,8 @@ type HabitStore = {
   habits: Habit[];
   logs: HabitLog[];
   load: () => void;
-  add: (h: Omit<Habit, 'id' | 'createdAt' | 'active'>) => void;
+  // goalId is optional here (defaults to null) so habit seeders/quick-adds needn't set it.
+  add: (h: Omit<Habit, 'id' | 'createdAt' | 'active' | 'goalId'> & { goalId?: string | null }) => void;
   update: (id: string, patch: Partial<Omit<Habit, 'id'>>) => void;
   remove: (id: string) => void;
   reorder: (id: string, direction: 'up' | 'down') => void;
@@ -128,6 +135,9 @@ type HabitStore = {
   markRestDay: (habitId: string, date: string) => void;
   /** Re-schedule every habit's daily reminder (after a language or quiet-hours change). */
   syncAllHabitReminders: () => void;
+  /** Goals — clear a deleted goal's id from any habit's in-memory goalId (DB nulling is done
+   *  by useGoalStore.remove() in the same transaction as the delete). */
+  clearGoal: (goalId: string) => void;
 };
 
 /** Schedule (or cancel) a habit's daily reminder using the current language/quiet-hours settings. */
@@ -171,6 +181,7 @@ function rowToHabit(row: Row): Habit {
     childName: readStr(row, 'child_name'),
     energyEnabled: readBool(row, 'energy_enabled'),
     energyValue: readInt(row, 'energy_value', 1),
+    goalId: readStr(row, 'goal_id') || null,
   };
 }
 
@@ -211,6 +222,7 @@ const HABIT_COLUMNS: FieldMap<Habit> = {
   childName: { col: 'child_name', to: (v) => v || '' },
   energyEnabled: { col: 'energy_enabled', to: (v) => (v ? 1 : 0) },
   energyValue: { col: 'energy_value', to: (v) => v ?? 1 },
+  goalId: { col: 'goal_id', to: (v) => v ?? null },
 };
 
 export const useHabitStore = create<HabitStore>((set, get) => ({
@@ -231,7 +243,7 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
     const id = generateId();
     const now = new Date().toISOString();
     const routineOrder = h.routineOrder || Date.now();
-    const habit: Habit = { ...h, id, routineOrder, active: true, createdAt: now };
+    const habit: Habit = { ...h, id, routineOrder, active: true, createdAt: now, goalId: h.goalId ?? null };
     insertRow('habits', rowValues(habit, HABIT_COLUMNS));
     set((s) => ({ habits: [...s.habits, habit].sort((a, b) => a.routineOrder - b.routineOrder) }));
     syncHabitReminder(habit);
@@ -294,6 +306,10 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
       insertRow('habit_logs', { id, habit_id: habitId, log_date: date, count: 1 });
       set((s) => ({ logs: [...s.logs, { id, habitId, logDate: date, count: 1, restDay: false }] }));
     }
+    // Goals: logging a linked habit nudges its goal's "living glow" up (decrement never
+    // lowers it — no punishment; decay handles the fade). See store/useGoalStore.ts.
+    const goalId = get().habits.find((h) => h.id === habitId)?.goalId;
+    if (goalId) useGoalStore.getState().registerProgress(goalId);
   },
 
   decrement(habitId, date) {
@@ -325,5 +341,9 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
 
   syncAllHabitReminders() {
     get().habits.forEach(syncHabitReminder);
+  },
+
+  clearGoal(goalId) {
+    set((s) => ({ habits: s.habits.map((h) => (h.goalId === goalId ? { ...h, goalId: null } : h)) }));
   },
 }));

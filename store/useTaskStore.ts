@@ -16,7 +16,8 @@
  *             lib/taskCalendar (reserve-only calendar mirroring), lib/liveSync, lib/syncService,
  *             store/useAutomationStore, store/useSettingsStore (also lifetimeCompletedTasks,
  *             incremented/decremented here — see Edit notes),
- *             store/useSharedStore (setSharedOut emits an outgoing shared_tasks row)
+ *             store/useSharedStore (setSharedOut emits an outgoing shared_tasks row),
+ *             store/useGoalStore (registerProgress on toggle-to-done when a task has a goalId)
  *   Used by → components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
  *             components/TaskCard.tsx, app/task-form.tsx, app/(tabs)/plans.tsx, app/_layout.tsx
  *             (syncMonthlyTaskNotifications, on boot + every foreground)
@@ -27,7 +28,8 @@
  *   as a start boundary). Start/Finish time-box → duration_minutes is derived on save so
  *   PlanTaskCard is unchanged.
  *   Data    → defines a Zustand store; owns SQLite tables `tasks` and `task_steps`; fires the
- *             'task_completed' automation trigger on toggle-to-done / completeDirect
+ *             'task_completed' automation trigger on toggle-to-done / completeDirect; `tasks.goal_id`
+ *             is a nullable app-enforced pointer to a `goals` row (store/useGoalStore.ts)
  *
  * Edit notes:
  *   - **LAN live-sync wiring (Decision 038, app integration) — WIRED.** `add`/`update`
@@ -121,6 +123,7 @@ import { taskOccursOn } from '@/lib/taskRecurrence';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useSharedStore } from '@/store/useSharedStore';
+import { useGoalStore } from '@/store/useGoalStore';
 import { cancelTaskNotification } from '@/lib/notifications';
 import { syncTaskNotification as scheduleTaskReminder } from '@/lib/taskNotifications';
 import { syncTaskCalendarEvent, cancelTaskCalendarEvent } from '@/lib/taskCalendar';
@@ -173,6 +176,10 @@ export type Task = {
   /** People/family mode — assigned profile name ('' = Me / self). Surfaced only when
    *  settings.peopleModeEnabled and at least one childProfiles entry exists. */
   assignee: string;
+  /** Goals (2026-07-23) — id of the Goal this task is connected to, or null. Set through
+   *  the normal add/update payload (a plain nullable pointer, like a form field). Completing
+   *  the task nudges that goal's strength up — see toggle()/completeDirect(). */
+  goalId: string | null;
   /** Contacts (reserve-only) — name+phone snapshot from expo-contacts' picker at attach
    *  time; no live device-contact-id link (see TASK_COLUMNS below for why). */
   contactName?: string;
@@ -212,6 +219,7 @@ export type TaskInput = {
   hasStartDate?: boolean;
   sharedOut?: boolean;
   assignee?: string;
+  goalId?: string | null;
   contactName?: string;
   contactPhone?: string;
   locationLat?: number;
@@ -275,6 +283,9 @@ type TaskStore = {
   setFollower: (predecessorId: string, followerId: string | null) => void;
   /** Decision 020 cycle guard — ids reachable walking followsTaskId backward from `id` (self included). */
   followerCycleChain: (id: string) => string[];
+  /** Goals — clear a deleted goal's id from any task's in-memory goalId (DB nulling is done
+   *  by useGoalStore.remove() in the same transaction as the delete). */
+  clearGoal: (goalId: string) => void;
 };
 
 /** Schedule (or cancel) a single task's reminder using the current settings. */
@@ -325,6 +336,7 @@ function rowToTask(row: Row): Task {
     hasStartDate: readBool(row, 'has_start_date'),
     sharedOut: readBool(row, 'shared_out'),
     assignee: readStr(row, 'assignee', ''),
+    goalId: readStr(row, 'goal_id') || null,
     contactName: readStr(row, 'contact_name') || undefined,
     contactPhone: readStr(row, 'contact_phone') || undefined,
     locationLat: readReal(row, 'location_lat') || undefined,
@@ -358,6 +370,7 @@ const TASK_COLUMNS: FieldMap<Task> = {
   hasStartDate: { col: 'has_start_date', to: (v) => (v ? 1 : 0) },
   sharedOut: { col: 'shared_out', to: (v) => (v ? 1 : 0) },
   assignee: { col: 'assignee', to: (v) => v ?? '' },
+  goalId: { col: 'goal_id', to: (v) => v ?? null },
   contactName: { col: 'contact_name', to: (v) => v ?? null },
   contactPhone: { col: 'contact_phone', to: (v) => v ?? null },
   locationLat: { col: 'location_lat', to: (v) => v ?? null },
@@ -444,6 +457,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       hasStartDate: t.hasStartDate ?? false,
       sharedOut: t.sharedOut ?? false,
       assignee: t.assignee ?? '',
+      goalId: t.goalId ?? null,
       // duration_minutes is derived from Start→Finish so the Home day-view keeps working.
       durationMinutes: deriveDurationMinutes(t.time, t.finishTime) ?? t.durationMinutes,
       steps: [],
@@ -492,6 +506,9 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     bumpLifetimeCompletedTasks(willBeDone ? 1 : -1);
     if (willBeDone) {
       useAutomationStore.getState().fireTrigger('task_completed');
+      // Goals: completing a linked task nudges its goal's "living glow" up. Un-completing
+      // does nothing — decay handles the fade, there's no punishment (see useGoalStore).
+      if (task.goalId) useGoalStore.getState().registerProgress(task.goalId);
     }
   },
 
@@ -507,6 +524,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     get().update(id, { done: true });
     bumpLifetimeCompletedTasks(1);
     useAutomationStore.getState().fireTrigger('task_completed');
+    if (task.goalId) useGoalStore.getState().registerProgress(task.goalId);
   },
 
   remove(id) {
@@ -734,6 +752,10 @@ export const useTaskStore = create<TaskStore>((set, get) => {
 
   syncAllTaskCalendarEvents() {
     get().tasks.forEach(syncTaskCalendar);
+  },
+
+  clearGoal(goalId) {
+    set((s) => ({ tasks: s.tasks.map((t) => (t.goalId === goalId ? { ...t, goalId: null } : t)) }));
   },
   };
 });

@@ -20,7 +20,7 @@
  *             lib/widgets/sync (syncWidgetsAndOverview — pushes today to the home-screen widgets
  *             + persistent overview notification), lib/useAppTheme,
  *             store/useSettingsStore, store/useAutomationStore, store/useCatalogStore,
- *             store/useEnergyStore, store/useFeedbackStore, store/useHabitStore, store/useHealthStore, store/useInboxStore,
+ *             store/useEnergyStore, store/useFeedbackStore, store/useGoalStore, store/useHabitStore, store/useHealthStore, store/useInboxStore,
  *             store/useMealStore, store/useMonthlyListStore, store/useNotesStore, store/usePeersStore, store/useReceiptStore,
  *             store/useSharedStore, store/useShoppingListStore, store/useShoppingStore,
  *             store/useTaskStore, components/AppModal,
@@ -127,6 +127,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { useFeedbackStore } from '@/store/useFeedbackStore';
+import { useGoalStore } from '@/store/useGoalStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { useEnergyStore } from '@/store/useEnergyStore';
 import { useHealthStore } from '@/store/useHealthStore';
@@ -244,6 +245,7 @@ export default function RootLayout() {
     try { pruneOldData(); } catch { /* never block startup on cleanup */ }
     loadSettings();
     useAutomationStore.getState().load();
+    useGoalStore.getState().load(); // before tasks/habits so their goal links resolve on first paint
     useTaskStore.getState().load();
     // Monthly recurring tasks have no native "day-of-month, clamped"/"nth
     // weekday" repeating trigger, so their reminder is scheduled as a one-off

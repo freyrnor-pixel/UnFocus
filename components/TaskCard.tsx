@@ -36,11 +36,13 @@
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron (animated
  *             steps/editor reveal + rotating chevron), components/GlowPulse (breathing editing halo),
  *             constants/theme (incl. getElevation), lib/date, lib/haptics, lib/i18n, lib/id,
- *             lib/useAppTheme, store/useTaskStore, store/useSettingsStore (People/family mode:
- *             peopleModeEnabled + childProfiles gate the "For" assignee chip row)
+ *             lib/useAppTheme, components/GoalGlowDot, store/useTaskStore, store/useGoalStore,
+ *             store/useSettingsStore (People/family mode: peopleModeEnabled + childProfiles gate
+ *             the "For" assignee chip row)
  *   Used by → app/(tabs)/plans.tsx
- *   Data    → reads the passed `task`; writes via useTaskStore (update/steps/remove/setSharedOut)
- *             for committed tasks; a new (draft) card writes nothing until onCommitNew fires.
+ *   Data    → reads the passed `task` + its linked goal (useGoalStore, for the glow dot); writes
+ *             via useTaskStore (update/steps/remove/setSharedOut) for committed tasks; a new
+ *             (draft) card writes nothing until onCommitNew fires.
  *
  * Edit notes:
  *   - There is no lock and no per-field immediate save for settings: the Discard/Save bar
@@ -70,6 +72,8 @@ import { dayOfWeekMon0 } from '@/lib/date';
 import { tap, warning } from '@/lib/haptics';
 import { generateId } from '@/lib/id';
 import { Task, TaskStep, useTaskStore } from '@/store/useTaskStore';
+import { useGoalStore } from '@/store/useGoalStore';
+import { GoalGlowDot } from '@/components/GoalGlowDot';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import SlideSelector from '@/components/SlideSelector';
 import TimeBoxInput from '@/components/TimeBoxInput';
@@ -131,6 +135,8 @@ function TaskCard({
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
   const childProfiles = useSettingsStore((s) => s.childProfiles);
   const showPeople = peopleModeEnabled && childProfiles.length > 0;
+  // Goals — the linked goal (if any), for the living-glow dot next to the title.
+  const goal = useGoalStore((s) => (task.goalId ? s.goals.find((g) => g.id === task.goalId) ?? null : null));
 
   const stepsOnly = variant === 'steps';
 
@@ -320,6 +326,15 @@ function TaskCard({
               {task.title || (editing ? '' : t.taskTitlePlaceholder)}
             </Text>
           </PressableScale>
+
+          {goal ? (
+            <GoalGlowDot
+              color={goal.color}
+              strength={goal.strength}
+              strengthUpdatedAt={goal.strengthUpdatedAt}
+              size={10}
+            />
+          ) : null}
 
           {showPeople && task.assignee ? (
             <View style={[styles.assigneeCue, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
