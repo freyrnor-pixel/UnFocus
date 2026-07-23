@@ -8,10 +8,16 @@
  * Unlike SlideSelector (fixed N equal-width options, a pure value picker),
  * this is meant for navigation tab bars: options can carry a per-tab accent
  * colour and an arbitrary `accessory` node (a count badge, a cue dot), and
- * the track supports three width modes via `sizing` — see below. The pill's
+ * the track supports two width modes via `sizing` — see below. The pill's
  * position AND width are driven off each segment's own measured layout
  * (`onLayout`), not analytic math, so it works whether segments are
- * equal-flex, content-sized, or inside a horizontal scroller.
+ * equal-flex or content-sized.
+ *
+ * **Never scrollable, by design (2026-07-23)**: there is deliberately no horizontal-scroll
+ * mode. A tab bar the user has to drag isn't a natural fit for a small, fixed set of
+ * top-level views — if a caller's options don't fit in one non-scrolling row, the fix is
+ * the caller's: shorten the labels (see app/settings.tsx's `config.tabs.*` — kept to single
+ * short words for exactly this reason) or merge two tabs into one, not add scrolling back.
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme (useAppTheme, useAccessibility), lib/haptics,
@@ -21,15 +27,16 @@
  *   Data    → none (controlled; value/options/onChange from props)
  *
  * Edit notes:
- *   - `sizing`: 'equal' (flex:1, all segments same width — Plans' 3 tabs), 'content'
- *     (flexGrow/flexShrink, each segment sized to its own label — Shopping's 2 tabs),
- *     or 'scroll' (no flex, wrapped in a horizontal ScrollView — Settings' 4+ tabs,
- *     which can overflow with long Norwegian labels).
+ *   - `sizing`: 'equal' (flex:1, all segments same width — Plans' 3 tabs, Settings' 4 tabs)
+ *     or 'content' (flexGrow/flexShrink, each segment sized to its own label — Shopping's
+ *     2 tabs). Both fill the full row width (flex, not intrinsic content width), so a short
+ *     set of tabs reads as one naturally centered/evenly-spaced group, never left-justified
+ *     with dead space on one side.
  *   - `radius`: defaults to Radius.full (capsule/pill, Plans/Shopping's look). Settings
- *     passes a smaller value for a squarer segmented-control shape — purely a visual
+ *     passes a smaller value for a squarer segmented-control look — purely a visual
  *     choice per caller, doesn't change layout/sizing.
- *   - The pill is the FIRST child of the row/content-container so it paints below the
- *     segment labels (paint order = document order) — same convention as SlideSelector.
+ *   - The pill is the FIRST child of the row so it paints below the segment labels (paint
+ *     order = document order) — same convention as SlideSelector.
  *   - Same haptic contract as SlideSelector: PressableScale's own `tap()` fires on every
  *     press, plus an extra `selection()` when the value actually changes.
  *   - `options[].accessory` is a plain ReactNode the caller builds per-render (e.g. a
@@ -37,7 +44,7 @@
  *     the caller must bake `isActive`-dependent styling into the node before passing it.
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { LayoutChangeEvent, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { LayoutChangeEvent, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
@@ -55,7 +62,7 @@ type Props<T extends string | number> = {
   options: TabSliderOption<T>[];
   value: T;
   onChange: (next: T) => void;
-  sizing?: 'equal' | 'content' | 'scroll';
+  sizing?: 'equal' | 'content';
   /** Track/pill corner radius. Default Radius.full (capsule/pill). Pass a smaller
    *  value (e.g. Radius.md) for a squarer segmented-control look. */
   radius?: number;
@@ -115,7 +122,7 @@ export default function TabSlider<T extends string | number>({
   }, []);
 
   const pillH = Math.max(0, trackH - TRACK_PAD * 2);
-  const segmentSizing = sizing === 'equal' ? styles.segmentEqual : sizing === 'content' ? styles.segmentContent : undefined;
+  const segmentSizing = sizing === 'equal' ? styles.segmentEqual : styles.segmentContent;
 
   const content = (
     <>
@@ -162,13 +169,7 @@ export default function TabSlider<T extends string | number>({
       style={[styles.wrap, { backgroundColor: theme.surfaceMuted, borderColor: theme.border, borderRadius: radius }, style]}
       onLayout={onTrackLayout}
     >
-      {sizing === 'scroll' ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-          {content}
-        </ScrollView>
-      ) : (
-        <View style={styles.row}>{content}</View>
-      )}
+      <View style={styles.row}>{content}</View>
     </View>
   );
 }
