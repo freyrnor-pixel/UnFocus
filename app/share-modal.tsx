@@ -11,8 +11,10 @@
  *             lib/date (todayStr, formatDisplayDate), lib/i18n, lib/share, lib/useAppTheme,
  *             store/useSettingsStore, store/useSharedStore, store/useShoppingStore,
  *             store/useTaskStore
- *   Used by → Expo Router route "/share-modal"; entry points push it with a `kind`
- *             param — app/shopping.tsx ('s'), app/plans.tsx ('t'), app/index.tsx ('t')
+ *   Used by → Expo Router route "/share-modal"; app/(tabs)/shopping.tsx pushes it with
+ *             `kind=s` from the header share icon (restored 2026-07-23, see
+ *             SCREEN_FUNCTIONS_AUDIT.md finding C1). Plans doesn't push here — its per-task
+ *             "Shared out" switch shares directly without a QR step.
  *   Data    → reads useShoppingStore (shopping_items) / useTaskStore (tasks) / useSettingsStore
  *             (language for date formatting); writes outbound rows to useSharedStore
  *             (shared_shopping_items / shared_tasks)

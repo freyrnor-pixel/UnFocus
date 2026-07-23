@@ -61,7 +61,7 @@
  *     is the first place it actually filters/searches the Weekly list.
  *   - **2026-07-20 shopping-cleanup pass**: replaced the previous hand-rolled inline add row
  *     (own TextInput + catalog-search dropdown + qty stepper, duplicating InlineAddItem) with
- *     the shared `components/InlineAddItem` — same form Monthly and inventory-edit use, so
+ *     the shared `components/InlineAddItem` — same form the Monthly tab uses, so
  *     Weekly no longer maintains a second, differently-styled add form. Also replaced the
  *     3-icon header row (bookmark/settings/trash) with one kebab (`ellipsis-vertical`) opening
  *     a `showAppModal` chooser (`openListOptions`).
@@ -493,8 +493,8 @@ export default function WeekListCard({
             {/* Inline add row — only shown when unlocked (planning mode), as its own
                 element below the rows list (matching how the Monthly tab places its
                 InlineAddItem, rather than nested inside the bordered rows box). Shared
-                components/InlineAddItem (same "+ makes a new row" idiom as the Monthly tab
-                and inventory-edit) replaces the previous hand-rolled add row so Weekly and
+                components/InlineAddItem (same "+ makes a new row" idiom as the Monthly tab)
+                replaces the previous hand-rolled add row so Weekly and
                 Monthly no longer maintain two differently-styled add forms. */}
             {!list.locked && (
               <InlineAddItem

@@ -20,7 +20,7 @@
  *     decisions happen later when promoting an item via components/InboxSection.tsx.
  *   - Decision 001 tier='sub' scaffold (back link left, iOS-only). The
  *     ConfirmationBanner renders as a sibling overlay of ScreenScaffold, same
- *     pattern app/task-form.tsx / app/inventory-edit.tsx use.
+ *     pattern app/task-form.tsx uses.
  *   - Decision 006 tokens only (surface/text/accent) — old theme.white/orange retired.
  */
 import React, { useRef, useState } from 'react';

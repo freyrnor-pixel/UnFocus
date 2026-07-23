@@ -7,13 +7,12 @@
  * price, and the computed total (price × quantity). Tapping the row body opens the
  * Update Sheet when `onPress` is given — `onPress` is undefined while the Monthly
  * Container (app/(tabs)/shopping.tsx) is locked, so rows are inert in that state;
- * unlocking it (or the standalone inventory-edit screen) wires `onPress` and rows
- * become tappable.
+ * unlocking it wires `onPress` and rows become tappable.
  *
  * Connections:
  *   Imports → constants/theme, lib/date, lib/useAppTheme, store/useShoppingStore,
  *             components/PressableScale
- *   Used by → app/(tabs)/shopping.tsx (Monthly catalog tab), app/inventory-edit.tsx
+ *   Used by → app/(tabs)/shopping.tsx (Monthly catalog tab)
  *   Data    → consumes the ShoppingItem type from useShoppingStore; mutations happen in the parent via onCheckboxPress/onPress; scaled fontSize via useScaledStyles()
  *
  * Edit notes:
@@ -22,9 +21,6 @@
  *     the focused weekly list (addToWeeklyFromCatalog), replacing the old
  *     stage-then-confirm tray flow — the checkbox no longer reflects a lingering
  *     pendingRestock state since the row leaves the Monthly list on tap.
- *     app/inventory-edit.tsx (an orphaned standalone screen, out of 044a's scope)
- *     still wires it to the old setPendingRestock toggle — harmless, since that
- *     screen never rendered a tray to react to the flag.
  *   - targetQuantity is edited via the Update Sheet (components/UpdateSheet.tsx), OR — in
  *     the redesigned Monthly-list section (2026-07-06) — via the optional inline stepper
  *     (onIncrement/onDecrement drive targetQuantity in the parent) and the optional trailing
@@ -33,7 +29,7 @@
  *   - Swipe-to-delete was removed (it offered no other way to delete, and conflicted
  *     with the read-mostly main Katalog view). Deletion now only happens via the
  *     Update Sheet's existing inline 2-step confirm, reached by tapping a row where
- *     `onPress` is wired (Monthly Container unlocked, or app/inventory-edit.tsx).
+ *     `onPress` is wired (Monthly Container unlocked).
  *   - Row background is a plain themed View, not a <Surface> — this row is a sub-row
  *     inside a parent-owned card (app/shopping.tsx wraps the whole ungrouped list in
  *     one Surface/card; rows just flow inside it separated by a divider), so wrapping

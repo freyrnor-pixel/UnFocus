@@ -36,7 +36,7 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/liveSync, lib/syncService, store/useSettingsStore
- *   Used by → app/inventory-edit.tsx, app/shopping.tsx, components/ShoppingQuickAddSheet.tsx,
+ *   Used by → app/shopping.tsx, components/ShoppingQuickAddSheet.tsx,
  *             components/AddItemSheet.tsx (type), components/AddDishSheet.tsx (add), components/UpdateSheet.tsx (type),
  *             components/MonthlyTableRow.tsx (type), components/ShoppingRow.tsx (type), components/WeekListCard.tsx (type),
  *             components/SharedRequestsSection.tsx (add), components/MonthlyResetSummaryModal.tsx (MonthlyResetSummary),
@@ -58,7 +58,7 @@
  *     the previously invisible category field as an optional chip picker.
  *   - **LAN live-sync wiring (Decision 038, app integration) — WIRED, narrow scope.**
  *     `add`/`update` (the sole write path for toggleCheck/toggleCollected/adjustAmount/
- *     putBackToInventory/addToWeeklyFromCatalog/setPendingRestock — everything routes
+ *     putBackToInventory/addToWeeklyFromCatalog — everything routes
  *     through `update()`) stamp + broadcast via lib/liveSync/lib/syncService.
  *     `remove`/`removeWithSource` soft-delete (tombstone) instead of a hard DELETE.
  *     `load()` filters `deleted_at IS NULL`. Only the columns in lib/liveSync's
@@ -241,7 +241,6 @@ type ShoppingStore = {
   /** Decision 022 — merge the source row into the target (dish) row: sum amounts, adopt target group, delete source. */
   mergeItems: (sourceId: string, targetId: string) => void;
   addToWeeklyFromCatalog: (id: string, quantity?: number, listId?: string) => void;
-  setPendingRestock: (id: string, pending: boolean) => void;
   doneShopping: (listId: string, label: string, monthResetDate: number) => string;
   monthlyReset: () => void;
   /** Scoped variant of monthlyReset() — reverts only ONE Monthly list's items back to
@@ -628,13 +627,6 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     }
     get().update(id, { status: 'inWeeklyList', pendingRestock: false, amount: String(qty), listId });
     get().markRecentlyAdded(id);
-  },
-
-  /** Vestigial (Decision 044a) — inventory-edit.tsx's standalone Katalog screen still
-   *  calls this for its checkbox; the Monthly tab no longer does (it calls
-   *  addToWeeklyFromCatalog directly). Kept for that one caller; no UI reads the flag. */
-  setPendingRestock(id, pending) {
-    get().update(id, { pendingRestock: pending });
   },
 
   /** "Handlingen fullført" — creates a shopping_trips row and marks every inWeeklyList item in `listId` purchased. */
