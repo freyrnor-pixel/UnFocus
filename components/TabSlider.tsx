@@ -25,6 +25,9 @@
  *     (flexGrow/flexShrink, each segment sized to its own label — Shopping's 2 tabs),
  *     or 'scroll' (no flex, wrapped in a horizontal ScrollView — Settings' 4+ tabs,
  *     which can overflow with long Norwegian labels).
+ *   - `radius`: defaults to Radius.full (capsule/pill, Plans/Shopping's look). Settings
+ *     passes a smaller value for a squarer segmented-control shape — purely a visual
+ *     choice per caller, doesn't change layout/sizing.
  *   - The pill is the FIRST child of the row/content-container so it paints below the
  *     segment labels (paint order = document order) — same convention as SlideSelector.
  *   - Same haptic contract as SlideSelector: PressableScale's own `tap()` fires on every
@@ -53,6 +56,9 @@ type Props<T extends string | number> = {
   value: T;
   onChange: (next: T) => void;
   sizing?: 'equal' | 'content' | 'scroll';
+  /** Track/pill corner radius. Default Radius.full (capsule/pill). Pass a smaller
+   *  value (e.g. Radius.md) for a squarer segmented-control look. */
+  radius?: number;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -64,6 +70,7 @@ export default function TabSlider<T extends string | number>({
   value,
   onChange,
   sizing = 'equal',
+  radius = Radius.full,
   style,
 }: Props<T>) {
   const theme = useAppTheme();
@@ -117,7 +124,7 @@ export default function TabSlider<T extends string | number>({
           pointerEvents="none"
           style={[
             styles.pill,
-            { height: pillH, top: TRACK_PAD, backgroundColor: options[activeIndex]?.color ?? theme.accent },
+            { height: pillH, top: TRACK_PAD, borderRadius: radius, backgroundColor: options[activeIndex]?.color ?? theme.accent },
             pillStyle,
           ]}
         />
@@ -127,7 +134,7 @@ export default function TabSlider<T extends string | number>({
         return (
           <PressableScale
             key={String(opt.value)}
-            style={[styles.segment, segmentSizing]}
+            style={[styles.segment, { borderRadius: radius }, segmentSizing]}
             onLayout={(e: LayoutChangeEvent) => {
               const { x, width } = e.nativeEvent.layout;
               setSegLayout(i, x, width);
@@ -152,7 +159,7 @@ export default function TabSlider<T extends string | number>({
 
   return (
     <View
-      style={[styles.wrap, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }, style]}
+      style={[styles.wrap, { backgroundColor: theme.surfaceMuted, borderColor: theme.border, borderRadius: radius }, style]}
       onLayout={onTrackLayout}
     >
       {sizing === 'scroll' ? (
@@ -193,5 +200,14 @@ const styles = StyleSheet.create({
   },
   segmentEqual: { flex: 1 },
   segmentContent: { flexGrow: 1, flexShrink: 1 },
-  label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  // includeFontPadding/textAlignVertical: without these, Android adds font-metric
+  // padding below the glyph baseline that flex's alignItems:'center' doesn't know
+  // about, so the label optically sits low inside the segment (same bug/fix as
+  // ScreenHeader's title — see that component's edit notes).
+  label: {
+    fontSize: FontSize.sm,
+    fontFamily: Fonts.semibold,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
 });

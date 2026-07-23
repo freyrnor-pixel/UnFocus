@@ -37,6 +37,18 @@
  * card into a neutral panel would bury its visual distinctiveness, and a plain toggle has
  * nothing to collapse.
  *
+ * **Visual-audit pass (2026-07-23)**: the top-level merged-panel `ExpandableCard`s above now
+ * pass `rounded` — each row gets its own rounded, sunken (theme.surfaceMuted) tile with a small
+ * gap instead of the flush hairline divider, reading as a stack of rows rather than one flat
+ * slab (screenshot feedback: "setting rows not rounded"). Also: the tab bar (`tabBar`/`tabsGlass`)
+ * now floats with the same side margins + Radius.lg rounding as the header's own floated card
+ * (was edge-to-edge/square, mismatched once the header started floating — read as a glitchy seam);
+ * `stickyGapColor` switched from an opaque `theme.surface` to `"transparent"` to match the
+ * header's own transparent float gaps; the lone `SectionDivider` before the Data group now zeroes
+ * its own margin (content's `gap` was double-stacking with the divider's default margin, reading
+ * as a huge blank band); and the tab labels pass `radius={Radius.md}` to TabSlider for a squarer
+ * segmented-control shape instead of a full pill (Plans/Shopping keep the default pill).
+ *
  * Connections:
  *   Imports → components/AppModal, components/ConfirmationBanner, components/FormControls,
  *             components/ScreenScaffold, components/SectionDivider, components/Surface,
@@ -490,15 +502,17 @@ export default function SettingsScreen() {
   }
 
   const tabBar = (
-    // Frosted-glass strip (same overlay Surface as the header): the flat backdrop reads through
-    // the frost AROUND the sliding pill, and content scrolling behind the sticky strip blurs
-    // instead of showing through raw (2026-07-20). borderRadius:0 = edge-to-edge.
+    // Frosted-glass strip (same overlay Surface as the header). Floats with the same side
+    // margins + Radius.lg rounding as ScreenHeader's own floated card (2026-07-23 header
+    // pass) — it used to be edge-to-edge/square, matching the header's OLD flush look, which
+    // read as mismatched/glitchy once the header started floating with gaps around it.
     <Surface surfaceContext="overlay" style={styles.tabsGlass}>
       <TabSlider
         sizing="scroll"
         value={tab}
         onChange={setTab}
         options={TABS.map((tb) => ({ value: tb.key, label: tb.label }))}
+        radius={Radius.md}
         style={styles.tabsTrack}
       />
     </Surface>
@@ -510,7 +524,11 @@ export default function SettingsScreen() {
       title={t.settingsTitle}
       tier="sub"
       onBack={() => router.back()}
-      stickyGapColor={theme.surface}
+      // Transparent, not theme.surface: the header now floats with transparent gaps around
+      // its rounded card (2026-07-23 pass) showing ScreenBackground through — an opaque
+      // filler here read as a mismatched solid box sitting under a floating card. Matching
+      // the header's own treatment removes that artifact.
+      stickyGapColor="transparent"
       stickyBelowHeader={tabBar}
       stickyBelowHeaderHeight={TAB_BAR_HEIGHT}
     >
@@ -561,7 +579,7 @@ export default function SettingsScreen() {
                 note). */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <ExpandableCard title={t.sectionProfile} accentColor={theme.accent} first>
+                <ExpandableCard title={t.sectionProfile} accentColor={theme.accent} first rounded>
                   <Input
                     label={t.yourName}
                     value={name}
@@ -603,7 +621,7 @@ export default function SettingsScreen() {
 
                 {/* UTSEENDE — merged into the same panel as Profil/Tilgjengelighet
                     (2026-07-13 layering pass: fewer separate floating cards). */}
-                <ExpandableCard title={t.config.sections.appearance} accentColor={theme.accent}>
+                <ExpandableCard title={t.config.sections.appearance} accentColor={theme.accent} rounded>
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.lightDarkModeLabel}</Text>
                   <SegmentedControl
                     value={settings.darkMode}
@@ -617,7 +635,7 @@ export default function SettingsScreen() {
                 </ExpandableCard>
 
                 {/* TILGJENGELIGHET — same merged panel. */}
-                <ExpandableCard title={t.settings.accessibility.title} accentColor={theme.accent}>
+                <ExpandableCard title={t.settings.accessibility.title} accentColor={theme.accent} rounded>
                   <View style={styles.switchRow}>
                     <View style={styles.switchTextCol}>
                       <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.reducedMotion}</Text>
@@ -673,11 +691,14 @@ export default function SettingsScreen() {
             </View>
 
             {/* ===== DATA ===== */}
-            <SectionDivider />
+            {/* marginVertical:0 — content's own `gap:Spacing.lg` already spaces this from its
+                neighbors; the divider's default margin on top of that gap doubled the blank
+                band here (2026-07-23 fix). */}
+            <SectionDivider style={{ marginVertical: 0 }} />
             {/* Neutral (not danger-red): this group leads with the non-destructive Send
                 Feedback + debug cards; the genuinely destructive resets deeper in the group
                 keep their own red styling (dangerBtnText/theme.bad + badSoft card border). */}
-            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.data}</Text>
+            <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.data}</Text>
 
             {/* Send Feedback (2026-07-13) — always visible, not gated on debug mode.
                 Free-text composer → mailto: via Linking, falling back to the OS share
@@ -806,7 +827,7 @@ export default function SettingsScreen() {
                 the account rides along in the local backup file below. */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <ExpandableCard title={t.account.title} accentColor={theme.accent} first>
+                <ExpandableCard title={t.account.title} accentColor={theme.accent} first rounded>
                   <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
                     {settings.accountCreated ? t.account.descActive : t.account.descNone}
                   </Text>
@@ -872,7 +893,7 @@ export default function SettingsScreen() {
 
                 {/* LAN live sync (Decision 038 app integration) — pairing lives on its own
                     screen (app/pair-device.tsx); this card is just the entry point + toggle. */}
-                <ExpandableCard title={t.peers.title} accentColor={theme.accent}>
+                <ExpandableCard title={t.peers.title} accentColor={theme.accent} rounded>
                   <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
                     {syncAvailable ? t.peers.settingsCardDesc : t.peers.syncUnavailable}
                   </Text>
@@ -884,7 +905,7 @@ export default function SettingsScreen() {
                 {/* Version & updates — lets the user see exactly which build/OTA is
                     running and force an OTA check. Runtime + updateId here are the
                     fastest way to diagnose "I haven't received the update". */}
-                <ExpandableCard title={t.version.title} accentColor={theme.accent}>
+                <ExpandableCard title={t.version.title} accentColor={theme.accent} rounded>
                   {[
                     [t.version.appVersion, appVersion],
                     [t.version.runtime, runtimeVersion],
@@ -956,7 +977,7 @@ export default function SettingsScreen() {
                 their own standalone single-toggle card below. */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <ExpandableCard title={t.config.sections.workMode} accentColor={theme.accent} first>
+                <ExpandableCard title={t.config.sections.workMode} accentColor={theme.accent} first rounded>
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.workModeDesc}</Text>
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
                   <View style={styles.switchRow}>
@@ -1044,7 +1065,7 @@ export default function SettingsScreen() {
                     Freyr-modus grouped behind one collapsed-by-default accordion, so the
                     first screen stays scannable and Work mode (kept top-level above) doesn't
                     have to compete with four rarer/power-user modes for attention. */}
-                <ExpandableCard title={t.config.sections.advanced} accentColor={theme.textMuted}>
+                <ExpandableCard title={t.config.sections.advanced} accentColor={theme.textMuted} rounded>
                 {/* FORELDREMODUS (Parent mode / Child mode) */}
                 <ExpandableCard title={t.childModeTitle} accentColor={theme.accent} first>
                   <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeDesc}</Text>
@@ -1231,7 +1252,7 @@ export default function SettingsScreen() {
                 to each float in their own Surface card). */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <ExpandableCard title={t.weeklyReminders} accentColor={theme.accent} first>
+                <ExpandableCard title={t.weeklyReminders} accentColor={theme.accent} first rounded>
                   <View style={styles.switchRow}>
                     <View style={styles.switchTextCol}>
                       <Text style={[styles.switchLabel, { color: theme.text }]}>{t.weeklyReminders}</Text>
@@ -1254,7 +1275,7 @@ export default function SettingsScreen() {
                 </ExpandableCard>
 
                 {/* GENERELLE — same merged panel. */}
-                <ExpandableCard title={t.config.sections.notifications} accentColor={theme.accent}>
+                <ExpandableCard title={t.config.sections.notifications} accentColor={theme.accent} rounded>
                   <View style={styles.switchRow}>
                     <View style={styles.switchTextCol}>
                       <Text style={[styles.switchLabel, { color: theme.text }]}>{t.taskNotifications}</Text>
@@ -1408,15 +1429,17 @@ const baseStyles = StyleSheet.create({
   },
   langFlag: { fontSize: 24 },
   langText: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
-  // Edge-to-edge frosted strip (Surface overlay) wraps this horizontal tab scroller — square
-  // corners, no floating-card rounding. The Surface owns the edge, so no border here.
-  tabsGlass: { flex: 1, borderRadius: 0 },
+  // Floating frosted strip (Surface overlay) wraps this horizontal tab scroller — side
+  // margins + rounding match ScreenHeader's own floated card (headerFloatH/Radius.lg) so
+  // the two read as one consistent floating-chrome language instead of a rounded card
+  // sitting above a flush edge-to-edge box (2026-07-23 fix).
+  tabsGlass: { flex: 1, marginHorizontal: Spacing.md, borderRadius: Radius.lg },
   tabsScroll: {
     flexGrow: 0,
   },
-  // The sliding-pill track (components/TabSlider.tsx) draws its own bordered/filled track,
-  // so it needs an inset from the frosted strip's edge-to-edge sides — unlike the old boxes,
-  // which had no track background and could sit flush against the padding-only ScrollView.
-  tabsTrack: { marginHorizontal: Spacing.md, marginVertical: Spacing.xs },
+  // Small inset from the card's own inner edge — the sliding-pill track
+  // (components/TabSlider.tsx) draws its own bordered/filled track and reads better with a
+  // touch of breathing room than sitting flush against the card's rounded corners.
+  tabsTrack: { marginHorizontal: Spacing.sm, marginVertical: Spacing.xs },
   tabSectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
 });
