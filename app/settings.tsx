@@ -40,7 +40,7 @@
  * Connections:
  *   Imports → components/AppModal, components/ConfirmationBanner, components/FormControls,
  *             components/ScreenScaffold, components/SectionDivider, components/Surface,
- *             components/ExpandableCard, components/PressableScale, components/TabBoxHighlight,
+ *             components/ExpandableCard, components/PressableScale, components/TabSlider,
  *             constants/theme, lib/domainColor, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
  *             saveAutoBackup/chooseAutoBackupLocation), lib/childLock, lib/feedbackMail, lib/freyrModeSeed,
@@ -65,12 +65,11 @@
  *     pill on the Shopping screen's Monthly tab (→ app/budget.tsx), not from Settings. The
  *     `monthlyResetDate` field just above it is unaffected (still one global payday-boundary
  *     date, shared by every list).
- *   - **Tab bar (2026-07-20, shared component)**: the horizontally-scrollable tab bar's
- *     active indicator is `components/TabBoxHighlight.tsx` — always renders a bordered box
- *     behind the label (white `theme.surface` fill + `theme.border` edge at rest, crossfading
- *     to a tinted `theme.accent` fill + border when active) instead of the old "box only
- *     appears when active" look, which left inactive tabs looking bare. Same shared component
- *     as app/(tabs)/shopping.tsx and app/(tabs)/plans.tsx's tab bars.
+ *   - **Tab bar (2026-07-23, shared component)**: the horizontally-scrollable tab bar is
+ *     `components/TabSlider.tsx` (`sizing="scroll"`) — a single accent pill SLIDES to sit
+ *     behind whichever category tab is active (same motion as the Day/Week/Month
+ *     `SlideSelector`), replacing the old per-tab `TabBoxHighlight` boxes. Same shared
+ *     component as app/(tabs)/shopping.tsx and app/(tabs)/plans.tsx's tab bars.
  *   - applyAndSync() is the single write path: updates settings AND fires the right notification
  *     re-sync based on which keys changed — route every settings change through it, never
  *     settings.update() directly. Quiet-hours keys re-sync task notifications; language or
@@ -158,7 +157,7 @@ import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
 import { selection, warning, heavy } from '@/lib/haptics';
 import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
-import TabBoxHighlight from '@/components/TabBoxHighlight';
+import TabSlider from '@/components/TabSlider';
 
 type SettingsTab = 'generelt' | 'handle' | 'varsler' | 'moduser';
 const TAB_BAR_HEIGHT = 48;
@@ -492,36 +491,16 @@ export default function SettingsScreen() {
 
   const tabBar = (
     // Frosted-glass strip (same overlay Surface as the header): the flat backdrop reads through
-    // the frost AROUND the opaque tab chips, and content scrolling behind the sticky strip blurs
+    // the frost AROUND the sliding pill, and content scrolling behind the sticky strip blurs
     // instead of showing through raw (2026-07-20). borderRadius:0 = edge-to-edge.
     <Surface surfaceContext="overlay" style={styles.tabsGlass}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabsScroll}
-        contentContainerStyle={styles.tabsRow}
-      >
-        {TABS.map((tb) => {
-        const active = tab === tb.key;
-        return (
-          <PressableScale
-            key={tb.key}
-            style={styles.tabItem}
-            onPress={() => setTab(tb.key)}
-            scaleTo={0.97}
-          >
-            <TabBoxHighlight active={active} />
-            <Text style={[
-              styles.tabLabel,
-              { color: active ? theme.accent : theme.textMuted },
-              active && { fontFamily: Fonts.bold },
-            ]}>
-              {tb.label}
-            </Text>
-          </PressableScale>
-        );
-      })}
-      </ScrollView>
+      <TabSlider
+        sizing="scroll"
+        value={tab}
+        onChange={setTab}
+        options={TABS.map((tb) => ({ value: tb.key, label: tb.label }))}
+        style={styles.tabsTrack}
+      />
     </Surface>
   );
 
@@ -1435,22 +1414,9 @@ const baseStyles = StyleSheet.create({
   tabsScroll: {
     flexGrow: 0,
   },
-  tabsRow: {
-    flexDirection: 'row', paddingHorizontal: Spacing.md, gap: Spacing.xs,
-  },
-  tabItem: {
-    paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
-    borderRadius: Radius.sm,
-  },
-  // Bumped from FontSize.sm (14) — read as too small once the tab got a visible rounded
-  // frame around it (2026-07-19 visual-audit). includeFontPadding/textAlignVertical fix
-  // Android's Nunito vertical-centering offset inside the line box (same fix as
-  // ScreenHeader.tsx's title — see HEADER_CLIP_DEBUG.md).
-  tabLabel: {
-    fontSize: FontSize.md,
-    lineHeight: Math.round(FontSize.md * Type.label.line),
-    includeFontPadding: false,
-    textAlignVertical: 'center',
-  },
+  // The sliding-pill track (components/TabSlider.tsx) draws its own bordered/filled track,
+  // so it needs an inset from the frosted strip's edge-to-edge sides — unlike the old boxes,
+  // which had no track background and could sit flush against the padding-only ScrollView.
+  tabsTrack: { marginHorizontal: Spacing.md, marginVertical: Spacing.xs },
   tabSectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
 });
