@@ -19,10 +19,10 @@
  * confirmed) appear next to it. Home also shows an OTA "update available" icon. All read
  * their own state directly from settings/feedback/expo-updates — no props threaded down.
  *
- * Site-tier headers also accept an optional `onSharePress` — when a screen passes it, a
- * share icon appears in the controls group (currently only Shopping, wired to
- * `/share-modal?kind=s`). Omit it and the icon simply doesn't render — every other
- * site-tier screen is unaffected.
+ * Site-tier headers also accept optional `onSharePress`/`onScanPress` — when a screen passes
+ * either, a matching icon appears in the controls group (currently only Shopping, wired to
+ * `/share-modal?kind=s` and `/scan` respectively, 2026-07-23). Omit either and its icon
+ * simply doesn't render — every other site-tier screen is unaffected.
  *
  * Connections:
  *   Imports → constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, lib/feedbackMail
@@ -114,9 +114,11 @@ type Props = {
   onInfoToggle?: () => void;
   /** Site-tier only. When provided, a share icon appears in the header controls. */
   onSharePress?: () => void;
+  /** Site-tier only. When provided, a scan icon appears in the header controls. */
+  onScanPress?: () => void;
 };
 
-export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, infoActive, onInfoToggle, onSharePress }: Props) {
+export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, infoActive, onInfoToggle, onSharePress, onScanPress }: Props) {
   const t = useT();
   const theme = useAppTheme();
   const router = useRouter();
@@ -260,6 +262,17 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
       <Ionicons name="share-social-outline" size={22} color={theme.text} />
     </PressableScale>
   ) : null;
+  const scanButton = onScanPress ? (
+    <PressableScale
+      onPress={onScanPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={t.shopping.scan}
+      scaleTo={0.9}
+    >
+      <Ionicons name="camera-outline" size={22} color={theme.text} />
+    </PressableScale>
+  ) : null;
   const infoButton = onInfoToggle ? (
     <PressableScale
       onPress={onInfoToggle}
@@ -357,14 +370,16 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
 
   if (tier === 'site') {
     // Grouped controls. Order (right-handed, left-to-right): [update] [bug] [✓ email]
-    // [✕ delete] [share] [ⓘ info] [gear]. The bug toggle is always present; the green
+    // [✕ delete] [scan] [share] [ⓘ info] [gear]. The bug toggle is always present; the green
     // email + red delete only render when debug mode is on (they're null otherwise); share
     // only renders when the screen passes onSharePress (Shopping only, as of the 2026-07-23
     // fix — the site-tier header previously had no custom-right slot, so the old "Share pill"
-    // was dropped entirely rather than ported; see app/(tabs)/shopping.tsx's edit notes). Gear
-    // is outermost on whichever side the group sits (Decision 034). Left-handed mirrors the
-    // whole row. Items that don't apply to this screen are null/filtered.
-    const controlItems = [updateButton, bugButton, emailButton, deleteButton, shareButton, infoButton, gearButton].filter(Boolean) as React.ReactNode[];
+    // was dropped entirely rather than ported; see app/(tabs)/shopping.tsx's edit notes). scan
+    // is the same shape, added the same day (UX audit E2) — Shopping's entry point to the
+    // now-unpinned app/scan.tsx. Gear is outermost on whichever side the group sits
+    // (Decision 034). Left-handed mirrors the whole row. Items that don't apply to this
+    // screen are null/filtered.
+    const controlItems = [updateButton, bugButton, emailButton, deleteButton, scanButton, shareButton, infoButton, gearButton].filter(Boolean) as React.ReactNode[];
     const controls = leftHanded ? [...controlItems].reverse() : controlItems;
     const controlsGroup = (
       <View style={styles.controls}>

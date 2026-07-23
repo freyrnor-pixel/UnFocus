@@ -3,7 +3,7 @@
  * per-list by the Shopping/Monthly redesign, 2026-07-22), with month navigation & store breakdown
  *
  * Compares a selected month's scanned/manual receipt total — filtered to receipts TAGGED to
- * this specific Monthly list (useReceiptStore's monthlyListId, set by app/(tabs)/scan.tsx's
+ * this specific Monthly list (useReceiptStore's monthlyListId, set by app/scan.tsx's
  * list picker) — against that list's own budget (store/useMonthlyListStore.ts's budgetNok),
  * with a gentle progress bar, month selector, receipt list, and per-store breakdown. Budget
  * can be set/edited inline. Reached via the bordered Budget pill on a specific Monthly list

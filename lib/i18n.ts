@@ -23,7 +23,7 @@
  *   - Added keys: peers.* (Decision 038 LAN live-sync wiring — app/pair-device.tsx,
  *     app/settings.tsx's sync toggle card).
  *   - Added keys: webPreview.notAvailable (web preview placeholder screens —
- *     app/(tabs)/scan.web.tsx).
+ *     app/scan.web.tsx).
  */
 import { useSettingsStore } from '@/store/useSettingsStore';
 

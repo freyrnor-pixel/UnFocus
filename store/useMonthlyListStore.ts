@@ -14,7 +14,7 @@
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id
  *   Used by → app/(tabs)/shopping.tsx (Monthly tab), app/budget.tsx (per-list budget editor),
- *             app/(tabs)/scan.tsx (receipt monthly-list tagging picker, type only)
+ *             app/scan.tsx (receipt monthly-list tagging picker, type only)
  *   Data    → defines a Zustand store; owns SQLite table monthly_lists
  *
  * Edit notes:

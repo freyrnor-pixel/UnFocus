@@ -16,7 +16,7 @@
  * Connections:
  *   Imports → react-native-reanimated, constants/theme (getGlow, Radius), lib/useAppTheme
  *   Used by → components/PlanTaskCard.tsx, components/TaskCard.tsx, components/Button.tsx,
- *             app/(tabs)/health.tsx
+ *             app/(tabs)/habits.tsx
  *   Data    → reads reducedMotion via useAccessibility()
  *
  * Edit notes:

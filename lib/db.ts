@@ -707,7 +707,7 @@ export function initDb() {
     // meaningful for status='catalog' rows and rows carrying from_catalog=1 (it travels
     // with the row through inWeeklyList/purchased, same pattern as list_id for weekly);
     // receipts.monthly_list_id tags a purchase to the Monthly list its spend counts
-    // against (app/(tabs)/scan.tsx). The existing single Katalog + its budget/lastReset
+    // against (app/scan.tsx). The existing single Katalog + its budget/lastReset
     // are migrated onto one auto-created default list so nothing is lost.
     `CREATE TABLE IF NOT EXISTS monthly_lists (
       id TEXT PRIMARY KEY,

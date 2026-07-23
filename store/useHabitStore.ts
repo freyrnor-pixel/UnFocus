@@ -12,8 +12,8 @@
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/habitNotifications, store/useSettingsStore,
  *             store/useGoalStore (registerProgress on increment when a habit has a goalId)
- *   Used by → app/habit-form.tsx, app/(tabs)/health.tsx (embedded Habits section — the former
- *             standalone app/habits.tsx was folded directly into it, no separate route anymore);
+ *   Used by → app/habit-form.tsx, app/(tabs)/habits.tsx (its own bottom-nav tab again as of
+ *             2026-07-23 — see that file's header for the fold-in/split-out history);
  *             app/_layout.tsx, app/settings.tsx
  *   Data    → defines a Zustand store; owns SQLite tables habits and habit_logs; schedules per-habit
  *             daily notifications; `habits.goal_id` is a nullable app-enforced pointer to a `goals` row
@@ -24,7 +24,7 @@
  *   - User-facing notification strings go through getTranslations(useSettingsStore.getState().language), NOT useT.
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
  *   - markRestDay() toggles the rest_day flag on a habit_logs row (upserting one if it doesn't
- *     exist yet) — a no-shame opt-out, framed as "Resting today" in app/(tabs)/health.tsx, never
+ *     exist yet) — a no-shame opt-out, framed as "Resting today" in app/(tabs)/habits.tsx, never
  *     "skipped". No streak system exists to protect (removed 2026-07-20) — a rest day is purely
  *     neutral: lib/habitRecurrence.ts's habitMetOn excludes it from that day's Energy delta entirely, so
  *     it's neither a reward nor a penalty, just a day the habit's energy sits still.
@@ -32,7 +32,7 @@
  *     When energyEnabled, MEETING the habit on a day (and not resting) applies the signed
  *     energyValue (positive restores energy, negative drains) to that day's/week's budget
  *     (lib/energy.ts, components/EnergyMeter.tsx). Also shown directly on the habit card as a
- *     small +/- pill (app/(tabs)/health.tsx's EnergyBadge) — replaced the old streak badge.
+ *     small +/- pill (app/(tabs)/habits.tsx's EnergyBadge) — replaced the old streak badge.
  *     Only matters when settings.energySystemEnabled.
  *   - **Decision 016 Q2 — no legacy `notificationTime` field.** `notificationTimes` is the
  *     sole live source of truth; the `notification_time` DB column is dead (never read/written

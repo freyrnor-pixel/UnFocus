@@ -11,12 +11,12 @@
  *
  * Connections:
  *   Imports → components/Surface, components/SectionRail, constants/theme
- *   Used by → app/(tabs)/plans.tsx, app/(tabs)/health.tsx
+ *   Used by → app/(tabs)/plans.tsx, app/(tabs)/habits.tsx
  *   Data    → none — presentational
  *
  * Edit notes:
  *   - The colored edge is the section `hue` (a solid domain accent) passed straight to
- *     `<Surface borderColor>` — the same colored-edge-on-neutral-fill language health.tsx's
+ *     `<Surface borderColor>` — the same colored-edge-on-neutral-fill language habits.tsx's
  *     domain cards already use (Decision: dropped whole-card tint, 2026-07-14). Because the
  *     box itself now carries the hue, rows inside it no longer need their own per-card
  *     `railColor` left edge — drop it at the call site to avoid double-coding.

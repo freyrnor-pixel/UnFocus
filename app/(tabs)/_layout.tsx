@@ -1,7 +1,7 @@
 /**
  * (tabs)/_layout.tsx — swipeable pager for the 5 main sites (Decision 032 successor).
  *
- * Co-mounts Shopping/Plans/Home/Health/Scan in one react-native-pager-view-backed
+ * Co-mounts Shopping/Plans/Home/Health/Habits in one react-native-pager-view-backed
  * material-top-tabs navigator (tabBarPosition="bottom") so swiping between sites is
  * one continuous native slide with no route remount — replacing the old separate-routes
  * + SiteSwipeView double-motion (native push/back + a second hand-rolled flick), which
@@ -34,10 +34,12 @@
  *
  * Edit notes:
  *   - Screen order MUST match lib/siteNav.ts's SITE_ITEMS (shopping, plans, index, health,
- *     scan) — BottomNav maps each pager route's name to a SITE_ITEMS entry via
+ *     habits) — BottomNav maps each pager route's name to a SITE_ITEMS entry via
  *     lib/siteNav.ts's TAB_ROUTE_NAME, so a mismatch here shows the wrong icon/label active.
- *   - `(tabs)` is a route group: URLs stay "/", "/shopping", "/plans", "/health", "/scan" —
- *     unchanged from before this migration.
+ *     (2026-07-23, UX audit E1/E2: Scan swapped out for the new app/(tabs)/habits.tsx —
+ *     Scan is now a pushed sub-screen at app/scan.tsx, reached from Shopping's header.)
+ *   - `(tabs)` is a route group: URLs stay "/", "/shopping", "/plans", "/health", "/habits"
+ *     (was "/scan" before the 2026-07-23 E1/E2 swap — see the Screen-order note above).
  *   - As of SDK 56, expo-router's Metro resolver throws a build error if app code imports
  *     `@react-navigation/*` directly (https://docs.expo.dev/router/migrate/sdk-55-to-56/).
  *     This file must import `TopTabs` from `expo-router/js-top-tabs`, not
@@ -50,8 +52,8 @@
  *     "things load in" hitch users reported. Pairs with app/_layout.tsx's cold-start
  *     hydration (Tier A stores + the settings render gate), so the pre-mounted screens mount
  *     with their data already in memory. Watch memory on low-end Android (5 screens mounted
- *     from launch); the Scan tab's CameraView is gated behind its `qrScanVisible` modal, so
- *     eager mount does NOT power on the camera.
+ *     from launch) — the former Scan tab's camera-power-on caveat here no longer applies
+ *     since Scan moved out to a pushed sub-screen (app/scan.tsx, 2026-07-23).
  *   - **`lazy: false` vs the REVERTED `lazyPreloadDistance` (2026-07-13)**: the earlier
  *     revert was `lazyPreloadDistance: 1` — a HALF-lazy state (lazy:true + preload) that hit
  *     react-native-pager-view's documented touch-delivery bug for preloaded-but-inactive
@@ -71,9 +73,10 @@
  *     to 1x slop in NestedScrollableHost.kt. It's native, so it only takes effect in a fresh
  *     build (maintainer-cut), not via OTA. If tab swipes ever start stealing vertical-scroll
  *     drags on a list, that patch's factor is the knob to dial back.
- *   - `swipeEnabled: true` is the whole point of this migration. app/(tabs)/scan.tsx
- *     temporarily flips it off via `navigation.setOptions` while an OCR scan is
- *     processing or one of its modals is open, so a stray swipe can't abandon that flow.
+ *   - `swipeEnabled: true` is the whole point of this migration. (Scan used to flip it off
+ *     mid-OCR via `navigation.setOptions` while it was one of these 5 co-mounted tabs;
+ *     now that it's a pushed sub-screen at app/scan.tsx, 2026-07-23, that guard doesn't
+ *     apply here anymore — a pushed screen already blocks the pager underneath it.)
  *   - **`animationEnabled: Platform.OS !== 'web'` (2026-07-18, web-only stuck-scroll fix)**:
  *     BottomNav taps on web drive the pager via an animated JS `scrollTo` (no real native
  *     pager there) that can be interrupted mid-flight, leaving `scrollLeft` at a
@@ -187,12 +190,12 @@ export default function TabsLayout() {
           <TabBarWithBackgroundSync {...props} insetsBottom={insets.bottom} onActiveRouteChange={setActiveRouteName} />
         )}
       >
-        {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, plans, home, health, scan */}
+        {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, plans, home, health, habits */}
         <TopTabs.Screen name="shopping" />
         <TopTabs.Screen name="plans" />
         <TopTabs.Screen name="index" />
         <TopTabs.Screen name="health" />
-        <TopTabs.Screen name="scan" />
+        <TopTabs.Screen name="habits" />
         </TopTabs>
       </View>
   );

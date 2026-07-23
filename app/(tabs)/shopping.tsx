@@ -249,6 +249,11 @@
  *     SCREEN_FUNCTIONS_AUDIT.md finding C1. Plans doesn't need the same treatment: its
  *     per-task "Shared out" switch (`components/TaskCard.tsx`) already writes directly to
  *     `useSharedStore` without a QR step.
+ *   - **Scan header button (2026-07-23, audit findings E2/F1)**: `onScanPress` (same
+ *     pattern as `onSharePress` above) pushes `/scan` — Scan's own idle screen still offers
+ *     both receipt OCR and QR import, so this one button is the sole replacement for the
+ *     bottom-nav tab Scan used to occupy. The existing "Shopping done!" Scan/Upload choices
+ *     (line ~245) already pushed `/scan` directly and are unaffected by this move.
  *   - **Still dropped**: SiteSwipeView's swipe-between-screens wrapper (Phase 3e, not
  *     ported, not required by A2-1/A2-4).
  *   - `ConfirmationBanner` renders as a sibling of `<ScreenScaffold>`, not inside its
@@ -1393,7 +1398,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'shopping').base} scrollable={tab !== 'catalogue'} stickyGapColor={theme.surface} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={() => router.push('/share-modal?kind=s')} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'shopping').base} scrollable={tab !== 'catalogue'} stickyGapColor={theme.surface} stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={() => router.push('/share-modal?kind=s')} onScanPress={() => router.push('/scan')} onScroll={handleScreenScroll}>
       {tab === 'catalogue' ? (
         <CatalogueTab onNotify={setConfirm} header={shoppingIntro} />
       ) : (
