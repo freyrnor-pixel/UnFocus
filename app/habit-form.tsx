@@ -14,8 +14,8 @@
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
  *             components/Collapsible (animated "More options" disclosure),
  *             components/HintCard, components/HabitIcon, components/Button, components/AppModal,
- *             components/PressableScale, components/Stepper, lib/haptics, lib/i18n, lib/useAppTheme,
- *             store/useHabitStore, store/useSettingsStore
+ *             components/PressableScale, components/Stepper, components/GoalPicker, lib/haptics,
+ *             lib/i18n, lib/useAppTheme, store/useHabitStore, store/useSettingsStore
  *   Used by → Expo Router route "/habit-form"; reached from app/(tabs)/health.tsx's
  *             embedded Habits section (AddFAB "+" and each habit card's settings-gear
  *             IconButton, 2026-07-21 — replaced the old long-press-to-edit gesture)
@@ -88,6 +88,7 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import { Input, SegmentedControl, Switch } from '@/components/FormControls';
 import HintCard from '@/components/HintCard';
+import { GoalPicker } from '@/components/GoalPicker';
 import HabitIcon, { HABIT_ICON_NAMES } from '@/components/HabitIcon';
 import Button from '@/components/Button';
 import { showAppModal } from '@/components/AppModal';
@@ -173,6 +174,7 @@ export default function HabitForm() {
   const [childName, setChildName] = useState(existing?.childName ?? (params.childName ?? ''));
   const [energyEnabled, setEnergyEnabled] = useState(existing?.energyEnabled ?? false);
   const [energyValue, setEnergyValue] = useState(existing?.energyValue ?? 1);
+  const [goalId, setGoalId] = useState<string | null>(existing?.goalId ?? null);
 
   const [notificationEnabled, setNotificationEnabled] = useState(existing?.notificationEnabled ?? false);
   // Recipe fields: prefer the persisted recipe (Decision 016 Q3); fall back to the old
@@ -240,6 +242,7 @@ export default function HabitForm() {
       childName,
       energyEnabled,
       energyValue,
+      goalId,
     };
     if (isEdit && params.id) {
       updateHabit(params.id, payload);
@@ -493,6 +496,9 @@ export default function HabitForm() {
           </Text>
           <Stepper value={dailyGoal} onChange={setDailyGoal} min={1} max={20} accessibilityLabel={t.habitDailyGoal} />
         </View>
+
+        {/* Goal — connect this habit to a Goal (create/select/delete inline) */}
+        <GoalPicker value={goalId} onChange={setGoalId} />
 
         {/* More options disclosure — icon/category only now; both are cosmetic/organizational,
             not load-bearing, so they stay tucked away by default. */}

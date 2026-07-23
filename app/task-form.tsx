@@ -12,7 +12,8 @@
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
  *             components/Collapsible (animated inline calendar reveal),
  *             components/HintCard, components/ConfirmationBanner, components/DatePickerCalendar,
- *             components/IconButton, components/AppModal, components/PressableScale, lib/date,
+ *             components/IconButton, components/AppModal, components/PressableScale,
+ *             components/GoalPicker, lib/date,
  *             lib/haptics, lib/i18n, lib/useAppTheme, lib/useVoiceCapture, lib/location,
  *             expo-contacts, store/useTaskStore, store/useSettingsStore
  *   Used by → Expo Router route "/task-form"; pushed from anywhere that needs to add/edit a
@@ -78,6 +79,7 @@ import Surface from '@/components/Surface';
 import { Checkbox, Input, SegmentedControl, Switch } from '@/components/FormControls';
 import HintCard from '@/components/HintCard';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
+import { GoalPicker } from '@/components/GoalPicker';
 import DatePickerCalendar from '@/components/DatePickerCalendar';
 import IconButton from '@/components/IconButton';
 import Stepper from '@/components/Stepper';
@@ -141,6 +143,7 @@ export default function TaskFormScreen() {
   const [calExpanded, setCalExpanded] = useState(false);
   const [newStepTitle, setNewStepTitle] = useState('');
   const [thenPickerOpen, setThenPickerOpen] = useState(false);
+  const [goalId, setGoalId] = useState<string | null>(existing?.goalId ?? null);
 
   const { dayLabels } = t;
   const sortedSteps = [...(existing?.steps ?? [])].sort((a, b) => a.orderIndex - b.orderIndex);
@@ -252,6 +255,7 @@ export default function TaskFormScreen() {
       energyValue,
       sortOrder: existing?.sortOrder ?? 0,
       hint: hint.trim(),
+      goalId,
       contactName: contactName.trim() || undefined,
       contactPhone: contactPhone.trim() || undefined,
       locationLat,
@@ -590,6 +594,9 @@ export default function TaskFormScreen() {
             )}
           </View>
         )}
+
+        {/* Goal — connect this task to a Goal (create/select/delete inline) */}
+        <GoalPicker value={goalId} onChange={setGoalId} />
 
         {/* Then — Decision 020, one-to-one follower link, surfacing-only */}
         {existing && (

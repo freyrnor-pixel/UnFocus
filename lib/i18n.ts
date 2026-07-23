@@ -969,6 +969,20 @@ const en = {
     restDayHint: "Resting today — this habit's energy just sits still, no reward or penalty.",
     weeklyProgress: (count: number, goal: number) => `${count}/${goal} this week`,
   },
+  // Goals — connect tasks & habits to a goal; managed only from the form pickers.
+  goals: {
+    pickerLabel: 'Goal',
+    none: 'Not linked to a goal',
+    pick: '+ Connect a goal',
+    remove: 'Unlink goal',
+    emptyList: 'No goals yet — create your first one below.',
+    newPlaceholder: 'New goal name',
+    add: 'Add goal',
+    deleteLabel: 'Delete goal',
+    deleteConfirmTitle: (name: string) => `Delete "${name}"?`,
+    deleteConfirmBody: 'Tasks and habits linked to it will be unlinked. This cannot be undone.',
+    strengthLabel: 'Goal momentum — grows as you work on it, gently fades when you don’t.',
+  },
   // IFTTT-style automations
   automations: {
     title: 'Automations',
@@ -1910,6 +1924,19 @@ const no: typeof en = {
     restingToday: 'Hviler i dag',
     restDayHint: 'Du hviler i dag — energien for denne vanen står stille, verken belønning eller straff.',
     weeklyProgress: (count: number, goal: number) => `${count}/${goal} denne uken`,
+  },
+  goals: {
+    pickerLabel: 'Mål',
+    none: 'Ikke koblet til et mål',
+    pick: '+ Koble til et mål',
+    remove: 'Fjern kobling',
+    emptyList: 'Ingen mål ennå — lag ditt første nedenfor.',
+    newPlaceholder: 'Navn på nytt mål',
+    add: 'Legg til mål',
+    deleteLabel: 'Slett mål',
+    deleteConfirmTitle: (name: string) => `Slette «${name}»?`,
+    deleteConfirmBody: 'Oppgaver og vaner som er koblet til, blir frakoblet. Dette kan ikke angres.',
+    strengthLabel: 'Måldriv — vokser når du jobber med det, avtar rolig når du ikke gjør det.',
   },
   automations: {
     title: 'Automatiseringer',

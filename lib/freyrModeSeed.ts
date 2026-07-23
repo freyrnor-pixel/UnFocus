@@ -93,7 +93,7 @@ const MON = 0, TUE = 1, WED = 2, THU = 3, FRI = 4, SAT = 5, SUN = 6;
 const WEEKDAYS = [MON, TUE, WED, THU, FRI];
 const WEEKEND = [SAT, SUN];
 
-function addHabitAndCaptureId(input: Omit<Habit, 'id' | 'createdAt' | 'active'>): string {
+function addHabitAndCaptureId(input: Omit<Habit, 'id' | 'createdAt' | 'active' | 'goalId'> & { goalId?: string | null }): string {
   const before = new Set(useHabitStore.getState().habits.map((h) => h.id));
   useHabitStore.getState().add(input);
   const created = useHabitStore.getState().habits.find((h) => !before.has(h.id));

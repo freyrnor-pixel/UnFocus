@@ -19,10 +19,10 @@
  *             components/AddRow, components/AnimatedListItem (habit add/remove fade),
  *             components/GlowPulse (done-state static halo), components/HabitIcon,
  *             components/EmptyState, components/SlideSelector, components/PressableScale,
- *             components/IconButton (per-row habit edit button),
+ *             components/IconButton (per-row habit edit button), components/GoalGlowDot (goal glow),
  *             constants/theme, constants/colors, lib/date, lib/db, lib/haptics, lib/i18n,
  *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor, lib/screenColor,
- *             store/useHealthStore, store/useHabitStore, store/useSettingsStore
+ *             store/useHealthStore, store/useHabitStore, store/useGoalStore, store/useSettingsStore
  *   - Habit Today/Week/Month uses the shared SlideSelector; the person filter row +
  *     habit-form "For" chips are gated on settings.peopleModeEnabled (People/family
  *     mode). Profile add/remove now lives in app/settings.tsx, not here.
@@ -67,6 +67,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore, HealthLog } from '@/store/useHealthStore';
 import { useHabitStore, Habit, HabitKind } from '@/store/useHabitStore';
+import { useGoalStore } from '@/store/useGoalStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
@@ -78,6 +79,7 @@ import AnimatedListItem from '@/components/AnimatedListItem';
 import Collapsible from '@/components/Collapsible';
 import GlowPulse from '@/components/GlowPulse';
 import HabitIcon from '@/components/HabitIcon';
+import { GoalGlowDot } from '@/components/GoalGlowDot';
 import EmptyState from '@/components/EmptyState';
 import SlideSelector from '@/components/SlideSelector';
 import PressableScale from '@/components/PressableScale';
@@ -192,6 +194,8 @@ function HabitCard({
   const increment = useHabitStore((s) => s.increment);
   const decrement = useHabitStore((s) => s.decrement);
   const markRestDay = useHabitStore((s) => s.markRestDay);
+  // Goals — the linked goal (if any), for the living-glow dot next to the title.
+  const linkedGoal = useGoalStore((s) => (habit.goalId ? s.goals.find((g) => g.id === habit.goalId) ?? null : null));
   const t = useT();
   const styles = useScaledStyles(baseStyles);
 
@@ -235,6 +239,9 @@ function HabitCard({
           <View style={styles.habitTitleWrap}>
             <View style={styles.habitTitleRow}>
               <Text style={[styles.habitTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
+              {linkedGoal ? (
+                <GoalGlowDot color={linkedGoal.color} strength={linkedGoal.strength} strengthUpdatedAt={linkedGoal.strengthUpdatedAt} size={9} />
+              ) : null}
             </View>
             <View style={styles.titleMetaRow}>
               {isWeeklyFlexible && (
@@ -610,6 +617,7 @@ export default function HealthScreen() {
       childName: selectedProfile || '',
       energyEnabled: false,
       energyValue: 1,
+      goalId: null,
     });
     setHabitDraft('');
     success();
