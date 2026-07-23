@@ -12,7 +12,7 @@
  * Connections:
  *   Imports → constants/theme, lib/date, lib/useAppTheme, store/useShoppingStore,
  *             components/PressableScale
- *   Used by → app/(tabs)/shopping.tsx (Monthly catalog tab)
+ *   Used by → app/(tabs)/shopping.tsx (Monthly catalog tab), app/inventory-edit.tsx
  *   Data    → consumes the ShoppingItem type from useShoppingStore; mutations happen in the parent via onCheckboxPress/onPress; scaled fontSize via useScaledStyles()
  *
  * Edit notes:
@@ -21,6 +21,9 @@
  *     the focused weekly list (addToWeeklyFromCatalog), replacing the old
  *     stage-then-confirm tray flow — the checkbox no longer reflects a lingering
  *     pendingRestock state since the row leaves the Monthly list on tap.
+ *     app/inventory-edit.tsx (no "focused weekly list" concept of its own) wires the
+ *     same checkbox to a plain `pendingRestock` toggle instead — a personal bookkeeping
+ *     flag, not restoring the old dedicated setPendingRestock store method.
  *   - targetQuantity is edited via the Update Sheet (components/UpdateSheet.tsx), OR — in
  *     the redesigned Monthly-list section (2026-07-06) — via the optional inline stepper
  *     (onIncrement/onDecrement drive targetQuantity in the parent) and the optional trailing
@@ -29,7 +32,7 @@
  *   - Swipe-to-delete was removed (it offered no other way to delete, and conflicted
  *     with the read-mostly main Katalog view). Deletion now only happens via the
  *     Update Sheet's existing inline 2-step confirm, reached by tapping a row where
- *     `onPress` is wired (Monthly Container unlocked).
+ *     `onPress` is wired (Monthly Container unlocked, or app/inventory-edit.tsx).
  *   - Row background is a plain themed View, not a <Surface> — this row is a sub-row
  *     inside a parent-owned card (app/shopping.tsx wraps the whole ungrouped list in
  *     one Surface/card; rows just flow inside it separated by a divider), so wrapping

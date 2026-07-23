@@ -50,10 +50,11 @@
  *     of figure shown on app/budget.tsx (there, one specific list) and the Shopping screen's
  *     Monthly tab (there, each list's own); null (card shows nothing extra) until at least one
  *     list has a budget set and has been through a reset.
- *   - **Home preview card management (2026-07-19)**: off-Focus, Notes/Plans/Shopping render via
- *     `HomeCardManager` (components/HomeCardManager.tsx) in `settings.homeCardOrder` order —
- *     holding any card enters an edit mode where all three become draggable and get a delete
- *     badge, plus an "Add a card" tile to bring back a removed one (max one of each). The old
+ *   - **Home preview card management (2026-07-19, A2/D1 split 2026-07-23)**: off-Focus,
+ *     Notes/Plans/Shopping render via `HomeCardManager` (components/HomeCardManager.tsx) in
+ *     `settings.homeCardOrder` order. Holding any card always drag-reorders it (long-press's
+ *     one meaning here); a separate visible "Edit cards" button above the stack toggles the
+ *     delete-badge + "Add a card" chrome — no longer a side effect of the long-press. The old
  *     "Reorder intentionally omitted, Decision 011 R1" note here no longer applies — that was
  *     about the full /shopping screen's cross-group hit-testing; this reuses DraggableTaskRow
  *     but not that complexity, since Home's cards are plain flat siblings. `renderHomeCard(kind)`

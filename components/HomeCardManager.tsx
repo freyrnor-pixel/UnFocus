@@ -1,9 +1,16 @@
 /**
- * HomeCardManager.tsx — hold-to-manage wrapper for Home's reorderable preview cards.
+ * HomeCardManager.tsx — reorderable wrapper for Home's Notes/Plans/Shopping preview cards,
+ * with a separate visible entry point for adding/removing cards.
  *
- * Wraps an ordered stack of "kind"-keyed cards (Notes/Plans/Shopping) so long-pressing
- * any card enters an edit mode where every card becomes draggable and gets a delete (×)
- * badge, plus an "Add a card" tile for re-adding a removed kind. Mirrors
+ * Wraps an ordered stack of "kind"-keyed cards. Long-pressing ANY card always starts a
+ * drag-to-reorder (no mode to enter first) — reordering is the one thing long-press does
+ * here, matching its meaning everywhere else in the app (WeekListCard, Shopping's
+ * DraggableTaskRow rows). Adding/removing a card is a **separate, visible "Edit cards"
+ * button** (UX audit A2/D1, 2026-07-23): tapping it reveals a delete (×) badge on every
+ * card plus an "Add a card" tile for re-adding a removed kind, until "Done" is tapped.
+ * Before this pass, long-press did BOTH (started a drag AND silently switched on the
+ * delete/add chrome) — undiscoverable (nothing hinted it was there) and made long-press
+ * mean two different things depending on where the finger ended up. Mirrors
  * DraggableTaskRow's "owns no data" contract — reorder/remove/add are bubbled to the
  * parent via callbacks; this component only owns edit-mode state and drives the shared
  * flat-list drag math (lib/reorder.reorderByDrag — the same stable, no-flicker insertion
@@ -21,10 +28,10 @@
  *     privately). Dragging a card while it happens to be expanded works but reflows a
  *     larger block; accepted trade-off vs. threading expand state through three
  *     separately-owned card components for this.
- *   - A long-press on ANY card both enters edit mode AND starts that card's drag in one
- *     motion (DraggableTaskRow's onDragStart fires ~400ms into the hold, even with zero
- *     movement) — there's no separate "tap Edit first" step, matching "holding a card makes
- *     them all reorderable."
+ *   - **Reorder vs. edit mode are independent (2026-07-23):** `handleDragStart` no longer
+ *     calls `setEditMode(true)` — a long-press-drag reorders and commits via `onReorder`
+ *     regardless of whether the delete/add chrome is showing. `editMode` is now driven
+ *     solely by the "Edit cards" / "Done" toggle button rendered above the stack.
  *   - Relies on the Android LayoutAnimation global enable that ExpandableCard.tsx sets at
  *     module scope (same assumption DraggableTaskRow.tsx documents) — HomeShoppingCard
  *     imports ExpandableCard, so it's already set by the time this mounts on Home.
@@ -78,7 +85,6 @@ export default function HomeCardManager({ order, labels, onReorder, onRemove, on
   }
 
   function handleDragStart(kind: string) {
-    setEditMode(true);
     snapshot.current = {};
     for (const k of order) {
       nodes.current.get(k)?.measureInWindow?.((_x: number, y: number, _w: number, h: number) => {
@@ -128,8 +134,8 @@ export default function HomeCardManager({ order, labels, onReorder, onRemove, on
 
   return (
     <View>
-      {editMode && (
-        <View style={styles.editBar}>
+      <View style={styles.editBar}>
+        {editMode ? (
           <PressableScale
             style={[styles.doneBtn, { backgroundColor: theme.accent }]}
             onPress={() => {
@@ -139,8 +145,22 @@ export default function HomeCardManager({ order, labels, onReorder, onRemove, on
           >
             <Text style={[styles.doneBtnText, { color: theme.accentInk }]}>{t.home.manageCards.done}</Text>
           </PressableScale>
-        </View>
-      )}
+        ) : (
+          <PressableScale
+            style={styles.editEntryBtn}
+            onPress={() => {
+              tap();
+              setEditMode(true);
+            }}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t.home.manageCards.edit}
+          >
+            <Ionicons name="pencil-outline" size={14} color={theme.textMuted} />
+            <Text style={[styles.editEntryBtnText, { color: theme.textMuted }]}>{t.home.manageCards.edit}</Text>
+          </PressableScale>
+        )}
+      </View>
 
       {liveOrder.map((kind) => (
         <DraggableTaskRow
@@ -210,6 +230,14 @@ const baseStyles = StyleSheet.create({
   editBar: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: Spacing.sm },
   doneBtn: { paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md, borderRadius: Radius.full },
   doneBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.sm },
+  editEntryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+  },
+  editEntryBtnText: { fontFamily: Fonts.medium, fontSize: FontSize.xs },
   removeBadge: {
     position: 'absolute',
     top: -6,

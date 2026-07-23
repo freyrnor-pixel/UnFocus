@@ -451,6 +451,7 @@ const en = {
   // Inventory edit screen
   editInventoryBtn: 'Edit inventory',
   inventoryEditTitle: 'Edit inventory',
+  manageInventoryAction: 'Manage inventory',
   // Monthly reset summary
   monthlyResetSummaryTitle: 'Monthly list reset',
   monthlyResetSummaryInventorySection: 'Inventory',
@@ -836,6 +837,7 @@ const en = {
     shoppingExpand: 'Show full list',
     shoppingCollapse: 'Show less',
     manageCards: {
+      edit: 'Edit cards',
       done: 'Done',
       add: 'Add a card',
       remove: (label: string) => `Remove ${label}`,
@@ -1241,7 +1243,7 @@ const en = {
   },
   hints: {
     home: {
-      text: "See today's notes, plans and shopping at a glance. Hold a card to rearrange, remove, or add one back.",
+      text: "See today's notes, plans and shopping at a glance. Hold a card to rearrange it, or tap Edit cards to remove or add one back.",
       example: '',
     },
     taskForm: {
@@ -1743,6 +1745,7 @@ const no: typeof en = {
   // Rediger-inventar-skjerm
   editInventoryBtn: 'Rediger inventar',
   inventoryEditTitle: 'Rediger inventar',
+  manageInventoryAction: 'Administrer inventar',
   // Månedlig nullstilling-sammendrag
   monthlyResetSummaryTitle: 'Månedslisten er nullstilt',
   monthlyResetSummaryInventorySection: 'Inventar',
@@ -2312,6 +2315,7 @@ const no: typeof en = {
     shoppingExpand: 'Vis full liste',
     shoppingCollapse: 'Vis mindre',
     manageCards: {
+      edit: 'Rediger kort',
       done: 'Ferdig',
       add: 'Legg til kort',
       remove: (label: string) => `Fjern ${label}`,
@@ -2501,7 +2505,7 @@ const no: typeof en = {
   },
   hints: {
     home: {
-      text: 'Se dagens notater, planer og handleliste på ett blikk. Hold et kort for å ordne, fjerne eller legge det til igjen.',
+      text: 'Se dagens notater, planer og handleliste på ett blikk. Hold et kort for å ordne rekkefølgen, eller trykk «Rediger kort» for å fjerne eller legge til igjen.',
       example: '',
     },
     taskForm: {

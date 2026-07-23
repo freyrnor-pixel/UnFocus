@@ -52,7 +52,9 @@
  *     it's visible. Delete is confirm-gated via confirmDelete()/showAppModal.
  *   - **Reserve-only device features (2026-07-17)**: a mic button beside the Title Input
  *     (lib/useVoiceCapture.ts, gated on settings.voiceNotesEnabled, replaces the field's
- *     value on a finished transcript); a Contact block (expo-contacts' class API —
+ *     value on a finished transcript) — styled as a bordered circular chip matching
+ *     components/HomeNotesCard.tsx's inline mic button (UX audit D2, 2026-07-23: same
+ *     recognizable mic affordance app-wide); a Contact block (expo-contacts' class API —
  *     Contact.presentPicker()/getDetails(), NOT the deprecated flat functions, gated on
  *     settings.contactsEnabled, name+phone snapshot only, tap-to-call via Linking); a
  *     Location block (lib/location.ts, gated on settings.locationEnabled, foreground
@@ -87,7 +89,7 @@ import Collapsible from '@/components/Collapsible';
 import Button from '@/components/Button';
 import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
 
 const DURATION_CHIPS = [15, 20, 30, 45, 60, 90];
 
@@ -342,7 +344,10 @@ export default function TaskFormScreen() {
                 <View
                   style={[
                     styles.micButton,
-                    { backgroundColor: titleListening ? theme.badSoft : theme.surfaceMuted },
+                    {
+                      backgroundColor: titleListening ? theme.badSoft : theme.surfaceMuted,
+                      borderColor: rgba(titleListening ? theme.bad : theme.accent, 0.4),
+                    },
                   ]}
                 >
                   <Ionicons name={titleListening ? 'stop' : 'mic'} size={15} color={titleListening ? theme.bad : theme.accent} />
@@ -722,7 +727,7 @@ const baseStyles = StyleSheet.create({
   titleFieldRow: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm },
   titleInputWrap: { flex: 1 },
   voiceBtnWrap: { marginBottom: 10 },
-  micButton: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  micButton: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   locationRowContent: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

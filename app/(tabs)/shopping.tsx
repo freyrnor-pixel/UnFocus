@@ -32,7 +32,7 @@
  *             lib/date (todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle,
  *             dateRangeForCycleWeek, formatDateRange), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
- *             groupByCategory, computeListGroups, listProgress),
+ *             groupByCategory, computeListGroups, listProgress, catalogItemsForList),
  *             lib/shoppingCategories (categoryPresets, categoryLabel),
  *             lib/reorder (reorderByDrag), lib/useAppTheme,
  *             lib/useFirstVisitHint, lib/domainColor, lib/screenColor, lib/budget (computeSpendPace),
@@ -112,6 +112,13 @@
  *     lock-open icon + number) — `t.unsavedShoppingBanner(n)` is now only the accessibilityLabel,
  *     not visible text. Also shortened WeekListCard's `addFromMonthlyOption`/`addFromDishOption`
  *     i18n strings (were truncating in Norwegian inside their half-width bordered buttons).
+   *   - **"Manage inventory" entry point (UX audit C2, 2026-07-23)**: each Monthly list's
+   *     header row got a `file-tray-full-outline` IconButton pushing `/inventory-edit` with
+   *     that list's id — the resurrected standalone inventory-edit screen (deleted, then
+   *     restored per this decision) that gives a distraction-free add/edit/delete view over
+   *     the exact same `status==='catalog'` rows this tab shows inline. Both now share
+   *     `lib/shoppingGroups.ts`'s `catalogItemsForList()` instead of each filtering/sorting
+   *     independently.
  *   - **Popup + real category filter pass (2026-07-22)**: Weekly's "Add from monthly" now opens
  *     `components/AddFromMonthlyModal` as a centered popup (checkbox multi-select, batch
  *     commit) instead of WeekListCard's old inline panel — `onAddMonthlyToWeek` (per-item) was
@@ -332,7 +339,7 @@ import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRang
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
-import { groupByDish, groupByCategory, computeListGroups, listProgress } from '@/lib/shoppingGroups';
+import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { reorderByDrag } from '@/lib/reorder';
 import { formatKr } from '@/lib/money';
@@ -596,9 +603,7 @@ export default function ShoppingScreen() {
   const monthlyListViews = useMemo(() => {
     const q = monthlyTabSearch.trim().toLowerCase();
     return monthlyLists.map((list) => {
-      const catalogItems = items
-        .filter((i) => i.status === 'catalog' && i.monthlyListId === list.id)
-        .sort((a, b) => a.name.localeCompare(b.name));
+      const catalogItems = catalogItemsForList(items, list.id);
       const filteredCatalogItems = catalogItems.filter(
         (i) => (!q || i.name.toLowerCase().includes(q)) && (monthlyTabCategory == null || i.category === monthlyTabCategory)
       );
@@ -1472,6 +1477,11 @@ export default function ShoppingScreen() {
                         >
                           <Ionicons name="refresh-circle" size={32} color={theme.bad} />
                         </PressableScale>
+                        <IconButton
+                          icon="file-tray-full-outline"
+                          label={t.manageInventoryAction}
+                          onPress={() => router.push({ pathname: '/inventory-edit', params: { listId: list.id } })}
+                        />
                         <IconButton
                           icon={locked ? 'lock-closed' : 'lock-open-outline'}
                           label={locked ? t.unlockListButtonLabel : t.lockListButtonLabel}

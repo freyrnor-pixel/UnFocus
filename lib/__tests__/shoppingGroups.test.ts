@@ -15,6 +15,7 @@ import {
   dishGroupAllChecked,
   listProgress,
   listTotal,
+  catalogItemsForList,
 } from '@/lib/shoppingGroups';
 
 function item(overrides: Partial<ShoppingItem>): ShoppingItem {
@@ -34,6 +35,20 @@ function item(overrides: Partial<ShoppingItem>): ShoppingItem {
     ...overrides,
   } as ShoppingItem;
 }
+
+describe('catalogItemsForList', () => {
+  it('returns only status=catalog rows for the given monthlyListId, name-sorted', () => {
+    const items = [
+      item({ id: 'a', name: 'Zucchini', status: 'catalog', monthlyListId: 'M1' }),
+      item({ id: 'b', name: 'Apples', status: 'catalog', monthlyListId: 'M1' }),
+      item({ id: 'c', name: 'Bread', status: 'catalog', monthlyListId: 'M2' }),
+      item({ id: 'd', name: 'Milk', status: 'inWeeklyList', monthlyListId: 'M1' }),
+    ];
+    expect(catalogItemsForList(items, 'M1').map((i) => i.id)).toEqual(['b', 'a']);
+    expect(catalogItemsForList(items, 'M2').map((i) => i.id)).toEqual(['c']);
+    expect(catalogItemsForList(items, 'M3')).toEqual([]);
+  });
+});
 
 describe('groupByDish', () => {
   it('buckets by dishName and sorts dish groups alphabetically', () => {
