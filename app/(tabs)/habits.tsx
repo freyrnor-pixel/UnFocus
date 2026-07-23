@@ -625,41 +625,47 @@ export default function HabitsScreen() {
               onChange={(v) => setHabitTab(v as HabitViewTab)}
             />
 
-            {habitTab === 'today' && (
-              <>
-                {/* "X / Y done" tally removed (debug-note 2026-07-21): a score reintroduces
-                    the shame/reward framing the app deliberately avoids. */}
-                <View style={styles.section}>
-                  {visibleHabits.length === 0 ? (
-                    // Neutral edge to match the Week/Month empty placeholders (theme.border,
-                    // not the habit domain hue) — quiet "nothing here yet", not a coded surface.
-                    <Surface borderColor={theme.border} style={styles.sectionCard}>
-                      <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
-                    </Surface>
-                  ) : (
-                    visibleHabits.map((h) => (
-                      <AnimatedListItem key={h.id} enabled={hasMountedHabits.current}>
-                        <HabitCard habit={h} today={today} onEdit={onEditHabit} lang={lang} theme={theme} />
-                      </AnimatedListItem>
-                    ))
-                  )}
-                </View>
+            {/* Kept mounted (hidden via display:none, not unmounted) when another view tab is
+                active — 2026-07-23 fix: unmounting this block on tab switch made every
+                AnimatedListItem card play its FadeOutDown exit animation at once, overlapping
+                visually with the Week/Month view mounting in the same spot (only visible when
+                there was at least one habit card to exit — see AGENTS.md's "habits animation"
+                debug note). Staying mounted means AnimatedListItem's enter/exit only fires for
+                genuine habit add/remove, matching ANIMATION_GUIDELINES.md §6's "never animate
+                tab switches" rule. */}
+            <View style={habitTab === 'today' ? undefined : styles.hiddenTab}>
+              {/* "X / Y done" tally removed (debug-note 2026-07-21): a score reintroduces
+                  the shame/reward framing the app deliberately avoids. */}
+              <View style={styles.section}>
+                {visibleHabits.length === 0 ? (
+                  // Neutral edge to match the Week/Month empty placeholders (theme.border,
+                  // not the habit domain hue) — quiet "nothing here yet", not a coded surface.
+                  <Surface borderColor={theme.border} style={styles.sectionCard}>
+                    <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
+                  </Surface>
+                ) : (
+                  visibleHabits.map((h) => (
+                    <AnimatedListItem key={h.id} enabled={hasMountedHabits.current}>
+                      <HabitCard habit={h} today={today} onEdit={onEditHabit} lang={lang} theme={theme} />
+                    </AnimatedListItem>
+                  ))
+                )}
+              </View>
 
-                {/* Inline quick-add row (replaces the old "+" bubble). Title-only create with
-                    defaults; tap a habit's settings-gear icon to edit the rest. */}
-                <Surface borderColor={habitDomainColor.accent} style={styles.habitAddRowCard}>
-                  <AddRow
-                    placeholder={t.health.addHabit}
-                    value={habitDraft}
-                    onChangeText={setHabitDraft}
-                    onSubmit={commitHabit}
-                    accent={habitDomainColor.accent}
-                    showDivider={false}
-                    accessibilityLabel={t.health.addHabit}
-                  />
-                </Surface>
-              </>
-            )}
+              {/* Inline quick-add row (replaces the old "+" bubble). Title-only create with
+                  defaults; tap a habit's settings-gear icon to edit the rest. */}
+              <Surface borderColor={habitDomainColor.accent} style={styles.habitAddRowCard}>
+                <AddRow
+                  placeholder={t.health.addHabit}
+                  value={habitDraft}
+                  onChangeText={setHabitDraft}
+                  onSubmit={commitHabit}
+                  accent={habitDomainColor.accent}
+                  showDivider={false}
+                  accessibilityLabel={t.health.addHabit}
+                />
+              </Surface>
+            </View>
 
             {habitTab === 'week' && (
               <WeekView
@@ -706,6 +712,9 @@ const baseStyles = StyleSheet.create({
   },
   profileChipText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   section: { gap: Spacing.sm },
+  // Hides the Today section without unmounting it when Week/Month is active — see the
+  // 2026-07-23 fix note above the view-tab render block.
+  hiddenTab: { display: 'none' },
   habitsEmptyCard: { borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', justifyContent: 'center' },
   sectionCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   // Inline habit quick-add row card (mirrors Plans' addRowCard).
