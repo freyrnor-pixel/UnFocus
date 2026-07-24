@@ -2160,9 +2160,10 @@ const styles = StyleSheet.create({
   dishGroupsWrap: { gap: Spacing.xs },
 
   // Styles TabSlider directly (no wrapping card, see the 2026-07-24 stickyBelowHeader edit
-  // note) — side margin matches ScreenHeader's own floated card (headerFloatH); flex:1 +
-  // justifyContent:'center' fill and vertically center it within the reserved sticky height.
-  stickyBar: { flex: 1, marginHorizontal: Spacing.md, justifyContent: 'center' },
+  // note) — side margin matches ScreenHeader's own floated card (headerFloatH, Spacing.sm as
+  // of the header/bottom-nav width-alignment pass); flex:1 + justifyContent:'center' fill and
+  // vertically center it within the reserved sticky height.
+  stickyBar: { flex: 1, marginHorizontal: Spacing.sm, justifyContent: 'center' },
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold },
   tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },

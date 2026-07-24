@@ -589,9 +589,10 @@ const styles = StyleSheet.create({
   hintSettingLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   hintSettingHint: { fontSize: FontSize.xs, marginTop: 2 },
   // Styles TabSlider directly (no wrapping card, see the 2026-07-24 stickyBelowHeader edit
-  // note) — side margin matches ScreenHeader's own floated card (headerFloatH); flex:1 +
-  // justifyContent:'center' fill and vertically center it within the reserved sticky height.
-  stickyBar: { flex: 1, marginHorizontal: Spacing.md, justifyContent: 'center' },
+  // note) — side margin matches ScreenHeader's own floated card (headerFloatH, Spacing.sm as
+  // of the header/bottom-nav width-alignment pass); flex:1 + justifyContent:'center' fill and
+  // vertically center it within the reserved sticky height.
+  stickyBar: { flex: 1, marginHorizontal: Spacing.sm, justifyContent: 'center' },
   // Visual-audit 2026-07-11: was bare muted text floating on the particle background
   // (low contrast in practice even though the token itself passes AA) — a card behind
   // it, matching HomeNotesCard's empty-state treatment, gives it real footing. Every
