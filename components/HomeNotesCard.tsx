@@ -204,7 +204,7 @@ export default function HomeNotesCard() {
 
         {/* Active note rows */}
         {activeNotes.length === 0 ? (
-          <HomePreviewEmpty text={t.notes.emptyState} domain="note" domainColor={domainColor} />
+          <HomePreviewEmpty text={t.notes.emptyState} domainColor={domainColor} />
         ) : (
           <View style={styles.rowsContainer}>
             <View style={styles.rows}>

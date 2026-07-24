@@ -773,7 +773,7 @@ export default function PlanTaskCard({
 
         {showEmpty ? (
           <View style={styles.emptyWrap}>
-            <HomePreviewEmpty text={t.timelineEmpty} domain="plan" domainColor={domainColor} />
+            <HomePreviewEmpty text={t.timelineEmpty} domainColor={domainColor} />
             {/* Ghost "add" row (debug-note 2026-07-21) — an empty day should still offer a
                 place to add something. Deep-links to the Plans tab; only shown as a FALLBACK
                 when no inline add is wired (`onAddTask` absent). When onAddTask IS passed

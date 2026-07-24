@@ -1,13 +1,11 @@
 /**
  * HomePreviewEmpty.tsx — shared empty-state block for Home's preview cards.
  *
- * Renders a centred domain icon + the (already-localised) empty message — the standard
- * "nothing here yet" pattern most apps use for an empty list. Centred vertically within the
- * card's collapsed resting height.
+ * Renders the (already-localised) empty message, centred within the card's collapsed
+ * resting height.
  *
  * Connections:
- *   Imports → @expo/vector-icons (Ionicons), components/CardAccent (DOMAIN_ICON),
- *             constants/theme (FontSize, Fonts, Radius, Spacing, rgba), lib/useAppTheme
+ *   Imports → constants/theme (FontSize, Fonts, Spacing), lib/useAppTheme
  *   Used by → components/HomeNotesCard, components/HomeShoppingCard, components/PlanTaskCard
  *             (each card's empty branch)
  *   Data    → none (pure presentational)
@@ -17,37 +15,35 @@
  *     three shrinking placeholder bars here, meant to read as "the shape of what would be
  *     there" — but skeleton/ghost rows are a loading-state convention everywhere else (this
  *     app included), so showing them for a genuinely empty list read as a stuck loading
- *     spinner, not "nothing here yet". Back to icon + message, the pattern users actually
- *     expect from an empty state.
- *   - `domain` selects the glyph via `CardAccentBadge`'s own `DOMAIN_ICON` map, so the empty
- *     icon always matches the card's real header badge glyph.
+ *     spinner, not "nothing here yet".
+ *   - **Reverted the icon too (2026-07-24, same-day follow-up, user report)**: the very next
+ *     pass added a domain icon above the message, reusing `CardAccentBadge`'s own glyph so it
+ *     "matched" the card's header badge — but "matched" meant identical, and the header badge
+ *     already sits a few px above this block in the same card, so the same icon rendered twice,
+ *     stacked, in one card read as a duplication bug, not a design choice. Text alone doesn't
+ *     repeat anything already on screen.
+ *   - `domainColor` is kept in the prop signature (unused) so callers don't need a churn edit
+ *     if a future pass wants it back — matches the same "kept for callers" note this file had
+ *     before the icon revert.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { DOMAIN_ICON } from '@/components/CardAccent';
-import { Domain } from '@/lib/domainColor';
-import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
+import { FontSize, Fonts, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 type Props = {
   /** Already-localised empty message. */
   text: string;
-  /** Selects the glyph (same map CardAccentBadge uses), so it matches the card's own badge. */
-  domain: Domain;
-  /** Domain hue pair from getDomainColor(theme, domain). */
+  /** Domain hue pair from getDomainColor(theme, domain) — unused, kept for callers. */
   domainColor: { accent: string; soft: string };
 };
 
-export default function HomePreviewEmpty({ text, domain, domainColor }: Props) {
+export default function HomePreviewEmpty({ text }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.icon, { backgroundColor: domainColor.soft, borderColor: rgba(domainColor.accent, 0.4) }]}>
-        <Ionicons name={DOMAIN_ICON[domain]} size={20} color={domainColor.accent} />
-      </View>
       <Text style={[styles.text, { color: theme.textMuted }]}>{text}</Text>
     </View>
   );
@@ -55,7 +51,6 @@ export default function HomePreviewEmpty({ text, domain, domainColor }: Props) {
 
 const baseStyles = StyleSheet.create({
   // flex:1 lets the block centre vertically within the card's resting-height floor.
-  wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, paddingVertical: Spacing.md },
-  icon: { width: 40, height: 40, borderRadius: Radius.full, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.md },
   text: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },
 });

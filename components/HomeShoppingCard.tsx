@@ -273,7 +273,7 @@ export default function HomeShoppingCard({
         )}
 
         {totalCount === 0 ? (
-          <HomePreviewEmpty text={t.shoppingEmpty} domain="shop" domainColor={domainColor} />
+          <HomePreviewEmpty text={t.shoppingEmpty} domainColor={domainColor} />
         ) : expanded ? (
           // Expanded: full nested structure
           <View style={styles.rowsContainer}>
