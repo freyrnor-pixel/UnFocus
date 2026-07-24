@@ -12,8 +12,8 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/PressableScale,
- *             constants/theme, lib/date, lib/budget (computeSpendPace), lib/i18n,
- *             lib/useAppTheme, store/useReceiptStore, store/useMonthlyListStore, store/useSettingsStore
+ *             components/PhotoFrame, constants/theme, lib/date, lib/budget (computeSpendPace),
+ *             lib/i18n, lib/useAppTheme, store/useReceiptStore, store/useMonthlyListStore, store/useSettingsStore
  *   Used by → Expo Router route "/budget"; reached via a Monthly list card's Budget pill (router.push, listId param)
  *   Data    → reads useReceiptStore (receipts table, filtered locally by monthlyListId — this
  *             store's own receiptsForMonth/totalForMonth/receiptsByStore methods operate on
@@ -34,6 +34,10 @@
  *   - Over-budget bar uses the Decision 006 `warn` token (gentle amber, never `bad`/red) per the no-shame
  *     color rule (Decision 025); on-track uses `good`.
  *   - Budget progress bar always compares against the list's live budgetNok, even when viewing past months.
+ *   - Aspect-ratio formats pass: a receipt row shows a fixed 36×36 square PhotoFrame thumbnail
+ *     when r.photoUri exists (photos are persisted by app/scan.tsx's addToList(), see
+ *     lib/photoStorage.ts) — square regardless of the user's global photoAspectRatio default,
+ *     since a thumbnail this small only reads cleanly uncropped at a consistent shape.
  *   - Daily-spend pace (Decision 026): under the progress bar, actualPerDay (spend since this list's own
  *     lastReset ÷ inclusive days elapsed) vs. budgetedPerDay (budgetNok ÷ payday-to-payday periodLength),
  *     computed via lib/budget.ts's computeSpendPace() — shared with the Shopping screen's Monthly tab and
@@ -57,6 +61,7 @@ import { computeSpendPace } from '@/lib/budget';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PressableScale from '@/components/PressableScale';
+import PhotoFrame from '@/components/PhotoFrame';
 import { Fonts, FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
@@ -208,6 +213,7 @@ export default function BudgetScreen() {
               <Surface style={styles.card}>
                 {receipts.map((r) => (
                   <View key={r.id} style={styles.row}>
+                    {r.photoUri ? <PhotoFrame uri={r.photoUri} format="square" style={styles.receiptThumb} /> : null}
                     <View style={styles.rowContent}>
                       <Text style={[styles.rowLabel, { color: theme.text }]}>{r.store || t.budget.title}</Text>
                       <Text style={[styles.rowMeta, { color: theme.textMuted }]}>{formatDisplayDate(r.date, lang)}</Text>
@@ -286,6 +292,9 @@ const baseStyles = StyleSheet.create({
   sectionLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   emptyText: { fontSize: FontSize.sm, textAlign: 'center', lineHeight: 20 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 4 },
+  // Fixed square regardless of the user's global photoAspectRatio default — a thumbnail
+  // this small reads best uncropped-ratio-agnostic and consistent row-to-row.
+  receiptThumb: { width: 36, height: 36 },
   rowContent: { flex: 1 },
   rowLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   rowMeta: { fontSize: FontSize.xs, marginTop: 1 },

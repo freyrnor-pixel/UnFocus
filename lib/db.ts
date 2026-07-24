@@ -746,6 +746,11 @@ export function initDb() {
     )`,
     "ALTER TABLE tasks ADD COLUMN goal_id TEXT DEFAULT NULL",
     "ALTER TABLE habits ADD COLUMN goal_id TEXT DEFAULT NULL",
+    // Aspect-ratio formats pass: app-wide default photo tile format (components/PhotoFrame.tsx,
+    // constants/theme.ts's AspectRatio map) and the persisted receipt photo scan.tsx captures
+    // during OCR (previously discarded right after text recognition — never stored).
+    "ALTER TABLE settings ADD COLUMN photo_aspect_ratio TEXT DEFAULT 'fit'",
+    "ALTER TABLE receipts ADD COLUMN photo_uri TEXT DEFAULT ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

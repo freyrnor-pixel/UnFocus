@@ -28,10 +28,12 @@
  * completed-task count, maintained by store/useTaskStore.ts so it survives
  * pruneOldData() pruning old completed tasks out of the `tasks` table; read
  * directly by app/(tabs)/index.tsx.
+ * photoAspectRatio (aspect-ratio formats pass) is the app-wide default format for
+ * photo tiles — see components/PhotoFrame.tsx and constants/theme.ts's AspectRatio map.
  *
  * Connections:
- *   Imports → lib/dataAccess, lib/id
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/ParticleBackground.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
+ *   Imports → lib/dataAccess, lib/id, constants/theme (AspectRatioKey)
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/ParticleBackground.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns the single-row SQLite table settings (id = 1)
  *
  * Edit notes:
@@ -76,6 +78,7 @@ import {
   logDbError,
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
+import { AspectRatioKey } from '@/constants/theme';
 
 // The app ships a single palette ("Default"). The union is kept as a type so
 // existing casts (`as ColorTheme`) still compile; only 'default' is ever stored.
@@ -202,6 +205,10 @@ export type Settings = {
   // store/useTaskStore.ts at the same sites that fire the 'task_completed'
   // automation trigger (plus remove()/clearAll()); read directly by app/(tabs)/index.tsx.
   lifetimeCompletedTasks: number;
+  // Default aspect-ratio format for photo tiles (components/PhotoFrame.tsx) app-wide —
+  // 'fit' shows a photo's natural proportions; the others center-crop to a fixed ratio.
+  // A per-call `format` prop can still override this for a specific tile.
+  photoAspectRatio: AspectRatioKey;
 };
 
 type SettingsStore = Settings & {
@@ -276,6 +283,12 @@ function rowToSettings(row: Row): Settings {
     energyDailyCapacity: readInt(row, 'energy_daily_capacity', 10),
     energyWeeklyCapacity: readInt(row, 'energy_weekly_capacity', 50),
     lifetimeCompletedTasks: readInt(row, 'lifetime_completed_tasks', 0),
+    photoAspectRatio: readEnum<AspectRatioKey>(
+      row,
+      'photo_aspect_ratio',
+      ['fit', 'square', 'classic', 'widescreen', 'golden'],
+      'fit'
+    ),
   };
 }
 
@@ -340,6 +353,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   energyDailyCapacity: { col: 'energy_daily_capacity' },
   energyWeeklyCapacity: { col: 'energy_weekly_capacity' },
   lifetimeCompletedTasks: { col: 'lifetime_completed_tasks' },
+  photoAspectRatio: { col: 'photo_aspect_ratio' },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -404,6 +418,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   energyDailyCapacity: 10,
   energyWeeklyCapacity: 50,
   lifetimeCompletedTasks: 0,
+  photoAspectRatio: 'fit' as AspectRatioKey,
   loaded: false,
   workModeSessionOverride: false,
 
