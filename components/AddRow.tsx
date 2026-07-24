@@ -19,9 +19,11 @@
  * (submitting needs text), so it's a flat, recessed well (surfaceMuted + a neutral edge, no
  * shadow) rather than masquerading as a ready-to-tap control. Once there's text it becomes
  * raised and pressable-looking — fills with `accent` (default theme.good) + Shadow.button + a
- * light top edge, depth "toward the user". It defaults to a "+" glyph; callers whose row already
- * shows a +/− stepper in `extras` pass confirmIcon="checkmark" so two identical "+" buttons never
- * sit adjacent (criterion 6).
+ * uniform light edge, depth "toward the user". (2026-07-24: was a top-only border, which renders
+ * as a stray arc/seam on a fully-rounded circle — switched to a uniform borderWidth all round,
+ * matching IconButton's keycap-edge convention.) It defaults to a "+" glyph; callers whose row
+ * already shows a +/− stepper in `extras` pass confirmIcon="checkmark" so two identical "+"
+ * buttons never sit adjacent (criterion 6).
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme, lib/i18n, lib/haptics, components/PressableScale,
@@ -208,14 +210,14 @@ export default function AddRow({
         style={[
           styles.confirm,
           // Raised & pressable-looking ONLY when there's text to submit: real fill + button
-          // shadow + a light top edge so it reads as lifted toward the user. While the input is
-          // empty the button is inert (disabled — submitting needs text), so it drops all of that
-          // and reads as a flat, recessed well (surfaceMuted + a neutral edge, no shadow) to
+          // shadow + a uniform light edge so it reads as lifted toward the user. While the input
+          // is empty the button is inert (disabled — submitting needs text), so it drops all of
+          // that and reads as a flat, recessed well (surfaceMuted + a neutral edge, no shadow) to
           // signal "type something first" instead of masquerading as a ready-to-tap control.
           active && Shadow.button,
           {
             backgroundColor: active ? fill : theme.surfaceMuted,
-            borderTopColor: active ? 'rgba(255,255,255,0.6)' : theme.border,
+            borderColor: active ? 'rgba(255,255,255,0.5)' : theme.border,
           },
         ]}
         onPress={commit}
@@ -283,7 +285,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    borderTopWidth: 1,
+    borderWidth: 1.5,
   },
   gated: { opacity: 0.45 },
 });

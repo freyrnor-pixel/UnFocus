@@ -18,6 +18,9 @@
  * Edit notes:
  *   - These are LOCAL-time formatters; do not switch to toISOString() (UTC) or
  *     off-by-one-day bugs appear around midnight / timezone boundaries.
+ *   - `parseTimeToMinutes`/`addDurationToTime` back app/(tabs)/health.tsx's Quick log
+ *     start-time + duration fields — duration is quick-log-only UI, converted to
+ *     endDate/endTime here so the store's existing HealthLog shape is unchanged.
  */
 export function todayStr(): string {
   const d = new Date();
@@ -142,6 +145,38 @@ export function formatDisplayDate(iso: string, lang: 'en' | 'no'): string {
   if (parts.length !== 3 || parts.some((p) => p === '')) return iso;
   const [y, m, d] = parts;
   return lang === 'no' ? `${d}.${m}.${y}` : iso;
+}
+
+/** Parses a strict `H:MM`/`HH:MM` 24h time string into minutes since midnight, or null if malformed/out of range. */
+export function parseTimeToMinutes(hhmm: string): number | null {
+  const match = hhmm.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const h = Number(match[1]);
+  const m = Number(match[2]);
+  if (h > 23 || m > 59) return null;
+  return h * 60 + m;
+}
+
+/**
+ * Adds `durationMin` minutes to `startTime` (`HH:MM`, on the local date `dateKey`,
+ * `YYYY-MM-DD`), rolling the date forward if the duration crosses midnight. Returns
+ * null when `startTime` doesn't parse or `durationMin` isn't a positive number — the
+ * caller's UI passes free-text/optional fields through, so a bad or absent duration
+ * should just skip the end date/time rather than throw.
+ */
+export function addDurationToTime(
+  dateKey: string,
+  startTime: string,
+  durationMin: number
+): { endDate: string; endTime: string } | null {
+  const startMinutes = parseTimeToMinutes(startTime);
+  if (startMinutes === null || !Number.isFinite(durationMin) || durationMin <= 0) return null;
+  const endTotal = startMinutes + durationMin;
+  const endMinutesOfDay = endTotal % 1440;
+  const endTime = `${String(Math.floor(endMinutesOfDay / 60)).padStart(2, '0')}:${String(endMinutesOfDay % 60).padStart(2, '0')}`;
+  const endDateObj = parseDateStr(dateKey);
+  endDateObj.setDate(endDateObj.getDate() + Math.floor(endTotal / 1440));
+  return { endDate: dateStr(endDateObj), endTime };
 }
 
 /**

@@ -17,6 +17,8 @@ import {
   dateRangeForCycleWeek,
   formatDisplayDate,
   formatDateRange,
+  parseTimeToMinutes,
+  addDurationToTime,
 } from '@/lib/date';
 
 describe('dateStr / todayStr', () => {
@@ -148,6 +150,51 @@ describe('formatDisplayDate', () => {
     expect(formatDisplayDate('abc', 'no')).toBe('abc');
     expect(formatDisplayDate('2026-01', 'no')).toBe('2026-01');
     expect(formatDisplayDate('2026--05', 'no')).toBe('2026--05'); // empty middle part
+  });
+});
+
+describe('parseTimeToMinutes', () => {
+  it('parses valid H:MM/HH:MM into minutes since midnight', () => {
+    expect(parseTimeToMinutes('09:30')).toBe(570);
+    expect(parseTimeToMinutes('9:30')).toBe(570);
+    expect(parseTimeToMinutes('00:00')).toBe(0);
+    expect(parseTimeToMinutes('23:59')).toBe(1439);
+  });
+  it('rejects malformed or out-of-range input', () => {
+    expect(parseTimeToMinutes('24:00')).toBeNull();
+    expect(parseTimeToMinutes('12:60')).toBeNull();
+    expect(parseTimeToMinutes('not a time')).toBeNull();
+    expect(parseTimeToMinutes('')).toBeNull();
+  });
+});
+
+describe('addDurationToTime', () => {
+  it('adds a same-day duration without rolling the date', () => {
+    expect(addDurationToTime('2026-01-05', '09:00', 30)).toEqual({
+      endDate: '2026-01-05',
+      endTime: '09:30',
+    });
+  });
+  it('rolls the date forward once when the duration crosses one midnight', () => {
+    expect(addDurationToTime('2026-01-05', '23:30', 90)).toEqual({
+      endDate: '2026-01-06',
+      endTime: '01:00',
+    });
+  });
+  it('rolls the date forward multiple days for a multi-day duration', () => {
+    expect(addDurationToTime('2026-01-05', '10:00', 60 * 24 * 2 + 30)).toEqual({
+      endDate: '2026-01-07',
+      endTime: '10:30',
+    });
+  });
+  it('returns null when the start time is malformed', () => {
+    expect(addDurationToTime('2026-01-05', 'bad', 30)).toBeNull();
+    expect(addDurationToTime('2026-01-05', '', 30)).toBeNull();
+  });
+  it('returns null when the duration is missing, zero, or negative', () => {
+    expect(addDurationToTime('2026-01-05', '09:00', NaN)).toBeNull();
+    expect(addDurationToTime('2026-01-05', '09:00', 0)).toBeNull();
+    expect(addDurationToTime('2026-01-05', '09:00', -5)).toBeNull();
   });
 });
 
