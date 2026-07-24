@@ -1434,11 +1434,16 @@ const baseStyles = StyleSheet.create({
   },
   langFlag: { fontSize: 24 },
   langText: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
-  // Floating frosted strip (Surface overlay) wraps this horizontal tab scroller — side
-  // margins + rounding match ScreenHeader's own floated card (headerFloatH/Radius.lg) so
-  // the two read as one consistent floating-chrome language instead of a rounded card
-  // sitting above a flush edge-to-edge box (2026-07-23 fix).
-  tabsGlass: { flex: 1, marginHorizontal: Spacing.md, borderRadius: Radius.lg },
+  // Floating frosted strip (Surface overlay) wraps the tab bar — side margins match
+  // ScreenHeader's own floated card (headerFloatH) so the two read as one consistent
+  // floating-chrome language instead of a rounded card sitting above a flush edge-to-edge
+  // box (2026-07-23 fix). Corner radius matches TabSlider's own `radius={Radius.md}` prop
+  // below rather than ScreenHeader's Radius.lg (2026-07-24 fix): at this strip's short
+  // height, Radius.lg rounded the outer card into a near-full pill around the boxed inner
+  // track — a shape mismatch that read as "pill wrapped around a box." Radius.lg is fine on
+  // ScreenHeader only because that card is much taller, so the same absolute radius reads as
+  // a subtler curve there.
+  tabsGlass: { flex: 1, marginHorizontal: Spacing.md, borderRadius: Radius.md },
   // Small inset from the card's own inner edge — the sliding-pill track
   // (components/TabSlider.tsx) draws its own bordered/filled track and reads better with a
   // touch of breathing room than sitting flush against the card's rounded corners.

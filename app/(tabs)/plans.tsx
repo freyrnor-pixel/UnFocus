@@ -585,10 +585,15 @@ const styles = StyleSheet.create({
   hintSettingLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   hintSettingHint: { fontSize: FontSize.xs, marginTop: 2 },
   stickyBar: { flex: 1, paddingHorizontal: Spacing.md, justifyContent: 'center' },
-  // Floats with the same side margins + Radius.lg rounding as ScreenHeader's own floated
-  // card (2026-07-23) — it used to be edge-to-edge/square, which read as sticking out past
-  // the now-floated (margined, rounded) header sitting directly above it.
-  stickyGlass: { marginHorizontal: Spacing.md, borderRadius: Radius.lg },
+  // Floats with the same side margins as ScreenHeader's own floated card (2026-07-23) —
+  // it used to be edge-to-edge/square, which read as sticking out past the now-floated
+  // (margined, rounded) header sitting directly above it. Corner radius matches TabSlider's
+  // own (default Radius.sm) rather than ScreenHeader's Radius.lg (2026-07-24 fix): at this
+  // strip's short height, Radius.lg rounded the outer card into a near-full pill around the
+  // boxed inner track — a shape mismatch that read as "pill wrapped around a box" instead of
+  // one cohesive control. Radius.lg is fine on ScreenHeader only because that card is much
+  // taller, so the same absolute radius reads as a subtler curve there.
+  stickyGlass: { marginHorizontal: Spacing.md, borderRadius: Radius.sm },
   // Visual-audit 2026-07-11: was bare muted text floating on the particle background
   // (low contrast in practice even though the token itself passes AA) — a card behind
   // it, matching HomeNotesCard's empty-state treatment, gives it real footing. Every

@@ -2157,11 +2157,16 @@ const styles = StyleSheet.create({
   bodyGap: { gap: Spacing.xl },
   dishGroupsWrap: { gap: Spacing.xs },
 
-  stickyBar: { flex: 1, paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, gap: 2 },
-  // Floats with the same side margins + Radius.lg rounding as ScreenHeader's own floated
-  // card (2026-07-23) — it used to be edge-to-edge/square, which read as sticking out past
-  // the now-floated (margined, rounded) header sitting directly above it.
-  stickyGlass: { marginHorizontal: Spacing.md, borderRadius: Radius.lg },
+  stickyBar: { flex: 1, paddingHorizontal: Spacing.md, justifyContent: 'center' },
+  // Floats with the same side margins as ScreenHeader's own floated card (2026-07-23) —
+  // it used to be edge-to-edge/square, which read as sticking out past the now-floated
+  // (margined, rounded) header sitting directly above it. Corner radius matches TabSlider's
+  // own (default Radius.sm) rather than ScreenHeader's Radius.lg (2026-07-24 fix): at this
+  // strip's short height, Radius.lg rounded the outer card into a near-full pill around the
+  // boxed inner track — a shape mismatch that read as "pill wrapped around a box" instead of
+  // one cohesive control. Radius.lg is fine on ScreenHeader only because that card is much
+  // taller, so the same absolute radius reads as a subtler curve there.
+  stickyGlass: { marginHorizontal: Spacing.md, borderRadius: Radius.sm },
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold },
   tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
