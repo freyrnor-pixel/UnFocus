@@ -150,6 +150,12 @@ export default function TabSlider<T extends string | number>({
   }, []);
 
   const pillH = Math.max(0, trackH - TRACK_PAD * 2);
+  // Concentric corners: the pill is inset from the track by TRACK_PAD on every side, so its
+  // corner radius must be the track's radius MINUS that inset — otherwise the pill's rounded
+  // corner isn't parallel to the track's, it bulges outward and reads as a rounder "pill
+  // inside a box". Same geometry Surface.tsx uses for its inner mask (`innerRadius = radius -
+  // EDGE_WIDTH`); the segment touch targets are transparent so they can keep the raw radius.
+  const pillRadius = Math.max(0, radius - TRACK_PAD);
 
   const content = (
     <>
@@ -158,7 +164,7 @@ export default function TabSlider<T extends string | number>({
           pointerEvents="none"
           style={[
             styles.pill,
-            { height: pillH, top: TRACK_PAD, borderRadius: radius, backgroundColor: options[activeIndex]?.color ?? theme.accent },
+            { height: pillH, top: TRACK_PAD, borderRadius: pillRadius, backgroundColor: options[activeIndex]?.color ?? theme.accent },
             pillStyle,
           ]}
         />
@@ -168,7 +174,7 @@ export default function TabSlider<T extends string | number>({
         return (
           <PressableScale
             key={String(opt.value)}
-            style={[styles.segment, { borderRadius: radius }]}
+            style={[styles.segment, { borderRadius: pillRadius }]}
             onLayout={(e: LayoutChangeEvent) => {
               const { x, width } = e.nativeEvent.layout;
               setSegLayout(i, x, width);

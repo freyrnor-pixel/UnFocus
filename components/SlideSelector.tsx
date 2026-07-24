@@ -93,6 +93,12 @@ export default function SlideSelector<T extends string | number>({
   const activeIndex = Math.max(0, options.findIndex((o) => o.value === value));
   const segW = track.w > 0 ? (track.w - TRACK_PAD * 2 - TRACK_GAP * (n - 1)) / n : 0;
   const pillH = Math.max(0, track.h - BORDER_W * 2 - TRACK_PAD * 2);
+  // Concentric corners: the pill is inset from the track by TRACK_PAD on every side, so its
+  // corner radius must be the track's radius MINUS that inset — otherwise its rounded corner
+  // isn't parallel to the track's and bulges outward, reading as a rounder "pill inside a
+  // box". Same geometry Surface.tsx uses for its inner mask (`innerRadius = radius -
+  // EDGE_WIDTH`). (For a full-pill radius this is a no-op — 999 - 3 is still a pill.)
+  const pillRadius = Math.max(0, radius - TRACK_PAD);
 
   const tx = useSharedValue(0);
   useEffect(() => {
@@ -121,7 +127,7 @@ export default function SlideSelector<T extends string | number>({
           pointerEvents="none"
           style={[
             styles.pill,
-            { width: segW, height: pillH, top: TRACK_PAD, left: TRACK_PAD, borderRadius: radius, backgroundColor: theme.accent },
+            { width: segW, height: pillH, top: TRACK_PAD, left: TRACK_PAD, borderRadius: pillRadius, backgroundColor: theme.accent },
             pillStyle,
           ]}
         />
@@ -131,7 +137,7 @@ export default function SlideSelector<T extends string | number>({
         return (
           <PressableScale
             key={String(opt.value)}
-            style={[styles.segment, { borderRadius: radius }, compact && styles.segmentCompact]}
+            style={[styles.segment, { borderRadius: pillRadius }, compact && styles.segmentCompact]}
             onPress={() => {
               if (disabled) return;
               if (opt.value !== value) selection();
