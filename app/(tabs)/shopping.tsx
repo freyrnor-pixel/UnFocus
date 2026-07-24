@@ -389,9 +389,13 @@ import { getScreenColor } from '@/lib/screenColor';
 type Tab = 'weekly' | 'monthly';
 
 // Reserved sticky-bar height — just the tab row now (the focused-list name + progress summary
-// row under the tabs was removed 2026-07-21). Matches Plans so the tab→first-card gap is
-// consistent across the two list screens.
-const STICKY_HEIGHT_TABS = 60;
+// row under the tabs was removed 2026-07-21). Must equal TabSlider's own natural content
+// height (border 1×2 + TRACK_PAD 3×2 + segment minHeight 38 = 46) so `stickyBar`'s
+// justifyContent:'center' has no leftover space to split unevenly (was 60, a 14px surplus
+// that gave the blue pill a bigger vertical inset than horizontal — same bug as Plans'
+// STICKY_HEIGHT, fixed 2026-07-24). Matches Plans' STICKY_HEIGHT so the tab→first-card gap
+// is consistent across the two list screens.
+const STICKY_HEIGHT_TABS = 46;
 
 type DragState = {
   listId: string;
