@@ -105,7 +105,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
-import Surface from '@/components/Surface';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import SharedTasksSection from '@/components/SharedTasksSection';
@@ -392,19 +391,19 @@ export default function TasksScreen() {
   // Shared = shop green (inside SharedTasksSection); Today/Week day groups use the neutral accent.
 
   const stickyBelowHeader = (
-    // Frosted-glass strip (same overlay Surface as the header): the ambient background reads
-    // softly through the frost AROUND the opaque tab chips, and content scrolling behind the
-    // sticky strip blurs instead of showing through raw (2026-07-20). borderRadius:0 = edge-to-edge.
-    <Surface surfaceContext="overlay" style={[styles.stickyBar, styles.stickyGlass]}>
-      <TabSlider
-        value={tab}
-        onChange={setTab}
-        options={(['today', 'week', 'all'] as Tab[]).map((tabOption) => ({
-          value: tabOption,
-          label: tabOption === 'all' ? t.tasksTabAll : tabOption === 'today' ? t.tasksTabToday : t.tasksTabWeek,
-        }))}
-      />
-    </Surface>
+    // No outer glass card (removed 2026-07-24): TabSlider already draws its own bordered/
+    // filled track, so wrapping it in a second Surface card stacked a third layer (outer
+    // card + TabSlider's own box + the sliding pill) that read as nested boxes. TabSlider
+    // now floats directly, styled with the same side margins as ScreenHeader's own card.
+    <TabSlider
+      value={tab}
+      onChange={setTab}
+      options={(['today', 'week', 'all'] as Tab[]).map((tabOption) => ({
+        value: tabOption,
+        label: tabOption === 'all' ? t.tasksTabAll : tabOption === 'today' ? t.tasksTabToday : t.tasksTabWeek,
+      }))}
+      style={styles.stickyBar}
+    />
   );
 
   return (
@@ -584,16 +583,10 @@ const styles = StyleSheet.create({
   hintSettingText: { flex: 1 },
   hintSettingLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   hintSettingHint: { fontSize: FontSize.xs, marginTop: 2 },
-  stickyBar: { flex: 1, paddingHorizontal: Spacing.md, justifyContent: 'center' },
-  // Floats with the same side margins as ScreenHeader's own floated card (2026-07-23) —
-  // it used to be edge-to-edge/square, which read as sticking out past the now-floated
-  // (margined, rounded) header sitting directly above it. Corner radius matches TabSlider's
-  // own (default Radius.sm) rather than ScreenHeader's Radius.lg (2026-07-24 fix): at this
-  // strip's short height, Radius.lg rounded the outer card into a near-full pill around the
-  // boxed inner track — a shape mismatch that read as "pill wrapped around a box" instead of
-  // one cohesive control. Radius.lg is fine on ScreenHeader only because that card is much
-  // taller, so the same absolute radius reads as a subtler curve there.
-  stickyGlass: { marginHorizontal: Spacing.md, borderRadius: Radius.sm },
+  // Styles TabSlider directly (no wrapping card, see the 2026-07-24 stickyBelowHeader edit
+  // note) — side margin matches ScreenHeader's own floated card (headerFloatH); flex:1 +
+  // justifyContent:'center' fill and vertically center it within the reserved sticky height.
+  stickyBar: { flex: 1, marginHorizontal: Spacing.md, justifyContent: 'center' },
   // Visual-audit 2026-07-11: was bare muted text floating on the particle background
   // (low contrast in practice even though the token itself passes AA) — a card behind
   // it, matching HomeNotesCard's empty-state treatment, gives it real footing. Every
