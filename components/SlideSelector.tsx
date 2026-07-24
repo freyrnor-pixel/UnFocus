@@ -22,15 +22,17 @@
  * Edit notes:
  *   - Values are compared with ===; label is caller-localized.
  *   - `compact` shrinks padding/font for the tight week-interval / ordinal rows.
- *   - **`radius` (added 2026-07-24)**: defaults to Radius.sm (boxed chip look), matching
- *     `components/TabSlider.tsx`'s same default. This used to be hardcoded to Radius.full
- *     (a full pill) with no override — a real user-facing bug: TabSlider's tab bars got
- *     boxed corners app-wide while this sibling component (visually the same "sliding accent
- *     pill behind segments" pattern, just under a different name) kept rendering as a pill
- *     everywhere it appeared (Habits' Today/Week/Month, TaskCard's recurrence pickers,
- *     FoodTab's difficulty picker) — an inconsistency a screenshot caught on Habits, but the
- *     same fix belongs on every caller since they're all the same shared component. Pass a
- *     different value only for a deliberate visual reason, same as TabSlider's `radius`.
+ *   - **`radius` (added 2026-07-24, default flipped same day)**: defaults to Radius.full
+ *     (a full pill) — this component is used mostly for SUB-level option pickers nested
+ *     inside a card/form/modal for one specific item (TaskCard's recurrence type/interval/
+ *     ordinal, FoodTab's difficulty), where a pill reads as a lightweight inline chip. The
+ *     one exception is Habits' Today/Week/Month, a MAIN-level screen view switcher — the same
+ *     tier as `components/TabSlider.tsx`'s tab bars, which are always boxed — so that one call
+ *     site explicitly passes `radius={Radius.sm}` to match. The rule: main (screen-level view
+ *     switcher) → boxed; sub (a property of the thing being edited) → pill. Don't flip this
+ *     component's own default without re-auditing every caller against that rule first — it
+ *     was flipped once already (2026-07-24 same-day: briefly defaulted to Radius.sm to match
+ *     TabSlider everywhere, which was wrong for the 5 sub-tier callers).
  *   - The sliding pill is sized from the track's measured width/height (onLayout): segments
  *     are flex:1 so segW = (trackW - padding*2 - gap*(n-1)) / n, and translateX steps by
  *     (segW + gap). The pill renders as the FIRST child so RN paints it BELOW the label
@@ -53,9 +55,10 @@ type Props<T extends string | number> = {
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
   compact?: boolean;
-  /** Track/pill/segment corner radius. Default Radius.sm (boxed chip look — matches
-   *  components/TabSlider.tsx's same default). Pass a different value for a deliberate
-   *  visual choice; omit it rather than reaching for Radius.full. */
+  /** Track/pill/segment corner radius. Default Radius.full (pill) — the right look for a
+   *  sub-level option picker nested in a form/modal (TaskCard, FoodTab). Pass Radius.sm (or
+   *  components/TabSlider.tsx's radius) for a MAIN-level screen view switcher instead (see
+   *  Habits' Today/Week/Month) — see this file's "radius" edit note for the full rule. */
   radius?: number;
 };
 
@@ -69,7 +72,7 @@ export default function SlideSelector<T extends string | number>({
   style,
   disabled,
   compact,
-  radius = Radius.sm,
+  radius = Radius.full,
 }: Props<T>) {
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();

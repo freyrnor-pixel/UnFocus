@@ -618,11 +618,16 @@ export default function HabitsScreen() {
               </ScrollView>
             </Collapsible>
 
-            {/* View tabs — shared bordered segmented control (SlideSelector). */}
+            {/* View tabs — shared bordered segmented control (SlideSelector). Explicit
+                radius={Radius.sm}: this is a MAIN-level screen view switcher (same tier as
+                components/TabSlider.tsx's tab bars, always boxed), not one of SlideSelector's
+                usual sub-level option pickers (which default to a full pill) — see
+                SlideSelector's "radius" edit note for the main/sub rule. */}
             <SlideSelector
               options={habitTabs.map(({ key, label }) => ({ value: key, label }))}
               value={habitTab}
               onChange={(v) => setHabitTab(v as HabitViewTab)}
+              radius={Radius.sm}
             />
 
             {/* Kept mounted (hidden via display:none, not unmounted) when another view tab is
