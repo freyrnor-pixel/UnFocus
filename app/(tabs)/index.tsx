@@ -50,16 +50,20 @@
  *     of figure shown on app/budget.tsx (there, one specific list) and the Shopping screen's
  *     Monthly tab (there, each list's own); null (card shows nothing extra) until at least one
  *     list has a budget set and has been through a reset.
- *   - **Home preview card management (2026-07-19, A2/D1 split 2026-07-23)**: off-Focus,
- *     Notes/Plans/Shopping render via `HomeCardManager` (components/HomeCardManager.tsx) in
- *     `settings.homeCardOrder` order. Holding any card always drag-reorders it (long-press's
- *     one meaning here); a separate visible "Edit cards" button above the stack toggles the
- *     delete-badge + "Add a card" chrome — no longer a side effect of the long-press. The old
- *     "Reorder intentionally omitted, Decision 011 R1" note here no longer applies — that was
- *     about the full /shopping screen's cross-group hit-testing; this reuses DraggableTaskRow
- *     but not that complexity, since Home's cards are plain flat siblings. `renderHomeCard(kind)`
- *     is the per-kind render function passed to it; `sanitizeHomeCardOrder` defends against a
- *     corrupt/legacy settings row.
+ *   - **Home preview card management (2026-07-19, A2/D1 split 2026-07-23, toggle relocated
+ *     2026-07-24)**: off-Focus, Notes/Plans/Shopping render via `HomeCardManager`
+ *     (components/HomeCardManager.tsx) in `settings.homeCardOrder` order. Holding any card
+ *     always drag-reorders it (long-press's one meaning here); a separate visible "Edit
+ *     cards"/"Done" toggle drives the delete-badge + "Add a card" chrome — no longer a side
+ *     effect of the long-press. The toggle's `editMode` state now lives here (`cardsEditMode`)
+ *     and is rendered inline in the greeting header row (top-right), not as its own row above
+ *     the stack — that extra row added a second `marginBottom`, doubling the gap between the
+ *     greeting and the first card. `HomeCardManager` takes `editMode` as a controlled prop.
+ *     The old "Reorder intentionally omitted, Decision 011 R1" note here no longer applies —
+ *     that was about the full /shopping screen's cross-group hit-testing; this reuses
+ *     DraggableTaskRow but not that complexity, since Home's cards are plain flat siblings.
+ *     `renderHomeCard(kind)` is the per-kind render function passed to it;
+ *     `sanitizeHomeCardOrder` defends against a corrupt/legacy settings row.
  *   - **Deliberately NOT ported**: DayTimeline/TaskItem/NextTaskCard Plans stack, Backlog + Habits
  *     previews, SharedRequestsSection(kind='task'), update-ready banner, work-mode banner,
  *     CoverScreen / SiteSwipeView chrome, automation trigger ('shopping_opened').
@@ -86,6 +90,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Switch, Text, View } from 'react-native';
 import { useRouter, usePathname, useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PlanTaskCard from '@/components/PlanTaskCard';
 import EnergyMeter from '@/components/EnergyMeter';
@@ -96,13 +101,15 @@ import HomeCardManager from '@/components/HomeCardManager';
 import FlightOverlay, { FlightPill, Flight, FlightRect } from '@/components/FlightOverlay';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
+import PressableScale from '@/components/PressableScale';
 import { goToSite } from '@/lib/siteNav';
 import { todayStr } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { computeListGroups } from '@/lib/shoppingGroups';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getScreenColor } from '@/lib/screenColor';
-import { FontSize, Fonts, Spacing, Type } from '@/constants/theme';
+import { tap } from '@/lib/haptics';
+import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useNotesStore } from '@/store/useNotesStore';
 import { SharedShoppingItem, SharedTask, useSharedStore } from '@/store/useSharedStore';
@@ -267,6 +274,12 @@ export default function HomeScreen() {
     return computeSpendPace(taggedReceipts, totalBudget, monthlyResetDate, latestReset);
   }, [receipts, monthlyLists, monthlyResetDate]);
 
+  // Home card edit mode (delete/add chrome for the Notes/Plans/Shopping stack) — lifted
+  // up from HomeCardManager so its "Edit cards"/"Done" toggle can sit inline in the
+  // greeting header row instead of its own row above the stack (see the header comment
+  // below for why that matters for the greeting→first-card gap).
+  const [cardsEditMode, setCardsEditMode] = useState(false);
+
   const greeting = () => {
     const h = new Date().getHours();
     if (h < 5) return t.greeting.night;
@@ -398,13 +411,41 @@ export default function HomeScreen() {
               </View>
           </HintCard>
 
-          {/* Greeting */}
+          {/* Greeting — also hosts the "Edit cards" / "Done" toggle inline (top-right) so it
+              doesn't add its own row/margin between the greeting and the first preview card. */}
           <DebugNoteAnchor id="home.greeting" label="Home — Greeting">
             <View style={styles.header}>
-              <Text style={[styles.greeting, { color: theme.text }]}>
-                {greeting()}{userName ? `, ${userName}` : ''}!
-              </Text>
-              <Text style={[styles.dateLabel, { color: theme.textMuted }]}>{dateLabel}</Text>
+              <View style={styles.headerTextCol}>
+                <Text style={[styles.greeting, { color: theme.text }]}>
+                  {greeting()}{userName ? `, ${userName}` : ''}!
+                </Text>
+                <Text style={[styles.dateLabel, { color: theme.textMuted }]}>{dateLabel}</Text>
+              </View>
+              {cardsEditMode ? (
+                <PressableScale
+                  style={[styles.doneBtn, { backgroundColor: theme.accent }]}
+                  onPress={() => {
+                    tap();
+                    setCardsEditMode(false);
+                  }}
+                >
+                  <Text style={[styles.doneBtnText, { color: theme.accentInk }]}>{t.home.manageCards.done}</Text>
+                </PressableScale>
+              ) : (
+                <PressableScale
+                  style={styles.editEntryBtn}
+                  onPress={() => {
+                    tap();
+                    setCardsEditMode(true);
+                  }}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.home.manageCards.edit}
+                >
+                  <Ionicons name="pencil-outline" size={14} color={theme.textMuted} />
+                  <Text style={[styles.editEntryBtnText, { color: theme.textMuted }]}>{t.home.manageCards.edit}</Text>
+                </PressableScale>
+              )}
             </View>
           </DebugNoteAnchor>
 
@@ -432,6 +473,7 @@ export default function HomeScreen() {
           <HomeCardManager
             order={homeCardOrder}
             labels={homeCardLabels}
+            editMode={cardsEditMode}
             onReorder={(next) => updateSettings({ homeCardOrder: next })}
             onRemove={(kind) => updateSettings({ homeCardOrder: homeCardOrder.filter((k) => k !== kind) })}
             onAdd={(kind) => updateSettings({ homeCardOrder: [...homeCardOrder, kind] })}
@@ -463,11 +505,27 @@ const baseStyles = StyleSheet.create({
   // marginBottom matches every card's own trailing marginBottom (Spacing.sm) so the
   // greeting→first-preview gap equals the gaps between previews (each = card marginBottom
   // + section marginTop). Without it the first gap was 8px short — the "uneven" rhythm.
-  header: { marginBottom: Spacing.sm },
+  // Row layout (2026-07-24): the "Edit cards"/"Done" toggle now lives inline here (top-right)
+  // instead of its own row above the card stack — that used to add a second marginBottom
+  // on top of this one, doubling the greeting→first-card gap.
+  header: { marginBottom: Spacing.sm, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  headerTextCol: { flex: 1 },
   // Home's big "Hei, Name" greeting — the screen's title role (2026-07-18: was xxl/semibold,
   // now Type.title for the refreshed hierarchy).
   greeting: { fontFamily: Type.title.fontFamily, fontSize: Type.title.size, lineHeight: Math.round(Type.title.size * Type.title.line) },
   dateLabel: { fontSize: FontSize.sm, marginTop: Spacing.xs, textTransform: 'capitalize', fontFamily: Fonts.regular },
   section: { marginTop: Spacing.xl },
   pointsText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },
+  // "Edit cards" / "Done" toggle for the Notes/Plans/Shopping stack (moved here from
+  // HomeCardManager's own row, 2026-07-24 — see the header comment above).
+  doneBtn: { paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md, borderRadius: Radius.full },
+  doneBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.sm },
+  editEntryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+  },
+  editEntryBtnText: { fontFamily: Fonts.medium, fontSize: FontSize.xs },
 });

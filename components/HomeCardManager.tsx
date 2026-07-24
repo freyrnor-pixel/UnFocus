@@ -5,21 +5,24 @@
  * Wraps an ordered stack of "kind"-keyed cards. Long-pressing ANY card always starts a
  * drag-to-reorder (no mode to enter first) — reordering is the one thing long-press does
  * here, matching its meaning everywhere else in the app (WeekListCard, Shopping's
- * DraggableTaskRow rows). Adding/removing a card is a **separate, visible "Edit cards"
- * button** (UX audit A2/D1, 2026-07-23): tapping it reveals a delete (×) badge on every
- * card plus an "Add a card" tile for re-adding a removed kind, until "Done" is tapped.
- * Before this pass, long-press did BOTH (started a drag AND silently switched on the
- * delete/add chrome) — undiscoverable (nothing hinted it was there) and made long-press
- * mean two different things depending on where the finger ended up. Mirrors
- * DraggableTaskRow's "owns no data" contract — reorder/remove/add are bubbled to the
- * parent via callbacks; this component only owns edit-mode state and drives the shared
- * flat-list drag math (lib/reorder.reorderByDrag — the same stable, no-flicker insertion
- * used by app/(tabs)/shopping.tsx's in-section reorder).
+ * DraggableTaskRow rows). Adding/removing a card is driven by a **separate, visible
+ * "Edit cards"/"Done" toggle** (UX audit A2/D1, 2026-07-23) that lives in Home's greeting
+ * header, not in this component (relocated 2026-07-24 — see app/(tabs)/index.tsx's header
+ * comment): while on, every card shows a delete (×) badge plus an "Add a card" tile for
+ * re-adding a removed kind. Before the A2/D1 pass, long-press did BOTH (started a drag AND
+ * silently switched on the delete/add chrome) — undiscoverable and made long-press mean two
+ * different things depending on where the finger ended up. Mirrors DraggableTaskRow's "owns
+ * no data" contract — reorder/remove/add are bubbled to the parent via callbacks; this
+ * component owns only the drag math (lib/reorder.reorderByDrag — the same stable,
+ * no-flicker insertion used by app/(tabs)/shopping.tsx's in-section reorder), not edit-mode
+ * state, which is now controlled by the parent.
  *
  * Connections:
  *   Imports → components/DraggableTaskRow, components/PressableScale, constants/theme,
  *             lib/haptics, lib/i18n, lib/reorder (reorderByDrag), lib/useAppTheme
- *   Used by → app/(tabs)/index.tsx (Home's Notes/Plans/Shopping preview stack)
+ *   Used by → app/(tabs)/index.tsx (Home's Notes/Plans/Shopping preview stack) — owns the
+ *             `editMode` state (`cardsEditMode`) and passes it down as a controlled prop,
+ *             since the toggle button that flips it now renders in the greeting header there.
  *   Data    → none — pure presentational, all mutations bubbled up via callbacks
  *
  * Edit notes:
@@ -28,10 +31,13 @@
  *     privately). Dragging a card while it happens to be expanded works but reflows a
  *     larger block; accepted trade-off vs. threading expand state through three
  *     separately-owned card components for this.
- *   - **Reorder vs. edit mode are independent (2026-07-23):** `handleDragStart` no longer
- *     calls `setEditMode(true)` — a long-press-drag reorders and commits via `onReorder`
- *     regardless of whether the delete/add chrome is showing. `editMode` is now driven
- *     solely by the "Edit cards" / "Done" toggle button rendered above the stack.
+ *   - **Reorder vs. edit mode are independent (2026-07-23):** `handleDragStart` never
+ *     touches `editMode` — a long-press-drag reorders and commits via `onReorder`
+ *     regardless of whether the delete/add chrome is showing.
+ *   - **`editMode` is a controlled prop (2026-07-24)**, not local state — the "Edit cards" /
+ *     "Done" toggle button that flips it now renders inline in Home's greeting header
+ *     (app/(tabs)/index.tsx), not as its own row here, so the greeting→first-card gap
+ *     doesn't get a second margin stacked on top of it.
  *   - Relies on the Android LayoutAnimation global enable that HintCard.tsx sets at module
  *     scope (same assumption DraggableTaskRow.tsx documents) — app/(tabs)/index.tsx imports
  *     HintCard directly (Home's first-visit hint), so it's already set by the time this mounts.
@@ -57,6 +63,8 @@ type Props = {
   order: string[];
   /** Full known kind set → label, for the add-picker and remove a11y labels. */
   labels: Record<string, string>;
+  /** Controlled from Home (the "Edit cards"/"Done" toggle lives in its greeting header). */
+  editMode: boolean;
   onReorder: (order: string[]) => void;
   onRemove: (kind: string) => void;
   onAdd: (kind: string) => void;
@@ -65,13 +73,12 @@ type Props = {
 
 type DragState = { kind: string; order: string[] };
 
-export default function HomeCardManager({ order, labels, onReorder, onRemove, onAdd, renderCard }: Props) {
+export default function HomeCardManager({ order, labels, editMode, onReorder, onRemove, onAdd, renderCard }: Props) {
   const theme = useAppTheme();
   const t = useT();
   const styles = useScaledStyles(baseStyles);
   const { reducedMotion } = useAccessibility();
 
-  const [editMode, setEditMode] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -137,34 +144,6 @@ export default function HomeCardManager({ order, labels, onReorder, onRemove, on
 
   return (
     <View>
-      <View style={styles.editBar}>
-        {editMode ? (
-          <PressableScale
-            style={[styles.doneBtn, { backgroundColor: theme.accent }]}
-            onPress={() => {
-              tap();
-              setEditMode(false);
-            }}
-          >
-            <Text style={[styles.doneBtnText, { color: theme.accentInk }]}>{t.home.manageCards.done}</Text>
-          </PressableScale>
-        ) : (
-          <PressableScale
-            style={styles.editEntryBtn}
-            onPress={() => {
-              tap();
-              setEditMode(true);
-            }}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t.home.manageCards.edit}
-          >
-            <Ionicons name="pencil-outline" size={14} color={theme.textMuted} />
-            <Text style={[styles.editEntryBtnText, { color: theme.textMuted }]}>{t.home.manageCards.edit}</Text>
-          </PressableScale>
-        )}
-      </View>
-
       {liveOrder.map((kind) => (
         <DraggableTaskRow
           key={kind}
@@ -230,17 +209,6 @@ export default function HomeCardManager({ order, labels, onReorder, onRemove, on
 }
 
 const baseStyles = StyleSheet.create({
-  editBar: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: Spacing.sm },
-  doneBtn: { paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md, borderRadius: Radius.full },
-  doneBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.sm },
-  editEntryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-  },
-  editEntryBtnText: { fontFamily: Fonts.medium, fontSize: FontSize.xs },
   removeBadge: {
     position: 'absolute',
     top: -6,
