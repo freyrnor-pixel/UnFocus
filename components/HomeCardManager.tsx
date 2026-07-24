@@ -32,9 +32,12 @@
  *     calls `setEditMode(true)` — a long-press-drag reorders and commits via `onReorder`
  *     regardless of whether the delete/add chrome is showing. `editMode` is now driven
  *     solely by the "Edit cards" / "Done" toggle button rendered above the stack.
- *   - Relies on the Android LayoutAnimation global enable that ExpandableCard.tsx sets at
- *     module scope (same assumption DraggableTaskRow.tsx documents) — HomeShoppingCard
- *     imports ExpandableCard, so it's already set by the time this mounts on Home.
+ *   - Relies on the Android LayoutAnimation global enable that HintCard.tsx sets at module
+ *     scope (same assumption DraggableTaskRow.tsx documents) — app/(tabs)/index.tsx imports
+ *     HintCard directly (Home's first-visit hint), so it's already set by the time this mounts.
+ *     (ExpandableCard.tsx no longer sets this itself — it was migrated off the legacy Animated
+ *     API to Reanimated's Collapsible for its own reveal, 2026-07-15 — so it's not the enabler
+ *     here even though HomeShoppingCard still imports it for its dish-group accordions.)
  *   - Deletion floor: `order.length <= 1` disables the last remaining card's × rather
  *     than allowing an empty Home — no separate empty-state UI needed.
  */

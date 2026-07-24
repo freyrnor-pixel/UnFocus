@@ -15,16 +15,22 @@
  *
  * Connections:
  *   Imports → components/FormControls (Input), components/PressableScale, constants/theme,
- *             lib/i18n, lib/useAppTheme, lib/haptics
+ *             lib/i18n, lib/useAppTheme (useAccessibility for reducedMotion), lib/haptics
  *   Used by → app/(tabs)/shopping.tsx (Monthly tab, below the last list card)
  *   Data    → none directly — creation flows out via onCreate(name); the parent calls
  *             useMonthlyListStore.add()
+ *
+ * Edit notes:
+ *   - The collapsed "+" tile and the expanded name-entry panel are very different heights, so
+ *     every expand/collapse wraps the state change in `LayoutAnimation.configureNext` (gated on
+ *     `!reducedMotion`, same idiom as InlineAddItem.tsx/HomeCardManager/MonthlyResetReviewSheet)
+ *     so the height change glides instead of popping.
  */
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { LayoutAnimation, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FontSize, Fonts, Radius, Spacing, contrastOn } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { confirm as hapticConfirm } from '@/lib/haptics';
 import { Input } from '@/components/FormControls';
@@ -38,11 +44,13 @@ export default function NewMonthlyListRow({ onCreate }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
+  const { reducedMotion } = useAccessibility();
   const [expanded, setExpanded] = useState(false);
   const [name, setName] = useState('');
 
   function collapse() {
     setName('');
+    if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpanded(false);
   }
 
@@ -61,7 +69,10 @@ export default function NewMonthlyListRow({ onCreate }: Props) {
     return (
       <PressableScale
         style={[styles.addBar, { borderColor: theme.border, backgroundColor: theme.surface }]}
-        onPress={() => setExpanded(true)}
+        onPress={() => {
+          if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setExpanded(true);
+        }}
         accessibilityRole="button"
         accessibilityLabel={t.newMonthlyListBtn}
         scaleTo={0.97}
@@ -81,7 +92,11 @@ export default function NewMonthlyListRow({ onCreate }: Props) {
         returnKeyType="done"
         autoFocus
         onSubmitEditing={handleCreate}
-        onBlur={() => { if (!name.trim()) setExpanded(false); }}
+        onBlur={() => {
+          if (name.trim()) return;
+          if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setExpanded(false);
+        }}
       />
       <View style={styles.actionsRow}>
         <PressableScale style={styles.ghostBtn} onPress={collapse} scaleTo={0.97}>
