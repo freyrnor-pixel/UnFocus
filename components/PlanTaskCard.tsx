@@ -773,7 +773,7 @@ export default function PlanTaskCard({
 
         {showEmpty ? (
           <View style={styles.emptyWrap}>
-            <HomePreviewEmpty text={t.timelineEmpty} domainColor={domainColor} />
+            <HomePreviewEmpty text={t.timelineEmpty} domain="plan" domainColor={domainColor} />
             {/* Ghost "add" row (debug-note 2026-07-21) — an empty day should still offer a
                 place to add something. Deep-links to the Plans tab; only shown as a FALLBACK
                 when no inline add is wired (`onAddTask` absent). When onAddTask IS passed
@@ -1038,15 +1038,20 @@ const baseStyles = StyleSheet.create({
   // (paddingTop 16 + badge 32 + 16 = 64) — see the CardAccentWash comment above.
   headerRowPressable: { marginBottom: Spacing.md },
   // Badge is pinned absolute (badgeFixed below) — headerTopRow/nowChip's paddingLeft/marginLeft
-  // (badge size 32 + gap 8 = 40) is what actually clears it, not flex order (see edit note above).
-  headerTopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 40 },
+  // (badge offset 16 + badge size 32 + gap 8 = 56) is what actually clears it, not flex order
+  // (see edit note above).
+  headerTopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 56 },
   // Takes the badge out of flex flow so its position is fixed regardless of sibling content
   // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
-  badgeFixed: { position: 'absolute', top: 0, left: 0, zIndex: 2 },
+  // top/left Spacing.md (not 0) — 0 sat the badge flush in the card's own rounded top-left
+  // corner, clipping it against the mask (2026-07-24 bug report: "badge wrongly placed,
+  // upper-left corner"). Spacing.md matches cardContent's own padding, so the badge lines up
+  // with where normal content starts instead of overlapping the corner.
+  badgeFixed: { position: 'absolute', top: Spacing.md, left: Spacing.md, zIndex: 2 },
   // Persistent "now" indicator (visual-audit 2026-07-11) — always visible in the header. Moved
   // from a right-floated corner chip to its own left-aligned line under the title (2026-07-24) —
   // see edit note above.
-  nowChip: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 40, marginTop: 4 },
+  nowChip: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 56, marginTop: 4 },
   nowChipDot: { width: 6, height: 6, borderRadius: Radius.full },
   nowChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   progressBar: { marginTop: Spacing.xs },
