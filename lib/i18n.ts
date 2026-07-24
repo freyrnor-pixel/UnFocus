@@ -65,7 +65,6 @@ const en = {
   currentPlansLabel: "Today's plans",
   seeEverythingLink: 'See everything →',
   doneTasksLabel: 'Done today',
-  timelineEmpty: 'Nothing planned — enjoy your day',
   timelineEmptyAdd: 'Add a plan',
   timelineNow: 'Now',
   // Day-view rail (components/PlanTaskCard.tsx — full /plans screen + read-only Home preview)
@@ -116,7 +115,6 @@ const en = {
   taskSharedOut: 'Shared out',
   shoppingPreview: 'Shop soon',
   seeAll: 'See all →',
-  shoppingEmpty: 'Shopping list is empty — well done!',
   emptyWeeklyList: 'Nothing here yet — add your first item.',
   emptyMonthlyList: 'Nothing here yet — add your first staple item.',
   smallThingsCount: (n: number) => `You've done ${n} thing${n !== 1 ? 's' : ''} — small things add up!`,
@@ -1391,7 +1389,6 @@ const no: typeof en = {
   currentPlansLabel: 'Dagens planer',
   seeEverythingLink: 'Se alt →',
   doneTasksLabel: 'Ferdig i dag',
-  timelineEmpty: 'Ingenting planlagt — nyt dagen',
   timelineEmptyAdd: 'Legg til en plan',
   timelineNow: 'Nå',
   // Day-view rail (components/PlanTaskCard.tsx — full /plans screen + read-only Home preview)
@@ -1442,7 +1439,6 @@ const no: typeof en = {
   taskSharedOut: 'Delt ut',
   shoppingPreview: 'Handle snart',
   seeAll: 'Se alt →',
-  shoppingEmpty: 'Handlelisten er tom — bra jobbet!',
   emptyWeeklyList: 'Ingenting her ennå — legg til din første vare.',
   emptyMonthlyList: 'Ingenting her ennå — legg til din første faste vare.',
   smallThingsCount: (n: number) => `Du har fullført ${n} ting — småting teller!`,

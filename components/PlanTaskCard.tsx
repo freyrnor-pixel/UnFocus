@@ -69,11 +69,12 @@
  *     vertical padding and `title`'s font size were bumped back up on 2026-07-15 (user
  *     feedback: text/spacing read as too tight) — the slimness now comes from the rail-gap
  *     tuning alone, not from cramped row content.
- *   - **Empty state**: an empty day (`showEmpty`) renders the shared `HomePreviewEmpty`
- *     (left-aligned `t.timelineEmpty`). A dashed "add a plan" ghost row that deep-links to
- *     /plans shows only as a FALLBACK when no inline add is wired (`readOnly && !onAddTask`);
- *     when `onAddTask` IS passed the trailing AddRow (below) does inline creation instead, so
- *     the deep-link ghost is suppressed to avoid two add affordances. The distinct "all done" state keeps its own
+ *   - **Empty state (2026-07-24, text removed)**: an empty day (`showEmpty`) renders the
+ *     shared `HomePreviewEmpty` — blank space at the resting floor (an empty row), not a
+ *     message. A dashed "add a plan" ghost row that deep-links to /plans shows only as a
+ *     FALLBACK when no inline add is wired (`readOnly && !onAddTask`); when `onAddTask` IS
+ *     passed the trailing AddRow (below) does inline creation instead, so the deep-link ghost
+ *     is suppressed to avoid two add affordances. The distinct "all done" state keeps its own
  *     `t.dayViewAllDone` line — it's a reward, not an empty card.
  *   - **Decision 014 (revised 2026-07-14)**: the card face is a `<Surface>` with a
  *     domain-colored border (`borderColor={getDomainColor(theme,'plan').accent}`) on a plain
@@ -798,7 +799,7 @@ export default function PlanTaskCard({
 
         {showEmpty ? (
           <View style={styles.emptyWrap}>
-            <HomePreviewEmpty text={t.timelineEmpty} domainColor={domainColor} />
+            <HomePreviewEmpty />
             {/* Ghost "add" row (debug-note 2026-07-21) — an empty day should still offer a
                 place to add something. Deep-links to the Plans tab; only shown as a FALLBACK
                 when no inline add is wired (`onAddTask` absent). When onAddTask IS passed
