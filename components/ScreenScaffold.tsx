@@ -379,11 +379,14 @@ export default function ScreenScaffold({
   const safeAreaEdges: Edge[] = pagerTabScene
     ? ['top', 'left', 'right']
     : ['top', 'right', 'bottom', 'left'];
-  // Breathing room between the header band and a screen-owned stickyBelowHeader strip
-  // (Plans/Shopping/Settings' tab bars) — those floated flush against the header's
-  // bottom edge with zero gap, reading as cramped (2026-07-20 visual-audit). Zero when
-  // there's no sticky strip so screens without one are unaffected.
-  const stickyGap = stickyBelowHeader ? Spacing.sm : 0;
+  // Gap between the header band and a screen-owned stickyBelowHeader strip (Plans/
+  // Shopping/Settings' tab bars). A 2026-07-20 pass added Spacing.sm here for breathing
+  // room, but that extra strip painted `stickyGapColor="transparent"` — a window onto
+  // scrolled-past content directly under the header, reading as flickering text sitting
+  // "between" the header and tab-bar cards (2026-07-24 fix). Zeroed: the header's own
+  // `headerFloatV` bottom gap already gives the tab bar breathing room, so this doesn't
+  // read as flush/cramped, and there's no separate transparent strip left to leak through.
+  const stickyGap = 0;
   const contentPadding = {
     paddingTop: contentTopClear + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
     ...(reserveBottomNav ? { paddingBottom: bottomNavClearance } : null),
@@ -470,10 +473,9 @@ export default function ScreenScaffold({
       </View>
 
       {/* L4.5: optional sticky-below-header block (e.g. a screen-owned summary bar).
-          A small filler strip (stickyGap) sits between the header and the block itself —
-          painted with the page background, same treatment as headerBlock's own
-          backgroundColor, so it reads as calm chrome spacing rather than a hole letting
-          scrolled content flash through underneath. */}
+          The filler strip (stickyGap, currently always 0 — see that const above) is kept as
+          a mechanism rather than deleted outright, in case a future caller needs breathing
+          room here again; today the block sits directly below the header. */}
       {stickyBelowHeader && (
         <>
           <View style={[styles.stickyGapFiller, { top: headerBlockHeight, height: stickyGap, backgroundColor: stickyGapColor ?? bgColor }]} />

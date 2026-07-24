@@ -508,19 +508,17 @@ export default function SettingsScreen() {
   }
 
   const tabBar = (
-    // Frosted-glass strip (same overlay Surface as the header). Floats with the same side
-    // margins + Radius.lg rounding as ScreenHeader's own floated card (2026-07-23 header
-    // pass) — it used to be edge-to-edge/square, matching the header's OLD flush look, which
-    // read as mismatched/glitchy once the header started floating with gaps around it.
-    <Surface surfaceContext="overlay" style={styles.tabsGlass}>
-      <TabSlider
-        value={tab}
-        onChange={setTab}
-        options={TABS.map((tb) => ({ value: tb.key, label: tb.label }))}
-        radius={Radius.md}
-        style={styles.tabsTrack}
-      />
-    </Surface>
+    // No outer glass card (removed 2026-07-24): TabSlider already draws its own bordered/
+    // filled track, so wrapping it in a second Surface card stacked a third layer (outer
+    // card + TabSlider's own box + the sliding pill) that read as nested boxes. TabSlider
+    // now floats directly, styled with the same side margins as ScreenHeader's own card.
+    <TabSlider
+      value={tab}
+      onChange={setTab}
+      options={TABS.map((tb) => ({ value: tb.key, label: tb.label }))}
+      radius={Radius.md}
+      style={styles.tabsGlass}
+    />
   );
 
   return (
@@ -1434,19 +1432,10 @@ const baseStyles = StyleSheet.create({
   },
   langFlag: { fontSize: 24 },
   langText: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
-  // Floating frosted strip (Surface overlay) wraps the tab bar — side margins match
-  // ScreenHeader's own floated card (headerFloatH) so the two read as one consistent
-  // floating-chrome language instead of a rounded card sitting above a flush edge-to-edge
-  // box (2026-07-23 fix). Corner radius matches TabSlider's own `radius={Radius.md}` prop
-  // below rather than ScreenHeader's Radius.lg (2026-07-24 fix): at this strip's short
-  // height, Radius.lg rounded the outer card into a near-full pill around the boxed inner
-  // track — a shape mismatch that read as "pill wrapped around a box." Radius.lg is fine on
-  // ScreenHeader only because that card is much taller, so the same absolute radius reads as
-  // a subtler curve there.
-  tabsGlass: { flex: 1, marginHorizontal: Spacing.md, borderRadius: Radius.md },
-  // Small inset from the card's own inner edge — the sliding-pill track
-  // (components/TabSlider.tsx) draws its own bordered/filled track and reads better with a
-  // touch of breathing room than sitting flush against the card's rounded corners.
-  tabsTrack: { marginHorizontal: Spacing.sm, marginVertical: Spacing.xs },
+  // Styles TabSlider directly (no wrapping card, see the 2026-07-24 tabBar edit note) —
+  // side margins match ScreenHeader's own floated card (headerFloatH) so the two read as
+  // one consistent floating-chrome language; flex:1 + justifyContent:'center' fill and
+  // vertically center it within the sticky strip's reserved height (TAB_BAR_HEIGHT).
+  tabsGlass: { flex: 1, marginHorizontal: Spacing.md, justifyContent: 'center' },
   tabSectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
 });
