@@ -32,9 +32,11 @@
  *     2 tabs). Both fill the full row width (flex, not intrinsic content width), so a short
  *     set of tabs reads as one naturally centered/evenly-spaced group, never left-justified
  *     with dead space on one side.
- *   - `radius`: defaults to Radius.full (capsule/pill, Plans/Shopping's look). Settings
- *     passes a smaller value for a squarer segmented-control look — purely a visual
- *     choice per caller, doesn't change layout/sizing.
+ *   - `radius`: defaults to Radius.sm (boxed chip look, every caller — Plans/Shopping
+ *     included). Settings passes Radius.md instead — purely a visual choice per caller,
+ *     doesn't change layout/sizing. Only SlideSelector (Day/Week/Month) keeps the full-pill
+ *     look; the StyleSheet's `wrap`/`pill`/`segment` carry no `borderRadius` of their own
+ *     because the inline `radius` prop always overrides it — adding one there is a no-op.
  *   - The pill is the FIRST child of the row so it paints below the segment labels (paint
  *     order = document order) — same convention as SlideSelector.
  *   - Same haptic contract as SlideSelector: PressableScale's own `tap()` fires on every
@@ -63,8 +65,8 @@ type Props<T extends string | number> = {
   value: T;
   onChange: (next: T) => void;
   sizing?: 'equal' | 'content';
-  /** Track/pill corner radius. Default Radius.full (capsule/pill). Pass a smaller
-   *  value (e.g. Radius.md) for a squarer segmented-control look. */
+  /** Track/pill corner radius. Default Radius.sm (boxed chip look — matches the old
+   *  TabBoxHighlight). Pass a different value (e.g. Radius.md) to tweak the squareness. */
   radius?: number;
   style?: StyleProp<ViewStyle>;
 };
@@ -77,7 +79,7 @@ export default function TabSlider<T extends string | number>({
   value,
   onChange,
   sizing = 'equal',
-  radius = Radius.full,
+  radius = Radius.sm,
   style,
 }: Props<T>) {
   const theme = useAppTheme();
@@ -176,7 +178,6 @@ export default function TabSlider<T extends string | number>({
 
 const styles = StyleSheet.create({
   wrap: {
-    borderRadius: Radius.sm,
     borderWidth: 1,
   },
   row: {
@@ -185,15 +186,14 @@ const styles = StyleSheet.create({
     gap: TRACK_GAP,
   },
   // Absolutely-positioned sliding accent fill. Rendered first so it paints beneath the labels.
+  // No borderRadius here — the inline `radius` prop (see `pillStyle`'s caller) always wins.
   pill: {
     position: 'absolute',
     left: 0,
-    borderRadius: Radius.sm,
   },
   segment: {
     flexDirection: 'row',
     minHeight: 38,
-    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
