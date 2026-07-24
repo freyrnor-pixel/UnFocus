@@ -64,10 +64,12 @@
  *     short append-order list, so a bottom add row would require scrolling on every add.
  *   - removeItem soft-deletes (see useCatalogStore) so deleting a seeded item sticks across
  *     a seed re-run (seeding is now version-gated, not per-load).
- *   - **No domain border on the cards (2026-07-13, updated 2026-07-14)**: unlike
- *     WeekListCard, the rows don't carry the shop-domain green edge — this list is one long,
- *     continuous card, so a full-screen outline would read as a loud frame at this scale.
- *     `domainColor.accent` is still used for the small AddRow confirm-button fill.
+ *   - **No domain border on the ROWS (2026-07-13, updated 2026-07-14)**: unlike WeekListCard,
+ *     individual rows don't carry the shop-domain green edge — this list is one long,
+ *     continuous card, so a per-row outline would read as a loud frame at this scale.
+ *     `domainColor.accent` is still used for the small AddRow confirm-button fill. The
+ *     OUTER container itself does get a themed border + shadow (`cardOuter`, 2026-07-24) —
+ *     see the "Notepad container" note below; that's a bug fix, not a contradiction of this one.
  *   - **Grow-to-fill footer (visual-audit, 2026-07-17)**: a short catalogue (most seeded
  *     rows soft-deleted, or a fresh manually-built one) left the FlatList's own flex:1 tail
  *     as plain screen background between the last row and the bottom nav — read as a large
@@ -114,7 +116,7 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, getElevation, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { ThemePalette } from '@/constants/colors';
 import { useT } from '@/lib/i18n';
@@ -471,14 +473,19 @@ export default function CatalogueTab({ onNotify, header }: Props) {
 
   return (
     <View style={styles.root}>
-      {/* Notepad container (2026-07-18): the catalogue is clipped into a rounded, contained
-          sheet that ends ABOVE the bottom nav (root's paddingBottom), so it reads like a
-          notepad sitting within the screen instead of running flush under — and getting
-          "bordered off" behind — the nav bar. overflow:hidden rounds the bottom edge for a
-          long, virtualized list too (mid-scroll rows clip against the rounded corner rather
-          than a hard cut against the nav). Replaces the old fade-to-theme.bg band, which
-          painted a flat white/black strip over the colourful field and read as the "cut off"
-          the report described. */}
+      {/* Notepad container (2026-07-18, bordered 2026-07-24): the catalogue is clipped into a
+          rounded, contained sheet that ends ABOVE the bottom nav (root's paddingBottom), so it
+          reads like a notepad sitting within the screen instead of running flush under — and
+          getting "bordered off" behind — the nav bar. Split into two views (cardOuter carries
+          the themed border + shadow, unclipped; card is the overflow:hidden mask) so the whole
+          container finally reads as a bordered/shadowed card like every other card in the app
+          (WeekListCard/PlanTaskCard/HomeShoppingCard via Surface, TaskCard via this same
+          getElevation recipe) instead of a bare unbordered clip — the previous "no domain
+          border" note only ever meant no per-row accent edge, not "no border at all", but the
+          card ended up with neither. overflow:hidden still rounds the bottom edge for a long,
+          virtualized list (mid-scroll rows clip against the rounded corner rather than a hard
+          cut against the nav). */}
+      <View style={[styles.cardOuter, getElevation('raised', theme.shadow), { borderColor: theme.border }]}>
       <View style={styles.card}>
       <View style={styles.cardInner}>
       <FlatList
@@ -549,6 +556,7 @@ export default function CatalogueTab({ onNotify, header }: Props) {
         </View>
       )}
       </View>
+      </View>
     </View>
   );
 }
@@ -561,10 +569,15 @@ const baseStyles = StyleSheet.create({
   // 3 tabs, so the shared `header` chrome (incl. the Budget pill) starts the same distance below
   // the sticky tab bar on every tab instead of sitting higher here (visual-audit 2026-07-20).
   root: { flex: 1, paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.md },
-  // The notepad sheet: fills the remaining height and rounds + clips its BOTTOM edge (the top is
-  // the floating hint/add-row chrome, which reads fine square). overflow:hidden is what turns a
-  // mid-scroll hard clip into a clean rounded bottom on the long, virtualized list.
-  card: { flex: 1, borderBottomLeftRadius: Radius.md, borderBottomRightRadius: Radius.md, overflow: 'hidden' },
+  // Outer shadow-casting layer (2026-07-24): border + shadow live here, NOT on `card` below —
+  // `card`'s own overflow:hidden would otherwise clip the shadow (same reason Surface splits
+  // border/shadow onto an outer view and clipping onto an inner mask). This is what makes the
+  // catalogue read as one bordered/shadowed card like every other card in the app.
+  cardOuter: { flex: 1, borderRadius: Radius.md, borderWidth: 1 },
+  // The notepad sheet: fills the remaining height and rounds + clips all edges to match
+  // cardOuter above. overflow:hidden is what turns a mid-scroll hard clip into a clean rounded
+  // bottom on the long, virtualized list.
+  card: { flex: 1, borderRadius: Radius.md, overflow: 'hidden' },
   // Wraps the FlatList + A–Z scrubber side by side; the scrubber is a reserved gutter, not an
   // overlay, so it never sits on top of a long row name.
   cardInner: { flex: 1, flexDirection: 'row' },
@@ -578,7 +591,11 @@ const baseStyles = StyleSheet.create({
   // chrome clips to a sliver while the seam stays full-size) — reported as "blank space under
   // the tab row". `gap` still spaces the header's own cards apart; only the trailing pad is gone,
   // so the last card now sits flush against the first row with no background showing through.
-  listHeader: { gap: Spacing.md },
+  // marginTop + marginHorizontal (2026-07-24): the search/add-row Surfaces below cast their own
+  // drop shadow (getLayeredShadow). Without this inset they sit flush against `card`'s
+  // overflow:hidden bounds and that shadow gets clipped clean off — the "shadow abnormality
+  // above the list" bug report. This gives the shadow room to render before hitting the clip.
+  listHeader: { gap: Spacing.md, marginTop: Spacing.md, marginHorizontal: Spacing.md },
   searchCard: { paddingHorizontal: Spacing.md },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8 },
   searchInput: { flex: 1, fontSize: FontSize.sm, padding: 0 },
