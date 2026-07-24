@@ -256,7 +256,10 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
         style={[
           outer,
           {
-            borderRadius: radius,
+            borderTopLeftRadius: topLeftRadius,
+            borderTopRightRadius: topRightRadius,
+            borderBottomLeftRadius: bottomLeftRadius,
+            borderBottomRightRadius: bottomRightRadius,
             borderWidth: mat.borderWidth,
             // Opaque themed edge (2026-07-12 redesign): the material's default border is a
             // translucent white (rgba('#FFFFFF',0.5)) that vanishes on light-mode cards,
@@ -307,7 +310,18 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
   const innerBottomLeftRadius = Math.max(0, bottomLeftRadius - EDGE_WIDTH);
   const innerBottomRightRadius = Math.max(0, bottomRightRadius - EDGE_WIDTH);
   return (
-    <View style={[outer, { borderRadius: radius }, shadowStyle]}>
+    <View
+      style={[
+        outer,
+        {
+          borderTopLeftRadius: topLeftRadius,
+          borderTopRightRadius: topRightRadius,
+          borderBottomLeftRadius: bottomLeftRadius,
+          borderBottomRightRadius: bottomRightRadius,
+        },
+        shadowStyle,
+      ]}
+    >
       <LinearGradient
         colors={rim.colors}
         locations={rim.locations}
