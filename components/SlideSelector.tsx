@@ -1,7 +1,7 @@
 /**
  * SlideSelector.tsx — the segmented "slider" control for the Tasks/Oppgaver screen.
  *
- * N options in a pill track: a solid accent fill sits on the selected segment, the
+ * N options in a boxed track: a solid accent fill sits on the selected segment, the
  * rest keep a muted, recessed background. Distinct from FormControls.SegmentedControl
  * (which raises the active segment to a light surface) — this is the darker-fill look
  * the Tasks redesign spec calls for. Used for Day/Week/Month, the monthly day|ordinal
@@ -15,12 +15,22 @@
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme (useAppTheme, useAccessibility), lib/haptics,
  *             components/PressableScale, react-native-reanimated
- *   Used by → components/TaskCard.tsx, app/(tabs)/habits.tsx (Today/Week/Month view tabs)
+ *   Used by → components/TaskCard.tsx, app/(tabs)/habits.tsx (Today/Week/Month view tabs),
+ *             components/FoodTab.tsx (Easy/Normal difficulty picker)
  *   Data    → none (controlled; value/options/onChange from props)
  *
  * Edit notes:
  *   - Values are compared with ===; label is caller-localized.
  *   - `compact` shrinks padding/font for the tight week-interval / ordinal rows.
+ *   - **`radius` (added 2026-07-24)**: defaults to Radius.sm (boxed chip look), matching
+ *     `components/TabSlider.tsx`'s same default. This used to be hardcoded to Radius.full
+ *     (a full pill) with no override — a real user-facing bug: TabSlider's tab bars got
+ *     boxed corners app-wide while this sibling component (visually the same "sliding accent
+ *     pill behind segments" pattern, just under a different name) kept rendering as a pill
+ *     everywhere it appeared (Habits' Today/Week/Month, TaskCard's recurrence pickers,
+ *     FoodTab's difficulty picker) — an inconsistency a screenshot caught on Habits, but the
+ *     same fix belongs on every caller since they're all the same shared component. Pass a
+ *     different value only for a deliberate visual reason, same as TabSlider's `radius`.
  *   - The sliding pill is sized from the track's measured width/height (onLayout): segments
  *     are flex:1 so segW = (trackW - padding*2 - gap*(n-1)) / n, and translateX steps by
  *     (segW + gap). The pill renders as the FIRST child so RN paints it BELOW the label
@@ -43,6 +53,10 @@ type Props<T extends string | number> = {
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
   compact?: boolean;
+  /** Track/pill/segment corner radius. Default Radius.sm (boxed chip look — matches
+   *  components/TabSlider.tsx's same default). Pass a different value for a deliberate
+   *  visual choice; omit it rather than reaching for Radius.full. */
+  radius?: number;
 };
 
 const TRACK_PAD = 3;
@@ -55,6 +69,7 @@ export default function SlideSelector<T extends string | number>({
   style,
   disabled,
   compact,
+  radius = Radius.sm,
 }: Props<T>) {
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
@@ -80,7 +95,11 @@ export default function SlideSelector<T extends string | number>({
 
   return (
     <View
-      style={[styles.wrap, { backgroundColor: theme.surfaceMuted, borderColor: theme.border, opacity: disabled ? 0.5 : 1 }, style]}
+      style={[
+        styles.wrap,
+        { backgroundColor: theme.surfaceMuted, borderColor: theme.border, borderRadius: radius, opacity: disabled ? 0.5 : 1 },
+        style,
+      ]}
       onLayout={onLayout}
     >
       {segW > 0 && (
@@ -88,7 +107,7 @@ export default function SlideSelector<T extends string | number>({
           pointerEvents="none"
           style={[
             styles.pill,
-            { width: segW, height: pillH, top: TRACK_PAD, left: TRACK_PAD, backgroundColor: theme.accent },
+            { width: segW, height: pillH, top: TRACK_PAD, left: TRACK_PAD, borderRadius: radius, backgroundColor: theme.accent },
             pillStyle,
           ]}
         />
@@ -98,7 +117,7 @@ export default function SlideSelector<T extends string | number>({
         return (
           <PressableScale
             key={String(opt.value)}
-            style={[styles.segment, compact && styles.segmentCompact]}
+            style={[styles.segment, { borderRadius: radius }, compact && styles.segmentCompact]}
             onPress={() => {
               if (disabled) return;
               if (opt.value !== value) selection();
@@ -128,20 +147,18 @@ export default function SlideSelector<T extends string | number>({
 const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
-    borderRadius: Radius.full,
     borderWidth: 1,
     padding: TRACK_PAD,
     gap: TRACK_GAP,
   },
   // Absolutely-positioned sliding accent fill. Rendered first so it paints beneath the labels.
+  // No borderRadius here — the inline `radius` prop (see the caller above) always wins.
   pill: {
     position: 'absolute',
-    borderRadius: Radius.full,
   },
   segment: {
     flex: 1,
     minHeight: 38,
-    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.xs,
