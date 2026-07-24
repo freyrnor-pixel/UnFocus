@@ -56,6 +56,8 @@
  *     their defaults after each commit.
  *   - **Touch target (2026-07-11)**: check circle is visually 22x22 but `hitSlop={13}`
  *     brings the tappable area to ~48dp, meeting Android's minimum touch-target size.
+ *   - **Badge pinned (2026-07-24)**: `CardAccentBadge` is absolutely positioned (`badgeFixed`)
+ *     instead of inline in `titleLeft` — see the JSX comment at the header block.
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
@@ -157,17 +159,23 @@ export default function HomeNotesCard() {
       <View style={styles.cardContent}>
         {/* Header wash — the "one gradient move" (bled past the content padding to the card edge). */}
         {/* Wash band = default 64 (2026-07-24, "stretch the colour to fit the text"): the taller
-            band gives symmetric colour above/below the header (badge centred at y=32 in [0,64]).
-            titleRow's marginBottom is bumped to Spacing.md so the content still starts at the band
-            divider (paddingTop 16 + badge 32 + 16 = 64), keeping the body aligned. */}
+            band gives symmetric colour above/below the header. titleRow's marginBottom is bumped to
+            Spacing.md so the content still starts at the band divider (paddingTop 16 + badge 32 +
+            16 = 64), keeping the body aligned.
+            **Badge pinned (2026-07-24)**: the badge is absolutely positioned (`badgeFixed`) instead
+            of inline in `titleLeft` — inline + vertically centred, it could drift toward the wash/
+            surface seam when the title's lineHeight grows at large accessibility text sizes
+            ("touching the line" — user report). Pinning it removes that dependency; `titleRow` gets
+            a matching `paddingLeft` (badge width + gap) so the title text still clears it. Same
+            pattern applied to PlanTaskCard/HomeShoppingCard for consistency. */}
         <CardAccentWash domain="note" style={styles.headerWash} />
+        <CardAccentBadge domain="note" size={32} style={styles.badgeFixed} />
 
         {/* Title row — title/badge (navigates to /notes) and the mic button are siblings,
             not nested Pressables, so tapping the mic doesn't also fire the title's navigate. */}
         <View style={styles.titleRow}>
           <PressableScale onPress={handleTitlePress} style={styles.titleLeftPressable} scaleTo={0.97}>
             <View style={styles.titleLeft}>
-              <CardAccentBadge domain="note" size={32} />
               <Text style={[styles.title, { color: theme.text }]}>{t.notes.title}</Text>
               {activeNotes.length > 0 && (
                 <View style={[styles.badge, { backgroundColor: domainColor.soft, borderColor: rgba(domainColor.accent, 0.4) }]}>
@@ -368,9 +376,14 @@ const baseStyles = StyleSheet.create({
   headerWash: { top: -Spacing.md, left: -Spacing.md, right: -Spacing.md },
   // marginBottom Spacing.md (was .sm) so the content starts at the 64px wash divider — see the
   // CardAccentWash comment above.
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md, gap: Spacing.sm },
+  // paddingLeft (badge size 32 + gap 8 = 40) clears the fixed badge (badgeFixed below) — the
+  // badge no longer sits inline here, see the edit note above.
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md, gap: Spacing.sm, paddingLeft: 40 },
   titleLeftPressable: { flexShrink: 1 },
   titleLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  // Takes the badge out of flex flow so its position is fixed regardless of sibling content
+  // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
+  badgeFixed: { position: 'absolute', top: 0, left: 0, zIndex: 2 },
   // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
   // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
   title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8, includeFontPadding: false, textAlignVertical: 'center' },

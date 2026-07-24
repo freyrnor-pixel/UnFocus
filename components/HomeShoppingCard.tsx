@@ -53,6 +53,8 @@
  *     card's own item-count badge instead (`badgeRef`) rather than forcing the card open —
  *     "some motion" is the bar, not a literal cross-section flight, per product direction.
  *     Both paths gate on `reducedMotion` and fall through to plain `onToggle()`.
+ *   - **Badge pinned (2026-07-24)**: `CardAccentBadge` is absolutely positioned (`badgeFixed`)
+ *     instead of inline in `titleRow` — see the JSX comment at the header block.
  *   - **Quick-add (2026-07-24)**: previously this card had no add affordance at all — items
  *     could only be toggled/adjusted, not created. A trailing `AddRow` (gated on the optional
  *     `onAddItem` callback, same "gate on the callback" convention as PlanTaskCard's own
@@ -227,15 +229,21 @@ export default function HomeShoppingCard({
       <View style={styles.cardContent}>
         {/* Header wash — the "one gradient move" (bled past the content padding to the card edge). */}
         {/* Wash band = default 64 (2026-07-24, "stretch the colour to fit the text"): the taller
-            band gives symmetric colour above/below the header (badge centred at y=32 in [0,64]).
-            titleRowPressable's marginBottom is bumped to Spacing.md so the content still starts at
-            the band divider (paddingTop 16 + badge 32 + 16 = 64), keeping the body aligned. */}
+            band gives symmetric colour above/below the header. titleRowPressable's marginBottom is
+            bumped to Spacing.md so the content still starts at the band divider (paddingTop 16 +
+            badge 32 + 16 = 64), keeping the body aligned.
+            **Badge pinned (2026-07-24)**: the badge is absolutely positioned (`badgeFixed`) instead
+            of inline in `titleRow` — inline + vertically centred, it could drift toward the wash/
+            surface seam when the title's lineHeight grows at large accessibility text sizes
+            ("touching the line" — user report). Pinning it removes that dependency; `titleRow` gets
+            a matching `paddingLeft` (badge width + gap) so the title text still clears it. Same
+            pattern applied to PlanTaskCard/HomeNotesCard for consistency. */}
         <CardAccentWash domain="shop" style={styles.headerWash} />
 
         {/* Title row */}
         <PressableScale onPress={handleTitlePress} style={styles.titleRowPressable} scaleTo={0.97}>
+          <CardAccentBadge domain="shop" size={32} style={styles.badgeFixed} />
           <View style={styles.titleRow}>
-            <CardAccentBadge domain="shop" size={32} />
             <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
               {list?.name ?? t.shoppingTitle}
             </Text>
@@ -415,7 +423,12 @@ const baseStyles = StyleSheet.create({
   // marginBottom Spacing.md (was .sm) so the content starts at the 64px wash divider — see the
   // CardAccentWash comment above.
   titleRowPressable: { marginBottom: Spacing.md },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  // paddingLeft (badge size 32 + gap 8 = 40) clears the fixed badge (badgeFixed below) — the
+  // badge no longer sits inline here, see the edit note above.
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 40 },
+  // Takes the badge out of flex flow so its position is fixed regardless of sibling content
+  // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
+  badgeFixed: { position: 'absolute', top: 0, left: 0, zIndex: 2 },
   progressBar: { marginTop: Spacing.xs },
   paceText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginBottom: Spacing.sm },
   // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
