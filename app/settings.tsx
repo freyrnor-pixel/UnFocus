@@ -78,18 +78,16 @@
  *     `monthlyResetDate` field just above it is unaffected (still one global payday-boundary
  *     date, shared by every list).
  *   - **Tab bar (updated 2026-07-24, never scrollable)**: the 4-tab bar is
- *     `components/TabSlider.tsx` (`sizing="content"`) — a single accent pill SLIDES to sit
- *     behind whichever category tab is active (same motion as the Day/Week/Month
- *     `SlideSelector`), replacing the old per-tab `TabBoxHighlight` boxes. TabSlider has no
- *     scroll mode at all (by design — see its own header), so all four tabs must fit in one
- *     row: `config.tabs.*` labels are kept to single short words ("Shop", "Alerts", not
- *     "Shopping", "Notifications") specifically so they never truncate or need to scroll.
- *     `sizing="content"` (not `"equal"`) is required here even with short labels — Norwegian's
- *     "Generelt" is long enough that forcing all 4 segments to equal width (as `"equal"` does)
- *     truncated it to "Gene…" while the shorter tabs sat with unused space; content-sized
- *     segments size to each label's own width instead. Same shared component as
- *     app/(tabs)/shopping.tsx (also `"content"`, 2 tabs) and app/(tabs)/plans.tsx (`"equal"`,
- *     3 same-ish-length tabs, no truncation risk).
+ *     `components/TabSlider.tsx` — a single accent pill SLIDES to sit behind whichever
+ *     category tab is active (same motion as the Day/Week/Month `SlideSelector`), replacing
+ *     the old per-tab `TabBoxHighlight` boxes. TabSlider has no scroll mode at all (by design
+ *     — see its own header), so all four tabs must fit in one row: `config.tabs.*` labels are
+ *     kept to single short words ("Shop", "Alerts", not "Shopping", "Notifications")
+ *     specifically so they never need to scroll. Each segment always sizes to its own label
+ *     (TabSlider no longer has a fixed-equal-width mode — see its "No `sizing` prop" edit
+ *     note), so a translation coming out longer than expected (Norwegian's "Generelt" vs.
+ *     English's "General") no longer truncates one tab while the others sit with unused
+ *     space. Same shared component as app/(tabs)/shopping.tsx and app/(tabs)/plans.tsx.
  *   - applyAndSync() is the single write path: updates settings AND fires the right notification
  *     re-sync based on which keys changed — route every settings change through it, never
  *     settings.update() directly. Quiet-hours keys re-sync task notifications; language or
@@ -516,7 +514,6 @@ export default function SettingsScreen() {
     // read as mismatched/glitchy once the header started floating with gaps around it.
     <Surface surfaceContext="overlay" style={styles.tabsGlass}>
       <TabSlider
-        sizing="content"
         value={tab}
         onChange={setTab}
         options={TABS.map((tb) => ({ value: tb.key, label: tb.label }))}
