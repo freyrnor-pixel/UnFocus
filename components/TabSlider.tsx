@@ -41,12 +41,15 @@
  *     automatically to any label/language change, with nothing per-caller to keep in sync.
  *   - `radius`: defaults to Radius.sm (boxed chip look, every caller — Plans/Shopping
  *     included). Settings passes Radius.md instead — purely a visual choice per caller,
- *     doesn't change layout/sizing. `components/SlideSelector.tsx` has the identical
- *     `radius` prop/default for the same reason (2026-07-24: it used to be hardcoded to
- *     Radius.full with no override, a real inconsistency since it's the same "sliding
- *     accent pill behind segments" pattern as this component under a different name). The
- *     StyleSheet's `wrap`/`pill`/`segment` carry no `borderRadius` of their own because the
- *     inline `radius` prop always overrides it — adding one there is a no-op.
+ *     doesn't change layout/sizing. This component is ALWAYS a MAIN-level screen view
+ *     switcher (that's its whole purpose — see the class doc above), so it always defaults
+ *     boxed. `components/SlideSelector.tsx` has the identical `radius` prop but its own
+ *     default is the OPPOSITE (Radius.full/pill) because most of its callers are SUB-level
+ *     option pickers nested in a form (TaskCard, FoodTab) — see that file's "radius" edit
+ *     note for the main/sub rule and why its one MAIN-tier caller (Habits' Today/Week/Month)
+ *     explicitly overrides back to boxed instead. The StyleSheet's `wrap`/`pill`/`segment`
+ *     carry no `borderRadius` of their own because the inline `radius` prop always overrides
+ *     it — adding one there is a no-op.
  *   - The pill is the FIRST child of the row so it paints below the segment labels (paint
  *     order = document order) — same convention as SlideSelector.
  *   - Same haptic contract as SlideSelector: PressableScale's own `tap()` fires on every
