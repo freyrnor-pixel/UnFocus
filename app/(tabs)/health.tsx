@@ -8,13 +8,16 @@
  * (app/health-log.tsx), for browsing history or adding a multi-field entry
  * (severity/dates/notes) via app/health-form.tsx.
  *
- * A "Quick log" card above the weekly summary (2026-07-23) lets a symptom be
- * recorded straight from this tab: type a name + optionally pick a severity,
- * it saves instantly (dated today, no notes/times) — no navigation. This
- * reinstates an add affordance on this screen (after an earlier same-day
- * decision removed the old FAB in favour of the dedicated form) but keeps it
- * deliberately essentials-only; the full form stays the place for richer
- * entries and for editing.
+ * A "Quick log" card above the weekly summary (2026-07-23) lets an occurrence be
+ * recorded straight from this tab: type a name, then optionally set start time,
+ * duration, and severity — it saves instantly (dated today, no notes) — no
+ * navigation. This reinstates an add affordance on this screen (after an earlier
+ * same-day decision removed the old FAB in favour of the dedicated form) but keeps
+ * it deliberately essentials-only (name/time/duration/severity); the full form
+ * stays the place for notes, multi-day ("ongoing") entries, and editing.
+ * (2026-07-24: start time + duration were added alongside severity — these three
+ * are the fields users actually reach for at log time, per user feedback that
+ * hiding them behind the full form made quick-logging feel incomplete.)
  *
  * **Habits moved out (2026-07-23, UX audit finding E1)**: this screen used to also
  * embed a full Habits section (today/week/month views, per-habit cards) below the
@@ -27,8 +30,9 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/Surface,
  *             components/PressableScale, components/DebugNoteAnchor, components/AddRow,
- *             constants/theme, lib/date, lib/i18n, lib/severity, lib/useAppTheme,
- *             lib/useFirstVisitHint, lib/domainColor, lib/screenColor, store/useHealthStore
+ *             components/FormControls (Input), constants/theme, lib/date, lib/i18n,
+ *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor,
+ *             lib/screenColor, store/useHealthStore
  *   Used by → Expo Router route "/health" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx (BottomNav "Health" tab)
  *   Data    → useHealthStore — reads `logs` for the weekly summary, and calls `add()` +
  *             `ensureSymptom()` directly for the Quick log card (full multi-field edit/delete
@@ -40,9 +44,12 @@
  *     logic is unchanged, just windowed to `getWeekDates(today)` instead of a 30-day cutoff.
  *   - Grouping key is the symptom id when present, else the (lowercased) ailment string for
  *     legacy rows — same convention as health-log.tsx/health-detail.tsx.
- *   - Quick log card: essentials-only (name + severity, dated today, no notes/times) instant
- *     save via useHealthStore's existing add()/ensureSymptom() — no new DB columns. Editing an
- *     entry's times/notes, or the full picker/typeahead, still goes through app/health-form.tsx
+ *   - Quick log card: essentials-only (name + start time + duration + severity, dated today,
+ *     no notes/"ongoing") instant save via useHealthStore's existing add()/ensureSymptom() — no
+ *     new DB columns. Start time reuses the `startTime` free-text field the full form already
+ *     writes; duration (minutes) is quick-log-only UI that's converted to `endTime`/`endDate` at
+ *     save time (see `handleQuickLog`) — there's no separate duration column. Editing an entry's
+ *     notes, "ongoing" state, or the full picker/typeahead still goes through app/health-form.tsx
  *     (via app/health-detail.tsx or app/health-log.tsx's own AddRow).
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus
  *     effect only closes the hint on blur.
@@ -58,9 +65,10 @@ import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
+import { Input } from '@/components/FormControls';
 import { useT } from '@/lib/i18n';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
-import { todayStr, getWeekDates } from '@/lib/date';
+import { todayStr, getWeekDates, addDurationToTime } from '@/lib/date';
 import { SEVERITY_COLORS, severities, severityInk } from '@/lib/severity';
 import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -76,6 +84,8 @@ export default function HealthScreen() {
   const [hintOpen, setHintOpen] = useFirstVisitHint('health');
   const [quickDraft, setQuickDraft] = useState('');
   const [quickSeverity, setQuickSeverity] = useState(3);
+  const [quickStartTime, setQuickStartTime] = useState('');
+  const [quickDuration, setQuickDuration] = useState('');
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -124,11 +134,13 @@ export default function HealthScreen() {
     const name = quickDraft.trim();
     if (!name) return;
     const sym = ensureSymptom(name);
+    const startTime = quickStartTime.trim();
+    const computedEnd = addDurationToTime(todayStr(), startTime, Number(quickDuration.trim()));
     addLog({
       date: todayStr(),
-      startTime: '',
-      endDate: '',
-      endTime: '',
+      startTime,
+      endDate: computedEnd?.endDate ?? '',
+      endTime: computedEnd?.endTime ?? '',
       ailment: sym.name,
       symptomId: sym.id,
       severity: quickSeverity,
@@ -136,6 +148,8 @@ export default function HealthScreen() {
     });
     setQuickDraft('');
     setQuickSeverity(3);
+    setQuickStartTime('');
+    setQuickDuration('');
   }
 
   return (
@@ -152,7 +166,8 @@ export default function HealthScreen() {
         <View style={styles.content}>
           <HintCard text={t.hints.health.text} open={hintOpen} noPill />
 
-          {/* Quick log — essentials-only instant record (name + severity, dated today). */}
+          {/* Quick log — essentials-only instant record (name + start time + duration +
+              severity, dated today). */}
           <DebugNoteAnchor id="health.quickLog" label="Health — Quick log">
           <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
             <View style={styles.overviewCardContent}>
@@ -168,29 +183,53 @@ export default function HealthScreen() {
                 accessibilityLabel={t.logSymptomTrigger}
               />
               {quickDraft.trim().length > 0 && (
-                <View style={styles.quickSeverityRow}>
-                  <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.severityLabel}</Text>
-                  <View style={styles.quickSeverityChips}>
-                    {SEVERITIES.map((s) => {
-                      const active = quickSeverity === s.value;
-                      return (
-                        <PressableScale
-                          key={s.value}
-                          onPress={() => setQuickSeverity(s.value)}
-                          style={[
-                            styles.quickSevChip,
-                            { backgroundColor: s.color },
-                            active && { borderColor: theme.text, borderWidth: 2 },
-                          ]}
-                          accessibilityRole="button"
-                          accessibilityLabel={severityLabel(s.value)}
-                        >
-                          <Text style={[styles.quickSevChipText, { color: severityInk(s.value) }]}>{s.value}</Text>
-                        </PressableScale>
-                      );
-                    })}
+                <>
+                  <View style={styles.quickTimeRow}>
+                    <View style={styles.quickTimeField}>
+                      <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.whenStartedLabel}</Text>
+                      <Input
+                        value={quickStartTime}
+                        onChangeText={setQuickStartTime}
+                        placeholder={t.timeInputPlaceholder}
+                        keyboardType="numbers-and-punctuation"
+                        style={styles.quickTimeInput}
+                      />
+                    </View>
+                    <View style={styles.quickTimeField}>
+                      <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.durationLabel}</Text>
+                      <Input
+                        value={quickDuration}
+                        onChangeText={setQuickDuration}
+                        placeholder={t.durationPlaceholder}
+                        keyboardType="number-pad"
+                        style={styles.quickTimeInput}
+                      />
+                    </View>
                   </View>
-                </View>
+                  <View style={styles.quickSeverityRow}>
+                    <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.severityLabel}</Text>
+                    <View style={styles.quickSeverityChips}>
+                      {SEVERITIES.map((s) => {
+                        const active = quickSeverity === s.value;
+                        return (
+                          <PressableScale
+                            key={s.value}
+                            onPress={() => setQuickSeverity(s.value)}
+                            style={[
+                              styles.quickSevChip,
+                              { backgroundColor: s.color },
+                              active && { borderColor: theme.text, borderWidth: 2 },
+                            ]}
+                            accessibilityRole="button"
+                            accessibilityLabel={severityLabel(s.value)}
+                          >
+                            <Text style={[styles.quickSevChipText, { color: severityInk(s.value) }]}>{s.value}</Text>
+                          </PressableScale>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </>
               )}
             </View>
           </Surface>
@@ -283,6 +322,9 @@ const baseStyles = StyleSheet.create({
   overviewCardRow: { borderRadius: Radius.md, marginTop: Spacing.xl },
   overviewCardContent: { flex: 1, padding: Spacing.md },
   sectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size, marginBottom: Spacing.sm },
+  quickTimeRow: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm },
+  quickTimeField: { flex: 1, gap: Spacing.xs },
+  quickTimeInput: { paddingVertical: Spacing.xs },
   quickSeverityRow: { marginTop: Spacing.sm, gap: Spacing.xs },
   quickSeverityLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   quickSeverityChips: { flexDirection: 'row', gap: Spacing.xs },
