@@ -8,7 +8,8 @@
  * Connections:
  *   Imports → react-native-reanimated (Easing)
  *   Used by → components/Collapsible, components/AnimatedChevron, lib/useToggleProgress,
- *             and any new animated surface (older files may migrate opportunistically)
+ *             components/BottomNav (tabSwitch), and any new animated surface (older files
+ *             may migrate opportunistically)
  *   Data    → none (pure constants)
  *
  * Edit notes:
@@ -24,6 +25,8 @@ export const Duration = {
   micro: 120,
   /** toggles, segmented controls, chevrons */
   control: 150,
+  /** bottom-nav pill sliding to the tapped/swiped-to tab (§1 "Tab switch": 150-200ms) */
+  tabSwitch: 200,
   /** card/panel expand (enter) */
   card: 220,
   /** card/panel collapse (exit — faster than enter) */

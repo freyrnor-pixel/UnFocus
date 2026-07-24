@@ -109,6 +109,23 @@
  *     MAX_PARALLAX per side so the drift never bares an edge). Null under reducedMotion, so
  *     the backdrop stays fixed exactly as before. It's a subtle counter to the fixed backdrop,
  *     not a re-coupling — the drift is a fraction of the content's full-width slide.
+ *   - **Parallax used to SNAP on a BottomNav tap (fixed 2026-07-24, patches/
+ *     react-native-tab-view+4.3.1.patch)**: `position` is react-native-tab-view's
+ *     `PagerViewAdapter`'s own Animated.Value. `animationEnabled: false` (below) makes a tap
+ *     call `setPageWithoutAnimation` for the CONTENT (deliberately instant — avoids
+ *     ViewPager2's far-jump frame-skip sweep), but upstream also did `position.setValue(index)`
+ *     right next to it — an instant, non-animated set on the SAME node this file's
+ *     `bgParallax` reads. So every tap, not just far ones, snapped the background's ±14px
+ *     offset in a single frame instead of easing — "goes too fast" was actually "doesn't
+ *     animate at all." The patch (like the existing react-native-pager-view one, both applied
+ *     by `patch-package` on postinstall) replaces both `position.setValue(index)` call sites
+ *     inside `PagerViewAdapter.jumpTo` and its index-sync effect with a plain
+ *     `Animated.timing(position, {duration: 300, easing: Easing.out(Easing.cubic)})`. The
+ *     content snap this file relies on is untouched (still `setPageWithoutAnimation`,
+ *     unconditional) — only the JS-only `position` node used for OUR parallax now eases. A
+ *     real swipe was never affected (native scroll already drives `position` smoothly, frame
+ *     by frame); this only changes the programmatic-tap path. Pure JS change — ships via
+ *     normal OTA, no native build needed.
  *   - **Floated bottom-nav — sides + bottom, flush top (2026-07-23, amended)**:
  *     TabBarWithBackgroundSync's wrapper insets the bar with NAV_FLOAT_GAP on the LEFT/RIGHT and
  *     a matching small gap BELOW (on top of the safe-area inset), but flush at the TOP (no gap
