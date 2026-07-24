@@ -10,9 +10,16 @@
  * tasks + met habits in lib/energy.ts. This store only answers "what is the
  * capacity for this period?" and lets the Home meter override it.
  *
+ * The DEFAULT (no override) capacity depends on settings.energyMode (2026-07-24):
+ * 'daily'/'weekly' use the flat energyDailyCapacity/energyWeeklyCapacity; 'custom'
+ * uses settings.energyCustomCapacities (Mon..Sun per-weekday amounts, set in
+ * app/settings.tsx) — capacityForDay picks that weekday's entry, capacityForWeek
+ * sums all seven. See defaultDayCapacity/defaultWeekCapacity below.
+ *
  * Connections:
- *   Imports → lib/dataAccess, lib/energy (dayKey/weekKey), store/useSettingsStore
- *   Used by → components/EnergyMeter.tsx
+ *   Imports → lib/dataAccess, lib/energy (dayKey/weekKey), lib/date (dayOfWeekMon0),
+ *             store/useSettingsStore
+ *   Used by → components/EnergyMeter.tsx, __tests__/useEnergyStore.test.ts
  *   Data    → defines a Zustand store; owns the SQLite table energy_budgets
  *
  * Edit notes:
@@ -33,7 +40,29 @@ import {
   logDbError,
 } from '@/lib/dataAccess';
 import { dayKey, weekKey } from '@/lib/energy';
+import { dayOfWeekMon0 } from '@/lib/date';
 import { useSettingsStore } from '@/store/useSettingsStore';
+
+/** Default capacity for the day containing `date`, honouring energyMode (2026-07-24):
+ *  'custom' picks that weekday's amount from energyCustomCapacities, otherwise the
+ *  flat energyDailyCapacity. */
+function defaultDayCapacity(date: string): number {
+  const settings = useSettingsStore.getState();
+  if (settings.energyMode === 'custom') {
+    return settings.energyCustomCapacities[dayOfWeekMon0(new Date(date + 'T12:00:00'))] ?? 0;
+  }
+  return settings.energyDailyCapacity;
+}
+
+/** Default capacity for the Mon–Sun week containing `date`, honouring energyMode —
+ *  'custom' sums the seven per-weekday amounts, otherwise the flat energyWeeklyCapacity. */
+function defaultWeekCapacity(): number {
+  const settings = useSettingsStore.getState();
+  if (settings.energyMode === 'custom') {
+    return settings.energyCustomCapacities.reduce((sum, n) => sum + n, 0);
+  }
+  return settings.energyWeeklyCapacity;
+}
 
 type Budget = { periodKey: string; capacity: number };
 
@@ -85,13 +114,13 @@ export const useEnergyStore = create<EnergyStore>((set, get) => ({
   capacityForDay(date) {
     const key = dayKey(date);
     const o = get().overrides[key];
-    return o != null ? o : useSettingsStore.getState().energyDailyCapacity;
+    return o != null ? o : defaultDayCapacity(date);
   },
 
   capacityForWeek(date) {
     const key = weekKey(date);
     const o = get().overrides[key];
-    return o != null ? o : useSettingsStore.getState().energyWeeklyCapacity;
+    return o != null ? o : defaultWeekCapacity();
   },
 
   setDayCapacity(date, capacity) {

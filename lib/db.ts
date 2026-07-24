@@ -751,6 +751,13 @@ export function initDb() {
     // during OCR (previously discarded right after text recognition — never stored).
     "ALTER TABLE settings ADD COLUMN photo_aspect_ratio TEXT DEFAULT 'fit'",
     "ALTER TABLE receipts ADD COLUMN photo_uri TEXT DEFAULT ''",
+    // Energy mode (2026-07-24): how the day/week capacity is defined. 'daily' and
+    // 'weekly' show only that one flat capacity (energy_daily_capacity /
+    // energy_weekly_capacity, unchanged); 'custom' switches capacityForDay to a
+    // per-weekday amount the user sets in Settings (Mon..Sun steppers), with the
+    // week capacity derived as their sum — see store/useEnergyStore.ts.
+    "ALTER TABLE settings ADD COLUMN energy_mode TEXT DEFAULT 'daily'",
+    "ALTER TABLE settings ADD COLUMN energy_custom_capacities TEXT DEFAULT '[10,10,10,10,10,10,10]'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

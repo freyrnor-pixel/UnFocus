@@ -11,6 +11,9 @@
  * is visible before anything on it has actually happened.
  *
  * Renders nothing unless settings.energySystemEnabled — the whole system is opt-in.
+ * settings.energyMode (2026-07-24) picks which meter(s) show: 'daily' hides the week
+ * row, 'weekly' hides the day row, 'custom' (per-weekday capacities set in
+ * app/settings.tsx) shows both since the week total derives from the seven days.
  *
  * Connections:
  *   Imports → components/Surface, components/ProgressBar, components/Stepper,
@@ -43,9 +46,11 @@ export default function EnergyMeter() {
   const t = useT();
 
   const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
+  const energyMode = useSettingsStore((s) => s.energyMode);
   // Subscribe to the defaults + overrides so the meter recomputes when either changes.
   useSettingsStore((s) => s.energyDailyCapacity);
   useSettingsStore((s) => s.energyWeeklyCapacity);
+  useSettingsStore((s) => s.energyCustomCapacities);
   useEnergyStore((s) => s.overrides);
   const capacityForDay = useEnergyStore((s) => s.capacityForDay);
   const capacityForWeek = useEnergyStore((s) => s.capacityForWeek);
@@ -59,6 +64,12 @@ export default function EnergyMeter() {
   const [editing, setEditing] = useState(false);
 
   if (!energySystemEnabled) return null;
+
+  // energyMode picks which meter(s) apply — 'daily'/'weekly' show only their own
+  // meter, 'custom' (per-weekday capacities, set in Settings) shows both since the
+  // week total is derived from the seven day amounts.
+  const showDay = energyMode !== 'weekly';
+  const showWeek = energyMode !== 'daily';
 
   const today = todayStr();
   const dayCapacity = capacityForDay(today);
@@ -106,15 +117,15 @@ export default function EnergyMeter() {
         </PressableScale>
       </View>
 
-      {row(t.energyMeter.today, dayCurrent, dayCapacity)}
-      {dayPlannedOver > 0 && (
+      {showDay && row(t.energyMeter.today, dayCurrent, dayCapacity)}
+      {showDay && dayPlannedOver > 0 && (
         <View style={styles.warningRow}>
           <Ionicons name="alert-circle" size={14} color={theme.warn} />
           <Text style={[styles.warningText, { color: theme.warn }]}>{t.energyMeter.overCommittedDay(dayPlannedOver)}</Text>
         </View>
       )}
-      {row(t.energyMeter.thisWeek, weekCurrent, weekCapacity)}
-      {weekPlannedOver > 0 && (
+      {showWeek && row(t.energyMeter.thisWeek, weekCurrent, weekCapacity)}
+      {showWeek && weekPlannedOver > 0 && (
         <View style={styles.warningRow}>
           <Ionicons name="alert-circle" size={14} color={theme.warn} />
           <Text style={[styles.warningText, { color: theme.warn }]}>{t.energyMeter.overCommittedWeek(weekPlannedOver)}</Text>
@@ -123,14 +134,18 @@ export default function EnergyMeter() {
 
       <Collapsible open={editing}>
         <View style={styles.editor}>
-          <View style={styles.editRow}>
-            <Text style={[styles.editLabel, { color: theme.textMuted }]}>{t.energyMeter.todayCapacity}</Text>
-            <Stepper value={dayCapacity} onChange={(n) => setDayCapacity(today, n)} min={0} />
-          </View>
-          <View style={styles.editRow}>
-            <Text style={[styles.editLabel, { color: theme.textMuted }]}>{t.energyMeter.weekCapacity}</Text>
-            <Stepper value={weekCapacity} onChange={(n) => setWeekCapacity(today, n)} min={0} />
-          </View>
+          {showDay && (
+            <View style={styles.editRow}>
+              <Text style={[styles.editLabel, { color: theme.textMuted }]}>{t.energyMeter.todayCapacity}</Text>
+              <Stepper value={dayCapacity} onChange={(n) => setDayCapacity(today, n)} min={0} />
+            </View>
+          )}
+          {showWeek && (
+            <View style={styles.editRow}>
+              <Text style={[styles.editLabel, { color: theme.textMuted }]}>{t.energyMeter.weekCapacity}</Text>
+              <Stepper value={weekCapacity} onChange={(n) => setWeekCapacity(today, n)} min={0} />
+            </View>
+          )}
         </View>
       </Collapsible>
     </Surface>
