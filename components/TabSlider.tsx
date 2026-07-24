@@ -27,11 +27,14 @@
  *   Data    → none (controlled; value/options/onChange from props)
  *
  * Edit notes:
- *   - `sizing`: 'equal' (flex:1, all segments same width — Plans' 3 tabs, Settings' 4 tabs)
+ *   - `sizing`: 'equal' (flex:1, all segments same width — Plans' 3 similarly-short tabs)
  *     or 'content' (flexGrow/flexShrink, each segment sized to its own label — Shopping's
- *     2 tabs). Both fill the full row width (flex, not intrinsic content width), so a short
- *     set of tabs reads as one naturally centered/evenly-spaced group, never left-justified
- *     with dead space on one side.
+ *     2 tabs, and Settings' 4 tabs since 2026-07-24: 'equal' truncated Norwegian's "Generelt"
+ *     to "Gene…" while shorter tabs sat with unused space). Both fill the full row width (flex,
+ *     not intrinsic content width), so a short set of tabs reads as one naturally
+ *     centered/evenly-spaced group, never left-justified with dead space on one side. Prefer
+ *     'content' whenever a caller's labels vary a lot in length across languages — 'equal' only
+ *     looks right when every label is roughly the same width.
  *   - `radius`: defaults to Radius.sm (boxed chip look, every caller — Plans/Shopping
  *     included). Settings passes Radius.md instead — purely a visual choice per caller,
  *     doesn't change layout/sizing. Only SlideSelector (Day/Week/Month) keeps the full-pill
