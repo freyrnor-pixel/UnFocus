@@ -299,7 +299,9 @@ export default function ScreenScaffold({
   // and the glass Surface (headerFill flex:1) still fills exactly HEADER_HEIGHT.
   const floatChrome = !plainBackground;
   const headerFloatV = floatChrome ? Spacing.sm : 0;
-  const headerFloatH = floatChrome ? Spacing.md : 0;
+  // Spacing.sm (was .md) to match BottomNav's NAV_FLOAT_GAP (app/(tabs)/_layout.tsx) — the
+  // header and bottom-nav floating cards should read as the same width (2026-07-24).
+  const headerFloatH = floatChrome ? Spacing.sm : 0;
   const headerBlockHeight = HEADER_HEIGHT + topInset + headerFloatV * 2;
   // How far below the safe-area top the header footprint ends — what content must clear.
   const contentTopClear = headerBlockHeight - topInset;

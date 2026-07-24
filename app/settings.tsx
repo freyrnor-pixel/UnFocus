@@ -1485,9 +1485,10 @@ const baseStyles = StyleSheet.create({
   langFlag: { fontSize: 24 },
   langText: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
   // Styles TabSlider directly (no wrapping card, see the 2026-07-24 tabBar edit note) —
-  // side margins match ScreenHeader's own floated card (headerFloatH) so the two read as
-  // one consistent floating-chrome language; flex:1 + justifyContent:'center' fill and
-  // vertically center it within the sticky strip's reserved height (TAB_BAR_HEIGHT).
-  tabsGlass: { flex: 1, marginHorizontal: Spacing.md, justifyContent: 'center' },
+  // side margins match ScreenHeader's own floated card (headerFloatH, Spacing.sm as of the
+  // header/bottom-nav width-alignment pass) so the two read as one consistent floating-chrome
+  // language; flex:1 + justifyContent:'center' fill and vertically center it within the sticky
+  // strip's reserved height (TAB_BAR_HEIGHT).
+  tabsGlass: { flex: 1, marginHorizontal: Spacing.sm, justifyContent: 'center' },
   tabSectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
 });
