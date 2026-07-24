@@ -103,8 +103,12 @@
  *   - TimePickerWheel was never ported into this repo — all HH:MM entry uses FormControls.Input
  *     (free-text, matching the precedent set by task-form.tsx / habit-form.tsx).
  *   - The Energy system (energySystemEnabled + energyDailyCapacity/energyWeeklyCapacity) is
- *     the first card on the Generelt tab; when on it reveals the default day/week capacity
- *     steppers. Per-period overrides live on the Home Energy meter (components/EnergyMeter.tsx).
+ *     the first card on the Generelt tab; when on it reveals a Daily/Weekly/Custom
+ *     energyMode SegmentedControl. Daily/Weekly reveal their one flat capacity stepper;
+ *     Custom reveals a Mon..Sun stepper row (energyCustomCapacities) instead, with the
+ *     week capacity derived as their sum. Per-period overrides live on the Home Energy
+ *     meter (components/EnergyMeter.tsx), which also hides whichever meter energyMode
+ *     doesn't apply to.
  *   - Send Feedback card (2026-07-13): always visible (not gated on debugModeEnabled) — a
  *     free-text composer that builds a mailto: URL (lib/feedbackMail's buildFeedbackMailUrl,
  *     addressed to Unfocus@hlynsson.no, footer includes app/runtime version + platform) and
@@ -156,6 +160,7 @@ import {
   Settings,
   FontSizePref,
   DarkMode,
+  EnergyMode,
 } from '@/store/useSettingsStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
@@ -554,22 +559,55 @@ export default function SettingsScreen() {
                 </View>
                 {settings.energySystemEnabled && (
                   <View style={styles.energyCapacityRows}>
-                    <View style={styles.energyCapacityRow}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.dailyCapacity}</Text>
-                      <Stepper
-                        value={settings.energyDailyCapacity}
-                        onChange={(n) => settings.update({ energyDailyCapacity: n })}
-                        min={0}
-                      />
-                    </View>
-                    <View style={styles.energyCapacityRow}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.weeklyCapacity}</Text>
-                      <Stepper
-                        value={settings.energyWeeklyCapacity}
-                        onChange={(n) => settings.update({ energyWeeklyCapacity: n })}
-                        min={0}
-                      />
-                    </View>
+                    <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.energy.modeLabel}</Text>
+                    <SegmentedControl
+                      value={settings.energyMode}
+                      onChange={(v) => settings.update({ energyMode: v as EnergyMode })}
+                      options={[
+                        { value: 'daily', label: t.settings.energy.modeDaily },
+                        { value: 'weekly', label: t.settings.energy.modeWeekly },
+                        { value: 'custom', label: t.settings.energy.modeCustom },
+                      ]}
+                    />
+                    {settings.energyMode === 'daily' && (
+                      <View style={styles.energyCapacityRow}>
+                        <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.dailyCapacity}</Text>
+                        <Stepper
+                          value={settings.energyDailyCapacity}
+                          onChange={(n) => settings.update({ energyDailyCapacity: n })}
+                          min={0}
+                        />
+                      </View>
+                    )}
+                    {settings.energyMode === 'weekly' && (
+                      <View style={styles.energyCapacityRow}>
+                        <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.weeklyCapacity}</Text>
+                        <Stepper
+                          value={settings.energyWeeklyCapacity}
+                          onChange={(n) => settings.update({ energyWeeklyCapacity: n })}
+                          min={0}
+                        />
+                      </View>
+                    )}
+                    {settings.energyMode === 'custom' && (
+                      <>
+                        <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.energy.customHint}</Text>
+                        {DAY_LABELS.map((label, i) => (
+                          <View key={i} style={styles.energyCapacityRow}>
+                            <Text style={[styles.switchLabel, { color: theme.text }]}>{label}</Text>
+                            <Stepper
+                              value={settings.energyCustomCapacities[i]}
+                              onChange={(n) => {
+                                const next = [...settings.energyCustomCapacities];
+                                next[i] = n;
+                                settings.update({ energyCustomCapacities: next });
+                              }}
+                              min={0}
+                            />
+                          </View>
+                        ))}
+                      </>
+                    )}
                   </View>
                 )}
               </Surface>

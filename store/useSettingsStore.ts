@@ -30,6 +30,11 @@
  * directly by app/(tabs)/index.tsx.
  * photoAspectRatio (aspect-ratio formats pass) is the app-wide default format for
  * photo tiles — see components/PhotoFrame.tsx and constants/theme.ts's AspectRatio map.
+ * energyMode (2026-07-24) picks how the Energy capacity is defined — 'daily'/'weekly'
+ * use the flat energyDailyCapacity/energyWeeklyCapacity number and hide the other
+ * meter; 'custom' uses energyCustomCapacities (Mon..Sun) per-weekday amounts instead,
+ * set via the week-of-steppers row in app/settings.tsx, with the week capacity derived
+ * as their sum. See store/useEnergyStore.ts's capacityForDay/capacityForWeek.
  *
  * Connections:
  *   Imports → lib/dataAccess, lib/id, constants/theme (AspectRatioKey)
@@ -86,6 +91,7 @@ export type ColorTheme = 'default';
 export type Language = 'en' | 'no';
 export type DarkMode = 'system' | 'on' | 'off';
 export type FontSizePref = 'small' | 'default' | 'large';
+export type EnergyMode = 'daily' | 'weekly' | 'custom';
 
 export type Settings = {
   userName: string;
@@ -199,6 +205,12 @@ export type Settings = {
   energySystemEnabled: boolean;
   energyDailyCapacity: number;
   energyWeeklyCapacity: number;
+  // Energy mode (2026-07-24) — how the capacity is defined. 'daily'/'weekly' use the
+  // flat capacity above and hide the other meter; 'custom' uses energyCustomCapacities
+  // (Mon..Sun) instead of energyDailyCapacity, with the week capacity derived as their
+  // sum. See store/useEnergyStore.ts's capacityForDay/capacityForWeek.
+  energyMode: EnergyMode;
+  energyCustomCapacities: number[];
   // All-time completed-task counter (2026-07-20 long-run health pass) — lives here
   // rather than being derived from `tasks` row presence, since pruneOldData() now
   // actually prunes old completed dated tasks. Incremented/decremented by
@@ -282,6 +294,8 @@ function rowToSettings(row: Row): Settings {
     energySystemEnabled: readBool(row, 'energy_system_enabled'),
     energyDailyCapacity: readInt(row, 'energy_daily_capacity', 10),
     energyWeeklyCapacity: readInt(row, 'energy_weekly_capacity', 50),
+    energyMode: readEnum<EnergyMode>(row, 'energy_mode', ['daily', 'weekly', 'custom'], 'daily'),
+    energyCustomCapacities: readJson<number[]>(row, 'energy_custom_capacities', [10, 10, 10, 10, 10, 10, 10]),
     lifetimeCompletedTasks: readInt(row, 'lifetime_completed_tasks', 0),
     photoAspectRatio: readEnum<AspectRatioKey>(
       row,
@@ -352,6 +366,8 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   energySystemEnabled: { col: 'energy_system_enabled', to: bool },
   energyDailyCapacity: { col: 'energy_daily_capacity' },
   energyWeeklyCapacity: { col: 'energy_weekly_capacity' },
+  energyMode: { col: 'energy_mode' },
+  energyCustomCapacities: { col: 'energy_custom_capacities', to: (v) => JSON.stringify(v) },
   lifetimeCompletedTasks: { col: 'lifetime_completed_tasks' },
   photoAspectRatio: { col: 'photo_aspect_ratio' },
 };
@@ -417,6 +433,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   energySystemEnabled: true,
   energyDailyCapacity: 10,
   energyWeeklyCapacity: 50,
+  energyMode: 'daily' as EnergyMode,
+  energyCustomCapacities: [10, 10, 10, 10, 10, 10, 10],
   lifetimeCompletedTasks: 0,
   photoAspectRatio: 'fit' as AspectRatioKey,
   loaded: false,

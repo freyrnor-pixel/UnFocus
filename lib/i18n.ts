@@ -1040,6 +1040,11 @@ const en = {
       hint: 'Track a daily and weekly energy budget — tasks and habits can restore or drain it.',
       dailyCapacity: 'Daily energy',
       weeklyCapacity: 'Weekly energy',
+      modeLabel: 'Budget type',
+      modeDaily: 'Daily',
+      modeWeekly: 'Weekly',
+      modeCustom: 'Custom',
+      customHint: 'Set how much energy you have on each day of the week.',
     },
     accessibility: {
       title: 'Accessibility',
@@ -2006,6 +2011,11 @@ const no: typeof en = {
       hint: 'Følg et dags- og ukebudsjett for energi — oppgaver og vaner kan gi eller tappe energi.',
       dailyCapacity: 'Energi per dag',
       weeklyCapacity: 'Energi per uke',
+      modeLabel: 'Budsjettype',
+      modeDaily: 'Daglig',
+      modeWeekly: 'Ukentlig',
+      modeCustom: 'Egendefinert',
+      customHint: 'Still inn hvor mye energi du har på hver ukedag.',
     },
     accessibility: {
       title: 'Tilgjengelighet',
