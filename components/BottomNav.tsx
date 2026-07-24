@@ -51,9 +51,9 @@
  *     `NavGroup`s and the centre button (not nested inside either), so it can translateX to
  *     ANY of the 4 side slots — including a slide that passes behind/through the Home button —
  *     in a single `withTiming` call. Its x targets come from three measured tracks
- *     (`leftTrack`/`rightTrack`/`centreTrack`, each just `{x, w, h}` from that child's own
+ *     (`leftTrack`/`rightTrack`/`centreTrack`, each `{x, y, w, h}` from that child's own
  *     `onLayout`, relative to the bar's content box — the same coordinate space a normal flex
- *     child's `onLayout.x` already reports in). `slotX(index)` maps a SITE_ITEMS index (0/1 →
+ *     child's `onLayout.x`/`.y` already report in). `slotX(index)` maps a SITE_ITEMS index (0/1 →
  *     left track, 3/4 → right track, 2/home → centred under the centre button, used only as
  *     the entry/exit anchor since Home itself never gets a pill) to that x. Home ↔ side moves
  *     still anchor through the centre button's real x (replacing the old "whichever slot sits
@@ -65,6 +65,15 @@
  *     need to cover up to the whole bar's width instead of just one group's. `settledRef`/
  *     `firstRunRef` are the same fresh-appearance/cold-launch guards the old per-group code used,
  *     just centralized to one pill instead of duplicated per group.
+ *   - **Pill vertically misaligned (fixed, 2026-07-24 follow-up)**: `pill`'s `top` was
+ *     hardcoded to 0, ignoring that the pill is `position:absolute` against the bar's own
+ *     content box — which has `paddingVertical: Spacing.sm` that the tab items (flow
+ *     children) sit shifted down by, but an absolute child does not. Net effect (user
+ *     report, screenshot): the pill's top edge floated above the tab's icon and its bottom
+ *     edge cut into the label instead of framing the button, on every active tab. Fixed the
+ *     same way the x-axis already was: `Track` now also carries the real measured `y`, and
+ *     `pillTop` (leftTrack.y || rightTrack.y) is applied as the pill's actual `top` inline,
+ *     alongside the existing `width`/`height`.
  *   - **(Historical, superseded above) Sliding pill indicator, not per-item boxes (2026-07-22)**:
  *     the 2026-07-18 through 2026-07-21 passes below gave every tab — active or not — its own
  *     permanent shadow+bevel box, the same elevation recipe the outer `Surface` bar uses on
@@ -152,8 +161,8 @@ type Props = Partial<Pick<MaterialTopTabBarProps, 'state' | 'navigation'>>;
 
 // A group's (or the centre button's) measured layout, relative to the bar's own content box —
 // the same coordinate space `onLayout`'s `x`/`y` already report a flex child in.
-type Track = { x: number; w: number; h: number };
-const EMPTY_TRACK: Track = { x: 0, w: 0, h: 0 };
+type Track = { x: number; y: number; w: number; h: number };
+const EMPTY_TRACK: Track = { x: 0, y: 0, w: 0, h: 0 };
 
 export default function BottomNav({ state, navigation }: Props = {}) {
   const router = useRouter();
@@ -193,7 +202,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   const [centreTrack, setCentreTrack] = useState<Track>(EMPTY_TRACK);
 
   const setTrack = (setter: React.Dispatch<React.SetStateAction<Track>>) => (next: Track) => {
-    setter((prev) => (prev.x === next.x && prev.w === next.w && prev.h === next.h ? prev : next));
+    setter((prev) => (prev.x === next.x && prev.y === next.y && prev.w === next.w && prev.h === next.h ? prev : next));
   };
   const onLeftTrack = setTrack(setLeftTrack);
   const onRightTrack = setTrack(setRightTrack);
@@ -283,6 +292,14 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   const rim = computeRimGradient(theme.accent, isDark);
   const pillShadow = [...getLayeredShadow(theme.shadow, 'raised'), ...getGlow(theme.accent, 'soft').boxShadow];
   const pillHeight = leftTrack.h || rightTrack.h;
+  // The pill is `position:absolute` against the bar's own content box, which ignores that
+  // box's `paddingVertical` (2026-07-24 bug: "blue [pill] around the buttons is not
+  // centered") — the tab items themselves are flow children, so THEY sit shifted down by
+  // that padding, but the pill's old hardcoded `top:0` never accounted for it, leaving the
+  // pill's top edge floating above the icon and its bottom edge cutting into the label
+  // instead of framing the button. Use the real measured y (same fix pattern as the x-based
+  // translateX above) instead of assuming the pill's container has no padding.
+  const pillTop = leftTrack.y || rightTrack.y;
 
   const renderCentre = (item: SiteItem) => {
     const active = isActive(item);
@@ -298,8 +315,10 @@ export default function BottomNav({ state, navigation }: Props = {}) {
         style={[styles.centreButton, Shadow.fab, glass ? null : { backgroundColor: theme.accent }]}
         onPress={() => handlePress(item)}
         onLayout={(e: LayoutChangeEvent) => {
-          const { x, width, height } = e.nativeEvent.layout;
-          setCentreTrack((prev) => (prev.x === x && prev.w === width && prev.h === height ? prev : { x, w: width, h: height }));
+          const { x, y, width, height } = e.nativeEvent.layout;
+          setCentreTrack((prev) =>
+            prev.x === x && prev.y === y && prev.w === width && prev.h === height ? prev : { x, y, w: width, h: height }
+          );
         }}
         hitSlop={8}
       >
@@ -323,7 +342,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   return (
     <Surface surfaceContext="overlay" style={styles.bar}>
       {segW > 0 && pillMounted && (
-        <Animated.View pointerEvents="none" style={[styles.pill, { width: segW, height: pillHeight }, pillStyle]}>
+        <Animated.View pointerEvents="none" style={[styles.pill, { width: segW, height: pillHeight, top: pillTop }, pillStyle]}>
           {glass ? (
             <LinearGradient
               colors={rim.colors}
@@ -382,8 +401,8 @@ type NavGroupProps = {
 // only measures its own track and renders plain NavTabItems.
 function NavGroup({ items, isActive, onPress, label, styles, groupStyle, onTrack }: NavGroupProps) {
   const onLayout = (e: LayoutChangeEvent) => {
-    const { x, width, height } = e.nativeEvent.layout;
-    onTrack({ x, w: width, h: height });
+    const { x, y, width, height } = e.nativeEvent.layout;
+    onTrack({ x, y, w: width, h: height });
   };
 
   return (
@@ -482,8 +501,9 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   // Shared full-bar pill (BottomNav) — absolutely positioned, translateX-animated to sit
-  // behind whichever tab is active, wherever it is on the bar. width/height are set inline
-  // per render from the measured tracks (see BottomNav); only translateX/opacity are animated.
+  // behind whichever tab is active, wherever it is on the bar. width/height/top are set
+  // inline per render from the measured tracks (see BottomNav's `pillTop`/`pillHeight`) —
+  // `top: 0` here is only a pre-measurement fallback; only translateX/opacity are animated.
   pill: {
     position: 'absolute',
     top: 0,
