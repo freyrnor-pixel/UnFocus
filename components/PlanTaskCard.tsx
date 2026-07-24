@@ -665,7 +665,11 @@ export default function PlanTaskCard({
         {/* Section header — only in read-only (Home preview) mode */}
         {readOnly && (
           <>
-          <CardAccentWash domain="plan" style={styles.headerWash} />
+          {/* height 56 (was default 64) so the wash divider lands exactly where the content
+              starts — paddingTop(Spacing.md 16) + badge(32) + header marginBottom(Spacing.sm 8)
+              = 56 — instead of ~16px below it. That both centers the header in the band and lets
+              the empty-state box sit centered between the divider and the AddRow (2026-07-24). */}
+          <CardAccentWash domain="plan" height={56} style={styles.headerWash} />
           <PressableScale onPress={() => router.push('/plans')} style={styles.headerRowPressable} scaleTo={0.97}>
             <View style={styles.headerRow}>
               <CardAccentBadge domain="plan" size={32} />
@@ -794,9 +798,12 @@ const baseStyles = StyleSheet.create({
   // few tasks (or how compact the time gaps) today has — see constants/theme.ts. Content can
   // still grow taller than this floor (e.g. widely time-spaced tasks) — it's a min, not a cap.
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
-  // Tighter top padding (Spacing.sm) so the header hugs the card's top edge and sits high in
-  // the wash band, away from the white fade — matches the dot-header cards (SectionCard).
-  cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.sm, position: 'relative' },
+  // paddingTop Spacing.md (was Spacing.sm) so the header sits VERTICALLY CENTERED in the 64px
+  // CardAccentWash band instead of hugging the top edge (2026-07-24: the old "hug the top / sit
+  // high in the band" tuning read as "title too high, not centered between the top border and the
+  // wash divider" — user report). The 32px badge now centers at ~y=32 in the [0,64] band.
+  // headerWash's `top` is kept in lockstep (-Spacing.md) so the band still starts at the card edge.
+  cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.md, position: 'relative' },
   rail: { paddingVertical: Spacing.xs },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
   // Empty-day ghost add row: fills the resting height, add affordance pinned below the message.
@@ -894,7 +901,7 @@ const baseStyles = StyleSheet.create({
   doneRows: { paddingBottom: Spacing.sm },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
-  headerWash: { top: -Spacing.sm, left: -Spacing.md, right: -Spacing.md },
+  headerWash: { top: -Spacing.md, left: -Spacing.md, right: -Spacing.md },
   headerRowPressable: { marginBottom: Spacing.sm },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   // Persistent "now" indicator (visual-audit 2026-07-11) — always visible in the header,
