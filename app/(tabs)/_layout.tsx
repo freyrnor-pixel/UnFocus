@@ -101,31 +101,39 @@
  *     overlay's opacity (both L1 layers stay mounted — no remount). This only fires when the
  *     focused route actually changes (not continuously while dragging), so the fade starts at
  *     the swipe boundary rather than sliding with the drag. reducedMotion snaps instead.
- *   - **Background parallax (2026-07-23)**: the shared L1/L2 background group is wrapped in
- *     an Animated.View that drifts horizontally with the pager's live scroll `position` (a
- *     react-navigation Animated node, 0..4, lifted up from the tab bar via onPosition) — a
- *     small ±MAX_PARALLAX px translate, same direction as the content but far less, reading
- *     as depth rather than "each screen has its own picture" (the layer is oversized by
- *     MAX_PARALLAX per side so the drift never bares an edge). Null under reducedMotion, so
- *     the backdrop stays fixed exactly as before. It's a subtle counter to the fixed backdrop,
- *     not a re-coupling — the drift is a fraction of the content's full-width slide.
- *   - **Parallax used to SNAP on a BottomNav tap (fixed 2026-07-24, patches/
- *     react-native-tab-view+4.3.1.patch)**: `position` is react-native-tab-view's
- *     `PagerViewAdapter`'s own Animated.Value. `animationEnabled: false` (below) makes a tap
- *     call `setPageWithoutAnimation` for the CONTENT (deliberately instant — avoids
- *     ViewPager2's far-jump frame-skip sweep), but upstream also did `position.setValue(index)`
- *     right next to it — an instant, non-animated set on the SAME node this file's
- *     `bgParallax` reads. So every tap, not just far ones, snapped the background's ±14px
- *     offset in a single frame instead of easing — "goes too fast" was actually "doesn't
- *     animate at all." The patch (like the existing react-native-pager-view one, both applied
- *     by `patch-package` on postinstall) replaces both `position.setValue(index)` call sites
- *     inside `PagerViewAdapter.jumpTo` and its index-sync effect with a plain
- *     `Animated.timing(position, {duration: 300, easing: Easing.out(Easing.cubic)})`. The
- *     content snap this file relies on is untouched (still `setPageWithoutAnimation`,
- *     unconditional) — only the JS-only `position` node used for OUR parallax now eases. A
- *     real swipe was never affected (native scroll already drives `position` smoothly, frame
- *     by frame); this only changes the programmatic-tap path. Pure JS change — ships via
- *     normal OTA, no native build needed.
+ *   - **Background parallax (2026-07-23, mechanism reworked 2026-07-24 — see the next bullet)**:
+ *     the shared L1/L2 background group is wrapped in an Animated.View that drifts horizontally
+ *     with `bgIndexAnim` (0..4, our own node — see below) — a small ±MAX_PARALLAX px translate,
+ *     same direction as the content but far less, reading as depth rather than "each screen has
+ *     its own picture" (the layer is oversized by MAX_PARALLAX per side so the drift never bares
+ *     an edge). Null under reducedMotion, so the backdrop stays fixed exactly as before. It's a
+ *     subtle counter to the fixed backdrop, not a re-coupling — the drift is a fraction of the
+ *     content's full-width slide.
+ *   - **Parallax still snapped on a BottomNav tap after the first fix attempt (2026-07-24)**:
+ *     the first attempt patched react-native-tab-view's `PagerViewAdapter` (patches/
+ *     react-native-tab-view+4.3.1.patch, now removed) to ease its `position` Animated.Value
+ *     with `Animated.timing` instead of an instant `.setValue(index)` on every tap. That patch
+ *     alone didn't fix it on device: `animationEnabled: false` (below) makes a tap call
+ *     `setPageWithoutAnimation` on the native ViewPager2, and ViewPager2 still fires a
+ *     same-frame `onPageScrolled(target, 0, 0)` for that instant jump even with no visible
+ *     scroll — react-native-tab-view wires that straight into `position` via `Animated.event`,
+ *     which snaps the node to the target value regardless of whatever JS-side tween is also
+ *     running on it. Patching the library's `.setValue()` call didn't stop that native
+ *     side-effect from racing (and winning) via the same node.
+ *   - **Actual fix: a separate, app-owned Animated.Value (`bgIndexAnim`) instead of reading
+ *     the pager's `position` node directly.** A listener mirrors `position` into `bgIndexAnim`
+ *     1:1 while a real swipe is moving it (many small per-frame deltas — direct passthrough
+ *     already reads as smooth, since native scroll drives `position` frame by frame and was
+ *     never the problem). A settle — `activeRouteName` changing, which fires for both a tap
+ *     and a swipe landing — is caught separately: if `bgIndexAnim` is already within ~0.05 of
+ *     the settled index (the swipe-landing case; the listener already tracked it there live),
+ *     nothing more happens. If it's still at the old index (the tap case — the pager jumped
+ *     with no intervening frames), an explicit `Animated.timing` eases it to the new index
+ *     over `Duration.tabSwitch` (200ms, matching BottomNav's own pill-slide timing) while the
+ *     listener is told to stop mirroring for that window — otherwise the next native
+ *     `onPageScrolled` echo would immediately overwrite the tween with the same snap this was
+ *     meant to fix. Pure JS/app-code change — ships via normal OTA, no native build needed, no
+ *     patch-package patch to maintain.
  *   - **Floated bottom-nav — sides + bottom, flush top (2026-07-23, amended)**:
  *     TabBarWithBackgroundSync's wrapper insets the bar with NAV_FLOAT_GAP on the LEFT/RIGHT and
  *     a matching small gap BELOW (on top of the safe-area inset), but flush at the TOP (no gap
@@ -146,7 +154,7 @@
  *     sceneStyle override first.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
@@ -154,8 +162,9 @@ import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
 import { useAccessibility } from '@/lib/useAppTheme';
-import { TAB_ROUTE_NAME } from '@/lib/siteNav';
+import { SITE_ITEMS, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import { Spacing } from '@/constants/theme';
+import { Duration } from '@/constants/motion';
 
 // Max horizontal drift (px) of the shared background as you swipe across the 5 tabs — a
 // subtle parallax that adds depth without re-coupling the backdrop to the swipe the way a
@@ -167,6 +176,11 @@ const MAX_PARALLAX = 14;
 // deliberately SMALLER than the per-screen content cards' Spacing.md (16) side margin. The top
 // stays flush (no gap above), per the "no blank border" pass.
 const NAV_FLOAT_GAP = Spacing.sm;
+// Route-name order matching the pager's registered screens (also SITE_ITEMS' visual left-to-
+// right order, lib/siteNav.ts) — used to turn the settled tab name into a 0..4 index for the
+// background-parallax animation below. Derived from SITE_ITEMS/TAB_ROUTE_NAME instead of a
+// second hardcoded array so the two orderings can't drift apart.
+const TAB_ROUTE_ORDER = SITE_ITEMS.map((item) => TAB_ROUTE_NAME[item.route]!);
 
 type TabBarSyncProps = MaterialTopTabBarProps & {
   insetsBottom: number;
@@ -223,28 +237,76 @@ export default function TabsLayout() {
   const isHomeActive = activeRouteName === TAB_ROUTE_NAME['/'];
 
   // The pager's live scroll position (0..4 across the 5 tabs), lifted up from the tab bar
-  // (see TabBarWithBackgroundSync). Drives a subtle horizontal parallax on the shared
-  // background so the backdrop drifts a little as you swipe — same direction as the content
-  // but far less, reading as depth. Null until the first tab-bar render sets it; disabled
-  // entirely under reducedMotion (the backdrop just stays fixed, as before).
+  // (see TabBarWithBackgroundSync). Null until the first tab-bar render sets it. We only ever
+  // READ this to mirror live swipe motion (see bgIndexAnim below) — the background transform
+  // itself is driven by our own node, not this one directly (see the file header's "Actual
+  // fix" note for why).
   const [pagerPosition, setPagerPosition] = useState<Animated.AnimatedInterpolation<number> | null>(null);
   const onPosition = useCallback((p: Animated.AnimatedInterpolation<number>) => {
     setPagerPosition((prev) => prev ?? p);
   }, []);
-  const bgParallax =
-    reducedMotion || !pagerPosition
-      ? null
-      : {
-          transform: [
-            {
-              translateX: pagerPosition.interpolate({
-                inputRange: [0, 1, 2, 3, 4],
-                outputRange: [MAX_PARALLAX, MAX_PARALLAX / 2, 0, -MAX_PARALLAX / 2, -MAX_PARALLAX],
-                extrapolate: 'clamp',
-              }),
-            },
-          ],
-        };
+
+  // Our own background-parallax value (see file header's "Actual fix" note for the full
+  // reasoning) — decoupled from react-native-tab-view's `position` node so a BottomNav tap's
+  // native onPageScrolled echo can't race/overwrite an in-flight tween on it.
+  const initialTabIndex = Math.max(0, TAB_ROUTE_ORDER.indexOf(activeRouteName));
+  const bgIndexAnim = useRef(new Animated.Value(initialTabIndex)).current;
+  const bgIndexRef = useRef(initialTabIndex);
+  const suppressLiveMirrorRef = useRef(false);
+
+  // Mirror the pager's live position into bgIndexAnim frame by frame — this is what makes a
+  // real finger-swipe's parallax feel live; it's a direct passthrough, never eased, since a
+  // swipe already arrives smoothly one small delta at a time.
+  useEffect(() => {
+    if (!pagerPosition) return;
+    const id = pagerPosition.addListener(({ value }) => {
+      bgIndexRef.current = value;
+      if (!suppressLiveMirrorRef.current) {
+        bgIndexAnim.setValue(value);
+      }
+    });
+    return () => pagerPosition.removeListener(id);
+  }, [pagerPosition, bgIndexAnim]);
+
+  // On every settle (activeRouteName changing — fires for both a BottomNav tap and a swipe
+  // landing), give a still-distant bgIndexAnim an explicit eased tween to the new index. A
+  // swipe landing already left it within a hair of the target (tracked live above) — nothing
+  // to do there. A tap jumped the pager with no intervening frames, so this is what actually
+  // produces the smooth motion for a tap.
+  useEffect(() => {
+    const targetIndex = TAB_ROUTE_ORDER.indexOf(activeRouteName);
+    if (targetIndex < 0) return;
+    if (reducedMotion) {
+      bgIndexAnim.setValue(targetIndex);
+      bgIndexRef.current = targetIndex;
+      return;
+    }
+    if (Math.abs(bgIndexRef.current - targetIndex) < 0.05) return;
+    suppressLiveMirrorRef.current = true;
+    Animated.timing(bgIndexAnim, {
+      toValue: targetIndex,
+      duration: Duration.tabSwitch,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) bgIndexRef.current = targetIndex;
+      suppressLiveMirrorRef.current = false;
+    });
+  }, [activeRouteName, reducedMotion, bgIndexAnim]);
+
+  const bgParallax = reducedMotion
+    ? null
+    : {
+        transform: [
+          {
+            translateX: bgIndexAnim.interpolate({
+              inputRange: [0, 1, 2, 3, 4],
+              outputRange: [MAX_PARALLAX, MAX_PARALLAX / 2, 0, -MAX_PARALLAX / 2, -MAX_PARALLAX],
+              extrapolate: 'clamp',
+            }),
+          },
+        ],
+      };
 
   // Both backgrounds stay mounted; we cross-fade the hero layer's opacity instead of
   // swapping which one is mounted (see file header). ScreenBackground sits underneath at
