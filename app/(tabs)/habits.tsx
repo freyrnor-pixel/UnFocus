@@ -119,7 +119,7 @@ function EnergyBadge({ value, theme }: { value: number; theme: ThemePalette }) {
   const color = positive ? theme.good : theme.bad;
   return (
     <View style={[styles.energyPill, { borderColor: color }]}>
-      <Ionicons name="battery-charging-outline" size={11} color={color} />
+      <Ionicons name="flash" size={11} color={color} />
       <Text style={[styles.energyPillText, { color }]}>{positive ? `+${value}` : `${value}`}</Text>
     </View>
   );

@@ -88,7 +88,7 @@ export default function EnergyMeter() {
     <Surface style={styles.card}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <Ionicons name="battery-charging-outline" size={16} color={theme.accent} />
+          <Ionicons name="flash" size={16} color={theme.accent} />
           <Text style={[styles.title, { color: theme.text }]}>{t.energyMeter.title}</Text>
         </View>
         <PressableScale
