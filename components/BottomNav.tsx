@@ -30,26 +30,50 @@
  *     update the slice indices below to match.
  *   - Centre item (index 2, home) is rendered with gradient + shadow (design system style).
  *   - Left items (indices 0–1) and right items (indices 3–4) are each wrapped in a `NavGroup`
- *     (below), which owns the shared sliding pill for that side and renders its items as
- *     plain `NavTabItem`s (icon + label only, no per-item box).
+ *     (below), purely for layout (flex:1 track + equal segment division) — it reports its
+ *     measured track (x/width/height) upward via `onTrack` and renders plain `NavTabItem`s
+ *     (icon + label only, no per-item box, no pill of its own — see the single-pill bullet below).
  *   - BOTTOM_NAV_HEIGHT is exported for screens needing to offset overlays.
  *   - Active-tab detection: tab-bar mode reads `state.routes[state.index].name` and
  *     matches it against SITE_ITEMS via lib/siteNav.ts's TAB_ROUTE_NAME; standalone mode
  *     falls back to `usePathname() === item.route`.
  *   - `PressableScale`'s own default (`haptic=true`) already fires a light tap haptic on
  *     every press — no separate haptic call is needed here.
- *   - **Sliding pill indicator, not per-item boxes (2026-07-22)**: the 2026-07-18 through
- *     2026-07-21 passes below gave every tab — active or not — its own permanent shadow+bevel
- *     box, the same elevation recipe the outer `Surface` bar uses on itself; five independently
- *     "raised" objects nested inside one raised bar read as scattered chips, not one integrated
- *     control. Replaced with `NavGroup`: one shared pill per side that slides (Reanimated
- *     `translateX`) to whichever tab is active, reusing `components/SlideSelector.tsx`'s
- *     track-measure-and-slide math (`onLayout` → equal segment width → `withTiming`, snapping
- *     instantly under `reducedMotion`). Only the active tab is ever "raised" now — inactive tabs
- *     are flush icon+label with no box, so there's no per-item shadow/rim left to compete with
- *     the bar's own. The centre FAB (`renderCentre`) is untouched; it's a single item, not a
- *     group, and already had its own distinct treatment. The bullets below are kept for history
- *     but describe boxes that no longer exist.
+ *   - **One continuous full-bar pill (2026-07-24) — supersedes every per-`NavGroup` pill
+ *     bullet below.** The bullets from "Sliding pill indicator" through "No entry animation
+ *     on first mount" describe an earlier design where EACH side group owned its own
+ *     independent sliding pill, confined to that group's own flex container. That made a tap
+ *     between two tabs in DIFFERENT groups (e.g. Shopping → Health, "far apart" across the
+ *     centre Home button) animate as TWO separate, disjoint motions — one pill sliding out on
+ *     the left, an unrelated pill sliding in on the right — never a single element traveling
+ *     the whole bar, because no single element could. Replaced with ONE pill, owned by
+ *     `BottomNav` itself and rendered as a plain absolutely-positioned sibling of both
+ *     `NavGroup`s and the centre button (not nested inside either), so it can translateX to
+ *     ANY of the 4 side slots — including a slide that passes behind/through the Home button —
+ *     in a single `withTiming` call. Its x targets come from three measured tracks
+ *     (`leftTrack`/`rightTrack`/`centreTrack`, each just `{x, w, h}` from that child's own
+ *     `onLayout`, relative to the bar's content box — the same coordinate space a normal flex
+ *     child's `onLayout.x` already reports in). `slotX(index)` maps a SITE_ITEMS index (0/1 →
+ *     left track, 3/4 → right track, 2/home → centred under the centre button, used only as
+ *     the entry/exit anchor since Home itself never gets a pill) to that x. Home ↔ side moves
+ *     still anchor through the centre button's real x (replacing the old "whichever slot sits
+ *     nearest Home" approximation) with an opacity fade in/out; genuine side ↔ side moves — same
+ *     group OR across groups — are a single translateX between two real slot x values, so they
+ *     read as one continuous slide no matter how far apart the two tabs are. `Duration.tabSwitch`
+ *     (200ms, ANIMATION_GUIDELINES §1 "Tab switch") replaces the old `Duration.control` (150ms,
+ *     meant for toggles/segmented controls, not full nav-tab travel) now that a single pill may
+ *     need to cover up to the whole bar's width instead of just one group's. `settledRef`/
+ *     `firstRunRef` are the same fresh-appearance/cold-launch guards the old per-group code used,
+ *     just centralized to one pill instead of duplicated per group.
+ *   - **(Historical, superseded above) Sliding pill indicator, not per-item boxes (2026-07-22)**:
+ *     the 2026-07-18 through 2026-07-21 passes below gave every tab — active or not — its own
+ *     permanent shadow+bevel box, the same elevation recipe the outer `Surface` bar uses on
+ *     itself; five independently "raised" objects nested inside one raised bar read as scattered
+ *     chips, not one integrated control. Only the active tab is ever "raised" — inactive tabs are
+ *     flush icon+label with no box, so there's no per-item shadow/rim left to compete with the
+ *     bar's own. The centre FAB (`renderCentre`) is untouched; it's a single item, not a group,
+ *     and already had its own distinct treatment. The bullets below are kept for history but
+ *     describe boxes that no longer exist.
  *   - **Keycap box, every item, always (2026-07-20)**: each non-centre item now carries a
  *     permanent bordered box — `theme.surface` (white/near-white card fill, NOT the grey
  *     `surfaceMuted` sunken tone) + `theme.border` edge at rest, crossfading (via
@@ -72,13 +96,12 @@
  *     `borderWidth`/`borderColor` entirely. The white `theme.surface` fill and `getLayeredShadow`
  *     depth (both from the two bullets above) are kept, so tabs still read as raised, tappable
  *     cards without the outlined look. Don't re-add a border here without checking this note.
- *   - **Purposeful glow (2026-07-18, optional per design pass)**: the active tab's box adds
- *     `getGlow(theme.accent, 'soft')` on top of the crossfade — only while active, never on
- *     every item. Concatenated onto the resting `boxShadow` array (not assigned over it) since
- *     both the depth and the glow are `boxShadow` — setting the key twice would silently drop
- *     the depth layers when active. The centre FAB-style button already reads as "lit" via its
- *     permanent accent fill + `Shadow.fab`, so it's left alone. (Now lives on the shared pill —
- *     see the 2026-07-22 bullet above.)
+ *   - **Purposeful glow (2026-07-18, optional per design pass)**: the active tab's pill adds
+ *     `getGlow(theme.accent, 'soft')` on top of its fill — only while a side tab is active, never
+ *     on Home or on every item. Concatenated onto the resting `boxShadow` array (not assigned
+ *     over it) since both the depth and the glow are `boxShadow` — setting the key twice would
+ *     silently drop the depth layers when active. The centre FAB-style button already reads as
+ *     "lit" via its permanent accent fill + `Shadow.fab`, so it's left alone.
  *   - **Active fill uses `theme.accentSoft`** (the app-wide active/selected tint — same token
  *     as IconButton's active state, Button secondary, etc.), NOT `theme.surfaceMuted` —
  *     surfaceMuted is the neutral grey sunken tone; reusing it for active state is what
@@ -88,35 +111,22 @@
  *     a different technique — the same rim-gradient bevel (`computeRimGradient`, light-top/
  *     dark-bottom, 3 stops) Button.tsx/Surface.tsx already use — gated behind
  *     `settings.glassSurfaces`, off entirely when that setting is off. The fill becomes the inner
- *     "double keycap" line, unchanged otherwise. Now that only the pill (always the active tab)
- *     carries this, the ring hue is always `theme.accent` — the `theme.border` (inactive) branch
+ *     "double keycap" line, unchanged otherwise. The pill always carries this now (there's only
+ *     ever one), so the ring hue is always `theme.accent` — the `theme.border` (inactive) branch
  *     the old per-item rim needed no longer applies.
- *   - **Fixed: pill popping in from the wrong slot (2026-07-23)**: `NavGroup`'s driving effect
- *     used to run unconditionally every render, snapping `tx` back to slot 0 whenever the group
- *     had no active tab (Home selected, or the other side active). Tapping straight into a
- *     group's second slot (Home → Plans/"Tasks", or Home → Habits) then mounted the pill at that
- *     stale slot-0 position and animated it over — read as the pill sliding in from the wrong
- *     side.
- *   - **Home-anchored entry/exit (2026-07-23, same-day follow-up)**: the fix above made fresh
- *     appearances snap instantly with no slide at all, which read as an abrupt pop when arriving
- *     from Home, and a group's pill still hard-vanished (no exit animation) when leaving to Home.
- *     Replaced with `homeEdge`-anchored motion: each `NavGroup` knows which of its two slots sits
- *     next to the centre Home button (left group's last slot / right group's first slot, passed
- *     in as the `homeEdge` prop). Arriving in a group fresh now starts the pill at that
- *     Home-adjacent slot and slides (`Ease.enter`) to the real target — reads as coming from
- *     Home. Leaving a group (most commonly to Home) slides the pill back to that same
- *     Home-adjacent slot (`Ease.exit`) before unmounting (via the `withTiming` completion
- *     callback + `runOnJS`), instead of vanishing instantly. `withTiming` is still reserved for
- *     genuine in-group moves (Shopping ↔ Plans, Health ↔ Habits) and Home-anchor moves alike;
- *     only `reducedMotion` skips straight to the final position. See `settledRef`/`homeIndex`
- *     below (supersedes the now-removed `wasVisibleRef`).
- *   - **No entry animation on first mount (2026-07-24)**: `firstRunRef` gates the very first
- *     layout-ready effect run. If that first run already finds an active tab in the group — a
- *     cold launch or deep-link straight onto a side tab, NOT a Home→side navigation — the pill
- *     INITIALIZES at the active slot with no slide (an entry animation on first mount reads as a
- *     spurious pop). Normal cold launch lands on Home (`unstable_settings.initialRouteName` in
- *     app/(tabs)/_layout.tsx), where neither side group has an active tab, so the pill simply
- *     doesn't mount — no motion at all. Every later fresh appearance keeps the Home-anchored slide.
+ *   - **(Historical, superseded above) Fixed: pill popping in from the wrong slot (2026-07-23)**:
+ *     the old per-group driving effect used to run unconditionally every render, snapping `tx`
+ *     back to slot 0 whenever that group had no active tab (Home selected, or the other side
+ *     active). Tapping straight into a group's second slot then mounted the pill at that stale
+ *     slot-0 position and animated it over — read as the pill sliding in from the wrong side.
+ *   - **(Historical, superseded above) Home-anchored entry/exit (2026-07-23, same-day
+ *     follow-up)**: replaced hard pop/vanish with motion anchored to whichever slot sat next to
+ *     Home. The single full-bar pill above generalizes this to the centre button's REAL x
+ *     instead of a "nearest slot" stand-in, and — because it's one element, not two — a side ↔
+ *     side move across groups no longer needs a Home anchor at all; it's a direct slide.
+ *   - **(Historical, superseded above) No entry animation on first mount (2026-07-24)**: a cold
+ *     launch/deep-link straight onto a side tab should initialize there with no slide. Preserved
+ *     verbatim as `firstRunRef` in the new single-pill effect.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
@@ -136,8 +146,14 @@ import Surface from '@/components/Surface';
 
 export const BOTTOM_NAV_HEIGHT = 72;
 const EDGE_WIDTH = 1.5;
+const ITEMS_PER_SIDE = 2;
 
 type Props = Partial<Pick<MaterialTopTabBarProps, 'state' | 'navigation'>>;
+
+// A group's (or the centre button's) measured layout, relative to the bar's own content box —
+// the same coordinate space `onLayout`'s `x`/`y` already report a flex child in.
+type Track = { x: number; w: number; h: number };
+const EMPTY_TRACK: Track = { x: 0, w: 0, h: 0 };
 
 export default function BottomNav({ state, navigation }: Props = {}) {
   const router = useRouter();
@@ -146,6 +162,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   const theme = useAppTheme();
   const isDark = useIsDark();
   const glass = useSettingsStore((s) => s.glassSurfaces);
+  const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
 
   const leftItems = SITE_ITEMS.slice(0, 2);
@@ -170,6 +187,103 @@ export default function BottomNav({ state, navigation }: Props = {}) {
     goToSite(router, pathname, item.route);
   }
 
+  // ─── Single full-bar pill — see the 2026-07-24 edit note above for the why ───────────────
+  const [leftTrack, setLeftTrack] = useState<Track>(EMPTY_TRACK);
+  const [rightTrack, setRightTrack] = useState<Track>(EMPTY_TRACK);
+  const [centreTrack, setCentreTrack] = useState<Track>(EMPTY_TRACK);
+
+  const setTrack = (setter: React.Dispatch<React.SetStateAction<Track>>) => (next: Track) => {
+    setter((prev) => (prev.x === next.x && prev.w === next.w && prev.h === next.h ? prev : next));
+  };
+  const onLeftTrack = setTrack(setLeftTrack);
+  const onRightTrack = setTrack(setRightTrack);
+
+  const activeIndex = SITE_ITEMS.findIndex(isActive);
+  const isHomeActive = activeIndex === 2;
+  const gap = Spacing.sm;
+  const leftSegW = leftTrack.w > 0 ? (leftTrack.w - gap * (ITEMS_PER_SIDE - 1)) / ITEMS_PER_SIDE : 0;
+  const rightSegW = rightTrack.w > 0 ? (rightTrack.w - gap * (ITEMS_PER_SIDE - 1)) / ITEMS_PER_SIDE : 0;
+  // Both sides measure equal (the bar is `justify-content: space-between` with flex:1 on both
+  // groups around a fixed-width centre button) — fall back to whichever side is ready first.
+  const segW = leftSegW || rightSegW;
+  const ready = leftTrack.w > 0 && rightTrack.w > 0 && centreTrack.w > 0 && segW > 0;
+
+  // Maps a SITE_ITEMS index to the pill's target x (relative to the bar's content box).
+  function slotX(index: number): number {
+    if (index === 0 || index === 1) return leftTrack.x + index * (segW + gap);
+    if (index === 3 || index === 4) return rightTrack.x + (index - 3) * (segW + gap);
+    // index === 2 (Home) — no pill ever sits here; this is only the entry/exit anchor.
+    return centreTrack.x + (centreTrack.w - segW) / 2;
+  }
+
+  const tx = useSharedValue(0);
+  const pillOpacity = useSharedValue(0);
+  const [pillMounted, setPillMounted] = useState(false);
+  // Whether the pill is currently settled on a real (non-Home) slot.
+  const settledRef = useRef(false);
+  // True until the first layout-ready effect run — a cold launch/deep-link straight onto a
+  // side tab initializes there with no entry slide; every later fresh appearance keeps the
+  // Home-anchored slide+fade.
+  const firstRunRef = useRef(true);
+
+  useEffect(() => {
+    if (!ready) return;
+    const firstRun = firstRunRef.current;
+    firstRunRef.current = false;
+
+    if (!isHomeActive) {
+      const to = slotX(activeIndex);
+      const fresh = !settledRef.current;
+      settledRef.current = true;
+      if (fresh && firstRun) {
+        setPillMounted(true);
+        tx.value = to;
+        pillOpacity.value = 1;
+        return;
+      }
+      if (fresh) {
+        // Arriving from Home — start at the centre anchor, then slide+fade to the real target.
+        setPillMounted(true);
+        tx.value = slotX(2);
+        pillOpacity.value = 0;
+      }
+      // Otherwise this is a genuine slot -> slot move (same group OR across groups) — `tx`
+      // animates directly from wherever it currently sits, so a cross-group tap is one
+      // continuous slide instead of an exit + a separate entry.
+      if (reducedMotion) {
+        tx.value = to;
+        pillOpacity.value = 1;
+      } else {
+        tx.value = withTiming(to, { duration: Duration.tabSwitch, easing: Ease.move });
+        pillOpacity.value = withTiming(1, { duration: Duration.tabSwitch, easing: Ease.enter });
+      }
+    } else if (settledRef.current) {
+      // Leaving to Home — slide+fade back to the centre anchor, then unmount.
+      settledRef.current = false;
+      const homeX = slotX(2);
+      if (reducedMotion) {
+        tx.value = homeX;
+        pillOpacity.value = 0;
+        setPillMounted(false);
+      } else {
+        tx.value = withTiming(homeX, { duration: Duration.tabSwitch, easing: Ease.move });
+        pillOpacity.value = withTiming(0, { duration: Duration.tabSwitch, easing: Ease.exit }, (finished) => {
+          if (finished) runOnJS(setPillMounted)(false);
+        });
+      }
+    }
+  }, [ready, activeIndex, isHomeActive, segW, leftTrack.x, rightTrack.x, centreTrack.x, centreTrack.w, reducedMotion, tx, pillOpacity]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: tx.value }],
+    opacity: pillOpacity.value,
+  }));
+
+  // The pill only ever marks an active SIDE tab, so its rim is always accent-hued.
+  const rim = computeRimGradient(theme.accent, isDark);
+  const pillShadow = [...getLayeredShadow(theme.shadow, 'raised'), ...getGlow(theme.accent, 'soft').boxShadow];
+  const pillHeight = leftTrack.h || rightTrack.h;
+
   const renderCentre = (item: SiteItem) => {
     const active = isActive(item);
     const icon = <Ionicons name={active ? item.activeIcon : item.icon} size={24} color={theme.accentInk} />;
@@ -183,6 +297,10 @@ export default function BottomNav({ state, navigation }: Props = {}) {
         accessibilityState={{ selected: active }}
         style={[styles.centreButton, Shadow.fab, glass ? null : { backgroundColor: theme.accent }]}
         onPress={() => handlePress(item)}
+        onLayout={(e: LayoutChangeEvent) => {
+          const { x, width, height } = e.nativeEvent.layout;
+          setCentreTrack((prev) => (prev.x === x && prev.w === width && prev.h === height ? prev : { x, w: width, h: height }));
+        }}
         hitSlop={8}
       >
         {glass ? (
@@ -204,138 +322,8 @@ export default function BottomNav({ state, navigation }: Props = {}) {
 
   return (
     <Surface surfaceContext="overlay" style={styles.bar}>
-      <NavGroup
-        items={leftItems}
-        isActive={isActive}
-        onPress={handlePress}
-        label={(item) => t.nav[item.key]}
-        styles={styles}
-        groupStyle={styles.leftGroup}
-        homeEdge="end"
-      />
-
-      {renderCentre(centreItem)}
-
-      <NavGroup
-        items={rightItems}
-        isActive={isActive}
-        onPress={handlePress}
-        label={(item) => t.nav[item.key]}
-        styles={styles}
-        groupStyle={styles.rightGroup}
-        homeEdge="start"
-      />
-    </Surface>
-  );
-}
-
-type NavGroupProps = {
-  items: SiteItem[];
-  isActive: (item: SiteItem) => boolean;
-  onPress: (item: SiteItem) => void;
-  label: (item: SiteItem) => string;
-  styles: typeof baseStyles;
-  groupStyle: typeof baseStyles.leftGroup;
-  // Which end of this group's track sits next to the centre Home button — 'end' for the
-  // left group (Plans is the neighbour), 'start' for the right group (Habits is the
-  // neighbour). Anchors the pill's entry/exit animation so Home transitions read as a
-  // slide to/from Home instead of a hard pop/vanish.
-  homeEdge: 'start' | 'end';
-};
-
-// Own component (not a plain render function) so each side gets its own measured track +
-// shared-value pair — the pill slides independently per side. Reuses the track-measure-and-
-// slide math from components/SlideSelector.tsx (segments are flex:1, so segW = (trackW -
-// gap*(n-1)) / n, and translateX steps by segW + gap), adapted to this bar's own material
-// (shadow + glow + rim bevel on the pill, not SlideSelector's flat accent fill).
-function NavGroup({ items, isActive, onPress, label, styles, groupStyle, homeEdge }: NavGroupProps) {
-  const theme = useAppTheme();
-  const isDark = useIsDark();
-  const glass = useSettingsStore((s) => s.glassSurfaces);
-  const { reducedMotion } = useAccessibility();
-  const [track, setTrack] = useState({ w: 0, h: 0 });
-
-  const n = items.length;
-  const rawActiveIndex = items.findIndex(isActive);
-  // Unlike SlideSelector (always a genuine selection), a side group can have NO active
-  // item — the centre Home tab has no group of its own. Math.max(0, -1) would otherwise
-  // default to index 0, painting a pill on Shopping/Health whenever Home is selected.
-  const hasActive = rawActiveIndex !== -1;
-  const activeIndex = Math.max(0, rawActiveIndex);
-  const segW = track.w > 0 ? (track.w - Spacing.sm * (n - 1)) / n : 0;
-  // The slot nearest Home — the pill's entry/exit anchor (see NavGroupProps.homeEdge).
-  const homeIndex = homeEdge === 'end' ? n - 1 : 0;
-
-  const tx = useSharedValue(0);
-  const [mounted, setMounted] = useState(false);
-  // Whether the pill is currently settled on a real slot in THIS group (as opposed to
-  // unmounted, or mid a Home entry/exit anchor move) — only a genuine in-group move
-  // (Shopping ↔ Plans, Health ↔ Habits) should slide directly between two real slots;
-  // arriving from or leaving to Home instead anchors through homeIndex below.
-  const settledRef = useRef(false);
-  // True until the first layout-ready effect run. If that first run already finds an active
-  // tab in this group (a cold launch / deep-link straight onto a side tab, not a Home→side
-  // navigation), the pill should INITIALIZE at the active slot with no entry animation —
-  // an entry slide on first mount reads as a spurious pop. Every later fresh appearance
-  // (firstRun already false) keeps the intended Home-anchored slide.
-  const firstRunRef = useRef(true);
-
-  useEffect(() => {
-    if (segW === 0) return;
-    const step = segW + Spacing.sm;
-    const firstRun = firstRunRef.current;
-    firstRunRef.current = false;
-
-    if (hasActive) {
-      const to = activeIndex * step;
-      const fresh = !settledRef.current;
-      settledRef.current = true;
-      if (fresh && firstRun) {
-        // Cold launch / deep-link directly onto this tab — place the pill at the active slot
-        // with no entry animation (initialize, don't animate in).
-        setMounted(true);
-        tx.value = to;
-        return;
-      }
-      if (fresh) {
-        // Fresh appearance from Home or the other side (post-launch) — start the pill at the
-        // Home-adjacent slot and slide to the real target, so it reads as arriving from Home.
-        setMounted(true);
-        tx.value = homeIndex * step;
-      }
-      tx.value = reducedMotion ? to : withTiming(to, { duration: Duration.control, easing: Ease.enter });
-    } else if (settledRef.current) {
-      // Leaving this group (most commonly to Home) — slide back to the Home-adjacent slot,
-      // then unmount, so departing reads as heading toward Home instead of vanishing.
-      settledRef.current = false;
-      const to = homeIndex * step;
-      if (reducedMotion) {
-        tx.value = to;
-        setMounted(false);
-      } else {
-        tx.value = withTiming(to, { duration: Duration.control, easing: Ease.exit }, (finished) => {
-          if (finished) runOnJS(setMounted)(false);
-        });
-      }
-    }
-  }, [hasActive, activeIndex, segW, homeIndex, reducedMotion, tx]);
-
-  const pillStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
-
-  const onLayout = (e: LayoutChangeEvent) => {
-    const { width, height } = e.nativeEvent.layout;
-    setTrack((prev) => (prev.w === width && prev.h === height ? prev : { w: width, h: height }));
-  };
-
-  // The pill only ever marks the active tab, so its rim is always accent-hued (the old
-  // per-item rim's inactive/theme.border branch no longer applies).
-  const rim = computeRimGradient(theme.accent, isDark);
-  const pillShadow = [...getLayeredShadow(theme.shadow, 'raised'), ...getGlow(theme.accent, 'soft').boxShadow];
-
-  return (
-    <View style={groupStyle} onLayout={onLayout}>
-      {segW > 0 && mounted && (
-        <Animated.View pointerEvents="none" style={[styles.pill, { width: segW, height: track.h }, pillStyle]}>
+      {segW > 0 && pillMounted && (
+        <Animated.View pointerEvents="none" style={[styles.pill, { width: segW, height: pillHeight }, pillStyle]}>
           {glass ? (
             <LinearGradient
               colors={rim.colors}
@@ -351,6 +339,55 @@ function NavGroup({ items, isActive, onPress, label, styles, groupStyle, homeEdg
           )}
         </Animated.View>
       )}
+
+      <NavGroup
+        items={leftItems}
+        isActive={isActive}
+        onPress={handlePress}
+        label={(item) => t.nav[item.key]}
+        styles={styles}
+        groupStyle={styles.leftGroup}
+        onTrack={onLeftTrack}
+      />
+
+      {renderCentre(centreItem)}
+
+      <NavGroup
+        items={rightItems}
+        isActive={isActive}
+        onPress={handlePress}
+        label={(item) => t.nav[item.key]}
+        styles={styles}
+        groupStyle={styles.rightGroup}
+        onTrack={onRightTrack}
+      />
+    </Surface>
+  );
+}
+
+type NavGroupProps = {
+  items: SiteItem[];
+  isActive: (item: SiteItem) => boolean;
+  onPress: (item: SiteItem) => void;
+  label: (item: SiteItem) => string;
+  styles: typeof baseStyles;
+  groupStyle: typeof baseStyles.leftGroup;
+  // Reports this group's measured track (x/width/height, relative to the bar) up to
+  // BottomNav, which owns the one shared pill and computes its slot x's from it.
+  onTrack: (track: Track) => void;
+};
+
+// Pure layout container now — the pill used to live here (one per side, see the file header's
+// 2026-07-24 note) but BottomNav now owns a single shared pill spanning the whole bar, so this
+// only measures its own track and renders plain NavTabItems.
+function NavGroup({ items, isActive, onPress, label, styles, groupStyle, onTrack }: NavGroupProps) {
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { x, width, height } = e.nativeEvent.layout;
+    onTrack({ x, w: width, h: height });
+  };
+
+  return (
+    <View style={groupStyle} onLayout={onLayout}>
       {items.map((item) => (
         <NavTabItem
           key={item.key}
@@ -444,9 +481,9 @@ const baseStyles = StyleSheet.create({
     // ("Handleliste", "Oppgaver") on one line without ellipsis truncation.
     paddingHorizontal: 2,
   },
-  // Shared sliding pill (NavGroup) — absolutely positioned, translateX-animated to sit
-  // behind whichever tab in the group is active. width/height are set inline per render
-  // from the measured track (see NavGroup); only translateX is the animated shared value.
+  // Shared full-bar pill (BottomNav) — absolutely positioned, translateX-animated to sit
+  // behind whichever tab is active, wherever it is on the bar. width/height are set inline
+  // per render from the measured tracks (see BottomNav); only translateX/opacity are animated.
   pill: {
     position: 'absolute',
     top: 0,

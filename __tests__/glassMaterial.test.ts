@@ -73,7 +73,8 @@ describe('getMaterialStyle — take-two static layers', () => {
     // Bright band pushed to the top edge (crisp lit lip, not a half-height fade): mid stop ≤ 0.25.
     expect(light.rim.locations[1]).toBeLessThanOrEqual(0.25);
     // Bottom rim stop is a soft dark hue-shadow (the chamfer's shadowed edge), not white.
-    expect(light.rim.colors[light.rim.colors.length - 1]).toBe(rgba(darken(base, 0.14), 0.34));
+    // (0.52, not 0.34 — bumped by the 2026-07-24 contrast pass, #338.)
+    expect(light.rim.colors[light.rim.colors.length - 1]).toBe(rgba(darken(base, 0.14), 0.52));
   });
 
   it('dark mode dims the rim + specular vs light (no harsh streak on near-black)', () => {
@@ -93,7 +94,8 @@ describe('getMaterialStyle — take-two static layers', () => {
     expect(light.innerLine).toMatch(/^rgba\(/);
     expect(dark.innerLine).toMatch(/^rgba\(/);
     // Hue-tinted, not neutral grey/white — derived from the base.
-    expect(light.innerLine).toBe(rgba(lighten(base, 0.06), 0.5));
+    // (0.65, not 0.5 — bumped by the 2026-07-24 contrast pass, #338.)
+    expect(light.innerLine).toBe(rgba(lighten(base, 0.06), 0.65));
     // Light mode reads more present than dark (higher alpha) so the edge stays calm on near-black.
     const lightAlpha = Number(light.innerLine.match(/,\s*([\d.]+)\)$/)![1]);
     const darkAlpha = Number(dark.innerLine.match(/,\s*([\d.]+)\)$/)![1]);

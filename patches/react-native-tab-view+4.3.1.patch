@@ -1,0 +1,51 @@
+diff --git a/node_modules/react-native-tab-view/lib/module/PagerViewAdapter.js b/node_modules/react-native-tab-view/lib/module/PagerViewAdapter.js
+index 398a63d..1af3bc0 100644
+--- a/node_modules/react-native-tab-view/lib/module/PagerViewAdapter.js
++++ b/node_modules/react-native-tab-view/lib/module/PagerViewAdapter.js
+@@ -1,13 +1,27 @@
+ "use strict";
+ 
+ import * as React from 'react';
+-import { Animated, Keyboard, Platform, StyleSheet } from 'react-native';
++import { Animated, Easing, Keyboard, Platform, StyleSheet } from 'react-native';
+ import ViewPager from 'react-native-pager-view';
+ import useLatestCallback from 'use-latest-callback';
+ import { useAnimatedValue } from "./useAnimatedValue.js";
+ import { jsx as _jsx } from "react/jsx-runtime";
+ const AnimatedViewPager = Animated.createAnimatedComponent(ViewPager);
+ const useNativeDriver = Platform.OS !== 'web';
++
++// Ease the JS-only `position` node to its target instead of snapping it with `.setValue`.
++// `setPageWithoutAnimation` already moved the native page instantly (deliberate — avoids
++// ViewPager2 sweeping through intermediate pages on a far jump), so `position` itself has
++// no native-view consequence; it only feeds JS-side consumers (e.g. a parallax background)
++// via `.interpolate()`. Those read a smooth ~300ms ease instead of an instant jump.
++function animatePositionTo(position, toValue) {
++  Animated.timing(position, {
++    toValue,
++    duration: 300,
++    easing: Easing.out(Easing.cubic),
++    useNativeDriver
++  }).start();
++}
+ export function PagerViewAdapter({
+   keyboardDismissMode = 'auto',
+   swipeEnabled = true,
+@@ -39,7 +53,7 @@ export function PagerViewAdapter({
+       pagerRef.current?.setPage(index);
+     } else {
+       pagerRef.current?.setPageWithoutAnimation(index);
+-      position.setValue(index);
++      animatePositionTo(position, index);
+     }
+     onIndexChange(index);
+   });
+@@ -52,7 +66,7 @@ export function PagerViewAdapter({
+         pagerRef.current?.setPage(index);
+       } else {
+         pagerRef.current?.setPageWithoutAnimation(index);
+-        position.setValue(index);
++        animatePositionTo(position, index);
+       }
+     }
+   }, [keyboardDismissMode, index, animationEnabled, position]);
