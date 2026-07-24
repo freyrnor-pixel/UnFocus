@@ -665,11 +665,12 @@ export default function PlanTaskCard({
         {/* Section header — only in read-only (Home preview) mode */}
         {readOnly && (
           <>
-          {/* height 56 (was default 64) so the wash divider lands exactly where the content
-              starts — paddingTop(Spacing.md 16) + badge(32) + header marginBottom(Spacing.sm 8)
-              = 56 — instead of ~16px below it. That both centers the header in the band and lets
-              the empty-state box sit centered between the divider and the AddRow (2026-07-24). */}
-          <CardAccentWash domain="plan" height={56} style={styles.headerWash} />
+          {/* Wash band = default 64 (2026-07-24, "stretch the colour to fit the text"): the taller
+              band gives symmetric colour above/below the header — the 32px badge centres at y=32 in
+              the [0,64] band. headerRowPressable's marginBottom is bumped to Spacing.md so the
+              content still STARTS at the band divider (paddingTop 16 + badge 32 + marginBottom 16 =
+              64), keeping the empty-state box centred between the divider and the AddRow. */}
+          <CardAccentWash domain="plan" style={styles.headerWash} />
           <PressableScale onPress={() => router.push('/plans')} style={styles.headerRowPressable} scaleTo={0.97}>
             <View style={styles.headerRow}>
               <CardAccentBadge domain="plan" size={32} />
@@ -902,7 +903,9 @@ const baseStyles = StyleSheet.create({
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   headerWash: { top: -Spacing.md, left: -Spacing.md, right: -Spacing.md },
-  headerRowPressable: { marginBottom: Spacing.sm },
+  // marginBottom Spacing.md (was .sm) so the content starts exactly at the 64px wash divider
+  // (paddingTop 16 + badge 32 + 16 = 64) — see the CardAccentWash comment above.
+  headerRowPressable: { marginBottom: Spacing.md },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   // Persistent "now" indicator (visual-audit 2026-07-11) — always visible in the header,
   // not just when a gap connector happens to render one.

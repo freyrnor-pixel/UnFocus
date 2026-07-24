@@ -118,10 +118,11 @@ export default function HomeNotesCard() {
     >
       <View style={styles.cardContent}>
         {/* Header wash — the "one gradient move" (bled past the content padding to the card edge). */}
-        {/* height 56 (was default 64) so the wash divider lands where the content starts —
-            paddingTop(Spacing.md) + badge(32) + header marginBottom(Spacing.sm) = 56 — centering
-            the header in the band and aligning the divider with the body (2026-07-24). */}
-        <CardAccentWash domain="note" height={56} style={styles.headerWash} />
+        {/* Wash band = default 64 (2026-07-24, "stretch the colour to fit the text"): the taller
+            band gives symmetric colour above/below the header (badge centred at y=32 in [0,64]).
+            titleRow's marginBottom is bumped to Spacing.md so the content still starts at the band
+            divider (paddingTop 16 + badge 32 + 16 = 64), keeping the body aligned. */}
+        <CardAccentWash domain="note" style={styles.headerWash} />
 
         {/* Title row — title/badge (navigates to /notes) and the mic button are siblings,
             not nested Pressables, so tapping the mic doesn't also fire the title's navigate. */}
@@ -281,7 +282,9 @@ const baseStyles = StyleSheet.create({
   // Bleed the wash band past cardContent's padding so it spans the full card width and touches
   // the top (top offset == -paddingTop so the band starts exactly at the card edge).
   headerWash: { top: -Spacing.md, left: -Spacing.md, right: -Spacing.md },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm, gap: Spacing.sm },
+  // marginBottom Spacing.md (was .sm) so the content starts at the 64px wash divider — see the
+  // CardAccentWash comment above.
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md, gap: Spacing.sm },
   titleLeftPressable: { flexShrink: 1 },
   titleLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
