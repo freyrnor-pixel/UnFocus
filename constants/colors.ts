@@ -164,7 +164,10 @@ const defaultLight: ThemePalette = {
   text: '#1B2432',
   textMuted: '#5F6A79',
   textInverse: '#FFFFFF',
-  border: '#D3DBE6',
+  // 2026-07-24 contrast pass: bumped from #D3DBE6 (1.25:1 on bg, 1.37:1 on surface — invisible,
+  // well under WCAG 1.4.11's 3:1 non-text minimum) to a slate-blue that clears 3:1 against both
+  // bg and surface while staying in the theme's cool-blue family (contrastRatio() above verifies).
+  border: '#7689A8',
   borderStrong: '#2B5FD9',
   // accent = Save/primary action colour. Aligned to the card-accent DS's --color-primary (#2563EB),
   // a hair more saturated than the prior #3B6FE0 — action colour stays constant across all cards.
@@ -260,8 +263,11 @@ const defaultDark: ThemePalette = {
   text: '#E9EDF5',
   textMuted: '#8B95A7',
   textInverse: '#080B12',
-  border: '#2A3346',
-  borderStrong: '#3C4B66',
+  // 2026-07-24 contrast pass: bumped from #2A3346 (1.56:1 on bg — invisible) and #3C4B66
+  // (2.24:1 — still under WCAG 1.4.11's 3:1 non-text minimum) to lighter slate-blues that
+  // clear 3:1 against both bg and surface, mirroring the light-theme border bump above.
+  border: '#5B6C8A',
+  borderStrong: '#7891B6',
   accent: '#6EA8FF',
   accentSoft: '#1B2C49',
   accentInk: '#080B12',

@@ -66,6 +66,11 @@
  *     mode renders a numbers caption (fontScale/sizes/onLayout box) + colored outlines
  *     (BLUE band in ScreenScaffold, RED Surface edge, GREEN title frame) so one tester
  *     screenshot pins any remaining clip to its exact box.
+ *   - **Horizontal title truncation (2026-07-24, distinct from the vertical clip above)**:
+ *     Shopping's 5-icon control group (bug/scan/share/info/gear, vs. Home's 3) left
+ *     titleWrap's flex:1 too narrow for "SHOPPING", which ellipsized to "SHOPPIN…". Fixed with
+ *     `adjustsFontSizeToFit` + `minimumFontScale` on the title Text — shrinks fontSize only
+ *     (not the getHeaderMetrics lineHeight box), so it can't reopen the descender-clip bug above.
  *   - **Debug notes (2026-07-13, replaces the old DebugOverlay)**: the title is wrapped in
  *     DebugNoteAnchor keyed off the (translated) `title` string — see that component's own
  *     edit note on the language-switch caveat this implies. The export icon (site-tier only)
@@ -365,6 +370,14 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
           { color: theme.text, textAlign: align, fontSize: titleFontSize, lineHeight: titleLineHeight },
         ]}
         numberOfLines={1}
+        // 2026-07-24: Shopping's site-tier row carries 5 controls (bug/scan/share/info/gear) vs.
+        // Home's 3, leaving titleWrap (flex:1) too narrow for "SHOPPING" — it clipped to
+        // "SHOPPIN…" mid-word. adjustsFontSizeToFit only shrinks fontSize (not the lineHeight
+        // box getHeaderMetrics sized for descenders), so it's safe alongside the
+        // allowFontScaling={false} arrangement above; minimumFontScale keeps it from shrinking
+        // past legibility on an even more crowded future header.
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
       >
         {title}
       </Text>

@@ -355,13 +355,18 @@ export type MaterialVariant = 'card' | 'button';
  * calls it directly with `edgeHue`.
  */
 export function computeRimGradient(base: string, isDark: boolean): RimGradient {
+  // 2026-07-24 contrast pass: the mid/bottom stops were low enough (light 0.18/0.34, dark
+  // 0.08/0.34) that most of the ring's height read as no border at all against the pale/near-
+  // black backdrops (measured ~1.3:1, well under WCAG 1.4.11's 3:1 non-text minimum) — only the
+  // top ~20% (the lit highlight) was actually visible. Raised the mid/bottom alphas so the whole
+  // ring reads as a real edge; the top stop (the "lit lip") is untouched since it already worked.
   return isDark
     ? {
-        colors: [rgba(lighten(base, 0.28), 0.34), rgba(lighten(base, 0.05), 0.08), rgba('#000000', 0.34)],
+        colors: [rgba(lighten(base, 0.28), 0.42), rgba(lighten(base, 0.05), 0.22), rgba('#000000', 0.5)],
         locations: [0, 0.25, 1],
       }
     : {
-        colors: [rgba(lighten(base, 0.42), 0.85), rgba(lighten(base, 0.08), 0.18), rgba(darken(base, 0.14), 0.34)],
+        colors: [rgba(lighten(base, 0.42), 0.85), rgba(lighten(base, 0.08), 0.34), rgba(darken(base, 0.14), 0.52)],
         locations: [0, 0.22, 1],
       };
 }
@@ -407,7 +412,9 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
   // callers draw on the inner mask, just inside the rim chamfer. Restrained (calm) but present
   // enough to read as a second edge — this is what turns the previously-invisible neutral
   // hairline (old `theme.border`) into the keycap's inner wall.
-  const innerLine = isDark ? rgba(lighten(base, 0.16), 0.26) : rgba(lighten(base, 0.06), 0.5);
+  // 2026-07-24 contrast pass: 0.26/0.5 read as barely-there on a neutral (grey) edge hue —
+  // bumped so the inner wall is dependably visible, not just on hues far from the backdrop.
+  const innerLine = isDark ? rgba(lighten(base, 0.16), 0.4) : rgba(lighten(base, 0.06), 0.65);
 
   // Adaptive scrim (fix 2): a soft matte veil behind text — much lighter than the old glossy
   // 0.42 sheen (2026-07-18: dropped toward a frosted, non-glary finish), fading out by half height.
