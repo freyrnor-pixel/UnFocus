@@ -258,6 +258,14 @@
  *     once at drag-start (no mid-drag re-measure) — an approximation, no live-app verification
  *     this session. Decision 022's ephemeral *undo* affordance is deferred (a transient
  *     ConfirmationBanner confirms the merge for now — see PROGRESS_LOG 2026-07-03).
+ *   - **2026-07-24 fix**: `registerDishGroupNode`/`mergeHighlightDish` were documented above
+ *     but never actually wired — `handleRegisterDishNode` had no caller, so `dishRectsRef`
+ *     was always empty and drag-to-merge silently never triggered. Re-wired both props on
+ *     the WeekListCard call below; WeekListCard now renders each dish's unchecked items
+ *     inside a registered per-dish wrapper View (see its header) instead of one flat array,
+ *     so there's a real node per dish to measure/highlight again. Gesture behavior itself
+ *     couldn't be verified on a device this session (see AGENTS.md) — typecheck/lint/tests
+ *     pass but this still wants a real-device pass before calling it fully confirmed.
  *   - **Mount-time store hydration**: app/_layout.tsx loads every store at startup now, so
  *     this screen's focus effect no longer re-initialises the DB or re-hydrates
  *     settings/shopping/list/catalog — it only runs the behavior that's more than hydration:
@@ -1941,6 +1949,8 @@ export default function ShoppingScreen() {
                             onOpenDishSheet={() => setDishSheetTarget({ mode: 'weekly', listId: list.id })}
                             registerCartHeaderNode={(node) => handleRegisterCartHeaderNode(list.id, node)}
                             onFlightStart={(item, rect) => handleFlightStart(list.id, item, rect)}
+                            registerDishGroupNode={(dishName, node) => handleRegisterDishNode(list.id, dishName, node)}
+                            mergeHighlightDish={drag?.listId === list.id ? drag.mergeTargetDish : null}
                             renderReorderableRow={(item) => (
                               <DraggableTaskRow
                                 isOpen={false}

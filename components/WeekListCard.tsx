@@ -10,7 +10,10 @@
  * (name search + category dropdown) sits above In list/In cart — when active it flattens
  * both sections into plain filtered ShoppingRows (no drag reorder); inactive, everything
  * renders exactly as before. Each section shows a price total footer. Dish groups are no
- * longer rendered as nested ExpandableCards; all items are flat rows.
+ * longer rendered as nested ExpandableCards — no title/border/collapse — but (2026-07-24)
+ * each dish's unchecked items ARE still wrapped in one plain `dishGroup` View per dish
+ * (transparent border, invisible at rest) so drag-to-merge (Decision 022) has a real node
+ * per dish to measure/highlight; visually indistinguishable from flat rows until dragged over.
  *
  * Connections:
  *   Imports → components/AddFromMonthlyModal, components/AppModal (showAppModal),
@@ -202,6 +205,13 @@ type Props = {
   registerCartHeaderNode?: (node: any) => void;
   /** Bubbles a measured flight source rect for a dish-grouped "In list" row up to the screen. */
   onFlightStart?: (item: ShoppingItem, rect: FlightRect) => void;
+  /** Hands a dish group's native node up so the screen can measureInWindow() it as a
+   *  drag-to-merge drop target (Decision 022). Keyed by dish name — parent combines it
+   *  with listId. React calls this with null when the group unmounts. */
+  registerDishGroupNode?: (dishName: string, node: any) => void;
+  /** The dish name currently under the dragged row (parent-owned drag state) — tints that
+   *  group's background while true so the merge/join target reads as a live drop zone. */
+  mergeHighlightDish?: string | null;
 };
 
 /** Price × amount total for a set of items. */
@@ -243,6 +253,8 @@ export default function WeekListCard({
   renderReorderableRow,
   registerCartHeaderNode,
   onFlightStart,
+  registerDishGroupNode,
+  mergeHighlightDish,
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -303,6 +315,15 @@ export default function WeekListCard({
   // Flatten dish-grouped items into the appropriate section buckets.
   const dishUnchecked = useMemo(
     () => dishGroups.flatMap(([, items]) => items.filter((i) => !i.checked)),
+    [dishGroups]
+  );
+  // Same unchecked items, kept grouped by dish (Decision 022 drag-to-merge needs a
+  // measurable node per dish, not just the flat list above).
+  const dishUncheckedGroups = useMemo(
+    () =>
+      dishGroups
+        .map(([name, its]) => [name, its.filter((i) => !i.checked)] as [string, ShoppingItem[]])
+        .filter(([, its]) => its.length > 0),
     [dishGroups]
   );
   const dishChecked = useMemo(
@@ -491,22 +512,36 @@ export default function WeekListCard({
                       )}
                     </View>
                   ))}
-                  {dishUnchecked.map((item, idx) => (
-                    <View key={item.id}>
-                      <ShoppingRow
-                        item={item}
-                        variant="planned"
-                        onToggle={() => onToggleItem(item)}
-                        onRemove={() => onRemoveItem(item)}
-                        onIncrement={() => onIncrementItem(item)}
-                        onDecrement={() => onDecrementItem(item)}
-                        inStockLabel={t.inStockLabel}
-                        locked={list.locked}
-                        onFlightStart={(rect) => onFlightStart?.(item, rect)}
-                      />
-                      {idx < dishUnchecked.length - 1 && (
-                        <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                      )}
+                  {dishUncheckedGroups.map(([dishName, dishItems], groupIdx) => (
+                    <View
+                      key={dishName}
+                      ref={(node) => registerDishGroupNode?.(dishName, node)}
+                      style={[
+                        styles.dishGroup,
+                        mergeHighlightDish === dishName && {
+                          backgroundColor: theme.goodSoft,
+                          borderColor: theme.good,
+                        },
+                      ]}
+                    >
+                      {dishItems.map((item, idx) => (
+                        <View key={item.id}>
+                          <ShoppingRow
+                            item={item}
+                            variant="planned"
+                            onToggle={() => onToggleItem(item)}
+                            onRemove={() => onRemoveItem(item)}
+                            onIncrement={() => onIncrementItem(item)}
+                            onDecrement={() => onDecrementItem(item)}
+                            inStockLabel={t.inStockLabel}
+                            locked={list.locked}
+                            onFlightStart={(rect) => onFlightStart?.(item, rect)}
+                          />
+                          {(idx < dishItems.length - 1 || groupIdx < dishUncheckedGroups.length - 1) && (
+                            <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+                          )}
+                        </View>
+                      ))}
                     </View>
                   ))}
                 </View>
@@ -723,6 +758,9 @@ const baseStyles = StyleSheet.create({
   sectionTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, textAlign: 'right', paddingTop: Spacing.xs },
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, borderLeftWidth: 3 },
   rowDivider: { height: 1 },
+  // Transparent by default (idle state matches the pre-2026-07-06 flat-row look exactly) —
+  // only gains a fill/border while it's the live drag-to-merge target (Decision 022).
+  dishGroup: { borderRadius: Radius.sm, borderWidth: 1, borderColor: 'transparent' },
   // Two visible secondary add buttons ("From monthly" / "From a dish") — quiet bordered
   // pills that sit below InlineAddItem's primary "+" bar without competing with it.
   addOptionsRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
