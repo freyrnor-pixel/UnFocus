@@ -11,11 +11,14 @@
  * Connections:
  *   Imports → components/Surface, components/PressableScale, components/CardAccent
  *             (badge+wash gradient move), components/HomePreviewEmpty, components/AddRow,
+ *             components/TimeBoxInput (quick-add's companion-task time field),
  *             components/Collapsible + components/AnimatedChevron (checked-zone clip reveal),
- *             constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, lib/domainColor,
- *             lib/useVoiceCapture, store/useNotesStore
+ *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
+ *             lib/domainColor, lib/useVoiceCapture, store/useNotesStore, store/useTaskStore
+ *             (quick-add's optional companion task only)
  *   Used by → app/(tabs)/index.tsx (replaces InboxSection in the Notes preview slot)
- *   Data    → reads/writes useNotesStore (notes table): toggleChecked, add, update
+ *   Data    → reads/writes useNotesStore (notes table): toggleChecked, add, update; quick-add's
+ *             "also add as a task" toggle additionally writes useTaskStore (tasks table): add
  *
  * Edit notes:
  *   - **Collapsed sizing (2026-07-13)**: `cardCollapsed` (minHeight:
@@ -40,11 +43,22 @@
  *     from /notes. Sits as a sibling of the title's PressableScale (not nested inside it) so
  *     its tap doesn't also trigger the title's navigate-to-/notes press. success() haptic on
  *     a created note; tap() haptic on toggle/expand.
+ *   - **Quick-add essential settings (2026-07-24)**: notes have no fields beyond
+ *     header/body/checked, so there's nothing to expose from useNotesStore itself. Instead the
+ *     AddRow's `extras` carry the three things that actually matter for a note captured
+ *     in-passing: a secondary "extra info" TextInput (→ `body`, same field the full /notes
+ *     editor uses), an "also add as a task" toggle chip, and — only while that toggle is on
+ *     (standalone notes have no time field) — a `TimeBoxInput` for the companion task's start
+ *     time. The companion task is a plain independent `useTaskStore.add()` call (undated/
+ *     Whenever, dated today, non-recurring — the same shape Home's Plans-preview quick-add
+ *     uses for its own title-only case) — there's no `noteId`/`taskId` link column, so this is
+ *     "also create a task with this title", not a synced pointer. All three extras reset to
+ *     their defaults after each commit.
  *   - **Touch target (2026-07-11)**: check circle is visually 22x22 but `hitSlop={13}`
  *     brings the tappable area to ~48dp, meeting Android's minimum touch-target size.
  */
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
@@ -54,11 +68,14 @@ import HomePreviewEmpty from '@/components/HomePreviewEmpty';
 import AddRow from '@/components/AddRow';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
+import TimeBoxInput from '@/components/TimeBoxInput';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
+import { todayStr } from '@/lib/date';
 import { useNotesStore } from '@/store/useNotesStore';
+import { useTaskStore } from '@/store/useTaskStore';
 import { getDomainColor } from '@/lib/domainColor';
 import { useVoiceCapture } from '@/lib/useVoiceCapture';
 
@@ -75,10 +92,14 @@ export default function HomeNotesCard() {
   const toggleChecked = useNotesStore((s) => s.toggleChecked);
   const addNote = useNotesStore((s) => s.add);
   const updateNote = useNotesStore((s) => s.update);
+  const addTask = useTaskStore((s) => s.add);
 
   const [expanded, setExpanded] = useState(false);
   const [checkedOpen, setCheckedOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
+  const [extraInfoDraft, setExtraInfoDraft] = useState('');
+  const [addAsTask, setAddAsTask] = useState(false);
+  const [taskTimeDraft, setTaskTimeDraft] = useState('');
 
   const { listening, toggle: toggleVoiceCapture } = useVoiceCapture((text) => {
     const note = addNote();
@@ -90,8 +111,25 @@ export default function HomeNotesCard() {
     const trimmed = noteDraft.trim();
     if (!trimmed) return;
     const note = addNote();
-    updateNote(note.id, { header: trimmed });
+    const body = extraInfoDraft.trim();
+    updateNote(note.id, body ? { header: trimmed, body } : { header: trimmed });
+    if (addAsTask) {
+      addTask({
+        title: trimmed,
+        date: todayStr(),
+        time: taskTimeDraft || undefined,
+        taskType: 'start-at',
+        done: false,
+        recurring: 'none',
+        recurringDays: [],
+        sortOrder: 0,
+        hasStartDate: false,
+      });
+    }
     setNoteDraft('');
+    setExtraInfoDraft('');
+    setAddAsTask(false);
+    setTaskTimeDraft('');
     success();
   }
 
@@ -204,6 +242,34 @@ export default function HomeNotesCard() {
           onSubmit={commitNoteDraft}
           accent={domainColor.accent}
           accessibilityLabel={t.notes.addNote}
+          extras={
+            <>
+              <TextInput
+                style={[styles.extraInfoInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                value={extraInfoDraft}
+                onChangeText={setExtraInfoDraft}
+                placeholder={t.home.extraInfoPlaceholder}
+                placeholderTextColor={theme.textMuted}
+                onSubmitEditing={commitNoteDraft}
+              />
+              <PressableScale
+                style={[
+                  styles.taskChip,
+                  { borderColor: addAsTask ? domainColor.accent : theme.border },
+                  addAsTask && { backgroundColor: domainColor.soft },
+                ]}
+                onPress={() => { tap(); setAddAsTask((v) => !v); }}
+                hitSlop={8}
+                scaleTo={0.9}
+                accessibilityRole="button"
+                accessibilityState={{ selected: addAsTask }}
+                accessibilityLabel={t.home.addToTaskLabel}
+              >
+                <Ionicons name="checkbox-outline" size={15} color={addAsTask ? domainColor.accent : theme.textMuted} />
+              </PressableScale>
+              {addAsTask && <TimeBoxInput value={taskTimeDraft} onChange={setTaskTimeDraft} />}
+            </>
+          }
         />
 
         {/* Expand/collapse active notes */}
@@ -268,6 +334,24 @@ export default function HomeNotesCard() {
 
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
+  // Quick-add extras (2026-07-24) — secondary "extra info" input + the "also add as a task"
+  // toggle chip (TimeBoxInput, when shown, brings its own sizing).
+  extraInfoInput: {
+    width: 76,
+    fontSize: FontSize.sm,
+    fontFamily: Fonts.regular,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.sm,
+  },
+  taskChip: {
+    width: 30,
+    height: 30,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   // Collapsed-only floor so Notes/Plans/Shopping read as the same size regardless of how
   // little content one of them has (e.g. a single note) — see constants/theme.ts.
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },

@@ -50,8 +50,18 @@
  *     aggregate across every Monthly list (summed budget vs. every tagged receipt, paced
  *     against the most recently reset list — see the shoppingPace memo below), the same shape
  *     of figure shown on app/budget.tsx (there, one specific list) and the Shopping screen's
+
  *     Monthly tab (there, each list's own); null (card shows nothing extra) until at least one
- *     list has a budget set and has been through a reset.
+ *     list has a budget set and has been through a reset. **Quick-add (2026-07-24)**: the card
+ *     previously had no inline add at all — `handleAddShoppingItem` now backs its trailing
+ *     AddRow, whose extras carry a quantity Stepper and a Weekly/Monthly-list target chip;
+ *     `monthlyLists` (already read for `shoppingPace`) is passed straight through for that
+ *     chip to cycle over.
+ *   - **Task quick-add's essential settings (2026-07-24)**: `handleAddTask`'s second argument
+ *     now carries whatever PlanTaskCard's extras row (time/recurring/energy) the user touched;
+ *     `energySystemEnabled` is threaded down so its energy chip only renders when that system
+ *     is on. `monthDay` defaults to today's day-of-month (not a hardcoded 1) so picking
+ *     'monthly' from the chip is a valid occurrence immediately.
  *   - **Home preview card management (2026-07-19, A2/D1 split 2026-07-23, toggle relocated
  *     2026-07-24)**: off-Focus, Notes/Plans/Shopping render via `HomeCardManager`
  *     (components/HomeCardManager.tsx) in `settings.homeCardOrder` order. Holding any card
@@ -105,14 +115,14 @@ import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import PressableScale from '@/components/PressableScale';
 import { goToSite } from '@/lib/siteNav';
-import { todayStr } from '@/lib/date';
+import { todayStr, getWeekRangeContaining } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { computeListGroups } from '@/lib/shoppingGroups';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getScreenColor } from '@/lib/screenColor';
 import { tap } from '@/lib/haptics';
 import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
-import { Task, useTaskStore } from '@/store/useTaskStore';
+import { Task, Recurring, useTaskStore } from '@/store/useTaskStore';
 import { SharedShoppingItem, SharedTask, useSharedStore } from '@/store/useSharedStore';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import { useShoppingListStore } from '@/store/useShoppingListStore';
@@ -186,9 +196,11 @@ export default function HomeScreen() {
   const putBackToInventory = useShoppingStore((s) => s.putBackToInventory);
   const removeWithSource = useShoppingStore((s) => s.removeWithSource);
   const adjustAmount = useShoppingStore((s) => s.adjustAmount);
+  const addShoppingItem = useShoppingStore((s) => s.add);
 
   const shoppingLists = useShoppingListStore((s) => s.lists);
   const currentListFn = useShoppingListStore((s) => s.currentList);
+  const addShoppingList = useShoppingListStore((s) => s.add);
 
   const receipts = useReceiptStore((s) => s.receipts);
 
@@ -215,6 +227,7 @@ export default function HomeScreen() {
   const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   const homeCardOrderRaw = useSettingsStore((s) => s.homeCardOrder);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
+  const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
   const monthlyLists = useMonthlyListStore((s) => s.lists);
   const updateSettings = useSettingsStore((s) => s.update);
   // All-time counter, maintained by useTaskStore (toggle/completeDirect/remove/
@@ -308,29 +321,79 @@ export default function HomeScreen() {
   );
   const handleToggleTask = useCallback((task: Task) => toggleTask(task.id), [toggleTask]);
   // Inline quick-add from the Home Plans preview — mirrors app/(tabs)/plans.tsx's Whenever
-  // AddRow: an undated (hasStartDate:false), non-recurring task dated today, so it shows in
-  // Today, the day's list, and the All tab's Whenever without any extra sync. Lets a task be
-  // created without leaving Home (was: force-navigate to /plans).
+  // AddRow: an undated (hasStartDate:false) task dated today, so it shows in Today, the day's
+  // list, and the All tab's Whenever without any extra sync. Lets a task be created without
+  // leaving Home (was: force-navigate to /plans). `extra` carries whichever of PlanTaskCard's
+  // quick-add essential settings (time/recurring/energy) the user touched — monthDay defaults
+  // to today's day-of-month so a 'monthly' pick from the chip is a valid occurrence out of the
+  // gate (mirrors TaskCard's own defaulting for recurringDays/monthDay).
   const handleAddTask = useCallback(
-    (title: string) => {
+    (
+      title: string,
+      extra: { time?: string; recurring: Recurring; recurringDays: number[]; energyEnabled: boolean; energyValue: number }
+    ) => {
       addTask({
         title,
         date: today,
+        time: extra.time,
         taskType: 'start-at',
         done: false,
-        recurring: 'none',
-        recurringDays: [],
+        recurring: extra.recurring,
+        recurringDays: extra.recurringDays,
         weekInterval: 1,
         monthlyMode: 'day',
-        monthDay: 1,
+        monthDay: new Date().getDate(),
         monthOrdinal: 'first',
         monthWeekday: 0,
+        energyEnabled: extra.energyEnabled,
+        energyValue: extra.energyValue,
         sortOrder: 0,
         hasStartDate: false,
         assignee: '',
       });
     },
     [addTask, today]
+  );
+
+  // Inline quick-add from the Home Shopping preview — new (2026-07-24), the card previously had
+  // no add affordance at all. `monthlyListId` present = a Monthly catalog item (mirrors
+  // shopping.tsx's own catalog add); absent = an ad-hoc item on the current week's list (mirrors
+  // shopping.tsx's handleDecrementCartItem ad-hoc add). A brand-new profile that's never opened
+  // /shopping has no week list yet (currentList() only reads, never creates) — auto-create one
+  // the same way shopping.tsx's own "+ New list" (handleCreateNewWeeklyList) does, so the quick
+  // add never silently no-ops. addShoppingList() returns the new id synchronously, so the item
+  // can be attached to it in the same call without waiting for a re-render.
+  const handleAddShoppingItem = useCallback(
+    (name: string, quantity: number, monthlyListId?: string) => {
+      if (monthlyListId) {
+        addShoppingItem({
+          name,
+          amount: String(quantity),
+          unit: '',
+          listType: 'monthly',
+          store: '',
+          price: 0,
+          inventoryQty: 0,
+          status: 'catalog',
+          targetQuantity: quantity,
+          monthlyListId,
+        });
+        return;
+      }
+      const listId = currentShoppingList?.id ?? addShoppingList(getWeekRangeContaining(today, weeklyResetDay));
+      addShoppingItem({
+        name,
+        amount: String(quantity),
+        unit: '',
+        listType: 'weekly',
+        store: '',
+        price: 0,
+        inventoryQty: 0,
+        status: 'inWeeklyList',
+        listId,
+      });
+    },
+    [addShoppingItem, currentShoppingList, addShoppingList, today, weeklyResetDay]
   );
   const handleToggleShopping = useCallback((id: string) => toggleShoppingItem(id), [toggleShoppingItem]);
   const handleCollectShopping = useCallback((id: string) => toggleShoppingCollected(id), [toggleShoppingCollected]);
@@ -362,6 +425,7 @@ export default function HomeScreen() {
               readOnly
               onToggleTask={handleToggleTask}
               onAddTask={handleAddTask}
+              energySystemEnabled={energySystemEnabled}
               horizontal={planTimelineHorizontal}
             />
           </DebugNoteAnchor>
@@ -381,6 +445,8 @@ export default function HomeScreen() {
               onIncrement={handleIncrementShopping}
               onDecrement={handleDecrementShopping}
               onNavigateToShopping={handleNavigateToShopping}
+              onAddItem={handleAddShoppingItem}
+              monthlyLists={monthlyLists}
               inStockLabel={t.inStockLabel}
               onFlightStart={handleFlightStart}
             />
