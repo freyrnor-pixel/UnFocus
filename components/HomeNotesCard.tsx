@@ -26,9 +26,9 @@
  *     applied only while `!expanded`, so this card reads the same size as
  *     PlanTaskCard/HomeShoppingCard when light — then grows per note row above it;
  *     `noteRow`'s paddingVertical was trimmed to `Spacing.xs` for a slimmer collapsed row.
- *   - **Empty state**: an empty list renders the shared `HomePreviewEmpty` (left-aligned
- *     `t.notes.emptyState` message), which fills the resting floor as one inviting block
- *     instead of leaving a bare band under a single line of text.
+ *   - **Empty state (2026-07-24, text removed)**: an empty list renders the shared
+ *     `HomePreviewEmpty` — blank space at the resting floor (an empty row), not an
+ *     explanatory message; the header above it (title + count) already says enough.
  *   - Existing note rows are read-only previews (no inline TextInput) — editing them is the
  *     /notes screen's job. The only inline TextInput here is the trailing AddRow, which
  *     *creates* a new note (title-only, mirrors Health's add-habit / Plans' add-task AddRow
@@ -211,7 +211,7 @@ export default function HomeNotesCard() {
 
         {/* Active note rows */}
         {activeNotes.length === 0 ? (
-          <HomePreviewEmpty text={t.notes.emptyState} domainColor={domainColor} />
+          <HomePreviewEmpty />
         ) : (
           <View style={styles.rowsContainer}>
             <View style={styles.rows}>

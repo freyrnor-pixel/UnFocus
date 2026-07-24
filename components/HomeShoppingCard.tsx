@@ -26,8 +26,8 @@
  *     applied only while `!expanded`, so this card reads the same size as
  *     HomeNotesCard/PlanTaskCard when light — then grows per item row above it;
  *     `previewRow`'s paddingVertical was trimmed to `Spacing.xs` for a slimmer collapsed row.
- *   - **Empty state**: an empty list renders the shared `HomePreviewEmpty` (left-aligned
- *     `t.shoppingEmpty`), filling the resting floor as one inviting block.
+ *   - **Empty state (2026-07-24, text removed)**: an empty list renders the shared
+ *     `HomePreviewEmpty` — blank space at the resting floor (an empty row), not a message.
  *   - Collapsed preview shows the first 5 items from ungroupedUnchecked (In list only).
  *   - Expanded shows full nested structure with "In list" (ungrouped items),
  *     "In cart" (checked items), and "Purchased" sections.
@@ -280,7 +280,7 @@ export default function HomeShoppingCard({
         )}
 
         {totalCount === 0 ? (
-          <HomePreviewEmpty text={t.shoppingEmpty} domainColor={domainColor} />
+          <HomePreviewEmpty />
         ) : expanded ? (
           // Expanded: full nested structure
           <View style={styles.rowsContainer}>
