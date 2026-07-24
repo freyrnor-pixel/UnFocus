@@ -276,7 +276,12 @@ function InlineTaskAdd({
   return row;
 }
 
-const STICKY_HEIGHT = 56;
+// Must equal TabSlider's own natural content height (border 1×2 + TRACK_PAD 3×2 + segment
+// minHeight 38 = 46) — any surplus here becomes leftover space that `stickyBar`'s
+// justifyContent:'center' splits top/bottom only, making the blue pill's vertical inset
+// bigger than its horizontal inset (visual bug fixed 2026-07-24: was 56, a 10px surplus,
+// giving 9px top/bottom vs 4px left/right around the pill instead of equal insets).
+const STICKY_HEIGHT = 46;
 
 export default function TasksScreen() {
   const theme = useAppTheme();
