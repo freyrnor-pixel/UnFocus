@@ -183,7 +183,10 @@ export default function HomeShoppingCard({
     >
       <View style={styles.cardContent}>
         {/* Header wash — the "one gradient move" (bled past the content padding to the card edge). */}
-        <CardAccentWash domain="shop" style={styles.headerWash} />
+        {/* height 56 (was default 64) so the wash divider lands where the content starts —
+            paddingTop(Spacing.md) + badge(32) + header marginBottom(Spacing.sm) = 56 — centering
+            the header in the band and aligning the divider with the body (2026-07-24). */}
+        <CardAccentWash domain="shop" height={56} style={styles.headerWash} />
 
         {/* Title row */}
         <PressableScale onPress={handleTitlePress} style={styles.titleRowPressable} scaleTo={0.97}>
@@ -320,12 +323,14 @@ const baseStyles = StyleSheet.create({
   // Collapsed-only floor so Notes/Plans/Shopping read as the same size regardless of how
   // few items are in the list — see constants/theme.ts.
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
-  // Tighter top padding (Spacing.sm) so the header hugs the card's top edge and sits high in
-  // the wash band, away from the white fade — matches the dot-header cards (SectionCard).
-  cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.sm },
+  // paddingTop Spacing.md (was Spacing.sm) so the header sits VERTICALLY CENTERED in the 64px
+  // CardAccentWash band instead of hugging the top edge — matches PlanTaskCard's 2026-07-24 fix
+  // for "title too high, not centered between the top border and the wash divider". headerWash's
+  // `top` is kept in lockstep (-Spacing.md) so the band still starts at the card edge.
+  cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.md },
   // Bleed the wash band past cardContent's padding so it spans the full card width and touches
   // the top (top offset == -paddingTop so the band starts exactly at the card edge).
-  headerWash: { top: -Spacing.sm, left: -Spacing.md, right: -Spacing.md },
+  headerWash: { top: -Spacing.md, left: -Spacing.md, right: -Spacing.md },
   titleRowPressable: { marginBottom: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   progressBar: { marginTop: Spacing.xs },
