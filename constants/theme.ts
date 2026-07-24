@@ -22,7 +22,7 @@
  * Connections:
  *   Imports → —
  *   Used by → components/GlassFill.tsx, components/Surface.tsx, components/Button.tsx,
- *             components/AddFAB.tsx, app/_layout.tsx, app/budget.tsx, app/capture.tsx, app/focus.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/meals.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DatePickerCalendar.tsx, components/ExpandableCard.tsx, components/HintCard.tsx, components/ShoppingRow.tsx, components/TimePickerWheel.tsx, lib/useAppTheme.ts
+ *             components/AddFAB.tsx, components/PhotoFrame.tsx, app/_layout.tsx, app/budget.tsx, app/capture.tsx, app/focus.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/meals.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DatePickerCalendar.tsx, components/ExpandableCard.tsx, components/HintCard.tsx, components/ShoppingRow.tsx, components/TimePickerWheel.tsx, lib/useAppTheme.ts
  *   Data    → none (pure constants)
  *
  * Edit notes:
@@ -130,6 +130,23 @@ export const Radius = {
   lg: 24,
   full: 999,
 };
+
+/**
+ * Shared width/height ratios for photo/media tiles (components/PhotoFrame.tsx).
+ * `fit` means "no forced ratio" (contain, natural proportions) — the other keys are
+ * width/height values for a fixed crop (cover). Golden (φ ≈ 1.618) is the classic
+ * landscape proportion. Only apply a fixed ratio to genuinely visual/media tiles —
+ * never to variable-length text/content cards.
+ */
+export const AspectRatio = {
+  fit: undefined,
+  square: 1,
+  classic: 4 / 3,
+  widescreen: 16 / 9,
+  golden: 1.618,
+} as const;
+
+export type AspectRatioKey = keyof typeof AspectRatio;
 
 // Shared compact "resting" height for Home's collapsed preview cards (Notes/Plans/Shopping)
 // so an empty or light card reads as one intentional size (with a designed empty state —

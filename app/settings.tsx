@@ -174,7 +174,7 @@ import { todayStr } from '@/lib/date';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
 import { selection, warning, heavy } from '@/lib/haptics';
-import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
+import { AspectRatioKey, FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
 import TabSlider from '@/components/TabSlider';
 
 type SettingsTab = 'generelt' | 'handle' | 'varsler' | 'moduser';
@@ -635,6 +635,20 @@ export default function SettingsScreen() {
                       { value: 'on', label: t.darkModeOn },
                     ]}
                   />
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.photoFormat.title}</Text>
+                  <SegmentedControl
+                    value={settings.photoAspectRatio}
+                    onChange={(v) => settings.update({ photoAspectRatio: v as AspectRatioKey })}
+                    options={[
+                      { value: 'fit', label: t.settings.photoFormat.fit },
+                      { value: 'square', label: t.settings.photoFormat.square },
+                      { value: 'classic', label: t.settings.photoFormat.classic },
+                      { value: 'widescreen', label: t.settings.photoFormat.widescreen },
+                      { value: 'golden', label: t.settings.photoFormat.golden },
+                    ]}
+                  />
+                  <Text style={[styles.descText, { color: theme.textMuted }]}>{t.settings.photoFormat.hint}</Text>
                 </ExpandableCard>
 
                 {/* TILGJENGELIGHET — same merged panel. */}

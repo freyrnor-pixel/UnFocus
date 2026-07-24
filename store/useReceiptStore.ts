@@ -22,6 +22,10 @@
  *     store methods (receiptsForMonth/totalForMonth/etc. stay whole-app) — app/budget.tsx
  *     filters the plain `receipts` array by monthlyListId itself before doing the same
  *     month/store grouping it already did, so this store's surface stays small.
+ *   - **Aspect-ratio formats pass**: `photoUri` is the permanent-storage location (see
+ *     lib/photoStorage.ts) of the photo scan.tsx captured during OCR, when one exists —
+ *     the manual-entry flow (addManualItems) never has a photo to attach. Rendered via
+ *     components/PhotoFrame.tsx in app/budget.tsx's receipt list.
  */
 import { create } from 'zustand';
 import { Row, loadAll, insertRow, readStr, readReal } from '@/lib/dataAccess';
@@ -37,6 +41,8 @@ export type Receipt = {
   month: string; // YYYY-MM
   /** Which Monthly list (store/useMonthlyListStore.ts) this spend counts against; undefined for pre-redesign receipts. */
   monthlyListId?: string;
+  /** Permanent-storage URI of the scanned receipt photo (lib/photoStorage.ts); undefined when none was captured. */
+  photoUri?: string;
 };
 
 export type ReceiptInput = {
@@ -45,6 +51,7 @@ export type ReceiptInput = {
   total: number;
   category?: string;
   monthlyListId?: string;
+  photoUri?: string;
 };
 
 type ReceiptStore = {
@@ -66,6 +73,7 @@ function rowToReceipt(row: Row): Receipt {
     category: readStr(row, 'category') || 'other',
     month: readStr(row, 'month'),
     monthlyListId: readStr(row, 'monthly_list_id') || undefined,
+    photoUri: readStr(row, 'photo_uri') || undefined,
   };
 }
 
@@ -87,6 +95,7 @@ export const useReceiptStore = create<ReceiptStore>((set, get) => ({
       category: input.category ?? 'other',
       month,
       monthly_list_id: input.monthlyListId ?? null,
+      photo_uri: input.photoUri ?? '',
     });
     const receipt: Receipt = {
       id,
@@ -96,6 +105,7 @@ export const useReceiptStore = create<ReceiptStore>((set, get) => ({
       category: input.category ?? 'other',
       month,
       monthlyListId: input.monthlyListId,
+      photoUri: input.photoUri,
     };
     set((s) => ({ receipts: [receipt, ...s.receipts] }));
     return receipt;

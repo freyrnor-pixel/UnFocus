@@ -1058,6 +1058,15 @@ const en = {
       timelineHorizontal: 'Horizontal plans timeline',
       timelineHorizontalHint: "Shows today's plans as a left-to-right timeline instead of top-to-bottom",
     },
+    photoFormat: {
+      title: 'Photo format',
+      hint: 'Default crop for photo tiles (e.g. receipt photos). Fit shows the whole photo; the others crop to a fixed shape.',
+      fit: 'Fit',
+      square: '1:1',
+      classic: '4:3',
+      widescreen: '16:9',
+      golden: 'Golden',
+    },
     // Privacy hint card shown in settings (Proposal 3)
     privacy: {
       headline: 'Your data stays with you',
@@ -2014,6 +2023,15 @@ const no: typeof en = {
       leftHandedHint: 'Flytter menyknappen til venstre side',
       timelineHorizontal: 'Horisontal plantidslinje',
       timelineHorizontalHint: 'Viser dagens planer som en tidslinje fra venstre til høyre i stedet for ovenfra og ned',
+    },
+    photoFormat: {
+      title: 'Bildeformat',
+      hint: 'Standard beskjæring for bilde-fliser (f.eks. kvitteringsbilder). Tilpass viser hele bildet; de andre beskjærer til en fast form.',
+      fit: 'Tilpass',
+      square: '1:1',
+      classic: '4:3',
+      widescreen: '16:9',
+      golden: 'Gyllent',
     },
     privacy: {
       headline: 'Dataene dine er hos deg',

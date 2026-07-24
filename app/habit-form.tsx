@@ -96,7 +96,7 @@ import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { AspectRatio, FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 
 const INTERVAL_OPTIONS = [30, 60, 90, 120, 180, 240];
 
@@ -594,7 +594,7 @@ const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.lg },
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   daysRow: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.sm },
-  dayChip: { flex: 1, aspectRatio: 1, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
+  dayChip: { flex: 1, aspectRatio: AspectRatio.square, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
   dayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },

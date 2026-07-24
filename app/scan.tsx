@@ -16,7 +16,7 @@
  * instead of a bottom tab.
  *
  * Connections:
- *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, lib/screenColor, store/useCatalogStore, store/useReceiptStore, store/useMonthlyListStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons)
+ *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, lib/screenColor, lib/photoStorage, store/useCatalogStore, store/useReceiptStore, store/useMonthlyListStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons)
  *   Used by → Expo Router route "/scan"; pushed from app/(tabs)/shopping.tsx's header
  *             "Scan" button, and its post-trip receipt pop-up (autoCapture param)
  *   Data    → confirmed items write to FOUR stores: useShoppingStore (shopping_items) + useReceiptStore.addReceipt (receipts, tagged with a monthlyListId — Shopping/Monthly redesign 2026-07-22, picked via renderMonthlyListSelector() when 2+ Monthly lists exist) + useCatalogStore.recordPurchases (purchase_log, linked via receipt_id, + store_items); QR import writes useSharedStore (shared_shopping_items / shared_tasks); scaled fontSize via useScaledStyles()
@@ -39,6 +39,10 @@
  *     BEFORE recordPurchases, then threads receipt.id into every recordPurchases entry so app/budget.tsx
  *     can total this month's spend. Requires a store picked first. Also fuzzy-matches each scanned name
  *     against Katalog shopping_items and raises that item's price if higher (only ever raises).
+ *   - **Aspect-ratio formats pass**: addToList() is now async — if a photo was captured/picked
+ *     (`imageUri`), it's copied out of ImagePicker/Camera's transient cache into permanent
+ *     storage via lib/photoStorage.ts's persistPhoto() (best-effort; a failure just omits the
+ *     photo) and threaded into addReceipt() as `photoUri`. addManualItems() never has a photo.
  *   - addManualItems() creates a receipt only when a price is entered with a store selected.
  *   - Both add paths create shopping_items rows with status='inWeeklyList' (not 'catalog').
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen has no
@@ -88,6 +92,7 @@ import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
 import { decodeSharePayload } from '@/lib/share';
 import { parseReceiptText, findFuzzyMatch, ParsedReceiptItem as ParsedItem } from '@/lib/receipt';
+import { persistPhoto } from '@/lib/photoStorage';
 import { Fonts, FontSize, Radius, Shadow, Spacing, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 
@@ -124,7 +129,7 @@ export default function ScanScreen() {
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [mode, setMode] = useState<ScreenMode>('idle');
-  const [, setImageUri] = useState<string | null>(null);
+  const [imageUri, setImageUri] = useState<string | null>(null);
   const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
   const [selectedStore, setSelectedStore] = useState('');
   // Shopping — Monthly redesign (2026-07-22): which Monthly list this receipt's spend counts
@@ -292,7 +297,7 @@ export default function ScanScreen() {
     showAppModal(t.addedTitle, t.addedBody(lines.length), [{ text: t.ok }]);
   }
 
-  function addToList() {
+  async function addToList() {
     if (!selectedStore) {
       showAppModal(t.selectStoreFirstTitle, t.selectStoreFirstBody);
       return;
@@ -315,6 +320,18 @@ export default function ScanScreen() {
       addShopping({ name: item.name, amount: '1', unit: '', listType: 'weekly', store: selectedStore, price: item.price, inventoryQty: 0, status: 'inWeeklyList' });
     });
 
+    // Copy the scanned photo out of ImagePicker/Camera's transient cache into
+    // permanent storage so it survives after this screen unmounts. Best-effort —
+    // a persist failure shouldn't block adding the scanned items.
+    let photoUri: string | undefined;
+    if (imageUri) {
+      try {
+        photoUri = await persistPhoto(imageUri, 'receipts');
+      } catch {
+        photoUri = undefined;
+      }
+    }
+
     const receiptId = selected.length
       ? addReceipt({
           date: todayStr(),
@@ -322,6 +339,7 @@ export default function ScanScreen() {
           total: selected.reduce((sum, item) => sum + item.price, 0),
           category: 'groceries',
           monthlyListId: effectiveMonthlyListId,
+          photoUri,
         }).id
       : undefined;
 
