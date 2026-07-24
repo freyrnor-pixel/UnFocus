@@ -33,12 +33,12 @@
  *   Data    → none (pure navigation composition)
  *
  * Edit notes:
- *   - Screen order MUST match lib/siteNav.ts's SITE_ITEMS (shopping, plans, index, health,
- *     habits) — BottomNav maps each pager route's name to a SITE_ITEMS entry via
+ *   - Screen order MUST match lib/siteNav.ts's SITE_ITEMS (shopping, plans, index, habits,
+ *     health) — BottomNav maps each pager route's name to a SITE_ITEMS entry via
  *     lib/siteNav.ts's TAB_ROUTE_NAME, so a mismatch here shows the wrong icon/label active.
  *     (2026-07-23, UX audit E1/E2: Scan swapped out for the new app/(tabs)/habits.tsx —
  *     Scan is now a pushed sub-screen at app/scan.tsx, reached from Shopping's header.)
- *   - `(tabs)` is a route group: URLs stay "/", "/shopping", "/plans", "/health", "/habits"
+ *   - `(tabs)` is a route group: URLs stay "/", "/shopping", "/plans", "/habits", "/health"
  *     (was "/scan" before the 2026-07-23 E1/E2 swap — see the Screen-order note above).
  *   - As of SDK 56, expo-router's Metro resolver throws a build error if app code imports
  *     `@react-navigation/*` directly (https://docs.expo.dev/router/migrate/sdk-55-to-56/).
@@ -77,13 +77,22 @@
  *     mid-OCR via `navigation.setOptions` while it was one of these 5 co-mounted tabs;
  *     now that it's a pushed sub-screen at app/scan.tsx, 2026-07-23, that guard doesn't
  *     apply here anymore — a pushed screen already blocks the pager underneath it.)
- *   - **`animationEnabled: Platform.OS !== 'web'` (2026-07-18, web-only stuck-scroll fix)**:
- *     BottomNav taps on web drive the pager via an animated JS `scrollTo` (no real native
- *     pager there) that can be interrupted mid-flight, leaving `scrollLeft` at a
- *     non-page-boundary value — two adjacent screens visibly overlapping. Disabling the
- *     animation on web makes tap-navigation snap instantly, closing that window; swipe
- *     gestures still animate (react-navigation only applies this flag to programmatic
- *     `navigate()`). Native is untouched — its slide is the whole point of this migration.
+ *   - **`animationEnabled: false` (all platforms; 2026-07-24, was `Platform.OS !== 'web'`)**:
+ *     this flag governs ONLY programmatic tab navigation (a BottomNav tap →
+ *     `navigation.navigate` → `PagerViewAdapter.jumpTo`), never finger-swipe — swipe is
+ *     `swipeEnabled`/`scrollEnabled` and stays fully animated, so the tactile slide (the
+ *     point of this migration) is untouched. Set false to kill TWO issues: (1) native
+ *     far-jump frame-skip — `animationEnabled:true` makes `jumpTo` call
+ *     `ViewPager2.setCurrentItem(i, true)`, a smooth-scroll that sweeps through every
+ *     intermediate page; in this centre-Home 5-tab bar most taps are far jumps (Shopping↔Health
+ *     is 4 pages), so the sweep skipped frames. `false` routes through
+ *     `setPageWithoutAnimation(i)` = instant snap, no sweep. ViewPager2 has no JS-reachable
+ *     "snap-adjacent-then-animate-last-step" mode, so this is a mitigation of a native
+ *     limitation, not a smooth far-jump. Tap still gives feedback: BottomNav's Reanimated
+ *     pill slides to the tapped tab and the shared background updates — only page content
+ *     snaps. (2) the earlier web-only stuck-scroll (interrupted JS `scrollTo` leaving two
+ *     screens side by side) that first drove this to false on web. See the inline comment on
+ *     the `animationEnabled` line for the full write-up.
  *   - **Active-tab tracking for the shared background**: the pager's own navigator state
  *     (`state.routes[state.index].name`) is read inside the `tabBar` render prop, same
  *     place BottomNav reads it to highlight the active icon — there's no other hook that
@@ -120,7 +129,7 @@
  *     sceneStyle override first.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Platform, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
@@ -181,6 +190,14 @@ function TabBarWithBackgroundSync({ insetsBottom, onActiveRouteChange, onPositio
     </View>
   );
 }
+
+// Cold launch presents Home (the centre tab), not the first-declared tab (Shopping).
+// expo-router reads `initialRouteName` off this export for the (tabs) layout and hands it
+// to the navigator, which passes it to react-native-tab-view as the initial index — the
+// pager's `initialPage` mounts directly on Home with no settle/animation in from Shopping
+// (PagerViewAdapter uses `initialPage={navigationState.index}`). Must be a registered
+// TopTabs.Screen name — 'index' is app/(tabs)/index.tsx (Home); TAB_ROUTE_NAME['/'] === 'index'.
+export const unstable_settings = { initialRouteName: 'index' };
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
@@ -255,28 +272,39 @@ export default function TabsLayout() {
         screenOptions={{
           swipeEnabled: true,
           lazy: false,
-          // Web-only: tapping BottomNav drives this via an animated JS scrollTo (there's no
-          // native pager on web), and that animation can get interrupted mid-flight — the
-          // web preview's DOM inspector caught it stuck at a non-page-boundary scrollLeft,
-          // rendering two adjacent screens side by side (2026-07-18). Disabling it on web
-          // makes tap-navigation jump instantly instead of animating, which removes the
-          // window for that interruption; swipe gestures still animate regardless of this
-          // flag (react-navigation only applies it to programmatic navigate() calls). Native
-          // keeps its animated slide — real react-native-pager-view doesn't have this failure
-          // mode, and that slide is the whole point of this migration (see file header).
-          animationEnabled: Platform.OS !== 'web',
+          // `false` on ALL platforms — this flag only governs PROGRAMMATIC tab navigation
+          // (a BottomNav tap → navigation.navigate → PagerViewAdapter.jumpTo). It does NOT
+          // touch finger-swipe: swipeEnabled/scrollEnabled drives the native follow-finger
+          // slide independently, so the tactile swipe (the whole point of this migration) is
+          // untouched here. Two problems it fixes, one native, one web:
+          //   • Native far-jump frame-skip (2026-07-24): with animationEnabled:true, jumpTo
+          //     calls ViewPager2.setCurrentItem(index, true), a smooth-scroll that SWEEPS
+          //     through every intermediate page. In this centre-Home 5-tab layout most taps
+          //     ARE far jumps (Shopping↔Health is 4 pages; Home↔Shopping/Health is 2), so the
+          //     sweep visibly skipped frames. animationEnabled:false routes jumpTo through
+          //     setPageWithoutAnimation(index) — an instant snap, no intermediate render, no
+          //     skip. ViewPager2 exposes no "snap-adjacent-then-animate-last-step" mode from
+          //     JS, so a partial-animation fix would need a native/library patch; instant snap
+          //     is the cleanest reachable mitigation and it's honest to call it that, not a
+          //     "full" smooth far-jump. Tap feedback is preserved elsewhere: BottomNav's own
+          //     Reanimated sliding pill still animates to the tapped tab, and the shared
+          //     background still updates — only the page content snaps instead of sweeping.
+          //   • Web stuck-scroll (2026-07-18): web has no native pager; taps drove an animated
+          //     JS scrollTo that could be interrupted mid-flight, leaving scrollLeft at a
+          //     non-page boundary (two screens side by side). Instant snap closes that window.
+          animationEnabled: false,
           sceneStyle: { backgroundColor: 'transparent' },
         }}
         tabBar={(props: MaterialTopTabBarProps) => (
           <TabBarWithBackgroundSync {...props} insetsBottom={insets.bottom} onActiveRouteChange={setActiveRouteName} onPosition={onPosition} />
         )}
       >
-        {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, plans, home, health, habits */}
+        {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, plans, home, habits, health */}
         <TopTabs.Screen name="shopping" />
         <TopTabs.Screen name="plans" />
         <TopTabs.Screen name="index" />
-        <TopTabs.Screen name="health" />
         <TopTabs.Screen name="habits" />
+        <TopTabs.Screen name="health" />
         </TopTabs>
       </View>
   );

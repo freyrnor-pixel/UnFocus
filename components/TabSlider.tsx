@@ -52,6 +52,14 @@
  *     it — adding one there is a no-op.
  *   - The pill is the FIRST child of the row so it paints below the segment labels (paint
  *     order = document order) — same convention as SlideSelector.
+ *   - **Pill vertical inset (fixed 2026-07-24)**: `onLayout` measures the INNER `row`, NOT
+ *     the outer `wrap`. `wrap` has `borderWidth: 1`, so measuring it made trackH include
+ *     the 2px border; pillH = trackH - TRACK_PAD*2 then left the pill ~3px from the top but
+ *     only ~1px from the bottom (asymmetric → "crooked / slapped on top"). The `row` has
+ *     padding but no border, so its measured height is the pill's own coordinate space:
+ *     pillH = rowHeight - TRACK_PAD*2 with `top: TRACK_PAD` yields EQUAL TRACK_PAD gaps top
+ *     and bottom. Horizontal is unaffected — segments are still measured relative to `row`
+ *     (their own `onLayout`), and the pill's `left`/translateX use those same row-relative x.
  *   - Same haptic contract as SlideSelector: PressableScale's own `tap()` fires on every
  *     press, plus an extra `selection()` when the value actually changes.
  *   - `options[].accessory` is a plain ReactNode the caller builds per-render (e.g. a
@@ -122,6 +130,10 @@ export default function TabSlider<T extends string | number>({
     width: pw.value,
   }));
 
+  // Measured on the INNER `row` (not the outer bordered `wrap`) — see the pill-inset
+  // note below. The row has padding but NO border, so its height is the pill's own
+  // coordinate space; pillH = rowHeight - TRACK_PAD*2 then nests with equal TRACK_PAD
+  // gaps top AND bottom.
   const onTrackLayout = (e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
     setTrackH((prev) => (prev === h ? prev : h));
@@ -182,9 +194,8 @@ export default function TabSlider<T extends string | number>({
   return (
     <View
       style={[styles.wrap, { backgroundColor: theme.surfaceMuted, borderColor: theme.border, borderRadius: radius }, style]}
-      onLayout={onTrackLayout}
     >
-      <View style={styles.row}>{content}</View>
+      <View style={styles.row} onLayout={onTrackLayout}>{content}</View>
     </View>
   );
 }

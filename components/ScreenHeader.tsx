@@ -67,14 +67,21 @@
  *     (BLUE band in ScreenScaffold, RED Surface edge, GREEN title frame) so one tester
  *     screenshot pins any remaining clip to its exact box.
  *     Shopping's 5-icon control group (bug/scan/share/info/gear, vs. Home's 3) left
- *     titleWrap's flex:1 too narrow for "SHOPPING", which ellipsized to "SHOPPIN…". Fixed with
- *     `adjustsFontSizeToFit` + `minimumFontScale` on the title Text — shrinks fontSize only
- *     (not the getHeaderMetrics lineHeight box), so it can't reopen the descender-clip bug above.
- *     **Regression + fix (2026-07-24 same day)**: this was first applied unconditionally to
- *     every screen's title, which put short, already-fitting titles (Home's "HJEM") through the
- *     same Android autosize path and shrank them for no reason — reported as "all headers gone
- *     too small". Now gated on `shrinkTitle` (site-tier control count >= 5), so only Shopping's
- *     crowded row opts in; every other screen's title keeps its exact, non-autosized fontSize.
+ *     titleWrap's flex:1 too narrow for "SHOPPING"/"HANDLELISTE", which ellipsized.
+ *     **Autosize hack REMOVED (2026-07-24 second pass)**: the `adjustsFontSizeToFit` +
+ *     `minimumFontScale` approach (first unconditional, then gated on a `shrinkTitle`
+ *     control-count check) is gone entirely. On Android `adjustsFontSizeToFit` with
+ *     `numberOfLines={1}` in a narrow box shrinks the font FAR below `minimumFontScale`
+ *     (a known RN Android bug), which made Shopping's title render tiny — the visible
+ *     defect. Every header now renders its title at the single fixed `getHeaderMetrics`
+ *     `titleFontSize`/`titleLineHeight` (still applied inline with `allowFontScaling={false}`),
+ *     so all screens match. Horizontal room for the long title next to 5 icons comes from
+ *     tightening the layout instead: `styles.controls` gap and the header row `gap` both
+ *     dropped Spacing.md → Spacing.sm, and `HEADER_TITLE_BASE_SIZE` (constants/theme.ts)
+ *     dropped 28 → 24 (a deliberate, uniform reduction — the maintainer wants one consistent
+ *     header size). Band-height stays in lockstep because getHeaderMetrics derives it from the
+ *     same base size. Note: with debug mode ON, Shopping shows 7 icons (adds email + delete),
+ *     which can still ellipsize the long title — an accepted tester-only edge, not the default.
  *   - **Debug notes (2026-07-13, replaces the old DebugOverlay)**: the title is wrapped in
  *     DebugNoteAnchor keyed off the (translated) `title` string — see that component's own
  *     edit note on the language-switch caveat this implies. The export icon (site-tier only)
@@ -370,15 +377,6 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const siteControls = tier === 'site'
     ? ([updateButton, bugButton, emailButton, deleteButton, scanButton, shareButton, infoButton, gearButton].filter(Boolean) as React.ReactNode[])
     : [];
-  // 2026-07-24 regression + fix: adjustsFontSizeToFit was added UNCONDITIONALLY here to stop
-  // Shopping's 5-control row (bug/scan/share/info/gear) truncating "SHOPPING" to "SHOPPIN…" —
-  // but that put every OTHER screen's short, already-fitting title (e.g. Home's "HJEM") through
-  // the same Android autosize path too, which shrank it well below its resolved fontSize for no
-  // reason (this file's own history is full of Android-only text-sizing quirks — see the
-  // "Header title clip" note above). Scope the shrink to the one row that actually needs it:
-  // Shopping's 5 controls leave titleWrap too narrow at 3-4; every other screen keeps its exact,
-  // non-autosized fontSize.
-  const shrinkTitle = siteControls.length >= 5;
 
   const titleNode = (align: 'left' | 'right') => (
     <DebugNoteAnchor id={`screen:${pathname}`} label={title} style={styles.titleWrap}>
@@ -393,10 +391,6 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
           { color: theme.text, textAlign: align, fontSize: titleFontSize, lineHeight: titleLineHeight },
         ]}
         numberOfLines={1}
-        // adjustsFontSizeToFit only shrinks fontSize (not the getHeaderMetrics lineHeight box),
-        // so it's safe alongside the allowFontScaling={false} arrangement above; minimumFontScale
-        // keeps it from shrinking past legibility. Gated on shrinkTitle — see that const's comment.
-        {...(shrinkTitle ? { adjustsFontSizeToFit: true, minimumFontScale: 0.7 } : null)}
       >
         {title}
       </Text>
@@ -460,7 +454,11 @@ const styles = StyleSheet.create({
     // Spacing.md of band slack all landed below the title as dead space instead of split
     // above/below it. Matching the row's own height to the band removes that leftover gap.
     paddingVertical: Spacing.md,
-    gap: Spacing.md,
+    // Row gap between the title (flex:1) and the controls group. Spacing.sm (was .md) so a
+    // long title like "HANDLELISTE" gets a few more dp next to a crowded 5-icon control row —
+    // part of the 2026-07-24 fix that dropped the Shopping-only autosize shrink hack. Vertical
+    // padding stays Spacing.md (band-height math depends on it — do NOT change that one).
+    gap: Spacing.sm,
     // Edge-to-edge top bar (no side margins), not a floating card — rounding here has
     // no visual purpose and, since the glass Surface now fills the whole fixed-height
     // header band flush against the first content row (2026-07-13 dead-band fix), a
@@ -471,7 +469,10 @@ const styles = StyleSheet.create({
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    // Spacing.sm (was .md) between control icons — tightens the group so Shopping's 5-icon
+    // row (bug/scan/share/info/gear) leaves room for the full "HANDLELISTE" title without an
+    // ellipsis, now that the per-screen autosize shrink hack is gone (2026-07-24).
+    gap: Spacing.sm,
   },
   title: {
     // ⚠️ NO `flex: 1` here — THE root cause of the 7-fix header-clip saga (2026-07-16,

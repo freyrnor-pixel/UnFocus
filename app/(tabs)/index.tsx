@@ -33,7 +33,9 @@
  *     day-view rendered read-only, with a "See everything →" link to /plans. Not a bespoke card.
  *     `readOnly` only disables row tap-through here (no `onPressTask`/`onSeeMore` passed) — the
  *     done-toggle stays live because `onToggleTask` is passed alongside `readOnly`, so tapping a
- *     task's checkbox toggles it done without opening the editor.
+ *     task's checkbox toggles it done without opening the editor. `onAddTask` (handleAddTask) is
+ *     likewise passed alongside `readOnly` so the preview's trailing AddRow can create an undated
+ *     today task inline (mirrors plans.tsx's Whenever quick-add) — no trip to /plans needed.
  *     `allTasks` (full store) is passed so Decision 020 cross-date followers surface.
  *     `horizontal={settings.planTimelineHorizontal}` is threaded to the PlanTaskCard mount.
  *   - **Notes preview = HomeNotesCard**: reads useNotesStore, shows first 5 active notes with
@@ -176,6 +178,7 @@ export default function HomeScreen() {
   const tasks = useTaskStore((s) => s.tasks);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
   const toggleTask = useTaskStore((s) => s.toggle);
+  const addTask = useTaskStore((s) => s.add);
 
   const shoppingItems = useShoppingStore((s) => s.items);
   const toggleShoppingItem = useShoppingStore((s) => s.toggleCheck);
@@ -304,6 +307,31 @@ export default function HomeScreen() {
     [putBackToInventory, removeWithSource]
   );
   const handleToggleTask = useCallback((task: Task) => toggleTask(task.id), [toggleTask]);
+  // Inline quick-add from the Home Plans preview — mirrors app/(tabs)/plans.tsx's Whenever
+  // AddRow: an undated (hasStartDate:false), non-recurring task dated today, so it shows in
+  // Today, the day's list, and the All tab's Whenever without any extra sync. Lets a task be
+  // created without leaving Home (was: force-navigate to /plans).
+  const handleAddTask = useCallback(
+    (title: string) => {
+      addTask({
+        title,
+        date: today,
+        taskType: 'start-at',
+        done: false,
+        recurring: 'none',
+        recurringDays: [],
+        weekInterval: 1,
+        monthlyMode: 'day',
+        monthDay: 1,
+        monthOrdinal: 'first',
+        monthWeekday: 0,
+        sortOrder: 0,
+        hasStartDate: false,
+        assignee: '',
+      });
+    },
+    [addTask, today]
+  );
   const handleToggleShopping = useCallback((id: string) => toggleShoppingItem(id), [toggleShoppingItem]);
   const handleCollectShopping = useCallback((id: string) => toggleShoppingCollected(id), [toggleShoppingCollected]);
   const handleIncrementShopping = useCallback((id: string) => adjustAmount(id, 1), [adjustAmount]);
@@ -333,6 +361,7 @@ export default function HomeScreen() {
               allTasks={tasks}
               readOnly
               onToggleTask={handleToggleTask}
+              onAddTask={handleAddTask}
               horizontal={planTimelineHorizontal}
             />
           </DebugNoteAnchor>

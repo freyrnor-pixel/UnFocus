@@ -38,7 +38,9 @@
  *
  * Connections:
  *   Imports → components/Surface, components/PressableScale, components/ProgressBar,
- *             components/HomePreviewEmpty, components/Collapsible + components/AnimatedChevron
+ *             components/HomePreviewEmpty, components/AddRow (inline "add a task" quick-create,
+ *             gated on the optional onAddTask callback — Home preview passes it),
+ *             components/Collapsible + components/AnimatedChevron
  *             (done-zone reveal + chevron), react-native-reanimated (FadeInDown/FadeOutDown/
  *             LinearTransition for rail rows revealed by the Show more/less toggle — rail,
  *             done-zone, and footer all share one `containerLayout` LinearTransition so the
@@ -67,8 +69,10 @@
  *     feedback: text/spacing read as too tight) — the slimness now comes from the rail-gap
  *     tuning alone, not from cramped row content.
  *   - **Empty state**: an empty day (`showEmpty`) renders the shared `HomePreviewEmpty`
- *     (left-aligned `t.timelineEmpty`) plus, in the read-only Home preview, a dashed "add a
- *     plan" ghost row that deep-links to /plans. The distinct "all done" state keeps its own
+ *     (left-aligned `t.timelineEmpty`). A dashed "add a plan" ghost row that deep-links to
+ *     /plans shows only as a FALLBACK when no inline add is wired (`readOnly && !onAddTask`);
+ *     when `onAddTask` IS passed the trailing AddRow (below) does inline creation instead, so
+ *     the deep-link ghost is suppressed to avoid two add affordances. The distinct "all done" state keeps its own
  *     `t.dayViewAllDone` line — it's a reward, not an empty card.
  *   - **Decision 014 (revised 2026-07-14)**: the card face is a `<Surface>` with a
  *     domain-colored border (`borderColor={getDomainColor(theme,'plan').accent}`) on a plain
@@ -94,7 +98,9 @@
  *     independently gated on whether `onToggleTask` is passed (not on `readOnly`), so the
  *     Home preview's checkbox stays interactive while row tap-through into the editor
  *     stays disabled. Pass `onSeeMore` to show a "See everything →" link routing to the
- *     full screen.
+ *     full screen. `onAddTask` follows the same "gate on callback, not readOnly" rule — pass
+ *     it to render the trailing inline AddRow so a task can be created from the read-only Home
+ *     preview without navigating to /plans (2026-07-24).
  *   - Anytime (untimed) tasks have no rail position; they render as plain dotted rows
  *     above the timed rail (same as DayTimeline). Only timed→timed gaps are proportional.
  *     **Anytime badge (2026-07-15)**: the dashed `anytimeDot` rail marker on its own read as
@@ -153,6 +159,7 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import HomePreviewEmpty from '@/components/HomePreviewEmpty';
+import AddRow from '@/components/AddRow';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import { Task } from '@/store/useTaskStore';
@@ -176,6 +183,11 @@ type Props = {
   readOnly?: boolean;
   onPressTask?: (task: Task) => void;
   onToggleTask?: (task: Task) => void;
+  /** Inline quick-add: when passed, an AddRow renders at the bottom of the card and calls this
+   *  with the typed title to create an undated, non-recurring task (dated today). Gated on the
+   *  callback's presence, NOT on `readOnly` — so the read-only Home preview can still add a task
+   *  (same "gate on callback, not readOnly" pattern as the done-toggle). */
+  onAddTask?: (title: string) => void;
   /** Read-only preview: shows a "See everything →" link in the section header. */
   onSeeMore?: () => void;
   /** Test/preview override for the live clock (minutes since midnight). */
@@ -269,6 +281,7 @@ export default function PlanTaskCard({
   readOnly = false,
   onPressTask,
   onToggleTask,
+  onAddTask,
   onSeeMore,
   now: nowOverride,
   horizontal = false,
@@ -291,6 +304,14 @@ export default function PlanTaskCard({
 
   const [expanded, setExpanded] = useState(false);
   const [doneOpen, setDoneOpen] = useState(false);
+  const [addDraft, setAddDraft] = useState('');
+
+  function commitAdd() {
+    const title = addDraft.trim();
+    if (!title || !onAddTask) return;
+    onAddTask(title);
+    setAddDraft('');
+  }
 
   // Decision 020 — surfaced followers: for each DONE task, its pending follower is
   // highlighted and (sub-question b) pulled into this view even if it lives on another
@@ -675,9 +696,11 @@ export default function PlanTaskCard({
           <View style={styles.emptyWrap}>
             <HomePreviewEmpty text={t.timelineEmpty} domainColor={domainColor} />
             {/* Ghost "add" row (debug-note 2026-07-21) — an empty day should still offer a
-                place to add something. The Home preview is read-only, so it deep-links to
-                the Plans tab rather than creating inline. */}
-            {readOnly && (
+                place to add something. Deep-links to the Plans tab; only shown as a FALLBACK
+                when no inline add is wired (`onAddTask` absent). When onAddTask IS passed
+                (Home preview, 2026-07-24) the trailing AddRow handles inline creation, so this
+                redundant deep-link ghost is suppressed. */}
+            {readOnly && !onAddTask && (
               <PressableScale
                 onPress={() => router.push('/plans')}
                 style={[styles.emptyAddRow, { borderColor: theme.border }]}
@@ -705,6 +728,22 @@ export default function PlanTaskCard({
             {timedItems}
           </Animated.View>
         )}
+
+        {/* Inline quick-add (debug-note 2026-07-24) — gated on `onAddTask` (not on `readOnly`,
+            same pattern as the done-toggle), so the read-only Home preview can create a task
+            directly instead of forcing a trip to /plans. Renders whether the day is empty or
+            full. Mirrors the Whenever AddRow on app/(tabs)/plans.tsx: an undated, non-recurring
+            task dated today (the caller's onAddTask owns the store shape). */}
+        {onAddTask ? (
+          <AddRow
+            placeholder={t.newTask}
+            value={addDraft}
+            onChangeText={setAddDraft}
+            onSubmit={commitAdd}
+            accent={domainColor.accent}
+            accessibilityLabel={t.newTask}
+          />
+        ) : null}
 
         {/* Done zone — dimmed, collapsed by default (Decision 009a). Always the vertical
             row layout, even in horizontal mode — this is a secondary dropdown list, not
@@ -864,7 +903,9 @@ const baseStyles = StyleSheet.create({
   nowChipDot: { width: 6, height: 6, borderRadius: Radius.full },
   nowChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   progressBar: { marginTop: Spacing.xs },
-  headerTitle: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8 },
+  // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
+  // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
+  headerTitle: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8, includeFontPadding: false, textAlignVertical: 'center' },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
 });

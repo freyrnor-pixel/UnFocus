@@ -37,6 +37,13 @@
  *     are flex:1 so segW = (trackW - padding*2 - gap*(n-1)) / n, and translateX steps by
  *     (segW + gap). The pill renders as the FIRST child so RN paints it BELOW the label
  *     segments (paint order = document order) — labels stay on top, no zIndex needed.
+ *   - **Pill vertical inset (fixed 2026-07-24)**: `wrap` carries BOTH `borderWidth: 1` and
+ *     `padding: TRACK_PAD`, and onLayout measures that outer bordered box — but the pill is
+ *     absolutely positioned relative to the INSIDE of the border. pillH = track.h - TRACK_PAD*2
+ *     over-counted by the 2px border, leaving the pill ~3px from the top but only ~1px from the
+ *     bottom (asymmetric → looked crooked/put-on-top). Now pillH = track.h - BORDER_W*2 -
+ *     TRACK_PAD*2 with `top: TRACK_PAD` gives EQUAL TRACK_PAD gaps top and bottom. Horizontal
+ *     (segW / left / translateX) is unchanged.
  */
 import React, { useEffect, useState } from 'react';
 import { LayoutChangeEvent, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
@@ -64,6 +71,10 @@ type Props<T extends string | number> = {
 
 const TRACK_PAD = 3;
 const TRACK_GAP = 3;
+// Matches `wrap`'s borderWidth. onLayout measures the OUTER bordered box, but absolutely-
+// positioned children (the pill) are offset from INSIDE the border — so the pill's usable
+// height is track.h minus both borders. Subtracting it keeps the top/bottom insets equal.
+const BORDER_W = 1;
 
 export default function SlideSelector<T extends string | number>({
   options,
@@ -81,7 +92,7 @@ export default function SlideSelector<T extends string | number>({
   const n = options.length;
   const activeIndex = Math.max(0, options.findIndex((o) => o.value === value));
   const segW = track.w > 0 ? (track.w - TRACK_PAD * 2 - TRACK_GAP * (n - 1)) / n : 0;
-  const pillH = Math.max(0, track.h - TRACK_PAD * 2);
+  const pillH = Math.max(0, track.h - BORDER_W * 2 - TRACK_PAD * 2);
 
   const tx = useSharedValue(0);
   useEffect(() => {
@@ -169,6 +180,9 @@ const styles = StyleSheet.create({
   segmentCompact: {
     minHeight: 32,
   },
-  label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  labelCompact: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
+  // includeFontPadding/textAlignVertical: without these, Android adds font-metric padding
+  // below the glyph baseline that alignItems:'center' doesn't account for, so the label
+  // optically sits low inside the segment (same fix as TabSlider's `label`).
+  label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, includeFontPadding: false, textAlignVertical: 'center' },
+  labelCompact: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, includeFontPadding: false, textAlignVertical: 'center' },
 });

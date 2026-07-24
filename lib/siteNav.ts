@@ -17,8 +17,9 @@
  * Edit notes:
  *   - SITE_ITEMS order is the bottom menu's visual order (left to right) AND must match
  *     app/(tabs)/_layout.tsx's <MaterialTopTabs.Screen> order.
- *   - Nav bar has 5 items: Shopping, Plans, Home (centre), Health, Habits (Decision 036,
- *     amended 2026-07-23 — UX audit E1/E2: Scan swapped out for Habits).
+ *   - Nav bar has 5 items: Shopping, Plans, Home (centre), Habits, Health (Decision 036,
+ *     amended 2026-07-23 — UX audit E1/E2: Scan swapped out for Habits; Habits/Health order
+ *     swapped 2026-07-24 so Habits sits left of Health).
  *   - **Habits is back as its own tab (2026-07-23)**: app/(tabs)/habits.tsx is a NEW file
  *     extracted from app/(tabs)/health.tsx's embedded Habits section (itself ported from
  *     the once-GONE /habits screen this comment used to describe as dead). Reason:
@@ -85,8 +86,8 @@ export const SITE_ITEMS: SiteItem[] = [
   { key: 'shop',   icon: 'cart-outline',     activeIcon: 'cart',     route: '/shopping' },
   { key: 'plans',  icon: 'calendar-outline', activeIcon: 'calendar', route: '/plans'    },
   { key: 'home',   icon: 'home-outline',     activeIcon: 'home',     route: '/'         },
-  { key: 'health', icon: 'heart-outline',    activeIcon: 'heart',    route: '/health'   },
   { key: 'habits', icon: 'repeat-outline',   activeIcon: 'repeat',   route: '/habits'   },
+  { key: 'health', icon: 'heart-outline',    activeIcon: 'heart',    route: '/health'   },
 ];
 
 /**
