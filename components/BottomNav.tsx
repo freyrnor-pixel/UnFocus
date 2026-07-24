@@ -411,7 +411,16 @@ const baseStyles = StyleSheet.create({
     // Floating pill: app/(tabs)/_layout.tsx now insets this bar off the screen edges
     // (NAV_FLOAT_GAP), so an explicit rounded corner makes it read as a floating panel
     // rather than an edge-to-edge bar. Radius.lg matches the header's floated corner.
-    borderRadius: Radius.lg,
+    // Top-left/top-right squared off (2026-07-24): the bar sits flush against the top of
+    // its own floating slot (no gap above, per the "flush top" note above), so a rounded
+    // top corner there just exposed a notch of the ambient backdrop between this bar and
+    // whatever's above it — reading as a transparent gap rather than a seamless edge. Only
+    // the bottom corners stay rounded for the floating-pill look. Requires Surface.tsx's
+    // per-corner radius support (see its "Per-corner radius" edit note).
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderBottomLeftRadius: Radius.lg,
+    borderBottomRightRadius: Radius.lg,
   },
   leftGroup: {
     flexDirection: 'row',

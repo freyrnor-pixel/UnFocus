@@ -74,6 +74,13 @@
  *     `raised`) to `getElevation('floating', theme.shadow)` — same themed shadowColor,
  *     just deeper. This is the focus-pop path for Surface-based (glass) cards; see
  *     PlanTaskCard.tsx for the caller.
+ *   - **Per-corner radius (2026-07-24)**: pass standard RN `borderTopLeftRadius` /
+ *     `borderTopRightRadius` / `borderBottomLeftRadius` / `borderBottomRightRadius` in `style`
+ *     (alongside or instead of `borderRadius`) to square off individual corners — e.g.
+ *     BottomNav squares its top-left/top-right so the floating gap above it reads as a flat
+ *     edge instead of a rounded notch exposing the ambient backdrop. The outer view already
+ *     honours these (passthrough), but the ring/mask/GlassFill needed their own per-corner
+ *     math (`topLeftRadius`/etc. below) since they only look at the single `radius` otherwise.
  */
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
@@ -207,6 +214,15 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
     else if (!OWNED_KEYS.has(key)) outer[key] = flat[key];
   }
   const radius = (flat.borderRadius as number | undefined) ?? Radius.md;
+  // Per-corner overrides (e.g. BottomNav squares off its top-left/top-right so its floating
+  // gap above reads as a flat edge instead of a rounded notch exposing the ambient backdrop —
+  // 2026-07-24). Caller passes standard RN corner keys in `style`; they already land on `outer`
+  // untouched (not in PADDING_KEYS/CONTENT_LAYOUT_KEYS/OWNED_KEYS above), but the ring/mask below
+  // only know the single `radius` unless read here too.
+  const topLeftRadius = (flat.borderTopLeftRadius as number | undefined) ?? radius;
+  const topRightRadius = (flat.borderTopRightRadius as number | undefined) ?? radius;
+  const bottomLeftRadius = (flat.borderBottomLeftRadius as number | undefined) ?? radius;
+  const bottomRightRadius = (flat.borderBottomRightRadius as number | undefined) ?? radius;
   // The mask's flexGrow:1 (below) only exists to let the fill reach the floor of an outer
   // view the CALLER has explicitly forced taller than its content (minHeight/height/flex —
   // e.g. Home's cardCollapsed minHeight, or ScreenScaffold's headerFill flex:1). For a
@@ -255,7 +271,19 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
           shadowStyle,
         ]}
       >
-        <View style={[styles.mask, maskGrowStyle, { borderRadius: radius, backgroundColor: mat.contrastBase }]}>
+        <View
+          style={[
+            styles.mask,
+            maskGrowStyle,
+            {
+              borderTopLeftRadius: topLeftRadius,
+              borderTopRightRadius: topRightRadius,
+              borderBottomLeftRadius: bottomLeftRadius,
+              borderBottomRightRadius: bottomRightRadius,
+              backgroundColor: mat.contrastBase,
+            },
+          ]}
+        >
           <View style={[content, padding]}>{children}</View>
         </View>
       </View>
@@ -274,6 +302,10 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
   // multi-hue frost bleed; 2026-07-21: fix the corner-rendering bug).
   const rim = computeRimGradient(edgeHue, isDark);
   const innerRadius = Math.max(0, radius - EDGE_WIDTH);
+  const innerTopLeftRadius = Math.max(0, topLeftRadius - EDGE_WIDTH);
+  const innerTopRightRadius = Math.max(0, topRightRadius - EDGE_WIDTH);
+  const innerBottomLeftRadius = Math.max(0, bottomLeftRadius - EDGE_WIDTH);
+  const innerBottomRightRadius = Math.max(0, bottomRightRadius - EDGE_WIDTH);
   return (
     <View style={[outer, { borderRadius: radius }, shadowStyle]}>
       <LinearGradient
@@ -281,9 +313,30 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
         locations={rim.locations}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
-        style={[styles.ring, maskGrowStyle, { borderRadius: radius, padding: EDGE_WIDTH }]}
+        style={[
+          styles.ring,
+          maskGrowStyle,
+          {
+            borderTopLeftRadius: topLeftRadius,
+            borderTopRightRadius: topRightRadius,
+            borderBottomLeftRadius: bottomLeftRadius,
+            borderBottomRightRadius: bottomRightRadius,
+            padding: EDGE_WIDTH,
+          },
+        ]}
       >
-        <View style={[styles.mask, maskGrowStyle, { borderRadius: innerRadius }]}>
+        <View
+          style={[
+            styles.mask,
+            maskGrowStyle,
+            {
+              borderTopLeftRadius: innerTopLeftRadius,
+              borderTopRightRadius: innerTopRightRadius,
+              borderBottomLeftRadius: innerBottomLeftRadius,
+              borderBottomRightRadius: innerBottomRightRadius,
+            },
+          ]}
+        >
           <GlassFill
             mat={mat}
             radius={innerRadius}
