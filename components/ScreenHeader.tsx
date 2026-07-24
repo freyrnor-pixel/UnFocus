@@ -66,11 +66,15 @@
  *     mode renders a numbers caption (fontScale/sizes/onLayout box) + colored outlines
  *     (BLUE band in ScreenScaffold, RED Surface edge, GREEN title frame) so one tester
  *     screenshot pins any remaining clip to its exact box.
- *   - **Horizontal title truncation (2026-07-24, distinct from the vertical clip above)**:
  *     Shopping's 5-icon control group (bug/scan/share/info/gear, vs. Home's 3) left
  *     titleWrap's flex:1 too narrow for "SHOPPING", which ellipsized to "SHOPPIN…". Fixed with
  *     `adjustsFontSizeToFit` + `minimumFontScale` on the title Text — shrinks fontSize only
  *     (not the getHeaderMetrics lineHeight box), so it can't reopen the descender-clip bug above.
+ *     **Regression + fix (2026-07-24 same day)**: this was first applied unconditionally to
+ *     every screen's title, which put short, already-fitting titles (Home's "HJEM") through the
+ *     same Android autosize path and shrank them for no reason — reported as "all headers gone
+ *     too small". Now gated on `shrinkTitle` (site-tier control count >= 5), so only Shopping's
+ *     crowded row opts in; every other screen's title keeps its exact, non-autosized fontSize.
  *   - **Debug notes (2026-07-13, replaces the old DebugOverlay)**: the title is wrapped in
  *     DebugNoteAnchor keyed off the (translated) `title` string — see that component's own
  *     edit note on the language-switch caveat this implies. The export icon (site-tier only)
@@ -357,6 +361,25 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
     </PressableScale>
   ) : null;
 
+  // Site-tier control count, needed before titleNode below decides whether to shrink-to-fit.
+  // Grouped controls order (right-handed, left-to-right): [update] [bug] [✓ email] [✕ delete]
+  // [scan] [share] [ⓘ info] [gear]. The bug toggle is always present; the green email + red
+  // delete only render when debug mode is on (they're null otherwise); share/scan only render
+  // on Shopping (onSharePress/onScanPress). Gear is outermost on whichever side the group sits
+  // (Decision 034). Items that don't apply to this screen are null/filtered.
+  const siteControls = tier === 'site'
+    ? ([updateButton, bugButton, emailButton, deleteButton, scanButton, shareButton, infoButton, gearButton].filter(Boolean) as React.ReactNode[])
+    : [];
+  // 2026-07-24 regression + fix: adjustsFontSizeToFit was added UNCONDITIONALLY here to stop
+  // Shopping's 5-control row (bug/scan/share/info/gear) truncating "SHOPPING" to "SHOPPIN…" —
+  // but that put every OTHER screen's short, already-fitting title (e.g. Home's "HJEM") through
+  // the same Android autosize path too, which shrank it well below its resolved fontSize for no
+  // reason (this file's own history is full of Android-only text-sizing quirks — see the
+  // "Header title clip" note above). Scope the shrink to the one row that actually needs it:
+  // Shopping's 5 controls leave titleWrap too narrow at 3-4; every other screen keeps its exact,
+  // non-autosized fontSize.
+  const shrinkTitle = siteControls.length >= 5;
+
   const titleNode = (align: 'left' | 'right') => (
     <DebugNoteAnchor id={`screen:${pathname}`} label={title} style={styles.titleWrap}>
       {/* allowFontScaling MUST stay false: fontSize + lineHeight below are already scaled
@@ -370,14 +393,10 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
           { color: theme.text, textAlign: align, fontSize: titleFontSize, lineHeight: titleLineHeight },
         ]}
         numberOfLines={1}
-        // 2026-07-24: Shopping's site-tier row carries 5 controls (bug/scan/share/info/gear) vs.
-        // Home's 3, leaving titleWrap (flex:1) too narrow for "SHOPPING" — it clipped to
-        // "SHOPPIN…" mid-word. adjustsFontSizeToFit only shrinks fontSize (not the lineHeight
-        // box getHeaderMetrics sized for descenders), so it's safe alongside the
-        // allowFontScaling={false} arrangement above; minimumFontScale keeps it from shrinking
-        // past legibility on an even more crowded future header.
-        adjustsFontSizeToFit
-        minimumFontScale={0.7}
+        // adjustsFontSizeToFit only shrinks fontSize (not the getHeaderMetrics lineHeight box),
+        // so it's safe alongside the allowFontScaling={false} arrangement above; minimumFontScale
+        // keeps it from shrinking past legibility. Gated on shrinkTitle — see that const's comment.
+        {...(shrinkTitle ? { adjustsFontSizeToFit: true, minimumFontScale: 0.7 } : null)}
       >
         {title}
       </Text>
@@ -385,18 +404,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   );
 
   if (tier === 'site') {
-    // Grouped controls. Order (right-handed, left-to-right): [update] [bug] [✓ email]
-    // [✕ delete] [scan] [share] [ⓘ info] [gear]. The bug toggle is always present; the green
-    // email + red delete only render when debug mode is on (they're null otherwise); share
-    // only renders when the screen passes onSharePress (Shopping only, as of the 2026-07-23
-    // fix — the site-tier header previously had no custom-right slot, so the old "Share pill"
-    // was dropped entirely rather than ported; see app/(tabs)/shopping.tsx's edit notes). scan
-    // is the same shape, added the same day (UX audit E2) — Shopping's entry point to the
-    // now-unpinned app/scan.tsx. Gear is outermost on whichever side the group sits
-    // (Decision 034). Left-handed mirrors the whole row. Items that don't apply to this
-    // screen are null/filtered.
-    const controlItems = [updateButton, bugButton, emailButton, deleteButton, scanButton, shareButton, infoButton, gearButton].filter(Boolean) as React.ReactNode[];
-    const controls = leftHanded ? [...controlItems].reverse() : controlItems;
+    const controls = leftHanded ? [...siteControls].reverse() : siteControls;
     const controlsGroup = (
       <View style={styles.controls}>
         {controls.map((c, i) => (
