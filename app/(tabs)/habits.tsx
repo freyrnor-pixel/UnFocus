@@ -248,7 +248,7 @@ function HabitCard({
               2026-07-21) — informational, shown only when this habit opts into Energy. */}
           {habit.energyEnabled && <EnergyBadge value={habit.energyValue} theme={theme} />}
           <PressableScale
-            style={[styles.adjBtn, { backgroundColor: theme.surface }]}
+            style={[styles.adjBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
             onPress={() => decrement(habit.id, today)}
             hitSlop={8}
             scaleTo={0.9}
@@ -766,6 +766,13 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     // Raised, pressable-looking adjusters (depth toward the user) — see Shadow.button.
+    // 2026-07-24 contrast pass: the "−" button's fill (theme.surface) matches its parent
+    // habitCard's own background exactly, so the shadow-only/top-highlight-only edge it had
+    // was the button's ENTIRE visible boundary — added a real borderWidth, defaulted to
+    // transparent (the "+" button's colored fill already has its own contrast and shouldn't
+    // gain a stray default border) and overridden to theme.border at the "−" button's call site.
+    borderWidth: 1,
+    borderColor: 'transparent',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.6)',
     ...Shadow.button,
