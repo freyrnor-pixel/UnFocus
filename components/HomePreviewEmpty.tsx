@@ -48,7 +48,9 @@ export default function HomePreviewEmpty({ text }: Props) {
 const baseStyles = StyleSheet.create({
   // flex:1 lets the box centre vertically within the card's resting-height floor.
   wrap: { flex: 1, justifyContent: 'center', paddingVertical: Spacing.md },
-  // Matches app/(tabs)/plans.tsx's `sectionEmpty` box exactly.
+  // Matches app/(tabs)/plans.tsx's `sectionEmpty` box exactly, plus includeFontPadding:false +
+  // textAlignVertical:'center' so the message sits truly vertically centered within the box's
+  // padded height on Android (the same font-padding fix as the card headers / TabSlider).
   box: {
     fontSize: FontSize.sm,
     fontFamily: Fonts.regular,
@@ -56,5 +58,7 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     borderRadius: Radius.sm,
     borderWidth: 1,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
 });

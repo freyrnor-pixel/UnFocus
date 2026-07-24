@@ -330,7 +330,9 @@ const baseStyles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   progressBar: { marginTop: Spacing.xs },
   paceText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginBottom: Spacing.sm },
-  title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8, flexShrink: 1 },
+  // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
+  // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
+  title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8, flexShrink: 1, includeFontPadding: false, textAlignVertical: 'center' },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   // Wells removed (2026-07-13 grouping pass): rows sit directly on the card face.

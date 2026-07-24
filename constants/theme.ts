@@ -183,7 +183,12 @@ export const HEADER_TITLE_LINE_RATIO = 1.45; // headroom over Nunito Bold's ~1.3
 // this token was split from) after the initial 32 + uppercase + centering fix together read
 // as too large — the uppercase casing and the row's centering (paddingVertical: Spacing.md
 // in ScreenHeader.tsx, which must stay put — see that file's comment) are kept.
-export const HEADER_TITLE_BASE_SIZE = 28;
+// 2026-07-24: dialed 28 → 24. This value drives ALL header titles uniformly (and the band
+// height below, in lockstep), so lowering it makes every screen's title one consistent,
+// still-legible size AND gives the long uppercase "HANDLELISTE" (11 chars, extrabold) room
+// to sit on one line next to Shopping's 5-icon control row without the old per-screen
+// autosize shrink hack (removed in ScreenHeader.tsx the same day — see that file's edit note).
+export const HEADER_TITLE_BASE_SIZE = 24;
 export function getHeaderMetrics(rawFontScale: number) {
   const fontScale = Math.min(rawFontScale, MAX_FONT_SCALE);
   // The OS text-size scale is applied HERE, once — the title Text opts out of RN's own

@@ -2,7 +2,7 @@
  * BottomNav.tsx — bottom navigation bar rendered as the swipeable pager's tab bar.
  *
  * Implements the design system's BottomNav pattern: left items (Shopping, Plans),
- * centre home/menu button, right items (Health, Scan). The centre button is
+ * centre home/menu button, right items (Habits, Health). The centre button is
  * stylized as a gradient FAB. Active tab is highlighted with primary colour.
  * Primary usage is as app/(tabs)/_layout.tsx's `tabBar` render prop — react-navigation
  * hands it the pager's `state`/`navigation`, which this component uses both to know
@@ -23,7 +23,8 @@
  *
  * Edit notes:
  *   - SITE_ITEMS (lib/siteNav.ts) defines the 5 items and their order (left to right):
- *     Shopping, Plans, Home, Health, Scan (Decision 036). Notes, Food/Meals, and
+ *     Shopping, Plans, Home, Habits, Health (Decision 036; Habits/Health order swapped
+ *     2026-07-24). Notes, Food/Meals, and
  *     Automations are NOT tabs — they are reached via Home's "More" links (Notes, Food)
  *     and Settings → Automations. If SITE_ITEMS' length or item order changes again,
  *     update the slice indices below to match.
@@ -109,6 +110,13 @@
  *     genuine in-group moves (Shopping ↔ Plans, Health ↔ Habits) and Home-anchor moves alike;
  *     only `reducedMotion` skips straight to the final position. See `settledRef`/`homeIndex`
  *     below (supersedes the now-removed `wasVisibleRef`).
+ *   - **No entry animation on first mount (2026-07-24)**: `firstRunRef` gates the very first
+ *     layout-ready effect run. If that first run already finds an active tab in the group — a
+ *     cold launch or deep-link straight onto a side tab, NOT a Home→side navigation — the pill
+ *     INITIALIZES at the active slot with no slide (an entry animation on first mount reads as a
+ *     spurious pop). Normal cold launch lands on Home (`unstable_settings.initialRouteName` in
+ *     app/(tabs)/_layout.tsx), where neither side group has an active tab, so the pill simply
+ *     doesn't mount — no motion at all. Every later fresh appearance keeps the Home-anchored slide.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
@@ -229,7 +237,7 @@ type NavGroupProps = {
   styles: typeof baseStyles;
   groupStyle: typeof baseStyles.leftGroup;
   // Which end of this group's track sits next to the centre Home button — 'end' for the
-  // left group (Plans is the neighbour), 'start' for the right group (Health is the
+  // left group (Plans is the neighbour), 'start' for the right group (Habits is the
   // neighbour). Anchors the pill's entry/exit animation so Home transitions read as a
   // slide to/from Home instead of a hard pop/vanish.
   homeEdge: 'start' | 'end';
@@ -265,22 +273,37 @@ function NavGroup({ items, isActive, onPress, label, styles, groupStyle, homeEdg
   // (Shopping ↔ Plans, Health ↔ Habits) should slide directly between two real slots;
   // arriving from or leaving to Home instead anchors through homeIndex below.
   const settledRef = useRef(false);
+  // True until the first layout-ready effect run. If that first run already finds an active
+  // tab in this group (a cold launch / deep-link straight onto a side tab, not a Home→side
+  // navigation), the pill should INITIALIZE at the active slot with no entry animation —
+  // an entry slide on first mount reads as a spurious pop. Every later fresh appearance
+  // (firstRun already false) keeps the intended Home-anchored slide.
+  const firstRunRef = useRef(true);
 
   useEffect(() => {
     if (segW === 0) return;
     const step = segW + Spacing.sm;
+    const firstRun = firstRunRef.current;
+    firstRunRef.current = false;
 
     if (hasActive) {
       const to = activeIndex * step;
-      if (!settledRef.current) {
-        // Fresh appearance in this group (from Home, or from the other side) — start the
-        // pill at the Home-adjacent slot and slide to the real target, so it always reads
-        // as arriving from Home.
+      const fresh = !settledRef.current;
+      settledRef.current = true;
+      if (fresh && firstRun) {
+        // Cold launch / deep-link directly onto this tab — place the pill at the active slot
+        // with no entry animation (initialize, don't animate in).
+        setMounted(true);
+        tx.value = to;
+        return;
+      }
+      if (fresh) {
+        // Fresh appearance from Home or the other side (post-launch) — start the pill at the
+        // Home-adjacent slot and slide to the real target, so it reads as arriving from Home.
         setMounted(true);
         tx.value = homeIndex * step;
       }
       tx.value = reducedMotion ? to : withTiming(to, { duration: Duration.control, easing: Ease.enter });
-      settledRef.current = true;
     } else if (settledRef.current) {
       // Leaving this group (most commonly to Home) — slide back to the Home-adjacent slot,
       // then unmount, so departing reads as heading toward Home instead of vanishing.
