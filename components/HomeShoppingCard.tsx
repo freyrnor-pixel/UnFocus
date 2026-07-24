@@ -273,7 +273,7 @@ export default function HomeShoppingCard({
         )}
 
         {totalCount === 0 ? (
-          <HomePreviewEmpty text={t.shoppingEmpty} domainColor={domainColor} />
+          <HomePreviewEmpty text={t.shoppingEmpty} domain="shop" domainColor={domainColor} />
         ) : expanded ? (
           // Expanded: full nested structure
           <View style={styles.rowsContainer}>
@@ -423,12 +423,16 @@ const baseStyles = StyleSheet.create({
   // marginBottom Spacing.md (was .sm) so the content starts at the 64px wash divider — see the
   // CardAccentWash comment above.
   titleRowPressable: { marginBottom: Spacing.md },
-  // paddingLeft (badge size 32 + gap 8 = 40) clears the fixed badge (badgeFixed below) — the
-  // badge no longer sits inline here, see the edit note above.
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 40 },
+  // paddingLeft (badge offset 16 + badge size 32 + gap 8 = 56) clears the fixed badge
+  // (badgeFixed below) — the badge no longer sits inline here, see the edit note above.
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 56 },
   // Takes the badge out of flex flow so its position is fixed regardless of sibling content
   // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
-  badgeFixed: { position: 'absolute', top: 0, left: 0, zIndex: 2 },
+  // top/left Spacing.md (not 0) — 0 sat the badge flush in the card's own rounded top-left
+  // corner, clipping it against the mask (2026-07-24 bug report: "badge wrongly placed,
+  // upper-left corner"). Spacing.md matches cardContent's own padding, so the badge lines up
+  // with where normal content starts instead of overlapping the corner.
+  badgeFixed: { position: 'absolute', top: Spacing.md, left: Spacing.md, zIndex: 2 },
   progressBar: { marginTop: Spacing.xs },
   paceText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginBottom: Spacing.sm },
   // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against

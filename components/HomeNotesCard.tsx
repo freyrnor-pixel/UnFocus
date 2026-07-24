@@ -204,7 +204,7 @@ export default function HomeNotesCard() {
 
         {/* Active note rows */}
         {activeNotes.length === 0 ? (
-          <HomePreviewEmpty text={t.notes.emptyState} domainColor={domainColor} />
+          <HomePreviewEmpty text={t.notes.emptyState} domain="note" domainColor={domainColor} />
         ) : (
           <View style={styles.rowsContainer}>
             <View style={styles.rows}>
@@ -376,14 +376,18 @@ const baseStyles = StyleSheet.create({
   headerWash: { top: -Spacing.md, left: -Spacing.md, right: -Spacing.md },
   // marginBottom Spacing.md (was .sm) so the content starts at the 64px wash divider — see the
   // CardAccentWash comment above.
-  // paddingLeft (badge size 32 + gap 8 = 40) clears the fixed badge (badgeFixed below) — the
-  // badge no longer sits inline here, see the edit note above.
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md, gap: Spacing.sm, paddingLeft: 40 },
+  // paddingLeft (badge offset 16 + badge size 32 + gap 8 = 56) clears the fixed badge
+  // (badgeFixed below) — the badge no longer sits inline here, see the edit note above.
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md, gap: Spacing.sm, paddingLeft: 56 },
   titleLeftPressable: { flexShrink: 1 },
   titleLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   // Takes the badge out of flex flow so its position is fixed regardless of sibling content
   // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
-  badgeFixed: { position: 'absolute', top: 0, left: 0, zIndex: 2 },
+  // top/left Spacing.md (not 0) — 0 sat the badge flush in the card's own rounded top-left
+  // corner, clipping it against the mask (2026-07-24 bug report: "badge wrongly placed,
+  // upper-left corner"). Spacing.md matches cardContent's own padding, so the badge lines up
+  // with where normal content starts instead of overlapping the corner.
+  badgeFixed: { position: 'absolute', top: Spacing.md, left: Spacing.md, zIndex: 2 },
   // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
   // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
   title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8, includeFontPadding: false, textAlignVertical: 'center' },
