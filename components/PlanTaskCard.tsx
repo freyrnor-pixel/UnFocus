@@ -158,6 +158,13 @@
  *     toggle's) `PressableScale` now passes `releaseSpring={Spring.calm}` (constants/motion) —
  *     a near-critically-damped spring instead of the default bouncy release, since these are
  *     repeatedly-tapped toggles, not one-off button presses.
+ *   - **Badge pinned + now-time moved left (2026-07-24)**: the header's `CardAccentBadge` is now
+ *     absolutely positioned (`badgeFixed`) instead of inline in the title row, so it can't drift
+ *     toward the wash/surface seam when a sibling (scaled-up title text, the pending-count pill)
+ *     grows the row taller. The live "now" time chip moved from a right-floated header corner to
+ *     its own left-aligned line under the title (same left edge the rail's own time boxes use).
+ *     See the JSX comment at the header block for the full reasoning; same pattern was applied to
+ *     HomeNotesCard/HomeShoppingCard's badges for consistency.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -723,24 +730,34 @@ export default function PlanTaskCard({
         {readOnly && (
           <>
           {/* Wash band = default 64 (2026-07-24, "stretch the colour to fit the text"): the taller
-              band gives symmetric colour above/below the header — the 32px badge centres at y=32 in
-              the [0,64] band. headerRowPressable's marginBottom is bumped to Spacing.md so the
-              content still STARTS at the band divider (paddingTop 16 + badge 32 + marginBottom 16 =
-              64), keeping the empty-state box centred between the divider and the AddRow. */}
+              band gives symmetric colour above/below the header. headerRowPressable's marginBottom
+              is bumped to Spacing.md so the content still STARTS at the band divider (paddingTop 16
+              + badge 32 + marginBottom 16 = 64), keeping the empty-state box centred between the
+              divider and the AddRow.
+              **Badge pinned + now-time moved left (2026-07-24)**: the badge used to sit inline in the
+              title row, vertically centred by flex — at large accessibility text sizes the title's
+              lineHeight can grow past the badge's own 32px, pushing the centred badge down toward the
+              wash/surface seam ("touching the line" — user report). `badgeFixed` takes it out of flex
+              flow and pins it to the header's fixed top-left corner, so its position never depends on
+              sibling content height. `headerTopRow`/`nowChip` get a matching left offset (badge width
+              + gap) so the title text still clears it. The live "now" time also moved from a
+              right-floated corner chip to its own left-aligned line under the title — the rail below
+              shows every task's time on the left too, so the one live clock reading belongs on that
+              same left edge, not orphaned in the opposite corner. */}
           <CardAccentWash domain="plan" style={styles.headerWash} />
           <PressableScale onPress={() => router.push('/plans')} style={styles.headerRowPressable} scaleTo={0.97}>
-            <View style={styles.headerRow}>
-              <CardAccentBadge domain="plan" size={32} />
+            <CardAccentBadge domain="plan" size={32} style={styles.badgeFixed} />
+            <View style={styles.headerTopRow}>
               <Text style={[styles.headerTitle, { color: theme.text }]}>{t.home.todaysPlans}</Text>
               {pendingCount > 0 && (
                 <View style={[styles.badge, { backgroundColor: domainColor.soft }]}>
                   <Text style={[styles.badgeText, { color: domainColor.accent }]}>{pendingCount}</Text>
                 </View>
               )}
-              <View style={styles.nowChip}>
-                <View style={[styles.nowChipDot, { backgroundColor: theme.accent }]} />
-                <Text style={[styles.nowChipText, { color: theme.accent }]}>{minutesToLabel(now)}</Text>
-              </View>
+            </View>
+            <View style={styles.nowChip}>
+              <View style={[styles.nowChipDot, { backgroundColor: theme.accent }]} />
+              <Text style={[styles.nowChipText, { color: theme.accent }]}>{minutesToLabel(now)}</Text>
             </View>
             {dayTasks.length > 0 && (
               <ProgressBar
@@ -1020,10 +1037,16 @@ const baseStyles = StyleSheet.create({
   // marginBottom Spacing.md (was .sm) so the content starts exactly at the 64px wash divider
   // (paddingTop 16 + badge 32 + 16 = 64) — see the CardAccentWash comment above.
   headerRowPressable: { marginBottom: Spacing.md },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  // Persistent "now" indicator (visual-audit 2026-07-11) — always visible in the header,
-  // not just when a gap connector happens to render one.
-  nowChip: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' },
+  // Badge is pinned absolute (badgeFixed below) — headerTopRow/nowChip's paddingLeft/marginLeft
+  // (badge size 32 + gap 8 = 40) is what actually clears it, not flex order (see edit note above).
+  headerTopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 40 },
+  // Takes the badge out of flex flow so its position is fixed regardless of sibling content
+  // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
+  badgeFixed: { position: 'absolute', top: 0, left: 0, zIndex: 2 },
+  // Persistent "now" indicator (visual-audit 2026-07-11) — always visible in the header. Moved
+  // from a right-floated corner chip to its own left-aligned line under the title (2026-07-24) —
+  // see edit note above.
+  nowChip: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 40, marginTop: 4 },
   nowChipDot: { width: 6, height: 6, borderRadius: Radius.full },
   nowChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   progressBar: { marginTop: Spacing.xs },
