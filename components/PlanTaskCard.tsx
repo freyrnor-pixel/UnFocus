@@ -39,7 +39,8 @@
  * Connections:
  *   Imports → components/Surface, components/PressableScale, components/ProgressBar,
  *             components/HomePreviewEmpty, components/AddRow (inline "add a task" quick-create,
- *             gated on the optional onAddTask callback — Home preview passes it),
+ *             gated on the optional onAddTask callback — Home preview passes it) +
+ *             components/TimeBoxInput (quick-add's inline time field),
  *             components/Collapsible + components/AnimatedChevron
  *             (done-zone reveal + chevron), react-native-reanimated (FadeInDown/FadeOutDown/
  *             LinearTransition for rail rows revealed by the Show more/less toggle — rail,
@@ -101,6 +102,14 @@
  *     full screen. `onAddTask` follows the same "gate on callback, not readOnly" rule — pass
  *     it to render the trailing inline AddRow so a task can be created from the read-only Home
  *     preview without navigating to /plans (2026-07-24).
+ *   - **Quick-add essential settings (2026-07-24)**: the trailing AddRow's `extras` carry three
+ *     compact inline controls beyond the title — a `TimeBoxInput` (start time, optional), a
+ *     repeat chip that cycles none→daily→weekly→monthly (defaults `recurringDays` to today's
+ *     weekday the first time it lands on weekly, mirroring TaskCard's own toggleRepeat), and an
+ *     energy chip (only rendered when the caller passes `energySystemEnabled`) that cycles
+ *     off→+1→−1→off. All three reset to their defaults after each commit. `onAddTask`'s second
+ *     argument carries whichever of these the user touched; the caller (Home) owns turning that
+ *     into a full `TaskInput` the same way it already does for the title-only case.
  *   - Anytime (untimed) tasks have no rail position; they render as plain dotted rows
  *     above the timed rail (same as DayTimeline). Only timed→timed gaps are proportional.
  *     **Anytime badge (2026-07-15)**: the dashed `anytimeDot` rail marker on its own read as
@@ -162,13 +171,15 @@ import HomePreviewEmpty from '@/components/HomePreviewEmpty';
 import AddRow from '@/components/AddRow';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
-import { Task } from '@/store/useTaskStore';
+import TimeBoxInput from '@/components/TimeBoxInput';
+import { Task, Recurring } from '@/store/useTaskStore';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
 import { Duration, Ease, Spring } from '@/constants/motion';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { getDomainColor } from '@/lib/domainColor';
+import { dayOfWeekMon0 } from '@/lib/date';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 import GlowPulse from '@/components/GlowPulse';
 
@@ -184,10 +195,16 @@ type Props = {
   onPressTask?: (task: Task) => void;
   onToggleTask?: (task: Task) => void;
   /** Inline quick-add: when passed, an AddRow renders at the bottom of the card and calls this
-   *  with the typed title to create an undated, non-recurring task (dated today). Gated on the
-   *  callback's presence, NOT on `readOnly` — so the read-only Home preview can still add a task
-   *  (same "gate on callback, not readOnly" pattern as the done-toggle). */
-  onAddTask?: (title: string) => void;
+   *  with the typed title (plus whichever of the extras row's essential settings the user set)
+   *  to create an undated task dated today. Gated on the callback's presence, NOT on `readOnly`
+   *  — so the read-only Home preview can still add a task (same "gate on callback, not
+   *  readOnly" pattern as the done-toggle). */
+  onAddTask?: (
+    title: string,
+    extra: { time?: string; recurring: Recurring; recurringDays: number[]; energyEnabled: boolean; energyValue: number }
+  ) => void;
+  /** Gates the quick-add extras row's energy chip — pass settings.energySystemEnabled. */
+  energySystemEnabled?: boolean;
   /** Read-only preview: shows a "See everything →" link in the section header. */
   onSeeMore?: () => void;
   /** Test/preview override for the live clock (minutes since midnight). */
@@ -282,6 +299,7 @@ export default function PlanTaskCard({
   onPressTask,
   onToggleTask,
   onAddTask,
+  energySystemEnabled = false,
   onSeeMore,
   now: nowOverride,
   horizontal = false,
@@ -305,12 +323,51 @@ export default function PlanTaskCard({
   const [expanded, setExpanded] = useState(false);
   const [doneOpen, setDoneOpen] = useState(false);
   const [addDraft, setAddDraft] = useState('');
+  const [addTime, setAddTime] = useState('');
+  const [addRecurring, setAddRecurring] = useState<Recurring>('none');
+  const [addRecurringDays, setAddRecurringDays] = useState<number[]>([]);
+  const [addEnergyValue, setAddEnergyValue] = useState(0);
+
+  function cycleRecurring() {
+    tap();
+    setAddRecurring((current) => {
+      if (current === 'none') return 'daily';
+      if (current === 'daily') {
+        setAddRecurringDays((days) => (days.length ? days : [dayOfWeekMon0(new Date())]));
+        return 'weekly';
+      }
+      if (current === 'weekly') return 'monthly';
+      return 'none';
+    });
+  }
+
+  function cycleEnergy() {
+    tap();
+    setAddEnergyValue((current) => (current === 0 ? 1 : current > 0 ? -1 : 0));
+  }
+
+  function recurringLabel(mode: Recurring): string {
+    if (mode === 'daily') return t.taskRecurDay;
+    if (mode === 'weekly') return t.taskRecurWeek;
+    if (mode === 'monthly') return t.taskRecurMonth;
+    return t.off;
+  }
 
   function commitAdd() {
     const title = addDraft.trim();
     if (!title || !onAddTask) return;
-    onAddTask(title);
+    onAddTask(title, {
+      time: addTime || undefined,
+      recurring: addRecurring,
+      recurringDays: addRecurring === 'weekly' ? addRecurringDays : [],
+      energyEnabled: addEnergyValue !== 0,
+      energyValue: addEnergyValue,
+    });
     setAddDraft('');
+    setAddTime('');
+    setAddRecurring('none');
+    setAddRecurringDays([]);
+    setAddEnergyValue(0);
   }
 
   // Decision 020 — surfaced followers: for each DONE task, its pending follower is
@@ -747,6 +804,50 @@ export default function PlanTaskCard({
             onSubmit={commitAdd}
             accent={domainColor.accent}
             accessibilityLabel={t.newTask}
+            extras={
+              <>
+                <TimeBoxInput value={addTime} onChange={setAddTime} />
+                <PressableScale
+                  style={[
+                    styles.quickChip,
+                    { borderColor: addRecurring !== 'none' ? domainColor.accent : theme.border },
+                    addRecurring !== 'none' && { backgroundColor: domainColor.soft },
+                  ]}
+                  onPress={cycleRecurring}
+                  hitSlop={8}
+                  scaleTo={0.9}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t.taskRecurringToggle}: ${recurringLabel(addRecurring)}`}
+                >
+                  <Ionicons name="repeat" size={14} color={addRecurring !== 'none' ? domainColor.accent : theme.textMuted} />
+                  {addRecurring !== 'none' && (
+                    <Text style={[styles.quickChipText, { color: domainColor.accent }]}>
+                      {recurringLabel(addRecurring).charAt(0)}
+                    </Text>
+                  )}
+                </PressableScale>
+                {energySystemEnabled && (
+                  <PressableScale
+                    style={[
+                      styles.quickChip,
+                      { borderColor: addEnergyValue !== 0 ? domainColor.accent : theme.border },
+                      addEnergyValue !== 0 && { backgroundColor: domainColor.soft },
+                    ]}
+                    onPress={cycleEnergy}
+                    hitSlop={8}
+                    scaleTo={0.9}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t.energyConsumeLabel}: ${addEnergyValue === 0 ? t.off : addEnergyValue > 0 ? '+1' : '-1'}`}
+                  >
+                    <Ionicons
+                      name={addEnergyValue === 0 ? 'flash-outline' : addEnergyValue > 0 ? 'flash' : 'flash-off'}
+                      size={14}
+                      color={addEnergyValue > 0 ? theme.good : addEnergyValue < 0 ? theme.warn : theme.textMuted}
+                    />
+                  </PressableScale>
+                )}
+              </>
+            }
           />
         ) : null}
 
@@ -806,6 +907,19 @@ const baseStyles = StyleSheet.create({
   // headerWash's `top` is kept in lockstep (-Spacing.md) so the band still starts at the card edge.
   cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.md, position: 'relative' },
   rail: { paddingVertical: Spacing.xs },
+  // Quick-add extras (2026-07-24) — compact repeat/energy toggle chips beside TimeBoxInput.
+  quickChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    minWidth: 30,
+    height: 30,
+    paddingHorizontal: 6,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+  },
+  quickChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
   // Empty-day ghost add row: fills the resting height, add affordance pinned below the message.
   emptyWrap: { flex: 1 },

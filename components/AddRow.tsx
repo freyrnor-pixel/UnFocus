@@ -268,6 +268,14 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    // react-native-web renders this as a plain <input>, which carries a browser-default
+    // intrinsic min-width (~170px) that `flex:1` alone doesn't override — the row's other
+    // children (discard/confirm, plus whatever `extras` a caller passes) would get pushed
+    // outside the card whenever their combined width + that intrinsic minimum exceeded the
+    // row (found 2026-07-24 wiring PlanTaskCard/HomeShoppingCard's quick-add extras — the
+    // confirm button silently rendered off-card). No effect on native, where 0 is already
+    // the default.
+    minWidth: 0,
     fontSize: FontSize.sm,
     fontFamily: Fonts.regular,
     paddingVertical: Spacing.xs,

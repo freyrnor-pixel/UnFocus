@@ -10,10 +10,12 @@
  *   Imports → components/Surface, components/ExpandableCard, components/CardAccent
  *             (badge+wash gradient move), components/FlightOverlay
  *             (FlightRect type only), components/ShoppingRow, components/PressableScale,
- *             components/ProgressBar, components/HomePreviewEmpty, constants/theme, lib/haptics,
- *             lib/i18n, lib/shoppingGroups (listProgress), lib/useAppTheme, lib/domainColor,
- *             lib/budget (SpendPace type only), expo-router, store/useShoppingStore (ShoppingItem type),
- *             store/useShoppingListStore (ShoppingList type)
+ *             components/ProgressBar, components/HomePreviewEmpty, components/AddRow +
+ *             components/Stepper (quick-add's inline quantity/target extras), constants/theme,
+ *             lib/haptics, lib/i18n, lib/shoppingGroups (listProgress), lib/useAppTheme,
+ *             lib/domainColor, lib/budget (SpendPace type only), expo-router,
+ *             store/useShoppingStore (ShoppingItem type), store/useShoppingListStore
+ *             (ShoppingList type)
  *   Used by → app/(tabs)/index.tsx (Home shopping preview)
  *   Data    → pure presentational; all mutations bubbled up via callbacks (parent owns the stores);
  *             the `pace` prop is likewise computed by the parent (lib/budget.ts's computeSpendPace())
@@ -51,6 +53,17 @@
  *     card's own item-count badge instead (`badgeRef`) rather than forcing the card open —
  *     "some motion" is the bar, not a literal cross-section flight, per product direction.
  *     Both paths gate on `reducedMotion` and fall through to plain `onToggle()`.
+ *   - **Quick-add (2026-07-24)**: previously this card had no add affordance at all — items
+ *     could only be toggled/adjusted, not created. A trailing `AddRow` (gated on the optional
+ *     `onAddItem` callback, same "gate on the callback" convention as PlanTaskCard's own
+ *     quick-add) renders below the rows/empty-state in all three modes (empty/collapsed/
+ *     expanded). Its `extras` carry the two essential settings: a `Stepper` quantity (1–99)
+ *     and a target chip that cycles Weekly (the `list` prop, i.e. "this week") → each entry in
+ *     `monthlyLists` → back to Weekly. `onAddItem(name, quantity, monthlyListId?)` — an absent
+ *     `monthlyListId` means "the current week's list"; the caller (Home) owns turning that into
+ *     the right `ShoppingItemInput` shape (status `inWeeklyList` vs `catalog`), same split
+ *     app/(tabs)/shopping.tsx already makes between its Week and Monthly tabs. Both qty and
+ *     target reset to their defaults after each commit.
  */
 import React, { useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -63,6 +76,8 @@ import ShoppingRow from '@/components/ShoppingRow';
 import PressableScale from '@/components/PressableScale';
 import HomePreviewEmpty from '@/components/HomePreviewEmpty';
 import ProgressBar from '@/components/ProgressBar';
+import AddRow from '@/components/AddRow';
+import Stepper from '@/components/Stepper';
 import type { FlightRect } from '@/components/FlightOverlay';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -93,6 +108,11 @@ type Props = {
   /** Spend-vs-budget pace (Decision 026, lib/budget.ts's computeSpendPace()) — null/undefined
    *  hides the line (no budget set yet, or no monthly reset has happened). */
   pace?: SpendPace | null;
+  /** Inline quick-add (2026-07-24) — see the Edit notes' "Quick-add" entry above. Omit to
+   *  render the card with no add affordance (its pre-2026-07-24 behavior). */
+  onAddItem?: (name: string, quantity: number, monthlyListId?: string) => void;
+  /** Target chip's cycle options beyond "this week" — id/name is all it needs. */
+  monthlyLists?: { id: string; name: string }[];
 };
 
 export default function HomeShoppingCard({
@@ -109,6 +129,8 @@ export default function HomeShoppingCard({
   inStockLabel,
   onFlightStart,
   pace,
+  onAddItem,
+  monthlyLists = [],
 }: Props) {
   const t = useT();
   const router = useRouter();
@@ -120,6 +142,27 @@ export default function HomeShoppingCard({
   const cartHeaderRef = useRef<any>(null);
   const badgeRef = useRef<any>(null);
   const collapsedRowNodes = useRef<Map<string, any>>(new Map());
+
+  // Quick-add — see the Edit notes' "Quick-add" entry above. addTargetIndex 0 = weekly (the
+  // `list` prop); i>0 = monthlyLists[i-1].
+  const [addDraft, setAddDraft] = useState('');
+  const [addQty, setAddQty] = useState(1);
+  const [addTargetIndex, setAddTargetIndex] = useState(0);
+
+  function cycleAddTarget() {
+    tap();
+    setAddTargetIndex((i) => (i + 1) % (monthlyLists.length + 1));
+  }
+
+  function commitAdd() {
+    const name = addDraft.trim();
+    if (!name || !onAddItem) return;
+    const monthlyListId = addTargetIndex > 0 ? monthlyLists[addTargetIndex - 1]?.id : undefined;
+    onAddItem(name, addQty, monthlyListId);
+    setAddDraft('');
+    setAddQty(1);
+    setAddTargetIndex(0);
+  }
 
   const progress = listProgress({ dishGroups, ungroupedUnchecked, checked });
   const totalCount = progress.total;
@@ -302,6 +345,43 @@ export default function HomeShoppingCard({
           </View>
         )}
 
+        {/* Inline quick-add — see the Edit notes' "Quick-add" entry above. Renders whether the
+            list is empty, collapsed, or expanded (gated on `onAddItem`, not on any of those
+            three modes). */}
+        {onAddItem ? (
+          <AddRow
+            placeholder={t.shoppingItemPlaceholder}
+            value={addDraft}
+            onChangeText={setAddDraft}
+            onSubmit={commitAdd}
+            accent={domainColor.accent}
+            accessibilityLabel={t.shoppingItemPlaceholder}
+            confirmIcon="checkmark"
+            extras={
+              <>
+                <Stepper value={addQty} onChange={setAddQty} min={1} max={99} accessibilityLabel={t.home.quantityLabel} />
+                <PressableScale
+                  style={[styles.targetChip, { borderColor: domainColor.accent }]}
+                  onPress={cycleAddTarget}
+                  hitSlop={8}
+                  scaleTo={0.95}
+                  accessibilityRole="button"
+                  accessibilityLabel={addTargetIndex === 0 ? t.home.weeklyListChip : monthlyLists[addTargetIndex - 1]?.name}
+                >
+                  <Ionicons
+                    name={addTargetIndex === 0 ? 'calendar-outline' : 'file-tray-full-outline'}
+                    size={13}
+                    color={domainColor.accent}
+                  />
+                  <Text style={[styles.targetChipText, { color: domainColor.accent }]} numberOfLines={1}>
+                    {addTargetIndex === 0 ? t.home.weeklyListChip : monthlyLists[addTargetIndex - 1]?.name}
+                  </Text>
+                </PressableScale>
+              </>
+            }
+          />
+        ) : null}
+
         {/* Expand/collapse toggle */}
         {showToggle && (
           <PressableScale
@@ -359,6 +439,19 @@ const baseStyles = StyleSheet.create({
   previewAmount: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   rowDivider: { height: 1 },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
+  // Quick-add target chip (2026-07-24) — cycles Weekly/Monthly-list, so it carries text
+  // (unlike PlanTaskCard's icon-only quick-add chips) and needs a maxWidth to stay compact.
+  targetChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 30,
+    maxWidth: 92,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+  },
+  targetChipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, flexShrink: 1 },
   footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   expandedBody: { gap: 0 },
   shoppingSection: { gap: Spacing.xs, marginTop: Spacing.sm },

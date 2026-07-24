@@ -839,6 +839,10 @@ const en = {
     notesCollapse: 'Show less',
     shoppingExpand: 'Show full list',
     shoppingCollapse: 'Show less',
+    quantityLabel: 'Quantity',
+    weeklyListChip: 'This week',
+    addToTaskLabel: 'Also add as a task',
+    extraInfoPlaceholder: 'Details…',
     manageCards: {
       edit: 'Edit cards',
       done: 'Done',
@@ -2326,6 +2330,10 @@ const no: typeof en = {
     notesCollapse: 'Vis mindre',
     shoppingExpand: 'Vis full liste',
     shoppingCollapse: 'Vis mindre',
+    quantityLabel: 'Antall',
+    weeklyListChip: 'Denne uken',
+    addToTaskLabel: 'Legg også til som oppgave',
+    extraInfoPlaceholder: 'Detaljer…',
     manageCards: {
       edit: 'Rediger kort',
       done: 'Ferdig',
