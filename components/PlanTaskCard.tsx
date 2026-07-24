@@ -165,6 +165,24 @@
  *     its own left-aligned line under the title (same left edge the rail's own time boxes use).
  *     See the JSX comment at the header block for the full reasoning; same pattern was applied to
  *     HomeNotesCard/HomeShoppingCard's badges for consistency.
+ *   - **Badge/wash moved outside cardContent's padding (2026-07-24, follow-up — user report,
+ *     screenshot)**: `badgeFixed`'s `top`/`left` used to be plain `0`, with `cardContent`'s own
+ *     padding relied on to inset it — except React Native's real (native) behavior is that an
+ *     absolutely-positioned child DOES inherit its parent's padding as part of its origin
+ *     (confirmed by `CardAccentWash`'s pre-existing `-Spacing.md` bleed, which exists purely to
+ *     cancel that same inheritance) — while react-native-web (this repo's headless preview
+ *     tooling) does NOT reproduce that inheritance, since it compiles straight to CSS, where the
+ *     absolute containing block is the padding *edge*, not the content box. Testing changes here
+ *     against the web preview alone is actively misleading for this exact interaction. Setting
+ *     `top: Spacing.md, left: Spacing.md` on top of `cardContent`'s own padding "fixed" it on web
+ *     but doubled the inset on native (compounded: 16 inherited + 16 explicit = 32), which read as
+ *     the badge floating away from the corner instead of framing it. Fix: `CardAccentWash` and
+ *     `CardAccentBadge` now mount as siblings of `cardContent` (not children of it), directly
+ *     inside `Surface` (still gated on `readOnly`, same as before) — `Surface` itself adds no
+ *     padding of its own (see Surface.tsx: padding keys in the `style` prop route to its inner
+ *     content view, and `card`'s style here carries none) — so their `top`/`left` offsets are
+ *     unambiguous on both platforms; no padding-inheritance question to get wrong. `cardContent`
+ *     keeps its own padding for its own (flow) children unchanged.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -724,6 +742,15 @@ export default function PlanTaskCard({
       elevated={expanded}
       style={[styles.card, !expanded && styles.cardCollapsed]}
     >
+      {/* Header wash + badge mount OUTSIDE cardContent, directly in Surface (only in
+          read-only/Home-preview mode) — see the "Badge/wash moved outside cardContent's
+          padding" edit note below for why. */}
+      {readOnly && (
+        <>
+          <CardAccentWash domain="plan" />
+          <CardAccentBadge domain="plan" size={32} style={styles.badgeFixed} />
+        </>
+      )}
       <View style={styles.cardContent}>
 
         {/* Section header — only in read-only (Home preview) mode */}
@@ -744,9 +771,7 @@ export default function PlanTaskCard({
               right-floated corner chip to its own left-aligned line under the title — the rail below
               shows every task's time on the left too, so the one live clock reading belongs on that
               same left edge, not orphaned in the opposite corner. */}
-          <CardAccentWash domain="plan" style={styles.headerWash} />
           <PressableScale onPress={() => router.push('/plans')} style={styles.headerRowPressable} scaleTo={0.97}>
-            <CardAccentBadge domain="plan" size={32} style={styles.badgeFixed} />
             <View style={styles.headerTopRow}>
               <Text style={[styles.headerTitle, { color: theme.text }]}>{t.home.todaysPlans}</Text>
               {pendingCount > 0 && (
@@ -773,7 +798,7 @@ export default function PlanTaskCard({
 
         {showEmpty ? (
           <View style={styles.emptyWrap}>
-            <HomePreviewEmpty text={t.timelineEmpty} domain="plan" domainColor={domainColor} />
+            <HomePreviewEmpty text={t.timelineEmpty} domainColor={domainColor} />
             {/* Ghost "add" row (debug-note 2026-07-21) — an empty day should still offer a
                 place to add something. Deep-links to the Plans tab; only shown as a FALLBACK
                 when no inline add is wired (`onAddTask` absent). When onAddTask IS passed
@@ -921,7 +946,6 @@ const baseStyles = StyleSheet.create({
   // CardAccentWash band instead of hugging the top edge (2026-07-24: the old "hug the top / sit
   // high in the band" tuning read as "title too high, not centered between the top border and the
   // wash divider" — user report). The 32px badge now centers at ~y=32 in the [0,64] band.
-  // headerWash's `top` is kept in lockstep (-Spacing.md) so the band still starts at the card edge.
   cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.md, position: 'relative' },
   rail: { paddingVertical: Spacing.xs },
   // Quick-add extras (2026-07-24) — compact repeat/energy toggle chips beside TimeBoxInput.
@@ -1033,7 +1057,6 @@ const baseStyles = StyleSheet.create({
   doneRows: { paddingBottom: Spacing.sm },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
-  headerWash: { top: -Spacing.md, left: -Spacing.md, right: -Spacing.md },
   // marginBottom Spacing.md (was .sm) so the content starts exactly at the 64px wash divider
   // (paddingTop 16 + badge 32 + 16 = 64) — see the CardAccentWash comment above.
   headerRowPressable: { marginBottom: Spacing.md },
@@ -1043,10 +1066,9 @@ const baseStyles = StyleSheet.create({
   headerTopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 56 },
   // Takes the badge out of flex flow so its position is fixed regardless of sibling content
   // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
-  // top/left Spacing.md (not 0) — 0 sat the badge flush in the card's own rounded top-left
-  // corner, clipping it against the mask (2026-07-24 bug report: "badge wrongly placed,
-  // upper-left corner"). Spacing.md matches cardContent's own padding, so the badge lines up
-  // with where normal content starts instead of overlapping the corner.
+  // Mounts as a sibling of cardContent now (not a child of it), directly in the unpadded
+  // Surface — see the "Badge/wash moved outside cardContent's padding" file-header note for
+  // why. top/left Spacing.md is now an unambiguous single inset on both platforms.
   badgeFixed: { position: 'absolute', top: Spacing.md, left: Spacing.md, zIndex: 2 },
   // Persistent "now" indicator (visual-audit 2026-07-11) — always visible in the header. Moved
   // from a right-floated corner chip to its own left-aligned line under the title (2026-07-24) —

@@ -55,6 +55,23 @@
  *     Both paths gate on `reducedMotion` and fall through to plain `onToggle()`.
  *   - **Badge pinned (2026-07-24)**: `CardAccentBadge` is absolutely positioned (`badgeFixed`)
  *     instead of inline in `titleRow` — see the JSX comment at the header block.
+ *   - **Badge/wash moved outside cardContent's padding (2026-07-24, follow-up — user report,
+ *     screenshot)**: `badgeFixed`'s `top`/`left` used to be plain `0`, with `cardContent`'s own
+ *     padding relied on to inset it — except React Native's real (native) behavior is that an
+ *     absolutely-positioned child DOES inherit its parent's padding as part of its origin
+ *     (confirmed by `CardAccentWash`'s pre-existing `-Spacing.md` bleed, which exists purely to
+ *     cancel that same inheritance) — while react-native-web (this repo's headless preview
+ *     tooling) does NOT reproduce that inheritance, since it compiles straight to CSS, where the
+ *     absolute containing block is the padding *edge*, not the content box. Testing changes here
+ *     against the web preview alone is actively misleading for this exact interaction. Setting
+ *     `top: Spacing.md, left: Spacing.md` on top of `cardContent`'s own padding "fixed" it on web
+ *     but doubled the inset on native (compounded: 16 inherited + 16 explicit = 32), which read as
+ *     the badge floating away from the corner instead of framing it. Fix: `CardAccentWash` and
+ *     `CardAccentBadge` now mount as siblings of `cardContent` (not children of it), directly
+ *     inside `Surface` — which itself adds no padding of its own (see Surface.tsx: padding keys in
+ *     the `style` prop route to its inner content view, and `card`'s style here carries none) — so
+ *     their `top`/`left` offsets are unambiguous on both platforms; no padding-inheritance question
+ *     to get wrong. `cardContent` keeps its own padding for its own (flow) children unchanged.
  *   - **Quick-add (2026-07-24)**: previously this card had no add affordance at all — items
  *     could only be toggled/adjusted, not created. A trailing `AddRow` (gated on the optional
  *     `onAddItem` callback, same "gate on the callback" convention as PlanTaskCard's own
@@ -226,23 +243,13 @@ export default function HomeShoppingCard({
       borderColor={domainColor.accent}
       style={[styles.card, !expanded && styles.cardCollapsed]}
     >
+      {/* Header wash + badge mount OUTSIDE cardContent, directly in Surface — see the
+          "Badge/wash moved outside cardContent's padding" edit note above for why. */}
+      <CardAccentWash domain="shop" />
+      <CardAccentBadge domain="shop" size={32} style={styles.badgeFixed} />
       <View style={styles.cardContent}>
-        {/* Header wash — the "one gradient move" (bled past the content padding to the card edge). */}
-        {/* Wash band = default 64 (2026-07-24, "stretch the colour to fit the text"): the taller
-            band gives symmetric colour above/below the header. titleRowPressable's marginBottom is
-            bumped to Spacing.md so the content still starts at the band divider (paddingTop 16 +
-            badge 32 + 16 = 64), keeping the body aligned.
-            **Badge pinned (2026-07-24)**: the badge is absolutely positioned (`badgeFixed`) instead
-            of inline in `titleRow` — inline + vertically centred, it could drift toward the wash/
-            surface seam when the title's lineHeight grows at large accessibility text sizes
-            ("touching the line" — user report). Pinning it removes that dependency; `titleRow` gets
-            a matching `paddingLeft` (badge width + gap) so the title text still clears it. Same
-            pattern applied to PlanTaskCard/HomeNotesCard for consistency. */}
-        <CardAccentWash domain="shop" style={styles.headerWash} />
-
         {/* Title row */}
         <PressableScale onPress={handleTitlePress} style={styles.titleRowPressable} scaleTo={0.97}>
-          <CardAccentBadge domain="shop" size={32} style={styles.badgeFixed} />
           <View style={styles.titleRow}>
             <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
               {list?.name ?? t.shoppingTitle}
@@ -273,7 +280,7 @@ export default function HomeShoppingCard({
         )}
 
         {totalCount === 0 ? (
-          <HomePreviewEmpty text={t.shoppingEmpty} domain="shop" domainColor={domainColor} />
+          <HomePreviewEmpty text={t.shoppingEmpty} domainColor={domainColor} />
         ) : expanded ? (
           // Expanded: full nested structure
           <View style={styles.rowsContainer}>
@@ -414,12 +421,8 @@ const baseStyles = StyleSheet.create({
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   // paddingTop Spacing.md (was Spacing.sm) so the header sits VERTICALLY CENTERED in the 64px
   // CardAccentWash band instead of hugging the top edge — matches PlanTaskCard's 2026-07-24 fix
-  // for "title too high, not centered between the top border and the wash divider". headerWash's
-  // `top` is kept in lockstep (-Spacing.md) so the band still starts at the card edge.
+  // for "title too high, not centered between the top border and the wash divider".
   cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.md },
-  // Bleed the wash band past cardContent's padding so it spans the full card width and touches
-  // the top (top offset == -paddingTop so the band starts exactly at the card edge).
-  headerWash: { top: -Spacing.md, left: -Spacing.md, right: -Spacing.md },
   // marginBottom Spacing.md (was .sm) so the content starts at the 64px wash divider — see the
   // CardAccentWash comment above.
   titleRowPressable: { marginBottom: Spacing.md },
@@ -428,10 +431,9 @@ const baseStyles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 56 },
   // Takes the badge out of flex flow so its position is fixed regardless of sibling content
   // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
-  // top/left Spacing.md (not 0) — 0 sat the badge flush in the card's own rounded top-left
-  // corner, clipping it against the mask (2026-07-24 bug report: "badge wrongly placed,
-  // upper-left corner"). Spacing.md matches cardContent's own padding, so the badge lines up
-  // with where normal content starts instead of overlapping the corner.
+  // Mounts as a sibling of cardContent now (not a child of it), directly in the unpadded
+  // Surface — see the "Badge/wash moved outside cardContent's padding" file-header note for
+  // why. top/left Spacing.md is now an unambiguous single inset on both platforms.
   badgeFixed: { position: 'absolute', top: Spacing.md, left: Spacing.md, zIndex: 2 },
   progressBar: { marginTop: Spacing.xs },
   paceText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginBottom: Spacing.sm },
