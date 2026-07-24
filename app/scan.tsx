@@ -53,9 +53,8 @@
  *     just "unmounts" now means "user navigated back" instead of "pager swiped away."
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated } from 'react-native';
-import TextRecognition from '@react-native-ml-kit/text-recognition';
 import {
+  Animated,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -66,6 +65,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -124,7 +124,7 @@ export default function ScanScreen() {
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [mode, setMode] = useState<ScreenMode>('idle');
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [, setImageUri] = useState<string | null>(null);
   const [parsedItems, setParsedItems] = useState<ParsedItem[]>([]);
   const [selectedStore, setSelectedStore] = useState('');
   // Shopping — Monthly redesign (2026-07-22): which Monthly list this receipt's spend counts
@@ -163,6 +163,9 @@ export default function ScanScreen() {
     autoCaptureFired.current = true;
     if (autoCapture === 'camera') takePhoto();
     else if (autoCapture === 'library') pickImage();
+  // takePhoto/pickImage are plain functions recreated every render; autoCaptureFired guards
+  // against them firing more than once.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoCapture]);
 
   // Pulsing animation for scanning state. Captured in a ref and stopped on mode-change/

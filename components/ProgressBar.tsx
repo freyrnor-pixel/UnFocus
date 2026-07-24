@@ -19,7 +19,6 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View, StyleProp, ViewStyle } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
-import { Radius } from '@/constants/theme';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 
 type Props = {

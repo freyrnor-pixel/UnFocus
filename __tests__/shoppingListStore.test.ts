@@ -11,6 +11,8 @@
  * headless (no native SQLite). getAllSync returns [] so copyOpenItemsToList copies
  * nothing; runSync/insert are no-ops we don't assert on here.
  */
+import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore';
+
 jest.mock('@/lib/db', () => ({
   __esModule: true,
   default: {
@@ -21,8 +23,6 @@ jest.mock('@/lib/db', () => ({
     withTransactionSync: jest.fn((fn: () => void) => fn()),
   },
 }));
-
-import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore';
 
 const TODAY = '2026-07-15';
 

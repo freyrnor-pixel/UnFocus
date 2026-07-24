@@ -5,6 +5,9 @@
  * glue (ensureCalendar/syncTaskCalendarEvent/cancelTaskCalendarEvent) is left
  * to manual device verification per TESTING.md's scoping of native-module glue.
  */
+import { isCalendarEligible, buildEventDetails } from '@/lib/taskCalendar';
+import type { Task } from '@/store/useTaskStore';
+
 jest.mock('expo-calendar', () => ({
   ExpoCalendar: { get: jest.fn() },
   ExpoCalendarEvent: { get: jest.fn() },
@@ -15,9 +18,6 @@ jest.mock('expo-calendar', () => ({
   EntityTypes: { EVENT: 'event' },
   CalendarAccessLevel: { OWNER: 'owner' },
 }));
-
-import { isCalendarEligible, buildEventDetails } from '@/lib/taskCalendar';
-import type { Task } from '@/store/useTaskStore';
 
 function baseTask(overrides: Partial<Task> = {}): Pick<Task, 'recurring' | 'time'> & Partial<Task> {
   return {

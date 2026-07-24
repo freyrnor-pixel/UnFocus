@@ -11,6 +11,9 @@
  * not exact equality (2026-07-20) — see the dedicated test below for an OCR-near-miss
  * case, which asserts it updates the existing row instead of inserting a duplicate.
  */
+import db from '@/lib/db';
+import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
+
 jest.mock('@/lib/db', () => ({
   __esModule: true,
   default: {
@@ -21,9 +24,6 @@ jest.mock('@/lib/db', () => ({
     withTransactionSync: jest.fn((fn: () => void) => fn()),
   },
 }));
-
-import db from '@/lib/db';
-import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 
 function item(overrides: Partial<StoreItem>): StoreItem {
   return { id: 'i1', name: 'Item', category: 'other', store: '', price: 0, ...overrides };

@@ -8,6 +8,10 @@
  * contract. Only the scheduling primitives and i18n are mocked; the real
  * isWithinQuietHours math (lib/notifications) is kept.
  */
+import * as notif from '@/lib/notifications';
+import { syncHabitReminder, HabitNotifSettings } from '@/lib/habitNotifications';
+import type { Habit } from '@/store/useHabitStore';
+
 jest.mock('@/lib/notifications', () => {
   const actual = jest.requireActual('@/lib/notifications');
   return {
@@ -25,10 +29,6 @@ jest.mock('@/lib/i18n', () => ({
     },
   }),
 }));
-
-import * as notif from '@/lib/notifications';
-import { syncHabitReminder, HabitNotifSettings } from '@/lib/habitNotifications';
-import type { Habit } from '@/store/useHabitStore';
 
 const schedule = notif.scheduleDailyReminder as jest.Mock;
 

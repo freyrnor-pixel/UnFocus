@@ -184,6 +184,7 @@ async function updateAndroidWidgets(snapshot: WidgetSnapshot) {
   if (Platform.OS !== 'android') return;
   try {
     // Lazily required so the native module is never referenced off-Android.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { requestWidgetUpdate } = require('react-native-android-widget');
     await Promise.all(
       WIDGET_NAMES.map((name) =>

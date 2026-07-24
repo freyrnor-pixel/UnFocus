@@ -7,6 +7,7 @@
  * preview.
  */
 import { getMaterialStyle, getLayeredShadow, getGlow, rgba, lighten, darken, MaterialVariant } from '@/constants/theme';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 // Keep the settings-store import DB-free: the module reaches @/lib/db via dataAccess at
 // import time, and load() isn't called here, so a minimal stub is enough.
@@ -159,7 +160,6 @@ describe('glass settings', () => {
     // glassBlur (the Android backdrop-blur toggle) was removed in the 2026-07-18
     // simplification along with the BlurTarget system it gated — glassSurfaces (the
     // reduce-transparency a11y toggle) is the only glass setting left.
-    const { useSettingsStore } = require('@/store/useSettingsStore');
     expect(useSettingsStore.getState().glassSurfaces).toBe(true);
   });
 });
@@ -168,7 +168,6 @@ describe('voice settings', () => {
   it('voiceNotesEnabled defaults ON so the task-form mic is available out of the box', () => {
     // 2026-07-18: enabled by default; existing installs flipped on by a one-time UPDATE
     // migration in lib/db.ts. Notes/Home mic buttons render regardless of this flag.
-    const { useSettingsStore } = require('@/store/useSettingsStore');
     expect(useSettingsStore.getState().voiceNotesEnabled).toBe(true);
   });
 });

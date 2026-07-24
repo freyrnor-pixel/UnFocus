@@ -104,6 +104,9 @@ export default function TabSlider<T extends string | number>({
       tx.value = withTiming(active.x, { duration: 150, easing: Easing.out(Easing.cubic) });
       pw.value = withTiming(active.width, { duration: 150, easing: Easing.out(Easing.cubic) });
     }
+  // Deliberately depends on active's primitives, not `active` itself, since segLayouts
+  // recreates the object every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active?.x, active?.width, reducedMotion, tx, pw]);
 
   const pillStyle = useAnimatedStyle(() => ({

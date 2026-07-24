@@ -285,7 +285,6 @@ export default function RootLayout() {
       require('../assets/android-icon-monochrome.png'),
     ]).then(markAssetsReady).catch(markAssetsReady);
     if (__DEV__) {
-      // eslint-disable-next-line no-console
       console.log(`[perf] cold-start sync boot (initDb + Tier A store loads): ${Date.now() - t0}ms`);
     }
     // Tier B: only back screens 2+ swipes from Home (Scan's receipts) or non-tab

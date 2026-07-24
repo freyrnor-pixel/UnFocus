@@ -11,6 +11,10 @@
  * proves the rest of useTaskStore's side effects — notifications, calendar sync,
  * live-sync broadcast — are safe no-ops in the headless test env).
  */
+import { useTaskStore } from '@/store/useTaskStore';
+import type { Task } from '@/store/useTaskStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
+
 jest.mock('@/lib/db', () => ({
   __esModule: true,
   default: {
@@ -21,10 +25,6 @@ jest.mock('@/lib/db', () => ({
     withTransactionSync: jest.fn((fn: () => void) => fn()),
   },
 }));
-
-import { useTaskStore } from '@/store/useTaskStore';
-import type { Task } from '@/store/useTaskStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
 
 function task(overrides: Partial<Task>): Task {
   return {

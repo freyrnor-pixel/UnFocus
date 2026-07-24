@@ -58,7 +58,7 @@ function toDateStr(y: number, m: number, d: number): string {
 export default function DatePickerCalendar({ value, onChange, dayLabels, monthLabels, calendarLabels }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
-  const [selY, selM, selD] = parseDateParts(value);
+  const [selY, selM] = parseDateParts(value);
   const [viewYear, setViewYear] = useState(selY);
   const [viewMonth, setViewMonth] = useState(selM);
 

@@ -27,7 +27,7 @@
  *     hero moment (longer than the §1 interaction bands, which is fine for a launch reveal).
  */
 import React, { useEffect, useRef } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,

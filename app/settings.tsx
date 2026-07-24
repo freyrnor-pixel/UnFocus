@@ -139,7 +139,7 @@
  *     vs. every other screen's `Spacing.md`/`lg` content gap, per direct feedback.
  */
 import React, { useState } from 'react';
-import { Linking, Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';

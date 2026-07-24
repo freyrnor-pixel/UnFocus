@@ -111,7 +111,6 @@ import { getScreenColor } from '@/lib/screenColor';
 import { tap } from '@/lib/haptics';
 import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
 import { Task, useTaskStore } from '@/store/useTaskStore';
-import { useNotesStore } from '@/store/useNotesStore';
 import { SharedShoppingItem, SharedTask, useSharedStore } from '@/store/useSharedStore';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import { useShoppingListStore } from '@/store/useShoppingListStore';
@@ -235,19 +234,23 @@ export default function HomeScreen() {
       return () => {
         setHintOpen(false);
       };
-    }, [])
+    }, [setHintOpen])
   );
 
   // These derived views used to recompute on EVERY render (each is a full-array filter/
   // sort; computeListGroups also groups by dish). Memoise them on the store state they read
   // — `tasksForDate`/`currentList` are stable store fn refs, so `tasks` /
   // `shoppingLists` / `shoppingItems` are the real inputs that should drive recompute.
+  // `tasks` isn't read in the body but is the real recompute signal (tasksForDate closes
+  // over store state, not this variable).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const todayTasks = useMemo(() => tasksForDate(today), [tasksForDate, today, tasks]);
 
   // currentList is a fn ref; `shoppingLists` is the real input, so memo on it (this also
   // replaces the old `void shoppingLists` render-subscription hack).
   const currentShoppingList = useMemo(
     () => currentListFn(today),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentListFn, today, shoppingLists]
   );
   const { dishGroups, ungroupedUnchecked, checked } = useMemo(

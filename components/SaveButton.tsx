@@ -78,7 +78,7 @@ export function SaveButton({ visible, onPress, label }: SaveButtonProps) {
         easing: Easing.in(Easing.cubic),
       });
     }
-  }, [visible]);
+  }, [visible, opacity, scale]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

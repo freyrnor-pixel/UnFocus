@@ -5,6 +5,8 @@
  * The store imports the SQLite handle at top level, so '@/lib/db' is mocked to stay
  * headless (no native SQLite) — same pattern as shoppingListStore.test.ts.
  */
+import { useMonthlyListStore } from '@/store/useMonthlyListStore';
+
 jest.mock('@/lib/db', () => ({
   __esModule: true,
   default: {
@@ -15,8 +17,6 @@ jest.mock('@/lib/db', () => ({
     withTransactionSync: jest.fn((fn: () => void) => fn()),
   },
 }));
-
-import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 
 afterEach(() => {
   useMonthlyListStore.setState({ lists: [] });

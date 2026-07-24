@@ -84,7 +84,7 @@ export function StickySaveBar({
         easing: Easing.in(Easing.cubic),
       });
     }
-  }, [visible]);
+  }, [visible, translateY, opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],

@@ -7,6 +7,11 @@
  * / WIDGET_RESIZED prefer the more-precise app-built cache. All collaborators are mocked so the
  * test stays headless.
  */
+import { widgetTaskHandler } from '@/lib/widgets/handler';
+import { readWidgetSnapshot } from '@/lib/widgets/snapshot';
+import { buildHeadlessSnapshot } from '@/lib/widgets/headlessSnapshot';
+import { renderWidgetByName } from '@/lib/widgets/WidgetViews';
+
 jest.mock('@/lib/widgets/snapshot', () => ({
   __esModule: true,
   readWidgetSnapshot: jest.fn(),
@@ -27,11 +32,6 @@ jest.mock('@/lib/widgets/widgetActions', () => ({
   toggleNoteChecked: jest.fn(),
   toggleHabitDone: jest.fn(),
 }));
-
-import { widgetTaskHandler } from '@/lib/widgets/handler';
-import { readWidgetSnapshot } from '@/lib/widgets/snapshot';
-import { buildHeadlessSnapshot } from '@/lib/widgets/headlessSnapshot';
-import { renderWidgetByName } from '@/lib/widgets/WidgetViews';
 
 const mockRead = readWidgetSnapshot as jest.Mock;
 const mockHeadless = buildHeadlessSnapshot as jest.Mock;

@@ -15,6 +15,10 @@
  * shoppingListStore.test.ts). Reference dates below (all 2026):
  *   Mon 07-13, Wed 07-15, Thu 07-16, Sun 07-19, Wed 07-22, Wed 07-29.
  */
+import { taskOccursOn } from '@/store/useTaskStore';
+import type { Task } from '@/store/useTaskStore';
+import { nextOccurrenceDate } from '@/lib/taskRecurrence';
+
 jest.mock('@/lib/db', () => ({
   __esModule: true,
   default: {
@@ -25,10 +29,6 @@ jest.mock('@/lib/db', () => ({
     withTransactionSync: jest.fn((fn: () => void) => fn()),
   },
 }));
-
-import { taskOccursOn } from '@/store/useTaskStore';
-import type { Task } from '@/store/useTaskStore';
-import { nextOccurrenceDate } from '@/lib/taskRecurrence';
 
 function task(overrides: Partial<Task>): Task {
   return {

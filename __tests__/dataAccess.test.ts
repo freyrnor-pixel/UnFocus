@@ -8,23 +8,7 @@
  */
 // Mock the SQLite handle. Defined inside the factory (not a captured const) so
 // it survives jest.mock hoisting; we grab a typed handle via the import below.
-jest.mock('@/lib/db', () => ({
-  __esModule: true,
-  default: {
-    getAllSync: jest.fn(),
-    getFirstSync: jest.fn(),
-    runSync: jest.fn(),
-    withTransactionSync: jest.fn((fn: () => void) => fn()),
-  },
-}));
-
 import db from '@/lib/db';
-const mockDb = db as unknown as {
-  getAllSync: jest.Mock;
-  getFirstSync: jest.Mock;
-  runSync: jest.Mock;
-  withTransactionSync: jest.Mock;
-};
 
 import {
   buildSelect,
@@ -45,6 +29,22 @@ import {
   tx,
   type FieldMap,
 } from '@/lib/dataAccess';
+
+jest.mock('@/lib/db', () => ({
+  __esModule: true,
+  default: {
+    getAllSync: jest.fn(),
+    getFirstSync: jest.fn(),
+    runSync: jest.fn(),
+    withTransactionSync: jest.fn((fn: () => void) => fn()),
+  },
+}));
+const mockDb = db as unknown as {
+  getAllSync: jest.Mock;
+  getFirstSync: jest.Mock;
+  runSync: jest.Mock;
+  withTransactionSync: jest.Mock;
+};
 
 beforeEach(() => jest.clearAllMocks());
 

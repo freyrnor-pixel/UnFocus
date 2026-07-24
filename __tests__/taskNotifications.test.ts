@@ -13,6 +13,10 @@
  * nextOccurrenceDate) — those tests fix the system clock with fake timers since
  * "next occurrence" is relative to "today".
  */
+import * as notif from '@/lib/notifications';
+import { syncTaskNotification, TaskNotifSettings } from '@/lib/taskNotifications';
+import type { Task } from '@/store/useTaskStore';
+
 jest.mock('@/lib/notifications', () => {
   const actual = jest.requireActual('@/lib/notifications');
   return {
@@ -27,10 +31,6 @@ jest.mock('@/lib/notifications', () => {
 jest.mock('@/lib/i18n', () => ({
   getTranslations: () => ({ notif: { overviewNothingElse: 'nothing else' } }),
 }));
-
-import * as notif from '@/lib/notifications';
-import { syncTaskNotification, TaskNotifSettings } from '@/lib/taskNotifications';
-import type { Task } from '@/store/useTaskStore';
 
 const schedule = notif.scheduleTaskNotification as jest.Mock;
 const scheduleWeekly = notif.scheduleWeeklyTaskNotifications as jest.Mock;

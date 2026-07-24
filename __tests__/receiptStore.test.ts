@@ -6,6 +6,9 @@
  * Mocks '@/lib/db' (lib/dataAccess.ts's insertRow/loadAll write through db.runSync/
  * getAllSync), same headless idiom as settingsStore.test.ts.
  */
+import db from '@/lib/db';
+import { useReceiptStore } from '@/store/useReceiptStore';
+
 jest.mock('@/lib/db', () => ({
   __esModule: true,
   default: {
@@ -16,9 +19,6 @@ jest.mock('@/lib/db', () => ({
     withTransactionSync: jest.fn((fn: () => void) => fn()),
   },
 }));
-
-import db from '@/lib/db';
-import { useReceiptStore } from '@/store/useReceiptStore';
 
 afterEach(() => {
   useReceiptStore.setState({ receipts: [] });

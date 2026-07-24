@@ -8,6 +8,10 @@
  * creates the single SAF file and returns its content URI + a folder label.
  * We drive it with mocked expo-file-system/legacy + db and assert the write target.
  */
+import { Platform } from 'react-native';
+import { saveAutoBackup, chooseAutoBackupLocation } from '@/lib/backup';
+import { useSettingsStore } from '@/store/useSettingsStore';
+
 const mockWriteAsString = jest.fn().mockResolvedValue(undefined);
 const mockSafWrite = jest.fn().mockResolvedValue(undefined);
 const mockSafCreate = jest.fn();
@@ -41,10 +45,6 @@ jest.mock('@/lib/db', () => ({
     withTransactionSync: (fn: () => void) => fn(),
   },
 }));
-
-import { Platform } from 'react-native';
-import { saveAutoBackup, chooseAutoBackupLocation } from '@/lib/backup';
-import { useSettingsStore } from '@/store/useSettingsStore';
 
 beforeEach(() => {
   mockWriteAsString.mockClear();
