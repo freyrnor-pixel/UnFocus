@@ -1377,7 +1377,7 @@ export default function ShoppingScreen() {
     // softly through the frost AROUND the opaque tab chips, and content scrolling behind the
     // sticky strip blurs instead of showing through raw (2026-07-20). borderRadius:0 = edge-to-edge.
     <Surface surfaceContext="overlay" style={[styles.stickyBar, styles.stickyGlass]}>
-      <TabSlider sizing="content" value={tab} onChange={setTab} options={tabSliderOptions} />
+      <TabSlider value={tab} onChange={setTab} options={tabSliderOptions} />
 
       {/* The focused-list name + live-progress summary row under the tabs was removed
           (debug-note 2026-07-21) — the per-list card already carries its own name and

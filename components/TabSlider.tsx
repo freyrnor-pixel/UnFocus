@@ -7,11 +7,12 @@
  *
  * Unlike SlideSelector (fixed N equal-width options, a pure value picker),
  * this is meant for navigation tab bars: options can carry a per-tab accent
- * colour and an arbitrary `accessory` node (a count badge, a cue dot), and
- * the track supports two width modes via `sizing` — see below. The pill's
+ * colour and an arbitrary `accessory` node (a count badge, a cue dot). Every
+ * segment sizes itself to its own label (flexGrow/flexShrink, no fixed/equal
+ * width mode) — see the removed `sizing` prop note below for why. The pill's
  * position AND width are driven off each segment's own measured layout
- * (`onLayout`), not analytic math, so it works whether segments are
- * equal-flex or content-sized.
+ * (`onLayout`), not analytic math, so a segment's highlight always matches
+ * its actual rendered width, whatever that turns out to be.
  *
  * **Never scrollable, by design (2026-07-23)**: there is deliberately no horizontal-scroll
  * mode. A tab bar the user has to drag isn't a natural fit for a small, fixed set of
@@ -27,14 +28,17 @@
  *   Data    → none (controlled; value/options/onChange from props)
  *
  * Edit notes:
- *   - `sizing`: 'equal' (flex:1, all segments same width — Plans' 3 similarly-short tabs)
- *     or 'content' (flexGrow/flexShrink, each segment sized to its own label — Shopping's
- *     2 tabs, and Settings' 4 tabs since 2026-07-24: 'equal' truncated Norwegian's "Generelt"
- *     to "Gene…" while shorter tabs sat with unused space). Both fill the full row width (flex,
- *     not intrinsic content width), so a short set of tabs reads as one naturally
- *     centered/evenly-spaced group, never left-justified with dead space on one side. Prefer
- *     'content' whenever a caller's labels vary a lot in length across languages — 'equal' only
- *     looks right when every label is roughly the same width.
+ *   - **No `sizing` prop (removed 2026-07-24)**: this used to offer an 'equal' mode (flex:1,
+ *     every segment the same width) alongside 'content' (flexGrow/flexShrink, sized to each
+ *     label). 'equal' was a trap — it looked fine for whichever language a screen was built
+ *     and eyeballed in, then silently truncated a tab the moment a translation came out
+ *     longer (Settings' Norwegian "Generelt" → "Gene…", 2026-07-24, while English's similarly-
+ *     short "General" never showed the bug). Fixing that meant manually flipping the prop
+ *     per screen, which only holds until the next label edit makes some other screen's tabs
+ *     uneven again. Every segment now always sizes to its own content (flexGrow/flexShrink,
+ *     still filling the full row width so a short set of tabs reads as one naturally
+ *     centered/evenly-spaced group, never left-justified with dead space) — this adapts
+ *     automatically to any label/language change, with nothing per-caller to keep in sync.
  *   - `radius`: defaults to Radius.sm (boxed chip look, every caller — Plans/Shopping
  *     included). Settings passes Radius.md instead — purely a visual choice per caller,
  *     doesn't change layout/sizing. Only SlideSelector (Day/Week/Month) keeps the full-pill
@@ -67,7 +71,6 @@ type Props<T extends string | number> = {
   options: TabSliderOption<T>[];
   value: T;
   onChange: (next: T) => void;
-  sizing?: 'equal' | 'content';
   /** Track/pill corner radius. Default Radius.sm (boxed chip look — matches the old
    *  TabBoxHighlight). Pass a different value (e.g. Radius.md) to tweak the squareness. */
   radius?: number;
@@ -81,7 +84,6 @@ export default function TabSlider<T extends string | number>({
   options,
   value,
   onChange,
-  sizing = 'equal',
   radius = Radius.sm,
   style,
 }: Props<T>) {
@@ -130,7 +132,6 @@ export default function TabSlider<T extends string | number>({
   }, []);
 
   const pillH = Math.max(0, trackH - TRACK_PAD * 2);
-  const segmentSizing = sizing === 'equal' ? styles.segmentEqual : styles.segmentContent;
 
   const content = (
     <>
@@ -149,7 +150,7 @@ export default function TabSlider<T extends string | number>({
         return (
           <PressableScale
             key={String(opt.value)}
-            style={[styles.segment, { borderRadius: radius }, segmentSizing]}
+            style={[styles.segment, { borderRadius: radius }]}
             onLayout={(e: LayoutChangeEvent) => {
               const { x, width } = e.nativeEvent.layout;
               setSegLayout(i, x, width);
@@ -197,16 +198,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
   },
+  // flexGrow/flexShrink (not flex:1 fixed-equal): each segment sizes to its own label,
+  // then shares any leftover/overflow row width — the only mode this component has (see
+  // the "No `sizing` prop" edit note above for why a fixed-equal mode was removed).
   segment: {
     flexDirection: 'row',
+    flexGrow: 1,
+    flexShrink: 1,
     minHeight: 38,
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
     paddingHorizontal: Spacing.md,
   },
-  segmentEqual: { flex: 1 },
-  segmentContent: { flexGrow: 1, flexShrink: 1 },
   // includeFontPadding/textAlignVertical: without these, Android adds font-metric
   // padding below the glyph baseline that flex's alignItems:'center' doesn't know
   // about, so the label optically sits low inside the segment (same bug/fix as
