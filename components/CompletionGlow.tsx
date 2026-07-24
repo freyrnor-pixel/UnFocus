@@ -70,7 +70,7 @@ export default function CompletionGlow({ trigger, color, radius = Radius.md }: P
       withTiming(0, { duration: 400, easing: Easing.out(Easing.quad) }),
     );
     scale.value = withTiming(1.05, { duration: 300, easing: Easing.out(Easing.quad) });
-  }, [trigger, reducedMotion]);
+  }, [trigger, reducedMotion, mounted, opacity, scale]);
 
   const animStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

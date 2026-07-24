@@ -27,7 +27,6 @@
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useSharedStore, SharedTask, SharedShoppingItem } from '@/store/useSharedStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
@@ -43,7 +42,6 @@ import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 type Tab = 'tasks' | 'shopping';
 
 export default function SharedScreen() {
-  const router = useRouter();
   const [tab, setTab] = useState<Tab>('shopping');
 
   const t = useT();

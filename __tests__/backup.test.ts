@@ -8,6 +8,8 @@
  * We drive it with a db mock whose getAllSync answers sqlite_master + PRAGMA
  * table_info, and assert the INSERT/DELETE calls it makes.
  */
+import { restoreBackup, BackupFile } from '@/lib/backup';
+
 const mockRunSync = jest.fn();
 const mockExecSync = jest.fn();
 
@@ -27,8 +29,6 @@ jest.mock('@/lib/db', () => ({
     withTransactionSync: (fn: () => void) => fn(),
   },
 }));
-
-import { restoreBackup, BackupFile } from '@/lib/backup';
 
 const runSync = mockRunSync;
 const execSync = mockExecSync;

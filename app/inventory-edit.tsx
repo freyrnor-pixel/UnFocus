@@ -49,7 +49,7 @@ import EmptyState from '@/components/EmptyState';
 import { success, heavy } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Radius, Shadow, Spacing } from '@/constants/theme';
 
 export default function InventoryEditScreen() {
   const router = useRouter();

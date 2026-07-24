@@ -121,6 +121,9 @@ export default function AddDishSheet({ visible, onClose, onAdded, target }: Prop
         });
       }
     }
+  // Intentionally omits `mounted` (this effect sets it, so including it would re-fire the
+  // entrance/exit animation on its own state change) and `loadDishes`/`opacity`/`scale`.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, reducedMotion]);
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));

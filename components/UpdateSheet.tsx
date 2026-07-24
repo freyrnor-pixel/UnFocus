@@ -78,6 +78,9 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
       setTemporary(item.isTemporary);
       setDeleteArmed(false);
     }
+  // Deliberately depends on item's id, not `item` itself, so this only re-syncs form fields
+  // when the identity actually changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id]);
 
   function handleSave() {

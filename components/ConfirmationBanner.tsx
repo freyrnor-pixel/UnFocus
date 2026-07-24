@@ -86,7 +86,10 @@ export default function ConfirmationBanner({ message, onDismiss, duration = 2200
       }
     }, duration);
     return () => clearTimeout(id);
-  }, [message, reducedMotion, duration]);
+  // `onDismiss` intentionally omitted: callers often pass a fresh closure each render, and
+  // including it would reset this auto-dismiss timer before it fires.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message, reducedMotion, duration, progress]);
 
   const animStyle = useAnimatedStyle(() => ({
     opacity: progress.value,

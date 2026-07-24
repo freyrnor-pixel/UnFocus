@@ -74,7 +74,7 @@ export default function GlowPulse({ active, color, mode = 'breathe', level = 'so
       opacity.value = withTiming(1, { duration: 200 });
     }
     return () => cancelAnimation(opacity);
-  }, [active, breathe]);
+  }, [active, breathe, opacity]);
 
   const animStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 

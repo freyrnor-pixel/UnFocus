@@ -7,6 +7,10 @@
  */
 // Mocks are declared inside the factories (not captured consts) so they survive
 // jest.mock hoisting; typed handles are grabbed via the imports below.
+import * as notifModule from '@/lib/notifications';
+import { useSettingsStore } from '@/store/useSettingsStore';
+import { syncReminders } from '@/lib/reminders';
+
 jest.mock('@/lib/notifications', () => ({
   scheduleWeeklyReminder: jest.fn().mockResolvedValue(undefined),
   cancelWeeklyReminder: jest.fn().mockResolvedValue(undefined),
@@ -19,10 +23,6 @@ jest.mock('@/lib/i18n', () => ({
     notif: { weeklyTitle: 'wt', weeklyBody: 'wb', monthlyTitle: 'mt', monthlyBody: 'mb' },
   }),
 }));
-
-import * as notifModule from '@/lib/notifications';
-import { useSettingsStore } from '@/store/useSettingsStore';
-import { syncReminders } from '@/lib/reminders';
 
 const notif = notifModule as unknown as {
   scheduleWeeklyReminder: jest.Mock;

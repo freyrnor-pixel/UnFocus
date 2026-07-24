@@ -4,14 +4,14 @@
  * Verifies the three branches: permission granted + fix succeeds, permission
  * denied, and a native call throwing.
  */
+import * as Location from 'expo-location';
+import { getCurrentTaskLocation } from '@/lib/location';
+
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: jest.fn(),
   getCurrentPositionAsync: jest.fn(),
   Accuracy: { Balanced: 3 },
 }));
-
-import * as Location from 'expo-location';
-import { getCurrentTaskLocation } from '@/lib/location';
 
 describe('getCurrentTaskLocation', () => {
   afterEach(() => jest.clearAllMocks());

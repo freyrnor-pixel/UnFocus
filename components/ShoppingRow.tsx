@@ -219,7 +219,7 @@ function ShoppingRow({
       }
     }
     prevQty.current = safeQty;
-  }, [safeQty]);
+  }, [safeQty, highlight, reducedMotion]);
   const dimmed = variant === 'purchased' || (variant === 'planned' && item.checked);
   const showStepper = variant !== 'purchased' && !!(onIncrement || onDecrement);
   // Cart items allow decrement at qty=1 — the parent's onDecrement will handle the

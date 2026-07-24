@@ -605,7 +605,7 @@ export default function ShoppingScreen() {
       return () => {
         setHintOpen(false);
       };
-    }, [loadShopping, advanceRecurringLists, resetReviewVisible])
+    }, [loadShopping, advanceRecurringLists, resetReviewVisible, setHintOpen])
   );
 
   // Flat, all-lists-combined catalog — used only by AddFromMonthlyModal (Weekly's "Add from

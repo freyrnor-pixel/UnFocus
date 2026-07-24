@@ -24,7 +24,11 @@ import { Platform } from 'react-native';
 
 if (Platform.OS === 'android') {
   try {
+    // Must stay a runtime require so a build without the native widget module linked
+    // doesn't crash at import time.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { registerWidgetTaskHandler } = require('react-native-android-widget');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { widgetTaskHandler } = require('./lib/widgets/handler');
     registerWidgetTaskHandler(widgetTaskHandler);
   } catch {

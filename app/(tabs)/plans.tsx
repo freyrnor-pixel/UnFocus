@@ -124,7 +124,7 @@ import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { tap } from '@/lib/haptics';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
+import { FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { Spring } from '@/constants/motion';
 import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
@@ -353,10 +353,12 @@ export default function TasksScreen() {
 
   const todayList = useMemo(
     () => tasksForDate(today).filter((tk) => (tk.hasStartDate || tk.recurring !== 'none') && matchPerson(tk)).sort(byTime),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `tasks` drives recompute (tasksForDate reads the store, not this var), not read directly
     [tasksForDate, today, tasks, matchPerson]
   );
   const weekGroups = useMemo(
     () => tasksForWeek(weekStart).map((g) => ({ ...g, tasks: g.tasks.filter(matchPerson) })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `tasks` drives recompute (tasksForWeek reads the store, not this var), not read directly
     [tasksForWeek, weekStart, tasks, matchPerson]
   );
 

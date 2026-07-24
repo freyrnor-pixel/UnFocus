@@ -8,6 +8,8 @@
  * set(), so a no-op '@/lib/db' mock lets the JS state-machine be asserted without
  * a real database. State is seeded with setState directly.
  */
+import { useShoppingStore, ShoppingItem } from '@/store/useShoppingStore';
+
 jest.mock('@/lib/db', () => ({
   __esModule: true,
   default: {
@@ -18,8 +20,6 @@ jest.mock('@/lib/db', () => ({
     withTransactionSync: jest.fn((fn: () => void) => fn()),
   },
 }));
-
-import { useShoppingStore, ShoppingItem } from '@/store/useShoppingStore';
 
 function item(overrides: Partial<ShoppingItem>): ShoppingItem {
   return {

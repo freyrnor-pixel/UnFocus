@@ -7,6 +7,9 @@
  * Mocks '@/lib/db' so load() reads a fake row and update() writes are asserted via
  * the mocked runSync call, same headless idiom as shoppingStore.test.ts.
  */
+import db from '@/lib/db';
+import { useSettingsStore } from '@/store/useSettingsStore';
+
 jest.mock('@/lib/db', () => ({
   __esModule: true,
   default: {
@@ -17,9 +20,6 @@ jest.mock('@/lib/db', () => ({
     withTransactionSync: jest.fn((fn: () => void) => fn()),
   },
 }));
-
-import db from '@/lib/db';
-import { useSettingsStore } from '@/store/useSettingsStore';
 
 describe('homeCardOrder', () => {
   it('defaults to plans/notes/shopping (Tasks first) when the settings row has no value', () => {

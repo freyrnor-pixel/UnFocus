@@ -17,7 +17,7 @@
  */
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import qrcode from 'qrcode-generator';
+import createQrCode from 'qrcode-generator';
 
 type Props = {
   data: string;
@@ -27,7 +27,7 @@ type Props = {
 export default function QRCodeDisplay({ data, size = 240 }: Props) {
   const modules = useMemo(() => {
     try {
-      const qr = qrcode(0, 'M');
+      const qr = createQrCode(0, 'M');
       qr.addData(data);
       qr.make();
       const count = qr.getModuleCount();

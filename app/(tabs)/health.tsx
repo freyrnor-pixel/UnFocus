@@ -86,7 +86,7 @@ export default function HealthScreen() {
   useFocusEffect(
     useCallback(() => {
       return () => { setHintOpen(false); };
-    }, [])
+    }, [setHintOpen])
   );
 
   const today = todayStr();

@@ -498,7 +498,7 @@ export default function HabitsScreen() {
   useFocusEffect(
     useCallback(() => {
       return () => { setHintOpen(false); };
-    }, [])
+    }, [setHintOpen])
   );
 
   const today = todayStr();
