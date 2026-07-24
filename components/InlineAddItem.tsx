@@ -32,6 +32,11 @@
  * Edit notes:
  *   - Mount it attached to the list it feeds (like AddRow) — it sizes itself; don't wrap it
  *     in its own modal/overlay.
+ *   - Unlike AddRow (whose collapsed/expanded states share one ~44px row height, so no reflow
+ *     animation is needed), this panel's expanded form is much taller than the collapsed "+" bar
+ *     — every expand/collapse is wrapped in `LayoutAnimation.configureNext` (gated on
+ *     `!reducedMotion`, same idiom as HomeCardManager/MonthlyResetReviewSheet/shopping.tsx) so
+ *     the height change glides instead of popping.
  *   - Suggestions come from useCatalogStore.suggest(name, limit) (case-insensitive substring,
  *     startsWith-priority) — just render its result; dismissed once a suggestion is picked or
  *     the name is cleared.
@@ -45,10 +50,10 @@
  *     reset — the field there is just "how many do you want."
  */
 import React, { useMemo, useState } from 'react';
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { LayoutAnimation, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FontSize, Fonts, Radius, Spacing, contrastOn } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
 import { confirm as hapticConfirm } from '@/lib/haptics';
@@ -90,6 +95,7 @@ export default function InlineAddItem({
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
+  const { reducedMotion } = useAccessibility();
   const catalogSuggest = useCatalogStore((s) => s.suggest);
 
   const [expanded, setExpanded] = useState(false);
@@ -118,6 +124,7 @@ export default function InlineAddItem({
 
   function collapse() {
     reset();
+    if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpanded(false);
   }
 
@@ -146,7 +153,10 @@ export default function InlineAddItem({
     return (
       <PressableScale
         style={[styles.addBar, { borderColor: fill, backgroundColor: theme.accentSoft }, style]}
-        onPress={() => setExpanded(true)}
+        onPress={() => {
+          if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setExpanded(true);
+        }}
         accessibilityRole="button"
         accessibilityLabel={label}
         scaleTo={0.97}
@@ -169,7 +179,11 @@ export default function InlineAddItem({
         returnKeyType="done"
         autoFocus
         onSubmitEditing={handleAdd}
-        onBlur={() => { if (!name.trim() && !price && targetQty === 1 && !temporary && !category) setExpanded(false); }}
+        onBlur={() => {
+          if (name.trim() || price || targetQty !== 1 || temporary || category) return;
+          if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setExpanded(false);
+        }}
       />
       {suggestions.length > 0 && (
         <View style={[styles.suggestionsBox, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>

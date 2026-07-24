@@ -27,8 +27,10 @@
  *     ever applies to collapsed rows, so an open card's scrolling/typing is never contested.
  *   - The dragged row lifts (scale + shadow, via the `lifted` shared value) and follows the
  *     finger via translateY; siblings are NOT animated here — the parent reflows them itself
- *     via LayoutAnimation when the live preview order changes, same idiom ExpandableCard.tsx
- *     already uses for expand/collapse (relies on that file's module-level Android enable).
+ *     via LayoutAnimation when the live preview order changes (relies on the Android
+ *     LayoutAnimation global enable that HintCard.tsx sets at module scope — every screen that
+ *     uses this component also imports HintCard for its own first-visit hint, so it's already
+ *     set by mount time).
  *   - onDragMove reports the dragged row's current **window-space** (absolute screen) center Y,
  *     throttled to firing only once movement exceeds a small pixel delta — the parent does the
  *     actual index/section hit-test and decides whether anything changed; this component only
