@@ -11,7 +11,8 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HomeNotesCard,
  *             components/HomeSharedCard (gated on settings.featureSharing; the shopping
- *             spend-pace line is gated on settings.featureScan), components/HomeShoppingCard, components/HomeCardManager,
+ *             the spend-pace line is unconditional as of the 2026-07-25 defaults revision),
+ *             components/HomeShoppingCard, components/HomeCardManager,
  *             components/FlightOverlay (FlightPill, Flight, FlightRect), components/DebugNoteAnchor,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, lib/notifications, lib/reminders,
@@ -211,13 +212,13 @@ export default function HomeScreen() {
   // whenever nothing was incoming (the common case).
   const sharedTasks = useSharedStore((s) => s.tasks);
   const sharedShoppingItems = useSharedStore((s) => s.shoppingItems);
-  // Feature opt-ins (Settings → Advanced → Features), off on a fresh install: sharing hides
-  // the incoming-shares card, scan hides the spend-vs-budget pace line (that figure is
-  // derived from scanned receipts, so it's meaningless without the scanner). Data is never
-  // touched — turning either back on brings the card/line straight back. Declared up here
-  // rather than with the other settings selectors below because hasIncomingShared needs it.
+  // Sharing is the one opt-in left that affects Home (Settings → Advanced → Features),
+  // off on a fresh install — it hides the incoming-shares card below. Data is never
+  // touched: turning it back on brings the card straight back. Declared up here rather
+  // than with the other settings selectors below because hasIncomingShared needs it.
+  // Scan & receipts used to gate the spend-vs-budget pace line the same way, but is now
+  // always on (2026-07-25 defaults revision) — see the `pace` prop further down.
   const featureSharing = useSettingsStore((s) => s.featureSharing);
-  const featureScan = useSettingsStore((s) => s.featureScan);
 
   const hasIncomingShared =
     featureSharing &&
@@ -448,7 +449,7 @@ export default function HomeScreen() {
               dishGroups={dishGroups}
               ungroupedUnchecked={ungroupedUnchecked}
               checked={checked}
-              pace={featureScan ? shoppingPace : null}
+              pace={shoppingPace}
               onToggle={handleToggleShopping}
               onCollect={handleCollectShopping}
               onRemove={handleRemoveShoppingItem}

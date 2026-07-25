@@ -80,9 +80,13 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 ```
 
 - **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` (Shopping/Plans/Home/Health/Habits, Decision 036, amended 2026-07-23 — UX audit E1/E2 swapped Scan out for Habits, its own tab again); other screens are reached via links/buttons from those 5. Notes and Food/Meals are NOT tabs — reached via Home's "More" links (Notes) and Shopping's Food button (F1, 2026-07-23). Scan is also not a tab anymore — it's a pushed sub-screen (`app/scan.tsx`) reached via a "Scan" button on Shopping's header; its idle screen still offers both receipt OCR and QR import. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
-- **Onboarding** (`app/onboarding/*`): language → privacy → guided/explore → intro (short icon-per-feature tour) → features ("what do you want to use?" picker) → index (name, finishes onboarding) → home. The Explore path skips the tour/picker/name and goes straight to home on the same all-off defaults. The old setup steps (work mode / shopping days / notifications / handedness) were removed — those settings now default and are taught in context: each tab screen's ⓘ hint auto-expands on first visit (via `lib/useFirstVisitHint.ts` + `settings.seenScreenHints`) with the relevant control embedded (weekly/monthly reset on Shopping, notification opt-in on Home). Handedness stays in Settings only.
-- **Settings** (`app/settings.tsx`): three tabs — **General** (profile, appearance, accessibility, account/backup, version, reset), **Personal** (notifications, shopping cadence, layout, device features), **Advanced** (the Features opt-ins, People/family, paired devices, Freyr-mode, debug). Reorganized 2026-07-25 from four tabs; see that file's header for the full before/after.
-- **Feature opt-ins** (2026-07-25): `energySystemEnabled` plus `featureGoals` / `featureSharing` / `featureScan` / `featureFood` / `featureAutomations` gate additive surfaces (goals, sharing+QR, scan+receipts+budget, food+catalogue, automations). **Off for fresh installs, on for existing users** via a `WHERE setup_complete = 1` back-fill migration in `lib/db.ts`. Only gate something ADDITIVE this way — data pruning, widget/overview sync, foreground store reload, catalog/dish/symptom seeding, the automation store's boot load and the monthly reminder re-arm are load-bearing and stay unconditional.
+- **Onboarding** (`app/onboarding/*`): language → privacy → guided/explore → intro (short icon-per-feature tour) → features ("what do you want to use?" picker — Sharing & QR and Automations only, see below) → index (name, finishes onboarding) → home. The Explore path skips the tour/picker/name and goes straight to home on the same defaults. The old setup steps (work mode / shopping days / notifications / handedness) were removed — those settings now default and are taught in context: each tab screen's ⓘ hint auto-expands on first visit (via `lib/useFirstVisitHint.ts` + `settings.seenScreenHints`) with the relevant control embedded (weekly/monthly reset on Shopping, notification opt-in on Home). Handedness stays in Settings only.
+- **Settings** (`app/settings.tsx`): three tabs — **General** (profile, appearance, accessibility, account/backup, version, reset), **Personal** (notifications, shopping cadence, layout, device features), **Advanced** (the Features card, People/family, paired devices, Freyr-mode, debug). Reorganized 2026-07-25 from four tabs; see that file's header for the full before/after.
+- **Feature flags** (2026-07-25, defaults revised same day): three states, not one.
+  - **On by default, still a real toggle** (Settings → Advanced → Features): `energySystemEnabled` (Energy system) and `featureGoals` (Goals). Not offered in the onboarding picker — "opt in from nothing" doesn't fit a feature that's already on.
+  - **Off by default, still opt-in** (Settings → Advanced → Features, also offered in `app/onboarding/features.tsx`'s picker): `featureSharing` (Sharing & QR) and `featureAutomations` (Automations).
+  - **Permanently on, no longer a toggle at all**: `featureScan` (Scan & receipts) and `featureFood` (Food & recipes) — removed from both Settings and the onboarding picker; the DB columns and Settings-type fields survive (this repo never drops columns) but nothing reads them for gating any more — see `store/useSettingsStore.ts`'s "Inert columns" note.
+  - All defaults are set via migrations in `lib/db.ts` (append-only — corrections are new `UPDATE` statements, never edits to an already-merged line). Only gate something ADDITIVE this way — data pruning, widget/overview sync, foreground store reload, catalog/dish/symptom seeding, the automation store's boot load and the monthly reminder re-arm are load-bearing and stay unconditional.
 - **i18n**: `const t = useT()` in any component; `t.someKey`; add new keys to both `en` and `no` objects in `lib/i18n.ts`
 
 ## Common tasks
@@ -113,11 +117,29 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 4. Add to `app/settings.tsx` UI
 5. Add i18n labels
 
-For a **feature opt-in** specifically (a switch that hides a whole surface), also: add the
-row to `FEATURE_ROWS` in `app/settings.tsx` and to `ROWS` in `app/onboarding/features.tsx`,
-put its copy under `config.features.*` in BOTH languages, and back-fill existing users with
-`UPDATE settings SET <col> = 1 WHERE setup_complete = 1`. Gate the surface at its call site,
-never the data or the store — turning the flag back on must restore everything untouched.
+For a **feature flag** specifically (a switch that hides a whole surface), also: put its
+copy under `config.features.*` in BOTH languages, and gate the surface at its call site —
+never the data or the store — so turning the flag back on always restores everything
+untouched. Then pick which of the three shapes it needs:
+- **Off-by-default opt-in** (most common): add the row to `FEATURE_ROWS` in
+  `app/settings.tsx` AND to `ROWS` in `app/onboarding/features.tsx`; back-fill existing
+  users with `UPDATE settings SET <col> = 1 WHERE setup_complete = 1` so nobody who's
+  already using the surface loses it.
+- **On-by-default toggle** (like Energy/Goals): add the row to `FEATURE_ROWS` only —
+  the onboarding picker doesn't fit something already on. Set the column's own
+  `DEFAULT 1` in its `ALTER TABLE`, or migrate existing rows separately if it started
+  off-by-default and is switching over (see `lib/db.ts`'s 2026-07-25 follow-up
+  migrations for the pattern).
+- **Permanently on, no toggle** (retiring a flag, like Scan/Food): remove it from both
+  `FEATURE_ROWS` and the onboarding `ROWS`, un-gate every call site, and append a
+  migration setting the column to 1 unconditionally. Keep the field in `Settings` and
+  the DB column (never dropped) — note it under "Inert columns" in
+  `store/useSettingsStore.ts` so a later session doesn't wire new UI to it by mistake.
+
+Migrations in `lib/db.ts` are an append-only log — `PRAGMA user_version` indexes into the
+array, so an already-merged line must never be edited, reordered, or removed. Fixing a
+migration's behaviour after the fact means appending a new corrective `UPDATE`, not
+touching the old line.
 
 ### Verify a change (headless — no device)
 A full emulator isn't feasible in the remote env (no KVM/virtualization; the app is

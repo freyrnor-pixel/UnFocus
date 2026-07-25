@@ -16,23 +16,27 @@
  *   (independent plan-notification and habit-reminder toggles, persistent daily overview,
  *   quiet hours)] one merged panel → Shopping (weekly reset weekday, monthly reset date)
  *   → Layout (horizontal plans timeline) → Device features (voice/contacts/location/calendar).
- * - Advanced — modes and opt-ins: Features card (Energy system + its mode/capacities, then
- *   the five FEATURE_ROWS flags, then the Automations link when that flag is on) →
+ * - Advanced — modes and toggles: Features card (Energy system + its mode/capacities, then
+ *   the three FEATURE_ROWS flags, then the Automations link when that flag is on) →
  *   [Personer-familie / Paired devices] one merged panel → Freyr-modus → Debug mode.
  *
  * **Reorganization (2026-07-25)**: was four tabs (Generelt | Handle | Varsler | Modi) where
  * Generelt alone carried eight unrelated groups and Handle carried exactly two settings.
- * Two things changed beyond the regrouping:
+ * Three things changed beyond the regrouping:
  *   1. **Dead settings removed.** Work mode (active/auto-activate/hours/work days/Norwegian
  *      holidays), School mode and Parent (child) mode all had switches writing settings
  *      columns that NOTHING in the app read. Their UI is gone; the columns stay (this repo
  *      never drops columns) — see store/useSettingsStore.ts's "Inert columns" note.
- *   2. **Feature opt-ins added.** Goals, Sharing & QR, Scan & receipts, Food & recipes and
- *      Automations became flags (FEATURE_ROWS below), joining the Energy system, and are all
- *      off on a fresh install so a first-time user isn't met with every surface at once.
- *      Only purely ADDITIVE things got a toggle — anything whose absence would break app
- *      logic (data pruning, widget/overview sync, catalog seeding, the automation store's
- *      boot load) is deliberately still unconditional.
+ *   2. **Feature flags added, then their defaults revised the same day.** Goals, Sharing &
+ *      QR, Scan & receipts, Food & recipes and Automations first shipped as flags all off
+ *      on a fresh install. Maintainer feedback flipped this same-day: Energy and Goals now
+ *      default ON but stay real toggles (FEATURE_ROWS below, alongside the Energy card);
+ *      Scan & receipts and Food & recipes are permanently on and no longer toggles at all
+ *      (removed from FEATURE_ROWS — see store/useSettingsStore.ts's "Inert columns" note);
+ *      Sharing & QR and Automations are the only two still off-by-default opt-ins.
+ *   3. Only purely ADDITIVE things ever got a toggle in the first place — anything whose
+ *      absence would break app logic (data pruning, widget/overview sync, catalog seeding,
+ *      the automation store's boot load) is deliberately still unconditional.
  *
  * Every setting applies immediately via applyAndSync() — no buffered/dirty save step (matches
  * hints.settings.text: "Changes apply immediately.").
@@ -79,7 +83,7 @@
  *             monthlyResetDate, taskNotificationsEnabled, habitNotificationsEnabled,
  *             persistentNotifEnabled, voiceNotesEnabled/contactsEnabled/locationEnabled/
  *             calendarSyncEnabled — the "Device features" card — and the featureGoals/
- *             featureSharing/featureScan/featureFood/featureAutomations opt-ins); reset actions touch
+ *             featureSharing/featureAutomations toggles); reset actions touch
  *             useTaskStore (tasks) and useShoppingStore (shopping_items via monthlyReset);
  *             re-syncs notifications via syncReminders / syncAllTaskNotifications /
  *             syncAllTaskCalendarEvents / syncAllHabitReminders / syncNotificationCategories
@@ -159,12 +163,19 @@
  *     `ExpandableCard` itself went `rounded` (also `theme.surfaceMuted`-backed), since chip and
  *     container became the same colour. Both now carry a `theme.border` (or `theme.accent` when
  *     active) outline, matching the border `peopleChip`/`peopleAddBtn` already had.
- *   - **Feature opt-ins live in ONE place (2026-07-25)**: `FEATURE_ROWS` below is the whole
- *     list of plain on/off features. To add one: add the flag to store/useSettingsStore.ts,
- *     append its `ALTER TABLE` + back-fill to lib/db.ts's migrations array, add a
- *     `config.features.*` entry in BOTH languages, add a line to `FEATURE_ROWS`, list it in
- *     app/onboarding/features.tsx, and gate the surface it owns at its call site. Only add a
- *     flag for something ADDITIVE — if the app misbehaves with it off, it does not get a toggle.
+ *   - **Feature toggles live in ONE place (2026-07-25)**: `FEATURE_ROWS` below is the whole
+ *     list of plain on/off switches — currently Goals, Sharing & QR, Automations. To add
+ *     one: add the flag to store/useSettingsStore.ts, append its `ALTER TABLE` (+ a
+ *     back-fill UPDATE if it needs to default differently for existing vs. fresh installs)
+ *     to lib/db.ts's migrations array, add a `config.features.*` entry in BOTH languages,
+ *     add a line to `FEATURE_ROWS`, list it in app/onboarding/features.tsx if it's staying
+ *     off-by-default, and gate the surface it owns at its call site. Only add a flag for
+ *     something ADDITIVE — if the app misbehaves with it off, it does not get a toggle. Not
+ *     every flag needs to stay a toggle forever: Scan & receipts and Food & recipes were
+ *     removed from this list the same day they were added, once the maintainer decided both
+ *     should just always be on — see store/useSettingsStore.ts's "Inert columns" note for
+ *     how to retire one the same way (unconditional migration UPDATE, un-gate every call
+ *     site, drop the FEATURE_ROWS/onboarding-picker row, keep the DB column).
  */
 import React, { useState } from 'react';
 import { Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
@@ -211,10 +222,9 @@ type SettingsTab = 'general' | 'personal' | 'advanced';
 const TAB_BAR_HEIGHT = 48;
 
 /**
- * The plain on/off feature opt-ins rendered by Advanced → Features. Each `key` is a
+ * The plain on/off feature toggles rendered by Advanced → Features. Each `key` is a
  * boolean on Settings that gates a purely ADDITIVE surface — see the per-field docs in
- * store/useSettingsStore.ts for what each one hides, and lib/db.ts for the migration
- * that leaves them off on fresh installs but on for existing users.
+ * store/useSettingsStore.ts for what each one hides.
  *
  * `copy` takes the translations object rather than a resolved string because this array
  * is module-level (evaluated once) while `useT()` re-runs on every language change —
@@ -222,14 +232,20 @@ const TAB_BAR_HEIGHT = 48;
  *
  * The Energy system is deliberately NOT in this list: it's the one feature flag with its
  * own configuration (mode + capacities), so it's rendered by hand above these rows.
- * app/onboarding/features.tsx offers the same set during onboarding.
+ *
+ * **Scan & receipts and Food & recipes are NOT here (2026-07-25 defaults revision)** —
+ * both used to be toggles in this list but are now permanently on, like Habits/Health,
+ * so there's nothing left to switch. Only list a flag here if it's still a REAL,
+ * off-by-default (or at least switchable) choice — see store/useSettingsStore.ts's
+ * "Inert columns" note for why their fields still exist. app/onboarding/features.tsx
+ * offers Sharing and Automations during onboarding; Goals defaults on there too but
+ * isn't offered as a picker row since "on by default" doesn't fit that screen's
+ * opt-in framing — it's still switchable here.
  */
-type FeatureFlagKey = 'featureGoals' | 'featureSharing' | 'featureScan' | 'featureFood' | 'featureAutomations';
+type FeatureFlagKey = 'featureGoals' | 'featureSharing' | 'featureAutomations';
 const FEATURE_ROWS: { key: FeatureFlagKey; copy: (t: ReturnType<typeof useT>) => { label: string; hint: string } }[] = [
   { key: 'featureGoals', copy: (t) => t.config.features.goals },
   { key: 'featureSharing', copy: (t) => t.config.features.sharing },
-  { key: 'featureScan', copy: (t) => t.config.features.scan },
-  { key: 'featureFood', copy: (t) => t.config.features.food },
   { key: 'featureAutomations', copy: (t) => t.config.features.automations },
 ];
 
@@ -1091,14 +1107,18 @@ export default function SettingsScreen() {
 
         {tab === 'advanced' && (
           <>
-            {/* FEATURES (2026-07-25 reorganization) — the opt-in switches for everything
-                that isn't part of the basics. Every flag here hides a purely ADDITIVE
-                surface: turning one off never breaks app logic, which is exactly why
-                these got a toggle and things like data pruning, widget/overview sync or
-                catalog seeding deliberately did not. All are off on a fresh install (so a
-                first-time user meets the basics first) and were back-filled to on for
-                existing users — see the `WHERE setup_complete = 1` migration in lib/db.ts.
-                The same list is offered during onboarding by app/onboarding/features.tsx. */}
+            {/* FEATURES (2026-07-25 reorganization; defaults revised same day) — the
+                switches for everything that isn't part of the basics. Every flag here
+                hides a purely ADDITIVE surface: turning one off never breaks app logic,
+                which is exactly why these got a toggle and things like data pruning,
+                widget/overview sync or catalog seeding deliberately did not. Energy
+                defaults on (below); Goals defaults on too (FEATURE_ROWS); Sharing & QR
+                and Automations default off so a first-time user meets the basics first.
+                Scan & receipts and Food & recipes are no longer here at all — they're
+                permanently on, like Habits/Health — see store/useSettingsStore.ts's
+                "Inert columns" note. Sharing and Automations are also offered during
+                onboarding by app/onboarding/features.tsx; Goals isn't (it's already on
+                by the time that screen would offer it). */}
             <View style={styles.section}>
               <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.features}</Text>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
@@ -1172,11 +1192,11 @@ export default function SettingsScreen() {
                   </View>
                 )}
 
-                {/* The five plain on/off features. Driven off one list so the rows stay
-                    identical — each is a bare boolean with no configuration of its own.
-                    Adding a feature = add the flag (store + lib/db.ts migration), add a
-                    config.features entry in both languages, add a line here, and gate the
-                    surface it owns at its call site. */}
+                {/* The plain on/off features (Goals, Sharing & QR, Automations). Driven
+                    off one list so the rows stay identical — each is a bare boolean with
+                    no configuration of its own. Adding one = add the flag (store +
+                    lib/db.ts migration), add a config.features entry in both languages,
+                    add a line here, and gate the surface it owns at its call site. */}
                 {FEATURE_ROWS.map(({ key, copy }) => (
                   <React.Fragment key={key}>
                     <View style={[styles.divider, { backgroundColor: theme.border }]} />

@@ -42,15 +42,15 @@ describe('pruneOldData — tasks query', () => {
 });
 
 /**
- * Feature opt-in migrations (2026-07-25 settings reorganization).
+ * Feature opt-in migrations — ORIGINAL commit (2026-07-25 settings reorganization).
  *
- * The riskiest part of that change: five new columns default to 0 so FRESH installs start
- * on the basics, which would also silently strip the features from every EXISTING user if
- * the back-fill were missing or ran in the wrong order. `setup_complete` is the
- * discriminator — the settings row is inserted by the CREATE TABLE block before migrations
- * run, so a fresh install is still at 0 here while an upgrading install is at 1.
+ * Migrations are an append-only log (PRAGMA user_version indexes into the array), so this
+ * commit's lines can never be edited or removed — only corrected by a later append. The
+ * describe block below this one covers the same-day follow-up that changed the actual
+ * final behaviour; this block just pins down that the original lines are still present
+ * verbatim, which the follow-up's correctness depends on.
  */
-describe('feature opt-in migrations', () => {
+describe('feature opt-in migrations (original)', () => {
   const FLAGS = ['feature_goals', 'feature_sharing', 'feature_scan', 'feature_food', 'feature_automations'];
 
   function migrationSql(): string[] {
@@ -58,7 +58,7 @@ describe('feature opt-in migrations', () => {
     return (db.execSync as jest.Mock).mock.calls.map(([sql]: [string]) => sql);
   }
 
-  it.each(FLAGS)('adds %s defaulting to 0 (off for fresh installs)', (col) => {
+  it.each(FLAGS)('adds %s defaulting to 0', (col) => {
     expect(migrationSql()).toContain(`ALTER TABLE settings ADD COLUMN ${col} INTEGER DEFAULT 0`);
   });
 
@@ -66,8 +66,6 @@ describe('feature opt-in migrations', () => {
     const backfill = migrationSql().find((sql) => sql.startsWith('UPDATE settings SET feature_goals'));
     expect(backfill).toBeDefined();
     for (const col of FLAGS) expect(backfill).toContain(`${col} = 1`);
-    // Without this WHERE the back-fill would also switch everything on for new installs,
-    // defeating the entire opt-in change.
     expect(backfill).toContain('WHERE setup_complete = 1');
   });
 
@@ -78,7 +76,49 @@ describe('feature opt-in migrations', () => {
     expect(backfill).toBeGreaterThan(lastAlter);
   });
 
-  it('turns the Energy system off for fresh installs only', () => {
+  it('contains the original (superseded) migration flipping Energy off for fresh installs', () => {
+    // This line's effect is reversed by the follow-up migration below — kept here only
+    // because the array is append-only. Do not read this as current behaviour.
     expect(migrationSql()).toContain('UPDATE settings SET energy_system_enabled = 0 WHERE setup_complete = 0');
+  });
+});
+
+/**
+ * Defaults-revision follow-up migrations (2026-07-25, same day as the original commit).
+ *
+ * Maintainer feedback after the initial ship: Energy and Goals should be on by default
+ * after all (still real toggles), and Scan & receipts / Food & recipes should be
+ * permanently on, not a toggle at all. Since the original migrations above can't be
+ * edited, these are corrective UPDATEs appended after them — each must both exist AND run
+ * after the line it corrects, or the fix has no effect for anyone who already applied the
+ * original migration.
+ */
+describe('feature opt-in migrations (defaults-revision follow-up)', () => {
+  function migrationSql(): string[] {
+    initDb();
+    return (db.execSync as jest.Mock).mock.calls.map(([sql]: [string]) => sql);
+  }
+
+  it('reverses the Energy flip-off for every install, regardless of setup_complete', () => {
+    const sql = migrationSql();
+    const flipOff = sql.indexOf('UPDATE settings SET energy_system_enabled = 0 WHERE setup_complete = 0');
+    const flipBackOn = sql.indexOf('UPDATE settings SET energy_system_enabled = 1 WHERE setup_complete = 0');
+    expect(flipOff).toBeGreaterThanOrEqual(0);
+    expect(flipBackOn).toBeGreaterThan(flipOff);
+  });
+
+  it('turns Goals on for every install, unconditionally (no WHERE clause)', () => {
+    const sql = migrationSql();
+    const backfill = sql.findIndex((s) => s.startsWith('UPDATE settings SET feature_goals') && s.includes('feature_sharing'));
+    const goalsOnForEveryone = sql.indexOf('UPDATE settings SET feature_goals = 1');
+    expect(goalsOnForEveryone).toBeGreaterThanOrEqual(0);
+    // Must be the bare "= 1", not the original multi-column back-fill line re-matched.
+    expect(sql[goalsOnForEveryone]).not.toContain('feature_sharing');
+    expect(goalsOnForEveryone).toBeGreaterThan(backfill);
+  });
+
+  it('turns Scan & receipts and Food & recipes on for every install, unconditionally', () => {
+    const sql = migrationSql();
+    expect(sql).toContain('UPDATE settings SET feature_scan = 1, feature_food = 1');
   });
 });

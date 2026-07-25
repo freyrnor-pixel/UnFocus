@@ -68,10 +68,12 @@ describe('lifetimeCompletedTasks (2026-07-20 long-run health pass)', () => {
 });
 
 /**
- * Feature opt-ins (2026-07-25 settings reorganization). These gate additive surfaces
- * (goals, sharing, scan/budget, food/catalogue, automations) and must default to OFF so a
- * fresh install starts on the basics — the on-for-existing-users half of that contract is a
- * `WHERE setup_complete = 1` back-fill migration in lib/db.ts, not store logic.
+ * Feature flags (2026-07-25 settings reorganization; defaults revised same day). These
+ * assert the STORE's load/update round-trip only — parsing a raw row via readBool()/
+ * rowValues(), independent of what any migration sets a real settings row to. The "row has
+ * no value at all" case below is a simulated bare row (id only), not a fresh install; the
+ * true fresh-vs-existing defaults for each flag are asserted against the actual migration
+ * SQL in lib/__tests__/db.test.ts instead.
  */
 describe('feature opt-ins', () => {
   const KEYS = [

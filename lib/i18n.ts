@@ -362,8 +362,8 @@ const en = {
   featurePicker: {
     title: 'What do you want to use?',
     sub: 'Pick the extras you want. Leave them off and the app stays simple.',
-    alwaysOn: 'Plans, shopping, notes, habits and health are always there.',
-    note: 'You can turn these on and off later in Settings → Advanced.',
+    alwaysOn: 'Plans, shopping, notes, habits and health are always available. Your energy budget, goals, receipt scanning and recipes are also included from the start.',
+    note: 'Energy, goals, sharing and automations can all be turned on or off later in Settings → Advanced.',
   },
   chooseLanguage: 'Choose language',
   chooseLanguageSub: 'You can change this in Settings at any time.',
@@ -1089,8 +1089,11 @@ const en = {
       personal: 'Personal',
       advanced: 'Advanced',
     },
-    // Feature opt-ins (Advanced → Features). Each hides a purely additive surface when
-    // off; off by default on fresh installs so a new user meets the basics first.
+    // Feature flags (Advanced → Features). Each hides a purely additive surface when
+    // off. Goals defaults on (still a toggle); Sharing & QR and Automations default off
+    // so a new user meets the basics first. (Scan & receipts and Food & recipes were
+    // here too until the 2026-07-25 defaults revision — both are permanently on now,
+    // so they no longer have copy or a switch anywhere.)
     features: {
       intro: 'Turn on only what you need. You can change this at any time.',
       goals: {
@@ -1100,14 +1103,6 @@ const en = {
       sharing: {
         label: 'Sharing & QR',
         hint: 'Send plans and shopping items to someone else, and receive theirs.',
-      },
-      scan: {
-        label: 'Scan & receipts',
-        hint: 'Scan receipts after shopping and track spending against a budget.',
-      },
-      food: {
-        label: 'Food & recipes',
-        hint: 'Meal planning and your item catalogue, reached from the shopping list.',
       },
       automations: {
         label: 'Automations',
@@ -1667,8 +1662,8 @@ const no: typeof en = {
   featurePicker: {
     title: 'Hva vil du bruke?',
     sub: 'Velg de ekstra funksjonene du vil ha. Lar du dem stå av, holder appen seg enkel.',
-    alwaysOn: 'Planer, handleliste, notater, vaner og helse er alltid med.',
-    note: 'Du kan skru disse av og på senere i Innstillinger → Avansert.',
+    alwaysOn: 'Planer, handleliste, notater, vaner og helse er alltid tilgjengelig. Energibudsjettet, mål, kvitteringsskanning og oppskrifter er også med fra start.',
+    note: 'Energi, mål, deling og automatisering kan alle skrus av og på senere i Innstillinger → Avansert.',
   },
   chooseLanguage: 'Velg språk',
   chooseLanguageSub: 'Du kan endre dette i innstillingene når som helst.',
@@ -2058,14 +2053,6 @@ const no: typeof en = {
       sharing: {
         label: 'Deling og QR',
         hint: 'Send planer og varer til noen andre, og ta imot deres.',
-      },
-      scan: {
-        label: 'Skanning og kvitteringer',
-        hint: 'Skann kvitteringer etter handleturen og følg med på forbruket mot et budsjett.',
-      },
-      food: {
-        label: 'Mat og oppskrifter',
-        hint: 'Middagsplanlegging og varekatalogen din, nås fra handlelisten.',
       },
       automations: {
         label: 'Automatisering',

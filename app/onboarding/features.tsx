@@ -1,14 +1,20 @@
 /**
  * features.tsx — "What do you want to use?" picker (guided path, after the intro tour)
  *
- * One screen of switches for the optional features, all off to begin with, so a new user
- * decides what the app contains instead of meeting every surface at once. Sits between the
+ * A screen of switches for the still-optional, off-by-default features, so a new user
+ * decides what those add instead of meeting every surface at once. Sits between the
  * intro tour and the name step; the Explore path skips it entirely and keeps the same
- * all-off defaults, which is exactly the "just show me the app" behaviour it promises.
+ * defaults, which is exactly the "just show me the app" behaviour it promises.
  *
- * Nothing here is required — every flag is a purely additive surface, and the basics
- * (plans, shopping, notes, habits, health) are always on and deliberately not listed.
- * Choices are written once on Next; the same switches live in Settings → Advanced →
+ * **Only two rows here (2026-07-25 defaults revision)** — Sharing & QR and Automations.
+ * This screen originally offered six: Energy, Goals, Sharing, Scan, Food, Automations, all
+ * unchecked. Maintainer feedback the same day changed that: Energy and Goals now default ON
+ * (still real toggles, just in Settings → Advanced → Features, not here — an "opt in from
+ * nothing" picker doesn't fit a feature that's already on), and Scan & receipts / Food &
+ * recipes are permanently on, like Habits/Health, so there's nothing left to offer for
+ * either. Only Sharing and Automations are still genuinely off-by-default opt-ins.
+ *
+ * Choices are written once on Next; the same two switches live in Settings → Advanced →
  * Features afterwards.
  *
  * Connections:
@@ -16,8 +22,7 @@
  *             @/lib/haptics, @/components/Button, @/components/Surface,
  *             @/components/FormControls (Switch)
  *   Used by → Expo Router route "/onboarding/features" (pushed from onboarding/intro.tsx)
- *   Data    → useSettingsStore (writes energySystemEnabled + featureGoals/featureSharing/
- *             featureScan/featureFood/featureAutomations on Next)
+ *   Data    → useSettingsStore (writes featureSharing/featureAutomations on Next)
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text. The per-feature
@@ -28,11 +33,14 @@
  *     partially-configured settings row behind if the user backs out.
  *   - Next → router.push('/onboarding') (the name + finish screen), matching what
  *     intro.tsx used to do directly before this step was inserted.
- *   - Adding a feature: add its flag to store/useSettingsStore.ts + a lib/db.ts migration,
- *     add `config.features.<name>` in BOTH languages, then add one line to ROWS below and
- *     one to FEATURE_ROWS in app/settings.tsx.
- *   - This screen scrolls (unlike intro.tsx, which is sized to one viewport) — six rows plus
- *     the footer don't fit a small phone at the large font-size setting.
+ *   - Adding a still-optional feature: add its flag to store/useSettingsStore.ts + a
+ *     lib/db.ts migration, add `config.features.<name>` in BOTH languages, then add one line
+ *     to ROWS below and one to FEATURE_ROWS in app/settings.tsx. If a feature instead defaults
+ *     on (like Goals) or becomes permanently on (like Scan/Food), it does NOT belong here —
+ *     see store/useSettingsStore.ts's per-field docs for the distinction.
+ *   - This screen scrolls (unlike intro.tsx, which is sized to one viewport) so it holds up
+ *     if a future row is added at the large font-size setting, even though two rows fit
+ *     comfortably today.
  */
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -48,21 +56,11 @@ import Button from '@/components/Button';
 import Surface from '@/components/Surface';
 import { Switch as FormSwitch } from '@/components/FormControls';
 
-/** The optional features offered here, in the order they're shown. */
-type FeatureKey =
-  | 'energySystemEnabled'
-  | 'featureGoals'
-  | 'featureSharing'
-  | 'featureScan'
-  | 'featureFood'
-  | 'featureAutomations';
+/** The still-optional features offered here, in the order they're shown. */
+type FeatureKey = 'featureSharing' | 'featureAutomations';
 
 const ROWS: { key: FeatureKey; copy: (t: ReturnType<typeof useT>) => { label: string; hint: string } }[] = [
-  { key: 'energySystemEnabled', copy: (t) => ({ label: t.settings.energy.label, hint: t.settings.energy.hint }) },
-  { key: 'featureGoals', copy: (t) => t.config.features.goals },
   { key: 'featureSharing', copy: (t) => t.config.features.sharing },
-  { key: 'featureScan', copy: (t) => t.config.features.scan },
-  { key: 'featureFood', copy: (t) => t.config.features.food },
   { key: 'featureAutomations', copy: (t) => t.config.features.automations },
 ];
 
@@ -76,11 +74,7 @@ export default function OnboardingFeatures() {
   // Start from nothing selected. Deliberately NOT seeded from the current settings row:
   // this step exists to make "off unless you ask for it" the visible starting point.
   const [picked, setPicked] = useState<Record<FeatureKey, boolean>>({
-    energySystemEnabled: false,
-    featureGoals: false,
     featureSharing: false,
-    featureScan: false,
-    featureFood: false,
     featureAutomations: false,
   });
 

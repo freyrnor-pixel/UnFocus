@@ -30,10 +30,13 @@
  * directly by app/(tabs)/index.tsx.
  * photoAspectRatio (aspect-ratio formats pass) is the app-wide default format for
  * photo tiles — see components/PhotoFrame.tsx and constants/theme.ts's AspectRatio map.
- * featureGoals/featureSharing/featureScan/featureFood/featureAutomations (2026-07-25)
- * are the feature opt-ins — each hides a purely additive surface when off (see their
- * per-field docs below). Off on fresh installs, back-filled to on for existing users
- * by a `WHERE setup_complete = 1` migration in lib/db.ts.
+ * featureGoals/featureSharing/featureScan/featureFood/featureAutomations (2026-07-25,
+ * defaults revised same day) are the feature flags — each originally hid a purely
+ * additive surface when off (see their per-field docs below). Only featureSharing and
+ * featureAutomations are still off-by-default opt-in toggles (Settings → Advanced →
+ * Features, or the onboarding picker). featureGoals now defaults ON, same as
+ * energySystemEnabled, but stays a toggle. featureScan/featureFood are now permanently
+ * on and unreadable by any UI gate — see "Inert columns" in Edit notes below.
  * energyMode (2026-07-24) picks how the Energy capacity is defined — 'daily'/'weekly'
  * use the flat energyDailyCapacity/energyWeeklyCapacity number and hide the other
  * meter; 'custom' uses energyCustomCapacities (Mon..Sun) per-weekday amounts instead,
@@ -69,6 +72,15 @@
  *     `showPoints`, `showHints`, `backgroundLocationEnabled`, `monthlyBudgetNok`
  *     (superseded by per-list budgets in store/useMonthlyListStore.ts). Do NOT wire new
  *     UI to these without building the behaviour they imply.
+ *   - **`featureScan`/`featureFood` joined the inert list the same day (2026-07-25,
+ *     defaults-revision follow-up)** — a different flavour of inert than the block
+ *     above: these two DID gate real surfaces (the scan icon/receipts/Budget, the
+ *     Food+Catalogue row) for about a day, then the maintainer decided both should
+ *     just always be on, like Habits/Health. The migration sets both to 1 for every
+ *     row (see lib/db.ts); Settings' Features card and the onboarding picker no
+ *     longer read either field. `featureGoals` stayed a REAL toggle through the same
+ *     revision — only its default flipped from off to on — so it's still in
+ *     FEATURE_ROWS (app/settings.tsx) and the onboarding ROWS, unlike these two.
  *   - `glassBlur` was removed (2026-07-18 glass simplification — the Android blur-target
  *     subsystem it gated no longer exists). Its `glass_blur` SQLite column is intentionally
  *     left orphaned (never drop columns) — see lib/db.ts's migration comment.
@@ -234,24 +246,26 @@ export type Settings = {
   // 'fit' shows a photo's natural proportions; the others center-crop to a fixed ratio.
   // A per-call `format` prop can still override this for a specific tile.
   photoAspectRatio: AspectRatioKey;
-  // ---- Feature opt-ins (2026-07-25 settings reorganization) ----
-  // Each one hides a purely ADDITIVE surface when off — the app keeps working, the
-  // feature's own data/routes stay on disk, and nothing that would break app logic is
-  // gated this way (pruning, widget/overview sync, catalog+dish+symptom seeding, the
-  // automation store's boot load and the monthly reminder re-arm all stay
-  // unconditional). Off for fresh installs, back-filled to on for anyone who already
-  // finished onboarding — see the `WHERE setup_complete = 1` migration in lib/db.ts.
-  // Surfaced in app/settings.tsx's Advanced → Features card and picked during
-  // onboarding in app/onboarding/features.tsx.
-  /** Goal linking: GoalPicker in the task/habit editors + the GoalGlowDot on cards. */
+  // ---- Feature flags (2026-07-25 settings reorganization; defaults revised same day) ----
+  // Each one gates a purely ADDITIVE surface — the app keeps working, the feature's own
+  // data/routes stay on disk, and nothing that would break app logic is gated this way
+  // (pruning, widget/overview sync, catalog+dish+symptom seeding, the automation store's
+  // boot load and the monthly reminder re-arm all stay unconditional).
+  //
+  // Only featureSharing/featureAutomations are still off-by-default, user-facing
+  // toggles — Settings → Advanced → Features, and offered in the onboarding picker
+  // (app/onboarding/features.tsx). featureGoals defaults ON (still a toggle, same
+  // Features card). featureScan/featureFood default ON and are no longer read by ANY
+  // UI gate — see "Inert columns" in Edit notes for why the fields survive anyway.
+  /** Goal linking: GoalPicker in the task/habit editors + the GoalGlowDot on cards. On by default. */
   featureGoals: boolean;
-  /** Sharing & QR: the header share icon, HomeSharedCard, and the shared task/request sections. */
+  /** Sharing & QR: the header share icon, HomeSharedCard, and the shared task/request sections. Off by default. */
   featureSharing: boolean;
-  /** Scan & receipts: the header scan icon, the "shopping done" scan choices, and Budget/spend-pace. */
+  /** Unused — Scan & receipts is always on (2026-07-25). See "Inert columns" below. */
   featureScan: boolean;
-  /** Food & recipes: the Food + Catalogue button row on Shopping. Seeding still runs regardless. */
+  /** Unused — Food & recipes is always on (2026-07-25). See "Inert columns" below. */
   featureFood: boolean;
-  /** Automations: the entry point to app/automations.tsx. Existing rules still run when off. */
+  /** Automations: the entry point to app/automations.tsx. Existing rules still run when off. Off by default. */
   featureAutomations: boolean;
 };
 
@@ -479,13 +493,16 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   energyCustomCapacities: [10, 10, 10, 10, 10, 10, 10],
   lifetimeCompletedTasks: 0,
   photoAspectRatio: 'fit' as AspectRatioKey,
-  // Opt-in defaults. These only apply before load() resolves the real row, and the
-  // app doesn't render past the `loaded` gate until it has — so an existing user
-  // whose flags are on never sees a flash of the off state.
-  featureGoals: false,
+  // Feature flag defaults. These only apply before load() resolves the real row, and
+  // the app doesn't render past the `loaded` gate until it has — so a user whose
+  // flags differ from these never sees a flash of the wrong state. featureGoals
+  // matches energySystemEnabled's on-by-default (both stay real toggles); Sharing and
+  // Automations stay off-by-default opt-ins; Scan/Food are true because they're
+  // permanently on and unread by any gate (see the Settings type's per-field docs).
+  featureGoals: true,
   featureSharing: false,
-  featureScan: false,
-  featureFood: false,
+  featureScan: true,
+  featureFood: true,
   featureAutomations: false,
   loaded: false,
   workModeSessionOverride: false,
