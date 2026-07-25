@@ -12,6 +12,14 @@
  *   Used by → components/TaskCard.tsx (was app/task-form.tsx, retired 2026-07-23),
  *             app/settings.tsx, components/EnergyMeter.tsx
  *   Data    → none (controlled — parent owns the value)
+ *
+ * Edit notes:
+ *   - **"−" button border (2026-07-25)**: its `theme.surfaceMuted` fill has no contrast of
+ *     its own against most parent surfaces — missed by the 2026-07-24 "near-invisible
+ *     borders" pass, which fixed the same bug in habits.tsx's own local adjuster button but
+ *     not this shared component. `btn` now defaults to a transparent border (so the "+"
+ *     button's already-contrasting accent fill doesn't gain a stray outline) and the "−"
+ *     call site overrides it to `theme.border`.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -56,7 +64,7 @@ export default function Stepper({ value, onChange, min, max, step = 1, suffix, s
         hitSlop={6}
         scaleTo={0.9}
         accessibilityRole="button"
-        style={[styles.btn, { backgroundColor: theme.surfaceMuted }, atMin && styles.disabled]}
+        style={[styles.btn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }, atMin && styles.disabled]}
       >
         <Text style={[styles.btnText, { color: theme.text }]}>−</Text>
       </PressableScale>
@@ -79,7 +87,11 @@ export default function Stepper({ value, onChange, min, max, step = 1, suffix, s
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  btn: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  // borderColor defaults transparent — the "+" button's accent fill already has its own
+  // contrast and shouldn't gain a stray default border; the "−" call site overrides it to
+  // theme.border, since its surfaceMuted fill otherwise has no visible edge (matches the
+  // fix applied to habits.tsx's own adjuster button, 2026-07-24).
+  btn: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
   btnText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   value: { minWidth: 36, textAlign: 'center', fontSize: FontSize.md, fontFamily: Fonts.semibold },
   disabled: { opacity: 0.4 },
