@@ -35,6 +35,13 @@
  *   Data    → none — presentational; fires onSubmit
  *
  * Edit notes:
+ *   - **Bordered "+" pill (2026-07-25, user report)**: the collapsed bar now carries a real
+ *     `theme.border` outline + `Radius.md` corners (was borderless, just an icon chip + muted
+ *     text), so it reads as one contained control sitting close to the list above it instead of
+ *     bare text floating in blank space. Border color is neutral (`theme.border`), not `accent`
+ *     — this component is used both inside domain-colored cards and on plain screens
+ *     (automations, health-log), so a neutral edge is the one choice that's always correct;
+ *     the "+" chip itself still carries the accent fill.
  *   - Mount inside the section's Surface (like ExpandableCard) — do NOT wrap it in
  *     its own card, or the add row detaches from its list.
  *   - `accent` should come from lib/domainColor.getDomainColor(theme, domain).accent
@@ -146,7 +153,7 @@ export default function AddRow({
     return (
       <View ref={rowRef} style={containerStyle} pointerEvents={disabled ? 'none' : 'auto'}>
         <PressableScale
-          style={styles.addBar}
+          style={[styles.addBar, { borderColor: theme.border }]}
           onPress={expand}
           disabled={disabled}
           scaleTo={0.97}
@@ -252,7 +259,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
     paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
     minHeight: 32,
+    // Bordered pill (2026-07-25, user report: the "+ New task"/"Add a note" row read as
+    // floating text next to an icon, disconnected from the card around it) — a visible edge
+    // frames the affordance as one contained control instead of bare text sitting in blank
+    // space, matching the 1.5 borderWidth every other bordered chip in this app (quickChip,
+    // taskChip, AddRow's own confirm button) already uses.
+    borderWidth: 1.5,
+    borderRadius: Radius.md,
   },
   addBarChip: {
     width: 24,
