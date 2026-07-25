@@ -6,8 +6,10 @@
  *
  * Connections:
  *   Imports → constants/theme (Spacing)
- *   Used by → components/HomeNotesCard, components/HomeShoppingCard, components/PlanTaskCard
- *             (each card's empty branch)
+ *   Used by → components/HomeNotesCard, components/HomeShoppingCard (each card's empty branch).
+ *             components/PlanTaskCard used this too until 2026-07-25, when its empty branch
+ *             switched to components/DayHourScale (an hour-of-day ruler) instead — a day-view
+ *             reads better as an empty timeline than blank space.
  *   Data    → none (pure presentational)
  *
  * Edit notes:
