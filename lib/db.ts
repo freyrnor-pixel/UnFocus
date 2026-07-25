@@ -765,6 +765,10 @@ export function initDb() {
     // Settings → Advanced → Features, or during the onboarding feature picker
     // (app/onboarding/features.tsx). See store/useSettingsStore.ts for what each
     // one hides.
+    // ⚠️ Superseded same-day by the follow-up migrations further down: Energy and
+    // Goals ended up on-by-default after all (still toggles), and Scan/Food became
+    // permanently on (no longer toggles at all). Read this block as "how it started,"
+    // not current behaviour — the corrective UPDATEs below are the source of truth.
     "ALTER TABLE settings ADD COLUMN feature_goals INTEGER DEFAULT 0",
     "ALTER TABLE settings ADD COLUMN feature_sharing INTEGER DEFAULT 0",
     "ALTER TABLE settings ADD COLUMN feature_scan INTEGER DEFAULT 0",
@@ -782,6 +786,27 @@ export function initDb() {
     // meter + per-task energy chips are a lot to meet on day one. Existing users
     // (setup_complete = 1) keep whatever they have; only fresh installs flip to off.
     "UPDATE settings SET energy_system_enabled = 0 WHERE setup_complete = 0",
+    // Follow-up (2026-07-25, same day): reverses the flip directly above. Maintainer
+    // feedback was that Energy and Goals should be ON by default after all — the
+    // migrations array is append-only (PRAGMA user_version indexes into it, see the
+    // note below), so the fix is a corrective UPDATE rather than editing the line
+    // above; anyone the earlier migration already flipped to 0 (installs that landed
+    // mid-onboarding between the two OTA pushes) gets put back to 1 here, and it's a
+    // no-op for everyone else. Energy stays a toggle (Settings → Advanced → Features);
+    // only the default changed.
+    "UPDATE settings SET energy_system_enabled = 1 WHERE setup_complete = 0",
+    // Goals: was off-by-default-with-back-fill (see the feature_goals ADD COLUMN and
+    // back-fill above); now on for EVERYONE, fresh installs included, so no WHERE
+    // clause — this simply supersedes the conditional back-fill for anyone it didn't
+    // already reach. Goals stays a toggle; only the default changed.
+    "UPDATE settings SET feature_goals = 1",
+    // Scan & receipts and Food & recipes: these stop being toggles altogether (per
+    // maintainer decision) and become always-on, like Habits/Health — no UI in
+    // Settings or the onboarding picker reads feature_scan/feature_food any more.
+    // Set unconditionally to 1 so the columns aren't left in a stale, meaningless
+    // state; they're otherwise inert now (see store/useSettingsStore.ts's "Inert
+    // columns" note) and kept only because this repo never drops a column.
+    "UPDATE settings SET feature_scan = 1, feature_food = 1",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

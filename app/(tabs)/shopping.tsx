@@ -31,8 +31,9 @@
  *             components/MonthlyResetReviewSheet,
  *             components/MonthlyTableRow, components/SavedListsModal, components/SavedListsSection,
  *             components/ScreenScaffold, components/SharedRequestsSection (gated on
- *             settings.featureSharing; the Food/Catalogue links on featureFood, and the
- *             scan icon + Budget pill + spend-pace line on featureScan),
+ *             settings.featureSharing — the only opt-in left on this screen; the
+ *             Food/Catalogue row, scan icon, Budget pill and spend-pace line are all
+ *             unconditional as of the 2026-07-25 defaults revision),
  *             components/ShoppingFilterBar, components/ShoppingRow, components/Surface,
  *             components/UpdateSheet, components/WeekListCard,
  *             components/PressableScale, components/TabSlider, components/SectionDivider,
@@ -570,12 +571,11 @@ export default function ShoppingScreen() {
   const advanceRecurringLists = useShoppingListStore((s) => s.advanceRecurringLists);
   const loadShopping = useShoppingStore((s) => s.load);
   const updateSettings = useSettingsStore((s) => s.update);
-  // Feature opt-ins (Settings → Advanced → Features), all off on a fresh install so the
-  // shopping list starts as just a list. Each only hides UI — the underlying data, stores
-  // and routes are untouched, so turning one back on restores everything as it was.
+  // Sharing is the one opt-in left on this screen (Settings → Advanced → Features),
+  // off on a fresh install. Scan & receipts and Food & recipes used to be opt-in too
+  // (2026-07-25) but are now always on — see store/useSettingsStore.ts's "Inert
+  // columns" note — so their call sites below no longer read a flag at all.
   const featureSharing = useSettingsStore((s) => s.featureSharing);
-  const featureScan = useSettingsStore((s) => s.featureScan);
-  const featureFood = useSettingsStore((s) => s.featureFood);
 
   const nonTemplateLists = useMemo(() => lists.filter((l) => !l.isTemplate), [lists]);
   const templateLists = useMemo(() => lists.filter((l) => l.isTemplate), [lists]);
@@ -751,15 +751,8 @@ export default function ShoppingScreen() {
     const label = t.tripLabel(dateStr(new Date()));
     // Scan/Upload commit the trip, then route to /scan with autoCapture so the scanner
     // opens the camera/library straight away (app/scan.tsx is now ported). Skip just
-    // commits the trip and confirms in place.
-    // With featureScan off there's nothing to offer — committing the trip IS the whole
-    // action, so skip the modal entirely rather than showing a one-button "Skip" prompt.
-    if (!featureScan) {
-      doneShopping(list.id, label, monthlyResetDate);
-      heavy();
-      setConfirm(t.doneShoppingSuccessText);
-      return;
-    }
+    // commits the trip and confirms in place. Scan & receipts is always on (2026-07-25
+    // defaults revision), so this modal always offers all three choices.
     showAppModal(t.doneShoppingReceiptTitle, t.doneShoppingReceiptBody, [
       { text: t.scanReceiptBtn, onPress: () => { doneShopping(list.id, label, monthlyResetDate); router.push({ pathname: '/scan', params: { autoCapture: 'camera' } }); } },
       { text: t.uploadPhotoBtn, onPress: () => { doneShopping(list.id, label, monthlyResetDate); router.push({ pathname: '/scan', params: { autoCapture: 'library' } }); } },
@@ -1468,11 +1461,10 @@ export default function ShoppingScreen() {
   // (UX audit F1, 2026-07-23) — Weekly/Monthly are the two things a user opens
   // constantly; Food (dish library) and Catalogue (master item list) are visited far
   // less often and didn't need to be permanent peers of the two shopping lists.
-  // Opt-in via settings.featureFood (off for fresh installs) — the dish library and item
-  // catalogue are a second app's worth of surface for someone who just wants a list.
-  // Seeding (seedDishes/seedCatalog) still runs regardless: useCatalogStore's soft-delete
-  // depends on the seed re-inserting, so only the doorway is hidden, never the data.
-  const foodCatalogueLinks = !featureFood ? null : (
+  // Always on (2026-07-25 defaults revision) — Food & recipes used to be opt-in via
+  // settings.featureFood, but that's now permanently true (see store/useSettingsStore.ts's
+  // "Inert columns" note), so this row is unconditional like Weekly/Monthly above it.
+  const foodCatalogueLinks = (
     <View style={styles.subScreenLinksRow}>
       <PressableScale
         style={styles.subScreenLinkBtn}
@@ -1503,7 +1495,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'shopping').base} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={featureScan ? () => router.push('/scan') : undefined} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} ownBackground={false} screenColor={getScreenColor(theme, 'shopping').base} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push('/scan')} onScroll={handleScreenScroll}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
@@ -1575,21 +1567,20 @@ export default function ShoppingScreen() {
                         )}
                       </View>
                       <View style={styles.catalogHeaderActions}>
-                        {/* Budget rides with featureScan: the spend figures it shows come from
-                            scanned receipts, so without the scanner it's an empty screen. */}
-                        {featureScan && (
-                          <PressableScale
-                            style={[styles.budgetPill, { borderColor: theme.featBudget }]}
-                            onPress={() => router.push({ pathname: '/budget', params: { listId: list.id } })}
-                            accessibilityRole="button"
-                            accessibilityLabel={t.budget.title}
-                            hitSlop={6}
-                            scaleTo={0.97}
-                          >
-                            <Ionicons name="wallet-outline" size={14} color={theme.featBudget} />
-                            <Text style={[styles.budgetPillText, { color: theme.featBudget }]}>{t.budget.title}</Text>
-                          </PressableScale>
-                        )}
+                        {/* Budget is always available (2026-07-25 defaults revision — Scan &
+                            receipts is no longer an opt-in, so neither is the screen that reads
+                            its spend figures). */}
+                        <PressableScale
+                          style={[styles.budgetPill, { borderColor: theme.featBudget }]}
+                          onPress={() => router.push({ pathname: '/budget', params: { listId: list.id } })}
+                          accessibilityRole="button"
+                          accessibilityLabel={t.budget.title}
+                          hitSlop={6}
+                          scaleTo={0.97}
+                        >
+                          <Ionicons name="wallet-outline" size={14} color={theme.featBudget} />
+                          <Text style={[styles.budgetPillText, { color: theme.featBudget }]}>{t.budget.title}</Text>
+                        </PressableScale>
                         <IconButton
                           icon="file-tray-full-outline"
                           label={t.manageInventoryAction}
@@ -1603,7 +1594,7 @@ export default function ShoppingScreen() {
                       </View>
                     </View>
 
-                    {featureScan && view.pace && (
+                    {view.pace && (
                       <Text style={[styles.spendPaceText, { color: view.pace.overPace ? theme.warn : theme.good }]}>
                         {t.budget.perDaySpend(String(Math.round(view.pace.actualPerDay)), String(Math.round(view.pace.budgetedPerDay)))}
                       </Text>
