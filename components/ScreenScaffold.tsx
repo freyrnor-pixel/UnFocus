@@ -87,13 +87,16 @@
  *     (plainBackground) path. As of the floated-header pass the block is `transparent` when
  *     `floatChrome` so the ScreenBackground shows in the side/top gaps around the glass —
  *     the stretched glass still covers content under the header itself.
- *   - **Floated header (2026-07-23, nothing-touches-the-edges)**: `floatChrome`
- *     (= !plainBackground) insets the header with `headerFloatV` (top+bottom gaps) and
- *     `headerFloatH` (side margins), rounds the glass (Radius.lg, via the style prop), and
- *     makes the block transparent. `headerBlockHeight` folds the gaps into the block height so
- *     the glass Surface still fills exactly HEADER_HEIGHT; `contentTopClear` and the sticky
- *     block/filler tops all derive from it so content and any stickyBelowHeader bar still clear
- *     the floated header. Pairs with the floated bottom nav in app/(tabs)/_layout.tsx.
+ *   - **Floated header (2026-07-23, nothing-touches-the-edges; top gap dropped 2026-07-25)**:
+ *     `floatChrome` (= !plainBackground) insets the header with `headerFloatBottom` (gap before
+ *     content) and `headerFloatH` (side margins), rounds the glass (Radius.lg, via the style
+ *     prop), and makes the block transparent. `headerFloatTop` is 0 — the header's top now sits
+ *     flush against `topInset` (the status/notification bar) instead of floating a further
+ *     `Spacing.sm` below it (user report: the card should visually touch the notification line,
+ *     not hover under it). `headerBlockHeight` folds the (now asymmetric) gaps into the block
+ *     height so the glass Surface still fills exactly HEADER_HEIGHT; `contentTopClear` and the
+ *     sticky block/filler tops all derive from it so content and any stickyBelowHeader bar still
+ *     clear the floated header. Pairs with the floated bottom nav in app/(tabs)/_layout.tsx.
  *   - **keyboardShouldPersistTaps (visual-audit, 2026-07-11)**: the in-flow ScrollView now
  *     sets `keyboardShouldPersistTaps="handled"` so a first tap on an on-screen control (e.g.
  *     an autocomplete suggestion row while an inline add-item input is focused) is delivered
@@ -289,20 +292,27 @@ export default function ScreenScaffold({
   // from ~73/~89 alongside the 2026-07-20 header-prominence title-size increase).
   const { headerHeight: HEADER_HEIGHT } = getHeaderMetrics(PixelRatio.getFontScale());
 
-  // Float the header off the screen edges (nothing-touches-the-edges pass, 2026-07-23): a
-  // small gap above (below the status bar) and below (before content), side margins, and
-  // rounded glass corners, so the header reads as a floating panel with the ScreenBackground
-  // showing around it — pairs with the floated bottom nav in app/(tabs)/_layout.tsx. Skipped
-  // for plainBackground (Settings), which keeps the conventional edge-to-edge app-bar look
-  // against its flat white/black fill (a floating pill on a flat field would read as an
-  // invisible-margin box). headerFloatV is applied top AND bottom, so the block grows by 2×
-  // and the glass Surface (headerFill flex:1) still fills exactly HEADER_HEIGHT.
+  // Float the header off the screen edges (nothing-touches-the-edges pass, 2026-07-23; top
+  // gap dropped 2026-07-25): a small gap below (before content), side margins, and rounded
+  // glass corners, so the header reads as a floating panel with the ScreenBackground showing
+  // around its sides/bottom — pairs with the floated bottom nav in app/(tabs)/_layout.tsx. No
+  // gap above — the header's top sits flush against the status bar so the card visually
+  // touches the notification line. Skipped for plainBackground (Settings), which keeps the
+  // conventional edge-to-edge app-bar look against its flat white/black fill (a floating pill
+  // on a flat field would read as an invisible-margin box). `headerFloatTop`/`headerFloatBottom`
+  // fold into the block height so the glass Surface (headerFill flex:1) still fills exactly
+  // HEADER_HEIGHT.
   const floatChrome = !plainBackground;
-  const headerFloatV = floatChrome ? Spacing.sm : 0;
+  // Top gap is 0 (2026-07-25, user report): the header used to float `Spacing.sm` below the
+  // status bar on both edges — flush would read as "the header card's top touches the
+  // notification line" instead of hovering with a visible strip of backdrop above it. The
+  // bottom gap (between the header and content) is unchanged.
+  const headerFloatTop = 0;
+  const headerFloatBottom = floatChrome ? Spacing.sm : 0;
   // Spacing.sm (was .md) to match BottomNav's NAV_FLOAT_GAP (app/(tabs)/_layout.tsx) — the
   // header and bottom-nav floating cards should read as the same width (2026-07-24).
   const headerFloatH = floatChrome ? Spacing.sm : 0;
-  const headerBlockHeight = HEADER_HEIGHT + topInset + headerFloatV * 2;
+  const headerBlockHeight = HEADER_HEIGHT + topInset + headerFloatTop + headerFloatBottom;
   // How far below the safe-area top the header footprint ends — what content must clear.
   const contentTopClear = headerBlockHeight - topInset;
 
@@ -386,7 +396,7 @@ export default function ScreenScaffold({
   // room, but that extra strip painted `stickyGapColor="transparent"` — a window onto
   // scrolled-past content directly under the header, reading as flickering text sitting
   // "between" the header and tab-bar cards (2026-07-24 fix). Zeroed: the header's own
-  // `headerFloatV` bottom gap already gives the tab bar breathing room, so this doesn't
+  // `headerFloatBottom` gap already gives the tab bar breathing room, so this doesn't
   // read as flush/cramped, and there's no separate transparent strip left to leak through.
   const stickyGap = 0;
   const contentPadding = {
@@ -449,8 +459,8 @@ export default function ScreenScaffold({
         styles.headerBlock,
         {
           height: headerBlockHeight,
-          paddingTop: topInset + headerFloatV,
-          paddingBottom: headerFloatV,
+          paddingTop: topInset + headerFloatTop,
+          paddingBottom: headerFloatBottom,
           paddingHorizontal: headerFloatH,
           // Floating: transparent so the ScreenBackground shows in the side/top gaps around
           // the glass. Non-floating (Settings): keep the flat fill so nothing shows through.

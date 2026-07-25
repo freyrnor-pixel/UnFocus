@@ -963,8 +963,13 @@ const baseStyles = StyleSheet.create({
   },
   quickChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
-  // Empty-day ghost add row: fills the resting height, add affordance pinned below the message.
-  emptyWrap: { flex: 1 },
+  // Was `flex: 1` (2026-07-25, user report): that forced this wrapper to swallow the card's
+  // whole remaining resting-height floor, pushing the trailing AddRow/ghost-add row all the way
+  // to the bottom and leaving a big dead gap under the header — see HomePreviewEmpty's matching
+  // edit note. `gap` gives a little breathing room between the empty row and the fallback ghost
+  // add row (only rendered when `onAddTask` is absent); any leftover floor height now collects
+  // below instead of between the header and the add affordance.
+  emptyWrap: { gap: Spacing.sm },
   emptyAddRow: {
     flexDirection: 'row',
     alignItems: 'center',

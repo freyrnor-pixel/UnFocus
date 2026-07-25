@@ -134,15 +134,20 @@
  *     `onPageScrolled` echo would immediately overwrite the tween with the same snap this was
  *     meant to fix. Pure JS/app-code change — ships via normal OTA, no native build needed, no
  *     patch-package patch to maintain.
- *   - **Floated bottom-nav — sides + bottom, flush top (2026-07-23, amended)**:
- *     TabBarWithBackgroundSync's wrapper insets the bar with NAV_FLOAT_GAP on the LEFT/RIGHT and
- *     a matching small gap BELOW (on top of the safe-area inset), but flush at the TOP (no gap
- *     above). The small margin (smaller than the per-screen cards' Spacing.md) plus the bottom
- *     gap give BottomNav's rounded corners (Radius.lg, all four) room to read as a floating
- *     panel. Wrapper height is BOTTOM_NAV_HEIGHT + insetsBottom + NAV_FLOAT_GAP. The original
- *     pass floated it on ALL sides with Spacing.md side margins AND a top gap, which left an
- *     empty "blank border" frame of background around the bar — the top gap and the oversized
- *     side margins were removed. The floated header in ScreenScaffold is unchanged.
+ *   - **Floated bottom-nav — all four sides (2026-07-23, amended; top gap restored 2026-07-25)**:
+ *     TabBarWithBackgroundSync's wrapper insets the bar with NAV_FLOAT_GAP on every side —
+ *     LEFT/RIGHT, BELOW (on top of the safe-area inset), and now ABOVE too. The small margin
+ *     (smaller than the per-screen cards' Spacing.md) gives BottomNav's rounded corners
+ *     (Radius.lg, all four — see BottomNav's `styles.bar`) room to read as a floating panel on
+ *     every edge, not just the bottom two. Wrapper height is
+ *     BOTTOM_NAV_HEIGHT + insetsBottom + NAV_FLOAT_GAP * 2. The original 2026-07-23 pass floated
+ *     it on all sides with Spacing.md margins AND a top gap, which left an empty "blank border"
+ *     frame of background around the bar — that was fixed by dropping to NAV_FLOAT_GAP and
+ *     briefly squaring the top corners flush. The square top corners turned out to read as
+ *     content hard-clipping/"disappearing" as it scrolled under the bar (user report) — top gap
+ *     + rounded top corners are back, this time at the smaller NAV_FLOAT_GAP margin so it
+ *     doesn't reintroduce the oversized blank-border look. The floated header in ScreenScaffold
+ *     is unchanged.
  *   - **Scene background must stay transparent**: @react-navigation/material-top-tabs's
  *     MaterialTopTabView wraps every route in `sceneStyle: { backgroundColor: colors.background }`
  *     by default (react-navigation theme background, opaque) — that painted over this
@@ -201,18 +206,17 @@ function TabBarWithBackgroundSync({ insetsBottom, onActiveRouteChange, onPositio
     if (position) onPosition(position);
   }, [position, onPosition]);
 
-  // Float the bar with a small left/right margin (NAV_FLOAT_GAP) and a matching small gap
-  // BELOW (on top of the safe-area inset) so the bar's rounded bottom corners have room to
-  // read as a floating panel — but flush at the TOP (no gap above). The wrapper height is
-  // BOTTOM_NAV_HEIGHT + insetsBottom + NAV_FLOAT_GAP. This is the "round all corners + small
-  // gap" treatment: it keeps BottomNav's full Radius.lg rounding on every corner while still
-  // avoiding the empty "blank border" frame the earlier all-sides float (top + bottom +
-  // Spacing.md sides) left around the bar.
+  // Float the bar with a small margin on all four sides (NAV_FLOAT_GAP) so its rounded
+  // corners (Radius.lg, all four — see BottomNav's `styles.bar`) read as a floating panel with
+  // scrolled content and the ambient backdrop visible in the gap around it, on every edge —
+  // including the top, where a flush/square edge used to make scrolled-past content look like
+  // it hard-clipped out of existence right at the bar (2026-07-25, user report). The wrapper
+  // height is BOTTOM_NAV_HEIGHT + insetsBottom + NAV_FLOAT_GAP * 2 (one gap above, one below).
   return (
     <View
       style={{
-        height: BOTTOM_NAV_HEIGHT + insetsBottom + NAV_FLOAT_GAP,
-        paddingTop: 0,
+        height: BOTTOM_NAV_HEIGHT + insetsBottom + NAV_FLOAT_GAP * 2,
+        paddingTop: NAV_FLOAT_GAP,
         paddingBottom: insetsBottom + NAV_FLOAT_GAP,
         paddingHorizontal: NAV_FLOAT_GAP,
       }}

@@ -465,16 +465,17 @@ const baseStyles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     gap: Spacing.md,
     // Floating pill: app/(tabs)/_layout.tsx now insets this bar off the screen edges
-    // (NAV_FLOAT_GAP), so an explicit rounded corner makes it read as a floating panel
-    // rather than an edge-to-edge bar. Radius.lg matches the header's floated corner.
-    // Top-left/top-right squared off (2026-07-24): the bar sits flush against the top of
-    // its own floating slot (no gap above, per the "flush top" note above), so a rounded
-    // top corner there just exposed a notch of the ambient backdrop between this bar and
-    // whatever's above it — reading as a transparent gap rather than a seamless edge. Only
-    // the bottom corners stay rounded for the floating-pill look. Requires Surface.tsx's
-    // per-corner radius support (see its "Per-corner radius" edit note).
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
+    // (NAV_FLOAT_GAP, on all four sides) so an explicit rounded corner on every side makes it
+    // read as a floating panel rather than an edge-to-edge bar. Radius.lg matches the header's
+    // floated corner. All four corners rounded (2026-07-25, user report, supersedes the
+    // 2026-07-24 "flush top / square top corners" pass below): with a real gap now above the
+    // bar too (see app/(tabs)/_layout.tsx), a rounded top edge reveals a sliver of the ambient
+    // backdrop behind it instead of scrolled content hard-clipping at a square edge — the old
+    // squared-off top is what made content look like it "disappeared into thin air" as it
+    // scrolled under the bar. Requires Surface.tsx's per-corner radius support (see its
+    // "Per-corner radius" edit note).
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
     borderBottomLeftRadius: Radius.lg,
     borderBottomRightRadius: Radius.lg,
   },
