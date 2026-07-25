@@ -13,11 +13,12 @@
  *
  * Also owns the self-contained debug-mode controls (2026-07-13, expanded 2026-07-19): every
  * screen's title is long-press-annotatable via DebugNoteAnchor (the title anchor is keyed
- * `screen:${pathname}` = the whole-screen note), and site-tier headers carry a bug-icon
- * toggle that flips `settings.debugModeEnabled` from anywhere. When debug is on, a green
- * checkmark (email ALL notes via mailto:, Share fallback) and a red circle (delete all,
- * confirmed) appear next to it. Home also shows an OTA "update available" icon. All read
- * their own state directly from settings/feedback/expo-updates — no props threaded down.
+ * `screen:${pathname}` = the whole-screen note). While debug mode is ON, site-tier headers
+ * carry three icons: a bug (tap = turn debug back off), a green checkmark (email ALL notes
+ * via mailto:, Share fallback) and a red circle (delete all, confirmed). All three are
+ * hidden while it's off — turning debug ON is Settings → Advanced only (2026-07-25). Home
+ * also shows an OTA "update available" icon. All read their own state directly from
+ * settings/feedback/expo-updates — no props threaded down.
  *
  * Site-tier headers also accept optional `onSharePress`/`onScanPress` — when a screen passes
  * either, a matching icon appears in the controls group (currently only Shopping, wired to
@@ -66,7 +67,7 @@
  *     mode renders a numbers caption (fontScale/sizes/onLayout box) + colored outlines
  *     (BLUE band in ScreenScaffold, RED Surface edge, GREEN title frame) so one tester
  *     screenshot pins any remaining clip to its exact box.
- *     Shopping's 5-icon control group (bug/scan/share/info/gear, vs. Home's 3) left
+ *     Shopping's then-5-icon control group (bug/scan/share/info/gear, vs. Home's 3) left
  *     titleWrap's flex:1 too narrow for "SHOPPING"/"HANDLELISTE", which ellipsized.
  *     **Autosize hack REMOVED (2026-07-24 second pass)**: the `adjustsFontSizeToFit` +
  *     `minimumFontScale` approach (first unconditional, then gated on a `shrinkTitle`
@@ -80,14 +81,18 @@
  *     dropped Spacing.md → Spacing.sm, and `HEADER_TITLE_BASE_SIZE` (constants/theme.ts)
  *     dropped 28 → 24 (a deliberate, uniform reduction — the maintainer wants one consistent
  *     header size). Band-height stays in lockstep because getHeaderMetrics derives it from the
- *     same base size. Note: with debug mode ON, Shopping shows 7 icons (adds email + delete),
- *     which can still ellipsize the long title — an accepted tester-only edge, not the default.
+ *     same base size. Note: with debug mode ON, Shopping shows up to 7 icons (adds bug + email
+ *     + delete), which can still ellipsize the long title — an accepted tester-only edge. Since
+ *     2026-07-25 the default is lighter: bug/email/delete are hidden unless debug is on, and
+ *     scan/share only appear when their feature flags are on, so a fresh install's Shopping
+ *     header is just [ⓘ info] [gear].
  *   - **Debug notes (2026-07-13, replaces the old DebugOverlay)**: the title is wrapped in
  *     DebugNoteAnchor keyed off the (translated) `title` string — see that component's own
  *     edit note on the language-switch caveat this implies. The export icon (site-tier only)
  *     is gated on `debugModeEnabled` and shares export text/format with app/settings.tsx's
  *     Reset action; dimmed (not hidden) when there are zero notes, matching the old
- *     DebugOverlay's disabled-button convention.
+ *     DebugOverlay's disabled-button convention. The bug icon itself is gated the same way
+ *     now — it only ever turns debug OFF, so it can't be the way a new user turns it on.
  *   - **OTA update button (Home only)**: visibility is driven by `Updates.useUpdates()` —
  *     shown when `isUpdateAvailable` (a newer update is on the server) OR `isUpdatePending`
  *     (one has already downloaded and is waiting for a reload to apply). The pending case is
@@ -326,10 +331,14 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
     </PressableScale>
   ) : null;
 
-  // Debug/annotate toggle (site-tier only) — ALWAYS shown so testers can turn note-taking
-  // on from anywhere; filled bug + accent tint when active. The email + delete satellites
-  // below only appear once it's on.
-  const bugButton = (
+  // Debug/annotate toggle (site-tier only) — shown ONLY while debug mode is already on,
+  // as the one-tap way back out; the email + delete satellites below appear alongside it.
+  // Turning debug ON now lives solely in Settings → Advanced (2026-07-25 reorganization):
+  // this icon used to render on every site-tier header for every user, so a first-time
+  // user could switch on the tester annotation tooling by accident, and it was a
+  // permanent 5th icon in Shopping's control group (the title-truncation pressure
+  // documented above).
+  const bugButton = debugModeEnabled ? (
     <PressableScale
       onPress={handleDebugTogglePress}
       hitSlop={8}
@@ -338,9 +347,9 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
       accessibilityState={{ selected: debugModeEnabled }}
       scaleTo={0.9}
     >
-      <Ionicons name={debugModeEnabled ? 'bug' : 'bug-outline'} size={22} color={debugModeEnabled ? theme.accent : theme.text} />
+      <Ionicons name="bug" size={22} color={theme.accent} />
     </PressableScale>
-  );
+  ) : null;
   // Green checkmark: email all notes. Dimmed, not hidden, when there are none.
   const emailButton = debugModeEnabled ? (
     <PressableScale
@@ -370,9 +379,10 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
 
   // Site-tier control count, needed before titleNode below decides whether to shrink-to-fit.
   // Grouped controls order (right-handed, left-to-right): [update] [bug] [✓ email] [✕ delete]
-  // [scan] [share] [ⓘ info] [gear]. The bug toggle is always present; the green email + red
-  // delete only render when debug mode is on (they're null otherwise); share/scan only render
-  // on Shopping (onSharePress/onScanPress). Gear is outermost on whichever side the group sits
+  // [scan] [share] [ⓘ info] [gear]. Bug + email + delete all render only while debug mode is
+  // on (null otherwise), so the default header is two icons lighter than it used to be;
+  // share/scan only render when the screen passes onSharePress/onScanPress, which Shopping
+  // now does only when the matching feature flag is on. Gear is outermost on whichever side the group sits
   // (Decision 034). Items that don't apply to this screen are null/filtered.
   const siteControls = tier === 'site'
     ? ([updateButton, bugButton, emailButton, deleteButton, scanButton, shareButton, infoButton, gearButton].filter(Boolean) as React.ReactNode[])

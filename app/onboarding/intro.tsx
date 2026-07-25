@@ -6,7 +6,8 @@
  * first-run ⓘ hint; this tour is pure orientation. One short, non-scrolling page per
  * feature (from t.features): a centered icon "up in the middle", a one-line use-case,
  * and a reminder that every screen has an ⓘ hint bubble. Stepped with Next/Back — the
- * last page continues to the name step (index.tsx), which finishes onboarding.
+ * last page continues to the feature picker (features.tsx), which then hands off to the
+ * name step (index.tsx) to finish onboarding.
  *
  * Connections:
  *   Imports → @/lib/i18n, @/constants/theme, @/lib/useAppTheme, @/components/Button
@@ -17,7 +18,8 @@
  *   - All user-facing strings go through useT() — no hardcoded text.
  *   - Page content is t.features (icon + text); dots count = t.features.length.
  *   - No vertical scroll — each page is sized to one viewport (justifyContent:'center').
- *   - Next on the last page → router.push('/onboarding') (the name + finish screen).
+ *   - Next on the last page → router.push('/onboarding/features') (the "what do you want to
+ *     use?" picker, which continues to the name + finish screen).
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -44,7 +46,7 @@ export default function OnboardingIntro() {
 
   function next() {
     if (page < last) setPage((p) => p + 1);
-    else router.push('/onboarding');
+    else router.push('/onboarding/features');
   }
 
   function back() {

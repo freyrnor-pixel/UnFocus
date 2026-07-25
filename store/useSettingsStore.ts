@@ -30,6 +30,10 @@
  * directly by app/(tabs)/index.tsx.
  * photoAspectRatio (aspect-ratio formats pass) is the app-wide default format for
  * photo tiles — see components/PhotoFrame.tsx and constants/theme.ts's AspectRatio map.
+ * featureGoals/featureSharing/featureScan/featureFood/featureAutomations (2026-07-25)
+ * are the feature opt-ins — each hides a purely additive surface when off (see their
+ * per-field docs below). Off on fresh installs, back-filled to on for existing users
+ * by a `WHERE setup_complete = 1` migration in lib/db.ts.
  * energyMode (2026-07-24) picks how the Energy capacity is defined — 'daily'/'weekly'
  * use the flat energyDailyCapacity/energyWeeklyCapacity number and hide the other
  * meter; 'custom' uses energyCustomCapacities (Mon..Sun) per-weekday amounts instead,
@@ -56,6 +60,15 @@
  *     app/settings.tsx's "Device features" card. `deviceCalendarId` is internal (not
  *     user-facing) — the id of the dedicated "UnFocus" device calendar, cached by
  *     lib/taskCalendar.ts's ensureCalendar() so it isn't recreated on every sync.
+ *   - **Inert columns (2026-07-25)** — persisted, mapped, and written by update(), but
+ *     read by NOTHING in the app. Their Settings UI was removed in the settings
+ *     reorganization because the switches did nothing; the columns stay (this repo never
+ *     drops columns) so the features can be built later without a migration dance:
+ *     `workModeEnabled`, `enforceWorkHours`, `workHoursStart`, `workHoursEnd`, `workDays`,
+ *     `holidaysEnabled`, `schoolModeEnabled`, `childMode`, `childModePasswordSet`,
+ *     `showPoints`, `showHints`, `backgroundLocationEnabled`, `monthlyBudgetNok`
+ *     (superseded by per-list budgets in store/useMonthlyListStore.ts). Do NOT wire new
+ *     UI to these without building the behaviour they imply.
  *   - `glassBlur` was removed (2026-07-18 glass simplification — the Android blur-target
  *     subsystem it gated no longer exists). Its `glass_blur` SQLite column is intentionally
  *     left orphaned (never drop columns) — see lib/db.ts's migration comment.
@@ -221,6 +234,25 @@ export type Settings = {
   // 'fit' shows a photo's natural proportions; the others center-crop to a fixed ratio.
   // A per-call `format` prop can still override this for a specific tile.
   photoAspectRatio: AspectRatioKey;
+  // ---- Feature opt-ins (2026-07-25 settings reorganization) ----
+  // Each one hides a purely ADDITIVE surface when off — the app keeps working, the
+  // feature's own data/routes stay on disk, and nothing that would break app logic is
+  // gated this way (pruning, widget/overview sync, catalog+dish+symptom seeding, the
+  // automation store's boot load and the monthly reminder re-arm all stay
+  // unconditional). Off for fresh installs, back-filled to on for anyone who already
+  // finished onboarding — see the `WHERE setup_complete = 1` migration in lib/db.ts.
+  // Surfaced in app/settings.tsx's Advanced → Features card and picked during
+  // onboarding in app/onboarding/features.tsx.
+  /** Goal linking: GoalPicker in the task/habit editors + the GoalGlowDot on cards. */
+  featureGoals: boolean;
+  /** Sharing & QR: the header share icon, HomeSharedCard, and the shared task/request sections. */
+  featureSharing: boolean;
+  /** Scan & receipts: the header scan icon, the "shopping done" scan choices, and Budget/spend-pace. */
+  featureScan: boolean;
+  /** Food & recipes: the Food + Catalogue button row on Shopping. Seeding still runs regardless. */
+  featureFood: boolean;
+  /** Automations: the entry point to app/automations.tsx. Existing rules still run when off. */
+  featureAutomations: boolean;
 };
 
 type SettingsStore = Settings & {
@@ -303,6 +335,11 @@ function rowToSettings(row: Row): Settings {
       ['fit', 'square', 'classic', 'widescreen', 'golden'],
       'fit'
     ),
+    featureGoals: readBool(row, 'feature_goals'),
+    featureSharing: readBool(row, 'feature_sharing'),
+    featureScan: readBool(row, 'feature_scan'),
+    featureFood: readBool(row, 'feature_food'),
+    featureAutomations: readBool(row, 'feature_automations'),
   };
 }
 
@@ -370,6 +407,11 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   energyCustomCapacities: { col: 'energy_custom_capacities', to: (v) => JSON.stringify(v) },
   lifetimeCompletedTasks: { col: 'lifetime_completed_tasks' },
   photoAspectRatio: { col: 'photo_aspect_ratio' },
+  featureGoals: { col: 'feature_goals', to: bool },
+  featureSharing: { col: 'feature_sharing', to: bool },
+  featureScan: { col: 'feature_scan', to: bool },
+  featureFood: { col: 'feature_food', to: bool },
+  featureAutomations: { col: 'feature_automations', to: bool },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -437,6 +479,14 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   energyCustomCapacities: [10, 10, 10, 10, 10, 10, 10],
   lifetimeCompletedTasks: 0,
   photoAspectRatio: 'fit' as AspectRatioKey,
+  // Opt-in defaults. These only apply before load() resolves the real row, and the
+  // app doesn't render past the `loaded` gate until it has — so an existing user
+  // whose flags are on never sees a flash of the off state.
+  featureGoals: false,
+  featureSharing: false,
+  featureScan: false,
+  featureFood: false,
+  featureAutomations: false,
   loaded: false,
   workModeSessionOverride: false,
 

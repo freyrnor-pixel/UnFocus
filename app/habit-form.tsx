@@ -14,7 +14,8 @@
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
  *             components/Collapsible (animated "More options" disclosure),
  *             components/HintCard, components/HabitIcon, components/Button, components/AppModal,
- *             components/PressableScale, components/Stepper, components/GoalPicker, lib/haptics,
+ *             components/PressableScale, components/Stepper, components/GoalPicker (gated on
+ *             settings.featureGoals), lib/haptics,
  *             lib/i18n, lib/useAppTheme, store/useHabitStore, store/useSettingsStore
  *   Used by → Expo Router route "/habit-form"; reached from app/(tabs)/habits.tsx (its own
  *             bottom-nav tab as of 2026-07-23 — was embedded in health.tsx before that;
@@ -154,6 +155,7 @@ export default function HabitForm() {
   const childProfiles = useSettingsStore((s) => s.childProfiles);
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
   const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
+  const featureGoals = useSettingsStore((s) => s.featureGoals);
 
   const theme = useAppTheme();
   const t = useT();
@@ -498,8 +500,9 @@ export default function HabitForm() {
           <Stepper value={dailyGoal} onChange={setDailyGoal} min={1} max={20} accessibilityLabel={t.habitDailyGoal} />
         </View>
 
-        {/* Goal — connect this habit to a Goal (create/select/delete inline) */}
-        <GoalPicker value={goalId} onChange={setGoalId} />
+        {/* Goal — connect this habit to a Goal (create/select/delete inline).
+            Opt-in via settings.featureGoals (Settings → Advanced → Features). */}
+        {featureGoals && <GoalPicker value={goalId} onChange={setGoalId} />}
 
         {/* More options disclosure — icon/category only now; both are cosmetic/organizational,
             not load-bearing, so they stay tucked away by default. */}
