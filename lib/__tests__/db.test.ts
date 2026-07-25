@@ -9,7 +9,7 @@
  * stub; this asserts on the exact SQL text and params passed to its runSync,
  * rather than exercising real SQLite semantics (not available headless).
  */
-import { pruneOldData } from '@/lib/db';
+import { initDb, pruneOldData } from '@/lib/db';
 import { db } from '@/lib/sqlite';
 
 const mockRunSync = db.runSync as jest.Mock;
@@ -38,5 +38,47 @@ describe('pruneOldData — tasks query', () => {
       throw new Error('boom');
     });
     expect(() => pruneOldData()).not.toThrow();
+  });
+});
+
+/**
+ * Feature opt-in migrations (2026-07-25 settings reorganization).
+ *
+ * The riskiest part of that change: five new columns default to 0 so FRESH installs start
+ * on the basics, which would also silently strip the features from every EXISTING user if
+ * the back-fill were missing or ran in the wrong order. `setup_complete` is the
+ * discriminator — the settings row is inserted by the CREATE TABLE block before migrations
+ * run, so a fresh install is still at 0 here while an upgrading install is at 1.
+ */
+describe('feature opt-in migrations', () => {
+  const FLAGS = ['feature_goals', 'feature_sharing', 'feature_scan', 'feature_food', 'feature_automations'];
+
+  function migrationSql(): string[] {
+    initDb();
+    return (db.execSync as jest.Mock).mock.calls.map(([sql]: [string]) => sql);
+  }
+
+  it.each(FLAGS)('adds %s defaulting to 0 (off for fresh installs)', (col) => {
+    expect(migrationSql()).toContain(`ALTER TABLE settings ADD COLUMN ${col} INTEGER DEFAULT 0`);
+  });
+
+  it('back-fills every flag to 1 for users who already finished onboarding', () => {
+    const backfill = migrationSql().find((sql) => sql.startsWith('UPDATE settings SET feature_goals'));
+    expect(backfill).toBeDefined();
+    for (const col of FLAGS) expect(backfill).toContain(`${col} = 1`);
+    // Without this WHERE the back-fill would also switch everything on for new installs,
+    // defeating the entire opt-in change.
+    expect(backfill).toContain('WHERE setup_complete = 1');
+  });
+
+  it('runs the back-fill after the columns it updates', () => {
+    const sql = migrationSql();
+    const lastAlter = Math.max(...FLAGS.map((c) => sql.findIndex((s) => s.includes(`ADD COLUMN ${c}`))));
+    const backfill = sql.findIndex((s) => s.startsWith('UPDATE settings SET feature_goals'));
+    expect(backfill).toBeGreaterThan(lastAlter);
+  });
+
+  it('turns the Energy system off for fresh installs only', () => {
+    expect(migrationSql()).toContain('UPDATE settings SET energy_system_enabled = 0 WHERE setup_complete = 0');
   });
 });

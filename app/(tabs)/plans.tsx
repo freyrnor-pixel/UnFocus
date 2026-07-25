@@ -29,6 +29,7 @@
  *             also reached with `?tab=all&expandTaskId=…` from app/notes.tsx's "Add to plans"
  *             (UX audit B1, 2026-07-23 — creates the task, then lands here with its editor open)
  *   Data    → reads/writes useTaskStore (tasks/steps); SharedTasksSection reads useSharedStore
+ *             (gated on settings.featureSharing — opt-in, off for fresh installs)
  *             internally for incoming shares + accepts the sharedOut tasks as its "sent" half
  *
  * Edit notes:
@@ -102,7 +103,7 @@
  *     only seeds the first-run blank draft (see below).
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
@@ -306,9 +307,9 @@ export default function TasksScreen() {
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
   const childProfiles = useSettingsStore((s) => s.childProfiles);
   const showPeople = peopleModeEnabled && childProfiles.length > 0;
-  // First-run hint embeds the work-mode toggle the old wizard step 2 collected.
-  const workModeEnabled = useSettingsStore((s) => s.workModeEnabled);
-  const updateSettings = useSettingsStore((s) => s.update);
+  // Sharing is opt-in (Settings → Advanced → Features), off on a fresh install — it hides
+  // the shared-tasks section below. Tasks already shared stay in the store untouched.
+  const featureSharing = useSettingsStore((s) => s.featureSharing);
 
   const [tab, setTab] = useState<Tab>('today');
   const [hintOpen, setHintOpen] = useFirstVisitHint('plans');
@@ -425,20 +426,12 @@ export default function TasksScreen() {
       onInfoToggle={() => setHintOpen((v) => !v)}
     >
       <View style={styles.content}>
-        <HintCard text={t.hints.plans.text} open={hintOpen} noPill>
-          <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
-            <View style={styles.hintSettingText}>
-              <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.startWithWorkMode}</Text>
-              <Text style={[styles.hintSettingHint, { color: theme.textMuted }]}>{t.canChangeAnytime}</Text>
-            </View>
-            <Switch
-              value={workModeEnabled}
-              onValueChange={(v) => updateSettings({ workModeEnabled: v })}
-              trackColor={{ false: theme.border, true: theme.accentSoft }}
-              thumbColor={workModeEnabled ? theme.accent : theme.textMuted}
-            />
-          </View>
-        </HintCard>
+        {/* Plain hint, no embedded setting. This used to carry a "start with work mode"
+            Switch (the first-run teaching slot for the old onboarding wizard's work-mode
+            step) — removed 2026-07-25 along with the Work mode card in Settings, because
+            `workModeEnabled` was never read by anything: the switch promised to hide
+            personal plans and did nothing at all. */}
+        <HintCard text={t.hints.plans.text} open={hintOpen} noPill />
 
         {/* Person filter (People/family mode) — Everyone + Me + each profile. */}
         <Collapsible open={showPeople}>
@@ -504,7 +497,7 @@ export default function TasksScreen() {
               </SectionCard>
             </DebugNoteAnchor>
 
-            <SharedTasksSection sentTasks={sharedOutAll} onToggleDone={handleToggleDone} />
+            {featureSharing && <SharedTasksSection sentTasks={sharedOutAll} onToggleDone={handleToggleDone} />}
           </>
         )}
 
@@ -577,17 +570,6 @@ export default function TasksScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: Spacing.md },
-  // Embedded first-run setting inside the ⓘ hint (work mode).
-  hintSetting: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    borderTopWidth: 1,
-    paddingTop: Spacing.sm,
-  },
-  hintSettingText: { flex: 1 },
-  hintSettingLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
-  hintSettingHint: { fontSize: FontSize.xs, marginTop: 2 },
   // Styles TabSlider directly (no wrapping card, see the 2026-07-24 stickyBelowHeader edit
   // note) — side margin matches ScreenHeader's own floated card (headerFloatH, Spacing.sm as
   // of the header/bottom-nav width-alignment pass); flex:1 + justifyContent:'center' fill and

@@ -292,14 +292,12 @@ const en = {
   persistentNotifHint: "Keeps one notification up to date with today's remaining tasks and shopping items",
   habitNotifications: 'Habit reminders',
   habitNotificationsHint: "Reminder when it's time for a habit",
-  workModeDesc: 'Work mode hides personal plans so you can focus.',
-  workModeActive: 'Enable work mode',
-  autoActivate: 'Auto-activate',
-  autoActivateHint: 'Turns on work mode during work hours',
-  workHoursLabel: 'Work hours',
+  // From/To are the generic time-range labels — the only remaining consumer is the
+  // quiet-hours range in Settings → Personal. (The rest of the Work-mode strings were
+  // deleted with that card in the 2026-07-25 settings reorganization: every one of its
+  // switches wrote a column no code ever read.)
   workHoursFrom: 'From',
   workHoursTo: 'To',
-  workDaysLabel: 'Work days',
   sectionMotivation: 'Motivation',
   showPointsLabel: 'Show completed plan count',
   showPointsHint: 'Every small step counts — see your total on the home screen',
@@ -372,6 +370,15 @@ const en = {
   exploreDesc: 'Start right away — tips are available in Settings',
   recommended: 'Recommended',
   introHintNote: 'Look for the ⓘ button on any screen for tips and settings.',
+  // Onboarding feature picker (app/onboarding/features.tsx) — the guided path's
+  // "what do you want to use?" step. Everything listed there is optional and starts
+  // off; the labels/hints themselves come from config.features.
+  featurePicker: {
+    title: 'What do you want to use?',
+    sub: 'Pick the extras you want. Leave them off and the app stays simple.',
+    alwaysOn: 'Plans, shopping, notes, habits and health are always there.',
+    note: 'You can turn these on and off later in Settings → Advanced.',
+  },
   chooseLanguage: 'Choose language',
   chooseLanguageSub: 'You can change this in Settings at any time.',
   english: 'English',
@@ -621,9 +628,6 @@ const en = {
   monthlyDateInputHint: 'Any day 1–31. Short months use the last day.',
   invalidMonthlyDateMsg: 'Enter a day between 1 and 31 — reverted to the previous value.',
   invalidMonthlyBudgetMsg: 'Enter a valid amount — reverted to the previous value.',
-  sectionHolidays: 'Calendar',
-  holidaysEnabledLabel: 'Norwegian public holidays',
-  holidaysHint: 'Holidays are treated like weekends — work mode and reminders stay off.',
   // Habits
   habitsTitle: 'Habits',
   habitBuilding: 'Building',
@@ -720,17 +724,6 @@ const en = {
   shareExplainTasks: 'Sharing makes a QR code of these plans. The other person scans it to copy them into their own UnFocus.',
   shareExplainLaterBuild: 'For now it\'s a one-time copy — live sync between phones and messaging come in a later build.',
   // Child mode (Decision 038c) — locked variant gated by a parent password.
-  childModeTitle: 'Child mode',
-  childModeDesc: 'A locked-down version for a child: only assigned tasks and habits, no settings or sharing. A parent password is needed to leave it.',
-  childModeSetPassword: 'Set parent password',
-  childModeChangePassword: 'Change parent password',
-  childModeNewPassword: 'New parent password',
-  childModeEnable: 'Turn on child mode',
-  childModeExit: 'Exit child mode',
-  childModeEnterPassword: 'Enter parent password',
-  childModeWrongPassword: 'That password is not correct.',
-  childModeNeedPassword: 'Set a parent password first, so you can get back out.',
-  childModeLockedNotice: 'Child mode is on. Ask a parent to unlock it.',
   sharedRequestExplainShopping: 'Items someone shared to you. Accept adds one to your shopping list; Dismiss removes it.',
   sharedRequestExplainTask: 'Plans someone shared to you. Accept adds one to your plans; Dismiss removes it.',
   scanQrCode: 'Scan QR code',
@@ -1096,28 +1089,46 @@ const en = {
     sections: {
       appearance: 'Appearance',
       notifications: 'Notifications',
-      workMode: 'Work Mode',
       data: 'Data',
-      additionalModes: 'Additional modes',
+      layout: 'Layout',
+      features: 'Features',
       advanced: 'Advanced',
     },
-    // Settings screen top-level tab labels — kept short on purpose: this tab bar is
-    // a non-scrolling, equal-width 4-way split (components/TabSlider.tsx `sizing="equal"`),
-    // so a long label like "Notifications"/"Shopping" would truncate or force scrolling.
+    // Settings screen top-level tab labels — kept short on purpose: TabSlider has no
+    // scroll mode at all, so all tabs must fit one row. Three since the 2026-07-25
+    // reorganization: General (what any app has), Personal (your preferences),
+    // Advanced (modes + the feature opt-ins).
     tabs: {
       general: 'General',
-      lists: 'Lists',
-      shopping: 'Shop',
-      notifications: 'Alerts',
-      appearance: 'Appearance',
-      additionalModes: 'Modes',
+      personal: 'Personal',
+      advanced: 'Advanced',
     },
-    // School mode (Additional modes tab) — placeholder, no logic wired yet
-    schoolMode: {
-      label: 'School mode',
-      hint: 'Focus on school tasks — more features can be enabled here later.',
+    // Feature opt-ins (Advanced → Features). Each hides a purely additive surface when
+    // off; off by default on fresh installs so a new user meets the basics first.
+    features: {
+      intro: 'Turn on only what you need. You can change this at any time.',
+      goals: {
+        label: 'Goals',
+        hint: 'Link plans and habits to a goal, and see how strong it is.',
+      },
+      sharing: {
+        label: 'Sharing & QR',
+        hint: 'Send plans and shopping items to someone else, and receive theirs.',
+      },
+      scan: {
+        label: 'Scan & receipts',
+        hint: 'Scan receipts after shopping and track spending against a budget.',
+      },
+      food: {
+        label: 'Food & recipes',
+        hint: 'Meal planning and your item catalogue, reached from the shopping list.',
+      },
+      automations: {
+        label: 'Automations',
+        hint: 'Rules that run by themselves, like adding an item when you open the list.',
+      },
     },
-    // Freyr-mode (Additional modes tab) — one-tap seed/unseed of a starter set of
+    // Freyr-mode (Advanced tab) — one-tap seed/unseed of a starter set of
     // shopping/task/habit/note rows (lib/freyrModeSeed.ts). Turning it off removes
     // only the rows it added.
     freyrMode: {
@@ -1146,9 +1157,6 @@ const en = {
       shoppingDefault: 'Which list opens first when you go shopping.',
       weeklyResetDay: 'The weekday your weekly list clears itself.',
       monthlyResetDate: 'If a month has fewer days, it resets on the last day.',
-      workMode: 'Hide personal plans so you can focus on work.',
-      autoActivate: 'Switch into work mode automatically during work hours.',
-      points: 'Count every finished plan — small things add up.',
       hints: 'Short explanations on each screen.',
       dataNote: 'These reset things. They cannot be undone.',
     },
@@ -1611,14 +1619,8 @@ const no: typeof en = {
   persistentNotifHint: 'Holder ett varsel oppdatert med dagens gjenstående oppgaver og varer på handlelisten',
   habitNotifications: 'Varslinger for vaner',
   habitNotificationsHint: 'Påminnelse når det er tid for en vane',
-  workModeDesc: 'Jobb-modus skjuler private planer og lar deg fokusere.',
-  workModeActive: 'Aktiver jobb-modus',
-  autoActivate: 'Aktiver automatisk',
-  autoActivateHint: 'Skrur på jobb-modus i arbeidstiden',
-  workHoursLabel: 'Arbeidstid',
   workHoursFrom: 'Fra',
   workHoursTo: 'Til',
-  workDaysLabel: 'Arbeidsdager',
   sectionMotivation: 'Motivasjon',
   showPointsLabel: 'Vis antall fullførte planer',
   showPointsHint: 'Hvert lite steg teller — se totalen på forsiden',
@@ -1690,6 +1692,12 @@ const no: typeof en = {
   exploreDesc: 'Begynn med en gang — tips er tilgjengelige i innstillingene',
   recommended: 'Anbefalt',
   introHintNote: 'Se etter ⓘ-knappen på hver skjerm for tips og innstillinger.',
+  featurePicker: {
+    title: 'Hva vil du bruke?',
+    sub: 'Velg de ekstra funksjonene du vil ha. Lar du dem stå av, holder appen seg enkel.',
+    alwaysOn: 'Planer, handleliste, notater, vaner og helse er alltid med.',
+    note: 'Du kan skru disse av og på senere i Innstillinger → Avansert.',
+  },
   chooseLanguage: 'Velg språk',
   chooseLanguageSub: 'Du kan endre dette i innstillingene når som helst.',
   english: 'English',
@@ -1935,9 +1943,6 @@ const no: typeof en = {
   monthlyDateInputHint: 'Valgfri dato 1–31. I korte måneder nullstilles listen siste dag.',
   invalidMonthlyDateMsg: 'Skriv inn en dag mellom 1 og 31 — tilbakestilt til forrige verdi.',
   invalidMonthlyBudgetMsg: 'Skriv inn et gyldig beløp — tilbakestilt til forrige verdi.',
-  sectionHolidays: 'Kalender',
-  holidaysEnabledLabel: 'Norske helligdager',
-  holidaysHint: 'Helligdager behandles som helgedager — jobb-modus og varsler er av.',
   // Habits
   habits: {
     notYetToday: 'Ikke ennå i dag',
@@ -2062,22 +2067,38 @@ const no: typeof en = {
     sections: {
       appearance: 'Utseende',
       notifications: 'Varsler',
-      workMode: 'Jobb-modus',
       data: 'Data',
-      additionalModes: 'Tilleggsmoduser',
+      layout: 'Oppsett',
+      features: 'Funksjoner',
       advanced: 'Avansert',
     },
     tabs: {
       general: 'Generelt',
-      lists: 'Lister',
-      shopping: 'Handle',
-      notifications: 'Varsler',
-      appearance: 'Utseende',
-      additionalModes: 'Modi',
+      personal: 'Personlig',
+      advanced: 'Avansert',
     },
-    schoolMode: {
-      label: 'Skolemodus',
-      hint: 'Fokuser på skolearbeid — flere funksjoner kan aktiveres her senere.',
+    features: {
+      intro: 'Skru på bare det du trenger. Du kan endre dette når som helst.',
+      goals: {
+        label: 'Mål',
+        hint: 'Knytt planer og vaner til et mål, og se hvor sterkt det står.',
+      },
+      sharing: {
+        label: 'Deling og QR',
+        hint: 'Send planer og varer til noen andre, og ta imot deres.',
+      },
+      scan: {
+        label: 'Skanning og kvitteringer',
+        hint: 'Skann kvitteringer etter handleturen og følg med på forbruket mot et budsjett.',
+      },
+      food: {
+        label: 'Mat og oppskrifter',
+        hint: 'Middagsplanlegging og varekatalogen din, nås fra handlelisten.',
+      },
+      automations: {
+        label: 'Automatisering',
+        hint: 'Regler som kjører av seg selv, som å legge til en vare når du åpner listen.',
+      },
     },
     freyrMode: {
       label: 'Freyr-modus',
@@ -2103,9 +2124,6 @@ const no: typeof en = {
       shoppingDefault: 'Hvilken liste som åpnes først når du handler.',
       weeklyResetDay: 'Ukedagen ukeslisten din nullstiller seg selv.',
       monthlyResetDate: 'Hvis en måned har færre dager, nullstilles den på den siste dagen.',
-      workMode: 'Skjul private planer så du kan fokusere på jobb.',
-      autoActivate: 'Bytt til jobb-modus automatisk i arbeidstiden.',
-      points: 'Tell hver fullførte plan — små ting teller.',
       hints: 'Korte forklaringer på hvert skjermbilde.',
       dataNote: 'Disse nullstiller ting. Det kan ikke angres.',
     },
@@ -2241,17 +2259,6 @@ const no: typeof en = {
   shareExplainTasks: 'Deling lager en QR-kode av disse planene. Den andre skanner den for å kopiere dem inn i sin egen UnFocus.',
   shareExplainLaterBuild: 'Akkurat nå er det en engangskopi — sanntidssynk mellom telefoner og meldinger kommer i en senere versjon.',
   // Barnemodus (Decision 038c) — låst variant styrt av et foreldrepassord.
-  childModeTitle: 'Barnemodus',
-  childModeDesc: 'En låst versjon for et barn: bare tildelte oppgaver og vaner, ingen innstillinger eller deling. Et foreldrepassord kreves for å gå ut av den.',
-  childModeSetPassword: 'Angi foreldrepassord',
-  childModeChangePassword: 'Endre foreldrepassord',
-  childModeNewPassword: 'Nytt foreldrepassord',
-  childModeEnable: 'Slå på barnemodus',
-  childModeExit: 'Gå ut av barnemodus',
-  childModeEnterPassword: 'Skriv inn foreldrepassord',
-  childModeWrongPassword: 'Passordet er ikke riktig.',
-  childModeNeedPassword: 'Angi et foreldrepassord først, så du kommer ut igjen.',
-  childModeLockedNotice: 'Barnemodus er på. Be en forelder om å låse opp.',
   sharedRequestExplainShopping: 'Varer noen har delt med deg. Godta legger en til i handlelisten din; Avvis fjerner den.',
   sharedRequestExplainTask: 'Planer noen har delt med deg. Godta legger en til i planene dine; Avvis fjerner den.',
   scanQrCode: 'Skann QR-kode',

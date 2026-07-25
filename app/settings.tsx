@@ -1,41 +1,54 @@
 /**
  * settings.tsx — app settings
  *
- * Tabbed settings screen (Decision 001 tier='sub') — a non-scrolling, equal-width 4-tab bar
- * (Generelt | Handle | Varsler | Modi) sits directly under the header as
- * ScreenScaffold's `stickyBelowHeader`; each tab is its own scroll of cards
- * (local `tab` state, no router routes).
+ * Tabbed settings screen (Decision 001 tier='sub') — a non-scrolling 3-tab bar
+ * (General | Personal | Advanced) sits directly under the header as ScreenScaffold's
+ * `stickyBelowHeader`; each tab is its own scroll of cards (local `tab` state, no
+ * router routes).
  *
- * - Generelt: Energy system toggle → [Profil (name + language) / Utseende (dark mode) /
- *   Tilgjengelighet (reduced motion, particles, glass surfaces, font size, left-handed,
- *   horizontal plans timeline)] one merged panel → Data group (debug mode toggle, then [Local account
- *   (Decision 039 — device-only profile: name + create date, auto-backup toggle,
- *   backup/restore via lib/backup [share excludes user name]) / LAN sync / version &
- *   updates] one merged panel, then destructive Reset data card last).
- * - Modi (Additional modes): [Jobb-modus (work mode, auto-activate + hours + work days,
- *   Norske helligdager) / Foreldremodus (child-mode, password, enter/exit) / Personer-familie]
- *   one merged panel → Skolemodus toggle → Freyr-modus toggle (seeds/unseeds a starter data
- *   set via lib/freyrModeSeed.ts).
- * - Handle: shopping list settings (weekly reset weekday, monthly reset date, monthly budget).
- * - Varsler: [Ukentlig (weekly reminder + time) / Generelle (independent plan-notifications
- *   and habit-reminders toggles, persistent daily overview, quiet hours)] one merged panel →
- *   Automatisering nav-link.
+ * - General — what you'd expect in any app: [Profil (name + language) / Utseende (dark
+ *   mode, photo format) / Tilgjengelighet (reduced motion, particles, glass surfaces,
+ *   font size, left-handed)] one merged panel → Data group (Send Feedback, then [Local
+ *   account (Decision 039 — device-only profile: name + create date, auto-backup toggle,
+ *   backup/restore via lib/backup [share excludes user name]) / version & updates] one
+ *   merged panel, then the destructive Reset data card last).
+ * - Personal — how it behaves for you: [Ukentlig (weekly reminder + time) / Generelle
+ *   (independent plan-notification and habit-reminder toggles, persistent daily overview,
+ *   quiet hours)] one merged panel → Shopping (weekly reset weekday, monthly reset date)
+ *   → Layout (horizontal plans timeline) → Device features (voice/contacts/location/calendar).
+ * - Advanced — modes and opt-ins: Features card (Energy system + its mode/capacities, then
+ *   the five FEATURE_ROWS flags, then the Automations link when that flag is on) →
+ *   [Personer-familie / Paired devices] one merged panel → Freyr-modus → Debug mode.
+ *
+ * **Reorganization (2026-07-25)**: was four tabs (Generelt | Handle | Varsler | Modi) where
+ * Generelt alone carried eight unrelated groups and Handle carried exactly two settings.
+ * Two things changed beyond the regrouping:
+ *   1. **Dead settings removed.** Work mode (active/auto-activate/hours/work days/Norwegian
+ *      holidays), School mode and Parent (child) mode all had switches writing settings
+ *      columns that NOTHING in the app read. Their UI is gone; the columns stay (this repo
+ *      never drops columns) — see store/useSettingsStore.ts's "Inert columns" note.
+ *   2. **Feature opt-ins added.** Goals, Sharing & QR, Scan & receipts, Food & recipes and
+ *      Automations became flags (FEATURE_ROWS below), joining the Energy system, and are all
+ *      off on a fresh install so a first-time user isn't met with every surface at once.
+ *      Only purely ADDITIVE things got a toggle — anything whose absence would break app
+ *      logic (data pruning, widget/overview sync, catalog seeding, the automation store's
+ *      boot load) is deliberately still unconditional.
  *
  * Every setting applies immediately via applyAndSync() — no buffered/dirty save step (matches
  * hints.settings.text: "Changes apply immediately.").
  *
  * **Layering pass (2026-07-13)**: related setting groups that used to each float in their own
  * bordered/shadowed Surface card are now merged into ONE shared Surface holding several
- * `ExpandableCard` rows (Profil+Utseende+Tilgjengelighet; Local account+LAN sync+Version &
- * updates; Jobb-modus+Foreldremodus+Personer/familie; Ukentlig+Generelle) — fewer separate
+ * `ExpandableCard` rows (Profil+Utseende+Tilgjengelighet; Local account+Version & updates;
+ * Personer/familie+Paired devices; Ukentlig+Generelle) — fewer separate
  * floating "islands" reads as one cohesive panel instead of a stack of unrelated boxes. This
  * is exactly the grouping pattern ExpandableCard's own header already documents (Decision 043
  * rule 1 / WeekListCard's dish-group rows) — multiple ExpandableCards as siblings inside one
  * caller-owned Surface, each getting its own hairline top divider for separation. Destructive
- * (Reset data) and single-toggle cards with no accordion body (Energy system, Debug mode,
- * Skolemodus, Freyr-modus) stay their own standalone card — folding a warning-red destructive
- * card into a neutral panel would bury its visual distinctiveness, and a plain toggle has
- * nothing to collapse.
+ * (Reset data) and single-toggle cards with no accordion body (Debug mode, Freyr-modus, the
+ * Layout row) stay their own standalone card — folding a warning-red destructive card into a
+ * neutral panel would bury its visual distinctiveness, and a plain toggle has nothing to
+ * collapse.
  *
  * **Visual-audit pass (2026-07-23)**: the top-level merged-panel `ExpandableCard`s above now
  * pass `rounded` — each row gets its own rounded, sunken (theme.surfaceMuted) tile with a small
@@ -55,7 +68,7 @@
  *             components/ExpandableCard, components/PressableScale, components/TabSlider,
  *             constants/theme, lib/domainColor, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
- *             saveAutoBackup/chooseAutoBackupLocation), lib/childLock, lib/feedbackMail, lib/freyrModeSeed,
+ *             saveAutoBackup/chooseAutoBackupLocation), lib/feedbackMail, lib/freyrModeSeed,
  *             lib/haptics, lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
  *             (syncWidgetsAndOverview — the persistent-overview toggle refreshes/cancels it, and
  *             the Freyr-mode toggle re-syncs after seeding/unseeding today's tasks + shopping),
@@ -65,7 +78,8 @@
  *   Data    → useSettingsStore (settings table; incl. energySystemEnabled/energy*Capacity, quietHours*,
  *             monthlyResetDate, taskNotificationsEnabled, habitNotificationsEnabled,
  *             persistentNotifEnabled, voiceNotesEnabled/contactsEnabled/locationEnabled/
- *             calendarSyncEnabled — the "Device features" card); reset actions touch
+ *             calendarSyncEnabled — the "Device features" card — and the featureGoals/
+ *             featureSharing/featureScan/featureFood/featureAutomations opt-ins); reset actions touch
  *             useTaskStore (tasks) and useShoppingStore (shopping_items via monthlyReset);
  *             re-syncs notifications via syncReminders / syncAllTaskNotifications /
  *             syncAllTaskCalendarEvents / syncAllHabitReminders / syncNotificationCategories
@@ -77,13 +91,13 @@
  *     pill on the Shopping screen's Monthly tab (→ app/budget.tsx), not from Settings. The
  *     `monthlyResetDate` field just above it is unaffected (still one global payday-boundary
  *     date, shared by every list).
- *   - **Tab bar (updated 2026-07-24, never scrollable)**: the 4-tab bar is
+ *   - **Tab bar (updated 2026-07-25, never scrollable)**: the 3-tab bar is
  *     `components/TabSlider.tsx` — a single accent pill SLIDES to sit behind whichever
  *     category tab is active (same motion as the Day/Week/Month `SlideSelector`), replacing
  *     the old per-tab `TabBoxHighlight` boxes. TabSlider has no scroll mode at all (by design
- *     — see its own header), so all four tabs must fit in one row: `config.tabs.*` labels are
- *     kept to single short words ("Shop", "Alerts", not "Shopping", "Notifications")
- *     specifically so they never need to scroll. Each segment always sizes to its own label
+ *     — see its own header), so all three tabs must fit in one row: keep `config.tabs.*`
+ *     labels to single short words in BOTH languages ("Personal"/"Personlig",
+ *     "Advanced"/"Avansert") so they never need to scroll. Each segment always sizes to its own label
  *     (TabSlider no longer has a fixed-equal-width mode — see its "No `sizing` prop" edit
  *     note), so a translation coming out longer than expected (Norwegian's "Generelt" vs.
  *     English's "General") no longer truncates one tab while the others sit with unused
@@ -102,8 +116,8 @@
  *     settings.quietHours.hint.
  *   - TimePickerWheel was never ported into this repo — all HH:MM entry uses FormControls.Input
  *     (free-text, matching the precedent set by task-form.tsx / habit-form.tsx).
- *   - The Energy system (energySystemEnabled + energyDailyCapacity/energyWeeklyCapacity) is
- *     the first card on the Generelt tab; when on it reveals a Daily/Weekly/Custom
+ *   - The Energy system (energySystemEnabled + energyDailyCapacity/energyWeeklyCapacity) leads
+ *     the Advanced tab's Features card; when on it reveals a Daily/Weekly/Custom
  *     energyMode SegmentedControl. Daily/Weekly reveal their one flat capacity stepper;
  *     Custom reveals a Mon..Sun stepper row (energyCustomCapacities) instead, with the
  *     week capacity derived as their sum. Per-period overrides live on the Home Energy
@@ -126,7 +140,7 @@
  *     is no equivalent "reset the current weekly list" store action to bind to; lib/seedTestData.ts
  *     also does not exist in this repo. Flagged in PROGRESS_LOG rather than inventing either.
  *   - LAN live sync (Decision 038 app integration): this screen only owns the entry-point card
- *     (description + link) in the Data group — the sync toggle, QR pairing wizard, and paired-
+ *     (description + link) on the Advanced tab — the sync toggle, QR pairing wizard, and paired-
  *     devices list all live on app/pair-device.tsx. syncAvailable (lib/syncService's
  *     isSyncAvailable()) gates whether the card shows the link or an "unavailable" note, since
  *     the native transport modules aren't linked outside a real build.
@@ -140,13 +154,17 @@
  *     Decision 043 rule 2) to `Spacing.lg` (24) — it read as too much dead air between cards
  *     vs. every other screen's `Spacing.md`/`lg` content gap, per direct feedback.
  *   - **Contrast fixes inside `rounded` panels (2026-07-25)**: `langChip` (Profil language
- *     picker) and `dayChip`/`workDayChip` (weekly-reset-day and Work-days pickers) filled their
+ *     picker) and `dayChip` (the weekly-reset-day picker) filled their
  *     inactive state with `theme.surfaceMuted` and no border — invisible once the row's parent
  *     `ExpandableCard` itself went `rounded` (also `theme.surfaceMuted`-backed), since chip and
  *     container became the same colour. Both now carry a `theme.border` (or `theme.accent` when
- *     active) outline, matching the border `peopleChip`/`peopleAddBtn` already had. Also: the
- *     "Advanced" accordion's `accentColor` was `theme.textMuted` (a stray dark bar next to every
- *     sibling row's blue `theme.accent`) — now `theme.accent` like the rest.
+ *     active) outline, matching the border `peopleChip`/`peopleAddBtn` already had.
+ *   - **Feature opt-ins live in ONE place (2026-07-25)**: `FEATURE_ROWS` below is the whole
+ *     list of plain on/off features. To add one: add the flag to store/useSettingsStore.ts,
+ *     append its `ALTER TABLE` + back-fill to lib/db.ts's migrations array, add a
+ *     `config.features.*` entry in BOTH languages, add a line to `FEATURE_ROWS`, list it in
+ *     app/onboarding/features.tsx, and gate the surface it owns at its call site. Only add a
+ *     flag for something ADDITIVE — if the app misbehaves with it off, it does not get a toggle.
  */
 import React, { useState } from 'react';
 import { Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
@@ -179,7 +197,6 @@ import { syncNotificationCategories } from '@/lib/notifications';
 import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
 import { seedFreyrMode, unseedFreyrMode, parseFreyrSeedIds } from '@/lib/freyrModeSeed';
 import { exportBackup, exportBackupToDevice, pickAndParseBackup, restoreBackup, reloadApp, saveAutoBackup, chooseAutoBackupLocation } from '@/lib/backup';
-import { setPassword as setChildPassword, verifyPassword as verifyChildPassword } from '@/lib/childLock';
 import { isSyncAvailable } from '@/lib/syncService';
 import { buildFeedbackMailUrl } from '@/lib/feedbackMail';
 import { useT, getTranslations } from '@/lib/i18n';
@@ -190,8 +207,31 @@ import { selection, warning, heavy } from '@/lib/haptics';
 import { AspectRatioKey, FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
 import TabSlider from '@/components/TabSlider';
 
-type SettingsTab = 'generelt' | 'handle' | 'varsler' | 'moduser';
+type SettingsTab = 'general' | 'personal' | 'advanced';
 const TAB_BAR_HEIGHT = 48;
+
+/**
+ * The plain on/off feature opt-ins rendered by Advanced → Features. Each `key` is a
+ * boolean on Settings that gates a purely ADDITIVE surface — see the per-field docs in
+ * store/useSettingsStore.ts for what each one hides, and lib/db.ts for the migration
+ * that leaves them off on fresh installs but on for existing users.
+ *
+ * `copy` takes the translations object rather than a resolved string because this array
+ * is module-level (evaluated once) while `useT()` re-runs on every language change —
+ * resolving here would freeze the labels in whatever language loaded first.
+ *
+ * The Energy system is deliberately NOT in this list: it's the one feature flag with its
+ * own configuration (mode + capacities), so it's rendered by hand above these rows.
+ * app/onboarding/features.tsx offers the same set during onboarding.
+ */
+type FeatureFlagKey = 'featureGoals' | 'featureSharing' | 'featureScan' | 'featureFood' | 'featureAutomations';
+const FEATURE_ROWS: { key: FeatureFlagKey; copy: (t: ReturnType<typeof useT>) => { label: string; hint: string } }[] = [
+  { key: 'featureGoals', copy: (t) => t.config.features.goals },
+  { key: 'featureSharing', copy: (t) => t.config.features.sharing },
+  { key: 'featureScan', copy: (t) => t.config.features.scan },
+  { key: 'featureFood', copy: (t) => t.config.features.food },
+  { key: 'featureAutomations', copy: (t) => t.config.features.automations },
+];
 
 /** Format an ISO auto-backup timestamp as "YYYY-MM-DD HH:MM" (local time). */
 function formatBackupTime(iso: string): string {
@@ -216,14 +256,12 @@ export default function SettingsScreen() {
   const monthlyReset = useShoppingStore((s) => s.monthlyReset);
   const syncAvailable = isSyncAvailable();
 
-  const [tab, setTab] = useState<SettingsTab>('generelt');
+  const [tab, setTab] = useState<SettingsTab>('general');
   const [name, setName] = useState(settings.userName);
   const [accountNameInput, setAccountNameInput] = useState(settings.accountName);
   const [monthlyDateInput, setMonthlyDateInput] = useState(String(settings.monthlyResetDate));
   // Send Feedback (2026-07-13) — free-text composer, mailed via mailto:.
   const [feedbackText, setFeedbackText] = useState('');
-  // Child mode (Decision 038c) — local input for the parent password entry/exit.
-  const [childPwInput, setChildPwInput] = useState('');
   const [newChildName, setNewChildName] = useState('');
   const [inputWarning, setInputWarning] = useState<string | null>(null);
 
@@ -245,28 +283,6 @@ export default function SettingsScreen() {
         onPress: () => { heavy(); settings.update({ childProfiles: settings.childProfiles.filter((c) => c !== nm) }); },
       },
     ]);
-  }
-
-  // Set (or change) the parent password, then flip the persisted flag. The secret
-  // itself only ever lives in expo-secure-store (lib/childLock), never in settings.
-  async function handleSetChildPassword() {
-    const pw = childPwInput.trim();
-    if (!pw) return;
-    await setChildPassword(pw);
-    settings.update({ childModePasswordSet: true });
-    setChildPwInput('');
-    selection();
-    showAppModal(t.childModeTitle, t.childModeSetPassword);
-  }
-
-  // Enter child mode. Requires a password to exist so the child can't get stuck.
-  function handleEnableChildMode() {
-    if (!settings.childModePasswordSet) {
-      showAppModal(t.childModeTitle, t.childModeNeedPassword);
-      return;
-    }
-    warning();
-    settings.update({ childMode: true });
   }
 
   // Freyr-mode toggle — on: seed a starter set of rows and remember exactly which
@@ -321,23 +337,10 @@ export default function SettingsScreen() {
     }
   }
 
-  // Exit child mode — gated by the parent password.
-  async function handleExitChildMode() {
-    const ok = await verifyChildPassword(childPwInput.trim());
-    setChildPwInput('');
-    if (!ok) {
-      showAppModal(t.childModeTitle, t.childModeWrongPassword);
-      return;
-    }
-    selection();
-    settings.update({ childMode: false });
-  }
-
   const TABS: { key: SettingsTab; label: string }[] = [
-    { key: 'generelt', label: t.config.tabs.general },
-    { key: 'handle', label: t.config.tabs.shopping },
-    { key: 'varsler', label: t.config.tabs.notifications },
-    { key: 'moduser', label: t.config.tabs.additionalModes },
+    { key: 'general', label: t.config.tabs.general },
+    { key: 'personal', label: t.config.tabs.personal },
+    { key: 'advanced', label: t.config.tabs.advanced },
   ];
 
   const DAY_LABELS = t.dayFull;
@@ -549,78 +552,8 @@ export default function SettingsScreen() {
       stickyBelowHeaderHeight={TAB_BAR_HEIGHT}
     >
       <View style={styles.content}>
-        {tab === 'generelt' && (
+        {tab === 'general' && (
           <>
-            {/* Energy system — optional per-task energy budget (replaces Focus mode).
-                Master toggle + default day/week capacity (revealed when on). */}
-            <View style={styles.section}>
-              <Surface style={styles.essentialsCard} borderColor={theme.accent}>
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.essentialsLabel, { color: theme.text }]}>{t.settings.energy.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.energy.hint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.energySystemEnabled}
-                    onChange={(v) => { selection(); settings.update({ energySystemEnabled: v }); }}
-                  />
-                </View>
-                {settings.energySystemEnabled && (
-                  <View style={styles.energyCapacityRows}>
-                    <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.energy.modeLabel}</Text>
-                    <SegmentedControl
-                      value={settings.energyMode}
-                      onChange={(v) => settings.update({ energyMode: v as EnergyMode })}
-                      options={[
-                        { value: 'daily', label: t.settings.energy.modeDaily },
-                        { value: 'weekly', label: t.settings.energy.modeWeekly },
-                        { value: 'custom', label: t.settings.energy.modeCustom },
-                      ]}
-                    />
-                    {settings.energyMode === 'daily' && (
-                      <View style={styles.energyCapacityRow}>
-                        <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.dailyCapacity}</Text>
-                        <Stepper
-                          value={settings.energyDailyCapacity}
-                          onChange={(n) => settings.update({ energyDailyCapacity: n })}
-                          min={0}
-                        />
-                      </View>
-                    )}
-                    {settings.energyMode === 'weekly' && (
-                      <View style={styles.energyCapacityRow}>
-                        <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.weeklyCapacity}</Text>
-                        <Stepper
-                          value={settings.energyWeeklyCapacity}
-                          onChange={(n) => settings.update({ energyWeeklyCapacity: n })}
-                          min={0}
-                        />
-                      </View>
-                    )}
-                    {settings.energyMode === 'custom' && (
-                      <>
-                        <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.energy.customHint}</Text>
-                        {DAY_LABELS.map((label, i) => (
-                          <View key={i} style={styles.energyCapacityRow}>
-                            <Text style={[styles.switchLabel, { color: theme.text }]}>{label}</Text>
-                            <Stepper
-                              value={settings.energyCustomCapacities[i]}
-                              onChange={(n) => {
-                                const next = [...settings.energyCustomCapacities];
-                                next[i] = n;
-                                settings.update({ energyCustomCapacities: next });
-                              }}
-                              min={0}
-                            />
-                          </View>
-                        ))}
-                      </>
-                    )}
-                  </View>
-                )}
-              </Surface>
-            </View>
-
             {/* PROFIL / UTSEENDE / TILGJENGELIGHET — one panel (2026-07-13 layering pass:
                 these three used to be three separate floating Surface cards; merged into
                 one shared Surface with ExpandableCard rows, matching the grouping pattern
@@ -741,14 +674,10 @@ export default function SettingsScreen() {
                     </View>
                     <FormSwitch checked={settings.leftHanded} onChange={(v) => settings.update({ leftHanded: v })} />
                   </View>
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.timelineHorizontal}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.timelineHorizontalHint}</Text>
-                    </View>
-                    <FormSwitch checked={settings.planTimelineHorizontal} onChange={(v) => settings.update({ planTimelineHorizontal: v })} />
-                  </View>
+                  {/* The horizontal-plans-timeline switch used to sit here; it moved to
+                      Personal → Layout in the 2026-07-25 reorganization. It's a taste
+                      preference about how the Plans rail is drawn, not an accessibility
+                      aid, and keeping it here made this card read as a grab bag. */}
                 </ExpandableCard>
               </Surface>
             </View>
@@ -791,98 +720,9 @@ export default function SettingsScreen() {
               </Surface>
             </View>
 
-            {/* Debug mode */}
-            <View style={styles.section}>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.debug.toggleLabel}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.debug.toggleHint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.debugModeEnabled}
-                    onChange={(v) => { selection(); settings.update({ debugModeEnabled: v }); }}
-                  />
-                </View>
-                {settings.debugModeEnabled && (
-                  <>
-                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0 }]}>{t.debug.howToUse}</Text>
-                    <PressableScale
-                      style={[styles.dangerBtn, feedbackNoteCount === 0 && { opacity: 0.4 }]}
-                      onPress={() => confirmReset(t.debug.resetNotes.toLowerCase(), clearFeedbackNotes)}
-                      disabled={feedbackNoteCount === 0}
-                      scaleTo={0.93}
-                    >
-                      <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.debug.resetNotes}</Text>
-                    </PressableScale>
-                  </>
-                )}
-                {/*
-                  Placeholder — permission test buttons (lib/permissionTests.ts) mount here once
-                  that utility exists. It does not exist anywhere in this repo yet (native
-                  permission-testing is blocked on a dev/APK build), so nothing is wired below
-                  the toggle above. Do not wire this until permissionTests.ts lands.
-                */}
-              </Surface>
-            </View>
-
-            {/* Device features (2026-07-17) — Settings toggles for the reserve-only native
-                surface: voice dictation (title mic), contacts (attach-to-task), location
-                (tag-with-my-location), calendar (mirror timed tasks). All four default off;
-                each gates its own editor/store wiring — see components/TaskCard.tsx (was
-                app/task-form.tsx, retired 2026-07-23) and store/useTaskStore.ts. Calendar
-                goes through applyAndSync so toggling it immediately re-syncs every eligible
-                task; the other three are read directly by TaskCard at render time, no
-                background job to kick. */}
-            <View style={styles.section}>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.permissions.sectionTitle}</Text>
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.voiceNotes.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.voiceNotes.hint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.voiceNotesEnabled}
-                    onChange={(v) => { selection(); settings.update({ voiceNotesEnabled: v }); }}
-                  />
-                </View>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.contacts.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.contacts.hint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.contactsEnabled}
-                    onChange={(v) => { selection(); settings.update({ contactsEnabled: v }); }}
-                  />
-                </View>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.location.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.location.hint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.locationEnabled}
-                    onChange={(v) => { selection(); settings.update({ locationEnabled: v }); }}
-                  />
-                </View>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.calendar.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.calendar.hint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.calendarSyncEnabled}
-                    onChange={(v) => { selection(); applyAndSync({ calendarSyncEnabled: v }); }}
-                  />
-                </View>
-              </Surface>
-            </View>
+            {/* Debug mode moved to Advanced, and Device features to Personal
+                (2026-07-25 reorganization) — this group is now just Send Feedback plus
+                the account/backup/version panel and the destructive resets. */}
 
             {/* Local account / LAN sync / Version & updates — one panel (2026-07-13
                 layering pass: these three used to each float in their own Surface card).
@@ -954,16 +794,8 @@ export default function SettingsScreen() {
                   <Text style={[styles.descText, { color: theme.textMuted, marginBottom: 0 }]}>{t.account.deviceOnlyNote}</Text>
                 </ExpandableCard>
 
-                {/* LAN live sync (Decision 038 app integration) — pairing lives on its own
-                    screen (app/pair-device.tsx); this card is just the entry point + toggle. */}
-                <ExpandableCard title={t.peers.title} accentColor={theme.accent} rounded>
-                  <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
-                    {syncAvailable ? t.peers.settingsCardDesc : t.peers.syncUnavailable}
-                  </Text>
-                  <PressableScale style={styles.dangerBtn} onPress={() => router.push('/pair-device')} scaleTo={0.97}>
-                    <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.peers.manageLink}</Text>
-                  </PressableScale>
-                </ExpandableCard>
+                {/* LAN live sync moved to the Advanced tab (2026-07-25) — pairing a second
+                    device is a power-user setup step, not part of "your data lives here". */}
 
                 {/* Version & updates — lets the user see exactly which build/OTA is
                     running and force an OTA check. Runtime + updateId here are the
@@ -1030,287 +862,13 @@ export default function SettingsScreen() {
           </>
         )}
 
-        {tab === 'moduser' && (
+        {tab === 'personal' && (
           <>
-            {/* JOBB-MODUS stays top-level (most commonly used of these modes); FORELDREMODUS /
-                PERSONER / SKOLEMODUS / FREYR-MODUS move behind an "Advanced" accordion (UX audit
-                F2, 2026-07-23) — rare/power-user modes that don't need to compete with Work
-                mode for first-screen attention. Was: all three (Jobb/Foreldre/Personer) as
-                siblings in one panel (2026-07-13 layering pass), Skolemodus/Freyr-modus each
-                their own standalone single-toggle card below. */}
-            <View style={styles.section}>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <ExpandableCard title={t.config.sections.workMode} accentColor={theme.accent} first rounded>
-                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.workModeDesc}</Text>
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <View style={styles.switchRow}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.workModeActive}</Text>
-                    <FormSwitch checked={settings.workModeEnabled} onChange={(v) => settings.update({ workModeEnabled: v })} />
-                  </View>
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.autoActivate}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.autoActivateHint}</Text>
-                    </View>
-                    <FormSwitch checked={settings.enforceWorkHours} onChange={(v) => settings.update({ enforceWorkHours: v })} />
-                  </View>
-                  {settings.enforceWorkHours && (
-                    <>
-                      <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                      <View style={styles.workHoursRow}>
-                        <View style={styles.workHoursCol}>
-                          <Input
-                            label={t.workHoursFrom}
-                            value={settings.workHoursStart}
-                            onChangeText={(v) => settings.update({ workHoursStart: v })}
-                            placeholder="09:00"
-                            keyboardType="numbers-and-punctuation"
-                          />
-                        </View>
-                        <View style={styles.workHoursCol}>
-                          <Input
-                            label={t.workHoursTo}
-                            value={settings.workHoursEnd}
-                            onChangeText={(v) => settings.update({ workHoursEnd: v })}
-                            placeholder="17:00"
-                            keyboardType="numbers-and-punctuation"
-                          />
-                        </View>
-                      </View>
-                    </>
-                  )}
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.workDaysLabel}</Text>
-                  <View style={[styles.dayRow, styles.workDayRow]}>
-                    {DAY_LABELS.map((label, i) => {
-                      const active = settings.workDays.includes(i);
-                      return (
-                        <PressableScale
-                          key={i}
-                          style={[
-                            styles.dayChip,
-                            styles.workDayChip,
-                            { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                            active && { backgroundColor: theme.accent, borderColor: theme.accent },
-                          ]}
-                          onPress={() => {
-                            const next = active
-                              ? settings.workDays.filter((d) => d !== i)
-                              : [...settings.workDays, i].sort();
-                            settings.update({ workDays: next });
-                          }}
-                          scaleTo={0.97}
-                        >
-                          <Text style={[
-                            styles.dayText,
-                            { color: theme.text },
-                            active && { color: theme.accentInk },
-                          ]}>
-                            {label.slice(0, 3)}
-                          </Text>
-                        </PressableScale>
-                      );
-                    })}
-                  </View>
-
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.holidaysEnabledLabel}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.holidaysHint}</Text>
-                    </View>
-                    <FormSwitch checked={settings.holidaysEnabled} onChange={(v) => settings.update({ holidaysEnabled: v })} />
-                  </View>
-                </ExpandableCard>
-
-                {/* ADVANCED (UX audit F2, 2026-07-23) — Foreldremodus/Personer/Skolemodus/
-                    Freyr-modus grouped behind one collapsed-by-default accordion, so the
-                    first screen stays scannable and Work mode (kept top-level above) doesn't
-                    have to compete with four rarer/power-user modes for attention. */}
-                <ExpandableCard title={t.config.sections.advanced} accentColor={theme.accent} rounded>
-                {/* FORELDREMODUS (Parent mode / Child mode) */}
-                <ExpandableCard title={t.childModeTitle} accentColor={theme.accent} first>
-                  <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeDesc}</Text>
-                  {settings.childMode ? (
-                    <>
-                      <Text style={[styles.descText, { color: theme.bad, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeLockedNotice}</Text>
-                      <Input
-                        value={childPwInput}
-                        onChangeText={setChildPwInput}
-                        secureTextEntry
-                        placeholder={t.childModeEnterPassword}
-                        autoCapitalize="none"
-                      />
-                      <PressableScale style={styles.dangerBtn} onPress={handleExitChildMode} scaleTo={0.97}>
-                        <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeExit}</Text>
-                      </PressableScale>
-                    </>
-                  ) : (
-                    <>
-                      <Input
-                        value={childPwInput}
-                        onChangeText={setChildPwInput}
-                        secureTextEntry
-                        placeholder={t.childModeNewPassword}
-                        autoCapitalize="none"
-                      />
-                      <PressableScale style={styles.dangerBtn} onPress={handleSetChildPassword} scaleTo={0.97}>
-                        <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
-                          {settings.childModePasswordSet ? t.childModeChangePassword : t.childModeSetPassword}
-                        </Text>
-                      </PressableScale>
-                      <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                      <PressableScale style={styles.dangerBtn} onPress={handleEnableChildMode} scaleTo={0.97}>
-                        <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.childModeEnable}</Text>
-                      </PressableScale>
-                    </>
-                  )}
-                </ExpandableCard>
-
-                {/* PERSONER / FAMILIE (People / family mode) — same merged panel. */}
-                <ExpandableCard title={t.peopleMode.label} accentColor={theme.accent}>
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.peopleMode.label}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.peopleMode.hint}</Text>
-                    </View>
-                    <FormSwitch
-                      checked={settings.peopleModeEnabled}
-                      onChange={(v) => { selection(); settings.update({ peopleModeEnabled: v }); }}
-                    />
-                  </View>
-
-                  {settings.peopleModeEnabled && (
-                    <>
-                      <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                      <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.peopleMode.profilesHint}</Text>
-                      {settings.childProfiles.length > 0 && (
-                        <View style={styles.peopleChipRow}>
-                          {settings.childProfiles.map((nm) => (
-                            <PressableScale
-                              key={nm}
-                              style={[styles.peopleChip, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
-                              onPress={() => removeProfile(nm)}
-                              accessibilityRole="button"
-                              accessibilityLabel={t.peopleMode.removeTitle(nm)}
-                              scaleTo={0.96}
-                            >
-                              <Text style={[styles.peopleChipText, { color: theme.text }]}>{nm}</Text>
-                              <Ionicons name="close-circle" size={16} color={theme.textMuted} />
-                            </PressableScale>
-                          ))}
-                        </View>
-                      )}
-                      <View style={styles.peopleAddRow}>
-                        <View style={styles.peopleAddInput}>
-                          <Input
-                            value={newChildName}
-                            onChangeText={setNewChildName}
-                            placeholder={t.peopleMode.addPlaceholder}
-                            onSubmitEditing={addProfile}
-                            returnKeyType="done"
-                          />
-                        </View>
-                        <PressableScale
-                          style={[styles.peopleAddBtn, { backgroundColor: newChildName.trim() ? theme.accent : theme.surfaceMuted, borderColor: theme.border }]}
-                          onPress={addProfile}
-                          disabled={!newChildName.trim()}
-                          accessibilityRole="button"
-                          accessibilityLabel={t.peopleMode.addButton}
-                          scaleTo={0.96}
-                        >
-                          <Ionicons name="add" size={22} color={newChildName.trim() ? theme.accentInk : theme.textMuted} />
-                        </PressableScale>
-                      </View>
-                    </>
-                  )}
-                </ExpandableCard>
-
-                {/* SKOLEMODUS — single-toggle, no accordion body of its own; just a row
-                    inside Advanced now (was its own standalone Surface card). */}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.schoolMode.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.schoolMode.hint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.schoolModeEnabled}
-                    onChange={(v) => { selection(); settings.update({ schoolModeEnabled: v }); }}
-                  />
-                </View>
-
-                {/* FREYR-MODUS — same treatment as Skolemodus above. */}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.freyrMode.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.freyrMode.hint}</Text>
-                  </View>
-                  <FormSwitch checked={settings.freyrModeEnabled} onChange={handleToggleFreyrMode} />
-                </View>
-                </ExpandableCard>
-              </Surface>
-            </View>
-          </>
-        )}
-
-        {tab === 'handle' && (
-          <View style={styles.section}>
-            <Surface style={[styles.card, { borderColor: theme.border }]}>
-              <ExpandableCard title={t.sectionShopping} accentColor={getDomainColor(theme, 'shop').accent} first>
-                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.weeklyResetDay}</Text>
-                <View style={styles.dayRow}>
-                  {DAY_LABELS.map((label, i) => (
-                    <PressableScale
-                      key={i}
-                      style={[
-                        styles.dayChip,
-                        { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                        settings.weeklyResetDay === i && { backgroundColor: theme.accent, borderColor: theme.accent },
-                      ]}
-                      onPress={() => applyAndSync({ weeklyResetDay: i })}
-                      scaleTo={0.97}
-                    >
-                      <Text style={[
-                        styles.dayText,
-                        { color: theme.text },
-                        settings.weeklyResetDay === i && { color: theme.accentInk },
-                      ]}>
-                        {label.slice(0, 3)}
-                      </Text>
-                    </PressableScale>
-                  ))}
-                </View>
-
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-                <Input
-                  label={t.monthlyResetDate}
-                  value={monthlyDateInput}
-                  onChangeText={setMonthlyDateInput}
-                  onBlur={() => {
-                    const n = parseInt(monthlyDateInput, 10);
-                    if (!isNaN(n) && n >= 1 && n <= 31) {
-                      applyAndSync({ monthlyResetDate: n });
-                    } else {
-                      setMonthlyDateInput(String(settings.monthlyResetDate));
-                      setInputWarning(t.invalidMonthlyDateMsg);
-                    }
-                  }}
-                  keyboardType="number-pad"
-                  placeholder="1–31"
-                  maxLength={2}
-                />
-                <Text style={[styles.paydayHint, { color: theme.textMuted }]}>{t.monthlyDateInputHint}</Text>
-              </ExpandableCard>
-            </Surface>
-          </View>
-        )}
-
-        {tab === 'varsler' && (
-          <>
+            {/* PERSONAL (2026-07-25 reorganization) — the "how do you want it to behave"
+                settings, gathered from the old Varsler + Handle tabs plus two groups that
+                were stranded elsewhere. Notifications lead because they're what a user
+                actually comes here to change; Layout and Device features are rarer taste /
+                permission choices and sit below. */}
             {/* UKENTLIG / GENERELLE — one panel (2026-07-13 layering pass: these two used
                 to each float in their own Surface card). */}
             <View style={styles.section}>
@@ -1404,18 +962,394 @@ export default function SettingsScreen() {
                 </ExpandableCard>
               </Surface>
             </View>
+            {/* SHOPPING — the whole of the old Handle tab, which only ever held these two
+                settings and did not justify a tab of its own. */}
+          <View style={styles.section}>
+            <Surface style={[styles.card, { borderColor: theme.border }]}>
+              <ExpandableCard title={t.sectionShopping} accentColor={getDomainColor(theme, 'shop').accent} first>
+                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.weeklyResetDay}</Text>
+                <View style={styles.dayRow}>
+                  {DAY_LABELS.map((label, i) => (
+                    <PressableScale
+                      key={i}
+                      style={[
+                        styles.dayChip,
+                        { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                        settings.weeklyResetDay === i && { backgroundColor: theme.accent, borderColor: theme.accent },
+                      ]}
+                      onPress={() => applyAndSync({ weeklyResetDay: i })}
+                      scaleTo={0.97}
+                    >
+                      <Text style={[
+                        styles.dayText,
+                        { color: theme.text },
+                        settings.weeklyResetDay === i && { color: theme.accentInk },
+                      ]}>
+                        {label.slice(0, 3)}
+                      </Text>
+                    </PressableScale>
+                  ))}
+                </View>
 
-            {/* AUTOMATISERING — the only entry point to the automations screen (Decision 036). */}
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+                <Input
+                  label={t.monthlyResetDate}
+                  value={monthlyDateInput}
+                  onChangeText={setMonthlyDateInput}
+                  onBlur={() => {
+                    const n = parseInt(monthlyDateInput, 10);
+                    if (!isNaN(n) && n >= 1 && n <= 31) {
+                      applyAndSync({ monthlyResetDate: n });
+                    } else {
+                      setMonthlyDateInput(String(settings.monthlyResetDate));
+                      setInputWarning(t.invalidMonthlyDateMsg);
+                    }
+                  }}
+                  keyboardType="number-pad"
+                  placeholder="1–31"
+                  maxLength={2}
+                />
+                <Text style={[styles.paydayHint, { color: theme.textMuted }]}>{t.monthlyDateInputHint}</Text>
+              </ExpandableCard>
+            </Surface>
+          </View>
+            {/* LAYOUT — taste preferences about how things are drawn. Currently just the
+                Plans rail orientation, moved out of General → Accessibility (2026-07-25),
+                where it read as an accessibility aid rather than the preference it is. */}
             <View style={styles.section}>
-              <Text style={[styles.tabSectionLabel, { color: theme.textMuted }]}>{t.nav.automations}</Text>
+              <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.layout}</Text>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <PressableScale style={styles.switchRow} onPress={() => router.push('/automations')} scaleTo={0.97}>
+                <View style={styles.switchRow}>
                   <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.nav.automations}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.hints.automations.text}</Text>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.timelineHorizontal}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.timelineHorizontalHint}</Text>
                   </View>
-                  <Text style={[styles.switchLabel, { color: theme.accent }]}>{'→'}</Text>
-                </PressableScale>
+                  <FormSwitch checked={settings.planTimelineHorizontal} onChange={(v) => settings.update({ planTimelineHorizontal: v })} />
+                </View>
+              </Surface>
+            </View>
+
+            {/* Device features (2026-07-17, moved here from the General tab 2026-07-25) —
+                toggles for the reserve-only native surface: voice dictation (title mic),
+                contacts (attach-to-task), location (tag-with-my-location), calendar (mirror
+                timed tasks). All four default off; each gates its own editor/store wiring —
+                see components/TaskCard.tsx and store/useTaskStore.ts. Calendar goes through
+                applyAndSync so toggling it immediately re-syncs every eligible task; the
+                other three are read directly by TaskCard at render time, no background job
+                to kick. */}
+            <View style={styles.section}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.permissions.sectionTitle}</Text>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.voiceNotes.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.voiceNotes.hint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.voiceNotesEnabled}
+                    onChange={(v) => { selection(); settings.update({ voiceNotesEnabled: v }); }}
+                  />
+                </View>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.contacts.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.contacts.hint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.contactsEnabled}
+                    onChange={(v) => { selection(); settings.update({ contactsEnabled: v }); }}
+                  />
+                </View>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.location.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.location.hint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.locationEnabled}
+                    onChange={(v) => { selection(); settings.update({ locationEnabled: v }); }}
+                  />
+                </View>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.calendar.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.calendar.hint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.calendarSyncEnabled}
+                    onChange={(v) => { selection(); applyAndSync({ calendarSyncEnabled: v }); }}
+                  />
+                </View>
+              </Surface>
+            </View>
+          </>
+        )}
+
+        {tab === 'advanced' && (
+          <>
+            {/* FEATURES (2026-07-25 reorganization) — the opt-in switches for everything
+                that isn't part of the basics. Every flag here hides a purely ADDITIVE
+                surface: turning one off never breaks app logic, which is exactly why
+                these got a toggle and things like data pruning, widget/overview sync or
+                catalog seeding deliberately did not. All are off on a fresh install (so a
+                first-time user meets the basics first) and were back-filled to on for
+                existing users — see the `WHERE setup_complete = 1` migration in lib/db.ts.
+                The same list is offered during onboarding by app/onboarding/features.tsx. */}
+            <View style={styles.section}>
+              <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.features}</Text>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0 }]}>{t.config.features.intro}</Text>
+
+                {/* Energy system leads: it predates this card and is the only feature flag
+                    with its own configuration, so it keeps the mode/capacity controls it
+                    reveals when on. (Was the first card on the old Generelt tab.) */}
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.energy.hint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.energySystemEnabled}
+                    onChange={(v) => { selection(); settings.update({ energySystemEnabled: v }); }}
+                  />
+                </View>
+                {settings.energySystemEnabled && (
+                  <View style={styles.energyCapacityRows}>
+                    <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.energy.modeLabel}</Text>
+                    <SegmentedControl
+                      value={settings.energyMode}
+                      onChange={(v) => settings.update({ energyMode: v as EnergyMode })}
+                      options={[
+                        { value: 'daily', label: t.settings.energy.modeDaily },
+                        { value: 'weekly', label: t.settings.energy.modeWeekly },
+                        { value: 'custom', label: t.settings.energy.modeCustom },
+                      ]}
+                    />
+                    {settings.energyMode === 'daily' && (
+                      <View style={styles.energyCapacityRow}>
+                        <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.dailyCapacity}</Text>
+                        <Stepper
+                          value={settings.energyDailyCapacity}
+                          onChange={(n) => settings.update({ energyDailyCapacity: n })}
+                          min={0}
+                        />
+                      </View>
+                    )}
+                    {settings.energyMode === 'weekly' && (
+                      <View style={styles.energyCapacityRow}>
+                        <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.weeklyCapacity}</Text>
+                        <Stepper
+                          value={settings.energyWeeklyCapacity}
+                          onChange={(n) => settings.update({ energyWeeklyCapacity: n })}
+                          min={0}
+                        />
+                      </View>
+                    )}
+                    {settings.energyMode === 'custom' && (
+                      <>
+                        <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.energy.customHint}</Text>
+                        {DAY_LABELS.map((label, i) => (
+                          <View key={i} style={styles.energyCapacityRow}>
+                            <Text style={[styles.switchLabel, { color: theme.text }]}>{label}</Text>
+                            <Stepper
+                              value={settings.energyCustomCapacities[i]}
+                              onChange={(n) => {
+                                const next = [...settings.energyCustomCapacities];
+                                next[i] = n;
+                                settings.update({ energyCustomCapacities: next });
+                              }}
+                              min={0}
+                            />
+                          </View>
+                        ))}
+                      </>
+                    )}
+                  </View>
+                )}
+
+                {/* The five plain on/off features. Driven off one list so the rows stay
+                    identical — each is a bare boolean with no configuration of its own.
+                    Adding a feature = add the flag (store + lib/db.ts migration), add a
+                    config.features entry in both languages, add a line here, and gate the
+                    surface it owns at its call site. */}
+                {FEATURE_ROWS.map(({ key, copy }) => (
+                  <React.Fragment key={key}>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <View style={styles.switchRow}>
+                      <View style={styles.switchTextCol}>
+                        <Text style={[styles.switchLabel, { color: theme.text }]}>{copy(t).label}</Text>
+                        <Text style={[styles.switchHint, { color: theme.textMuted }]}>{copy(t).hint}</Text>
+                      </View>
+                      <FormSwitch
+                        checked={settings[key]}
+                        onChange={(v) => { selection(); settings.update({ [key]: v } as Partial<Settings>); }}
+                      />
+                    </View>
+                  </React.Fragment>
+                ))}
+
+                {/* Automations' own screen — revealed right under its switch so the
+                    feature and its entry point stay together. This is still the only way
+                    into app/automations.tsx (it was a standalone card on the old Varsler
+                    tab). Rules the user already made keep running when the flag is off;
+                    only the door is hidden. */}
+                {settings.featureAutomations && (
+                  <>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <PressableScale style={styles.switchRow} onPress={() => router.push('/automations')} scaleTo={0.97}>
+                      <View style={styles.switchTextCol}>
+                        <Text style={[styles.switchLabel, { color: theme.text }]}>{t.nav.automations}</Text>
+                        <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.hints.automations.text}</Text>
+                      </View>
+                      <Text style={[styles.switchLabel, { color: theme.accent }]}>{'→'}</Text>
+                    </PressableScale>
+                  </>
+                )}
+              </Surface>
+            </View>
+
+            {/* PERSONER/FAMILIE + PAIRED DEVICES — one panel.
+                Work mode, School mode and Parent (child) mode used to live on this tab and
+                were REMOVED (2026-07-25): every switch in all three wrote a settings column
+                that nothing in the app ever read, so they promised behaviour that did not
+                exist. The columns themselves survive (this repo never drops columns) — see
+                store/useSettingsStore.ts's "Inert columns" note — so the features can be
+                built later without a migration dance. lib/childLock.ts is likewise kept as
+                reserve. Do not re-add UI for any of them without the behaviour behind it. */}
+            <View style={styles.section}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                <ExpandableCard title={t.peopleMode.label} accentColor={theme.accent} first rounded>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchTextCol}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.peopleMode.label}</Text>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.peopleMode.hint}</Text>
+                    </View>
+                    <FormSwitch
+                      checked={settings.peopleModeEnabled}
+                      onChange={(v) => { selection(); settings.update({ peopleModeEnabled: v }); }}
+                    />
+                  </View>
+
+                  {settings.peopleModeEnabled && (
+                    <>
+                      <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                      <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.peopleMode.profilesHint}</Text>
+                      {settings.childProfiles.length > 0 && (
+                        <View style={styles.peopleChipRow}>
+                          {settings.childProfiles.map((nm) => (
+                            <PressableScale
+                              key={nm}
+                              style={[styles.peopleChip, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+                              onPress={() => removeProfile(nm)}
+                              accessibilityRole="button"
+                              accessibilityLabel={t.peopleMode.removeTitle(nm)}
+                              scaleTo={0.96}
+                            >
+                              <Text style={[styles.peopleChipText, { color: theme.text }]}>{nm}</Text>
+                              <Ionicons name="close-circle" size={16} color={theme.textMuted} />
+                            </PressableScale>
+                          ))}
+                        </View>
+                      )}
+                      <View style={styles.peopleAddRow}>
+                        <View style={styles.peopleAddInput}>
+                          <Input
+                            value={newChildName}
+                            onChangeText={setNewChildName}
+                            placeholder={t.peopleMode.addPlaceholder}
+                            onSubmitEditing={addProfile}
+                            returnKeyType="done"
+                          />
+                        </View>
+                        <PressableScale
+                          style={[styles.peopleAddBtn, { backgroundColor: newChildName.trim() ? theme.accent : theme.surfaceMuted, borderColor: theme.border }]}
+                          onPress={addProfile}
+                          disabled={!newChildName.trim()}
+                          accessibilityRole="button"
+                          accessibilityLabel={t.peopleMode.addButton}
+                          scaleTo={0.96}
+                        >
+                          <Ionicons name="add" size={22} color={newChildName.trim() ? theme.accentInk : theme.textMuted} />
+                        </PressableScale>
+                      </View>
+                    </>
+                  )}
+                </ExpandableCard>
+
+                {/* LAN live sync (Decision 038) — moved here from the General tab's Data
+                    group (2026-07-25): pairing a second device is a power-user setup step.
+                    The toggle, QR pairing wizard and paired-device list all live on
+                    app/pair-device.tsx; this is just the entry point. syncAvailable
+                    (lib/syncService's isSyncAvailable()) only changes the copy — the link
+                    always shows, since the native transport isn't linked outside a build. */}
+                <ExpandableCard title={t.peers.title} accentColor={theme.accent} rounded>
+                  <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
+                    {syncAvailable ? t.peers.settingsCardDesc : t.peers.syncUnavailable}
+                  </Text>
+                  <PressableScale style={styles.dangerBtn} onPress={() => router.push('/pair-device')} scaleTo={0.97}>
+                    <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.peers.manageLink}</Text>
+                  </PressableScale>
+                </ExpandableCard>
+              </Surface>
+            </View>
+
+            {/* FREYR-MODUS — standalone single-toggle card (nothing to collapse, and its
+                seed/unseed is the most side-effect-heavy switch on the screen). */}
+            <View style={styles.section}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.freyrMode.label}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.freyrMode.hint}</Text>
+                  </View>
+                  <FormSwitch checked={settings.freyrModeEnabled} onChange={handleToggleFreyrMode} />
+                </View>
+              </Surface>
+            </View>
+
+            {/* DEBUG MODE — moved here from the General tab's Data group (2026-07-25).
+                This is now the ONLY way to turn debug on: components/ScreenHeader.tsx's
+                bug icon used to be on every site-tier header and flipped this flag from
+                anywhere, which meant a brand-new user could switch on the tester
+                annotation tooling by accident. That icon now only renders while debug is
+                already on, as the way back out. */}
+            <View style={styles.section}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.debug.toggleLabel}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.debug.toggleHint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.debugModeEnabled}
+                    onChange={(v) => { selection(); settings.update({ debugModeEnabled: v }); }}
+                  />
+                </View>
+                {settings.debugModeEnabled && (
+                  <>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0 }]}>{t.debug.howToUse}</Text>
+                    <PressableScale
+                      style={[styles.dangerBtn, feedbackNoteCount === 0 && { opacity: 0.4 }]}
+                      onPress={() => confirmReset(t.debug.resetNotes.toLowerCase(), clearFeedbackNotes)}
+                      disabled={feedbackNoteCount === 0}
+                      scaleTo={0.93}
+                    >
+                      <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.debug.resetNotes}</Text>
+                    </PressableScale>
+                  </>
+                )}
+                {/*
+                  Placeholder — permission test buttons (lib/permissionTests.ts) mount here once
+                  that utility exists. It does not exist anywhere in this repo yet (native
+                  permission-testing is blocked on a dev/APK build), so nothing is wired below
+                  the toggle above. Do not wire this until permissionTests.ts lands.
+                */}
               </Surface>
             </View>
           </>
@@ -1440,8 +1374,6 @@ const baseStyles = StyleSheet.create({
   // tabSectionLabel survives for the few single-toggle cards that stayed plain, uncollapsed.)
   groupHeader: { fontFamily: Type.heading.fontFamily, fontSize: Type.heading.size, lineHeight: Math.round(Type.heading.size * Type.heading.line), marginTop: Spacing.sm },
   descText: { fontSize: FontSize.xs, marginTop: Spacing.sm, lineHeight: 18 },
-  essentialsCard: { padding: Spacing.md, borderWidth: 2 },
-  essentialsLabel: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   energyCapacityRows: { marginTop: Spacing.md, gap: Spacing.sm },
   energyCapacityRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
   // Each settings group reads as one rounded, bordered block — the whole lined-up set of
@@ -1463,8 +1395,6 @@ const baseStyles = StyleSheet.create({
     borderRadius: Radius.full,
     borderWidth: 1,
   },
-  workDayRow: { flexWrap: 'nowrap', gap: Spacing.xs },
-  workDayChip: { flex: 1, minWidth: 0, minHeight: 36, paddingHorizontal: Spacing.xs },
   dayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   paydayHint: { fontSize: FontSize.xs, marginTop: Spacing.xs, fontStyle: 'italic' },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -1500,5 +1430,4 @@ const baseStyles = StyleSheet.create({
   // language; flex:1 + justifyContent:'center' fill and vertically center it within the sticky
   // strip's reserved height (TAB_BAR_HEIGHT).
   tabsGlass: { flex: 1, marginHorizontal: Spacing.sm, justifyContent: 'center' },
-  tabSectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
 });

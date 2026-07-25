@@ -28,7 +28,7 @@
  *   Used by → Expo Router route "/habits" — one of 5 co-mounted pager tabs under
  *             app/(tabs)/_layout.tsx (BottomNav "Habits" tab)
  *   Data    → useHabitStore (habits + habit_logs) via increment/decrement/markRestDay/add;
- *             colour theme + language + child profiles from useSettingsStore; useGoalStore
+ *             colour theme + language + child profiles + featureGoals from useSettingsStore; useGoalStore
  *             (linked goal glow only)
  *
  * Edit notes:
@@ -174,8 +174,12 @@ function HabitCard({
   const increment = useHabitStore((s) => s.increment);
   const decrement = useHabitStore((s) => s.decrement);
   const markRestDay = useHabitStore((s) => s.markRestDay);
-  // Goals — the linked goal (if any), for the living-glow dot next to the title.
-  const linkedGoal = useGoalStore((s) => (habit.goalId ? s.goals.find((g) => g.id === habit.goalId) ?? null : null));
+  // Goals — the linked goal (if any), for the living-glow dot next to the title. Hidden
+  // unless settings.featureGoals is on (opt-in, off for fresh installs); the habit's own
+  // goalId is untouched, so turning the feature back on restores the dot.
+  const featureGoals = useSettingsStore((s) => s.featureGoals);
+  const goalForDot = useGoalStore((s) => (habit.goalId ? s.goals.find((g) => g.id === habit.goalId) ?? null : null));
+  const linkedGoal = featureGoals ? goalForDot : null;
   const t = useT();
   const styles = useScaledStyles(baseStyles);
 

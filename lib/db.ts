@@ -758,6 +758,30 @@ export function initDb() {
     // week capacity derived as their sum — see store/useEnergyStore.ts.
     "ALTER TABLE settings ADD COLUMN energy_mode TEXT DEFAULT 'daily'",
     "ALTER TABLE settings ADD COLUMN energy_custom_capacities TEXT DEFAULT '[10,10,10,10,10,10,10]'",
+    // Feature opt-ins (2026-07-25 settings reorganization). Each gates a purely
+    // ADDITIVE surface — nothing in the app breaks when one is off, which is the
+    // rule for what may become a toggle at all. A fresh install starts with all of
+    // them off so a first-time user only sees the basics; extras are turned on from
+    // Settings → Advanced → Features, or during the onboarding feature picker
+    // (app/onboarding/features.tsx). See store/useSettingsStore.ts for what each
+    // one hides.
+    "ALTER TABLE settings ADD COLUMN feature_goals INTEGER DEFAULT 0",
+    "ALTER TABLE settings ADD COLUMN feature_sharing INTEGER DEFAULT 0",
+    "ALTER TABLE settings ADD COLUMN feature_scan INTEGER DEFAULT 0",
+    "ALTER TABLE settings ADD COLUMN feature_food INTEGER DEFAULT 0",
+    "ALTER TABLE settings ADD COLUMN feature_automations INTEGER DEFAULT 0",
+    // One-shot back-fill: EXISTING users must not silently lose features they've been
+    // using, so everyone who already finished onboarding gets all five turned on. The
+    // settings row is inserted by the CREATE TABLE block above (INSERT OR IGNORE …
+    // VALUES (1)) BEFORE migrations run, so this UPDATE always has a row to hit:
+    // a fresh install still has setup_complete = 0 here and is left at the new
+    // opt-in defaults, while an upgrading install has 1 and keeps everything.
+    "UPDATE settings SET feature_goals = 1, feature_sharing = 1, feature_scan = 1, feature_food = 1, feature_automations = 1 WHERE setup_complete = 1",
+    // Same trick in the other direction for the Energy system: it was defaulted ON
+    // (energy_system_enabled DEFAULT 1, above) on user feedback, but the Home energy
+    // meter + per-task energy chips are a lot to meet on day one. Existing users
+    // (setup_complete = 1) keep whatever they have; only fresh installs flip to off.
+    "UPDATE settings SET energy_system_enabled = 0 WHERE setup_complete = 0",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

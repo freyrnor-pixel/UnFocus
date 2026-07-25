@@ -144,6 +144,16 @@ async function main() {
     }
     await page.waitForTimeout(500);
 
+    // Feature picker (2026-07-25): the "What do you want to use?" step between the tour and
+    // the name step. Screenshotted with everything left OFF, deliberately — that's the state
+    // a real new user lands in, and the tab screenshots further down are meant to show the
+    // stripped-back default app, not the everything-on build. Flip a switch here if you ever
+    // need shots of the opted-in surfaces instead.
+    console.log('> onboarding: feature picker');
+    await shot(page, 'onboarding-features');
+    await clickText(page, 'Next →');
+    await page.waitForTimeout(500);
+
     console.log('> onboarding: name + finish');
     await shot(page, 'onboarding-name');
     await clickText(page, "Let's go! 🌿");

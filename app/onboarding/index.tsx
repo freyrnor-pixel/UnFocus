@@ -1,7 +1,7 @@
 /**
  * index.tsx — Onboarding name capture + finish (final guided step)
  *
- * The last screen of the guided flow, reached from the intro tour. Captures the
+ * The last screen of the guided flow, reached from the feature picker. Captures the
  * user's name, then finishes onboarding: marks setup complete, applies the new-user
  * defaults, and schedules any reminders. Kept short so it never scrolls — the feature
  * highlights moved to the intro tour (onboarding/intro.tsx), and the per-feature
@@ -12,13 +12,14 @@
  *             @/lib/reminders, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
  *             @/components/Button
  *   Used by → Expo Router route "/onboarding" (pushed from onboarding/intro.tsx)
- *   Data    → useSettingsStore (writes `userName`, `setupComplete`,
- *             `showPoints`); schedules reminders via
+ *   Data    → useSettingsStore (writes `userName`, `setupComplete`); schedules reminders via
  *             syncReminders() + useTaskStore.syncAllTaskNotifications()
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
- *   - finish() writes userName (trimmed) + completion flags, then schedules reminders
+ *   - showPoints/showHints are NOT written here any more (2026-07-25) — nothing in the app
+ *     ever read either flag, so setting them was a promise with no behaviour behind it.
+ *   - finish() writes userName (trimmed) + setupComplete, then schedules reminders
  *     the same way onboarding/guided.tsx's Explore path does, then router.replace('/').
  *     This is the one normal place setupComplete is set for the guided flow.
  *   - Notifications default OFF now (no notification step), so the requestPermissions
@@ -57,7 +58,6 @@ export default function OnboardingName() {
     settings.update({
       userName: name.trim(),
       setupComplete: true,
-      showPoints: true,
     });
     // Notifications default OFF (no notification step). If a flag ended up enabled,
     // request the OS permission as a safety net; either way, schedule reminders.

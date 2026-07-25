@@ -45,7 +45,8 @@
  *             steps/editor/advanced reveal + rotating chevrons), components/GlowPulse (breathing editing halo),
  *             constants/theme (incl. getElevation, rgba), lib/date, lib/haptics, lib/i18n, lib/id,
  *             lib/useAppTheme, lib/useVoiceCapture, lib/location (getCurrentTaskLocation),
- *             expo-contacts, components/GoalGlowDot, store/useTaskStore, store/useGoalStore,
+ *             expo-contacts, components/GoalGlowDot + components/GoalPicker (both gated on
+ *             settings.featureGoals), store/useTaskStore, store/useGoalStore,
  *             store/useSettingsStore (People/family mode: peopleModeEnabled + childProfiles gate
  *             the "For" assignee chip row; voiceNotesEnabled/contactsEnabled/locationEnabled/
  *             energySystemEnabled gate the matching Advanced-options rows)
@@ -184,8 +185,13 @@ function TaskCard({
   const locationEnabled = useSettingsStore((s) => s.locationEnabled);
   const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   const showPeople = peopleModeEnabled && childProfiles.length > 0;
-  // Goals — the linked goal (if any), for the living-glow dot next to the title.
-  const goal = useGoalStore((s) => (task.goalId ? s.goals.find((g) => g.id === task.goalId) ?? null : null));
+  // Goals — the linked goal (if any), for the living-glow dot next to the title. Gated on
+  // settings.featureGoals (opt-in, off for fresh installs): when off, both the dot and the
+  // GoalPicker below stay hidden. An existing task's goalId is left alone either way, so
+  // turning the feature back on restores every link — nothing is destroyed by hiding it.
+  const featureGoals = useSettingsStore((s) => s.featureGoals);
+  const linkedGoal = useGoalStore((s) => (task.goalId ? s.goals.find((g) => g.id === task.goalId) ?? null : null));
+  const goal = featureGoals ? linkedGoal : null;
 
   const stepsOnly = variant === 'steps';
 
@@ -925,10 +931,13 @@ function TaskCard({
                   </View>
                 )}
 
-                {/* Goal — connect this task to a Goal (create/select/delete inline) */}
-                <View style={styles.field}>
-                  <GoalPicker value={draft.goalId} onChange={(id) => patch({ goalId: id })} />
-                </View>
+                {/* Goal — connect this task to a Goal (create/select/delete inline).
+                    Opt-in via settings.featureGoals (Settings → Advanced → Features). */}
+                {featureGoals && (
+                  <View style={styles.field}>
+                    <GoalPicker value={draft.goalId} onChange={(id) => patch({ goalId: id })} />
+                  </View>
+                )}
 
                 {/* Then — Decision 020, one-to-one follower link, immediate-persist (see
                     pickFollower/removeFollower above) — gated on an existing task, same as Steps. */}

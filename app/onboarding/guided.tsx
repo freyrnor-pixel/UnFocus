@@ -1,24 +1,26 @@
 /**
  * guided.tsx — Guided-setup vs Explore choice (after language)
  *
- * Branch point: "Guided" runs the short intro tour then the name step; "Explore"
- * skips it and jumps straight to the home screen, marking setup complete. Both
- * enable showHints so the per-screen ⓘ hints (which now teach the settings the old
- * wizard collected) are available.
+ * Branch point: "Guided" runs the short intro tour, then the feature picker, then the name
+ * step; "Explore" skips all three and jumps straight to the home screen, marking setup
+ * complete and leaving every optional feature at its off default. The per-screen ⓘ hints
+ * (which teach the settings the old wizard collected) are available on both paths —
+ * components/HintCard.tsx always renders its pill, and first-visit auto-expand is driven by
+ * settings.seenScreenHints.
  *
  * Connections:
  *   Imports → @/store/useSettingsStore, @/store/useTaskStore, @/lib/notifications,
  *             @/lib/reminders, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
  *             @/components/Button, @/components/Surface, @/components/PressableScale
  *   Used by → Expo Router route "/onboarding/guided"
- *   Data    → useSettingsStore (writes `showHints`; Explore also writes `setupComplete`
- *             + new-user defaults, then schedules reminders like the name-step finish)
+ *   Data    → useSettingsStore (Explore writes `setupComplete`, then schedules reminders
+ *             like the name-step finish; Guided writes nothing here)
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
  *   - goGuided() → router.push "/onboarding/intro" (the short tour → name step).
- *   - goExplore() sets setupComplete + new-user defaults and runs the same reminder
- *     sync as the name step's finish() (parity), then router.replace "/".
+ *   - goExplore() sets setupComplete and runs the same reminder sync as the name step's
+ *     finish() (parity), then router.replace "/".
  *   - Both option cards sit on the plain glass Surface (theme.text on surface = full
  *     contrast); the recommended (Guided) one is marked by an accent icon badge + a
  *     "Recommended" chip, NOT an accent fill (the old tint={theme.accent} fill put
@@ -49,14 +51,15 @@ export default function GuidedScreen() {
   const styles = useScaledStyles(baseStyles);
 
   function goGuided() {
-    settings.update({ showHints: true });
     router.push('/onboarding/intro');
   }
 
   function goExplore() {
-    // W-E: new-user defaults — points visible. Onboarding-only. Schedule reminders the
-    // same way the name-step finish() does, so Explore users aren't left unscheduled.
-    settings.update({ showHints: true, setupComplete: true, showPoints: true });
+    // Explore skips the tour, the feature picker and the name step, so it lands on the
+    // plain opt-in defaults — every optional feature off, which is the whole promise of
+    // "jump right in". Schedule reminders the same way the name-step finish() does, so
+    // Explore users aren't left unscheduled.
+    settings.update({ setupComplete: true });
     if (settings.taskNotificationsEnabled || settings.remindersEnabled) {
       requestPermissions().finally(() => {
         syncReminders();
