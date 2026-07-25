@@ -17,6 +17,14 @@
  *     header already conveys (title + zero count) — so it's gone too. A card with no rows now
  *     just shows an empty row: blank space at the resting height, nothing else. No autoFocus
  *     lives here — the trailing AddRow only focuses its input when its own "+" bar is tapped.
+ *   - **Fixed height, not flex:1 (2026-07-25, user report)**: this used to be `flex: 1`, which
+ *     grew to swallow ALL of the card's remaining resting-height floor — pushing the trailing
+ *     AddRow's "+ New …" bar all the way down to the bottom of the card and leaving a big dead
+ *     gap directly under the header. Now it's a small fixed gap instead, so the AddRow sits
+ *     right under the header with just breathing room, not a void. Any leftover height still
+ *     needed to reach `HOME_PREVIEW_CARD_MIN_HEIGHT` collects below the AddRow (cardContent's
+ *     own flex:1 with default top-aligned children) — unnoticeable there, unlike between the
+ *     header and the add row — so the three preview cards still land on the same resting height.
  */
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -27,6 +35,5 @@ export default function HomePreviewEmpty() {
 }
 
 const styles = StyleSheet.create({
-  // flex:1 lets this fill the card's resting-height floor as one blank row.
-  wrap: { flex: 1, paddingVertical: Spacing.md },
+  wrap: { height: Spacing.xl },
 });
