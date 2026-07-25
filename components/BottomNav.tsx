@@ -464,16 +464,20 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     gap: Spacing.md,
-    // Floating pill: app/(tabs)/_layout.tsx now insets this bar off the screen edges
-    // (NAV_FLOAT_GAP, on all four sides) so an explicit rounded corner on every side makes it
-    // read as a floating panel rather than an edge-to-edge bar. Radius.lg matches the header's
-    // floated corner. All four corners rounded (2026-07-25, user report, supersedes the
-    // 2026-07-24 "flush top / square top corners" pass below): with a real gap now above the
-    // bar too (see app/(tabs)/_layout.tsx), a rounded top edge reveals a sliver of the ambient
-    // backdrop behind it instead of scrolled content hard-clipping at a square edge — the old
-    // squared-off top is what made content look like it "disappeared into thin air" as it
-    // scrolled under the bar. Requires Surface.tsx's per-corner radius support (see its
-    // "Per-corner radius" edit note).
+    // Floating pill: app/(tabs)/_layout.tsx insets this bar off the screen edges (NAV_FLOAT_GAP
+    // on left/right/bottom — flush top, see that file's edit notes) so an explicit rounded
+    // corner makes it read as a floating panel rather than an edge-to-edge bar. Radius.lg
+    // matches the header's floated corner. All four corners rounded (2026-07-25, user report,
+    // supersedes the 2026-07-24 "flush top / square top corners" pass below) — a rounded top
+    // edge, even flush against the top of its slot with zero gap, keeps the fill from painting
+    // into the corner notch, instead of the old square top making content look like it
+    // "disappeared into thin air" as it scrolled under the bar's hard rectangular silhouette.
+    // A same-day follow-up ALSO tried adding a real gap above the bar (matching the header's
+    // treatment) so the notch would reveal more than a sliver — that grew the wrapper's real
+    // footprint and covered MORE of the last scrolled card on a real device (the web preview
+    // didn't reproduce it — a native-only fidelity gap, see app/(tabs)/_layout.tsx's revert
+    // note) and was reverted the same day. Corners stay rounded; the footprint did not grow.
+    // Requires Surface.tsx's per-corner radius support (see its "Per-corner radius" edit note).
     borderTopLeftRadius: Radius.lg,
     borderTopRightRadius: Radius.lg,
     borderBottomLeftRadius: Radius.lg,
