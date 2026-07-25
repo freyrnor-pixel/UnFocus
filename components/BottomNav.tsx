@@ -136,6 +136,15 @@
  *   - **(Historical, superseded above) No entry animation on first mount (2026-07-24)**: a cold
  *     launch/deep-link straight onto a side tab should initialize there with no slide. Preserved
  *     verbatim as `firstRunRef` in the new single-pill effect.
+ *   - **Pill grown beyond the item's own box, radius matched to the bar (2026-07-25)**: the pill's
+ *     width/height used to equal the active item's measured box exactly (`segW` / track height),
+ *     so the icon+label sat flush against the pill's edges with no breathing room — user report,
+ *     screenshot ("selected" box read as shrink-wrapped). `PILL_GROW_X`/`PILL_GROW_Y` now pad the
+ *     rendered pill outward on all sides, with `slotX()`/`pillTop` shifted by half the growth so
+ *     it stays centred on the same spot rather than only growing rightward/downward — the item's
+ *     own hit box and the other (inactive) tabs are untouched. Corner radius bumped `Radius.md` →
+ *     `Radius.lg` to match the outer floating bar's own corner radius (see `baseStyles.bar`) so
+ *     the selected box's shape echoes its container instead of a smaller, tighter curve.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
@@ -156,6 +165,12 @@ import Surface from '@/components/Surface';
 export const BOTTOM_NAV_HEIGHT = 72;
 const EDGE_WIDTH = 1.5;
 const ITEMS_PER_SIDE = 2;
+// The pill is drawn slightly larger than the tab item's own measured box (grown outward,
+// centred on the same spot) so the active tab reads as a roomier card instead of shrink-wrapping
+// the icon+label — the icon/label stay put (centred in their own tight flex box), so this extra
+// margin shows up as breathing room between them and the pill's edge, not a layout shift.
+const PILL_GROW_X = 8;
+const PILL_GROW_Y = 6;
 
 type Props = Partial<Pick<MaterialTopTabBarProps, 'state' | 'navigation'>>;
 
@@ -218,11 +233,13 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   const ready = leftTrack.w > 0 && rightTrack.w > 0 && centreTrack.w > 0 && segW > 0;
 
   // Maps a SITE_ITEMS index to the pill's target x (relative to the bar's content box).
+  // Offset left by half of PILL_GROW_X so the (wider) pill stays centred on the item's own box
+  // instead of the extra width only ever growing rightward.
   function slotX(index: number): number {
-    if (index === 0 || index === 1) return leftTrack.x + index * (segW + gap);
-    if (index === 3 || index === 4) return rightTrack.x + (index - 3) * (segW + gap);
+    if (index === 0 || index === 1) return leftTrack.x + index * (segW + gap) - PILL_GROW_X / 2;
+    if (index === 3 || index === 4) return rightTrack.x + (index - 3) * (segW + gap) - PILL_GROW_X / 2;
     // index === 2 (Home) — no pill ever sits here; this is only the entry/exit anchor.
-    return centreTrack.x + (centreTrack.w - segW) / 2;
+    return centreTrack.x + (centreTrack.w - segW) / 2 - PILL_GROW_X / 2;
   }
 
   const tx = useSharedValue(0);
@@ -291,15 +308,16 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   // The pill only ever marks an active SIDE tab, so its rim is always accent-hued.
   const rim = computeRimGradient(theme.accent, isDark);
   const pillShadow = [...getLayeredShadow(theme.shadow, 'raised'), ...getGlow(theme.accent, 'soft').boxShadow];
-  const pillHeight = leftTrack.h || rightTrack.h;
+  const pillHeight = (leftTrack.h || rightTrack.h) + PILL_GROW_Y;
   // The pill is `position:absolute` against the bar's own content box, which ignores that
   // box's `paddingVertical` (2026-07-24 bug: "blue [pill] around the buttons is not
   // centered") — the tab items themselves are flow children, so THEY sit shifted down by
   // that padding, but the pill's old hardcoded `top:0` never accounted for it, leaving the
   // pill's top edge floating above the icon and its bottom edge cutting into the label
   // instead of framing the button. Use the real measured y (same fix pattern as the x-based
-  // translateX above) instead of assuming the pill's container has no padding.
-  const pillTop = leftTrack.y || rightTrack.y;
+  // translateX above) instead of assuming the pill's container has no padding. Shifted up by
+  // half of PILL_GROW_Y to keep the (taller) pill centred on the item's own box.
+  const pillTop = (leftTrack.y || rightTrack.y) - PILL_GROW_Y / 2;
 
   const renderCentre = (item: SiteItem) => {
     const active = isActive(item);
@@ -342,19 +360,19 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   return (
     <Surface surfaceContext="overlay" style={styles.bar}>
       {segW > 0 && pillMounted && (
-        <Animated.View pointerEvents="none" style={[styles.pill, { width: segW, height: pillHeight, top: pillTop }, pillStyle]}>
+        <Animated.View pointerEvents="none" style={[styles.pill, { width: segW + PILL_GROW_X, height: pillHeight, top: pillTop }, pillStyle]}>
           {glass ? (
             <LinearGradient
               colors={rim.colors}
               locations={rim.locations}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
-              style={{ flex: 1, borderRadius: Radius.md, padding: EDGE_WIDTH }}
+              style={{ flex: 1, borderRadius: Radius.lg, padding: EDGE_WIDTH }}
             >
-              <View style={{ flex: 1, borderRadius: Radius.md - EDGE_WIDTH, backgroundColor: theme.accentSoft, boxShadow: pillShadow }} />
+              <View style={{ flex: 1, borderRadius: Radius.lg - EDGE_WIDTH, backgroundColor: theme.accentSoft, boxShadow: pillShadow }} />
             </LinearGradient>
           ) : (
-            <View style={{ flex: 1, borderRadius: Radius.md, backgroundColor: theme.accentSoft, boxShadow: pillShadow }} />
+            <View style={{ flex: 1, borderRadius: Radius.lg, backgroundColor: theme.accentSoft, boxShadow: pillShadow }} />
           )}
         </Animated.View>
       )}
