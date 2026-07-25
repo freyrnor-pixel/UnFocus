@@ -139,6 +139,14 @@
  *   - **Card spacing (2026-07-21)**: `baseStyles.content`'s gap dropped from `Spacing.xl` (32,
  *     Decision 043 rule 2) to `Spacing.lg` (24) — it read as too much dead air between cards
  *     vs. every other screen's `Spacing.md`/`lg` content gap, per direct feedback.
+ *   - **Contrast fixes inside `rounded` panels (2026-07-25)**: `langChip` (Profil language
+ *     picker) and `dayChip`/`workDayChip` (weekly-reset-day and Work-days pickers) filled their
+ *     inactive state with `theme.surfaceMuted` and no border — invisible once the row's parent
+ *     `ExpandableCard` itself went `rounded` (also `theme.surfaceMuted`-backed), since chip and
+ *     container became the same colour. Both now carry a `theme.border` (or `theme.accent` when
+ *     active) outline, matching the border `peopleChip`/`peopleAddBtn` already had. Also: the
+ *     "Advanced" accordion's `accentColor` was `theme.textMuted` (a stray dark bar next to every
+ *     sibling row's blue `theme.accent`) — now `theme.accent` like the rest.
  */
 import React, { useState } from 'react';
 import { Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
@@ -640,8 +648,8 @@ export default function SettingsScreen() {
                         key={lang}
                         style={[
                           styles.langChip,
-                          { backgroundColor: theme.surfaceMuted },
-                          settings.language === lang && { backgroundColor: theme.accent },
+                          { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                          settings.language === lang && { backgroundColor: theme.accent, borderColor: theme.accent },
                         ]}
                         onPress={() => applyAndSync({ language: lang })}
                         scaleTo={0.97}
@@ -1083,8 +1091,8 @@ export default function SettingsScreen() {
                           style={[
                             styles.dayChip,
                             styles.workDayChip,
-                            { backgroundColor: theme.surfaceMuted },
-                            active && { backgroundColor: theme.accent },
+                            { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                            active && { backgroundColor: theme.accent, borderColor: theme.accent },
                           ]}
                           onPress={() => {
                             const next = active
@@ -1120,7 +1128,7 @@ export default function SettingsScreen() {
                     Freyr-modus grouped behind one collapsed-by-default accordion, so the
                     first screen stays scannable and Work mode (kept top-level above) doesn't
                     have to compete with four rarer/power-user modes for attention. */}
-                <ExpandableCard title={t.config.sections.advanced} accentColor={theme.textMuted} rounded>
+                <ExpandableCard title={t.config.sections.advanced} accentColor={theme.accent} rounded>
                 {/* FORELDREMODUS (Parent mode / Child mode) */}
                 <ExpandableCard title={t.childModeTitle} accentColor={theme.accent} first>
                   <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.childModeDesc}</Text>
@@ -1259,8 +1267,8 @@ export default function SettingsScreen() {
                       key={i}
                       style={[
                         styles.dayChip,
-                        { backgroundColor: theme.surfaceMuted },
-                        settings.weeklyResetDay === i && { backgroundColor: theme.accent },
+                        { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                        settings.weeklyResetDay === i && { backgroundColor: theme.accent, borderColor: theme.accent },
                       ]}
                       onPress={() => applyAndSync({ weeklyResetDay: i })}
                       scaleTo={0.97}
@@ -1453,6 +1461,7 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: Radius.full,
+    borderWidth: 1,
   },
   workDayRow: { flexWrap: 'nowrap', gap: Spacing.xs },
   workDayChip: { flex: 1, minWidth: 0, minHeight: 36, paddingHorizontal: Spacing.xs },
@@ -1481,6 +1490,7 @@ const baseStyles = StyleSheet.create({
   langChip: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     padding: Spacing.md, borderRadius: Radius.md, justifyContent: 'center',
+    borderWidth: 1,
   },
   langFlag: { fontSize: 24 },
   langText: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },

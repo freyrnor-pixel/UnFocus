@@ -23,6 +23,10 @@
  *   - **Bordered track (2026-07-21)**: `segmentWrap` got a `theme.border` outline to match
  *     the "raised keycap" border convention IconButton/chips use elsewhere — it previously
  *     had no border at all, reading as visually flatter/plainer than the rest of the app.
+ *   - **Switch off-thumb is a fixed white (2026-07-25)**: was `theme.textInverse`, which is
+ *     semantically "text on an accent fill" and equals dark mode's `bg` (#080B12) — the
+ *     off-state thumb was disappearing into the dark track/card. Thumb color for "off" is
+ *     now theme-invariant white, matching how native switches render regardless of theme.
  */
 import React, { useEffect, useState } from 'react';
 import {
@@ -103,7 +107,10 @@ export function Switch({ checked, onChange, disabled }: SwitchProps) {
         onValueChange={onChange}
         disabled={disabled}
         trackColor={{ false: theme.surfaceMuted, true: theme.accentSoft }}
-        thumbColor={checked ? theme.accent : theme.textInverse}
+        // Off-thumb is a fixed white, not theme.textInverse — that token flips to near-black
+        // in dark mode (it means "text on an accent-colored fill"), which made the off-state
+        // thumb nearly invisible against the dark track (2026-07-25 contrast fix).
+        thumbColor={checked ? theme.accent : '#FFFFFF'}
       />
     </View>
   );
