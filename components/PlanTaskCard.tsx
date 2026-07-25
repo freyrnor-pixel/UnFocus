@@ -38,7 +38,7 @@
  *
  * Connections:
  *   Imports → components/Surface, components/PressableScale, components/ProgressBar,
- *             components/HomePreviewEmpty, components/AddRow (inline "add a task" quick-create,
+ *             components/DayHourScale (empty-state hour ruler), components/AddRow (inline "add a task" quick-create,
  *             gated on the optional onAddTask callback — Home preview passes it) +
  *             components/TimeBoxInput (quick-add's inline time field),
  *             components/Collapsible + components/AnimatedChevron
@@ -69,9 +69,12 @@
  *     vertical padding and `title`'s font size were bumped back up on 2026-07-15 (user
  *     feedback: text/spacing read as too tight) — the slimness now comes from the rail-gap
  *     tuning alone, not from cramped row content.
- *   - **Empty state (2026-07-24, text removed)**: an empty day (`showEmpty`) renders the
- *     shared `HomePreviewEmpty` — blank space at the resting floor (an empty row), not a
- *     message. A dashed "add a plan" ghost row that deep-links to /plans shows only as a
+ *   - **Empty state (2026-07-24, text removed; 2026-07-25, blank row → hour ruler)**: an empty
+ *     day (`showEmpty`) renders `DayHourScale` (a slim hour-of-day line + 4 labels + live "now"
+ *     dot) instead of the shared `HomePreviewEmpty` blank row other Home preview cards use — a
+ *     day-view with zero tasks still needs to read as a timeline, not an empty box (user report).
+ *     No message text, per the 2026-07-24 decision below — the ruler itself is the content now.
+ *     A dashed "add a plan" ghost row that deep-links to /plans shows only as a
  *     FALLBACK when no inline add is wired (`readOnly && !onAddTask`); when `onAddTask` IS
  *     passed the trailing AddRow (below) does inline creation instead, so the deep-link ghost
  *     is suppressed to avoid two add affordances. The distinct "all done" state keeps its own
@@ -193,7 +196,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
-import HomePreviewEmpty from '@/components/HomePreviewEmpty';
+import DayHourScale from '@/components/DayHourScale';
 import AddRow from '@/components/AddRow';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
@@ -799,7 +802,11 @@ export default function PlanTaskCard({
 
         {showEmpty ? (
           <View style={styles.emptyWrap}>
-            <HomePreviewEmpty />
+            {/* Hour-of-day ruler (2026-07-25, user report: an empty day showed pure blank
+                space — no cue this card is a timeline at all). Replaces the shared
+                HomePreviewEmpty blank row for this card only; Notes/Shopping keep the plain
+                blank row since they aren't time-based. */}
+            <DayHourScale now={now} />
             {/* Ghost "add" row (debug-note 2026-07-21) — an empty day should still offer a
                 place to add something. Deep-links to the Plans tab; only shown as a FALLBACK
                 when no inline add is wired (`onAddTask` absent). When onAddTask IS passed
