@@ -9,12 +9,19 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/ConfirmationBanner, components/CatalogueTab,
- *             lib/i18n
+ *             components/ErrorBoundary, lib/i18n
  *   Used by → Expo Router route "/catalogue"; pushed from app/(tabs)/shopping.tsx's
  *             "Catalogue" button
  *   Data    → none directly — CatalogueTab itself drives store/useCatalogStore
  *
  * Edit notes:
+ *   - **ErrorBoundary (2026-07-26)**: user report — opening this screen crashed the whole
+ *     app outright on Android, every time, with no visible error (no crash-reporting SDK
+ *     is wired into this app). Wrapped CatalogueTab so a render-time exception degrades to
+ *     a recoverable "Something went wrong" card (with the actual error message on screen)
+ *     instead of taking the app down — see components/ErrorBoundary.tsx's own header for
+ *     what this does and doesn't catch. This does NOT fix the underlying crash — nobody
+ *     has seen the real error yet — it's a safety net + a way to finally SEE it next time.
  *   - `scrollable={false}` (same as Shopping's old Catalogue tab) — CatalogueTab renders
  *     its own virtualising FlatList, so ScreenScaffold must not ALSO wrap it in a
  *     ScrollView (nested same-axis VirtualizedList).
@@ -29,6 +36,7 @@ import { useRouter } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import CatalogueTab from '@/components/CatalogueTab';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { useT } from '@/lib/i18n';
 
 export default function CatalogueScreen() {
@@ -39,7 +47,9 @@ export default function CatalogueScreen() {
   return (
     <>
       <ScreenScaffold title={t.catalogueTabLabel} tier="sub" onBack={() => router.back()} scrollable={false}>
-        <CatalogueTab onNotify={setConfirmMessage} />
+        <ErrorBoundary>
+          <CatalogueTab onNotify={setConfirmMessage} />
+        </ErrorBoundary>
       </ScreenScaffold>
       <ConfirmationBanner message={confirmMessage} onDismiss={() => setConfirmMessage(null)} />
     </>
