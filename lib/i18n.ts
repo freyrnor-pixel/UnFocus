@@ -73,8 +73,10 @@ const en = {
   dayViewAllDone: 'All done for today',
   dayViewFollowerBadge: 'Then',
   dayViewAnytimeBadge: 'Anytime',
-  // Tasks / Oppgaver screen (app/(tabs)/plans.tsx + components/TaskCard.tsx)
-  tasksTitle: 'Tasks',
+  // To-do list screen (app/(tabs)/plans.tsx + components/TaskCard.tsx) — the route
+  // key stays `plans` for history; the user-facing label is "To-do list" (short
+  // form "To-do" in the bottom nav, see nav.plans).
+  tasksTitle: 'To-do list',
   tasksTabAll: 'All tasks',
   tasksTabToday: 'Today',
   tasksTabWeek: 'This week',
@@ -291,6 +293,7 @@ const en = {
     failed: 'Could not check for updates. Check your connection and try again.',
     disabled: 'This build has over-the-air updates turned off (it’s a debug build). Install a release build to receive OTA updates.',
     updateAvailable: 'Update available — tap to install and restart',
+    experimental: 'Experimental build — UnFocus is a work in progress, so things may change, move or break.',
   },
   sectionProfile: 'Profile',
   yourName: 'Your name',
@@ -338,11 +341,12 @@ const en = {
   welcomeSub: 'A simple everyday app for people who don\'t want to spend energy keeping track of things. Set it up once — and let the app do the rest.',
   welcomeTagline: 'One less thing to keep track of.',
   features: [
-    { icon: 'checkbox-outline', text: "Stay on top of today's plans — without remembering everything yourself" },
-    { icon: 'cart-outline', text: 'Shopping lists that reset themselves each week' },
-    { icon: 'restaurant-outline', text: 'Recipes with ingredients you can push straight to the shopping list' },
-    { icon: 'heart-outline', text: 'Simple health journal for symptoms and observations' },
-    { icon: 'repeat-outline', text: 'Habits you can build a day at a time, with no streak to lose' },
+    { icon: 'home-outline', text: 'Home — quick actions and a simple overview of your day' },
+    { icon: 'checkbox-outline', text: "A to-do list that holds today's plans, so you don't have to remember them" },
+    { icon: 'cart-outline', text: "Shopping lists that reset themselves, what's already in your cupboards, and recipes you can push straight to the list" },
+    { icon: 'repeat-outline', text: 'Habits that give your days structure, one day at a time — no streak to lose' },
+    { icon: 'heart-outline', text: 'Health — log symptoms and occurrences, and see the trends over time' },
+    { icon: 'battery-half-outline', text: 'An energy system that balances plans, habits and health against the energy you actually have' },
   ],
   whatsYourName: "What's your name?",
   nameHint: 'Only used to say hi — no data leaves your phone.',
@@ -373,6 +377,21 @@ const en = {
   exploreDesc: 'Start right away — tips are available in Settings',
   recommended: 'Recommended',
   introHintNote: 'Look for the ⓘ button on any screen for tips and settings.',
+  // Intro tour closing pages (app/onboarding/intro.tsx) — the principles the app is
+  // designed within, then an honest note about the state of the build. Both render
+  // after the t.features pages; keep the copy short, the tour does not scroll.
+  introPrinciples: {
+    title: 'Built to be gentle',
+    bullets: [
+      { icon: 'accessibility-outline', text: 'Made for ADHD, autism, anxiety and depression' },
+      { icon: 'hand-left-outline', text: 'Easy to use — few steps, nothing hidden' },
+      { icon: 'ribbon-outline', text: 'No punishment and no broken streaks — small rewards instead' },
+    ],
+  },
+  introExperimental: {
+    title: 'This is an experimental build',
+    body: 'UnFocus is a work in progress. Things may change, move or arrive half-finished — that is expected. Everything stays on your phone, and your feedback shapes what comes next.',
+  },
   // Onboarding feature picker (app/onboarding/features.tsx) — the guided path's
   // "what do you want to use?" step. Everything listed there is optional and starts
   // off; the labels/hints themselves come from config.features.
@@ -829,7 +848,7 @@ const en = {
   },
   // Radial menu labels
   nav: {
-    newTask: 'New task', plans: 'Tasks', shop: 'Shopping', habits: 'Habits',
+    newTask: 'New task', plans: 'To-do', shop: 'Shopping', habits: 'Habits',
     meals: 'Food', health: 'Health', scan: 'Scan', settings: 'Settings',
     capture: 'Quick note', home: 'Home', budget: 'Budget', automations: 'Automations',
     shared: 'Shared', settingsLabel: 'Settings',
@@ -852,7 +871,7 @@ const en = {
       done: 'Done',
       add: 'Add a card',
       remove: (label: string) => `Remove ${label}`,
-      kinds: { notes: 'Notes', plans: 'Plans', shopping: 'Shopping' },
+      kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping' },
     },
   },
   health: {
@@ -1323,7 +1342,7 @@ const en = {
       example: '',
     },
     plans: {
-      text: 'All your tasks, organized by day and week.',
+      text: 'Your whole to-do list, organized by day and week.',
       example: '',
     },
     automations: {
@@ -1416,8 +1435,8 @@ const no: typeof en = {
   dayViewAllDone: 'Alt gjort for i dag',
   dayViewFollowerBadge: 'Så',
   dayViewAnytimeBadge: 'Når som helst',
-  // Oppgaver-skjerm (app/(tabs)/plans.tsx + components/TaskCard.tsx)
-  tasksTitle: 'Oppgaver',
+  // Gjøremålsliste-skjerm (app/(tabs)/plans.tsx + components/TaskCard.tsx)
+  tasksTitle: 'Gjøremålsliste',
   tasksTabAll: 'Alle',
   tasksTabToday: 'I dag',
   tasksTabWeek: 'Denne uka',
@@ -1623,6 +1642,7 @@ const no: typeof en = {
     failed: 'Kunne ikke se etter oppdateringer. Sjekk tilkoblingen og prøv igjen.',
     disabled: 'Denne bygget har trådløse oppdateringer avslått (det er et debug-bygg). Installer et release-bygg for å motta OTA-oppdateringer.',
     updateAvailable: 'Oppdatering tilgjengelig — trykk for å installere og starte på nytt',
+    experimental: 'Eksperimentell versjon — UnFocus er under arbeid, så ting kan endre seg, flytte på seg eller ryke.',
   },
   sectionProfile: 'Profil',
   yourName: 'Ditt navn',
@@ -1665,11 +1685,12 @@ const no: typeof en = {
   welcomeSub: 'En enkel hverdagsapp laget for deg som ikke ønsker å bruke energi på å holde styr på ting. Sett den opp én gang — og la appen gjøre resten.',
   welcomeTagline: 'Én ting mindre å holde styr på.',
   features: [
-    { icon: 'checkbox-outline', text: 'Hold styr på dagens planer — uten å huske alt selv' },
-    { icon: 'cart-outline', text: 'Handlelister som setter seg selv opp hver uke' },
-    { icon: 'restaurant-outline', text: 'Matretter med ingredienser du kan skyve rett til handlelisten' },
-    { icon: 'heart-outline', text: 'Enkel helsedagbok for symptomer og observasjoner' },
-    { icon: 'repeat-outline', text: 'Vaner du kan bygge én dag av gangen, uten en rekke å miste' },
+    { icon: 'home-outline', text: 'Hjem — hurtigvalg og en enkel oversikt over dagen' },
+    { icon: 'checkbox-outline', text: 'En gjøremålsliste som holder på dagens planer, så du slipper å huske dem' },
+    { icon: 'cart-outline', text: 'Handlelister som setter seg selv opp, oversikt over hva du har hjemme, og matretter du kan skyve rett til lista' },
+    { icon: 'repeat-outline', text: 'Vaner som gir dagene struktur, én dag av gangen — uten en rekke å miste' },
+    { icon: 'heart-outline', text: 'Helse — logg symptomer og hendelser, og se trendene over tid' },
+    { icon: 'battery-half-outline', text: 'Et energisystem som balanserer planer, vaner og helse mot energien du faktisk har' },
   ],
   whatsYourName: 'Hva heter du?',
   nameHint: 'Brukes bare til å si hei — ingen data forlater telefonen din.',
@@ -1700,6 +1721,18 @@ const no: typeof en = {
   exploreDesc: 'Begynn med en gang — tips er tilgjengelige i innstillingene',
   recommended: 'Anbefalt',
   introHintNote: 'Se etter ⓘ-knappen på hver skjerm for tips og innstillinger.',
+  introPrinciples: {
+    title: 'Laget for å være mild',
+    bullets: [
+      { icon: 'accessibility-outline', text: 'Laget for ADHD, autisme, angst og depresjon' },
+      { icon: 'hand-left-outline', text: 'Enkel å bruke — få steg, ingenting bortgjemt' },
+      { icon: 'ribbon-outline', text: 'Ingen straff og ingen brutte rekker — små belønninger i stedet' },
+    ],
+  },
+  introExperimental: {
+    title: 'Dette er en eksperimentell versjon',
+    body: 'UnFocus er under arbeid. Ting kan endre seg, flytte på seg eller komme halvferdig — det er som forventet. Alt blir liggende på telefonen din, og tilbakemeldingene dine former det som kommer.',
+  },
   featurePicker: {
     title: 'Hva vil du bruke?',
     sub: 'Velg de ekstra funksjonene du vil ha. Lar du dem stå av, holder appen seg enkel.',
@@ -2353,7 +2386,7 @@ const no: typeof en = {
     healthOngoing: (n: number) => (n === 1 ? '1 pågående' : `${n} pågående`),
   },
   nav: {
-    newTask: 'Ny oppgave', plans: 'Oppgaver', shop: 'Handleliste', habits: 'Vaner',
+    newTask: 'Ny oppgave', plans: 'Gjøremål', shop: 'Handleliste', habits: 'Vaner',
     meals: 'Mat', health: 'Helse', scan: 'Skann', settings: 'Innst.',
     capture: 'Notér', home: 'Hjem', budget: 'Budsjett', automations: 'Automatisering',
     shared: 'Delt', settingsLabel: 'Innstillinger',
@@ -2376,7 +2409,7 @@ const no: typeof en = {
       done: 'Ferdig',
       add: 'Legg til kort',
       remove: (label: string) => `Fjern ${label}`,
-      kinds: { notes: 'Notater', plans: 'Oppgaver', shopping: 'Handleliste' },
+      kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste' },
     },
   },
   health: {
@@ -2603,7 +2636,7 @@ const no: typeof en = {
       example: '',
     },
     plans: {
-      text: 'Alle oppgavene dine, organisert etter dag og uke.',
+      text: 'Hele gjøremålslista di, organisert etter dag og uke.',
       example: '',
     },
     automations: {

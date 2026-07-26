@@ -3,11 +3,14 @@
  *
  * Replaces the old 4-step setup wizard (work mode / shopping days / notifications /
  * handedness). Those settings now default and are taught in context on each screen's
- * first-run ⓘ hint; this tour is pure orientation. One short, non-scrolling page per
- * feature (from t.features): a centered icon "up in the middle", a one-line use-case,
- * and a reminder that every screen has an ⓘ hint bubble. Stepped with Next/Back — the
- * last page continues to the feature picker (features.tsx), which then hands off to the
- * name step (index.tsx) to finish onboarding.
+ * first-run ⓘ hint; this tour is pure orientation. Three kinds of short, non-scrolling
+ * page, each a centered icon "up in the middle" plus a line of copy:
+ *   1. 'feature'      — one per t.features entry (Home, to-do, shopping, habits,
+ *                       health, energy) + the "look for the ⓘ" reminder.
+ *   2. 'principles'   — t.introPrinciples: the criteria the app is designed within.
+ *   3. 'experimental' — t.introExperimental: this is a work-in-progress build.
+ * Stepped with Next/Back — the last page continues to the feature picker (features.tsx),
+ * which then hands off to the name step (index.tsx) to finish onboarding.
  *
  * Connections:
  *   Imports → @/lib/i18n, @/constants/theme, @/lib/useAppTheme, @/components/Button
@@ -16,8 +19,11 @@
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
- *   - Page content is t.features (icon + text); dots count = t.features.length.
+ *   - Pages are built in `pages` (t.features + the two closing pages); the dot count
+ *     follows pages.length, so adding a feature needs no change here.
  *   - No vertical scroll — each page is sized to one viewport (justifyContent:'center').
+ *     The principles page is the tallest; keep its bullets short rather than adding a
+ *     ScrollView.
  *   - Next on the last page → router.push('/onboarding/features') (the "what do you want to
  *     use?" picker, which continues to the name + finish screen).
  */
@@ -33,6 +39,11 @@ import Button from '@/components/Button';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
+type IntroPage =
+  | { kind: 'feature'; icon: string; text: string }
+  | { kind: 'principles' }
+  | { kind: 'experimental' };
+
 export default function OnboardingIntro() {
   const router = useRouter();
   const theme = useAppTheme();
@@ -40,9 +51,13 @@ export default function OnboardingIntro() {
   const styles = useScaledStyles(baseStyles);
   const [page, setPage] = useState(0);
 
-  const features = t.features;
-  const last = features.length - 1;
-  const feature = features[page];
+  const pages: IntroPage[] = [
+    ...t.features.map((f) => ({ kind: 'feature' as const, icon: f.icon, text: f.text })),
+    { kind: 'principles' },
+    { kind: 'experimental' },
+  ];
+  const last = pages.length - 1;
+  const current = pages[page];
 
   function next() {
     if (page < last) setPage((p) => p + 1);
@@ -58,18 +73,52 @@ export default function OnboardingIntro() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.content}>
         <View style={styles.pageBody}>
-          <View style={[styles.iconBadge, { backgroundColor: theme.accentSoft }]}>
-            <Ionicons name={feature.icon as IoniconsName} size={44} color={theme.accent} />
-          </View>
-          <Text style={[styles.featureText, { color: theme.text }]}>{feature.text}</Text>
-          <View style={[styles.hintNote, { backgroundColor: theme.surfaceMuted }]}>
-            <Ionicons name="information-circle-outline" size={18} color={theme.accent} />
-            <Text style={[styles.hintNoteText, { color: theme.textMuted }]}>{t.introHintNote}</Text>
-          </View>
+          {current.kind === 'feature' && (
+            <>
+              <View style={[styles.iconBadge, { backgroundColor: theme.accentSoft }]}>
+                <Ionicons name={current.icon as IoniconsName} size={44} color={theme.accent} />
+              </View>
+              <Text style={[styles.featureText, { color: theme.text }]}>{current.text}</Text>
+              <View style={[styles.hintNote, { backgroundColor: theme.surfaceMuted }]}>
+                <Ionicons name="information-circle-outline" size={18} color={theme.accent} />
+                <Text style={[styles.hintNoteText, { color: theme.textMuted }]}>{t.introHintNote}</Text>
+              </View>
+            </>
+          )}
+
+          {current.kind === 'principles' && (
+            <>
+              <View style={[styles.iconBadgeSm, { backgroundColor: theme.accentSoft }]}>
+                <Ionicons name="heart-circle-outline" size={36} color={theme.accent} />
+              </View>
+              <Text style={[styles.featureText, { color: theme.text }]}>{t.introPrinciples.title}</Text>
+              <View style={styles.bulletList}>
+                {t.introPrinciples.bullets.map((b) => (
+                  <View key={b.text} style={[styles.hintNote, { backgroundColor: theme.surfaceMuted }]}>
+                    <Ionicons name={b.icon as IoniconsName} size={18} color={theme.accent} />
+                    <Text style={[styles.hintNoteText, { color: theme.textMuted }]}>{b.text}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+
+          {current.kind === 'experimental' && (
+            <>
+              <View style={[styles.iconBadge, { backgroundColor: theme.accentSoft }]}>
+                <Ionicons name="flask-outline" size={44} color={theme.accent} />
+              </View>
+              <Text style={[styles.featureText, { color: theme.text }]}>{t.introExperimental.title}</Text>
+              <View style={[styles.hintNote, { backgroundColor: theme.surfaceMuted }]}>
+                <Ionicons name="construct-outline" size={18} color={theme.accent} />
+                <Text style={[styles.hintNoteText, { color: theme.textMuted }]}>{t.introExperimental.body}</Text>
+              </View>
+            </>
+          )}
         </View>
 
         <View style={styles.progress}>
-          {features.map((_, i) => (
+          {pages.map((_, i) => (
             <View
               key={i}
               style={[
@@ -102,6 +151,12 @@ const baseStyles = StyleSheet.create({
   iconBadge: {
     width: 104, height: 104, borderRadius: 52, alignItems: 'center', justifyContent: 'center',
   },
+  // Smaller badge for the principles page — it carries three bullet rows and has to
+  // stay inside one viewport without scrolling.
+  iconBadgeSm: {
+    width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center',
+  },
+  bulletList: { alignSelf: 'stretch', gap: Spacing.sm },
   featureText: {
     fontSize: FontSize.lg,
     fontFamily: Fonts.semibold,
