@@ -13,9 +13,13 @@
  * which then hands off to the name step (index.tsx) to finish onboarding.
  *
  * Connections:
- *   Imports → @/lib/i18n, @/constants/theme, @/lib/useAppTheme, @/components/Button
+ *   Imports → @/lib/i18n, @/constants/theme, @/lib/useAppTheme, @/components/Button,
+ *             @/components/PressableScale, @/components/AppModal (showAppModal),
+ *             @/lib/aiSetupGuide (exportAiSetupGuide)
  *   Used by → Expo Router route "/onboarding/intro" (pushed from onboarding/guided.tsx)
- *   Data    → none (presentational; writes happen on the name step)
+ *   Data    → none (presentational; writes happen on the name step). The "experimental"
+ *             page's download link writes a .txt to the cache dir + opens the share
+ *             sheet (exportAiSetupGuide) — no app data is touched.
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
@@ -26,6 +30,11 @@
  *     ScrollView.
  *   - Next on the last page → router.push('/onboarding/features') (the "what do you want to
  *     use?" picker, which continues to the name + finish screen).
+ *   - The "download AI setup guide" link on the experimental page only downloads (share
+ *     sheet) — no upload/import here, since onboarding has no existing data yet to
+ *     configure; upload lives only in Settings (app/settings.tsx). Same
+ *     exportAiSetupGuide() call as Settings' handler, duplicated locally rather than
+ *     shared — two call sites don't need an abstraction.
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -36,6 +45,10 @@ import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import Button from '@/components/Button';
+import PressableScale from '@/components/PressableScale';
+import { showAppModal } from '@/components/AppModal';
+import { selection } from '@/lib/haptics';
+import { exportAiSetupGuide } from '@/lib/aiSetupGuide';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -67,6 +80,16 @@ export default function OnboardingIntro() {
   function back() {
     if (page > 0) setPage((p) => p - 1);
     else router.back();
+  }
+
+  async function handleDownloadAiGuide() {
+    selection();
+    try {
+      const result = await exportAiSetupGuide();
+      if (result === 'unavailable') showAppModal(t.aiSetup.title, t.aiSetup.sharingUnavailable);
+    } catch {
+      showAppModal(t.aiSetup.title, t.aiSetup.exportError);
+    }
   }
 
   return (
@@ -113,6 +136,10 @@ export default function OnboardingIntro() {
                 <Ionicons name="construct-outline" size={18} color={theme.accent} />
                 <Text style={[styles.hintNoteText, { color: theme.textMuted }]}>{t.introExperimental.body}</Text>
               </View>
+              <PressableScale onPress={handleDownloadAiGuide} style={styles.aiGuideLink} scaleTo={0.97}>
+                <Ionicons name="download-outline" size={16} color={theme.accent} />
+                <Text style={[styles.aiGuideLinkText, { color: theme.accent }]}>{t.aiSetup.downloadButton}</Text>
+              </PressableScale>
             </>
           )}
         </View>
@@ -172,6 +199,8 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
   },
   hintNoteText: { flex: 1, fontSize: FontSize.sm, lineHeight: 20 },
+  aiGuideLink: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.xs },
+  aiGuideLinkText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   progress: { flexDirection: 'row', gap: Spacing.sm, justifyContent: 'center' },
   dot: { width: 8, height: 8, borderRadius: Radius.full },
   dotActive: { width: 20 },

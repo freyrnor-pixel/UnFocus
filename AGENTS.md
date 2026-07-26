@@ -68,6 +68,7 @@ Every `.ts`/`.tsx` file starts with a JSDoc header block. **Read it before editi
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations array | Runs once on upgrade; never drop or recreate tables |
 | Stores read/write rows via `lib/dataAccess.ts` (`loadFirst`/`loadAll`/`updateRow` + `FieldMap`) | Used by 13 of 14 stores; don't hand-roll row mapping in a new store |
 | **ALWAYS open a PR and merge it to `main`** | Standing rule: every change ends with a PR from the `claude/**` branch into `main` that the agent merges itself — never stop at "pushed the branch," never hand the merge back to the user. OTA (`.github/workflows/update.yml`) publishes ONLY on push to `main`; a `claude/**` branch push publishes nothing. Only *cutting the APK/AAB build* stays human-gated — never the PR or the merge. See `PUBLISHING.md`. |
+| `AI_SETUP_SCHEMA_VERSION` in `lib/aiSetupGuide.ts` bumps whenever the AI setup guide's schema/content changes | The downloadable "AI setup guide" (Settings + onboarding intro) embeds this version; on upload, an older version is a 'stale' warning (import still proceeds) and a newer version is 'invalid' (this build can't safely interpret fields it doesn't know about yet) — see that file's header and the cookbook steps below |
 
 ## Architecture at a glance
 
@@ -88,6 +89,7 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
   - **Permanently on, no longer a toggle at all**: `featureScan` (Scan & receipts) and `featureFood` (Food & recipes) — removed from both Settings and the onboarding picker; the DB columns and Settings-type fields survive (this repo never drops columns) but nothing reads them for gating any more — see `store/useSettingsStore.ts`'s "Inert columns" note.
   - All defaults are set via migrations in `lib/db.ts` (append-only — corrections are new `UPDATE` statements, never edits to an already-merged line). Only gate something ADDITIVE this way — data pruning, widget/overview sync, foreground store reload, catalog/dish/symptom seeding, the automation store's boot load and the monthly reminder re-arm are load-bearing and stay unconditional.
 - **i18n**: `const t = useT()` in any component; `t.someKey`; add new keys to both `en` and `no` objects in `lib/i18n.ts`
+- **AI setup guide** (`lib/aiSetupGuide.ts` + `lib/aiSetupApply.ts`, 2026-07-26): the app has no in-app AI/automation-builder, so this lets a user download a technical `.txt` (Settings → General → Local account, and a link on onboarding's last "experimental" intro page) documenting the data model, hand it to an external AI, and upload the AI's filled-in reply back into Settings. The reply embeds one JSON block between fixed markers; `previewAiSetupConfig()`/`applyAiSetupConfig()` share one validation pass so the confirm-before-apply preview (`components/AiSetupPreviewModal.tsx`) can never disagree with what's actually written. v1 covers settings (a fixed whitelist), tasks, habits, goals, notes, shopping lists/items, household inventory, Catalogue-tab items, meals, and monthly lists — deliberately NOT automations (IFTTT rules) or health-log data (too risky to validate / too sensitive). See "Add a new SQLite column" / "Add a new setting toggle" below for the process rule that keeps the guide from drifting out of date.
 
 ## Common tasks
 
@@ -109,6 +111,15 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
    ```
 2. Add it to the store's FieldMap and `update()` values — most stores go through `lib/dataAccess.ts` (`loadFirst`/`loadAll`/`updateRow`); check the target store's header for its exact pattern
 3. Add the TypeScript field to the Settings/Task/etc. type
+4. If this column is on a store/domain the AI setup guide already imports (tasks,
+   habits, goals, notes, shopping lists/items, household inventory, Catalogue items,
+   meals, monthly lists — see `lib/aiSetupGuide.ts`) AND the new field is safe to
+   accept from an untrusted AI-generated file, add it to that domain's draft type +
+   validation in `lib/aiSetupGuide.ts`/`lib/aiSetupApply.ts` and to the guide text's
+   schema section for that domain, in the same edit — bump `AI_SETUP_SCHEMA_VERSION`.
+   If the column shouldn't be importable (system-managed, like a `calendarEventId` or
+   a synced/internal id), no change needed there — just don't add it to the draft
+   type by habit-copying the store's real type.
 
 ### Add a new setting toggle
 1. Add field to `Settings` type and `defaultSettings` in `store/useSettingsStore.ts`
@@ -116,6 +127,11 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 3. Update `load()` and `update()` in the store
 4. Add to `app/settings.tsx` UI
 5. Add i18n labels
+6. If the setting is safe for AI-driven configuration (not device/identity-specific,
+   and not an OS permission gate like `locationEnabled`/`calendarSyncEnabled`), add it
+   to the whitelist in `lib/aiSetupGuide.ts`'s `AiSettingsPatch` type + the guide
+   text's settings schema section, AND to `lib/aiSetupApply.ts`'s `SETTINGS_WHITELIST`
+   + `validateSettingValue()` — bump `AI_SETUP_SCHEMA_VERSION` in the same edit.
 
 For a **feature flag** specifically (a switch that hides a whole surface), also: put its
 copy under `config.features.*` in BOTH languages, and gate the surface at its call site —

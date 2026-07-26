@@ -70,9 +70,11 @@
  *   Imports → components/AppModal, components/ConfirmationBanner, components/FormControls,
  *             components/ScreenScaffold, components/SectionDivider, components/Surface,
  *             components/ExpandableCard, components/PressableScale, components/TabSlider,
- *             constants/theme, lib/domainColor, lib/backup
+ *             components/AiSetupPreviewModal, constants/theme, lib/domainColor, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
- *             saveAutoBackup/chooseAutoBackupLocation), lib/feedbackMail, lib/freyrModeSeed,
+ *             saveAutoBackup/chooseAutoBackupLocation), lib/aiSetupGuide
+ *             (exportAiSetupGuide/exportAiSetupGuideToDevice/pickAndParseAiSetupFile),
+ *             lib/aiSetupApply (previewAiSetupConfig/applyAiSetupConfig), lib/feedbackMail, lib/freyrModeSeed,
  *             lib/haptics, lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
  *             (syncWidgetsAndOverview — the persistent-overview toggle refreshes/cancels it, and
  *             the Freyr-mode toggle re-syncs after seeding/unseeding today's tasks + shopping),
@@ -86,7 +88,11 @@
  *             featureSharing/featureAutomations toggles); reset actions touch
  *             useTaskStore (tasks) and useShoppingStore (shopping_items via monthlyReset);
  *             re-syncs notifications via syncReminders / syncAllTaskNotifications /
- *             syncAllTaskCalendarEvents / syncAllHabitReminders / syncNotificationCategories
+ *             syncAllTaskCalendarEvents / syncAllHabitReminders / syncNotificationCategories;
+ *             confirming an uploaded AI setup file (applyAiSetupConfig, lib/aiSetupApply.ts)
+ *             can additionally write to useTaskStore, useHabitStore, useGoalStore,
+ *             useNotesStore, useShoppingListStore, useShoppingStore, useCatalogStore,
+ *             useMealStore, useMonthlyListStore
  *
  * Edit notes:
  *   - **Monthly budget moved out (2026-07-22)**: the "handle" tab used to have a Monthly
@@ -177,7 +183,7 @@
  *     how to retire one the same way (unconditional migration UPDATE, un-gate every call
  *     site, drop the FEATURE_ROWS/onboarding-picker row, keep the DB column).
  */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -208,6 +214,9 @@ import { syncNotificationCategories } from '@/lib/notifications';
 import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
 import { seedFreyrMode, unseedFreyrMode, parseFreyrSeedIds } from '@/lib/freyrModeSeed';
 import { exportBackup, exportBackupToDevice, pickAndParseBackup, restoreBackup, reloadApp, saveAutoBackup, chooseAutoBackupLocation } from '@/lib/backup';
+import { exportAiSetupGuide, exportAiSetupGuideToDevice, pickAndParseAiSetupFile, AiSetupConfig } from '@/lib/aiSetupGuide';
+import { previewAiSetupConfig, applyAiSetupConfig } from '@/lib/aiSetupApply';
+import AiSetupPreviewModal from '@/components/AiSetupPreviewModal';
 import { isSyncAvailable } from '@/lib/syncService';
 import { buildFeedbackMailUrl } from '@/lib/feedbackMail';
 import { useT, getTranslations } from '@/lib/i18n';
@@ -280,6 +289,14 @@ export default function SettingsScreen() {
   const [feedbackText, setFeedbackText] = useState('');
   const [newChildName, setNewChildName] = useState('');
   const [inputWarning, setInputWarning] = useState<string | null>(null);
+
+  // AI setup guide (download/upload) — lib/aiSetupGuide.ts + lib/aiSetupApply.ts.
+  // aiSetupConfig is the parsed-but-not-yet-applied config; non-null shows the
+  // preview sheet. aiSetupPreview is derived (dry-run) from it so the preview can
+  // never disagree with what applyAiSetupConfig() actually writes on confirm.
+  const [aiSetupConfig, setAiSetupConfig] = useState<AiSetupConfig | null>(null);
+  const [aiSetupStale, setAiSetupStale] = useState(false);
+  const aiSetupPreview = useMemo(() => (aiSetupConfig ? previewAiSetupConfig(aiSetupConfig) : null), [aiSetupConfig]);
 
   // People / family mode — profile management (moved here from the Health screen so
   // Tasks + Habits share one list). Adds/removes entries in settings.childProfiles.
@@ -537,6 +554,58 @@ export default function SettingsScreen() {
         },
       },
     ]);
+  }
+
+  // AI setup guide — download (share sheet + local save, mirroring the backup card's
+  // pair) and upload/preview/confirm. See lib/aiSetupGuide.ts + lib/aiSetupApply.ts.
+  async function handleDownloadAiGuideToDevice() {
+    selection();
+    try {
+      const result = await exportAiSetupGuideToDevice();
+      if (result.status === 'saved') {
+        showAppModal(t.aiSetup.title, t.aiSetup.savedToDevice(result.location));
+      } else if (result.status === 'unavailable') {
+        showAppModal(t.aiSetup.title, t.aiSetup.saveUnavailable);
+      }
+      // 'canceled' → no modal
+    } catch {
+      showAppModal(t.aiSetup.title, t.aiSetup.exportError);
+    }
+  }
+
+  async function handleDownloadAiGuide() {
+    selection();
+    try {
+      const result = await exportAiSetupGuide();
+      if (result === 'unavailable') showAppModal(t.aiSetup.title, t.aiSetup.sharingUnavailable);
+    } catch {
+      showAppModal(t.aiSetup.title, t.aiSetup.exportError);
+    }
+  }
+
+  async function handleUploadAiSetup() {
+    selection();
+    const parsed = await pickAndParseAiSetupFile();
+    if (parsed.status === 'canceled') return;
+    if (parsed.status === 'invalid') {
+      showAppModal(t.aiSetup.title, t.aiSetup.invalidFile);
+      return;
+    }
+    setAiSetupStale(parsed.status === 'stale');
+    setAiSetupConfig(parsed.data);
+  }
+
+  function handleConfirmAiSetupImport() {
+    if (!aiSetupConfig) return;
+    heavy();
+    const result = applyAiSetupConfig(aiSetupConfig);
+    setAiSetupConfig(null);
+    const total =
+      result.settings.applied.length +
+      result.tasks.created + result.habits.created + result.goals.created + result.notes.created +
+      result.shoppingLists.created + result.shoppingItems.created + result.inventoryItems.created +
+      result.catalogueItems.created + result.meals.created + result.monthlyLists.created;
+    showAppModal(t.aiSetup.title, t.aiSetup.importDone(total));
   }
 
   const tabBar = (
@@ -808,6 +877,21 @@ export default function SettingsScreen() {
                     <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.account.restoreButton}</Text>
                   </PressableScale>
                   <Text style={[styles.descText, { color: theme.textMuted, marginBottom: 0 }]}>{t.account.deviceOnlyNote}</Text>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  {/* AI setup guide — a technical .txt an external AI can read to help
+                      configure the app; see lib/aiSetupGuide.ts's header. */}
+                  <PressableScale style={styles.dangerBtn} onPress={handleDownloadAiGuideToDevice} scaleTo={0.97}>
+                    <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.aiSetup.downloadButton}</Text>
+                  </PressableScale>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <PressableScale style={styles.dangerBtn} onPress={handleDownloadAiGuide} scaleTo={0.97}>
+                    <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.aiSetup.shareButton}</Text>
+                  </PressableScale>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <PressableScale style={styles.dangerBtn} onPress={handleUploadAiSetup} scaleTo={0.97}>
+                    <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.aiSetup.uploadButton}</Text>
+                  </PressableScale>
+                  <Text style={[styles.descText, { color: theme.textMuted, marginBottom: 0 }]}>{t.aiSetup.deviceOnlyNote}</Text>
                 </ExpandableCard>
 
                 {/* LAN live sync moved to the Advanced tab (2026-07-25) — pairing a second
@@ -1389,6 +1473,13 @@ export default function SettingsScreen() {
       </View>
     </ScreenScaffold>
     <ConfirmationBanner message={inputWarning} onDismiss={() => setInputWarning(null)} variant="warn" />
+    <AiSetupPreviewModal
+      visible={!!aiSetupConfig}
+      preview={aiSetupPreview}
+      staleWarning={aiSetupStale}
+      onConfirm={handleConfirmAiSetupImport}
+      onCancel={() => setAiSetupConfig(null)}
+    />
     </>
   );
 }
