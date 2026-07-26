@@ -35,7 +35,10 @@
  *     wiring is the future shopping-row drag session's Phase-6 concern, not here.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/liveSync, lib/syncService, store/useSettingsStore
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/liveSync, lib/syncService, store/useSettingsStore,
+ *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
+ *             add/update/remove/removeWithSource/restoreDeleted/doneShopping/monthlyReset/
+ *             resetMonthlyList, so live widgets don't wait for foreground/background)
  *   Used by → app/shopping.tsx, app/inventory-edit.tsx (add/update/removeWithSource),
  *             components/ShoppingQuickAddSheet.tsx,
  *             components/AddItemSheet.tsx (type), components/AddDishSheet.tsx (add), components/UpdateSheet.tsx (type),
@@ -122,6 +125,7 @@ import { generateId } from '@/lib/id';
 import { touchRow, softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { scheduleWidgetSync } from '@/lib/widgets/sync';
 
 export type ShoppingStatus = 'catalog' | 'staged' /* vestigial: never written by new code; kept for old row compatibility */ | 'inWeeklyList' | 'purchased';
 
@@ -467,6 +471,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     set((s) => ({ items: [...s.items, newItem] }));
     syncItemRow(id);
     get().markRecentlyAdded(id);
+    scheduleWidgetSync();
     return id;
   },
 
@@ -477,6 +482,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     updateRow('shopping_items', rowValues(patch, ITEM_COLUMNS), 'id = ?', [id]);
     set((s) => ({ items: s.items.map((i) => (i.id === id ? next : i)) }));
     syncItemRow(id);
+    scheduleWidgetSync();
   },
 
   toggleCheck(id) {
@@ -527,6 +533,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     softDelete('shopping_items', id, useSettingsStore.getState().deviceId);
     broadcastRow('shopping_items', id);
     set((s) => ({ items: s.items.filter((i) => i.id !== id) }));
+    scheduleWidgetSync();
   },
 
   removeWithSource(id) {
@@ -554,12 +561,14 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     softDelete('shopping_items', id, useSettingsStore.getState().deviceId);
     broadcastRow('shopping_items', id);
     set((s) => ({ items: s.items.filter((i) => i.id !== id) }));
+    scheduleWidgetSync();
   },
 
   restoreDeleted(item) {
     updateRow('shopping_items', { ...rowValues(item, ITEM_COLUMNS), deleted_at: null }, 'id = ?', [item.id]);
     set((s) => (s.items.some((i) => i.id === item.id) ? s : { items: [...s.items, item] }));
     syncItemRow(item.id);
+    scheduleWidgetSync();
   },
 
   reorder(id, direction) {
@@ -654,6 +663,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
           : i
       ),
     }));
+    scheduleWidgetSync();
     return tripId;
   },
 
@@ -689,6 +699,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
           return { ...i, pendingRestock: false };
         }),
     }));
+    scheduleWidgetSync();
   },
 
   resetMonthlyList(listId) {
@@ -714,6 +725,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
           return { ...i, pendingRestock: false };
         }),
     }));
+    scheduleWidgetSync();
   },
 
   /**

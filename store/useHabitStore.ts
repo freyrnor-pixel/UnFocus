@@ -11,7 +11,10 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/habitNotifications, store/useSettingsStore,
- *             store/useGoalStore (registerProgress on increment when a habit has a goalId)
+ *             store/useGoalStore (registerProgress on increment when a habit has a goalId),
+ *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
+ *             add/update/remove/increment/decrement/markRestDay, so live widgets don't wait for
+ *             foreground/background)
  *   Used by → app/habit-form.tsx, app/(tabs)/habits.tsx (its own bottom-nav tab again as of
  *             2026-07-23 — see that file's header for the fold-in/split-out history);
  *             app/_layout.tsx, app/settings.tsx
@@ -62,6 +65,7 @@ import { dateStr } from '@/lib/date';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useGoalStore } from '@/store/useGoalStore';
 import { syncHabitReminder as scheduleHabitReminder, cancelHabitReminders } from '@/lib/habitNotifications';
+import { scheduleWidgetSync } from '@/lib/widgets/sync';
 
 export type HabitKind = 'build' | 'break' | 'neutral';
 /** 'weekly-flexible' (2026-07-22) — due every day of the week; met once the week's
@@ -247,6 +251,7 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
     insertRow('habits', rowValues(habit, HABIT_COLUMNS));
     set((s) => ({ habits: [...s.habits, habit].sort((a, b) => a.routineOrder - b.routineOrder) }));
     syncHabitReminder(habit);
+    scheduleWidgetSync();
   },
 
   update(id, patch) {
@@ -258,6 +263,7 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
       habits: s.habits.map((h) => (h.id === id ? next : h)).sort((a, b) => a.routineOrder - b.routineOrder),
     }));
     syncHabitReminder(next);
+    scheduleWidgetSync();
   },
 
   remove(id) {
@@ -268,6 +274,7 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
       habits: s.habits.filter((h) => h.id !== id),
       logs: s.logs.filter((l) => l.habitId !== id),
     }));
+    scheduleWidgetSync();
   },
 
   reorder(id, direction) {
@@ -310,6 +317,7 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
     // lowers it — no punishment; decay handles the fade). See store/useGoalStore.ts.
     const goalId = get().habits.find((h) => h.id === habitId)?.goalId;
     if (goalId) useGoalStore.getState().registerProgress(goalId);
+    scheduleWidgetSync();
   },
 
   decrement(habitId, date) {
@@ -321,6 +329,7 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
     set((s) => ({
       logs: s.logs.map((l) => (l.id === existing.id ? { ...l, count: newCount } : l)),
     }));
+    scheduleWidgetSync();
   },
 
   markRestDay(habitId, date) {
@@ -337,6 +346,7 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
       insertRow('habit_logs', { id, habit_id: habitId, log_date: date, count: 0, rest_day: 1 });
       set((s) => ({ logs: [...s.logs, { id, habitId, logDate: date, count: 0, restDay: true }] }));
     }
+    scheduleWidgetSync();
   },
 
   syncAllHabitReminders() {

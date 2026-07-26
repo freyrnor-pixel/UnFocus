@@ -7,7 +7,10 @@
  *
  * Connections:
  *   Imports → none
- *   Used by → app/_layout.tsx, app/settings.tsx (web bundle resolves this over lib/widgets/sync.ts)
+ *   Used by → app/_layout.tsx, app/settings.tsx, store/useTaskStore, store/useShoppingStore,
+ *             store/useShoppingListStore, store/useNotesStore, store/useHabitStore,
+ *             store/useHealthStore (web bundle resolves this over lib/widgets/sync.ts)
  *   Data    → none
  */
 export async function syncWidgetsAndOverview(_opts?: { persistentOnly?: boolean }) {}
+export function scheduleWidgetSync(_delayMs?: number) {}
