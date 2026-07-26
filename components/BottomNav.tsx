@@ -177,13 +177,21 @@ export const NAV_FLOAT_GAP = Spacing.sm;
 // notch between the curve and the bar's own bounding box is already transparent — nothing ever
 // rendered there because content was reserved exactly the bar's full footprint and could never
 // scroll far enough to reach it. Shaving NAV_PEEK off that reserve lets the last scrolled card's
-// edge rise into the notch (and ONLY the notch — the flat corner is still ~Radius.lg wide at its
-// widest, so the card stays hidden behind the opaque centre of the bar) instead of stopping dead
-// at the bar's edge. Deliberately small relative to Radius.lg (24) so the resting position looks
-// unchanged — this is not the "shrink the whole clearance" move that caused the 2026-07-24/25
-// clipped-content regression (see BottomNav's own edit notes + app/(tabs)/_layout.tsx's), just a
-// few px carved out of what was previously dead, unreachable padding.
-export const NAV_PEEK = 12;
+// edge rise into the notch (and ONLY the notch — beyond a Radius.lg-deep shave, the corner is
+// past the rounding and back to the bar's flat, fully opaque body, so there's no point shaving
+// any further) instead of stopping dead at the bar's edge.
+//   Set to Radius.lg (24) itself — the maximum depth the notch can ever be transparent —
+// because EVERY tab screen's own top-level content wrapper already reserves its own trailing
+// `padding: Spacing.md` (16px) below the last card (unrelated to bottom-nav clearance — it's
+// just each screen's own bottom margin), which eats into this shave before a single card pixel
+// is reached. Confirmed empirically (web preview, scrolled to the true end of Home): a smaller
+// shave (12) landed the last card's real edge ~4px SHORT of the bar, i.e. invisible — the full
+// Radius.lg shave is what's needed to actually clear that 16px and leave a real ~8px-deep sliver
+// of card visible in the notch, not a bug-prone "close but no reveal" half-measure. This is NOT
+// the "shrink the whole clearance" move that caused the 2026-07-24/25 clipped-content regression
+// (see BottomNav's own edit notes + app/(tabs)/_layout.tsx's) — the bar's own resting position is
+// untouched; this only reaches into space that was previously dead, unreachable padding.
+export const NAV_PEEK = Radius.lg;
 const EDGE_WIDTH = 1.5;
 const ITEMS_PER_SIDE = 2;
 // The pill is drawn slightly larger than the tab item's own measured box (grown outward,
