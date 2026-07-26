@@ -4,9 +4,13 @@
  * Wraps a card/header's content so that, when Debug mode is on (settings.debugModeEnabled),
  * a transparent overlay captures a tap (or long-press) and opens a small text composer tied
  * to a stable `id`. A saved note shows as a small bubble badge in the corner; tapping the
- * badge reopens the composer pre-filled for editing. Clearing the text and saving deletes
- * the note. When Debug mode is off, this renders `children` directly with zero wrapping
- * overhead — the overlay only exists while Debug mode is on.
+ * badge reopens the composer pre-filled for editing. An anchor with no note yet instead shows
+ * a small "Add debug note" pill in the same corner — purely a visual affordance (the full-card
+ * overlay already handles the tap), so testers don't have to discover the tap-anywhere behavior
+ * on their own. Clearing the text and saving deletes the note. The composer's save button reads
+ * "Save and send" (t.debug.saveAndSend) — a reminder that notes go out via the header's email
+ * export, not just local storage. When Debug mode is off, this renders `children` directly with
+ * zero wrapping overhead — the overlay only exists while Debug mode is on.
  *
  * Connections:
  *   Imports → constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, store/useFeedbackStore,
@@ -113,7 +117,7 @@ function AnnotatedAnchor({ id, label, children, style }: Props) {
         accessibilityLabel={existing ? t.debug.editNote : t.debug.noteForLabel(label)}
       />
 
-      {existing && (
+      {existing ? (
         <Pressable
           style={[styles.bubble, { backgroundColor: theme.accent, borderColor: theme.surface }]}
           onPress={openComposer}
@@ -122,6 +126,19 @@ function AnnotatedAnchor({ id, label, children, style }: Props) {
           accessibilityLabel={t.debug.editNote}
         >
           <Ionicons name="chatbubble-ellipses" size={12} color={theme.accentInk} />
+        </Pressable>
+      ) : (
+        // Visual affordance only — the full-card overlay above already handles the tap.
+        // Discoverable so testers don't have to know cards are tappable in Debug mode.
+        <Pressable
+          style={[styles.addPill, { backgroundColor: theme.accent, borderColor: theme.surface }]}
+          onPress={openComposer}
+          hitSlop={4}
+          accessibilityRole="button"
+          accessibilityLabel={t.debug.noteForLabel(label)}
+        >
+          <Ionicons name="add" size={11} color={theme.accentInk} />
+          <Text style={[styles.addPillText, { color: theme.accentInk }]}>{t.debug.addNote}</Text>
         </Pressable>
       )}
 
@@ -144,7 +161,7 @@ function AnnotatedAnchor({ id, label, children, style }: Props) {
                 <Text style={[styles.composerBtnText, { color: theme.textMuted }]}>{t.cancel}</Text>
               </Pressable>
               <Pressable style={[styles.composerBtn, { backgroundColor: theme.accent }]} onPress={handleSave}>
-                <Text style={[styles.composerBtnText, { color: theme.accentInk }]}>{t.save}</Text>
+                <Text style={[styles.composerBtnText, { color: theme.accentInk }]}>{t.debug.saveAndSend}</Text>
               </Pressable>
             </View>
           </View>
@@ -168,6 +185,24 @@ const baseStyles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 10,
     ...Shadow.button,
+  },
+  addPill: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    zIndex: 10,
+    ...Shadow.button,
+  },
+  addPillText: {
+    fontSize: 9,
+    fontFamily: Fonts.bold,
   },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.35)' },
   composerWrap: { flex: 1, justifyContent: 'center', padding: Spacing.lg },

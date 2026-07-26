@@ -10,6 +10,8 @@
  *   Imports → react-native, react-native-safe-area-context, components/ScreenBackground, components/HomeHeroBackground,
  *             components/ParticleBackground, components/ScreenHeader (now also passed `isHome`, so
  *             ScreenHeader can gate its OTA "update available" button to Home only), components/BottomNav,
+ *             components/DebugGeneralNoteButton (floating "Add general note" FAB, self-gated on
+ *             debugModeEnabled — mounted once here so every screen gets it for free),
  *             lib/useAppTheme, lib/screenColor (ScreenColorContext — per-screen frosted tint,
  *             provided to the scroll body only)
  *   Used by → every app screen (app/(tabs)/index.tsx, app/(tabs)/shopping.tsx, etc.); also
@@ -149,6 +151,7 @@ import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
 import ScreenHeader from '@/components/ScreenHeader';
 import BottomNav, { BOTTOM_NAV_HEIGHT, NAV_FLOAT_GAP, NAV_PEEK } from '@/components/BottomNav';
+import DebugGeneralNoteButton from '@/components/DebugGeneralNoteButton';
 
 /** A host component (View) ref that can be measured in window coordinates. */
 type Measurable = {
@@ -533,6 +536,11 @@ export default function ScreenScaffold({
           <BottomNav />
         </View>
       )}
+
+      {/* Floats above whatever bottom chrome this screen has (pager tab bar, standalone
+          BottomNav, or just the safe area on a sub-tier screen) — self-gates on
+          debugModeEnabled, so every screen gets it for free via this one mount point. */}
+      <DebugGeneralNoteButton bottomOffset={(reserveBottomNav ? bottomNavClearance : bottomInset) + Spacing.md} />
     </SafeAreaView>
   );
 
