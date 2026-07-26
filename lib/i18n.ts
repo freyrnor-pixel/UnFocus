@@ -1339,9 +1339,11 @@ const en = {
   debug: {
     toggleLabel: 'Debug mode',
     toggleHint: 'Lets you leave notes on cards and headers for the developer.',
-    howToUse: 'It’s on now — tap any card, button, or the screen title to add a note. A small bubble marks it; tap the bubble to edit or clear it. (Buttons won’t do their normal thing while it’s on — that’s expected; you’re annotating them, not using them.) In the header: the bug icon turns note-taking back off, the green checkmark emails all your notes, and the red circle deletes them all.',
+    howToUse: 'It’s on now — every card shows a small "Add debug note" tag, and tapping anywhere on the card (or the screen title) opens the same note composer. A small bubble marks a card that already has a note; tap the bubble to edit or clear it. (Buttons won’t do their normal thing while it’s on — that’s expected; you’re annotating them, not using them.) Use the "Add general note" button at the bottom of the screen for anything not tied to a specific card. In the header: the bug icon turns note-taking back off, the green checkmark emails all your notes, and the red circle deletes them all.',
     editNote: 'Edit note',
     noteForLabel: (label: string) => `Note — ${label}`,
+    addNote: 'Add debug note',
+    generalNote: 'Add general note',
     composerPlaceholder: "What's on your mind?",
     exportNotes: 'Export',
     emailNotes: 'Email notes',
@@ -1349,6 +1351,7 @@ const en = {
     mailSubject: 'UnFocus debug notes',
     exportHeading: (date: string) => `UnFocus debug notes — ${date}`,
     resetNotes: 'Reset all notes',
+    saveAndSend: 'Save and send',
   },
   // Device features (2026-07-17) — Settings toggles for the reserve-only native
   // surface (voice/contacts/location/calendar); gates components/TaskCard.tsx's mic
@@ -2615,9 +2618,11 @@ const no: typeof en = {
   debug: {
     toggleLabel: 'Feilsøkingsmodus',
     toggleHint: 'Lar deg legge igjen notater på kort og topptekster til utvikleren.',
-    howToUse: 'Den er på nå — trykk på et kort, en knapp eller skjermtittelen for å legge til en notis. En liten boble markerer den; trykk på boblen for å redigere eller slette. (Knapper gjør ikke sin vanlige handling mens den er på — det er meningen, du kommenterer dem, ikke bruker dem.) I toppmenyen: feil-ikonet (bug) slår notatmodus av igjen, den grønne haken sender alle notatene på e-post, og den røde sirkelen sletter dem alle.',
+    howToUse: 'Den er på nå — hvert kort viser en liten «Legg til feilsøkingsnotat»-merkelapp, og du kan trykke hvor som helst på kortet (eller skjermtittelen) for å åpne den samme notatboksen. En liten boble markerer et kort som allerede har et notat; trykk på boblen for å redigere eller slette. (Knapper gjør ikke sin vanlige handling mens den er på — det er meningen, du kommenterer dem, ikke bruker dem.) Bruk «Legg til generelt notat»-knappen nederst på skjermen for ting som ikke hører til et bestemt kort. I toppmenyen: feil-ikonet (bug) slår notatmodus av igjen, den grønne haken sender alle notatene på e-post, og den røde sirkelen sletter dem alle.',
     editNote: 'Rediger notat',
     noteForLabel: (label: string) => `Notat — ${label}`,
+    addNote: 'Legg til feilsøkingsnotat',
+    generalNote: 'Legg til generelt notat',
     composerPlaceholder: 'Hva tenker du på?',
     exportNotes: 'Eksporter',
     emailNotes: 'Send notater',
@@ -2625,6 +2630,7 @@ const no: typeof en = {
     mailSubject: 'UnFocus feilsøkingsnotater',
     exportHeading: (date: string) => `UnFocus feilsøkingsnotater — ${date}`,
     resetNotes: 'Nullstill alle notater',
+    saveAndSend: 'Lagre og send',
   },
   permissions: {
     sectionTitle: 'Enhetsfunksjoner',
