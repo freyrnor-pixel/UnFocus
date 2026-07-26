@@ -37,9 +37,13 @@ unless a matching native build exists (see AGENTS.md "Runtime version").
 ## When OTA is NOT enough (needs a native build)
 
 Adding a native package, changing `app.json` plugins/permissions, or `eas.json`
-build config requires a new APK/AAB — OTA can't ship native code. These are
-human-gated: land the config on `main` and hand off to the maintainer. See
-AGENTS.md "New APK build" / "Runtime version".
+build config requires a new APK/AAB — OTA can't ship native code. Land the
+config on `main`, bump `runtimeVersion`/`version` in the same or a follow-up
+commit, merge, then trigger the **EAS Build Android (Preview APK)** workflow
+yourself (see below) — this one is agent-triggerable, not maintainer-gated. Only
+the debug-gradle build, the production Play Store AAB, and TestFlight stay
+maintainer-only, since those touch real signing credentials or store submission.
+See AGENTS.md "New preview APK build" / "Runtime version".
 
 ## Diagnosing "I can't see the update"
 
@@ -65,13 +69,17 @@ installed it but no updates arrive." Don't distribute it.
 Use an **OTA-capable preview build** instead — release-signed, `channel: preview`,
 updates on (eas.json `preview` profile):
 
-1. **One-time keystore setup (interactive).** The first EAS Android build must run
-   from an Expo login so EAS can generate + store the signing keystore
-   (`--non-interactive` CI can't create one):
-   `eas login` → `eas build -p android --profile preview`. Accept keystore
-   generation. EAS keeps it; you never touch it again.
-2. **After that, build from CI** anytime: Actions → **EAS Build Android (Preview
-   APK)** → Run workflow. (Uses the existing `EXPO_TOKEN` secret.)
+1. **One-time keystore setup (interactive) — already done.** The first EAS Android
+   build had to run from an Expo login so EAS could generate + store the signing
+   keystore (`--non-interactive` CI can't create one); that already happened, EAS
+   keeps the keystore, nobody needs to touch it again.
+2. **From CI, anytime, including from an agent session:** Actions → **EAS Build
+   Android (Preview APK)** → Run workflow (or the GitHub MCP `actions_run_trigger`
+   tool / `gh workflow run eas-build-android.yml --ref main`). Uses the existing
+   `EXPO_TOKEN` secret, fully non-interactive. **This is not maintainer-gated** —
+   an agent session should bump `runtimeVersion`/`version`, merge to `main`, and
+   trigger this workflow itself as part of finishing a native-surface change,
+   the same way it already drives OTA merges without being asked each time.
 3. **Install** from the EAS build page (link/QR) on the phone — internal
    distribution, no Play Store. Uninstall any earlier debug APK first (different
    signing key → Android won't install over it). Friends on Android install the
