@@ -61,7 +61,7 @@
  *     chip to cycle over.
  *   - **Task quick-add's essential settings (2026-07-24)**: `handleAddTask`'s second argument
  *     now carries whatever PlanTaskCard's extras row (time/recurring/energy) the user touched;
- *     `energySystemEnabled` is threaded down so its energy chip only renders when that system
+ *     the quick-add energy chip always renders (Energy stopped being a toggle 2026-07-26; that system
  *     is on. `monthDay` defaults to today's day-of-month (not a hardcoded 1) so picking
  *     'monthly' from the chip is a valid occurrence immediately.
  *   - **Home preview card management (2026-07-19, A2/D1 split 2026-07-23, toggle relocated
@@ -235,7 +235,6 @@ export default function HomeScreen() {
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
   const userName = useSettingsStore((s) => s.userName);
   const planTimelineHorizontal = useSettingsStore((s) => s.planTimelineHorizontal);
-  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   const homeCardOrderRaw = useSettingsStore((s) => s.homeCardOrder);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
@@ -436,7 +435,6 @@ export default function HomeScreen() {
               readOnly
               onToggleTask={handleToggleTask}
               onAddTask={handleAddTask}
-              energySystemEnabled={energySystemEnabled}
               horizontal={planTimelineHorizontal}
             />
           </DebugNoteAnchor>
@@ -558,12 +556,12 @@ export default function HomeScreen() {
             </View>
           </DebugNoteAnchor>
 
-          {/* Energy meter — only when the Energy system is enabled (settings). */}
-          {energySystemEnabled && (
-            <View style={styles.section}>
-              <EnergyMeter />
-            </View>
-          )}
+          {/* Energy meter — always shown (2026-07-26): Energy stopped being a toggle. A
+              task/habit reads 0 unless given a value, so the meter just sits at capacity
+              until something has one. */}
+          <View style={styles.section}>
+            <EnergyMeter />
+          </View>
 
           {/* Shared preview — HomeSharedCard (incoming shared tasks + shopping). Self-hides
               when nothing is incoming — gated here too (not just inside HomeSharedCard) so no

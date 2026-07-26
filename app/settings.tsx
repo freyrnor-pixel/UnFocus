@@ -16,8 +16,8 @@
  *   (independent plan-notification and habit-reminder toggles, persistent daily overview,
  *   quiet hours)] one merged panel → Shopping (weekly reset weekday, monthly reset date)
  *   → Layout (horizontal plans timeline) → Device features (voice/contacts/location/calendar).
- * - Advanced — modes and toggles: Features card (Energy system + its mode/capacities, then
- *   the three FEATURE_ROWS flags, then the Automations link when that flag is on) →
+ * - Advanced — modes and toggles: Energy (mode + capacities; NOT a toggle since 2026-07-26)
+ *   → Features card (the FEATURE_ROWS flags, then the Automations link when that flag is on) →
  *   [Personer-familie / Paired devices] one merged panel → Freyr-modus → Debug mode.
  *
  * **Reorganization (2026-07-25)**: was four tabs (Generelt | Handle | Varsler | Modi) where
@@ -79,7 +79,7 @@
  *             lib/useAppTheme, store/useFeedbackStore, store/useHabitStore, store/useSettingsStore,
  *             store/useShoppingStore, store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
- *   Data    → useSettingsStore (settings table; incl. energySystemEnabled/energy*Capacity, quietHours*,
+ *   Data    → useSettingsStore (settings table; incl. energyMode/energy*Capacity, quietHours*,
  *             monthlyResetDate, taskNotificationsEnabled, habitNotificationsEnabled,
  *             persistentNotifEnabled, voiceNotesEnabled/contactsEnabled/locationEnabled/
  *             calendarSyncEnabled — the "Device features" card — and the featureGoals/
@@ -120,7 +120,7 @@
  *     settings.quietHours.hint.
  *   - TimePickerWheel was never ported into this repo — all HH:MM entry uses FormControls.Input
  *     (free-text, matching the precedent set by task-form.tsx / habit-form.tsx).
- *   - The Energy system (energySystemEnabled + energyDailyCapacity/energyWeeklyCapacity) leads
+ *   - Energy's configuration (energyMode + energyDailyCapacity/energyWeeklyCapacity) leads
  *     the Advanced tab's Features card; when on it reveals a Daily/Weekly/Custom
  *     energyMode SegmentedControl. Daily/Weekly reveal their one flat capacity stepper;
  *     Custom reveals a Mon..Sun stepper row (energyCustomCapacities) instead, with the
@@ -1107,15 +1107,85 @@ export default function SettingsScreen() {
 
         {tab === 'advanced' && (
           <>
+            {/* ENERGY (2026-07-26) — its own section, NOT part of the Features card above.
+                It stopped being a flag that day, and a row with no switch sitting under
+                "Turn on only what you need" reads as broken. What's left is configuration:
+                how the budget is defined and how big it is. */}
+            <View style={styles.section}>
+              <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.settings.energy.label}</Text>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0 }]}>{t.settings.energy.hint}</Text>
+              {/* Energy is NO LONGER A TOGGLE (2026-07-26, maintainer: "Energy is always
+                  on, just on 0 by default for simplicity"). The per-task/habit control is
+                  one signed stepper that reads 0 until you set it, so an untouched task
+                  costs nothing — the system stays out of the way without needing an
+                  opt-out. energy_system_enabled is inert from here (lib/db.ts pins it to 1).
+                  The section header + intro above already carry label/hint, so the old
+                  switchTextCol row that used to sit beside the switch is gone. */}
+                <View style={styles.energyCapacityRows}>
+                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.energy.modeLabel}</Text>
+                  <SegmentedControl
+                    value={settings.energyMode}
+                    onChange={(v) => settings.update({ energyMode: v as EnergyMode })}
+                    options={[
+                      { value: 'daily', label: t.settings.energy.modeDaily },
+                      { value: 'weekly', label: t.settings.energy.modeWeekly },
+                      { value: 'custom', label: t.settings.energy.modeCustom },
+                    ]}
+                  />
+                  {settings.energyMode === 'daily' && (
+                    <View style={styles.energyCapacityRow}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.dailyCapacity}</Text>
+                      <Stepper
+                        value={settings.energyDailyCapacity}
+                        onChange={(n) => settings.update({ energyDailyCapacity: n })}
+                        min={0}
+                      />
+                    </View>
+                  )}
+                  {settings.energyMode === 'weekly' && (
+                    <View style={styles.energyCapacityRow}>
+                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.weeklyCapacity}</Text>
+                      <Stepper
+                        value={settings.energyWeeklyCapacity}
+                        onChange={(n) => settings.update({ energyWeeklyCapacity: n })}
+                        min={0}
+                      />
+                    </View>
+                  )}
+                  {settings.energyMode === 'custom' && (
+                    <>
+                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.energy.customHint}</Text>
+                      {DAY_LABELS.map((label, i) => (
+                        <View key={i} style={styles.energyCapacityRow}>
+                          <Text style={[styles.switchLabel, { color: theme.text }]}>{label}</Text>
+                          <Stepper
+                            value={settings.energyCustomCapacities[i]}
+                            onChange={(n) => {
+                              const next = [...settings.energyCustomCapacities];
+                              next[i] = n;
+                              settings.update({ energyCustomCapacities: next });
+                            }}
+                            min={0}
+                          />
+                        </View>
+                      ))}
+                    </>
+                  )}
+                </View>
+              </Surface>
+            </View>
+
             {/* FEATURES (2026-07-25 reorganization; defaults revised same day) — the
                 switches for everything that isn't part of the basics. Every flag here
                 hides a purely ADDITIVE surface: turning one off never breaks app logic,
                 which is exactly why these got a toggle and things like data pruning,
-                widget/overview sync or catalog seeding deliberately did not. Energy
-                defaults on (below); Goals defaults on too (FEATURE_ROWS); Sharing & QR
-                and Automations default off so a first-time user meets the basics first.
-                Scan & receipts and Food & recipes are no longer here at all — they're
-                permanently on, like Habits/Health — see store/useSettingsStore.ts's
+                widget/overview sync or catalog seeding deliberately did not. Goals
+                defaults on (FEATURE_ROWS); Sharing & QR and Automations default off so a
+                first-time user meets the basics first. Energy, Scan & receipts and Food &
+                recipes are no longer here at all — they're permanently on, like
+                Habits/Health (Energy joined them 2026-07-26; its capacity configuration
+                moved to its own section ABOVE this card) — see store/useSettingsStore.ts's
                 "Inert columns" note. Sharing and Automations are also offered during
                 onboarding by app/onboarding/features.tsx; Goals isn't (it's already on
                 by the time that screen would offer it). */}
@@ -1123,74 +1193,6 @@ export default function SettingsScreen() {
               <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.features}</Text>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0 }]}>{t.config.features.intro}</Text>
-
-                {/* Energy system leads: it predates this card and is the only feature flag
-                    with its own configuration, so it keeps the mode/capacity controls it
-                    reveals when on. (Was the first card on the old Generelt tab.) */}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.energy.hint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.energySystemEnabled}
-                    onChange={(v) => { selection(); settings.update({ energySystemEnabled: v }); }}
-                  />
-                </View>
-                {settings.energySystemEnabled && (
-                  <View style={styles.energyCapacityRows}>
-                    <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.energy.modeLabel}</Text>
-                    <SegmentedControl
-                      value={settings.energyMode}
-                      onChange={(v) => settings.update({ energyMode: v as EnergyMode })}
-                      options={[
-                        { value: 'daily', label: t.settings.energy.modeDaily },
-                        { value: 'weekly', label: t.settings.energy.modeWeekly },
-                        { value: 'custom', label: t.settings.energy.modeCustom },
-                      ]}
-                    />
-                    {settings.energyMode === 'daily' && (
-                      <View style={styles.energyCapacityRow}>
-                        <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.dailyCapacity}</Text>
-                        <Stepper
-                          value={settings.energyDailyCapacity}
-                          onChange={(n) => settings.update({ energyDailyCapacity: n })}
-                          min={0}
-                        />
-                      </View>
-                    )}
-                    {settings.energyMode === 'weekly' && (
-                      <View style={styles.energyCapacityRow}>
-                        <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.weeklyCapacity}</Text>
-                        <Stepper
-                          value={settings.energyWeeklyCapacity}
-                          onChange={(n) => settings.update({ energyWeeklyCapacity: n })}
-                          min={0}
-                        />
-                      </View>
-                    )}
-                    {settings.energyMode === 'custom' && (
-                      <>
-                        <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.energy.customHint}</Text>
-                        {DAY_LABELS.map((label, i) => (
-                          <View key={i} style={styles.energyCapacityRow}>
-                            <Text style={[styles.switchLabel, { color: theme.text }]}>{label}</Text>
-                            <Stepper
-                              value={settings.energyCustomCapacities[i]}
-                              onChange={(n) => {
-                                const next = [...settings.energyCustomCapacities];
-                                next[i] = n;
-                                settings.update({ energyCustomCapacities: next });
-                              }}
-                              min={0}
-                            />
-                          </View>
-                        ))}
-                      </>
-                    )}
-                  </View>
-                )}
 
                 {/* The plain on/off features (Goals, Sharing & QR, Automations). Driven
                     off one list so the rows stay identical — each is a bare boolean with

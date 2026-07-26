@@ -121,4 +121,24 @@ describe('feature opt-in migrations (defaults-revision follow-up)', () => {
     const sql = migrationSql();
     expect(sql).toContain('UPDATE settings SET feature_scan = 1, feature_food = 1');
   });
+
+  /**
+   * 2026-07-26: Energy stops being a toggle too — "always on, just on 0 by default".
+   * Must be unconditional AND last, since two earlier lines flip the same column on a
+   * `WHERE setup_complete = 0` condition; landing before either would leave a fresh
+   * install on whatever they set.
+   */
+  it('pins Energy on for every install, after both earlier conditional flips', () => {
+    const sql = migrationSql();
+    const pinned = sql.indexOf('UPDATE settings SET energy_system_enabled = 1');
+    expect(pinned).toBeGreaterThanOrEqual(0);
+    // The bare "= 1", not the earlier `WHERE setup_complete = 0` line re-matched.
+    expect(sql[pinned]).not.toContain('WHERE');
+    const conditionalFlips = sql
+      .map((line, i) => ({ line, i }))
+      .filter(({ line }) => line.includes('energy_system_enabled') && line.includes('WHERE'))
+      .map(({ i }) => i);
+    expect(conditionalFlips.length).toBe(2);
+    conditionalFlips.forEach((i) => expect(pinned).toBeGreaterThan(i));
+  });
 });

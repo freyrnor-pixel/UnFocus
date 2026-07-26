@@ -70,7 +70,7 @@
  *             settings.featureGoals), store/useTaskStore, store/useGoalStore,
  *             store/useSettingsStore (People/family mode: peopleModeEnabled + childProfiles gate
  *             the "For" assignee chip row; voiceNotesEnabled/contactsEnabled/locationEnabled/
- *             energySystemEnabled gate the matching Advanced-options rows)
+ *             gate the matching Advanced-options rows; Energy is no longer gated at all)
  *   Used by → app/(tabs)/plans.tsx; app/notes.tsx (indirectly — creates the task, then this
  *             screen's `autoExpand` opens its editor, replacing the old push to /task-form)
  *   Data    → reads the passed `task` + its linked goal (useGoalStore, for the glow dot) +
@@ -205,7 +205,6 @@ function TaskCard({
   const voiceNotesEnabled = useSettingsStore((s) => s.voiceNotesEnabled);
   const contactsEnabled = useSettingsStore((s) => s.contactsEnabled);
   const locationEnabled = useSettingsStore((s) => s.locationEnabled);
-  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   const lang = useSettingsStore((s) => s.language);
   const showPeople = peopleModeEnabled && childProfiles.length > 0;
   // Goals — the linked goal (if any), for the living-glow dot next to the title. Gated on
@@ -911,21 +910,21 @@ function TaskCard({
 
             {/* Energy give / take — promoted out of Advanced options (2026-07-26): it changes
                 whether the task shows up as affordable on the Home meter, which is a main-flow
-                decision, not a power-user one. One signed stepper; 0 means no effect. */}
-            {energySystemEnabled && (
-              <View style={styles.field}>
-                <View style={styles.energyCostRow}>
-                  <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.energyGiveTakeLabel}</Text>
-                  <Stepper
-                    value={energyShown}
-                    onChange={(v) => patch(energyFieldsFromStepper(v))}
-                    signed
-                    accessibilityLabel={t.energyGiveTakeLabel}
-                  />
-                </View>
-                <Text style={[styles.wheneverHint, { color: theme.textMuted }]}>{t.energyGiveTakeHint}</Text>
+                decision, not a power-user one. One signed stepper; 0 means no effect, which is
+                also why this is no longer gated on a setting — an untouched task costs nothing,
+                so the system stays out of the way without needing an opt-out. */}
+            <View style={styles.field}>
+              <View style={styles.energyCostRow}>
+                <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.energyGiveTakeLabel}</Text>
+                <Stepper
+                  value={energyShown}
+                  onChange={(v) => patch(energyFieldsFromStepper(v))}
+                  signed
+                  accessibilityLabel={t.energyGiveTakeLabel}
+                />
               </View>
-            )}
+              <Text style={[styles.wheneverHint, { color: theme.textMuted }]}>{t.energyGiveTakeHint}</Text>
+            </View>
 
             {/* Advanced options — Energy/Hint/Contact/Location/Goal/Then, ported from the
                 retired app/task-form.tsx (UX audit B1: one canonical task editor) behind a

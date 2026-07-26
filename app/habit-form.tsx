@@ -7,19 +7,28 @@
  * switches it to edit mode (with delete).
  *
  * **Field order + labelling (2026-07-26 clarity pass, maintainer-specified)**:
- * Name → For → **How often** (schedule) → Times per day/week → **Reminder** → Energy →
- * Goal → More options (icon/category) → Delete · Discard · Save.
+ * Name → For → **Reminder** (optional) → Energy → Goal → More options → Delete · Discard · Save.
  *   - A habit is recurring BY DEFINITION, so there is no repeat switch — unlike a task,
  *     the only question is *which days*. The picker label was "Interval", which named
  *     nothing; it's now "How often" (`t.habitHowOften`).
- *   - The schedule moved ABOVE the reminder: the reminder is a nudge about the schedule,
- *     so deciding when the habit happens has to come first.
+ *   - **Most of the time logic is skipped by default** (maintainer: "habits should just be
+ *     every day with today as start by default... we skip most of the time logic"). The
+ *     schedule — How often + its weekday/monthly options + Times per day — lives inside
+ *     "More options" alongside icon/category, because the default (every day, 1x, starting
+ *     the day you create it) is already right for most habits. There's no start-date field
+ *     at all: a habit simply starts existing when you add it (`createdAt`).
+ *   - The collapsed disclosure shows a live one-line summary (`scheduleSummary`, e.g.
+ *     "Daily · 1x") so skipping the schedule never means not knowing what it's set to.
+ *   - Picking Weekly seeds today's weekday, and `toggleWeekDay` refuses to empty the set:
+ *     lib/habitRecurrence.ts reads zero days as "every day", so an empty chip row would
+ *     silently mean the opposite of what it looks like.
  *   - `t.habitNotification` ("Daily reminder") no longer labels anything — the section is
  *     `t.habitReminderLabel` ("Reminder", since a habit can be weekly/monthly) and the
  *     single-mode time field is `t.habitReminderTimeLabel` ("Time"). The key is kept in
  *     lib/i18n.ts for other callers.
  *   - Energy is ONE signed stepper (`t.energyGiveTakeLabel`), not a switch plus a value:
  *     0 already meant "no effect" to lib/energy.ts, so `energyEnabled` is derived in save().
+ *     It is not gated on a setting either — Energy stopped being a toggle the same day.
  *   - Save/Discard/Delete is the same icon+label row components/TaskCard.tsx uses, so
  *     making a habit and making a task end identically. The header keeps a save button but
  *     it reads "✓ Save" — a bare checkmark didn't say what it did.
@@ -73,10 +82,12 @@
  *     Legacy habits (or ones saved before this session) have `reminderMode === null` and
  *     fall back to the old length-based inference.
  *   - Essentials shown by default (2026-07-21, tester feedback "most important settings
- *     hidden"); reordered 2026-07-26 (see the field-order block above). Only icon and
- *     category (cosmetic/organizational, not load-bearing) live behind a "more options"
- *     disclosure (t.habits.moreOptions/fewerOptions), which now carries a one-line hint
- *     saying what's inside so the disclosure isn't a mystery box.
+ *     hidden"); reordered and trimmed 2026-07-26 (see the field-order block above). The
+ *     "more options" disclosure (t.habits.moreOptions/fewerOptions) now holds the schedule
+ *     as well as icon/category, and carries a one-line summary + hint so it isn't a
+ *     mystery box. Note this partly reverses the 2026-07-21 change, deliberately: that
+ *     pass promoted Recurrence/Daily goal on the theory they were the most load-bearing
+ *     settings, but with sensible every-day defaults most people never need to touch them.
  *   - No TimePickerWheel (never ported into this repo, same precedent as task-form.tsx) —
  *     every time field is a plain FormControls.Input (HH:MM text).
  *   - **Style consistency pass (2026-07-21)**: the daily-goal and reminder-count steppers
@@ -104,6 +115,7 @@ import {
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
+import { dayOfWeekMon0 } from '@/lib/date';
 import { energyStepperValue, energyFieldsFromStepper } from '@/lib/energy';
 import { tap, warning, heavy } from '@/lib/haptics';
 import ScreenScaffold from '@/components/ScreenScaffold';
@@ -173,7 +185,6 @@ export default function HabitForm() {
   const removeHabit = useHabitStore((s) => s.remove);
   const childProfiles = useSettingsStore((s) => s.childProfiles);
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
-  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   const featureGoals = useSettingsStore((s) => s.featureGoals);
 
   const theme = useAppTheme();
@@ -233,8 +244,29 @@ export default function HabitForm() {
   );
 
   function toggleWeekDay(d: number) {
-    setWeekDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
+    // Never let the set go empty: lib/habitRecurrence.ts reads zero days as "every day",
+    // so an empty chip row would silently mean the opposite of what it looks like.
+    setWeekDays((prev) => (prev.includes(d) ? (prev.length === 1 ? prev : prev.filter((x) => x !== d)) : [...prev, d]));
   }
+
+  /**
+   * Switching to Weekly seeds today's weekday (same as components/TaskCard.tsx does for a
+   * repeating task) rather than leaving all seven chips unselected — which reads as "not
+   * chosen yet" while actually meaning "every day" (lib/habitRecurrence.ts).
+   */
+  function changeRecurrence(next: HabitRecurrence) {
+    if (next === 'weekly' && weekDays.length === 0) setWeekDays([dayOfWeekMon0(new Date())]);
+    setRecurrence(next);
+  }
+
+  /** One-line "Every day · 1x per day" summary, so the collapsed disclosure isn't a mystery. */
+  const scheduleSummary = [
+    recurrence === 'daily' ? t.habitRecurrenceDaily
+      : recurrence === 'weekly' ? weekDays.slice().sort((a, b) => a - b).map((d) => t.dayLabels[d].slice(0, 2)).join(' ')
+      : recurrence === 'monthly' ? `${t.taskMonthlyByDay} ${monthDay}`
+      : t.habitRecurrenceWeeklyFlexible,
+    recurrence === 'weekly-flexible' ? t.habitWeeklyGoal.toLowerCase() : `${dailyGoal}x`,
+  ].join(' · ');
 
   // Advanced fields (icon/category only, see below) start collapsed; open by default in edit
   // mode if either already holds a non-default value.
@@ -360,70 +392,6 @@ export default function HabitForm() {
           </View>
         )}
 
-        {/* ── Schedule — WHEN the habit happens. A habit is recurring by definition, so
-               there is deliberately no repeat switch here (unlike a task): the only real
-               question is which days. Was labelled "Interval", which said nothing; renamed
-               to "How often" in the 2026-07-26 clarity pass and moved above the reminder,
-               since the reminder is a nudge ABOUT this schedule, not a separate schedule. ── */}
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitHowOften}</Text>
-          <SegmentedControl
-            options={[
-              { value: 'daily', label: t.habitRecurrenceDaily },
-              { value: 'weekly', label: t.habitRecurrenceWeekly },
-              { value: 'monthly', label: t.habitRecurrenceMonthly },
-              { value: 'weekly-flexible', label: t.habitRecurrenceWeeklyFlexible },
-            ]}
-            value={recurrence}
-            onChange={(v) => setRecurrence(v as HabitRecurrence)}
-          />
-          {recurrence === 'weekly-flexible' && (
-            <Text style={[styles.reminderPreview, { color: theme.textMuted }]}>{t.habitRecurrenceWeeklyFlexibleHint}</Text>
-          )}
-          {recurrence === 'weekly' && (
-            <View style={styles.daysRow}>
-              {t.dayLabels.map((label, i) => {
-                const active = weekDays.includes(i);
-                return (
-                  <PressableScale
-                    key={i}
-                    style={[
-                      styles.dayChip,
-                      { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                      active && { backgroundColor: theme.accent, borderColor: theme.accent },
-                    ]}
-                    onPress={() => {
-                      tap();
-                      toggleWeekDay(i);
-                    }}
-                    scaleTo={0.97}
-                  >
-                    <Text style={[styles.dayText, { color: theme.text }, active && { color: theme.accentInk }]}>
-                      {label.slice(0, 2)}
-                    </Text>
-                  </PressableScale>
-                );
-              })}
-            </View>
-          )}
-          {recurrence === 'monthly' && (
-            <View style={[styles.energyStepperRow, { marginTop: Spacing.sm }]}>
-              <Text style={[styles.label, { color: theme.textMuted }]}>{t.taskMonthlyByDay}</Text>
-              <Stepper value={monthDay} onChange={setMonthDay} min={1} max={28} accessibilityLabel={t.taskMonthlyByDay} />
-            </View>
-          )}
-        </View>
-
-        {/* Daily/weekly goal stepper — shown by default alongside Recurrence, same reasoning.
-            Reuses the same `dailyGoal` field as a per-week target when recurrence is
-            'weekly-flexible' (lib/habitRecurrence.ts) — only the label changes. */}
-        <View style={[styles.field, styles.energyStepperRow]}>
-          <Text style={[styles.label, { color: theme.textMuted }]}>
-            {recurrence === 'weekly-flexible' ? t.habitWeeklyGoal : t.habitDailyGoal}
-          </Text>
-          <Stepper value={dailyGoal} onChange={setDailyGoal} min={1} max={20} accessibilityLabel={t.habitDailyGoal} />
-        </View>
-
         {/* ── Reminder (moved below the schedule, 2026-07-26): you decide WHEN the habit
                happens before you decide whether to be nudged about it. ── */}
         <Surface style={styles.notifRow}>
@@ -522,16 +490,15 @@ export default function HabitForm() {
 
         {/* Energy give / take — one signed stepper (2026-07-26): the old "Affects energy"
             switch + separate value stepper were two controls for one number, and 0 already
-            means "no effect" to lib/energy.ts. energyEnabled is derived on save. */}
-        {energySystemEnabled && (
-          <View style={styles.field}>
-            <View style={styles.energyStepperRow}>
-              <Text style={[styles.label, { color: theme.textMuted }]}>{t.energyGiveTakeLabel}</Text>
-              <Stepper value={energyValue} onChange={setEnergyValue} signed accessibilityLabel={t.energyGiveTakeLabel} />
-            </View>
-            <Text style={[styles.reminderPreview, { color: theme.textMuted }]}>{t.energyGiveTakeHint}</Text>
+            means "no effect" to lib/energy.ts. energyEnabled is derived on save. Not gated on
+            a setting any more — 0 by default means it costs nothing until you say otherwise. */}
+        <View style={styles.field}>
+          <View style={styles.energyStepperRow}>
+            <Text style={[styles.label, { color: theme.textMuted }]}>{t.energyGiveTakeLabel}</Text>
+            <Stepper value={energyValue} onChange={setEnergyValue} signed accessibilityLabel={t.energyGiveTakeLabel} />
           </View>
-        )}
+          <Text style={[styles.reminderPreview, { color: theme.textMuted }]}>{t.energyGiveTakeHint}</Text>
+        </View>
 
         {/* Goal — connect this habit to a Goal (create/select/delete inline).
             Opt-in via settings.featureGoals (Settings → Advanced → Features). */}
@@ -552,11 +519,75 @@ export default function HabitForm() {
           </Text>
         </PressableScale>
         {!showMore && (
-          <Text style={[styles.reminderPreview, { color: theme.textMuted }]}>{t.habitMoreOptionsHint}</Text>
+          <Text style={[styles.reminderPreview, { color: theme.textMuted }]}>{`${scheduleSummary} — ${t.habitMoreOptionsHint}`}</Text>
         )}
 
         <Collapsible open={showMore}>
           <>
+        {/* ── Schedule — WHEN the habit happens. A habit is recurring by definition, so
+               there is deliberately no repeat switch here (unlike a task): the only real
+               question is which days. Was labelled "Interval", which said nothing; renamed
+               to "How often" in the 2026-07-26 clarity pass and moved above the reminder,
+               since the reminder is a nudge ABOUT this schedule, not a separate schedule. ── */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitHowOften}</Text>
+          <SegmentedControl
+            options={[
+              { value: 'daily', label: t.habitRecurrenceDaily },
+              { value: 'weekly', label: t.habitRecurrenceWeekly },
+              { value: 'monthly', label: t.habitRecurrenceMonthly },
+              { value: 'weekly-flexible', label: t.habitRecurrenceWeeklyFlexible },
+            ]}
+            value={recurrence}
+            onChange={(v) => changeRecurrence(v as HabitRecurrence)}
+          />
+          {recurrence === 'weekly-flexible' && (
+            <Text style={[styles.reminderPreview, { color: theme.textMuted }]}>{t.habitRecurrenceWeeklyFlexibleHint}</Text>
+          )}
+          {recurrence === 'weekly' && (
+            <View style={styles.daysRow}>
+              {t.dayLabels.map((label, i) => {
+                const active = weekDays.includes(i);
+                return (
+                  <PressableScale
+                    key={i}
+                    style={[
+                      styles.dayChip,
+                      { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                      active && { backgroundColor: theme.accent, borderColor: theme.accent },
+                    ]}
+                    onPress={() => {
+                      tap();
+                      toggleWeekDay(i);
+                    }}
+                    scaleTo={0.97}
+                  >
+                    <Text style={[styles.dayText, { color: theme.text }, active && { color: theme.accentInk }]}>
+                      {label.slice(0, 2)}
+                    </Text>
+                  </PressableScale>
+                );
+              })}
+            </View>
+          )}
+          {recurrence === 'monthly' && (
+            <View style={[styles.energyStepperRow, { marginTop: Spacing.sm }]}>
+              <Text style={[styles.label, { color: theme.textMuted }]}>{t.taskMonthlyByDay}</Text>
+              <Stepper value={monthDay} onChange={setMonthDay} min={1} max={28} accessibilityLabel={t.taskMonthlyByDay} />
+            </View>
+          )}
+        </View>
+
+        {/* Daily/weekly goal stepper — shown by default alongside Recurrence, same reasoning.
+            Reuses the same `dailyGoal` field as a per-week target when recurrence is
+            'weekly-flexible' (lib/habitRecurrence.ts) — only the label changes. */}
+        <View style={[styles.field, styles.energyStepperRow]}>
+          <Text style={[styles.label, { color: theme.textMuted }]}>
+            {recurrence === 'weekly-flexible' ? t.habitWeeklyGoal : t.habitDailyGoal}
+          </Text>
+          <Stepper value={dailyGoal} onChange={setDailyGoal} min={1} max={20} accessibilityLabel={t.habitDailyGoal} />
+        </View>
+
             {/* Icon picker */}
             <View style={styles.field}>
               <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitIconLabel}</Text>
