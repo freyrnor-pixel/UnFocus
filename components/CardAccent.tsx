@@ -1,25 +1,24 @@
 /**
  * CardAccent.tsx — the "one colour move" for a domain-coded card (2026-07-19 Card accent system;
- * badge flattened 2026-07-24 — see Edit notes).
+ * badge flattened 2026-07-24, re-gradiented 2026-07-26 — see Edit notes).
  *
  * A card borrows its identity colour from the blue→violet `card*` ramp (lib/domainColor.ts), keyed to
- * its life area, and expresses it as ONE colour move: a flat-token icon BADGE + a soft header WASH
- * band, both built from the same {accent, soft} pair so they read as one system. Never a full-card
+ * its life area, and expresses it as ONE colour move: a gradient icon BADGE + a soft header WASH
+ * band, both built from the domain's palette so they read as one system. Never a full-card
  * fill — the wash is a top band only, so it doesn't reopen the 2026-07-14 "muddy whole-card tint"
  * issue (see Surface.tsx / domainColor.ts). Action colour (Save=primary, Delete=danger) is
  * deliberately NOT here — it stays constant across every card so it never competes with identity
  * colour.
  *
  * Two parts, used together:
- *   - <CardAccentBadge domain icon? size? /> — a flat circular badge (soft-tint fill, accent glyph
- *     + border). Drop it as a leading element in any card/section header.
+ *   - <CardAccentBadge domain icon? size? /> — a round two-stop gradient badge (domain's
+ *     `badgeGradient`, white glyph, light rim). Drop it as a leading element in any card/section header.
  *   - <CardAccentWash domain height? radius? /> — an absolutely-positioned wash band for the TOP of a
  *     card's content (mount as the first child inside a Surface, above text). Fades to the surface.
  *
  * Connections:
- *   Imports → @expo/vector-icons (Ionicons), expo-linear-gradient (CardAccentWash only),
- *             constants/theme (Radius), lib/useAppTheme, lib/domainColor (Domain, getDomainColor,
- *             DOMAIN_ICON)
+ *   Imports → @expo/vector-icons (Ionicons), expo-linear-gradient, constants/theme (Radius),
+ *             lib/useAppTheme, lib/domainColor (Domain, getDomainColor, DOMAIN_ICON)
  *   Used by → components/HomeShoppingCard, components/HomeNotesCard, components/PlanTaskCard (all
  *             three import CardAccentBadge + CardAccentWash as named exports, size=32)
  *   Data    → none (presentational; colour derived from the active palette)
@@ -27,27 +26,27 @@
  * Edit notes:
  *   - The domain→icon map lives here (DOMAIN_ICON) — filled Ionicons, reusing the nav's per-section
  *     glyphs where they overlap (cart/calendar/heart).
- *   - (2026-07-24) Badge flattened: was a two-stop `badgeGradient` fill with a white rim — read as a
- *     separate sticker stacked on top of the wash band instead of part of the same colour system, and
- *     the exact complaint was awkward placement/overlap. Now a flat `domainColor.soft` circle with an
- *     `accent`-coloured glyph + border — the same token trio the sibling item-count badge already uses
- *     (e.g. HomeShoppingCard's header count pill) — so the badge, the wash, the count pill, and the
- *     card border all pull from one {accent, soft} pair instead of the badge carrying its own gradient.
- *     Dropped the `glow` prop with it (no caller used it; it was part of the same "separate object"
- *     look). `lib/domainColor.ts`'s `badgeGradient`/`CARD_BADGE_DEEP` are left as-is (unused by this
- *     component now, still covered by lib/__tests__/domainColor.test.ts) — out of scope here.
+ *   - (2026-07-24) Badge flattened to a flat `domainColor.soft` circle + `accent` glyph/border — the
+ *     complaint was the gradient sticker reading as a separate object stacked on the wash.
+ *   - **(2026-07-26) Re-gradiented**: as part of a broader "bring the card colour back" pass (Surface's
+ *     EDGE_WIDTH also widened 1.5→2.5 the same day), the flat badge was judged too colourless — it and
+ *     the thin card edge were the two places the 2026-07-18→07-24 redesign sprint had progressively
+ *     drained identity colour out of cards. Badge is back to the pre-07-24 two-stop `badgeGradient`
+ *     fill with a white glyph and a translucent white rim (same recipe as the original 2026-07-19 Card
+ *     accent system, not a new design). `lib/domainColor.ts`'s `badgeGradient`/`CARD_BADGE_DEEP` are
+ *     live again (previously unused-but-kept for exactly this reason).
  *   - Also removed the unused default `CardAccent` export (badge absolutely floated across the
  *     wash/body boundary via `floatBadge`) — it had zero importers and was the exact floating-over-
- *     the-band composition the flatten above moves away from. Compose `CardAccentBadge` +
- *     `CardAccentWash` directly, as every current caller already does.
+ *     the-band composition the 2026-07-24 flatten moved away from (still true post-re-gradient).
+ *     Compose `CardAccentBadge` + `CardAccentWash` directly, as every current caller already does.
  *   - Wash is `pointerEvents:'none'` and absolutely filled to the top band so it never intercepts
  *     taps or shifts layout; the caller gives the card its own paddingTop for the title to clear it.
  */
 import React from 'react';
-import { StyleSheet, View, ViewStyle } from 'react-native';
+import { StyleSheet, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Radius, rgba } from '@/constants/theme';
+import { Radius } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { Domain, getDomainColor } from '@/lib/domainColor';
 
@@ -79,30 +78,32 @@ type BadgeProps = {
 };
 
 /**
- * The icon badge — a flat circle in the domain's {soft, accent} pair (soft fill, accent glyph +
- * border), the same token trio the sibling item-count badge uses, so it reads as part of the card's
- * colour system rather than a separately-coloured object.
+ * The icon badge — a round two-stop gradient fill (domain's `badgeGradient`) with a white glyph
+ * and a light translucent rim, so the badge itself carries the domain colour rather than just
+ * tinting a neutral circle (2026-07-26: restores the pre-2026-07-24 gradient look — the flat
+ * soft-tint circle read as too colourless next to the rest of the "bring the colour back" pass).
  */
 export function CardAccentBadge({ domain, icon, size = 44, style }: BadgeProps) {
   const theme = useAppTheme();
-  const { accent, soft } = getDomainColor(theme, domain);
+  const { badgeGradient } = getDomainColor(theme, domain);
   const glyph = icon ?? DOMAIN_ICON[domain];
   return (
-    <View
+    <LinearGradient
+      colors={badgeGradient}
+      start={GRAD_START}
+      end={GRAD_END}
       style={[
         styles.badge,
         {
           width: size,
           height: size,
           borderRadius: Radius.full,
-          backgroundColor: soft,
-          borderColor: rgba(accent, 0.4),
         },
         style,
       ]}
     >
-      <Ionicons name={glyph} size={Math.round(size * 0.44)} color={accent} />
-    </View>
+      <Ionicons name={glyph} size={Math.round(size * 0.44)} color="#FFFFFF" />
+    </LinearGradient>
   );
 }
 
@@ -142,7 +143,9 @@ const styles = StyleSheet.create({
   badge: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    // A light rim so the badge reads as a lifted key against the wash (DS: 1.5px white .55).
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.55)',
   },
   wash: {
     position: 'absolute',
