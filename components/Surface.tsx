@@ -18,8 +18,9 @@
  *
  * Edit notes:
  *   - The glass finish (frost + wash + scrim + specular) lives in the shared
- *     components/GlassFill.tsx; Surface owns the outer view (layered shadow + layout), the THIN
- *     beveled EDGE (a translucent gradient ring, ~1.5px thick), the overflow:hidden mask, and the
+ *     components/GlassFill.tsx; Surface owns the outer view (layered shadow + layout), the
+ *     beveled EDGE (a translucent gradient ring, ~2.5px thick — widened 2026-07-26, see the
+ *     EDGE_WIDTH comment below), the overflow:hidden mask, and the
  *     style-splitting contract. The `surfaceContext` prop (`'ambient'` default | `'overlay'`)
  *     selects GlassFill's blur intensity AND wash alpha — ambient cards get NO BlurView
  *     (wash-only, cheapest path); overlay surfaces (sheets/modals/nav) get a real frost. What
@@ -57,11 +58,11 @@
  *     edge (2026-07-12 redesign), uniformly on all sides in both light and dark mode (2026-07-21:
  *     dropped the light-mode-only `borderTopColor` highlight override — same per-side-colour +
  *     borderRadius corner-rendering risk as the glass-on edge, not worth it for a subtle
- *     highlight in the already-lower-priority reduce-transparency fallback). Glass-ON is a THIN
- *     beveled edge (~1.5px, `computeRimGradient()`): a vertical gradient ring, lit top → true-hue
+ *     highlight in the already-lower-priority reduce-transparency fallback). Glass-ON is a
+ *     beveled edge (~2.5px, `computeRimGradient()`): a vertical gradient ring, lit top → true-hue
  *     mid → darker bottom, in the edge hue (screen hue, or the `borderColor`/`tint` override) — a
- *     raised key without the old thick-ring heft, and thin enough that the colour reads as an
- *     accent, not a frame.
+ *     raised key, thick enough that a domain/screen colour reads as a real accent again (2026-07-26,
+ *     see EDGE_WIDTH below — the 2026-07-18→07-24 thin-edge era had squeezed this down to ~1.5px).
  *   - shadowColor comes from the active theme's `shadow` token (not a fixed
  *     black), so depth itself shifts hue with the colour theme.
  *   - Pass `tint` for a non-default base (e.g. theme.offWhite for empty
@@ -147,19 +148,23 @@ const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
   overlay: 0.8,
 };
 
-// Thin beveled edge (2026-07-18 "make borders thinner"; 2026-07-21 "fix corner rendering"): a
-// single thin ring, still just `EDGE_WIDTH` thick — no heftier than before. It's now a translucent
-// vertical gradient (computeRimGradient, keyed on the domain/screen edge hue, not the neutral fill)
-// drawn as a `LinearGradient` fill clipped by `borderRadius`, rather than a single `View`'s border
-// with three different per-side colours (top/side/bottom). RN's native border renderer doesn't
-// reliably curve/blend different border colours around a rounded corner (worse on Android) — the
-// corner can render as a flat cut even though the card's fill looks properly rounded. A gradient
-// FILL clipped by borderRadius has no such issue on any platform, since there's no per-side border
-// colour blending involved at all. Same technique Button.tsx already uses for its rim (see
-// getMaterialStyle's `rim`/computeRimGradient in constants/theme.ts) — Surface just needed its own
-// hue input (`edgeHue`, not the fill's `base`) since its edge and fill colours are deliberately
-// different (see the colour-architecture inversion note above).
-const EDGE_WIDTH = 1.5;
+// Beveled edge: a translucent vertical gradient (computeRimGradient, keyed on the domain/screen
+// edge hue, not the neutral fill) drawn as a `LinearGradient` fill clipped by `borderRadius`,
+// rather than a single `View`'s border with three different per-side colours (top/side/bottom).
+// RN's native border renderer doesn't reliably curve/blend different border colours around a
+// rounded corner (worse on Android) — the corner can render as a flat cut even though the card's
+// fill looks properly rounded. A gradient FILL clipped by borderRadius has no such issue on any
+// platform, since there's no per-side border colour blending involved at all. Same technique
+// Button.tsx already uses for its rim (see getMaterialStyle's `rim`/computeRimGradient in
+// constants/theme.ts) — Surface just needed its own hue input (`edgeHue`, not the fill's `base`)
+// since its edge and fill colours are deliberately different (see the colour-architecture
+// inversion note above).
+// 2026-07-26 "bring the colour back": widened from 1.5 to 2.5 — the thin-edge era (2026-07-18
+// "make borders thinner" through the 07-24 badge flatten) had reduced a domain-coded card's whole
+// colour identity to a near-hairline, which read as colourless next to the bolder 1.4.0-era cards.
+// Still the same bug-free gradient-fill technique, just thick enough for the domain hue to read
+// as a real accent again rather than needing to squint.
+const EDGE_WIDTH = 2.5;
 
 const PADDING_KEYS = new Set([
   'padding', 'paddingHorizontal', 'paddingVertical',
