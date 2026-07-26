@@ -5,9 +5,10 @@
  * material-top-tabs navigator (tabBarPosition="bottom") so swiping between sites is
  * one continuous native slide with no route remount — replacing the old separate-routes
  * + SiteSwipeView double-motion (native push/back + a second hand-rolled flick), which
- * read as a "click" instead of a phone-page swipe. BottomNav renders the tab bar itself
- * (component swap, not a route), wrapped here so it still applies the bottom safe-area
- * inset the way ScreenScaffold's old bottomBlock did.
+ * read as a "click" instead of a phone-page swipe. BottomNav renders as PagerFloatingNav's
+ * absolute overlay (2026-07-26 — see the "Floated bottom-nav" edit note below for why it's no
+ * longer react-navigation's own tab-bar slot), applying the bottom safe-area inset itself the
+ * way ScreenScaffold's old bottomBlock did.
  *
  * Also renders ONE shared L1/L2 background (ScreenBackground + a cross-faded
  * HomeHeroBackground + ParticleBackground) behind the whole pager, instead of each of the
@@ -135,11 +136,10 @@
  *     meant to fix. Pure JS/app-code change — ships via normal OTA, no native build needed, no
  *     patch-package patch to maintain.
  *   - **Floated bottom-nav — sides + bottom, flush top (2026-07-23, amended; top-gap attempt
- *     reverted 2026-07-25)**: TabBarWithBackgroundSync's wrapper insets the bar with
- *     NAV_FLOAT_GAP on the LEFT/RIGHT and a matching small gap BELOW (on top of the safe-area
- *     inset), but flush at the TOP (no gap above, no added height) — same footprint as before
- *     this file's brief same-day detour. That detour added a real gap + extra height above the
- *     bar so its (separately) rounded top corners would have room to read as floating, same
+ *     reverted 2026-07-25)**: the bar is inset with NAV_FLOAT_GAP on the LEFT/RIGHT and a
+ *     matching small gap BELOW (on top of the safe-area inset), but flush at the TOP (no gap
+ *     above, no added height). An earlier same-day detour added a real gap + extra height above
+ *     the bar so its (separately) rounded top corners would have room to read as floating, same
  *     pattern as the header. On a real device this grew the wrapper's rendered height without
  *     the pager scene shrinking to match (unlike the web preview, which DID lay it out
  *     correctly — a real react-native-web vs. native fidelity gap, see AGENTS.md's web-preview
@@ -149,6 +149,31 @@
  *     Radius.lg) — rounding alone, with no added footprint, is the safe half of that change.
  *     The floated header in ScreenScaffold is unchanged (its own gap/inset math is unrelated to
  *     the pager's scene-sizing behavior that caused this).
+ *   - **Overlay bar, not a tab-bar sibling (2026-07-26)**: the bar used to render INSIDE
+ *     react-navigation's own tab-bar slot (via the `tabBar` render prop), which
+ *     react-native-tab-view lays out as a plain flex sibling BELOW the pager scene
+ *     (tabBarPosition="bottom" → flex column [pager(flex:1), tabBar(fixed height)] — verified
+ *     in node_modules/react-native-tab-view/lib/module/TabView.js). That made the bar's floating
+ *     rounded top corners always show the plain shared backdrop in their corner notches, NEVER a
+ *     scrolled card — there was structurally nothing else behind the bar to show (user report:
+ *     "make the blank area transparent... so if I scroll a card behind it I can see the card").
+ *     Fixed by decoupling rendering from that slot: `TabBarWithBackgroundSync` (the `tabBar`
+ *     render prop) now only reads `state`/`navigation`/`position` out of react-navigation and
+ *     returns `null` — an empty flex sibling collapses to zero height, so the pager (the only
+ *     remaining flex child) grows to fill the WHOLE container, edge to edge. `PagerFloatingNav`
+ *     renders the real, same-sized-and-positioned bar as an absolutely-positioned overlay
+ *     ON TOP of that pager instead, using `state`/`navigation` SHIMS (`{state.routes[state.
+ *     index].name}` / `navigate()`) fed by `activeRouteName` (already tracked for the background
+ *     cross-fade) and `navigationRef` (the real navigation object, lifted from
+ *     TabBarWithBackgroundSync via a latest-ref effect) — so tapping the overlay bar still calls
+ *     the SAME real `navigate()`, hitting the exact native jumpTo/instant-snap path documented
+ *     below, not expo-router's URL routing (which would remount instead of sliding). Each of the
+ *     5 tab screens now ALSO passes `pagerFloatingNav` to ScreenScaffold, reserving scroll-content
+ *     clearance for the overlay bar (previously zero — the old flex-sibling layout provided the
+ *     clearance structurally; see ScreenScaffold's own edit note) shaved by `NAV_PEEK` so the
+ *     last scrolled card's edge can reach into the corner notch instead of stopping dead at the
+ *     bar's edge — see NAV_PEEK's doc in components/BottomNav.tsx for why that shave is small and
+ *     deliberate, not a repeat of the clipped-content regression two bullets above.
  *   - **Scene background must stay transparent**: @react-navigation/material-top-tabs's
  *     MaterialTopTabView wraps every route in `sceneStyle: { backgroundColor: colors.background }`
  *     by default (react-navigation theme background, opaque) — that painted over this
@@ -159,17 +184,16 @@
  *     ever goes flat again after a react-navigation/expo-router upgrade, check this
  *     sceneStyle override first.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import BottomNav, { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
+import BottomNav, { BOTTOM_NAV_HEIGHT, NAV_FLOAT_GAP } from '@/components/BottomNav';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
 import { useAccessibility } from '@/lib/useAppTheme';
 import { SITE_ITEMS, TAB_ROUTE_NAME } from '@/lib/siteNav';
-import { Spacing } from '@/constants/theme';
 import { Duration } from '@/constants/motion';
 
 // Max horizontal drift (px) of the shared background as you swipe across the 5 tabs — a
@@ -177,11 +201,6 @@ import { Duration } from '@/constants/motion';
 // per-screen background did (see file header). The layer is oversized by this much on each
 // side so the drift never reveals a bare edge.
 const MAX_PARALLAX = 14;
-// Float gap for the bottom-nav bar: a small left/right margin AND a matching small gap below
-// (on top of the safe-area inset) so the bar's rounded corners read as a floating panel —
-// deliberately SMALLER than the per-screen content cards' Spacing.md (16) side margin. The top
-// stays flush (no gap above), per the "no blank border" pass.
-const NAV_FLOAT_GAP = Spacing.sm;
 // Route-name order matching the pager's registered screens (also SITE_ITEMS' visual left-to-
 // right order, lib/siteNav.ts) — used to turn the settled tab name into a 0..4 index for the
 // background-parallax animation below. Derived from SITE_ITEMS/TAB_ROUTE_NAME instead of a
@@ -189,12 +208,24 @@ const NAV_FLOAT_GAP = Spacing.sm;
 const TAB_ROUTE_ORDER = SITE_ITEMS.map((item) => TAB_ROUTE_NAME[item.route]!);
 
 type TabBarSyncProps = MaterialTopTabBarProps & {
-  insetsBottom: number;
   onActiveRouteChange: (routeName: string) => void;
   onPosition: (position: Animated.AnimatedInterpolation<number>) => void;
+  // Lifts the real react-navigation `navigation` object out to TabsLayout, which hands it to
+  // PagerFloatingNav (below) — see this component's own return-null note for why the bar no
+  // longer renders here.
+  navigationRef: React.MutableRefObject<MaterialTopTabBarProps['navigation'] | null>;
 };
 
-function TabBarWithBackgroundSync({ insetsBottom, onActiveRouteChange, onPosition, ...tabBarProps }: TabBarSyncProps) {
+// Invisible now (2026-07-26) — used only to read react-navigation's tab-bar props out of the
+// TopTabs tree, not to render the bar itself. Returning null collapses this flex-sibling slot
+// to zero height (react-native-tab-view's TabView renders [pager(flex:1), tabBar] in a column;
+// see node_modules/react-native-tab-view/lib/module/TabView.js), so the pager becomes the ONLY
+// flex child and grows to fill the whole container instead of stopping above a fixed-height
+// sibling. That's what lets PagerFloatingNav's overlay bar have real scrollable content behind
+// it — the previous flex-sibling layout made that structurally impossible (content could never
+// render into the tab bar's own reserved rectangle, so the bar's rounded corners could only ever
+// show the plain field, never a scrolled card — the bug this whole change fixes; see file header).
+function TabBarWithBackgroundSync({ onActiveRouteChange, onPosition, navigationRef, ...tabBarProps }: TabBarSyncProps) {
   const activeRouteName = tabBarProps.state.routes[tabBarProps.state.index]?.name;
   React.useEffect(() => {
     if (activeRouteName) onActiveRouteChange(activeRouteName);
@@ -207,22 +238,60 @@ function TabBarWithBackgroundSync({ insetsBottom, onActiveRouteChange, onPositio
     if (position) onPosition(position);
   }, [position, onPosition]);
 
-  // Float the bar with a small left/right margin (NAV_FLOAT_GAP) and a matching small gap
-  // BELOW (on top of the safe-area inset) — flush at the TOP (no gap, no added height; see the
-  // 2026-07-25 revert note above for why a top gap isn't safe here). The wrapper height is
-  // BOTTOM_NAV_HEIGHT + insetsBottom + NAV_FLOAT_GAP — identical footprint to before BottomNav's
-  // top corners were rounded, so rounding the corners doesn't cover any more content than the
-  // square-cornered version did.
+  // Latest-ref pattern (no dependency array — always the newest `navigation`, same object
+  // identity react-navigation gives the real tab bar, so PagerFloatingNav's tap-to-navigate
+  // hits the exact same `navigate()` call, native jumpTo/instant-snap included, as before).
+  React.useEffect(() => {
+    navigationRef.current = tabBarProps.navigation;
+  });
+
+  return null;
+}
+
+// Renders the REAL bottom nav as an absolute overlay above the pager instead of inside
+// react-navigation's own tab-bar slot (TabBarWithBackgroundSync above returns null there) — see
+// the file header's "Floated bottom-nav" note for the corner-notch peekthrough this enables.
+// BottomNav's controlled mode only reads `state.routes[state.index]?.name` and calls
+// `navigation.navigate(routeName)` (see components/BottomNav.tsx), so a minimal shim of both is
+// enough; `navigationRef` carries the real navigation object so the shim's `navigate` still hits
+// the actual tab navigator (not expo-router's URL-based routing, which would remount instead of
+// sliding — the whole point of this pager). Cast through `any` at the call site since the shim
+// intentionally doesn't implement react-navigation's full state/navigation surface.
+type PagerFloatingNavProps = {
+  activeRouteName: string;
+  insetsBottom: number;
+  navigationRef: React.MutableRefObject<MaterialTopTabBarProps['navigation'] | null>;
+};
+
+function PagerFloatingNav({ activeRouteName, insetsBottom, navigationRef }: PagerFloatingNavProps) {
+  const state = useMemo(
+    () => ({ index: 0, routes: [{ key: activeRouteName, name: activeRouteName }] }),
+    [activeRouteName]
+  );
+  const navigation = useRef({
+    navigate: (routeName: string) => navigationRef.current?.navigate(routeName as never),
+  }).current;
+
+  // Same footprint as the old flex-sibling wrapper (BOTTOM_NAV_HEIGHT + insetsBottom +
+  // NAV_FLOAT_GAP, flush top, side/bottom float gap) — this change moves WHERE the bar renders
+  // (overlay vs. layout sibling), not its size or position, so the resting look is unchanged.
+  // `pointerEvents="box-none"` so the transparent margin/notch area around the bar doesn't
+  // swallow touches meant for content now scrolling underneath it.
   return (
     <View
+      pointerEvents="box-none"
       style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 100,
         height: BOTTOM_NAV_HEIGHT + insetsBottom + NAV_FLOAT_GAP,
-        paddingTop: 0,
         paddingBottom: insetsBottom + NAV_FLOAT_GAP,
         paddingHorizontal: NAV_FLOAT_GAP,
       }}
     >
-      <BottomNav {...tabBarProps} />
+      <BottomNav state={state as any} navigation={navigation as any} />
     </View>
   );
 }
@@ -250,6 +319,11 @@ export default function TabsLayout() {
   const onPosition = useCallback((p: Animated.AnimatedInterpolation<number>) => {
     setPagerPosition((prev) => prev ?? p);
   }, []);
+
+  // The real react-navigation `navigation` object, lifted from TabBarWithBackgroundSync so
+  // PagerFloatingNav's overlay bar (rendered outside react-navigation's own tab-bar slot) can
+  // still call the actual `navigate()` — see both components' doc comments above.
+  const navigationRef = useRef<MaterialTopTabBarProps['navigation'] | null>(null);
 
   // Our own background-parallax value (see file header's "Actual fix" note for the full
   // reasoning) — decoupled from react-native-tab-view's `position` node so a BottomNav tap's
@@ -380,7 +454,7 @@ export default function TabsLayout() {
           sceneStyle: { backgroundColor: 'transparent' },
         }}
         tabBar={(props: MaterialTopTabBarProps) => (
-          <TabBarWithBackgroundSync {...props} insetsBottom={insets.bottom} onActiveRouteChange={setActiveRouteName} onPosition={onPosition} />
+          <TabBarWithBackgroundSync {...props} onActiveRouteChange={setActiveRouteName} onPosition={onPosition} navigationRef={navigationRef} />
         )}
       >
         {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, plans, home, habits, health */}
@@ -390,6 +464,8 @@ export default function TabsLayout() {
         <TopTabs.Screen name="habits" />
         <TopTabs.Screen name="health" />
         </TopTabs>
+
+        <PagerFloatingNav activeRouteName={activeRouteName} insetsBottom={insets.bottom} navigationRef={navigationRef} />
       </View>
   );
 }

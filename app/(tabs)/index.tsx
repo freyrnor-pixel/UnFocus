@@ -479,6 +479,7 @@ export default function HomeScreen() {
         tier="site"
         isHome
         bottomNav={false}
+        pagerFloatingNav
         ownBackground={false}
         screenColor={getScreenColor(theme, 'index').base}
         infoActive={hintOpen}
