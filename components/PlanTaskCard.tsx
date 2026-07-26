@@ -33,7 +33,8 @@
  * Connections:
  *   Imports → components/Surface, components/PressableScale, components/ProgressBar,
  *             components/DayHourScale (empty-state grid), components/DayGridLines (populated
- *             grid's hour lines + now-line), lib/dayGrid (shared grid geometry),
+ *             grid's hour lines + now-line), lib/dayGrid (shared grid geometry +
+ *             layoutGridEntries, the overlap-aware column layout — see its file header),
  *             components/AddRow (inline "add a task" quick-create, gated on the optional
  *             onAddTask callback — Home preview passes it) + components/TimeBoxInput
  *             (quick-add's inline time field), components/Collapsible + components/AnimatedChevron
@@ -53,6 +54,15 @@
  *             passed in. Live "now" line re-renders on a 60s interval (useNowMinutes).
  *
  * Edit notes:
+ *   - **Overlap-safe grid cards (2026-07-26, user report: "not clean, make sure things don't
+ *     overlap" — Outlook/Google Calendar as reference)**: `renderGridEntry` used to position
+ *     every timed card at full slot width regardless of other tasks, so two overlapping tasks
+ *     (or a short task's `MIN_TASK_HEIGHT` floor bleeding into whatever started next) visually
+ *     stacked on top of each other. `timedLayout` (`layoutGridEntries`, lib/dayGrid.ts) now
+ *     computes a column + height clamp per entry; a new `gridCardColumn` wrapper (nested inside
+ *     the existing `gridCardWrap` slot) applies that as percentage left/width, with a hairline
+ *     `gridCardColumnGapped` inset only when genuinely side-by-side, so the common
+ *     no-overlap case renders pixel-identical to before.
  *   - **Collapse/expand toggle fixed (2026-07-26, user report: "lacks capability to expand and
  *     show the whole day")**: `isVisible`/`showToggle` used to short-circuit on `readOnly` —
  *     every pending task was ALWAYS visible (readOnly is always true, Home being the sole
@@ -187,7 +197,7 @@ import { getDomainColor } from '@/lib/domainColor';
 import { dayOfWeekMon0 } from '@/lib/date';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 import GlowPulse from '@/components/GlowPulse';
-import { COLLAPSED_GRID_HEIGHT, GRID_TOTAL_HEIGHT, GUTTER_WIDTH, minutesToY } from '@/lib/dayGrid';
+import { COLLAPSED_GRID_HEIGHT, GRID_TOTAL_HEIGHT, GUTTER_WIDTH, GridEntryLayout, layoutGridEntries, minutesToY } from '@/lib/dayGrid';
 
 type Props = {
   /** Tasks scheduled for the viewed date (already filtered by the caller). */
@@ -231,6 +241,9 @@ const DONE_COL_WIDTH = 40;
 // ~26px — too short for a title + padding to sit comfortably) so short/undurationed tasks
 // stay legible and tappable.
 const MIN_TASK_HEIGHT = 40;
+// Hairline gap between two grid cards that would otherwise touch (same-lane clamp, or
+// side-by-side columns) — enough to read as separate cards without wasting grid space.
+const GRID_CARD_GAP = 2;
 
 // Horizontal rail column sizing.
 const H_COLUMN_WIDTH = 92;
@@ -398,6 +411,13 @@ export default function PlanTaskCard({
   const timedPending = useMemo(
     () => dayTasks.filter((task) => !!task.time && !task.done).map(timedEntryOf).sort((a, b) => a.start - b.start),
     [dayTasks]
+  );
+  // Vertical/default rail only — side-by-side columns for genuinely overlapping tasks,
+  // plus a height clamp so the MIN_TASK_HEIGHT floor can't visually run into whatever
+  // starts next (see lib/dayGrid.ts's file header for why both are needed).
+  const timedLayout = useMemo(
+    () => layoutGridEntries(timedPending, { minHeightPx: MIN_TASK_HEIGHT, gapPx: GRID_CARD_GAP }),
+    [timedPending]
   );
   const doneTasks = useMemo(() => dayTasks.filter((task) => task.done), [dayTasks]);
 
@@ -604,38 +624,42 @@ export default function PlanTaskCard({
   }
 
   /** Grid card — a timed pending task, absolutely positioned on the fixed-hour grid by its
-   *  real start/end time (lib/dayGrid.ts). Vertical/default orientation only. */
-  function renderGridEntry(entry: TimedEntry) {
+   *  real start/end time (lib/dayGrid.ts). Vertical/default orientation only. `layout` carries
+   *  the overlap-aware column + height clamp from `layoutGridEntries` so genuinely-overlapping
+   *  tasks render side-by-side (Google Calendar style) instead of stacking on top of each other. */
+  function renderGridEntry(entry: TimedEntry, layout: GridEntryLayout) {
     const { task, start, end } = entry;
     const isHappeningNow = now >= start && now < end;
     const isPast = !isHappeningNow && now >= end;
     const surfaced = surfacedIds.has(task.id);
     const isUp = task.id === upNextId;
     const showHint = isUp && !!task.hint;
-    const top = minutesToY(start);
-    const height = Math.max(MIN_TASK_HEIGHT, minutesToY(end) - top);
+    const { top, height, leftPct, widthPct } = layout;
+    const sideBySide = widthPct < 100;
 
     return (
       <View key={task.id} style={[styles.gridCardWrap, { top, height, left: GUTTER_WIDTH + Spacing.xs, right: Spacing.xs }]}>
-        <PressableScale style={styles.gridCardPressable} onPress={() => handlePress(task)} disabled={readOnly || !onPressTask} scaleTo={0.97}>
-          <View
-            style={[
-              styles.rowCard,
-              styles.gridCardInner,
-              // Ordinary cards: a soft accent wash instead of drab grey (debug-note 2026-07-21)
-              // — still clearly set apart from plain-surface cards, but warmer. The
-              // happening-now card keeps the stronger tint + glow so hierarchy is preserved.
-              { backgroundColor: isHappeningNow ? rgba(theme.accent, 0.1) : rgba(theme.accent, 0.05) },
-              { borderColor: rgba(domainColor.accent, isHappeningNow ? 0.5 : 0.2) },
-              // "Selects" the happening-now task (2026-07-26, user report) — see file header.
-              isHappeningNow && { borderWidth: 2, transform: [{ scale: 1.03 }] },
-            ]}
-          >
-            <GlowPulse active={isHappeningNow} color={domainColor.accent} mode="breathe" radius={Radius.sm} />
-            {taskCardContent(task, { dimmed: isPast, showHint, surfaced, showAnytimeBadge: false })}
-          </View>
-        </PressableScale>
-        <View style={styles.gridDoneToggle}>{doneToggle(task, isHappeningNow)}</View>
+        <View style={[styles.gridCardColumn, { left: `${leftPct}%`, width: `${widthPct}%` }, sideBySide && styles.gridCardColumnGapped]}>
+          <PressableScale style={styles.gridCardPressable} onPress={() => handlePress(task)} disabled={readOnly || !onPressTask} scaleTo={0.97}>
+            <View
+              style={[
+                styles.rowCard,
+                styles.gridCardInner,
+                // Ordinary cards: a soft accent wash instead of drab grey (debug-note 2026-07-21)
+                // — still clearly set apart from plain-surface cards, but warmer. The
+                // happening-now card keeps the stronger tint + glow so hierarchy is preserved.
+                { backgroundColor: isHappeningNow ? rgba(theme.accent, 0.1) : rgba(theme.accent, 0.05) },
+                { borderColor: rgba(domainColor.accent, isHappeningNow ? 0.5 : 0.2) },
+                // "Selects" the happening-now task (2026-07-26, user report) — see file header.
+                isHappeningNow && { borderWidth: 2, transform: [{ scale: 1.03 }] },
+              ]}
+            >
+              <GlowPulse active={isHappeningNow} color={domainColor.accent} mode="breathe" radius={Radius.sm} />
+              {taskCardContent(task, { dimmed: isPast, showHint, surfaced, showAnytimeBadge: false })}
+            </View>
+          </PressableScale>
+          <View style={styles.gridDoneToggle}>{doneToggle(task, isHappeningNow)}</View>
+        </View>
       </View>
     );
   }
@@ -821,7 +845,7 @@ export default function PlanTaskCard({
                 <ScrollView ref={gridScrollRef} scrollEnabled={!expanded} showsVerticalScrollIndicator={false}>
                   <View style={styles.gridInner}>
                     <DayGridLines now={now} />
-                    {timedPending.map((entry) => renderGridEntry(entry))}
+                    {timedPending.map((entry, i) => renderGridEntry(entry, timedLayout[i]))}
                   </View>
                 </ScrollView>
               </View>
@@ -1010,6 +1034,12 @@ const baseStyles = StyleSheet.create({
   // absolutely-positioned grid cards (siblings) don't contribute to that auto height.
   gridInner: { position: 'relative', width: '100%' },
   gridCardWrap: { position: 'absolute' },
+  // Column sub-wrapper (overlap layout, lib/dayGrid.ts) — left/width are set inline as
+  // percentages of gridCardWrap's own width so RN resolves them relative to the slot,
+  // not the whole card. A small horizontal inset only when genuinely side-by-side with
+  // another task, so the common single-column case is pixel-identical to before.
+  gridCardColumn: { position: 'absolute', top: 0, bottom: 0 },
+  gridCardColumnGapped: { paddingHorizontal: 1.5 },
   gridCardPressable: { flex: 1 },
   // Tighter vertical padding than the shared `rowCard` (short time-slots), and room on the
   // right for the corner done-toggle overlay.
