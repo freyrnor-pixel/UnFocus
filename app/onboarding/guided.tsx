@@ -10,17 +10,21 @@
  *
  * Connections:
  *   Imports → @/store/useSettingsStore, @/store/useTaskStore, @/lib/notifications,
- *             @/lib/reminders, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
- *             @/components/Button, @/components/Surface, @/components/PressableScale
+ *             @/lib/reminders, @/lib/date (todayStr), @/lib/i18n, @/constants/theme,
+ *             @/lib/useAppTheme, @/components/Button, @/components/Surface,
+ *             @/components/PressableScale
  *   Used by → Expo Router route "/onboarding/guided"
- *   Data    → useSettingsStore (Explore writes `setupComplete`, then schedules reminders
- *             like the name-step finish; Guided writes nothing here)
+ *   Data    → useSettingsStore (Explore writes `setupComplete` + `lastMonthlyReset`, then
+ *             schedules reminders like the name-step finish; Guided writes nothing here)
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
  *   - goGuided() → router.push "/onboarding/intro" (the short tour → name step).
- *   - goExplore() sets setupComplete and runs the same reminder sync as the name step's
- *     finish() (parity), then router.replace "/".
+ *   - goExplore() sets setupComplete + lastMonthlyReset (stamped to today, 2026-07-26 —
+ *     same fix and same reason as app/onboarding/index.tsx's finish(): a fresh install's
+ *     default '' otherwise always trips Shopping's auto-reset-review sheet on the very
+ *     first Shopping visit, covering the first-visit ⓘ hint underneath it) and runs the
+ *     same reminder sync as the name step's finish() (parity), then router.replace "/".
  *   - Both option cards sit on the plain glass Surface (theme.text on surface = full
  *     contrast); the recommended (Guided) one is marked by an accent icon badge + a
  *     "Recommended" chip, NOT an accent fill (the old tint={theme.accent} fill put
@@ -39,6 +43,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { requestPermissions } from '@/lib/notifications';
 import { syncReminders } from '@/lib/reminders';
+import { todayStr } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -62,7 +67,9 @@ export default function GuidedScreen() {
     // plain opt-in defaults — every optional feature off, which is the whole promise of
     // "jump right in". Schedule reminders the same way the name-step finish() does, so
     // Explore users aren't left unscheduled.
-    settings.update({ setupComplete: true });
+    // lastMonthlyReset stamp: see app/onboarding/index.tsx's finish() for why — same
+    // fix, both places setupComplete flips true on a fresh install.
+    settings.update({ setupComplete: true, lastMonthlyReset: todayStr() });
     if (settings.taskNotificationsEnabled || settings.remindersEnabled) {
       requestPermissions().finally(() => {
         syncReminders();
