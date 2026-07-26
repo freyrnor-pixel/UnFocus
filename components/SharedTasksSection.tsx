@@ -90,7 +90,7 @@ export default function SharedTasksSection({ sentTasks, onToggleDone }: Props) {
   }
 
   return (
-    <SectionCard hue={hue} label={t.tasksSectionShared} count={count}>
+    <SectionCard hue={hue} domain="shop" label={t.tasksSectionShared} count={count}>
       {count === 0 ? (
         <Text style={[styles.empty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
           {t.tasksSectionSharedEmpty}

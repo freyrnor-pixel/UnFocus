@@ -20,10 +20,15 @@
  *     domain cards already use (Decision: dropped whole-card tint, 2026-07-14). Because the
  *     box itself now carries the hue, rows inside it no longer need their own per-card
  *     `railColor` left edge — drop it at the call site to avoid double-coding.
- *   - Header is the shared `<SectionRail>` (dot + ALL-CAPS title + hairline rule) so the label
- *     + count stay consistent with the rest of the app; pass `right` through for a header-side
- *     control (e.g. a toggle). Top padding is tightened (Spacing.sm) so the header hugs the
- *     card's top edge and reads high on the card.
+ *   - Header is the shared `<SectionRail>` (gradient badge or dot + ALL-CAPS title + hairline
+ *     rule) so the label + count stay consistent with the rest of the app; pass `right` through
+ *     for a header-side control (e.g. a toggle). Top padding is tightened (Spacing.sm) so the
+ *     header hugs the card's top edge and reads high on the card.
+ *   - `domain` is optional and passes straight through to SectionRail (2026-07-26, "bring the
+ *     card colour back"): pass it when the section has a real domain identity (Habits' own
+ *     section, Plans' Whenever/Recurring/Shared) to get the small gradient badge instead of a
+ *     flat dot. Omit it for sections keyed to an arbitrary hue instead of a domain (Plans'
+ *     "Today"/weekday groups use `theme.accent`, which isn't a `Domain`).
  *   - `contentStyle` spreads onto the inner content wrapper (below the header) for callers
  *     that need to override the default gap between rows.
  */
@@ -32,10 +37,13 @@ import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import Surface from '@/components/Surface';
 import SectionRail from '@/components/SectionRail';
 import { Radius, Spacing } from '@/constants/theme';
+import { Domain } from '@/lib/domainColor';
 
 type Props = {
   /** Solid domain accent (getDomainColor(theme, domain).accent) — colors the header + card edge. */
   hue: string;
+  /** Section's domain identity, if any — see the Edit notes above. */
+  domain?: Domain;
   label: string;
   /** Optional item tally shown after the label. */
   count?: number;
@@ -48,10 +56,10 @@ type Props = {
   children: React.ReactNode;
 };
 
-export default function SectionCard({ hue, label, count, right, style, contentStyle, children }: Props) {
+export default function SectionCard({ hue, domain, label, count, right, style, contentStyle, children }: Props) {
   return (
     <Surface borderColor={hue} style={[styles.card, style]}>
-      <SectionRail hue={hue} label={label} count={count} right={right} />
+      <SectionRail hue={hue} domain={domain} label={label} count={count} right={right} />
       <View style={[styles.content, contentStyle]}>{children}</View>
     </Surface>
   );

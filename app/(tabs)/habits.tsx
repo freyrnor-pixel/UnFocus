@@ -592,7 +592,7 @@ export default function HabitsScreen() {
               backdrop (2026-07-17). Debug notes: anchor the whole section, not the inner
               habit cards/add row. */}
           <DebugNoteAnchor id="habits.section" label="Habits">
-          <SectionCard hue={habitDomainColor.accent} label={t.habitsTitle} contentStyle={styles.habitsSectionContent}>
+          <SectionCard hue={habitDomainColor.accent} domain="habit" label={t.habitsTitle} contentStyle={styles.habitsSectionContent}>
             {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
             <Collapsible open={showHabitProfiles}>
               <ScrollView

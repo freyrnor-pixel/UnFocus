@@ -29,7 +29,8 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/Surface,
- *             components/PressableScale, components/DebugNoteAnchor, components/AddRow,
+ *             components/CardAccent (CardAccentBadge), components/PressableScale,
+ *             components/DebugNoteAnchor, components/AddRow,
  *             components/FormControls (Input), constants/theme, lib/date, lib/i18n,
  *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor,
  *             lib/screenColor, store/useHealthStore
@@ -53,6 +54,9 @@
  *     (via app/health-detail.tsx or app/health-log.tsx's own AddRow).
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus
  *     effect only closes the hint on blur.
+ *   - **(2026-07-26)** Quick log / This week headers each lead with a small `CardAccentBadge`
+ *     (domain="health") next to their label — part of a broader "bring the card colour back"
+ *     pass restoring domain-colour presence across tabs, mirroring Home's preview-card badges.
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -63,6 +67,7 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import Surface from '@/components/Surface';
+import { CardAccentBadge } from '@/components/CardAccent';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
 import { Input } from '@/components/FormControls';
@@ -172,7 +177,10 @@ export default function HealthScreen() {
           <DebugNoteAnchor id="health.quickLog" label="Health — Quick log">
           <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
             <View style={styles.overviewCardContent}>
-              <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.quickLogLabel}</Text>
+              <View style={styles.sectionLabelRow}>
+                <CardAccentBadge domain="health" size={22} />
+                <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.quickLogLabel}</Text>
+              </View>
               <AddRow
                 placeholder={t.logSymptomTrigger}
                 value={quickDraft}
@@ -240,7 +248,10 @@ export default function HealthScreen() {
           <DebugNoteAnchor id="health.overview" label="Health — This week">
           <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
             <View style={styles.overviewCardContent}>
-              <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.thisWeekLabel}</Text>
+              <View style={styles.sectionLabelRow}>
+                <CardAccentBadge domain="health" size={22} />
+                <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.thisWeekLabel}</Text>
+              </View>
               {thisWeekSymptoms.length === 0 && (
                 <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.noLogsThisWeek}</Text>
               )}
@@ -322,7 +333,11 @@ const baseStyles = StyleSheet.create({
   // Decision 043 rule 2: Spacing.xl above every section.
   overviewCardRow: { borderRadius: Radius.md, marginTop: Spacing.xl },
   overviewCardContent: { flex: 1, padding: Spacing.md },
-  sectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size, marginBottom: Spacing.sm },
+  // Row wrapper (2026-07-26, "bring the card colour back"): holds the health-domain gradient
+  // badge + the label together, carrying the label's old marginBottom so its spacing to the
+  // content below is unchanged.
+  sectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
+  sectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
   quickTimeRow: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm },
   quickTimeField: { flex: 1, gap: Spacing.xs },
   quickTimeInput: { paddingVertical: Spacing.xs },
