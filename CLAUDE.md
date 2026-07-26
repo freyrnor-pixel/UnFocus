@@ -13,8 +13,12 @@ change finishes with a PR from the `claude/**` branch into `main` that you then
 merge yourself. Do not stop at "pushed the branch," and do not hand the merge
 back to the user as a separate step — merging is part of the task. (The maintainer
 granted this standing authorization; it applies to native-surface changes too.
-The one thing still gated to the human is *cutting the actual APK/AAB build* — see
-AGENTS.md — never the PR or the merge.)
+**As of 2026-07-26 this also covers triggering `eas-build-android.yml`** (the
+OTA-capable preview APK) — see AGENTS.md "New preview APK build" for why that one
+specifically is safe (non-interactive, stored token, established precedent) while
+the debug-gradle build, production AAB, and TestFlight stay maintainer-only —
+those touch real signing credentials / store submission an agent session
+shouldn't set up interactively.)
 
 To make ANY JS/UI/logic change go live (see `PUBLISHING.md` for the full guide):
 
@@ -59,7 +63,7 @@ see AGENTS.md.)
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations | Runs once; never drop/recreate |
 | Stores use `lib/dataAccess.ts` | 13 of 14 stores rely on this pattern |
 | ALWAYS open a PR and merge it to `main` | Every change ends with a PR into `main` that you merge yourself — never stop at the branch, never hand the merge off. OTA (`update.yml`) fires only on push to `main` (see the "Publishing" section above + `PUBLISHING.md`) |
-| New builds go through the maintainer; don't bump `runtimeVersion` ahead of the build | OTA reaches only installs on the matching runtime — bump `runtimeVersion` only *after* the maintainer cuts the new preview build (see AGENTS.md "Runtime version") |
+| Native builds: trigger `eas-build-android.yml` yourself; bump `runtimeVersion`/`version` first, then trigger | This is the OTA-capable preview APK, non-interactive, already used this way repeatedly — NOT maintainer-gated. Only the debug-gradle build, production AAB, and TestFlight (real signing/store submission) stay maintainer-only. See AGENTS.md "New preview APK build" + "Runtime version" for the exact sequencing (bump-then-build here, the reverse of the maintainer-only paths) |
 
 ### Navigation State
 - **BottomNav** (`components/BottomNav.tsx`) — current, only entry point; no redesign needed
