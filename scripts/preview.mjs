@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // preview.mjs — Playwright driver for the web preview: walks onboarding, screenshots
-// every main tab, and exercises "add a task" (Tasks) + "add a habit" (Habits) — each
+// every main tab, and exercises "add a task" (To-do) + "add a habit" (Habits) — each
 // verified to survive a tab round-trip — to prove two stores' write→read paths through
 // the in-memory sql.js DB, not just static render. Chromium is pre-installed under
 // PLAYWRIGHT_BROWSERS_PATH; never `playwright install`.
@@ -129,10 +129,12 @@ async function main() {
     await clickText(page, 'Walk me through it');
     await page.waitForTimeout(500);
 
-    // Intro tour: one short page per feature (t.features), stepped with "Next →";
-    // the last page's primary button reads "Get started →" and continues to the name step.
+    // Intro tour: one short page per feature (t.features), then the "built to be gentle"
+    // principles page and the experimental-build note; stepped with "Next →". The last
+    // page's primary button reads "Get started →" and continues to the name step. The cap
+    // is just a runaway guard — keep it above the real page count (t.features.length + 2).
     console.log('> onboarding: intro tour');
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 12; i++) {
       await shot(page, `onboarding-intro-${i}`);
       const onLastPage = await page.getByText('Get started →', { exact: true }).first().isVisible().catch(() => false);
       if (onLastPage) {
@@ -165,7 +167,7 @@ async function main() {
     // Navigate via the in-app BottomNav (client-side route change), NOT page.goto() —
     // the DB is in-memory (sql.js fallback, see lib/sqlite.web.ts); a full page
     // navigation reloads the bundle and wipes it, bouncing back to onboarding.
-    for (const [tab, shotName] of [['Shopping', 'shopping'], ['Tasks', 'plans'], ['Health', 'health'], ['Habits', 'habits']]) {
+    for (const [tab, shotName] of [['Shopping', 'shopping'], ['To-do', 'plans'], ['Health', 'health'], ['Habits', 'habits']]) {
       console.log(`> ${tab} tab`);
       await page.getByRole('button', { name: tab, exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(1000);
@@ -201,7 +203,7 @@ async function main() {
     // AddRow at the bottom of the Whenever section (type + Enter), and confirm it
     // round-trips through the in-memory sql.js DB by reappearing after navigating away.
     console.log('> add a task (store logic check)');
-    await page.getByRole('button', { name: 'Tasks', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'To-do', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     // The Whenever AddRow (the only add affordance on this screen) only renders under the
     // "All tasks" tab — the default tab is "Today" (#186), which doesn't have it.
@@ -220,7 +222,7 @@ async function main() {
 
     await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(500);
-    await page.getByRole('button', { name: 'Tasks', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'To-do', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     const persisted = await page.getByText(taskTitle, { exact: true }).first().isVisible().catch(() => false);
     console.log(`  task persisted after tab round-trip: ${persisted}`);

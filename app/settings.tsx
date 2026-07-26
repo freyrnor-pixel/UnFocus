@@ -830,6 +830,14 @@ export default function SettingsScreen() {
                       <Text style={[styles.switchHint, { color: theme.textMuted }]} selectable>{value}</Text>
                     </View>
                   ))}
+                  {/* Standing "this is a work in progress" note — the onboarding tour says
+                      the same thing once, this keeps it findable afterwards. */}
+                  <View style={styles.experimentalRow}>
+                    <Ionicons name="flask-outline" size={16} color={theme.textMuted} />
+                    <Text style={[styles.descText, { color: theme.textMuted, flex: 1, marginTop: 0 }]}>
+                      {t.version.experimental}
+                    </Text>
+                  </View>
                   {!Updates.isEnabled && (
                     <Text style={[styles.descText, { color: theme.warn, marginBottom: Spacing.sm }]}>
                       {t.version.disabled}
@@ -1396,6 +1404,8 @@ const baseStyles = StyleSheet.create({
   // tabSectionLabel survives for the few single-toggle cards that stayed plain, uncollapsed.)
   groupHeader: { fontFamily: Type.heading.fontFamily, fontSize: Type.heading.size, lineHeight: Math.round(Type.heading.size * Type.heading.line), marginTop: Spacing.sm },
   descText: { fontSize: FontSize.xs, marginTop: Spacing.sm, lineHeight: 18 },
+  // Version card's "experimental build" note — icon + wrapped text on one row.
+  experimentalRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginTop: Spacing.md },
   energyCapacityRows: { marginTop: Spacing.md, gap: Spacing.sm },
   energyCapacityRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
   // Each settings group reads as one rounded, bordered block — the whole lined-up set of
