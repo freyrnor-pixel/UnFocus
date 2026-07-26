@@ -383,14 +383,15 @@ const en = {
   introPrinciples: {
     title: 'Built to be gentle',
     bullets: [
-      { icon: 'accessibility-outline', text: 'Made for ADHD, autism, anxiety and depression' },
+      { icon: 'accessibility-outline', text: 'For everyone — but tuned for ADHD, autism, anxiety and depression' },
       { icon: 'hand-left-outline', text: 'Easy to use — few steps, nothing hidden' },
       { icon: 'ribbon-outline', text: 'No punishment and no broken streaks — small rewards instead' },
+      { icon: 'gift-outline', text: 'Free, and always will be — no ads, no subscriptions' },
     ],
   },
   introExperimental: {
     title: 'This is an experimental build',
-    body: 'UnFocus is a work in progress. Things may change, move or arrive half-finished — that is expected. Everything stays on your phone, and your feedback shapes what comes next.',
+    body: 'UnFocus is a work in progress. Things may change, move or arrive half-finished — that is expected. Everything stays on your phone, and all feedback is welcome — it shapes what comes next.',
   },
   // Onboarding feature picker (app/onboarding/features.tsx) — the guided path's
   // "what do you want to use?" step. Everything listed there is optional and starts
@@ -1724,14 +1725,15 @@ const no: typeof en = {
   introPrinciples: {
     title: 'Laget for å være mild',
     bullets: [
-      { icon: 'accessibility-outline', text: 'Laget for ADHD, autisme, angst og depresjon' },
+      { icon: 'accessibility-outline', text: 'For alle — men tilpasset ADHD, autisme, angst og depresjon' },
       { icon: 'hand-left-outline', text: 'Enkel å bruke — få steg, ingenting bortgjemt' },
       { icon: 'ribbon-outline', text: 'Ingen straff og ingen brutte rekker — små belønninger i stedet' },
+      { icon: 'gift-outline', text: 'Gratis, og vil alltid være det — ingen reklame, ingen abonnement' },
     ],
   },
   introExperimental: {
     title: 'Dette er en eksperimentell versjon',
-    body: 'UnFocus er under arbeid. Ting kan endre seg, flytte på seg eller komme halvferdig — det er som forventet. Alt blir liggende på telefonen din, og tilbakemeldingene dine former det som kommer.',
+    body: 'UnFocus er under arbeid. Ting kan endre seg, flytte på seg eller komme halvferdig — det er som forventet. Alt blir liggende på telefonen din, og alle tilbakemeldinger er velkomne — de former det som kommer.',
   },
   featurePicker: {
     title: 'Hva vil du bruke?',
