@@ -178,7 +178,6 @@
           "speechRecognitionPermission": "Allow UnFocus to convert your voice notes into text."
         }
       ],
-      "expo-network",
       "expo-quick-actions"
     ],
     "ios": {

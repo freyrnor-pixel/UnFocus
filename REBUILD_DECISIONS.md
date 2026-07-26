@@ -2627,9 +2627,16 @@ Health app" disclosure step it would trigger with no feature plan behind it yet)
 once written — same pattern as Decision 040):
 - **`expo-network`** (`~56.0.5`) — network-state detection (Wi-Fi/cellular/offline). No
   config plugin, no dangerous permissions (`ACCESS_NETWORK_STATE`/`ACCESS_WIFI_STATE` are
-  normal-level, granted at install). Intended future use: gate LAN sync attempts
-  (`react-native-tcp-socket`/`react-native-zeroconf`, Decision 038a) on actually being on
-  Wi-Fi instead of failing silently.
+  normal-level, granted at install). **Not listed in `app.json`'s `plugins` array** — it
+  has no `app.plugin.js` (confirmed: `node_modules/expo-network/app.plugin.js` doesn't
+  exist, same as `expo-crypto`/`expo-linear-gradient`/`expo-haptics`), so listing it there
+  made `expo config`/`eas build` try to load its main entry (`build/Network.js`) as a
+  plugin function instead and crash on a TS-stripping error in `expo-modules-core` —
+  caught by the first `eas-build-android.yml` run against this change (2026-07-26,
+  failed in ~1 min at the `expo config --json` step) and fixed by removing the plugins
+  entry; package.json dependency is unaffected, autolinking doesn't need it. Intended
+  future use: gate LAN sync attempts (`react-native-tcp-socket`/`react-native-zeroconf`,
+  Decision 038a) on actually being on Wi-Fi instead of failing silently.
 - **`expo-quick-actions`** (`~6.0.2`) — home-screen long-press shortcuts. **Not an official
   Expo SDK package** (community, maintained outside the `expo-*` bundled-native-modules set),
   so it doesn't follow the SDK-56 version pin table — `~6.0.2` is the latest resolved against
