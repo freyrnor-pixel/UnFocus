@@ -158,6 +158,7 @@ export default function HealthScreen() {
         title={t.healthTitle}
         tier="site"
         bottomNav={false}
+        pagerFloatingNav
         ownBackground={false}
         screenColor={getScreenColor(theme, 'health').base}
         infoActive={hintOpen}

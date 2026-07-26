@@ -417,6 +417,7 @@ export default function TasksScreen() {
       title={t.tasksTitle}
       tier="site"
       bottomNav={false}
+      pagerFloatingNav
       ownBackground={false}
       screenColor={getScreenColor(theme, 'plans').base}
       stickyGapColor="transparent"

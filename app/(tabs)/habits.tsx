@@ -578,6 +578,7 @@ export default function HabitsScreen() {
         title={t.habitsTitle}
         tier="site"
         bottomNav={false}
+        pagerFloatingNav
         ownBackground={false}
         screenColor={getScreenColor(theme, 'habits').base}
         infoActive={hintOpen}

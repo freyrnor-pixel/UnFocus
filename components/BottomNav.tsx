@@ -33,7 +33,10 @@
  *     (below), purely for layout (flex:1 track + equal segment division) — it reports its
  *     measured track (x/width/height) upward via `onTrack` and renders plain `NavTabItem`s
  *     (icon + label only, no per-item box, no pill of its own — see the single-pill bullet below).
- *   - BOTTOM_NAV_HEIGHT is exported for screens needing to offset overlays.
+ *   - BOTTOM_NAV_HEIGHT is exported for screens needing to offset overlays. NAV_FLOAT_GAP/
+ *     NAV_PEEK (2026-07-26) are also exported — app/(tabs)/_layout.tsx (bar positioning) and
+ *     ScreenScaffold (`pagerFloatingNav` content-clearance reserve) both need the exact same
+ *     numbers or the floating bar and the scroll clearance reserved for it drift apart.
  *   - Active-tab detection: tab-bar mode reads `state.routes[state.index].name` and
  *     matches it against SITE_ITEMS via lib/siteNav.ts's TAB_ROUTE_NAME; standalone mode
  *     falls back to `usePathname() === item.route`.
@@ -163,6 +166,24 @@ import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
 
 export const BOTTOM_NAV_HEIGHT = 72;
+// Float gap for the bottom-nav bar: left/right margin AND a matching gap below (on top of the
+// safe-area inset) so the bar's rounded corners read as a floating panel — shared between
+// app/(tabs)/_layout.tsx (which positions the real bar) and ScreenScaffold (which reserves
+// scroll-content clearance for it) so the two can never drift apart.
+export const NAV_FLOAT_GAP = Spacing.sm;
+// How many px of the content-clearance reserve is deliberately shaved off (2026-07-26, user
+// report: "make the blank area around the bar transparent, and let a scrolled card show through
+// the corners"). The bar's top-left/top-right corners are rounded (Radius.lg), so the small
+// notch between the curve and the bar's own bounding box is already transparent — nothing ever
+// rendered there because content was reserved exactly the bar's full footprint and could never
+// scroll far enough to reach it. Shaving NAV_PEEK off that reserve lets the last scrolled card's
+// edge rise into the notch (and ONLY the notch — the flat corner is still ~Radius.lg wide at its
+// widest, so the card stays hidden behind the opaque centre of the bar) instead of stopping dead
+// at the bar's edge. Deliberately small relative to Radius.lg (24) so the resting position looks
+// unchanged — this is not the "shrink the whole clearance" move that caused the 2026-07-24/25
+// clipped-content regression (see BottomNav's own edit notes + app/(tabs)/_layout.tsx's), just a
+// few px carved out of what was previously dead, unreachable padding.
+export const NAV_PEEK = 12;
 const EDGE_WIDTH = 1.5;
 const ITEMS_PER_SIDE = 2;
 // The pill is drawn slightly larger than the tab item's own measured box (grown outward,
