@@ -43,6 +43,30 @@ export function dayKey(date: string): string {
   return date;
 }
 
+/**
+ * The two halves of the single-stepper Energy control (2026-07-26 clarity pass).
+ *
+ * The editors used to show a switch (`energyEnabled`) plus a value stepper (`energyValue`)
+ * — two controls for one number, since the sums below already ignore a row whose flag is
+ * off. They now show ONE signed stepper where 0 means "no effect".
+ *
+ * The trap this encodes: `energyValue` defaults to **1** in both stores while
+ * `energyEnabled` defaults to **false**, so the stored value is meaningless until the flag
+ * is on. Rendering it raw would show every untouched task/habit as "+1" and then persist
+ * that on the next save, silently opting it into the Energy system.
+ *
+ * Used by components/TaskCard.tsx and app/habit-form.tsx — keep them going through these
+ * so the two editors can't drift apart on the rule.
+ */
+export function energyStepperValue(energyEnabled: boolean, energyValue: number): number {
+  return energyEnabled ? energyValue : 0;
+}
+
+/** Inverse of energyStepperValue: the fields to persist for a given stepper reading. */
+export function energyFieldsFromStepper(shown: number): { energyEnabled: boolean; energyValue: number } {
+  return { energyEnabled: shown !== 0, energyValue: shown };
+}
+
 /** Week period key ('w:'-prefixed Monday) for the Mon–Sun week containing `date`. */
 export function weekKey(date: string): string {
   return `w:${getWeekDates(date)[0]}`;
