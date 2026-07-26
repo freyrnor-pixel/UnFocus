@@ -26,6 +26,9 @@
  *     "Recommended" chip, NOT an accent fill (the old tint={theme.accent} fill put
  *     low-contrast accentInk text on a busy fill — the "too filled / low contrast"
  *     complaint). Decision 006 tokens throughout.
+ *   - **Bordered recommendedChip (2026-07-26, user report)**: the chip was a flat accentSoft
+ *     fill with no edge, the same borderless-chip bug fixed elsewhere (AddRow, Stepper,
+ *     intro.tsx's hintNote) — added `theme.border` at 1px so it reads as a contained pill.
  */
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -104,7 +107,7 @@ export default function GuidedScreen() {
               <View style={styles.optionText}>
                 <View style={styles.optionLabelRow}>
                   <Text style={[styles.optionLabel, { color: theme.text }]}>{t.guidedBtn}</Text>
-                  <View style={[styles.recommendedChip, { backgroundColor: theme.accentSoft }]}>
+                  <View style={[styles.recommendedChip, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}>
                     <Text style={[styles.recommendedChipText, { color: theme.accent }]}>{t.recommended}</Text>
                   </View>
                 </View>
@@ -186,6 +189,7 @@ const baseStyles = StyleSheet.create({
   },
   recommendedChip: {
     borderRadius: Radius.full,
+    borderWidth: 1,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
   },
