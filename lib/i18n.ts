@@ -846,6 +846,7 @@ const en = {
     weeklyListChip: 'This week',
     addToTaskLabel: 'Also add as a task',
     extraInfoPlaceholder: 'Details…',
+    previewEmpty: 'Nothing',
     manageCards: {
       edit: 'Edit cards',
       done: 'Done',
@@ -2366,6 +2367,7 @@ const no: typeof en = {
     weeklyListChip: 'Denne uken',
     addToTaskLabel: 'Legg også til som oppgave',
     extraInfoPlaceholder: 'Detaljer…',
+    previewEmpty: 'Ingenting',
     manageCards: {
       edit: 'Rediger kort',
       done: 'Ferdig',

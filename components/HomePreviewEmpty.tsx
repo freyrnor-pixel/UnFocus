@@ -1,11 +1,11 @@
 /**
  * HomePreviewEmpty.tsx — shared empty-row filler for Home's preview cards.
  *
- * Renders blank space at the card's collapsed resting height when a preview card's list
- * has zero items — an empty row, not an explanatory message.
+ * Renders a small centered "Nothing" label at the card's collapsed resting height when a
+ * preview card's list has zero items.
  *
  * Connections:
- *   Imports → constants/theme (Spacing)
+ *   Imports → constants/theme (FontSize, Spacing), lib/useAppTheme, lib/i18n (useT)
  *   Used by → components/HomeNotesCard, components/HomeShoppingCard (each card's empty branch).
  *             components/PlanTaskCard used this too until 2026-07-25, when its empty branch
  *             switched to components/DayHourScale (an hour-of-day ruler) instead — a day-view
@@ -13,12 +13,11 @@
  *   Data    → none (pure presentational)
  *
  * Edit notes:
- *   - **Removed the empty-state message (2026-07-24, user report)**: after two earlier
- *     reverts (skeleton ghost rows read as a stuck loading state; a message+icon duplicated
- *     the header badge's glyph), the message-only version still repeated what the card's own
- *     header already conveys (title + zero count) — so it's gone too. A card with no rows now
- *     just shows an empty row: blank space at the resting height, nothing else. No autoFocus
- *     lives here — the trailing AddRow only focuses its input when its own "+" bar is tapped.
+ *   - **"Nothing" label restored (2026-07-26, user report)**: the message-only version was
+ *     removed 2026-07-24 for repeating what the header already conveys — but with no rows and
+ *     no message, the card read as broken/too empty. A single short `t.home.previewEmpty`
+ *     ("Nothing") word splits the difference: enough to say "this is intentional," not enough
+ *     to duplicate the header's own title/count.
  *   - **Fixed height, not flex:1 (2026-07-25, user report)**: this used to be `flex: 1`, which
  *     grew to swallow ALL of the card's remaining resting-height floor — pushing the trailing
  *     AddRow's "+ New …" bar all the way down to the bottom of the card and leaving a big dead
@@ -29,13 +28,22 @@
  *     header and the add row — so the three preview cards still land on the same resting height.
  */
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Spacing } from '@/constants/theme';
+import { StyleSheet, Text, View } from 'react-native';
+import { FontSize, Spacing } from '@/constants/theme';
+import { useAppTheme } from '@/lib/useAppTheme';
+import { useT } from '@/lib/i18n';
 
 export default function HomePreviewEmpty() {
-  return <View style={styles.wrap} />;
+  const theme = useAppTheme();
+  const t = useT();
+  return (
+    <View style={styles.wrap}>
+      <Text style={[styles.text, { color: theme.textMuted }]}>{t.home.previewEmpty}</Text>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  wrap: { height: Spacing.xl },
+  wrap: { height: Spacing.xl, alignItems: 'center', justifyContent: 'center' },
+  text: { fontSize: FontSize.sm, fontStyle: 'italic' },
 });
