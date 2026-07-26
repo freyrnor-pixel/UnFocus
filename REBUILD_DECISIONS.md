@@ -2614,3 +2614,44 @@ All motion reads `useAccessibility().reducedMotion` per point 5. `npx tsc --noEm
 errors. The Decision 045 stub (Monthly/Catalogue tab consolidation) stays out of scope and
 unopened by this session, exactly as reserved — it isn't recorded as its own decision
 number here since nothing was decided about it.
+
+---
+
+## Decision 046 — Two more reserve-only native packages riding the calendar/contacts/sensors/speech-recognition build
+
+**Status:** Resolved (2026-07-26, maintainer request — "the three you listed would be nice"
+narrowed to two: skip `react-native-health-connect` for now given the Play Console "declared
+Health app" disclosure step it would trigger with no feature plan behind it yet).
+
+**Added, reserve-only** (module + manifest/plugin ship now; feature code ships later, OTA,
+once written — same pattern as Decision 040):
+- **`expo-network`** (`~56.0.5`) — network-state detection (Wi-Fi/cellular/offline). No
+  config plugin, no dangerous permissions (`ACCESS_NETWORK_STATE`/`ACCESS_WIFI_STATE` are
+  normal-level, granted at install). **Not listed in `app.json`'s `plugins` array** — it
+  has no `app.plugin.js` (confirmed: `node_modules/expo-network/app.plugin.js` doesn't
+  exist, same as `expo-crypto`/`expo-linear-gradient`/`expo-haptics`), so listing it there
+  made `expo config`/`eas build` try to load its main entry (`build/Network.js`) as a
+  plugin function instead and crash on a TS-stripping error in `expo-modules-core` —
+  caught by the first `eas-build-android.yml` run against this change (2026-07-26,
+  failed in ~1 min at the `expo config --json` step) and fixed by removing the plugins
+  entry; package.json dependency is unaffected, autolinking doesn't need it. Intended
+  future use: gate LAN sync attempts (`react-native-tcp-socket`/`react-native-zeroconf`,
+  Decision 038a) on actually being on Wi-Fi instead of failing silently.
+- **`expo-quick-actions`** (`~6.0.2`) — home-screen long-press shortcuts. **Not an official
+  Expo SDK package** (community, maintained outside the `expo-*` bundled-native-modules set),
+  so it doesn't follow the SDK-56 version pin table — `~6.0.2` is the latest resolved against
+  this repo's `expo@~56.0.9` at add-time (its own compat table tops out at "54.0.0 → 6.0.0";
+  6.0.2 installed clean, unverified beyond `npm install`). Added to `app.json`'s plugins array
+  as a bare entry with **no `androidIcons`/`iosActions` config** — no shortcuts are defined
+  yet, so the optional config-plugin options are skipped entirely; add them when real
+  shortcuts (e.g. "Add task") are designed.
+
+**Declined this round:** `react-native-health-connect` — real candidate for the Health tab,
+but requesting Health Connect permissions requires submitting Google's Health Connect
+permissions declaration form in Play Console before publishing, a heavier procedural step
+than the other reserve permissions. Flagged for a future decision once there's an actual
+data-types plan (steps/weight/sleep/etc.) to justify it.
+
+**Build sequencing:** landed on `main` with `runtimeVersion` unchanged, riding the same
+Decision 040 calendar/contacts/sensors/speech-recognition native build — see AGENTS.md
+"Runtime version" for the land-config → maintainer-builds → bump-runtime order.

@@ -239,11 +239,21 @@ device or EAS build.
 - OTA updates always publish to the EAS `preview` channel, and target whatever
   `runtimeVersion` is set in `app.json`. A given OTA is only picked up by an
   installed build whose runtime matches.
-- **Native builds are human-gated.** When native surface changes (new package,
-  plugin, permission, or an `app.json`/`eas.json` build-config change), do NOT cut
-  a build from an agent session — land the config on `main` and hand off to the
-  maintainer, who cuts the new preview build. Once that build exists, bump
-  `runtimeVersion` to match it so subsequent OTA updates flow to the new preview.
+- **Native builds: the EAS preview-APK workflow is agent-triggerable; the
+  production/TestFlight/signing paths are not.** When native surface changes (new
+  package, plugin, permission, or an `app.json`/`eas.json` build-config change),
+  land the config on `main`, bump `runtimeVersion`/`version` in the same or a
+  follow-up commit, merge, then trigger **`.github/workflows/eas-build-android.yml`**
+  ("EAS Build Android (Preview APK)") yourself — see "New preview APK build"
+  below. It's fully non-interactive (a stored `EXPO_TOKEN` secret; the one-time
+  `eas login` keystore setup already happened), it's been run this way dozens of
+  times (history: `gh run list -w eas-build-android.yml`), and it's the *only*
+  build that actually receives OTA (a debug APK from `build-android.yml` does
+  not — see PUBLISHING.md). What stays maintainer-only: the local debug-gradle
+  `build-android.yml` (rarely useful — no OTA), the production Play Store AAB, and
+  TestFlight/iOS — all three touch real signing credentials or store submission
+  that need an interactive `eas login`/`eas credentials` session or Apple/Play
+  Console setup, not just a workflow_dispatch call.
 
 ## Builds and updates
 
@@ -255,11 +265,37 @@ device or EAS build.
 - Apps pick it up automatically on next launch — no download needed
 - Takes ~1–2 min on CI
 
-### New APK build (only when native code changes)
-- Workflow: `.github/workflows/build-android.yml` — **manual trigger only** (`workflow_dispatch`), and **maintainer-run** — an agent session prepares the config and lands it on `main`, but does not kick off the build
-- **After the build exists**, bump `runtimeVersion` in `app.json` to that build's value so OTA updates retarget the new preview (see "Runtime version" below)
-- Use when: new native package added, `app.json` plugin changed, `eas.json` build config changed
-- Runs `npx expo prebuild` + a local `./gradlew assembleDebug` on the runner — this is a debug-signed APK, downloadable from the **GitHub Actions run's Artifacts** (not expo.dev; this workflow never calls EAS Build). For a real signed release build, see "Production release" below.
+### New preview APK build (the actual go-to path — agent-triggerable)
+- Workflow: `.github/workflows/eas-build-android.yml` ("EAS Build Android (Preview
+  APK)") — `workflow_dispatch`, **triggerable directly from an agent session, no
+  need to ask first** (see the bullet above for why: non-interactive, stored
+  `EXPO_TOKEN`, dozens of prior runs). Runs `eas build --platform android --profile
+  preview --non-interactive --wait`, i.e. `eas.json`'s `preview` profile:
+  `channel: preview` (same channel `update.yml` publishes OTA to), `distribution:
+  internal` (installs from a link/QR, no Play Store), `buildType: apk`.
+- **Sequencing — bump *before* triggering, not after:** land the native config
+  change AND the `version`/`runtimeVersion` bump together (same PR or a same-session
+  follow-up), merge to `main`, **then immediately** trigger this workflow from
+  `main`. The build reads `app.json` at build time, so it must already have the new
+  runtime baked in — this is the opposite order from the old debug-build guidance
+  below. Because the bump-merge-trigger happens back-to-back in one session, the
+  "phantom runtime with no matching build yet" window the old sequencing worried
+  about (see "Runtime version") is seconds, not days.
+- Use when: new native package added, `app.json` plugin changed, `eas.json` build
+  config changed — same triggers as any native-surface change.
+- Result: an **OTA-capable, release-signed** APK — this is the build real users/
+  testers should actually install (see PUBLISHING.md "Test builds that actually
+  receive OTA"). Download link/QR is on the run's step summary and the printed
+  `expo.dev` build page.
+- Takes ~15–25 min on CI (`--wait` blocks until the EAS cloud build finishes, not
+  just until the workflow dispatches it).
+- Trigger via `gh workflow run eas-build-android.yml --ref main -f message="..."`
+  or the GitHub MCP `actions_run_trigger` tool (`method: run_workflow`,
+  `workflow_id: eas-build-android.yml`, `ref: main`).
+
+### Debug local-gradle APK (rarely useful — does NOT receive OTA)
+- Workflow: `.github/workflows/build-android.yml` — **manual trigger only** (`workflow_dispatch`), and **maintainer-run** (no established agent-triggered precedent for this one, unlike the EAS preview workflow above)
+- Runs `npx expo prebuild` + a local `./gradlew assembleDebug` on the runner — this is a debug-signed APK with `expo-updates` disabled, downloadable from the **GitHub Actions run's Artifacts** (not expo.dev; this workflow never calls EAS Build). **It never receives OTA updates** (see PUBLISHING.md) — don't distribute it as a test build. Its only real use is a quick "does it even compile natively" sanity check.
 - Takes ~20–30 min on CI
 
 ### iOS build → TestFlight (EAS)
@@ -296,12 +332,26 @@ device or EAS build.
 
 ### Runtime version
 - `runtimeVersion` in `app.json` is set explicitly (not derived from `version` via policy). It names the build that OTA updates target; an OTA only reaches installs on the matching runtime.
-- **New builds go through the maintainer.** Agent sessions may land native-surface changes on `main` and prepare the config, but the actual APK/AAB is cut by the human — not from a session.
-- **Sequencing when native surface changes** (so live installs aren't stranded on a runtime with no matching build):
-  1. Land the native config change on `main` with `runtimeVersion` **unchanged** — the current preview build keeps receiving OTA updates.
-  2. Maintainer cuts the new preview build (its runtime = the intended new value).
-  3. Once that build exists, bump `runtimeVersion` (and usually `version`) in `app.json` to that value — from then on OTA updates flow to the new preview.
-- Do not bump `runtimeVersion` ahead of the build existing; doing so publishes OTA updates to a runtime nothing is installed on yet.
+- **Two different sequencing rules, depending on which build path you're using** — don't mix them up:
+  1. **EAS preview-APK path (`eas-build-android.yml`, agent-triggerable, the normal case):**
+     bump `runtimeVersion`/`version` in `app.json` FIRST (same PR as the native config
+     change, or immediately after), merge to `main`, **then immediately** trigger the
+     workflow from `main` — see "New preview APK build" above. The build reads
+     `app.json` at build time, so the bump has to land before the build runs, not
+     after. Precedent: PR #210 (2026-07-16) bumped `runtimeVersion`/`version` 1.3.0→1.4.0
+     in the same commit that added the native splash/expo-image work, merged, then
+     the EAS build ran one minute later off that commit.
+  2. **Debug-gradle / production AAB / TestFlight paths (maintainer-run, build timing
+     unknown/delayed):** land the native config change on `main` with `runtimeVersion`
+     **unchanged** first — the current preview build keeps receiving OTA updates while
+     you wait an indeterminate amount of time for the maintainer to get to it. Only
+     once that build actually exists do you bump `runtimeVersion` (and usually
+     `version`) to match it. Bumping ahead of an uncertain, possibly-days-away build
+     publishes OTA updates to a runtime nothing is installed on yet — this is the
+     scenario the "never bump ahead of the build" caution is about.
+- The distinguishing question: is the build going to happen in the next few minutes
+  from a commit you control (path 1), or at some indeterminate later point from a
+  human (path 2)? Pick the matching order.
 
 ### Dependency pinning — SDK-bundled versions
 - **Expo SDK is a curated set**, not a normal npm project. SDK 56 ships a specific native binary, and `bundledNativeModules.json` states exactly which JS version of each native package matches that binary. "Newest" JS packages mean *newer than your build's native code* — the failure mode.
