@@ -20,7 +20,9 @@
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedTasksSection,
  *             components/SectionRail, components/SectionCard, components/TaskCard, components/AddRow,
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron
- *             (animated "Finished (n)" done-zone reveal), components/TabSlider, constants/theme,
+ *             (animated "Finished (n)" done-zone reveal), components/TabSlider,
+ *             components/StarterCard (first-run explainer, shown while there are no tasks at all),
+ *             constants/theme,
  *             expo-router (useLocalSearchParams — `tab`/`expandTaskId`, see below), lib/date,
  *             lib/domainColor, lib/haptics,
  *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, store/useTaskStore,
@@ -117,6 +119,7 @@ import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TabSlider from '@/components/TabSlider';
+import StarterCard from '@/components/StarterCard';
 import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -432,7 +435,12 @@ export default function TasksScreen() {
             step) — removed 2026-07-25 along with the Work mode card in Settings, because
             `workModeEnabled` was never read by anything: the switch promised to hide
             personal plans and did nothing at all. */}
-        <HintCard text={t.hints.plans.text} open={hintOpen} noPill />
+        <HintCard text={t.hints.plans.text} example={t.hints.plans.example} open={hintOpen} noPill />
+
+        {/* First-run explainer (2026-07-26): what a to-do is for here, plus an example.
+            Shown only while there is not a single task on any tab, so it costs nothing once
+            the list is in use — and comes back if every task is later deleted. */}
+        {tasks.length === 0 && <StarterCard text={t.starters.plans.text} example={t.starters.plans.example} />}
 
         {/* Person filter (People/family mode) — Everyone + Me + each profile. */}
         <Collapsible open={showPeople}>

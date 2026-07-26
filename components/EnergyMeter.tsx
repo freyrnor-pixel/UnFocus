@@ -11,13 +11,15 @@
  * is visible before anything on it has actually happened.
  *
  * Always rendered (2026-07-26): Energy stopped being a toggle — a task/habit reads 0 unless
- * you give it a value, so the meter simply sits at capacity until something has one.
+ * you give it a value, so the meter simply sits at capacity until something has one. While
+ * NOTHING has one, a components/StarterCard explainer sits under the meter saying what the
+ * numbers are for; it disappears the moment any task or habit carries an energy value.
  * settings.energyMode (2026-07-24) picks which meter(s) show: 'daily' hides the week
  * row, 'weekly' hides the day row, 'custom' (per-weekday capacities set in
  * app/settings.tsx) shows both since the week total derives from the seven days.
  *
  * Connections:
- *   Imports → components/Surface, components/ProgressBar, components/Stepper,
+ *   Imports → components/Surface, components/StarterCard, components/ProgressBar, components/Stepper,
  *             components/Collapsible, components/PressableScale, constants/theme,
  *             lib/useAppTheme, lib/i18n, lib/date, lib/energy, store/useSettingsStore,
  *             store/useTaskStore, store/useHabitStore, store/useEnergyStore
@@ -28,6 +30,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
+import StarterCard from '@/components/StarterCard';
 import ProgressBar from '@/components/ProgressBar';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
@@ -79,6 +82,12 @@ export default function EnergyMeter() {
   const dayPlannedOver = -Math.min(0, dayCapacity + plannedEnergyDeltaForDay(today, tasks, habits));
   const weekPlannedOver = -Math.min(0, weekCapacity + plannedEnergyDeltaForWeek(today, tasks, habits));
 
+  // First-run explainer (2026-07-26): until something actually carries an energy value the
+  // meter just sits at capacity and means nothing to a new user, so explain the idea (and the
+  // recommendation — plan with energy in mind) right under it. Gated on real usage rather than
+  // a "seen" flag, so it also returns if the user later clears every energy value.
+  const usesEnergy = tasks.some((tk) => tk.energyEnabled) || habits.some((h) => h.energyEnabled);
+
   const row = (label: string, current: number, capacity: number) => {
     const value = capacity > 0 ? current / capacity : 0;
     const state = current <= 0 ? 'bad' : undefined;
@@ -94,6 +103,7 @@ export default function EnergyMeter() {
   };
 
   return (
+    <View style={styles.wrap}>
     <Surface style={styles.card}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
@@ -147,10 +157,16 @@ export default function EnergyMeter() {
         </View>
       </Collapsible>
     </Surface>
+
+    {/* Sibling, not nested inside the meter's own Surface — a card inside a card reads as a
+        nested panel rather than a note about the one above it. */}
+    {!usesEnergy && <StarterCard text={t.starters.energy.text} example={t.starters.energy.example} />}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: { gap: Spacing.sm },
   card: { padding: Spacing.md, gap: Spacing.sm },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },

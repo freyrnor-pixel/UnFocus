@@ -1352,19 +1352,21 @@ const en = {
   hints: {
     home: {
       text: "See today's notes, plans and shopping at a glance. Hold a card to rearrange it, or tap Edit cards to remove or add one back.",
-      example: '',
+      example: 'Plan with energy in mind: give draining tasks a minus and restoring ones a plus, and try to keep the day above zero.',
     },
     taskForm: {
       text: 'Add a task with a title, date, and optional details.',
       example: '',
     },
     habitForm: {
-      text: "Track a habit you're building or breaking.",
-      example: '',
+      // Rewritten 2026-07-26: used to say "a habit you're building or breaking", describing
+      // the build/break `kind` split that store/useHabitStore.ts dropped on 2026-07-20.
+      text: 'Choose how often the habit repeats, how many times a day it counts, and — if you want — a goal, reminders and an energy value.',
+      example: 'e.g. "Drink 4 glasses of water" — every day, 4 times a day, linked to a "General Health" goal.',
     },
     shopping: {
       text: 'Add items as you run out — the list resets weekly.',
-      example: '',
+      example: 'e.g. milk and coffee on the weekly list; toilet paper and washing powder on the monthly one.',
     },
     meals: {
       text: 'Browse dishes and add their ingredients to your shopping list.',
@@ -1372,7 +1374,7 @@ const en = {
     },
     health: {
       text: 'Log and track health issues over time.',
-      example: '',
+      example: 'e.g. log "Headache" at 3 of 5 when it starts — a couple of weeks of quick entries is enough to see a pattern.',
     },
     scan: {
       text: 'Photo a receipt to add items, or scan a shared QR code.',
@@ -1387,12 +1389,14 @@ const en = {
       example: '',
     },
     habits: {
-      text: 'Build habits you want more of, or break ones you want less of.',
-      example: '',
+      // Rewritten 2026-07-26: the old "build habits you want more of, or break ones you want
+      // less of" described the build/break `kind` split removed from the store on 2026-07-20.
+      text: 'Track the small things you want to repeat. Tap a habit to count it, or its gear icon to set how often it repeats, a goal, reminders and energy.',
+      example: 'e.g. "Drink 4 glasses of water" — every day, 4 times a day, toward a "General Health" goal.',
     },
     plans: {
       text: 'Your whole to-do list, organized by day and week.',
-      example: '',
+      example: 'e.g. "Book the dentist" under Whenever, "10-minute desk tidy" on today.',
     },
     automations: {
       text: 'Simple rules: when X happens, do Y automatically.',
@@ -1401,6 +1405,42 @@ const en = {
     notes: {
       text: 'Quick notes you can send to shopping or plans.',
       example: '',
+    },
+  },
+  /**
+   * Empty-state explainers (components/StarterCard.tsx, 2026-07-26). Shown inline where the
+   * content would be while a surface has nothing on it yet, and gone as soon as the user has
+   * their own — so a new user gets the *idea* behind a feature without having to find the ⓘ.
+   * Each one's core message also lives in the matching `hints.*.example` above, which is where
+   * it stays reachable once the starter card disappears.
+   */
+  starters: {
+    habits: {
+      text: 'Small things add up. It is not about doing it perfectly, or at the right time of day — it is about coming back to it. Miss a day; just try not to miss twice.',
+      example: 'A habit can be as small as "Drink 4 glasses of water", every day — and you can point it at a goal like "General Health" from the gear icon on the habit.',
+      tapToAdd: 'Tap one to start:',
+      suggestions: {
+        water: 'Drink 4 glasses of water',
+        stretch: 'Morning stretch',
+        posture: 'Posture check',
+        breakfast: 'Eat breakfast',
+      },
+    },
+    plans: {
+      text: "A to-do doesn't have to be big to be worth writing down. Cut the day into pieces you can actually finish — three small ones done beats one big one stared at.",
+      example: 'e.g. "Refill the water bottle" · "10-minute desk tidy" · "Book the dentist". Use the chips on the add row to give a task a time box or an energy value.',
+    },
+    energy: {
+      text: 'Energy is a budget, not a score. Give draining tasks a minus and restoring ones a plus, then plan the day so this stays above zero — that is what keeps a day bearable instead of ending in a crash.',
+      example: 'e.g. grocery run −2, laundry −1, drink water +1. If what you have planned would take you below zero, the meter says so before the day starts.',
+    },
+    shopping: {
+      text: "Add things the moment you notice you're out, not later when you're trying to remember. The weekly list clears itself on your reset day; the monthly one follows your payday date.",
+      example: 'e.g. milk and coffee go on the weekly list; toilet paper and washing powder on the monthly one.',
+    },
+    health: {
+      text: 'Log a symptom when it happens, rather than from memory afterwards. A few quick entries over a couple of weeks are enough to see a pattern — when it hits, how hard, and what it tends to follow.',
+      example: 'e.g. "Headache", 3 of 5, this afternoon. The week and month views then show whether it clusters.',
     },
   },
   // Debug mode — long-press-to-annotate feedback notes
@@ -2695,19 +2735,19 @@ const no: typeof en = {
   hints: {
     home: {
       text: 'Se dagens notater, planer og handleliste på ett blikk. Hold et kort for å ordne rekkefølgen, eller trykk «Rediger kort» for å fjerne eller legge til igjen.',
-      example: '',
+      example: 'Planlegg med energi i tankene: gi krevende oppgaver minus og de som gir påfyll pluss, og prøv å holde dagen over null.',
     },
     taskForm: {
       text: 'Legg til en oppgave med tittel, dato og valgfrie detaljer.',
       example: '',
     },
     habitForm: {
-      text: 'Følg en vane du bygger eller bryter.',
-      example: '',
+      text: 'Velg hvor ofte vanen gjentas, hvor mange ganger om dagen den teller, og — om du vil — mål, påminnelser og en energiverdi.',
+      example: 'F.eks. «Drikk 4 glass vann» — hver dag, 4 ganger om dagen, knyttet til målet «Generell helse».',
     },
     shopping: {
       text: 'Legg til varer etter hvert — listen nullstilles ukentlig.',
-      example: '',
+      example: 'F.eks. melk og kaffe på ukeslisten; dopapir og vaskepulver på månedslisten.',
     },
     meals: {
       text: 'Bla gjennom retter og legg ingrediensene til handlelisten.',
@@ -2715,7 +2755,7 @@ const no: typeof en = {
     },
     health: {
       text: 'Logg og følg opp helseplager over tid.',
-      example: '',
+      example: 'F.eks. logg «Hodepine» på 3 av 5 når den starter — et par uker med raske oppføringer er nok til å se et mønster.',
     },
     scan: {
       text: 'Bilde av kvittering for å legge til varer, eller skann en delt QR-kode.',
@@ -2730,12 +2770,12 @@ const no: typeof en = {
       example: '',
     },
     habits: {
-      text: 'Bygg vaner du vil ha mer av, eller bryt de du vil ha mindre av.',
-      example: '',
+      text: 'Følg de små tingene du vil gjenta. Trykk på en vane for å telle den, eller på tannhjulet for å velge hvor ofte den gjentas, mål, påminnelser og energi.',
+      example: 'F.eks. «Drikk 4 glass vann» — hver dag, 4 ganger om dagen, mot målet «Generell helse».',
     },
     plans: {
       text: 'Hele gjøremålslista di, organisert etter dag og uke.',
-      example: '',
+      example: 'F.eks. «Bestill tannlegetime» under «Når som helst», «10 minutters opprydding» i dag.',
     },
     automations: {
       text: 'Enkle regler: når X skjer, gjør Y automatisk.',
@@ -2744,6 +2784,35 @@ const no: typeof en = {
     notes: {
       text: 'Raske notater du kan sende til handleliste eller planer.',
       example: '',
+    },
+  },
+  starters: {
+    habits: {
+      text: 'Små ting blir til noe stort. Det handler ikke om å gjøre det perfekt, eller til rett tid på dagen — det handler om å komme tilbake til det. Hopper du over en dag, så prøv å ikke hoppe over to.',
+      example: 'En vane kan være så liten som «Drikk 4 glass vann», hver dag — og du kan knytte den til et mål som «Generell helse» via tannhjulet på vanen.',
+      tapToAdd: 'Trykk på én for å komme i gang:',
+      suggestions: {
+        water: 'Drikk 4 glass vann',
+        stretch: 'Morgenstrekk',
+        posture: 'Sjekk holdningen',
+        breakfast: 'Spis frokost',
+      },
+    },
+    plans: {
+      text: 'Et gjøremål trenger ikke være stort for å være verdt å skrive ned. Del dagen i biter du faktisk klarer å fullføre — tre små som er gjort slår én stor du bare ser på.',
+      example: 'F.eks. «Fyll vannflasken» · «10 minutters opprydding» · «Bestill tannlegetime». Bruk knappene på legg til-raden for å gi en oppgave tidsboks eller energiverdi.',
+    },
+    energy: {
+      text: 'Energi er et budsjett, ikke en poengsum. Gi krevende oppgaver minus og de som gir påfyll pluss, og legg opp dagen slik at dette holder seg over null — det er det som gjør dagen til å leve med i stedet for at den ender i kollaps.',
+      example: 'F.eks. handletur −2, klesvask −1, drikke vann +1. Hvis det du har planlagt tar deg under null, sier måleren fra før dagen starter.',
+    },
+    shopping: {
+      text: 'Legg til ting i det du merker at de er tomme, ikke senere når du prøver å huske. Ukeslisten tømmer seg selv på nullstillingsdagen din; månedslisten følger lønningsdatoen.',
+      example: 'F.eks. melk og kaffe på ukeslisten; dopapir og vaskepulver på månedslisten.',
+    },
+    health: {
+      text: 'Logg en plage når den skjer, heller enn fra hukommelsen etterpå. Noen få raske oppføringer over et par uker er nok til å se et mønster — når den slår til, hvor hardt, og hva den pleier å komme etter.',
+      example: 'F.eks. «Hodepine», 3 av 5, i ettermiddag. Uke- og månedsvisningen viser deretter om det samler seg.',
     },
   },
   debug: {
