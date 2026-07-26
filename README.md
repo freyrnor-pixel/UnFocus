@@ -7,10 +7,24 @@ Everything stays on your phone — there is no account, no backend and no sync t
 anyone else's server. Norwegian-first but fully bilingual (EN/NO), for Android
 and iOS.
 
+**UnFocus is free, and always will be** — no ads, no subscriptions, no paid tier.
+
+**It's for everyone, but it isn't designed for everyone equally.** Anyone can use
+it, and nothing about it assumes a diagnosis. The defaults, the wording, the
+pacing and the features are deliberately tuned to how neurodivergent brains
+actually work — ADHD, autism, anxiety and depression in particular. If that
+describes you, the app should feel like it was built with you in mind, because it
+was.
+
 > ⚠️ **This is an experimental build, and a work in progress.**
 > UnFocus is in active development with a small group of testers. Features may
 > change, move, or arrive half-finished, and some will be rebuilt entirely. Your
 > data stays on your device throughout, but expect rough edges.
+>
+> **All feedback is appreciated** — bugs, half-formed ideas, "this felt wrong and
+> I can't say why", anything. Settings → Send feedback opens a mail draft to the
+> developer, and Settings → Advanced → Debug mode lets you long-press any card to
+> leave a note in place and send the lot in later.
 
 ## Key features
 
@@ -31,8 +45,11 @@ and iOS.
 These are build criteria, not marketing. New features are expected to stay inside
 them.
 
-- **Made for ADHD, autism, anxiety and depression.** Low friction, low noise, and no
-  assumption that the user has spare executive function to lend the app.
+- **Usable by anyone, tuned for neurodivergent users.** ADHD, autism, anxiety and
+  depression are the reference point for every design call: low friction, low noise,
+  and no assumption that the user has spare executive function to lend the app. When
+  a decision would suit a general audience but cost a neurodivergent one, it goes the
+  other way.
 - **Easy to use.** Few steps, nothing hidden behind gestures you have to discover,
   sensible defaults instead of a setup wizard. Explanations live in context, behind
   the ⓘ button on every screen.
@@ -42,6 +59,9 @@ them.
 - **The energy system is a mental-health feature.** It exists to make plans and
   habits realistic and to give a reason to do less on a bad day, not to gamify
   productivity.
+- **Free, with nothing held back.** No ads, no subscription, no premium tier, and no
+  feature withheld to sell later. Nothing in the app may be built around extracting
+  money or attention from the user.
 
 ## Tech
 
