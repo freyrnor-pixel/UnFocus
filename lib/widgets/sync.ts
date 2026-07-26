@@ -21,7 +21,11 @@
  *             store/useShoppingStore, store/useShoppingListStore, store/useNotesStore,
  *             store/useHabitStore, store/useHealthStore, store/useSettingsStore
  *   Used by → app/_layout.tsx (foreground/background + after startup load), app/settings.tsx
- *             (persistent-notif toggle)
+ *             (persistent-notif toggle); scheduleWidgetSync (debounced) is called from the
+ *             mutating actions of store/useTaskStore, store/useShoppingStore,
+ *             store/useShoppingListStore, store/useNotesStore, store/useHabitStore,
+ *             store/useHealthStore so widgets refresh while the app is open, not just on
+ *             foreground/background
  *   Data    → reads the task/shopping/settings stores; writes widget_snapshot; posts/cancels
  *             the persistent notification; updates Android widgets
  *
@@ -225,4 +229,23 @@ export async function syncWidgetsAndOverview(opts?: { persistentOnly?: boolean }
     await updateAndroidWidgets(snapshot);
   }
   await updatePersistentNotification(snapshot);
+}
+
+let widgetSyncTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Debounced trigger for store mutations: coalesces bursts (e.g. checking off several
+ * shopping items back to back) into a single syncWidgetsAndOverview() call instead of
+ * one per action.
+ */
+export function scheduleWidgetSync(delayMs = 1000) {
+  if (widgetSyncTimer) clearTimeout(widgetSyncTimer);
+  widgetSyncTimer = setTimeout(() => {
+    widgetSyncTimer = null;
+    void syncWidgetsAndOverview();
+  }, delayMs);
+  // Node/Jest timers expose unref() so a pending debounce never blocks process exit
+  // (e.g. a store test that doesn't advance fake timers); RN/Hermes timers are plain
+  // numbers with no such method, so this is a no-op there.
+  (widgetSyncTimer as unknown as { unref?: () => void })?.unref?.();
 }

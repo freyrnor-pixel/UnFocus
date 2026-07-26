@@ -7,7 +7,9 @@
  * ordering directly, with no client-side grouping logic.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/widgets/sync (scheduleWidgetSync — debounced
+ *             widget/notification refresh on add/update (covers toggleChecked)/remove, so live
+ *             widgets don't wait for foreground/background)
  *   Used by → app/notes.tsx, components/NoteRow.tsx (Note type), components/HomeNotesCard.tsx,
  *             lib/widgets/sync.ts (Notes widget snapshot)
  *   Data    → defines a Zustand store; owns SQLite table notes
@@ -27,6 +29,7 @@ import { create } from 'zustand';
 import db from '@/lib/db';
 import { Row, FieldMap, loadAll, insertRow, updateRow, rowValues, readStr, readInt, readBool } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
+import { scheduleWidgetSync } from '@/lib/widgets/sync';
 
 export type Note = {
   id: string;
@@ -84,6 +87,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
     };
     insertRow('notes', rowValues(note, NOTE_COLUMNS));
     set((s) => ({ notes: [...s.notes, note] }));
+    scheduleWidgetSync();
     return note;
   },
 
@@ -93,6 +97,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
     const next = { ...note, ...patch };
     updateRow('notes', rowValues(patch, NOTE_COLUMNS), 'id = ?', [id]);
     set((s) => ({ notes: s.notes.map((n) => (n.id === id ? next : n)) }));
+    scheduleWidgetSync();
   },
 
   toggleChecked(id) {
@@ -104,5 +109,6 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
   remove(id) {
     db.runSync('DELETE FROM notes WHERE id = ?', [id]);
     set((s) => ({ notes: s.notes.filter((n) => n.id !== id) }));
+    scheduleWidgetSync();
   },
 }));

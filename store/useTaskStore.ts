@@ -14,6 +14,8 @@
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, lib/notifications, lib/taskNotifications,
  *             lib/taskRecurrence (taskOccursOn — re-exported here for existing callers/tests),
  *             lib/taskCalendar (reserve-only calendar mirroring), lib/liveSync, lib/syncService,
+ *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
+ *             add/update/remove/clearAll, so live widgets don't wait for foreground/background),
  *             store/useAutomationStore, store/useSettingsStore (also lifetimeCompletedTasks,
  *             incremented/decremented here — see Edit notes),
  *             store/useSharedStore (setSharedOut emits an outgoing shared_tasks row),
@@ -130,6 +132,7 @@ import { syncTaskNotification as scheduleTaskReminder } from '@/lib/taskNotifica
 import { syncTaskCalendarEvent, cancelTaskCalendarEvent } from '@/lib/taskCalendar';
 import { touchRow, softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
+import { scheduleWidgetSync } from '@/lib/widgets/sync';
 
 export type TaskType = 'start-at' | 'time-box';
 export type Recurring = 'none' | 'daily' | 'weekly' | 'monthly';
@@ -468,6 +471,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     syncTaskNotification(task);
     syncTaskRow(id);
     syncTaskCalendar(task);
+    scheduleWidgetSync();
     return task;
   },
 
@@ -487,6 +491,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     syncTaskNotification(next);
     syncTaskRow(id);
     syncTaskCalendar(next);
+    scheduleWidgetSync();
   },
 
   toggle(id) {
@@ -552,6 +557,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
         .filter((t) => t.id !== id)
         .map((t) => (t.followsTaskId === id ? { ...t, followsTaskId: null } : t)),
     }));
+    scheduleWidgetSync();
   },
 
   reorderTasks(orderedIds) {
@@ -682,6 +688,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     calendarEventIds.forEach((eventId) => void cancelTaskCalendarEvent(eventId));
     useSettingsStore.getState().update({ lifetimeCompletedTasks: 0 });
     set({ tasks: [] });
+    scheduleWidgetSync();
   },
 
   tasksForDate(date) {

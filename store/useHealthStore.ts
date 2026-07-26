@@ -7,7 +7,9 @@
  * than drifting free text. Log is ordered newest-first.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/symptomSeed
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/symptomSeed, lib/widgets/sync (scheduleWidgetSync
+ *             — debounced widget/notification refresh on add/update/remove, so live widgets don't
+ *             wait for foreground/background)
  *   Used by → app/(tabs)/health.tsx, app/health-form.tsx, app/health-log.tsx, app/health-detail.tsx
  *   Data    → defines a Zustand store; owns SQLite tables health_logs and symptoms
  *
@@ -35,6 +37,7 @@ import db from '@/lib/db';
 import { Row, FieldMap, loadAll, insertRow, updateRow, rowValues, readStr, readInt } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
 import { SYMPTOM_SEED } from '@/lib/symptomSeed';
+import { scheduleWidgetSync } from '@/lib/widgets/sync';
 
 export type HealthLog = {
   id: string;
@@ -147,17 +150,20 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
     });
     const log = { ...entry, id };
     set((s) => ({ logs: [log, ...s.logs] }));
+    scheduleWidgetSync();
     return log;
   },
 
   update(id, patch) {
     updateRow('health_logs', rowValues(patch, HEALTH_LOG_FIELDS), 'id = ?', [id]);
     set((s) => ({ logs: s.logs.map((l) => (l.id === id ? { ...l, ...patch } : l)) }));
+    scheduleWidgetSync();
   },
 
   remove(id) {
     db.runSync('DELETE FROM health_logs WHERE id = ?', [id]);
     set((s) => ({ logs: s.logs.filter((l) => l.id !== id) }));
+    scheduleWidgetSync();
   },
 
   suggest(query, limit = 8) {

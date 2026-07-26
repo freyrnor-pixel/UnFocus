@@ -17,7 +17,10 @@
  * so no consumer churns.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, lib/i18n, store/useSettingsStore
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, lib/i18n, store/useSettingsStore,
+ *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
+ *             add/update (covers rename/setRecurring/setActiveWeeks/toggleLocked)/remove/
+ *             advanceRecurringLists, so live widgets don't wait for foreground/background)
  *   Used by → app/shopping.tsx, components/WeekListCard.tsx (type), components/ListSettingsSheet.tsx (type),
  *             components/SavedListsModal.tsx (type), components/SavedListsSection.tsx (type)
  *   Data    → defines a Zustand store; owns SQLite table shopping_lists; also writes
@@ -88,6 +91,7 @@ import { generateId } from '@/lib/id';
 import { dateStr, todayStr, getWeekRangeContaining, formatDateRange, weekOfMonthlyCycle } from '@/lib/date';
 import { getTranslations } from '@/lib/i18n';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { scheduleWidgetSync } from '@/lib/widgets/sync';
 
 export type ShoppingList = {
   id: string;
@@ -302,6 +306,7 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
     };
     insertRow('shopping_lists', rowValues(list, LIST_COLUMNS));
     set((s) => ({ lists: [...s.lists, list] }));
+    scheduleWidgetSync();
     return id;
   },
 
@@ -311,11 +316,13 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
     const next = { ...list, ...patch };
     updateRow('shopping_lists', rowValues(patch, LIST_COLUMNS), 'id = ?', [id]);
     set((s) => ({ lists: s.lists.map((l) => (l.id === id ? next : l)) }));
+    scheduleWidgetSync();
   },
 
   remove(id) {
     db.runSync('DELETE FROM shopping_lists WHERE id = ?', [id]);
     set((s) => ({ lists: s.lists.filter((l) => l.id !== id) }));
+    scheduleWidgetSync();
   },
 
   rename(id, name) {
@@ -399,6 +406,7 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
       set((s) => ({ lists: [...s.lists, newList] }));
       created = true;
     }
+    if (created) scheduleWidgetSync();
     return created;
   },
 
