@@ -28,6 +28,15 @@
  *   - The "now" dot is the one element positioned by percentage (`top`), since it can land
  *     anywhere between two labels; it's hidden outside the [startHour, endHour) window (e.g.
  *     the small hours) rather than clamped to an edge, which would misrepresent the time.
+ *   - **Calendar-style ticks + time label (2026-07-26, "make the timeline look more like a
+ *     regular calendar")**: each hour label now gets a short horizontal tick running off the
+ *     vertical line, reading as a ruled calendar sheet instead of a bare axis + floating text.
+ *     `lineCol` also grew a `borderRightWidth` matching PlanTaskCard's rail `lineCol` so the
+ *     gutter divider look doesn't change the moment the first task lands and this component is
+ *     swapped for the real rail. The "now" dot gained a live "HH:MM" text label (absolutely
+ *     positioned at the same `top`, just right of the dot) — this is where PlanTaskCard's own
+ *     `topNowStrip` time text lands once the day isn't empty, so the empty state carries the
+ *     same live-clock cue instead of a silent dot.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -59,9 +68,11 @@ export default function DayHourScale({ now, startHour = 6, endHour = 24 }: Props
     return String(h).padStart(2, '0');
   });
 
+  const nowLabel = `${String(Math.floor(now / 60) % 24).padStart(2, '0')}:${String(now % 60).padStart(2, '0')}`;
+
   return (
     <View style={styles.wrap}>
-      <View style={styles.lineCol}>
+      <View style={[styles.lineCol, { borderRightColor: theme.border }]}>
         <View style={[styles.line, { backgroundColor: theme.border }]} />
         {nowPct !== null && (
           <View style={[styles.nowMarker, { top: `${nowPct}%` }]}>
@@ -71,11 +82,15 @@ export default function DayHourScale({ now, startHour = 6, endHour = 24 }: Props
       </View>
       <View style={styles.labelsCol}>
         {labels.map((label, i) => (
-          <Text key={`${label}-${i}`} style={[styles.label, { color: theme.textMuted }]}>
-            {label}
-          </Text>
+          <View key={`${label}-${i}`} style={styles.labelRow}>
+            <View style={[styles.tick, { backgroundColor: theme.border }]} />
+            <Text style={[styles.label, { color: theme.textMuted }]}>{label}</Text>
+          </View>
         ))}
       </View>
+      {nowPct !== null && (
+        <Text style={[styles.nowLabel, { top: `${nowPct}%`, color: theme.accent }]}>{nowLabel}</Text>
+      )}
     </View>
   );
 }
@@ -84,10 +99,16 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', height: SCALE_HEIGHT },
   // No explicit height — stretches to `wrap`'s height via the row's default alignItems:'stretch'
   // (same technique PlanTaskCard's own lineCol/railLine pair uses).
-  lineCol: { width: LINE_COL_WIDTH, alignItems: 'center' },
+  lineCol: { width: LINE_COL_WIDTH, alignItems: 'center', borderRightWidth: 1 },
   line: { width: 2, flex: 1, borderRadius: 1 },
   nowMarker: { position: 'absolute', left: 0, right: 0, alignItems: 'center', marginTop: -4 },
   nowDot: { width: 8, height: 8, borderRadius: 4 },
   labelsCol: { flex: 1, justifyContent: 'space-between', paddingLeft: Spacing.xs, paddingVertical: 1 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  tick: { width: 6, height: 1 },
   label: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
+  // Absolutely positioned over the whole row (RN views are position:'relative' by default, so
+  // this anchors to `wrap`) — lands just right of the now-dot without needing lineCol/labelsCol
+  // to negotiate width for it.
+  nowLabel: { position: 'absolute', left: LINE_COL_WIDTH + Spacing.xs, marginTop: -7, fontSize: FontSize.xs, fontFamily: Fonts.bold },
 });

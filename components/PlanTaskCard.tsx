@@ -187,6 +187,27 @@
  *     content view, and `card`'s style here carries none) — so their `top`/`left` offsets are
  *     unambiguous on both platforms; no padding-inheritance question to get wrong. `cardContent`
  *     keeps its own padding for its own (flow) children unchanged.
+ *   - **Header tightened + now-time moved into the rail (2026-07-26, user report)**: the title
+ *     sat too far from `CardAccentBadge` and too high — `headerTopRow`'s paddingLeft went
+ *     56 → 52 (badge 32 + a 4px gap, was 8px) and `badgeFixed`/`cardContent` both got a matching
+ *     +4 top/paddingTop bump so the whole badge+title unit sits a touch lower. The header's
+ *     `nowChip` (a static "HH:MM" line under the title since 2026-07-24) is gone entirely — the
+ *     live clock now renders as `topNowStrip`, the first thing inside the rail itself (reusing
+ *     `lineCol`'s width so its dot sits on the exact left edge every timeBox uses), because this
+ *     component IS the calendar and the current time belongs inside it, not floating in the
+ *     header. Same header tightening applied to HomeNotesCard/HomeShoppingCard's title rows.
+ *   - **Calendar-style lines and borders (2026-07-26, user report: "make the timeline look more
+ *     like a regular calendar")**: `lineCol` grew a `borderRightWidth` (color set inline per
+ *     usage, since a static StyleSheet has no theme) — each row/spacer only owns its own segment
+ *     (Decision 042a), but stacked down the rail they read as one continuous hairline gutter
+ *     divider between the time column and the day's events, the way a calendar day-view
+ *     separates its hour gutter from content. `rowCard` grew a `borderWidth` too (color = the
+ *     domain accent at low opacity, stronger for the happening-now row) so each task reads as a
+ *     bordered event block rather than just a tinted wash. True per-hour gridlines were
+ *     considered and rejected — the rail's gap sizing is intentionally proportional-with-clamps
+ *     (Decision 009b), not a fixed pixels-per-minute scale, so literal hour ticks would misrepresent
+ *     time; DayHourScale (the empty-day ruler) already carries its own tick marks for that look
+ *     without that problem, since it spans a fixed hour window.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -538,7 +559,7 @@ export default function PlanTaskCard({
         exiting={anim ? FadeOutDown.duration(Duration.cardOut).easing(Ease.exit) : undefined}
         layout={anim ? LinearTransition.duration(Duration.listMove).easing(Ease.move) : undefined}
       >
-        <View style={styles.lineCol}>
+        <View style={[styles.lineCol, { borderRightColor: theme.border }]}>
           <View style={[styles.railLine, { backgroundColor: hasTopLine ? theme.border : 'transparent' }]} />
           {timeMarker(task, timed, dimmed, isHappeningNow, surfaced)}
           <View style={[styles.railLine, { backgroundColor: hasBottomLine ? theme.border : 'transparent' }]} />
@@ -551,6 +572,10 @@ export default function PlanTaskCard({
               // — still clearly set apart from plain-surface cards, but warmer. The
               // happening-now row keeps the stronger tint + glow so hierarchy is preserved.
               { backgroundColor: isHappeningNow ? rgba(theme.accent, 0.1) : rgba(theme.accent, 0.05) },
+              // A real border (2026-07-26, "make the timeline look more like a regular
+              // calendar") — each task now reads as a bordered event block, not just a tinted
+              // wash floating on the surface.
+              { borderColor: rgba(domainColor.accent, isHappeningNow ? 0.5 : 0.2) },
             ]}
           >
             <GlowPulse active={!!isHappeningNow} color={domainColor.accent} mode="breathe" radius={Radius.sm} />
@@ -631,7 +656,7 @@ export default function PlanTaskCard({
   function renderSpacer(key: string, sizePx: number, content?: React.ReactNode) {
     return (
       <View key={key} style={[styles.spacerRow, { minHeight: sizePx }]}>
-        <View style={styles.lineCol}>
+        <View style={[styles.lineCol, { borderRightColor: theme.border }]}>
           <View style={[styles.railLine, { backgroundColor: theme.border }]} />
         </View>
         {content ? <View style={styles.spacerContent}>{content}</View> : null}
@@ -668,6 +693,20 @@ export default function PlanTaskCard({
       <Text numberOfLines={1} style={[styles.hNowLabel, { color: theme.accent }]}>
         {t.timelineNow}
       </Text>
+    </View>
+  );
+
+  // Live clock, moved here from the header (2026-07-26, user report) — this is the "calendar,"
+  // so the live time reads inside it, at the same left edge (LINE_COL_WIDTH gutter) every
+  // timeBox uses below, instead of floating in the header as an orphaned chip. Shown whenever
+  // the rail itself renders (not the DayHourScale empty state, which carries its own now-dot +
+  // label at the correct proportional height).
+  const topNowStrip = (
+    <View style={styles.topNowRow}>
+      <View style={[styles.lineCol, { borderRightColor: theme.border }]}>
+        <View style={[styles.nowDot, { backgroundColor: theme.accent }]} />
+      </View>
+      <Text style={[styles.topNowText, { color: theme.accent }]}>{minutesToLabel(now)}</Text>
     </View>
   );
 
@@ -781,10 +820,6 @@ export default function PlanTaskCard({
                 </View>
               )}
             </View>
-            <View style={styles.nowChip}>
-              <View style={[styles.nowChipDot, { backgroundColor: theme.accent }]} />
-              <Text style={[styles.nowChipText, { color: theme.accent }]}>{minutesToLabel(now)}</Text>
-            </View>
             {dayTasks.length > 0 && (
               <ProgressBar
                 value={doneTasks.length / dayTasks.length}
@@ -796,6 +831,8 @@ export default function PlanTaskCard({
           </PressableScale>
           </>
         )}
+
+        {readOnly && !showEmpty ? topNowStrip : null}
 
         {showEmpty ? (
           <View style={styles.emptyWrap}>
@@ -951,7 +988,9 @@ const baseStyles = StyleSheet.create({
   // CardAccentWash band instead of hugging the top edge (2026-07-24: the old "hug the top / sit
   // high in the band" tuning read as "title too high, not centered between the top border and the
   // wash divider" — user report). The 32px badge now centers at ~y=32 in the [0,64] band.
-  cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.md, position: 'relative' },
+  // Bumped +4 (2026-07-26, user report: header sat too high) — nudges the whole badge+title
+  // header down a touch; see badgeFixed's matching top offset below.
+  cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.md + 4, position: 'relative' },
   rail: { paddingVertical: Spacing.xs },
   // Quick-add extras (2026-07-24) — compact repeat/energy toggle chips beside TimeBoxInput.
   quickChip: {
@@ -992,7 +1031,12 @@ const baseStyles = StyleSheet.create({
   // (and doneCol's toggle, also flex-centered) land at the row's true vertical center
   // by construction — no measurement pass needed (Decision 042a).
   row: { flexDirection: 'row', alignItems: 'stretch' },
-  lineCol: { width: LINE_COL_WIDTH, alignItems: 'center' },
+  // borderRightWidth (2026-07-26, "make the timeline look more like a regular calendar") — each
+  // row/spacer owns its own lineCol segment (Decision 042a), but stacked down the rail they form
+  // one continuous hairline gutter divider between the time column and the task content, the way
+  // a calendar day-view separates its hour gutter from the day's events. Color set inline (theme
+  // isn't available in a static StyleSheet).
+  lineCol: { width: LINE_COL_WIDTH, alignItems: 'center', borderRightWidth: 1 },
   timeBox: {
     minWidth: 44,
     paddingHorizontal: 6,
@@ -1012,7 +1056,8 @@ const baseStyles = StyleSheet.create({
   contentCol: { flex: 1, paddingHorizontal: Spacing.sm, paddingBottom: Spacing.sm },
   // Decision (visual-audit 2026-07-11): a subtle card behind each row's title/hint so
   // the rail reads as distinct items rather than text floating on the background.
-  rowCard: { borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm },
+  // borderWidth added 2026-07-26 (calendar-style pass) — see rowCard's inline borderColor.
+  rowCard: { borderRadius: Radius.sm, borderWidth: 1, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm },
   doneCol: { width: DONE_COL_WIDTH, alignItems: 'center', justifyContent: 'center' },
   // Dedicated connector row between two task rows — owns the proportional time-gap
   // height so it never has to be squeezed inside a row of variable content height.
@@ -1067,25 +1112,29 @@ const baseStyles = StyleSheet.create({
   doneRows: { paddingBottom: Spacing.sm },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
-  // marginBottom Spacing.md (was .sm) so the content starts exactly at the 64px wash divider
-  // (paddingTop 16 + badge 32 + 16 = 64) — see the CardAccentWash comment above.
+  // marginBottom Spacing.md (was .sm) so the content starts close to the 64px wash divider
+  // (paddingTop 20 + badge 32 + 16 = 68 as of the 2026-07-26 +4 header nudge — see cardContent's
+  // paddingTop comment above; 4px past the divider reads fine, not worth chasing exactly).
   headerRowPressable: { marginBottom: Spacing.md },
-  // Badge is pinned absolute (badgeFixed below) — headerTopRow/nowChip's paddingLeft/marginLeft
-  // (badge offset 16 + badge size 32 + gap 8 = 56) is what actually clears it, not flex order
-  // (see edit note above).
-  headerTopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 56 },
+  // Badge is pinned absolute (badgeFixed below) — headerTopRow's paddingLeft is what actually
+  // clears it, not flex order (see edit note above). Tightened 56 → 52 (2026-07-26, user
+  // report: "more closely linked with the badge") — badge offset 16 + badge size 32 + a 4px
+  // gap (was 8px).
+  headerTopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 52 },
   // Takes the badge out of flex flow so its position is fixed regardless of sibling content
   // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
   // Mounts as a sibling of cardContent now (not a child of it), directly in the unpadded
   // Surface — see the "Badge/wash moved outside cardContent's padding" file-header note for
-  // why. top/left Spacing.md is now an unambiguous single inset on both platforms.
-  badgeFixed: { position: 'absolute', top: Spacing.md, left: Spacing.md, zIndex: 2 },
-  // Persistent "now" indicator (visual-audit 2026-07-11) — always visible in the header. Moved
-  // from a right-floated corner chip to its own left-aligned line under the title (2026-07-24) —
-  // see edit note above.
-  nowChip: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 56, marginTop: 4 },
-  nowChipDot: { width: 6, height: 6, borderRadius: Radius.full },
-  nowChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  // why. left Spacing.md is an unambiguous single inset on both platforms; top bumped +4
+  // alongside cardContent's paddingTop (2026-07-26, "move it a bit down") so it stays level
+  // with the title.
+  badgeFixed: { position: 'absolute', top: Spacing.md + 4, left: Spacing.md, zIndex: 2 },
+  // Live clock strip at the top of the rail (2026-07-26) — replaces the old header `nowChip`
+  // (right-floated corner chip until 2026-07-24, then a left-aligned line under the title);
+  // see the `topNowStrip` edit note near its JSX for why it moved into the calendar itself.
+  // Reuses `lineCol`'s width so its dot lands on the same left edge every timeBox uses below.
+  topNowRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },
+  topNowText: { fontSize: FontSize.xs, fontFamily: Fonts.bold, marginLeft: Spacing.sm },
   progressBar: { marginTop: Spacing.xs },
   // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
   // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).

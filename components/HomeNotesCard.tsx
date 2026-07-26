@@ -26,9 +26,14 @@
  *     applied only while `!expanded`, so this card reads the same size as
  *     PlanTaskCard/HomeShoppingCard when light — then grows per note row above it;
  *     `noteRow`'s paddingVertical was trimmed to `Spacing.xs` for a slimmer collapsed row.
- *   - **Empty state (2026-07-24, text removed)**: an empty list renders the shared
- *     `HomePreviewEmpty` — blank space at the resting floor (an empty row), not an
- *     explanatory message; the header above it (title + count) already says enough.
+ *   - **Empty state (2026-07-24, text removed; restored 2026-07-26)**: an empty list renders the
+ *     shared `HomePreviewEmpty`, which briefly (2026-07-24 → 2026-07-25) was blank space only —
+ *     user report called the card "too empty" with nothing to confirm the blankness was
+ *     intentional, so `HomePreviewEmpty` now shows a small centered "Nothing" label again.
+ *   - **Header tightened + moved down (2026-07-26, user report)**: `titleRow`'s paddingLeft
+ *     went 56 → 52 (badge 32 + a 4px gap, was 8px — "more closely linked with the badge") and
+ *     `badgeFixed`/`cardContent` both got a matching +4 top/paddingTop bump ("move it a bit
+ *     down"). Same tightening applied to PlanTaskCard/HomeShoppingCard's headers.
  *   - Existing note rows are read-only previews (no inline TextInput) — editing them is the
  *     /notes screen's job. The only inline TextInput here is the trailing AddRow, which
  *     *creates* a new note (title-only, mirrors Health's add-habit / Plans' add-task AddRow
@@ -376,21 +381,24 @@ const baseStyles = StyleSheet.create({
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   // paddingTop Spacing.md (was Spacing.sm) so the header sits VERTICALLY CENTERED in the 64px
   // CardAccentWash band instead of hugging the top edge — matches PlanTaskCard's 2026-07-24 fix
-  // for "title too high, not centered between the top border and the wash divider".
-  cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.md },
-  // marginBottom Spacing.md (was .sm) so the content starts at the 64px wash divider — see the
+  // for "title too high, not centered between the top border and the wash divider". Bumped +4
+  // (2026-07-26, user report: "move it a bit down") alongside badgeFixed's matching top offset.
+  cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.md + 4 },
+  // marginBottom Spacing.md (was .sm) so the content starts near the 64px wash divider — see the
   // CardAccentWash comment above.
-  // paddingLeft (badge offset 16 + badge size 32 + gap 8 = 56) clears the fixed badge
-  // (badgeFixed below) — the badge no longer sits inline here, see the edit note above.
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md, gap: Spacing.sm, paddingLeft: 56 },
+  // paddingLeft (badge offset 16 + badge size 32 + a 4px gap, was 8px) clears the fixed badge
+  // (badgeFixed below) — the badge no longer sits inline here, see the edit note above. Tightened
+  // 56 → 52 (2026-07-26, user report: "more closely linked with the badge").
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md, gap: Spacing.sm, paddingLeft: 52 },
   titleLeftPressable: { flexShrink: 1 },
   titleLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   // Takes the badge out of flex flow so its position is fixed regardless of sibling content
   // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
   // Mounts as a sibling of cardContent now (not a child of it), directly in the unpadded
   // Surface — see the "Badge/wash moved outside cardContent's padding" file-header note for
-  // why. top/left Spacing.md is now an unambiguous single inset on both platforms.
-  badgeFixed: { position: 'absolute', top: Spacing.md, left: Spacing.md, zIndex: 2 },
+  // why. left Spacing.md is an unambiguous single inset on both platforms; top bumped +4
+  // alongside cardContent's paddingTop (2026-07-26, "move it a bit down").
+  badgeFixed: { position: 'absolute', top: Spacing.md + 4, left: Spacing.md, zIndex: 2 },
   // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
   // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
   title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8, includeFontPadding: false, textAlignVertical: 'center' },
