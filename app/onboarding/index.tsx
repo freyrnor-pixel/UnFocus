@@ -9,19 +9,24 @@
  *
  * Connections:
  *   Imports → @/store/useSettingsStore, @/store/useTaskStore, @/lib/notifications,
- *             @/lib/reminders, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
- *             @/components/Button
+ *             @/lib/reminders, @/lib/date (todayStr), @/lib/i18n, @/constants/theme,
+ *             @/lib/useAppTheme, @/components/Button
  *   Used by → Expo Router route "/onboarding" (pushed from onboarding/intro.tsx)
- *   Data    → useSettingsStore (writes `userName`, `setupComplete`); schedules reminders via
- *             syncReminders() + useTaskStore.syncAllTaskNotifications()
+ *   Data    → useSettingsStore (writes `userName`, `setupComplete`, `lastMonthlyReset`);
+ *             schedules reminders via syncReminders() + useTaskStore.syncAllTaskNotifications()
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
  *   - showPoints/showHints are NOT written here any more (2026-07-25) — nothing in the app
  *     ever read either flag, so setting them was a promise with no behaviour behind it.
- *   - finish() writes userName (trimmed) + setupComplete, then schedules reminders
- *     the same way onboarding/guided.tsx's Explore path does, then router.replace('/').
- *     This is the one normal place setupComplete is set for the guided flow.
+ *   - finish() writes userName (trimmed) + setupComplete + lastMonthlyReset (stamped to
+ *     today, 2026-07-26), then schedules reminders the same way onboarding/guided.tsx's
+ *     Explore path does, then router.replace('/'). This is the one normal place
+ *     setupComplete is set for the guided flow. The lastMonthlyReset stamp exists so
+ *     Shopping's auto-reset-review sheet (gated on lastMonthlyReset vs. today's
+ *     YYYY-MM, default monthlyResetDate=1) doesn't fire on a brand-new install's very
+ *     first Shopping visit — it otherwise always satisfied "haven't reset this period",
+ *     covering the first-visit ⓘ hint underneath it (the bug this fixes).
  *   - Notifications default OFF now (no notification step), so the requestPermissions
  *     branch is skipped unless the user enabled them via a first-run hint beforehand.
  *   - Decision 006 tokens throughout — no raw hex, no legacy theme.* names.
@@ -41,6 +46,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { requestPermissions } from '@/lib/notifications';
 import { syncReminders } from '@/lib/reminders';
+import { todayStr } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -58,6 +64,11 @@ export default function OnboardingName() {
     settings.update({
       userName: name.trim(),
       setupComplete: true,
+      // Stamp the payday-reset baseline to today so Shopping's auto-reset-review sheet
+      // (app/(tabs)/shopping.tsx, gated on lastMonthlyReset) doesn't immediately fire on
+      // a brand-new install with no data — its default '' otherwise always satisfies
+      // "haven't reset this period yet", covering the first-visit ⓘ hint underneath it.
+      lastMonthlyReset: todayStr(),
     });
     // Notifications default OFF (no notification step). If a flag ended up enabled,
     // request the OS permission as a safety net; either way, schedule reminders.
