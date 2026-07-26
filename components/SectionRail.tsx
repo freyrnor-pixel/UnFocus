@@ -1,6 +1,6 @@
 /**
- * SectionRail.tsx — section header: a hue dot + ALL-CAPS label (+ optional count / right slot),
- * underlined by a hue hairline rule.
+ * SectionRail.tsx — section header: a hue dot (or domain gradient badge) + ALL-CAPS label
+ * (+ optional count / right slot), underlined by a hue hairline rule.
  *
  * The header half of the 2026-07-13 "color rail" list redesign (Tasks screen first, meant as
  * the reusable section primitive for the other list screens too). Pairs with a stack of cards
@@ -10,9 +10,9 @@
  * light and a dark variant, so the label/dot stay distinct and legible in both modes.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme
- *   Used by → app/(tabs)/plans.tsx, components/SharedTasksSection.tsx
- *             (adopt on Shopping/Health/Habits section headers for a consistent structure)
+ *   Imports → constants/theme, lib/useAppTheme, components/CardAccent (CardAccentBadge)
+ *   Used by → app/(tabs)/plans.tsx, app/(tabs)/habits.tsx (via SectionCard),
+ *             components/SharedTasksSection.tsx
  *   Data    → none — presentational
  *
  * Edit notes:
@@ -24,6 +24,11 @@
  *     green on light green) — it's `mix(hue, text, 0.3)`, a darkened/lightened hue that stays
  *     legible on the neutral frosted fill in both modes, while the dot keeps the pure `hue`
  *     for identity. Pass a solid accent, not an already-translucent colour.
+ *   - **(2026-07-26) Optional `domain` prop**: when the section has a real domain identity (not
+ *     just an arbitrary hue like "Today" or a weekday group), pass `domain` to swap the plain
+ *     10px dot for a small `CardAccentBadge` gradient badge — part of the same "bring the card
+ *     colour back" pass that widened Surface's edge and restored Home's badge gradient. `hue`
+ *     is still required (drives the label/divider tint) even when `domain` is set.
  *   - The header is always full-width (`container` alignSelf:'stretch') so the rule spans the
  *     header width; the right-slot control's `marginLeft:'auto'` still pushes it to the edge.
  *   - `count` is optional; omit it for sections where a tally adds noise (e.g. weekday groups).
@@ -32,10 +37,14 @@ import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Fonts, FontSize, Spacing, mix, rgba } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { CardAccentBadge } from '@/components/CardAccent';
+import { Domain } from '@/lib/domainColor';
 
 type Props = {
-  /** Solid domain accent (getDomainColor(theme, domain).accent). Colors the dot + label. */
+  /** Solid domain accent (getDomainColor(theme, domain).accent). Colors the dot/badge + label. */
   hue: string;
+  /** Section's domain identity, if any — swaps the flat dot for a small gradient badge. */
+  domain?: Domain;
   label: string;
   /** Optional item tally shown after the label. */
   count?: number;
@@ -44,7 +53,7 @@ type Props = {
   style?: StyleProp<ViewStyle>;
 };
 
-export default function SectionRail({ hue, label, count, right, style }: Props) {
+export default function SectionRail({ hue, domain, label, count, right, style }: Props) {
   const theme = useAppTheme();
   // 2026-07-16 contrast raise: the label was a solid hue on a 14% tint of the SAME hue — a
   // green/green (etc.) pairing that read low-contrast. Darken the label toward `text` (works
@@ -54,7 +63,11 @@ export default function SectionRail({ hue, label, count, right, style }: Props) 
   return (
     <View style={[styles.container, style]}>
       <View style={styles.row}>
-        <View style={[styles.dot, { backgroundColor: hue }]} />
+        {domain ? (
+          <CardAccentBadge domain={domain} size={24} />
+        ) : (
+          <View style={[styles.dot, { backgroundColor: hue }]} />
+        )}
         <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
         {count != null && (
           <Text style={[styles.count, { color: theme.textMuted }]}>{count}</Text>

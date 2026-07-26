@@ -459,7 +459,7 @@ export default function TasksScreen() {
         {/* ── ALL TASKS (order: Whenever → Repeating → Shared) ── */}
         {tab === 'all' && (
           <>
-            <SectionCard hue={wheneverHue} label={t.tasksSectionWhenever} count={wheneverAll.length}>
+            <SectionCard hue={wheneverHue} domain="task" label={t.tasksSectionWhenever} count={wheneverAll.length}>
               {wheneverAll.length > 0 && (
                 <View style={styles.cardStack}>
                   {wheneverAll.map((tk) => (
@@ -485,7 +485,7 @@ export default function TasksScreen() {
 
             {/* Debug notes: one anchor per region — wrap the section card, not its inner rows. */}
             <DebugNoteAnchor id="plans.recurring" label="Plans — Recurring">
-              <SectionCard hue={repeatingHue} label={t.tasksSectionRecurring} count={recurringAll.length}>
+              <SectionCard hue={repeatingHue} domain="meal" label={t.tasksSectionRecurring} count={recurringAll.length}>
                 {recurringAll.length === 0 ? (
                   <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionRecurringEmpty}</Text>
                 ) : (
@@ -507,7 +507,7 @@ export default function TasksScreen() {
           <>
             {/* Whenever always sits on top (debug-note 2026-07-21) — undated tasks lead, the
                 dated Today section follows. */}
-            <SectionCard hue={wheneverHue} label={t.tasksSectionWhenever} count={undatedWhenever.length}>
+            <SectionCard hue={wheneverHue} domain="task" label={t.tasksSectionWhenever} count={undatedWhenever.length}>
               <DoneSplitList
                 tasks={undatedWhenever}
                 emptyText={t.tasksSectionWheneverEmpty}
@@ -539,7 +539,7 @@ export default function TasksScreen() {
         {tab === 'week' && (
           <>
             {/* Whenever always sits on top (debug-note 2026-07-21) — before the weekday groups. */}
-            <SectionCard hue={wheneverHue} label={t.tasksSectionWhenever} count={undatedWhenever.length}>
+            <SectionCard hue={wheneverHue} domain="task" label={t.tasksSectionWhenever} count={undatedWhenever.length}>
               <DoneSplitList
                 tasks={undatedWhenever}
                 emptyText={t.tasksSectionWheneverEmpty}

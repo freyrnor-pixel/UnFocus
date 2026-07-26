@@ -20,7 +20,8 @@
  *             components/Collapsible, components/ExpandableCard,
  *             components/FlightOverlay (FlightRect type only),
  *             components/IconButton, components/InlineAddItem, components/ShoppingFilterBar,
- *             components/Surface, components/ShoppingRow (CHECKED_OPACITY), constants/theme,
+ *             components/Surface, components/CardAccent (CardAccentBadge),
+ *             components/ShoppingRow (CHECKED_OPACITY), constants/theme,
  *             lib/i18n, lib/money (formatKr), lib/shoppingCategories (categoryPresets),
  *             lib/shoppingGroups (listProgress, listTotal), lib/useAppTheme, lib/haptics,
  *             lib/domainColor, store/useShoppingListStore (ShoppingList type),
@@ -29,6 +30,11 @@
  *   Data    → none directly — every item/group/callback is owned by the parent
  *
  * Edit notes:
+ *   - **Shop-domain badge (2026-07-26, "bring the card colour back")**: a small
+ *     `CardAccentBadge` (domain="shop") leads `nameWrap`, before the lock icon — the same
+ *     gradient badge Home's preview cards use, added here for cross-tab consistency. Kept
+ *     inline (not an absolutely-positioned corner badge like HomeShoppingCard's) because this
+ *     header's top-left corner is already occupied by the lock icon.
  *   - **"Save as template" moved into the kebab (2026-07-23)**: `openListOptions` gains a
  *     direct `t.saveListAsTemplateBtn` entry (`onSaveAsTemplate` prop) — was a button at
  *     the bottom of the `SavedListsModal` browse popup, which only made sense when that
@@ -131,6 +137,7 @@ import { listProgress } from '@/lib/shoppingGroups';
 import { formatKr } from '@/lib/money';
 import { categoryPresets } from '@/lib/shoppingCategories';
 import Surface from '@/components/Surface';
+import { CardAccentBadge } from '@/components/CardAccent';
 import IconButton from '@/components/IconButton';
 import ExpandableCard from '@/components/ExpandableCard';
 import Collapsible from '@/components/Collapsible';
@@ -374,6 +381,10 @@ export default function WeekListCard({
               preview (not the auto date-range text); tapping swaps it for an autoFocused
               TextInput. A custom-named list previews its real name, still tappable to rename. */}
           <View style={styles.nameWrap}>
+            {/* Shop-domain gradient badge (2026-07-26, "bring the card colour back") — leads the
+                header so the card carries the same identity-colour badge Home's preview cards
+                do, without disturbing the lock/name/repeat row it sits in front of. */}
+            <CardAccentBadge domain="shop" size={22} style={styles.domainBadge} />
             {/* Lock sits beside the name (2026-07-23 declutter pass) — it describes this
                 list's edit state, so it reads naturally next to the title instead of
                 competing with Save/Discard/kebab/expand in the action row. */}
@@ -713,6 +724,8 @@ const baseStyles = StyleSheet.create({
   header: { gap: Spacing.xs },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
   nameWrap: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flex: 1 },
+  // Fixed-size leading badge (2026-07-26) — never let the name/lock/repeat row squeeze it.
+  domainBadge: { flexShrink: 0 },
   repeatIcon: {},
   nameInput: {
     fontFamily: Type.heading.fontFamily,
