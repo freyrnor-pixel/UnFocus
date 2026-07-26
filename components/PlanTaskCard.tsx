@@ -1,51 +1,45 @@
 /**
- * PlanTaskCard.tsx — the day-view: a proportional time rail of one day's tasks.
+ * PlanTaskCard.tsx — the day-view: a fixed-hour calendar grid of one day's tasks.
  *
  * This is the single shared "time now + rest of day" surface (Decisions 009 / 009a /
  * 009b). The full /plans screen renders it interactively; the Home preview renders the
  * SAME component with `readOnly` (Decision 009a — "the preview IS the day-view,
  * rendered read-only"). There is intentionally no Home-specific variant.
  *
- * Layout is the proportional rail (day-view "Option C"): the connector between two
- * consecutive timed tasks is proportional to the real time between them (clamped to a
- * legible min/max), so a glance conveys how the day is paced. Collapsed shows the
- * current/in-progress task + next + 2 after (4 rows); done tasks live in a dimmed,
- * collapsed "Done today" zone; a proportional tail (10% of the visible span, 009b) sits
- * below/after the last unfinished task so it isn't jammed against the rail's end.
+ * **Fixed-hour grid (2026-07-26 rebuild)**: the vertical (default) rail now positions
+ * every timed task by real clock time on a fixed pixel-per-minute scale (`lib/dayGrid.ts`
+ * + `components/DayGridLines.tsx`) — an hour is always the same height, wherever it falls
+ * in the day, with full-width hour lines and a live "now" line, the way Google Calendar's
+ * day view works. This replaced an earlier "proportional" rail (connector size between
+ * two tasks ∝ the real gap, clamped to a legible min/max) that went through two more
+ * calendar-styling passes (borders/lines-only, then hour-label repositioning) before user
+ * feedback made clear the fix was the underlying model, not more decoration on top of it.
+ * The grid's resting height shows ~4 hours (`COLLAPSED_GRID_HEIGHT`), auto-scrolled to the
+ * current hour, with an internal scroll for the rest; the expand toggle grows the viewport
+ * to the full 24h grid (`GRID_TOTAL_HEIGHT`) instead of an internal scroll, so "show the
+ * whole day" is literal. Untimed ("Anytime") tasks have no clock position, so they stay a
+ * plain flat list above the grid, capped at `COLLAPSED_COUNT` and expanded by the same
+ * toggle. The "Done today" zone is unchanged — a separate dimmed, collapsed flat list
+ * below the grid (Decision 009a); done tasks don't render on the grid itself.
  *
  * Two rail orientations (toggle: settings.accessibility "Horizontal plans timeline"):
- * `horizontal=false` (default) is a top-to-bottom rail — a left-hand line of rounded
- * time-start boxes, task content in the middle, and a column of checkmark-circle
- * toggles on the right, all vertically aligned. `horizontal=true` rotates the same
- * data into a left-to-right rail (horizontally scrollable) — time boxes connected by a
- * horizontal line on top, task titles below them, and checkmark-circles in a row
- * underneath, all horizontally aligned. Both share every computation (collapse window,
- * proportional gaps, now/gap markers, follower surfacing) — only `renderRow` vs
- * `renderColumn` (and the gap/now marker JSX) differ.
- *
- * **Rail geometry (Decision 042a)**: each task row/column *owns* its own rail segment —
- * the marker (time box / anytime dot) sits between two `railLine` segments (top+bottom
- * in the vertical rail) that are `flex:1`, so they stretch to fill exactly this row's
- * real content height and the marker lands dead-center by flexbox construction, not
- * measurement. The proportional time-gap between two rows is a separate `renderSpacer`
- * element inserted between them (own fixed/min height = the clamped `PX_PER_MIN` gap) —
- * it never has to be squeezed inside a row of variable height. The now-marker and
- * "Nothing until HH:MM" gap marker render as that spacer's content. This replaced an
- * earlier version where the connector was drawn *inside* the preceding row, sized from
- * the time gap alone with no reconciliation against that row's actual (variable) height
- * — the mismatch pushed dots/lines out of alignment on tall rows (long titles, hints,
- * follower badges).
+ * `horizontal=false` (default) is the fixed-hour grid described above. `horizontal=true`
+ * is untouched by the 2026-07-26 rebuild — it keeps the older left-to-right proportional
+ * rail (time boxes connected by a horizontal line, clamped gap sizing) since a horizontal
+ * fixed-hour axis wasn't part of what was asked for and the accessibility setting is a
+ * secondary, opt-in mode. `renderColumn`/`renderHSpacer`/`hNowMarker`/`hGapMarker` and the
+ * `PX_PER_MIN`/`MIN_GAP`/`MAX_GAP`/`railTailMinutes` tuning are horizontal-only now.
  *
  * Connections:
  *   Imports → components/Surface, components/PressableScale, components/ProgressBar,
- *             components/DayHourScale (empty-state hour ruler), components/AddRow (inline "add a task" quick-create,
- *             gated on the optional onAddTask callback — Home preview passes it) +
- *             components/TimeBoxInput (quick-add's inline time field),
- *             components/Collapsible + components/AnimatedChevron
+ *             components/DayHourScale (empty-state grid), components/DayGridLines (populated
+ *             grid's hour lines + now-line), lib/dayGrid (shared grid geometry),
+ *             components/AddRow (inline "add a task" quick-create, gated on the optional
+ *             onAddTask callback — Home preview passes it) + components/TimeBoxInput
+ *             (quick-add's inline time field), components/Collapsible + components/AnimatedChevron
  *             (done-zone reveal + chevron), react-native-reanimated (FadeInDown/FadeOutDown/
- *             LinearTransition for rail rows revealed by the Show more/less toggle — rail,
- *             done-zone, and footer all share one `containerLayout` LinearTransition so the
- *             whole card reflows together instead of siblings snapping ahead of the rows),
+ *             LinearTransition for the anytime list + done-zone + footer, which share one
+ *             `containerLayout` LinearTransition so the whole card reflows together),
  *             constants/theme, constants/motion, lib/haptics, lib/i18n,
  *             lib/useAppTheme (incl. useAccessibility), lib/domainColor, components/CardAccent
  *             (badge+wash gradient move, read-only Home header), components/GlowPulse
@@ -56,39 +50,36 @@
  *             (Tasks/Oppgaver) screen no longer renders this day-view — it was rebuilt into
  *             a tabbed inline-list (2026-07-08); Home is now the sole caller.
  *   Data    → pure presentational; reads no stores. Tasks + callbacks + orientation are
- *             passed in. Live "now" marker re-renders on a 60s interval (useNowMinutes).
+ *             passed in. Live "now" line re-renders on a 60s interval (useNowMinutes).
  *
  * Edit notes:
- *   - **Collapsed sizing + slimmer rows (2026-07-13, padding restored 2026-07-15)**:
- *     `cardCollapsed` (minHeight: `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) is a
- *     compact shared *resting* floor applied only while `!expanded`, so this card reads the
- *     same size as HomeNotesCard/HomeShoppingCard on a light day — it's a floor, not a cap, so
- *     an expanded task's steps or a widely time-spaced day still grows taller. Rail tuning
- *     (`PX_PER_MIN`/`MIN_GAP`/`MAX_GAP`) stays trimmed for a slimmer rail; this is Home-only
- *     now (see below), so retuning these constants has no other caller to break. `rowCard`
- *     vertical padding and `title`'s font size were bumped back up on 2026-07-15 (user
- *     feedback: text/spacing read as too tight) — the slimness now comes from the rail-gap
- *     tuning alone, not from cramped row content.
- *   - **Empty state (2026-07-24, text removed; 2026-07-25, blank row → hour ruler)**: an empty
- *     day (`showEmpty`) renders `DayHourScale` (a slim hour-of-day line + 4 labels + live "now"
- *     dot) instead of the shared `HomePreviewEmpty` blank row other Home preview cards use — a
- *     day-view with zero tasks still needs to read as a timeline, not an empty box (user report).
- *     No message text, per the 2026-07-24 decision below — the ruler itself is the content now.
- *     A dashed "add a plan" ghost row that deep-links to /plans shows only as a
- *     FALLBACK when no inline add is wired (`readOnly && !onAddTask`); when `onAddTask` IS
- *     passed the trailing AddRow (below) does inline creation instead, so the deep-link ghost
- *     is suppressed to avoid two add affordances. The distinct "all done" state keeps its own
- *     `t.dayViewAllDone` line — it's a reward, not an empty card.
+ *   - **Collapse/expand toggle fixed (2026-07-26, user report: "lacks capability to expand and
+ *     show the whole day")**: `isVisible`/`showToggle` used to short-circuit on `readOnly` —
+ *     every pending task was ALWAYS visible (readOnly is always true, Home being the sole
+ *     caller) and the "Show more" footer button NEVER rendered. Both now ignore `readOnly`.
+ *     Superseded in spirit by the grid rebuild right after it (expand now grows the grid's
+ *     viewport to the full day rather than revealing more rows of a flow-list), but the
+ *     underlying bug — a toggle that could never appear — was real and is fixed either way.
+ *   - **Collapsed sizing (2026-07-13, padding restored 2026-07-15)**: `cardCollapsed`
+ *     (minHeight: `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) is a compact shared
+ *     *resting* floor applied only while `!expanded`, so this card reads the same size as
+ *     HomeNotesCard/HomeShoppingCard on a light day — it's a floor, not a cap; the grid's own
+ *     `COLLAPSED_GRID_HEIGHT` (lib/dayGrid.ts) does the real height budgeting for the timed
+ *     portion now.
+ *   - **Empty state (2026-07-24, text removed; 2026-07-25, blank row → hour ruler; 2026-07-26,
+ *     ruler → real grid)**: an empty day (`showEmpty`) renders `DayHourScale` — the same fixed-
+ *     hour grid as a populated day, just with nothing on it, inside the same collapsed-height
+ *     auto-scrolled viewport — instead of the shared `HomePreviewEmpty` blank row other Home
+ *     preview cards use. A dashed "add a plan" ghost row that deep-links to /plans shows only
+ *     as a FALLBACK when no inline add is wired (`readOnly && !onAddTask`); when `onAddTask` IS
+ *     passed the trailing AddRow (below) does inline creation instead. The distinct "all done"
+ *     state keeps its own `t.dayViewAllDone` line — it's a reward, not an empty card.
  *   - **Decision 014 (revised 2026-07-14)**: the card face is a `<Surface>` with a
  *     domain-colored border (`borderColor={getDomainColor(theme,'plan').accent}`) on a plain
  *     `theme.surface` fill, so the section reads as belonging to Plans without washing the
  *     whole card in a tint (2026-07-13's whole-card blend read as muddy — see domainColor.ts).
  *     Still don't set Surface's fill/sheen directly — pass `borderColor`/`tint` and let the
  *     material compute the finish (Surface owns border/sheen/blur since Decision 008).
- *   - **Decision 009b tail**: `railTailMinutes()` = 10% of the visible span (axis-start →
- *     last unfinished task's end), floored at 15 min so a near-empty day still gets a
- *     visible tail. Start from pure 10%; the floor is the 009b-sanctioned execution guard
- *     since on-device measurement isn't available in this environment.
  *   - **Decision 020 follower surfacing (surfacing-only, NOT notifying)**: when a
  *     predecessor is done, its pending follower is highlighted AND — per Session 1's
  *     resolution of open sub-question (b), "pull the follower into today's view" (which
@@ -97,15 +88,13 @@
  *     followers can be found; without it, only same-list followers surface.
  *   - **Decision 019 hint**: a task's `hint` renders under its title (display-only) while
  *     the task is "up" (current or next), so the reminder shows exactly when it's useful.
- *     Vertical rail only — the horizontal rail's columns are too narrow for it.
- *   - `readOnly` (Home preview) disables row tap-through only — structure, rail,
+ *   - `readOnly` (Home preview) disables row tap-through only — structure, grid,
  *     collapse/expand, and done zone are identical (Decision 009a). The done-toggle is
  *     independently gated on whether `onToggleTask` is passed (not on `readOnly`), so the
  *     Home preview's checkbox stays interactive while row tap-through into the editor
- *     stays disabled. Pass `onSeeMore` to show a "See everything →" link routing to the
- *     full screen. `onAddTask` follows the same "gate on callback, not readOnly" rule — pass
- *     it to render the trailing inline AddRow so a task can be created from the read-only Home
- *     preview without navigating to /plans (2026-07-24).
+ *     stays disabled. `onAddTask` follows the same "gate on callback, not readOnly" rule —
+ *     pass it to render the trailing inline AddRow so a task can be created from the
+ *     read-only Home preview without navigating to /plans (2026-07-24).
  *   - **Quick-add essential settings (2026-07-24)**: the trailing AddRow's `extras` carry three
  *     compact inline controls beyond the title — a `TimeBoxInput` (start time, optional), a
  *     repeat chip that cycles none→daily→weekly→monthly (defaults `recurringDays` to today's
@@ -114,61 +103,53 @@
  *     off→+1→−1→off. All three reset to their defaults after each commit. `onAddTask`'s second
  *     argument carries whichever of these the user touched; the caller (Home) owns turning that
  *     into a full `TaskInput` the same way it already does for the title-only case.
- *   - Anytime (untimed) tasks have no rail position; they render as plain dotted rows
- *     above the timed rail (same as DayTimeline). Only timed→timed gaps are proportional.
- *     **Anytime badge (2026-07-15)**: the dashed `anytimeDot` rail marker on its own read as
- *     an unexplained blank circle (user report), so untimed rows also carry a small "Anytime"
- *     text pill in `titleRow` (vertical `renderRow` only — horizontal columns are too narrow,
- *     same reasoning as the hint row above). The dot itself stays — it's still the rail's
- *     required centered marker (Decision 042a) — this only adds a label alongside it.
+ *   - **Anytime badge (2026-07-15)**: untimed rows carry a small "Anytime" text pill in
+ *     `titleRow` — they have no clock position (no grid row/dot to mark them anymore since
+ *     the 2026-07-26 rebuild dropped the old dashed rail marker along with the flow-list
+ *     rail), so the pill is now the only "this is untimed" cue.
  *   - **Completion feedback (2026-07-11, visual-audit)**: no card-level glow/bloom on
  *     completion — user feedback called the whole-card colour flash "too much"; the
  *     checkbox fill + strikethrough (plus the success() haptic in handleToggle) IS the
  *     feedback. The habit-card glow (app/(tabs)/health.tsx) is untouched — this was
  *     Home/Plans-specific.
- *   - **Purposeful glow (2026-07-18, breathing 2026-07-22)**: the "happening now" row's
- *     `rowCard` (vertical rail only, `renderRow`) gets a breathing `GlowPulse` halo
- *     (mode="breathe", domainColor.accent) alongside its accent tint fill — `isHappeningNow`
- *     is true for at most one entry at a time, so only a single row ever breathes.
- *     `renderColumn` (horizontal rail) is left as-is.
- *   - `styles.dot` is now the checkmark-circle toggle ONLY (moved to the row's own fixed-
- *     width `doneCol`/`hDoneRow`, right of / below the content, so it lines up across every
- *     row regardless of title length). `styles.timeBox` is the rail's position marker —
- *     a rounded box holding the task's start time — replacing the old plain dot; it keeps
- *     the "happening now" / follower-surfaced highlight that the dot used to carry. Done
- *     zone rows (the collapsed history list) always use the vertical `renderRow`, even in
- *     horizontal mode — it's a secondary dropdown, not the primary glance surface.
+ *   - **"Selects" the happening-now task (2026-07-26, user report)**: the grid card whose
+ *     [start,end) contains `now` gets a stronger tint, a thicker border, and a slight
+ *     `transform: scale` bump on top of the existing breathing `GlowPulse` halo — so the one
+ *     task the live now-line touches reads as clearly larger/selected, not just differently
+ *     tinted. This is unconditional now (no longer suppresses a separate "now" indicator —
+ *     the grid's own now-line, drawn by `DayGridLines`, always shows regardless of whether a
+ *     task is happening, exactly like Google Calendar's red line does).
+ *   - `styles.dot` is the checkmark-circle toggle — a small `PressableScale` rendered as a
+ *     sibling (never nested inside) the tappable content, positioned as a trailing column in
+ *     flat rows (anytime list, done zone) or pinned to a grid card's top-right corner.
  *   - **Touch target (2026-07-11)**: the done-toggle `dot` is visually 16x16 but
  *     `hitSlop={16}` brings the tappable area to ~48dp, meeting Android's minimum
  *     touch-target size.
  *   - **Purposeful Depth System (2026-07-14)**: passes Surface's `elevated` when
  *     `expanded` — the card the user has actively opened to see the full day becomes
- *     the deepest surface (focus-pop). Per-row cards (`styles.rowCard`) aren't Surface
- *     instances here, so the surfaced-follower/"happening now" highlight stays a
- *     border/fill cue (unchanged) rather than a per-row elevation bump.
- *   - **Collapse feel (2026-07-15)**: rows exit with `FadeOutDown` (not a plain in-place
- *     `FadeOut`) — this app's motion goal for a neurodivergent audience is that things read
- *     as *retreating to somewhere*, never blinking out of existence. A directional exit also
- *     fixes a real bug: with a static fade, the "Done today" zone's `containerLayout` snap
- *     into its new (shorter) position visually overlapped the still-fading row above it
- *     ("covers half the task" — user report); sliding the exiting row down and out of the
- *     way removes that overlap instead of just papering over it with a longer fade. Rail,
- *     done-zone, and footer all sharing `containerLayout` (see Connections) is what makes the
- *     whole card reflow as one card rather than several pieces animating on their own clocks.
- *   - **Done-zone frame + calmer toggle (2026-07-16)**: `styles.doneZone` now carries a real
- *     border + `theme.surfaceMuted` background (was a transparent top border only) so the
- *     "Done today" header and its collapsed rows read as one card — a step subtler than the
- *     outer `Surface` so it doesn't stack two heavy card looks. Its (and the footer show-more
- *     toggle's) `PressableScale` now passes `releaseSpring={Spring.calm}` (constants/motion) —
- *     a near-critically-damped spring instead of the default bouncy release, since these are
- *     repeatedly-tapped toggles, not one-off button presses.
- *   - **Badge pinned + now-time moved left (2026-07-24)**: the header's `CardAccentBadge` is now
- *     absolutely positioned (`badgeFixed`) instead of inline in the title row, so it can't drift
- *     toward the wash/surface seam when a sibling (scaled-up title text, the pending-count pill)
- *     grows the row taller. The live "now" time chip moved from a right-floated header corner to
- *     its own left-aligned line under the title (same left edge the rail's own time boxes use).
- *     See the JSX comment at the header block for the full reasoning; same pattern was applied to
- *     HomeNotesCard/HomeShoppingCard's badges for consistency.
+ *     the deepest surface (focus-pop).
+ *   - **Collapse feel (2026-07-15)**: the anytime list's rows exit with `FadeOutDown` (not a
+ *     plain in-place `FadeOut`) — this app's motion goal for a neurodivergent audience is that
+ *     things read as *retreating to somewhere*, never blinking out of existence. The anytime
+ *     list, done-zone, and footer all share `containerLayout` (see Connections) so the whole
+ *     card reflows as one card rather than several pieces animating on their own clocks. Grid
+ *     cards (absolute-positioned by time) don't participate in this — their position is a
+ *     direct function of `now`/task time, not list order, so there's no "reflow" for them to
+ *     animate.
+ *   - **Done-zone frame + calmer toggle (2026-07-16)**: `styles.doneZone` carries a real
+ *     border + `theme.surfaceMuted` background so the "Done today" header and its collapsed
+ *     rows read as one card — a step subtler than the outer `Surface` so it doesn't stack two
+ *     heavy card looks. Its (and the footer show-more toggle's) `PressableScale` passes
+ *     `releaseSpring={Spring.calm}` (constants/motion) — a near-critically-damped spring
+ *     instead of the default bouncy release, since these are repeatedly-tapped toggles.
+ *   - **Badge pinned + header tightened (2026-07-24, tightened 2026-07-26)**: the header's
+ *     `CardAccentBadge` is absolutely positioned (`badgeFixed`) instead of inline in the title
+ *     row, so it can't drift toward the wash/surface seam when a sibling grows the row taller.
+ *     `headerTopRow`'s paddingLeft is 52 (badge 32 + a 4px gap) so the title sits close to the
+ *     badge (user report: "more closely linked with the badge"), and `badgeFixed`/`cardContent`
+ *     both carry a matching +4 top/paddingTop bump ("move it a bit down"). The header's old
+ *     live-clock chip is gone — the grid's own now-line (via `DayGridLines`) is the live clock
+ *     now, since this component IS the calendar.
  *   - **Badge/wash moved outside cardContent's padding (2026-07-24, follow-up — user report,
  *     screenshot)**: `badgeFixed`'s `top`/`left` used to be plain `0`, with `cardContent`'s own
  *     padding relied on to inset it — except React Native's real (native) behavior is that an
@@ -177,37 +158,10 @@
  *     cancel that same inheritance) — while react-native-web (this repo's headless preview
  *     tooling) does NOT reproduce that inheritance, since it compiles straight to CSS, where the
  *     absolute containing block is the padding *edge*, not the content box. Testing changes here
- *     against the web preview alone is actively misleading for this exact interaction. Setting
- *     `top: Spacing.md, left: Spacing.md` on top of `cardContent`'s own padding "fixed" it on web
- *     but doubled the inset on native (compounded: 16 inherited + 16 explicit = 32), which read as
- *     the badge floating away from the corner instead of framing it. Fix: `CardAccentWash` and
- *     `CardAccentBadge` now mount as siblings of `cardContent` (not children of it), directly
- *     inside `Surface` (still gated on `readOnly`, same as before) — `Surface` itself adds no
- *     padding of its own (see Surface.tsx: padding keys in the `style` prop route to its inner
- *     content view, and `card`'s style here carries none) — so their `top`/`left` offsets are
- *     unambiguous on both platforms; no padding-inheritance question to get wrong. `cardContent`
- *     keeps its own padding for its own (flow) children unchanged.
- *   - **Header tightened + now-time moved into the rail (2026-07-26, user report)**: the title
- *     sat too far from `CardAccentBadge` and too high — `headerTopRow`'s paddingLeft went
- *     56 → 52 (badge 32 + a 4px gap, was 8px) and `badgeFixed`/`cardContent` both got a matching
- *     +4 top/paddingTop bump so the whole badge+title unit sits a touch lower. The header's
- *     `nowChip` (a static "HH:MM" line under the title since 2026-07-24) is gone entirely — the
- *     live clock now renders as `topNowStrip`, the first thing inside the rail itself (reusing
- *     `lineCol`'s width so its dot sits on the exact left edge every timeBox uses), because this
- *     component IS the calendar and the current time belongs inside it, not floating in the
- *     header. Same header tightening applied to HomeNotesCard/HomeShoppingCard's title rows.
- *   - **Calendar-style lines and borders (2026-07-26, user report: "make the timeline look more
- *     like a regular calendar")**: `lineCol` grew a `borderRightWidth` (color set inline per
- *     usage, since a static StyleSheet has no theme) — each row/spacer only owns its own segment
- *     (Decision 042a), but stacked down the rail they read as one continuous hairline gutter
- *     divider between the time column and the day's events, the way a calendar day-view
- *     separates its hour gutter from content. `rowCard` grew a `borderWidth` too (color = the
- *     domain accent at low opacity, stronger for the happening-now row) so each task reads as a
- *     bordered event block rather than just a tinted wash. True per-hour gridlines were
- *     considered and rejected — the rail's gap sizing is intentionally proportional-with-clamps
- *     (Decision 009b), not a fixed pixels-per-minute scale, so literal hour ticks would misrepresent
- *     time; DayHourScale (the empty-day ruler) already carries its own tick marks for that look
- *     without that problem, since it spans a fixed hour window.
+ *     against the web preview alone is actively misleading for this exact interaction. Fix:
+ *     `CardAccentWash` and `CardAccentBadge` mount as siblings of `cardContent` (not children of
+ *     it), directly inside `Surface` (still gated on `readOnly`) — `Surface` itself adds no
+ *     padding of its own — so their `top`/`left` offsets are unambiguous on both platforms.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -218,6 +172,7 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import DayHourScale from '@/components/DayHourScale';
+import DayGridLines from '@/components/DayGridLines';
 import AddRow from '@/components/AddRow';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
@@ -232,6 +187,7 @@ import { getDomainColor } from '@/lib/domainColor';
 import { dayOfWeekMon0 } from '@/lib/date';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 import GlowPulse from '@/components/GlowPulse';
+import { COLLAPSED_GRID_HEIGHT, GRID_TOTAL_HEIGHT, GUTTER_WIDTH, minutesToY } from '@/lib/dayGrid';
 
 type Props = {
   /** Tasks scheduled for the viewed date (already filtered by the caller). */
@@ -257,22 +213,24 @@ type Props = {
   onSeeMore?: () => void;
   /** Test/preview override for the live clock (minutes since midnight). */
   now?: number;
-  /** Rail orientation — settings.planTimelineHorizontal. Default false (vertical rail). */
+  /** Rail orientation — settings.planTimelineHorizontal. Default false (fixed-hour grid). */
   horizontal?: boolean;
 };
 
-// Proportional rail tuning. Connector size between two timed tasks = the real gap in
-// minutes × PX_PER_MIN, clamped legible. Keeps distance ∝ time without letting a long
-// empty afternoon push the whole card off-screen. Shared by both orientations (height
-// in the vertical rail, width in the horizontal one).
+// Horizontal-only proportional rail tuning (2026-07-26: the vertical/default rail moved to
+// the fixed-hour grid, lib/dayGrid.ts — these only tune the opt-in horizontal accessibility
+// mode now). Connector size between two timed tasks = the real gap in minutes × PX_PER_MIN,
+// clamped legible.
 const PX_PER_MIN = 0.45;
 const MIN_GAP = 10;
 const MAX_GAP = 56;
 const DEFAULT_BOX_MIN = 30; // start-at tasks get a nominal span so "happening now" works
 
-// Vertical rail column widths.
-const LINE_COL_WIDTH = 56;
 const DONE_COL_WIDTH = 40;
+// Grid task-card floor (lib/dayGrid.ts's HOUR_HEIGHT=52 means a 30min default span is only
+// ~26px — too short for a title + padding to sit comfortably) so short/undurationed tasks
+// stay legible and tappable.
+const MIN_TASK_HEIGHT = 40;
 
 // Horizontal rail column sizing.
 const H_COLUMN_WIDTH = 92;
@@ -293,17 +251,13 @@ function minutesToLabel(mins: number): string {
 
 type TimedEntry = { task: Task; start: number; end: number };
 
-// Decision 042(a) — shared opts for both renderRow (vertical) and renderColumn
-// (horizontal); hasTopLine/hasBottomLine are vertical-only (ignored by renderColumn,
-// which has no rail-line-through-the-row concept since its rail rows are fixed height).
 type RailItemOpts = {
   timed?: TimedEntry;
   isHappeningNow?: boolean;
   isPast?: boolean;
-  hasTopLine?: boolean;
-  hasBottomLine?: boolean;
-  /** vertical rail rows fade/slide in + reflow when the "Show more/less" toggle mounts/unmounts
-   *  them; done-zone rows omit this (their reveal is owned by the Collapsible wrapper). */
+  /** Flat rows (anytime list, done zone) fade/slide in + reflow when the "Show more/less"
+   *  toggle mounts/unmounts them; done-zone rows omit this (their reveal is owned by the
+   *  Collapsible wrapper). */
   animateIn?: boolean;
 };
 
@@ -317,12 +271,12 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
-/** Decision 009b — proportional tail = 10% of the visible span, floored at 15 min. */
+/** Horizontal-only (Decision 009b) — proportional tail = 10% of the visible span, floored at 15 min. */
 function railTailMinutes(spanMinutes: number): number {
   return Math.max(spanMinutes * 0.1, 15);
 }
 
-/** Re-renders every 60s so the "now" marker drifts along the rail live. */
+/** Re-renders every 60s so the "now" line drifts along the grid live. */
 function useNowMinutes(): number {
   const [now, setNow] = useState(() => {
     const d = new Date();
@@ -338,7 +292,7 @@ function useNowMinutes(): number {
   return now;
 }
 
-const COLLAPSED_COUNT = 5; // current + next + 3 after (Decision 009a)
+const COLLAPSED_COUNT = 5; // anytime-list cap, and (horizontal-only) current+next+3 after
 
 export default function PlanTaskCard({
   tasks,
@@ -374,6 +328,8 @@ export default function PlanTaskCard({
   const [addRecurring, setAddRecurring] = useState<Recurring>('none');
   const [addRecurringDays, setAddRecurringDays] = useState<number[]>([]);
   const [addEnergyValue, setAddEnergyValue] = useState(0);
+
+  const gridScrollRef = useRef<ScrollView>(null);
 
   function cycleRecurring() {
     tap();
@@ -447,32 +403,57 @@ export default function PlanTaskCard({
 
   const pendingCount = anytimePending.length + timedPending.length;
 
+  // Auto-scrolls the grid's collapsed viewport to the current hour — on mount, whenever the
+  // card collapses back down, and whenever the grid's own task count changes (e.g. a task is
+  // added/removed, which is also when the ScrollView node underneath `gridScrollRef` first
+  // mounts, since the grid isn't rendered at all until `timedPending.length > 0`). Deliberately
+  // NOT re-run on every `now` tick (every 60s) alone — that would yank a manual scroll away
+  // from wherever the user was looking.
+  useEffect(() => {
+    if (expanded) return;
+    const y = Math.max(0, minutesToY(now) - COLLAPSED_GRID_HEIGHT / 3);
+    gridScrollRef.current?.scrollTo({ y, animated: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, timedPending.length]);
+
   // Current = the timed task happening right now; otherwise the next one leads.
   const currentTimedIndex = timedPending.findIndex((e) => now >= e.start && now < e.end);
   const nextTimedIndex = currentTimedIndex >= 0 ? currentTimedIndex : timedPending.findIndex((e) => e.start > now);
 
-  // Visible-span for the proportional tail: axis-start (first timed start) → last
-  // unfinished end. Anytime tasks don't participate in the span.
+  // Horizontal-only (Decision 009b tail): visible-span for the proportional tail —
+  // axis-start (first timed start) → last unfinished end.
   const spanMinutes = timedPending.length > 0
     ? Math.max(1, timedPending[timedPending.length - 1].end - timedPending[0].start)
     : 0;
   const tailPx = timedPending.length > 0 ? clamp(railTailMinutes(spanMinutes) * PX_PER_MIN, 10, MAX_GAP) : 0;
 
-  // Collapse window: the current/in-progress task always leads, then next + 2 after
-  // (Decision 009a). Overdue-but-pending timed tasks before "current" collapse away.
+  // Horizontal-only collapse window: the current/in-progress task always leads, then next + 2
+  // after (Decision 009a). The vertical grid always renders every timed task (its viewport
+  // height/scroll, not task filtering, is what "collapsed" means there — see showToggle).
   const timedStart = nextTimedIndex >= 0 ? nextTimedIndex : 0;
-  const collapsedVisible = useMemo(() => {
+  const collapsedVisibleH = useMemo(() => {
     const ids = [
       ...anytimePending.map((task) => task.id),
       ...timedPending.slice(timedStart).map((e) => e.task.id),
     ].slice(0, COLLAPSED_COUNT);
     return new Set(ids);
   }, [anytimePending, timedPending, timedStart]);
-  const showToggle = pendingCount > collapsedVisible.size && !readOnly;
 
-  function isVisible(id: string): boolean {
-    return expanded || readOnly || collapsedVisible.has(id);
+  function isVisibleH(id: string): boolean {
+    return expanded || collapsedVisibleH.has(id);
   }
+
+  // Vertical: the anytime list caps independently of the grid (which always shows every
+  // timed task) — same "current + next + a few more" spirit, just not mixed with timed IDs.
+  const visibleAnytime = horizontal
+    ? anytimePending.filter((task) => isVisibleH(task.id))
+    : expanded
+      ? anytimePending
+      : anytimePending.slice(0, COLLAPSED_COUNT);
+
+  const showToggle = horizontal
+    ? pendingCount > collapsedVisibleH.size
+    : timedPending.length > 0 || anytimePending.length > COLLAPSED_COUNT;
 
   // The single task considered "up" (current or next) — the one whose hint is worth
   // showing right now (Decision 019).
@@ -518,6 +499,7 @@ export default function PlanTaskCard({
     );
   }
 
+  // Horizontal-only — the vertical grid draws its own time boxes as part of each grid card.
   function timeMarker(task: Task, timed: TimedEntry | undefined, dimmed: boolean, isHappeningNow: boolean | undefined, surfaced: boolean) {
     if (!timed) return <View style={[styles.anytimeDot, { borderColor: theme.border }]} />;
     return (
@@ -540,82 +522,121 @@ export default function PlanTaskCard({
     );
   }
 
-  function renderRow(task: Task, opts: RailItemOpts) {
-    const { timed, isHappeningNow, isPast, hasTopLine, hasBottomLine, animateIn } = opts;
+  /** The shared title-row + hint content, used by both flat rows (anytime/done) and grid
+   *  cards — only the outer wrapper (flow row vs. absolute-positioned card) differs. */
+  function taskCardContent(task: Task, opts: { timed?: TimedEntry; dimmed: boolean; showHint: boolean; surfaced: boolean; showAnytimeBadge: boolean }) {
+    const { timed, dimmed, showHint, surfaced, showAnytimeBadge } = opts;
+    return (
+      <>
+        <View style={styles.titleRow}>
+          {timed && (
+            <Text style={[styles.flatTimeText, { color: theme.textMuted }]}>{task.time}</Text>
+          )}
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.title,
+              { color: dimmed ? theme.textMuted : theme.text },
+              task.done && { textDecorationLine: 'line-through' },
+            ]}
+          >
+            {task.title}
+          </Text>
+          {timed && task.taskType === 'time-box' && (
+            <Text style={[styles.durationText, { color: theme.textMuted }]}>–{minutesToLabel(timed.end)}</Text>
+          )}
+          {showAnytimeBadge ? (
+            <View style={[styles.followerBadge, { backgroundColor: theme.surfaceMuted, borderColor: theme.border, borderWidth: 1 }]}>
+              <Text style={[styles.followerBadgeText, { color: theme.textMuted }]}>{t.dayViewAnytimeBadge}</Text>
+            </View>
+          ) : null}
+          {surfaced && !task.done ? (
+            <View style={[styles.followerBadge, { backgroundColor: domainColor.soft }]}>
+              <Text style={[styles.followerBadgeText, { color: domainColor.accent }]}>{t.dayViewFollowerBadge}</Text>
+            </View>
+          ) : null}
+        </View>
+        {showHint ? (
+          <View style={styles.hintRow}>
+            <Ionicons name="bulb-outline" size={12} color={theme.textMuted} />
+            <Text style={[styles.hintText, { color: theme.textMuted }]} numberOfLines={2}>
+              {task.hint}
+            </Text>
+          </View>
+        ) : null}
+      </>
+    );
+  }
+
+  /** Flat (non-grid) row — the anytime list and the "Done today" zone, both orientations.
+   *  No rail/gutter marker any more (2026-07-26 rebuild dropped it with the old flow rail) —
+   *  an inline time reading (if timed) plus the "Anytime" pill are the only position cues. */
+  function renderFlatRow(task: Task, opts: RailItemOpts) {
+    const { timed, isPast, animateIn } = opts;
     const dimmed = !!(task.done || isPast);
     const surfaced = surfacedIds.has(task.id);
     const isUp = task.id === upNextId;
     const showHint = isUp && !!task.hint && !task.done;
-    // Rows the "Show more/less" toggle adds/removes glide in/out and reflow (ShoppingRow §
-    // house pattern); reducedMotion, done-zone rows (animateIn omitted), and the first mount
-    // (hasMounted false) stay static so the collapsed set doesn't fade in on every mount.
     const anim = animateIn && !reducedMotion && hasMounted.current;
 
     return (
       <Animated.View
         key={task.id}
-        style={styles.row}
+        style={styles.flatRow}
         entering={anim ? FadeInDown.duration(Duration.listIn).easing(Ease.enter) : undefined}
         exiting={anim ? FadeOutDown.duration(Duration.cardOut).easing(Ease.exit) : undefined}
         layout={anim ? LinearTransition.duration(Duration.listMove).easing(Ease.move) : undefined}
       >
-        <View style={[styles.lineCol, { borderRightColor: theme.border }]}>
-          <View style={[styles.railLine, { backgroundColor: hasTopLine ? theme.border : 'transparent' }]} />
-          {timeMarker(task, timed, dimmed, isHappeningNow, surfaced)}
-          <View style={[styles.railLine, { backgroundColor: hasBottomLine ? theme.border : 'transparent' }]} />
-        </View>
-        <PressableScale style={styles.contentCol} onPress={() => handlePress(task)} disabled={readOnly || !onPressTask} scaleTo={0.97}>
+        <PressableScale style={styles.flatContent} onPress={() => handlePress(task)} disabled={readOnly || !onPressTask} scaleTo={0.97}>
           <View
             style={[
               styles.rowCard,
-              // Ordinary rows: a soft accent wash instead of drab grey (debug-note 2026-07-21)
-              // — still clearly set apart from plain-surface cards, but warmer. The
-              // happening-now row keeps the stronger tint + glow so hierarchy is preserved.
-              { backgroundColor: isHappeningNow ? rgba(theme.accent, 0.1) : rgba(theme.accent, 0.05) },
-              // A real border (2026-07-26, "make the timeline look more like a regular
-              // calendar") — each task now reads as a bordered event block, not just a tinted
-              // wash floating on the surface.
-              { borderColor: rgba(domainColor.accent, isHappeningNow ? 0.5 : 0.2) },
+              { backgroundColor: rgba(theme.accent, 0.05) },
+              { borderColor: rgba(domainColor.accent, 0.2) },
             ]}
           >
-            <GlowPulse active={!!isHappeningNow} color={domainColor.accent} mode="breathe" radius={Radius.sm} />
-            <View style={styles.titleRow}>
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.title,
-                  { color: dimmed ? theme.textMuted : theme.text },
-                  task.done && { textDecorationLine: 'line-through' },
-                ]}
-              >
-                {task.title}
-              </Text>
-              {timed && task.taskType === 'time-box' && (
-                <Text style={[styles.durationText, { color: theme.textMuted }]}>–{minutesToLabel(timed.end)}</Text>
-              )}
-              {!timed && !task.done ? (
-                <View style={[styles.followerBadge, { backgroundColor: theme.surfaceMuted, borderColor: theme.border, borderWidth: 1 }]}>
-                  <Text style={[styles.followerBadgeText, { color: theme.textMuted }]}>{t.dayViewAnytimeBadge}</Text>
-                </View>
-              ) : null}
-              {surfaced && !task.done ? (
-                <View style={[styles.followerBadge, { backgroundColor: domainColor.soft }]}>
-                  <Text style={[styles.followerBadgeText, { color: domainColor.accent }]}>{t.dayViewFollowerBadge}</Text>
-                </View>
-              ) : null}
-            </View>
-            {showHint ? (
-              <View style={styles.hintRow}>
-                <Ionicons name="bulb-outline" size={12} color={theme.textMuted} />
-                <Text style={[styles.hintText, { color: theme.textMuted }]} numberOfLines={2}>
-                  {task.hint}
-                </Text>
-              </View>
-            ) : null}
+            {taskCardContent(task, { timed, dimmed, showHint, surfaced, showAnytimeBadge: !timed && !task.done })}
           </View>
         </PressableScale>
-        <View style={styles.doneCol}>{doneToggle(task, isHappeningNow)}</View>
+        <View style={styles.doneCol}>{doneToggle(task, false)}</View>
       </Animated.View>
+    );
+  }
+
+  /** Grid card — a timed pending task, absolutely positioned on the fixed-hour grid by its
+   *  real start/end time (lib/dayGrid.ts). Vertical/default orientation only. */
+  function renderGridEntry(entry: TimedEntry) {
+    const { task, start, end } = entry;
+    const isHappeningNow = now >= start && now < end;
+    const isPast = !isHappeningNow && now >= end;
+    const surfaced = surfacedIds.has(task.id);
+    const isUp = task.id === upNextId;
+    const showHint = isUp && !!task.hint;
+    const top = minutesToY(start);
+    const height = Math.max(MIN_TASK_HEIGHT, minutesToY(end) - top);
+
+    return (
+      <View key={task.id} style={[styles.gridCardWrap, { top, height, left: GUTTER_WIDTH + Spacing.xs, right: Spacing.xs }]}>
+        <PressableScale style={styles.gridCardPressable} onPress={() => handlePress(task)} disabled={readOnly || !onPressTask} scaleTo={0.97}>
+          <View
+            style={[
+              styles.rowCard,
+              styles.gridCardInner,
+              // Ordinary cards: a soft accent wash instead of drab grey (debug-note 2026-07-21)
+              // — still clearly set apart from plain-surface cards, but warmer. The
+              // happening-now card keeps the stronger tint + glow so hierarchy is preserved.
+              { backgroundColor: isHappeningNow ? rgba(theme.accent, 0.1) : rgba(theme.accent, 0.05) },
+              { borderColor: rgba(domainColor.accent, isHappeningNow ? 0.5 : 0.2) },
+              // "Selects" the happening-now task (2026-07-26, user report) — see file header.
+              isHappeningNow && { borderWidth: 2, transform: [{ scale: 1.03 }] },
+            ]}
+          >
+            <GlowPulse active={isHappeningNow} color={domainColor.accent} mode="breathe" radius={Radius.sm} />
+            {taskCardContent(task, { dimmed: isPast, showHint, surfaced, showAnytimeBadge: false })}
+          </View>
+        </PressableScale>
+        <View style={styles.gridDoneToggle}>{doneToggle(task, isHappeningNow)}</View>
+      </View>
     );
   }
 
@@ -650,20 +671,6 @@ export default function PlanTaskCard({
     );
   }
 
-  /** Decision 042(a) — the connector between two rows/columns is its own dedicated
-   * spacer element (never embedded inside a row/column of variable content height),
-   * so its size never has to fight a neighbor's real content height. */
-  function renderSpacer(key: string, sizePx: number, content?: React.ReactNode) {
-    return (
-      <View key={key} style={[styles.spacerRow, { minHeight: sizePx }]}>
-        <View style={[styles.lineCol, { borderRightColor: theme.border }]}>
-          <View style={[styles.railLine, { backgroundColor: theme.border }]} />
-        </View>
-        {content ? <View style={styles.spacerContent}>{content}</View> : null}
-      </View>
-    );
-  }
-
   function renderHSpacer(key: string, sizePx: number, content?: React.ReactNode) {
     return (
       <View key={key} style={[styles.hConnectorWrap, { minWidth: sizePx }]}>
@@ -673,20 +680,6 @@ export default function PlanTaskCard({
     );
   }
 
-  const renderItem: (task: Task, opts: RailItemOpts) => React.ReactNode = horizontal ? renderColumn : renderRow;
-  const renderSpacerItem: (key: string, sizePx: number, content?: React.ReactNode) => React.ReactNode = horizontal
-    ? renderHSpacer
-    : renderSpacer;
-
-  const nowMarker = (
-    <View style={styles.nowRow}>
-      <View style={[styles.nowDot, { backgroundColor: theme.accent }]} />
-      <View style={[styles.nowLine, { backgroundColor: theme.accent }]} />
-      <Text style={[styles.nowLabel, { color: theme.accent }]}>
-        {t.timelineNow} · {minutesToLabel(now)}
-      </Text>
-    </View>
-  );
   const hNowMarker = (
     <View style={styles.hNowMarker}>
       <View style={[styles.hNowLine, { backgroundColor: theme.accent }]} />
@@ -696,30 +689,10 @@ export default function PlanTaskCard({
     </View>
   );
 
-  // Live clock, moved here from the header (2026-07-26, user report) — this is the "calendar,"
-  // so the live time reads inside it, at the same left edge (LINE_COL_WIDTH gutter) every
-  // timeBox uses below, instead of floating in the header as an orphaned chip. Shown whenever
-  // the rail itself renders (not the DayHourScale empty state, which carries its own now-dot +
-  // label at the correct proportional height).
-  const topNowStrip = (
-    <View style={styles.topNowRow}>
-      <View style={[styles.lineCol, { borderRightColor: theme.border }]}>
-        <View style={[styles.nowDot, { backgroundColor: theme.accent }]} />
-      </View>
-      <Text style={[styles.topNowText, { color: theme.accent }]}>{minutesToLabel(now)}</Text>
-    </View>
-  );
-
-  // Gap state (Decision 009a): no task happening now, but one is coming — "Nothing until HH:MM".
+  // Horizontal-only gap state (Decision 009a): no task happening now, but one is coming.
+  // The vertical grid doesn't need this — empty grid space between the now-line and the
+  // next card already communicates it.
   const hasGap = currentTimedIndex < 0 && nextTimedIndex >= 0 && timedPending[nextTimedIndex].start > now;
-  const gapMarker = hasGap ? (
-    <View style={styles.gapRow}>
-      <View style={[styles.gapDot, { borderColor: theme.border }]} />
-      <Text style={[styles.gapText, { color: theme.textMuted }]}>
-        {t.dayViewGapUntil(minutesToLabel(timedPending[nextTimedIndex].start))}
-      </Text>
-    </View>
-  ) : null;
   const hGapMarker = hasGap ? (
     <View style={styles.hGapMarker}>
       <View style={[styles.hGapDot, { borderColor: theme.border }]} />
@@ -729,50 +702,39 @@ export default function PlanTaskCard({
     </View>
   ) : null;
 
-  // Decision 042(a) — a single "is this the first rail item overall" flag tracked
-  // across both loops, since anytime rows (if any) always precede timed rows: the
-  // very first visible row gets no line above it, every row after gets one.
-  let isFirstItem = true;
+  // Horizontal-only item building (unchanged proportional layout — see file header).
+  const visibleAnytimeH = anytimePending.filter((task) => isVisibleH(task.id));
+  const visibleTimedH = timedPending.filter((e) => isVisibleH(e.task.id));
 
-  const visibleAnytime = anytimePending.filter((task) => isVisible(task.id));
-  const visibleTimed = timedPending.filter((e) => isVisible(e.task.id));
-
-  const anytimeItems: React.ReactNode[] = [];
-  visibleAnytime.forEach((task, idx) => {
-    const hasTopLine = !isFirstItem;
-    isFirstItem = false;
-    const hasNext = idx < visibleAnytime.length - 1 || timedPending.length > 0;
-    anytimeItems.push(renderItem(task, { hasTopLine, hasBottomLine: hasNext, animateIn: true }));
-    if (hasNext) anytimeItems.push(renderSpacerItem(`gap-any-${task.id}`, MIN_GAP));
+  const hAnytimeItems: React.ReactNode[] = [];
+  visibleAnytimeH.forEach((task, idx) => {
+    const hasNext = idx < visibleAnytimeH.length - 1 || timedPending.length > 0;
+    hAnytimeItems.push(renderColumn(task, { animateIn: true }));
+    if (hasNext) hAnytimeItems.push(renderHSpacer(`gap-any-${task.id}`, MIN_GAP));
   });
 
-  const timedItems: React.ReactNode[] = [];
-  visibleTimed.forEach((entry, idx) => {
-    const hasTopLine = !isFirstItem;
-    isFirstItem = false;
+  const hTimedItems: React.ReactNode[] = [];
+  visibleTimedH.forEach((entry, idx) => {
     const isHappeningNow = now >= entry.start && now < entry.end;
     const isPast = !isHappeningNow && now >= entry.end;
-    const isLast = idx === visibleTimed.length - 1;
-    const nextEntry = visibleTimed[idx + 1];
+    const isLast = idx === visibleTimedH.length - 1;
+    const nextEntry = visibleTimedH[idx + 1];
     const gapMin = nextEntry ? nextEntry.start - entry.end : 0;
     const connectorPx = nextEntry ? clamp(gapMin * PX_PER_MIN, MIN_GAP, MAX_GAP) : tailPx;
-    const hasBottomLine = !isLast || tailPx > 0;
-    timedItems.push(renderItem(entry.task, { timed: entry, isHappeningNow, isPast, hasTopLine, hasBottomLine, animateIn: true }));
-    if (hasBottomLine) {
-      // Insert the live "now" marker into the connector whose time-window contains it —
-      // it renders as the spacer's content, not a dangling extra sibling row.
+    hTimedItems.push(renderColumn(entry.task, { timed: entry, isHappeningNow, isPast, animateIn: true }));
+    if (nextEntry || (isLast && tailPx > 0)) {
       const nowInThisGap = !!nextEntry && now >= entry.end && now < nextEntry.start;
-      const marker = nowInThisGap ? (horizontal ? hNowMarker : nowMarker) : undefined;
-      timedItems.push(renderSpacerItem(`gap-${entry.task.id}`, connectorPx, marker));
+      const marker = nowInThisGap ? hNowMarker : undefined;
+      hTimedItems.push(renderHSpacer(`gap-${entry.task.id}`, connectorPx, marker));
     }
   });
 
   const showEmpty = pendingCount === 0 && doneTasks.length === 0;
   const allDone = pendingCount === 0 && doneTasks.length > 0;
 
-  // Shared with the rail/doneZone/footer so the whole card reflows in sync with the row-level
-  // layout transition above — otherwise these siblings snap instantly while rows are still
-  // fading, which is what made the done-zone appear to get "covered" by an exiting row.
+  // Shared with the anytime list/doneZone/footer so the whole card reflows in sync — otherwise
+  // these siblings snap instantly while rows are still fading, which used to make the done-zone
+  // appear to get "covered" by an exiting row.
   const containerLayout = reducedMotion ? undefined : LinearTransition.duration(Duration.listMove).easing(Ease.move);
 
   return (
@@ -795,22 +757,6 @@ export default function PlanTaskCard({
 
         {/* Section header — only in read-only (Home preview) mode */}
         {readOnly && (
-          <>
-          {/* Wash band = default 64 (2026-07-24, "stretch the colour to fit the text"): the taller
-              band gives symmetric colour above/below the header. headerRowPressable's marginBottom
-              is bumped to Spacing.md so the content still STARTS at the band divider (paddingTop 16
-              + badge 32 + marginBottom 16 = 64), keeping the empty-state box centred between the
-              divider and the AddRow.
-              **Badge pinned + now-time moved left (2026-07-24)**: the badge used to sit inline in the
-              title row, vertically centred by flex — at large accessibility text sizes the title's
-              lineHeight can grow past the badge's own 32px, pushing the centred badge down toward the
-              wash/surface seam ("touching the line" — user report). `badgeFixed` takes it out of flex
-              flow and pins it to the header's fixed top-left corner, so its position never depends on
-              sibling content height. `headerTopRow`/`nowChip` get a matching left offset (badge width
-              + gap) so the title text still clears it. The live "now" time also moved from a
-              right-floated corner chip to its own left-aligned line under the title — the rail below
-              shows every task's time on the left too, so the one live clock reading belongs on that
-              same left edge, not orphaned in the opposite corner. */}
           <PressableScale onPress={() => router.push('/plans')} style={styles.headerRowPressable} scaleTo={0.97}>
             <View style={styles.headerTopRow}>
               <Text style={[styles.headerTitle, { color: theme.text }]}>{t.home.todaysPlans}</Text>
@@ -829,17 +775,13 @@ export default function PlanTaskCard({
               />
             )}
           </PressableScale>
-          </>
         )}
-
-        {readOnly && !showEmpty ? topNowStrip : null}
 
         {showEmpty ? (
           <View style={styles.emptyWrap}>
-            {/* Hour-of-day ruler (2026-07-25, user report: an empty day showed pure blank
-                space — no cue this card is a timeline at all). Replaces the shared
-                HomePreviewEmpty blank row for this card only; Notes/Shopping keep the plain
-                blank row since they aren't time-based. */}
+            {/* Fixed-hour calendar grid, empty (2026-07-25, user report: an empty day showed
+                pure blank space; 2026-07-26, rebuilt from a sparse ruler into the same real
+                grid a populated day uses). */}
             <DayHourScale now={now} />
             {/* Ghost "add" row (debug-note 2026-07-21) — an empty day should still offer a
                 place to add something. Deep-links to the Plans tab; only shown as a FALLBACK
@@ -864,15 +806,27 @@ export default function PlanTaskCard({
         ) : horizontal ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRail}>
             {hGapMarker}
-            {anytimeItems}
-            {timedItems}
+            {hAnytimeItems}
+            {hTimedItems}
           </ScrollView>
         ) : (
-          <Animated.View style={styles.rail} layout={containerLayout}>
-            {gapMarker}
-            {anytimeItems}
-            {timedItems}
-          </Animated.View>
+          <>
+            {visibleAnytime.length > 0 && (
+              <Animated.View style={styles.anytimeList} layout={containerLayout}>
+                {visibleAnytime.map((task) => renderFlatRow(task, { animateIn: true }))}
+              </Animated.View>
+            )}
+            {timedPending.length > 0 && (
+              <View style={[styles.gridViewport, { height: expanded ? GRID_TOTAL_HEIGHT : COLLAPSED_GRID_HEIGHT }]}>
+                <ScrollView ref={gridScrollRef} scrollEnabled={!expanded} showsVerticalScrollIndicator={false}>
+                  <View style={styles.gridInner}>
+                    <DayGridLines now={now} />
+                    {timedPending.map((entry) => renderGridEntry(entry))}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+          </>
         )}
 
         {/* Inline quick-add (debug-note 2026-07-24) — gated on `onAddTask` (not on `readOnly`,
@@ -935,9 +889,9 @@ export default function PlanTaskCard({
           />
         ) : null}
 
-        {/* Done zone — dimmed, collapsed by default (Decision 009a). Always the vertical
-            row layout, even in horizontal mode — this is a secondary dropdown list, not
-            the primary glance rail. */}
+        {/* Done zone — dimmed, collapsed by default (Decision 009a). Always the flat-row
+            layout, even in horizontal mode — this is a secondary dropdown list, not the
+            primary glance surface. */}
         {doneTasks.length > 0 ? (
           <Animated.View style={[styles.doneZone, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} layout={containerLayout}>
             <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
@@ -947,11 +901,9 @@ export default function PlanTaskCard({
             <Collapsible open={doneOpen}>
               <View style={styles.doneRows}>
                 {doneTasks.map((task) =>
-                  renderRow(task, {
+                  renderFlatRow(task, {
                     timed: task.time ? timedEntryOf(task) : undefined,
                     isPast: true,
-                    hasTopLine: false,
-                    hasBottomLine: false,
                   })
                 )}
               </View>
@@ -981,8 +933,8 @@ export default function PlanTaskCard({
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
   // Collapsed-only floor so Notes/Plans/Shopping read as the same size regardless of how
-  // few tasks (or how compact the time gaps) today has — see constants/theme.ts. Content can
-  // still grow taller than this floor (e.g. widely time-spaced tasks) — it's a min, not a cap.
+  // few tasks today has — see constants/theme.ts. Content can still grow taller than this
+  // floor (e.g. the expanded full-day grid) — it's a min, not a cap.
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   // paddingTop Spacing.md (was Spacing.sm) so the header sits VERTICALLY CENTERED in the 64px
   // CardAccentWash band instead of hugging the top edge (2026-07-24: the old "hug the top / sit
@@ -991,7 +943,6 @@ const baseStyles = StyleSheet.create({
   // Bumped +4 (2026-07-26, user report: header sat too high) — nudges the whole badge+title
   // header down a touch; see badgeFixed's matching top offset below.
   cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.md + 4, position: 'relative' },
-  rail: { paddingVertical: Spacing.xs },
   // Quick-add extras (2026-07-24) — compact repeat/energy toggle chips beside TimeBoxInput.
   quickChip: {
     flexDirection: 'row',
@@ -1006,12 +957,6 @@ const baseStyles = StyleSheet.create({
   },
   quickChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
-  // Was `flex: 1` (2026-07-25, user report): that forced this wrapper to swallow the card's
-  // whole remaining resting-height floor, pushing the trailing AddRow/ghost-add row all the way
-  // to the bottom and leaving a big dead gap under the header — see HomePreviewEmpty's matching
-  // edit note. `gap` gives a little breathing room between the empty row and the fallback ghost
-  // add row (only rendered when `onAddTask` is absent); any leftover floor height now collects
-  // below instead of between the header and the add affordance.
   emptyWrap: { gap: Spacing.sm },
   emptyAddRow: {
     flexDirection: 'row',
@@ -1025,18 +970,12 @@ const baseStyles = StyleSheet.create({
   },
   emptyAddText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
 
-  // Vertical rail row: [lineCol][contentCol][doneCol], alignItems 'stretch' so each
-  // column's height matches the row's real (content-driven) height. lineCol's own
-  // top/bottom rail-line segments are flex:1 either side of the marker, so the marker
-  // (and doneCol's toggle, also flex-centered) land at the row's true vertical center
-  // by construction — no measurement pass needed (Decision 042a).
-  row: { flexDirection: 'row', alignItems: 'stretch' },
-  // borderRightWidth (2026-07-26, "make the timeline look more like a regular calendar") — each
-  // row/spacer owns its own lineCol segment (Decision 042a), but stacked down the rail they form
-  // one continuous hairline gutter divider between the time column and the task content, the way
-  // a calendar day-view separates its hour gutter from the day's events. Color set inline (theme
-  // isn't available in a static StyleSheet).
-  lineCol: { width: LINE_COL_WIDTH, alignItems: 'center', borderRightWidth: 1 },
+  // Anytime list — a plain flat list above the grid (untimed tasks have no clock position).
+  anytimeList: { gap: Spacing.xs, marginBottom: Spacing.sm },
+  // Flat row: [content][doneCol] — used by the anytime list and the "Done today" zone.
+  flatRow: { flexDirection: 'row', alignItems: 'stretch', marginBottom: Spacing.xs },
+  flatContent: { flex: 1 },
+  flatTimeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   timeBox: {
     minWidth: 44,
     paddingHorizontal: 6,
@@ -1049,20 +988,11 @@ const baseStyles = StyleSheet.create({
   timeBoxText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   anytimeDot: { width: 10, height: 10, borderRadius: Radius.full, borderWidth: 2, borderStyle: 'dashed' },
   dot: { width: 16, height: 16, borderRadius: Radius.full, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  // The rail line: flex:1 so it stretches to fill whatever space lineCol/spacerRow's
-  // stretched height gives it — either half of a row (above/below its marker) or the
-  // whole of a spacer row (Decision 042a).
-  railLine: { width: 2, flex: 1 },
-  contentCol: { flex: 1, paddingHorizontal: Spacing.sm, paddingBottom: Spacing.sm },
   // Decision (visual-audit 2026-07-11): a subtle card behind each row's title/hint so
-  // the rail reads as distinct items rather than text floating on the background.
-  // borderWidth added 2026-07-26 (calendar-style pass) — see rowCard's inline borderColor.
+  // tasks read as distinct items rather than text floating on the background. borderWidth
+  // added 2026-07-26 (calendar-style pass) — see the inline borderColor overrides.
   rowCard: { borderRadius: Radius.sm, borderWidth: 1, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm },
   doneCol: { width: DONE_COL_WIDTH, alignItems: 'center', justifyContent: 'center' },
-  // Dedicated connector row between two task rows — owns the proportional time-gap
-  // height so it never has to be squeezed inside a row of variable content height.
-  spacerRow: { flexDirection: 'row', alignItems: 'stretch' },
-  spacerContent: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   title: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, flexShrink: 1 },
   durationText: { fontSize: FontSize.xs },
@@ -1070,13 +1000,21 @@ const baseStyles = StyleSheet.create({
   followerBadgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   hintRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.xs, marginTop: 2 },
   hintText: { fontSize: FontSize.xs, flexShrink: 1, fontStyle: 'italic' },
-  nowRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 2 },
-  nowDot: { width: 6, height: 6, borderRadius: Radius.full, marginRight: 6 },
-  nowLine: { flex: 1, height: 1.5, opacity: 0.6 },
-  nowLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, marginLeft: 6 },
-  gapRow: { flexDirection: 'row', alignItems: 'center', marginLeft: LINE_COL_WIDTH, marginBottom: Spacing.sm, gap: Spacing.sm },
-  gapDot: { width: 8, height: 8, borderRadius: Radius.full, borderWidth: 2, borderStyle: 'dashed' },
-  gapText: { fontSize: FontSize.sm, fontStyle: 'italic' },
+
+  // Fixed-hour grid viewport (2026-07-26 rebuild — see file header). Height is set inline
+  // (collapsed vs. expanded); rounded + clipped so the grid's hour lines don't bleed past
+  // the card's own corner radius.
+  gridViewport: { borderRadius: Radius.sm, overflow: 'hidden' },
+  // No explicit height — DayGridLines (the only non-absolute child) sets its own height to
+  // the full 24h grid, and that's exactly what this wrapper's auto height should be too;
+  // absolutely-positioned grid cards (siblings) don't contribute to that auto height.
+  gridInner: { position: 'relative', width: '100%' },
+  gridCardWrap: { position: 'absolute' },
+  gridCardPressable: { flex: 1 },
+  // Tighter vertical padding than the shared `rowCard` (short time-slots), and room on the
+  // right for the corner done-toggle overlay.
+  gridCardInner: { flex: 1, paddingVertical: 4, paddingRight: 28 },
+  gridDoneToggle: { position: 'absolute', top: 4, right: 4 },
 
   // Horizontal rail: a row of [hColumn][hConnectorWrap][hColumn]... — time box + line on
   // top, title in the middle, checkmark-circle toggle in a fixed-height row underneath,
@@ -1090,8 +1028,7 @@ const baseStyles = StyleSheet.create({
   hConnectorWrap: { height: H_RAIL_HEIGHT, justifyContent: 'center' },
   hConnector: { height: 2 },
   // Now-marker overlay for a horizontal connector — absolute so it doesn't force the
-  // connector wider than its proportional width (Decision 042a: marker lives inside
-  // the spacer, not as an extra sibling that dangled the rail further apart).
+  // connector wider than its proportional width.
   hSpacerContent: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   hNowMarker: { width: 44, height: H_RAIL_HEIGHT, alignItems: 'center', justifyContent: 'center' },
   hNowLine: { width: 1.5, height: '100%', opacity: 0.6 },
@@ -1117,9 +1054,8 @@ const baseStyles = StyleSheet.create({
   // paddingTop comment above; 4px past the divider reads fine, not worth chasing exactly).
   headerRowPressable: { marginBottom: Spacing.md },
   // Badge is pinned absolute (badgeFixed below) — headerTopRow's paddingLeft is what actually
-  // clears it, not flex order (see edit note above). Tightened 56 → 52 (2026-07-26, user
-  // report: "more closely linked with the badge") — badge offset 16 + badge size 32 + a 4px
-  // gap (was 8px).
+  // clears it, not flex order. Tightened 56 → 52 (2026-07-26, user report: "more closely
+  // linked with the badge") — badge offset 16 + badge size 32 + a 4px gap (was 8px).
   headerTopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 52 },
   // Takes the badge out of flex flow so its position is fixed regardless of sibling content
   // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
@@ -1129,12 +1065,6 @@ const baseStyles = StyleSheet.create({
   // alongside cardContent's paddingTop (2026-07-26, "move it a bit down") so it stays level
   // with the title.
   badgeFixed: { position: 'absolute', top: Spacing.md + 4, left: Spacing.md, zIndex: 2 },
-  // Live clock strip at the top of the rail (2026-07-26) — replaces the old header `nowChip`
-  // (right-floated corner chip until 2026-07-24, then a left-aligned line under the title);
-  // see the `topNowStrip` edit note near its JSX for why it moved into the calendar itself.
-  // Reuses `lineCol`'s width so its dot lands on the same left edge every timeBox uses below.
-  topNowRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },
-  topNowText: { fontSize: FontSize.xs, fontFamily: Fonts.bold, marginLeft: Spacing.sm },
   progressBar: { marginTop: Spacing.xs },
   // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
   // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
