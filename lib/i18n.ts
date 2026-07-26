@@ -1416,7 +1416,7 @@ const en = {
    */
   starters: {
     habits: {
-      text: 'Small things add up. It is not about doing it perfectly, or at the right time of day — it is about coming back to it. Miss a day; just try not to miss twice.',
+      text: 'All wins matter — small things add up toward a goal.',
       example: 'A habit can be as small as "Drink 4 glasses of water", every day — and you can point it at a goal like "General Health" from the gear icon on the habit.',
       tapToAdd: 'Tap one to start:',
       suggestions: {
@@ -1427,19 +1427,19 @@ const en = {
       },
     },
     plans: {
-      text: "A to-do doesn't have to be big to be worth writing down. Cut the day into pieces you can actually finish — three small ones done beats one big one stared at.",
+      text: 'Break things into smaller pieces, and take them step-by-step.',
       example: 'e.g. "Refill the water bottle" · "10-minute desk tidy" · "Book the dentist". Use the chips on the add row to give a task a time box or an energy value.',
     },
     energy: {
-      text: 'Energy is a budget, not a score. Give draining tasks a minus and restoring ones a plus, then plan the day so this stays above zero — that is what keeps a day bearable instead of ending in a crash.',
+      text: 'Plan your workload with your energy in mind — for both habits and to-dos.',
       example: 'e.g. grocery run −2, laundry −1, drink water +1. If what you have planned would take you below zero, the meter says so before the day starts.',
     },
     shopping: {
-      text: "Add things the moment you notice you're out, not later when you're trying to remember. The weekly list clears itself on your reset day; the monthly one follows your payday date.",
+      text: 'Weekly list for groceries, monthly list for what the house needs once a month.',
       example: 'e.g. milk and coffee go on the weekly list; toilet paper and washing powder on the monthly one.',
     },
     health: {
-      text: 'Log a symptom when it happens, rather than from memory afterwards. A few quick entries over a couple of weeks are enough to see a pattern — when it hits, how hard, and what it tends to follow.',
+      text: 'Log what bothers you, and note what helps you feel better.',
       example: 'e.g. "Headache", 3 of 5, this afternoon. The week and month views then show whether it clusters.',
     },
   },
@@ -2788,7 +2788,7 @@ const no: typeof en = {
   },
   starters: {
     habits: {
-      text: 'Små ting blir til noe stort. Det handler ikke om å gjøre det perfekt, eller til rett tid på dagen — det handler om å komme tilbake til det. Hopper du over en dag, så prøv å ikke hoppe over to.',
+      text: 'Alle seire teller — små ting bygger opp mot et mål.',
       example: 'En vane kan være så liten som «Drikk 4 glass vann», hver dag — og du kan knytte den til et mål som «Generell helse» via tannhjulet på vanen.',
       tapToAdd: 'Trykk på én for å komme i gang:',
       suggestions: {
@@ -2799,19 +2799,19 @@ const no: typeof en = {
       },
     },
     plans: {
-      text: 'Et gjøremål trenger ikke være stort for å være verdt å skrive ned. Del dagen i biter du faktisk klarer å fullføre — tre små som er gjort slår én stor du bare ser på.',
+      text: 'Del ting opp i mindre biter, og ta dem steg for steg.',
       example: 'F.eks. «Fyll vannflasken» · «10 minutters opprydding» · «Bestill tannlegetime». Bruk knappene på legg til-raden for å gi en oppgave tidsboks eller energiverdi.',
     },
     energy: {
-      text: 'Energi er et budsjett, ikke en poengsum. Gi krevende oppgaver minus og de som gir påfyll pluss, og legg opp dagen slik at dette holder seg over null — det er det som gjør dagen til å leve med i stedet for at den ender i kollaps.',
+      text: 'Planlegg arbeidsmengden med energien i bakhodet — for både vaner og gjøremål.',
       example: 'F.eks. handletur −2, klesvask −1, drikke vann +1. Hvis det du har planlagt tar deg under null, sier måleren fra før dagen starter.',
     },
     shopping: {
-      text: 'Legg til ting i det du merker at de er tomme, ikke senere når du prøver å huske. Ukeslisten tømmer seg selv på nullstillingsdagen din; månedslisten følger lønningsdatoen.',
+      text: 'Ukesliste for dagligvarer, månedsliste for det huset trenger én gang i måneden.',
       example: 'F.eks. melk og kaffe på ukeslisten; dopapir og vaskepulver på månedslisten.',
     },
     health: {
-      text: 'Logg en plage når den skjer, heller enn fra hukommelsen etterpå. Noen få raske oppføringer over et par uker er nok til å se et mønster — når den slår til, hvor hardt, og hva den pleier å komme etter.',
+      text: 'Logg det som plager deg, og noter det som hjelper.',
       example: 'F.eks. «Hodepine», 3 av 5, i ettermiddag. Uke- og månedsvisningen viser deretter om det samler seg.',
     },
   },
