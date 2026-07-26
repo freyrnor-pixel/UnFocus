@@ -24,7 +24,8 @@
  * Connections:
  *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
  *             components/HintCard, components/StarterCard (first-run explainer, shown while
- *             there are no weekly or monthly lists), components/AppModal (showAppModal),
+ *             there are no weekly lists and no items), components/AppModal (showAppModal),
+ *             components/CardAccent (CardAccentBadge),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
  *             components/ExpandableCard, components/FlightOverlay (FlightPill, Flight, FlightRect),
  *             components/IconButton,
@@ -61,6 +62,14 @@
  *             either directly (UX audit F1, 2026-07-23).
  *
  * Edit notes:
+ *   - **Food/Catalogue link icons upgraded to CardAccentBadge (2026-07-26, user feedback: the
+ *     two buttons read as too plain/undefined)**: `foodCatalogueLinks`'s bare `Ionicons` glyphs
+ *     (just accent-colored, on the Surface's neutral fill) swapped for `CardAccentBadge` (the
+ *     same domain-colored gradient badge used by HomeShoppingCard/HomeNotesCard/PlanTaskCard) at
+ *     a small size=24 — gives each button a filled, colored circle instead of a thin outline
+ *     icon so "Mat"/"Katalog" catch the eye without reintroducing the 2026-07-14 "muddy
+ *     whole-card tint" the Surface `borderColor`-only convention was chosen to avoid (see
+ *     Surface.tsx / lib/domainColor.ts). The card's own `borderColor` edge is unchanged.
  *   - **Card-header declutter pass (2026-07-23)**: several small UI cleanups across both
  *     tabs' list cards. (1) Monthly's "Add dish" trigger (`addTrigger`) now matches the
  *     "Add new item" bar (`InlineAddItem`)'s shape/background/text style — they used to
@@ -360,6 +369,7 @@ import SharedRequestsSection from '@/components/SharedRequestsSection';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import { showAppModal } from '@/components/AppModal';
 import Surface from '@/components/Surface';
+import { CardAccentBadge } from '@/components/CardAccent';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import ExpandableCard from '@/components/ExpandableCard';
 import PressableScale from '@/components/PressableScale';
@@ -1485,7 +1495,7 @@ export default function ShoppingScreen() {
         scaleTo={0.97}
       >
         <Surface borderColor={mealDomainColor.accent} style={styles.subScreenLinkCard}>
-          <Ionicons name="restaurant-outline" size={18} color={mealDomainColor.accent} />
+          <CardAccentBadge domain="meal" icon="restaurant" size={24} />
           <Text style={[styles.subScreenLinkText, { color: theme.text }]}>{t.foodTabLabel}</Text>
         </Surface>
       </PressableScale>
@@ -1497,7 +1507,7 @@ export default function ShoppingScreen() {
         scaleTo={0.97}
       >
         <Surface borderColor={shopDomainColor.accent} style={styles.subScreenLinkCard}>
-          <Ionicons name="list-outline" size={18} color={shopDomainColor.accent} />
+          <CardAccentBadge domain="shop" icon="list" size={24} />
           <Text style={[styles.subScreenLinkText, { color: theme.text }]}>{t.catalogueTabLabel}</Text>
         </Surface>
       </PressableScale>

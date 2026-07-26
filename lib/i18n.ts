@@ -632,6 +632,8 @@ const en = {
   catalogueSearchClearLabel: 'Clear search',
   catalogueNoMatches: 'No items match your search.',
   catalogueIndexScrubLabel: 'Jump to letter',
+  errorBoundaryTitle: 'Something went wrong',
+  errorBoundaryRetry: 'Try again',
   category: 'Category',
   shoppingCategories: {
     produce: 'Fruit & veg',
@@ -2053,6 +2055,8 @@ const no: typeof en = {
   catalogueSearchClearLabel: 'Tøm søk',
   catalogueNoMatches: 'Ingen varer samsvarer med søket.',
   catalogueIndexScrubLabel: 'Hopp til bokstav',
+  errorBoundaryTitle: 'Noe gikk galt',
+  errorBoundaryRetry: 'Prøv igjen',
   category: 'Kategori',
   shoppingCategories: {
     produce: 'Frukt og grønt',
