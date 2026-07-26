@@ -154,6 +154,8 @@ current native surface is `package.json` + `app.json`.
 | Share-to-contacts *(reserve)* | `expo-contacts` | `READ/WRITE_CONTACTS` (Android, plugin-added), iOS `NSContactsUsageDescription` | ✅ |
 | Step counting / pedometer *(reserve)* | `expo-sensors` | Android `ACTIVITY_RECOGNITION` (declared manually — plugin doesn't add it), iOS `NSMotionUsageDescription` | ✅ |
 | Voice-note → text *(reserve)* | `expo-speech-recognition` | Android `RECORD_AUDIO` (plugin-added), iOS `NSSpeechRecognitionUsageDescription` + `NSMicrophoneUsageDescription` | ✅ |
+| Network-state detection *(reserve)* | `expo-network` | none (normal-level `ACCESS_NETWORK_STATE`/`ACCESS_WIFI_STATE`) | — (no plugin needed) |
+| Home-screen quick actions *(reserve)* | `expo-quick-actions` (not an official Expo SDK package — community, own version line) | none | ✅ (bare entry, no shortcuts/icons configured yet) |
 | Alarm / full-screen reminder groundwork *(reserve)* | — (JS-only, no package yet) | Android `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `USE_FULL_SCREEN_INTENT` | — |
 | Local-file backup export (iOS Files app) | — (uses existing `expo-file-system`/`expo-document-picker`/`expo-sharing`) | iOS `UIFileSharingEnabled`, `LSSupportsOpeningDocumentsInPlace` | — |
 
@@ -163,6 +165,10 @@ current native surface is `package.json` + `app.json`.
 > decision for the full rationale, the two explicitly-declined items (`react-native-webrtc`,
 > a Wear OS module), and why each Android permission was or wasn't hand-declared (some are
 > already injected by their own config plugin).
+>
+> **Decision 046 (2026-07-26)** added two more reserve rows riding the same build:
+> `expo-network` and `expo-quick-actions`. `react-native-health-connect` was considered and
+> declined for now (Play Console Health Connect declaration step, no data-types plan yet).
 
 Standard native runtime deps also compiled in (no permissions, but native — so
 they require the build): `react-native-reanimated` + `react-native-worklets`,

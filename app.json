@@ -177,7 +177,9 @@
           "microphonePermission": "UnFocus uses the microphone so you can record voice notes.",
           "speechRecognitionPermission": "Allow UnFocus to convert your voice notes into text."
         }
-      ]
+      ],
+      "expo-network",
+      "expo-quick-actions"
     ],
     "ios": {
       "supportsTablet": false,
