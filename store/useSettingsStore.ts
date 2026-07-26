@@ -81,16 +81,22 @@
  *     longer read either field. `featureGoals` stayed a REAL toggle through the same
  *     revision — only its default flipped from off to on — so it's still in
  *     FEATURE_ROWS (app/settings.tsx) and the onboarding ROWS, unlike these two.
+ *   - **`energySystemEnabled` joined the inert list on 2026-07-26** — same flavour as
+ *     featureScan/featureFood. Maintainer: "Energy is always on, just on 0 by default for
+ *     simplicity." The per-task/habit control became a single signed stepper reading 0
+ *     until you set it, so an untouched task costs nothing and the system needs no opt-out
+ *     to stay out of the way. The switch is gone from Settings' Features card; the Home
+ *     meter (components/EnergyMeter.tsx), both editors, and PlanTaskCard's quick-add energy
+ *     chip are all un-gated, and lib/db.ts pins the column to 1 for every row. NOTE the
+ *     sibling columns are emphatically NOT inert: `energyMode`, `energyDailyCapacity`,
+ *     `energyWeeklyCapacity` and `energyCustomCapacities` are still live configuration,
+ *     still in Settings, and still read by store/useEnergyStore.ts.
  *   - `glassBlur` was removed (2026-07-18 glass simplification — the Android blur-target
  *     subsystem it gated no longer exists). Its `glass_blur` SQLite column is intentionally
  *     left orphaned (never drop columns) — see lib/db.ts's migration comment.
- *   - **`energySystemEnabled` defaults to `true` (2026-07-21)**: was `false`, on user feedback
- *     that the Home Energy meter (app/(tabs)/index.tsx, gated on this flag) should be visible
- *     out of the box rather than opt-in. This `defaultSettings` value only matters before
- *     load() resolves the real DB row; the actual default for fresh installs is set by
- *     lib/db.ts's `energy_system_enabled` migration (`DEFAULT 1`) — see that file's comment on
- *     why editing an existing migration's DEFAULT is safe (PRAGMA user_version gates re-runs,
- *     so already-migrated devices, and anyone who explicitly toggled it, are unaffected).
+ *   - **`energySystemEnabled` history**: defaulted `false`, flipped to `true` 2026-07-21 so
+ *     the Home Energy meter was visible out of the box, then stopped being a toggle at all
+ *     on 2026-07-26 (see the inert-columns note above). Nothing gates on it now.
  */
 import { create } from 'zustand';
 import {
@@ -222,7 +228,9 @@ export type Settings = {
   // Home; see app/(tabs)/index.tsx.
   homeCardOrder: string[];
   // Energy system (2026-07-20) — optional per-task energy-budget model replacing the
-  // removed Focus mode / task Importance. energySystemEnabled is the master toggle;
+  // removed Focus mode / task Importance. energySystemEnabled is INERT (2026-07-26) —
+  // Energy is always on, pinned to 1 by migration; nothing reads this. The capacities and
+  // energyMode below are live configuration and very much still read.
   // when off, all energy UI is hidden. energyDailyCapacity / energyWeeklyCapacity are
   // the DEFAULT capacities (a plain number) used when no per-period override exists in
   // energy_budgets (store/useEnergyStore.ts). Consumed energy is derived from completed

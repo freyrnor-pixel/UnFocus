@@ -110,7 +110,7 @@
  *     compact inline controls beyond the title — a `TimeBoxInput` (start time, optional), a
  *     repeat chip that cycles none→daily→weekly→monthly (defaults `recurringDays` to today's
  *     weekday the first time it lands on weekly, mirroring TaskCard's own toggleRepeat), and an
- *     energy chip (only rendered when the caller passes `energySystemEnabled`) that cycles
+ *     energy chip (always rendered — Energy stopped being a toggle 2026-07-26) that cycles
  *     off→+1→−1→off. All three reset to their defaults after each commit. `onAddTask`'s second
  *     argument carries whichever of these the user touched; the caller (Home) owns turning that
  *     into a full `TaskInput` the same way it already does for the title-only case.
@@ -232,8 +232,6 @@ type Props = {
     title: string,
     extra: { time?: string; recurring: Recurring; recurringDays: number[]; energyEnabled: boolean; energyValue: number }
   ) => void;
-  /** Gates the quick-add extras row's energy chip — pass settings.energySystemEnabled. */
-  energySystemEnabled?: boolean;
   /** Read-only preview: shows a "See everything →" link in the section header. */
   onSeeMore?: () => void;
   /** Test/preview override for the live clock (minutes since midnight). */
@@ -328,7 +326,6 @@ export default function PlanTaskCard({
   onPressTask,
   onToggleTask,
   onAddTask,
-  energySystemEnabled = false,
   onSeeMore,
   now: nowOverride,
   horizontal = false,
@@ -876,7 +873,7 @@ export default function PlanTaskCard({
                     </Text>
                   )}
                 </PressableScale>
-                {energySystemEnabled && (
+                {(
                   <PressableScale
                     style={[
                       styles.quickChip,

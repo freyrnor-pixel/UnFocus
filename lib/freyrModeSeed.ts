@@ -3,8 +3,7 @@
  *
  * "Freyr-mode" is a settings toggle (Additional modes tab) that one-shot creates a
  * fixed starter set of rows across four stores (monthly shopping catalog, tasks,
- * habits, notes) plus three Energy-system settings (energySystemEnabled,
- * energyDailyCapacity, monthlyBudgetNok), and, when turned back off, removes exactly
+ * habits, notes) plus two settings (energyDailyCapacity, monthlyBudgetNok), and, when turned back off, removes exactly
  * those rows and restores exactly those settings — never anything the user added or
  * changed themselves. The ids created by seedFreyrMode() (and the settings values it
  * overwrote) must be persisted (useSettingsStore's freyrSeedIds) and passed back into
@@ -16,7 +15,7 @@
  *   Used by → app/settings.tsx
  *   Data    → writes shopping_items (status='catalog', list_type='monthly'), tasks, habits, notes
  *     via each store's own add()/update()/remove() — no direct SQL here. Also overwrites
- *     (and restores) settings.energySystemEnabled/energyDailyCapacity, and the seeded
+ *     (and restores) settings.energyDailyCapacity, and the seeded
  *     Monthly list's own budgetNok (store/useMonthlyListStore.ts — see the 2026-07-22 note
  *     below; budget is per-list now, not a settings field).
  *
@@ -57,7 +56,7 @@ export type FreyrSeedIds = {
   habitIds: string[];
   noteIds: string[];
   /** Settings values overwritten by seedFreyrMode(), to restore on unseed. Null until first seeded. */
-  prevSettings: { energySystemEnabled: boolean; energyDailyCapacity: number } | null;
+  prevSettings: { energyDailyCapacity: number } | null;
   /** The Monthly list seedFreyrMode() set a demo budget on, and what it was before —
    *  null if there was no Monthly list to tag at seed time (nothing to restore). */
   monthlyBudget: { listId: string; prevBudgetNok: number } | null;
@@ -247,12 +246,11 @@ export function seedFreyrMode(): FreyrSeedIds {
   ];
 
   const settings = useSettingsStore.getState();
-  const prevSettings = {
-    energySystemEnabled: settings.energySystemEnabled,
-    energyDailyCapacity: settings.energyDailyCapacity,
-  };
-  // Energy: 15/day.
-  settings.update({ energySystemEnabled: true, energyDailyCapacity: 15 });
+  // Energy: 15/day. energySystemEnabled is no longer touched — Energy stopped being a
+  // toggle (2026-07-26), so there's nothing to switch on or restore; only the capacity is
+  // Freyr-specific.
+  const prevSettings = { energyDailyCapacity: settings.energyDailyCapacity };
+  settings.update({ energyDailyCapacity: 15 });
 
   // Budget: 10 000 NOK/month, set on the same Monthly list the catalog items above were
   // tagged onto (budget is per list now, not a global setting) — no-op if there's no list.

@@ -161,7 +161,7 @@ export type Task = {
   /** Energy system (2026-07-20) — when energyEnabled, completing this task applies a
    *  SIGNED energyValue to the day/week budget (positive restores, negative drains;
    *  lib/energy.ts). Both persist regardless of the master toggle; they only affect
-   *  anything when settings.energySystemEnabled. */
+   *  anything when non-zero (Energy is always on as of 2026-07-26). */
   energyEnabled: boolean;
   energyValue: number;
   /** Manual drag-sort position within the task's section. */

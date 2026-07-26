@@ -8,11 +8,11 @@
  *     BOTTOM of the expanded editor (next to Delete) and edits are buffered in a local
  *     draft (nothing persists until Save). The editor holds: an editable title (+ optional
  *     voice-dictation mic), a "For" assignee row (People/family mode), a steps checklist,
- *     a "Repeat" switch + per-mode recurrence options, a "Set time" toggle + calendar, an
- *     optional Start/Finish time-box pair, a collapsed-by-default **Advanced options**
- *     reveal (Energy cost, a freeform Hint, an attached Contact, a tagged Location, a Goal
- *     link, and a one-to-one "Then" follower — all ported from the retired task-form,
- *     2026-07-23), and a Shared-out toggle. For an existing task, Steps, Then, Shared-out,
+ *     a "Repeat" switch + per-mode recurrence options, a **When** day picker, a **Time of
+ *     day** toggle + Start/Finish pair, an **Energy give / take** stepper, and a
+ *     collapsed-by-default **Advanced options** reveal (a recurring task's Start-from
+ *     boundary, a freeform Hint, an attached Contact, a tagged Location, a Goal link, a
+ *     one-to-one "Then" follower, and the Shared-out toggle). For an existing task, Steps, Then, Shared-out,
  *     and Delete persist immediately (they bypass the draft). A card with `isNew` starts
  *     expanded, has no title autoFocus (keeps the keyboard down on creation), and its
  *     steps live on `draft.steps` instead — there's no store row yet to write them to —
@@ -24,6 +24,27 @@
  *     plans", which creates the task then lands here instead of pushing the old task-form).
  *   - variant="steps" (Today / This week): the row expands to show ONLY the steps
  *     checklist — no settings. A task with no steps has a card but no expand arrow.
+ *
+ * **Field order + the When/Time split (2026-07-26 clarity pass, maintainer-specified)**:
+ * Name → For → Steps → Repeat → When → Time of day → Energy → Advanced → Delete·Discard·Save.
+ * Three things were wrong before and are fixed here:
+ *   1. `hasStartDate` carries TWO meanings and the UI showed one label for both. On a
+ *      non-recurring task it decides whether the task lives in the WHENEVER bucket or on a
+ *      day; on a recurring task it's only a "no occurrences before this date" boundary
+ *      (lib/taskRecurrence.ts). `renderDayPicker()` renders the same control with wording
+ *      that matches the current meaning — "When: Whenever / On a day" in the main flow for
+ *      one-off tasks, "Start from" inside Advanced options for recurring ones. It is
+ *      deliberately never shown twice.
+ *   2. The switch was labelled "Set time" (`t.taskStartSpecificDate`) but set a DATE, and
+ *      the actual calendar hid behind an unlabelled 📅 IconButton. Both gone — the day
+ *      picker is a two-option SlideSelector plus a labelled "Pick a day: <date>" button.
+ *   3. Start/Finish used to appear whenever `hasStartDate || isRecurring` — switching
+ *      Repeat on produced two empty time boxes nobody asked for. Time of day is now its own
+ *      opt-in (`timeOpen`), seeded from whether the task actually has a time, and switching
+ *      it off clears `time`/`finishTime` rather than leaving stale values hidden.
+ * Energy also moved OUT of Advanced into the main flow and collapsed from a switch + value
+ * stepper to one signed stepper — 0 already meant "no effect" to lib/energy.ts, so
+ * `energyEnabled` is derived in handleSave(). Stored data is unchanged either way.
  *
  * Every task and every step carries a checkmark circle. The task ↔ steps done-cascade
  * lives in useTaskStore (toggle / toggleStep), so tapping a circle here keeps them in
@@ -49,7 +70,7 @@
  *             settings.featureGoals), store/useTaskStore, store/useGoalStore,
  *             store/useSettingsStore (People/family mode: peopleModeEnabled + childProfiles gate
  *             the "For" assignee chip row; voiceNotesEnabled/contactsEnabled/locationEnabled/
- *             energySystemEnabled gate the matching Advanced-options rows)
+ *             gate the matching Advanced-options rows; Energy is no longer gated at all)
  *   Used by → app/(tabs)/plans.tsx; app/notes.tsx (indirectly — creates the task, then this
  *             screen's `autoExpand` opens its editor, replacing the old push to /task-form)
  *   Data    → reads the passed `task` + its linked goal (useGoalStore, for the glow dot) +
@@ -93,7 +114,8 @@ import * as Contacts from 'expo-contacts';
 import { Fonts, FontSize, Radius, Spacing, Type, contrastOn, getElevation, rgba } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { dayOfWeekMon0 } from '@/lib/date';
+import { dayOfWeekMon0, formatDisplayDate } from '@/lib/date';
+import { energyStepperValue, energyFieldsFromStepper } from '@/lib/energy';
 import { tap, warning } from '@/lib/haptics';
 import { generateId } from '@/lib/id';
 import { Task, TaskStep, useTaskStore } from '@/store/useTaskStore';
@@ -183,7 +205,7 @@ function TaskCard({
   const voiceNotesEnabled = useSettingsStore((s) => s.voiceNotesEnabled);
   const contactsEnabled = useSettingsStore((s) => s.contactsEnabled);
   const locationEnabled = useSettingsStore((s) => s.locationEnabled);
-  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
+  const lang = useSettingsStore((s) => s.language);
   const showPeople = peopleModeEnabled && childProfiles.length > 0;
   // Goals — the linked goal (if any), for the living-glow dot next to the title. Gated on
   // settings.featureGoals (opt-in, off for fresh installs): when off, both the dot and the
@@ -197,6 +219,10 @@ function TaskCard({
 
   const [expanded, setExpanded] = useState(!!isNew || !!autoExpand);
   const [showCalendar, setShowCalendar] = useState(false);
+  // "Time of day" is its own opt-in (2026-07-26 clarity pass). It used to be implied by
+  // `hasStartDate || isRecurring`, so switching Repeat on silently produced two empty
+  // Start/Finish boxes nobody asked for. Seeded from whether the task actually has a time.
+  const [timeOpen, setTimeOpen] = useState(!!task.time || !!task.finishTime);
   const [newStep, setNewStep] = useState('');
   // Buffered edits (full variant only). Initialised from the task on first expand.
   const [draft, setDraft] = useState<Task>(task);
@@ -218,9 +244,12 @@ function TaskCard({
   const editing = !stepsOnly && expanded;
   const recurring = draft.recurring;
   const isRecurring = recurring !== 'none';
-  const showTimes = draft.hasStartDate || isRecurring;
   const modeValue = recurring === 'daily' ? 'daily' : recurring === 'monthly' ? 'monthly' : 'weekly';
   const canSave = draft.title.trim().length > 0;
+  // `energyValue` defaults to 1 in the store while `energyEnabled` defaults to false, so the
+  // raw value is meaningless until the flag is on. The single-stepper UI has to show 0 for a
+  // task that doesn't participate — otherwise every new task would read (and save) as +1.
+  const energyShown = energyStepperValue(draft.energyEnabled, draft.energyValue);
 
   function patch(next: Partial<Task>) {
     setDraft((d) => ({ ...d, ...next }));
@@ -244,7 +273,64 @@ function TaskCard({
       return;
     }
     setDraft(task); // re-seed the draft from the latest persisted task
+    setTimeOpen(!!task.time || !!task.finishTime);
     setExpanded(true);
+  }
+
+  /** Time of day is opt-in; switching it off clears the times rather than hiding stale ones. */
+  function toggleTimeOfDay(on: boolean) {
+    setTimeOpen(on);
+    if (!on) patch({ time: undefined, finishTime: undefined });
+  }
+
+  /**
+   * The day control. `hasStartDate` carries two meanings depending on `recurring`, so this
+   * renders with the wording that matches the current one:
+   *   - non-recurring → false puts the task in the WHENEVER bucket, true pins it to a day
+   *   - recurring     → the schedule decides the days; this is only a "don't start before"
+   *                     boundary (lib/taskRecurrence.ts), so it lives in Advanced options
+   */
+  function renderDayPicker(label: string, offLabel: string) {
+    return (
+      <View style={styles.field}>
+        <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{label}</Text>
+        <SlideSelector
+          compact
+          options={[
+            { value: 'off', label: offLabel },
+            { value: 'on', label: t.taskWhenOnDay },
+          ]}
+          value={draft.hasStartDate ? 'on' : 'off'}
+          onChange={(v) => {
+            const on = v === 'on';
+            patch({ hasStartDate: on });
+            setShowCalendar(on);
+          }}
+        />
+        {draft.hasStartDate && (
+          <View style={styles.dateWrap}>
+            <Button
+              label={`${t.taskWhenPickDay}: ${formatDisplayDate(draft.date, lang)}`}
+              variant="secondary"
+              size="sm"
+              onPress={() => { tap(); setShowCalendar((v) => !v); }}
+            />
+            {showCalendar && (
+              <DatePickerCalendar
+                value={draft.date}
+                onChange={(d) => {
+                  patch({ date: d });
+                  setShowCalendar(false);
+                }}
+                dayLabels={t.dayLabels}
+                monthLabels={t.months}
+                calendarLabels={t.calendar}
+              />
+            )}
+          </View>
+        )}
+      </View>
+    );
   }
 
   function handleSave() {
@@ -262,7 +348,11 @@ function TaskCard({
     const durationMinutes = taskType === 'time-box' && startMin != null && endMin != null
       ? Math.max(1, endMin - startMin)
       : draft.durationMinutes;
-    const committed: Task = { ...draft, title: trimmed, taskType, durationMinutes };
+    // Energy is one signed stepper now (2026-07-26): 0 means "no effect", which is exactly
+    // what energyEnabled=false already meant to lib/energy.ts (it sums `enabled && value`).
+    // Deriving the flag here keeps the stored data identical to the old two-control version.
+    const energy = energyFieldsFromStepper(energyShown);
+    const committed: Task = { ...draft, title: trimmed, taskType, durationMinutes, ...energy };
     if (isNew) {
       onCommitNew?.(committed);
       return;
@@ -283,8 +373,8 @@ function TaskCard({
       monthOrdinal: draft.monthOrdinal,
       monthWeekday: draft.monthWeekday,
       assignee: draft.assignee,
-      energyEnabled: draft.energyEnabled,
-      energyValue: draft.energyValue,
+      energyEnabled: energy.energyEnabled,
+      energyValue: energy.energyValue,
       hint: draft.hint,
       goalId: draft.goalId,
       contactName: draft.contactName,
@@ -569,6 +659,7 @@ function TaskCard({
             {/* Editable title — mic button (reserve-only voice dictation, ported from
                 app/task-form.tsx per UX audit B1) sits beside it when enabled; same
                 bordered-chip style as components/HomeNotesCard.tsx's mic (UX audit D2). */}
+            <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskNameLabel}</Text>
             <View style={styles.titleFieldRow}>
               <TextInput
                 style={[styles.titleInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
@@ -686,6 +777,7 @@ function TaskCard({
             {/* Recurrence options */}
             {isRecurring && (
               <View style={styles.recurWrap}>
+                <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskHowOftenLabel}</Text>
                 <SlideSelector
                   options={[
                     { value: 'daily', label: t.taskRecurDay },
@@ -792,36 +884,18 @@ function TaskCard({
               </View>
             )}
 
-            {/* Start specific date */}
-            <View style={styles.toggleRow}>
-              <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskStartSpecificDate}</Text>
-              <Switch checked={draft.hasStartDate} onChange={(on) => patch({ hasStartDate: on })} />
-            </View>
-            {draft.hasStartDate && (
-              <View style={styles.dateWrap}>
-                <IconButton
-                  icon="calendar-outline"
-                  label={t.dateLabel}
-                  active={showCalendar}
-                  onPress={() => setShowCalendar((v) => !v)}
-                />
-                {showCalendar && (
-                  <DatePickerCalendar
-                    value={draft.date}
-                    onChange={(d) => {
-                      patch({ date: d });
-                      setShowCalendar(false);
-                    }}
-                    dayLabels={t.dayLabels}
-                    monthLabels={t.months}
-                    calendarLabels={t.calendar}
-                  />
-                )}
-              </View>
-            )}
+            {/* When — which DAY. Only meaningful for a non-recurring task: a recurring one
+                gets its days from the schedule above, and its `hasStartDate` means something
+                different entirely (a start boundary), so that lives in Advanced options. */}
+            {!isRecurring && renderDayPicker(t.taskWhenLabel, t.taskWhenWhenever)}
 
-            {/* Start / Finish */}
-            {showTimes && (
+            {/* Time of day — opt-in. Independent of the day: "sometime Tuesday" and
+                "17:00, whenever" are both real, so neither implies the other. */}
+            <View style={styles.toggleRow}>
+              <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskTimeOfDayLabel}</Text>
+              <Switch checked={timeOpen} onChange={toggleTimeOfDay} />
+            </View>
+            {timeOpen && (
               <View style={styles.timeRow}>
                 <View style={styles.timeCol}>
                   <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskStartLabel}</Text>
@@ -833,6 +907,24 @@ function TaskCard({
                 </View>
               </View>
             )}
+
+            {/* Energy give / take — promoted out of Advanced options (2026-07-26): it changes
+                whether the task shows up as affordable on the Home meter, which is a main-flow
+                decision, not a power-user one. One signed stepper; 0 means no effect, which is
+                also why this is no longer gated on a setting — an untouched task costs nothing,
+                so the system stays out of the way without needing an opt-out. */}
+            <View style={styles.field}>
+              <View style={styles.energyCostRow}>
+                <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.energyGiveTakeLabel}</Text>
+                <Stepper
+                  value={energyShown}
+                  onChange={(v) => patch(energyFieldsFromStepper(v))}
+                  signed
+                  accessibilityLabel={t.energyGiveTakeLabel}
+                />
+              </View>
+              <Text style={[styles.wheneverHint, { color: theme.textMuted }]}>{t.energyGiveTakeHint}</Text>
+            </View>
 
             {/* Advanced options — Energy/Hint/Contact/Location/Goal/Then, ported from the
                 retired app/task-form.tsx (UX audit B1: one canonical task editor) behind a
@@ -851,21 +943,10 @@ function TaskCard({
             </PressableScale>
             <Collapsible open={advancedOpen}>
               <View style={styles.advancedWrap}>
-                {/* Energy — optional per-task energy cost (only when the Energy system is on) */}
-                {energySystemEnabled && (
-                  <View style={styles.field}>
-                    <View style={styles.toggleRow}>
-                      <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.energyConsumeLabel}</Text>
-                      <Switch checked={draft.energyEnabled} onChange={(v) => patch({ energyEnabled: v })} />
-                    </View>
-                    {draft.energyEnabled && (
-                      <View style={styles.energyCostRow}>
-                        <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.energyCostLabel}</Text>
-                        <Stepper value={draft.energyValue} onChange={(v) => patch({ energyValue: v })} signed accessibilityLabel={t.energyCostLabel} />
-                      </View>
-                    )}
-                  </View>
-                )}
+                {/* Start from — a recurring task's `hasStartDate` is a "no occurrences before
+                    this date" boundary (lib/taskRecurrence.ts), NOT the task's day. Niche, so
+                    it sits here rather than in the main When slot a one-off task gets. */}
+                {isRecurring && renderDayPicker(t.taskStartFromLabel, t.taskStartFromNone)}
 
                 {/* Hint — Decision 019, freeform "next time" note, display-only */}
                 <View style={styles.field}>
@@ -988,16 +1069,16 @@ function TaskCard({
                     )}
                   </View>
                 )}
+
+                {/* Shared out toggle (persists immediately — emits an outgoing shared row) */}
+                {showShareOut && !isNew && (
+                  <View style={styles.toggleRow}>
+                    <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskSharedOut}</Text>
+                    <Switch checked={task.sharedOut} onChange={(on) => setSharedOut(task.id, on)} />
+                  </View>
+                )}
               </View>
             </Collapsible>
-
-            {/* Shared out toggle (persists immediately — emits an outgoing shared row) */}
-            {showShareOut && !isNew && (
-              <View style={styles.toggleRow}>
-                <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskSharedOut}</Text>
-                <Switch checked={task.sharedOut} onChange={(on) => setSharedOut(task.id, on)} />
-              </View>
-            )}
 
             {/* ── Bottom actions: Delete (left) · Discard / Save (right) — small, icon + label ── */}
             <View style={styles.bottomActionsRow}>

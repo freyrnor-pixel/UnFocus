@@ -10,7 +10,8 @@
  * (lib/energy.ts's plannedEnergyDeltaForDay/Week), so an over-committed day/week
  * is visible before anything on it has actually happened.
  *
- * Renders nothing unless settings.energySystemEnabled — the whole system is opt-in.
+ * Always rendered (2026-07-26): Energy stopped being a toggle — a task/habit reads 0 unless
+ * you give it a value, so the meter simply sits at capacity until something has one.
  * settings.energyMode (2026-07-24) picks which meter(s) show: 'daily' hides the week
  * row, 'weekly' hides the day row, 'custom' (per-weekday capacities set in
  * app/settings.tsx) shows both since the week total derives from the seven days.
@@ -45,7 +46,6 @@ export default function EnergyMeter() {
   const theme = useAppTheme();
   const t = useT();
 
-  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   const energyMode = useSettingsStore((s) => s.energyMode);
   // Subscribe to the defaults + overrides so the meter recomputes when either changes.
   useSettingsStore((s) => s.energyDailyCapacity);
@@ -62,8 +62,6 @@ export default function EnergyMeter() {
   const habitLogs = useHabitStore((s) => s.logs);
 
   const [editing, setEditing] = useState(false);
-
-  if (!energySystemEnabled) return null;
 
   // energyMode picks which meter(s) apply — 'daily'/'weekly' show only their own
   // meter, 'custom' (per-weekday capacities, set in Settings) shows both since the

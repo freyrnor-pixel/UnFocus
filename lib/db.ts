@@ -807,6 +807,15 @@ export function initDb() {
     // state; they're otherwise inert now (see store/useSettingsStore.ts's "Inert
     // columns" note) and kept only because this repo never drops a column.
     "UPDATE settings SET feature_scan = 1, feature_food = 1",
+    // Energy system: stops being a toggle too (maintainer decision 2026-07-26 — "Energy
+    // is always on, just on 0 by default for simplicity"). The per-task/habit control is
+    // now a single signed stepper that reads 0 unless you set it, so an untouched task
+    // costs nothing and the system no longer needs an opt-out to stay out of the way.
+    // Removed from Settings → Advanced → Features; the Home meter and both editors are
+    // un-gated. Set unconditionally so the column isn't left stale — it's inert from here
+    // (see store/useSettingsStore.ts's "Inert columns" note) and kept only because this
+    // repo never drops a column. Supersedes the two conditional flips further up.
+    "UPDATE settings SET energy_system_enabled = 1",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

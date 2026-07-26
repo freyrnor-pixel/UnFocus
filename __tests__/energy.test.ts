@@ -10,7 +10,7 @@
  * (used to warn about an over-committed day/week before anything's completed).
  * Pure functions — no DB, no store; plain objects cast to the store types.
  */
-import { dayKey, weekKey, energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek } from '@/lib/energy';
+import { dayKey, weekKey, energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek, energyStepperValue, energyFieldsFromStepper } from '@/lib/energy';
 import type { Task } from '@/store/useTaskStore';
 import type { Habit, HabitLog } from '@/store/useHabitStore';
 
@@ -159,5 +159,43 @@ describe('plannedEnergyDeltaForWeek', () => {
     const h = habit({ energyEnabled: true, energyValue: -1, recurrence: 'weekly-flexible', dailyGoal: 3 });
     // If this were summed per-day like a normal habit, it would be -7 (once per day of the week).
     expect(plannedEnergyDeltaForWeek(DAY, [], [h])).toBe(-1);
+  });
+});
+
+/**
+ * The single-stepper Energy control (2026-07-26). Both editors show ONE signed stepper
+ * where 0 = "no effect" instead of a switch plus a value. The regression these guard:
+ * `energyValue` defaults to 1 while `energyEnabled` defaults to false, so showing the raw
+ * value would read every untouched task/habit as "+1" and persist it on the next save.
+ */
+describe('energyStepperValue / energyFieldsFromStepper', () => {
+  it('shows 0 for a row that is not in the Energy system, whatever its stored value', () => {
+    expect(energyStepperValue(false, 1)).toBe(0);   // the store default — the trap
+    expect(energyStepperValue(false, -5)).toBe(0);
+    expect(energyStepperValue(false, 0)).toBe(0);
+  });
+
+  it('shows the stored value once the row IS in the Energy system', () => {
+    expect(energyStepperValue(true, 1)).toBe(1);
+    expect(energyStepperValue(true, -3)).toBe(-3);
+    expect(energyStepperValue(true, 0)).toBe(0);
+  });
+
+  it('derives energyEnabled from the stepper reading, with 0 meaning opted out', () => {
+    expect(energyFieldsFromStepper(0)).toEqual({ energyEnabled: false, energyValue: 0 });
+    expect(energyFieldsFromStepper(2)).toEqual({ energyEnabled: true, energyValue: 2 });
+    expect(energyFieldsFromStepper(-2)).toEqual({ energyEnabled: true, energyValue: -2 });
+  });
+
+  it('round-trips: a default row saves as opted-out, so it contributes nothing', () => {
+    const fields = energyFieldsFromStepper(energyStepperValue(false, 1));
+    expect(fields).toEqual({ energyEnabled: false, energyValue: 0 });
+    expect(energyDeltaForDay(DAY, [task({ ...fields, done: true, date: DAY })], [], [])).toBe(0);
+  });
+
+  it('round-trips an opted-in row unchanged', () => {
+    const fields = energyFieldsFromStepper(energyStepperValue(true, -4));
+    expect(fields).toEqual({ energyEnabled: true, energyValue: -4 });
+    expect(energyDeltaForDay(DAY, [task({ ...fields, done: true, date: DAY })], [], [])).toBe(-4);
   });
 });

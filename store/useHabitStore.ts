@@ -33,7 +33,7 @@
  *     energyValue (positive restores energy, negative drains) to that day's/week's budget
  *     (lib/energy.ts, components/EnergyMeter.tsx). Also shown directly on the habit card as a
  *     small +/- pill (app/(tabs)/habits.tsx's EnergyBadge) — replaced the old streak badge.
- *     Only matters when settings.energySystemEnabled.
+ *     Always active — Energy stopped being a toggle (2026-07-26); a 0 value means no effect.
  *   - **Decision 016 Q2 — no legacy `notificationTime` field.** `notificationTimes` is the
  *     sole live source of truth; the `notification_time` DB column is dead (never read/written
  *     here — see lib/db.ts's header for the precedent).
@@ -103,7 +103,7 @@ export type Habit = {
   /** Energy system (2026-07-20) — when energyEnabled, MEETING this habit on a day
    *  applies a SIGNED energyValue to that day's/week's budget (positive restores,
    *  e.g. drinking water = +1; negative drains). Only affects anything when
-   *  settings.energySystemEnabled. See lib/energy.ts. */
+   *  a non-zero value. See lib/energy.ts. */
   energyEnabled: boolean;
   energyValue: number;
   /** Goals (2026-07-23) — id of the Goal this habit is connected to, or null. Logging the
