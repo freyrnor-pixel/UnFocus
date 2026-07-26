@@ -487,7 +487,7 @@ export default function HomeScreen() {
         onScroll={handleScreenScroll}
       >
         <View style={styles.content}>
-          <HintCard text={t.hints.home.text} open={hintOpen} noPill>
+          <HintCard text={t.hints.home.text} example={t.hints.home.example} open={hintOpen} noPill>
             <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
                 <View style={styles.hintSettingRow}>
                   <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.taskNotifications}</Text>

@@ -23,7 +23,8 @@
  *
  * Connections:
  *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
- *             components/HintCard, components/AppModal (showAppModal),
+ *             components/HintCard, components/StarterCard (first-run explainer, shown while
+ *             there are no weekly or monthly lists), components/AppModal (showAppModal),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
  *             components/ExpandableCard, components/FlightOverlay (FlightPill, Flight, FlightRect),
  *             components/IconButton,
@@ -371,6 +372,7 @@ import ListSettingsSheet from '@/components/ListSettingsSheet';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
 import HintCard from '@/components/HintCard';
+import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TabSlider from '@/components/TabSlider';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
@@ -1407,7 +1409,7 @@ export default function ShoppingScreen() {
   // Screen intro chrome (first-run hint + incoming shared requests), shared by both tabs.
   const shoppingIntro = (
     <>
-      <HintCard text={t.hints.shopping.text} open={hintOpen} noPill>
+      <HintCard text={t.hints.shopping.text} example={t.hints.shopping.example} open={hintOpen} noPill>
         <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
           <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.weeklyResetDay}</Text>
           <View style={styles.hintDayRow}>
@@ -1450,6 +1452,15 @@ export default function ShoppingScreen() {
           />
         </View>
       </HintCard>
+      {/* First-run explainer (2026-07-26): when to add something, and what the two reset
+          cadences actually mean — the weekly/monthly distinction is exactly what's opaque
+          before you have one of each. Gated on no weekly lists AND no items anywhere, NOT on
+          monthlyLists: lib/db.ts seeds one empty monthly list on install (the `INSERT …
+          WHERE NOT EXISTS` migration), so that count is never 0 and would suppress this for
+          every new user. Items covers the seeded list having been filled in. */}
+      {lists.length === 0 && items.length === 0 && (
+        <StarterCard text={t.starters.shopping.text} example={t.starters.shopping.example} />
+      )}
       {/* Incoming shared shopping requests — opt-in via settings.featureSharing
           (off for fresh installs). Anything already received stays in the store and
           reappears untouched if sharing is turned back on. */}

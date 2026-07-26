@@ -28,7 +28,9 @@
  * symptom-tracking half now.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/HintCard, components/Surface,
+ *   Imports → components/ScreenScaffold, components/HintCard, components/StarterCard
+ *             (first-run explainer, shown while nothing has ever been logged),
+ *             components/Surface,
  *             components/CardAccent (CardAccentBadge), components/PressableScale,
  *             components/DebugNoteAnchor, components/AddRow,
  *             components/FormControls (Input), constants/theme, lib/date, lib/i18n,
@@ -65,6 +67,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore, HealthLog } from '@/store/useHealthStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
+import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import Surface from '@/components/Surface';
 import { CardAccentBadge } from '@/components/CardAccent';
@@ -170,7 +173,13 @@ export default function HealthScreen() {
         onInfoToggle={() => setHintOpen((v) => !v)}
       >
         <View style={styles.content}>
-          <HintCard text={t.hints.health.text} open={hintOpen} noPill />
+          <HintCard text={t.hints.health.text} example={t.hints.health.example} open={hintOpen} noPill />
+
+          {/* First-run explainer (2026-07-26): why to log at the moment it happens rather
+              than from memory, plus what an entry looks like. Gated on the whole log being
+              empty (not just this week's), so a user with history doesn't see it on a quiet
+              week — and it returns if every entry is later deleted. */}
+          {logs.length === 0 && <StarterCard text={t.starters.health.text} example={t.starters.health.example} />}
 
           {/* Quick log — essentials-only instant record (name + start time + duration +
               severity, dated today). */}

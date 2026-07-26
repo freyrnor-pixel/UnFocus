@@ -7,7 +7,9 @@
  *
  * Connections:
  *   Imports → @expo/vector-icons
- *   Used by → app/habit-form.tsx (icon picker), app/(tabs)/habits.tsx (cards/week/month rows)
+ *   Used by → app/habit-form.tsx (icon picker), app/(tabs)/habits.tsx (cards/week/month rows
+ *             + empty-state starter chips), lib/habitStarters.ts (HABIT_ICON_NAMES, to type
+ *             the starter glyphs)
  *   Data    → none
  */
 import React from 'react';
@@ -25,6 +27,9 @@ export const HABIT_ICON_NAMES = [
   'star-outline', 'fitness-outline', 'locate-outline', 'sunny-outline', 'medkit-outline',
   'pencil-outline', 'bulb-outline', 'pulse-outline', 'heart-outline', 'flame-outline',
   'musical-notes-outline', 'extension-puzzle-outline', 'bed-outline',
+  // Added 2026-07-26 for the empty-state starter habits (lib/habitStarters.ts) — a glyph
+  // must be in this list or HabitIcon renders it as raw emoji text.
+  'body-outline',
 ] as const;
 
 const ICON_NAME_SET: Set<string> = new Set(HABIT_ICON_NAMES);

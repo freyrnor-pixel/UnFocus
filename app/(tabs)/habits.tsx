@@ -16,12 +16,13 @@
  *   Imports → components/ScreenScaffold, components/HintCard, components/Surface,
  *             components/SectionCard, components/AddRow, components/AnimatedListItem (habit
  *             add/remove fade), components/GlowPulse (done-state static halo),
- *             components/HabitIcon, components/EmptyState, components/SlideSelector,
+ *             components/HabitIcon, components/EmptyState, components/StarterCard
+ *             (first-run explainer), components/SlideSelector,
  *             components/PressableScale, components/IconButton (per-row habit edit button),
  *             components/GoalGlowDot (goal glow), components/DebugNoteAnchor,
- *             constants/theme, lib/date, lib/haptics, lib/i18n, lib/useAppTheme,
- *             lib/useFirstVisitHint, lib/domainColor, lib/screenColor, lib/habitRecurrence,
- *             store/useHabitStore, store/useGoalStore, store/useSettingsStore
+ *             constants/theme, lib/date, lib/haptics, lib/habitStarters, lib/i18n,
+ *             lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor, lib/screenColor,
+ *             lib/habitRecurrence, store/useHabitStore, store/useGoalStore, store/useSettingsStore
  *   - Habit Today/Week/Month uses the shared SlideSelector; the person filter row +
  *     habit-form "For" chips are gated on settings.peopleModeEnabled (People/family
  *     mode). Profile add/remove lives in app/settings.tsx, not here.
@@ -64,6 +65,8 @@ import GlowPulse from '@/components/GlowPulse';
 import HabitIcon from '@/components/HabitIcon';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import EmptyState from '@/components/EmptyState';
+import StarterCard from '@/components/StarterCard';
+import { HABIT_STARTERS, HabitStarter } from '@/lib/habitStarters';
 import SlideSelector from '@/components/SlideSelector';
 import PressableScale from '@/components/PressableScale';
 import IconButton from '@/components/IconButton';
@@ -539,20 +542,17 @@ export default function HabitsScreen() {
     { key: 'month', label: t.habitMonthView },
   ];
 
-  function commitHabit() {
-    const title = habitDraft.trim();
-    if (!title) return;
-    // Same new-habit shape app/habit-form.tsx writes, minus the fields the quick-add leaves
-    // at their defaults (icon/goal/recurrence/notifications) — editable later via the form.
+  // Same new-habit shape app/habit-form.tsx writes, minus the fields the quick-add leaves
+  // at their defaults (goal/recurrence/notifications) — editable later via the form. Shared
+  // by the inline AddRow and the empty-state starter chips, which differ only in title/icon/goal.
+  function createHabit(title: string, icon: string, dailyGoal: number) {
     addHabitQuick({
       title,
-      // Neutral "to-do" marker default (debug-note 2026-07-21) — a star reads as a
-      // reward/rating, against the app's no-shame framing. Custom icons still pickable.
-      icon: 'ellipse-outline',
+      icon,
       kind: 'neutral',
       category: 'other',
       cue: '', craving: '', response: '', reward: '',
-      dailyGoal: 1,
+      dailyGoal,
       recurrence: 'daily',
       recurrenceDays: [],
       notificationEnabled: false,
@@ -566,10 +566,24 @@ export default function HabitsScreen() {
       childName: selectedProfile || '',
       energyEnabled: false,
       energyValue: 1,
+      // Starters do NOT create a goals row the user never named — the StarterCard copy
+      // points at the gear icon for that instead.
       goalId: null,
     });
-    setHabitDraft('');
     success();
+  }
+
+  function commitHabit() {
+    const title = habitDraft.trim();
+    if (!title) return;
+    // Neutral "to-do" marker default (debug-note 2026-07-21) — a star reads as a
+    // reward/rating, against the app's no-shame framing. Custom icons still pickable.
+    createHabit(title, 'ellipse-outline', 1);
+    setHabitDraft('');
+  }
+
+  function addStarterHabit(starter: HabitStarter) {
+    createHabit(t.starters.habits.suggestions[starter.key], starter.icon, starter.dailyGoal);
   }
 
   return (
@@ -585,7 +599,7 @@ export default function HabitsScreen() {
         onInfoToggle={() => setHintOpen((v) => !v)}
       >
         <View style={styles.content}>
-          <HintCard text={t.hints.habits.text} open={hintOpen} noPill />
+          <HintCard text={t.hints.habits.text} example={t.hints.habits.example} open={hintOpen} noPill />
 
           {/* Habits — boxed in a single hue-edged SectionCard so the whole section (filter ·
               view tabs · cards · add row) reads as one group instead of loose controls on the
@@ -648,11 +662,39 @@ export default function HabitsScreen() {
                   the shame/reward framing the app deliberately avoids. */}
               <View style={styles.section}>
                 {visibleHabits.length === 0 ? (
-                  // Neutral edge to match the Week/Month empty placeholders (theme.border,
-                  // not the habit domain hue) — quiet "nothing here yet", not a coded surface.
-                  <Surface borderColor={theme.border} style={styles.sectionCard}>
-                    <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
-                  </Surface>
+                  // Two different kinds of "empty" (2026-07-26). No habits AT ALL → the
+                  // StarterCard explainer: what a habit is for here, plus four one-tap
+                  // examples. It's gated on profileHabits (not visibleHabits) so it doesn't
+                  // reappear on a day when the user's existing habits simply aren't due — and
+                  // it does come back if they later delete every habit. Habits exist but none
+                  // occur today → the old quiet one-liner, unchanged.
+                  profileHabits.length === 0 ? (
+                    <StarterCard text={t.starters.habits.text} example={t.starters.habits.example}>
+                      <Text style={[styles.starterTapLabel, { color: theme.textMuted }]}>{t.starters.habits.tapToAdd}</Text>
+                      <View style={styles.starterChips}>
+                        {HABIT_STARTERS.map((s) => (
+                          <PressableScale
+                            key={s.key}
+                            onPress={() => addStarterHabit(s)}
+                            scaleTo={0.96}
+                            accessibilityRole="button"
+                            accessibilityLabel={t.starters.habits.suggestions[s.key]}
+                            style={[styles.starterChip, { borderColor: habitDomainColor.accent, backgroundColor: theme.surfaceMuted }]}
+                          >
+                            <HabitIcon icon={s.icon} size={14} color={habitDomainColor.accent} />
+                            <Text style={[styles.starterChipText, { color: theme.text }]}>{t.starters.habits.suggestions[s.key]}</Text>
+                            <Ionicons name="add" size={14} color={habitDomainColor.accent} />
+                          </PressableScale>
+                        ))}
+                      </View>
+                    </StarterCard>
+                  ) : (
+                    // Neutral edge to match the Week/Month empty placeholders (theme.border,
+                    // not the habit domain hue) — quiet "nothing here yet", not a coded surface.
+                    <Surface borderColor={theme.border} style={styles.sectionCard}>
+                      <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
+                    </Surface>
+                  )
                 ) : (
                   visibleHabits.map((h) => (
                     <AnimatedListItem key={h.id} enabled={hasMountedHabits.current}>
@@ -730,6 +772,19 @@ const baseStyles = StyleSheet.create({
   // Inline habit quick-add row card (mirrors Plans' addRowCard).
   habitAddRowCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, marginTop: Spacing.sm },
   dashedAddText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  // Empty-state starter chips (inside StarterCard) — one-tap example habits.
+  starterTapLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginBottom: Spacing.xs },
+  starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+  starterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+  },
+  starterChipText: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
 
   // Wraps the (overflow-clipped) habit card so the done-state GlowPulse halo, whose boxShadow
   // extends beyond the card box, isn't clipped. Position:relative for the absolute-fill halo.
