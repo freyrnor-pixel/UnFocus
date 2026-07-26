@@ -35,6 +35,11 @@
  *     configure; upload lives only in Settings (app/settings.tsx). Same
  *     exportAiSetupGuide() call as Settings' handler, duplicated locally rather than
  *     shared — two call sites don't need an abstraction.
+ *   - **Bordered hintNote (2026-07-26, user report)**: the ⓘ/principle/experimental info
+ *     boxes were a flat `surfaceMuted` fill with no edge — the same "borderless chip reads as
+ *     floating text" bug AddRow's and Stepper's collapsed pills had (see those files' 2026-07-25
+ *     notes). Added `theme.border` at 1px, matching HintCard's convention for the same kind of
+ *     ⓘ info box.
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -102,7 +107,7 @@ export default function OnboardingIntro() {
                 <Ionicons name={current.icon as IoniconsName} size={44} color={theme.accent} />
               </View>
               <Text style={[styles.featureText, { color: theme.text }]}>{current.text}</Text>
-              <View style={[styles.hintNote, { backgroundColor: theme.surfaceMuted }]}>
+              <View style={[styles.hintNote, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
                 <Ionicons name="information-circle-outline" size={18} color={theme.accent} />
                 <Text style={[styles.hintNoteText, { color: theme.textMuted }]}>{t.introHintNote}</Text>
               </View>
@@ -117,7 +122,7 @@ export default function OnboardingIntro() {
               <Text style={[styles.featureText, { color: theme.text }]}>{t.introPrinciples.title}</Text>
               <View style={styles.bulletList}>
                 {t.introPrinciples.bullets.map((b) => (
-                  <View key={b.text} style={[styles.hintNote, { backgroundColor: theme.surfaceMuted }]}>
+                  <View key={b.text} style={[styles.hintNote, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
                     <Ionicons name={b.icon as IoniconsName} size={18} color={theme.accent} />
                     <Text style={[styles.hintNoteText, { color: theme.textMuted }]}>{b.text}</Text>
                   </View>
@@ -132,7 +137,7 @@ export default function OnboardingIntro() {
                 <Ionicons name="flask-outline" size={44} color={theme.accent} />
               </View>
               <Text style={[styles.featureText, { color: theme.text }]}>{t.introExperimental.title}</Text>
-              <View style={[styles.hintNote, { backgroundColor: theme.surfaceMuted }]}>
+              <View style={[styles.hintNote, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
                 <Ionicons name="construct-outline" size={18} color={theme.accent} />
                 <Text style={[styles.hintNoteText, { color: theme.textMuted }]}>{t.introExperimental.body}</Text>
               </View>
@@ -195,6 +200,7 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
     borderRadius: Radius.md,
+    borderWidth: 1,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
   },
