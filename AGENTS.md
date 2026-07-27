@@ -251,6 +251,32 @@ device or EAS build.
 
 ## Known gotchas
 
+- **⚠️ Background HTTP servers that inherit stdout hang the whole shell/tool call — this is why "the task just keeps running" (root-caused 2026-07-27).**
+  `npm run preview` used to be `npm run preview:build && (npm run preview:serve &) && sleep 1 && node scripts/preview.mjs`.
+  `(cmd &)` backgrounds `serve-web.mjs` — a static HTTP server that runs forever — but does
+  **not** redirect its stdout/stderr, so it keeps inheriting the same fd as the invoking
+  shell. `preview.mjs` (the actual test) finishes in under a minute, but the server keeps
+  that fd open forever. Any caller that waits for the output stream to reach EOF before
+  it considers the command "done" — a `| tail`/`| tee` pipe, or an agent harness capturing
+  a command's output through a pipe/file — blocks **indefinitely**, even though the real
+  work is long since finished. Reproduced directly in an agent session: `npm run preview
+  2>&1 | tail -60` sat past its 5-minute timeout with `preview.mjs` and Chromium already
+  exited — `ps aux` showed only the orphaned `node scripts/serve-web.mjs` still alive,
+  holding the pipe's write end (`ls -la /proc/<pid>/fd` confirmed fd 1/2 pointed at the
+  same output file the wrapper was reading). Killing that one process let the "hung"
+  command complete instantly. It also meant a second `npm run preview` in the same
+  session hit `EADDRINUSE` and silently served the *first* run's stale `dist/`.
+  **Fixed** in `scripts/run-preview.sh` (now what `npm run preview` calls): the server's
+  stdout/stderr are redirected to a log file (`/tmp/unfocus-preview-serve.log`), its PID
+  is captured, and a `trap ... EXIT` kills it once `preview.mjs` returns — so the fd never
+  leaks and nothing lingers for the next run.
+  **The general lesson, not just for this script**: never background a long-lived process
+  (`cmd &`, `(cmd &)`, a dev server, a watcher) without redirecting its stdout/stderr away
+  from the shell you (or a pipe/tool) are waiting on (`cmd > /tmp/x.log 2>&1 &`), and kill
+  it explicitly when you're done with it (capture `$!`, `trap ... EXIT`, or `run_in_background`
+  + an explicit stop). A command that "won't finish" after its real work is visibly done is
+  almost always an orphaned child still holding a pipe/fd open, not a genuine infinite loop —
+  check `ps aux` for a stray `node`/server process before assuming the tool itself hung.
 - **`StyleSheet.absoluteFill`** (not `.absoluteFillObject`) for full-screen overlays
 - `useT()` depends on `useSettingsStore`, so it re-renders when language changes — this is intentional. Outside components (stores, schedulers) use `getTranslations(lang?)` instead — it reads the current language from the store when no arg is given.
 - The scan uses on-device OCR via `@react-native-ml-kit/text-recognition` (`parseReceiptText` in `app/scan.tsx`). Confirmed items are added to the shopping list, logged to `purchase_log`, and upserted into the `store_items` catalog (powers shopping autocomplete).

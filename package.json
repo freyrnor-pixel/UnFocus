@@ -93,7 +93,7 @@
     "format": "prettier --write .",
     "preview:build": "node scripts/build-web.mjs",
     "preview:serve": "node scripts/serve-web.mjs",
-    "preview": "npm run preview:build && (npm run preview:serve &) && sleep 1 && node scripts/preview.mjs"
+    "preview": "bash scripts/run-preview.sh"
   },
   "private": true
 }
