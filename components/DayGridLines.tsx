@@ -12,6 +12,14 @@
  *   Used by → components/DayHourScale.tsx, components/PlanTaskCard.tsx
  *   Data    → none (pure presentational); `now` optional, minutes since midnight — omit to
  *             hide the now-line entirely (not currently used that way, but supported)
+ *
+ * Edit notes:
+ *   - **Now-line order flipped (2026-07-27, user report)**: was [time label][dot][line];
+ *     the time label used to sit in the same gutter column as the grey hour labels, reading
+ *     as just another hour mark instead of a distinct "now" indicator. Flipped to [line][dot]
+ *     leading (still starting flush with the grey hour lines via `nowGutterSpacer`, an empty
+ *     stand-in for the label that used to occupy that space) with the time label trailing at
+ *     the line's end.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -41,11 +49,12 @@ export default function DayGridLines({ now }: Props) {
       ))}
       {nowY !== null && (
         <View style={[styles.nowRow, { top: nowY }]} pointerEvents="none">
-          <Text style={[styles.nowLabel, { color: theme.accent }]}>{nowLabel}</Text>
+          <View style={styles.nowGutterSpacer} />
           <View style={styles.nowLineWrap}>
             <View style={[styles.nowDot, { backgroundColor: theme.accent }]} />
             <View style={[styles.nowBar, { backgroundColor: theme.accent }]} />
           </View>
+          <Text style={[styles.nowLabel, { color: theme.accent }]}>{nowLabel}</Text>
         </View>
       )}
     </View>
@@ -59,8 +68,11 @@ const styles = StyleSheet.create({
   hourLine: { flex: 1, height: 1 },
   // marginTop centers the line/dot on `top` (nowY) instead of starting there.
   nowRow: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center', marginTop: -7, zIndex: 1 },
-  nowLabel: { width: GUTTER_WIDTH, fontSize: FontSize.xs, fontFamily: Fonts.bold, textAlign: 'right', paddingRight: Spacing.xs },
+  // Empty spacer matching the hour-label gutter, so the now-line still starts flush with
+  // the grey hour lines even though the time label itself moved to the trailing end.
+  nowGutterSpacer: { width: GUTTER_WIDTH },
   nowLineWrap: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   nowDot: { width: 8, height: 8, borderRadius: 4 },
   nowBar: { flex: 1, height: 1.5, marginLeft: 4 },
+  nowLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, paddingLeft: Spacing.xs },
 });

@@ -11,8 +11,8 @@
  *
  * Connections:
  *   Imports → none
- *   Used by → components/DayGridLines.tsx, components/DayHourScale.tsx,
- *             components/PlanTaskCard.tsx
+ *   Used by → components/DayGridLines.tsx, components/DayHourScale.tsx (EMPTY_GRID_HEIGHT),
+ *             components/PlanTaskCard.tsx (COLLAPSED_GRID_HEIGHT)
  *   Data    → none — pure constants + geometry helpers
  *
  * Edit notes:
@@ -40,6 +40,10 @@ export const GUTTER_WIDTH = 48; // left column width for "HH:00" hour labels
 export const GRID_TOTAL_HEIGHT = (GRID_END_HOUR - GRID_START_HOUR) * HOUR_HEIGHT;
 // Resting (collapsed) viewport height — ~4 hours visible before the grid needs scrolling.
 export const COLLAPSED_GRID_HEIGHT = HOUR_HEIGHT * 4;
+// Empty-day viewport height (DayHourScale only) — ~2 hours. A day with nothing on it doesn't
+// need the same 4-hour window a populated day reserves room for tasks within; a shorter grid
+// here keeps the Home preview card's resting height slimmer on a light/empty day.
+export const EMPTY_GRID_HEIGHT = HOUR_HEIGHT * 2;
 
 /** Minutes-since-midnight → y position (px) within the grid. */
 export function minutesToY(minutes: number): number {
