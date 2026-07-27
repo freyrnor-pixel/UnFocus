@@ -18,11 +18,15 @@
  *   - Auto-scrolls (no animation, on mount and whenever `now` crosses into a new position)
  *     so the current hour sits near the top of the short viewport instead of defaulting to
  *     00:00 — an empty day should still greet you at "now," not at midnight.
+ *   - **Shorter than the populated grid (2026-07-27, user report)**: uses `EMPTY_GRID_HEIGHT`
+ *     (~2h) instead of `PlanTaskCard`'s `COLLAPSED_GRID_HEIGHT` (~4h) — an empty day doesn't
+ *     need the same window a populated day reserves for tasks, so keeping this one shorter
+ *     keeps the Home preview card slimmer when there's nothing scheduled.
  */
 import React, { useEffect, useRef } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import DayGridLines from '@/components/DayGridLines';
-import { COLLAPSED_GRID_HEIGHT, minutesToY } from '@/lib/dayGrid';
+import { EMPTY_GRID_HEIGHT, minutesToY } from '@/lib/dayGrid';
 
 type Props = {
   /** Minutes since midnight — used to place the live "now" line and the auto-scroll target. */
@@ -33,7 +37,7 @@ export default function DayHourScale({ now }: Props) {
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
-    const y = Math.max(0, minutesToY(now) - COLLAPSED_GRID_HEIGHT / 3);
+    const y = Math.max(0, minutesToY(now) - EMPTY_GRID_HEIGHT / 3);
     scrollRef.current?.scrollTo({ y, animated: false });
   }, [now]);
 
@@ -45,5 +49,5 @@ export default function DayHourScale({ now }: Props) {
 }
 
 const styles = StyleSheet.create({
-  viewport: { height: COLLAPSED_GRID_HEIGHT },
+  viewport: { height: EMPTY_GRID_HEIGHT },
 });

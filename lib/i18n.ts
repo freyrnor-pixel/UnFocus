@@ -832,7 +832,7 @@ const en = {
   // widget snapshot (lib/widgets/sync.ts) so the headless renderer needs no i18n.
   widgets: {
     shoppingTitle: 'Shopping',
-    tasksTitle: "Today's tasks",
+    tasksTitle: "Today's to-do",
     itemsLeft: (n: number) => (n === 1 ? '1 item left' : `${n} items left`),
     tasksLeft: (n: number) => (n === 1 ? '1 task left' : `${n} tasks left`),
     allDone: 'All done 🎉',
@@ -857,7 +857,7 @@ const en = {
     shared: 'Shared', settingsLabel: 'Settings',
   },
   home: {
-    todaysPlans: "Today's tasks",
+    todaysPlans: "Today's to-do",
     seeAllPlans: 'See all plans',
     more: 'More',
     notesExpand: 'Show all notes',
@@ -2514,7 +2514,7 @@ const no: typeof en = {
   // Widget-etiketter for startskjermen (Android).
   widgets: {
     shoppingTitle: 'Handleliste',
-    tasksTitle: 'Dagens oppgaver',
+    tasksTitle: 'Dagens gjøremål',
     itemsLeft: (n: number) => (n === 1 ? '1 vare igjen' : `${n} varer igjen`),
     tasksLeft: (n: number) => (n === 1 ? '1 oppgave igjen' : `${n} oppgaver igjen`),
     allDone: 'Alt ferdig 🎉',
@@ -2538,7 +2538,7 @@ const no: typeof en = {
     shared: 'Delt', settingsLabel: 'Innstillinger',
   },
   home: {
-    todaysPlans: 'Dagens oppgaver',
+    todaysPlans: 'Dagens gjøremål',
     seeAllPlans: 'Se alle planer',
     more: 'Mer',
     notesExpand: 'Vis alle notater',
