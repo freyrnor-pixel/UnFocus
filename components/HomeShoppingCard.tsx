@@ -10,7 +10,8 @@
  *   Imports → components/Surface, components/ExpandableCard, components/CardAccent
  *             (badge+wash gradient move), components/FlightOverlay
  *             (FlightRect type only), components/ShoppingRow, components/PressableScale,
- *             components/ProgressBar, components/HomePreviewEmpty, components/AddRow +
+ *             components/ProgressBar, components/StarterExampleRow (empty-state suggestion),
+ *             components/AddRow +
  *             components/Stepper (quick-add's inline quantity/target extras), constants/theme,
  *             lib/haptics, lib/i18n, lib/shoppingGroups (listProgress), lib/useAppTheme,
  *             lib/domainColor, lib/budget (SpendPace type only), expo-router,
@@ -26,10 +27,16 @@
  *     applied only while `!expanded`, so this card reads the same size as
  *     HomeNotesCard/PlanTaskCard when light — then grows per item row above it;
  *     `previewRow`'s paddingVertical was trimmed to `Spacing.xs` for a slimmer collapsed row.
- *   - **Empty state (2026-07-24, text removed; restored 2026-07-26)**: an empty list renders the
- *     shared `HomePreviewEmpty`, which briefly (2026-07-24 → 2026-07-25) was blank space only —
- *     user report called the card "too empty" with nothing to confirm the blankness was
- *     intentional, so `HomePreviewEmpty` now shows a small centered "Nothing" label again.
+ *   - **Empty state (2026-07-24 text removed → 2026-07-26 "Nothing" label → 2026-07-27
+ *     explainer + suggestion)**: an empty list renders a short italic line saying what the two
+ *     cadences are for (`t.starters.shopping.text`) plus one real suggested-add row
+ *     (`components/StarterExampleRow`, its "+" calling the card's own `onAddItem`), instead of
+ *     the shared `HomePreviewEmpty` "Nothing" label. The label confirmed the blankness was
+ *     intentional but taught nothing; the user asked for per-card example text and a suggested
+ *     add row while empty. Gated on a plain `totalCount === 0`, so it also returns if the list
+ *     is later cleared. The suggestion is deliberately WEEKLY-only here — the monthly-vs-weekly
+ *     distinction is explained in the text, and the full Shopping screen's own StarterCard is
+ *     where both examples live.
  *   - **Header tightened + moved down (2026-07-26, user report)**: `titleRow`'s paddingLeft
  *     went 56 → 52 (badge 32 + a 4px gap, was 8px — "more closely linked with the badge") and
  *     `badgeFixed`/`cardContent` both got a matching +4 top/paddingTop bump ("move it a bit
@@ -99,7 +106,7 @@ import ExpandableCard from '@/components/ExpandableCard';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 import ShoppingRow from '@/components/ShoppingRow';
 import PressableScale from '@/components/PressableScale';
-import HomePreviewEmpty from '@/components/HomePreviewEmpty';
+import StarterExampleRow from '@/components/StarterExampleRow';
 import ProgressBar from '@/components/ProgressBar';
 import AddRow from '@/components/AddRow';
 import Stepper from '@/components/Stepper';
@@ -286,7 +293,24 @@ export default function HomeShoppingCard({
         )}
 
         {totalCount === 0 ? (
-          <HomePreviewEmpty />
+          // Empty-state explainer + one real suggested-add row (2026-07-27) — see the
+          // "Empty state" edit note. Replaces the bare "Nothing" label.
+          <View style={styles.emptyWrap}>
+            <View style={styles.emptyTextRow}>
+              <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.emptyBulb} />
+              <Text style={[styles.emptyExplainer, { color: theme.text }]}>{t.starters.shopping.text}</Text>
+            </View>
+            {onAddItem ? (
+              <StarterExampleRow
+                icon="cart-outline"
+                title={t.starters.shopping.exampleWeekly}
+                meta={t.habitRecurrenceWeekly}
+                accent={domainColor.accent}
+                onAdd={() => onAddItem(t.starters.shopping.exampleWeekly, 1)}
+                addLabel={t.starters.addExample}
+              />
+            ) : null}
+          </View>
         ) : expanded ? (
           // Expanded: full nested structure
           <View style={styles.rowsContainer}>
@@ -453,6 +477,13 @@ const baseStyles = StyleSheet.create({
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   // Wells removed (2026-07-13 grouping pass): rows sit directly on the card face.
   rowsContainer: { marginBottom: Spacing.sm },
+  // Empty-state explainer + suggestion (2026-07-27) — same bulb + italic treatment
+  // components/StarterCard uses, inlined so the card doesn't nest a Surface in a Surface.
+  // Kept identical to PlanTaskCard's own empty block so the two cards read as one system.
+  emptyWrap: { gap: Spacing.sm, marginBottom: Spacing.sm },
+  emptyTextRow: { flexDirection: 'row', gap: Spacing.xs },
+  emptyBulb: { marginTop: 2 },
+  emptyExplainer: { flex: 1, fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.medium, fontStyle: 'italic' },
   rows: {},
   previewRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.xs, gap: Spacing.sm },
   check: {

@@ -11,7 +11,7 @@
  * proves the rest of useTaskStore's side effects — notifications, calendar sync,
  * live-sync broadcast — are safe no-ops in the headless test env).
  */
-import { useTaskStore } from '@/store/useTaskStore';
+import { useTaskStore, RECENTLY_DELETED_LIMIT } from '@/store/useTaskStore';
 import type { Task } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
@@ -55,7 +55,7 @@ function task(overrides: Partial<Task>): Task {
 
 beforeEach(() => {
   useSettingsStore.setState({ lifetimeCompletedTasks: 0 });
-  useTaskStore.setState({ tasks: [task({ id: 't1', done: false })] });
+  useTaskStore.setState({ tasks: [task({ id: 't1', done: false })], deletedTasks: [] });
 });
 
 describe('lifetimeCompletedTasks', () => {
@@ -102,5 +102,50 @@ describe('lifetimeCompletedTasks', () => {
     useSettingsStore.setState({ lifetimeCompletedTasks: 9 });
     useTaskStore.getState().clearAll();
     expect(useSettingsStore.getState().lifetimeCompletedTasks).toBe(0);
+  });
+});
+
+// Undoable delete (2026-07-27) — the day-view's "Recently deleted" drawer is only as good as
+// the list feeding it, so assert what the UI actually depends on: remove() offers the task
+// back, the offer is capped and de-duplicated, and clearAll() (a real hard DELETE of every
+// row, tombstones included) leaves nothing claiming to be restorable.
+describe('deletedTasks (undo buffer)', () => {
+  it('remove() puts the deleted task at the front of deletedTasks', () => {
+    useTaskStore.setState({
+      tasks: [task({ id: 'a', title: 'A' }), task({ id: 'b', title: 'B' })],
+      deletedTasks: [],
+    });
+
+    useTaskStore.getState().remove('a');
+    useTaskStore.getState().remove('b');
+
+    expect(useTaskStore.getState().deletedTasks.map((t) => t.id)).toEqual(['b', 'a']);
+  });
+
+  it('caps the buffer at RECENTLY_DELETED_LIMIT, dropping the oldest', () => {
+    const ids = Array.from({ length: RECENTLY_DELETED_LIMIT + 3 }, (_, i) => `t${i}`);
+    useTaskStore.setState({ tasks: ids.map((id) => task({ id })), deletedTasks: [] });
+
+    ids.forEach((id) => useTaskStore.getState().remove(id));
+
+    const buffered = useTaskStore.getState().deletedTasks;
+    expect(buffered).toHaveLength(RECENTLY_DELETED_LIMIT);
+    // Newest first, and the three oldest deletes have fallen off the end.
+    expect(buffered[0].id).toBe(ids[ids.length - 1]);
+    expect(buffered.map((t) => t.id)).not.toContain('t0');
+  });
+
+  it('never lists the same task twice, even if it is deleted again after a restore', () => {
+    useTaskStore.setState({ tasks: [task({ id: 'a' })], deletedTasks: [task({ id: 'a' })] });
+
+    useTaskStore.getState().remove('a');
+
+    expect(useTaskStore.getState().deletedTasks.filter((t) => t.id === 'a')).toHaveLength(1);
+  });
+
+  it('clearAll() empties the buffer — those rows are hard-deleted, not restorable', () => {
+    useTaskStore.setState({ tasks: [], deletedTasks: [task({ id: 'a' })] });
+    useTaskStore.getState().clearAll();
+    expect(useTaskStore.getState().deletedTasks).toEqual([]);
   });
 });

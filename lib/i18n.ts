@@ -64,6 +64,17 @@ const en = {
   dayViewAllDone: 'All done for today',
   dayViewFollowerBadge: 'Then',
   dayViewAnytimeBadge: 'Anytime',
+  /** Length of a compressed empty stretch on the timeline, e.g. "2 h 30 min". */
+  dayViewGapLength: (minutes: number) => {
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    if (h === 0) return `${m} min`;
+    return m === 0 ? `${h} h` : `${h} h ${m} min`;
+  },
+  /** Deleted-tasks zone in the day-view — delete is undoable, never silent. */
+  dayViewDeletedZone: (n: number) => `Recently deleted (${n})`,
+  dayViewRestore: 'Restore',
+  dayViewDeleteTask: 'Delete',
   // To-do list screen (app/(tabs)/plans.tsx + components/TaskCard.tsx) — the route
   // key stays `plans` for history; the user-facing label is "To-do list" (short
   // form "To-do" in the bottom nav, see nav.plans).
@@ -131,6 +142,9 @@ const en = {
     done: 'Done',
     overCommittedDay: (n: number) => `⚠️ Today is planned to use ${n} more Energy than you have available.`,
     overCommittedWeek: (n: number) => `⚠️ This week is planned to use ${n} more Energy than you have available.`,
+    /** Permanent one-liner under the meter (components/EnergyMeter.tsx). Keep it to one
+     *  sentence with no examples — see that file's "Permanent inline hint" note. */
+    hint: 'Plan your workload with your energy in mind — for both habits and to-dos.',
   },
   a11yAdd: 'Add',
   a11yDiscardRow: 'Discard new row',
@@ -1263,11 +1277,6 @@ const en = {
         laundry: 'Start the washing machine',
       },
     },
-    energy: {
-      text: 'Plan your workload with your energy in mind — for both habits and to-dos.',
-      exampleNegative: 'Grocery run',
-      examplePositive: 'Drink water',
-    },
     shopping: {
       text: 'Weekly list for groceries, monthly list for what the house needs once a month.',
       exampleWeekly: 'Milk',
@@ -1421,6 +1430,15 @@ const no: typeof en = {
   dayViewAllDone: 'Alt gjort for i dag',
   dayViewFollowerBadge: 'Så',
   dayViewAnytimeBadge: 'Når som helst',
+  dayViewGapLength: (minutes: number) => {
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    if (h === 0) return `${m} min`;
+    return m === 0 ? `${h} t` : `${h} t ${m} min`;
+  },
+  dayViewDeletedZone: (n: number) => `Nylig slettet (${n})`,
+  dayViewRestore: 'Gjenopprett',
+  dayViewDeleteTask: 'Slett',
   // Gjøremålsliste-skjerm (app/(tabs)/plans.tsx + components/TaskCard.tsx)
   tasksTitle: 'Gjøremålsliste',
   tasksTabAll: 'Alle',
@@ -1483,6 +1501,7 @@ const no: typeof en = {
     done: 'Ferdig',
     overCommittedDay: (n: number) => `⚠️ I dag er det planlagt ${n} mer energibruk enn du har tilgjengelig.`,
     overCommittedWeek: (n: number) => `⚠️ Denne uken er det planlagt ${n} mer energibruk enn du har tilgjengelig.`,
+    hint: 'Planlegg arbeidsmengden med energien din i tankene — både for vaner og gjøremål.',
   },
   a11yAdd: 'Legg til',
   a11yDiscardRow: 'Forkast ny rad',
@@ -2524,11 +2543,6 @@ const no: typeof en = {
         dishwasher: 'Oppvaskmaskin',
         laundry: 'Vaskemaskin',
       },
-    },
-    energy: {
-      text: 'Planlegg arbeidsmengden med energien i bakhodet — for både vaner og gjøremål.',
-      exampleNegative: 'Handletur',
-      examplePositive: 'Drikke vann',
     },
     shopping: {
       text: 'Ukesliste for dagligvarer, månedsliste for det huset trenger én gang i måneden.',

@@ -1,54 +1,73 @@
 /**
- * DayGridLines.tsx — the background of a fixed-hour calendar grid: 24 evenly-spaced
- * horizontal hour lines with "HH:00" labels in a left gutter, plus an optional live "now"
- * line spanning the full width. Pure background, no tasks — shared by DayHourScale (empty
- * day) and PlanTaskCard (populated day) so both draw literally the same grid (2026-07-26,
- * "make the timeline look more like a regular calendar" — Google Calendar's day view was
- * the explicit reference; two earlier passes that kept the proportional/clamped rail and
- * only added borders/ticks didn't land).
+ * DayGridLines.tsx — the background of the day timeline: hour lines with "HH:00" labels in
+ * a left gutter, compressed "nothing here" bands for the empty stretches between them, and
+ * a live "now" line. Pure background, no tasks.
+ *
+ * Built on the ELASTIC axis (lib/dayGrid.ts's `buildDayScale`), not a uniform 24h ruler:
+ * hours near real content get their own line at full spacing, while an empty stretch
+ * collapses into one short dashed band labelled with how long it actually is (2026-07-27,
+ * user report: "timeline should be more compressed — empty periods more compressed, while
+ * things to do stand out and give a more visual feel for how long in between"). The caller
+ * builds the scale once and passes it here AND to its own card positioning, so the lines and
+ * the cards can never disagree about where a minute lands.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, lib/dayGrid
- *   Used by → components/DayHourScale.tsx, components/PlanTaskCard.tsx
+ *   Imports → constants/theme, lib/useAppTheme, lib/dayGrid (DayScale + GUTTER_WIDTH +
+ *             NOW_LABEL_WIDTH), lib/i18n (the gap bands' "2 h 30 min" duration label)
+ *   Used by → components/PlanTaskCard.tsx (the day timeline's background)
  *   Data    → none (pure presentational); `now` optional, minutes since midnight — omit to
- *             hide the now-line entirely (not currently used that way, but supported)
+ *             hide the now-line entirely
  *
  * Edit notes:
- *   - **Now-line order flipped (2026-07-27, user report)**: was [time label][dot][line];
- *     the time label used to sit in the same gutter column as the grey hour labels, reading
- *     as just another hour mark instead of a distinct "now" indicator. Flipped to [line][dot]
- *     leading (still starting flush with the grey hour lines via `nowGutterSpacer`, an empty
- *     stand-in for the label that used to occupy that space) with the time label trailing at
- *     the line's end.
- *   - **Trailing label column reserved (2026-07-27, user report)**: the grey hour lines used to
- *     run the full remaining width, so the trailing blue "HH:MM" reading sat on top of them. The
- *     hour rows (`paddingRight`) and the now-label (fixed `width`) now both use `NOW_LABEL_WIDTH`
- *     from lib/dayGrid, so every grey line and the blue now-bar stop at the same x and the live
+ *   - **Scale is a prop, never recomputed here (2026-07-27)**: this used to derive every
+ *     line from `minutesToY` on its own. With a compressed axis that would be a second,
+ *     independently-built scale — one stale rebuild away from lines that don't match the
+ *     task cards drawn over them. The caller owns the single `buildDayScale()` result.
+ *   - **Now-line order (2026-07-27, user report)**: [line][dot] leading (starting flush with
+ *     the grey hour lines via `nowGutterSpacer`, an empty stand-in for the label that used to
+ *     occupy that space) with the time label trailing at the line's end.
+ *   - **Trailing label column reserved (2026-07-27, user report)**: the hour rows
+ *     (`paddingRight`) and the now-label (fixed `width`) both use `NOW_LABEL_WIDTH` from
+ *     lib/dayGrid, so every grey line and the blue now-bar stop at the same x and the live
  *     time has that column to itself. Keep the two in sync.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { FontSize, Fonts, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
-import { GRID_START_HOUR, GRID_END_HOUR, GRID_TOTAL_HEIGHT, GUTTER_WIDTH, NOW_LABEL_WIDTH, minutesToY } from '@/lib/dayGrid';
+import { useT } from '@/lib/i18n';
+import { DayScale, GUTTER_WIDTH, NOW_LABEL_WIDTH } from '@/lib/dayGrid';
 
 type Props = {
+  scale: DayScale;
   now?: number;
 };
 
-export default function DayGridLines({ now }: Props) {
+export default function DayGridLines({ scale, now }: Props) {
   const theme = useAppTheme();
-  const hours = Array.from({ length: GRID_END_HOUR - GRID_START_HOUR }, (_, i) => GRID_START_HOUR + i);
-  const nowY = now !== undefined ? minutesToY(now) : null;
+  const t = useT();
+  const nowY = now !== undefined ? scale.y(now) : null;
   const nowLabel = now !== undefined
     ? `${String(Math.floor(now / 60) % 24).padStart(2, '0')}:${String(now % 60).padStart(2, '0')}`
     : '';
 
   return (
-    <View style={[styles.wrap, { height: GRID_TOTAL_HEIGHT }]}>
-      {hours.map((h) => (
-        <View key={h} style={[styles.hourRow, { top: minutesToY(h * 60) }]}>
-          <Text style={[styles.hourLabel, { color: theme.textMuted }]}>{String(h).padStart(2, '0')}:00</Text>
+    <View style={[styles.wrap, { height: scale.totalHeight }]}>
+      {/* Compressed empty stretches — one dashed band each, labelled with the real gap so
+          "how long in between" survives the compression. Drawn under the hour lines. */}
+      {scale.gaps.map((gap) => (
+        <View
+          key={`gap-${gap.startMin}`}
+          style={[styles.gapBand, { top: gap.y, height: gap.height, borderColor: theme.border }]}
+        >
+          <Text style={[styles.gapText, { color: theme.textMuted }]} numberOfLines={1}>
+            {t.dayViewGapLength(gap.endMin - gap.startMin)}
+          </Text>
+        </View>
+      ))}
+      {scale.hourMarks.map((mark) => (
+        <View key={`h-${mark.hour}-${Math.round(mark.y)}`} style={[styles.hourRow, { top: mark.y }]}>
+          <Text style={[styles.hourLabel, { color: theme.textMuted }]}>{String(mark.hour).padStart(2, '0')}:00</Text>
           <View style={[styles.hourLine, { backgroundColor: theme.border }]} />
         </View>
       ))}
@@ -74,6 +93,20 @@ const styles = StyleSheet.create({
   hourRow: { position: 'absolute', left: 0, right: 0, paddingRight: NOW_LABEL_WIDTH, flexDirection: 'row', alignItems: 'center' },
   hourLabel: { width: GUTTER_WIDTH, fontSize: FontSize.xs, fontFamily: Fonts.medium, textAlign: 'right', paddingRight: Spacing.xs },
   hourLine: { flex: 1, height: 1 },
+  // A compressed stretch reads as a dashed, inset band rather than a line — visibly "time was
+  // folded away here", with its real length spelled out in the middle.
+  gapBand: {
+    position: 'absolute',
+    left: GUTTER_WIDTH,
+    right: NOW_LABEL_WIDTH,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.7,
+  },
+  gapText: { fontSize: FontSize.xs, fontStyle: 'italic' },
   // marginTop centers the line/dot on `top` (nowY) instead of starting there.
   nowRow: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center', marginTop: -7, zIndex: 1 },
   // Empty spacer matching the hour-label gutter, so the now-line still starts flush with

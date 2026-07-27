@@ -11,18 +11,23 @@
  * is visible before anything on it has actually happened.
  *
  * Always rendered (2026-07-26): Energy stopped being a toggle — a task/habit reads 0 unless
- * you give it a value, so the meter simply sits at capacity until something has one. While
- * NOTHING has one, a components/StarterCard explainer sits under the meter saying what the
- * numbers are for; it disappears the moment any task or habit carries an energy value.
+ * you give it a value, so the meter simply sits at capacity until something has one.
  * settings.energyMode (2026-07-24) picks which meter(s) show: 'daily' hides the week
  * row, 'weekly' hides the day row, 'custom' (per-weekday capacities set in
  * app/settings.tsx) shows both since the week total derives from the seven days.
  *
- * Compact everywhere (2026-07-27, user report — "the card can be vertically shorter" / "the Energy
- * explanation is too big"): the card itself uses a tighter vertical padding + gap than a standard
- * card, and the empty-state StarterCard under it renders in its `compact` form — one small italic
- * line plus the two examples as wrapped chips (no "EXAMPLE" caption), instead of a full-size
- * explainer that ended up taller than the meter it explains.
+ * **Permanent inline hint (2026-07-27)**: one small italic line (`t.energyMeter.hint`) under a
+ * hairline rule, INSIDE this card, always. It replaced a `components/StarterCard` sibling that
+ * carried two "+" example rows and vanished once anything had an energy value. Two problems with
+ * that, both reported: (1) as a separate card BELOW the meter and directly ABOVE the to-do card,
+ * it read as belonging to the to-do card, so its disappearing act looked like a bug in the wrong
+ * place; (2) an explanation that self-destructs is unavailable exactly when a user comes back to
+ * the number months later and has forgotten what it meant. Attached and permanent fixes both.
+ * Keep it to ONE line and no examples — the meter is the smallest card on Home and an explainer
+ * taller than the thing it explains was the earlier complaint.
+ *
+ * Compact everywhere (2026-07-27, user report — "the card can be vertically shorter"): tighter
+ * vertical padding + gap than a standard card.
  *
  * Bolt-row meter (2026-07-27): each period is one line — label, a row of small flash-icon
  * "pips" (lib/energy.ts's energyPipCount — 1:1 up to 10, then scaled), and the `current /
@@ -31,22 +36,17 @@
  * (energyMode 'custom').
  *
  * Connections:
- *   Imports → components/Surface, components/StarterCard, components/StarterExampleRow,
- *             components/Stepper, components/Collapsible, components/PressableScale,
- *             constants/theme, lib/useAppTheme, lib/i18n, lib/date, lib/haptics, lib/energy,
- *             store/useSettingsStore, store/useTaskStore, store/useHabitStore,
- *             store/useEnergyStore
+ *   Imports → components/Surface, components/Stepper, components/Collapsible,
+ *             components/PressableScale, constants/theme, lib/useAppTheme, lib/i18n,
+ *             lib/date, lib/energy, store/useSettingsStore, store/useTaskStore,
+ *             store/useHabitStore, store/useEnergyStore
  *   Used by → app/(tabs)/index.tsx (Home)
- *   Data    → reads tasks/habits/habitLogs + energy_budgets overrides; writes overrides;
- *             its two StarterExampleRow "+" buttons write a real one-off task via
- *             useTaskStore.add (energyEnabled/energyValue set to the example's sign)
+ *   Data    → reads tasks/habits/habitLogs + energy_budgets overrides; writes overrides only
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
-import StarterCard from '@/components/StarterCard';
-import StarterExampleRow from '@/components/StarterExampleRow';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
@@ -54,7 +54,6 @@ import { Fonts, FontSize, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
-import { success } from '@/lib/haptics';
 import { energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek, energyPipCount } from '@/lib/energy';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
@@ -77,7 +76,6 @@ export default function EnergyMeter() {
   const setWeekCapacity = useEnergyStore((s) => s.setWeekCapacity);
 
   const tasks = useTaskStore((s) => s.tasks);
-  const addTask = useTaskStore((s) => s.add);
   const habits = useHabitStore((s) => s.habits);
   const habitLogs = useHabitStore((s) => s.logs);
 
@@ -98,31 +96,6 @@ export default function EnergyMeter() {
   // Over-committed = if everything still scheduled for the period happened, capacity would go negative.
   const dayPlannedOver = -Math.min(0, dayCapacity + plannedEnergyDeltaForDay(today, tasks, habits));
   const weekPlannedOver = -Math.min(0, weekCapacity + plannedEnergyDeltaForWeek(today, tasks, habits));
-
-  // First-run explainer (2026-07-26): until something actually carries an energy value the
-  // meter just sits at capacity and means nothing to a new user, so explain the idea (and the
-  // recommendation — plan with energy in mind) right under it. Gated on real usage rather than
-  // a "seen" flag, so it also returns if the user later clears every energy value.
-  const usesEnergy = tasks.some((tk) => tk.energyEnabled) || habits.some((h) => h.energyEnabled);
-
-  // Empty-state examples (2026-07-27): a real one-off task for today, carrying the signed
-  // energy value the example illustrates. usesEnergy flips true right after, which unmounts
-  // the whole StarterCard (including the other row), so there's no separate "dismiss" needed.
-  function addEnergyStarterTask(title: string, energyValue: number) {
-    addTask({
-      title,
-      date: today,
-      taskType: 'start-at',
-      done: false,
-      recurring: 'none',
-      recurringDays: [],
-      sortOrder: 0,
-      hasStartDate: true,
-      energyEnabled: true,
-      energyValue,
-    });
-    success();
-  }
 
   const row = (label: string, current: number, capacity: number) => {
     const boltColor = current <= 0 ? theme.bad : theme.accent;
@@ -146,7 +119,6 @@ export default function EnergyMeter() {
   };
 
   return (
-    <View style={styles.wrap}>
     <Surface style={styles.card}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
@@ -200,46 +172,20 @@ export default function EnergyMeter() {
           )}
         </View>
       </Collapsible>
-    </Surface>
 
-    {/* Sibling, not nested inside the meter's own Surface — a card inside a card reads as a
-        nested panel rather than a note about the one above it. */}
-    {!usesEnergy && (
-      <StarterCard
-        compact
-        text={t.starters.energy.text}
-        example={
-          <>
-            <StarterExampleRow
-              compact
-              icon="cart-outline"
-              title={t.starters.energy.exampleNegative}
-              meta="−2"
-              metaVariant="warning"
-              accent={theme.warn}
-              onAdd={() => addEnergyStarterTask(t.starters.energy.exampleNegative, -2)}
-              addLabel={t.starters.addExample}
-            />
-            <StarterExampleRow
-              compact
-              icon="water-outline"
-              title={t.starters.energy.examplePositive}
-              meta="+1"
-              metaVariant="success"
-              accent={theme.good}
-              onAdd={() => addEnergyStarterTask(t.starters.energy.examplePositive, 1)}
-              addLabel={t.starters.addExample}
-            />
-          </>
-        }
-      />
-    )}
-    </View>
+      {/* Permanent one-line explainer, INSIDE the card, directly under the meter it explains
+          (2026-07-27, user report). See the file header for why this is no longer a
+          disappearing StarterCard sibling. */}
+      <View style={[styles.hintRow, { borderTopColor: theme.border }]}>
+        <Ionicons name="bulb-outline" size={12} color={theme.textMuted} style={styles.hintIcon} />
+        <Text style={[styles.hintText, { color: theme.textMuted }]}>{t.energyMeter.hint}</Text>
+      </View>
+
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: Spacing.sm },
   // Tighter vertically than a standard card (2026-07-27, user report: "the Energy card can be
   // vertically shorter") — one title row plus one or two single-line meters doesn't need a full
   // Spacing.md band above and below. Horizontal padding stays md so it still lines up with the
@@ -258,4 +204,9 @@ const styles = StyleSheet.create({
   editor: { gap: Spacing.sm, paddingTop: Spacing.sm },
   editRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   editLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  // Permanent explainer — a hairline rule ties it to the meter above rather than letting it
+  // float as its own paragraph, and it stays small enough not to compete with the numbers.
+  hintRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.xs, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: Spacing.xs, marginTop: 2 },
+  hintIcon: { marginTop: 1 },
+  hintText: { flex: 1, fontSize: FontSize.xs, lineHeight: 16, fontStyle: 'italic' },
 });
