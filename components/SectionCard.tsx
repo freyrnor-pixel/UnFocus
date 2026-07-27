@@ -29,6 +29,12 @@
  *     section, Plans' Whenever/Recurring/Shared) to get the small gradient badge instead of a
  *     flat dot. Omit it for sections keyed to an arbitrary hue instead of a domain (Plans'
  *     "Today"/weekday groups use `theme.accent`, which isn't a `Domain`).
+ *   - `icon` (2026-07-27) overrides just the badge GLYPH while `domain` still drives its
+ *     colour. Needed when a section borrows another domain's hue to stay visually distinct
+ *     from its neighbours — Plans' Recurring section borrows `meal` for the colour, and
+ *     before this override it inherited the knife-and-fork glyph along with it. Reach for
+ *     `icon` rather than switching `domain`: the label and divider follow `hue`, so changing
+ *     the domain to fix the glyph desyncs the badge colour from the rest of the header.
  *   - `contentStyle` spreads onto the inner content wrapper (below the header) for callers
  *     that need to override the default gap between rows.
  */
@@ -44,6 +50,8 @@ type Props = {
   hue: string;
   /** Section's domain identity, if any — see the Edit notes above. */
   domain?: Domain;
+  /** Override the badge glyph while keeping `domain`'s colour — forwarded to SectionRail. */
+  icon?: React.ComponentProps<typeof SectionRail>['icon'];
   label: string;
   /** Optional item tally shown after the label. */
   count?: number;
@@ -56,10 +64,10 @@ type Props = {
   children: React.ReactNode;
 };
 
-export default function SectionCard({ hue, domain, label, count, right, style, contentStyle, children }: Props) {
+export default function SectionCard({ hue, domain, icon, label, count, right, style, contentStyle, children }: Props) {
   return (
     <Surface borderColor={hue} style={[styles.card, style]}>
-      <SectionRail hue={hue} domain={domain} label={label} count={count} right={right} />
+      <SectionRail hue={hue} domain={domain} icon={icon} label={label} count={count} right={right} />
       <View style={[styles.content, contentStyle]}>{children}</View>
     </Surface>
   );

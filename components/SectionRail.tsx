@@ -45,6 +45,12 @@ type Props = {
   hue: string;
   /** Section's domain identity, if any — swaps the flat dot for a small gradient badge. */
   domain?: Domain;
+  /**
+   * Override the badge glyph while keeping `domain`'s colour. For a section that borrows
+   * another domain's hue to stay visually distinct (see Plans' Recurring section) — passing
+   * that domain alone would also borrow its icon, which is rarely what's meant.
+   */
+  icon?: React.ComponentProps<typeof CardAccentBadge>['icon'];
   label: string;
   /** Optional item tally shown after the label. */
   count?: number;
@@ -53,7 +59,7 @@ type Props = {
   style?: StyleProp<ViewStyle>;
 };
 
-export default function SectionRail({ hue, domain, label, count, right, style }: Props) {
+export default function SectionRail({ hue, domain, icon, label, count, right, style }: Props) {
   const theme = useAppTheme();
   // 2026-07-16 contrast raise: the label was a solid hue on a 14% tint of the SAME hue — a
   // green/green (etc.) pairing that read low-contrast. Darken the label toward `text` (works
@@ -64,7 +70,7 @@ export default function SectionRail({ hue, domain, label, count, right, style }:
     <View style={[styles.container, style]}>
       <View style={styles.row}>
         {domain ? (
-          <CardAccentBadge domain={domain} size={24} />
+          <CardAccentBadge domain={domain} icon={icon} size={24} />
         ) : (
           <View style={[styles.dot, { backgroundColor: hue }]} />
         )}
