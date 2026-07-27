@@ -18,6 +18,12 @@
  * row, 'weekly' hides the day row, 'custom' (per-weekday capacities set in
  * app/settings.tsx) shows both since the week total derives from the seven days.
  *
+ * Compact everywhere (2026-07-27, user report — "the card can be vertically shorter" / "the Energy
+ * explanation is too big"): the card itself uses a tighter vertical padding + gap than a standard
+ * card, and the empty-state StarterCard under it renders in its `compact` form — one small italic
+ * line plus the two examples as wrapped chips (no "EXAMPLE" caption), instead of a full-size
+ * explainer that ended up taller than the meter it explains.
+ *
  * Bolt-row meter (2026-07-27): each period is one line — label, a row of small flash-icon
  * "pips" (lib/energy.ts's energyPipCount — 1:1 up to 10, then scaled), and the `current /
  * capacity` value, replacing the old two-line label-row + ProgressBar stack to keep the
@@ -200,11 +206,12 @@ export default function EnergyMeter() {
         nested panel rather than a note about the one above it. */}
     {!usesEnergy && (
       <StarterCard
+        compact
         text={t.starters.energy.text}
-        exampleLabel={t.starters.exampleLabel}
         example={
           <>
             <StarterExampleRow
+              compact
               icon="cart-outline"
               title={t.starters.energy.exampleNegative}
               meta="−2"
@@ -214,6 +221,7 @@ export default function EnergyMeter() {
               addLabel={t.starters.addExample}
             />
             <StarterExampleRow
+              compact
               icon="water-outline"
               title={t.starters.energy.examplePositive}
               meta="+1"
@@ -232,7 +240,11 @@ export default function EnergyMeter() {
 
 const styles = StyleSheet.create({
   wrap: { gap: Spacing.sm },
-  card: { padding: Spacing.md, gap: Spacing.sm },
+  // Tighter vertically than a standard card (2026-07-27, user report: "the Energy card can be
+  // vertically shorter") — one title row plus one or two single-line meters doesn't need a full
+  // Spacing.md band above and below. Horizontal padding stays md so it still lines up with the
+  // other Home cards' content.
+  card: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, gap: Spacing.xs },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   title: { fontSize: FontSize.md, fontFamily: Fonts.bold },

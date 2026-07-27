@@ -37,6 +37,11 @@ export const GRID_END_HOUR = 24;
 export const HOUR_HEIGHT = 52; // px per hour
 export const PX_PER_MIN = HOUR_HEIGHT / 60;
 export const GUTTER_WIDTH = 48; // left column width for "HH:00" hour labels
+// Right column reserved for the now-line's "HH:MM" label (2026-07-27, user report: the grey hour
+// lines ran the full width and the blue current-time reading sat on top of them). Both the grey
+// hour lines and the now-line's bar stop short by this much, so the live time always has clear
+// space of its own. Wide enough for "00:00" at FontSize.xs bold plus its leading gap.
+export const NOW_LABEL_WIDTH = 46;
 export const GRID_TOTAL_HEIGHT = (GRID_END_HOUR - GRID_START_HOUR) * HOUR_HEIGHT;
 // Resting (collapsed) viewport height — ~4 hours visible before the grid needs scrolling.
 export const COLLAPSED_GRID_HEIGHT = HOUR_HEIGHT * 4;

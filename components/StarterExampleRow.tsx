@@ -24,6 +24,11 @@
  *     it, matching the house pattern (see app/(tabs)/habits.tsx's createHabit).
  *   - `meta`/`metaVariant` reuse components/Badge — keep meta text short (a count,
  *     a signed number, a recurrence word) so it reads as a pill, not a second sentence.
+ *   - `compact` (2026-07-27) is the chip form used by a `compact` StarterCard — same row,
+ *     just hugging its content (smaller circles/type, `alignSelf:'flex-start'`) so two
+ *     examples fit on one wrapped line. Only Energy's explainer uses it: its examples sit
+ *     under a meter, not at the head of a list, so full-width preview rows made the note
+ *     taller than the card it explains.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -48,16 +53,28 @@ type Props = {
   onAdd?: () => void;
   /** Accessibility-label prefix for the add button, e.g. "Add" → "Add Milk". */
   addLabel?: string;
+  /** Chip sizing for a StarterCard in `compact` mode — hugs its content instead of
+   *  spanning the row, so several fit side by side. See Edit notes. */
+  compact?: boolean;
 };
 
-export default function StarterExampleRow({ icon, title, meta, metaVariant = 'neutral', accent, onAdd, addLabel }: Props) {
+export default function StarterExampleRow({ icon, title, meta, metaVariant = 'neutral', accent, onAdd, addLabel, compact }: Props) {
   const theme = useAppTheme();
   return (
-    <View style={[styles.row, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-      <View style={[styles.iconWrap, { borderColor: accent }]}>
-        <Ionicons name={icon} size={13} color={accent} />
+    <View
+      style={[
+        styles.row,
+        compact && styles.rowCompact,
+        { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+      ]}
+    >
+      <View style={[styles.iconWrap, compact && styles.iconWrapCompact, { borderColor: accent }]}>
+        <Ionicons name={icon} size={compact ? 11 : 13} color={accent} />
       </View>
-      <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+      {/* Compact swaps the whole title style rather than layering on top of it — `title`'s
+          `flex: 1` (fill the row) and the chip's "hug your text" sizing are contradictory, and
+          merging the two shorthand/longhand flex forms resolved to a zero-width text box. */}
+      <Text style={[compact ? styles.titleCompact : styles.title, { color: theme.text }]} numberOfLines={1}>
         {title}
       </Text>
       {meta ? <Badge label={meta} variant={metaVariant} /> : null}
@@ -68,9 +85,9 @@ export default function StarterExampleRow({ icon, title, meta, metaVariant = 'ne
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={addLabel ? `${addLabel} ${title}` : title}
-          style={[styles.addBtn, { borderColor: accent }]}
+          style={[styles.addBtn, compact && styles.addBtnCompact, { borderColor: accent }]}
         >
-          <Ionicons name="add" size={14} color={accent} />
+          <Ionicons name="add" size={compact ? 12 : 14} color={accent} />
         </PressableScale>
       ) : null}
     </View>
@@ -87,6 +104,16 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
   },
+  // Compact (chip) sizing — hugs its content so a couple of examples sit side by side on one
+  // line instead of stacking as two full-width rows (2026-07-27, Energy's explainer).
+  rowCompact: {
+    alignSelf: 'flex-start',
+    flexGrow: 0,
+    flexShrink: 1,
+    gap: Spacing.xs,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
   iconWrap: {
     width: 22,
     height: 22,
@@ -95,11 +122,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  iconWrapCompact: { width: 18, height: 18, borderWidth: 1 },
   title: {
     flex: 1,
     fontSize: FontSize.sm,
     fontFamily: Fonts.semibold,
   },
+  // Standalone (not merged over `title`) — sizes to its own text so the chip hugs it.
+  titleCompact: { flexShrink: 1, fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   addBtn: {
     width: 22,
     height: 22,
@@ -108,4 +138,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  addBtnCompact: { width: 18, height: 18, borderWidth: 1 },
 });

@@ -18,7 +18,9 @@
  *
  * Connections:
  *   Imports → @expo/vector-icons (Ionicons), expo-linear-gradient, constants/theme (Radius),
- *             lib/useAppTheme, lib/domainColor (Domain, getDomainColor, DOMAIN_ICON)
+ *             lib/useAppTheme, lib/domainColor (Domain, getDomainColor, DOMAIN_ICON),
+ *             components/Surface (GLASS_EDGE_WIDTH — the wash's inner-corner math),
+ *             store/useSettingsStore (glassSurfaces, same reason)
  *   Used by → components/HomeShoppingCard, components/HomeNotesCard, components/PlanTaskCard (all
  *             three import CardAccentBadge + CardAccentWash as named exports, size=32)
  *   Data    → none (presentational; colour derived from the active palette)
@@ -41,6 +43,11 @@
  *     Compose `CardAccentBadge` + `CardAccentWash` directly, as every current caller already does.
  *   - Wash is `pointerEvents:'none'` and absolutely filled to the top band so it never intercepts
  *     taps or shifts layout; the caller gives the card its own paddingTop for the title to clear it.
+ *   - **(2026-07-27) The wash's top corners round by the MASK's radius, not the card's.** Callers pass
+ *     (or default to) the card's outer radius, but the band paints inside Surface's overflow-hidden
+ *     mask, which is inset by the beveled edge in glass mode — rounding by the outer radius left a
+ *     visible unpainted crescent of plain surface in each top corner (user report + screenshot). Keep
+ *     the `radius - GLASS_EDGE_WIDTH` (glass-on) math in sync if Surface's edge/mask geometry changes.
  */
 import React from 'react';
 import { StyleSheet, ViewStyle } from 'react-native';
@@ -49,6 +56,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Radius } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { Domain, getDomainColor } from '@/lib/domainColor';
+import { GLASS_EDGE_WIDTH } from '@/components/Surface';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 type IoniconsName = keyof typeof Ionicons.glyphMap;
 
@@ -127,14 +136,21 @@ type WashProps = {
  */
 export function CardAccentWash({ domain, height = 64, radius = Radius.md, style }: WashProps) {
   const theme = useAppTheme();
+  const glass = useSettingsStore((s) => s.glassSurfaces);
   const { washTop } = getDomainColor(theme, domain);
+  // `radius` is the CARD's outer radius, but this band is painted inside Surface's mask, whose
+  // corners are inset by the beveled edge when glass is on (Surface: `radius - GLASS_EDGE_WIDTH`).
+  // Rounding the band by the outer radius therefore curved it away from the mask's own corner and
+  // left a small unpainted crescent of plain surface in the card's top corners (2026-07-27 user
+  // report, screenshot). Match the mask exactly instead.
+  const innerRadius = Math.max(0, radius - (glass ? GLASS_EDGE_WIDTH : 0));
   return (
     <LinearGradient
       pointerEvents="none"
       colors={[washTop, theme.surface]}
       start={GRAD_START}
       end={GRAD_END}
-      style={[styles.wash, { height, borderTopLeftRadius: radius, borderTopRightRadius: radius }, style]}
+      style={[styles.wash, { height, borderTopLeftRadius: innerRadius, borderTopRightRadius: innerRadius }, style]}
     />
   );
 }
