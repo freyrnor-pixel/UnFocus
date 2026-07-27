@@ -27,6 +27,12 @@
  *   - health_logs is dated history and is pruned past RETENTION_DAYS in lib/db.ts; symptoms is a config
  *     table and is left untouched by pruning.
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
+ *   - `medicineId` (2026-07-27) optionally attributes an entry to a `medicines` row — the
+ *     symptom↔medicine correlation ("this ADHD med gives me stomach issues"). It is a plain
+ *     nullable pointer with no FOREIGN KEY (SQLite can't ALTER one in); store/useMedicineStore.ts's
+ *     remove() deliberately does NOT clear it, so deleting a medicine leaves the symptom entry
+ *     intact and merely un-attributed in the UI — losing the symptom history would be worse
+ *     than a dangling id. app/medicine-form.tsx sets it; app/health-form.tsx offers the picker.
  *   - add() returns the created log (not void) so app/health.tsx can seed its lifted edit state.
  *   - app/(tabs)/health.tsx's Quick log card also calls add()/ensureSymptom() directly (essentials-
  *     only instant entry: name + severity, dated today, no notes/times) alongside health-form.tsx's
@@ -49,6 +55,9 @@ export type HealthLog = {
   symptomId: string; // links to a `symptoms` row; '' for legacy/free-text-only entries
   severity: number; // 1-5
   notes: string;
+  /** Optional attribution to a `medicines` row (2026-07-27) — "possibly from this medicine".
+   *  '' for every entry not tied to one, which is most of them. See app/medicine-form.tsx. */
+  medicineId: string;
 };
 
 export type Symptom = {
@@ -83,6 +92,7 @@ function rowToHealthLog(row: Row): HealthLog {
     symptomId: readStr(row, 'symptom_id'),
     severity: readInt(row, 'severity', 3),
     notes: readStr(row, 'notes'),
+    medicineId: readStr(row, 'medicine_id'),
   };
 }
 
@@ -103,6 +113,7 @@ const HEALTH_LOG_FIELDS: FieldMap<HealthLog> = {
   symptomId: { col: 'symptom_id' },
   severity: { col: 'severity' },
   notes: { col: 'notes' },
+  medicineId: { col: 'medicine_id', to: (v) => v || null },
 };
 
 /** Stable id derived from name so seeding is safe to run on every load. */
@@ -147,6 +158,7 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
       symptom_id: entry.symptomId || null,
       severity: entry.severity,
       notes: entry.notes,
+      medicine_id: entry.medicineId || null,
     });
     const log = { ...entry, id };
     set((s) => ({ logs: [log, ...s.logs] }));

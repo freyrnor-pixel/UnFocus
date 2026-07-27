@@ -42,6 +42,8 @@
  *             LinearTransition for the anytime list + done-zone + footer, which share one
  *             `containerLayout` LinearTransition so the whole card reflows together),
  *             constants/theme, constants/motion, lib/haptics, lib/i18n,
+ *             lib/useNowMinutes (the 60s "now" tick behind the grid's now-line — shared
+ *             with components/MedicineTrayCard.tsx since 2026-07-27),
  *             lib/useAppTheme (incl. useAccessibility), lib/domainColor, components/CardAccent
  *             (badge+wash gradient move, read-only Home header), components/GlowPulse
  *             (breathing "happening now" halo), store/useTaskStore (Task type only)
@@ -195,6 +197,7 @@ import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { getDomainColor } from '@/lib/domainColor';
 import { dayOfWeekMon0 } from '@/lib/date';
+import { useNowMinutes } from '@/lib/useNowMinutes';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 import GlowPulse from '@/components/GlowPulse';
 import { COLLAPSED_GRID_HEIGHT, GRID_TOTAL_HEIGHT, GUTTER_WIDTH, GridEntryLayout, layoutGridEntries, minutesToY } from '@/lib/dayGrid';
@@ -287,22 +290,6 @@ function clamp(v: number, lo: number, hi: number): number {
 /** Horizontal-only (Decision 009b) — proportional tail = 10% of the visible span, floored at 15 min. */
 function railTailMinutes(spanMinutes: number): number {
   return Math.max(spanMinutes * 0.1, 15);
-}
-
-/** Re-renders every 60s so the "now" line drifts along the grid live. */
-function useNowMinutes(): number {
-  const [now, setNow] = useState(() => {
-    const d = new Date();
-    return d.getHours() * 60 + d.getMinutes();
-  });
-  useEffect(() => {
-    const id = setInterval(() => {
-      const d = new Date();
-      setNow(d.getHours() * 60 + d.getMinutes());
-    }, 60000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
 }
 
 const COLLAPSED_COUNT = 5; // anytime-list cap, and (horizontal-only) current+next+3 after

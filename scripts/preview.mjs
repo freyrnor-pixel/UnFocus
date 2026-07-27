@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // preview.mjs — Playwright driver for the web preview: walks onboarding, screenshots
-// every main tab, and exercises "add a task" (To-do) + "add a habit" (Habits) — each
-// verified to survive a tab round-trip — to prove two stores' write→read paths through
-// the in-memory sql.js DB, not just static render. Chromium is pre-installed under
+// every main tab, and exercises "add a task" (To-do), "add a habit" (Habits) and
+// "add a medicine + log a dose" (Health) — each verified to survive a tab round-trip —
+// to prove three stores' write→read paths through the in-memory sql.js DB, not just
+// static render. Also renders the two pushed sub-screens reachable without data setup
+// (Settings, the medicine editor). Chromium is pre-installed under
 // PLAYWRIGHT_BROWSERS_PATH; never `playwright install`.
 //
 // Usage: node scripts/preview.mjs [outDir] [--route=/some/path]
@@ -259,6 +261,63 @@ async function main() {
     console.log(`  habit persisted after tab round-trip: ${habitPersisted}`);
     if (!habitPersisted) pageErrors.push(`Habit "${habitTitle}" did not persist after navigating away and back`);
     await shot(page, 'habit-persisted-check');
+
+    // Exercise the medicine store's two write paths (2026-07-27): quick-create a medicine
+    // from the Health tab's tray card, then LOG A DOSE by tapping its circle — the dose is
+    // the whole point of the feature, and it's a separate table (medicine_doses) from the
+    // medicine row itself. Both are checked to survive a tab round-trip.
+    console.log('> add a medicine + log a dose (store logic check)');
+    await page.getByRole('button', { name: 'Health', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await dismissModalIfPresent(page);
+    const medName = `Preview med ${Date.now()}`;
+    const medAddBar = page.getByRole('button', { name: 'Add a medicine', exact: true }).first();
+    await medAddBar.scrollIntoViewIfNeeded();
+    await medAddBar.click({ timeout: 10000 });
+    await page.waitForTimeout(400);
+    const medInput = page.getByPlaceholder('Add a medicine').first();
+    await medInput.scrollIntoViewIfNeeded();
+    await medInput.fill(medName);
+    await medInput.press('Enter');
+    await page.waitForTimeout(800);
+    await shot(page, 'medicine-added');
+
+    // The new medicine lands in whichever tray "now" falls in, so assert on the row itself
+    // rather than a specific tray label.
+    const medVisible = await page.getByText(medName, { exact: true }).first().isVisible().catch(() => false);
+    console.log(`  medicine row rendered: ${medVisible}`);
+    if (!medVisible) pageErrors.push(`Medicine "${medName}" did not render on the Health tab`);
+
+    const doseToggle = page.getByRole('checkbox', { name: `Mark ${medName} as taken`, exact: true }).first();
+    await doseToggle.scrollIntoViewIfNeeded();
+    await doseToggle.click({ timeout: 10000 });
+    await page.waitForTimeout(600);
+    const doseLogged = await page.getByText(/^Taken \d{2}:\d{2}$/).first().isVisible().catch(() => false);
+    console.log(`  dose logged (Taken HH:MM shown): ${doseLogged}`);
+    if (!doseLogged) pageErrors.push(`Logging a dose of "${medName}" did not show a "Taken HH:MM" stamp`);
+    await shot(page, 'medicine-dose-logged');
+
+    await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    await page.getByRole('button', { name: 'Health', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await dismissModalIfPresent(page);
+    const dosePersisted = await page.getByText(/^Taken \d{2}:\d{2}$/).first().isVisible().catch(() => false);
+    console.log(`  dose persisted after tab round-trip: ${dosePersisted}`);
+    if (!dosePersisted) pageErrors.push(`Dose of "${medName}" did not persist after navigating away and back`);
+    await shot(page, 'medicine-persisted-check');
+
+    // The medicine editor is a pushed sub-screen reached by tapping the row's NAME (the
+    // circle logs the dose instead) — render it once so the new route isn't a blind spot.
+    console.log('> Health -> medicine form');
+    await page.getByRole('button', { name: medName, exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(900);
+    await shot(page, 'medicine-form');
+    const formRendered = await page.getByText('When to take it', { exact: true }).first().isVisible().catch(() => false);
+    console.log(`  medicine form rendered: ${formRendered}`);
+    if (!formRendered) pageErrors.push('The medicine form did not render its tray picker');
+    await page.goBack();
+    await page.waitForTimeout(800);
 
     // Sub-tier header check (HEADER_CLIP_DEBUG.md): Settings was reported to show NO
     // header at all on device, and this walk never visited a sub-tier screen before —
