@@ -21,6 +21,10 @@
  * access) so they're trivially unit-testable and reused by
  * components/EnergyMeter.tsx and store/useEnergyStore.ts.
  *
+ * `energyPipCount()` (2026-07-27) turns a current/capacity pair into a small number of
+ * discrete "pips" for the Home card's bolt-row meter — 1:1 up to `maxPips`, then scaled
+ * down proportionally so a large weekly capacity doesn't render 40 icons.
+ *
  * Connections:
  *   Imports → lib/date (getWeekDates), lib/taskRecurrence (taskOccursOn),
  *             lib/habitRecurrence (habitOccursOn, habitMetOn), store type imports
@@ -65,6 +69,24 @@ export function energyStepperValue(energyEnabled: boolean, energyValue: number):
 /** Inverse of energyStepperValue: the fields to persist for a given stepper reading. */
 export function energyFieldsFromStepper(shown: number): { energyEnabled: boolean; energyValue: number } {
   return { energyEnabled: shown !== 0, energyValue: shown };
+}
+
+/**
+ * Discrete pip count for the Home card's bolt-row meter. 1 pip per unit of capacity up
+ * to `maxPips`; past that, pips represent a proportional share so a large weekly
+ * capacity (e.g. 40) still renders as a handful of icons instead of 40 of them.
+ * `filled` is clamped to [0, pipCount] — a negative current (over-committed) fills
+ * none, and current above capacity fills all of them.
+ */
+export function energyPipCount(
+  current: number,
+  capacity: number,
+  maxPips = 10
+): { pipCount: number; filled: number } {
+  if (capacity <= 0) return { pipCount: 0, filled: 0 };
+  const pipCount = Math.min(maxPips, capacity);
+  const ratio = Math.max(0, Math.min(1, current / capacity));
+  return { pipCount, filled: Math.round(ratio * pipCount) };
 }
 
 /** Week period key ('w:'-prefixed Monday) for the Mon–Sun week containing `date`. */

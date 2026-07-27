@@ -18,12 +18,18 @@
  * row, 'weekly' hides the day row, 'custom' (per-weekday capacities set in
  * app/settings.tsx) shows both since the week total derives from the seven days.
  *
+ * Bolt-row meter (2026-07-27): each period is one line — label, a row of small flash-icon
+ * "pips" (lib/energy.ts's energyPipCount — 1:1 up to 10, then scaled), and the `current /
+ * capacity` value, replacing the old two-line label-row + ProgressBar stack to keep the
+ * card short. A hairline divider separates the day and week lines when both are shown
+ * (energyMode 'custom').
+ *
  * Connections:
  *   Imports → components/Surface, components/StarterCard, components/StarterExampleRow,
- *             components/ProgressBar, components/Stepper,
- *             components/Collapsible, components/PressableScale, constants/theme,
- *             lib/useAppTheme, lib/i18n, lib/date, lib/haptics, lib/energy, store/useSettingsStore,
- *             store/useTaskStore, store/useHabitStore, store/useEnergyStore
+ *             components/Stepper, components/Collapsible, components/PressableScale,
+ *             constants/theme, lib/useAppTheme, lib/i18n, lib/date, lib/haptics, lib/energy,
+ *             store/useSettingsStore, store/useTaskStore, store/useHabitStore,
+ *             store/useEnergyStore
  *   Used by → app/(tabs)/index.tsx (Home)
  *   Data    → reads tasks/habits/habitLogs + energy_budgets overrides; writes overrides;
  *             its two StarterExampleRow "+" buttons write a real one-off task via
@@ -35,7 +41,6 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
-import ProgressBar from '@/components/ProgressBar';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
@@ -44,7 +49,7 @@ import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { success } from '@/lib/haptics';
-import { energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek } from '@/lib/energy';
+import { energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek, energyPipCount } from '@/lib/energy';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
@@ -114,15 +119,22 @@ export default function EnergyMeter() {
   }
 
   const row = (label: string, current: number, capacity: number) => {
-    const value = capacity > 0 ? current / capacity : 0;
-    const state = current <= 0 ? 'bad' : undefined;
+    const boltColor = current <= 0 ? theme.bad : theme.accent;
+    const { pipCount, filled } = energyPipCount(current, capacity);
     return (
       <View style={styles.meterRow}>
-        <View style={styles.meterLabelRow}>
-          <Text style={[styles.meterLabel, { color: theme.text }]}>{label}</Text>
-          <Text style={[styles.meterValue, { color: theme.textMuted }]}>{`${current} / ${capacity}`}</Text>
+        <Text style={[styles.meterLabel, { color: theme.text }]}>{label}</Text>
+        <View style={styles.pipRow}>
+          {Array.from({ length: pipCount }).map((_, i) => (
+            <Ionicons
+              key={i}
+              name={i < filled ? 'flash' : 'flash-outline'}
+              size={13}
+              color={i < filled ? boltColor : theme.textMuted}
+            />
+          ))}
         </View>
-        <ProgressBar value={value} state={state} />
+        <Text style={[styles.meterValue, { color: theme.textMuted }]}>{`${current} / ${capacity}`}</Text>
       </View>
     );
   };
@@ -157,6 +169,7 @@ export default function EnergyMeter() {
           <Text style={[styles.warningText, { color: theme.warn }]}>{t.energyMeter.overCommittedDay(dayPlannedOver)}</Text>
         </View>
       )}
+      {showDay && showWeek && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
       {showWeek && row(t.energyMeter.thisWeek, weekCurrent, weekCapacity)}
       {showWeek && weekPlannedOver > 0 && (
         <View style={styles.warningRow}>
@@ -223,10 +236,11 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   title: { fontSize: FontSize.md, fontFamily: Fonts.bold },
-  meterRow: { gap: Spacing.xs },
-  meterLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  meterLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  meterRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  meterLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, minWidth: 62 },
+  pipRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 3 },
   meterValue: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  divider: { height: StyleSheet.hairlineWidth, marginVertical: 2 },
   warningRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   warningText: { flex: 1, fontSize: FontSize.xs, fontFamily: Fonts.medium },
   editor: { gap: Spacing.sm, paddingTop: Spacing.sm },

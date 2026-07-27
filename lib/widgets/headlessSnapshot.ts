@@ -67,7 +67,7 @@ type Strings = {
 const WIDGET_STRINGS: Record<'en' | 'no', Strings> = {
   en: {
     shoppingTitle: 'Shopping',
-    tasksTitle: "Today's tasks",
+    tasksTitle: "Today's to-do",
     notesTitle: 'Notes',
     habitsTitle: 'Habits',
     healthTitle: 'Health',
@@ -88,7 +88,7 @@ const WIDGET_STRINGS: Record<'en' | 'no', Strings> = {
   },
   no: {
     shoppingTitle: 'Handleliste',
-    tasksTitle: 'Dagens oppgaver',
+    tasksTitle: 'Dagens gjøremål',
     notesTitle: 'Notater',
     habitsTitle: 'Vaner',
     healthTitle: 'Helse',

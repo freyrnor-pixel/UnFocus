@@ -10,7 +10,7 @@
  * (used to warn about an over-committed day/week before anything's completed).
  * Pure functions — no DB, no store; plain objects cast to the store types.
  */
-import { dayKey, weekKey, energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek, energyStepperValue, energyFieldsFromStepper } from '@/lib/energy';
+import { dayKey, weekKey, energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek, energyStepperValue, energyFieldsFromStepper, energyPipCount } from '@/lib/energy';
 import type { Task } from '@/store/useTaskStore';
 import type { Habit, HabitLog } from '@/store/useHabitStore';
 
@@ -197,5 +197,28 @@ describe('energyStepperValue / energyFieldsFromStepper', () => {
     const fields = energyFieldsFromStepper(energyStepperValue(true, -4));
     expect(fields).toEqual({ energyEnabled: true, energyValue: -4 });
     expect(energyDeltaForDay(DAY, [task({ ...fields, done: true, date: DAY })], [], [])).toBe(-4);
+  });
+});
+
+describe('energyPipCount', () => {
+  it('is 1 pip per unit when capacity is at or under the max', () => {
+    expect(energyPipCount(6, 8)).toEqual({ pipCount: 8, filled: 6 });
+  });
+
+  it('scales down proportionally once capacity exceeds the max', () => {
+    expect(energyPipCount(30, 40, 10)).toEqual({ pipCount: 10, filled: 8 }); // 30/40 * 10 = 7.5 → 8
+  });
+
+  it('clamps a negative (over-committed) current to zero filled pips', () => {
+    expect(energyPipCount(-2, 8)).toEqual({ pipCount: 8, filled: 0 });
+  });
+
+  it('clamps current above capacity to fully filled', () => {
+    expect(energyPipCount(12, 8)).toEqual({ pipCount: 8, filled: 8 });
+  });
+
+  it('returns no pips for a zero or negative capacity', () => {
+    expect(energyPipCount(0, 0)).toEqual({ pipCount: 0, filled: 0 });
+    expect(energyPipCount(0, -5)).toEqual({ pipCount: 0, filled: 0 });
   });
 });
