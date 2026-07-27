@@ -36,12 +36,12 @@
  *     `exampleLabel` is the small caption above those rows (e.g. "Example").
  *   - `children` is the optional action slot (Habits puts its starter chips there). Keep it
  *     to lightweight chips — this is an explainer, not a form.
- *   - `compact` (2026-07-27, user report: "the Energy explanation is too big") is the
- *     note-sized variant: smaller padding + type, the "EXAMPLE" caption dropped, and the
- *     example rows rendered as wrapped chips (StarterExampleRow's own `compact`) on a single
- *     line. Use it where the card annotates ONE small surface (the Energy meter) rather than
- *     standing in for an empty list — a full-size explainer there ends up taller than the
- *     thing it explains. List surfaces (Habits/Plans/Shopping/Health) keep the default size.
+ *   - `compact` (2026-07-27) is the note-sized variant: smaller padding + type and no
+ *     "EXAMPLE" caption. Its only caller (components/MedicineTrayCard) passes `text` alone,
+ *     which is the intended use — a compact card annotating one small surface shouldn't be
+ *     carrying example rows in the first place. Energy's compact card, the other original
+ *     caller, became a permanent inline hint in its own card instead (see EnergyMeter's
+ *     header). List surfaces (Habits/Plans/Shopping/Health) keep the default size.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';

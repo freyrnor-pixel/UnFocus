@@ -42,6 +42,14 @@
  *     NULL`. `clearAll()` (bulk local reset) is deliberately NOT broadcast — see its
  *     own comment. Both no-op safely when sync isn't running (broadcastRow) or a
  *     peer isn't connected.
+ *   - **Undoable delete (2026-07-27, user report: "no apparent way to delete and recover
+ *     deleted tasks").** The tombstone above was already the whole mechanism — `restore(id)`
+ *     just clears `deleted_at` (stamping updated_at/origin_device_id and broadcasting, since
+ *     un-deleting is itself a synced mutation a peer must learn about) and reloads.
+ *     `loadDeleted()` reads the tombstones into `deletedTasks` so a delete from an earlier
+ *     session is still restorable; app/_layout.tsx calls it on boot. The undo window is
+ *     bounded by `pruneOldData()` (lib/db.ts), which hard-deletes old tombstones — nothing
+ *     extra expires them here. UI: components/PlanTaskCard.tsx's "Recently deleted" zone.
  *   - **'task_completed' automation trigger — WIRED (Phase 6).** toggle() (only when the
  *     task transitions to done) and completeDirect() call
  *     `useAutomationStore.getState().fireTrigger('task_completed')`, matching the old store.
@@ -248,9 +256,25 @@ function deriveDurationMinutes(time?: string, finishTime?: string): number | und
   return diff > 0 ? diff : undefined;
 }
 
+/** How many tombstoned tasks the "Recently deleted" zone keeps offering to restore. */
+export const RECENTLY_DELETED_LIMIT = 10;
+
 type TaskStore = {
   tasks: Task[];
+  /**
+   * Tombstoned tasks still eligible for one-tap restore, newest first (capped at
+   * `RECENTLY_DELETED_LIMIT`). Deleting has always been a soft delete (Decision 038b) —
+   * this just surfaces those rows so a delete is undoable instead of silently final
+   * (2026-07-27, user report: "no apparent way to delete and recover deleted tasks").
+   * Populated by `remove()` and by `loadDeleted()`, which is what makes a delete from an
+   * earlier session still restorable.
+   */
+  deletedTasks: Task[];
   load: () => void;
+  /** Read tombstoned rows (`deleted_at IS NOT NULL`) into `deletedTasks`. */
+  loadDeleted: () => void;
+  /** Undo a `remove()` — clears the tombstone and brings the task back into `tasks`. */
+  restore: (id: string) => void;
   add: (t: TaskInput) => Task;
   // followsTaskId excluded — only setFollower() may change it (see TASK_COLUMNS'
   // comment above for why routing it through here would silently desync DB vs. state).
@@ -428,6 +452,39 @@ export const useTaskStore = create<TaskStore>((set, get) => {
 
   return {
   tasks: [],
+  deletedTasks: [],
+
+  loadDeleted() {
+    // Newest tombstone first. `deleted_at` is an ISO string, so a plain DESC string sort
+    // is chronological. pruneOldData() eventually hard-deletes these, which is exactly the
+    // right expiry for an undo affordance — nothing extra to sweep here.
+    const deleted = loadAll('tasks', rowToTask, { orderBy: 'deleted_at DESC', where: 'deleted_at IS NOT NULL' });
+    set({ deletedTasks: deleted.slice(0, RECENTLY_DELETED_LIMIT) });
+  },
+
+  restore(id) {
+    const now = new Date().toISOString();
+    // Clearing the tombstone is itself a synced mutation (a peer holding the delete must
+    // learn the row is back), so stamp updated_at/origin_device_id exactly like touchRow
+    // does and broadcast afterwards.
+    db.runSync('UPDATE tasks SET deleted_at = NULL, updated_at = ?, origin_device_id = ? WHERE id = ?', [
+      now,
+      useSettingsStore.getState().deviceId,
+      id,
+    ]);
+    // Full reload rather than splicing the row back into state by hand: the task's steps
+    // have to be regrouped onto it anyway, and load() is one query for each.
+    get().load();
+    get().loadDeleted();
+    const task = get().tasks.find((t) => t.id === id);
+    if (task) {
+      syncTaskNotification(task);
+      syncTaskCalendar(task);
+      if (task.done) bumpLifetimeCompletedTasks(1);
+    }
+    broadcastRow('tasks', id);
+    scheduleWidgetSync();
+  },
 
   load() {
     const tasks = loadAll('tasks', rowToTask, { orderBy: 'task_date, task_time', where: 'deleted_at IS NULL' });
@@ -556,6 +613,12 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       tasks: s.tasks
         .filter((t) => t.id !== id)
         .map((t) => (t.followsTaskId === id ? { ...t, followsTaskId: null } : t)),
+      // Offer the delete back for a while (see `deletedTasks`' doc). Held in memory here so
+      // the zone updates instantly; loadDeleted() re-reads the same rows from SQLite on a
+      // later launch, so an undo survives a restart too.
+      deletedTasks: task
+        ? [task, ...s.deletedTasks.filter((t) => t.id !== id)].slice(0, RECENTLY_DELETED_LIMIT)
+        : s.deletedTasks,
     }));
     scheduleWidgetSync();
   },
@@ -687,7 +750,10 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     ids.forEach((id) => void cancelTaskNotification(id));
     calendarEventIds.forEach((eventId) => void cancelTaskCalendarEvent(eventId));
     useSettingsStore.getState().update({ lifetimeCompletedTasks: 0 });
-    set({ tasks: [] });
+    // The DELETE above is a real hard delete of every row, tombstones included, so the
+    // restore zone has nothing left to offer — clear it rather than leave rows that would
+    // fail to come back.
+    set({ tasks: [], deletedTasks: [] });
     scheduleWidgetSync();
   },
 

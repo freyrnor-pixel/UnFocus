@@ -6,10 +6,11 @@
  *
  * Connections:
  *   Imports → constants/theme (FontSize, Spacing), lib/useAppTheme, lib/i18n (useT)
- *   Used by → components/HomeNotesCard, components/HomeShoppingCard (each card's empty branch).
- *             components/PlanTaskCard used this too until 2026-07-25, when its empty branch
- *             switched to components/DayHourScale (an hour-of-day ruler) instead — a day-view
- *             reads better as an empty timeline than blank space.
+ *   Used by → components/HomeNotesCard (its empty branch). components/PlanTaskCard and
+ *             components/HomeShoppingCard both used this too until 2026-07-27, when their
+ *             empty branches moved to a per-card explainer + suggested-add row instead — a
+ *             card that says what it's for and offers one real example beats a "Nothing"
+ *             label. Notes keeps this: a note is self-explanatory and has nothing to suggest.
  *   Data    → none (pure presentational)
  *
  * Edit notes:

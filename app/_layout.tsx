@@ -270,6 +270,9 @@ export default function RootLayout() {
     useAutomationStore.getState().load();
     useGoalStore.getState().load(); // before tasks/habits so their goal links resolve on first paint
     useTaskStore.getState().load();
+    // Tombstoned tasks, so the day-view's "Recently deleted" restore zone still offers a
+    // delete made in an earlier session (2026-07-27).
+    useTaskStore.getState().loadDeleted();
     // Monthly recurring tasks have no native "day-of-month, clamped"/"nth
     // weekday" repeating trigger, so their reminder is scheduled as a one-off
     // for the next occurrence and re-armed here (and again on every foreground

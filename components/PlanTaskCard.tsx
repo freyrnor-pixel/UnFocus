@@ -6,21 +6,27 @@
  * SAME component with `readOnly` (Decision 009a — "the preview IS the day-view,
  * rendered read-only"). There is intentionally no Home-specific variant.
  *
- * **Fixed-hour grid (2026-07-26 rebuild)**: the vertical (default) rail now positions
- * every timed task by real clock time on a fixed pixel-per-minute scale (`lib/dayGrid.ts`
- * + `components/DayGridLines.tsx`) — an hour is always the same height, wherever it falls
- * in the day, with full-width hour lines and a live "now" line, the way Google Calendar's
- * day view works. This replaced an earlier "proportional" rail (connector size between
- * two tasks ∝ the real gap, clamped to a legible min/max) that went through two more
- * calendar-styling passes (borders/lines-only, then hour-label repositioning) before user
- * feedback made clear the fix was the underlying model, not more decoration on top of it.
- * The grid's resting height shows ~4 hours (`COLLAPSED_GRID_HEIGHT`), auto-scrolled to the
- * current hour, with an internal scroll for the rest; the expand toggle grows the viewport
- * to the full 24h grid (`GRID_TOTAL_HEIGHT`) instead of an internal scroll, so "show the
- * whole day" is literal. Untimed ("Anytime") tasks have no clock position, so they stay a
- * plain flat list above the grid, capped at `COLLAPSED_COUNT` and expanded by the same
- * toggle. The "Done today" zone is unchanged — a separate dimmed, collapsed flat list
- * below the grid (Decision 009a); done tasks don't render on the grid itself.
+ * **Elastic-hour grid (2026-07-26 rebuild, compressed 2026-07-27)**: the vertical (default)
+ * rail positions every timed task by real clock time (`lib/dayGrid.ts` +
+ * `components/DayGridLines.tsx`), the way Google Calendar's day view works — but on an
+ * ELASTIC axis rather than a uniform 24h one. `buildDayScale()` keeps full hour spacing
+ * around anything real (each task's span padded by `DENSE_PAD_MIN`, plus a window around
+ * `now`) and folds every empty stretch between them into a single short dashed band whose
+ * height is a log curve of the real gap. So the tasks themselves stand out, and "how long
+ * in between" still reads at a glance, without a mostly-blank 1248px day (2026-07-27 user
+ * report: "timeline should be more compressed"). The scale is built once here and passed to
+ * both `DayGridLines` and `layoutGridEntries`, so lines and cards can never disagree. The
+ * resting viewport is `min(scale.totalHeight, COLLAPSED_GRID_HEIGHT)` auto-scrolled to now;
+ * the expand toggle grows it to the full axis — and only appears when the axis genuinely
+ * doesn't fit, since a compressed day usually does. Untimed ("Anytime") tasks have no clock
+ * position, so they stay a plain flat list above the grid, capped at `COLLAPSED_COUNT` and
+ * expanded by the same toggle. The "Done today" zone is unchanged — a separate dimmed,
+ * collapsed flat list below the grid (Decision 009a); done tasks don't render on the grid.
+ *
+ * The pre-elastic model was a "fixed-hour" grid (every hour the same height, whole 24h axis),
+ * which itself replaced an earlier "proportional" rail (connector size ∝ the real gap,
+ * clamped) — the compression here is the proportional idea done on the calendar model rather
+ * than instead of it.
  *
  * Two rail orientations (toggle: settings.accessibility "Horizontal plans timeline"):
  * `horizontal=false` (default) is the fixed-hour grid described above. `horizontal=true`
@@ -32,9 +38,10 @@
  *
  * Connections:
  *   Imports → components/Surface, components/PressableScale, components/ProgressBar,
- *             components/DayHourScale (empty-state grid), components/DayGridLines (populated
- *             grid's hour lines + now-line), lib/dayGrid (shared grid geometry +
- *             layoutGridEntries, the overlap-aware column layout — see its file header),
+ *             components/DayGridLines (hour lines + compressed-gap bands + now-line),
+ *             components/StarterExampleRow (the empty day's suggested-add row),
+ *             lib/dayGrid (buildDayScale — the elastic axis — plus layoutGridEntries,
+ *             the overlap-aware column layout; see its file header),
  *             components/AddRow (inline "add a task" quick-create, gated on the optional
  *             onAddTask callback — Home preview passes it) + components/TimeBoxInput
  *             (quick-add's inline time field), components/Collapsible + components/AnimatedChevron
@@ -78,14 +85,24 @@
  *     HomeNotesCard/HomeShoppingCard on a light day — it's a floor, not a cap; the grid's own
  *     `COLLAPSED_GRID_HEIGHT` (lib/dayGrid.ts) does the real height budgeting for the timed
  *     portion now.
- *   - **Empty state (2026-07-24, text removed; 2026-07-25, blank row → hour ruler; 2026-07-26,
- *     ruler → real grid)**: an empty day (`showEmpty`) renders `DayHourScale` — the same fixed-
- *     hour grid as a populated day, just with nothing on it, inside the same collapsed-height
- *     auto-scrolled viewport — instead of the shared `HomePreviewEmpty` blank row other Home
- *     preview cards use. A dashed "add a plan" ghost row that deep-links to /plans shows only
- *     as a FALLBACK when no inline add is wired (`readOnly && !onAddTask`); when `onAddTask` IS
- *     passed the trailing AddRow (below) does inline creation instead. The distinct "all done"
- *     state keeps its own `t.dayViewAllDone` line — it's a reward, not an empty card.
+ *   - **Empty state (2026-07-24 text removed → 2026-07-25 blank row → hour ruler → 2026-07-26
+ *     real grid → 2026-07-27 explainer + suggestion)**: an empty day (`showEmpty`) now renders
+ *     a short italic explainer (`t.starters.plans.text`) plus one real suggested-add row
+ *     (`StarterExampleRow`, its "+" wired through `onAddExample`), where the content would be.
+ *     That replaced an empty hour grid, which filled the space without teaching anything — the
+ *     user asked for "example text by default when the card is empty, and a row with suggested
+ *     adds, designed the same as the other rows". `components/DayHourScale` existed only for
+ *     that empty-grid branch and was deleted with it. A dashed "add a plan" ghost row that
+ *     deep-links to /plans still shows as a FALLBACK when no inline add is wired
+ *     (`readOnly && !onAddTask`). The distinct "all done" state keeps its own `t.dayViewAllDone`
+ *     line — it's a reward, not an empty card.
+ *   - **Delete + restore (2026-07-27, user report: "no apparent way to delete and recover
+ *     deleted tasks")**: `onDeleteTask` adds a trash to every row (flat rows put it under the
+ *     done-toggle in `doneCol`; grid cards put it beside the toggle in the `gridActions` corner
+ *     stack, which is why `gridCardInner`'s right padding is conditional). No confirm dialog —
+ *     deliberately, because `deletedTasks` + `onRestoreTask` render a "Recently deleted" drawer
+ *     shaped exactly like the done zone, so the undo is right there. Gated on the callbacks,
+ *     not on `readOnly`, same rule as the done-toggle and `onAddTask`.
  *   - **Decision 014 (revised 2026-07-14)**: the card face is a `<Surface>` with a
  *     domain-colored border (`borderColor={getDomainColor(theme,'plan').accent}`) on a plain
  *     `theme.surface` fill, so the section reads as belonging to Plans without washing the
@@ -183,7 +200,6 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
-import DayHourScale from '@/components/DayHourScale';
 import DayGridLines from '@/components/DayGridLines';
 import AddRow from '@/components/AddRow';
 import Collapsible from '@/components/Collapsible';
@@ -200,7 +216,8 @@ import { dayOfWeekMon0 } from '@/lib/date';
 import { useNowMinutes } from '@/lib/useNowMinutes';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 import GlowPulse from '@/components/GlowPulse';
-import { COLLAPSED_GRID_HEIGHT, GRID_TOTAL_HEIGHT, GUTTER_WIDTH, GridEntryLayout, layoutGridEntries, minutesToY } from '@/lib/dayGrid';
+import StarterExampleRow from '@/components/StarterExampleRow';
+import { COLLAPSED_GRID_HEIGHT, GUTTER_WIDTH, GridEntryLayout, buildDayScale, layoutGridEntries } from '@/lib/dayGrid';
 
 type Props = {
   /** Tasks scheduled for the viewed date (already filtered by the caller). */
@@ -224,6 +241,15 @@ type Props = {
   ) => void;
   /** Read-only preview: shows a "See everything →" link in the section header. */
   onSeeMore?: () => void;
+  /** When passed, every row gets a trash action. Gated on the callback, not on `readOnly`
+   *  (same rule as the done-toggle) so the Home preview can delete without a trip to /plans. */
+  onDeleteTask?: (task: Task) => void;
+  /** Restorable tombstones (store/useTaskStore's `deletedTasks`) — renders the "Recently
+   *  deleted" zone under the done zone. Pass together with `onRestoreTask`. */
+  deletedTasks?: Task[];
+  onRestoreTask?: (task: Task) => void;
+  /** Empty-state suggestion: creates the example task shown while the day has nothing on it. */
+  onAddExample?: () => void;
   /** Test/preview override for the live clock (minutes since midnight). */
   now?: number;
   /** Rail orientation — settings.planTimelineHorizontal. Default false (fixed-hour grid). */
@@ -302,6 +328,10 @@ export default function PlanTaskCard({
   onToggleTask,
   onAddTask,
   onSeeMore,
+  onDeleteTask,
+  deletedTasks,
+  onRestoreTask,
+  onAddExample,
   now: nowOverride,
   horizontal = false,
 }: Props) {
@@ -323,6 +353,7 @@ export default function PlanTaskCard({
 
   const [expanded, setExpanded] = useState(false);
   const [doneOpen, setDoneOpen] = useState(false);
+  const [deletedOpen, setDeletedOpen] = useState(false);
   const [addDraft, setAddDraft] = useState('');
   const [addTime, setAddTime] = useState('');
   const [addRecurring, setAddRecurring] = useState<Recurring>('none');
@@ -399,12 +430,21 @@ export default function PlanTaskCard({
     () => dayTasks.filter((task) => !!task.time && !task.done).map(timedEntryOf).sort((a, b) => a.start - b.start),
     [dayTasks]
   );
-  // Vertical/default rail only — side-by-side columns for genuinely overlapping tasks,
-  // plus a height clamp so the MIN_TASK_HEIGHT floor can't visually run into whatever
-  // starts next (see lib/dayGrid.ts's file header for why both are needed).
+  // Vertical/default rail only — the elastic axis (lib/dayGrid.ts's buildDayScale): full
+  // hour spacing around the tasks themselves, empty stretches folded into one short labelled
+  // band each. Built once here and shared with DayGridLines so the lines and the cards drawn
+  // over them can't disagree. `now` is included so the live line always has real context
+  // around it instead of landing inside a compressed band.
+  const dayScale = useMemo(
+    () => buildDayScale(timedPending.map((e) => ({ start: e.start, end: e.end })), { now }),
+    [timedPending, now]
+  );
+  // Side-by-side columns for genuinely overlapping tasks, plus a height clamp so the
+  // MIN_TASK_HEIGHT floor can't visually run into whatever starts next (see lib/dayGrid.ts's
+  // file header for why both are needed), all measured on the elastic axis above.
   const timedLayout = useMemo(
-    () => layoutGridEntries(timedPending, { minHeightPx: MIN_TASK_HEIGHT, gapPx: GRID_CARD_GAP }),
-    [timedPending]
+    () => layoutGridEntries(timedPending, { minHeightPx: MIN_TASK_HEIGHT, gapPx: GRID_CARD_GAP, y: dayScale.y }),
+    [timedPending, dayScale]
   );
   const doneTasks = useMemo(() => dayTasks.filter((task) => task.done), [dayTasks]);
 
@@ -418,7 +458,7 @@ export default function PlanTaskCard({
   // from wherever the user was looking.
   useEffect(() => {
     if (expanded) return;
-    const y = Math.max(0, minutesToY(now) - COLLAPSED_GRID_HEIGHT / 3);
+    const y = Math.max(0, dayScale.y(now) - COLLAPSED_GRID_HEIGHT / 3);
     gridScrollRef.current?.scrollTo({ y, animated: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded, timedPending.length]);
@@ -458,9 +498,12 @@ export default function PlanTaskCard({
       ? anytimePending
       : anytimePending.slice(0, COLLAPSED_COUNT);
 
+  // Vertical: only offer "Show full day" when the compressed axis actually doesn't fit the
+  // resting viewport. Since the 2026-07-27 compression a normal day usually DOES fit, and a
+  // toggle that expands to the same height it already had reads as broken.
   const showToggle = horizontal
     ? pendingCount > collapsedVisibleH.size
-    : timedPending.length > 0 || anytimePending.length > COLLAPSED_COUNT;
+    : dayScale.totalHeight > COLLAPSED_GRID_HEIGHT || anytimePending.length > COLLAPSED_COUNT;
 
   // The single task considered "up" (current or next) — the one whose hint is worth
   // showing right now (Decision 019).
@@ -502,6 +545,27 @@ export default function PlanTaskCard({
         >
           {task.done && <Ionicons name="checkmark" size={10} color={theme.accentInk} />}
         </View>
+      </PressableScale>
+    );
+  }
+
+  /** Trash action for one row — rendered only when the caller wired `onDeleteTask`. The
+   *  delete is undoable (store/useTaskStore's tombstone + the restore zone below), so it
+   *  intentionally does NOT put a confirmation dialog in the way of a one-tap tidy-up. */
+  function deleteButton(task: Task) {
+    if (!onDeleteTask) return null;
+    return (
+      <PressableScale
+        hitSlop={12}
+        onPress={() => {
+          tap();
+          onDeleteTask(task);
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={`${t.dayViewDeleteTask} ${task.title}`}
+        scaleTo={0.9}
+      >
+        <Ionicons name="trash-outline" size={15} color={theme.textMuted} />
       </PressableScale>
     );
   }
@@ -605,7 +669,10 @@ export default function PlanTaskCard({
             {taskCardContent(task, { timed, dimmed, showHint, surfaced, showAnytimeBadge: !timed && !task.done })}
           </View>
         </PressableScale>
-        <View style={styles.doneCol}>{doneToggle(task, false)}</View>
+        <View style={styles.doneCol}>
+          {doneToggle(task, false)}
+          {deleteButton(task)}
+        </View>
       </Animated.View>
     );
   }
@@ -632,6 +699,8 @@ export default function PlanTaskCard({
               style={[
                 styles.rowCard,
                 styles.gridCardInner,
+                // Room for the corner action stack — one toggle, or a trash + toggle pair.
+                { paddingRight: onDeleteTask ? 48 : 28 },
                 // Ordinary cards: a soft accent wash instead of drab grey (debug-note 2026-07-21)
                 // — still clearly set apart from plain-surface cards, but warmer. The
                 // happening-now card keeps the stronger tint + glow so hierarchy is preserved.
@@ -645,7 +714,10 @@ export default function PlanTaskCard({
               {taskCardContent(task, { dimmed: isPast, showHint, surfaced, showAnytimeBadge: false })}
             </View>
           </PressableScale>
-          <View style={styles.gridDoneToggle}>{doneToggle(task, isHappeningNow)}</View>
+          <View style={styles.gridActions}>
+            {deleteButton(task)}
+            {doneToggle(task, isHappeningNow)}
+          </View>
         </View>
       </View>
     );
@@ -790,10 +862,25 @@ export default function PlanTaskCard({
 
         {showEmpty ? (
           <View style={styles.emptyWrap}>
-            {/* Fixed-hour calendar grid, empty (2026-07-25, user report: an empty day showed
-                pure blank space; 2026-07-26, rebuilt from a sparse ruler into the same real
-                grid a populated day uses). */}
-            <DayHourScale now={now} />
+            {/* Empty-day explainer + one concrete suggestion, in the card, where the content
+                would be (2026-07-27, user report: each card should carry its own example text
+                and a suggested-add row while empty). This replaced an empty hour ruler that
+                filled the space without saying anything — the suggestion row IS a real row,
+                and its "+" writes a real task. */}
+            <View style={styles.emptyTextRow}>
+              <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.emptyBulb} />
+              <Text style={[styles.emptyExplainer, { color: theme.text }]}>{t.starters.plans.text}</Text>
+            </View>
+            {onAddExample ? (
+              <StarterExampleRow
+                icon="ellipse-outline"
+                title={t.starters.plans.exampleTitle}
+                meta="17:00–17:20"
+                accent={domainColor.accent}
+                onAdd={onAddExample}
+                addLabel={t.starters.addExample}
+              />
+            ) : null}
             {/* Ghost "add" row (debug-note 2026-07-21) — an empty day should still offer a
                 place to add something. Deep-links to the Plans tab; only shown as a FALLBACK
                 when no inline add is wired (`onAddTask` absent). When onAddTask IS passed
@@ -828,10 +915,15 @@ export default function PlanTaskCard({
               </Animated.View>
             )}
             {timedPending.length > 0 && (
-              <View style={[styles.gridViewport, { height: expanded ? GRID_TOTAL_HEIGHT : COLLAPSED_GRID_HEIGHT }]}>
+              <View
+                style={[
+                  styles.gridViewport,
+                  { height: expanded ? dayScale.totalHeight : Math.min(dayScale.totalHeight, COLLAPSED_GRID_HEIGHT) },
+                ]}
+              >
                 <ScrollView ref={gridScrollRef} scrollEnabled={!expanded} showsVerticalScrollIndicator={false}>
                   <View style={styles.gridInner}>
-                    <DayGridLines now={now} />
+                    <DayGridLines scale={dayScale} now={now} />
                     {timedPending.map((entry, i) => renderGridEntry(entry, timedLayout[i]))}
                   </View>
                 </ScrollView>
@@ -922,6 +1014,50 @@ export default function PlanTaskCard({
           </Animated.View>
         ) : null}
 
+        {/* Recently deleted — the undo half of the trash action above (2026-07-27, user
+            report: "no apparent way to delete and recover deleted tasks"). Same collapsed
+            dimmed-zone shape as "Done today", so it reads as another fold-away drawer rather
+            than a new concept; rows carry a restore arrow instead of a checkbox. Only mounts
+            when the caller passes both the tombstones and a restore handler. */}
+        {onRestoreTask && deletedTasks && deletedTasks.length > 0 ? (
+          <Animated.View style={[styles.doneZone, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} layout={containerLayout}>
+            <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDeletedOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
+              <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>{t.dayViewDeletedZone(deletedTasks.length)}</Text>
+              <AnimatedChevron open={deletedOpen} size={14} color={theme.textMuted} />
+            </PressableScale>
+            <Collapsible open={deletedOpen}>
+              <View style={styles.doneRows}>
+                {deletedTasks.map((task) => (
+                  <View key={task.id} style={styles.flatRow}>
+                    <View
+                      style={[
+                        styles.rowCard,
+                        styles.deletedRowCard,
+                        { backgroundColor: rgba(theme.accent, 0.03), borderColor: theme.border },
+                      ]}
+                    >
+                      <Text numberOfLines={1} style={[styles.title, { color: theme.textMuted }]}>
+                        {task.title}
+                      </Text>
+                    </View>
+                    <View style={styles.doneCol}>
+                      <PressableScale
+                        hitSlop={12}
+                        onPress={() => { tap(); onRestoreTask(task); }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${t.dayViewRestore} ${task.title}`}
+                        scaleTo={0.9}
+                      >
+                        <Ionicons name="arrow-undo-outline" size={16} color={domainColor.accent} />
+                      </PressableScale>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </Collapsible>
+          </Animated.View>
+        ) : null}
+
         {showToggle ? (
           <PressableScale
             style={styles.footerBtn}
@@ -969,6 +1105,11 @@ const baseStyles = StyleSheet.create({
   quickChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
   emptyWrap: { gap: Spacing.sm },
+  // Empty-day explainer (2026-07-27) — same bulb + italic treatment components/StarterCard
+  // uses, inlined here so the card's own empty state doesn't need a nested Surface-in-Surface.
+  emptyTextRow: { flexDirection: 'row', gap: Spacing.xs },
+  emptyBulb: { marginTop: 2 },
+  emptyExplainer: { flex: 1, fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.medium, fontStyle: 'italic' },
   emptyAddRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1003,7 +1144,12 @@ const baseStyles = StyleSheet.create({
   // tasks read as distinct items rather than text floating on the background. borderWidth
   // added 2026-07-26 (calendar-style pass) — see the inline borderColor overrides.
   rowCard: { borderRadius: Radius.sm, borderWidth: 1, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm },
-  doneCol: { width: DONE_COL_WIDTH, alignItems: 'center', justifyContent: 'center' },
+  // Restore-zone row: no checkbox/hint/badges, just the title — flex:1 so it fills the row
+  // the way `flatContent` does for a live task.
+  deletedRowCard: { flex: 1 },
+  // Holds the done-toggle and (when wired) the trash action, stacked so a long title still
+  // gets the full row width.
+  doneCol: { width: DONE_COL_WIDTH, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   title: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, flexShrink: 1 },
   durationText: { fontSize: FontSize.xs },
@@ -1030,8 +1176,10 @@ const baseStyles = StyleSheet.create({
   gridCardPressable: { flex: 1 },
   // Tighter vertical padding than the shared `rowCard` (short time-slots), and room on the
   // right for the corner done-toggle overlay.
-  gridCardInner: { flex: 1, paddingVertical: 4, paddingRight: 28 },
-  gridDoneToggle: { position: 'absolute', top: 4, right: 4 },
+  gridCardInner: { flex: 1, paddingVertical: 4 },
+  // Corner action stack — trash (when wired) then the done-toggle, laid out in a row so a
+  // short card doesn't have to be tall enough to stack them.
+  gridActions: { position: 'absolute', top: 4, right: 4, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
 
   // Horizontal rail: a row of [hColumn][hConnectorWrap][hColumn]... — time box + line on
   // top, title in the middle, checkmark-circle toggle in a fixed-height row underneath,
@@ -1058,12 +1206,30 @@ const baseStyles = StyleSheet.create({
   // transparent top border (no real frame). This card already sits inside the outer Surface,
   // so it uses `theme.surfaceMuted` (a step subtler than the card's own surface) rather than
   // a second elevated Surface, to avoid stacking two heavy card looks.
-  doneZone: { marginTop: Spacing.xs, borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: Spacing.sm },
-  doneHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
+  // `overflow:'hidden'` + a real `paddingBottom` fix the expand/collapse spill (2026-07-27,
+  // user report: "expanding and closing has a visual bug with text overlapping the borders").
+  // Two causes, one per property. (1) The Collapsible reveal is a height CLIP, so mid-animation
+  // it cuts through a row — and the clip used to be this zone's last child, i.e. its cut edge
+  // sat exactly ON the bottom border, so the half-revealed text read as printed over the frame.
+  // The paddingBottom keeps a permanent inset between the clip's edge and the border.
+  // (2) This zone also animates its own frame via `layout` (LinearTransition) while the clip
+  // animates independently, so for a few frames the frame is smaller than its content —
+  // overflow:'hidden' guarantees nothing paints past the rounded edge at any frame.
+  doneZone: {
+    marginTop: Spacing.xs,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.sm,
+    paddingBottom: Spacing.xs,
+    overflow: 'hidden',
+  },
+  // paddingBottom trimmed to xs since doneZone now carries the other half (see above) — the
+  // total gap under the last row is unchanged.
+  doneHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Spacing.sm, paddingBottom: Spacing.xs },
   doneHeaderText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   // Only rendered while the done zone is open (inside Collapsible's children), so this
   // padding never shows up as phantom height while collapsed.
-  doneRows: { paddingBottom: Spacing.sm },
+  doneRows: { paddingBottom: Spacing.xs },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   // marginBottom Spacing.md (was .sm) so the content starts close to the 64px wash divider
@@ -1073,7 +1239,11 @@ const baseStyles = StyleSheet.create({
   // Badge is pinned absolute (badgeFixed below) — headerTopRow's paddingLeft is what actually
   // clears it, not flex order. Tightened 56 → 52 (2026-07-26, user report: "more closely
   // linked with the badge") — badge offset 16 + badge size 32 + a 4px gap (was 8px).
-  headerTopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 52 },
+  // minHeight 32 = the badge's own size, so the row is never shorter than the thing pinned
+  // beside it and whatever follows (the progress bar) starts BELOW the badge's bottom edge
+  // rather than crossing it (2026-07-27, user report: "upper left icon badge and line visual
+  // issue" — the full-width progress bar ran straight through the badge).
+  headerTopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 52, minHeight: 32 },
   // Takes the badge out of flex flow so its position is fixed regardless of sibling content
   // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
   // Mounts as a sibling of cardContent now (not a child of it), directly in the unpadded
@@ -1082,7 +1252,10 @@ const baseStyles = StyleSheet.create({
   // alongside cardContent's paddingTop (2026-07-26, "move it a bit down") so it stays level
   // with the title.
   badgeFixed: { position: 'absolute', top: Spacing.md + 4, left: Spacing.md, zIndex: 2 },
-  progressBar: { marginTop: Spacing.xs },
+  // marginLeft matches headerTopRow's paddingLeft so the bar starts under the TITLE, not under
+  // the pinned badge — belt-and-braces with headerTopRow's minHeight above, and it reads as
+  // measuring the title's section rather than as a stray rule across the card.
+  progressBar: { marginTop: Spacing.xs, marginLeft: 52 },
   // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
   // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
   headerTitle: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8, includeFontPadding: false, textAlignVertical: 'center' },

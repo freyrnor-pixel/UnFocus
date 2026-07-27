@@ -19,8 +19,9 @@
  *             lib/budget (computeSpendPace), store/useTaskStore, store/useNotesStore, store/useSharedStore,
  *             store/useShoppingStore, store/useShoppingListStore, store/useMonthlyListStore, store/useSettingsStore, store/useReceiptStore
  *   Used by → Expo Router route "/" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
- *   Data    → reads useTaskStore (tasks) + useNotesStore (notes) + useSharedStore (incoming
- *             shared tasks/shopping) + useShoppingStore (items) +
+ *   Data    → reads useTaskStore (tasks + deletedTasks, the restorable tombstones behind the
+ *             day-view's "Recently deleted" drawer) + useNotesStore (notes) +
+ *             useSharedStore (incoming shared tasks/shopping) + useShoppingStore (items) +
  *             useShoppingListStore (currentList(today)) + useReceiptStore (receipts, for the
  *             Shopping preview card's spend-pace line); mutates via toggle / toggleCheck /
  *             toggleCollected / adjustAmount / putBackToInventory / removeWithSource.
@@ -38,6 +39,10 @@
  *     task's checkbox toggles it done without opening the editor. `onAddTask` (handleAddTask) is
  *     likewise passed alongside `readOnly` so the preview's trailing AddRow can create an undated
  *     today task inline (mirrors plans.tsx's Whenever quick-add) — no trip to /plans needed.
+ *     Same "gate on the callback, not on readOnly" rule covers the 2026-07-27 additions:
+ *     `onDeleteTask`/`deletedTasks`/`onRestoreTask` (per-row trash + the "Recently deleted"
+ *     restore drawer — the delete is a tombstone, so no confirm dialog; the drawer is the undo)
+ *     and `onAddExample` (the empty day's one-tap suggested task).
  *     `allTasks` (full store) is passed so Decision 020 cross-date followers surface.
  *     `horizontal={settings.planTimelineHorizontal}` is threaded to the PlanTaskCard mount.
  *   - **Notes preview = HomeNotesCard**: reads useNotesStore, shows first 5 active notes with
@@ -191,6 +196,9 @@ export default function HomeScreen() {
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
   const toggleTask = useTaskStore((s) => s.toggle);
   const addTask = useTaskStore((s) => s.add);
+  const removeTask = useTaskStore((s) => s.remove);
+  const restoreTask = useTaskStore((s) => s.restore);
+  const deletedTasks = useTaskStore((s) => s.deletedTasks);
 
   const shoppingItems = useShoppingStore((s) => s.items);
   const toggleShoppingItem = useShoppingStore((s) => s.toggleCheck);
@@ -330,6 +338,27 @@ export default function HomeScreen() {
     [putBackToInventory, removeWithSource]
   );
   const handleToggleTask = useCallback((task: Task) => toggleTask(task.id), [toggleTask]);
+  // Delete is a soft delete (store/useTaskStore's tombstone) and the day-view renders a
+  // "Recently deleted" restore drawer right below, so no confirmation dialog here — the undo
+  // IS the safety net (2026-07-27, user report: "no apparent way to delete and recover
+  // deleted tasks").
+  const handleDeleteTask = useCallback((task: Task) => removeTask(task.id), [removeTask]);
+  const handleRestoreTask = useCallback((task: Task) => restoreTask(task.id), [restoreTask]);
+  // Empty-day suggestion — a real task, not a placeholder: an undated (Whenever) task dated
+  // today, exactly the shape the quick-add AddRow produces, so nothing about it is special
+  // once it exists.
+  const handleAddExampleTask = useCallback(() => {
+    addTask({
+      title: t.starters.plans.exampleTitle,
+      date: today,
+      taskType: 'start-at',
+      done: false,
+      recurring: 'none',
+      recurringDays: [],
+      sortOrder: 0,
+      hasStartDate: false,
+    });
+  }, [addTask, today, t]);
   // Inline quick-add from the Home Plans preview — mirrors app/(tabs)/plans.tsx's Whenever
   // AddRow: an undated (hasStartDate:false) task dated today, so it shows in Today, the day's
   // list, and the All tab's Whenever without any extra sync. Lets a task be created without
@@ -435,6 +464,10 @@ export default function HomeScreen() {
               readOnly
               onToggleTask={handleToggleTask}
               onAddTask={handleAddTask}
+              onDeleteTask={handleDeleteTask}
+              deletedTasks={deletedTasks}
+              onRestoreTask={handleRestoreTask}
+              onAddExample={handleAddExampleTask}
               horizontal={planTimelineHorizontal}
             />
           </DebugNoteAnchor>
@@ -559,7 +592,10 @@ export default function HomeScreen() {
 
           {/* Energy meter — always shown (2026-07-26): Energy stopped being a toggle. A
               task/habit reads 0 unless given a value, so the meter just sits at capacity
-              until something has one. */}
+              until something has one. Its explainer now lives INSIDE that card as a permanent
+              line (2026-07-27) — it used to be a separate StarterCard rendered here, which sat
+              directly above the Plans card and so read as belonging to the to-do card, making
+              its disappear-on-first-use behaviour look like a bug in the wrong place. */}
           <View style={styles.section}>
             <EnergyMeter />
           </View>
