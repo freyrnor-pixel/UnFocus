@@ -148,6 +148,12 @@
  *     own hit box and the other (inactive) tabs are untouched. Corner radius bumped `Radius.md` →
  *     `Radius.lg` to match the outer floating bar's own corner radius (see `baseStyles.bar`) so
  *     the selected box's shape echoes its container instead of a smaller, tighter curve.
+ *   - **Bar uses `surfaceContext="nav"`, not `"overlay"` (2026-07-27)**: `overlay` (still used by
+ *     sheets/modals/ScreenHeader) blurs live content with real translucency — fine for something
+ *     that's on screen briefly, but the bar sits over scrolled list content for the whole time a
+ *     tab is open, so cards/text were visibly bleeding through it as the user scrolled (user
+ *     report, screenshot). `"nav"` (components/Surface.tsx) pushes the wash near-opaque and skips
+ *     the BlurView entirely, so only the flat tinted panel shows — never a scrolled card's shape.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
@@ -387,7 +393,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   };
 
   return (
-    <Surface surfaceContext="overlay" style={styles.bar}>
+    <Surface surfaceContext="nav" style={styles.bar}>
       {segW > 0 && pillMounted && (
         <Animated.View pointerEvents="none" style={[styles.pill, { width: segW + PILL_GROW_X, height: pillHeight, top: pillTop }, pillStyle]}>
           {glass ? (

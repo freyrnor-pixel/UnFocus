@@ -95,10 +95,16 @@ import GlassFill from '@/components/GlassFill';
 /**
  * Which backdrop a glass Surface frosts (Decision 008). 'ambient' (default) sits
  * over the calm ScreenBackground backdrop and uses a lighter blur; 'overlay' sits
- * over live scrolling content (sticky headers, sheets, nav bar) and blurs harder so
- * the moving content behind stays unreadable-but-present.
+ * over live scrolling content (sticky headers, sheets) and blurs harder so
+ * the moving content behind stays unreadable-but-present. 'nav' (2026-07-27) is for
+ * the persistent BottomNav specifically: unlike a sheet/header, it sits over scrolled
+ * list content for the ENTIRE time a tab is open, not just transiently — user report,
+ * screenshot: scrolled cards/text were still visibly (if blurred/dimmed) legible
+ * through it. Wash alpha is pushed near-opaque so only a flat tinted panel reads
+ * through, never individual card shapes, and blur is skipped since it buys nothing
+ * once the wash is that dense.
  */
-export type SurfaceContext = 'ambient' | 'overlay';
+export type SurfaceContext = 'ambient' | 'overlay' | 'nav';
 
 type Props = {
   surfaceContext?: SurfaceContext;
@@ -128,6 +134,9 @@ type Props = {
 const GLASS_BLUR_INTENSITY: Record<SurfaceContext, number> = {
   ambient: 0,
   overlay: 64,
+  // No BlurView: the wash alone (near-opaque, see GLASS_WASH_ALPHA below) already fully
+  // hides scrolled content, so a blur pass would only cost a frame with no visible payoff.
+  nav: 0,
 };
 
 // The glass colour wash sits on top of the (optional) BlurView, carrying the theme hue.
@@ -146,6 +155,12 @@ const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
   // keycap EDGE (domain/screen hue) and the CTAs; this is just enough translucency to look like glass.
   ambient: 0.85,
   overlay: 0.8,
+  // Near-opaque (2026-07-27): unlike overlay's "blurred but present" sheets/headers, the
+  // bottom nav sits over live scrolled content for as long as a tab stays open, so any
+  // translucency reads as scrolled cards/text bleeding through it. 0.97 leaves just enough
+  // give for the material's scrim/specular highlight layers to still read, without any
+  // card shape showing through — effectively a flat tinted panel, not glass.
+  nav: 0.97,
 };
 
 // Beveled edge: a translucent vertical gradient (computeRimGradient, keyed on the domain/screen
