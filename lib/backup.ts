@@ -141,13 +141,13 @@ function buildBackup(opts: { redactName?: boolean } = {}): BackupFile {
  * sandbox and die on uninstall), so it returns null — Android auto-backup goes to
  * the user-picked SAF location (settings.autoBackupUri) instead.
  */
-export function getAutoBackupPath(): string | null {
+function getAutoBackupPath(): string | null {
   if (Platform.OS === 'ios' && documentDirectory) return `${documentDirectory}${AUTO_BACKUP_BASENAME}.json`;
   return null;
 }
 
 /** Human-readable description of the auto-backup location shown in settings. */
-export function getAutoBackupLabel(): string {
+function getAutoBackupLabel(): string {
   if (Platform.OS === 'ios') return 'Files → On My iPhone/iPad → UnFocus';
   return 'the folder you choose';
 }

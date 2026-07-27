@@ -312,17 +312,3 @@ const styles = StyleSheet.create({
   },
   gated: { opacity: 0.45 },
 });
-
-// Re-exported so callers building a qty stepper for the `extras` slot match AddRow's metrics.
-export const addRowStyles = StyleSheet.create({
-  qtyGroup: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  qtyBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: Radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qtyBtnText: { fontSize: FontSize.md, fontFamily: Fonts.bold, lineHeight: 20 },
-  qtyVal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, minWidth: 20, textAlign: 'center' },
-});

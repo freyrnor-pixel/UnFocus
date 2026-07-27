@@ -104,8 +104,9 @@ approximate) a destination rect → animate a floating clone between them.
   `FlightOverlay` primitive, different call site — a follow-up phase, not this one.
 - **Habit completion** (`app/(tabs)/health.tsx`) — only worth doing if the maintainer wants
   every checkbox-toggle surface in the app to match; not asked for.
-- Don't touch `components/CompletionGlow.tsx` — it's a separate, still-live pattern (habit
-  completion's card-level bloom) that this work doesn't replace or interact with.
+- `components/CompletionGlow.tsx` was **deleted 2026-07-27** — it had already been superseded
+  by `components/GlowPulse.tsx` and nothing imported it. Card-level completion glow now goes
+  through GlowPulse.
 
 ## How to verify Phase 1 is actually done
 

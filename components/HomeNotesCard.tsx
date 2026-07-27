@@ -16,7 +16,7 @@
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
  *             lib/domainColor, lib/useVoiceCapture, store/useNotesStore, store/useTaskStore
  *             (quick-add's optional companion task only)
- *   Used by → app/(tabs)/index.tsx (replaces InboxSection in the Notes preview slot)
+ *   Used by → app/(tabs)/index.tsx (the Notes preview slot)
  *   Data    → reads/writes useNotesStore (notes table): toggleChecked, add, update; quick-add's
  *             "also add as a task" toggle additionally writes useTaskStore (tasks table): add
  *

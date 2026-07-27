@@ -11,7 +11,7 @@
  * Connections:
  *   Imports → @/lib/i18n, @/constants/theme, @/lib/useAppTheme, @/components/Button,
  *             @/components/AppModal (showAppModal), @/lib/backup
- *             (pickAndParseBackup/restoreBackup/reloadApp), @/lib/haptics
+ *             (pickAndParseBackup/restoreBackup/reloadApp), @/lib/haptics, @expo/vector-icons
  *   Used by → Expo Router route "/onboarding/restore" (pushed from onboarding/language.tsx)
  *   Data    → via lib/backup: restore DELETEs+re-INSERTs every table in unfocus.db
  *
@@ -20,11 +20,16 @@
  *     confirm/error strings (shared with app/settings.tsx's handleImport).
  *   - "No, I'm new" navigates to /onboarding/privacy; Previous goes back to language.
  *   - `busy` guards against double-taps while the file picker / restore runs.
+ *   - **Hero icon is a themed badge, not an emoji (2026-07-27, user report)**: this page used a
+ *     raw 💾 `<Text>` where every sibling onboarding page renders an accent-circle `iconBadge` +
+ *     Ionicons (intro.tsx, features.tsx, guided.tsx). The emoji ignored the theme entirely and
+ *     broke the flow's visual continuity. Keep any future illustration on the badge pattern.
  */
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -87,7 +92,9 @@ export default function RestoreScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.top}>
-          <Text style={styles.icon}>💾</Text>
+          <View style={[styles.iconBadge, { backgroundColor: theme.accentSoft }]}>
+            <Ionicons name="cloud-download-outline" size={44} color={theme.accent} />
+          </View>
           <Text style={[styles.headline, { color: theme.text }]}>{t.onboarding.restore.headline}</Text>
         </View>
 
@@ -132,7 +139,11 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
   },
   top: { alignItems: 'center', gap: Spacing.md },
-  icon: { fontSize: 72 },
+  // Same accent-circle badge every other onboarding page uses (intro/features/guided) — see
+  // the 2026-07-27 edit note above.
+  iconBadge: {
+    width: 104, height: 104, borderRadius: 52, alignItems: 'center', justifyContent: 'center',
+  },
   headline: {
     fontSize: FontSize.xxl,
     fontFamily: Fonts.semibold,

@@ -5,7 +5,7 @@
  * not yet done) right inside the screen the item actually belongs to: shopping requests on
  * app/shopping.tsx, task requests on app/index.tsx. Accept adds a real local item and marks
  * the shared row done; Dismiss removes the shared row outright. Renders nothing when there's
- * nothing pending — mirrors components/InboxSection.tsx's pattern.
+ * nothing pending.
  *
  * Connections:
  *   Imports → components/PressableScale, components/Surface, constants/theme, lib/haptics,
@@ -20,7 +20,7 @@
  *   - This is the per-screen replacement for the old "Shared" bubble — full history (sent +
  *     received, done or not) would live at a future app/shared.tsx; out of scope here.
  *   - Accept defaults are deliberately minimal (today's date / weekly list / undated Whenever
- *     task) so there's no intermediate form, same rationale as InboxSection's task defaults.
+ *     task) so there's no intermediate form — sensible defaults beat a form nobody asked for.
  *   - Ported (2026-07-02, Session A2·2, expanded scope — see PROGRESS_LOG) from the old repo's
  *     SharedRequestsSection.tsx. Token remap (Decision 006): theme.offWhite (Surface tint) →
  *     surfaceMuted, orange/orangeLight → accent/accentSoft, grayLight → surfaceMuted, textLight

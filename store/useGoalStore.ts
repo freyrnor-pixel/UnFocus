@@ -39,7 +39,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
 
 /** Distinct glow hues auto-rotated across goals so multiple goals read apart at a glance. */
-export const GOAL_PALETTE = ['#6C8CFF', '#57C4A5', '#E8A13A', '#E06C9F', '#9B7BE0', '#4FB0E0'];
+const GOAL_PALETTE = ['#6C8CFF', '#57C4A5', '#E8A13A', '#E06C9F', '#9B7BE0', '#4FB0E0'];
 
 export type Goal = {
   id: string;

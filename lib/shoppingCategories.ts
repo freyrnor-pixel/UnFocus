@@ -16,7 +16,7 @@
  */
 import { Translations } from '@/lib/i18n';
 
-export const CATEGORY_VALUES = [
+const CATEGORY_VALUES = [
   'produce',
   'dairy',
   'meatFish',

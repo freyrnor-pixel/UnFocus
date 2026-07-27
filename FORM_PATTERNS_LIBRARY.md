@@ -280,7 +280,7 @@ Standard form layout follows this rhythm:
       onChangeText={setTime}
       style={{ flex: 1 }}
     />
-    <SaveButton
+    <SaveButton /* removed 2026-07-27 — build on components/Button */
       visible={timeChanged}
       onPress={saveTime}
       label="Save"
@@ -441,7 +441,7 @@ Standard form layout follows this rhythm:
     }}
     style={{ flex: 1 }}
   />
-  <SaveButton
+  <SaveButton /* removed 2026-07-27 — build on components/Button */
     visible={nameDirty}
     onPress={saveName}
     label="Save"

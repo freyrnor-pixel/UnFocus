@@ -297,6 +297,10 @@ export default function TasksScreen() {
   // Whenever's blue to tell apart at a glance; 2026-07-14). Both tokens have light + dark
   // variants, so the rail/dot/label stay distinct and legible in both modes. Shared handles
   // its own (shop/green) hue inside SharedTasksSection.
+  // NOTE (2026-07-27): `repeatingHue` borrows the meal *colour token* only. Its SectionCard
+  // passes domain="habit" (the repeat glyph), NOT domain="meal" — the badge icon comes from
+  // the domain, so pairing the borrowed hue with a borrowed domain drew a knife-and-fork
+  // badge on the Recurring section. Keep hue and domain independent here.
   const wheneverHue = getDomainColor(theme, 'task').accent;
   const repeatingHue = getDomainColor(theme, 'meal').accent;
 
@@ -508,7 +512,7 @@ export default function TasksScreen() {
 
             {/* Debug notes: one anchor per region — wrap the section card, not its inner rows. */}
             <DebugNoteAnchor id="plans.recurring" label="Plans — Recurring">
-              <SectionCard hue={repeatingHue} domain="meal" label={t.tasksSectionRecurring} count={recurringAll.length}>
+              <SectionCard hue={repeatingHue} domain="habit" label={t.tasksSectionRecurring} count={recurringAll.length}>
                 {recurringAll.length === 0 ? (
                   <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionRecurringEmpty}</Text>
                 ) : (

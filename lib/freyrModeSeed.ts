@@ -62,7 +62,7 @@ export type FreyrSeedIds = {
   monthlyBudget: { listId: string; prevBudgetNok: number } | null;
 };
 
-export const EMPTY_FREYR_SEED_IDS: FreyrSeedIds = {
+const EMPTY_FREYR_SEED_IDS: FreyrSeedIds = {
   shoppingItemIds: [],
   taskIds: [],
   habitIds: [],

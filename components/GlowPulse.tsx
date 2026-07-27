@@ -1,8 +1,8 @@
 /**
  * GlowPulse.tsx — breathing / static coloured halo for state & action indication.
  *
- * A pointer-transparent, absolute-fill sibling (place inside a position:relative parent, same
- * pattern as CompletionGlow) that draws a soft coloured halo via getGlow's boxShadow.
+ * A pointer-transparent, absolute-fill sibling (place inside a position:relative parent) that
+ * draws a soft coloured halo via getGlow's boxShadow.
  * mode="breathe" gently loops opacity (~2.4s cycle) to mark the SINGLE active/focal element on
  * a screen; mode="static" is a steady halo for persistent or repeated states. Under
  * reduce-motion, breathe falls back to static (keeps the cue, drops the motion).

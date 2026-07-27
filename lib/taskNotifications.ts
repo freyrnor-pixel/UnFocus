@@ -9,7 +9,8 @@
  *
  * Connections:
  *   Imports → lib/date, lib/notifications, lib/time, lib/i18n (+ Task/Language types)
- *   Used by → store/useTaskStore.ts
+ *   Used by → store/useTaskStore.ts, app/_layout.tsx (snoozeTaskReminder, from the
+ *             "Remind me later" notification action)
  *   Data    → schedules OS notifications (no SQLite/store access)
  *
  * Edit notes:
@@ -26,6 +27,11 @@
  *     nextOccurrenceDate) — the caller (useTaskStore's syncMonthlyTaskNotifications,
  *     called from app/_layout.tsx on boot + every foreground) re-arms it for the
  *     following occurrence once the current one has passed.
+ *   - `snoozeTaskReminder` (2026-07-27) is the "Remind me later" half of the interactive
+ *     notification actions. It deliberately does NOT respect quiet hours: the user just
+ *     asked to be reminded in 15 minutes, so deferring that to the morning would ignore an
+ *     explicit request — unlike a scheduled reminder, which the user never opted into at
+ *     that exact moment.
  */
 import type { Task } from '@/store/useTaskStore';
 import type { Language } from '@/store/useSettingsStore';
@@ -39,6 +45,7 @@ import {
   scheduleDailyTaskNotification,
   cancelTaskNotification,
   pushPastQuietHours,
+  scheduleReNudge,
   WeeklyTaskOccurrence,
 } from '@/lib/notifications';
 
@@ -207,4 +214,24 @@ export function syncTaskNotification(task: Task, s: TaskNotifSettings): void {
   } else {
     void scheduleTaskNotification(task.id, deferPastQuietHours(start, s), minimalContent);
   }
+}
+
+// ── Notification action handling (Done / Remind me later) ──────────────────
+/**
+ * How long "Remind me later" pushes a task reminder out. 15 minutes is short enough that the
+ * task doesn't fall off the day, long enough that the nudge isn't the same interruption again.
+ */
+export const RENUDGE_DELAY_MS = 15 * 60 * 1000;
+
+/**
+ * Schedule the snooze follow-up for a task whose reminder the user tapped "Remind me later"
+ * on. Content is localised here for the same reason the rest of this file is — lib/notifications
+ * only takes already-localised strings.
+ */
+export function snoozeTaskReminder(task: Task, lang?: Language) {
+  const t = getTranslations(lang);
+  void scheduleReNudge(task.id, RENUDGE_DELAY_MS, {
+    title: t.notif.renudgeTitle(task.title),
+    body: t.notif.renudgeBody,
+  });
 }

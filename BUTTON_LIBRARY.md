@@ -22,7 +22,6 @@ A complete reference guide for all reusable button and interactive components in
 | **AddRow** | Inline Add Row | `components/AddRow.tsx` | The one "add a row" shape — empty input row + confirm, attached to its list |
 | **AddFAB** | Floating Action | `components/AddFAB.tsx` | Nav-to-full-form trigger embedded in a header (e.g. Health's habit-add) — NOT for screen-corner floating "add" anymore |
 | **IconButton** | Icon-only Button | `components/IconButton.tsx` | Header actions, toggles, icon controls |
-| **SaveButton** | Inline Button | `components/SaveButton.tsx` | Inline save trigger (animates in when dirty) |
 | **Checkbox** | Form Control | `components/FormControls.tsx` | Binary on/off selection |
 | **Switch** | Form Control | `components/FormControls.tsx` | Toggle switch (native with theme) |
 | **SegmentedControl** | Form Control | `components/FormControls.tsx` | Multiple option selector (tab-like) |
@@ -208,9 +207,14 @@ When `active={true}`:
 
 ---
 
-### 4. SaveButton Component
-**File:** `components/SaveButton.tsx`  
-**Purpose:** Inline, animated save button that appears when input is dirty.
+### 4. SaveButton Component — REMOVED (2026-07-27)
+**Status:** `components/SaveButton.tsx` and its sibling `StickySaveBar.tsx` were deleted. Both
+were ported ahead of their intended screen (`app/settings.tsx`), which then shipped using a
+different pattern, so neither was ever imported by anything. The rest of this section is kept
+as a record of the shape in case an inline dirty-state save is wanted again — build it on
+`components/Button.tsx` + `PressableScale` rather than restoring the old file.
+
+**Purpose (as built):** Inline, animated save button that appears when input is dirty.
 
 #### Props
 ```typescript
@@ -648,7 +652,6 @@ All components use:
 - **Disabled**: All components. Opacity 0.45, no interaction. Always provide clear UI reason (e.g. form invalid).
 
 ### 6. **Animations**
-- **SaveButton**: 150ms ease (in/out).
 - **ConfirmationBanner**: 220ms timing (in), 200ms timing (out).
 - **SwatchPicker**: Instant scale + shadow change on selection.
 - All honour `reducedMotion` setting.
@@ -670,7 +673,7 @@ All components use:
 6. **Multiple mutually exclusive options?** → Use `SegmentedControl`
 7. **Status display (no action)?** → Use `Badge`
 8. **User/member initials?** → Use `Avatar`
-9. **Inline save on edit?** → Use `SaveButton` (if input can be dirty)
+9. **Inline save on edit?** → Build it on `Button` (SaveButton was removed 2026-07-27)
 10. **Picking colour or material?** → Use `SwatchPicker`
 11. **Auto-dismiss success message?** → Use `ConfirmationBanner`
 
@@ -737,7 +740,6 @@ Each button is self-contained; a design change in one component file automatical
 | `Button.tsx` | All primary/secondary/danger/ghost buttons, all sizes |
 | `AddFAB.tsx` | All "add" buttons (floating + inline) |
 | `IconButton.tsx` | All icon-only buttons, active states |
-| `SaveButton.tsx` | All inline save animations |
 | `FormControls.tsx` | All checkboxes, switches, segmented controls, inputs |
 | `Badge.tsx` | All badges, chips, avatars |
 | `SwatchPicker.tsx` | All circular swatch pickers |
@@ -769,7 +771,6 @@ components/
   ├── Button.tsx                  (main action button: primary, secondary, danger, ghost)
   ├── AddFAB.tsx                  (orange "add" button: lg floating, sm inline)
   ├── IconButton.tsx              (circular icon-only: header actions, toggles)
-  ├── SaveButton.tsx              (inline save: animated, dirty state)
   ├── FormControls.tsx            (checkbox, switch, segmented control, input)
   ├── Badge.tsx                   (badge, chip, avatar: status pills & filters)
   ├── SwatchPicker.tsx            (circular swatch picker: themes, materials)
