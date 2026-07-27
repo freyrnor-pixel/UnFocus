@@ -4,7 +4,8 @@
  * Sub-screen (Decision 001 tier='sub') for a single symptom/issue log: Issue (a
  * catalog-backed symptom picker, mirrors the old inline typeahead), Severity
  * (1–5 ramp), When started (date + optional time) and When finished (Ongoing
- * switch, or a date + optional time once resolved), and a free-text Note.
+ * switch, or a date + optional time once resolved), an optional "Possibly from" medicine
+ * attribution, and a free-text Note.
  * Structure is copied from app/task-form.tsx (weekRow + collapsible
  * DatePickerCalendar for date entry, checkmark-in-header save, confirm-gated
  * delete) and adapted to symptom logging. Presence of an `id` route param
@@ -15,11 +16,13 @@
  *             components/Collapsible (animated inline calendar reveal),
  *             components/HintCard, components/ConfirmationBanner, components/DatePickerCalendar,
  *             components/IconButton, components/Button, components/AppModal, components/PressableScale,
- *             lib/date, lib/haptics, lib/i18n, lib/severity, lib/useAppTheme, store/useHealthStore
+ *             lib/date, lib/haptics, lib/i18n, lib/severity, lib/useAppTheme, store/useHealthStore,
+ *             store/useMedicineStore (the "Possibly from" chip row — read-only)
  *   Used by → Expo Router route "/health-form"; pushed from app/(tabs)/health.tsx's "This week"
  *             rows, app/health-log.tsx's AddRow (passes a `name` param to prefill the Issue
  *             field), and app/health-detail.tsx's entry rows
- *   Data    → useHealthStore (health_logs + symptoms catalog) via add/update/remove/suggest/ensureSymptom
+ *   Data    → useHealthStore (health_logs + symptoms catalog) via add/update/remove/suggest/ensureSymptom;
+ *             reads useMedicineStore.medicines to offer the optional `medicineId` attribution
  *
  * Edit notes:
  *   - Picking/typing the Issue field sets both `ailment` (display name) and `symptomId` (stable
@@ -33,12 +36,17 @@
  *     task-form.tsx's inline date UI) shared by the start/end date fields.
  *   - On save a ConfirmationBanner is shown, then navigation is delayed ~900ms so it's visible,
  *     matching task-form.tsx.
+ *   - **"Possibly from" (2026-07-27)** sets `medicineId` — the symptom↔medicine correlation.
+ *     The whole field is hidden when no medicine exists, and "Not sure" ('') is the default,
+ *     so this never becomes a question a user has to answer. A `medicineId` route param
+ *     pre-selects it (app/medicine-form.tsx's "note something it caused" button).
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useHealthStore, Symptom } from '@/store/useHealthStore';
+import { useMedicineStore } from '@/store/useMedicineStore';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, dayOfWeekMon0 } from '@/lib/date';
@@ -141,8 +149,13 @@ function DateChipPicker({
 
 export default function HealthFormScreen() {
   const router = useRouter();
-  const { id, name } = useLocalSearchParams<{ id?: string; name?: string }>();
+  const { id, name, medicineId: medicineIdParam } = useLocalSearchParams<{
+    id?: string;
+    name?: string;
+    medicineId?: string;
+  }>();
   const logs = useHealthStore((s) => s.logs);
+  const medicines = useMedicineStore((s) => s.medicines);
   const addLog = useHealthStore((s) => s.add);
   const updateLog = useHealthStore((s) => s.update);
   const removeLog = useHealthStore((s) => s.remove);
@@ -172,6 +185,10 @@ export default function HealthFormScreen() {
   const [endDate, setEndDate] = useState(existing?.endDate || existing?.date || todayStr());
   const [endTime, setEndTime] = useState(existing?.endTime ?? '');
   const [notes, setNotes] = useState(existing?.notes ?? '');
+  // Symptom↔medicine attribution (2026-07-27). A route param (`medicineId`) pre-selects it
+  // when this form is opened from a medicine's "note something it caused" button; otherwise
+  // the chip row below is how you pick one. Only rendered when at least one medicine exists.
+  const [medicineId, setMedicineId] = useState(existing?.medicineId ?? (medicineIdParam ?? ''));
   const [startCalExpanded, setStartCalExpanded] = useState(false);
   const [endCalExpanded, setEndCalExpanded] = useState(false);
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -208,6 +225,7 @@ export default function HealthFormScreen() {
       symptomId: finalSymptomId,
       severity,
       notes: notes.trim(),
+      medicineId,
     };
     if (existing) {
       updateLog(existing.id, payload);
@@ -356,6 +374,41 @@ export default function HealthFormScreen() {
           )}
         </View>
 
+        {/* Possibly from — optional attribution to a medicine (2026-07-27). Hidden entirely
+            when no medicine exists, so a user who doesn't use that feature never sees it.
+            "Not sure" (medicineId '') is always available and is the default. */}
+        {medicines.length > 0 && (
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.attributionLabel}</Text>
+            <View style={styles.chipRow}>
+              {[{ id: '', name: t.medicine.attributionNone }, ...medicines.filter((m) => m.active)].map((m) => {
+                const active = medicineId === m.id;
+                return (
+                  <PressableScale
+                    key={m.id || '__none__'}
+                    style={[
+                      styles.chip,
+                      { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                      active && { backgroundColor: theme.accent, borderColor: theme.accent },
+                    ]}
+                    onPress={() => {
+                      tap();
+                      setMedicineId(m.id);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    scaleTo={0.97}
+                  >
+                    <Text style={[styles.chipText, { color: theme.text }, active && { color: theme.accentInk }]}>
+                      {m.name}
+                    </Text>
+                  </PressableScale>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         {/* Note */}
         <View style={styles.field}>
           <Input
@@ -382,6 +435,10 @@ const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.lg },
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  // "Possibly from" medicine chips — same pill sizing as app/habit-form.tsx's chip rows.
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+  chip: { paddingHorizontal: Spacing.sm, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1.5 },
+  chipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   switchLabel: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   ongoingRow: {

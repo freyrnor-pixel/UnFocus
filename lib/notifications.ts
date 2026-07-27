@@ -7,8 +7,12 @@
  * re-nudge). Callers pass
  * already-localised Content; this module never builds strings itself. Uses
  * stable identifiers so re-scheduling replaces. Also owns quiet-hours time math
- * (isWithinQuietHours/pushPastQuietHours) and the interactive "Done"/"Remind me
- * later" notification action buttons (syncNotificationCategories, onNotificationAction).
+ * (isWithinQuietHours/pushPastQuietHours) and the interactive notification action
+ * buttons — two independent categories: 'task-reminder' ("Done"/"Remind me later",
+ * syncNotificationCategories + onNotificationAction, payload `data.taskId`) and
+ * 'medicine-reminder' ("Taken"/"Remind me later", syncMedicineCategories +
+ * onMedicineAction + scheduleTrayReNudge, payload `data.medicineTray`). Each listener
+ * filters on its own payload key, so both can be mounted at once.
  *
  * Ported in full (Phase 5, habit store+form session) even though only
  * scheduleDailyReminder/cancelDailyReminder/isWithinQuietHours are consumed today
@@ -24,6 +28,8 @@
  * Connections:
  *   Imports → —
  *   Used by → lib/habitNotifications.ts (store/useHabitStore.ts);
+ *             lib/medicineNotifications.ts (store/useMedicineStore.ts — per-tray daily
+ *             reminders + the 'medicine-reminder' category);
  *             lib/widgets/sync.ts (refreshPersistentNotification / cancelPersistentNotification —
  *             the persistent "today's overview" notification, gated on the persistentNotifEnabled
  *             setting); the remaining task/weekly/monthly/re-nudge helpers are unconsumed until
@@ -230,17 +236,24 @@ export async function cancelTaskNotification(id: string) {
   }
 }
 
-// ── Daily reminder (used for habits) ────────────────────────────────────────
+// ── Daily reminder (used for habits and medicine trays) ─────────────────────
+/**
+ * `opts` is how a caller opts INTO interactive buttons: `categoryIdentifier` picks the
+ * registered category (see syncNotificationCategories / syncMedicineCategories) and
+ * `data` is the payload the corresponding onNotificationAction/onMedicineAction listener
+ * filters on. Habit reminders pass neither and stay plain, non-actionable notifications.
+ */
 export async function scheduleDailyReminder(
   key: string,
   hour: number,
   minute: number,
-  content: Content
+  content: Content,
+  opts: { data?: Record<string, string>; categoryIdentifier?: string } = {}
 ) {
   await cancelDailyReminder(key);
   await Notifications.scheduleNotificationAsync({
     identifier: `daily-${key}`,
-    content,
+    content: { ...content, ...(opts.data ? { data: opts.data } : {}), ...(opts.categoryIdentifier ? { categoryIdentifier: opts.categoryIdentifier } : {}) },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour,
@@ -362,6 +375,57 @@ export async function syncNotificationCategories(doneLabel: string, snoozeLabel:
     { identifier: 'done', buttonTitle: doneLabel },
     { identifier: 'snooze', buttonTitle: snoozeLabel },
   ]).catch(ignore);
+}
+
+/**
+ * Registers the "medicine-reminder" category — a tray reminder's Taken / Remind-me-later
+ * buttons, so a dose can be logged from the notification shade without opening the app
+ * (the single most-used path for "did I take it?"). Kept a SEPARATE category from
+ * 'task-reminder' because the actions mean different things and carry different payloads
+ * (a tray id, not a task id); same already-localised-labels contract.
+ */
+export async function syncMedicineCategories(takenLabel: string, snoozeLabel: string) {
+  await Notifications.setNotificationCategoryAsync('medicine-reminder', [
+    { identifier: 'med-taken', buttonTitle: takenLabel },
+    { identifier: 'med-snooze', buttonTitle: snoozeLabel },
+  ]).catch(ignore);
+}
+
+export type MedicineActionId = 'med-taken' | 'med-snooze';
+
+/**
+ * Subscribes to taps on a medicine tray reminder's buttons. Only fires for responses
+ * carrying `data.medicineTray`, so it ignores task/habit/persistent notifications
+ * entirely — that's what lets it coexist with onNotificationAction's own listener.
+ * Returns an unsubscribe function.
+ */
+export function onMedicineAction(
+  handler: (action: MedicineActionId, tray: string) => void
+): () => void {
+  const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    const tray = response.notification.request.content.data?.medicineTray as string | undefined;
+    const actionId = response.actionIdentifier;
+    if (!tray || (actionId !== 'med-taken' && actionId !== 'med-snooze')) return;
+    handler(actionId, tray);
+  });
+  return () => subscription.remove();
+}
+
+/** One-off follow-up for a snoozed medicine tray reminder (mirrors scheduleReNudge). */
+export async function scheduleTrayReNudge(tray: string, delayMs: number, content: Content) {
+  await cancelTrayReNudge(tray);
+  await Notifications.scheduleNotificationAsync({
+    identifier: `medtray-${tray}-renudge`,
+    content: { ...content, data: { medicineTray: tray }, categoryIdentifier: 'medicine-reminder' },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: Math.max(1, Math.round(delayMs / 1000)),
+    },
+  }).catch(ignore);
+}
+
+export async function cancelTrayReNudge(tray: string) {
+  await Notifications.cancelScheduledNotificationAsync(`medtray-${tray}-renudge`).catch(ignore);
 }
 
 export type NotificationActionId = 'done' | 'snooze';

@@ -28,6 +28,14 @@
  *     embeds this version; on import, an older version is a 'stale' warning (proceed
  *     anyway), a newer version is 'invalid' (this build can't safely interpret fields
  *     it doesn't know about).
+ *   - **Medicines and doses (2026-07-27) are deliberately OUT of scope** — do not add a
+ *     medicine domain here. Medicine names and doses are the most sensitive rows in the
+ *     database, and this guide already refuses health-log data for the same reason. The
+ *     exclusion is intentionally NOT spelled out in the guide's own text: no `medicines`
+ *     key exists in the schema, so an AI can't write one anyway (unknown keys are skipped),
+ *     and adding a sentence would be a content change requiring a version bump that would
+ *     stale-warn every guide file users have already downloaded. Same reasoning applies to
+ *     `health_logs.medicine_id`.
  *   - The guide text is deliberately English-only, even though the rest of the app's
  *     UI is bilingual (en/no) — it's a technical document for an AI to parse, and its
  *     field names/schema are English regardless of app language. Only the buttons/

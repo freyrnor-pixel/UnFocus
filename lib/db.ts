@@ -9,8 +9,8 @@
  *
  * Connections:
  *   Imports → lib/date, lib/sqlite
- *   Used by → app/_layout.tsx, lib/backup.ts, lib/liveSync.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useGoalStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useMealStore.ts, store/useMonthlyListStore.ts, store/useNotesStore.ts, store/usePeersStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
- *   Data    → owns ALL SQLite tables: settings, tasks (with nullable goal_id → goals), shopping_items, shopping_trips, shopping_lists, monthly_lists (multiple, named, budgeted Monthly/Katalog lists — store/useMonthlyListStore.ts), dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the old low/med/high energy check-in; table/pruning kept per the never-drop-tables rule, no longer written to), energy_budgets (LIVE — 2026-07-20 energy-budget system: per-period capacity overrides; store/useEnergyStore.ts), inbox_items (dead — the quick-capture feature was removed 2026-07-27; table + pruning kept per the never-drop-tables rule, nothing reads or writes it), receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key), widget_snapshot (single-row localised cache for the Android home-screen widgets — lib/widgets/snapshot.ts), goals (2026-07-23 — lightweight user goals with a decaying "living glow" strength; tasks/habits carry a nullable goal_id pointer to one — store/useGoalStore.ts)
+ *   Used by → app/_layout.tsx, lib/backup.ts, lib/liveSync.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useGoalStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useMealStore.ts, store/useMedicineStore.ts, store/useMonthlyListStore.ts, store/useNotesStore.ts, store/usePeersStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
+ *   Data    → owns ALL SQLite tables: settings, tasks (with nullable goal_id → goals), shopping_items, shopping_trips, shopping_lists, monthly_lists (multiple, named, budgeted Monthly/Katalog lists — store/useMonthlyListStore.ts), dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the old low/med/high energy check-in; table/pruning kept per the never-drop-tables rule, no longer written to), energy_budgets (LIVE — 2026-07-20 energy-budget system: per-period capacity overrides; store/useEnergyStore.ts), inbox_items (dead — the quick-capture feature was removed 2026-07-27; table + pruning kept per the never-drop-tables rule, nothing reads or writes it), receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key), widget_snapshot (single-row localised cache for the Android home-screen widgets — lib/widgets/snapshot.ts), goals (2026-07-23 — lightweight user goals with a decaying "living glow" strength; tasks/habits carry a nullable goal_id pointer to one — store/useGoalStore.ts), medicines + medicine_doses (2026-07-27 — medicine tray schedule + dose log; `health_logs.medicine_id` optionally attributes a symptom entry to one — store/useMedicineStore.ts)
  *
  * Edit notes:
  *   - Add columns via the `migrations` array ONLY — never edit a CREATE TABLE to
@@ -816,6 +816,57 @@ export function initDb() {
     // (see store/useSettingsStore.ts's "Inert columns" note) and kept only because this
     // repo never drops a column. Supersedes the two conditional flips further up.
     "UPDATE settings SET energy_system_enabled = 1",
+    // ── Medicine trays (2026-07-27) ─────────────────────────────────────────
+    // Dose logging + "when to take what" on the Health tab. `trays` is a JSON array
+    // of tray ids ('morning'|'midday'|'evening'|'night') — a tray is a WINDOW, not a
+    // clock time, so a medicine belongs to trays and the times live once in settings
+    // (medicine_tray_times) rather than per row. As-needed (PRN) medicines belong to
+    // no tray and are governed by min_interval_min / max_per_day instead.
+    // `child_name` mirrors the tasks/habits People-mode convention ('' = me).
+    // Config-like table — pruneOldData() leaves it untouched.
+    `CREATE TABLE IF NOT EXISTS medicines (
+      id TEXT PRIMARY KEY,
+      name TEXT DEFAULT '',
+      dose TEXT DEFAULT '',
+      trays TEXT DEFAULT '[]',
+      as_needed INTEGER DEFAULT 0,
+      min_interval_min INTEGER DEFAULT 0,
+      max_per_day INTEGER DEFAULT 0,
+      child_name TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      active INTEGER DEFAULT 1,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
+    // One row per dose actually taken. A scheduled dose's identity is
+    // (medicine_id, log_date, tray) — the store upserts on that triple so tapping
+    // "taken" twice can't double-log. As-needed doses carry tray = '' and ARE
+    // repeatable (that's the point), so they're counted, never de-duplicated.
+    // Dated history — pruned by pruneOldData() past RETENTION_DAYS.
+    `CREATE TABLE IF NOT EXISTS medicine_doses (
+      id TEXT PRIMARY KEY,
+      medicine_id TEXT NOT NULL,
+      log_date TEXT DEFAULT '',
+      tray TEXT DEFAULT '',
+      taken_at TEXT DEFAULT '',
+      note TEXT DEFAULT ''
+    )`,
+    "CREATE INDEX IF NOT EXISTS idx_medicine_doses_date ON medicine_doses(log_date)",
+    "CREATE INDEX IF NOT EXISTS idx_medicine_doses_medicine ON medicine_doses(medicine_id)",
+    // Symptom↔medicine correlation: a health log can be attributed to the medicine
+    // that plausibly caused it ("this ADHD med gives me stomach issues"). Nullable
+    // and entirely optional — every existing and future symptom entry works without it.
+    "ALTER TABLE health_logs ADD COLUMN medicine_id TEXT DEFAULT NULL",
+    // Feature flag, on-by-default-but-still-a-toggle (the Energy/Goals shape): most
+    // users of an ADHD app take something, but the tray card shouldn't be unremovable
+    // for those who don't. DEFAULT 1 covers fresh installs; the UPDATE covers upgrades
+    // whose settings row predates the column.
+    "ALTER TABLE settings ADD COLUMN feature_medicine INTEGER DEFAULT 1",
+    "UPDATE settings SET feature_medicine = 1",
+    // One reminder time per tray, shared by every medicine in it (one notification per
+    // tray, not one per pill), plus a master on/off for those reminders.
+    `ALTER TABLE settings ADD COLUMN medicine_tray_times TEXT DEFAULT '{"morning":"08:00","midday":"12:00","evening":"18:00","night":"21:00"}'`,
+    "ALTER TABLE settings ADD COLUMN medicine_reminders_enabled INTEGER DEFAULT 1",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
@@ -874,6 +925,8 @@ export function pruneOldData() {
     // keys don't match the GLOB and are left as config.
     db.runSync("DELETE FROM energy_budgets WHERE period_key GLOB '____-__-__' AND period_key < ?", [c]);
     db.runSync('DELETE FROM inbox_items WHERE created_at < ?', [c]);
+    // Dose history is dated; the `medicines` rows themselves are config and stay.
+    db.runSync('DELETE FROM medicine_doses WHERE log_date < ?', [c]);
   } catch { /* never block startup on cleanup */ }
 }
 

@@ -37,6 +37,9 @@
  * Features, or the onboarding picker). featureGoals now defaults ON, same as
  * energySystemEnabled, but stays a toggle. featureScan/featureFood are now permanently
  * on and unreadable by any UI gate — see "Inert columns" in Edit notes below.
+ * featureMedicine (2026-07-27) gates the Health tab's medicine-tray card (on by default,
+ * still a real toggle); medicineTrayTimes/medicineRemindersEnabled configure its four
+ * per-tray daily reminders — see store/useMedicineStore.ts + lib/medicineSchedule.ts.
  * energyMode (2026-07-24) picks how the Energy capacity is defined — 'daily'/'weekly'
  * use the flat energyDailyCapacity/energyWeeklyCapacity number and hide the other
  * meter; 'custom' uses energyCustomCapacities (Mon..Sun) per-weekday amounts instead,
@@ -44,8 +47,8 @@
  * as their sum. See store/useEnergyStore.ts's capacityForDay/capacityForWeek.
  *
  * Connections:
- *   Imports → lib/dataAccess, lib/id, constants/theme (AspectRatioKey)
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/ParticleBackground.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
+ *   Imports → lib/dataAccess, lib/id, lib/medicineSchedule (TrayTimes + its normalizer/defaults), constants/theme (AspectRatioKey)
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/medicine-form.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/MedicineTrayCard.tsx, components/ParticleBackground.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns the single-row SQLite table settings (id = 1)
  *
  * Edit notes:
@@ -114,6 +117,7 @@ import {
   logDbError,
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
+import { DEFAULT_TRAY_TIMES, normalizeTrayTimes, TrayTimes } from '@/lib/medicineSchedule';
 import { AspectRatioKey } from '@/constants/theme';
 
 // The app ships a single palette ("Default"). The union is kept as a type so
@@ -275,6 +279,16 @@ export type Settings = {
   featureFood: boolean;
   /** Automations: the entry point to app/automations.tsx. Existing rules still run when off. Off by default. */
   featureAutomations: boolean;
+  /** Medicine trays: the dose card on the Health tab + its reminders. On by default, still a toggle. */
+  featureMedicine: boolean;
+  // Medicine reminders (2026-07-27) — ONE time per tray (morning/midday/evening/night),
+  // shared by every medicine in that tray, so a tray fires one notification rather than
+  // one per pill. Stored as a JSON map keyed by TrayId; read through
+  // lib/medicineSchedule.ts's normalizeTrayTimes so a corrupt/partial column can't
+  // produce an unschedulable time. medicineRemindersEnabled is the master switch for
+  // those four daily notifications (the card and dose logging work regardless).
+  medicineTrayTimes: TrayTimes;
+  medicineRemindersEnabled: boolean;
 };
 
 type SettingsStore = Settings & {
@@ -362,6 +376,9 @@ function rowToSettings(row: Row): Settings {
     featureScan: readBool(row, 'feature_scan'),
     featureFood: readBool(row, 'feature_food'),
     featureAutomations: readBool(row, 'feature_automations'),
+    featureMedicine: readBool(row, 'feature_medicine'),
+    medicineTrayTimes: normalizeTrayTimes(readJson<unknown>(row, 'medicine_tray_times', DEFAULT_TRAY_TIMES)),
+    medicineRemindersEnabled: readBool(row, 'medicine_reminders_enabled'),
   };
 }
 
@@ -434,6 +451,9 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   featureScan: { col: 'feature_scan', to: bool },
   featureFood: { col: 'feature_food', to: bool },
   featureAutomations: { col: 'feature_automations', to: bool },
+  featureMedicine: { col: 'feature_medicine', to: bool },
+  medicineTrayTimes: { col: 'medicine_tray_times', to: (v) => JSON.stringify(v) },
+  medicineRemindersEnabled: { col: 'medicine_reminders_enabled', to: bool },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -512,6 +532,9 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   featureScan: true,
   featureFood: true,
   featureAutomations: false,
+  featureMedicine: true,
+  medicineTrayTimes: DEFAULT_TRAY_TIMES,
+  medicineRemindersEnabled: true,
   loaded: false,
   workModeSessionOverride: false,
 

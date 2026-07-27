@@ -78,14 +78,17 @@
  *             lib/haptics, lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
  *             (syncWidgetsAndOverview — the persistent-overview toggle refreshes/cancels it, and
  *             the Freyr-mode toggle re-syncs after seeding/unseeding today's tasks + shopping),
- *             lib/useAppTheme, store/useFeedbackStore, store/useHabitStore, store/useSettingsStore,
+ *             lib/medicineNotifications (registerMedicineCategory — relabels the medicine
+ *             notification's Taken button on a language change),
+ *             lib/useAppTheme, store/useFeedbackStore, store/useHabitStore, store/useMedicineStore
+ *             (syncTrayReminders), store/useSettingsStore,
  *             store/useShoppingStore, store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
  *   Data    → useSettingsStore (settings table; incl. energyMode/energy*Capacity, quietHours*,
  *             monthlyResetDate, taskNotificationsEnabled, habitNotificationsEnabled,
  *             persistentNotifEnabled, voiceNotesEnabled/contactsEnabled/locationEnabled/
  *             calendarSyncEnabled — the "Device features" card — and the featureGoals/
- *             featureSharing/featureAutomations toggles); reset actions touch
+ *             featureSharing/featureAutomations/featureMedicine toggles); reset actions touch
  *             useTaskStore (tasks) and useShoppingStore (shopping_items via monthlyReset);
  *             re-syncs notifications via syncReminders / syncAllTaskNotifications /
  *             syncAllTaskCalendarEvents / syncAllHabitReminders / syncNotificationCategories;
@@ -116,7 +119,10 @@
  *     re-sync based on which keys changed — route every settings change through it, never
  *     settings.update() directly. Quiet-hours keys re-sync task notifications; language or
  *     habitNotificationsEnabled changes re-sync habit reminders; a language change also
- *     re-registers the interactive notification action button labels via syncNotificationCategories.
+ *     re-registers the interactive notification action button labels via syncNotificationCategories
+ *     (+ registerMedicineCategory). Language/quiet-hours/featureMedicine changes re-sync the
+ *     four medicine tray reminders via useMedicineStore.syncTrayReminders — turning the flag
+ *     off has to actually cancel them, not just hide the card.
  *   - Plan notifications (taskNotificationsEnabled) and Habit reminders
  *     (habitNotificationsEnabled) are now INDEPENDENT toggles — turning one off no longer
  *     silences the other. (Superseded the Decision 029b merge, which drove both flags from a
@@ -170,7 +176,7 @@
  *     container became the same colour. Both now carry a `theme.border` (or `theme.accent` when
  *     active) outline, matching the border `peopleChip`/`peopleAddBtn` already had.
  *   - **Feature toggles live in ONE place (2026-07-25)**: `FEATURE_ROWS` below is the whole
- *     list of plain on/off switches — currently Goals, Sharing & QR, Automations. To add
+ *     list of plain on/off switches — currently Goals, Sharing & QR, Automations, Medicine. To add
  *     one: add the flag to store/useSettingsStore.ts, append its `ALTER TABLE` (+ a
  *     back-fill UPDATE if it needs to default differently for existing vs. fresh installs)
  *     to lib/db.ts's migrations array, add a `config.features.*` entry in BOTH languages,
@@ -208,8 +214,10 @@ import {
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
+import { useMedicineStore } from '@/store/useMedicineStore';
 import { useFeedbackStore } from '@/store/useFeedbackStore';
 import { syncReminders } from '@/lib/reminders';
+import { registerMedicineCategory } from '@/lib/medicineNotifications';
 import { syncNotificationCategories } from '@/lib/notifications';
 import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
 import { seedFreyrMode, unseedFreyrMode, parseFreyrSeedIds } from '@/lib/freyrModeSeed';
@@ -251,11 +259,12 @@ const TAB_BAR_HEIGHT = 48;
  * isn't offered as a picker row since "on by default" doesn't fit that screen's
  * opt-in framing — it's still switchable here.
  */
-type FeatureFlagKey = 'featureGoals' | 'featureSharing' | 'featureAutomations';
+type FeatureFlagKey = 'featureGoals' | 'featureSharing' | 'featureAutomations' | 'featureMedicine';
 const FEATURE_ROWS: { key: FeatureFlagKey; copy: (t: ReturnType<typeof useT>) => { label: string; hint: string } }[] = [
   { key: 'featureGoals', copy: (t) => t.config.features.goals },
   { key: 'featureSharing', copy: (t) => t.config.features.sharing },
   { key: 'featureAutomations', copy: (t) => t.config.features.automations },
+  { key: 'featureMedicine', copy: (t) => t.config.features.medicine },
 ];
 
 /** Format an ISO auto-backup timestamp as "YYYY-MM-DD HH:MM" (local time). */
@@ -275,6 +284,7 @@ export default function SettingsScreen() {
   const syncTaskNotifs = useTaskStore((s) => s.syncAllTaskNotifications);
   const syncTaskCalendarEvents = useTaskStore((s) => s.syncAllTaskCalendarEvents);
   const syncHabitNotifs = useHabitStore((s) => s.syncAllHabitReminders);
+  const syncMedicineNotifs = useMedicineStore((s) => s.syncTrayReminders);
   const clearTasks = useTaskStore((s) => s.clearAll);
   const feedbackNoteCount = useFeedbackStore((s) => s.notes.length);
   const clearFeedbackNotes = useFeedbackStore((s) => s.clearAll);
@@ -405,7 +415,15 @@ export default function SettingsScreen() {
       if (keys.includes('language')) {
         const tNew = getTranslations(useSettingsStore.getState().language);
         void syncNotificationCategories(tNew.notif.actionDone, tNew.notif.actionRemindLater);
+        // Same relabel for the medicine category's Taken button.
+        registerMedicineCategory(useSettingsStore.getState().language);
       }
+    }
+    // Medicine tray reminders: their content and times are localised/scheduled from the
+    // medicine store, so re-sync on a language change, a quiet-hours change, or the feature
+    // flag itself flipping (turning it off must actually cancel the four daily reminders).
+    if (keys.some((k) => ['language', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'featureMedicine'].includes(k))) {
+      syncMedicineNotifs();
     }
   }
 

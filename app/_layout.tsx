@@ -17,13 +17,16 @@
  *             expo-splash-screen (held until the app is fully painted, then hidden),
  *             expo-system-ui + expo-navigation-bar (theme the Android system chrome),
  *             lib/backup (saveAutoBackup), lib/db, lib/syncService, lib/i18n (getTranslations),
- *             lib/notifications (syncNotificationCategories/onNotificationAction/cancelReNudge),
+ *             lib/notifications (syncNotificationCategories/onNotificationAction/cancelReNudge,
+ *             plus onMedicineAction/cancelTrayReNudge for the medicine tray reminders),
  *             lib/taskNotifications (snoozeTaskReminder),
+ *             lib/medicineNotifications (registerMedicineCategory/snoozeTrayReminder) +
+ *             lib/medicineSchedule (isTrayId — guards the tray id off a notification payload),
  *             lib/widgets/sync (syncWidgetsAndOverview — pushes today to the home-screen widgets
  *             + persistent overview notification), lib/useAppTheme,
  *             store/useSettingsStore, store/useAutomationStore, store/useCatalogStore,
  *             store/useEnergyStore, store/useFeedbackStore, store/useGoalStore, store/useHabitStore, store/useHealthStore,
- *             store/useMealStore, store/useMonthlyListStore, store/useNotesStore, store/usePeersStore, store/useReceiptStore,
+ *             store/useMealStore, store/useMedicineStore, store/useMonthlyListStore, store/useNotesStore, store/usePeersStore, store/useReceiptStore,
  *             store/useSharedStore, store/useShoppingListStore, store/useShoppingStore,
  *             store/useTaskStore, components/AppModal,
  *             components/WelcomeReveal (animated brand-reveal shown once per cold launch)
@@ -135,7 +138,9 @@ import * as NavigationBar from 'expo-navigation-bar';
 import { Fonts, MAX_FONT_SCALE } from '@/constants/theme';
 import { initDb, pruneOldData } from '@/lib/db';
 import { getTranslations } from '@/lib/i18n';
-import { cancelReNudge, onNotificationAction, syncNotificationCategories } from '@/lib/notifications';
+import { cancelReNudge, cancelTrayReNudge, onMedicineAction, onNotificationAction, syncNotificationCategories } from '@/lib/notifications';
+import { registerMedicineCategory, snoozeTrayReminder } from '@/lib/medicineNotifications';
+import { isTrayId } from '@/lib/medicineSchedule';
 import { snoozeTaskReminder } from '@/lib/taskNotifications';
 import { saveAutoBackup } from '@/lib/backup';
 import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
@@ -149,6 +154,7 @@ import { useGoalStore } from '@/store/useGoalStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { useEnergyStore } from '@/store/useEnergyStore';
 import { useHealthStore } from '@/store/useHealthStore';
+import { useMedicineStore } from '@/store/useMedicineStore';
 import { useMealStore } from '@/store/useMealStore';
 import { useNotesStore } from '@/store/useNotesStore';
 import { usePeersStore } from '@/store/usePeersStore';
@@ -275,6 +281,9 @@ export default function RootLayout() {
     useSharedStore.getState().load();
     useHabitStore.getState().load();
     useHealthStore.getState().load();
+    // Medicine trays: load() also re-arms the four per-tray daily reminders, the same way
+    // syncMonthlyTaskNotifications above re-arms its one-off monthly triggers.
+    useMedicineStore.getState().load();
     useEnergyStore.getState().load(); // Home Energy meter — per-period capacity overrides
     // Notes → Home's notes preview; Meal + Catalog → the Shopping tab. These back
     // content on the FIRST screens, so they load synchronously here (not Tier B)
@@ -313,6 +322,10 @@ export default function RootLayout() {
       {
         const tNotif = getTranslations();
         void syncNotificationCategories(tNotif.notif.actionDone, tNotif.notif.actionRemindLater);
+        // The medicine tray reminders' own Taken / Remind-me-later category (separate from
+        // 'task-reminder' — different payload, different meaning). app/settings.tsx re-registers
+        // both on a language change to relabel the OS-level buttons.
+        registerMedicineCategory(useSettingsStore.getState().language);
       }
       // Push today's tasks/shopping to the home-screen widgets + persistent overview
       // notification. Deferred to Tier B (was synchronous in the boot tick): its
@@ -343,6 +356,24 @@ export default function RootLayout() {
       }
       const task = useTaskStore.getState().tasks.find((tk) => tk.id === taskId);
       if (task) snoozeTaskReminder(task);
+    });
+  }, []);
+
+  // Medicine tray reminders' action buttons (2026-07-27). 'med-taken' logs EVERY not-yet-taken
+  // medicine in that tray — a tray notification is about the window as a whole, which is also
+  // why this is the store's takeTray() rather than a per-medicine call. 'med-snooze' re-nudges
+  // in 15 minutes. Mounted for the app's lifetime and reading the store inside the handler, so
+  // it works for a tap that woke the app from cold. Kept a separate listener from the task one
+  // above: each filters on its own notification payload key.
+  useEffect(() => {
+    return onMedicineAction((action, tray) => {
+      if (!isTrayId(tray)) return;
+      if (action === 'med-taken') {
+        useMedicineStore.getState().takeTray(tray);
+        void cancelTrayReNudge(tray);
+        return;
+      }
+      snoozeTrayReminder(tray, useSettingsStore.getState().language);
     });
   }, []);
 

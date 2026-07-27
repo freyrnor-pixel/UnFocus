@@ -19,6 +19,15 @@
  * are the fields users actually reach for at log time, per user feedback that
  * hiding them behind the full form made quick-logging feel incomplete.)
  *
+ * **Medicine trays (2026-07-27)**: components/MedicineTrayCard.tsx sits between the
+ * first-run explainer and Quick log — four time-of-day trays (morning/midday/evening/night)
+ * with tap-to-take dose logging, one reminder per tray, and as-needed medicines guarded by a
+ * minimum gap. It sits ABOVE Quick log because doses are the time-sensitive, recurring reason
+ * to open this tab, while symptom logging is reactive. Symptom entries can optionally be
+ * attributed to a medicine (`health_logs.medicine_id`, picked in app/health-form.tsx), which
+ * is what makes "this med gives me stomach issues" visible on the medicine's own page.
+ * Gated on settings.featureMedicine (on by default, still a real toggle).
+ *
  * **Habits moved out (2026-07-23, UX audit finding E1)**: this screen used to also
  * embed a full Habits section (today/week/month views, per-habit cards) below the
  * symptom summary — but "Health" as a tab name/icon only promises symptom tracking,
@@ -28,14 +37,16 @@
  * symptom-tracking half now.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/HintCard, components/StarterCard
+ *   Imports → components/MedicineTrayCard (the medicine-tray dose card — see below),
+ *             components/ScreenScaffold, components/HintCard, components/StarterCard
  *             (first-run explainer, shown while nothing has ever been logged),
  *             components/StarterExampleRow (its preview row), components/Surface,
  *             components/CardAccent (CardAccentBadge), components/PressableScale,
  *             components/DebugNoteAnchor, components/AddRow,
  *             components/FormControls (Input), constants/theme, lib/date, lib/i18n,
  *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor,
- *             lib/screenColor, lib/haptics, store/useHealthStore
+ *             lib/screenColor, lib/haptics, store/useHealthStore,
+ *             store/useSettingsStore (featureMedicine gate only)
  *   Used by → Expo Router route "/health" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx (BottomNav "Health" tab)
  *   Data    → useHealthStore — reads `logs` for the weekly summary, and calls `add()` +
  *             `ensureSymptom()` directly for the Quick log card (full multi-field edit/delete
@@ -66,10 +77,12 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore, HealthLog } from '@/store/useHealthStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
+import MedicineTrayCard from '@/components/MedicineTrayCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import Surface from '@/components/Surface';
 import { CardAccentBadge } from '@/components/CardAccent';
@@ -91,6 +104,7 @@ export default function HealthScreen() {
   const logs = useHealthStore((s) => s.logs);
   const addLog = useHealthStore((s) => s.add);
   const ensureSymptom = useHealthStore((s) => s.ensureSymptom);
+  const featureMedicine = useSettingsStore((s) => s.featureMedicine);
 
   const [hintOpen, setHintOpen] = useFirstVisitHint('health');
   const [quickDraft, setQuickDraft] = useState('');
@@ -155,6 +169,7 @@ export default function HealthScreen() {
       symptomId: sym.id,
       severity: 3,
       notes: '',
+      medicineId: '',
     });
     success();
   }
@@ -174,6 +189,7 @@ export default function HealthScreen() {
       symptomId: sym.id,
       severity: quickSeverity,
       notes: '',
+      medicineId: '',
     });
     setQuickDraft('');
     setQuickSeverity(3);
@@ -217,6 +233,13 @@ export default function HealthScreen() {
               }
             />
           )}
+
+          {/* Medicine trays (2026-07-27) — placed ABOVE Quick log deliberately: doses are the
+              time-sensitive, recurring thing you open this tab for, while symptom logging is
+              reactive. Gated on settings.featureMedicine (on by default, Settings → Advanced →
+              Features); the card handles its own empty state, so it isn't gated on having
+              medicines. */}
+          {featureMedicine && <MedicineTrayCard />}
 
           {/* Quick log — essentials-only instant record (name + start time + duration +
               severity, dated today). */}
