@@ -35,11 +35,12 @@
  *             components/DebugNoteAnchor, components/AddRow,
  *             components/FormControls (Input), constants/theme, lib/date, lib/i18n,
  *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor,
- *             lib/screenColor, store/useHealthStore
+ *             lib/screenColor, lib/haptics, store/useHealthStore
  *   Used by → Expo Router route "/health" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx (BottomNav "Health" tab)
  *   Data    → useHealthStore — reads `logs` for the weekly summary, and calls `add()` +
  *             `ensureSymptom()` directly for the Quick log card (full multi-field edit/delete
- *             still lives in app/health-form.tsx)
+ *             still lives in app/health-form.tsx) AND for the StarterExampleRow "+" button
+ *             (addHealthStarterLog — same two calls, today's date, severity 3)
  *
  * Edit notes:
  *   - Decision 001 tier='site' scaffold (BottomNav + header chrome).
@@ -76,6 +77,7 @@ import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
 import { Input } from '@/components/FormControls';
 import { useT } from '@/lib/i18n';
+import { success } from '@/lib/haptics';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { todayStr, getWeekDates, addDurationToTime } from '@/lib/date';
 import { SEVERITY_COLORS, severities, severityInk } from '@/lib/severity';
@@ -139,6 +141,24 @@ export default function HealthScreen() {
     router.push({ pathname: '/health-detail', params: { symptomId, ailment, name } });
   }
 
+  // Empty-state example (2026-07-27): logs a real entry (today, now, severity 3) via the
+  // same ensureSymptom+add pair handleQuickLog uses — logs.length flips to 1 right after,
+  // which unmounts the whole StarterCard, so there's no separate "dismiss" needed.
+  function addHealthStarterLog() {
+    const sym = ensureSymptom(t.starters.health.exampleTitle);
+    addLog({
+      date: todayStr(),
+      startTime: '',
+      endDate: '',
+      endTime: '',
+      ailment: sym.name,
+      symptomId: sym.id,
+      severity: 3,
+      notes: '',
+    });
+    success();
+  }
+
   function handleQuickLog() {
     const name = quickDraft.trim();
     if (!name) return;
@@ -191,6 +211,8 @@ export default function HealthScreen() {
                   meta="3/5"
                   metaVariant="warning"
                   accent={SEVERITY_COLORS[2]}
+                  onAdd={addHealthStarterLog}
+                  addLabel={t.starters.addExample}
                 />
               }
             />

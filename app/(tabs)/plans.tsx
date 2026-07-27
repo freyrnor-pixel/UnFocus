@@ -22,8 +22,9 @@
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron
  *             (animated "Finished (n)" done-zone reveal), components/TabSlider,
  *             components/StarterCard (first-run explainer, shown while there are no tasks at all),
- *             components/StarterExampleRow (its example preview row),
- *             constants/theme,
+ *             components/StarterExampleRow (its "Tidy up"/"Rydde" example row — a real daily,
+ *             time-boxed, 5-step task its "+" button writes via useTaskStore), lib/taskStarters
+ *             (that example's structural data — time box + step order), constants/theme,
  *             expo-router (useLocalSearchParams — `tab`/`expandTaskId`, see below), lib/date,
  *             lib/domainColor, lib/haptics,
  *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, store/useTaskStore,
@@ -126,7 +127,8 @@ import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
-import { tap } from '@/lib/haptics';
+import { tap, success } from '@/lib/haptics';
+import { PLAN_STARTER_STEPS, PLAN_STARTER_TIME, PLAN_STARTER_FINISH_TIME } from '@/lib/taskStarters';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { FontSize, Radius, Spacing, Type } from '@/constants/theme';
@@ -305,6 +307,7 @@ export default function TasksScreen() {
   const tasksForWeek = useTaskStore((s) => s.tasksForWeek);
   const toggle = useTaskStore((s) => s.toggle);
   const addTask = useTaskStore((s) => s.add);
+  const addTaskStep = useTaskStore((s) => s.addStep);
   // Stable handler so the memoised TaskCards / SharedTasksSection don't get a fresh
   // onToggleDone closure every render (which would defeat their React.memo).
   const handleToggleDone = useCallback((task: Task) => toggle(task.id), [toggle]);
@@ -401,6 +404,28 @@ export default function TasksScreen() {
   // shared domain hue binds a header to its list. Whenever = task blue, Repeating = meal orange,
   // Shared = shop green (inside SharedTasksSection); Today/Week day groups use the neutral accent.
 
+  // Empty-state example (2026-07-27): "Tidy up"/"Rydde" — a daily, time-boxed task with
+  // steps, chosen over a flat one-liner because it actually demonstrates recurrence +
+  // time-boxing + steps, the three things starters.plans.text talks about. Real store
+  // write (not a preview) — tasks.length flips to 1 right after, which unmounts the whole
+  // StarterCard (including this row), so there's no separate "dismiss" needed.
+  function addPlanStarterTask() {
+    const newTask = addTask({
+      title: t.starters.plans.exampleTitle,
+      date: todayStr(),
+      time: PLAN_STARTER_TIME,
+      finishTime: PLAN_STARTER_FINISH_TIME,
+      taskType: 'time-box',
+      done: false,
+      recurring: 'daily',
+      recurringDays: [],
+      sortOrder: 0,
+      hasStartDate: true,
+    });
+    PLAN_STARTER_STEPS.forEach((key) => addTaskStep(newTask.id, t.starters.plans.exampleSteps[key]));
+    success();
+  }
+
   const stickyBelowHeader = (
     // No outer glass card (removed 2026-07-24): TabSlider already draws its own bordered/
     // filled track, so wrapping it in a second Surface card stacked a third layer (outer
@@ -450,8 +475,10 @@ export default function TasksScreen() {
               <StarterExampleRow
                 icon="ellipse-outline"
                 title={t.starters.plans.exampleTitle}
-                meta="10 min"
+                meta="17:00–17:20"
                 accent={wheneverHue}
+                onAdd={addPlanStarterTask}
+                addLabel={t.starters.addExample}
               />
             }
           />

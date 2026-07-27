@@ -1,21 +1,27 @@
 /**
- * StarterExampleRow.tsx — a single read-only "preview row" shown inside a StarterCard
+ * StarterExampleRow.tsx — a single "preview row" shown inside a StarterCard
  * (components/StarterCard.tsx), styled to read as an actual row from that list —
  * leading icon + title + trailing meta pill — rather than a sentence describing one.
+ * Optionally carries a real "+" add button (`onAdd`) so the example is an actual
+ * opt-in try-it, not just an illustration.
  *
  * Connections:
- *   Imports → components/Badge, constants/theme, lib/useAppTheme
+ *   Imports → components/Badge, components/PressableScale, constants/theme, lib/useAppTheme
  *   Used by → app/(tabs)/habits.tsx, app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx,
  *             app/(tabs)/health.tsx, components/EnergyMeter.tsx (all inside their
  *             StarterCard's `example` slot)
- *   Data    → none — pure presentation; callers pass already-localized strings and a
- *             domain/semantic accent color (e.g. getDomainColor(theme, 'shop').accent)
+ *   Data    → none — pure presentation; callers pass already-localized strings, a
+ *             domain/semantic accent color (e.g. getDomainColor(theme, 'shop').accent),
+ *             and (optionally) an `onAdd` callback that writes the example into the
+ *             real store
  *
  * Edit notes:
- *   - Deliberately non-interactive (no Pressable) — this is a preview of what a real
- *     row looks like once added, not a shortcut to add one. Habits' one-tap starter
- *     chips (rendered separately, in StarterCard's `children` slot) are the actual
- *     add affordance.
+ *   - `onAdd` is optional — omit it for a purely read-only preview (Habits' row does
+ *     this: its four *real* one-tap add chips, rendered separately in StarterCard's
+ *     `children`, already cover the same item, so a second "+" here would just be a
+ *     redundant second way to do the same thing). When provided, the caller owns the
+ *     actual store write AND its own haptic (`success()`) — this component only calls
+ *     it, matching the house pattern (see app/(tabs)/habits.tsx's createHabit).
  *   - `meta`/`metaVariant` reuse components/Badge — keep meta text short (a count,
  *     a signed number, a recurrence word) so it reads as a pill, not a second sentence.
  */
@@ -23,6 +29,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Badge } from '@/components/Badge';
+import PressableScale from '@/components/PressableScale';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 
@@ -36,9 +43,14 @@ type Props = {
   metaVariant?: 'neutral' | 'success' | 'warning' | 'danger';
   /** Domain/semantic accent for the icon + its circle border. */
   accent: string;
+  /** When provided, renders a trailing "+" button that writes this example into the
+   *  real store — omit for a read-only preview (see Edit notes). */
+  onAdd?: () => void;
+  /** Accessibility-label prefix for the add button, e.g. "Add" → "Add Milk". */
+  addLabel?: string;
 };
 
-export default function StarterExampleRow({ icon, title, meta, metaVariant = 'neutral', accent }: Props) {
+export default function StarterExampleRow({ icon, title, meta, metaVariant = 'neutral', accent, onAdd, addLabel }: Props) {
   const theme = useAppTheme();
   return (
     <View style={[styles.row, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
@@ -49,6 +61,18 @@ export default function StarterExampleRow({ icon, title, meta, metaVariant = 'ne
         {title}
       </Text>
       {meta ? <Badge label={meta} variant={metaVariant} /> : null}
+      {onAdd ? (
+        <PressableScale
+          onPress={onAdd}
+          scaleTo={0.9}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={addLabel ? `${addLabel} ${title}` : title}
+          style={[styles.addBtn, { borderColor: accent }]}
+        >
+          <Ionicons name="add" size={14} color={accent} />
+        </PressableScale>
+      ) : null}
     </View>
   );
 }
@@ -75,5 +99,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FontSize.sm,
     fontFamily: Fonts.semibold,
+  },
+  addBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
