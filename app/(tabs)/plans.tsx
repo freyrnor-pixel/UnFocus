@@ -116,6 +116,9 @@ import SharedTasksSection from '@/components/SharedTasksSection';
 import SectionRail from '@/components/SectionRail';
 import SectionCard from '@/components/SectionCard';
 import TaskCard from '@/components/TaskCard';
+import LayoutPickerSheet from '@/components/LayoutPickerSheet';
+import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
+import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
 import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
@@ -148,6 +151,12 @@ function byTime(a: Task, b: Task): number {
 
 
 /**
+ * How many unfinished tasks "Now and next" leaves on screen: the one you're on and the one
+ * after it. Two is the point of the layout — three would just be a shorter list.
+ */
+const FOCUS_VISIBLE = 2;
+
+/**
  * Splits a task list into unfinished (shown plainly) + finished (collapsed behind a
  * "Finished (n)" zone, same convention as PlanTaskCard's Home-preview done zone). Falls
  * back to `emptyText` only when the whole list is empty — an all-finished list still
@@ -158,6 +167,7 @@ function DoneSplitList({
   emptyText,
   renderCard,
   footer,
+  focusMode,
 }: {
   tasks: Task[];
   emptyText: string;
@@ -169,12 +179,24 @@ function DoneSplitList({
    * between the tasks and the add row. Also shown in the empty state (below the placeholder).
    */
   footer?: React.ReactNode;
+  /**
+   * "Now and next" (lib/cardLayout.ts's `focusMode`): show only the first two unfinished
+   * tasks and tuck the rest behind a count the user can open. Nothing is removed from the
+   * data or from the section's own totals — this is purely how many rows are drawn, and the
+   * hidden tasks keep every reminder they already had.
+   */
+  focusMode?: boolean;
 }) {
   const theme = useAppTheme();
   const t = useT();
   const [doneOpen, setDoneOpen] = useState(false);
+  const [restOpen, setRestOpen] = useState(false);
   const unfinished = useMemo(() => tasks.filter((tk) => !tk.done), [tasks]);
   const finished = useMemo(() => tasks.filter((tk) => tk.done), [tasks]);
+  // Focus mode splits the unfinished rows; without it `rest` is empty and `focused` is the
+  // whole list, so the render below is identical to what it was before this feature.
+  const focused = focusMode ? unfinished.slice(0, FOCUS_VISIBLE) : unfinished;
+  const rest = focusMode ? unfinished.slice(FOCUS_VISIBLE) : [];
 
   if (tasks.length === 0) {
     return (
@@ -189,7 +211,22 @@ function DoneSplitList({
 
   return (
     <>
-      {unfinished.length > 0 && <View style={styles.cardStack}>{unfinished.map(renderCard)}</View>}
+      {focused.length > 0 && <View style={styles.cardStack}>{focused.map(renderCard)}</View>}
+      {rest.length > 0 && (
+        <View style={styles.cardStack}>
+          <PressableScale onPress={() => { tap(); setRestOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
+            <SectionRail
+              hue={theme.textMuted}
+              label={t.config.layouts.moreLabel}
+              count={rest.length}
+              right={<AnimatedChevron open={restOpen} size={16} color={theme.textMuted} />}
+            />
+          </PressableScale>
+          <Collapsible open={restOpen}>
+            <View style={styles.cardStack}>{rest.map(renderCard)}</View>
+          </Collapsible>
+        </View>
+      )}
       {footer}
       {finished.length > 0 && (
         <View style={[styles.doneZone, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -309,6 +346,14 @@ export default function TasksScreen() {
   const repeatingHue = getDomainColor(theme, 'meal').accent;
 
   const tasks = useTaskStore((s) => s.tasks);
+  const tasksLoaded = useTaskStore((s) => s.loaded);
+
+  // Card layout (2026-07-27). Read-only, presentation-only: `focusMode` changes how many
+  // rows DoneSplitList draws, and `spec` gates the collapsed row's at-a-glance cues. A task
+  // that the layout doesn't draw is still a live task — it keeps its reminders, still counts
+  // in every section header, and is one tap away behind "The rest".
+  const layoutSpec = useSurfaceLayout('plans');
+  const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
   const tasksForWeek = useTaskStore((s) => s.tasksForWeek);
   const toggle = useTaskStore((s) => s.toggle);
@@ -379,6 +424,42 @@ export default function TasksScreen() {
     () => tasksForWeek(weekStart).map((g) => ({ ...g, tasks: g.tasks.filter(matchPerson) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `tasks` drives recompute (tasksForWeek reads the store, not this var), not read directly
     [tasksForWeek, weekStart, tasks, matchPerson]
+  );
+
+  // ── "What was this view hiding" glow (2026-07-27) ────────────────────────────
+  // The ids the CURRENT layout actually draws, section by section, mirroring what
+  // DoneSplitList renders: unfinished tasks only (finished ones live in a collapsed zone
+  // in every layout, so they can never be a difference between two views), truncated to
+  // FOCUS_VISIBLE when "Now and next" is on. Switching layout re-diffs this against the
+  // saved view, and whatever the previous layout was collapsing glows.
+  const visibleTaskIds = useMemo(() => {
+    const drawn = (list: Task[]) => {
+      const unfinished = list.filter((tk) => !tk.done);
+      return layoutSpec.focusMode ? unfinished.slice(0, FOCUS_VISIBLE) : unfinished;
+    };
+    if (tab === 'today') return [...drawn(undatedWhenever), ...drawn(todayList)].map((tk) => tk.id);
+    if (tab === 'week') {
+      return [...drawn(undatedWhenever), ...weekGroups.flatMap((g) => drawn(g.tasks))].map((tk) => tk.id);
+    }
+    // The All tab renders flat and takes no layout, so it has nothing to reveal or hide.
+    return [];
+  }, [tab, layoutSpec.focusMode, undatedWhenever, todayList, weekGroups]);
+
+  // Snapshot key is per TAB, not just per screen: Today and This week draw different sets,
+  // and sharing one saved view between them would make every tab switch glow half the list.
+  // Each tab diffs against its own last state instead.
+  const {
+    ids: newSinceIds,
+    fields: newFields,
+  } = useNewSinceSeen(
+    `plans:${tab}`,
+    visibleTaskIds,
+    useMemo(
+      () => ({ meta: layoutSpec.showMeta, price: layoutSpec.showPrice, extras: layoutSpec.showExtras }),
+      [layoutSpec]
+    ),
+    layoutSpec.id,
+    tasksLoaded
   );
 
   // Quick-add: create an undated, non-recurring "Whenever" task from the inline AddRow.
@@ -461,6 +542,7 @@ export default function TasksScreen() {
       stickyBelowHeaderHeight={STICKY_HEIGHT}
       infoActive={hintOpen}
       onInfoToggle={() => setHintOpen((v) => !v)}
+      onLayoutPress={() => setLayoutPickerOpen(true)}
     >
       <View style={styles.content}>
         {/* Plain hint, no embedded setting. This used to carry a "start with work mode"
@@ -567,8 +649,9 @@ export default function TasksScreen() {
               <DoneSplitList
                 tasks={undatedWhenever}
                 emptyText={t.tasksSectionWheneverEmpty}
+                focusMode={layoutSpec.focusMode}
                 renderCard={(tk) => (
-                  <TaskCard key={tk.id} task={tk} variant="steps" onToggleDone={handleToggleDone} />
+                  <TaskCard key={tk.id} task={tk} variant="steps" spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
                 )}
               />
             </SectionCard>
@@ -581,9 +664,10 @@ export default function TasksScreen() {
                 <DoneSplitList
                   tasks={todayList}
                   emptyText={t.noPlansToday}
+                  focusMode={layoutSpec.focusMode}
                   footer={<InlineTaskAdd date={today} accent={theme.accent} assignee={personFilter ?? ''} wrapped />}
                   renderCard={(tk) => (
-                    <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={handleToggleDone} />
+                    <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
                   )}
                 />
               </SectionCard>
@@ -599,8 +683,9 @@ export default function TasksScreen() {
               <DoneSplitList
                 tasks={undatedWhenever}
                 emptyText={t.tasksSectionWheneverEmpty}
+                focusMode={layoutSpec.focusMode}
                 renderCard={(tk) => (
-                  <TaskCard key={tk.id} task={tk} variant="steps" onToggleDone={handleToggleDone} />
+                  <TaskCard key={tk.id} task={tk} variant="steps" spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
                 )}
               />
             </SectionCard>
@@ -611,9 +696,10 @@ export default function TasksScreen() {
                 <DoneSplitList
                   tasks={[...group.tasks].sort(byTime)}
                   emptyText={t.tasksDayEmpty}
+                  focusMode={layoutSpec.focusMode}
                   footer={<InlineTaskAdd date={group.date} accent={theme.accent} assignee={personFilter ?? ''} wrapped />}
                   renderCard={(tk) => (
-                    <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} onToggleDone={handleToggleDone} />
+                    <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
                   )}
                 />
               </SectionCard>
@@ -621,6 +707,11 @@ export default function TasksScreen() {
           </>
         )}
       </View>
+      <LayoutPickerSheet
+        visible={layoutPickerOpen}
+        surface="plans"
+        onClose={() => setLayoutPickerOpen(false)}
+      />
     </ScreenScaffold>
   );
 }

@@ -211,6 +211,7 @@ import {
   DarkMode,
   EnergyMode,
 } from '@/store/useSettingsStore';
+import { DETAIL_LEVELS, type DetailLevel } from '@/lib/cardLayout';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
@@ -1146,6 +1147,26 @@ export default function SettingsScreen() {
             <View style={styles.section}>
               <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.layout}</Text>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
+                {/* Global default for every list-bearing surface (2026-07-27). A surface can
+                    still override this from its own header — components/LayoutPickerSheet.tsx.
+                    Presentation only: it changes how rows are DRAWN, never what the app does
+                    with them, so nothing here goes through applyAndSync the way
+                    calendarSyncEnabled/featureMedicine do. A row the chosen layout doesn't
+                    draw keeps its own reminders. */}
+                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.config.layouts.title}</Text>
+                <SegmentedControl
+                  value={settings.layoutDetail}
+                  onChange={(v) => settings.update({ layoutDetail: v as DetailLevel })}
+                  options={DETAIL_LEVELS.map((level) => ({
+                    value: level,
+                    label: t.config.layouts[level].label,
+                  }))}
+                />
+                <Text style={[styles.switchHint, { color: theme.textMuted }]}>
+                  {t.config.layouts[settings.layoutDetail].hint}
+                </Text>
+                <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.layouts.hint}</Text>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <View style={styles.switchRow}>
                   <View style={styles.switchTextCol}>
                     <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.timelineHorizontal}</Text>

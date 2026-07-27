@@ -867,6 +867,23 @@ export function initDb() {
     // tray, not one per pill), plus a master on/off for those reminders.
     `ALTER TABLE settings ADD COLUMN medicine_tray_times TEXT DEFAULT '{"morning":"08:00","midday":"12:00","evening":"18:00","night":"21:00"}'`,
     "ALTER TABLE settings ADD COLUMN medicine_reminders_enabled INTEGER DEFAULT 1",
+    // ── Card layouts (2026-07-27) ───────────────────────────────────────────
+    // How list-bearing surfaces are drawn. `layout_detail` is the global default
+    // ('basic' | 'normal' | 'everything'); `card_layouts` is a JSON object of
+    // per-surface overrides ({"shopping":"inStore"}), same storage shape as
+    // home_card_order. 'normal' reproduces exactly what every surface rendered
+    // before this change, so an upgrading user sees no visual difference until they
+    // choose otherwise — no back-fill UPDATE needed.
+    //
+    // Both are read through lib/cardLayout.ts's sanitizers rather than trusted raw:
+    // an unknown id (older build, hand-edited backup) resolves to 'normal' instead
+    // of rendering an undefined spec. These are presentation only — nothing in the
+    // notification, reminder, or automation paths reads them.
+    "ALTER TABLE settings ADD COLUMN layout_detail TEXT DEFAULT 'normal'",
+    "ALTER TABLE settings ADD COLUMN card_layouts TEXT DEFAULT '{}'",
+    // Habits' Today/Week/Month selector was local component state, so it reset to
+    // Today on every remount — a user who lives in Week view re-picked it all day.
+    "ALTER TABLE settings ADD COLUMN habit_view_tab TEXT DEFAULT 'today'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

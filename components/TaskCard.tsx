@@ -59,7 +59,9 @@
  * with a domain color.
  *
  * Connections:
- *   Imports → components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
+ *   Imports → components/NewSinceGlow ("your last view was hiding this" marker),
+ *             lib/cardLayout (LayoutSpec — gates the COLLAPSED row's cues only, never the editor),
+ *             components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
  *             components/IconButton, components/Stepper, components/Button, components/GoalPicker,
  *             components/FormControls (Switch), components/AppModal,
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron (animated
@@ -121,6 +123,8 @@ import { generateId } from '@/lib/id';
 import { Task, TaskStep, useTaskStore } from '@/store/useTaskStore';
 import { useGoalStore } from '@/store/useGoalStore';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
+import NewSinceGlow from '@/components/NewSinceGlow';
+import { LAYOUT_SPECS, type LayoutSpec } from '@/lib/cardLayout';
 import { GoalPicker } from '@/components/GoalPicker';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useVoiceCapture } from '@/lib/useVoiceCapture';
@@ -173,6 +177,15 @@ type Props = {
   /** New-card Discard: drop the draft in the parent. */
   onDiscardNew?: () => void;
   onToggleDone: (task: Task) => void;
+  /**
+   * Resolved card layout (lib/cardLayout.ts) for the COLLAPSED row only — it gates the
+   * at-a-glance cues (assignee, time, goal dot), never the expanded editor. Hiding a field
+   * from a summary row is a display choice; hiding it from the editor would remove the
+   * ability to set it, which no layout is allowed to do. Omit for the historical row.
+   */
+  spec?: LayoutSpec;
+  /** Task arrived since the user last opened this surface (lib/useNewSinceSeen.ts). */
+  isNewSince?: boolean;
 };
 
 function TaskCard({
@@ -188,6 +201,8 @@ function TaskCard({
   onCommitNew,
   onDiscardNew,
   onToggleDone,
+  spec = LAYOUT_SPECS.normal,
+  isNewSince = false,
 }: Props) {
   const theme = useAppTheme();
   const t = useT();
@@ -539,6 +554,9 @@ function TaskCard({
 
   return (
     <View style={styles.wrap}>
+      {/* The glow sits inside `wrap` so it tracks the card's own bounds; it is a
+          non-interactive overlay, so it never intercepts taps on the row or its editor. */}
+      <NewSinceGlow active={isNewSince}>
       <View
         style={[
           styles.card,
@@ -572,7 +590,7 @@ function TaskCard({
             </Text>
           </PressableScale>
 
-          {goal ? (
+          {goal && spec.showExtras ? (
             <GoalGlowDot
               color={goal.color}
               strength={goal.strength}
@@ -581,14 +599,14 @@ function TaskCard({
             />
           ) : null}
 
-          {showPeople && task.assignee ? (
+          {showPeople && spec.showMeta && task.assignee ? (
             <View style={[styles.assigneeCue, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
               <Ionicons name="person" size={11} color={theme.textMuted} />
               <Text style={[styles.assigneeCueText, { color: theme.textMuted }]} numberOfLines={1}>{task.assignee}</Text>
             </View>
           ) : null}
 
-          {task.time ? (
+          {task.time && spec.showMeta ? (
             <Text style={[styles.timeLabel, { color: theme.textMuted }]}>
               {task.finishTime ? `${task.time}–${task.finishTime}` : task.time}
             </Text>
@@ -1118,6 +1136,7 @@ function TaskCard({
           </Collapsible>
         )}
       </View>
+      </NewSinceGlow>
     </View>
   );
 }

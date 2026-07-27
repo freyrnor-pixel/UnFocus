@@ -960,6 +960,44 @@ const en = {
       features: 'Features',
       advanced: 'Advanced',
     },
+    // Card layouts (2026-07-27). Names describe the SITUATION you'd want the layout in,
+    // not the typography ("Just the basics", not "Compact"; "In the store", not "Grid").
+    // A user should be able to pick correctly without reading the hint underneath.
+    layouts: {
+      title: 'How lists look',
+      hint: 'Choose how much detail your lists show. You can set a different one for a single list from its own settings.',
+      /** Per-surface picker: falls back to the global choice above. */
+      followsDefault: 'Same as my usual',
+      useDefault: 'Use my usual layout',
+      /** Shown on a card whose layout differs from the global default. */
+      customBadge: 'Custom layout',
+      markAllSeen: 'Mark all as seen',
+      /** Dismisses the picker. Not the top-level `done`, which is onboarding's "Let's go!". */
+      close: 'Done',
+      /** Collapsed remainder under "Now and next". */
+      moreLabel: 'The rest',
+      newCount: (n: number) => (n === 1 ? '1 new' : `${n} new`),
+      basic: {
+        label: 'Just the basics',
+        hint: 'One line each — name and a tick, nothing else.',
+      },
+      normal: {
+        label: 'Normal',
+        hint: 'The usual amount of detail.',
+      },
+      everything: {
+        label: 'Show everything',
+        hint: 'Every field on screen at once.',
+      },
+      inStore: {
+        label: 'In the store',
+        hint: 'Big rows, names only, no prices — easy to read one-handed while shopping.',
+      },
+      nowNext: {
+        label: 'Now and next',
+        hint: 'Only what you are doing and what follows it. The rest stays tucked away.',
+      },
+    },
     // Settings screen top-level tab labels — kept short on purpose: TabSlider has no
     // scroll mode at all, so all tabs must fit one row. Three since the 2026-07-25
     // reorganization: General (what any app has), Personal (your preferences),
@@ -2020,6 +2058,37 @@ const no: typeof en = {
       layout: 'Oppsett',
       features: 'Funksjoner',
       advanced: 'Avansert',
+    },
+    layouts: {
+      title: 'Hvordan lister ser ut',
+      hint: 'Velg hvor mye detaljer listene viser. Du kan sette noe annet for én enkelt liste fra dens egne innstillinger.',
+      followsDefault: 'Som jeg pleier',
+      useDefault: 'Bruk oppsettet jeg pleier å ha',
+      customBadge: 'Eget oppsett',
+      markAllSeen: 'Marker alt som sett',
+      close: 'Ferdig',
+      moreLabel: 'Resten',
+      newCount: (n: number) => (n === 1 ? '1 ny' : `${n} nye`),
+      basic: {
+        label: 'Bare det viktigste',
+        hint: 'Én linje hver — navn og en hake, ikke noe mer.',
+      },
+      normal: {
+        label: 'Vanlig',
+        hint: 'Den vanlige mengden detaljer.',
+      },
+      everything: {
+        label: 'Vis alt',
+        hint: 'Alle felt synlige samtidig.',
+      },
+      inStore: {
+        label: 'I butikken',
+        hint: 'Store rader, bare navn, ingen priser — lett å lese med én hånd mens du handler.',
+      },
+      nowNext: {
+        label: 'Nå og neste',
+        hint: 'Bare det du holder på med og det som kommer etter. Resten ligger skjult.',
+      },
     },
     tabs: {
       general: 'Generelt',

@@ -260,6 +260,12 @@ function deriveDurationMinutes(time?: string, finishTime?: string): number | und
 export const RECENTLY_DELETED_LIMIT = 10;
 
 type TaskStore = {
+  /**
+   * True once load() has run. Distinguishes "no tasks" from "not read yet" — the gate
+   * lib/useNewSinceSeen.ts needs, since seeding the seen-watermark against a not-yet-loaded
+   * list would mark genuinely-unseen tasks as already seen and kill the glow.
+   */
+  loaded: boolean;
   tasks: Task[];
   /**
    * Tombstoned tasks still eligible for one-tap restore, newest first (capped at
@@ -451,6 +457,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
   }
 
   return {
+  loaded: false,
   tasks: [],
   deletedTasks: [],
 
@@ -497,7 +504,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       else byTask.set(step.taskId, [step]);
     }
 
-    set({ tasks: tasks.map((t) => ({ ...t, steps: byTask.get(t.id) ?? [] })) });
+    set({ tasks: tasks.map((t) => ({ ...t, steps: byTask.get(t.id) ?? [] })), loaded: true });
   },
 
   add(t) {
