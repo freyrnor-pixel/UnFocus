@@ -22,6 +22,7 @@
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron
  *             (animated "Finished (n)" done-zone reveal), components/TabSlider,
  *             components/StarterCard (first-run explainer, shown while there are no tasks at all),
+ *             components/StarterExampleRow (its example preview row),
  *             constants/theme,
  *             expo-router (useLocalSearchParams — `tab`/`expandTaskId`, see below), lib/date,
  *             lib/domainColor, lib/haptics,
@@ -120,6 +121,7 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TabSlider from '@/components/TabSlider';
 import StarterCard from '@/components/StarterCard';
+import StarterExampleRow from '@/components/StarterExampleRow';
 import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -440,7 +442,20 @@ export default function TasksScreen() {
         {/* First-run explainer (2026-07-26): what a to-do is for here, plus an example.
             Shown only while there is not a single task on any tab, so it costs nothing once
             the list is in use — and comes back if every task is later deleted. */}
-        {tasks.length === 0 && <StarterCard text={t.starters.plans.text} example={t.starters.plans.example} />}
+        {tasks.length === 0 && (
+          <StarterCard
+            text={t.starters.plans.text}
+            exampleLabel={t.starters.exampleLabel}
+            example={
+              <StarterExampleRow
+                icon="ellipse-outline"
+                title={t.starters.plans.exampleTitle}
+                meta="10 min"
+                accent={wheneverHue}
+              />
+            }
+          />
+        )}
 
         {/* Person filter (People/family mode) — Everyone + Me + each profile. */}
         <Collapsible open={showPeople}>

@@ -1413,11 +1413,17 @@ const en = {
    * their own — so a new user gets the *idea* behind a feature without having to find the ⓘ.
    * Each one's core message also lives in the matching `hints.*.example` above, which is where
    * it stays reachable once the starter card disappears.
+   *
+   * `example*` fields (2026-07-27) are short item/label fragments, NOT sentences — each screen
+   * feeds them into one or more components/StarterExampleRow so the "example" renders as an
+   * actual row (icon + title + meta pill) instead of a sentence describing one. Meta text that's
+   * identical in both languages (durations, signed numbers, counts) is hardcoded at the call
+   * site rather than duplicated here.
    */
   starters: {
+    exampleLabel: 'Example',
     habits: {
       text: 'All wins matter — small things add up toward a goal.',
-      example: 'A habit can be as small as "Drink 4 glasses of water", every day — and you can point it at a goal like "General Health" from the gear icon on the habit.',
       tapToAdd: 'Tap one to start:',
       suggestions: {
         water: 'Drink 4 glasses of water',
@@ -1428,19 +1434,21 @@ const en = {
     },
     plans: {
       text: 'Break things into smaller pieces, and take them step-by-step.',
-      example: 'e.g. "Refill the water bottle" · "10-minute desk tidy" · "Book the dentist". Use the chips on the add row to give a task a time box or an energy value.',
+      exampleTitle: 'Refill the water bottle',
     },
     energy: {
       text: 'Plan your workload with your energy in mind — for both habits and to-dos.',
-      example: 'e.g. grocery run −2, laundry −1, drink water +1. If what you have planned would take you below zero, the meter says so before the day starts.',
+      exampleNegative: 'Grocery run',
+      examplePositive: 'Drink water',
     },
     shopping: {
       text: 'Weekly list for groceries, monthly list for what the house needs once a month.',
-      example: 'e.g. milk and coffee go on the weekly list; toilet paper and washing powder on the monthly one.',
+      exampleWeekly: 'Milk',
+      exampleMonthly: 'Toilet paper',
     },
     health: {
       text: 'Log what bothers you, and note what helps you feel better.',
-      example: 'e.g. "Headache", 3 of 5, this afternoon. The week and month views then show whether it clusters.',
+      exampleTitle: 'Headache',
     },
   },
   // Debug mode — long-press-to-annotate feedback notes
@@ -2787,9 +2795,9 @@ const no: typeof en = {
     },
   },
   starters: {
+    exampleLabel: 'Eksempel',
     habits: {
       text: 'Alle seire teller — små ting bygger opp mot et mål.',
-      example: 'En vane kan være så liten som «Drikk 4 glass vann», hver dag — og du kan knytte den til et mål som «Generell helse» via tannhjulet på vanen.',
       tapToAdd: 'Trykk på én for å komme i gang:',
       suggestions: {
         water: 'Drikk 4 glass vann',
@@ -2800,19 +2808,21 @@ const no: typeof en = {
     },
     plans: {
       text: 'Del ting opp i mindre biter, og ta dem steg for steg.',
-      example: 'F.eks. «Fyll vannflasken» · «10 minutters opprydding» · «Bestill tannlegetime». Bruk knappene på legg til-raden for å gi en oppgave tidsboks eller energiverdi.',
+      exampleTitle: 'Fyll vannflasken',
     },
     energy: {
       text: 'Planlegg arbeidsmengden med energien i bakhodet — for både vaner og gjøremål.',
-      example: 'F.eks. handletur −2, klesvask −1, drikke vann +1. Hvis det du har planlagt tar deg under null, sier måleren fra før dagen starter.',
+      exampleNegative: 'Handletur',
+      examplePositive: 'Drikke vann',
     },
     shopping: {
       text: 'Ukesliste for dagligvarer, månedsliste for det huset trenger én gang i måneden.',
-      example: 'F.eks. melk og kaffe på ukeslisten; dopapir og vaskepulver på månedslisten.',
+      exampleWeekly: 'Melk',
+      exampleMonthly: 'Dopapir',
     },
     health: {
       text: 'Logg det som plager deg, og noter det som hjelper.',
-      example: 'F.eks. «Hodepine», 3 av 5, i ettermiddag. Uke- og månedsvisningen viser deretter om det samler seg.',
+      exampleTitle: 'Hodepine',
     },
   },
   debug: {

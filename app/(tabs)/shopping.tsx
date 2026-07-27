@@ -24,7 +24,8 @@
  * Connections:
  *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
  *             components/HintCard, components/StarterCard (first-run explainer, shown while
- *             there are no weekly lists and no items), components/AppModal (showAppModal),
+ *             there are no weekly lists and no items), components/StarterExampleRow (its
+ *             weekly/monthly preview rows), components/AppModal (showAppModal),
  *             components/CardAccent (CardAccentBadge),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
  *             components/ExpandableCard, components/FlightOverlay (FlightPill, Flight, FlightRect),
@@ -383,6 +384,7 @@ import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
 import HintCard from '@/components/HintCard';
 import StarterCard from '@/components/StarterCard';
+import StarterExampleRow from '@/components/StarterExampleRow';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TabSlider from '@/components/TabSlider';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
@@ -1469,7 +1471,26 @@ export default function ShoppingScreen() {
           WHERE NOT EXISTS` migration), so that count is never 0 and would suppress this for
           every new user. Items covers the seeded list having been filled in. */}
       {lists.length === 0 && items.length === 0 && (
-        <StarterCard text={t.starters.shopping.text} example={t.starters.shopping.example} />
+        <StarterCard
+          text={t.starters.shopping.text}
+          exampleLabel={t.starters.exampleLabel}
+          example={
+            <>
+              <StarterExampleRow
+                icon="cart-outline"
+                title={t.starters.shopping.exampleWeekly}
+                meta={t.habitRecurrenceWeekly}
+                accent={shopDomainColor.accent}
+              />
+              <StarterExampleRow
+                icon="cart-outline"
+                title={t.starters.shopping.exampleMonthly}
+                meta={t.habitRecurrenceMonthly}
+                accent={shopDomainColor.accent}
+              />
+            </>
+          }
+        />
       )}
       {/* Incoming shared shopping requests — opt-in via settings.featureSharing
           (off for fresh installs). Anything already received stays in the store and

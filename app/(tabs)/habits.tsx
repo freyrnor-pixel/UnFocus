@@ -17,7 +17,8 @@
  *             components/SectionCard, components/AddRow, components/AnimatedListItem (habit
  *             add/remove fade), components/GlowPulse (done-state static halo),
  *             components/HabitIcon, components/EmptyState, components/StarterCard
- *             (first-run explainer), components/SlideSelector,
+ *             (first-run explainer), components/StarterExampleRow (habits empty-state
+ *             preview row), components/SlideSelector,
  *             components/PressableScale, components/IconButton (per-row habit edit button),
  *             components/GoalGlowDot (goal glow), components/DebugNoteAnchor,
  *             constants/theme, lib/date, lib/haptics, lib/habitStarters, lib/i18n,
@@ -66,6 +67,7 @@ import HabitIcon from '@/components/HabitIcon';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import EmptyState from '@/components/EmptyState';
 import StarterCard from '@/components/StarterCard';
+import StarterExampleRow from '@/components/StarterExampleRow';
 import { HABIT_STARTERS, HabitStarter } from '@/lib/habitStarters';
 import SlideSelector from '@/components/SlideSelector';
 import PressableScale from '@/components/PressableScale';
@@ -669,7 +671,18 @@ export default function HabitsScreen() {
                   // it does come back if they later delete every habit. Habits exist but none
                   // occur today → the old quiet one-liner, unchanged.
                   profileHabits.length === 0 ? (
-                    <StarterCard text={t.starters.habits.text} example={t.starters.habits.example}>
+                    <StarterCard
+                      text={t.starters.habits.text}
+                      exampleLabel={t.starters.exampleLabel}
+                      example={
+                        <StarterExampleRow
+                          icon={HABIT_STARTERS[0].icon}
+                          title={t.starters.habits.suggestions[HABIT_STARTERS[0].key]}
+                          meta={`0/${HABIT_STARTERS[0].dailyGoal}`}
+                          accent={habitDomainColor.accent}
+                        />
+                      }
+                    >
                       <Text style={[styles.starterTapLabel, { color: theme.textMuted }]}>{t.starters.habits.tapToAdd}</Text>
                       <View style={styles.starterChips}>
                         {HABIT_STARTERS.map((s) => (

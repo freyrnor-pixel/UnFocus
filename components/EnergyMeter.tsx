@@ -19,7 +19,8 @@
  * app/settings.tsx) shows both since the week total derives from the seven days.
  *
  * Connections:
- *   Imports → components/Surface, components/StarterCard, components/ProgressBar, components/Stepper,
+ *   Imports → components/Surface, components/StarterCard, components/StarterExampleRow,
+ *             components/ProgressBar, components/Stepper,
  *             components/Collapsible, components/PressableScale, constants/theme,
  *             lib/useAppTheme, lib/i18n, lib/date, lib/energy, store/useSettingsStore,
  *             store/useTaskStore, store/useHabitStore, store/useEnergyStore
@@ -31,6 +32,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import StarterCard from '@/components/StarterCard';
+import StarterExampleRow from '@/components/StarterExampleRow';
 import ProgressBar from '@/components/ProgressBar';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
@@ -160,7 +162,30 @@ export default function EnergyMeter() {
 
     {/* Sibling, not nested inside the meter's own Surface — a card inside a card reads as a
         nested panel rather than a note about the one above it. */}
-    {!usesEnergy && <StarterCard text={t.starters.energy.text} example={t.starters.energy.example} />}
+    {!usesEnergy && (
+      <StarterCard
+        text={t.starters.energy.text}
+        exampleLabel={t.starters.exampleLabel}
+        example={
+          <>
+            <StarterExampleRow
+              icon="cart-outline"
+              title={t.starters.energy.exampleNegative}
+              meta="−2"
+              metaVariant="warning"
+              accent={theme.warn}
+            />
+            <StarterExampleRow
+              icon="water-outline"
+              title={t.starters.energy.examplePositive}
+              meta="+1"
+              metaVariant="success"
+              accent={theme.good}
+            />
+          </>
+        }
+      />
+    )}
     </View>
   );
 }
