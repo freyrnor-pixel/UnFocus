@@ -25,7 +25,9 @@
  *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
  *             components/HintCard, components/StarterCard (first-run explainer, shown while
  *             there are no weekly lists and no items), components/StarterExampleRow (its
- *             weekly/monthly preview rows), components/AppModal (showAppModal),
+ *             weekly/monthly rows — real items their "+" buttons write via useShoppingStore/
+ *             useShoppingListStore, creating a weekly list first since none exist at that
+ *             gate), components/AppModal (showAppModal),
  *             components/CardAccent (CardAccentBadge),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
  *             components/ExpandableCard, components/FlightOverlay (FlightPill, Flight, FlightRect),
@@ -868,6 +870,47 @@ export default function ShoppingScreen() {
     success();
   }
 
+  // Empty-state examples (2026-07-27): both fire at the gate where NO weekly list exists
+  // yet (see the StarterCard's own gating note below), so the weekly one has to create a
+  // list first — same call handleCreateNewWeeklyList makes — before it can add the item
+  // into it. The monthly one can add straight into monthlyLists[0]: lib/db.ts always seeds
+  // one on install, so it's never actually empty even when this card is showing.
+  function addShoppingStarterWeekly() {
+    const { startDate, endDate } = getWeekRangeContaining(todayStr(), weeklyResetDay);
+    const listId = addList({ startDate, endDate });
+    add({
+      name: t.starters.shopping.exampleWeekly,
+      amount: '1',
+      unit: '',
+      listType: 'weekly',
+      store: '',
+      price: 0,
+      inventoryQty: 0,
+      status: 'inWeeklyList',
+      listId,
+    });
+    success();
+  }
+
+  function addShoppingStarterMonthly() {
+    const monthlyListId = monthlyLists[0]?.id;
+    if (!monthlyListId) return;
+    add({
+      name: t.starters.shopping.exampleMonthly,
+      amount: '1',
+      unit: '',
+      listType: 'monthly',
+      store: '',
+      price: 0,
+      inventoryQty: 0,
+      targetQuantity: 1,
+      isTemporary: false,
+      status: 'catalog',
+      monthlyListId,
+    });
+    success();
+  }
+
   function handleDeleteList(listId: string) {
     warning();
     showAppModal(t.deleteListConfirmTitle, t.deleteListConfirmBody, [
@@ -1481,12 +1524,16 @@ export default function ShoppingScreen() {
                 title={t.starters.shopping.exampleWeekly}
                 meta={t.habitRecurrenceWeekly}
                 accent={shopDomainColor.accent}
+                onAdd={addShoppingStarterWeekly}
+                addLabel={t.starters.addExample}
               />
               <StarterExampleRow
                 icon="cart-outline"
                 title={t.starters.shopping.exampleMonthly}
                 meta={t.habitRecurrenceMonthly}
                 accent={shopDomainColor.accent}
+                onAdd={addShoppingStarterMonthly}
+                addLabel={t.starters.addExample}
               />
             </>
           }

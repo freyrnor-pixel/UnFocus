@@ -27,11 +27,13 @@
  * Connections:
  *   Imports → components/Surface, components/StarterCard, components/StarterExampleRow,
  *             components/Stepper, components/Collapsible, components/PressableScale,
- *             constants/theme, lib/useAppTheme, lib/i18n, lib/date, lib/energy,
+ *             constants/theme, lib/useAppTheme, lib/i18n, lib/date, lib/haptics, lib/energy,
  *             store/useSettingsStore, store/useTaskStore, store/useHabitStore,
  *             store/useEnergyStore
  *   Used by → app/(tabs)/index.tsx (Home)
- *   Data    → reads tasks/habits/habitLogs + energy_budgets overrides; writes overrides
+ *   Data    → reads tasks/habits/habitLogs + energy_budgets overrides; writes overrides;
+ *             its two StarterExampleRow "+" buttons write a real one-off task via
+ *             useTaskStore.add (energyEnabled/energyValue set to the example's sign)
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -46,6 +48,7 @@ import { Fonts, FontSize, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
+import { success } from '@/lib/haptics';
 import { energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek, energyPipCount } from '@/lib/energy';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
@@ -68,6 +71,7 @@ export default function EnergyMeter() {
   const setWeekCapacity = useEnergyStore((s) => s.setWeekCapacity);
 
   const tasks = useTaskStore((s) => s.tasks);
+  const addTask = useTaskStore((s) => s.add);
   const habits = useHabitStore((s) => s.habits);
   const habitLogs = useHabitStore((s) => s.logs);
 
@@ -94,6 +98,25 @@ export default function EnergyMeter() {
   // recommendation — plan with energy in mind) right under it. Gated on real usage rather than
   // a "seen" flag, so it also returns if the user later clears every energy value.
   const usesEnergy = tasks.some((tk) => tk.energyEnabled) || habits.some((h) => h.energyEnabled);
+
+  // Empty-state examples (2026-07-27): a real one-off task for today, carrying the signed
+  // energy value the example illustrates. usesEnergy flips true right after, which unmounts
+  // the whole StarterCard (including the other row), so there's no separate "dismiss" needed.
+  function addEnergyStarterTask(title: string, energyValue: number) {
+    addTask({
+      title,
+      date: today,
+      taskType: 'start-at',
+      done: false,
+      recurring: 'none',
+      recurringDays: [],
+      sortOrder: 0,
+      hasStartDate: true,
+      energyEnabled: true,
+      energyValue,
+    });
+    success();
+  }
 
   const row = (label: string, current: number, capacity: number) => {
     const boltColor = current <= 0 ? theme.bad : theme.accent;
@@ -187,6 +210,8 @@ export default function EnergyMeter() {
               meta="−2"
               metaVariant="warning"
               accent={theme.warn}
+              onAdd={() => addEnergyStarterTask(t.starters.energy.exampleNegative, -2)}
+              addLabel={t.starters.addExample}
             />
             <StarterExampleRow
               icon="water-outline"
@@ -194,6 +219,8 @@ export default function EnergyMeter() {
               meta="+1"
               metaVariant="success"
               accent={theme.good}
+              onAdd={() => addEnergyStarterTask(t.starters.energy.examplePositive, 1)}
+              addLabel={t.starters.addExample}
             />
           </>
         }

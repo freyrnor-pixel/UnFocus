@@ -1419,9 +1419,18 @@ const en = {
    * actual row (icon + title + meta pill) instead of a sentence describing one. Meta text that's
    * identical in both languages (durations, signed numbers, counts) is hardcoded at the call
    * site rather than duplicated here.
+   *
+   * Every example row (except Habits — see below) carries a real "+" add button
+   * (StarterExampleRow's `onAdd`, 2026-07-27) that writes the example into the real store, so
+   * it's an actual opt-in try-it, not just an illustration. Habits' row stays read-only because
+   * its four *real* one-tap add chips (`tapToAdd`/`suggestions` below, rendered separately in
+   * StarterCard's `children`) already cover that job for the exact same item — a second "+" on
+   * the preview row would just be a redundant second way to do the same thing.
    */
   starters: {
     exampleLabel: 'Example',
+    /** Accessibility-label prefix for an example row's "+" add button, e.g. "Add Milk". */
+    addExample: 'Add',
     habits: {
       text: 'All wins matter — small things add up toward a goal.',
       tapToAdd: 'Tap one to start:',
@@ -1434,7 +1443,14 @@ const en = {
     },
     plans: {
       text: 'Break things into smaller pieces, and take them step-by-step.',
-      exampleTitle: 'Refill the water bottle',
+      exampleTitle: 'Tidy up',
+      exampleSteps: {
+        trash: 'Take out the trash',
+        tidy: 'Tidy up',
+        table: 'Wipe down the table',
+        dishwasher: 'Run the dishwasher',
+        laundry: 'Start the washing machine',
+      },
     },
     energy: {
       text: 'Plan your workload with your energy in mind — for both habits and to-dos.',
@@ -2796,6 +2812,7 @@ const no: typeof en = {
   },
   starters: {
     exampleLabel: 'Eksempel',
+    addExample: 'Legg til',
     habits: {
       text: 'Alle seire teller — små ting bygger opp mot et mål.',
       tapToAdd: 'Trykk på én for å komme i gang:',
@@ -2808,7 +2825,14 @@ const no: typeof en = {
     },
     plans: {
       text: 'Del ting opp i mindre biter, og ta dem steg for steg.',
-      exampleTitle: 'Fyll vannflasken',
+      exampleTitle: 'Rydde',
+      exampleSteps: {
+        trash: 'Kaste søppel',
+        tidy: 'Rydde',
+        table: 'Tørke av bord',
+        dishwasher: 'Oppvaskmaskin',
+        laundry: 'Vaskemaskin',
+      },
     },
     energy: {
       text: 'Planlegg arbeidsmengden med energien i bakhodet — for både vaner og gjøremål.',
