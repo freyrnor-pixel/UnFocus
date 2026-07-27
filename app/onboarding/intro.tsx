@@ -14,8 +14,7 @@
  *
  * Connections:
  *   Imports → @/lib/i18n, @/constants/theme, @/lib/useAppTheme, @/components/Button,
- *             @/components/PressableScale, @/components/AppModal (showAppModal),
- *             @/lib/aiSetupGuide (exportAiSetupGuide)
+ *             @/components/AppModal (showAppModal), @/lib/aiSetupGuide (exportAiSetupGuide)
  *   Used by → Expo Router route "/onboarding/intro" (pushed from onboarding/guided.tsx)
  *   Data    → none (presentational; writes happen on the name step). The "experimental"
  *             page's download link writes a .txt to the cache dir + opens the share
@@ -35,6 +34,11 @@
  *     configure; upload lives only in Settings (app/settings.tsx). Same
  *     exportAiSetupGuide() call as Settings' handler, duplicated locally rather than
  *     shared — two call sites don't need an abstraction.
+ *   - **The AI-guide download is a real Button (2026-07-27, user report)**: it used to be a bare
+ *     PressableScale icon+text row with no fill, border or minimum height, so on the otherwise
+ *     empty experimental page it read as floating blue text rather than a tappable control.
+ *     It's now `<Button variant="secondary" size="sm" icon="download-outline">` — the same
+ *     component every other action in onboarding already uses.
  *   - **Bordered hintNote (2026-07-26, user report)**: the ⓘ/principle/experimental info
  *     boxes were a flat `surfaceMuted` fill with no edge — the same "borderless chip reads as
  *     floating text" bug AddRow's and Stepper's collapsed pills had (see those files' 2026-07-25
@@ -50,7 +54,6 @@ import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import Button from '@/components/Button';
-import PressableScale from '@/components/PressableScale';
 import { showAppModal } from '@/components/AppModal';
 import { selection } from '@/lib/haptics';
 import { exportAiSetupGuide } from '@/lib/aiSetupGuide';
@@ -141,10 +144,13 @@ export default function OnboardingIntro() {
                 <Ionicons name="construct-outline" size={18} color={theme.accent} />
                 <Text style={[styles.hintNoteText, { color: theme.textMuted }]}>{t.introExperimental.body}</Text>
               </View>
-              <PressableScale onPress={handleDownloadAiGuide} style={styles.aiGuideLink} scaleTo={0.97}>
-                <Ionicons name="download-outline" size={16} color={theme.accent} />
-                <Text style={[styles.aiGuideLinkText, { color: theme.accent }]}>{t.aiSetup.downloadButton}</Text>
-              </PressableScale>
+              <Button
+                label={t.aiSetup.downloadButton}
+                onPress={handleDownloadAiGuide}
+                variant="secondary"
+                size="sm"
+                icon="download-outline"
+              />
             </>
           )}
         </View>
@@ -205,8 +211,6 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
   },
   hintNoteText: { flex: 1, fontSize: FontSize.sm, lineHeight: 20 },
-  aiGuideLink: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.xs },
-  aiGuideLinkText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   progress: { flexDirection: 'row', gap: Spacing.sm, justifyContent: 'center' },
   dot: { width: 8, height: 8, borderRadius: Radius.full },
   dotActive: { width: 20 },

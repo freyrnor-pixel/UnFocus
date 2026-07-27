@@ -11,8 +11,8 @@
  *   Data    → none
  */
 export const SEVERITY_COLORS = ['#C9D4F0', '#A9B8E8', '#8C9AE0', '#7C82D6', '#6E6BC8'];
-export const SEV_INK_DARK = '#2A2A3A';
-export const SEV_INK_LIGHT = '#FFFFFF';
+const SEV_INK_DARK = '#2A2A3A';
+const SEV_INK_LIGHT = '#FFFFFF';
 
 export function severities() {
   return SEVERITY_COLORS.map((color, i) => ({ value: i + 1, color }));

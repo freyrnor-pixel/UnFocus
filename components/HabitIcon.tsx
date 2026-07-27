@@ -34,7 +34,7 @@ export const HABIT_ICON_NAMES = [
 
 const ICON_NAME_SET: Set<string> = new Set(HABIT_ICON_NAMES);
 
-export function isHabitIconName(icon: string): boolean {
+function isHabitIconName(icon: string): boolean {
   return ICON_NAME_SET.has(icon);
 }
 

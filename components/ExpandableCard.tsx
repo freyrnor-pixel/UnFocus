@@ -12,7 +12,7 @@
  *   Used by → components/WeekListCard.tsx (dish groups + collapsed "bought this week"
  *             history, uncontrolled), app/shopping.tsx (Monthly catalog dish groups),
  *             app/settings.tsx (merged setting-group panels — passes `rounded`, see that
- *             prop's doc below); later Phase 3/6 sessions may also wire this into InboxSection/meals/health
+ *             prop's doc below); later Phase 3/6 sessions may also wire this into meals/health
  *             per Decision 009. NOTE: PlanTaskCard does NOT wrap ExpandableCard — Decision
  *             009a redesigned the Plans preview into a bespoke proportional-rail day-view
  *             (its collapsed state still shows content, which ExpandableCard's hide-all-body

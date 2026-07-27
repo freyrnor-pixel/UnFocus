@@ -12,7 +12,7 @@
  *   Data    → seeds the `symptoms` SQLite table (via useHealthStore)
  *
  * Edit notes:
- *   - `category` values must match SYMPTOM_CATEGORIES keys below (also used for the
+ *   - `category` values must match the SymptomCategory union below (also used for the
  *     i18n labels `symptomCategories.<key>` in lib/i18n.ts).
  *   - Symptom names are intentionally Norwegian and NOT translated — only UI chrome
  *     follows the user's language (same convention as lib/catalogSeed.ts).
@@ -21,10 +21,6 @@
  */
 export type SymptomCategory =
   | 'physical' | 'mental' | 'sleep' | 'digestive' | 'nutrition' | 'other';
-
-export const SYMPTOM_CATEGORIES: SymptomCategory[] = [
-  'physical', 'mental', 'sleep', 'digestive', 'nutrition', 'other',
-];
 
 export type SeedSymptom = { name: string; category: SymptomCategory };
 

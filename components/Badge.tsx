@@ -1,13 +1,12 @@
 /**
- * Badge.tsx — small status pills, selectable chips, and initial avatars.
+ * Badge.tsx — small status pills and selectable chips.
  *
- * Exports three related primitives that share the same rounded-pill shape:
- * `Badge` (status, non-interactive), `Chip` (toggleable filter pill), and
- * `Avatar` (initials circle, e.g. shared-household members).
+ * Exports two related primitives that share the same rounded-pill shape:
+ * `Badge` (status, non-interactive) and `Chip` (toggleable filter pill).
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme, components/PressableScale
- *   Used by → any screen wanting status pills, filter chips, or initials avatars
+ *   Used by → any screen wanting status pills or filter chips
  *   Data    → none (purely presentational)
  *
  * Edit notes:
@@ -74,33 +73,6 @@ export function Chip({ label, selected, onPress, style }: ChipProps) {
   );
 }
 
-type AvatarProps = {
-  name: string;
-  size?: number;
-  color?: string;
-};
-
-export function Avatar({ name, size = 36, color }: AvatarProps) {
-  const theme = useAppTheme();
-  const initials = name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-
-  return (
-    <View
-      style={[
-        styles.avatar,
-        { width: size, height: size, borderRadius: size / 2, backgroundColor: color ?? theme.accent },
-      ]}
-    >
-      <Text style={[styles.avatarText, { fontSize: size * 0.4, color: theme.accentInk }]}>{initials}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   pill: {
     paddingHorizontal: Spacing.sm,
@@ -119,12 +91,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minHeight: 32,
     justifyContent: 'center',
-  },
-  avatar: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontFamily: Fonts.bold,
   },
 });

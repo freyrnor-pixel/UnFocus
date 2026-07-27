@@ -14,7 +14,12 @@
  * "next occurrence" is relative to "today".
  */
 import * as notif from '@/lib/notifications';
-import { syncTaskNotification, TaskNotifSettings } from '@/lib/taskNotifications';
+import {
+  syncTaskNotification,
+  snoozeTaskReminder,
+  RENUDGE_DELAY_MS,
+  TaskNotifSettings,
+} from '@/lib/taskNotifications';
 import type { Task } from '@/store/useTaskStore';
 
 jest.mock('@/lib/notifications', () => {
@@ -26,16 +31,24 @@ jest.mock('@/lib/notifications', () => {
     scheduleWeeklyTaskNotifications: jest.fn(),
     scheduleDailyTaskNotification: jest.fn(),
     cancelTaskNotification: jest.fn().mockResolvedValue(undefined),
+    scheduleReNudge: jest.fn().mockResolvedValue(undefined),
   };
 });
 jest.mock('@/lib/i18n', () => ({
-  getTranslations: () => ({ notif: { overviewNothingElse: 'nothing else' } }),
+  getTranslations: () => ({
+    notif: {
+      overviewNothingElse: 'nothing else',
+      renudgeTitle: (title: string) => `Still there: ${title}`,
+      renudgeBody: 'a gentle nudge',
+    },
+  }),
 }));
 
 const schedule = notif.scheduleTaskNotification as jest.Mock;
 const scheduleWeekly = notif.scheduleWeeklyTaskNotifications as jest.Mock;
 const scheduleDaily = notif.scheduleDailyTaskNotification as jest.Mock;
 const cancel = notif.cancelTaskNotification as jest.Mock;
+const reNudge = notif.scheduleReNudge as jest.Mock;
 
 const baseSettings: TaskNotifSettings = {
   taskNotificationsEnabled: true,
@@ -217,5 +230,32 @@ describe('monthly-recurring tasks (2026-07-20 — next-occurrence one-off, re-ar
     syncTaskNotification(task({ recurring: 'monthly', monthlyMode: 'day', monthDay: 25 }), baseSettings);
     expect(scheduleWeekly).not.toHaveBeenCalled();
     expect(scheduleDaily).not.toHaveBeenCalled();
+  });
+});
+
+// ── snoozeTaskReminder (the "Remind me later" notification action) ─────────
+// Wired up 2026-07-27: the action buttons were registered but nothing listened for the taps,
+// so this whole path was dead. app/_layout.tsx now calls this from onNotificationAction.
+describe('snoozeTaskReminder', () => {
+  it('schedules a re-nudge for the task with localised content', () => {
+    snoozeTaskReminder(task({ id: 't1', title: 'Water the plants' }));
+    expect(reNudge).toHaveBeenCalledTimes(1);
+    const [taskId, delayMs, content] = reNudge.mock.calls[0];
+    expect(taskId).toBe('t1');
+    expect(delayMs).toBe(RENUDGE_DELAY_MS);
+    expect(content).toEqual({
+      title: 'Still there: Water the plants',
+      body: 'a gentle nudge',
+    });
+  });
+
+  it('uses a 15-minute delay', () => {
+    expect(RENUDGE_DELAY_MS).toBe(15 * 60 * 1000);
+  });
+
+  it('ignores quiet hours — the user just asked to be reminded shortly', () => {
+    snoozeTaskReminder(task({ id: 't2', title: 'Stretch' }));
+    const [, delayMs] = reNudge.mock.calls[0];
+    expect(delayMs).toBe(RENUDGE_DELAY_MS);
   });
 });

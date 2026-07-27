@@ -16,11 +16,13 @@
  *             expo-asset (Asset.loadAsync warms the bundled-image cache at boot),
  *             expo-splash-screen (held until the app is fully painted, then hidden),
  *             expo-system-ui + expo-navigation-bar (theme the Android system chrome),
- *             lib/backup (saveAutoBackup), lib/db, lib/syncService,
+ *             lib/backup (saveAutoBackup), lib/db, lib/syncService, lib/i18n (getTranslations),
+ *             lib/notifications (syncNotificationCategories/onNotificationAction/cancelReNudge),
+ *             lib/taskNotifications (snoozeTaskReminder),
  *             lib/widgets/sync (syncWidgetsAndOverview — pushes today to the home-screen widgets
  *             + persistent overview notification), lib/useAppTheme,
  *             store/useSettingsStore, store/useAutomationStore, store/useCatalogStore,
- *             store/useEnergyStore, store/useFeedbackStore, store/useGoalStore, store/useHabitStore, store/useHealthStore, store/useInboxStore,
+ *             store/useEnergyStore, store/useFeedbackStore, store/useGoalStore, store/useHabitStore, store/useHealthStore,
  *             store/useMealStore, store/useMonthlyListStore, store/useNotesStore, store/usePeersStore, store/useReceiptStore,
  *             store/useSharedStore, store/useShoppingListStore, store/useShoppingStore,
  *             store/useTaskStore, components/AppModal,
@@ -28,6 +30,13 @@
  *   Used by → router layout — defines the Stack
  *
  * Edit notes:
+ *   - **Interactive notification actions (2026-07-27) — WIRED.** Task reminders have always
+ *     been scheduled with `categoryIdentifier: 'task-reminder'`, but the category itself was
+ *     only ever registered from app/settings.tsx's language-change branch (so a user who never
+ *     switched language saw no buttons), and `onNotificationAction` was never called at all (so
+ *     the buttons did nothing when they did appear). Both now live here: registration in the
+ *     boot effect's Tier B block, the tap listener in its own effect. Settings keeps its
+ *     language-change re-sync to relabel the buttons — don't remove it.
  *   - **Retention pruning (2026-07-20) — WIRED.** `pruneOldData()` (lib/db.ts) now
  *     actually runs, right after `initDb()` in the boot effect. Monthly recurring
  *     tasks' reminders are re-armed for their next occurrence in the same boot
@@ -43,7 +52,7 @@
  *         useAutomationStore so `shopping_opened` / `task_completed` triggers are
  *         live from launch, not only after a screen self-loads that store.
  *       - Tier B (deferred via InteractionManager.runAfterInteractions):
- *         Feedback, Inbox, Peers, Receipt — only back screens 2+ swipes from Home
+ *         Feedback, Peers, Receipt — only back screens 2+ swipes from Home
  *         (Scan's receipt parsing) or non-tab screens, so a beat of extra latency
  *         is imperceptible. syncWidgetsAndOverview() also runs here (not inline in
  *         the boot tick): its buildWidgetSnapshot() does synchronous store walks +
@@ -125,6 +134,9 @@ import * as SystemUI from 'expo-system-ui';
 import * as NavigationBar from 'expo-navigation-bar';
 import { Fonts, MAX_FONT_SCALE } from '@/constants/theme';
 import { initDb, pruneOldData } from '@/lib/db';
+import { getTranslations } from '@/lib/i18n';
+import { cancelReNudge, onNotificationAction, syncNotificationCategories } from '@/lib/notifications';
+import { snoozeTaskReminder } from '@/lib/taskNotifications';
 import { saveAutoBackup } from '@/lib/backup';
 import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
 import { startSync, stopSync } from '@/lib/syncService';
@@ -137,7 +149,6 @@ import { useGoalStore } from '@/store/useGoalStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { useEnergyStore } from '@/store/useEnergyStore';
 import { useHealthStore } from '@/store/useHealthStore';
-import { useInboxStore } from '@/store/useInboxStore';
 import { useMealStore } from '@/store/useMealStore';
 import { useNotesStore } from '@/store/useNotesStore';
 import { usePeersStore } from '@/store/usePeersStore';
@@ -291,9 +302,18 @@ export default function RootLayout() {
     // screens — deferred a beat so they don't compete with the first paint.
     InteractionManager.runAfterInteractions(() => {
       useFeedbackStore.getState().load();
-      useInboxStore.getState().load();
       usePeersStore.getState().load();
       useReceiptStore.getState().load();
+      // Register the 'task-reminder' category's Done / Remind-me-later buttons. Every task
+      // reminder is scheduled with categoryIdentifier: 'task-reminder', but until 2026-07-27
+      // this only ran from app/settings.tsx's language-change branch — so a user who never
+      // switched language never got the buttons at all. Settings still re-syncs on a language
+      // change to relabel them; this is the baseline registration. getTranslations() (not
+      // useT()) because we're outside the component tree here.
+      {
+        const tNotif = getTranslations();
+        void syncNotificationCategories(tNotif.notif.actionDone, tNotif.notif.actionRemindLater);
+      }
       // Push today's tasks/shopping to the home-screen widgets + persistent overview
       // notification. Deferred to Tier B (was synchronous in the boot tick): its
       // buildWidgetSnapshot() walks every store, localises strings, and writes the
@@ -305,6 +325,25 @@ export default function RootLayout() {
     });
     return () => clearTimeout(assetTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Interactive notification actions (2026-07-27). The 'task-reminder' category's buttons
+  // were registered but nothing ever listened for the taps, so "Done" and "Remind me later"
+  // did nothing. 'done' completes the task through the store's normal write path
+  // (completeDirect — the same one a tap in the UI takes, so widgets/sync/energy all stay
+  // consistent) and drops any pending snooze; 'snooze' arms the 15-minute follow-up.
+  // Mounted once for the app's lifetime; the listener also fires for taps that woke the app
+  // from cold, so the store read happens inside the handler rather than over a captured value.
+  useEffect(() => {
+    return onNotificationAction((action, taskId) => {
+      if (action === 'done') {
+        useTaskStore.getState().completeDirect(taskId);
+        void cancelReNudge(taskId);
+        return;
+      }
+      const task = useTaskStore.getState().tasks.find((tk) => tk.id === taskId);
+      if (task) snoozeTaskReminder(task);
+    });
   }, []);
 
   // Native chrome (Android): paint the system window + navigation-bar to match the

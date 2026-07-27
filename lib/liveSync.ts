@@ -34,7 +34,6 @@ import { SQLValue } from '@/lib/dataAccess';
 
 /** Tables in the Decision 038b first cut. */
 export type SyncTable = 'tasks' | 'shopping_items';
-export const SYNC_TABLES: SyncTable[] = ['tasks', 'shopping_items'];
 
 /** Whitelisted syncable data columns per table (meta columns handled separately). */
 const TABLE_COLUMNS: Record<SyncTable, string[]> = {

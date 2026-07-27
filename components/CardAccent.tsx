@@ -53,7 +53,7 @@ import { Domain, getDomainColor } from '@/lib/domainColor';
 type IoniconsName = keyof typeof Ionicons.glyphMap;
 
 /** Filled Ionicons per domain — reuses the nav's per-section glyphs where they overlap. */
-export const DOMAIN_ICON: Record<Domain, IoniconsName> = {
+const DOMAIN_ICON: Record<Domain, IoniconsName> = {
   task: 'checkmark-circle',
   plan: 'calendar',
   habit: 'repeat',

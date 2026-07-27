@@ -144,10 +144,10 @@ Real implementations in this codebase, with where they differ from generic best-
 
 - **Task completion**: `components/PlanTaskCard.tsx` — a done task leaves the pending rail
   and drops into the (collapsed) done zone on the same render, so there's no per-row checkmark
-  animation (it would unmount before it could play). The reward is a card-level
-  `CompletionGlow` bloom instead — scale 1→1.05 over 300ms ease-out, opacity 1→0.7→0 over
-  300ms+400ms ease-out (`withSequence`/`withTiming`, ~700ms total) — paired with `success()`
-  fired from `handleToggle`. Mirrors the habit-card glow pattern (`app/habits.tsx`) below.
+  animation (it would unmount before it could play). The reward is `success()` fired from
+  `handleToggle` plus the card-level `GlowPulse` halo — the one-shot `CompletionGlow` bloom
+  this used to describe was removed alongside the habit-card one (see the next bullet), and
+  the component itself was deleted 2026-07-27.
 - **Habit completion (retuned 2026-07-22)**: `success()` fires on the rising edge of "done
   today" (`app/(tabs)/health.tsx`). The visual done-state is now a single calm `GlowPulse`
   (`mode="static"`) halo behind the card, plus the accent bar + checkmark + "Done today" pill.
