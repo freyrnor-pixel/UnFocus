@@ -36,6 +36,12 @@
  *     `exampleLabel` is the small caption above those rows (e.g. "Example").
  *   - `children` is the optional action slot (Habits puts its starter chips there). Keep it
  *     to lightweight chips — this is an explainer, not a form.
+ *   - `compact` (2026-07-27, user report: "the Energy explanation is too big") is the
+ *     note-sized variant: smaller padding + type, the "EXAMPLE" caption dropped, and the
+ *     example rows rendered as wrapped chips (StarterExampleRow's own `compact`) on a single
+ *     line. Use it where the card annotates ONE small surface (the Energy meter) rather than
+ *     standing in for an empty list — a full-size explainer there ends up taller than the
+ *     thing it explains. List surfaces (Habits/Plans/Shopping/Health) keep the default size.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -53,21 +59,30 @@ type Props = {
   exampleLabel?: string;
   /** Optional action slot — e.g. the Habits one-tap starter chips. */
   children?: React.ReactNode;
+  /**
+   * Note-sized variant (2026-07-27): tighter padding/type, no "EXAMPLE" caption, and the
+   * examples flow as wrapped chips on one line instead of stacked full-width rows. For a
+   * card that annotates a single small surface rather than heading an empty list — see the
+   * Edit notes.
+   */
+  compact?: boolean;
 };
 
-export default function StarterCard({ text, example, exampleLabel, children }: Props) {
+export default function StarterCard({ text, example, exampleLabel, children, compact }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   return (
-    <Surface borderColor={theme.border} style={styles.card}>
+    <Surface borderColor={theme.border} style={[styles.card, compact && styles.cardCompact]}>
       <View style={styles.textRow}>
-        <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.bulbIcon} />
-        <Text style={[styles.text, { color: theme.text }]}>{text}</Text>
+        <Ionicons name="bulb-outline" size={compact ? 12 : 14} color={theme.textMuted} style={styles.bulbIcon} />
+        <Text style={[styles.text, compact && styles.textCompact, { color: theme.text }]}>{text}</Text>
       </View>
       {example ? (
-        <View style={styles.exampleBlock}>
-          {exampleLabel ? <Text style={[styles.exampleLabel, { color: theme.textMuted }]}>{exampleLabel}</Text> : null}
-          <View style={styles.exampleRows}>{example}</View>
+        <View style={[styles.exampleBlock, compact && styles.exampleBlockCompact]}>
+          {exampleLabel && !compact ? (
+            <Text style={[styles.exampleLabel, { color: theme.textMuted }]}>{exampleLabel}</Text>
+          ) : null}
+          <View style={[styles.exampleRows, compact && styles.exampleRowsCompact]}>{example}</View>
         </View>
       ) : null}
       {children ? <View style={styles.actions}>{children}</View> : null}
@@ -78,6 +93,11 @@ export default function StarterCard({ text, example, exampleLabel, children }: P
 const baseStyles = StyleSheet.create({
   card: {
     padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  cardCompact: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
     gap: Spacing.xs,
   },
   textRow: {
@@ -94,9 +114,16 @@ const baseStyles = StyleSheet.create({
     fontFamily: Fonts.medium,
     fontStyle: 'italic',
   },
+  textCompact: {
+    fontSize: FontSize.xs,
+    lineHeight: 17,
+  },
   exampleBlock: {
     marginTop: Spacing.xs,
     gap: 4,
+  },
+  exampleBlockCompact: {
+    marginTop: 0,
   },
   exampleLabel: {
     fontSize: FontSize.xs,
@@ -105,6 +132,12 @@ const baseStyles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   exampleRows: {
+    gap: Spacing.xs,
+  },
+  // Compact: chips flow left-to-right and wrap, so two short examples share one line.
+  exampleRowsCompact: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.xs,
   },
   actions: {

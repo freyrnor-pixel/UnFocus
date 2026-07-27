@@ -20,12 +20,17 @@
  *     leading (still starting flush with the grey hour lines via `nowGutterSpacer`, an empty
  *     stand-in for the label that used to occupy that space) with the time label trailing at
  *     the line's end.
+ *   - **Trailing label column reserved (2026-07-27, user report)**: the grey hour lines used to
+ *     run the full remaining width, so the trailing blue "HH:MM" reading sat on top of them. The
+ *     hour rows (`paddingRight`) and the now-label (fixed `width`) now both use `NOW_LABEL_WIDTH`
+ *     from lib/dayGrid, so every grey line and the blue now-bar stop at the same x and the live
+ *     time has that column to itself. Keep the two in sync.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { FontSize, Fonts, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
-import { GRID_START_HOUR, GRID_END_HOUR, GRID_TOTAL_HEIGHT, GUTTER_WIDTH, minutesToY } from '@/lib/dayGrid';
+import { GRID_START_HOUR, GRID_END_HOUR, GRID_TOTAL_HEIGHT, GUTTER_WIDTH, NOW_LABEL_WIDTH, minutesToY } from '@/lib/dayGrid';
 
 type Props = {
   now?: number;
@@ -54,7 +59,7 @@ export default function DayGridLines({ now }: Props) {
             <View style={[styles.nowDot, { backgroundColor: theme.accent }]} />
             <View style={[styles.nowBar, { backgroundColor: theme.accent }]} />
           </View>
-          <Text style={[styles.nowLabel, { color: theme.accent }]}>{nowLabel}</Text>
+          <Text numberOfLines={1} style={[styles.nowLabel, { color: theme.accent }]}>{nowLabel}</Text>
         </View>
       )}
     </View>
@@ -63,7 +68,10 @@ export default function DayGridLines({ now }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { position: 'relative', width: '100%' },
-  hourRow: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center' },
+  // paddingRight reserves the now-label column so a grey hour line stops before the live "HH:MM"
+  // reading instead of running underneath it (2026-07-27, user report: "the grey lines are too
+  // long, and will overlap with the time showing current time").
+  hourRow: { position: 'absolute', left: 0, right: 0, paddingRight: NOW_LABEL_WIDTH, flexDirection: 'row', alignItems: 'center' },
   hourLabel: { width: GUTTER_WIDTH, fontSize: FontSize.xs, fontFamily: Fonts.medium, textAlign: 'right', paddingRight: Spacing.xs },
   hourLine: { flex: 1, height: 1 },
   // marginTop centers the line/dot on `top` (nowY) instead of starting there.
@@ -74,5 +82,7 @@ const styles = StyleSheet.create({
   nowLineWrap: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   nowDot: { width: 8, height: 8, borderRadius: 4 },
   nowBar: { flex: 1, height: 1.5, marginLeft: 4 },
-  nowLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, paddingLeft: Spacing.xs },
+  // Fixed width matching the hour rows' reserved paddingRight, so the blue now-bar ends flush
+  // with every grey hour line and the live reading always has that column to itself.
+  nowLabel: { width: NOW_LABEL_WIDTH, fontSize: FontSize.xs, fontFamily: Fonts.bold, paddingLeft: Spacing.xs },
 });

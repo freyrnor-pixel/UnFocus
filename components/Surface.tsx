@@ -164,7 +164,12 @@ const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
 // colour identity to a near-hairline, which read as colourless next to the bolder 1.4.0-era cards.
 // Still the same bug-free gradient-fill technique, just thick enough for the domain hue to read
 // as a real accent again rather than needing to squint.
-const EDGE_WIDTH = 2.5;
+// Exported (2026-07-27) so anything that paints INSIDE the mask and needs to reach the card's
+// true inner corner — components/CardAccent.tsx's header wash is the one case — can compute the
+// same inner radius Surface gives the mask (`radius - GLASS_EDGE_WIDTH`) instead of guessing the
+// card's own outer radius and leaving an unpainted crescent in the top corners.
+export const GLASS_EDGE_WIDTH = 2.5;
+const EDGE_WIDTH = GLASS_EDGE_WIDTH;
 
 const PADDING_KEYS = new Set([
   'padding', 'paddingHorizontal', 'paddingVertical',
