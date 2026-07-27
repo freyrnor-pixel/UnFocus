@@ -140,9 +140,11 @@ type Props = {
   onSharePress?: () => void;
   /** Site-tier only. When provided, a scan icon appears in the header controls. */
   onScanPress?: () => void;
+  /** Opens this surface's card-layout picker (components/LayoutPickerSheet.tsx). */
+  onLayoutPress?: () => void;
 };
 
-export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, infoActive, onInfoToggle, onSharePress, onScanPress }: Props) {
+export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, infoActive, onInfoToggle, onSharePress, onScanPress, onLayoutPress }: Props) {
   const t = useT();
   const theme = useAppTheme();
   const router = useRouter();
@@ -297,6 +299,20 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
       <Ionicons name="camera-outline" size={22} color={theme.text} />
     </PressableScale>
   ) : null;
+  // "How this list looks" — opens the surface's own LayoutPickerSheet. Lives on the header
+  // rather than in Settings so the choice is made while looking at the list it changes; the
+  // global default still lives in Settings → Personal → Layout.
+  const layoutButton = onLayoutPress ? (
+    <PressableScale
+      onPress={onLayoutPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={t.config.layouts.title}
+      scaleTo={0.9}
+    >
+      <Ionicons name="list-outline" size={22} color={theme.text} />
+    </PressableScale>
+  ) : null;
   const infoButton = onInfoToggle ? (
     <PressableScale
       onPress={onInfoToggle}
@@ -379,13 +395,13 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
 
   // Site-tier control count, needed before titleNode below decides whether to shrink-to-fit.
   // Grouped controls order (right-handed, left-to-right): [update] [bug] [✓ email] [✕ delete]
-  // [scan] [share] [ⓘ info] [gear]. Bug + email + delete all render only while debug mode is
-  // on (null otherwise), so the default header is two icons lighter than it used to be;
-  // share/scan only render when the screen passes onSharePress/onScanPress, which Shopping
-  // now does only when the matching feature flag is on. Gear is outermost on whichever side the group sits
-  // (Decision 034). Items that don't apply to this screen are null/filtered.
+  // [layout] [scan] [share] [ⓘ info] [gear]. Bug + email + delete all render only while debug
+  // mode is on (null otherwise), so the default header is two icons lighter than it used to be;
+  // layout/share/scan only render when the screen passes onLayoutPress/onSharePress/onScanPress,
+  // which Shopping now does only when the matching feature flag is on. Gear is outermost on
+  // whichever side the group sits (Decision 034). Items that don't apply are null/filtered.
   const siteControls = tier === 'site'
-    ? ([updateButton, bugButton, emailButton, deleteButton, scanButton, shareButton, infoButton, gearButton].filter(Boolean) as React.ReactNode[])
+    ? ([updateButton, bugButton, emailButton, deleteButton, layoutButton, scanButton, shareButton, infoButton, gearButton].filter(Boolean) as React.ReactNode[])
     : [];
 
   const titleNode = (align: 'left' | 'right') => (

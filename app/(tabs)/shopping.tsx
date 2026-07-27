@@ -361,6 +361,9 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import ShoppingRow from '@/components/ShoppingRow';
+import LayoutPickerSheet from '@/components/LayoutPickerSheet';
+import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
+import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
 import EmptyState from '@/components/EmptyState';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
 import InlineAddItem from '@/components/InlineAddItem';
@@ -546,6 +549,35 @@ export default function ShoppingScreen() {
 
   const items = useShoppingStore((s) => s.items);
   const trips = useShoppingStore((s) => s.trips);
+  const itemsLoaded = useShoppingStore((s) => s.loaded);
+
+  // Card layout (2026-07-27). `layoutSpec` decides how rows are DRAWN; it is read-only here
+  // and feeds nothing but rendering — no reminder, automation, or sync path consults it.
+  const layoutSpec = useSurfaceLayout('shopping');
+  const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
+  // "Arrived while you were away" glow. Computed once per visit against the surface's seen
+  // watermark, so switching layout keeps the same rows marked and the user can find them
+  // again in the new arrangement. `itemsLoaded` (not `items.length`) is the readiness gate —
+  // see the store field's comment for why that distinction matters.
+  // Shopping's layouts don't collapse rows — every item is drawn in all four — so the row
+  // diff is normally empty and the FIELD diff is what does the work here: switching from
+  // "Just the basics" to "Normal"/"Show everything" reveals quantities, steppers and prices
+  // on rows that were already on screen, and those values glow. Rows still participate so
+  // that a list which genuinely changed shape between visits is covered too.
+  const visibleItemIds = useMemo(
+    () => items.filter((i) => i.status === 'inWeeklyList').map((i) => i.id),
+    [items]
+  );
+  const { ids: newSinceIds, fields: newFields } = useNewSinceSeen(
+    `shopping:${tab}`,
+    visibleItemIds,
+    useMemo(
+      () => ({ meta: layoutSpec.showMeta, price: layoutSpec.showPrice, extras: layoutSpec.showExtras }),
+      [layoutSpec]
+    ),
+    layoutSpec.id,
+    itemsLoaded
+  );
   const add = useShoppingStore((s) => s.add);
   const update = useShoppingStore((s) => s.update);
   const toggle = useShoppingStore((s) => s.toggleCheck);
@@ -1584,7 +1616,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} pagerFloatingNav ownBackground={false} screenColor={getScreenColor(theme, 'shopping').base} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push('/scan')} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} pagerFloatingNav ownBackground={false} screenColor={getScreenColor(theme, 'shopping').base} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push('/scan')} onLayoutPress={() => setLayoutPickerOpen(true)} onScroll={handleScreenScroll}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
@@ -2060,6 +2092,9 @@ export default function ShoppingScreen() {
                             onFlightStart={(item, rect) => handleFlightStart(list.id, item, rect)}
                             registerDishGroupNode={(dishName, node) => handleRegisterDishNode(list.id, dishName, node)}
                             mergeHighlightDish={drag?.listId === list.id ? drag.mergeTargetDish : null}
+                            spec={layoutSpec}
+                            newSinceIds={newSinceIds}
+                            newFields={newFields}
                             renderReorderableRow={(item) => (
                               <DraggableTaskRow
                                 isOpen={false}
@@ -2077,6 +2112,9 @@ export default function ShoppingScreen() {
                                   onDecrement={() => adjustAmount(item.id, -1)}
                                   inStockLabel={t.inStockLabel}
                                   locked={list.locked}
+                                  spec={layoutSpec}
+                                  isNewSince={newSinceIds.has(item.id)}
+                                  newFields={newFields}
                                   onFlightStart={(rect) => handleFlightStart(list.id, item, rect)}
                                 />
                               </DraggableTaskRow>
@@ -2169,6 +2207,11 @@ export default function ShoppingScreen() {
         onSetActiveWeeks={(weeks) => {
           if (listSettingsListId) setListActiveWeeks(listSettingsListId, weeks);
         }}
+      />
+      <LayoutPickerSheet
+        visible={layoutPickerOpen}
+        surface="shopping"
+        onClose={() => setLayoutPickerOpen(false)}
       />
     </ScreenScaffold>
     <FlightOverlay flights={flights} onFlightEnd={handleFlightEnd} />

@@ -197,6 +197,8 @@ type Props = {
   onSharePress?: () => void;
   /** Site-tier only — forwarded to the header's optional scan icon. */
   onScanPress?: () => void;
+  /** Site-tier only — forwarded to the header's optional card-layout icon. */
+  onLayoutPress?: () => void;
   /**
    * Whether this screen renders its own BottomNav block. Only applies to
    * `tier === 'site'`. Default true. The 5 tab sites (app/(tabs)/*) pass false,
@@ -275,6 +277,7 @@ export default function ScreenScaffold({
   onInfoToggle,
   onSharePress,
   onScanPress,
+  onLayoutPress,
   bottomNav = true,
   pagerFloatingNav = false,
   ownBackground = true,
@@ -512,6 +515,7 @@ export default function ScreenScaffold({
           onInfoToggle={onInfoToggle}
           onSharePress={onSharePress}
           onScanPress={onScanPress}
+          onLayoutPress={onLayoutPress}
         />
       </View>
 

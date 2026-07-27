@@ -216,6 +216,14 @@ export type MonthlyResetSummary = {
 const RECENT_ADD_MS = 1800;
 
 type ShoppingStore = {
+  /**
+   * True once load() has run at least once. Distinguishes "this list is genuinely empty"
+   * from "the rows haven't been read yet" — a distinction lib/useNewSinceSeen.ts depends
+   * on, because seeding the seen-watermark against a not-yet-loaded list would mark every
+   * unseen item as already seen and silently kill the new-item glow. Session-only, never
+   * persisted.
+   */
+  loaded: boolean;
   items: ShoppingItem[];
   trips: ShoppingTrip[];
   /** Decision 044b — ids added/moved-to-weekly within the last RECENT_ADD_MS, for
@@ -382,6 +390,7 @@ function syncItemRow(id: string): void {
 }
 
 export const useShoppingStore = create<ShoppingStore>((set, get) => ({
+  loaded: false,
   items: [],
   trips: [],
   recentlyAddedIds: {},
@@ -403,6 +412,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     set({
       items: mergeDuplicateItems(items),
       trips: loadAll('shopping_trips', rowToTrip, { orderBy: 'completed_at DESC' }),
+      loaded: true,
     });
   },
 

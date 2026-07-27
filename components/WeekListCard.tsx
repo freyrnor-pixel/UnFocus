@@ -21,7 +21,7 @@
  *             components/FlightOverlay (FlightRect type only),
  *             components/IconButton, components/InlineAddItem, components/ShoppingFilterBar,
  *             components/Surface, components/CardAccent (CardAccentBadge),
- *             components/ShoppingRow (CHECKED_OPACITY), constants/theme,
+ *             components/ShoppingRow (CHECKED_OPACITY), constants/theme, lib/cardLayout (LayoutSpec),
  *             lib/i18n, lib/money (formatKr), lib/shoppingCategories (categoryPresets),
  *             lib/shoppingGroups (listProgress, listTotal), lib/useAppTheme, lib/haptics,
  *             lib/domainColor, store/useShoppingListStore (ShoppingList type),
@@ -143,6 +143,7 @@ import ExpandableCard from '@/components/ExpandableCard';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
 import ShoppingRow, { CHECKED_OPACITY } from '@/components/ShoppingRow';
+import { LAYOUT_SPECS, type LayoutSpec } from '@/lib/cardLayout';
 import InlineAddItem from '@/components/InlineAddItem';
 import AddFromMonthlyModal from '@/components/AddFromMonthlyModal';
 import ShoppingFilterBar from '@/components/ShoppingFilterBar';
@@ -219,6 +220,17 @@ type Props = {
   /** The dish name currently under the dragged row (parent-owned drag state) — tints that
    *  group's background while true so the merge/join target reads as a live drop zone. */
   mergeHighlightDish?: string | null;
+  /**
+   * Resolved card layout for the Shopping surface (lib/cardLayout.ts), applied to the live
+   * "In list"/"In cart" rows. Purchased-history rows deliberately stay on the default row —
+   * they're collapsed, read-only history, so growing them for "In the store" would push the
+   * live list off screen for no benefit. Omit to keep the historical row everywhere.
+   */
+  spec?: LayoutSpec;
+  /** Ids the previously-selected layout was hiding (lib/useNewSinceSeen.ts). */
+  newSinceIds?: ReadonlySet<string>;
+  /** Fields the previously-selected layout wasn't drawing — quantity/price reveals. */
+  newFields?: { meta: boolean; price: boolean; extras: boolean };
 };
 
 /** Price × amount total for a set of items. */
@@ -262,6 +274,9 @@ export default function WeekListCard({
   onFlightStart,
   registerDishGroupNode,
   mergeHighlightDish,
+  spec = LAYOUT_SPECS.normal,
+  newSinceIds,
+  newFields,
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -503,6 +518,9 @@ export default function WeekListCard({
                         onDecrement={() => onDecrementItem(item)}
                         inStockLabel={t.inStockLabel}
                         locked={list.locked}
+                        spec={spec}
+                        isNewSince={newSinceIds?.has(item.id)}
+                        newFields={newFields}
                         onFlightStart={(rect) => onFlightStart?.(item, rect)}
                       />
                       {idx < filteredInList.length - 1 && (
@@ -546,6 +564,9 @@ export default function WeekListCard({
                             onDecrement={() => onDecrementItem(item)}
                             inStockLabel={t.inStockLabel}
                             locked={list.locked}
+                            spec={spec}
+                            isNewSince={newSinceIds?.has(item.id)}
+                            newFields={newFields}
                             onFlightStart={(rect) => onFlightStart?.(item, rect)}
                           />
                           {(idx < dishItems.length - 1 || groupIdx < dishUncheckedGroups.length - 1) && (
@@ -649,6 +670,9 @@ export default function WeekListCard({
                     onIncrement={() => onIncrementItem(item)}
                     onDecrement={() => onDecrementCartItem(item)}
                     locked={list.locked}
+                    spec={spec}
+                    isNewSince={newSinceIds?.has(item.id)}
+                    newFields={newFields}
                   />
                   {idx < arr.length - 1 && (
                     <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />

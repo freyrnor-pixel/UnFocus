@@ -53,7 +53,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHabitStore, Habit, HabitKind } from '@/store/useHabitStore';
 import { useGoalStore } from '@/store/useGoalStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
+import { useSettingsStore, type HabitViewTab as SettingsHabitViewTab } from '@/store/useSettingsStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
@@ -480,7 +480,9 @@ function MonthView({
   );
 }
 
-type HabitViewTab = 'today' | 'week' | 'month';
+// The type itself now lives in store/useSettingsStore.ts, since the selection is persisted
+// there (2026-07-27) — re-exported shape only, so the local annotations below read the same.
+type HabitViewTab = SettingsHabitViewTab;
 
 export default function HabitsScreen() {
   const router = useRouter();
@@ -496,7 +498,15 @@ export default function HabitsScreen() {
   const styles = useScaledStyles(baseStyles);
   const habitDomainColor = getDomainColor(theme, 'habit');
 
-  const [habitTab, setHabitTab] = useState<HabitViewTab>('today');
+  // Persisted (2026-07-27): this was local state, so a user who lives in Week view got
+  // dropped back to Today on every remount — leaving a tab and coming back, or any
+  // re-render of the tabs stack. Written through settings.update so it survives a relaunch.
+  const habitTab = useSettingsStore((s) => s.habitViewTab);
+  const updateSettings = useSettingsStore((s) => s.update);
+  const setHabitTab = useCallback(
+    (v: HabitViewTab) => updateSettings({ habitViewTab: v }),
+    [updateSettings]
+  );
   const [selectedProfile, setSelectedProfile] = useState<string>('');
   // Inline quick-add (replaces the old "+" bubble → form nav): create a habit from just a
   // title with sensible defaults; the rest (icon/goal/recurrence) is edited later via

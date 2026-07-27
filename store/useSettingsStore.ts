@@ -119,6 +119,7 @@ import {
 import { generateId } from '@/lib/id';
 import { DEFAULT_TRAY_TIMES, normalizeTrayTimes, TrayTimes } from '@/lib/medicineSchedule';
 import { AspectRatioKey } from '@/constants/theme';
+import { DetailLevel, sanitizeCardLayouts, sanitizeDetailLevel } from '@/lib/cardLayout';
 
 // The app ships a single palette ("Default"). The union is kept as a type so
 // existing casts (`as ColorTheme`) still compile; only 'default' is ever stored.
@@ -127,6 +128,8 @@ export type Language = 'en' | 'no';
 export type DarkMode = 'system' | 'on' | 'off';
 export type FontSizePref = 'small' | 'default' | 'large';
 export type EnergyMode = 'daily' | 'weekly' | 'custom';
+/** Habits' Today/Week/Month selector. Persisted so it survives a remount. */
+export type HabitViewTab = 'today' | 'week' | 'month';
 
 export type Settings = {
   userName: string;
@@ -289,6 +292,24 @@ export type Settings = {
   // those four daily notifications (the card and dose logging work regardless).
   medicineTrayTimes: TrayTimes;
   medicineRemindersEnabled: boolean;
+  // ---- Card layouts (2026-07-27) ----
+  // How much detail list-bearing surfaces draw, and per-surface exceptions to that.
+  // `layoutDetail` is the global default every surface understands; `cardLayouts` maps a
+  // surface id to a layout that overrides it ({ shopping: 'inStore' }) — an absent key
+  // means "follow the global default", which is what the picker's reset writes.
+  //
+  // Both are validated on read through lib/cardLayout.ts (sanitizeDetailLevel /
+  // sanitizeCardLayouts) rather than trusted, so a stale id from an older build or an
+  // edited backup degrades to 'normal' instead of resolving to an undefined spec.
+  //
+  // Presentation ONLY. No reminder, automation, widget, or sync path reads either field —
+  // a layout changes how existing data is drawn, never what the app does with it. In
+  // particular, a row that the active layout doesn't draw keeps its own reminders; see
+  // lib/cardLayout.ts's header and lib/__tests__/cardLayout.test.ts.
+  layoutDetail: DetailLevel;
+  cardLayouts: Record<string, string>;
+  /** Habits' Today/Week/Month selector, persisted so it survives a remount. */
+  habitViewTab: HabitViewTab;
 };
 
 type SettingsStore = Settings & {
@@ -379,6 +400,9 @@ function rowToSettings(row: Row): Settings {
     featureMedicine: readBool(row, 'feature_medicine'),
     medicineTrayTimes: normalizeTrayTimes(readJson<unknown>(row, 'medicine_tray_times', DEFAULT_TRAY_TIMES)),
     medicineRemindersEnabled: readBool(row, 'medicine_reminders_enabled'),
+    layoutDetail: sanitizeDetailLevel(readStr(row, 'layout_detail', 'normal')),
+    cardLayouts: sanitizeCardLayouts(readJson<unknown>(row, 'card_layouts', {})),
+    habitViewTab: readEnum<HabitViewTab>(row, 'habit_view_tab', ['today', 'week', 'month'], 'today'),
   };
 }
 
@@ -454,6 +478,9 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   featureMedicine: { col: 'feature_medicine', to: bool },
   medicineTrayTimes: { col: 'medicine_tray_times', to: (v) => JSON.stringify(v) },
   medicineRemindersEnabled: { col: 'medicine_reminders_enabled', to: bool },
+  layoutDetail: { col: 'layout_detail' },
+  cardLayouts: { col: 'card_layouts', to: (v) => JSON.stringify(v) },
+  habitViewTab: { col: 'habit_view_tab' },
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -535,6 +562,11 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   featureMedicine: true,
   medicineTrayTimes: DEFAULT_TRAY_TIMES,
   medicineRemindersEnabled: true,
+  // 'normal' reproduces the pre-2026-07-27 rendering of every surface exactly, so an
+  // upgrading user sees no change until they pick one.
+  layoutDetail: 'normal' as DetailLevel,
+  cardLayouts: {},
+  habitViewTab: 'today' as HabitViewTab,
   loaded: false,
   workModeSessionOverride: false,
 

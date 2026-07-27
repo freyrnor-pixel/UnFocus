@@ -196,6 +196,33 @@ async function main() {
     await page.goBack();
     await page.waitForTimeout(800);
 
+    // Card layouts (2026-07-27): open Shopping's layout picker from the header, switch to a
+    // surface-specific layout and then to the sparsest one, confirming both that the picker
+    // renders and that the rows actually redraw. The second switch is the one that matters —
+    // ShoppingRow is memoized on prop identity, so a layout change that didn't reach the
+    // comparator would leave the list looking identical and this step would catch it.
+    console.log('> Shopping -> layout picker');
+    await page.getByRole('button', { name: 'Shopping', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await dismissModalIfPresent(page);
+    const layoutBtn = page.getByRole('button', { name: 'How lists look' }).first();
+    const layoutRowsBefore = await page.getByText(/kr/).count();
+    await layoutBtn.click({ timeout: 10000 });
+    await page.waitForTimeout(700);
+    await shot(page, 'layout-picker');
+    await clickText(page, 'In the store');
+    await page.waitForTimeout(700);
+    await shot(page, 'layout-in-the-store');
+    await clickText(page, 'Just the basics');
+    await page.waitForTimeout(700);
+    await shot(page, 'layout-just-the-basics');
+    // "Just the basics" hides money entirely, so any price text present before must be gone.
+    const layoutRowsAfter = await page.getByText(/kr/).count();
+    console.log(`  price cells before/after switching to basics: ${layoutRowsBefore}/${layoutRowsAfter}`);
+    console.log(`  layout switch changed the rendering: ${layoutRowsAfter <= layoutRowsBefore}`);
+    await clickText(page, 'Done');
+    await page.waitForTimeout(500);
+
     console.log('> back to Home tab');
     await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(1000);

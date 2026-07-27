@@ -15,7 +15,9 @@
  *
  * Connections:
  *   Imports → components/Badge, components/FlightOverlay (FlightRect type only), components/InventoryIcon,
+ *             components/NewSinceGlow (row + field "your last view was hiding this" marker),
  *             components/PressableScale, constants/theme, constants/motion (Duration/Ease tokens),
+ *             lib/cardLayout (LayoutSpec — what this row is allowed to draw),
  *             lib/date, lib/haptics, lib/i18n, lib/useAppTheme, react-native-reanimated,
  *             store/useShoppingStore (ShoppingItem type + recentlyAddedIds, see Decision 044b note)
  *   Used by → components/WeekListCard.tsx, app/(tabs)/shopping.tsx (weekly rows +
@@ -134,6 +136,8 @@ import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
 import { heavy } from '@/lib/haptics';
 import InventoryIcon from '@/components/InventoryIcon';
+import NewSinceGlow from '@/components/NewSinceGlow';
+import { LAYOUT_SPECS, type LayoutSpec } from '@/lib/cardLayout';
 import { Badge } from '@/components/Badge';
 import PressableScale from '@/components/PressableScale';
 
@@ -160,6 +164,22 @@ type Props = {
   locked?: boolean;
   /** See "Flight animation" edit note above. Omit to keep today's fade-only toggle. */
   onFlightStart?: (rect: FlightRect) => void;
+  /**
+   * Resolved card layout (lib/cardLayout.ts). Omit for the historical two-line row —
+   * every caller that hasn't opted in keeps exactly what it rendered before.
+   */
+  spec?: LayoutSpec;
+  /**
+   * The previous view was hiding this row (lib/useNewSinceSeen.ts). Purely a display flag:
+   * it changes nothing about the item's own behaviour.
+   */
+  isNewSince?: boolean;
+  /**
+   * Fields the previous view wasn't drawing. Shopping's layouts never collapse rows, so
+   * this is the channel that matters here: coming from "Just the basics", the quantity and
+   * price that just appeared are what the user needs pointing out, not the row itself.
+   */
+  newFields?: { meta: boolean; price: boolean; extras: boolean };
 };
 
 function ShoppingRow({
@@ -173,6 +193,9 @@ function ShoppingRow({
   inStockLabel,
   locked,
   onFlightStart,
+  spec = LAYOUT_SPECS.normal,
+  isNewSince = false,
+  newFields,
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -221,13 +244,19 @@ function ShoppingRow({
     prevQty.current = safeQty;
   }, [safeQty, highlight, reducedMotion]);
   const dimmed = variant === 'purchased' || (variant === 'planned' && item.checked);
-  const showStepper = variant !== 'purchased' && !!(onIncrement || onDecrement);
+  // Layout gates. `spec.showMeta` covers the whole second line (quantity, stepper, in-stock);
+  // when it's off the row collapses to a single line and the stepper's own conditions never
+  // get consulted. Quantity is still editable — tapping through to the item's own editor is
+  // unaffected — so "Just the basics" hides a control without removing a capability.
+  const showStepper = spec.showMeta && variant !== 'purchased' && !!(onIncrement || onDecrement);
+  const showInStock = spec.showExtras && item.inventoryQty > 0 && !!inStockLabel;
+  const showSecondLine = spec.showMeta || showInStock;
   // Cart items allow decrement at qty=1 — the parent's onDecrement will handle the
   // move-back-to-list logic for the 1→0 case (qty never actually stores as 0; the
   // handler unchecks the item instead).
   const canDecrement = !!onDecrement && (variant === 'cart' ? safeQty >= MIN_QTY : safeQty > MIN_QTY);
   const canIncrement = !!onIncrement && safeQty < MAX_QTY;
-  const priceTotal = item.price > 0 && isNumeric ? item.price * qty : null;
+  const priceTotal = spec.showPrice && item.price > 0 && isNumeric ? item.price * qty : null;
   const isPutBack = item.fromCatalog && variant !== 'purchased';
 
   function handleRemovePress() {
@@ -260,7 +289,8 @@ function ShoppingRow({
       exiting={willFly ? undefined : (reducedMotion ? undefined : FadeOut.duration(Duration.cardOut).easing(Ease.exit))}
       layout={reducedMotion ? undefined : LinearTransition.duration(Duration.listMove).easing(Ease.move)}
     >
-      <Animated.View style={[styles.row, dimmed && styles.rowChecked, { backgroundColor: theme.surface }]}>
+      <NewSinceGlow active={isNewSince} suppressed={wasNewOnMount}>
+      <Animated.View style={[styles.row, spec.bigTouch && styles.rowBig, dimmed && styles.rowChecked, { backgroundColor: theme.surface }]}>
         <Animated.View
           pointerEvents="none"
           style={[styles.highlight, { backgroundColor: theme.goodSoft, borderColor: theme.good }, highlightStyle]}
@@ -268,6 +298,7 @@ function ShoppingRow({
         <PressableScale
           style={[
             styles.check,
+            spec.bigTouch && styles.checkBig,
             variant === 'planned' && (item.checked
               ? { backgroundColor: theme.good, borderColor: theme.good }
               : { borderColor: theme.good }),
@@ -292,22 +323,29 @@ function ShoppingRow({
         <View style={styles.lines}>
           <View style={styles.line1}>
             <Text
-              style={[styles.name, { color: theme.text }, dimmed && { color: theme.textMuted, textDecorationLine: 'line-through' }]}
+              style={[styles.name, spec.bigTouch && styles.nameBig, { color: theme.text }, dimmed && { color: theme.textMuted, textDecorationLine: 'line-through' }]}
               numberOfLines={1}
             >
               {item.name}
             </Text>
             {priceTotal !== null && (
-              <Text style={[styles.priceTotal, { color: dimmed ? theme.textMuted : theme.text }]}>
-                {formatKr(priceTotal, 0)}
-              </Text>
+              <NewSinceGlow active={!!newFields?.price} tight>
+                <Text style={[styles.priceTotal, { color: dimmed ? theme.textMuted : theme.text }]}>
+                  {formatKr(priceTotal, 0)}
+                </Text>
+              </NewSinceGlow>
             )}
           </View>
 
+          {showSecondLine && (
           <View style={styles.line2}>
-            <Text style={[styles.meta, { color: theme.textMuted }]}>
-              {item.amount}{item.unit ? ` ${item.unit}` : ''}
-            </Text>
+            {spec.showMeta && (
+              <NewSinceGlow active={!!newFields?.meta} tight>
+                <Text style={[styles.meta, { color: theme.textMuted }]}>
+                  {item.amount}{item.unit ? ` ${item.unit}` : ''}
+                </Text>
+              </NewSinceGlow>
+            )}
 
             {showStepper && (
               <View style={styles.stepper}>
@@ -345,10 +383,11 @@ function ShoppingRow({
               </View>
             )}
 
-            {item.inventoryQty > 0 && inStockLabel ? (
+            {showInStock ? (
               <Text style={[styles.meta, { color: theme.good }]}>{inStockLabel}: {item.inventoryQty}</Text>
             ) : null}
           </View>
+          )}
         </View>
 
         {variant !== 'purchased' && (
@@ -366,6 +405,7 @@ function ShoppingRow({
           </PressableScale>
         )}
       </Animated.View>
+      </NewSinceGlow>
     </Animated.View>
   );
 }
@@ -379,6 +419,11 @@ const baseStyles = StyleSheet.create({
     gap: Spacing.sm,
   },
   rowChecked: { opacity: CHECKED_OPACITY },
+  // "In the store": read at arm's length, tapped one-handed while pushing a trolley.
+  // Taller rows and a bigger check circle; the name grows via `nameBig`.
+  rowBig: { paddingVertical: Spacing.md, gap: Spacing.md },
+  checkBig: { width: 32, height: 32, borderRadius: Radius.full },
+  nameBig: { fontSize: FontSize.lg },
   highlight: {
     ...StyleSheet.absoluteFill,
     borderRadius: Radius.md,
@@ -426,6 +471,14 @@ function shoppingRowPropsEqual(prev: Props, next: Props): boolean {
     prev.variant === next.variant &&
     prev.locked === next.locked &&
     prev.inStockLabel === next.inStockLabel &&
+    // Layout + glow MUST be compared here. They decide what the row draws, so leaving them
+    // out would let a user switch layout in Settings and see nothing change until some
+    // unrelated store write happened to invalidate each row. `spec` is compared by
+    // reference, which is sound because specs are module-level singletons in
+    // lib/cardLayout.ts (LAYOUT_SPECS) — never rebuilt per render.
+    prev.spec === next.spec &&
+    prev.isNewSince === next.isNewSince &&
+    prev.newFields === next.newFields &&
     // Presence (not identity) of optional callbacks controls what renders (stepper, flight).
     !!prev.onCollect === !!next.onCollect &&
     !!prev.onIncrement === !!next.onIncrement &&
