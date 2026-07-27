@@ -30,7 +30,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/StarterCard
  *             (first-run explainer, shown while nothing has ever been logged),
- *             components/Surface,
+ *             components/StarterExampleRow (its preview row), components/Surface,
  *             components/CardAccent (CardAccentBadge), components/PressableScale,
  *             components/DebugNoteAnchor, components/AddRow,
  *             components/FormControls (Input), constants/theme, lib/date, lib/i18n,
@@ -68,6 +68,7 @@ import { useHealthStore, HealthLog } from '@/store/useHealthStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import StarterCard from '@/components/StarterCard';
+import StarterExampleRow from '@/components/StarterExampleRow';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import Surface from '@/components/Surface';
 import { CardAccentBadge } from '@/components/CardAccent';
@@ -179,7 +180,21 @@ export default function HealthScreen() {
               than from memory, plus what an entry looks like. Gated on the whole log being
               empty (not just this week's), so a user with history doesn't see it on a quiet
               week — and it returns if every entry is later deleted. */}
-          {logs.length === 0 && <StarterCard text={t.starters.health.text} example={t.starters.health.example} />}
+          {logs.length === 0 && (
+            <StarterCard
+              text={t.starters.health.text}
+              exampleLabel={t.starters.exampleLabel}
+              example={
+                <StarterExampleRow
+                  icon="medical-outline"
+                  title={t.starters.health.exampleTitle}
+                  meta="3/5"
+                  metaVariant="warning"
+                  accent={SEVERITY_COLORS[2]}
+                />
+              }
+            />
+          )}
 
           {/* Quick log — essentials-only instant record (name + start time + duration +
               severity, dated today). */}
