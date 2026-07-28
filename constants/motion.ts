@@ -48,7 +48,29 @@ export const Ease = {
   enter: Easing.out(Easing.cubic),
   exit: Easing.in(Easing.cubic),
   move: Easing.inOut(Easing.cubic),
+  /** The key-press curve — design-system v6 `handoff/BUTTONS.md`: 90ms
+   *  `cubic-bezier(.2,.85,.3,1)`. Fast off the mark then settling, so a cap reads as
+   *  hitting the bottom of its travel rather than easing into it. Used by
+   *  components/PressableScale.tsx's `travel` mode. */
+  press: Easing.bezier(0.2, 0.85, 0.3, 1),
 };
+
+/** Cap travel per control size — how far a pressable sinks into its base
+ *  (design-system v6 `handoff/BUTTONS.md`). Bigger controls travel further, which is what
+ *  keeps a FAB from feeling as twitchy as a chip. */
+export const Travel = {
+  /** chips, small pills, checkboxes */
+  sm: 3,
+  /** icon buttons, medium buttons, counters */
+  md: 4,
+  /** full-width / lg text buttons */
+  lg: 5,
+  /** the FAB */
+  fab: 6,
+} as const;
+
+/** How long a cap takes to sink. 1ms under reduced motion (v6: "1ms under reduced motion"). */
+export const PRESS_DURATION = 90;
 
 /** The proven snappy spring (from PressableScale) for tactile press/toggle spring-backs.
  *  Tuned (2026-07-20) to damping 26 (was 18), then again (2026-07-21, tester feedback "still

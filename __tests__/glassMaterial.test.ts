@@ -60,31 +60,55 @@ describe('getMaterialStyle — take-two static layers', () => {
     expect(mat.rim.colors.length).toBeGreaterThanOrEqual(2);
     expect(mat.rim.colors.length).toBe(mat.rim.locations.length);
     expect(mat.scrim.colors.length).toBe(mat.scrim.locations.length);
-    // Scrim fades to fully transparent white so text below it isn't washed out.
-    expect(mat.scrim.colors[mat.scrim.colors.length - 1]).toBe(rgba('#FFFFFF', 0));
+    // The face lift passes through fully transparent so text under it isn't washed out.
+    expect(mat.scrim.colors[1]).toBe(rgba('#FFFFFF', 0));
   });
 
-  it('raised-keycap rim is hue-tinted (not pure white) with a crisp top-weighted lit band', () => {
+  it('keeps the cap MATTE — a faint lift, gone by 42%, and a barely-there bottom shade', () => {
+    // Guards the 2026-07-28 matte pass. design-system v6 `handoff/BUTTONS.md`: "matte, not
+    // glossy… no specular highlight, no white gloss arc." The old finish was white at 0.22
+    // fading across HALF the height, which read as a glossy dome; if these numbers creep back
+    // up, the gloss is back.
     const light = getMaterialStyle(base, 'card', 'light');
-    // Rim top stop is derived from the base hue (lighten), NOT a pure-white streak — so the edge
-    // tints to the surface's own colour (2026-07-18 retune). base #3366CC → lighten keeps a blue cast.
-    expect(light.rim.colors[0]).toBe(rgba(lighten(base, 0.42), 0.85));
-    expect(light.rim.colors[0]).not.toBe(rgba('#FFFFFF', 0.85));
-    // Bright band pushed to the top edge (crisp lit lip, not a half-height fade): mid stop ≤ 0.25.
-    expect(light.rim.locations[1]).toBeLessThanOrEqual(0.25);
-    // Bottom rim stop is a soft dark hue-shadow (the chamfer's shadowed edge), not white.
-    // (0.52, not 0.34 — bumped by the 2026-07-24 contrast pass, #338.)
-    expect(light.rim.colors[light.rim.colors.length - 1]).toBe(rgba(darken(base, 0.14), 0.52));
+    const topAlpha = Number(light.scrim.colors[0].match(/,\s*([\d.]+)\)$/)![1]);
+    expect(topAlpha).toBeLessThanOrEqual(0.1);
+    // Gone by 42% of the height — a lift that stops reads as a flat lit face; one that fades
+    // across the whole surface reads as curvature.
+    expect(light.scrim.locations[1]).toBeLessThanOrEqual(0.42);
+    // Bottom shade is a 4% black, not another white stop.
+    expect(light.scrim.colors[light.scrim.colors.length - 1]).toBe(rgba('#000000', 0.04));
   });
 
-  it('dark mode dims the rim + specular vs light (no harsh streak on near-black)', () => {
+  it('has no specular highlight at all', () => {
+    // Removed 2026-07-28 — the soft white radial blob on top of the face lift was the gloss.
+    // This asserts the token is GONE, not merely dimmed, so it can't be quietly reintroduced.
+    expect('specular' in getMaterialStyle(base, 'card', 'light')).toBe(false);
+  });
+
+  it('rim is a flat moulded top edge, not a bright domed chamfer', () => {
+    // 2026-07-28 matte pass. The top stop used to be lighten(base, 0.42) at 0.85 alpha — a
+    // near-white band that read as a wet, domed edge curving toward the viewer. v6's
+    // `handoff/BUTTONS.md` puts the whole lift in `inset 0 1px 0 rgba(255,255,255,.22)`.
+    const light = getMaterialStyle(base, 'card', 'light');
+    expect(light.rim.colors[0]).toBe(rgba('#FFFFFF', 0.22));
+    // It STOPS rather than fading — a stop within the first eighth of the height reads as a
+    // chamfer; a long fade reads as curvature.
+    expect(light.rim.locations[1]).toBeLessThanOrEqual(0.15);
+    expect(light.rim.colors[1]).toBe(rgba('#FFFFFF', 0));
+    // The bottom stop stays a soft hue-dark line — that's the moulded base edge under the cap,
+    // which is what makes the press travel legible. It is NOT a shadow and NOT white.
+    expect(light.rim.colors[light.rim.colors.length - 1]).toBe(rgba(darken(base, 0.16), 0.38));
+  });
+
+  it('dark mode dims the rim vs light (no harsh streak on near-black)', () => {
     const light = getMaterialStyle(base, 'card', 'light');
     const dark = getMaterialStyle(base, 'card', 'dark');
-    // Dark-mode rim top lip is lower-alpha than light so it doesn't glare on near-black.
     const lightTopAlpha = Number(light.rim.colors[0].match(/,\s*([\d.]+)\)$/)![1]);
     const darkTopAlpha = Number(dark.rim.colors[0].match(/,\s*([\d.]+)\)$/)![1]);
     expect(darkTopAlpha).toBeLessThan(lightTopAlpha);
-    expect(dark.specular.centerOpacity).toBeLessThan(light.specular.centerOpacity);
+    const lightLift = Number(light.scrim.colors[0].match(/,\s*([\d.]+)\)$/)![1]);
+    const darkLift = Number(dark.scrim.colors[0].match(/,\s*([\d.]+)\)$/)![1]);
+    expect(darkLift).toBeLessThan(lightLift);
   });
 
   it('exposes a hue-tinted innerLine (the "double keycap" second edge), brighter in light mode', () => {
@@ -100,15 +124,6 @@ describe('getMaterialStyle — take-two static layers', () => {
     const lightAlpha = Number(light.innerLine.match(/,\s*([\d.]+)\)$/)![1]);
     const darkAlpha = Number(dark.innerLine.match(/,\s*([\d.]+)\)$/)![1]);
     expect(lightAlpha).toBeGreaterThan(darkAlpha);
-  });
-
-  it('specular is a wide, diffuse top sheen (frosted, not a tight glossy bead)', () => {
-    const { specular } = getMaterialStyle(base, 'card', 'light');
-    // Anchored toward the top, widened + dimmed vs the old sharp top-left bead (cx16/cy6/0.6).
-    expect(specular.cx).toBe('28%');
-    expect(specular.cy).toBe('8%');
-    expect(specular.edgeOffset).toBe('82%');
-    expect(specular.centerOpacity).toBeLessThan(0.2);
   });
 
   it('button fillGradient runs light→base→dark, pre-alpha`d to the button wash', () => {

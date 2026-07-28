@@ -10,17 +10,21 @@
  *      button's top-lit vertical `fillGradient` when the caller passes one. This is the
  *      ENTIRE colour finish for ambient content cards (no BlurView there — a translucent
  *      tint over the calm backdrop reads as frosted without per-frame blur, the power win).
- *   3. Adaptive scrim (fix 2, expo-linear-gradient) — a soft top-down white gradient behind
- *      text, denser at top, fading out by ~58% height. Static.
- *   4. Specular highlight (fix 3, react-native-svg RadialGradient) — a soft top-left blob.
- *      Static.
+ *   3. Face lift (expo-linear-gradient) — the matte cap finish: 10% white at the top, gone by
+ *      42%, then a 4% shade at the bottom. Static.
+ *
+ * **There is no specular highlight** (removed 2026-07-28). A soft white radial blob used to
+ * sit on top of layer 3; together they read as a glossy dome curving toward the viewer, which
+ * is the opposite of what design-system v6's `handoff/BUTTONS.md` asks for ("matte, not
+ * glossy… no specular highlight, no white gloss arc"). Don't reintroduce it — if a surface
+ * needs to look more raised, that belongs in the rim/base edge, not in a highlight.
  * The rim-light gradient border (fix 1) is NOT here — it's the border ring, drawn by the
  * caller's outer/mask views (Surface, Button). The layered *shadow* is applied by the OUTER
  * view via getLayeredShadow(), not here; the *glow* (purposeful active/focus indicator) is
  * applied by the outer view via getGlow(), not here either.
  *
  * Connections:
- *   Imports → constants/theme (MaterialStyle), expo-blur, expo-linear-gradient, react-native-svg
+ *   Imports → constants/theme (MaterialStyle), expo-blur, expo-linear-gradient
  *   Used by → components/Surface, components/Button, components/AddFAB
  *   Data    → none
  *
@@ -30,8 +34,6 @@
  *     persistent-sluggishness driver before it was removed; don't reintroduce any
  *     per-frame/looping effect in this file. The take-two layers 3–4 above are all STATIC
  *     (a gradient + a radial blob) and cost nothing per frame.
- *   - The specular `<RadialGradient>` needs a document-unique id (many GlassFills mount at
- *     once); it's derived from React.useId() with the colons stripped so it's a valid SVG ref.
  *   - **The BlurView itself is `pointerEvents="none"`, not only its wrapper.** On Android a
  *     native BlurView can still capture taps even inside a `pointerEvents="none"` parent —
  *     setting it on the BlurView element stops it decisively (this was the fix for
@@ -46,7 +48,6 @@ import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { MaterialStyle } from '@/constants/theme';
 
 // Rewrites the alpha channel of an `rgba(r, g, b, a)` string, keeping its hue.
@@ -85,9 +86,6 @@ export default function GlassFill({ mat, radius, blurIntensity, washAlpha, tint,
   const rawWash = washAlpha ?? mat.washAlpha;
   const effectiveWash = Platform.OS === 'android' ? Math.max(rawWash, 0.56) : rawWash;
   const wash = withAlpha(mat.backgroundColor, effectiveWash);
-  // Document-unique id per mounted GlassFill (colons stripped → valid SVG url(#…) ref).
-  const specularId = 'gfSpec' + React.useId().replace(/:/g, '');
-
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius }]}>
       {blurIntensity > 0 && (
@@ -109,7 +107,8 @@ export default function GlassFill({ mat, radius, blurIntensity, washAlpha, tint,
       ) : (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: wash }]} />
       )}
-      {/* Adaptive scrim (fix 2) — soft top-down white behind text. Static. */}
+      {/* Face lift — a 10%-white top lift gone by 42%, then a 4% shade at the bottom.
+          Matte, not glossy (2026-07-28): see getMaterialStyle's `scrim` comment. Static. */}
       <LinearGradient
         pointerEvents="none"
         colors={mat.scrim.colors}
@@ -118,22 +117,6 @@ export default function GlassFill({ mat, radius, blurIntensity, washAlpha, tint,
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      {/* Specular highlight (fix 3) — soft top-left radial blob. Static. */}
-      <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
-        <Defs>
-          <RadialGradient
-            id={specularId}
-            cx={mat.specular.cx}
-            cy={mat.specular.cy}
-            rx={mat.specular.rx}
-            ry={mat.specular.ry}
-          >
-            <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={mat.specular.centerOpacity} />
-            <Stop offset={mat.specular.edgeOffset} stopColor="#FFFFFF" stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${specularId})`} />
-      </Svg>
     </View>
   );
 }

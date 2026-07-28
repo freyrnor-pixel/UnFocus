@@ -31,12 +31,13 @@
  *   - Glass surface (simplified 2026-07-18): BlurView frost (overlay/chrome only) + colour
  *     wash (see Surface.tsx) so text on cards keeps the same contrast guarantees regardless
  *     of what's blurred behind.
- *   - "Glass, take two" (2026-07-18): `MaterialStyle` re-gained three STATIC take-two tokens —
- *     `rim` (fix 1, gradient border ring), `scrim` (fix 2, top-down text scrim), `specular`
- *     (fix 3, top-left highlight blob) — plus `fillGradient` (primary/danger button top-lit
- *     fill). All mode-aware via getMaterialStyle's `mode` arg. The drifting "sheen" (fix 4)
- *     stays OUT — it was the persistent-sluggishness driver (see GlassFill's header). Rim is
- *     drawn by Surface/Button; scrim/specular/fillGradient by GlassFill.
+ *   - **Matte finish (2026-07-28)**: `MaterialStyle` carries `rim` (the gradient border ring),
+ *     `scrim` (the cap's face lift) and `fillGradient` (primary/danger button fill). All
+ *     mode-aware via getMaterialStyle's `mode` arg, all STATIC. Rim is drawn by Surface/Button;
+ *     scrim/fillGradient by GlassFill. Two things are deliberately NOT here and must not come
+ *     back: the `specular` highlight blob (removed — it read as gloss; see each token's own
+ *     comment below) and the drifting "sheen" (never implemented — it was the app's
+ *     persistent-sluggishness driver; see GlassFill's header).
  *   - Purposeful Depth System (2026-07-14): `getElevation('flat'|'raised'|'floating')`
  *     is the go-forward depth token — flat=read-only, raised=tappable at rest,
  *     floating=the one focused/active surface. Used by PressableScale's `depth` prop,
@@ -328,7 +329,7 @@ export const Shadow = {
 
 // ─── Materials: glass surface finish ─────────────────────────────────────────
 
-/** Light vs dark tuning for the take-two glass recipe (rim/scrim/specular alphas). */
+/** Light vs dark tuning for the glass recipe (rim/scrim alphas). */
 export type MaterialMode = 'light' | 'dark';
 
 /** expo-linear-gradient requires ≥2 colour/location stops — a tuple, not a plain array. */
@@ -337,10 +338,8 @@ type GradientStops = readonly [number, number, ...number[]];
 
 /** Raised-keycap border (fix 1) — a vertical (top-light → bottom-dark) hue-tinted gradient padding-ring. */
 export type RimGradient = { colors: GradientColors; locations: GradientStops };
-/** Adaptive top-down white scrim behind text (fix 2) — a vertical gradient. */
+/** The matte cap finish — a vertical gradient: a 10% white lift, gone by 42%, then a 4% shade. */
 export type ScrimGradient = { colors: GradientColors; locations: GradientStops };
-/** Soft top-left specular highlight (fix 3) — an SVG radial blob (percent geometry). */
-export type Specular = { cx: string; cy: string; rx: string; ry: string; centerOpacity: number; edgeOffset: string };
 
 export type MaterialStyle = {
   backgroundColor: string;
@@ -368,9 +367,9 @@ export type MaterialStyle = {
    * Take-two static glass layers (2026-07-18 "Glass, take two", re-added after the
    * simplification): all mode-aware, all static (no per-frame/looping effect — the drifting
    * "sheen", fix 4, is deliberately NOT here; see GlassFill's header). `rim` is the gradient
-   * border ring (Surface/Button render it, not GlassFill); `scrim`/`specular` are rendered by
-   * GlassFill as fill overlays; `fillGradient` is the primary/danger button's top-lit vertical
-   * fill, pre-alpha'd to `washAlpha`.
+   * border ring (Surface/Button render it, not GlassFill); `scrim` is rendered by GlassFill as
+   * a fill overlay; `fillGradient` is the primary/danger button's top-lit vertical fill,
+   * pre-alpha'd to `washAlpha`. There is deliberately no specular blob — see GlassFill's header.
    */
   rim: RimGradient;
   /**
@@ -381,7 +380,6 @@ export type MaterialStyle = {
    */
   innerLine: string;
   scrim: ScrimGradient;
-  specular: Specular;
   fillGradient: GradientColors;
 };
 
@@ -403,26 +401,37 @@ export function computeRimGradient(base: string, isDark: boolean): RimGradient {
   // black backdrops (measured ~1.3:1, well under WCAG 1.4.11's 3:1 non-text minimum) — only the
   // top ~20% (the lit highlight) was actually visible. Raised the mid/bottom alphas so the whole
   // ring reads as a real edge; the top stop (the "lit lip") is untouched since it already worked.
+  //
+  // **Matte pass (2026-07-28, maintainer: "the glossy button look is awful, want it flatter,
+  // it feels too rounded towards the user").** The old light-mode top stop was
+  // lighten(base, 0.42) at 0.85 alpha — a near-white band bright enough to read as a domed,
+  // wet-looking chamfer curving toward the viewer. Design-system v6's `handoff/BUTTONS.md` is
+  // explicit about the target: "matte, not glossy… no specular highlight, no white gloss arc.
+  // The read should be moulded ABS under diffuse light", with the whole lift carried by a
+  // plain `inset 0 1px 0 rgba(255,255,255,.22)` top edge. So the top stop is now a flat white
+  // at that .22, holding for a hair of the height instead of fading over a fifth of it (a
+  // gradient that FADES reads as curvature; one that stops reads as a chamfer), and the
+  // bottom keeps a soft hue-dark line so the moulded base edge survives.
   return isDark
     ? {
-        colors: [rgba(lighten(base, 0.28), 0.42), rgba(lighten(base, 0.05), 0.22), rgba('#000000', 0.5)],
-        locations: [0, 0.25, 1],
+        colors: [rgba('#FFFFFF', 0.16), rgba('#FFFFFF', 0), rgba('#000000', 0.42)],
+        locations: [0, 0.12, 1],
       }
     : {
-        colors: [rgba(lighten(base, 0.42), 0.85), rgba(lighten(base, 0.08), 0.34), rgba(darken(base, 0.14), 0.52)],
-        locations: [0, 0.22, 1],
+        colors: [rgba('#FFFFFF', 0.22), rgba('#FFFFFF', 0), rgba(darken(base, 0.16), 0.38)],
+        locations: [0, 0.12, 1],
       };
 }
 
 /**
- * Computes glass surface-finish tokens from a single base colour.
+ * Computes the matte surface-finish tokens from a single base colour.
  * Spread the border/shadow keys onto the outer (shadow-casting) view and
  * `backgroundColor` + the take-two layer colours onto components/GlassFill.tsx.
  * `variant` tunes fill density: `'card'` (default) stays glassy-translucent; `'button'`
  * returns a near-opaque wash so action labels stay WCAG-legible. `mode` ('light'|'dark')
- * tunes the take-two rim/scrim/specular alphas — a full-strength white streak reads as a
- * harsh line on near-black, so dark mode dims all three. Callers that render the take-two
- * layers (Surface, Button, AddFAB via GlassFill) MUST pass their current mode; FoodTab and
+ * tunes the rim/scrim alphas — a full-strength white edge reads as a harsh line on near-black,
+ * so dark mode dims both. Callers that render these layers (Surface, Button, AddFAB via
+ * GlassFill) MUST pass their current mode; FoodTab and
  * the other back-compat consumers only read backgroundColor/border/contrastBase and can omit it.
  */
 export function getMaterialStyle(base: string, variant: MaterialVariant = 'card', mode: MaterialMode = 'light'): MaterialStyle {
@@ -459,31 +468,29 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
   // bumped so the inner wall is dependably visible, not just on hues far from the backdrop.
   const innerLine = isDark ? rgba(lighten(base, 0.16), 0.4) : rgba(lighten(base, 0.06), 0.65);
 
-  // Adaptive scrim (fix 2): a soft matte veil behind text — much lighter than the old glossy
-  // 0.42 sheen (2026-07-18: dropped toward a frosted, non-glary finish), fading out by half height.
+  // The face lift (was "adaptive scrim"). **Matte pass (2026-07-28)**: design-system v6's
+  // `handoff/BUTTONS.md` gives one recipe for the whole cap finish —
+  // `linear-gradient(rgba(255,255,255,.10), transparent 42%, rgba(0,0,0,.04))`. That is what
+  // this now is. The old version was white at 0.22 fading over HALF the height, which put a
+  // visible sheen across the middle of every surface; combined with the specular blob it read
+  // as a glossy dome. The new one is a tenth-opacity lift that's gone by 42% and a barely-there
+  // 4% shade at the bottom: enough to say "this face catches light from above", not enough to
+  // say "this face is curved".
   const scrim: ScrimGradient = {
-    colors: [rgba('#FFFFFF', isDark ? 0.10 : 0.22), rgba('#FFFFFF', 0)],
-    locations: [0, 0.5],
+    colors: [rgba('#FFFFFF', isDark ? 0.06 : 0.10), rgba('#FFFFFF', 0), rgba('#000000', 0.04)],
+    locations: [0, 0.42, 1],
   };
 
-  // Specular (fix 3): a wide, diffuse top sheen — NOT a tight mirror bead. Widened and
-  // dimmed (2026-07-18) from the old sharp top-left blob (cx16/cy6, 0.6) so it reads as
-  // frosted-glass light diffusion rather than a glossy plastic highlight.
-  const specular: Specular = {
-    cx: '28%',
-    cy: '8%',
-    rx: '78%',
-    ry: '70%',
-    centerOpacity: isDark ? 0.12 : 0.19,
-    edgeOffset: '82%',
-  };
-
-  // Primary/danger button top-lit vertical fill (lighten → base → darken), pre-alpha'd to the
-  // wash so GlassFill can drop it in as a straight replacement for the flat wash layer.
+  // Primary/danger button top-lit vertical fill, pre-alpha'd to the wash so GlassFill can drop
+  // it in as a straight replacement for the flat wash layer. **Matte pass (2026-07-28)**:
+  // lighten/darken halved (0.12/0.10 → 0.05/0.04) and the base held to the same 42% the face
+  // lift uses. At the old spread the fill itself had a top-to-bottom shading ramp strong enough
+  // to read as a cylinder; the cap is meant to be a flat moulded face whose only shading is the
+  // lift above and the base edge below.
   const fillGradient: GradientColors = [
-    rgba(lighten(base, 0.12), washAlpha),
+    rgba(lighten(base, 0.05), washAlpha),
     rgba(base, washAlpha),
-    rgba(darken(base, 0.1), washAlpha),
+    rgba(darken(base, 0.04), washAlpha),
   ];
 
   return {
@@ -503,7 +510,6 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
     rim,
     innerLine,
     scrim,
-    specular,
     fillGradient,
   };
 }

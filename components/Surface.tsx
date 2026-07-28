@@ -17,7 +17,7 @@
  *   Data    → reads `glassSurfaces` from the settings store
  *
  * Edit notes:
- *   - The glass finish (frost + wash + scrim + specular) lives in the shared
+ *   - The glass finish (frost + wash + face lift) lives in the shared
  *     components/GlassFill.tsx; Surface owns the outer view (layered shadow + layout), the
  *     beveled EDGE (a translucent gradient ring, ~2.5px thick — widened 2026-07-26, see the
  *     EDGE_WIDTH comment below), the overflow:hidden mask, and the
@@ -147,7 +147,7 @@ const GLASS_BLUR_INTENSITY: Record<SurfaceContext, number> = {
 // the backdrop blur is unavailable and opacity is the only contrast lever.
 const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
   // Ambient at 0.85 (2026-07-18 "looks like flat white, not frosted glass"). The previous 0.94
-  // read as an opaque white/navy tile — the specular/scrim highlights alone weren't enough to
+  // read as an opaque white/navy tile — the face lift alone wasn't enough to
   // sell "glass". Dropping ~9pts lets a gentle wash of the colorful ScreenBackground field show
   // through the neutral fill, so a card reads as a genuinely translucent frosted pane over the
   // field (the whole point of the finish) while still staying neutral enough that text keeps its
@@ -274,7 +274,7 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
       };
 
   // Glass-off (reduce-transparency): plain opaque card — flat themed border, single shadow,
-  // mat.contrastBase fill, and NONE of the take-two rim/scrim/specular layers mounted.
+  // mat.contrastBase fill, and NONE of the rim/face-lift layers mounted.
   if (!glass) {
     return (
       <View

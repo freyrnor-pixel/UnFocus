@@ -47,6 +47,7 @@ import { Fonts, getGlow, getLayeredShadow, getMaterialStyle, Radius, Shadow, Spa
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
 import PressableScale from '@/components/PressableScale';
+import { Travel } from '@/constants/motion';
 import GlassFill from '@/components/GlassFill';
 
 type Props = {
@@ -90,6 +91,9 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
       // 'sm' is 32px — below the 44px minimum touch target, so pad the tap area out.
       hitSlop={size === 'sm' ? 6 : undefined}
       scaleTo={0.9}
+      // Key press (2026-07-28) — the FAB travels furthest of anything (v6's travel table), a
+      // big soft key rather than a twitchy chip.
+      travel={size === 'sm' ? Travel.md : Travel.fab}
       style={[
         styles.base,
         { width: dimension, height: dimension },
