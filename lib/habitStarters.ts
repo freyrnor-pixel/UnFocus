@@ -9,8 +9,8 @@
  *
  * Connections:
  *   Imports → components/HabitIcon (HABIT_ICON_NAMES — the glyphs must be pickable ones)
- *   Used by → app/(tabs)/habits.tsx (empty-state starter chips),
- *             lib/__tests__/habitStarters.test.ts
+ *   Used by → app/(tabs)/habits.tsx (empty-state starter chips), components/HomeHabitsCard.tsx
+ *             (Home preview's own empty-state starter chips), lib/__tests__/habitStarters.test.ts
  *   Data    → none directly; a tap in habits.tsx feeds these into useHabitStore.add
  *
  * Edit notes:

@@ -963,6 +963,11 @@ export function initDb() {
     "ALTER TABLE tasks ADD COLUMN rotation TEXT DEFAULT 'none'",
     "ALTER TABLE tasks ADD COLUMN rotation_person_ids TEXT DEFAULT ''",
     "ALTER TABLE tasks ADD COLUMN rotation_anchor TEXT DEFAULT ''",
+    // Home preview card: Habits added under To-do (2026-07-28, user report). Same targeted
+    // approach as the 2026-07-20 home_card_order migration above — only rows still holding
+    // the exact untouched default get the new card; anyone who reordered or removed a card
+    // has a different value and is left alone (they can still add it via "Add a card").
+    "UPDATE settings SET home_card_order = '[\"plans\",\"habits\",\"notes\",\"shopping\"]' WHERE home_card_order = '[\"plans\",\"notes\",\"shopping\"]'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

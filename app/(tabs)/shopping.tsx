@@ -24,10 +24,8 @@
  * Connections:
  *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
  *             components/HintCard, components/StarterCard (first-run explainer, shown while
- *             there are no weekly lists and no items), components/StarterExampleRow (its
- *             weekly/monthly rows — real items their "+" buttons write via useShoppingStore/
- *             useShoppingListStore, creating a weekly list first since none exist at that
- *             gate), components/AppModal (showAppModal),
+ *             there are no weekly lists and no items — text-only as of 2026-07-28, no example
+ *             rows any more), components/AppModal (showAppModal),
  *             components/CardAccent (CardAccentBadge),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
  *             components/ExpandableCard, components/FlightOverlay (FlightPill, Flight, FlightRect),
@@ -391,7 +389,6 @@ import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
 import HintCard from '@/components/HintCard';
 import StarterCard from '@/components/StarterCard';
-import StarterExampleRow from '@/components/StarterExampleRow';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TabSlider from '@/components/TabSlider';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
@@ -901,47 +898,6 @@ export default function ShoppingScreen() {
   function handleCreateNewWeeklyList() {
     const { startDate, endDate } = getWeekRangeContaining(todayStr(), weeklyResetDay);
     addList({ startDate, endDate });
-    success();
-  }
-
-  // Empty-state examples (2026-07-27): both fire at the gate where NO weekly list exists
-  // yet (see the StarterCard's own gating note below), so the weekly one has to create a
-  // list first — same call handleCreateNewWeeklyList makes — before it can add the item
-  // into it. The monthly one can add straight into monthlyLists[0]: lib/db.ts always seeds
-  // one on install, so it's never actually empty even when this card is showing.
-  function addShoppingStarterWeekly() {
-    const { startDate, endDate } = getWeekRangeContaining(todayStr(), weeklyResetDay);
-    const listId = addList({ startDate, endDate });
-    add({
-      name: t.starters.shopping.exampleWeekly,
-      amount: '1',
-      unit: '',
-      listType: 'weekly',
-      store: '',
-      price: 0,
-      inventoryQty: 0,
-      status: 'inWeeklyList',
-      listId,
-    });
-    success();
-  }
-
-  function addShoppingStarterMonthly() {
-    const monthlyListId = monthlyLists[0]?.id;
-    if (!monthlyListId) return;
-    add({
-      name: t.starters.shopping.exampleMonthly,
-      amount: '1',
-      unit: '',
-      listType: 'monthly',
-      store: '',
-      price: 0,
-      inventoryQty: 0,
-      targetQuantity: 1,
-      isTemporary: false,
-      status: 'catalog',
-      monthlyListId,
-    });
     success();
   }
 
@@ -1546,37 +1502,18 @@ export default function ShoppingScreen() {
           />
         </View>
       </HintCard>
-      {/* First-run explainer (2026-07-26): when to add something, and what the two reset
-          cadences actually mean — the weekly/monthly distinction is exactly what's opaque
-          before you have one of each. Gated on no weekly lists AND no items anywhere, NOT on
-          monthlyLists: lib/db.ts seeds one empty monthly list on install (the `INSERT …
-          WHERE NOT EXISTS` migration), so that count is never 0 and would suppress this for
-          every new user. Items covers the seeded list having been filled in. */}
+      {/* First-run explainer (2026-07-26, example rows dropped 2026-07-28): when to add
+          something, and what the two reset cadences actually mean — the weekly/monthly
+          distinction is exactly what's opaque before you have one of each. No suggested-add
+          example rows here any more (user report: Shopping doesn't need one, just a short
+          explanation) — text-only, matching the same two-line form HomeShoppingCard's Home
+          preview uses, so the two surfaces read as one explanation. Gated on no weekly lists
+          AND no items anywhere, NOT on monthlyLists: lib/db.ts seeds one empty monthly list on
+          install (the `INSERT … WHERE NOT EXISTS` migration), so that count is never 0 and
+          would suppress this for every new user. Items covers the seeded list having been
+          filled in. */}
       {lists.length === 0 && items.length === 0 && (
-        <StarterCard
-          text={t.starters.shopping.text}
-          exampleLabel={t.starters.exampleLabel}
-          example={
-            <>
-              <StarterExampleRow
-                icon="cart-outline"
-                title={t.starters.shopping.exampleWeekly}
-                meta={t.habitRecurrenceWeekly}
-                accent={shopDomainColor.accent}
-                onAdd={addShoppingStarterWeekly}
-                addLabel={t.starters.addExample}
-              />
-              <StarterExampleRow
-                icon="cart-outline"
-                title={t.starters.shopping.exampleMonthly}
-                meta={t.habitRecurrenceMonthly}
-                accent={shopDomainColor.accent}
-                onAdd={addShoppingStarterMonthly}
-                addLabel={t.starters.addExample}
-              />
-            </>
-          }
-        />
+        <StarterCard text={`• ${t.starters.shopping.textWeekly}\n• ${t.starters.shopping.textMonthly}`} />
       )}
       {/* Incoming shared shopping requests — opt-in via settings.featureSharing
           (off for fresh installs). Anything already received stays in the store and

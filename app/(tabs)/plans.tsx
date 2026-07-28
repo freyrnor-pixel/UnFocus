@@ -637,7 +637,7 @@ export default function TasksScreen() {
         {tasks.length === 0 && (
           <StarterCard
             text={t.starters.plans.text}
-            exampleLabel={t.starters.exampleLabel}
+            exampleLabel={t.starters.plans.exampleLabel}
             example={
               <StarterExampleRow
                 icon="ellipse-outline"
