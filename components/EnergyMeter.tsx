@@ -49,6 +49,18 @@
  * alongside label/value text on real phone widths in a single row — they overflowed and
  * painted over the value text. Don't put pips back on the same line as the label/value.
  *
+ * **Bigger pips + label dropped for the single-meter case (2026-07-28, user report — "symbols
+ * too small, not popped out, 'Today' not needed")**: pips grew 18px→24px with a tightened
+ * shadowRadius/Opacity override on top of `getElevation('raised')` (a full card-level shadow
+ * blur reads as a soft smudge at keycap size, not a crisp bevel) — see the `pip` style's math
+ * comment for why 24px is the ceiling at the 360px-wide worst case. `row()`'s `label` param is
+ * now nullable: it's passed only when BOTH day and week meters are on screen at once
+ * (`energyMode` 'custom') where it's the one thing telling the rows apart; in the far more
+ * common single-meter case ('daily'/'weekly') it's dropped entirely rather than repeating what
+ * the lone row already makes obvious. `meterValue`'s `marginLeft:'auto'` (not
+ * `meterTopRow`'s `justifyContent`) does the right-alignment so this works with or without a
+ * label present, without a conditional style branch.
+ *
  * **Depleted/recovered pulse (2026-07-28)**: `EnergyPulse` fires a single ~1.5s glow (via
  * `getGlow`) the moment a period's `current` crosses the zero line — `theme.good` when it
  * goes from ≤0 back to positive ("recovered"), `theme.accent` (deliberately NOT `theme.bad`)
@@ -192,7 +204,11 @@ export default function EnergyMeter() {
     return () => clearTimeout(id);
   }, [weekPulse]);
 
-  const row = (label: string, current: number, capacity: number, pulse: { id: number; kind: PulseKind } | null) => {
+  // label is null when only one of day/week is shown (the common case, energyMode
+  // 'daily'/'weekly') — with a single meter on the card, "Today"/"This week" repeats
+  // what's already obvious and just eats space. It's only passed when BOTH rows are
+  // on screen at once (energyMode 'custom'), where it's the one thing telling them apart.
+  const row = (label: string | null, current: number, capacity: number, pulse: { id: number; kind: PulseKind } | null) => {
     const { pipCount, filled } = energyPipCount(current, capacity);
     return (
       <View style={styles.meterRowWrap}>
@@ -205,7 +221,7 @@ export default function EnergyMeter() {
         )}
         <View style={styles.meterRow}>
           <View style={styles.meterTopRow}>
-            <Text style={[styles.meterLabel, { color: theme.text }]}>{label}</Text>
+            {label && <Text style={[styles.meterLabel, { color: theme.text }]}>{label}</Text>}
             <Text style={[styles.meterValue, { color: theme.textMuted }]}>{`${current} / ${capacity}`}</Text>
           </View>
           <View style={styles.pipRow}>
@@ -217,13 +233,13 @@ export default function EnergyMeter() {
                   style={[
                     styles.pip,
                     active
-                      ? { backgroundColor: theme.surface, borderTopColor: 'rgba(255,255,255,0.5)', borderBottomColor: 'rgba(0,0,0,0.20)', ...getElevation('raised', theme.shadow) }
-                      : { backgroundColor: theme.surfaceInset, borderTopColor: 'rgba(0,0,0,0.22)', borderBottomColor: 'rgba(255,255,255,0.08)', ...getElevation('flat', theme.shadow) },
+                      ? { backgroundColor: theme.surface, borderTopColor: 'rgba(255,255,255,0.65)', borderBottomColor: 'rgba(0,0,0,0.28)', ...getElevation('raised', theme.shadow), shadowRadius: 3, shadowOpacity: 0.3 }
+                      : { backgroundColor: theme.surfaceInset, borderTopColor: 'rgba(0,0,0,0.25)', borderBottomColor: 'rgba(255,255,255,0.10)', ...getElevation('flat', theme.shadow) },
                   ]}
                 >
                   <Ionicons
                     name={active ? 'flash' : 'flash-outline'}
-                    size={12}
+                    size={16}
                     color={active ? theme.accent : theme.textMuted}
                   />
                 </View>
@@ -257,7 +273,7 @@ export default function EnergyMeter() {
         </PressableScale>
       </View>
 
-      {showDay && row(t.energyMeter.today, dayCurrent, dayCapacity, dayPulse)}
+      {showDay && row(showWeek ? t.energyMeter.today : null, dayCurrent, dayCapacity, dayPulse)}
       {showDay && dayCapacity > 0 && dayCurrent <= 0 && (
         <View style={styles.warningRow}>
           <Ionicons name="leaf-outline" size={14} color={theme.good} />
@@ -271,7 +287,7 @@ export default function EnergyMeter() {
         </View>
       )}
       {showDay && showWeek && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
-      {showWeek && row(t.energyMeter.thisWeek, weekCurrent, weekCapacity, weekPulse)}
+      {showWeek && row(showDay ? t.energyMeter.thisWeek : null, weekCurrent, weekCapacity, weekPulse)}
       {showWeek && weekCapacity > 0 && weekCurrent <= 0 && (
         <View style={styles.warningRow}>
           <Ionicons name="leaf-outline" size={14} color={theme.good} />
@@ -334,15 +350,25 @@ const styles = StyleSheet.create({
   // pips overflowed their box and painted over the value text. Stacking removes the
   // three-way competition for width entirely instead of trying to tune sizes that could
   // break again at another font-scale/language/width combination.
-  meterRow: { gap: 4 },
-  meterTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  meterRow: { gap: 6 },
+  // No justifyContent here — meterValue's own marginLeft:'auto' pushes it to the right
+  // edge whether or not meterLabel is rendered (label is omitted when only one meter
+  // row is on screen, see the `row()` comment above), so this layout doesn't need a
+  // conditional style branch for the label-present vs. label-absent case.
+  meterTopRow: { flexDirection: 'row', alignItems: 'center' },
   meterLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  pipRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  // "Keycap" pip — an available (unspent) pip is raised/popped via getElevation('raised'),
-  // a spent pip sits flat/sunken via getElevation('flat') over theme.surfaceInset. Purely
-  // visual (see file header) — never wrapped in PressableScale, nothing to actually press.
-  pip: { width: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  meterValue: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  // Full card width now that it's on its own line (2026-07-28 stack fix) — see `pip`
+  // below for the size/gap math that keeps this fitting at the narrowest audited width.
+  pipRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  // "Keycap" pip — an available (unspent) pip is raised/popped via getElevation('raised')
+  // with a tightened shadowRadius/Opacity (a full card-level shadow blur reads as a soft
+  // smudge at this size, not a crisp bevel); a spent pip sits flat/sunken via
+  // getElevation('flat') over theme.surfaceInset. Purely visual (see file header) — never
+  // wrapped in PressableScale, nothing to actually press. Sized at 24px (up from 18px,
+  // 2026-07-28): 10*24 + 9*5 gap = 285px, fits the 360px-wide worst case (~296px content)
+  // with margin — don't grow this further without re-checking `npm run wraps` math.
+  pip: { width: 24, height: 24, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
+  meterValue: { fontSize: FontSize.sm, fontFamily: Fonts.medium, marginLeft: 'auto' },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 2 },
   warningRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   warningText: { flex: 1, fontSize: FontSize.xs, fontFamily: Fonts.medium },
