@@ -621,6 +621,53 @@ const en = {
     /** Shown under someone with no paired phone — you keep their side up to date yourself. */
     onThisPhone: 'Kept on this phone',
   },
+  tags: {
+    /** Row label in the task editor, beside the "For" person row. */
+    label: 'Tags',
+    /** The "coin a new tag" chip. */
+    new: 'New',
+    newPlaceholder: 'Tag name',
+    /** Settings card. */
+    settingsTitle: 'Tags',
+    settingsHint:
+      'Tags are shared with everyone you are paired with, so a tag means the same thing on both phones. Renaming one updates every task that carries it.',
+    empty: 'No tags yet. Add one from a task.',
+    removeTitle: (name: string) => `Remove ${name}?`,
+    removeBody: 'The tasks keep everything else — they just lose this tag.',
+    /** Plans filter row: clears the tag filter. */
+    filterAll: 'All tags',
+    /** Count cue when a row has more tags than it can draw. */
+    more: (n: number) => `+${n}`,
+  },
+  energyBalance: {
+    title: 'Shared load',
+    day: 'Today',
+    week: 'This week',
+    /** Energy left if everything booked happens, against their own capacity. */
+    projected: (left: number, capacity: number) => `${left} / ${capacity}`,
+    /** Their habits live on their own phone and habits don't sync — the bar is a floor. */
+    tasksOnly: 'Tasks only — their habits stay on their phone',
+    /** Deliberately never says anyone is doing too little. See the card's header. */
+    lopsided: (name: string) => `${name} is carrying most of this. Moving one thing would even it out.`,
+    shared: 'This looks evenly shared.',
+  },
+  rotation: {
+    label: 'Take turns',
+    off: 'Off',
+    daily: 'Each day',
+    weekly: 'Each week',
+    monthly: 'Each month',
+    /** Who is in the rotation, in order. */
+    rosterLabel: 'In this order',
+    /** Whose turn it is on the day being viewed. */
+    turn: (name: string) => `${name}'s turn`,
+    /** Same line when the turn is YOURS — "Me's turn" is not a sentence. */
+    turnYou: 'Your turn',
+    /** A rotation with fewer than two people can never change hands. */
+    needsTwo: 'Pick at least two people for this to take turns.',
+    /** Section header for tasks nobody is assigned. */
+    unassigned: 'Anyone',
+  },
   habitCategories: {
     physical: 'Physical',
     mental: 'Mental',
@@ -1005,6 +1052,10 @@ const en = {
       nowNext: {
         label: 'Now and next',
         hint: 'Only what you are doing and what follows it. The rest stays tucked away.',
+      },
+      byPerson: {
+        label: 'By person',
+        hint: "Split Today into one section per person — whose turn it is included. This week and All tasks keep their own grouping.",
       },
     },
     // Settings screen top-level tab labels — kept short on purpose: TabSlider has no
@@ -2098,6 +2149,10 @@ const no: typeof en = {
         label: 'Nå og neste',
         hint: 'Bare det du holder på med og det som kommer etter. Resten ligger skjult.',
       },
+      byPerson: {
+        label: 'Per person',
+        hint: 'Del I dag i én seksjon per person — med hvem sin tur det er. Denne uka og Alle oppgaver beholder sin egen gruppering.',
+      },
     },
     tabs: {
       general: 'Generelt',
@@ -2285,6 +2340,40 @@ const no: typeof en = {
     you: 'Deg',
     linkedDevice: 'Synkronisert med telefonen deres',
     onThisPhone: 'Holdes oppdatert på denne telefonen',
+  },
+  tags: {
+    label: 'Merkelapper',
+    new: 'Ny',
+    newPlaceholder: 'Navn på merkelapp',
+    settingsTitle: 'Merkelapper',
+    settingsHint:
+      'Merkelapper deles med alle du er koblet til, så en merkelapp betyr det samme på begge telefonene. Endrer du navnet, følger det med på alle oppgavene.',
+    empty: 'Ingen merkelapper ennå. Legg til en fra en oppgave.',
+    removeTitle: (name: string) => `Fjerne ${name}?`,
+    removeBody: 'Oppgavene beholder alt annet — de mister bare denne merkelappen.',
+    filterAll: 'Alle merkelapper',
+    more: (n: number) => `+${n}`,
+  },
+  energyBalance: {
+    title: 'Delt belastning',
+    day: 'I dag',
+    week: 'Denne uka',
+    projected: (left: number, capacity: number) => `${left} / ${capacity}`,
+    tasksOnly: 'Kun oppgaver — vanene deres ligger på deres egen telefon',
+    lopsided: (name: string) => `${name} bærer mesteparten av dette. Å flytte én ting ville jevnet det ut.`,
+    shared: 'Dette ser jevnt fordelt ut.',
+  },
+  rotation: {
+    label: 'Bytt på',
+    off: 'Av',
+    daily: 'Hver dag',
+    weekly: 'Hver uke',
+    monthly: 'Hver måned',
+    rosterLabel: 'I denne rekkefølgen',
+    turn: (name: string) => `${name} sin tur`,
+    turnYou: 'Din tur',
+    needsTwo: 'Velg minst to personer for at dette skal gå på omgang.',
+    unassigned: 'Hvem som helst',
   },
   habitCategories: {
     physical: 'Fysisk',

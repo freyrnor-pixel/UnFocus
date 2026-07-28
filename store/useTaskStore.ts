@@ -24,7 +24,8 @@
  *             components/TaskCard.tsx (the one task editor — app/task-form.tsx retired
  *             2026-07-23, UX audit B1), app/(tabs)/plans.tsx, app/_layout.tsx
  *             (syncMonthlyTaskNotifications, on boot + every foreground),
- *             store/usePeopleStore.ts (clearPerson, call-time only, when a person is removed)
+ *             store/usePeopleStore.ts (clearPerson, call-time only, when a person is removed),
+ *             store/useTagStore.ts (clearTag, call-time only, when a tag is removed)
  *
  *   Recurrence (Tasks/Oppgaver redesign): `recurring` is 'none'|'daily'|'weekly'|'monthly';
  *   taskOccursOn(task, date) (lib/taskRecurrence.ts) resolves an occurrence (weekly
@@ -35,7 +36,9 @@
  *             'task_completed' automation trigger on toggle-to-done / completeDirect; `tasks.goal_id`
  *             is a nullable app-enforced pointer to a `goals` row (store/useGoalStore.ts);
  *             `tasks.assignee_id` / `created_by_person_id` point at `people` rows
- *             (store/usePeopleStore.ts) and are cleared there on remove
+ *             (store/usePeopleStore.ts) and are cleared there on remove; `tasks.tag_ids`
+ *             is a comma-separated list of `tags` ids (store/useTagStore.ts), cleared
+ *             there on remove
  *
  * Edit notes:
  *   - **LAN live-sync wiring (Decision 038, app integration) — WIRED.** `add`/`update`
@@ -134,6 +137,8 @@ import {
 import { generateId } from '@/lib/id';
 import { dateStr } from '@/lib/date';
 import { taskOccursOn } from '@/lib/taskRecurrence';
+import { parseTagIds, serializeTagIds } from '@/lib/tags';
+import { sanitizeRotationMode, type RotationMode } from '@/lib/taskRotation';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useSharedStore } from '@/store/useSharedStore';
@@ -201,6 +206,21 @@ export type Task = {
    *  you by X". Distinct from `origin_device_id`, which is the LAST WRITER and so flips the
    *  moment the other person ticks the task. Synced. */
   createdByPersonId: string;
+  /** Tags (2026-07-28) — ids of the `tags` rows this task carries, in the order they were
+   *  added. Persisted as the comma-separated `tasks.tag_ids` column and synced as one
+   *  opaque string; see lib/tags.ts for the parse/serialise rules and lib/db.ts's
+   *  migration for why membership isn't a join table. */
+  tagIds: string[];
+  /** Rotation (2026-07-28) — 'none' | 'daily' | 'weekly' | 'monthly'. Whose turn it is is
+   *  DERIVED from the date by lib/taskRotation.ts, never stored: both phones compute the
+   *  same answer, so no periodic "advance the turn" write exists for LWW to lose. */
+  rotation: RotationMode;
+  /** Rotation roster — ordered person ids taking turns. A removed person keeps their slot;
+   *  dropping it would re-index everyone after them and change every future turn. */
+  rotationPersonIds: string[];
+  /** Rotation anchor — the 'YYYY-MM-DD' that turn 0 belongs to, captured when rotation is
+   *  switched on. Never recompute it for an existing task (see lib/taskRotation.ts). */
+  rotationAnchor: string;
   /** Goals (2026-07-23) — id of the Goal this task is connected to, or null. Set through
    *  the normal add/update payload (a plain nullable pointer, like a form field). Completing
    *  the task nudges that goal's strength up — see toggle()/completeDirect(). */
@@ -246,6 +266,10 @@ export type TaskInput = {
   assignee?: string;
   assigneeId?: string;
   createdByPersonId?: string;
+  tagIds?: string[];
+  rotation?: RotationMode;
+  rotationPersonIds?: string[];
+  rotationAnchor?: string;
   goalId?: string | null;
   contactName?: string;
   contactPhone?: string;
@@ -338,6 +362,9 @@ type TaskStore = {
   /** People — clear a removed person's id from any task's in-memory assigneeId (the DB
    *  columns are cleared by usePeopleStore.remove() in the same transaction as the delete). */
   clearPerson: (personId: string) => void;
+  /** Tags — drop a removed tag's id from any task's in-memory tagIds (the DB column is
+   *  rewritten by store/useTagStore.ts's remove(), inside the same transaction). */
+  clearTag: (tagId: string) => void;
 };
 
 /** Schedule (or cancel) a single task's reminder using the current settings. */
@@ -390,6 +417,12 @@ function rowToTask(row: Row): Task {
     assignee: readStr(row, 'assignee', ''),
     assigneeId: readStr(row, 'assignee_id', ''),
     createdByPersonId: readStr(row, 'created_by_person_id', ''),
+    tagIds: parseTagIds(readStr(row, 'tag_ids', '')),
+    rotation: sanitizeRotationMode(readStr(row, 'rotation', 'none')),
+    // The roster reuses the tag-id list format — same comma-separated column shape, same
+    // total-by-design parse, and it arrives from another device just as tag_ids does.
+    rotationPersonIds: parseTagIds(readStr(row, 'rotation_person_ids', '')),
+    rotationAnchor: readStr(row, 'rotation_anchor', ''),
     goalId: readStr(row, 'goal_id') || null,
     contactName: readStr(row, 'contact_name') || undefined,
     contactPhone: readStr(row, 'contact_phone') || undefined,
@@ -426,6 +459,10 @@ const TASK_COLUMNS: FieldMap<Task> = {
   assignee: { col: 'assignee', to: (v) => v ?? '' },
   assigneeId: { col: 'assignee_id', to: (v) => v ?? '' },
   createdByPersonId: { col: 'created_by_person_id', to: (v) => v ?? '' },
+  tagIds: { col: 'tag_ids', to: (v) => serializeTagIds((v as string[]) ?? []) },
+  rotation: { col: 'rotation', to: (v) => sanitizeRotationMode(v) },
+  rotationPersonIds: { col: 'rotation_person_ids', to: (v) => serializeTagIds((v as string[]) ?? []) },
+  rotationAnchor: { col: 'rotation_anchor', to: (v) => v ?? '' },
   goalId: { col: 'goal_id', to: (v) => v ?? null },
   contactName: { col: 'contact_name', to: (v) => v ?? null },
   contactPhone: { col: 'contact_phone', to: (v) => v ?? null },
@@ -549,6 +586,10 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       assignee: t.assignee ?? '',
       assigneeId: t.assigneeId ?? '',
       createdByPersonId: t.createdByPersonId ?? '',
+      tagIds: parseTagIds((t.tagIds ?? []).join(',')),
+      rotation: sanitizeRotationMode(t.rotation),
+      rotationPersonIds: parseTagIds((t.rotationPersonIds ?? []).join(',')),
+      rotationAnchor: t.rotationAnchor ?? '',
       goalId: t.goalId ?? null,
       // duration_minutes is derived from Start→Finish so the Home day-view keeps working.
       durationMinutes: deriveDurationMinutes(t.time, t.finishTime) ?? t.durationMinutes,
@@ -869,6 +910,14 @@ export const useTaskStore = create<TaskStore>((set, get) => {
         // Clear the name mirror alongside the id, or the row would still render the
         // removed person's name under the collapsed row's assignee chip.
         t.assigneeId === personId ? { ...t, assigneeId: '', assignee: '' } : t
+      ),
+    }));
+  },
+
+  clearTag(tagId) {
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        t.tagIds.includes(tagId) ? { ...t, tagIds: t.tagIds.filter((x) => x !== tagId) } : t
       ),
     }));
   },

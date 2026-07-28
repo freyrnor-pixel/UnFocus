@@ -74,7 +74,9 @@
  *             voiceNotesEnabled/contactsEnabled/locationEnabled gate the matching
  *             Advanced-options rows; Energy is no longer gated at all),
  *             store/usePeopleStore + components/PersonChip + lib/personColor (2026-07-28 —
- *             the "For" row's roster and the collapsed row's assignee dot)
+ *             the "For" row's roster and the collapsed row's assignee dot),
+ *             store/useTagStore + components/TagChip + components/TagPickerRow + lib/tags
+ *             (2026-07-28 — the editor's Tags row and the collapsed row's tag pills)
  *   Used by → app/(tabs)/plans.tsx; app/notes.tsx (indirectly — creates the task, then this
  *             screen's `autoExpand` opens its editor, replacing the old push to /task-form)
  *   Data    → reads the passed `task` + its linked goal (useGoalStore, for the glow dot) +
@@ -118,7 +120,7 @@ import * as Contacts from 'expo-contacts';
 import { Fonts, FontSize, Radius, Spacing, Type, contrastOn, getElevation, rgba } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { dayOfWeekMon0, formatDisplayDate } from '@/lib/date';
+import { dayOfWeekMon0, formatDisplayDate, todayStr } from '@/lib/date';
 import { energyStepperValue, energyFieldsFromStepper } from '@/lib/energy';
 import { tap, warning } from '@/lib/haptics';
 import { generateId } from '@/lib/id';
@@ -126,6 +128,11 @@ import { Task, TaskStep, useTaskStore } from '@/store/useTaskStore';
 import { useGoalStore } from '@/store/useGoalStore';
 import { usePeopleStore } from '@/store/usePeopleStore';
 import PersonChip, { PersonDot } from '@/components/PersonChip';
+import TagChip from '@/components/TagChip';
+import TagPickerRow from '@/components/TagPickerRow';
+import { resolveTags, toggleTagId } from '@/lib/tags';
+import { useTagStore } from '@/store/useTagStore';
+import { isRotating, rotationAssigneeFor, type RotationMode } from '@/lib/taskRotation';
 import { personColor } from '@/lib/personColor';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import NewSinceGlow from '@/components/NewSinceGlow';
@@ -148,6 +155,13 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
+/**
+ * How many tag pills a collapsed row draws before the rest collapse into a "+N". Two is
+ * what fits beside a person cue and a time label at 360px without the title reflowing —
+ * the row already competes for width (see AGENTS.md's wrap audit).
+ */
+const ROW_TAG_LIMIT = 2;
 
 /** HH:MM -> minutes since midnight, or null if unparseable. Same convention as
  *  components/PlanTaskCard.tsx's own (unexported) helper of the same name. */
@@ -231,6 +245,17 @@ function TaskCard({
   const people = usePeopleStore((s) => s.people);
   const showPeople = peopleModeEnabled && people.length > 1;
   const assignedPerson = people.find((p) => p.id === task.assigneeId) ?? null;
+  // Tags (2026-07-28) — resolved against the shared roster, so an id whose row hasn't
+  // synced yet simply doesn't draw rather than showing a raw id. See lib/tags.ts.
+  const allTags = useTagStore((s) => s.tags);
+  const rowTags = resolveTags(task.tagIds, allTags);
+  // Rotation (2026-07-28) — whose turn it is on the task's own date. Derived, never
+  // stored: see lib/taskRotation.ts for why nothing writes an "advance the turn".
+  const turnPersonId = rotationAssigneeFor(task, task.date || todayStr());
+  const turnPerson = people.find((p) => p.id === turnPersonId) ?? null;
+  const rotating = isRotating(task);
+  // The row draws the turn-holder when rotating, the fixed assignee otherwise.
+  const cuePerson = rotating ? turnPerson : assignedPerson;
   // Goals — the linked goal (if any), for the living-glow dot next to the title. Gated on
   // settings.featureGoals (opt-in, off for fresh installs): when off, both the dot and the
   // GoalPicker below stay hidden. An existing task's goalId is left alone either way, so
@@ -250,6 +275,17 @@ function TaskCard({
   const [newStep, setNewStep] = useState('');
   // Buffered edits (full variant only). Initialised from the task on first expand.
   const [draft, setDraft] = useState<Task>(task);
+  // The EDITOR previews the draft's rotation, not the saved row's — switching "Take turns"
+  // on would otherwise show a nameless turn until Save, since `task` is still un-rotated.
+  const draftTurnPerson =
+    people.find((p) => p.id === rotationAssigneeFor(draft, draft.date || todayStr())) ?? null;
+  // Your own turn gets its own sentence: feeding the "Me" fallback into `turn(name)`
+  // produces "Me's turn", which is not a sentence in either language.
+  const turnLine = !draftTurnPerson
+    ? ''
+    : draftTurnPerson.isSelf
+      ? t.rotation.turnYou
+      : t.rotation.turn(draftTurnPerson.name);
   // Advanced options (Energy/Hint/Contact/Location/Goal/Then — ported from the retired
   // app/task-form.tsx, UX audit B1/F3, 2026-07-23): collapsed by default, one reveal
   // toggle, same progressive-disclosure pattern as the rest of this editor.
@@ -609,16 +645,33 @@ function TaskCard({
           ) : null}
 
           {/* Who it's for — the person's own colour as a dot, never as this card's border
-              (that channel is the domain hue). See lib/personColor.ts's header. */}
-          {showPeople && spec.showMeta && assignedPerson ? (
+              (that channel is the domain hue). See lib/personColor.ts's header.
+              A rotating chore shows WHOSE TURN it is on this task's date, which is the
+              only honest answer: its fixed assigneeId is not who does it. The little
+              sync-ish glyph marks it as a turn rather than a permanent assignment. */}
+          {showPeople && spec.showMeta && cuePerson ? (
             <View style={[styles.assigneeCue, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
               <PersonDot
-                color={personColor(assignedPerson.color, people.indexOf(assignedPerson))}
-                name={assignedPerson.name}
+                color={personColor(cuePerson.color, people.indexOf(cuePerson))}
+                name={cuePerson.name}
                 size={14}
               />
-              <Text style={[styles.assigneeCueText, { color: theme.textMuted }]} numberOfLines={1}>{assignedPerson.name}</Text>
+              <Text style={[styles.assigneeCueText, { color: theme.textMuted }]} numberOfLines={1}>{cuePerson.name}</Text>
+              {rotating ? <Ionicons name="repeat" size={12} color={theme.textMuted} /> : null}
             </View>
+          ) : null}
+
+          {/* Tags — word-only pills, capped at two so a heavily-tagged task can't push the
+              title onto a second line; the rest collapse into a "+N". See lib/tags.ts. */}
+          {spec.showMeta && rowTags.length ? (
+            <>
+              {rowTags.slice(0, ROW_TAG_LIMIT).map((tag) => (
+                <TagChip key={tag.id} label={tag.name} small />
+              ))}
+              {rowTags.length > ROW_TAG_LIMIT ? (
+                <TagChip label={t.tags.more(rowTags.length - ROW_TAG_LIMIT)} small />
+              ) : null}
+            </>
           ) : null}
 
           {task.time && spec.showMeta ? (
@@ -745,6 +798,70 @@ function TaskCard({
                 </View>
               </View>
             )}
+
+            {/* Take turns — a chore that rotates instead of belonging to one person. Only
+                offered when there IS somebody to rotate with. Turning it on captures
+                today as the anchor; it is never recomputed afterwards, because moving the
+                anchor reshuffles every past and future turn (lib/taskRotation.ts). */}
+            {showPeople && (
+              <View style={styles.forRow}>
+                <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.rotation.label}</Text>
+                <View style={styles.forChips}>
+                  {(['none', 'daily', 'weekly', 'monthly'] as RotationMode[]).map((mode) => (
+                    <PersonChip
+                      key={mode}
+                      label={t.rotation[mode === 'none' ? 'off' : mode]}
+                      selected={(draft.rotation ?? 'none') === mode}
+                      onPress={() => {
+                        tap();
+                        patch({
+                          rotation: mode,
+                          rotationAnchor: draft.rotationAnchor || todayStr(),
+                          // Seed the roster with everyone, so switching it on does
+                          // something visible instead of needing a second step.
+                          rotationPersonIds:
+                            draft.rotationPersonIds?.length
+                              ? draft.rotationPersonIds
+                              : people.map((p) => p.id),
+                        });
+                      }}
+                    />
+                  ))}
+                </View>
+                {(draft.rotation ?? 'none') !== 'none' && (
+                  <>
+                    <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.rotation.rosterLabel}</Text>
+                    <View style={styles.forChips}>
+                      {people.map((person, index) => (
+                        <PersonChip
+                          key={person.id}
+                          label={person.isSelf ? person.name || t.habitForMe : person.name}
+                          name={person.name}
+                          color={personColor(person.color, index)}
+                          selected={(draft.rotationPersonIds ?? []).includes(person.id)}
+                          onPress={() => {
+                            tap();
+                            patch({ rotationPersonIds: toggleTagId(draft.rotationPersonIds ?? [], person.id) });
+                          }}
+                        />
+                      ))}
+                    </View>
+                    <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>
+                      {(draft.rotationPersonIds ?? []).length > 1
+                        ? turnLine
+                        : t.rotation.needsTwo}
+                    </Text>
+                  </>
+                )}
+              </View>
+            )}
+
+            {/* Tags — what kind of thing this is, the counterpart to "For" above. Always
+                offered: a tag is useful on a solo list too, unlike an assignee. */}
+            <TagPickerRow
+              value={draft.tagIds ?? []}
+              onChange={(tagIds) => patch({ tagIds })}
+            />
 
             {/* Steps — persist immediately for existing tasks; buffered on the local draft
                 for a new (isNew) card until Save creates the real task row. */}

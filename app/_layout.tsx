@@ -28,7 +28,7 @@
  *             store/useEnergyStore, store/useFeedbackStore, store/useGoalStore, store/useHabitStore, store/useHealthStore,
  *             store/useMealStore, store/useMedicineStore, store/useMonthlyListStore, store/useNotesStore, store/usePeersStore, store/useReceiptStore,
  *             store/useSharedStore, store/useShoppingListStore, store/useShoppingStore,
- *             store/useTaskStore, components/AppModal,
+ *             store/useTagStore, store/useTaskStore, components/AppModal,
  *             components/WelcomeReveal (animated brand-reveal shown once per cold launch)
  *   Used by → router layout — defines the Stack
  *
@@ -159,6 +159,7 @@ import { useMealStore } from '@/store/useMealStore';
 import { useNotesStore } from '@/store/useNotesStore';
 import { usePeersStore } from '@/store/usePeersStore';
 import { usePeopleStore } from '@/store/usePeopleStore';
+import { useTagStore } from '@/store/useTagStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useSharedStore } from '@/store/useSharedStore';
 import { useShoppingListStore } from '@/store/useShoppingListStore';
@@ -274,6 +275,9 @@ export default function RootLayout() {
     // off the settings store) and BEFORE tasks — that back-fill writes tasks.assignee_id, so
     // loading tasks first would leave every row unassigned in memory until the next launch.
     usePeopleStore.getState().load();
+    // Before tasks, for the same reason as goals: a task's tag_ids resolve to names on
+    // first paint instead of rendering as nothing until the roster arrives.
+    useTagStore.getState().load();
     useTaskStore.getState().load();
     // Tombstoned tasks, so the day-view's "Recently deleted" restore zone still offers a
     // delete made in an earlier session (2026-07-27).

@@ -76,6 +76,31 @@ describe('surface/layout registry integrity', () => {
     }
   });
 
+  it('offers "By person" on plans only — it is the only surface with a per-person notion', () => {
+    expect(isLayoutValidFor('plans', 'byPerson')).toBe(true);
+    for (const surface of SURFACES.filter((s) => s !== 'plans')) {
+      expect(isLayoutValidFor(surface, 'byPerson')).toBe(false);
+    }
+  });
+
+  it('makes "By person" a GROUPING change, not another density level', () => {
+    // It re-groups the same rows; drawing them differently too would make it a second,
+    // confusing axis next to basic/normal/everything.
+    const byPerson = LAYOUT_SPECS.byPerson;
+    const normal = LAYOUT_SPECS.normal;
+    expect(byPerson.groupByPerson).toBe(true);
+    expect(byPerson.density).toBe(normal.density);
+    expect(byPerson.showMeta).toBe(normal.showMeta);
+    expect(byPerson.showPrice).toBe(normal.showPrice);
+    expect(byPerson.showExtras).toBe(normal.showExtras);
+  });
+
+  it('leaves every other layout ungrouped, so grouping is opt-in', () => {
+    for (const id of Object.keys(LAYOUT_SPECS) as (keyof typeof LAYOUT_SPECS)[]) {
+      if (id !== 'byPerson') expect(LAYOUT_SPECS[id].groupByPerson).toBeFalsy();
+    }
+  });
+
   it('keeps "basic" strictly less detailed than "everything"', () => {
     const basic = LAYOUT_SPECS.basic;
     const everything = LAYOUT_SPECS.everything;

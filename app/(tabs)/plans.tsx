@@ -29,7 +29,10 @@
  *             the header share icon's push to /share-modal), lib/date,
  *             lib/domainColor, lib/haptics,
  *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, store/useTaskStore,
- *             store/useSettingsStore
+ *             store/useSettingsStore, store/usePeopleStore + components/PersonChip (the person
+ *             filter row), store/useTagStore + components/TagChip + lib/tags (the tag filter
+ *             row — multi-select, "any of"), components/EnergyBalanceCard (the shared-load
+ *             comparison, People mode only, day/week tabs only)
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx;
  *             also reached with `?tab=all&expandTaskId=…` from app/notes.tsx's "Add to plans"
  *             (UX audit B1, 2026-07-23 — creates the task, then lands here with its editor open)
@@ -143,6 +146,11 @@ import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { usePeopleStore } from '@/store/usePeopleStore';
 import PersonChip from '@/components/PersonChip';
+import TagChip from '@/components/TagChip';
+import EnergyBalanceCard from '@/components/EnergyBalanceCard';
+import { useTagStore } from '@/store/useTagStore';
+import { matchesTagFilter, toggleTagId } from '@/lib/tags';
+import { effectiveAssigneeId } from '@/lib/taskRotation';
 import { personColor } from '@/lib/personColor';
 import { FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { Spring } from '@/constants/motion';
@@ -385,6 +393,7 @@ export default function TasksScreen() {
   // "there is somebody else to filter by".
   const people = usePeopleStore((s) => s.people);
   const showPeople = peopleModeEnabled && people.length > 1;
+  const allTags = useTagStore((s) => s.tags);
   // Sharing is opt-in (Settings → Advanced → Features), off on a fresh install — it hides
   // the shared-tasks section below. Tasks already shared stay in the store untouched.
   const featureSharing = useSettingsStore((s) => s.featureSharing);
@@ -396,6 +405,9 @@ export default function TasksScreen() {
   const [hintOpen, setHintOpen] = useFirstVisitHint('plans', false);
   // Person filter (People/family mode): null = Everyone, otherwise a person id.
   const [personFilter, setPersonFilter] = useState<string | null>(null);
+  // Tag filter (2026-07-28) — selected tag ids; empty means "All tags". Unlike the person
+  // filter this is multi-select, because tags are not mutually exclusive the way people are.
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   // Inline "add a row" input for the Whenever section — the one add affordance on this screen.
   const [wheneverInput, setWheneverInput] = useState('');
 
@@ -421,10 +433,19 @@ export default function TasksScreen() {
   // the self person, matching the pre-registry convention that '' meant "me".
   const filterPerson = personFilter ? people.find((p) => p.id === personFilter) ?? null : null;
   const addAssigneeName = filterPerson && !filterPerson.isSelf ? filterPerson.name : '';
-  const matchPerson = useCallback(
+  // Both filter rows in one predicate: a task has to pass the person filter AND the tag
+  // filter to show. (Within the TAG row, multiple chips are "any of" — see lib/tags.ts's
+  // matchesTagFilter for why intersecting there reads as a broken filter.)
+  // `effectiveAssigneeId` rather than `assigneeId`: a rotating chore belongs to whoever
+  // has the turn on that date, so filtering by the raw column would hide it from the
+  // person who actually has to do it today and show it to someone who doesn't.
+  const matchFilters = useCallback(
     (tk: Task) =>
-      !showPeople || personFilter === null || (tk.assigneeId || selfPersonId) === personFilter,
-    [showPeople, personFilter, selfPersonId]
+      (!showPeople ||
+        personFilter === null ||
+        (effectiveAssigneeId(tk, tk.date || today) || selfPersonId) === personFilter) &&
+      matchesTagFilter(tk.tagIds, tagFilter),
+    [showPeople, personFilter, selfPersonId, tagFilter, today]
   );
 
   const weekDates = useMemo(() => getWeekDates(today), [today]);
@@ -432,29 +453,56 @@ export default function TasksScreen() {
 
   // ── Section selectors ──
   const wheneverAll = useMemo(
-    () => tasks.filter((tk) => tk.recurring === 'none' && !tk.sharedOut && matchPerson(tk)),
-    [tasks, matchPerson]
+    () => tasks.filter((tk) => tk.recurring === 'none' && !tk.sharedOut && matchFilters(tk)),
+    [tasks, matchFilters]
   );
   const recurringAll = useMemo(
-    () => tasks.filter((tk) => tk.recurring !== 'none' && !tk.sharedOut && matchPerson(tk)),
-    [tasks, matchPerson]
+    () => tasks.filter((tk) => tk.recurring !== 'none' && !tk.sharedOut && matchFilters(tk)),
+    [tasks, matchFilters]
   );
-  const sharedOutAll = useMemo(() => tasks.filter((tk) => tk.sharedOut && matchPerson(tk)), [tasks, matchPerson]);
+  const sharedOutAll = useMemo(() => tasks.filter((tk) => tk.sharedOut && matchFilters(tk)), [tasks, matchFilters]);
   const undatedWhenever = useMemo(
-    () => tasks.filter((tk) => tk.recurring === 'none' && !tk.hasStartDate && !tk.sharedOut && matchPerson(tk)),
-    [tasks, matchPerson]
+    () => tasks.filter((tk) => tk.recurring === 'none' && !tk.hasStartDate && !tk.sharedOut && matchFilters(tk)),
+    [tasks, matchFilters]
   );
 
   const todayList = useMemo(
-    () => tasksForDate(today).filter((tk) => (tk.hasStartDate || tk.recurring !== 'none') && matchPerson(tk)).sort(byTime),
+    () => tasksForDate(today).filter((tk) => (tk.hasStartDate || tk.recurring !== 'none') && matchFilters(tk)).sort(byTime),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `tasks` drives recompute (tasksForDate reads the store, not this var), not read directly
-    [tasksForDate, today, tasks, matchPerson]
+    [tasksForDate, today, tasks, matchFilters]
   );
   const weekGroups = useMemo(
-    () => tasksForWeek(weekStart).map((g) => ({ ...g, tasks: g.tasks.filter(matchPerson) })),
+    () => tasksForWeek(weekStart).map((g) => ({ ...g, tasks: g.tasks.filter(matchFilters) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `tasks` drives recompute (tasksForWeek reads the store, not this var), not read directly
-    [tasksForWeek, weekStart, tasks, matchPerson]
+    [tasksForWeek, weekStart, tasks, matchFilters]
   );
+
+  // "By person" layout — only meaningful once there's more than one person to group under,
+  // so it degrades to the normal single-section list rather than drawing one card labelled
+  // with your own name.
+  const groupByPerson = !!layoutSpec.groupByPerson && showPeople;
+  const todayByPerson = useMemo(() => {
+    if (!groupByPerson) return [];
+    const groups = people.map((person, index) => ({
+      personId: person.id,
+      label: person.isSelf ? person.name || t.habitForMe : person.name,
+      hue: personColor(person.color, index),
+      // What a row added inside this group is assigned to. '' for the self person, matching
+      // the pre-registry convention that an empty name mirror meant "me".
+      addName: person.isSelf ? '' : person.name,
+      tasks: todayList.filter(
+        (tk) => (effectiveAssigneeId(tk, tk.date || today) || selfPersonId) === person.id
+      ),
+    }));
+    // Anything whose person is gone (removed mid-week, or a peer id we don't have a row
+    // for) would otherwise be invisible in this layout — it gets its own trailing section.
+    const claimed = new Set(groups.flatMap((g) => g.tasks.map((tk) => tk.id)));
+    const orphans = todayList.filter((tk) => !claimed.has(tk.id));
+    return orphans.length
+      ? [...groups, { personId: '', label: t.rotation.unassigned, hue: theme.textMuted, addName: '', tasks: orphans }]
+      : groups;
+  }, [groupByPerson, people, todayList, selfPersonId, today, t, theme.textMuted]);
+
 
   // ── "What was this view hiding" glow (2026-07-27) ────────────────────────────
   // The ids the CURRENT layout actually draws, section by section, mirroring what
@@ -625,6 +673,30 @@ export default function TasksScreen() {
           </View>
         </Collapsible>
 
+        {/* Shared load (2026-07-28) — only once there's somebody to compare against, and
+            only on the day/week tabs it actually reports on ("All" spans no period). */}
+        {showPeople && tab !== 'all' && <EnergyBalanceCard date={today} />}
+
+        {/* Tag filter — only worth a row once tags exist, so it stays out of the way on a
+            list that doesn't use them. Multi-select ("any of"), unlike the person row. */}
+        <Collapsible open={allTags.length > 0}>
+          <View style={styles.personFilterRow}>
+            <TagChip
+              label={t.tags.filterAll}
+              selected={tagFilter.length === 0}
+              onPress={() => setTagFilter([])}
+            />
+            {allTags.map((tag) => (
+              <TagChip
+                key={tag.id}
+                label={tag.name}
+                selected={tagFilter.includes(tag.id)}
+                onPress={() => setTagFilter((prev) => toggleTagId(prev, tag.id))}
+              />
+            ))}
+          </View>
+        </Collapsible>
+
         {/* ── ALL TASKS (order: Whenever → Repeating → Shared) ── */}
         {tab === 'all' && (
           <>
@@ -689,19 +761,53 @@ export default function TasksScreen() {
 
             {/* Debug notes: anchor the day-view section (not its inner task rows). */}
             <DebugNoteAnchor id="plans.dayView" label="Plans — Today">
-              <SectionCard hue={theme.accent} label={t.tasksTabToday} count={todayList.length}>
-                {/* Add row sits between the tasks and the collapsed "Done" zone (DoneSplitList
-                    footer) so the active/white containers stay grouped and green "Done" is last. */}
-                <DoneSplitList
-                  tasks={todayList}
-                  emptyText={t.noPlansToday}
-                  focusMode={layoutSpec.focusMode}
-                  footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
-                  renderCard={(tk) => (
-                    <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
-                  )}
-                />
-              </SectionCard>
+              {groupByPerson ? (
+                // "By person" layout — one section per person, in that person's own hue.
+                // A SectionCard hue is the one place lib/personColor.ts permits the identity
+                // colour beyond an avatar dot, precisely for this grouping. A person with
+                // nothing today still gets their card, so an empty column is visible as
+                // "nothing assigned" rather than the person silently disappearing.
+                todayByPerson.map((group) => (
+                  <SectionCard
+                    key={group.personId || 'unassigned'}
+                    hue={group.hue}
+                    label={group.label}
+                    count={group.tasks.length}
+                  >
+                    <DoneSplitList
+                      tasks={group.tasks}
+                      emptyText={t.noPlansToday}
+                      focusMode={layoutSpec.focusMode}
+                      footer={
+                        <InlineTaskAdd
+                          date={today}
+                          accent={group.hue}
+                          assigneeId={group.personId}
+                          assignee={group.addName}
+                          wrapped
+                        />
+                      }
+                      renderCard={(tk) => (
+                        <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
+                      )}
+                    />
+                  </SectionCard>
+                ))
+              ) : (
+                <SectionCard hue={theme.accent} label={t.tasksTabToday} count={todayList.length}>
+                  {/* Add row sits between the tasks and the collapsed "Done" zone (DoneSplitList
+                      footer) so the active/white containers stay grouped and green "Done" is last. */}
+                  <DoneSplitList
+                    tasks={todayList}
+                    emptyText={t.noPlansToday}
+                    focusMode={layoutSpec.focusMode}
+                    footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
+                    renderCard={(tk) => (
+                      <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
+                    )}
+                  />
+                </SectionCard>
+              )}
             </DebugNoteAnchor>
           </>
         )}
