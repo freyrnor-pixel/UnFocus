@@ -93,7 +93,7 @@ import PressableScale from '@/components/PressableScale';
 import { decodeSharePayload } from '@/lib/share';
 import { parseReceiptText, findFuzzyMatch, ParsedReceiptItem as ParsedItem } from '@/lib/receipt';
 import { persistPhoto } from '@/lib/photoStorage';
-import { Fonts, FontSize, Radius, Shadow, Spacing, rgba } from '@/constants/theme';
+import { Fonts, FontSize, Radius, rgba, Shadow, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 
 // Fixed camera-chrome colours (Decision 025) — theme-independent, always white-on-black.
@@ -673,7 +673,7 @@ export default function ScanScreen() {
                     <Text style={[styles.itemQty, { color: theme.textMuted }, !item.selected && { opacity: 0.42 }]}>
                       1 stk
                     </Text>
-                    <Text style={[styles.itemPrice, { color: theme.textMuted }, !item.selected && { opacity: 0.42 }]}>
+                    <Text style={[styles.itemPrice, TabularNums, { color: theme.textMuted }, !item.selected && { opacity: 0.42 }]}>
                       {formatKr(item.price, 2)}
                     </Text>
                   </PressableScale>

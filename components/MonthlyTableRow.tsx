@@ -45,7 +45,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ShoppingItem } from '@/store/useShoppingStore';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { formatKr } from '@/lib/money';
 import PressableScale from '@/components/PressableScale';
@@ -106,11 +106,11 @@ function MonthlyTableRow({ item, onCheckboxPress, onPress, temporaryLabel, onInc
       </View>
 
       <View style={styles.priceCol}>
-        <Text style={[styles.priceText, { color: theme.textMuted }]}>
+        <Text style={[styles.priceText, TabularNums, { color: theme.textMuted }]}>
           {item.price > 0 ? formatKr(item.price, 0) : '—'}
         </Text>
         {total !== null && (
-          <Text style={[styles.totalText, { color: theme.text }]}>{`= ${formatKr(total, 0)}`}</Text>
+          <Text style={[styles.totalText, TabularNums, { color: theme.text }]}>{`= ${formatKr(total, 0)}`}</Text>
         )}
       </View>
 

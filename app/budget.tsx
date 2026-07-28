@@ -62,7 +62,7 @@ import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PressableScale from '@/components/PressableScale';
 import PhotoFrame from '@/components/PhotoFrame';
-import { Fonts, FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Shadow, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 export default function BudgetScreen() {
@@ -218,7 +218,7 @@ export default function BudgetScreen() {
                       <Text style={[styles.rowLabel, { color: theme.text }]}>{r.store || t.budget.title}</Text>
                       <Text style={[styles.rowMeta, { color: theme.textMuted }]}>{formatDisplayDate(r.date, lang)}</Text>
                     </View>
-                    <Text style={[styles.rowTotal, { color: theme.text }]}>{formatKr(r.total, 2, lang)}</Text>
+                    <Text style={[styles.rowTotal, TabularNums, { color: theme.text }]}>{formatKr(r.total, 2, lang)}</Text>
                   </View>
                 ))}
               </Surface>
@@ -237,7 +237,7 @@ export default function BudgetScreen() {
                       <View style={styles.rowContent}>
                         <Text style={[styles.rowLabel, { color: theme.text }]}>{store || t.budget.title}</Text>
                       </View>
-                      <Text style={[styles.rowTotal, { color: theme.text }]}>{formatKr(total, 2, lang)}</Text>
+                      <Text style={[styles.rowTotal, TabularNums, { color: theme.text }]}>{formatKr(total, 2, lang)}</Text>
                     </View>
                   ))}
               </Surface>

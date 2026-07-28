@@ -42,7 +42,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
@@ -167,7 +167,7 @@ export default function AddFromMonthlyModal({ visible, items, lists, onAdd, onCl
                               label={item.name}
                             />
                             {lineTotal !== null && (
-                              <Text style={[styles.rowPrice, { color: theme.textMuted }]}>{formatKr(lineTotal, 0)}</Text>
+                              <Text style={[styles.rowPrice, TabularNums, { color: theme.textMuted }]}>{formatKr(lineTotal, 0)}</Text>
                             )}
                           </View>
                           {idx < listItems.length - 1 && (

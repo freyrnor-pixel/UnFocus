@@ -43,7 +43,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Shadow, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { formatKr } from '@/lib/money';
 
@@ -153,7 +153,7 @@ export function FlightRow({ item, width }: { item: FlightRowItem; width: number 
         <View style={rowCloneStyles.line1}>
           <Text numberOfLines={1} style={[rowCloneStyles.name, { color: theme.text }]}>{item.name}</Text>
           {priceTotal !== null && (
-            <Text style={[rowCloneStyles.priceTotal, { color: theme.text }]}>{formatKr(priceTotal, 0)}</Text>
+            <Text style={[rowCloneStyles.priceTotal, TabularNums, { color: theme.text }]}>{formatKr(priceTotal, 0)}</Text>
           )}
         </View>
         <Text style={[rowCloneStyles.meta, { color: theme.textMuted }]}>

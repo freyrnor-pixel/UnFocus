@@ -36,7 +36,7 @@
  */
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Fonts, FontSize, Spacing, mix, rgba } from '@/constants/theme';
+import { Fonts, FontSize, mix, rgba, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { CardAccentBadge } from '@/components/CardAccent';
 import { Domain } from '@/lib/domainColor';
@@ -77,7 +77,7 @@ export default function SectionRail({ hue, domain, icon, label, count, right, st
         )}
         <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
         {count != null && (
-          <Text style={[styles.count, { color: theme.textMuted }]}>{count}</Text>
+          <Text style={[styles.count, TabularNums, { color: theme.textMuted }]}>{count}</Text>
         )}
         {right ? <View style={styles.right}>{right}</View> : null}
       </View>
