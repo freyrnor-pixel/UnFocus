@@ -93,7 +93,8 @@
     "format": "prettier --write .",
     "preview:build": "node scripts/build-web.mjs",
     "preview:serve": "node scripts/serve-web.mjs",
-    "preview": "bash scripts/run-preview.sh"
+    "preview": "bash scripts/run-preview.sh",
+    "wraps": "bash scripts/run-wraps.sh"
   },
   "private": true
 }

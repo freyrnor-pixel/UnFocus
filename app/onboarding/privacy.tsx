@@ -77,7 +77,8 @@ const baseStyles = StyleSheet.create({
   safe: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
-    padding: Spacing.xl,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
     gap: Spacing.xl,
     justifyContent: 'center',
     alignItems: 'center',
@@ -89,9 +90,14 @@ const baseStyles = StyleSheet.create({
     fontFamily: Fonts.semibold,
     textAlign: 'center',
   },
+  // Horizontal padding trimmed lg -> md (2026-07-28 wrap audit): this card sat inside the
+  // screen's own padding, and the two together left its text only 238px of a 393px phone —
+  // 40% of the width gone to chrome, which is what pushed "UnFocus er gratis og vil alltid
+  // være det." onto a second line. Vertical padding is untouched; onboarding still breathes.
   bulletCard: {
     borderRadius: Radius.lg,
-    padding: Spacing.lg,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
     gap: Spacing.md,
     width: '100%',
     ...Shadow.card,
@@ -107,5 +113,6 @@ const baseStyles = StyleSheet.create({
     fontSize: FontSize.md,
     lineHeight: 22,
   },
-  footer: { padding: Spacing.xl, paddingTop: Spacing.md },
+  footer: { paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg, paddingTop: Spacing.md },
 });

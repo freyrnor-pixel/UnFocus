@@ -237,6 +237,36 @@ device or EAS build.
   top-level-await, no queuing tricks needed. **In-memory only — no persistence across a
   full page reload/`page.goto()`.** Navigate between tabs via BottomNav clicks (client-side
   route change), not `page.goto()`, or the DB (and onboarding state) resets.
+### Wrap audit — `npm run wraps` (2026-07-28)
+Finds the "why is that on two lines when it nearly fits?" class of bug by measurement
+instead of eyeballing. `scripts/measure-wraps.mjs` walks the same preview build and, for
+every text node, forces `white-space: nowrap` to compare natural width against the box it
+actually got. Reports three separate failure modes:
+- **Near-miss wrapped text** — `+Npx` = how much more width would collapse it to one line.
+  A small N means the *container* is the problem, not the copy.
+- **Truncated single-line text** — how tabs/chips fail instead of wrapping. **⚠️ Confirm
+  these on a device**: react-native-web implements neither `adjustsFontSizeToFit` nor
+  `minimumFontScale`, so an auto-shrinking label (BottomNav's "Handleliste") is reported
+  here but is fine natively. Wrapped text and wrapped rows ARE faithful on web.
+- **Wrapped control rows** — a horizontal row (Mon–Sun weekday chips, a tab bar) whose
+  children spill to a second line. These can't be fixed by shortening copy; the row has a
+  hard minimum width. Rows are only reported when the children genuinely need more width
+  than the row has — absolutely-positioned children (BottomNav's sliding pill) are excluded
+  because they sit at their own `top` and otherwise fake a wrap on every single-line row.
+
+`npm run wraps -- --lang=no --width=360` (also `--json`). **Always check Norwegian** — it
+ran ~7x more near-misses than English at the same width (28 vs 4 instances at 393px) before
+the 2026-07-28 pass. Widths worth checking: 430 (Pro Max), 393 (iPhone 15/Pixel 8), 360
+(small Android), and 327 as a proxy for the `large` font setting (1.2x) at 393. Set
+`FORCE_BUILD=1` to rebuild `dist/` first; otherwise it reuses the existing bundle.
+
+Two structural lessons from that pass, worth not re-learning: horizontal chrome **stacks**
+(three nested 16px paddings plus an icon gutter left text 306 of 393px, and onboarding's
+`Spacing.xl` screen padding left one card just 238px — 40% of the screen); and a control
+row built from `minWidth` + `flexWrap` has a hard floor that silently breaks on smaller
+phones (7 chips x 40 + 6 x 4 gap = 304px, vs ~295px available at 360px). Prefer `flex: 1`
+children with no minWidth, the way `components/TaskCard.tsx`'s `weekdayChip` always has.
+
 - **The `.web` sibling pattern** (Metro resolves `file.web.ts(x)` over `file.ts(x)` on
   web — no `Platform.OS` branches in native files): `lib/sqlite.ts`/`lib/sqlite.web.ts`
   (DB handle), `lib/lanTransport.web.ts` (LAN sync stub — `isTransportAvailable()` false),
