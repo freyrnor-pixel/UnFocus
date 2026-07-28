@@ -35,23 +35,42 @@
  * card short. A hairline divider separates the day and week lines when both are shown
  * (energyMode 'custom').
  *
+ * **Game-like pip buttons (2026-07-28)**: each pip is now a small raised/sunken "keycap"
+ * (reuses constants/theme's `getElevation` — the same raised/flat tokens PressableScale's
+ * `depth` prop draws from) rather than a bare icon: an available pip is `getElevation('raised')`
+ * over `theme.surface` (popped out), a spent pip is `getElevation('flat')` over
+ * `theme.surfaceInset` (pressed in — that token is literally "the deepest surface" already).
+ * Purely visual, NOT actually pressable (there's nothing to tap on a pip) — the point is the
+ * bar reading like a row of game HUD charges being used up, not a real control.
+ *
+ * **Depleted/recovered pulse (2026-07-28)**: `EnergyPulse` fires a single ~1.5s glow (via
+ * `getGlow`) the moment a period's `current` crosses the zero line — `theme.good` when it
+ * goes from ≤0 back to positive ("recovered"), `theme.accent` (deliberately NOT `theme.bad`)
+ * when it drops to ≤0 ("depleted"). Tracked per-period via a prev-positive ref so it only
+ * fires ON THE TRANSITION, never on mount or on every render while already in that state.
+ * **Depleted state is not a failure state** — the accompanying `t.energyMeter.depletedDay/
+ * Week` copy is deliberately calm/caring ("a cue to ease off"), never a "Great job!"
+ * congratulation: the system's whole point is balance/planning, not spending it all. Keep
+ * any future copy on that same side of the line.
+ *
  * Connections:
  *   Imports → components/Surface, components/Stepper, components/Collapsible,
  *             components/PressableScale, constants/theme, lib/useAppTheme, lib/i18n,
  *             lib/date, lib/energy, store/useSettingsStore, store/useTaskStore,
- *             store/useHabitStore, store/useEnergyStore
+ *             store/useHabitStore, store/useEnergyStore, react-native-reanimated
  *   Used by → app/(tabs)/index.tsx (Home)
  *   Data    → reads tasks/habits/habitLogs + energy_budgets overrides; writes overrides only
  */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming, Easing } from 'react-native-reanimated';
 import Surface from '@/components/Surface';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
-import { Fonts, FontSize, Spacing } from '@/constants/theme';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { Fonts, FontSize, Radius, Spacing, getElevation, getGlow } from '@/constants/theme';
+import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek, energyPipCount } from '@/lib/energy';
@@ -60,9 +79,39 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { useEnergyStore } from '@/store/useEnergyStore';
 
+type PulseKind = 'recovered' | 'depleted';
+
+/** One-shot ~1.5s glow behind a meter row — see the file header's "Depleted/recovered pulse"
+ *  note. Local to this file (not GlowPulse) because it needs a timed fade in→hold→out
+ *  sequence GlowPulse's on/off `active` prop doesn't do. Remounted via a changing `key` on
+ *  every new trigger, so it always plays its sequence from the start. */
+function EnergyPulse({ color, reducedMotion }: { color: string; reducedMotion: boolean }) {
+  const opacity = useSharedValue(0);
+  useEffect(() => {
+    if (reducedMotion) {
+      opacity.value = 1; // keep the cue, drop the motion — parent removes this after its timeout
+      return;
+    }
+    opacity.value = withSequence(
+      withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) }),
+      withTiming(1, { duration: 900 }),
+      withTiming(0, { duration: 400, easing: Easing.in(Easing.ease) }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[StyleSheet.absoluteFill, { borderRadius: Radius.sm }, getGlow(color, 'soft'), style]}
+    />
+  );
+}
+
 export default function EnergyMeter() {
   const theme = useAppTheme();
   const t = useT();
+  const { reducedMotion } = useAccessibility();
 
   const energyMode = useSettingsStore((s) => s.energyMode);
   // Subscribe to the defaults + overrides so the meter recomputes when either changes.
@@ -97,23 +146,83 @@ export default function EnergyMeter() {
   const dayPlannedOver = -Math.min(0, dayCapacity + plannedEnergyDeltaForDay(today, tasks, habits));
   const weekPlannedOver = -Math.min(0, weekCapacity + plannedEnergyDeltaForWeek(today, tasks, habits));
 
-  const row = (label: string, current: number, capacity: number) => {
-    const boltColor = current <= 0 ? theme.bad : theme.accent;
+  // Depleted/recovered pulse tracking — fires once ON THE TRANSITION across the zero line,
+  // never on mount or while already sitting in that state. See file header.
+  const [dayPulse, setDayPulse] = useState<{ id: number; kind: PulseKind } | null>(null);
+  const [weekPulse, setWeekPulse] = useState<{ id: number; kind: PulseKind } | null>(null);
+  const prevDayPositive = useRef<boolean | null>(null);
+  const prevWeekPositive = useRef<boolean | null>(null);
+  const pulseId = useRef(0);
+
+  useEffect(() => {
+    if (!showDay) { prevDayPositive.current = null; return; }
+    const positive = dayCurrent > 0;
+    if (prevDayPositive.current !== null && prevDayPositive.current !== positive) {
+      pulseId.current += 1;
+      setDayPulse({ id: pulseId.current, kind: positive ? 'recovered' : 'depleted' });
+    }
+    prevDayPositive.current = positive;
+  }, [dayCurrent, showDay]);
+
+  useEffect(() => {
+    if (!showWeek) { prevWeekPositive.current = null; return; }
+    const positive = weekCurrent > 0;
+    if (prevWeekPositive.current !== null && prevWeekPositive.current !== positive) {
+      pulseId.current += 1;
+      setWeekPulse({ id: pulseId.current, kind: positive ? 'recovered' : 'depleted' });
+    }
+    prevWeekPositive.current = positive;
+  }, [weekCurrent, showWeek]);
+
+  // Matches EnergyPulse's own fade in (200) + hold (900) + fade out (400) = 1500ms.
+  useEffect(() => {
+    if (!dayPulse) return;
+    const id = setTimeout(() => setDayPulse(null), 1500);
+    return () => clearTimeout(id);
+  }, [dayPulse]);
+  useEffect(() => {
+    if (!weekPulse) return;
+    const id = setTimeout(() => setWeekPulse(null), 1500);
+    return () => clearTimeout(id);
+  }, [weekPulse]);
+
+  const row = (label: string, current: number, capacity: number, pulse: { id: number; kind: PulseKind } | null) => {
     const { pipCount, filled } = energyPipCount(current, capacity);
     return (
-      <View style={styles.meterRow}>
-        <Text style={[styles.meterLabel, { color: theme.text }]}>{label}</Text>
-        <View style={styles.pipRow}>
-          {Array.from({ length: pipCount }).map((_, i) => (
-            <Ionicons
-              key={i}
-              name={i < filled ? 'flash' : 'flash-outline'}
-              size={13}
-              color={i < filled ? boltColor : theme.textMuted}
-            />
-          ))}
+      <View style={styles.meterRowWrap}>
+        {pulse && (
+          <EnergyPulse
+            key={pulse.id}
+            color={pulse.kind === 'recovered' ? theme.good : theme.accent}
+            reducedMotion={reducedMotion}
+          />
+        )}
+        <View style={styles.meterRow}>
+          <Text style={[styles.meterLabel, { color: theme.text }]}>{label}</Text>
+          <View style={styles.pipRow}>
+            {Array.from({ length: pipCount }).map((_, i) => {
+              const active = i < filled;
+              return (
+                <View
+                  key={i}
+                  style={[
+                    styles.pip,
+                    active
+                      ? { backgroundColor: theme.surface, borderTopColor: 'rgba(255,255,255,0.5)', borderBottomColor: 'rgba(0,0,0,0.20)', ...getElevation('raised', theme.shadow) }
+                      : { backgroundColor: theme.surfaceInset, borderTopColor: 'rgba(0,0,0,0.22)', borderBottomColor: 'rgba(255,255,255,0.08)', ...getElevation('flat', theme.shadow) },
+                  ]}
+                >
+                  <Ionicons
+                    name={active ? 'flash' : 'flash-outline'}
+                    size={12}
+                    color={active ? theme.accent : theme.textMuted}
+                  />
+                </View>
+              );
+            })}
+          </View>
+          <Text style={[styles.meterValue, { color: theme.textMuted }]}>{`${current} / ${capacity}`}</Text>
         </View>
-        <Text style={[styles.meterValue, { color: theme.textMuted }]}>{`${current} / ${capacity}`}</Text>
       </View>
     );
   };
@@ -140,7 +249,13 @@ export default function EnergyMeter() {
         </PressableScale>
       </View>
 
-      {showDay && row(t.energyMeter.today, dayCurrent, dayCapacity)}
+      {showDay && row(t.energyMeter.today, dayCurrent, dayCapacity, dayPulse)}
+      {showDay && dayCapacity > 0 && dayCurrent <= 0 && (
+        <View style={styles.warningRow}>
+          <Ionicons name="leaf-outline" size={14} color={theme.good} />
+          <Text style={[styles.warningText, { color: theme.textMuted }]}>{t.energyMeter.depletedDay}</Text>
+        </View>
+      )}
       {showDay && dayPlannedOver > 0 && (
         <View style={styles.warningRow}>
           <Ionicons name="alert-circle" size={14} color={theme.warn} />
@@ -148,7 +263,13 @@ export default function EnergyMeter() {
         </View>
       )}
       {showDay && showWeek && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
-      {showWeek && row(t.energyMeter.thisWeek, weekCurrent, weekCapacity)}
+      {showWeek && row(t.energyMeter.thisWeek, weekCurrent, weekCapacity, weekPulse)}
+      {showWeek && weekCapacity > 0 && weekCurrent <= 0 && (
+        <View style={styles.warningRow}>
+          <Ionicons name="leaf-outline" size={14} color={theme.good} />
+          <Text style={[styles.warningText, { color: theme.textMuted }]}>{t.energyMeter.depletedWeek}</Text>
+        </View>
+      )}
       {showWeek && weekPlannedOver > 0 && (
         <View style={styles.warningRow}>
           <Ionicons name="alert-circle" size={14} color={theme.warn} />
@@ -194,9 +315,16 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   title: { fontSize: FontSize.md, fontFamily: Fonts.bold },
+  // Wraps each meter row so EnergyPulse (an absoluteFill sibling) has a position:relative
+  // parent to glow behind — see the "Depleted/recovered pulse" file-header note.
+  meterRowWrap: { position: 'relative', borderRadius: Radius.sm },
   meterRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   meterLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, minWidth: 62 },
-  pipRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 3 },
+  pipRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  // "Keycap" pip — an available (unspent) pip is raised/popped via getElevation('raised'),
+  // a spent pip sits flat/sunken via getElevation('flat') over theme.surfaceInset. Purely
+  // visual (see file header) — never wrapped in PressableScale, nothing to actually press.
+  pip: { width: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   meterValue: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 2 },
   warningRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },

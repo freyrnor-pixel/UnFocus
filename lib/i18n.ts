@@ -145,6 +145,11 @@ const en = {
     /** Permanent one-liner under the meter (components/EnergyMeter.tsx). Keep it to one
      *  sentence with no examples — see that file's "Permanent inline hint" note. */
     hint: 'Plan your workload with your energy in mind — for both habits and to-dos.',
+    // Shown when current <= 0 (2026-07-28) — deliberately NOT a "great job"/celebration
+    // message. Using it all isn't the goal here (balance/planning is), so the tone stays
+    // calm and caring rather than congratulatory. See EnergyMeter.tsx's "Depleted state" note.
+    depletedDay: "Today's energy is fully spent. That's a cue to ease off, not a target to hit.",
+    depletedWeek: "This week's energy is fully spent. Worth easing off rather than filling the days ahead.",
   },
   a11yAdd: 'Add',
   a11yDiscardRow: 'Discard new row',
@@ -1608,6 +1613,8 @@ const no: typeof en = {
     overCommittedDay: (n: number) => `⚠️ I dag er det planlagt ${n} mer energibruk enn du har tilgjengelig.`,
     overCommittedWeek: (n: number) => `⚠️ Denne uken er det planlagt ${n} mer energibruk enn du har tilgjengelig.`,
     hint: 'Planlegg arbeidsmengden med energien din i tankene — både for vaner og gjøremål.',
+    depletedDay: 'Dagens energi er brukt opp. Det er et signal om å ta det roligere, ikke et mål å nå.',
+    depletedWeek: 'Ukens energi er brukt opp. Verdt å ta det roligere fremover, ikke fylle på mer.',
   },
   a11yAdd: 'Legg til',
   a11yDiscardRow: 'Forkast ny rad',
