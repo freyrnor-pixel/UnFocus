@@ -28,7 +28,10 @@ export default function OnboardingLayout() {
   return (
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
       <View style={styles.treeWrap} pointerEvents="none">
-        <TreeWatermark size={300} opacity={0.06} absolute={false} />
+        {/* Tinted (2026-07-28): the raw asset is a near-white monochrome themed icon, so
+            untinted this backdrop only ever appeared in the dark theme and was invisible in
+            light. theme.text keeps it "barely there" in both, which is the intent. */}
+        <TreeWatermark size={300} opacity={0.06} absolute={false} tintColor={theme.text} />
       </View>
       <Stack
         screenOptions={{

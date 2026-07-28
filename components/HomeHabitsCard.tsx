@@ -43,7 +43,8 @@
  *     caption (`t.starters.habits.exampleLabel`, 2026-07-28 — a suggestion styled like a
  *     real row didn't read as an example without one) + one read-only `StarterExampleRow`
  *     (no `onAdd` — the real one-tap add is the starter chips below it, same split
- *     habits.tsx's own StarterCard uses) + the same four one-tap `HABIT_STARTERS` chips.
+ *     habits.tsx's own StarterCard uses) + one-tap `HABIT_STARTERS` chips, capped at
+ *     `STARTER_PREVIEW_COUNT` (see that constant — the Habits TAB still offers all four).
  *     Habits exist but none are due today → the same quiet `t.noHabitsYet` one-liner
  *     habits.tsx's Today tab shows in that case, so the two surfaces never disagree.
  *   - **Quick-add**: a trailing `AddRow`, title-only, creates a daily/dailyGoal-1 habit
@@ -78,6 +79,16 @@ import { HABIT_STARTERS } from '@/lib/habitStarters';
 import { getDomainColor } from '@/lib/domainColor';
 
 const COLLAPSED_COUNT = 5;
+
+/**
+ * How many starter chips the EMPTY card offers. Two, not the full four — the same call, for
+ * the same measured reason, as HomeGoalsCard's STARTER_PREVIEW_COUNT. This card shipped
+ * (#418) before the Goals card found the problem (#423), so it kept rendering all four:
+ * `npm run wraps --lang=no` had the row wrapping at EVERY width tested — two lines even at
+ * 430px, and four lines (one chip per line) at 327px, which is a lot of Home to hand an
+ * empty state. The other two starters stay on the Habits tab, one tap away via the title.
+ */
+const STARTER_PREVIEW_COUNT = 2;
 
 export default function HomeHabitsCard() {
   const t = useT();
@@ -245,7 +256,7 @@ export default function HomeHabitsCard() {
             />
             <Text style={[styles.starterTapLabel, { color: theme.textMuted }]}>{t.starters.habits.tapToAdd}</Text>
             <View style={styles.starterChips}>
-              {HABIT_STARTERS.map((s) => (
+              {HABIT_STARTERS.slice(0, STARTER_PREVIEW_COUNT).map((s) => (
                 <PressableScale
                   key={s.key}
                   onPress={() => createHabit(t.starters.habits.suggestions[s.key], s.icon, s.dailyGoal)}
