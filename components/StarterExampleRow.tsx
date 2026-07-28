@@ -6,11 +6,14 @@
  *
  * Connections:
  *   Imports → components/Badge, components/PressableScale, constants/theme, lib/useAppTheme
- *   Used by → app/(tabs)/habits.tsx, app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx,
- *             app/(tabs)/health.tsx (all inside their StarterCard's `example` slot), plus
- *             components/PlanTaskCard.tsx and components/HomeShoppingCard.tsx, which render
+ *   Used by → app/(tabs)/habits.tsx, app/(tabs)/plans.tsx, app/(tabs)/health.tsx (all inside
+ *             their StarterCard's `example` slot — app/(tabs)/shopping.tsx dropped its own
+ *             two example rows 2026-07-28, see that file's StarterCard call), plus
+ *             components/PlanTaskCard.tsx and components/HomeHabitsCard.tsx, which render
  *             it directly in their own in-card empty states (no StarterCard wrapper — a
- *             Surface inside a Surface would read as a nested panel)
+ *             Surface inside a Surface would read as a nested panel; HomeShoppingCard
+ *             dropped its own use of this the same day, for the same reason as its full
+ *             /shopping screen)
  *   Data    → none — pure presentation; callers pass already-localized strings, a
  *             domain/semantic accent color (e.g. getDomainColor(theme, 'shop').accent),
  *             and (optionally) an `onAdd` callback that writes the example into the

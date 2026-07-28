@@ -86,16 +86,20 @@
  *     `COLLAPSED_GRID_HEIGHT` (lib/dayGrid.ts) does the real height budgeting for the timed
  *     portion now.
  *   - **Empty state (2026-07-24 text removed → 2026-07-25 blank row → hour ruler → 2026-07-26
- *     real grid → 2026-07-27 explainer + suggestion)**: an empty day (`showEmpty`) now renders
- *     a short italic explainer (`t.starters.plans.text`) plus one real suggested-add row
- *     (`StarterExampleRow`, its "+" wired through `onAddExample`), where the content would be.
- *     That replaced an empty hour grid, which filled the space without teaching anything — the
- *     user asked for "example text by default when the card is empty, and a row with suggested
- *     adds, designed the same as the other rows". `components/DayHourScale` existed only for
- *     that empty-grid branch and was deleted with it. A dashed "add a plan" ghost row that
- *     deep-links to /plans still shows as a FALLBACK when no inline add is wired
- *     (`readOnly && !onAddTask`). The distinct "all done" state keeps its own `t.dayViewAllDone`
- *     line — it's a reward, not an empty card.
+ *     real grid → 2026-07-27 explainer + suggestion → 2026-07-28 "Example tasks" divider)**: an
+ *     empty day (`showEmpty`) now renders a short italic explainer (`t.starters.plans.text`),
+ *     an uppercase "Example tasks" caption (`t.starters.plans.exampleLabel`, `exampleDivider`
+ *     style — mirrors components/StarterCard's own exampleLabel treatment), then one real
+ *     suggested-add row (`StarterExampleRow`, its "+" wired through `onAddExample`), where the
+ *     content would be. The divider was added because a suggestion styled to look like a real
+ *     row (by design — see StarterExampleRow's own header) read as an actual task without it
+ *     (2026-07-28 user report). That replaced an empty hour grid, which filled the space
+ *     without teaching anything — the user asked for "example text by default when the card is
+ *     empty, and a row with suggested adds, designed the same as the other rows".
+ *     `components/DayHourScale` existed only for that empty-grid branch and was deleted with
+ *     it. A dashed "add a plan" ghost row that deep-links to /plans still shows as a FALLBACK
+ *     when no inline add is wired (`readOnly && !onAddTask`). The distinct "all done" state
+ *     keeps its own `t.dayViewAllDone` line — it's a reward, not an empty card.
  *   - **Delete + restore (2026-07-27, user report: "no apparent way to delete and recover
  *     deleted tasks")**: `onDeleteTask` adds a trash to every row (flat rows put it under the
  *     done-toggle in `doneCol`; grid cards put it beside the toggle in the `gridActions` corner
@@ -872,14 +876,20 @@ export default function PlanTaskCard({
               <Text style={[styles.emptyExplainer, { color: theme.text }]}>{t.starters.plans.text}</Text>
             </View>
             {onAddExample ? (
-              <StarterExampleRow
-                icon="ellipse-outline"
-                title={t.starters.plans.exampleTitle}
-                meta="17:00–17:20"
-                accent={domainColor.accent}
-                onAdd={onAddExample}
-                addLabel={t.starters.addExample}
-              />
+              <>
+                {/* Divider caption (2026-07-28, user report: a suggested row styled like a
+                    real row didn't read as an EXAMPLE without a label) — same uppercase
+                    caption treatment components/StarterCard uses for exampleLabel. */}
+                <Text style={[styles.exampleDivider, { color: theme.textMuted }]}>{t.starters.plans.exampleLabel}</Text>
+                <StarterExampleRow
+                  icon="ellipse-outline"
+                  title={t.starters.plans.exampleTitle}
+                  meta="17:00–17:20"
+                  accent={domainColor.accent}
+                  onAdd={onAddExample}
+                  addLabel={t.starters.addExample}
+                />
+              </>
             ) : null}
             {/* Ghost "add" row (debug-note 2026-07-21) — an empty day should still offer a
                 place to add something. Deep-links to the Plans tab; only shown as a FALLBACK
@@ -1110,6 +1120,9 @@ const baseStyles = StyleSheet.create({
   emptyTextRow: { flexDirection: 'row', gap: Spacing.xs },
   emptyBulb: { marginTop: 2 },
   emptyExplainer: { flex: 1, fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.medium, fontStyle: 'italic' },
+  // "Example tasks" divider caption (2026-07-28) — mirrors components/StarterCard's own
+  // exampleLabel caption styling so the two surfaces read as one system.
+  exampleDivider: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.4 },
   emptyAddRow: {
     flexDirection: 'row',
     alignItems: 'center',

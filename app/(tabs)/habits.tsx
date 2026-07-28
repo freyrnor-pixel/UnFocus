@@ -682,7 +682,7 @@ export default function HabitsScreen() {
                   profileHabits.length === 0 ? (
                     <StarterCard
                       text={t.starters.habits.text}
-                      exampleLabel={t.starters.exampleLabel}
+                      exampleLabel={t.starters.habits.exampleLabel}
                       example={
                         <StarterExampleRow
                           icon={HABIT_STARTERS[0].icon}

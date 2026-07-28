@@ -22,10 +22,10 @@ jest.mock('@/lib/db', () => ({
 }));
 
 describe('homeCardOrder', () => {
-  it('defaults to plans/notes/shopping (Tasks first) when the settings row has no value', () => {
+  it('defaults to plans/habits/notes/shopping (To-do first, Habits right under it) when the settings row has no value', () => {
     (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1 });
     useSettingsStore.getState().load();
-    expect(useSettingsStore.getState().homeCardOrder).toEqual(['plans', 'notes', 'shopping']);
+    expect(useSettingsStore.getState().homeCardOrder).toEqual(['plans', 'habits', 'notes', 'shopping']);
   });
 
   it('reads a persisted order back from the JSON column', () => {

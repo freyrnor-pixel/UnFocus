@@ -1,18 +1,19 @@
 /**
  * index.tsx — Home screen (the daily landing hub).
  *
- * The app's calm daily overview: a low-weight greeting, then the three converged
- * previews — Notes (HomeNotesCard), Plans (the shared PlanTaskCard day-view), and
- * Shopping (HomeShoppingCard) — plus gentle completed-count points. Mounts via
- * ScreenScaffold (Decision 001): the scaffold owns the background, particles, header
- * chrome (Settings gear + Focus eye), and BottomNav; this screen only supplies
- * content and wires Focus mode.
+ * The app's calm daily overview: a low-weight greeting, then the four converged
+ * previews — Plans (the shared PlanTaskCard day-view), Habits (HomeHabitsCard, added
+ * 2026-07-28 directly under Plans), Notes (HomeNotesCard), and Shopping (HomeShoppingCard)
+ * — plus gentle completed-count points. Mounts via ScreenScaffold (Decision 001): the
+ * scaffold owns the background, particles, header chrome (Settings gear + Focus eye), and
+ * BottomNav; this screen only supplies content and wires Focus mode.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HomeNotesCard,
- *             components/HomeSharedCard (gated on settings.featureSharing; the shopping
- *             the spend-pace line is unconditional as of the 2026-07-25 defaults revision),
- *             components/HomeShoppingCard, components/HomeCardManager,
+ *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HomeHabitsCard
+ *             (self-contained — reads useHabitStore directly, no props from this screen),
+ *             components/HomeNotesCard, components/HomeSharedCard (gated on
+ *             settings.featureSharing; the shopping the spend-pace line is unconditional as
+ *             of the 2026-07-25 defaults revision), components/HomeShoppingCard, components/HomeCardManager,
  *             components/FlightOverlay (FlightPill, Flight, FlightRect), components/DebugNoteAnchor,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, lib/notifications, lib/reminders,
@@ -45,6 +46,12 @@
  *     and `onAddExample` (the empty day's one-tap suggested task).
  *     `allTasks` (full store) is passed so Decision 020 cross-date followers surface.
  *     `horizontal={settings.planTimelineHorizontal}` is threaded to the PlanTaskCard mount.
+ *   - **Habits preview = HomeHabitsCard (2026-07-28)**: self-contained, unlike the other
+ *     three previews — it reads useHabitStore directly rather than through props, since
+ *     Habits needs no cross-store aggregation the way Shopping (budget/receipts) or Plans
+ *     (cross-date followers) do. Positioned right after 'plans' in `HOME_CARD_KINDS` and the
+ *     default `homeCardOrder` (store/useSettingsStore.ts + lib/db.ts's back-fill migration
+ *     for pre-existing installs whose persisted order predates this card).
  *   - **Notes preview = HomeNotesCard**: reads useNotesStore, shows first 5 active notes with
  *     inline toggle-checked, a mic button for voice-capture notes, a trailing AddRow to type a
  *     new note's title directly (no navigation away from Home), and a title tap → /notes for
@@ -84,9 +91,11 @@
  *     DraggableTaskRow but not that complexity, since Home's cards are plain flat siblings.
  *     `renderHomeCard(kind)` is the per-kind render function passed to it;
  *     `sanitizeHomeCardOrder` defends against a corrupt/legacy settings row.
- *   - **Deliberately NOT ported**: DayTimeline/TaskItem/NextTaskCard Plans stack, Backlog + Habits
- *     previews, SharedRequestsSection(kind='task'), update-ready banner, work-mode banner,
- *     CoverScreen / SiteSwipeView chrome, automation trigger ('shopping_opened').
+ *   - **Deliberately NOT ported**: DayTimeline/TaskItem/NextTaskCard Plans stack, the old
+ *     pre-rebuild Backlog preview (Habits WAS on this list until 2026-07-28 — see
+ *     HomeHabitsCard above), SharedRequestsSection(kind='task'), update-ready banner,
+ *     work-mode banner, CoverScreen / SiteSwipeView chrome, automation trigger
+ *     ('shopping_opened').
  *   - **"More" links (Decision 036)**: chips to /notes and /meals. Reachability is
  *     data-independent — always shown, independent of whether the previews have any content.
  *   - All visible strings via useT(); today is todayStr() (YYYY-MM-DD).
@@ -103,7 +112,7 @@
  *     full pattern.
  *   - **Debug notes (2026-07-13)**: each top-level section is wrapped in DebugNoteAnchor with
  *     a hand-picked stable id (`home.greeting`/`home.notesPreview`/`home.sharedPreview`/
- *     `home.plansPreview`/`home.shoppingPreview`) — a no-op unless Debug mode is on
+ *     `home.plansPreview`/`home.habitsPreview`/`home.shoppingPreview`) — a no-op unless Debug mode is on
  *     (settings.debugModeEnabled). See that component's header for the long-press/bubble/edit
  *     mechanics; this screen is the one concrete "cards" usage alongside every screen's header.
  */
@@ -117,6 +126,7 @@ import EnergyMeter from '@/components/EnergyMeter';
 import HomeNotesCard from '@/components/HomeNotesCard';
 import HomeSharedCard from '@/components/HomeSharedCard';
 import HomeShoppingCard from '@/components/HomeShoppingCard';
+import HomeHabitsCard from '@/components/HomeHabitsCard';
 import HomeCardManager from '@/components/HomeCardManager';
 import FlightOverlay, { FlightPill, Flight, FlightRect } from '@/components/FlightOverlay';
 import HintCard from '@/components/HintCard';
@@ -145,7 +155,10 @@ import { computeSpendPace } from '@/lib/budget';
 // Home preview card management (hold-to-manage, components/HomeCardManager.tsx). These
 // are the only kinds HomeCardManager knows about — HomeSharedCard is a separate,
 // automatic/data-driven inbox, not a discretionary card, so it stays outside this set.
-const HOME_CARD_KINDS = ['plans', 'notes', 'shopping'] as const;
+// 'habits' sits right after 'plans' (2026-07-28, user report: "Habits card must be added
+// to home screen under to-do") — this order is also the fallback default whenever a
+// persisted homeCardOrder is empty/corrupt (see sanitizeHomeCardOrder below).
+const HOME_CARD_KINDS = ['plans', 'habits', 'notes', 'shopping'] as const;
 type HomeCardKind = (typeof HOME_CARD_KINDS)[number];
 
 /** Defensive parse for the persisted order: drop unknown/duplicate kinds, fall back to the default order if the result is empty (corrupt/legacy row). */
@@ -260,6 +273,7 @@ export default function HomeScreen() {
       notes: t.home.manageCards.kinds.notes,
       plans: t.home.manageCards.kinds.plans,
       shopping: t.home.manageCards.kinds.shopping,
+      habits: t.home.manageCards.kinds.habits,
     }),
     [t]
   );
@@ -471,6 +485,12 @@ export default function HomeScreen() {
               onAddExample={handleAddExampleTask}
               horizontal={planTimelineHorizontal}
             />
+          </DebugNoteAnchor>
+        );
+      case 'habits':
+        return (
+          <DebugNoteAnchor id="home.habitsPreview" label="Home — Habits preview" style={styles.section}>
+            <HomeHabitsCard />
           </DebugNoteAnchor>
         );
       case 'shopping':

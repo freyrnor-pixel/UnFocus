@@ -800,6 +800,8 @@ const en = {
     notesCollapse: 'Show less',
     shoppingExpand: 'Show full list',
     shoppingCollapse: 'Show less',
+    habitsExpand: 'Show all habits',
+    habitsCollapse: 'Show less',
     quantityLabel: 'Quantity',
     weeklyListChip: 'This week',
     addToTaskLabel: 'Also add as a task',
@@ -809,7 +811,7 @@ const en = {
       done: 'Done',
       add: 'Add a card',
       remove: (label: string) => `Remove ${label}`,
-      kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping' },
+      kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping', habits: 'Habits' },
     },
   },
   health: {
@@ -1355,6 +1357,11 @@ const en = {
     addExample: 'Add',
     habits: {
       text: 'All wins matter, big and small.',
+      // Divider caption above the example row, both on the Habits tab's StarterCard and
+      // the Home preview card's own empty state (2026-07-28, user report: an example row
+      // styled like a real row didn't read as an example without a label) — see
+      // HomeHabitsCard.tsx and this screen's StarterCard call.
+      exampleLabel: 'Example habits',
       tapToAdd: 'Tap one to start:',
       suggestions: {
         water: 'Drink 4 glasses of water',
@@ -1365,6 +1372,10 @@ const en = {
     },
     plans: {
       text: 'Break things into smaller pieces, one step at a time.',
+      // Divider caption above the example row (2026-07-28, same report as habits above) —
+      // shown both on the full /plans screen's StarterCard and PlanTaskCard's own Home
+      // preview empty state.
+      exampleLabel: 'Example tasks',
       exampleTitle: 'Tidy up',
       exampleSteps: {
         trash: 'Take out the trash',
@@ -1375,13 +1386,13 @@ const en = {
       },
     },
     shopping: {
-      text: 'Weekly list for groceries, monthly list for what the house needs once a month.',
       // Home preview card's list form of the same idea (2026-07-28, user report — the full
-      // sentence read as a wall of text on the small card) — see HomeShoppingCard.tsx.
+      // sentence read as a wall of text on the small card) — see HomeShoppingCard.tsx. As of
+      // 2026-07-28 the full /shopping screen's StarterCard uses this same two-line form (and
+      // dropped its suggested-add example rows entirely) so the two surfaces read as one
+      // explanation, not two different ones.
       textWeekly: 'Weekly list for groceries.',
       textMonthly: 'Monthly list for what the house needs.',
-      exampleWeekly: 'Milk',
-      exampleMonthly: 'Toilet paper',
     },
     health: {
       text: 'Log what bothers you, and what helps.',
@@ -2509,6 +2520,8 @@ const no: typeof en = {
     notesCollapse: 'Vis mindre',
     shoppingExpand: 'Vis full liste',
     shoppingCollapse: 'Vis mindre',
+    habitsExpand: 'Vis alle vaner',
+    habitsCollapse: 'Vis mindre',
     quantityLabel: 'Antall',
     weeklyListChip: 'Denne uken',
     addToTaskLabel: 'Legg også til som oppgave',
@@ -2518,7 +2531,7 @@ const no: typeof en = {
       done: 'Ferdig',
       add: 'Legg til kort',
       remove: (label: string) => `Fjern ${label}`,
-      kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste' },
+      kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste', habits: 'Vaner' },
     },
   },
   health: {
@@ -2703,6 +2716,7 @@ const no: typeof en = {
     addExample: 'Legg til',
     habits: {
       text: 'Alle seire teller, små som store.',
+      exampleLabel: 'Eksempelvaner',
       tapToAdd: 'Trykk på én for å komme i gang:',
       suggestions: {
         water: 'Drikk 4 glass vann',
@@ -2713,6 +2727,7 @@ const no: typeof en = {
     },
     plans: {
       text: 'Del ting opp i mindre biter, ett steg av gangen.',
+      exampleLabel: 'Eksempeloppgaver',
       exampleTitle: 'Rydde',
       exampleSteps: {
         trash: 'Kaste søppel',
@@ -2723,11 +2738,8 @@ const no: typeof en = {
       },
     },
     shopping: {
-      text: 'Ukesliste for dagligvarer, månedsliste for det huset trenger én gang i måneden.',
       textWeekly: 'Ukentlig liste for dagligvarer.',
       textMonthly: 'Månedlig liste for det huset trenger.',
-      exampleWeekly: 'Melk',
-      exampleMonthly: 'Dopapir',
     },
     health: {
       text: 'Logg det som plager deg, og hva som hjelper.',

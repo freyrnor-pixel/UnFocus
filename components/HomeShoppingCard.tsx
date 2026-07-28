@@ -10,8 +10,7 @@
  *   Imports → components/Surface, components/ExpandableCard, components/CardAccent
  *             (badge+wash gradient move), components/FlightOverlay
  *             (FlightRect type only), components/ShoppingRow, components/PressableScale,
- *             components/ProgressBar, components/StarterExampleRow (empty-state suggestion),
- *             components/AddRow +
+ *             components/ProgressBar, components/AddRow +
  *             components/Stepper (quick-add's inline quantity/target extras), constants/theme,
  *             lib/haptics, lib/i18n, lib/shoppingGroups (listProgress), lib/useAppTheme,
  *             lib/domainColor, lib/budget (SpendPace type only), expo-router,
@@ -28,19 +27,15 @@
  *     HomeNotesCard/PlanTaskCard when light — then grows per item row above it;
  *     `previewRow`'s paddingVertical was trimmed to `Spacing.xs` for a slimmer collapsed row.
  *   - **Empty state (2026-07-24 text removed → 2026-07-26 "Nothing" label → 2026-07-27 explainer
- *     + suggestion → 2026-07-28 explainer split into a two-line list)**: an empty list renders
- *     two short italic bullet lines, one per cadence (`t.starters.shopping.textWeekly` /
- *     `textMonthly`) sharing a single bulb icon, plus one real suggested-add row
- *     (`components/StarterExampleRow`, its "+" calling the card's own `onAddItem`), instead of
- *     the shared `HomePreviewEmpty` "Nothing" label. The two-line form replaced a single
- *     comma-joined sentence (`t.starters.shopping.text`, still used by the full Shopping
- *     screen's own StarterCard) that read as a run-on on this card's narrow width. Gated on a
- *     plain `totalCount === 0`, so it also returns if the list is later cleared. The suggestion
- *     is deliberately WEEKLY-only here — the monthly-vs-weekly distinction is explained in the
- *     text, and the full Shopping screen's own StarterCard is where both examples live. Its
- *     `StarterExampleRow` carries no `meta` pill (2026-07-28, user report) — a "Weekly" tag on
- *     the one suggested row was redundant once the explainer above already states the cadence,
- *     and this card's suggestion is always weekly, never mixed with a monthly one.
+ *     + suggestion → 2026-07-28 explainer split into a two-line list, example row dropped)**: an
+ *     empty list renders two short italic bullet lines, one per cadence
+ *     (`t.starters.shopping.textWeekly` / `textMonthly`) sharing a single bulb icon — no
+ *     suggested-add example row any more (user report: Shopping doesn't need one, just a short
+ *     explanation of the two cadences; the full /shopping screen's StarterCard dropped its own
+ *     two example rows the same day, for the same reason — see app/(tabs)/shopping.tsx). This
+ *     replaced the shared `HomePreviewEmpty` "Nothing" label, then a single comma-joined
+ *     sentence that read as a run-on on this card's narrow width. Gated on a plain
+ *     `totalCount === 0`, so it also returns if the list is later cleared.
  *   - **Header tightened + moved down (2026-07-26, user report)**: `titleRow`'s paddingLeft
  *     went 56 → 52 (badge 32 + a 4px gap, was 8px — "more closely linked with the badge") and
  *     `badgeFixed`/`cardContent` both got a matching +4 top/paddingTop bump ("move it a bit
@@ -110,7 +105,6 @@ import ExpandableCard from '@/components/ExpandableCard';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 import ShoppingRow from '@/components/ShoppingRow';
 import PressableScale from '@/components/PressableScale';
-import StarterExampleRow from '@/components/StarterExampleRow';
 import ProgressBar from '@/components/ProgressBar';
 import AddRow from '@/components/AddRow';
 import Stepper from '@/components/Stepper';
@@ -297,8 +291,10 @@ export default function HomeShoppingCard({
         )}
 
         {totalCount === 0 ? (
-          // Empty-state explainer + one real suggested-add row (2026-07-27) — see the
-          // "Empty state" edit note. Replaces the bare "Nothing" label.
+          // Empty-state explainer only (2026-07-27, example row dropped 2026-07-28 — user
+          // report: Shopping doesn't need a suggested-add example, just a short explanation
+          // of the two cadences) — see the "Empty state" edit note. Replaces the bare
+          // "Nothing" label.
           <View style={styles.emptyWrap}>
             <View style={styles.emptyTextRow}>
               <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.emptyBulb} />
@@ -307,15 +303,6 @@ export default function HomeShoppingCard({
                 <Text style={[styles.emptyExplainer, { color: theme.text }]}>• {t.starters.shopping.textMonthly}</Text>
               </View>
             </View>
-            {onAddItem ? (
-              <StarterExampleRow
-                icon="cart-outline"
-                title={t.starters.shopping.exampleWeekly}
-                accent={domainColor.accent}
-                onAdd={() => onAddItem(t.starters.shopping.exampleWeekly, 1)}
-                addLabel={t.starters.addExample}
-              />
-            ) : null}
           </View>
         ) : expanded ? (
           // Expanded: full nested structure
