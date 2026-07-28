@@ -298,9 +298,11 @@
  *     (autoCapture camera/library); Skip commits the trip in place.
  *   - **Share pill restored (2026-07-23)**: re-wired via `ScreenScaffold`'s new optional
  *     `onSharePress` (site-tier header controls), pushing `/share-modal?kind=s` — see
- *     SCREEN_FUNCTIONS_AUDIT.md finding C1. Plans doesn't need the same treatment: its
- *     per-task "Shared out" switch (`components/TaskCard.tsx`) already writes directly to
- *     `useSharedStore` without a QR step.
+ *     SCREEN_FUNCTIONS_AUDIT.md finding C1. Plans got the same `onSharePress` wiring
+ *     (`kind=t`) on 2026-07-28 once share-modal grew a "Send as text" export
+ *     (`lib/shareText.ts`) alongside its QR code; Plans' per-task "Shared out" switch
+ *     (`components/TaskCard.tsx`) is unrelated — that still writes directly to
+ *     `useSharedStore` without going through share-modal at all.
  *   - **Scan header button (2026-07-23, audit findings E2/F1)**: `onScanPress` (same
  *     pattern as `onSharePress` above) pushes `/scan` — Scan's own idle screen still offers
  *     both receipt OCR and QR import, so this one button is the sole replacement for the

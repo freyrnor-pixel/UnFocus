@@ -8,31 +8,37 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/Button,
  *             components/QRCodeDisplay, components/PressableScale, constants/theme,
- *             lib/date (todayStr, formatDisplayDate), lib/i18n, lib/share, lib/useAppTheme,
- *             store/useSettingsStore, store/useSharedStore, store/useShoppingStore,
- *             store/useTaskStore
+ *             lib/date (todayStr, formatDisplayDate), lib/i18n, lib/share, lib/shareText,
+ *             lib/useAppTheme, react-native (Share), store/useSettingsStore,
+ *             store/useSharedStore, store/useShoppingStore, store/useTaskStore
  *   Used by → Expo Router route "/share-modal"; app/(tabs)/shopping.tsx pushes it with
- *             `kind=s` from the header share icon (restored 2026-07-23, see
- *             SCREEN_FUNCTIONS_AUDIT.md finding C1). Plans doesn't push here — its per-task
- *             "Shared out" switch shares directly without a QR step.
+ *             `kind=s` and app/(tabs)/plans.tsx with `kind=t`, both from the header share
+ *             icon (Shopping restored 2026-07-23, SCREEN_FUNCTIONS_AUDIT.md finding C1;
+ *             Plans wired the same way once the plain-text export landed). Plans' per-task
+ *             "Shared out" switch still shares directly without going through this screen.
  *   Data    → reads useShoppingStore (shopping_items) / useTaskStore (tasks) / useSettingsStore
- *             (language for date formatting); writes outbound rows to useSharedStore
- *             (shared_shopping_items / shared_tasks)
+ *             (language for date formatting); the QR path writes outbound rows to
+ *             useSharedStore (shared_shopping_items / shared_tasks) — the plain-text path
+ *             (Share.share via lib/shareText) is fire-and-forget and writes nothing, since
+ *             there's no scan-back step to track
  *
  * Edit notes:
  *   - All visible strings go through useT(); kind param ('t' = tasks, anything else = shopping) drives the whole sheet.
- *   - Source lists are filtered to unchecked shopping / future-dated undone tasks (today via todayStr()); payload built with encodeSharePayload.
- *   - Task dates in the UI are rendered via formatDisplayDate (Norwegian date display,
+ *   - Source lists are filtered to unchecked shopping / future-dated undone tasks (today via todayStr()); QR payload built with encodeSharePayload, text payload with lib/shareText's formatShoppingChecklist/formatTaskChecklist.
+ *   - Task dates in the UI (and in the text export) are rendered via formatDisplayDate (Norwegian date display,
  *     code-only, no ledger number — see Decision 028's numbering note) — DD.MM.YYYY in Norwegian, ISO in English.
  *   - The post-share "Done" button uses dismissAll() + push('/shared') so the result matches
  *     the app's <=2-deep site-stack invariant regardless of which site screen opened it.
+ *     "Send as text" doesn't route through this state at all — it fires the OS Share sheet
+ *     directly off the current selection and the user stays on this screen either way.
  *   - Decision 001 tier='sub' scaffold; Decision 006 tokens only (accent/good/textMuted).
  *   - OB-3 resolved (Decision 023): a per-kind explanation line + the "one-time copy for now"
  *     caveat render under the selection-card title (t.shareExplain{Shopping,Tasks} +
- *     t.shareExplainLaterBuild — pre-existing bilingual keys reused).
+ *     t.shareExplainLaterBuild — pre-existing bilingual keys reused, copy updated to cover
+ *     both the QR and text paths).
  */
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Share, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
@@ -40,6 +46,7 @@ import { useSharedStore } from '@/store/useSharedStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useT } from '@/lib/i18n';
 import { encodeSharePayload } from '@/lib/share';
+import { formatShoppingChecklist, formatTaskChecklist } from '@/lib/shareText';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import Surface from '@/components/Surface';
 import Button from '@/components/Button';
@@ -148,6 +155,29 @@ export default function ShareModal() {
 
   const title = kind === 's' ? t.sharedShopping : t.sharedTasks;
 
+  async function sendAsText() {
+    if (selected.size === 0) return;
+    const text = kind === 's'
+      ? formatShoppingChecklist(
+          shoppingItems
+            .filter((i) => selected.has(i.id))
+            .map((i) => ({ name: i.name, amount: i.amount, unit: i.unit, checked: i.checked })),
+          title
+        )
+      : formatTaskChecklist(
+          tasks
+            .filter((task) => selected.has(task.id))
+            .map((task) => ({ title: task.title, date: task.date, done: task.done })),
+          lang,
+          title
+        );
+    try {
+      await Share.share({ message: text });
+    } catch {
+      // user cancelled or the share sheet failed — nothing to recover, no-op
+    }
+  }
+
   return (
     <ScreenScaffold title={t.shareTitle} tier="sub" onBack={() => router.back()}>
       <View style={styles.content}>
@@ -194,10 +224,17 @@ export default function ShareModal() {
             </Surface>
 
             {selected.size > 0 && qrPayload ? (
-              <Button
-                label={`${t.shareSelected} (${selected.size})`}
-                onPress={confirmShare}
-              />
+              <View style={styles.actions}>
+                <Button
+                  label={`${t.shareSelected} (${selected.size})`}
+                  onPress={confirmShare}
+                />
+                <Button
+                  label={t.shareSendText}
+                  variant="secondary"
+                  onPress={sendAsText}
+                />
+              </View>
             ) : null}
           </>
         ) : (
@@ -228,6 +265,7 @@ export default function ShareModal() {
 
 const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.md },
+  actions: { gap: Spacing.sm },
   card: {
     borderRadius: Radius.md,
     padding: Spacing.md,
