@@ -307,6 +307,22 @@ device or EAS build.
   without data setup (Settings, the medicine editor).
   - `npm run preview:build` / `npm run preview:serve` run the two steps standalone.
   - `node scripts/preview.mjs --route=/some/path` for a focused single-screen recheck.
+- **What the preview genuinely CANNOT reach** (learned the hard way 2026-07-28 — check here
+  before writing a driver script):
+  - **Anything behind `Alert.alert`.** react-native-web doesn't render it, so the tap appears
+    to do nothing. This blocks the **weekly shopping list** entirely: "Create a new list"
+    opens an Alert, so no weekly list can be made, so `components/ShoppingRow.tsx` and its
+    detail sheet are unreachable in the preview at ALL. Monthly rows are a different
+    component (`MonthlyTableRow`) and don't stand in for it.
+  - Onboarding button labels differ per language and are easy to get wrong — a driver script
+    that hangs on `getByRole('button', …)` is usually a wrong label, not a broken app. The
+    Norwegian path is: `Norsk` → `Nei, jeg er ny her` → `Skjønner →` → `Vis meg rundt` →
+    `Neste →` ×N → `Kom i gang →` → `Neste →` → `Kom i gang! 🌿`.
+  - Driving a **layout switch**: the header icon's accessible name is `t.config.layouts.title`
+    ("How lists look" / "Hvordan lister ser ut"), and the sheet closes on **Done**, not Close.
+  - Start the server with `nohup … & disown` when running a one-off script by hand —
+    `(cmd &)` inherits stdout and hangs the tool call (see the "Background HTTP servers"
+    gotcha below).
 - **SQLite-on-web (the gating decision):** `expo-sqlite`'s web backend (wa-sqlite/WASM)
   needs a growable `SharedArrayBuffer`-backed WASM memory for its worker bridge — this
   reliably fails with `RangeError: Out of memory: Cannot allocate Wasm memory for new
