@@ -149,8 +149,9 @@ export const AspectRatio = {
 export type AspectRatioKey = keyof typeof AspectRatio;
 
 // Shared compact "resting" height for Home's collapsed preview cards (Notes/Plans/Shopping)
-// so an empty or light card reads as one intentional size (with a designed empty state —
-// components/HomePreviewEmpty) instead of a big blank band. Applied only while
+// so an empty or light card reads as one intentional size (each with its own designed empty
+// state — see HomeNotesCard/HomeShoppingCard/PlanTaskCard) instead of a big blank band. Applied
+// only while
 // collapsed/unexpanded; it's a floor, not a cap — content past it (added rows up to 5, an
 // expanded task's steps, Plans' proportional time-gap rail) is free to grow taller.
 export const HOME_PREVIEW_CARD_MIN_HEIGHT = 140;

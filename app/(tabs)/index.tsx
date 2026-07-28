@@ -48,8 +48,9 @@
  *   - **Notes preview = HomeNotesCard**: reads useNotesStore, shows first 5 active notes with
  *     inline toggle-checked, a mic button for voice-capture notes, a trailing AddRow to type a
  *     new note's title directly (no navigation away from Home), and a title tap → /notes for
- *     the full screen / "See all →" when the list overflows. When empty it renders the shared
- *     HomePreviewEmpty block at the compact resting height (does NOT self-hide).
+ *     the full screen / "See all →" when the list overflows. When empty it renders a short
+ *     italic bulb explainer (`t.starters.notes.text`, 2026-07-28) at the compact resting height
+ *     (does NOT self-hide).
  *   - **Shopping preview = HomeShoppingCard**: shows first 4 items flat when collapsed; full
  *     nested dish-group ExpandableCard structure when expanded. Tick-to-buy, cart-collect,
  *     stepper, and catalog-vs-adhoc remove preserved. Also passed a `pace` prop (Decision 026,

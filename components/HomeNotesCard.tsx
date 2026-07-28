@@ -10,7 +10,7 @@
  *
  * Connections:
  *   Imports → components/Surface, components/PressableScale, components/CardAccent
- *             (badge+wash gradient move), components/HomePreviewEmpty, components/AddRow,
+ *             (badge+wash gradient move), components/AddRow,
  *             components/TimeBoxInput (quick-add's companion-task time field),
  *             components/Collapsible + components/AnimatedChevron (checked-zone clip reveal),
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
@@ -26,10 +26,13 @@
  *     applied only while `!expanded`, so this card reads the same size as
  *     PlanTaskCard/HomeShoppingCard when light — then grows per note row above it;
  *     `noteRow`'s paddingVertical was trimmed to `Spacing.xs` for a slimmer collapsed row.
- *   - **Empty state (2026-07-24, text removed; restored 2026-07-26)**: an empty list renders the
- *     shared `HomePreviewEmpty`, which briefly (2026-07-24 → 2026-07-25) was blank space only —
- *     user report called the card "too empty" with nothing to confirm the blankness was
- *     intentional, so `HomePreviewEmpty` now shows a small centered "Nothing" label again.
+ *   - **Empty state (2026-07-24 text removed → 2026-07-26 "Nothing" label → 2026-07-28
+ *     explainer)**: an empty list used to render the shared `HomePreviewEmpty` "Nothing" label
+ *     (which itself replaced blank space that read as "too empty"). That confirmed the
+ *     blankness was intentional but taught nothing — unlike its Shopping/Plans siblings, which
+ *     already explain what the surface is for. Now renders a short italic bulb line
+ *     (`t.starters.notes.text`) instead, matching HomeShoppingCard's empty-state treatment.
+ *     `HomePreviewEmpty` was this file's only remaining caller and has been deleted.
  *   - **Header tightened + moved down (2026-07-26, user report)**: `titleRow`'s paddingLeft
  *     went 56 → 52 (badge 32 + a 4px gap, was 8px — "more closely linked with the badge") and
  *     `badgeFixed`/`cardContent` both got a matching +4 top/paddingTop bump ("move it a bit
@@ -88,7 +91,6 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
-import HomePreviewEmpty from '@/components/HomePreviewEmpty';
 import AddRow from '@/components/AddRow';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
@@ -216,7 +218,10 @@ export default function HomeNotesCard() {
 
         {/* Active note rows */}
         {activeNotes.length === 0 ? (
-          <HomePreviewEmpty />
+          <View style={styles.emptyWrap}>
+            <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.emptyBulb} />
+            <Text style={[styles.emptyExplainer, { color: theme.text }]}>{t.starters.notes.text}</Text>
+          </View>
         ) : (
           <View style={styles.rowsContainer}>
             <View style={styles.rows}>
@@ -410,6 +415,12 @@ const baseStyles = StyleSheet.create({
   // whole section reads as one thing, instead of a flat surfaceMuted box-in-a-box.
   rowsContainer: { marginBottom: Spacing.sm },
   rows: { gap: 0 },
+  // Empty-state explainer (2026-07-28) — same bulb + italic treatment as HomeShoppingCard's
+  // and PlanTaskCard's empty blocks, replacing the bare "Nothing" label (HomePreviewEmpty) so
+  // Notes teaches its purpose like its sibling Home cards instead of just confirming blankness.
+  emptyWrap: { flexDirection: 'row', gap: Spacing.xs, marginBottom: Spacing.sm },
+  emptyBulb: { marginTop: 2 },
+  emptyExplainer: { flex: 1, fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.medium, fontStyle: 'italic' },
   noteRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: Spacing.xs, gap: Spacing.sm },
   check: {
     width: 22,

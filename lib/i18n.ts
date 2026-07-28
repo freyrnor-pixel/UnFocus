@@ -804,7 +804,6 @@ const en = {
     weeklyListChip: 'This week',
     addToTaskLabel: 'Also add as a task',
     extraInfoPlaceholder: 'Details…',
-    previewEmpty: 'Nothing',
     manageCards: {
       edit: 'Edit cards',
       done: 'Done',
@@ -1377,6 +1376,10 @@ const en = {
     },
     shopping: {
       text: 'Weekly list for groceries, monthly list for what the house needs once a month.',
+      // Home preview card's list form of the same idea (2026-07-28, user report — the full
+      // sentence read as a wall of text on the small card) — see HomeShoppingCard.tsx.
+      textWeekly: 'Weekly list for groceries.',
+      textMonthly: 'Monthly list for what the house needs.',
       exampleWeekly: 'Milk',
       exampleMonthly: 'Toilet paper',
     },
@@ -1388,6 +1391,11 @@ const en = {
     // is right underneath it, and seeding a fake medicine would be a bad idea.
     medicine: {
       text: 'Add what you take, and tap it off when you do — a tray is a window, not a deadline.',
+    },
+    // Home preview card's empty state (2026-07-28) — Notes had no explainer at all (just the
+    // "Nothing" label), unlike its sibling Home cards. See HomeNotesCard.tsx.
+    notes: {
+      text: 'Note thoughts for later.',
     },
   },
   // Medicine trays (2026-07-27) — the Health tab's dose card + app/medicine-form.tsx.
@@ -2505,7 +2513,6 @@ const no: typeof en = {
     weeklyListChip: 'Denne uken',
     addToTaskLabel: 'Legg også til som oppgave',
     extraInfoPlaceholder: 'Detaljer…',
-    previewEmpty: 'Ingenting',
     manageCards: {
       edit: 'Rediger kort',
       done: 'Ferdig',
@@ -2717,6 +2724,8 @@ const no: typeof en = {
     },
     shopping: {
       text: 'Ukesliste for dagligvarer, månedsliste for det huset trenger én gang i måneden.',
+      textWeekly: 'Ukentlig liste for dagligvarer.',
+      textMonthly: 'Månedlig liste for det huset trenger.',
       exampleWeekly: 'Melk',
       exampleMonthly: 'Dopapir',
     },
@@ -2726,6 +2735,9 @@ const no: typeof en = {
     },
     medicine: {
       text: 'Legg inn det du tar, og trykk det av når du har tatt det — en runde er et tidsrom, ikke en frist.',
+    },
+    notes: {
+      text: 'Noter tanker til senere.',
     },
   },
   medicine: {

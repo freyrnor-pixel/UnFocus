@@ -27,16 +27,17 @@
  *     applied only while `!expanded`, so this card reads the same size as
  *     HomeNotesCard/PlanTaskCard when light — then grows per item row above it;
  *     `previewRow`'s paddingVertical was trimmed to `Spacing.xs` for a slimmer collapsed row.
- *   - **Empty state (2026-07-24 text removed → 2026-07-26 "Nothing" label → 2026-07-27
- *     explainer + suggestion)**: an empty list renders a short italic line saying what the two
- *     cadences are for (`t.starters.shopping.text`) plus one real suggested-add row
+ *   - **Empty state (2026-07-24 text removed → 2026-07-26 "Nothing" label → 2026-07-27 explainer
+ *     + suggestion → 2026-07-28 explainer split into a two-line list)**: an empty list renders
+ *     two short italic bullet lines, one per cadence (`t.starters.shopping.textWeekly` /
+ *     `textMonthly`) sharing a single bulb icon, plus one real suggested-add row
  *     (`components/StarterExampleRow`, its "+" calling the card's own `onAddItem`), instead of
- *     the shared `HomePreviewEmpty` "Nothing" label. The label confirmed the blankness was
- *     intentional but taught nothing; the user asked for per-card example text and a suggested
- *     add row while empty. Gated on a plain `totalCount === 0`, so it also returns if the list
- *     is later cleared. The suggestion is deliberately WEEKLY-only here — the monthly-vs-weekly
- *     distinction is explained in the text, and the full Shopping screen's own StarterCard is
- *     where both examples live.
+ *     the shared `HomePreviewEmpty` "Nothing" label. The two-line form replaced a single
+ *     comma-joined sentence (`t.starters.shopping.text`, still used by the full Shopping
+ *     screen's own StarterCard) that read as a run-on on this card's narrow width. Gated on a
+ *     plain `totalCount === 0`, so it also returns if the list is later cleared. The suggestion
+ *     is deliberately WEEKLY-only here — the monthly-vs-weekly distinction is explained in the
+ *     text, and the full Shopping screen's own StarterCard is where both examples live.
  *   - **Header tightened + moved down (2026-07-26, user report)**: `titleRow`'s paddingLeft
  *     went 56 → 52 (badge 32 + a 4px gap, was 8px — "more closely linked with the badge") and
  *     `badgeFixed`/`cardContent` both got a matching +4 top/paddingTop bump ("move it a bit
@@ -298,7 +299,10 @@ export default function HomeShoppingCard({
           <View style={styles.emptyWrap}>
             <View style={styles.emptyTextRow}>
               <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.emptyBulb} />
-              <Text style={[styles.emptyExplainer, { color: theme.text }]}>{t.starters.shopping.text}</Text>
+              <View style={styles.emptyExplainerList}>
+                <Text style={[styles.emptyExplainer, { color: theme.text }]}>• {t.starters.shopping.textWeekly}</Text>
+                <Text style={[styles.emptyExplainer, { color: theme.text }]}>• {t.starters.shopping.textMonthly}</Text>
+              </View>
             </View>
             {onAddItem ? (
               <StarterExampleRow
@@ -484,7 +488,10 @@ const baseStyles = StyleSheet.create({
   emptyWrap: { gap: Spacing.sm, marginBottom: Spacing.sm },
   emptyTextRow: { flexDirection: 'row', gap: Spacing.xs },
   emptyBulb: { marginTop: 2 },
-  emptyExplainer: { flex: 1, fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.medium, fontStyle: 'italic' },
+  // List form (2026-07-28, user report — the two cadences read as one run-on sentence):
+  // one bulb icon shared by both lines, each line its own bullet instead of a comma clause.
+  emptyExplainerList: { flex: 1, gap: 2 },
+  emptyExplainer: { fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.medium, fontStyle: 'italic' },
   rows: {},
   previewRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.xs, gap: Spacing.sm },
   check: {
