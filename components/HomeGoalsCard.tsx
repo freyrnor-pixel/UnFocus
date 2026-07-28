@@ -15,8 +15,9 @@
  * Connections:
  *   Imports → components/Surface, components/PressableScale, components/CardAccent
  *             (badge + wash), components/GoalGlowDot,
- *             constants/theme, constants/motion (Travel), lib/domainColor, lib/goalStarters,
- *             lib/goalStrength (decayedStrength), lib/haptics, lib/i18n, lib/useAppTheme,
+ *             constants/theme (incl. HOME_PREVIEW_CARD_MIN_HEIGHT), constants/motion (Travel),
+ *             lib/domainColor, lib/goalStarters, lib/goalStrength (decayedStrength),
+ *             lib/haptics, lib/i18n, lib/useAppTheme (useAppTheme + useScaledStyles),
  *             expo-router, store/useGoalStore
  *   Used by → app/(tabs)/index.tsx (the Goals preview slot, gated on settings.featureGoals)
  *   Data    → reads useGoalStore; writes only via add() when a starter chip is tapped
@@ -26,6 +27,17 @@
  *     must hide the surface and leave every goal and every link untouched.
  *   - `decayedStrength` on read, always. The stored `strength` alone is stale by definition;
  *     see lib/goalStrength.ts.
+ *   - **Brought in line with its sibling Home cards (2026-07-28, user report on the empty
+ *     Goals card: icon in the wrong corner, text not fitting).** This card had drifted from
+ *     the Plans/Habits/Notes/Shopping preview cards on four counts, all fixed together:
+ *     the `CardAccentBadge` was pinned top-RIGHT (now `top: Spacing.md + 4, left: Spacing.md`
+ *     with `titleRow`'s matching `paddingLeft: 52`, so badge and title read as one header
+ *     unit instead of sitting at opposite edges); the empty-state explainer had no
+ *     `lineHeight` and wasn't italic/medium like the other two, so it set solid and read
+ *     cramped; styles weren't run through `useScaledStyles`, so the card ignored the
+ *     font-size accessibility setting its siblings honour; and it had no
+ *     `HOME_PREVIEW_CARD_MIN_HEIGHT` floor, so an empty Goals card was visibly shorter than
+ *     everything around it. Keep all four aligned if you touch any of them.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -35,14 +47,14 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
-import { FontSize, Radius, Spacing, Type, rgba } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
 import { Travel } from '@/constants/motion';
 import { getDomainColor } from '@/lib/domainColor';
 import { GOAL_STARTERS } from '@/lib/goalStarters';
 import { decayedStrength } from '@/lib/goalStrength';
 import { success } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useGoalStore } from '@/store/useGoalStore';
 
 /** How many goals the card previews before "See all →". */
@@ -58,6 +70,7 @@ const STARTER_PREVIEW_COUNT = 2;
 export default function HomeGoalsCard() {
   const t = useT();
   const theme = useAppTheme();
+  const styles = useScaledStyles(baseStyles);
   const router = useRouter();
   const goals = useGoalStore((s) => s.goals);
   const addGoal = useGoalStore((s) => s.add);
@@ -76,7 +89,9 @@ export default function HomeGoalsCard() {
   const preview = sorted.slice(0, PREVIEW_COUNT);
 
   return (
-    <Surface surfaceContext="ambient" borderColor={domainColor.accent} style={styles.card}>
+    <Surface surfaceContext="ambient" borderColor={domainColor.accent} style={[styles.card, styles.cardFloor]}>
+      {/* Badge + wash mount OUTSIDE cardContent, directly in Surface — same reason as
+          HomeHabitsCard/HomeNotesCard (native padding inheritance vs. react-native-web). */}
       <CardAccentWash domain="habit" />
       <CardAccentBadge domain="habit" size={32} style={styles.badgeFixed} />
       <View style={styles.cardContent}>
@@ -144,13 +159,26 @@ export default function HomeGoalsCard() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
-  badgeFixed: { position: 'absolute', top: Spacing.sm, right: Spacing.sm },
-  cardContent: { padding: Spacing.md, gap: Spacing.sm },
-  titleRowPressable: { alignSelf: 'flex-start' },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  title: { fontFamily: Type.heading.fontFamily, fontSize: Type.heading.size },
+  // Shared resting floor so Goals reads the same size as its Plans/Habits/Notes/Shopping
+  // siblings — see constants/theme.ts. Goals has no expand/collapse, so it always applies.
+  cardFloor: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
+  // Upper LEFT, matching every other Home preview card (2026-07-28, user report: "the icon
+  // should be in the upper left corner"). Goals was the only one pinning it top-right, which
+  // stranded the title alone at the far left with a card-wide gap between the two.
+  badgeFixed: { position: 'absolute', top: Spacing.md + 4, left: Spacing.md, zIndex: 2 },
+  cardContent: {
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    paddingTop: Spacing.md + 4,
+    gap: Spacing.sm,
+  },
+  titleRowPressable: { alignSelf: 'stretch' },
+  // paddingLeft 52 = badge offset 16 + badge size 32 + a 4px gap, so the title sits right
+  // beside the pinned badge and the two read as one header unit (same value as the siblings).
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 52, minHeight: 32 },
+  title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, includeFontPadding: false, textAlignVertical: 'center' },
   rows: { gap: Spacing.xs },
   row: {
     flexDirection: 'row',
@@ -161,16 +189,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: 10,
   },
-  rowTitle: { flex: 1, minWidth: 0, fontSize: FontSize.sm, fontFamily: Type.label.fontFamily },
+  rowTitle: { flex: 1, minWidth: 0, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   seeAll: { alignSelf: 'flex-end', paddingVertical: 4 },
-  seeAllText: { fontSize: FontSize.xs, fontFamily: Type.label.fontFamily },
-  emptyWrap: { gap: Spacing.xs },
-  emptyTextRow: { flexDirection: 'row', gap: 6 },
+  seeAllText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
+  emptyWrap: { gap: Spacing.sm },
+  emptyTextRow: { flexDirection: 'row', gap: Spacing.xs },
   emptyBulb: { marginTop: 2 },
-  emptyExplainer: { flex: 1, minWidth: 0, fontSize: FontSize.sm },
-  starterTapLabel: { fontSize: FontSize.xs, fontFamily: Type.label.fontFamily, marginTop: 2 },
+  // lineHeight + italic/medium match HomeHabitsCard's and HomeNotesCard's explainers exactly
+  // — the three are one system, and without an explicit lineHeight this one set solid and
+  // read cramped against the Norwegian copy's descenders (2026-07-28, user report).
+  emptyExplainer: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    fontFamily: Fonts.medium,
+    fontStyle: 'italic',
+  },
+  starterTapLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+  // Content-sized pills, same shape as HomeHabitsCard's chips directly above this card on
+  // Home. A goal title is a whole phrase rather than a word, so `flexShrink` on the label is
+  // what keeps a long one (NO's "Være i bevegelse hver dag") from pushing its chip past the
+  // card edge — it wraps the row instead, which is why STARTER_PREVIEW_COUNT is 2.
   starterChip: {
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -180,5 +223,5 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     minHeight: 34,
   },
-  starterChipText: { fontSize: FontSize.xs, fontFamily: Type.label.fontFamily },
+  starterChipText: { flexShrink: 1, minWidth: 0, fontSize: FontSize.xs, fontFamily: Fonts.medium },
 });
