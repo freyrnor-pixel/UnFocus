@@ -35,31 +35,41 @@
  * card short. A hairline divider separates the day and week lines when both are shown
  * (energyMode 'custom').
  *
- * **Game-like pip buttons (2026-07-28)**: each pip is now a small raised/sunken "keycap"
- * (reuses constants/theme's `getElevation` — the same raised/flat tokens PressableScale's
- * `depth` prop draws from) rather than a bare icon: an available pip is `getElevation('raised')`
- * over `theme.surface` (popped out), a spent pip is `getElevation('flat')` over
- * `theme.surfaceInset` (pressed in — that token is literally "the deepest surface" already).
- * Purely visual, NOT actually pressable (there's nothing to tap on a pip) — the point is the
- * bar reading like a row of game HUD charges being used up, not a real control.
- *
  * **Stacked row layout (2026-07-28 fix)**: label+value share a top line (`meterTopRow`); the
  * pip row is a full-width line below it, not squeezed into the same row as the label/value
- * text. At the default capacity of 10, ten fixed 18px pips need ~216px, which doesn't fit
+ * text. At the default capacity of 10, ten fixed 24px pips need ~285px, which doesn't fit
  * alongside label/value text on real phone widths in a single row — they overflowed and
  * painted over the value text. Don't put pips back on the same line as the label/value.
  *
- * **Bigger pips + label dropped for the single-meter case (2026-07-28, user report — "symbols
- * too small, not popped out, 'Today' not needed")**: pips grew 18px→24px with a tightened
- * shadowRadius/Opacity override on top of `getElevation('raised')` (a full card-level shadow
- * blur reads as a soft smudge at keycap size, not a crisp bevel) — see the `pip` style's math
- * comment for why 24px is the ceiling at the 360px-wide worst case. `row()`'s `label` param is
- * now nullable: it's passed only when BOTH day and week meters are on screen at once
- * (`energyMode` 'custom') where it's the one thing telling the rows apart; in the far more
- * common single-meter case ('daily'/'weekly') it's dropped entirely rather than repeating what
- * the lone row already makes obvious. `meterValue`'s `marginLeft:'auto'` (not
- * `meterTopRow`'s `justifyContent`) does the right-alignment so this works with or without a
- * label present, without a conditional style branch.
+ * **Label dropped for the single-meter case (2026-07-28)**: `row()`'s `label` param is
+ * nullable — passed only when BOTH day and week meters are on screen at once (`energyMode`
+ * 'custom') where it's the one thing telling the rows apart; in the far more common
+ * single-meter case ('daily'/'weekly') it's dropped entirely rather than repeating what the
+ * lone row already makes obvious. `meterValue`'s `marginLeft:'auto'` (not `meterTopRow`'s
+ * `justifyContent`) does the right-alignment so this works with or without a label present,
+ * without a conditional style branch.
+ *
+ * **Energy-token pip (2026-07-28, round 3 — after two shadow/bevel "keycap" passes still read
+ * as flat or too grey, user then pointed at trading-card game energy-type icons as the actual
+ * reference)**: an available pip is a small saturated token/badge, NOT a UI control — solid
+ * radial-shaded fill (`react-native-svg` `RadialGradient`, `lighten(accent)` center easing to
+ * `darken(accent)` at the rim), a heavy dark rim (`darken(accent, 0.5)` stroke), and one bright
+ * gloss ellipse near the top-left (a second `RadialGradient`, high center opacity — this is the
+ * detail that sells "glossy token," keep it bold, don't dim it back toward a subtle highlight).
+ * A spent pip is a plain hollow ring (`theme.surfaceInset` fill, `theme.border` outline, muted
+ * outline icon) — an emptied slot, no gloss, no gradient.
+ * **This is a deliberate departure from the app's button system** (`constants/theme.ts`'s
+ * matte face-lift + `computeRimGradient`, `components/Button.tsx`/`IconButton.tsx`'s "no
+ * specular highlight, moulded ABS" rule): that rule is about every PRESSABLE control reading as
+ * one consistent physical material. A pip has never been pressable — it's closer to a
+ * scoreboard chip or a collected token than a button — so it's fine, and arguably clearer, for
+ * it to read as a different kind of object. Don't "fix" this pip to match Button's matte
+ * recipe; that was tried (twice) and explicitly rejected.
+ * Each pip's SVG gradients need a unique `id` — react-native-svg on web (`npm run preview`)
+ * renders every `<Svg>` into the SAME DOM document, so a literal repeated id string would
+ * collide across pips (GlassFill.tsx hit this same issue first; same fix here): one top-level
+ * `React.useId()` call (`pipGradientBaseId`, NOT called inside the pip `.map()` — that would
+ * break the rules of hooks) suffixed with `rowKey` ('day'/'week') + index.
  *
  * **Depleted/recovered pulse (2026-07-28)**: `EnergyPulse` fires a single ~1.5s glow (via
  * `getGlow`) the moment a period's `current` crosses the zero line — `theme.good` when it
@@ -82,12 +92,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Defs, RadialGradient, Stop, Circle, Rect } from 'react-native-svg';
 import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming, Easing } from 'react-native-reanimated';
 import Surface from '@/components/Surface';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
-import { Fonts, FontSize, Radius, Spacing, getElevation, getGlow } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, darken, lighten, getGlow } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
@@ -147,6 +158,12 @@ export default function EnergyMeter() {
   const habitLogs = useHabitStore((s) => s.logs);
 
   const [editing, setEditing] = useState(false);
+
+  // Document-unique base id for each active pip's pair of SVG gradients — see the file
+  // header's "Energy-token pip" note. One call per component instance, suffixed per-pip
+  // (rowKey + index) in the row() renderer below rather than calling useId() inside the
+  // pip .map(), which would break the rules of hooks.
+  const pipGradientBaseId = 'pipGrad' + React.useId().replace(/:/g, '');
 
   // energyMode picks which meter(s) apply — 'daily'/'weekly' show only their own
   // meter, 'custom' (per-weekday capacities, set in Settings) shows both since the
@@ -208,7 +225,9 @@ export default function EnergyMeter() {
   // 'daily'/'weekly') — with a single meter on the card, "Today"/"This week" repeats
   // what's already obvious and just eats space. It's only passed when BOTH rows are
   // on screen at once (energyMode 'custom'), where it's the one thing telling them apart.
-  const row = (label: string | null, current: number, capacity: number, pulse: { id: number; kind: PulseKind } | null) => {
+  // rowKey is a stable 'day'/'week' discriminator for the pip gradient ids — kept separate
+  // from `label` (which can be null) so id uniqueness never depends on translated text.
+  const row = (rowKey: 'day' | 'week', label: string | null, current: number, capacity: number, pulse: { id: number; kind: PulseKind } | null) => {
     const { pipCount, filled } = energyPipCount(current, capacity);
     return (
       <View style={styles.meterRowWrap}>
@@ -227,21 +246,36 @@ export default function EnergyMeter() {
           <View style={styles.pipRow}>
             {Array.from({ length: pipCount }).map((_, i) => {
               const active = i < filled;
+              if (!active) {
+                return (
+                  <View key={i} style={[styles.pipEmpty, { backgroundColor: theme.surfaceInset, borderColor: theme.border }]}>
+                    <Ionicons name="flash-outline" size={14} color={theme.textMuted} />
+                  </View>
+                );
+              }
+              const fillId = `${pipGradientBaseId}-${rowKey}-${i}-fill`;
+              const glossId = `${pipGradientBaseId}-${rowKey}-${i}-gloss`;
               return (
-                <View
-                  key={i}
-                  style={[
-                    styles.pip,
-                    active
-                      ? { backgroundColor: theme.surface, borderTopColor: 'rgba(255,255,255,0.65)', borderBottomColor: 'rgba(0,0,0,0.28)', ...getElevation('raised', theme.shadow), shadowRadius: 3, shadowOpacity: 0.3 }
-                      : { backgroundColor: theme.surfaceInset, borderTopColor: 'rgba(0,0,0,0.25)', borderBottomColor: 'rgba(255,255,255,0.10)', ...getElevation('flat', theme.shadow) },
-                  ]}
-                >
-                  <Ionicons
-                    name={active ? 'flash' : 'flash-outline'}
-                    size={16}
-                    color={active ? theme.accent : theme.textMuted}
-                  />
+                <View key={i} style={[styles.pipBadge, { backgroundColor: theme.accent, shadowColor: theme.shadow }]}>
+                  <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+                    <Defs>
+                      <RadialGradient id={fillId} cx="50%" cy="36%" r="80%">
+                        <Stop offset="0%" stopColor={lighten(theme.accent, 0.22)} />
+                        <Stop offset="55%" stopColor={theme.accent} />
+                        <Stop offset="100%" stopColor={darken(theme.accent, 0.22)} />
+                      </RadialGradient>
+                      {/* Gloss highlight — keep this bold (high center opacity), not subtle.
+                          It's the one detail that reads as "glossy token" rather than "flat
+                          circle"; see the file header's "Energy-token pip" note. */}
+                      <RadialGradient id={glossId} cx="38%" cy="24%" rx="42%" ry="26%">
+                        <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.95} />
+                        <Stop offset="85%" stopColor="#FFFFFF" stopOpacity={0} />
+                      </RadialGradient>
+                    </Defs>
+                    <Circle cx="50%" cy="50%" r="46%" fill={`url(#${fillId})`} stroke={darken(theme.accent, 0.5)} strokeWidth={2} />
+                    <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${glossId})`} />
+                  </Svg>
+                  <Ionicons name="flash" size={14} color="#FFFFFF" />
                 </View>
               );
             })}
@@ -273,7 +307,7 @@ export default function EnergyMeter() {
         </PressableScale>
       </View>
 
-      {showDay && row(showWeek ? t.energyMeter.today : null, dayCurrent, dayCapacity, dayPulse)}
+      {showDay && row('day', showWeek ? t.energyMeter.today : null, dayCurrent, dayCapacity, dayPulse)}
       {showDay && dayCapacity > 0 && dayCurrent <= 0 && (
         <View style={styles.warningRow}>
           <Ionicons name="leaf-outline" size={14} color={theme.good} />
@@ -287,7 +321,7 @@ export default function EnergyMeter() {
         </View>
       )}
       {showDay && showWeek && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
-      {showWeek && row(showDay ? t.energyMeter.thisWeek : null, weekCurrent, weekCapacity, weekPulse)}
+      {showWeek && row('week', showDay ? t.energyMeter.thisWeek : null, weekCurrent, weekCapacity, weekPulse)}
       {showWeek && weekCapacity > 0 && weekCurrent <= 0 && (
         <View style={styles.warningRow}>
           <Ionicons name="leaf-outline" size={14} color={theme.good} />
@@ -344,9 +378,9 @@ const styles = StyleSheet.create({
   meterRowWrap: { position: 'relative', borderRadius: Radius.sm },
   // Stacked (2026-07-28 fix): label+value share a top line, the pip row gets the full
   // card width on its own line below. A single-line layout (label — pips — value all in
-  // one row) ran out of horizontal room on real phones once pips became fixed-size
-  // "keycaps" — at the default capacity of 10, the pips alone need ~216px, which doesn't
-  // fit alongside the label/value text at typical content widths (~296-330px), so the
+  // one row) ran out of horizontal room on real phones once pips became fixed-size tokens
+  // — at the default capacity of 10, the pips alone need ~285px, which doesn't fit
+  // alongside the label/value text at typical content widths (~296-330px), so the
   // pips overflowed their box and painted over the value text. Stacking removes the
   // three-way competition for width entirely instead of trying to tune sizes that could
   // break again at another font-scale/language/width combination.
@@ -357,17 +391,22 @@ const styles = StyleSheet.create({
   // conditional style branch for the label-present vs. label-absent case.
   meterTopRow: { flexDirection: 'row', alignItems: 'center' },
   meterLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  // Full card width now that it's on its own line (2026-07-28 stack fix) — see `pip`
+  // Full card width now that it's on its own line (2026-07-28 stack fix) — see `pipBadge`
   // below for the size/gap math that keeps this fitting at the narrowest audited width.
   pipRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  // "Keycap" pip — an available (unspent) pip is raised/popped via getElevation('raised')
-  // with a tightened shadowRadius/Opacity (a full card-level shadow blur reads as a soft
-  // smudge at this size, not a crisp bevel); a spent pip sits flat/sunken via
-  // getElevation('flat') over theme.surfaceInset. Purely visual (see file header) — never
-  // wrapped in PressableScale, nothing to actually press. Sized at 24px (up from 18px,
-  // 2026-07-28): 10*24 + 9*5 gap = 285px, fits the 360px-wide worst case (~296px content)
-  // with margin — don't grow this further without re-checking `npm run wraps` math.
-  pip: { width: 24, height: 24, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
+  // Energy-token pip (2026-07-28, round 3 — see file header's "Energy-token pip" note): an
+  // available pip's real fill/rim/gloss are drawn by the Svg in row()'s renderer; this View
+  // only needs a matching backgroundColor so its own shadow casts in the right (circular)
+  // shape — the Svg fully covers it, nothing here is actually visible except the shadow.
+  // Purely visual, never wrapped in PressableScale — nothing here is pressable. Sized at
+  // 24px: 10*24 + 9*5 gap = 285px, fits the 360px-wide worst case (~296px content) with
+  // margin — don't grow this further without re-checking `npm run wraps` math.
+  pipBadge: {
+    width: 24, height: 24, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center',
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.28, shadowRadius: 3, elevation: 4,
+  },
+  // A spent pip is a plain hollow ring — an emptied slot, no gradient, no gloss, no shadow.
+  pipEmpty: { width: 24, height: 24, borderRadius: Radius.full, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   meterValue: { fontSize: FontSize.sm, fontFamily: Fonts.medium, marginLeft: 'auto' },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 2 },
   warningRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
