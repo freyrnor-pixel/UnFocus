@@ -16,8 +16,17 @@
  *   - BorderRadius.full (999) for buttons (fully rounded pills).
  *   - Secondary is soft-tint fill (accentSoft), NOT border.
  *   - Disabled state is opacity 0.45 applied over the variant's own colours — never swap fill for disabled.
- *   - Glass: primary/secondary render components/GlassFill (frost + wash + scrim +
- *     specular) inside a "raised keycap (double)" edge — a VERTICAL hue-tinted rim gradient
+ *   - **Key press (2026-07-28)**: every filled variant is a CAP ON A BASE. The base is a
+ *     plain `darken(fill, 0.22)` slab behind the cap (v6 `handoff/BUTTONS.md`: "the face at
+ *     ~78% lightness — a real moulded edge, never a drop shadow"), and the wrapper's
+ *     `paddingBottom: travel` is what leaves a sliver of it showing under the cap at rest.
+ *     PressableScale's `travel` then sinks the cap onto it on press (Travel.sm/md/lg by size).
+ *     Two consequences worth knowing: `style` moves to the WRAPPER on this path (a caller's
+ *     width/margin has to size the whole key, or the base sticks out past the cap), and
+ *     `ghost` opts out entirely — it's text with no fill, so it has no cap to sink and keeps
+ *     the historical scale-bounce.
+ *   - Glass: primary/secondary render components/GlassFill (frost + wash + face lift)
+ *     inside a "raised keycap (double)" edge — a VERTICAL hue-tinted rim gradient
  *     padding-ring (fix 1, at Radius.full) PLUS a crisp 1px hue-tinted inner line (mat.innerLine)
  *     on the pill mask — over a transparent PressableScale (so the frost blurs the screen, not a solid fill) with the
  *     near-opaque `'button'` material for CTA contrast. Primary swaps the flat wash for
@@ -26,7 +35,7 @@
  *     back to the solid `colors.bg` pill, no rim. PressableScale owns the press depth in both.
  *   - **`danger` stays flat (2026-07-21)** — never glass, regardless of `settings.glassSurfaces`:
  *     a destructive action shouldn't be the shiniest, most skeuomorphic thing on screen. It's a
- *     solid `colors.bg` fill with a single calm `mat.innerLine` border (no rim/specular/fill
+ *     solid `colors.bg` fill with a single calm `mat.innerLine` border (no rim/fill
  *     gradient) — matching the flat, bordered chip-pill convention used elsewhere (habit-form/
  *     task-form chips, FormControls' SegmentedControl) rather than the full glass CTA treatment.
  *   - Purposeful Depth System (2026-07-14): primary/secondary/danger pass PressableScale's
@@ -42,7 +51,8 @@ import { ActivityIndicator, StyleSheet, Text, View, ViewStyle, StyleProp } from 
 import { Ionicons } from '@expo/vector-icons';
 // Label stays on FontSize/Fonts.bold rather than a Type role (2026-07-18 typography pass) —
 // no Type entry fits a short CTA pill label; Type is for headings/body/captions.
-import { FontSize, Fonts, getMaterialStyle, Radius, Spacing } from '@/constants/theme';
+import { darken, FontSize, Fonts, getMaterialStyle, Radius, Spacing } from '@/constants/theme';
+import { Travel } from '@/constants/motion';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -70,6 +80,8 @@ type Props = {
 const SIZE_HEIGHT: Record<Size, number> = { sm: 36, md: 48, lg: 56 };
 const SIZE_FONT: Record<Size, number> = { sm: FontSize.sm, md: FontSize.md, lg: FontSize.lg };
 const SIZE_PADDING: Record<Size, [number, number]> = { sm: [8, 16], md: [12, 22], lg: [15, 28] };
+/** Cap travel per size — design-system v6 `handoff/BUTTONS.md`'s "Travel by size" table. */
+const SIZE_TRAVEL: Record<Size, number> = { sm: Travel.sm, md: Travel.md, lg: Travel.lg };
 
 export default function Button({
   label,
@@ -97,14 +109,14 @@ export default function Button({
   const colors = variantColors[variant];
   // Ghost is text-only (no fill) → never glass. Others render the take-two glass fill when
   // enabled: the near-opaque `'button'` material keeps the CTA's ink contrast (see
-  // getMaterialStyle) while adding the rim + specular (static; no drifting sheen). When glass
+  // getMaterialStyle) while adding the rim (static; matte — no specular, no drifting sheen). When glass
   // is on the PressableScale's own backgroundColor drops to transparent so the frost blurs the
   // screen (not a solid fill sitting under it); the glass wash provides the colour.
   // **danger stays flat (2026-07-21)**: a destructive action shouldn't be the shiniest, most
   // skeuomorphic thing on screen — it now renders as a solid fill + a single calm hue-tinted
   // border (mat.innerLine), matching the flat/bordered chip-pill convention used elsewhere
   // (habit-form/task-form chips, FormControls' SegmentedControl) instead of the full glass
-  // rim/specular/top-lit-gradient treatment primary/secondary still get.
+  // rim/top-lit-gradient treatment primary/secondary still get.
   const useGlass = glass && variant !== 'ghost' && variant !== 'danger';
   const mat = getMaterialStyle(colors.bg, 'button', isDark ? 'dark' : 'light');
   // Only the solid-filled primary CTA gets the top-lit vertical fill gradient (fix, buttons);
@@ -122,7 +134,11 @@ export default function Button({
     </View>
   );
 
-  const button = (
+  // Key-press travel (2026-07-28). `ghost` is text-only — it has no cap and no base, so it
+  // keeps the historical scale-bounce; everything with a fill sinks.
+  const travel = variant === 'ghost' ? undefined : SIZE_TRAVEL[size];
+
+  const pressable = (
     <PressableScale
       onPress={onPress}
       disabled={disabled || loading}
@@ -130,6 +146,7 @@ export default function Button({
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}
       scaleTo={variant === 'danger' ? 0.93 : size === 'sm' ? 0.97 : 0.95}
+      travel={travel}
       depth={variant === 'ghost' ? undefined : 'raised'}
       style={[
         styles.base,
@@ -142,17 +159,19 @@ export default function Button({
         // Glass moves the label padding onto the inner mask (the rim ring + mask fill the pill);
         // the solid path keeps it on the pressable itself, as before.
         useGlass ? null : { paddingVertical: vertPad, paddingHorizontal: horizPad },
-        // danger's flat fill still gets a single calm border (no rim/specular) — see the
+        // danger's flat fill still gets a single calm border (no rim) — see the
         // 2026-07-21 note above `useGlass`.
         variant === 'danger' ? { borderWidth: 1.5, borderColor: mat.innerLine } : null,
-        style,
+        // With travel, `style` goes on the cap+base wrapper instead — a caller's margin/width
+        // must size the whole key, not just the cap, or the base would stick out past it.
+        travel ? null : style,
       ]}
     >
       {useGlass ? (
         // Raised-keycap edge scaled to the pill (2026-07-18 retune): a VERTICAL hue-tinted rim
         // padding-ring at Radius.full (top→bottom, matching Surface — was a 135° diagonal) PLUS a
         // crisp 1px hue-tinted inner line (mat.innerLine) on the mask = the "double keycap". The
-        // frost/wash/scrim/specular are masked inside; primary/danger swap the flat wash for the
+        // frost/wash/face-lift are masked inside; primary/danger swap the flat wash for the
         // top-lit fillGradient.
         <LinearGradient
           colors={mat.rim.colors}
@@ -178,6 +197,25 @@ export default function Button({
     </PressableScale>
   );
 
+  // The base the cap sits on (design-system v6 `handoff/BUTTONS.md`): "the face at ~78%
+  // lightness — a real moulded edge, never a drop shadow". It's a plain darker slab behind the
+  // cap, `travel` px taller, so at rest you see that sliver of base under the button and on
+  // press the cap closes the gap and lands on it. A drop shadow can't do this: a shadow says
+  // "floating above the page", a base says "this is a key in a housing".
+  const button = travel ? (
+    <View style={[styles.keyWrap, { paddingBottom: travel }, style]}>
+      <View
+        style={[
+          styles.keyBase,
+          { borderRadius: Radius.full, backgroundColor: darken(colors.bg, 0.22), opacity: disabled ? 0.45 : 1 },
+        ]}
+      />
+      {pressable}
+    </View>
+  ) : (
+    pressable
+  );
+
   // Reserve-only emphasis: a single breathing halo behind the primary CTA. Wrapped in a
   // non-clipping relative View because the glass path sets overflow:'hidden' (which would clip
   // the halo's boxShadow). Use on at most one button per screen (ANIMATION_GUIDELINES §6/§9).
@@ -193,6 +231,11 @@ export default function Button({
 }
 
 const styles = StyleSheet.create({
+  // Cap + base housing. `paddingBottom: travel` is what reserves the sliver of base that
+  // shows under the cap at rest — without it the base would be exactly covered and the
+  // button would look identical to the old flat pill until pressed.
+  keyWrap: { position: 'relative' },
+  keyBase: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
   base: {
     borderRadius: Radius.full,
     alignItems: 'center',

@@ -152,8 +152,9 @@ import { useTagStore } from '@/store/useTagStore';
 import { matchesTagFilter, toggleTagId } from '@/lib/tags';
 import { effectiveAssigneeId } from '@/lib/taskRotation';
 import { personColor } from '@/lib/personColor';
-import { FontSize, Radius, Spacing, Type } from '@/constants/theme';
-import { Spring } from '@/constants/motion';
+import { FontSize, Radius, Spacing, TabularNums, Type } from '@/constants/theme';
+import { Spring, Travel } from '@/constants/motion';
+import type { LayoutSpec } from '@/lib/cardLayout';
 import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
 
@@ -173,6 +174,9 @@ function byTime(a: Task, b: Task): number {
  * after it. Two is the point of the layout — three would just be a shorter list.
  */
 const FOCUS_VISIBLE = 2;
+/** How many rows "One thing at a time" draws under its hero. Small on purpose — the layout
+ *  exists so the day doesn't look like a wall; anything past this is one tap away via Later. */
+const FOCUS_THEN_VISIBLE = 2;
 
 /**
  * Splits a task list into unfinished (shown plainly) + finished (collapsed behind a
@@ -345,6 +349,129 @@ function InlineTaskAdd({
   return row;
 }
 
+/**
+ * "One thing at a time" (lib/cardLayout.ts's `focusFirst`) — the Today tab's 1c shape from
+ * design-system v6's `Focus First (1c)`.
+ *
+ * Order is the whole point of this layout, and it goes: the ONE thing you're on → what else
+ * exists (a count, not a list) → the couple of things after it → add → what you already did.
+ * Everything a normal Today shows is still there; it is drawn in a different order and with
+ * everything past the first two collapsed.
+ *
+ * Presentation only, like every other layout: nothing here filters, reschedules or reorders
+ * the underlying tasks — `tasks` arrives already sorted by time from the screen, and the hero
+ * is simply its first unfinished row.
+ */
+function FocusFirstToday({
+  tasks,
+  laterCounts,
+  onGoToTab,
+  onToggleDone,
+  spec,
+  newSinceIds,
+  footer,
+}: {
+  tasks: Task[];
+  laterCounts: { week: number; backlog: number };
+  onGoToTab: (tab: Tab) => void;
+  onToggleDone: (task: Task) => void;
+  spec: LayoutSpec;
+  newSinceIds: ReadonlySet<string>;
+  footer: React.ReactNode;
+}) {
+  const theme = useAppTheme();
+  const t = useT();
+  const unfinished = useMemo(() => tasks.filter((tk) => !tk.done), [tasks]);
+  const doneCount = tasks.length - unfinished.length;
+  const hero = unfinished[0];
+  // "Then" is deliberately a SHORT list, not the remainder — the point of this layout is that
+  // the day doesn't look like a wall. Anything past it is reachable one tap away via Later.
+  const then = unfinished.slice(1, 1 + FOCUS_THEN_VISIBLE);
+  const overflow = Math.max(0, unfinished.length - 1 - then.length);
+
+  const later: { key: Tab; label: string; count: number }[] = [
+    { key: 'today', label: t.focusFirst.laterToday, count: unfinished.length },
+    { key: 'week', label: t.focusFirst.laterWeek, count: laterCounts.week },
+    { key: 'all', label: t.focusFirst.laterBacklog, count: laterCounts.backlog },
+  ];
+
+  return (
+    <View style={styles.focusWrap}>
+      {hero ? (
+        <View style={styles.focusHero}>
+          <Text style={[styles.focusLabel, { color: theme.accent }]}>{t.focusFirst.nextUp}</Text>
+          {/* The hero is a normal TaskCard, not a bespoke card: it has to keep the steps
+              expansion, the done circle, the person/tag meta line and the reminders that
+              every other task row has. Only its surroundings change. */}
+          <TaskCard
+            task={hero}
+            variant="steps"
+            tinted={hero.sharedOut}
+            spec={spec}
+            isNewSince={newSinceIds.has(hero.id)}
+            onToggleDone={onToggleDone}
+          />
+        </View>
+      ) : (
+        <Text style={[styles.focusAllClear, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+          {t.focusFirst.allClear}
+        </Text>
+      )}
+
+      {/* Later — what else exists, as counts rather than rows. Each chip is also the way into
+          that list, so the count isn't just information you can't act on. */}
+      <View style={styles.focusLater}>
+        <Text style={[styles.focusLabel, { color: theme.textMuted }]}>{t.focusFirst.later}</Text>
+        <View style={styles.focusChips}>
+          {later.map((l) => (
+            <PressableScale
+              key={l.key}
+              style={[styles.focusChip, { backgroundColor: theme.surface, borderColor: theme.border }]}
+              onPress={() => { tap(); onGoToTab(l.key); }}
+              travel={Travel.sm}
+              accessibilityRole="button"
+              accessibilityLabel={`${l.label}: ${l.count}`}
+            >
+              <Text style={[styles.focusChipLabel, { color: theme.text }]} numberOfLines={1}>{l.label}</Text>
+              <Text style={[styles.focusChipCount, TabularNums, { color: theme.textMuted }]}>{l.count}</Text>
+            </PressableScale>
+          ))}
+        </View>
+      </View>
+
+      {then.length > 0 && (
+        <View style={styles.focusThen}>
+          <Text style={[styles.focusLabel, { color: theme.textMuted }]}>{t.focusFirst.then}</Text>
+          <View style={styles.cardStack}>
+            {then.map((tk) => (
+              <TaskCard
+                key={tk.id}
+                task={tk}
+                variant="steps"
+                tinted={tk.sharedOut}
+                spec={spec}
+                isNewSince={newSinceIds.has(tk.id)}
+                onToggleDone={onToggleDone}
+              />
+            ))}
+          </View>
+          {overflow > 0 && (
+            <Text style={[styles.focusOverflow, { color: theme.textMuted }]}>
+              {t.focusFirst.andMore(overflow)}
+            </Text>
+          )}
+        </View>
+      )}
+
+      {footer}
+
+      {doneCount > 0 && (
+        <Text style={[styles.focusDone, { color: theme.good }]}>{t.focusFirst.doneToday(doneCount)}</Text>
+      )}
+    </View>
+  );
+}
+
 // Must equal TabSlider's own natural content height (border 1×2 + TRACK_PAD 3×2 + segment
 // minHeight 38 = 46) — any surplus here becomes leftover space that `stickyBar`'s
 // justifyContent:'center' splits top/bottom only, making the blue pill's vertical inset
@@ -515,13 +642,21 @@ export default function TasksScreen() {
       const unfinished = list.filter((tk) => !tk.done);
       return layoutSpec.focusMode ? unfinished.slice(0, FOCUS_VISIBLE) : unfinished;
     };
-    if (tab === 'today') return [...drawn(undatedWhenever), ...drawn(todayList)].map((tk) => tk.id);
+    if (tab === 'today') {
+      // "One thing at a time" draws its hero + a short Then list and nothing else — no
+      // Whenever section at all. Pass exactly that, or a row it collapses could never glow
+      // when the user switches back to a layout that shows it.
+      if (layoutSpec.id === 'focusFirst') {
+        return todayList.filter((tk) => !tk.done).slice(0, 1 + FOCUS_THEN_VISIBLE).map((tk) => tk.id);
+      }
+      return [...drawn(undatedWhenever), ...drawn(todayList)].map((tk) => tk.id);
+    }
     if (tab === 'week') {
       return [...drawn(undatedWhenever), ...weekGroups.flatMap((g) => drawn(g.tasks))].map((tk) => tk.id);
     }
     // The All tab renders flat and takes no layout, so it has nothing to reveal or hide.
     return [];
-  }, [tab, layoutSpec.focusMode, undatedWhenever, todayList, weekGroups]);
+  }, [tab, layoutSpec.focusMode, layoutSpec.id, undatedWhenever, todayList, weekGroups]);
 
   // Snapshot key is per TAB, not just per screen: Today and This week draw different sets,
   // and sharing one saved view between them would make every tab switch glow half the list.
@@ -747,17 +882,21 @@ export default function TasksScreen() {
         {tab === 'today' && (
           <>
             {/* Whenever always sits on top (debug-note 2026-07-21) — undated tasks lead, the
-                dated Today section follows. */}
-            <SectionCard hue={wheneverHue} domain="task" label={t.tasksSectionWhenever} count={undatedWhenever.length}>
-              <DoneSplitList
-                tasks={undatedWhenever}
-                emptyText={t.tasksSectionWheneverEmpty}
-                focusMode={layoutSpec.focusMode}
-                renderCard={(tk) => (
-                  <TaskCard key={tk.id} task={tk} variant="steps" spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
-                )}
-              />
-            </SectionCard>
+                dated Today section follows. "One thing at a time" is the exception: a second
+                list above the hero is the opposite of one thing at a time, and its count is
+                already the Later row's "Whenever" chip, which taps straight through to it. */}
+            {layoutSpec.id !== 'focusFirst' && (
+              <SectionCard hue={wheneverHue} domain="task" label={t.tasksSectionWhenever} count={undatedWhenever.length}>
+                <DoneSplitList
+                  tasks={undatedWhenever}
+                  emptyText={t.tasksSectionWheneverEmpty}
+                  focusMode={layoutSpec.focusMode}
+                  renderCard={(tk) => (
+                    <TaskCard key={tk.id} task={tk} variant="steps" spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
+                  )}
+                />
+              </SectionCard>
+            )}
 
             {/* Debug notes: anchor the day-view section (not its inner task rows). */}
             <DebugNoteAnchor id="plans.dayView" label="Plans — Today">
@@ -793,6 +932,23 @@ export default function TasksScreen() {
                     />
                   </SectionCard>
                 ))
+              ) : layoutSpec.id === 'focusFirst' ? (
+                /* "One thing at a time" — a different SHAPE for the same tasks, so it replaces
+                   the Today SectionCard rather than sitting inside it. Every task the layout
+                   doesn't draw is still a live row: it keeps its reminders, still counts in
+                   the Later chips, and is one tap away. */
+                <FocusFirstToday
+                  tasks={todayList}
+                  laterCounts={{
+                    week: weekGroups.reduce((n, g) => n + g.tasks.filter((tk) => !tk.done).length, 0),
+                    backlog: undatedWhenever.filter((tk) => !tk.done).length,
+                  }}
+                  onGoToTab={setTab}
+                  onToggleDone={handleToggleDone}
+                  spec={layoutSpec}
+                  newSinceIds={newSinceIds}
+                  footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
+                />
               ) : (
                 <SectionCard hue={theme.accent} label={t.tasksTabToday} count={todayList.length}>
                   {/* Add row sits between the tasks and the collapsed "Done" zone (DoneSplitList
@@ -855,6 +1011,47 @@ export default function TasksScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: Spacing.md },
+  // ── "One thing at a time" (focusFirst) ──────────────────────────────────────
+  // No SectionCard around any of it, deliberately: the whole point of this layout is that the
+  // day stops looking like a stack of boxes. The hero, the Later chips and the Then list sit
+  // directly on the screen backdrop and are separated by space, not by borders.
+  focusWrap: { gap: Spacing.lg },
+  focusHero: { gap: Spacing.xs },
+  focusThen: { gap: Spacing.xs },
+  focusLater: { gap: Spacing.sm },
+  focusLabel: {
+    fontSize: FontSize.xs,
+    fontFamily: Type.label.fontFamily,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  // `flex: 1` children with NO minWidth — three chips at a hard minimum is exactly the
+  // pattern that breaks at 360px (see AGENTS.md's wrap-audit lessons).
+  focusChips: { flexDirection: 'row', gap: Spacing.sm },
+  focusChip: {
+    flex: 1,
+    minWidth: 0,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    minHeight: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  focusChipLabel: { fontSize: FontSize.xs, fontFamily: Type.label.fontFamily },
+  focusChipCount: { fontSize: FontSize.lg, fontFamily: Type.heading.fontFamily },
+  focusOverflow: { fontSize: FontSize.xs, paddingHorizontal: Spacing.xs },
+  focusDone: { fontSize: FontSize.sm, fontFamily: Type.label.fontFamily, textAlign: 'center' },
+  focusAllClear: {
+    fontSize: FontSize.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    textAlign: 'center',
+  },
   // Styles TabSlider directly (no wrapping card, see the 2026-07-24 stickyBelowHeader edit
   // note) — side margin matches ScreenHeader's own floated card (headerFloatH, Spacing.sm as
   // of the header/bottom-nav width-alignment pass); flex:1 + justifyContent:'center' fill and

@@ -11,13 +11,18 @@
  *             (badge+wash gradient move), components/FlightOverlay
  *             (FlightRect type only), components/ShoppingRow, components/PressableScale,
  *             components/ProgressBar, components/AddRow +
- *             components/Stepper (quick-add's inline quantity/target extras), constants/theme,
+ *             components/Stepper (quick-add's inline quantity/target extras),
+ *             components/ShoppingItemSheet (this card mounts its own item detail sheet —
+ *             AnimatedBottomSheet renders into a Modal, so depth in the tree doesn't matter),
+ *             constants/theme,
  *             lib/haptics, lib/i18n, lib/shoppingGroups (listProgress), lib/useAppTheme,
  *             lib/domainColor, lib/budget (SpendPace type only), expo-router,
  *             store/useShoppingStore (ShoppingItem type), store/useShoppingListStore
  *             (ShoppingList type)
  *   Used by → app/(tabs)/index.tsx (Home shopping preview)
- *   Data    → pure presentational; all mutations bubbled up via callbacks (parent owns the stores);
+ *   Data    → mutations bubble up via callbacks (parent owns the stores), EXCEPT the item
+ *             detail sheet it mounts, which writes shopping_items itself via
+ *             useShoppingStore.update();
  *             the `pace` prop is likewise computed by the parent (lib/budget.ts's computeSpendPace())
  *
  * Edit notes:
@@ -103,11 +108,12 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import ExpandableCard from '@/components/ExpandableCard';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
-import ShoppingRow from '@/components/ShoppingRow';
+import ShoppingRow, { ROW_DIVIDER_INSET } from '@/components/ShoppingRow';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import AddRow from '@/components/AddRow';
 import Stepper from '@/components/Stepper';
+import ShoppingItemSheet from '@/components/ShoppingItemSheet';
 import type { FlightRect } from '@/components/FlightOverlay';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -129,8 +135,6 @@ type Props = {
   onToggle: (id: string) => void;
   onCollect: (id: string) => void;
   onRemove: (item: ShoppingItem) => void;
-  onIncrement: (id: string) => void;
-  onDecrement: (id: string) => void;
   onNavigateToShopping: () => void;
   inStockLabel: string;
   /** See "Flight animation" edit note above. Omit to keep today's fade-only toggle. */
@@ -153,8 +157,6 @@ export default function HomeShoppingCard({
   onToggle,
   onCollect,
   onRemove,
-  onIncrement,
-  onDecrement,
   onNavigateToShopping,
   inStockLabel,
   onFlightStart,
@@ -169,6 +171,10 @@ export default function HomeShoppingCard({
   const { reducedMotion } = useAccessibility();
   const domainColor = getDomainColor(theme, 'shop');
   const [expanded, setExpanded] = useState(false);
+  // This card owns its own item detail sheet rather than threading one up through Home and
+  // HomeCardManager: AnimatedBottomSheet renders into a Modal, so mounting depth doesn't
+  // affect where the sheet appears, and Home's card set stays a plain list of cards.
+  const [detailItem, setDetailItem] = useState<ShoppingItem | null>(null);
   const cartHeaderRef = useRef<any>(null);
   const badgeRef = useRef<any>(null);
   const collapsedRowNodes = useRef<Map<string, any>>(new Map());
@@ -218,8 +224,7 @@ export default function HomeShoppingCard({
           onToggle={() => onToggle(item.id)}
           onCollect={variant === 'cart' ? () => onCollect(item.id) : undefined}
           onRemove={() => onRemove(item)}
-          onIncrement={() => onIncrement(item.id)}
-          onDecrement={() => onDecrement(item.id)}
+          onOpenDetail={() => setDetailItem(item)}
           inStockLabel={inStockLabel}
           onFlightStart={variant === 'planned' ? (rect) => handleExpandedFlightStart(item, rect) : undefined}
         />
@@ -433,6 +438,11 @@ export default function HomeShoppingCard({
           </PressableScale>
         )}
       </View>
+      <ShoppingItemSheet
+        visible={detailItem !== null}
+        item={detailItem}
+        onClose={() => setDetailItem(null)}
+      />
     </Surface>
   );
 }
@@ -495,7 +505,9 @@ const baseStyles = StyleSheet.create({
   },
   previewName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.regular },
   previewAmount: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
-  rowDivider: { height: 1 },
+  // Inset past the check so the column of checks reads as one line down the card
+  // (row rule, 2026-07-28). ROW_DIVIDER_INSET lives in ShoppingRow so it tracks its check.
+  rowDivider: { height: 1, marginLeft: ROW_DIVIDER_INSET },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   // Quick-add target chip (2026-07-24) — cycles Weekly/Monthly-list, so it carries text
   // (unlike PlanTaskCard's icon-only quick-add chips) and needs a maxWidth to stay compact.

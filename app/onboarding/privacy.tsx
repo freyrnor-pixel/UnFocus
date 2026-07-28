@@ -19,6 +19,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -38,17 +39,24 @@ export default function PrivacyScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.top}>
-          <Text style={styles.icon}>🔒</Text>
+          {/* Ionicons, not emoji (2026-07-28). A full-colour 🔒 glyph at 72px is a different
+              vendor's artwork on every device, ignores the theme entirely, and reads as
+              clip-art next to the app's own outline iconography — on the FIRST screen a new
+              user sees. Outline glyphs in the theme's accent match the rest of the app and
+              follow dark mode. */}
+          <View style={[styles.iconBadge, { backgroundColor: theme.accentSoft }]}>
+            <Ionicons name="lock-closed-outline" size={40} color={theme.accent} />
+          </View>
           <Text style={[styles.headline, { color: theme.text }]}>{t.onboarding.privacy.headline}</Text>
         </View>
 
         <View style={[styles.bulletCard, { backgroundColor: theme.surface }]}>
           <View style={styles.bulletRow}>
-            <Text style={styles.bullet}>📱</Text>
+            <Ionicons name="phone-portrait-outline" size={22} color={theme.accent} style={styles.bullet} />
             <Text style={[styles.bulletText, { color: theme.text }]}>{t.onboarding.privacy.local}</Text>
           </View>
           <View style={styles.bulletRow}>
-            <Text style={styles.bullet}>💚</Text>
+            <Ionicons name="heart-outline" size={22} color={theme.good} style={styles.bullet} />
             <Text style={[styles.bulletText, { color: theme.text }]}>{t.onboarding.privacy.free}</Text>
           </View>
         </View>
@@ -84,7 +92,15 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
   },
   top: { alignItems: 'center', gap: Spacing.md },
-  icon: { fontSize: 72 },
+  // A soft accent disc behind the glyph, so the hero icon still has the visual weight the
+  // 72px emoji had without being a picture.
+  iconBadge: {
+    width: 84,
+    height: 84,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headline: {
     fontSize: FontSize.xxl,
     fontFamily: Fonts.semibold,
@@ -107,7 +123,8 @@ const baseStyles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: Spacing.md,
   },
-  bullet: { fontSize: 22, lineHeight: 26 },
+  // Nudged down a hair so a 22px glyph sits on the first text line's optical centre.
+  bullet: { marginTop: 1 },
   bulletText: {
     flex: 1,
     fontSize: FontSize.md,

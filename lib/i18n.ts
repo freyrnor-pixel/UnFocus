@@ -129,6 +129,21 @@ const en = {
   seeAll: 'See all →',
   emptyMonthlyList: 'Nothing here yet — add your first staple item.',
   smallThingsCount: (n: number) => `You've done ${n} thing${n !== 1 ? 's' : ''} — small things add up!`,
+  // "One thing at a time" layout (lib/cardLayout.ts's focusFirst, design-system v6's
+  // `Focus First (1c)`). The done line is deliberately TODAY's count, not the all-time
+  // `smallThingsCount` above — this layout is about the day in front of you.
+  focusFirst: {
+    nextUp: 'Next up',
+    then: 'Then',
+    later: 'Later',
+    laterToday: 'Today',
+    laterWeek: 'Week',
+    laterBacklog: 'Whenever',
+    doneToday: (n: number) => `${n} done — small things add up`,
+    andMore: (n: number) => `and ${n} more today`,
+    allClear: 'Nothing left today. That counts.',
+    markDone: 'Done',
+  },
   // Home Energy meter (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Energy',
@@ -831,6 +846,18 @@ const en = {
   },
   inStockLabel: 'In stock',
   priceTotal: (total: string) => `${total} total`,
+  // Shopping item detail sheet (components/ShoppingItemSheet.tsx). Quantity moved out of the
+  // row and into here (row rule, 2026-07-28): a row shows a quantity, a sheet edits one.
+  shoppingItemSheet: {
+    quantity: 'How many',
+    quantityPlaceholder: 'e.g. 2, or "a bunch"',
+    name: 'Name',
+    unit: 'Unit',
+    unitPlaceholder: 'kg, L, pack…',
+    price: 'Price each',
+    category: 'Where in the shop',
+    done: 'Done',
+  },
   suggestions: 'Suggestions',
   // Meals screen
   mealTypes: { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snacks', kveldsmat: 'Evening snack' },
@@ -1053,11 +1080,15 @@ const en = {
       },
       inStore: {
         label: 'In the store',
-        hint: 'Big rows, names only, no prices — easy to read one-handed while shopping.',
+        hint: 'Big rows grouped by aisle, names only, no prices — easy to read one-handed while shopping.',
       },
       nowNext: {
         label: 'Now and next',
         hint: 'Only what you are doing and what follows it. The rest stays tucked away.',
+      },
+      focusFirst: {
+        label: 'One thing at a time',
+        hint: 'One task front and centre, a short list under it, and a count of the rest.',
       },
       byPerson: {
         label: 'By person',
@@ -1610,6 +1641,18 @@ const no: typeof en = {
   seeAll: 'Se alt →',
   emptyMonthlyList: 'Ingenting her ennå — legg til din første faste vare.',
   smallThingsCount: (n: number) => `Du har fullført ${n} ting — småting teller!`,
+  focusFirst: {
+    nextUp: 'Nå',
+    then: 'Så',
+    later: 'Senere',
+    laterToday: 'I dag',
+    laterWeek: 'Uka',
+    laterBacklog: 'Når som helst',
+    doneToday: (n: number) => `${n} gjort — småting teller`,
+    andMore: (n: number) => `og ${n} til i dag`,
+    allClear: 'Ingenting igjen i dag. Det teller.',
+    markDone: 'Ferdig',
+  },
   // Home Energy-måler (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Energi',
@@ -2169,11 +2212,15 @@ const no: typeof en = {
       },
       inStore: {
         label: 'I butikken',
-        hint: 'Store rader, bare navn, ingen priser — lett å lese med én hånd mens du handler.',
+        hint: 'Store rader gruppert etter avdeling, bare navn, ingen priser — lett å lese med én hånd mens du handler.',
       },
       nowNext: {
         label: 'Nå og neste',
         hint: 'Bare det du holder på med og det som kommer etter. Resten ligger skjult.',
+      },
+      focusFirst: {
+        label: 'Én ting om gangen',
+        hint: 'Én oppgave forrest, en kort liste under, og et tall på resten.',
       },
       byPerson: {
         label: 'Per person',
@@ -2553,6 +2600,16 @@ const no: typeof en = {
   },
   inStockLabel: 'På lager',
   priceTotal: (total: string) => `${total} totalt`,
+  shoppingItemSheet: {
+    quantity: 'Hvor mange',
+    quantityPlaceholder: 'f.eks. 2, eller «en bunt»',
+    name: 'Navn',
+    unit: 'Enhet',
+    unitPlaceholder: 'kg, L, pk…',
+    price: 'Pris per stk',
+    category: 'Hvor i butikken',
+    done: 'Ferdig',
+  },
   suggestions: 'Forslag',
   mealTypes: { breakfast: 'Frokost', lunch: 'Lunsj', dinner: 'Middag', snack: 'Snacks', kveldsmat: 'Kveldsmat' },
   mealDifficulty: { easy: 'Enkel', normal: 'Vanlig' },

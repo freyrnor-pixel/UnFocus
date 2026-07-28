@@ -22,8 +22,9 @@
  *             components/IconButton, components/InlineAddItem, components/ShoppingFilterBar,
  *             components/Surface, components/CardAccent (CardAccentBadge),
  *             components/ShoppingRow (CHECKED_OPACITY), constants/theme, lib/cardLayout (LayoutSpec),
- *             lib/i18n, lib/money (formatKr), lib/shoppingCategories (categoryPresets),
- *             lib/shoppingGroups (listProgress, listTotal), lib/useAppTheme, lib/haptics,
+ *             lib/i18n, lib/money (formatKr), lib/shoppingCategories (categoryPresets,
+ *             categoryLabel — the "In the store" aisle headers),
+ *             lib/shoppingGroups (listProgress, listTotal, groupByCategory), lib/useAppTheme, lib/haptics,
  *             lib/domainColor, store/useShoppingListStore (ShoppingList type),
  *             store/useShoppingStore (ShoppingItem type), store/useMonthlyListStore (MonthlyList type)
  *   Used by → app/shopping.tsx
@@ -80,7 +81,8 @@
  *     previously a display-only tag (`ShoppingRow`'s tag, `groupByCategory` on Monthly); this
  *     is the first place it actually filters/searches the Weekly list.
  *   - **2026-07-20 shopping-cleanup pass**: replaced the previous hand-rolled inline add row
- *     (own TextInput + catalog-search dropdown + qty stepper, duplicating InlineAddItem) with
+ *     (own TextInput + catalog-search dropdown + add-form qty stepper, duplicating
+ *     InlineAddItem — unrelated to the ROW stepper, which moved to ShoppingItemSheet) with
  *     the shared `components/InlineAddItem` — same form the Monthly tab uses, so
  *     Weekly no longer maintains a second, differently-styled add form. Also replaced the
  *     3-icon header row (bookmark/settings/trash) with one kebab (`ellipsis-vertical`) opening
@@ -133,16 +135,16 @@ import { MonthlyList } from '@/store/useMonthlyListStore';
 import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { listProgress } from '@/lib/shoppingGroups';
+import { listProgress, groupByCategory } from '@/lib/shoppingGroups';
 import { formatKr } from '@/lib/money';
-import { categoryPresets } from '@/lib/shoppingCategories';
+import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import Surface from '@/components/Surface';
 import { CardAccentBadge } from '@/components/CardAccent';
 import IconButton from '@/components/IconButton';
 import ExpandableCard from '@/components/ExpandableCard';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
-import ShoppingRow, { CHECKED_OPACITY } from '@/components/ShoppingRow';
+import ShoppingRow, { CHECKED_OPACITY, ROW_DIVIDER_INSET } from '@/components/ShoppingRow';
 import { LAYOUT_SPECS, type LayoutSpec } from '@/lib/cardLayout';
 import InlineAddItem from '@/components/InlineAddItem';
 import AddFromMonthlyModal from '@/components/AddFromMonthlyModal';
@@ -188,8 +190,9 @@ type Props = {
   onSaveAsTemplate: () => void;
   onToggleItem: (item: ShoppingItem) => void;
   onRemoveItem: (item: ShoppingItem) => void;
-  onIncrementItem: (item: ShoppingItem) => void;
-  onDecrementItem: (item: ShoppingItem) => void;
+  /** Open an item's detail sheet — where quantity/unit/price/category are edited now that
+   *  the row no longer carries an inline stepper (row rule, 2026-07-28). */
+  onOpenItem: (item: ShoppingItem) => void;
   /** Inline add row submission — called when the user confirms adding a new item. */
   onAddInlineItem: (input: { name: string; price: number; qty: number; category?: string }) => void;
   /** Decrement a cart item — at qty=1 moves it back to "In list"; at qty>1 splits one unit back. */
@@ -260,8 +263,7 @@ export default function WeekListCard({
   onSaveAsTemplate,
   onToggleItem,
   onRemoveItem,
-  onIncrementItem,
-  onDecrementItem,
+  onOpenItem,
   onAddInlineItem,
   onDecrementCartItem,
   monthlyItems,
@@ -353,6 +355,13 @@ export default function WeekListCard({
     [dishGroups]
   );
   const allChecked = useMemo(() => [...checked, ...dishChecked], [checked, dishChecked]);
+  // "In the store" (spec.groupByAisle) flattens the ungrouped + dish rows back together and
+  // re-buckets them by shop category. Only computed when that layout is active — every other
+  // layout keeps the dragged order, and this must never be allowed to leak into them.
+  const aisleGroups = useMemo(
+    () => (spec.groupByAisle ? groupByCategory([...ungroupedUnchecked, ...dishUnchecked]) : []),
+    [spec.groupByAisle, ungroupedUnchecked, dishUnchecked]
+  );
 
   const progress = listProgress({ dishGroups, ungroupedUnchecked, checked });
   const inListTotal = calcSectionTotal([...ungroupedUnchecked, ...dishUnchecked]);
@@ -514,8 +523,7 @@ export default function WeekListCard({
                         variant="planned"
                         onToggle={() => onToggleItem(item)}
                         onRemove={() => onRemoveItem(item)}
-                        onIncrement={() => onIncrementItem(item)}
-                        onDecrement={() => onDecrementItem(item)}
+                        onOpenDetail={() => onOpenItem(item)}
                         inStockLabel={t.inStockLabel}
                         locked={list.locked}
                         spec={spec}
@@ -526,6 +534,43 @@ export default function WeekListCard({
                       {idx < filteredInList.length - 1 && (
                         <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
                       )}
+                    </View>
+                  ))}
+                </View>
+              )
+            ) : spec.groupByAisle ? (
+              /* "In the store": one section per aisle, in the order you walk the shop.
+                 Deliberately drops drag-reorder and the dish grouping for the duration —
+                 nobody rearranges their list mid-aisle, and both would fight the grouping.
+                 Presentation only: every row keeps its stored orderIndex, so switching back
+                 to any other layout restores the dragged order untouched. */
+              aisleGroups.length > 0 && (
+                <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.good }]}>
+                  {aisleGroups.map(([category, aisleItems], groupIdx) => (
+                    <View key={category}>
+                      <Text style={[styles.aisleHeader, { color: theme.textMuted }]}>
+                        {categoryLabel(t, category)}
+                      </Text>
+                      {aisleItems.map((item, idx) => (
+                        <View key={item.id}>
+                          <ShoppingRow
+                            item={item}
+                            variant="planned"
+                            onToggle={() => onToggleItem(item)}
+                            onRemove={() => onRemoveItem(item)}
+                            onOpenDetail={() => onOpenItem(item)}
+                            inStockLabel={t.inStockLabel}
+                            locked={list.locked}
+                            spec={spec}
+                            isNewSince={newSinceIds?.has(item.id)}
+                            newFields={newFields}
+                            onFlightStart={(rect) => onFlightStart?.(item, rect)}
+                          />
+                          {(idx < aisleItems.length - 1 || groupIdx < aisleGroups.length - 1) && (
+                            <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+                          )}
+                        </View>
+                      ))}
                     </View>
                   ))}
                 </View>
@@ -560,8 +605,7 @@ export default function WeekListCard({
                             variant="planned"
                             onToggle={() => onToggleItem(item)}
                             onRemove={() => onRemoveItem(item)}
-                            onIncrement={() => onIncrementItem(item)}
-                            onDecrement={() => onDecrementItem(item)}
+                            onOpenDetail={() => onOpenItem(item)}
                             inStockLabel={t.inStockLabel}
                             locked={list.locked}
                             spec={spec}
@@ -667,8 +711,7 @@ export default function WeekListCard({
                     variant="cart"
                     onToggle={() => onToggleItem(item)}
                     onRemove={() => onRemoveItem(item)}
-                    onIncrement={() => onIncrementItem(item)}
-                    onDecrement={() => onDecrementCartItem(item)}
+                    onOpenDetail={() => onOpenItem(item)}
                     locked={list.locked}
                     spec={spec}
                     isNewSince={newSinceIds?.has(item.id)}
@@ -794,7 +837,19 @@ const baseStyles = StyleSheet.create({
   sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
   sectionTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, textAlign: 'right', paddingTop: Spacing.xs },
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, borderLeftWidth: 3 },
-  rowDivider: { height: 1 },
+  // Inset past the check so the column of checks reads as one line down the card
+  // (row rule, 2026-07-28). ROW_DIVIDER_INSET lives in ShoppingRow so it tracks its check.
+  rowDivider: { height: 1, marginLeft: ROW_DIVIDER_INSET },
+  // "In the store" aisle header. Quiet — it's a wayfinding label inside a card that already
+  // has its own title, not a second section header competing with it.
+  aisleHeader: {
+    fontSize: FontSize.xs,
+    fontFamily: Fonts.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
+  },
   // Transparent by default (idle state matches the pre-2026-07-06 flat-row look exactly) —
   // only gains a fill/border while it's the live drag-to-merge target (Decision 022).
   dishGroup: { borderRadius: Radius.sm, borderWidth: 1, borderColor: 'transparent' },

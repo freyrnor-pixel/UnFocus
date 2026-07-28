@@ -164,7 +164,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
 import { Fonts, FontSize, Radius, Spacing, Shadow, getGlow, getLayeredShadow, computeRimGradient } from '@/constants/theme';
-import { Duration, Ease } from '@/constants/motion';
+import { Duration, Ease, Travel } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { goToSite, SITE_ITEMS, SiteItem, TAB_ROUTE_NAME } from '@/lib/siteNav';
@@ -362,6 +362,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
       <PressableScale
         key={item.key}
         scaleTo={0.90}
+        travel={Travel.md}
         accessibilityRole="button"
         accessibilityLabel={t.nav[item.key]}
         accessibilityState={{ selected: active }}
@@ -489,6 +490,12 @@ function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
   return (
     <PressableScale
       scaleTo={0.97}
+      // "Pressed = on" (design-system v6, 2026-07-28): the ACTIVE tab rests sunk into the
+      // bar. The sliding pill already marks the current tab by colour and position; the
+      // travel adds the one channel neither of those covers — depth — so the current tab is
+      // still obvious in greyscale and under glare.
+      travel={Travel.sm}
+      sunk={active}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}

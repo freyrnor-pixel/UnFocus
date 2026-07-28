@@ -59,8 +59,10 @@
  *     italic bulb explainer (`t.starters.notes.text`, 2026-07-28) at the compact resting height
  *     (does NOT self-hide).
  *   - **Shopping preview = HomeShoppingCard**: shows first 4 items flat when collapsed; full
- *     nested dish-group ExpandableCard structure when expanded. Tick-to-buy, cart-collect,
- *     stepper, and catalog-vs-adhoc remove preserved. Also passed a `pace` prop (Decision 026,
+ *     nested dish-group ExpandableCard structure when expanded. Tick-to-buy, cart-collect and
+ *     catalog-vs-adhoc remove preserved; the row's inline qty stepper is gone (row rule,
+ *     2026-07-28) — the card opens components/ShoppingItemSheet.tsx itself, so Home no longer
+ *     threads increment/decrement handlers down. Also passed a `pace` prop (Decision 026,
  *     lib/budget.ts's computeSpendPace() over useReceiptStore + useMonthlyListStore) — an
  *     aggregate across every Monthly list (summed budget vs. every tagged receipt, paced
  *     against the most recently reset list — see the shoppingPace memo below), the same shape
@@ -219,7 +221,6 @@ export default function HomeScreen() {
   const toggleShoppingCollected = useShoppingStore((s) => s.toggleCollected);
   const putBackToInventory = useShoppingStore((s) => s.putBackToInventory);
   const removeWithSource = useShoppingStore((s) => s.removeWithSource);
-  const adjustAmount = useShoppingStore((s) => s.adjustAmount);
   const addShoppingItem = useShoppingStore((s) => s.add);
 
   const shoppingLists = useShoppingListStore((s) => s.lists);
@@ -451,8 +452,6 @@ export default function HomeScreen() {
   );
   const handleToggleShopping = useCallback((id: string) => toggleShoppingItem(id), [toggleShoppingItem]);
   const handleCollectShopping = useCallback((id: string) => toggleShoppingCollected(id), [toggleShoppingCollected]);
-  const handleIncrementShopping = useCallback((id: string) => adjustAmount(id, 1), [adjustAmount]);
-  const handleDecrementShopping = useCallback((id: string) => adjustAmount(id, -1), [adjustAmount]);
   const handleNavigateToShopping = useCallback(
     () => goToSite(router, pathname, '/shopping'),
     [router, pathname]
@@ -505,8 +504,6 @@ export default function HomeScreen() {
               onToggle={handleToggleShopping}
               onCollect={handleCollectShopping}
               onRemove={handleRemoveShoppingItem}
-              onIncrement={handleIncrementShopping}
-              onDecrement={handleDecrementShopping}
               onNavigateToShopping={handleNavigateToShopping}
               onAddItem={handleAddShoppingItem}
               monthlyLists={monthlyLists}

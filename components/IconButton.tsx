@@ -16,7 +16,9 @@
  *   - `size` controls outer button size (default 36); hit target always >=44px (achieved via Pressable wrapper).
  *   - Icon size is automatically 50% of button size.
  *   - `active` crossfades the background (→ accentSoft) and border (transparent → accent) via
- *     useToggleColor; icon colour swaps instantly to accent on top. Border is always 1.5px
+ *     useToggleColor; icon colour swaps instantly to accent on top. It ALSO rests sunk
+ *     (PressableScale's `sunk`, 2026-07-28) so "on" is carried by depth as well as colour —
+ *     which is what keeps it readable in greyscale, in glare, and for a colour-blind user. Border is always 1.5px
  *     (transparent when inactive) so toggling active never shifts the icon by the border width.
  *   - Default (inactive, enabled) icon colour is `text`; disabled icon colour is `textMuted`.
  *   - **Keycap bevel ring (2026-07-21)**: when `settings.glassSurfaces` is on, the circular fill
@@ -39,6 +41,7 @@ import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useToggleColor } from '@/lib/useToggleColor';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import PressableScale from '@/components/PressableScale';
+import { Travel } from '@/constants/motion';
 
 const EDGE_WIDTH = 1.5;
 
@@ -104,6 +107,11 @@ export default function IconButton({
       onPress={onPress}
       disabled={disabled}
       scaleTo={0.9}
+      // Key press (2026-07-28): an icon button sinks rather than shrinking, and an ACTIVE one
+      // stays sunk — v6's "Pressed = on", so a focus/filter toggle reads as engaged by depth
+      // and not only by the accentSoft crossfade below.
+      travel={Travel.md}
+      sunk={active}
       accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ disabled, selected: active }}
