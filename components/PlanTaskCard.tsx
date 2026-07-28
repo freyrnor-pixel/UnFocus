@@ -1258,7 +1258,8 @@ const baseStyles = StyleSheet.create({
   progressBar: { marginTop: Spacing.xs, marginLeft: 52 },
   // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
   // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
-  headerTitle: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8, includeFontPadding: false, textAlignVertical: 'center' },
+  // Sentence case (2026-07-28 design review): all-caps belongs on ≤13px labels, not 20px card titles.
+  headerTitle: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, includeFontPadding: false, textAlignVertical: 'center' },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
 });

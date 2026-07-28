@@ -17,8 +17,9 @@
  *
  * Edit notes:
  *   - `hue` should be a solid domain accent (works on any surface, both modes). The header is
- *     the app-wide unified card/section style (2026-07-19): a small dot + ALL-CAPS tracked
- *     title (uppercase, 20px, bold, letterSpacing 0.8) over a hairline rule tinted
+ *     the app-wide unified card/section style (2026-07-19): a small dot + sentence-case
+ *     title (20px, bold — was ALL-CAPS with letterSpacing 0.8 until the 2026-07-28 design
+ *     review moved uppercase back to ≤13px labels only) over a hairline rule tinted
  *     `rgba(hue, 0.25)` — NOT a filled pill (that soft-plate look was dropped). The label is
  *     NOT pure `hue` (that was a same-hue-on-same-hue pairing that read low-contrast, e.g.
  *     green on light green) — it's `mix(hue, text, 0.3)`, a darkened/lightened hue that stays
@@ -97,8 +98,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 25,
     fontFamily: Fonts.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    // Sentence case (2026-07-28 design review) — 20px is a heading size, not a label size;
+    // the 0.8 tracking that made all-caps readable is dropped with it.
   },
   count: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   right: { marginLeft: 'auto' },

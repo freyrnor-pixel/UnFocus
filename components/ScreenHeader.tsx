@@ -524,9 +524,12 @@ const styles = StyleSheet.create({
     // room for descenders (j/g/p/y) AND top accents (å/ø).
     includeFontPadding: false,
     textAlignVertical: 'center',
-    // All-caps title (2026-07-20 header-prominence pass) — visual only (textTransform),
-    // so screen readers and DebugNoteAnchor's note label still get the original-case string.
-    textTransform: 'uppercase',
+    // Sentence-case title (2026-07-28 design review). The 2026-07-20 header-prominence pass
+    // set `textTransform: 'uppercase'` here; at HEADER_TITLE_BASE_SIZE (24) that put all-caps
+    // at a heading size, where platform convention (iOS grouped headers, Material overline)
+    // reserves it for ≤13px labels. Prominence now comes from size + extrabold weight alone.
+    // Small uppercase labels elsewhere (StarterCard's "EXAMPLE", the FontSize.xs sectionLabel
+    // styles) are the correct use of it and are deliberately left alone.
   },
   titleWrap: {
     flex: 1,

@@ -371,7 +371,10 @@ export default function TasksScreen() {
   const featureSharing = useSettingsStore((s) => s.featureSharing);
 
   const [tab, setTab] = useState<Tab>('today');
-  const [hintOpen, setHintOpen] = useFirstVisitHint('plans');
+  // autoOpen=false (2026-07-28 design review): this screen's StarterCard already teaches the
+  // same thing WITH a tappable example row, so auto-opening the ⓘ on top of it stacked two
+  // instruction panels above four more empty-state messages. The ⓘ button still opens it.
+  const [hintOpen, setHintOpen] = useFirstVisitHint('plans', false);
   // Person filter (People/family mode): null = Everyone, '' = Me, name = that profile.
   const [personFilter, setPersonFilter] = useState<string | null>(null);
   // Inline "add a row" input for the Whenever section — the one add affordance on this screen.

@@ -13,7 +13,8 @@
  *   Depth: shadow, overlay
  *   Hint card: hintBg, hintBorder, hintAccent
  *   Feature accents (screen hues — lib/screenColor.ts): featTask, featPlan, featHabit, featShop, featMeal, featBudget, featNote, featHealth, featScan
- *   Card identity ramp (blue→violet — lib/domainColor.ts, drives card badge+wash+edge): cardTask,
+ *   Card identity ramp (lib/domainColor.ts, drives card badge+wash+edge — widened from its
+ *     original blue→violet span 2026-07-28, see the card block below): cardTask,
  *     cardPlan, cardHabit, cardShop, cardMeal, cardBudget, cardNote, cardHealth, cardScan
  *   Priority ramp (reserved, unwired — no live UI/DB reads this yet): priorityHigh,
  *     priorityHighSoft, priorityMedium, priorityMediumSoft, priorityLow, priorityLowSoft
@@ -215,20 +216,35 @@ const defaultLight: ThemePalette = {
   // (Scan has no domain bubble); read via lib/screenColor.ts (2026-07-18).
   featScan: '#9B72E3',
 
-  // Card identity ramp (2026-07-19 "Card accent system"): a cohesive blue→violet ramp for CARD
-  // colour, separate from the feat* screen hues above. Values are the design-system ramp
-  // (guidelines/colors-card-accent.html) laid across the routine sequence — habit/health/meal/shop
-  // land on the DS's exact --feature-* hexes. Drives CardAccent's badge+wash + the card's edge
-  // (lib/domainColor.ts); screens keep their feat* hues (decision: cards-only palette scope).
-  cardPlan: '#2572AA',
-  cardTask: '#2A6EC0',
-  cardHabit: '#3468D3',
-  cardHealth: '#4865D7',
-  cardMeal: '#5761DA',
-  cardShop: '#635DDB',
-  cardBudget: '#7059DA',
-  cardNote: '#7C53D9',
-  cardScan: '#894DD8',
+  // Card identity ramp — WIDENED 2026-07-28 (design review). Still one calm, low-saturation
+  // family for CARD colour, separate from the feat* screen hues above; what changed is its
+  // SPAN. The 2026-07-19 "Card accent system" laid nine domains across a blue→violet ramp
+  // (#2572AA→#894DD8) — about 40° of hue total, so adjacent stops differed by ~5° and
+  // health/meal/shop badges were indistinguishable at their 22px render size. The colour was
+  // meant to signify "the order of a day walked"; at that spacing it signified nothing, and
+  // four of the five tabs read as uniformly blue. components/FoodTab.tsx's MEAL_COLORS had
+  // already solved the same problem by ignoring this ramp entirely (~200° of low-saturation
+  // hue), which is why the Food screen was the only one that read at a glance.
+  //
+  // Hues are chosen against the co-occurrence clusters, not just spread evenly:
+  //   Home shows plan+task+note+shop+budget together → those five are the widest-spread set
+  //   Shopping shows shop+meal+budget together       → rose / terracotta / sage, all distinct
+  //   Plans shows task+meal+plan                     → indigo / terracotta / teal-blue
+  // habit sits near plan in hue (185 vs 195) deliberately: no screen renders both.
+  //
+  // Saturation stays in MEAL_COLORS' calm band, and every stop steers clear of the semantic
+  // tokens it could otherwise be mistaken for — good `#1FA974` (h162), bad `#EF4444` (h0),
+  // warn `#BF7A1C` (h36). cardHealth is a muted coral (h350) rather than a red, and cardBudget
+  // a yellow-leaning sage (h100) rather than a green, for exactly that reason.
+  cardPlan: '#3789A6',   // teal-blue   h195
+  cardTask: '#4E62C8',   // indigo      h233
+  cardHabit: '#2E8A94',  // deep teal   h185
+  cardHealth: '#C4667A', // muted coral h350 — NOT `bad` red (half its saturation)
+  cardMeal: '#D9825A',   // terracotta  h18  — same hex as FoodTab's dinner, on purpose
+  cardShop: '#BC6494',   // rose-mauve  h330
+  cardBudget: '#7C9B55', // sage-olive  h100 — NOT `good` green (yellower, desaturated)
+  cardNote: '#8A5EC5',   // violet      h278
+  cardScan: '#6A5FC9',   // blue-violet h258
 
   // Reserved priority/category ramps from the 2026-07-14 Claude Design brief — no live
   // feature reads these yet (dormant `priority` SQLite column, unwired category concept).
@@ -299,16 +315,17 @@ const defaultDark: ThemePalette = {
   featScan: '#BE9DF7',
 
   // Card identity ramp (dark): each light stop lightened ~0.20 for legibility on the dark surface,
-  // same approach the dark feat* octet uses; hue order preserved. See the light block for rationale.
-  cardPlan: '#518EBB',
-  cardTask: '#558BCD',
-  cardHabit: '#5D86DC',
-  cardHealth: '#6D84DF',
-  cardMeal: '#7981E1',
-  cardShop: '#827DE2',
-  cardBudget: '#8D7AE1',
-  cardNote: '#9675E1',
-  cardScan: '#A171E0',
+  // same approach the dark feat* octet uses; hue preserved. Regenerated 2026-07-28 from the
+  // widened light ramp — see the light block for the full rationale and the co-occurrence map.
+  cardPlan: '#5FA1B8',   // teal-blue
+  cardTask: '#7181D3',   // indigo
+  cardHabit: '#58A1A9',  // deep teal
+  cardHealth: '#D08595', // muted coral
+  cardMeal: '#E19B7B',   // terracotta
+  cardShop: '#C983A9',   // rose-mauve
+  cardBudget: '#96AF77', // sage-olive
+  cardNote: '#A17ED1',   // violet
+  cardScan: '#887FD4',   // blue-violet
 
   // Reserved priority/category ramps — dark values from the 2026-07-14 Claude Design brief.
   priorityHigh: '#F0685A',
