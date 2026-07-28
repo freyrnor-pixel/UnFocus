@@ -117,9 +117,13 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
   since 2026-07-28 grouped by aisle — a `groupByAisle` flag that a test pins to this layout
   alone, because every other layout keeps the order the user dragged rows into), **Now and
   next** (Plans: only the current + next task, rest behind "The rest") and **One thing at a
-  time** (Plans, 2026-07-28 — v6's `Focus First (1c)`: a Next up hero, a Later row of three
-  tappable count chips, a short Then list, then the day's done count; it also hides the
-  Whenever section, whose count is the third chip).
+  time** (Plans, 2026-07-28 — v6's `Focus First (1c)`: a Next up hero, a short Then list, then
+  the day's done count; it also hides the Whenever section). The mock's "Later" row of count
+  chips is deliberately NOT built: it duplicated the tab bar sitting a few pixels above it, so
+  the counts live in `TabSlider`'s own `accessory` slot instead (that slot exists for exactly
+  this) and there is one control, not two. `accessory` nodes don't know their own active
+  state — the caller must bake the active colour in, or the count sits muted-grey on the
+  accent pill.
   Per-surface overrides live in `settings.cardLayouts` (JSON `{surface: layoutId}`, same
   storage shape as `home_card_order`) and are picked from the surface's own header icon, not
   from Settings. Layout names describe the *situation* you'd want them in, never the
