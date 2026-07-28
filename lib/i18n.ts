@@ -441,7 +441,7 @@ const en = {
   monthlyListsEmpty: 'No monthly lists yet — create one to get started.',
   deleteMonthlyListAction: 'Delete this list',
   weekEmptyTitle: 'No lists this week yet',
-  weekEmptyBody: 'Make a new list below to start planning your shopping.',
+  weekEmptyBody: 'Make a new list below to get started.',
   catalogueSearchPlaceholder: 'Search the catalogue…',
   monthlyListTotal: (kr: string) => `Total: ${kr}`,
   monthlyListEmpty: 'Nothing added yet — pick from the catalogue below.',
@@ -877,7 +877,7 @@ const en = {
     privacy: {
       headline: 'Your data stays with you',
       local: 'Everything is stored only on this device — nothing is sent anywhere.',
-      free: 'UnFocus is free and always will be.',
+      free: 'UnFocus is free — and stays free.',
       cta: 'Got it →',
     },
     // First-run "have you used UnFocus before?" step — offers to restore a backup
@@ -933,7 +933,7 @@ const en = {
     privacy: {
       headline: 'Your data stays with you',
       local: 'Everything is stored only on this device — nothing is sent anywhere.',
-      free: 'UnFocus is free and always will be.',
+      free: 'UnFocus is free — and stays free.',
     },
     // AP-05 — notification quiet hours
     quietHours: {
@@ -1228,7 +1228,7 @@ const en = {
       example: 'e.g. "Elvanse 30 mg" in the morning tray; painkillers as needed, at least 6 hours apart.',
     },
     shopping: {
-      text: 'Add items as you run out — the list resets weekly.',
+      text: 'Add items as you run out — resets weekly.',
       example: 'e.g. milk and coffee on the weekly list; toilet paper and washing powder on the monthly one.',
     },
     meals: {
@@ -1295,7 +1295,7 @@ const en = {
     /** Accessibility-label prefix for an example row's "+" add button, e.g. "Add Milk". */
     addExample: 'Add',
     habits: {
-      text: 'All wins matter — small things add up toward a goal.',
+      text: 'All wins matter, big and small.',
       tapToAdd: 'Tap one to start:',
       suggestions: {
         water: 'Drink 4 glasses of water',
@@ -1305,7 +1305,7 @@ const en = {
       },
     },
     plans: {
-      text: 'Break things into smaller pieces, and take them step-by-step.',
+      text: 'Break things into smaller pieces, one step at a time.',
       exampleTitle: 'Tidy up',
       exampleSteps: {
         trash: 'Take out the trash',
@@ -1321,7 +1321,7 @@ const en = {
       exampleMonthly: 'Toilet paper',
     },
     health: {
-      text: 'Log what bothers you, and note what helps you feel better.',
+      text: 'Log what bothers you, and what helps.',
       exampleTitle: 'Headache',
     },
     // Medicine card's empty state — compact (no example row): the card's own add field
@@ -1813,7 +1813,7 @@ const no: typeof en = {
   monthlyListsEmpty: 'Ingen månedslister ennå — opprett en for å komme i gang.',
   deleteMonthlyListAction: 'Slett denne listen',
   weekEmptyTitle: 'Ingen lister denne uken ennå',
-  weekEmptyBody: 'Lag en ny liste under for å begynne å planlegge handelen.',
+  weekEmptyBody: 'Lag en ny liste under for å komme i gang.',
   catalogueSearchPlaceholder: 'Søk i katalogen…',
   monthlyListTotal: (kr: string) => `Totalt: ${kr}`,
   monthlyListEmpty: 'Ingenting lagt til ennå — velg fra katalogen under.',
@@ -1982,7 +1982,7 @@ const no: typeof en = {
     privacy: {
       headline: 'Dataene dine er hos deg',
       local: 'Alt lagres kun på denne enheten — ingenting sendes noe sted.',
-      free: 'UnFocus er gratis og vil alltid være det.',
+      free: 'UnFocus er gratis — og forblir det.',
       cta: 'Skjønner →',
     },
     restore: {
@@ -2034,7 +2034,7 @@ const no: typeof en = {
     privacy: {
       headline: 'Dataene dine er hos deg',
       local: 'Alt lagres kun på denne enheten — ingenting sendes noe sted.',
-      free: 'UnFocus er gratis og vil alltid være det.',
+      free: 'UnFocus er gratis — og forblir det.',
     },
     // AP-05 — varslingsfri (stille) periode
     quietHours: {
@@ -2549,7 +2549,7 @@ const no: typeof en = {
       example: 'F.eks. «Elvanse 30 mg» i morgenrunden; smertestillende ved behov, minst 6 timer mellom.',
     },
     shopping: {
-      text: 'Legg til varer etter hvert — listen nullstilles ukentlig.',
+      text: 'Legg til varer etter hvert — nullstilles ukentlig.',
       example: 'F.eks. melk og kaffe på ukeslisten; dopapir og vaskepulver på månedslisten.',
     },
     meals: {
@@ -2593,7 +2593,7 @@ const no: typeof en = {
     exampleLabel: 'Eksempel',
     addExample: 'Legg til',
     habits: {
-      text: 'Alle seire teller — små ting bygger opp mot et mål.',
+      text: 'Alle seire teller, små som store.',
       tapToAdd: 'Trykk på én for å komme i gang:',
       suggestions: {
         water: 'Drikk 4 glass vann',
@@ -2603,7 +2603,7 @@ const no: typeof en = {
       },
     },
     plans: {
-      text: 'Del ting opp i mindre biter, og ta dem steg for steg.',
+      text: 'Del ting opp i mindre biter, ett steg av gangen.',
       exampleTitle: 'Rydde',
       exampleSteps: {
         trash: 'Kaste søppel',
@@ -2619,7 +2619,7 @@ const no: typeof en = {
       exampleMonthly: 'Dopapir',
     },
     health: {
-      text: 'Logg det som plager deg, og noter det som hjelper.',
+      text: 'Logg det som plager deg, og hva som hjelper.',
       exampleTitle: 'Hodepine',
     },
     medicine: {

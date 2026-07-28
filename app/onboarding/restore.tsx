@@ -133,7 +133,8 @@ const baseStyles = StyleSheet.create({
   safe: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
-    padding: Spacing.xl,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
     gap: Spacing.lg,
     justifyContent: 'center',
     alignItems: 'center',
@@ -160,5 +161,6 @@ const baseStyles = StyleSheet.create({
     lineHeight: 22,
     textAlign: 'center',
   },
-  footer: { padding: Spacing.xl, paddingTop: Spacing.md },
+  footer: { paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg, paddingTop: Spacing.md },
 });

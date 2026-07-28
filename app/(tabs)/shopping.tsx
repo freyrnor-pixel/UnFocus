@@ -1500,7 +1500,12 @@ export default function ShoppingScreen() {
         <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
           <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.weeklyResetDay}</Text>
           <View style={styles.hintDayRow}>
-            {t.dayFull.map((label, i) => (
+            {/* `t.dayLabels` is the localized 3-letter abbreviation; this used to render
+                `t.dayFull[i].slice(0, 3)`, which hardcoded an English/Norwegian-shaped
+                truncation into a bilingual UI and would mangle any language whose short
+                form isn't just its first three letters. Both arrays are Mon-first, so the
+                index (and `weeklyResetDay`) is unchanged. */}
+            {t.dayLabels.map((label, i) => (
               <PressableScale
                 key={i}
                 style={[
@@ -1516,7 +1521,7 @@ export default function ShoppingScreen() {
                   { color: theme.text },
                   weeklyResetDay === i && { color: theme.accentInk },
                 ]}>
-                  {label.slice(0, 3)}
+                  {label}
                 </Text>
               </PressableScale>
             ))}
@@ -2273,13 +2278,21 @@ const styles = StyleSheet.create({
   // Embedded first-run setting inside the ⓘ hint (weekly/monthly reset).
   hintSetting: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.xs },
   hintSettingLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
-  hintDayRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  // 7 chips share the row instead of each claiming a fixed 40px (2026-07-28 wrap audit).
+  // The old `minWidth: 40` + `gap: 4` gave the row a hard 304px floor (7*40 + 6*4); the
+  // Shopping hint only offers ~295px at a 360px phone width, so `flexWrap` broke Mon–Sun
+  // onto two lines — missing a single line by 9px. `flex: 1` with no minWidth lets the
+  // chips shrink to whatever fits, which is what components/TaskCard.tsx's weekdayChip
+  // has always done for the same 7-day picker. flexWrap is dropped deliberately: with
+  // flex:1 children there is nothing left to wrap, and leaving it in would silently
+  // reintroduce the two-line break the moment someone re-adds a minimum width.
+  hintDayRow: { flexDirection: 'row', gap: 4 },
   hintDayChip: {
-    minWidth: 40,
+    flex: 1,
     minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 2,
     borderRadius: Radius.full,
   },
   hintDayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },

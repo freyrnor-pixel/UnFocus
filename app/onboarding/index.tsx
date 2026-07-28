@@ -123,7 +123,8 @@ export default function OnboardingName() {
 const baseStyles = StyleSheet.create({
   safe: { flex: 1 },
   flex: { flex: 1 },
-  content: { flex: 1, padding: Spacing.xl, justifyContent: 'center', gap: Spacing.xl },
+  content: { flex: 1, paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg, justifyContent: 'center', gap: Spacing.xl },
   top: { alignItems: 'center', gap: Spacing.md },
   logoShadow: { borderRadius: Radius.lg, ...Shadow.card },
   logo: { width: 96, height: 96, borderRadius: Radius.lg, overflow: 'hidden' },
@@ -151,7 +152,8 @@ const baseStyles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: Spacing.xl,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     gap: Spacing.md,
   },

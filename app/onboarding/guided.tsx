@@ -159,7 +159,8 @@ export default function GuidedScreen() {
 const baseStyles = StyleSheet.create({
   safe: { flex: 1 },
   scrollContent: {
-    padding: Spacing.xl,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
     gap: Spacing.xl,
     paddingBottom: Spacing.md,
   },
@@ -209,7 +210,8 @@ const baseStyles = StyleSheet.create({
     lineHeight: 18,
   },
   footer: {
-    padding: Spacing.xl,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
   },
 });

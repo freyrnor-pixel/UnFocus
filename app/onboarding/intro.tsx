@@ -184,7 +184,8 @@ export default function OnboardingIntro() {
 
 const baseStyles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { flex: 1, padding: Spacing.xl, justifyContent: 'center', gap: Spacing.xl },
+  content: { flex: 1, paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg, justifyContent: 'center', gap: Spacing.xl },
   pageBody: { alignItems: 'center', gap: Spacing.lg },
   iconBadge: {
     width: 104, height: 104, borderRadius: 52, alignItems: 'center', justifyContent: 'center',
@@ -217,7 +218,8 @@ const baseStyles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: Spacing.xl,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     gap: Spacing.md,
   },

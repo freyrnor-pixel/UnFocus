@@ -98,7 +98,8 @@ const baseStyles = StyleSheet.create({
   safe: { flex: 1 },
   content: {
     flex: 1,
-    padding: Spacing.xl,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
     gap: Spacing.xl,
     justifyContent: 'center',
   },
