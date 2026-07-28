@@ -3,10 +3,14 @@
  * trailing × to remove, drag-reorder via the parent wrapping this row in
  * DraggableTaskRow.
  *
- * Decision 011 A2-2 redesign — NOT a faithful clone of the old row. Line 1:
- * leading check · name · price-total (right-aligned). Line 2 (smaller/dimmed):
- * qty+unit · qty stepper (−/badge/+) · in-stock label. The old inline
- * move-chevrons are retired (Ripple R1). **UX audit A1 (2026-07-23,
+ * Decision 011 A2-2 redesign — NOT a faithful clone of the old row. Restructured again by
+ * the row rule (2026-07-28, design-system v6 `Checklist Redesign Options`): the leading
+ * cluster is check · quantity+unit; line 1 is name · price-total (right-aligned, the row's
+ * ONE right-hand value); line 2 carries only the in-stock note. Quantity moved up beside the
+ * check because "quantity is an input, not a value" — an input in the row made the row reflow
+ * as the number changed and cost the money column its clean right edge — and the inline
+ * −/badge/+ stepper moved out entirely into components/ShoppingItemSheet.tsx, which a tap on
+ * the row's name/price area opens. The old inline move-chevrons are retired (Ripple R1). **UX audit A1 (2026-07-23,
  * SCREEN_FUNCTIONS_AUDIT.md finding A1):** swipe-left-to-remove was dropped —
  * it was the only place in the app using swipe for delete (everywhere else
  * uses a trailing icon), so a user who learned it here found it didn't work
@@ -14,7 +18,7 @@
  * trailing × button every other row in the app uses.
  *
  * Connections:
- *   Imports → components/Badge, components/FlightOverlay (FlightRect type only), components/InventoryIcon,
+ *   Imports → components/FlightOverlay (FlightRect type only), components/InventoryIcon,
  *             components/NewSinceGlow (row + field "your last view was hiding this" marker),
  *             components/PressableScale, constants/theme, constants/motion (Duration/Ease tokens),
  *             lib/cardLayout (LayoutSpec — what this row is allowed to draw),
@@ -23,9 +27,9 @@
  *   Used by → components/WeekListCard.tsx, app/(tabs)/shopping.tsx (weekly rows +
  *             purchased-history rows), components/HomeShoppingCard.tsx (Home shopping
  *             preview — planned + cart rows, no drag reorder)
- *   Data    → mutations still bubble up via onToggle/onCollect/onRemove/onIncrement/onDecrement
- *             callbacks (the parent screen calls toggleCheck/toggleCollected/adjustAmount/
- *             putBackToInventory/removeWithSource) — but this is no longer a fully "dumb"
+ *   Data    → mutations still bubble up via onToggle/onCollect/onRemove/onOpenDetail
+ *             callbacks (the parent screen calls toggleCheck/toggleCollected/
+ *             putBackToInventory/removeWithSource, or opens the detail sheet) — but this is no longer a fully "dumb"
  *             row: it reads `useShoppingStore(s => s.recentlyAddedIds[item.id])` directly
  *             (Decision 044b) to drive its own entrance/highlight animation, since that's
  *             ephemeral UI state the store already owns for free (see that store's header).
@@ -58,15 +62,13 @@
  *     collected — NOT to every cart row, since "moved to cart" alone should stay fully
  *     opaque. Same constant reused by the "Shopping done" disabled state on the shopping
  *     screen — import `CHECKED_OPACITY` from here (R3) rather than a new literal.
- *   - The inline qty stepper (−/badge/+) renders on 'planned' and 'cart' rows whenever the
- *     parent passes onIncrement/onDecrement (omit both to hide it). **Decision 028:** the
- *     stepper does NOT read `locked` — adjusting a quantity of an item already on the list is
- *     neither an add nor a remove (the − floors at 1, so it can never delete a row), so it
- *     stays live regardless of lock state, same category as the checkbox. `locked` gates only
- *     the remove affordance (the swipe gesture, below). Bounds are 1–99: the − button disables at qty 1, the + button
- *     disables at qty 99 (the store's adjustAmount clamps at 0 by deleting the row, but the
- *     stepper's own floor is 1 so "delete by stepper" never happens here — removal stays the
- *     swipe gesture's job). Hidden entirely on 'purchased' rows.
+ *   - **The inline qty stepper is gone (2026-07-28).** It lives in
+ *     components/ShoppingItemSheet.tsx now, reached by `onOpenDetail`. Decision 028's rule
+ *     survives the move: quantity is neither an add nor a remove, so the sheet does NOT read
+ *     `locked` either — a locked list can still have its quantities adjusted, and `locked`
+ *     gates only the remove affordance. Quantity now *reads* in the leading cluster
+ *     (`showQty`, gated on `spec.showMeta`); hiding it never hides the ability to change it,
+ *     since the sheet always carries the stepper.
  *   - Price now lives only as the line-1 total (A2-2) — the old row's separate "kr/stk"
  *     unit-price meta text is dropped; A2-2's own rationale ("keeping money glanceable")
  *     is served by the total alone, and the redesign's spec doesn't mention a per-unit line.
@@ -138,15 +140,24 @@ import { heavy } from '@/lib/haptics';
 import InventoryIcon from '@/components/InventoryIcon';
 import NewSinceGlow from '@/components/NewSinceGlow';
 import { LAYOUT_SPECS, type LayoutSpec } from '@/lib/cardLayout';
-import { Badge } from '@/components/Badge';
 import PressableScale from '@/components/PressableScale';
 
 type Variant = 'planned' | 'cart' | 'purchased';
 
-/** Stepper bounds — mirrors useShoppingStore.adjustAmount's own floor (it clamps at 0 and
- * deletes), but the stepper UI's own minimum is 1 so decrementing never silently removes a row. */
+/** Fallback quantity for a non-numeric `amount` ("2-3", "a bunch") — the row still needs a
+ * number for its increase-glow comparison. The stepper's own 1–99 bounds moved to
+ * components/ShoppingItemSheet.tsx along with the stepper itself (row rule, 2026-07-28). */
 const MIN_QTY = 1;
-const MAX_QTY = 99;
+
+/**
+ * How far a divider between two ShoppingRows should be inset from the left (row rule,
+ * 2026-07-28): past the check circle and the row's gap, so the column of checks runs
+ * uninterrupted down the card instead of being sliced by a full-bleed rule every row.
+ * Deliberately stops at the CHECK, not at the title — the leading quantity is optional
+ * (`spec.showMeta`), and an inset that moved with it would make the dividers jump between
+ * layouts. Exported so the three callers that draw dividers can't drift from the check size.
+ */
+export const ROW_DIVIDER_INSET = 22 + Spacing.sm;
 
 /** Shared "marked as done" dim amount — reuse this anywhere an item/button needs the same
  * reduced-opacity treatment (e.g. the disabled "Shopping done" button on the shopping screen). */
@@ -158,8 +169,15 @@ type Props = {
   onToggle: () => void;
   onCollect?: () => void;
   onRemove: () => void;
-  onIncrement?: () => void;
-  onDecrement?: () => void;
+  /**
+   * Open this item's detail sheet (components/ShoppingItemSheet.tsx) — where quantity, unit,
+   * price and category are edited. Tapping the row's name/price area calls this. Omit it and
+   * the row is simply not tappable, which is what the read-only 'purchased' history wants.
+   *
+   * The old inline −/+ quantity stepper lived on `onIncrement`/`onDecrement`; both were
+   * removed with it (row rule, 2026-07-28). Adjusting quantity goes through the sheet now.
+   */
+  onOpenDetail?: () => void;
   inStockLabel?: string;
   locked?: boolean;
   /** See "Flight animation" edit note above. Omit to keep today's fade-only toggle. */
@@ -188,8 +206,7 @@ function ShoppingRow({
   onToggle,
   onCollect,
   onRemove,
-  onIncrement,
-  onDecrement,
+  onOpenDetail,
   inStockLabel,
   locked,
   onFlightStart,
@@ -244,18 +261,14 @@ function ShoppingRow({
     prevQty.current = safeQty;
   }, [safeQty, highlight, reducedMotion]);
   const dimmed = variant === 'purchased' || (variant === 'planned' && item.checked);
-  // Layout gates. `spec.showMeta` covers the whole second line (quantity, stepper, in-stock);
-  // when it's off the row collapses to a single line and the stepper's own conditions never
-  // get consulted. Quantity is still editable — tapping through to the item's own editor is
-  // unaffected — so "Just the basics" hides a control without removing a capability.
-  const showStepper = spec.showMeta && variant !== 'purchased' && !!(onIncrement || onDecrement);
+  // Layout gates. `spec.showMeta` now covers the LEADING quantity (2026-07-28: quantity moved
+  // out of the second line and up next to the check); `spec.showExtras` covers the in-stock
+  // note, which is all the second line still carries. Hiding quantity never removes the
+  // ability to change it — the detail sheet always has it — so "Just the basics" is still a
+  // display choice, not a capability cut.
+  const showQty = spec.showMeta && item.amount.trim() !== '';
   const showInStock = spec.showExtras && item.inventoryQty > 0 && !!inStockLabel;
-  const showSecondLine = spec.showMeta || showInStock;
-  // Cart items allow decrement at qty=1 — the parent's onDecrement will handle the
-  // move-back-to-list logic for the 1→0 case (qty never actually stores as 0; the
-  // handler unchecks the item instead).
-  const canDecrement = !!onDecrement && (variant === 'cart' ? safeQty >= MIN_QTY : safeQty > MIN_QTY);
-  const canIncrement = !!onIncrement && safeQty < MAX_QTY;
+  const showSecondLine = showInStock;
   const priceTotal = spec.showPrice && item.price > 0 && isNumeric ? item.price * qty : null;
   const isPutBack = item.fromCatalog && variant !== 'purchased';
 
@@ -320,7 +333,24 @@ function ShoppingRow({
           {variant === 'purchased' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
         </PressableScale>
 
-        <View style={styles.lines}>
+        {/* Quantity — READ here, EDITED in the detail sheet. It sits in the leading cluster
+            next to the check (row rule, 2026-07-28) so the right column belongs to money
+            alone and the row can't reflow while a number is being changed. */}
+        {showQty && (
+          <NewSinceGlow active={!!newFields?.meta} tight>
+            <Text style={[styles.qtyLead, spec.bigTouch && styles.qtyLeadBig, { color: dimmed ? theme.textMuted : theme.textMuted }]} numberOfLines={1}>
+              {item.amount}{item.unit ? ` ${item.unit}` : ''}
+            </Text>
+          </NewSinceGlow>
+        )}
+
+        <PressableScale
+          style={styles.lines}
+          onPress={onOpenDetail}
+          disabled={!onOpenDetail}
+          scaleTo={0.99}
+          accessibilityLabel={item.name}
+        >
           <View style={styles.line1}>
             <Text
               style={[styles.name, spec.bigTouch && styles.nameBig, { color: theme.text }, dimmed && { color: theme.textMuted, textDecorationLine: 'line-through' }]}
@@ -339,56 +369,12 @@ function ShoppingRow({
 
           {showSecondLine && (
           <View style={styles.line2}>
-            {spec.showMeta && (
-              <NewSinceGlow active={!!newFields?.meta} tight>
-                <Text style={[styles.meta, { color: theme.textMuted }]}>
-                  {item.amount}{item.unit ? ` ${item.unit}` : ''}
-                </Text>
-              </NewSinceGlow>
-            )}
-
-            {showStepper && (
-              <View style={styles.stepper}>
-                <PressableScale
-                  style={[
-                    styles.stepBtn,
-                    canDecrement
-                      ? { backgroundColor: theme.accent, borderColor: theme.accent }
-                      : { backgroundColor: 'transparent', borderColor: theme.border },
-                  ]}
-                  onPress={onDecrement}
-                  disabled={!canDecrement}
-                  hitSlop={4}
-                  accessibilityLabel={t.decreaseQty}
-                  scaleTo={0.9}
-                >
-                  <Ionicons name="remove" size={12} color={canDecrement ? theme.accentInk : theme.border} />
-                </PressableScale>
-                <Badge label={String(safeQty)} style={styles.stepBadge} />
-                <PressableScale
-                  style={[
-                    styles.stepBtn,
-                    canIncrement
-                      ? { backgroundColor: theme.accent, borderColor: theme.accent }
-                      : { backgroundColor: 'transparent', borderColor: theme.border },
-                  ]}
-                  onPress={onIncrement}
-                  disabled={!canIncrement}
-                  hitSlop={4}
-                  accessibilityLabel={t.increaseQty}
-                  scaleTo={0.9}
-                >
-                  <Ionicons name="add" size={12} color={canIncrement ? theme.accentInk : theme.border} />
-                </PressableScale>
-              </View>
-            )}
-
             {showInStock ? (
               <Text style={[styles.meta, { color: theme.good }]}>{inStockLabel}: {item.inventoryQty}</Text>
             ) : null}
           </View>
           )}
-        </View>
+        </PressableScale>
 
         {variant !== 'purchased' && (
           <PressableScale
@@ -443,16 +429,11 @@ const baseStyles = StyleSheet.create({
   priceTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   line2: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Spacing.sm, marginTop: 2 },
   meta: { fontSize: FontSize.xs },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  stepBtn: {
-    width: 20,
-    height: 20,
-    borderRadius: Radius.full,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepBadge: { minWidth: 22, alignItems: 'center' },
+  // Leading quantity. `minWidth` (not a fixed width) so "1" and "250 g" both sit in a column
+  // the names line up after, while a long unit can still take the room it needs; `textAlign`
+  // right so the digits themselves align even when the unit varies.
+  qtyLead: { minWidth: 34, maxWidth: 76, textAlign: 'right', fontSize: FontSize.xs, fontFamily: Fonts.semibold },
+  qtyLeadBig: { minWidth: 42, maxWidth: 92, fontSize: FontSize.sm },
   deleteBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
 });
 
@@ -479,10 +460,11 @@ function shoppingRowPropsEqual(prev: Props, next: Props): boolean {
     prev.spec === next.spec &&
     prev.isNewSince === next.isNewSince &&
     prev.newFields === next.newFields &&
-    // Presence (not identity) of optional callbacks controls what renders (stepper, flight).
+    // Presence (not identity) of optional callbacks controls what renders (tap-through,
+    // flight). Miss one here and the row won't repaint when a parent starts or stops
+    // passing it — which is exactly how a layout change can fail to take effect.
     !!prev.onCollect === !!next.onCollect &&
-    !!prev.onIncrement === !!next.onIncrement &&
-    !!prev.onDecrement === !!next.onDecrement &&
+    !!prev.onOpenDetail === !!next.onOpenDetail &&
     !!prev.onFlightStart === !!next.onFlightStart
   );
 }

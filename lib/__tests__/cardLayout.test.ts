@@ -101,6 +101,24 @@ describe('surface/layout registry integrity', () => {
     }
   });
 
+  it('groups by aisle ONLY in "In the store"', () => {
+    // Every other layout leaves Weekly rows in the order the user dragged them into. If
+    // groupByAisle ever leaked onto another layout it would silently re-cluster that list
+    // and undo a manual drag every time it rendered — the exact reason
+    // lib/shoppingGroups.ts keeps groupByCategory off the Weekly tab by default.
+    expect(LAYOUT_SPECS.inStore.groupByAisle).toBe(true);
+    for (const id of Object.keys(LAYOUT_SPECS) as (keyof typeof LAYOUT_SPECS)[]) {
+      if (id !== 'inStore') expect(LAYOUT_SPECS[id].groupByAisle).toBeFalsy();
+    }
+  });
+
+  it('offers "In the store" on shopping only', () => {
+    expect(isLayoutValidFor('shopping', 'inStore')).toBe(true);
+    for (const surface of SURFACES.filter((s) => s !== 'shopping')) {
+      expect(isLayoutValidFor(surface, 'inStore')).toBe(false);
+    }
+  });
+
   it('keeps "basic" strictly less detailed than "everything"', () => {
     const basic = LAYOUT_SPECS.basic;
     const everything = LAYOUT_SPECS.everything;

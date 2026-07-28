@@ -360,7 +360,7 @@ import { useMonthlyListStore, MonthlyList } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
-import ShoppingRow from '@/components/ShoppingRow';
+import ShoppingRow, { ROW_DIVIDER_INSET } from '@/components/ShoppingRow';
 import LayoutPickerSheet from '@/components/LayoutPickerSheet';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
 import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
@@ -385,6 +385,7 @@ import FlightOverlay, { FlightRow, Flight, FlightRect } from '@/components/Fligh
 import SavedListsModal from '@/components/SavedListsModal';
 import SavedListsSection from '@/components/SavedListsSection';
 import ListSettingsSheet from '@/components/ListSettingsSheet';
+import ShoppingItemSheet from '@/components/ShoppingItemSheet';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
 import HintCard from '@/components/HintCard';
@@ -466,6 +467,10 @@ export default function ShoppingScreen() {
   const [resetReviewVisible, setResetReviewVisible] = useState(false);
   const [savedListsListId, setSavedListsListId] = useState<string | null>(null);
   const [listSettingsListId, setListSettingsListId] = useState<string | null>(null);
+  // The row's detail sheet (components/ShoppingItemSheet.tsx). Holds the item itself rather
+  // than an id so the sheet still has content to draw while it animates out; it re-reads the
+  // live row from the store by id, so a stale object here can't be written back.
+  const [detailItem, setDetailItem] = useState<ShoppingItem | null>(null);
   const [updateItem, setUpdateItem] = useState<ShoppingItem | null>(null);
   // Global "reset every Monthly list now" confirm (relocated 2026-07-22 — see the header's
   // Monthly-lists edit note). Distinct from resetListConfirmId below, which is one list's
@@ -1999,8 +2004,7 @@ export default function ShoppingScreen() {
                             onSaveAsTemplate={() => handleSaveListAsTemplate(list)}
                             onToggleItem={(item) => toggle(item.id)}
                             onRemoveItem={handleRemoveWeeklyItem}
-                            onIncrementItem={(item) => adjustAmount(item.id, 1)}
-                            onDecrementItem={(item) => adjustAmount(item.id, -1)}
+                            onOpenItem={setDetailItem}
                             onDecrementCartItem={handleDecrementCartItem}
                             onAddInlineItem={(input) => {
                               add({
@@ -2055,8 +2059,7 @@ export default function ShoppingScreen() {
                                   variant="planned"
                                   onToggle={() => toggle(item.id)}
                                   onRemove={() => handleRemoveWeeklyItem(item)}
-                                  onIncrement={() => adjustAmount(item.id, 1)}
-                                  onDecrement={() => adjustAmount(item.id, -1)}
+                                  onOpenDetail={() => setDetailItem(item)}
                                   inStockLabel={t.inStockLabel}
                                   locked={list.locked}
                                   spec={layoutSpec}
@@ -2159,6 +2162,11 @@ export default function ShoppingScreen() {
         visible={layoutPickerOpen}
         surface="shopping"
         onClose={() => setLayoutPickerOpen(false)}
+      />
+      <ShoppingItemSheet
+        visible={detailItem !== null}
+        item={detailItem ? items.find((i) => i.id === detailItem.id) ?? detailItem : null}
+        onClose={() => setDetailItem(null)}
       />
     </ScreenScaffold>
     <FlightOverlay flights={flights} onFlightEnd={handleFlightEnd} />
@@ -2378,7 +2386,9 @@ const styles = StyleSheet.create({
   allocateBtnText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
 
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md },
-  rowDivider: { height: 1 },
+  // Inset past the check so the column of checks reads as one line down the card
+  // (row rule, 2026-07-28). ROW_DIVIDER_INSET lives in ShoppingRow so it tracks its check.
+  rowDivider: { height: 1, marginLeft: ROW_DIVIDER_INSET },
   section: { gap: Spacing.sm },
   // Quiet category-cluster caption (Monthly's ungrouped rows only) — lighter-weight than
   // sectionHeaderRow's bordered/backgrounded treatment, just a small label above each cluster.

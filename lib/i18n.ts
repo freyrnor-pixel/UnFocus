@@ -831,6 +831,18 @@ const en = {
   },
   inStockLabel: 'In stock',
   priceTotal: (total: string) => `${total} total`,
+  // Shopping item detail sheet (components/ShoppingItemSheet.tsx). Quantity moved out of the
+  // row and into here (row rule, 2026-07-28): a row shows a quantity, a sheet edits one.
+  shoppingItemSheet: {
+    quantity: 'How many',
+    quantityPlaceholder: 'e.g. 2, or "a bunch"',
+    name: 'Name',
+    unit: 'Unit',
+    unitPlaceholder: 'kg, L, pack…',
+    price: 'Price each',
+    category: 'Where in the shop',
+    done: 'Done',
+  },
   suggestions: 'Suggestions',
   // Meals screen
   mealTypes: { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snacks', kveldsmat: 'Evening snack' },
@@ -1053,7 +1065,7 @@ const en = {
       },
       inStore: {
         label: 'In the store',
-        hint: 'Big rows, names only, no prices — easy to read one-handed while shopping.',
+        hint: 'Big rows grouped by aisle, names only, no prices — easy to read one-handed while shopping.',
       },
       nowNext: {
         label: 'Now and next',
@@ -2169,7 +2181,7 @@ const no: typeof en = {
       },
       inStore: {
         label: 'I butikken',
-        hint: 'Store rader, bare navn, ingen priser — lett å lese med én hånd mens du handler.',
+        hint: 'Store rader gruppert etter avdeling, bare navn, ingen priser — lett å lese med én hånd mens du handler.',
       },
       nowNext: {
         label: 'Nå og neste',
@@ -2553,6 +2565,16 @@ const no: typeof en = {
   },
   inStockLabel: 'På lager',
   priceTotal: (total: string) => `${total} totalt`,
+  shoppingItemSheet: {
+    quantity: 'Hvor mange',
+    quantityPlaceholder: 'f.eks. 2, eller «en bunt»',
+    name: 'Navn',
+    unit: 'Enhet',
+    unitPlaceholder: 'kg, L, pk…',
+    price: 'Pris per stk',
+    category: 'Hvor i butikken',
+    done: 'Ferdig',
+  },
   suggestions: 'Forslag',
   mealTypes: { breakfast: 'Frokost', lunch: 'Lunsj', dinner: 'Middag', snack: 'Snacks', kveldsmat: 'Kveldsmat' },
   mealDifficulty: { easy: 'Enkel', normal: 'Vanlig' },

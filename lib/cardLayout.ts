@@ -87,6 +87,15 @@ export type LayoutSpec = {
    * which is why it's optional rather than another positional arg to `spec()`.
    */
   groupByPerson?: boolean;
+  /**
+   * Re-group the list by shop category (aisle) instead of its usual order. You walk a store
+   * in an order, so the list should be in that order too — but ONLY here: everywhere else
+   * Weekly rows keep the position the user dragged them to, and a category re-cluster would
+   * silently undo that (see lib/shoppingGroups.ts's note on groupByCategory being
+   * Monthly-only). Grouping is presentation: no row's stored `orderIndex` is touched, so
+   * switching back restores the dragged order exactly.
+   */
+  groupByAisle?: boolean;
 };
 
 const spec = (
@@ -106,8 +115,9 @@ export const LAYOUT_SPECS: Record<LayoutId, LayoutSpec> = {
   normal: spec('normal', 'normal', true, true, false),
   // "Show everything" — every field inline.
   everything: spec('everything', 'roomy', true, true, true),
-  // "In the store" — big rows, name only, no money; read at arm's length in a shop.
-  inStore: spec('inStore', 'roomy', false, false, false, false, true),
+  // "In the store" — big rows, name only, no money; read at arm's length in a shop, and
+  // grouped by aisle because that's the order you physically walk it in.
+  inStore: { ...spec('inStore', 'roomy', false, false, false, false, true), groupByAisle: true },
   // "Now and next" — the current item large, the next one small, the rest behind a count.
   nowNext: spec('nowNext', 'normal', true, false, false, true, false),
   // "By person" — the normal row, re-grouped under whoever each task is for. Same detail
