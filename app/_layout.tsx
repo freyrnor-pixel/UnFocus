@@ -158,6 +158,7 @@ import { useMedicineStore } from '@/store/useMedicineStore';
 import { useMealStore } from '@/store/useMealStore';
 import { useNotesStore } from '@/store/useNotesStore';
 import { usePeersStore } from '@/store/usePeersStore';
+import { usePeopleStore } from '@/store/usePeopleStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useSharedStore } from '@/store/useSharedStore';
 import { useShoppingListStore } from '@/store/useShoppingListStore';
@@ -269,6 +270,10 @@ export default function RootLayout() {
     loadSettings();
     useAutomationStore.getState().load();
     useGoalStore.getState().load(); // before tasks/habits so their goal links resolve on first paint
+    // AFTER loadSettings (its one-time childProfiles back-fill reads userName/childProfiles
+    // off the settings store) and BEFORE tasks — that back-fill writes tasks.assignee_id, so
+    // loading tasks first would leave every row unassigned in memory until the next launch.
+    usePeopleStore.getState().load();
     useTaskStore.getState().load();
     // Tombstoned tasks, so the day-view's "Recently deleted" restore zone still offers a
     // delete made in an earlier session (2026-07-27).

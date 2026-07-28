@@ -56,6 +56,9 @@ import StarterCard from '@/components/StarterCard';
 import { Input, Switch } from '@/components/FormControls';
 import { useMedicineStore, Medicine } from '@/store/useMedicineStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { usePeopleStore } from '@/store/usePeopleStore';
+import PersonChip from '@/components/PersonChip';
+import { personColor } from '@/lib/personColor';
 import { useT } from '@/lib/i18n';
 import { todayStr, parseTimeToMinutes } from '@/lib/date';
 import { success, tap } from '@/lib/haptics';
@@ -106,7 +109,7 @@ export default function MedicineTrayCard() {
   const remindersEnabled = useSettingsStore((s) => s.medicineRemindersEnabled);
   const quietHoursEnabled = useSettingsStore((s) => s.quietHoursEnabled);
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
-  const childProfiles = useSettingsStore((s) => s.childProfiles);
+  const people = usePeopleStore((s) => s.people);
   const updateSettings = useSettingsStore((s) => s.update);
 
   const [draft, setDraft] = useState('');
@@ -116,7 +119,7 @@ export default function MedicineTrayCard() {
 
   const now = useNowMinutes();
   const today = todayStr();
-  const showProfiles = peopleModeEnabled && childProfiles.length > 0;
+  const showProfiles = peopleModeEnabled && people.length > 1;
   const person = showProfiles ? selectedPerson : null;
 
   const activeTrays = useMemo(
@@ -201,33 +204,20 @@ export default function MedicineTrayCard() {
 
         {medicines.length === 0 && <StarterCard text={t.starters.medicine.text} compact />}
 
-        {/* Person filter (People/family mode) — Me + each profile, same as Habits. */}
+        {/* Person filter (People/family mode) — one chip per person, same as Habits. */}
         <Collapsible open={showProfiles}>
           <View style={styles.profileRow}>
-            {(['', ...childProfiles] as string[]).map((name) => {
-              const isActive = selectedPerson === name;
+            {people.map((person, index) => {
+              const value = person.isSelf ? '' : person.name;
               return (
-                <PressableScale
-                  key={name || '__me__'}
-                  style={[
-                    styles.chip,
-                    {
-                      backgroundColor: isActive ? theme.accent : theme.surfaceMuted,
-                      borderColor: isActive ? theme.accent : theme.border,
-                    },
-                  ]}
-                  onPress={() => {
-                    tap();
-                    setSelectedPerson(name);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isActive }}
-                  scaleTo={0.97}
-                >
-                  <Text style={[styles.chipText, { color: isActive ? theme.accentInk : theme.text }]}>
-                    {name || t.medicine.forMe}
-                  </Text>
-                </PressableScale>
+                <PersonChip
+                  key={person.id}
+                  label={person.isSelf ? person.name || t.medicine.forMe : person.name}
+                  name={person.name}
+                  color={personColor(person.color, index)}
+                  selected={selectedPerson === value}
+                  onPress={() => { tap(); setSelectedPerson(value); }}
+                />
               );
             })}
           </View>

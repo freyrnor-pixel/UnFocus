@@ -75,6 +75,15 @@
  *     `showPoints`, `showHints`, `backgroundLocationEnabled`, `monthlyBudgetNok`
  *     (superseded by per-list budgets in store/useMonthlyListStore.ts). Do NOT wire new
  *     UI to these without building the behaviour they imply.
+ *   - **`childProfiles` joined the inert list on 2026-07-28** — a third flavour: it holds
+ *     real user data that was MIGRATED rather than abandoned. The People registry
+ *     (store/usePeopleStore.ts) read this `string[]` of names once, on an app_meta-gated
+ *     one-shot, and turned each entry into a `people` row with a stable id and a colour;
+ *     `tasks.assignee_id` was back-filled from the matching `tasks.assignee` names in the
+ *     same transaction. The column is still written by update() and left exactly as it was
+ *     so a failed back-fill stays diagnosable from a backup — but no person UI reads it.
+ *     Wire new person UI to usePeopleStore, never here. `peopleModeEnabled` is emphatically
+ *     NOT inert: it's still the live master switch for every person surface.
  *   - **`featureScan`/`featureFood` joined the inert list the same day (2026-07-25,
  *     defaults-revision follow-up)** — a different flavour of inert than the block
  *     above: these two DID gate real surfaces (the scan icon/receipts/Budget, the
@@ -149,6 +158,13 @@ export type Settings = {
   language: Language;
   holidaysEnabled: boolean;
   darkMode: DarkMode;
+  /**
+   * @deprecated INERT since 2026-07-28 — superseded by the People registry
+   * (store/usePeopleStore.ts), whose one-shot back-fill read this list once and turned it
+   * into `people` rows. Kept written and readable per the never-drop rule so a bad
+   * back-fill stays diagnosable from a backup; nothing reads it for person UI any more.
+   * Do NOT wire new UI to it — add to the People registry instead.
+   */
   childProfiles: string[];
   // Accessibility (Proposal 4)
   reducedMotion: boolean;

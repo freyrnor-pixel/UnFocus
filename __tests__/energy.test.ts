@@ -20,7 +20,8 @@ function task(o: Partial<Task>): Task {
     recurring: 'none', recurringDays: [], weekInterval: 1, monthlyMode: 'day',
     monthDay: 1, monthOrdinal: 'first', monthWeekday: 0, energyEnabled: false,
     energyValue: 1, sortOrder: 0, hint: '', followsTaskId: null, hasStartDate: false,
-    sharedOut: false, assignee: '', steps: [], ...o,
+    sharedOut: false, assignee: '', assigneeId: '', createdByPersonId: '',
+    steps: [], ...o,
   } as Task;
 }
 

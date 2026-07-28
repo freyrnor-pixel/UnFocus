@@ -70,9 +70,11 @@
  *             lib/useAppTheme, lib/useVoiceCapture, lib/location (getCurrentTaskLocation),
  *             expo-contacts, components/GoalGlowDot + components/GoalPicker (both gated on
  *             settings.featureGoals), store/useTaskStore, store/useGoalStore,
- *             store/useSettingsStore (People/family mode: peopleModeEnabled + childProfiles gate
- *             the "For" assignee chip row; voiceNotesEnabled/contactsEnabled/locationEnabled/
- *             gate the matching Advanced-options rows; Energy is no longer gated at all)
+ *             store/useSettingsStore (peopleModeEnabled gates the "For" assignee chip row;
+ *             voiceNotesEnabled/contactsEnabled/locationEnabled gate the matching
+ *             Advanced-options rows; Energy is no longer gated at all),
+ *             store/usePeopleStore + components/PersonChip + lib/personColor (2026-07-28 —
+ *             the "For" row's roster and the collapsed row's assignee dot)
  *   Used by → app/(tabs)/plans.tsx; app/notes.tsx (indirectly — creates the task, then this
  *             screen's `autoExpand` opens its editor, replacing the old push to /task-form)
  *   Data    → reads the passed `task` + its linked goal (useGoalStore, for the glow dot) +
@@ -122,6 +124,9 @@ import { tap, warning } from '@/lib/haptics';
 import { generateId } from '@/lib/id';
 import { Task, TaskStep, useTaskStore } from '@/store/useTaskStore';
 import { useGoalStore } from '@/store/useGoalStore';
+import { usePeopleStore } from '@/store/usePeopleStore';
+import PersonChip, { PersonDot } from '@/components/PersonChip';
+import { personColor } from '@/lib/personColor';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import NewSinceGlow from '@/components/NewSinceGlow';
 import { LAYOUT_SPECS, type LayoutSpec } from '@/lib/cardLayout';
@@ -216,12 +221,16 @@ function TaskCard({
   const followerCycleChain = useTaskStore((s) => s.followerCycleChain);
   const allTasks = useTaskStore((s) => s.tasks);
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
-  const childProfiles = useSettingsStore((s) => s.childProfiles);
   const voiceNotesEnabled = useSettingsStore((s) => s.voiceNotesEnabled);
   const contactsEnabled = useSettingsStore((s) => s.contactsEnabled);
   const locationEnabled = useSettingsStore((s) => s.locationEnabled);
   const lang = useSettingsStore((s) => s.language);
-  const showPeople = peopleModeEnabled && childProfiles.length > 0;
+  // People registry (2026-07-28) — the roster is `people` rows now, not childProfiles
+  // names. The self row always exists, so "more than one person" is the real signal that
+  // there is anyone to assign TO; a household of one gets no picker, same as before.
+  const people = usePeopleStore((s) => s.people);
+  const showPeople = peopleModeEnabled && people.length > 1;
+  const assignedPerson = people.find((p) => p.id === task.assigneeId) ?? null;
   // Goals — the linked goal (if any), for the living-glow dot next to the title. Gated on
   // settings.featureGoals (opt-in, off for fresh installs): when off, both the dot and the
   // GoalPicker below stay hidden. An existing task's goalId is left alone either way, so
@@ -599,10 +608,16 @@ function TaskCard({
             />
           ) : null}
 
-          {showPeople && spec.showMeta && task.assignee ? (
+          {/* Who it's for — the person's own colour as a dot, never as this card's border
+              (that channel is the domain hue). See lib/personColor.ts's header. */}
+          {showPeople && spec.showMeta && assignedPerson ? (
             <View style={[styles.assigneeCue, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-              <Ionicons name="person" size={11} color={theme.textMuted} />
-              <Text style={[styles.assigneeCueText, { color: theme.textMuted }]} numberOfLines={1}>{task.assignee}</Text>
+              <PersonDot
+                color={personColor(assignedPerson.color, people.indexOf(assignedPerson))}
+                name={assignedPerson.name}
+                size={14}
+              />
+              <Text style={[styles.assigneeCueText, { color: theme.textMuted }]} numberOfLines={1}>{assignedPerson.name}</Text>
             </View>
           ) : null}
 
@@ -715,26 +730,18 @@ function TaskCard({
               <View style={styles.forRow}>
                 <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.habitForLabel}</Text>
                 <View style={styles.forChips}>
-                  {(['', ...childProfiles] as string[]).map((name) => {
-                    const active = draft.assignee === name;
-                    return (
-                      <PressableScale
-                        key={name || '__me__'}
-                        style={[
-                          styles.forChip,
-                          { backgroundColor: active ? theme.accent : theme.surfaceMuted, borderColor: active ? theme.accent : theme.border },
-                        ]}
-                        onPress={() => { tap(); patch({ assignee: name }); }}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: active }}
-                        scaleTo={0.96}
-                      >
-                        <Text style={[styles.forChipText, { color: active ? theme.accentInk : theme.text }]}>
-                          {name || t.habitForMe}
-                        </Text>
-                      </PressableScale>
-                    );
-                  })}
+                  {people.map((person, index) => (
+                    <PersonChip
+                      key={person.id}
+                      label={person.isSelf ? person.name || t.habitForMe : person.name}
+                      name={person.name}
+                      color={personColor(person.color, index)}
+                      selected={draft.assigneeId === person.id}
+                      // `assignee` rides along as the denormalised name mirror — see the
+                      // deprecation note on Task.assignee in store/useTaskStore.ts.
+                      onPress={() => { tap(); patch({ assigneeId: person.id, assignee: person.isSelf ? '' : person.name }); }}
+                    />
+                  ))}
                 </View>
               </View>
             )}

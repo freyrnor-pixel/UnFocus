@@ -23,7 +23,8 @@
  *   Used by → components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
  *             components/TaskCard.tsx (the one task editor — app/task-form.tsx retired
  *             2026-07-23, UX audit B1), app/(tabs)/plans.tsx, app/_layout.tsx
- *             (syncMonthlyTaskNotifications, on boot + every foreground)
+ *             (syncMonthlyTaskNotifications, on boot + every foreground),
+ *             store/usePeopleStore.ts (clearPerson, call-time only, when a person is removed)
  *
  *   Recurrence (Tasks/Oppgaver redesign): `recurring` is 'none'|'daily'|'weekly'|'monthly';
  *   taskOccursOn(task, date) (lib/taskRecurrence.ts) resolves an occurrence (weekly
@@ -32,7 +33,9 @@
  *   PlanTaskCard is unchanged.
  *   Data    → defines a Zustand store; owns SQLite tables `tasks` and `task_steps`; fires the
  *             'task_completed' automation trigger on toggle-to-done / completeDirect; `tasks.goal_id`
- *             is a nullable app-enforced pointer to a `goals` row (store/useGoalStore.ts)
+ *             is a nullable app-enforced pointer to a `goals` row (store/useGoalStore.ts);
+ *             `tasks.assignee_id` / `created_by_person_id` point at `people` rows
+ *             (store/usePeopleStore.ts) and are cleared there on remove
  *
  * Edit notes:
  *   - **LAN live-sync wiring (Decision 038, app integration) — WIRED.** `add`/`update`
@@ -185,9 +188,19 @@ export type Task = {
   hasStartDate: boolean;
   /** "Shared out" flag — an outgoing shared_tasks row exists for this task. */
   sharedOut: boolean;
-  /** People/family mode — assigned profile name ('' = Me / self). Surfaced only when
-   *  settings.peopleModeEnabled and at least one childProfiles entry exists. */
+  /** People/family mode — assigned profile NAME ('' = Me / self).
+   *  @deprecated since 2026-07-28 — superseded by `assigneeId`, which survives a rename
+   *  and means the same person on a paired phone. Still written as a denormalised mirror
+   *  (never dropped, per lib/db.ts's rule) so a backup stays readable; do not read it to
+   *  decide who a task is for. */
   assignee: string;
+  /** People registry (2026-07-28) — id of the Person this task is FOR ('' = unassigned /
+   *  me). Authoritative; `assignee` is kept in step with it as a display mirror. Synced. */
+  assigneeId: string;
+  /** People registry (2026-07-28) — id of the Person this task came FROM, for "shared with
+   *  you by X". Distinct from `origin_device_id`, which is the LAST WRITER and so flips the
+   *  moment the other person ticks the task. Synced. */
+  createdByPersonId: string;
   /** Goals (2026-07-23) — id of the Goal this task is connected to, or null. Set through
    *  the normal add/update payload (a plain nullable pointer, like a form field). Completing
    *  the task nudges that goal's strength up — see toggle()/completeDirect(). */
@@ -231,6 +244,8 @@ export type TaskInput = {
   hasStartDate?: boolean;
   sharedOut?: boolean;
   assignee?: string;
+  assigneeId?: string;
+  createdByPersonId?: string;
   goalId?: string | null;
   contactName?: string;
   contactPhone?: string;
@@ -320,6 +335,9 @@ type TaskStore = {
   /** Goals — clear a deleted goal's id from any task's in-memory goalId (DB nulling is done
    *  by useGoalStore.remove() in the same transaction as the delete). */
   clearGoal: (goalId: string) => void;
+  /** People — clear a removed person's id from any task's in-memory assigneeId (the DB
+   *  columns are cleared by usePeopleStore.remove() in the same transaction as the delete). */
+  clearPerson: (personId: string) => void;
 };
 
 /** Schedule (or cancel) a single task's reminder using the current settings. */
@@ -370,6 +388,8 @@ function rowToTask(row: Row): Task {
     hasStartDate: readBool(row, 'has_start_date'),
     sharedOut: readBool(row, 'shared_out'),
     assignee: readStr(row, 'assignee', ''),
+    assigneeId: readStr(row, 'assignee_id', ''),
+    createdByPersonId: readStr(row, 'created_by_person_id', ''),
     goalId: readStr(row, 'goal_id') || null,
     contactName: readStr(row, 'contact_name') || undefined,
     contactPhone: readStr(row, 'contact_phone') || undefined,
@@ -404,6 +424,8 @@ const TASK_COLUMNS: FieldMap<Task> = {
   hasStartDate: { col: 'has_start_date', to: (v) => (v ? 1 : 0) },
   sharedOut: { col: 'shared_out', to: (v) => (v ? 1 : 0) },
   assignee: { col: 'assignee', to: (v) => v ?? '' },
+  assigneeId: { col: 'assignee_id', to: (v) => v ?? '' },
+  createdByPersonId: { col: 'created_by_person_id', to: (v) => v ?? '' },
   goalId: { col: 'goal_id', to: (v) => v ?? null },
   contactName: { col: 'contact_name', to: (v) => v ?? null },
   contactPhone: { col: 'contact_phone', to: (v) => v ?? null },
@@ -525,6 +547,8 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       hasStartDate: t.hasStartDate ?? false,
       sharedOut: t.sharedOut ?? false,
       assignee: t.assignee ?? '',
+      assigneeId: t.assigneeId ?? '',
+      createdByPersonId: t.createdByPersonId ?? '',
       goalId: t.goalId ?? null,
       // duration_minutes is derived from Start→Finish so the Home day-view keeps working.
       durationMinutes: deriveDurationMinutes(t.time, t.finishTime) ?? t.durationMinutes,
@@ -837,6 +861,16 @@ export const useTaskStore = create<TaskStore>((set, get) => {
 
   clearGoal(goalId) {
     set((s) => ({ tasks: s.tasks.map((t) => (t.goalId === goalId ? { ...t, goalId: null } : t)) }));
+  },
+
+  clearPerson(personId) {
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        // Clear the name mirror alongside the id, or the row would still render the
+        // removed person's name under the collapsed row's assignee chip.
+        t.assigneeId === personId ? { ...t, assigneeId: '', assignee: '' } : t
+      ),
+    }));
   },
   };
 });

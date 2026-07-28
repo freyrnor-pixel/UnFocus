@@ -9,8 +9,8 @@
  *
  * Connections:
  *   Imports → lib/date, lib/sqlite
- *   Used by → app/_layout.tsx, lib/backup.ts, lib/liveSync.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useGoalStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useMealStore.ts, store/useMedicineStore.ts, store/useMonthlyListStore.ts, store/useNotesStore.ts, store/usePeersStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
- *   Data    → owns ALL SQLite tables: settings, tasks (with nullable goal_id → goals), shopping_items, shopping_trips, shopping_lists, monthly_lists (multiple, named, budgeted Monthly/Katalog lists — store/useMonthlyListStore.ts), dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the old low/med/high energy check-in; table/pruning kept per the never-drop-tables rule, no longer written to), energy_budgets (LIVE — 2026-07-20 energy-budget system: per-period capacity overrides; store/useEnergyStore.ts), inbox_items (dead — the quick-capture feature was removed 2026-07-27; table + pruning kept per the never-drop-tables rule, nothing reads or writes it), receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key), widget_snapshot (single-row localised cache for the Android home-screen widgets — lib/widgets/snapshot.ts), goals (2026-07-23 — lightweight user goals with a decaying "living glow" strength; tasks/habits carry a nullable goal_id pointer to one — store/useGoalStore.ts), medicines + medicine_doses (2026-07-27 — medicine tray schedule + dose log; `health_logs.medicine_id` optionally attributes a symptom entry to one — store/useMedicineStore.ts)
+ *   Used by → app/_layout.tsx, lib/backup.ts, lib/liveSync.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useGoalStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useMealStore.ts, store/useMedicineStore.ts, store/useMonthlyListStore.ts, store/useNotesStore.ts, store/usePeersStore.ts, store/usePeopleStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
+ *   Data    → owns ALL SQLite tables: settings, tasks (with nullable goal_id → goals), shopping_items, shopping_trips, shopping_lists, monthly_lists (multiple, named, budgeted Monthly/Katalog lists — store/useMonthlyListStore.ts), dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the old low/med/high energy check-in; table/pruning kept per the never-drop-tables rule, no longer written to), energy_budgets (LIVE — 2026-07-20 energy-budget system: per-period capacity overrides; store/useEnergyStore.ts), inbox_items (dead — the quick-capture feature was removed 2026-07-27; table + pruning kept per the never-drop-tables rule, nothing reads or writes it), receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key), widget_snapshot (single-row localised cache for the Android home-screen widgets — lib/widgets/snapshot.ts), goals (2026-07-23 — lightweight user goals with a decaying "living glow" strength; tasks/habits carry a nullable goal_id pointer to one — store/useGoalStore.ts), medicines + medicine_doses (2026-07-27 — medicine tray schedule + dose log; `health_logs.medicine_id` optionally attributes a symptom entry to one — store/useMedicineStore.ts), people (2026-07-28 — the person registry that replaces settings.child_profiles' free-text names; stable ids + colour + per-person energy capacity, SYNCED between paired devices, and pointed at by tasks.assignee_id / created_by_person_id — store/usePeopleStore.ts)
  *
  * Edit notes:
  *   - Add columns via the `migrations` array ONLY — never edit a CREATE TABLE to
@@ -884,6 +884,55 @@ export function initDb() {
     // Habits' Today/Week/Month selector was local component state, so it reset to
     // Today on every remount — a user who lives in Week view re-picked it all day.
     "ALTER TABLE settings ADD COLUMN habit_view_tab TEXT DEFAULT 'today'",
+    // ── People registry (2026-07-28, to-do sharing phase 1) ─────────────────
+    // Replaces the free-text `settings.child_profiles` name list with real rows that
+    // have a STABLE ID, so a person survives a rename and means the same person on
+    // both phones in a paired household. `assignee`/`child_name` (plain names) could
+    // never do either: renaming a profile orphaned every row pointing at the old
+    // string, and two devices had no way to agree that "Sam" was one person.
+    //
+    // device_id: '' for someone tracked only on this phone (a child, or a partner
+    // whose phone can't run the app — see the plain-text checklist export); otherwise
+    // the peers.device_id of their paired device. That distinction is what lets a
+    // balance view mark a hand-kept figure as not-live instead of passing it off as
+    // synced truth.
+    //
+    // daily/weekly_capacity is the person's OWN answer to "how much energy do I have"
+    // — deliberately per person, because two people in a household genuinely disagree
+    // about that and about what a chore costs. This device's owner edits theirs in
+    // Settings (settings.energy_*_capacity stays the editor) and the self row is the
+    // published mirror peers read; nobody edits anyone else's number.
+    //
+    // Synced (lib/liveSync.ts SyncTable), hence the updated_at/origin_device_id/
+    // deleted_at trio. Config-like — pruneOldData() leaves it alone.
+    `CREATE TABLE IF NOT EXISTS people (
+      id TEXT PRIMARY KEY,
+      name TEXT DEFAULT '',
+      color TEXT DEFAULT '',
+      device_id TEXT DEFAULT '',
+      is_self INTEGER DEFAULT 0,
+      daily_capacity INTEGER DEFAULT 10,
+      weekly_capacity INTEGER DEFAULT 50,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT '',
+      origin_device_id TEXT DEFAULT '',
+      deleted_at TEXT DEFAULT NULL
+    )`,
+    // assignee_id is who a task is FOR; created_by_person_id is who it came FROM.
+    // Together they give "shared with X" / "from Y" without a join table — and they
+    // answer lib/liveSync.ts's open "is a distinct owner column needed?" note: yes,
+    // because origin_device_id is the LAST WRITER, so it changes the moment the other
+    // person ticks the task and can never express ownership.
+    //
+    // assignee_id is authoritative. The older `assignee` name column is NOT dropped
+    // (never-drop rule) and keeps being written as a denormalised mirror, so a backup
+    // or an older build still shows a readable name — and a bad back-fill stays
+    // diagnosable. Both new columns are '' by default, which is exactly what every
+    // pre-existing row means: unassigned / me.
+    "ALTER TABLE tasks ADD COLUMN assignee_id TEXT DEFAULT ''",
+    "ALTER TABLE tasks ADD COLUMN created_by_person_id TEXT DEFAULT ''",
+    "CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assignee_id)",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

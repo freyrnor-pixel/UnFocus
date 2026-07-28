@@ -217,6 +217,9 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { useMedicineStore } from '@/store/useMedicineStore';
 import { useFeedbackStore } from '@/store/useFeedbackStore';
+import { usePeopleStore } from '@/store/usePeopleStore';
+import { PersonDot } from '@/components/PersonChip';
+import { PERSON_PALETTE, paletteColorAt, personColor } from '@/lib/personColor';
 import { syncReminders } from '@/lib/reminders';
 import { registerMedicineCategory } from '@/lib/medicineNotifications';
 import { syncNotificationCategories } from '@/lib/notifications';
@@ -287,6 +290,10 @@ export default function SettingsScreen() {
   const syncHabitNotifs = useHabitStore((s) => s.syncAllHabitReminders);
   const syncMedicineNotifs = useMedicineStore((s) => s.syncTrayReminders);
   const clearTasks = useTaskStore((s) => s.clearAll);
+  const people = usePeopleStore((s) => s.people);
+  const addPerson = usePeopleStore((s) => s.add);
+  const updatePerson = usePeopleStore((s) => s.update);
+  const removePerson = usePeopleStore((s) => s.remove);
   const feedbackNoteCount = useFeedbackStore((s) => s.notes.length);
   const clearFeedbackNotes = useFeedbackStore((s) => s.clearAll);
   const monthlyReset = useShoppingStore((s) => s.monthlyReset);
@@ -309,24 +316,32 @@ export default function SettingsScreen() {
   const [aiSetupStale, setAiSetupStale] = useState(false);
   const aiSetupPreview = useMemo(() => (aiSetupConfig ? previewAiSetupConfig(aiSetupConfig) : null), [aiSetupConfig]);
 
-  // People / family mode — profile management (moved here from the Health screen so
-  // Tasks + Habits share one list). Adds/removes entries in settings.childProfiles.
+  // People / family mode — person management (moved here from the Health screen so
+  // Tasks + Habits share one list). Backed by the People registry (store/usePeopleStore.ts)
+  // since 2026-07-28: rows with stable ids and colours, not `settings.childProfiles` names.
   function addProfile() {
     const nm = newChildName.trim();
-    if (!nm || settings.childProfiles.includes(nm)) { setNewChildName(''); return; }
+    if (!nm || people.some((p) => p.name === nm)) { setNewChildName(''); return; }
     selection();
-    settings.update({ childProfiles: [...settings.childProfiles, nm] });
+    addPerson(nm);
     setNewChildName('');
   }
-  function removeProfile(nm: string) {
+  function removeProfile(id: string, name: string) {
     warning();
-    showAppModal(t.peopleMode.removeTitle(nm), t.peopleMode.removeBody, [
+    showAppModal(t.peopleMode.removeTitle(name), t.peopleMode.removeBody, [
       { text: t.cancel, style: 'cancel' },
       {
         text: t.resetConfirmBtn, style: 'destructive',
-        onPress: () => { heavy(); settings.update({ childProfiles: settings.childProfiles.filter((c) => c !== nm) }); },
+        onPress: () => { heavy(); removePerson(id); },
       },
     ]);
+  }
+  /** Advance a person to the next palette hue. The colour is auto-assigned at creation, so
+   *  this is the only way to resolve two people who happened to land on the same one. */
+  function cycleColor(id: string, current: string) {
+    const at = PERSON_PALETTE.indexOf(current as (typeof PERSON_PALETTE)[number]);
+    selection();
+    updatePerson(id, { color: paletteColorAt(at + 1) });
   }
 
   // Freyr-mode toggle — on: seed a starter set of rows and remember exactly which
@@ -670,7 +685,7 @@ export default function SettingsScreen() {
                     label={t.yourName}
                     value={name}
                     onChangeText={(v) => setName(v)}
-                    onBlur={() => applyAndSync({ userName: name })}
+                    onBlur={() => { applyAndSync({ userName: name }); usePeopleStore.getState().publishSelfName(name); }}
                     placeholder={t.namePlaceholder}
                     returnKeyType="done"
                   />
@@ -1392,23 +1407,56 @@ export default function SettingsScreen() {
                     <>
                       <View style={[styles.divider, { backgroundColor: theme.border }]} />
                       <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>{t.peopleMode.profilesHint}</Text>
-                      {settings.childProfiles.length > 0 && (
-                        <View style={styles.peopleChipRow}>
-                          {settings.childProfiles.map((nm) => (
+                      {/* One row per person, not a chip row: each carries a colour to tap,
+                          a name, and whether their side is live or hand-kept — more than
+                          fits in a pill. The self row has no remove button (it is this
+                          device's own identity; removing it would strand every task). */}
+                      {people.map((person, index) => {
+                        const color = personColor(person.color, index);
+                        return (
+                          <View key={person.id} style={styles.personRow}>
                             <PressableScale
-                              key={nm}
-                              style={[styles.peopleChip, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
-                              onPress={() => removeProfile(nm)}
+                              onPress={() => cycleColor(person.id, color)}
+                              hitSlop={8}
                               accessibilityRole="button"
-                              accessibilityLabel={t.peopleMode.removeTitle(nm)}
-                              scaleTo={0.96}
+                              accessibilityLabel={t.peopleMode.profilesHint}
+                              scaleTo={0.9}
                             >
-                              <Text style={[styles.peopleChipText, { color: theme.text }]}>{nm}</Text>
-                              <Ionicons name="close-circle" size={16} color={theme.textMuted} />
+                              <PersonDot color={color} name={person.name} size={28} />
                             </PressableScale>
-                          ))}
-                        </View>
-                      )}
+                            <View style={styles.personRowText}>
+                              <Text style={[styles.switchLabel, { color: theme.text }]} numberOfLines={1}>
+                                {person.isSelf
+                                  // "You" alone when there's no name yet — "Me · You" said
+                                  // the same thing twice.
+                                  ? person.name
+                                    ? `${person.name} · ${t.peopleMode.you}`
+                                    : t.peopleMode.you
+                                  : person.name}
+                              </Text>
+                              {/* Live-vs-hand-kept is a statement about someone ELSE's phone.
+                                  On your own row it read "Synced with their phone", which is
+                                  nonsense, so the self row simply doesn't carry the line. */}
+                              {!person.isSelf && (
+                                <Text style={[styles.switchHint, { color: theme.textMuted }]} numberOfLines={1}>
+                                  {person.deviceId ? t.peopleMode.linkedDevice : t.peopleMode.onThisPhone}
+                                </Text>
+                              )}
+                            </View>
+                            {!person.isSelf && (
+                              <PressableScale
+                                onPress={() => removeProfile(person.id, person.name)}
+                                hitSlop={8}
+                                accessibilityRole="button"
+                                accessibilityLabel={t.peopleMode.removeTitle(person.name)}
+                                scaleTo={0.9}
+                              >
+                                <Ionicons name="close-circle" size={20} color={theme.textMuted} />
+                              </PressableScale>
+                            )}
+                          </View>
+                        );
+                      })}
                       <View style={styles.peopleAddRow}>
                         <View style={styles.peopleAddInput}>
                           <Input
@@ -1565,14 +1613,14 @@ const baseStyles = StyleSheet.create({
   switchHint: { fontSize: FontSize.xs, marginTop: Spacing.xs },
   dangerBtn: { paddingVertical: Spacing.sm },
   dangerBtnText: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
-  peopleChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.md },
-  peopleChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderRadius: Radius.full, borderWidth: 1,
-    paddingVertical: Spacing.xs, paddingHorizontal: Spacing.sm,
+  // One person per row (2026-07-28) — replaced the flat name-chip row, which had nowhere
+  // to put a colour swatch or the live/hand-kept line.
+  personRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    paddingVertical: Spacing.xs, marginBottom: Spacing.xs,
   },
-  peopleChipText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
-  peopleAddRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  personRowText: { flex: 1 },
+  peopleAddRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.sm },
   peopleAddInput: { flex: 1 },
   peopleAddBtn: {
     width: 48, height: 48, borderRadius: Radius.md, borderWidth: 1,

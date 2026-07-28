@@ -4,8 +4,10 @@
  * Defines the on-the-wire row delta for live peer sync and the merge policy:
  * **last-write-wins per row**, keyed by `updated_at` with `origin_device_id` as a
  * deterministic tiebreak, and soft-delete **tombstones** (`deleted_at`) so a delete
- * isn't undone by a stale peer copy. First cut is **tasks + shopping_items only**
- * (Decision 038b scope); habits/child profiles come later.
+ * isn't undone by a stale peer copy. Decision 038b's first cut was **tasks +
+ * shopping_items**; `people` joined it on 2026-07-28 (to-do sharing phase 1) because a
+ * shared household roster is what makes an assigned task mean the same thing on both
+ * phones. Habits and medicines still don't sync.
  *
  * Delegation is a **directed create** (parent → child device) the child cannot
  * reassign back: such a delta carries `directed: true`. The *enforcement* (a child
@@ -14,11 +16,11 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess
- *   Used by → store/useTaskStore.ts + store/useShoppingStore.ts (touchRow/softDelete
- *             on every local add/update/remove), lib/syncService.ts (buildDelta on
- *             broadcast, parseDelta + applyDelta on receive)
+ *   Used by → store/useTaskStore.ts + store/useShoppingStore.ts + store/usePeopleStore.ts
+ *             (touchRow/softDelete on every local add/update/remove), lib/syncService.ts
+ *             (buildDelta on broadcast, parseDelta + applyDelta on receive)
  *   Data    → reads/writes the sync-meta columns (updated_at, origin_device_id,
- *             deleted_at) on the `tasks` and `shopping_items` tables (Decision 038b migration)
+ *             deleted_at) on the `tasks`, `shopping_items` and `people` tables
  *
  * Edit notes:
  *   - LWW compares ISO-8601 `updated_at` strings lexicographically — that only works
@@ -28,12 +30,24 @@
  *     keys are filtered against it before hitting SQL, since deltas are untrusted input.
  *   - A tombstone keeps the row (per the never-drop rule) with `deleted_at` set; the
  *     stores must filter `deleted_at IS NULL` when reading live data (wiring step).
+ *   - Adding a table means adding it to BOTH `SyncTable` and `SYNC_TABLES` (parseDelta
+ *     validates untrusted input against the latter) plus a `TABLE_COLUMNS` entry.
+ *   - Think about every column you whitelist from the RECEIVER's point of view, not the
+ *     sender's. `people.is_self` is the cautionary example: a perfectly valid local value
+ *     that becomes wrong the instant it crosses the wire — see the note on that entry.
  */
 import db from '@/lib/db';
 import { SQLValue } from '@/lib/dataAccess';
 
-/** Tables in the Decision 038b first cut. */
-export type SyncTable = 'tasks' | 'shopping_items';
+/**
+ * Tables in the Decision 038b first cut, plus `people` (2026-07-28) — a shared household
+ * roster is the one thing that HAS to sync before anything else can: without it, "assigned
+ * to Sam" means a different person on each phone.
+ */
+export type SyncTable = 'tasks' | 'shopping_items' | 'people';
+
+/** Every value `parseDelta` will accept for `table`. Kept next to the type so the two can't drift. */
+const SYNC_TABLES: readonly SyncTable[] = ['tasks', 'shopping_items', 'people'] as const;
 
 /** Whitelisted syncable data columns per table (meta columns handled separately). */
 const TABLE_COLUMNS: Record<SyncTable, string[]> = {
@@ -41,9 +55,23 @@ const TABLE_COLUMNS: Record<SyncTable, string[]> = {
     'title', 'task_date', 'task_time', 'task_type', 'duration_minutes', 'done',
     'recurring', 'recurring_days', 'created_at', 'sort_order', 'hint', 'follows_task_id',
     'energy_enabled', 'energy_value',
+    // Who it's FOR and who it came FROM (2026-07-28). Assignment was previously
+    // device-local, which made a shared to-do list unusable: both phones saw the task and
+    // neither could see whose it was.
+    'assignee_id', 'created_by_person_id',
   ],
   shopping_items: [
     'name', 'amount', 'unit', 'list_type', 'checked', 'store', 'price', 'created_at', 'list_id',
+  ],
+  people: [
+    // `is_self` is deliberately ABSENT and must stay that way. It answers "is this row the
+    // owner of THIS phone", so a peer's self row arriving with is_self=1 would give the
+    // receiving device two selves. Left off the whitelist, an inbound person row takes the
+    // column's DEFAULT 0 on insert and an existing local row keeps whatever it had —
+    // which is the correct answer on both sides. `device_id` DOES sync: knowing which
+    // device a person uses is how the receiver tells a live person from a hand-kept one.
+    'name', 'color', 'device_id', 'daily_capacity', 'weekly_capacity',
+    'sort_order', 'created_at',
   ],
 };
 
@@ -95,7 +123,7 @@ export function parseDelta(input: unknown): RowDelta | null {
   const d = input as RowDelta;
   if (
     !d ||
-    (d.table !== 'tasks' && d.table !== 'shopping_items') ||
+    !SYNC_TABLES.includes(d.table) ||
     typeof d.id !== 'string' ||
     typeof d.updatedAt !== 'string' ||
     typeof d.originDeviceId !== 'string' ||

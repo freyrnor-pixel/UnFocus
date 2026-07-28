@@ -75,7 +75,9 @@ export type Medicine = {
   asNeeded: boolean;
   minIntervalMin: number;
   maxPerDay: number;
-  /** People/family mode: '' = me, otherwise a childProfiles entry. */
+  /** People/family mode: '' = me, otherwise a person's NAME from the People registry
+   *  (store/usePeopleStore.ts). Deliberately a name, not a person id: medicines never
+   *  sync, so no second device can disagree about who this is. */
   childName: string;
   notes: string;
   active: boolean;

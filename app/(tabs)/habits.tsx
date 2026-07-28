@@ -54,6 +54,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useHabitStore, Habit, HabitKind } from '@/store/useHabitStore';
 import { useGoalStore } from '@/store/useGoalStore';
 import { useSettingsStore, type HabitViewTab as SettingsHabitViewTab } from '@/store/useSettingsStore';
+import { usePeopleStore } from '@/store/usePeopleStore';
+import PersonChip from '@/components/PersonChip';
+import { personColor } from '@/lib/personColor';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
@@ -489,7 +492,7 @@ export default function HabitsScreen() {
   const habits = useHabitStore((s) => s.habits);
 
   const lang = useSettingsStore((s) => s.language);
-  const childProfiles = useSettingsStore((s) => s.childProfiles);
+  const people = usePeopleStore((s) => s.people);
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
 
   // autoOpen=false (2026-07-28 design review) — StarterCard + the one-tap starter habits
@@ -524,9 +527,10 @@ export default function HabitsScreen() {
 
   const today = todayStr();
 
-  // Profile filter row shows only in People/family mode with at least one profile
-  // (management moved to Settings — this screen only *filters* by person now).
-  const showHabitProfiles = peopleModeEnabled && childProfiles.length > 0;
+  // Person filter row shows only in People/family mode with somebody besides you
+  // (management moved to Settings — this screen only *filters* by person now). The self
+  // row always exists in the People registry, so >1 is the real "is there anyone else" test.
+  const showHabitProfiles = peopleModeEnabled && people.length > 1;
   // Memoise the habit filter chain (perf sweep 2026-07-15): this used to re-filter the
   // full habits array on every render of this large screen. Only recompute on real input
   // changes. Only filter by person when the filter UI is actually shown; otherwise (People mode
@@ -628,24 +632,17 @@ export default function HabitsScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.profileRow}
               >
-                {(['', ...childProfiles] as string[]).map((name) => {
-                  const isActive = selectedProfile === name;
+                {people.map((person, index) => {
+                  const value = person.isSelf ? '' : person.name;
                   return (
-                    <PressableScale
-                      key={name || '__me__'}
-                      style={[
-                        styles.profileChip,
-                        { backgroundColor: isActive ? theme.accent : theme.surfaceMuted, borderColor: isActive ? theme.accent : theme.border },
-                      ]}
-                      onPress={() => setSelectedProfile(name)}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: isActive }}
-                      scaleTo={0.97}
-                    >
-                      <Text style={[styles.profileChipText, { color: isActive ? theme.accentInk : theme.text }]}>
-                        {name || t.habitForMe}
-                      </Text>
-                    </PressableScale>
+                    <PersonChip
+                      key={person.id}
+                      label={person.isSelf ? person.name || t.habitForMe : person.name}
+                      name={person.name}
+                      color={personColor(person.color, index)}
+                      selected={selectedProfile === value}
+                      onPress={() => setSelectedProfile(value)}
+                    />
                   );
                 })}
               </ScrollView>
