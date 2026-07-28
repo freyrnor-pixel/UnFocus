@@ -25,7 +25,8 @@
  *             components/StarterExampleRow (its "Tidy up"/"Rydde" example row — a real daily,
  *             time-boxed, 5-step task its "+" button writes via useTaskStore), lib/taskStarters
  *             (that example's structural data — time box + step order), constants/theme,
- *             expo-router (useLocalSearchParams — `tab`/`expandTaskId`, see below), lib/date,
+ *             expo-router (useLocalSearchParams — `tab`/`expandTaskId`, see below; useRouter —
+ *             the header share icon's push to /share-modal), lib/date,
  *             lib/domainColor, lib/haptics,
  *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, store/useTaskStore,
  *             store/useSettingsStore
@@ -37,6 +38,12 @@
  *             internally for incoming shares + accepts the sharedOut tasks as its "sent" half
  *
  * Edit notes:
+ *   - **Header share icon wired (2026-07-28)**: `onSharePress` (gated on `featureSharing`,
+ *     same flag as SharedTasksSection above) pushes `/share-modal?kind=t` — mirrors
+ *     Shopping's `kind=s` wiring (app/(tabs)/shopping.tsx, restored 2026-07-23). Previously
+ *     this screen had no header share icon at all; share-modal now also offers a "Send as
+ *     text" action (lib/shareText.ts) alongside its QR code, so this is the entry point for
+ *     texting a plain-text checklist of upcoming tasks, not just QR-to-QR device sharing.
  *   - **Tab bar (2026-07-23, shared component)**: the sticky Today/This week/All tasks
  *     switcher is `components/TabSlider.tsx` — a single accent pill SLIDES between the
  *     three equal-width segments (Reanimated, same motion as the Day/Week/Month
@@ -108,7 +115,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
@@ -329,6 +336,7 @@ function InlineTaskAdd({
 const STICKY_HEIGHT = 46;
 
 export default function TasksScreen() {
+  const router = useRouter();
   const theme = useAppTheme();
   const t = useT();
   // Section hues (color-rail redesign): each list section carries a stable domain accent —
@@ -545,6 +553,7 @@ export default function TasksScreen() {
       stickyBelowHeaderHeight={STICKY_HEIGHT}
       infoActive={hintOpen}
       onInfoToggle={() => setHintOpen((v) => !v)}
+      onSharePress={featureSharing ? () => router.push('/share-modal?kind=t') : undefined}
       onLayoutPress={() => setLayoutPickerOpen(true)}
     >
       <View style={styles.content}>

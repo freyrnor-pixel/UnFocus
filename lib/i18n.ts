@@ -628,13 +628,14 @@ const en = {
   sharedTasks: 'Shared plans',
   sharedShopping: 'Shared shopping',
   shareSelected: 'Share selected',
+  shareSendText: 'Send as text',
   shareTitle: 'Share list',
   shareInstructions: 'Ask the other person to open UnFocus, tap Scan, then tap "Scan QR code".',
   // Plain-language "what does sharing do here" copy (HintCard on each share surface).
-  // Note: this is a one-time QR copy today; live phone-to-phone sync & messaging come later.
-  shareExplainShopping: 'Sharing makes a QR code of these shopping items. The other person scans it to copy them into their own UnFocus shopping list.',
-  shareExplainTasks: 'Sharing makes a QR code of these plans. The other person scans it to copy them into their own UnFocus.',
-  shareExplainLaterBuild: 'For now it\'s a one-time copy — live sync between phones and messaging come in a later build.',
+  // Note: this is a one-time copy today, either way — no live phone-to-phone sync yet.
+  shareExplainShopping: 'Share a QR code the other person scans into their own UnFocus shopping list, or send the list as text — no UnFocus needed on their end.',
+  shareExplainTasks: 'Share a QR code the other person scans into their own UnFocus, or send the list as text — no UnFocus needed on their end.',
+  shareExplainLaterBuild: 'For now it\'s a one-time copy — live sync between phones comes in a later build.',
   // Child mode (Decision 038c) — locked variant gated by a parent password.
   scanQrCode: 'Scan QR code',
   qrScanMode: 'Scan shared list',
@@ -2289,13 +2290,14 @@ const no: typeof en = {
   sharedTasks: 'Delte planer',
   sharedShopping: 'Delt handleliste',
   shareSelected: 'Del valgte',
+  shareSendText: 'Send som tekst',
   shareTitle: 'Del liste',
   shareInstructions: 'Be den andre om å åpne UnFocus, trykke Skann, deretter trykke «Skann QR-kode».',
   // Forklaring på hva deling gjør her (HintCard på hver deleflate).
-  // Merk: dette er en engangskopi via QR i dag; sanntidssynk telefon-til-telefon og meldinger kommer senere.
-  shareExplainShopping: 'Deling lager en QR-kode av disse handlevarene. Den andre skanner den for å kopiere dem inn i sin egen UnFocus-handleliste.',
-  shareExplainTasks: 'Deling lager en QR-kode av disse planene. Den andre skanner den for å kopiere dem inn i sin egen UnFocus.',
-  shareExplainLaterBuild: 'Akkurat nå er det en engangskopi — sanntidssynk mellom telefoner og meldinger kommer i en senere versjon.',
+  // Merk: dette er en engangskopi i dag, uansett metode — ingen sanntidssynk telefon-til-telefon ennå.
+  shareExplainShopping: 'Del en QR-kode den andre skanner inn i sin egen UnFocus-handleliste, eller send listen som tekst — ingen UnFocus nødvendig hos mottakeren.',
+  shareExplainTasks: 'Del en QR-kode den andre skanner inn i sin egen UnFocus, eller send listen som tekst — ingen UnFocus nødvendig hos mottakeren.',
+  shareExplainLaterBuild: 'Akkurat nå er det en engangskopi — sanntidssynk mellom telefoner kommer i en senere versjon.',
   // Barnemodus (Decision 038c) — låst variant styrt av et foreldrepassord.
   scanQrCode: 'Skann QR-kode',
   qrScanMode: 'Skann delt liste',
