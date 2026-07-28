@@ -15,10 +15,15 @@
  *     every other caller. Settings' content container already applies its own `gap` between
  *     siblings, so the divider's default marginVertical stacked ON TOP of that gap, reading
  *     as an oversized blank band (2026-07-23 fix, see app/settings.tsx).
- *   - The tree mark sits at opacity 0.3 (was 0.14, 2026-07-27): at 0.14 it was invisible on
- *     Settings' surface, so the divider read as two disconnected hairlines with an
- *     unexplained gap between them rather than one rule with a mark in it. If it needs to go
- *     quieter again, close the gap instead — a mark you can't see is worse than no mark.
+ *   - **The mark needs a `tintColor`, not more opacity (2026-07-28).** It was invisible on
+ *     Settings' light surface, so the divider read as two disconnected hairlines with an
+ *     unexplained gap. Raising opacity 0.14 → 0.3 (2026-07-27) was aimed at the wrong
+ *     variable and didn't fix it: the asset is a near-white monochrome themed icon, so on a
+ *     light background it stayed invisible at any opacity (measured peak contrast delta 25,
+ *     vs 360 for the hairlines beside it). It's now tinted to `theme.border` — the same
+ *     colour as the rules — so the three parts read as one element in both themes.
+ *     If it ever needs to go quieter, close the gap instead: a mark you can't see is worse
+ *     than no mark.
  */
 import React from 'react';
 import { StyleProp, View, ViewStyle, StyleSheet } from 'react-native';
@@ -35,7 +40,7 @@ export default function SectionDivider({ style }: Props) {
   return (
     <View style={[styles.row, style]}>
       <View style={[styles.rule, { backgroundColor: theme.border }]} />
-      <TreeWatermark size={22} opacity={0.3} absolute={false} style={styles.mark} />
+      <TreeWatermark size={22} opacity={0.75} absolute={false} tintColor={theme.border} style={styles.mark} />
       <View style={[styles.rule, { backgroundColor: theme.border }]} />
     </View>
   );

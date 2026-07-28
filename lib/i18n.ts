@@ -311,8 +311,6 @@ const en = {
   deleteConfirmBody: 'Are you sure?',
   deleteConfirmBtn: 'Delete',
   // Onboarding
-  welcomeHeading: 'UnFocus',
-  welcomeTagline: 'One less thing to keep track of.',
   features: [
     { icon: 'home-outline', text: 'Home — quick actions and a simple overview of your day' },
     { icon: 'checkbox-outline', text: "A to-do list that holds today's plans, so you don't have to remember them" },
@@ -1829,8 +1827,6 @@ const no: typeof en = {
   deleteConfirmTitle: (label: string) => `Slette ${label}?`,
   deleteConfirmBody: 'Er du sikker?',
   deleteConfirmBtn: 'Slett',
-  welcomeHeading: 'UnFocus',
-  welcomeTagline: 'Én ting mindre å holde styr på.',
   features: [
     { icon: 'home-outline', text: 'Hjem — hurtigvalg og en enkel oversikt over dagen' },
     { icon: 'checkbox-outline', text: 'En gjøremålsliste som holder på dagens planer, så du slipper å huske dem' },

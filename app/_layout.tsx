@@ -28,8 +28,7 @@
  *             store/useEnergyStore, store/useFeedbackStore, store/useGoalStore, store/useHabitStore, store/useHealthStore,
  *             store/useMealStore, store/useMedicineStore, store/useMonthlyListStore, store/useNotesStore, store/usePeersStore, store/useReceiptStore,
  *             store/useSharedStore, store/useShoppingListStore, store/useShoppingStore,
- *             store/useTagStore, store/useTaskStore, components/AppModal,
- *             components/WelcomeReveal (animated brand-reveal shown once per cold launch)
+ *             store/useTagStore, store/useTaskStore, components/AppModal
  *   Used by → router layout — defines the Stack
  *
  * Edit notes:
@@ -61,18 +60,35 @@
  *         the boot tick): its buildWidgetSnapshot() does synchronous store walks +
  *         a DB write before its first await, which used to block the held splash /
  *         first paint for work that never needs to be ready before the app is visible.
- *   - Cold-load asset warming (2026-07-16): the icon glyph fonts (Ionicons +
- *     MaterialCommunityIcons `.font`) are preloaded via useFonts alongside Nunito so
- *     icons paint on the first frame instead of loading their font on first mount and
- *     popping in. The bundled images (icon, monochrome) are decoded into cache via
- *     Asset.loadAsync in the boot effect; `assetsReady` flips on settle (with a 1.5s timeout
- *     floor). (The backdrop is now pure SVG — components/ScreenBackground — so there's no
- *     backdrop image to decode any more; the warm list is just the icon/logo glyphs.)
+ *         Joined 2026-07-28 by loadDeleted() (tombstones — nothing on a first paint
+ *         draws one) and syncMonthlyTaskNotifications() (per-task native scheduling
+ *         calls that nothing painted depends on, and the foreground handler re-runs
+ *         them anyway). Rule of thumb for this list: if first paint doesn't READ it,
+ *         it belongs in Tier B.
+ *   - Cold-load asset warming (2026-07-16, un-gated 2026-07-28): the icon glyph fonts
+ *     (Ionicons + MaterialCommunityIcons `.font`) are preloaded via useFonts alongside
+ *     Nunito so icons paint on the first frame instead of popping in a beat late. The two
+ *     bundled images are still warmed via Asset.loadAsync in the boot effect, but launch is
+ *     no longer GATED on that decode — it used to hold the splash for up to 1.5s (its own
+ *     timeout floor) so components/TreeWatermark wouldn't fade in. Neither image appears on
+ *     Home, so that cost bought nothing on the launch path. (The backdrop is pure SVG —
+ *     components/ScreenBackground — so there's no backdrop image to decode any more.)
+ *   - **Launch is ONE screen, not two (2026-07-28).** Cold start is: held native splash →
+ *     the app. It used to be splash → a full-screen WelcomeReveal overlay (the same tree
+ *     logo the splash had just shown, plus name + tagline, on a fixed ~1.5s timeline) →
+ *     the app, which the maintainer reported as "two screens before I land in home".
+ *     That component is deleted, along with its `welcomeHeading`/`welcomeTagline` keys.
+ *     Don't reintroduce a JS-rendered launch screen: the native splash already shows the
+ *     brand, so a second one is a duplicate the user waits through on every single launch.
  *   - Native splash "one clean reveal" (2026-07-16, needs the 1.4.0 build): the native
- *     splash is HELD via SplashScreen.preventAutoHideAsync() at module scope, and hidden
- *     in onLayoutRootView only once fonts + settings + assets are all ready. Until then
- *     the component returns `null` (the splash covers the screen), so launch goes
- *     splash → fully-painted app in one step — never a plain backdrop or half-empty frame.
+ *     splash is HELD via SplashScreen.preventAutoHideAsync() at module scope and hidden by
+ *     `revealApp` once fonts + settings are ready AND the destination route is settled.
+ *     Until fonts/settings land the component returns `null` (the splash covers the
+ *     screen). The route-settled half matters for a NEW user: the Stack's initial route is
+ *     the tabs, so without it they'd get one frame of Home before the onboarding redirect
+ *     replaced it. The tree deliberately still RENDERS during that window (so effects run
+ *     and the router has real navigation state for router.replace to act on) — the splash
+ *     just stays up over it. WelcomeReveal used to mask this window incidentally.
  *     expo-splash-screen/expo-system-ui/expo-navigation-bar are native modules that only
  *     exist in the 1.4.0+ build; the module-scope preventAutoHideAsync would throw on the
  *     old 1.3.0 runtime, which is why this ships in a build (runtimeVersion bumped), not OTA.
@@ -167,7 +183,6 @@ import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import AppModalHost from '@/components/AppModal';
-import WelcomeReveal from '@/components/WelcomeReveal';
 
 // Cap OS-level font scaling (Dynamic Type / Android font size) so it can't overflow the
 // app's chrome — BottomNav, FAB, chips, etc. (MAX_FONT_SCALE lives in constants/theme.ts,
@@ -203,6 +218,11 @@ function patchDefaultFontFamily(Component: any) {
 }
 patchDefaultFontFamily(RNText);
 patchDefaultFontFamily(RNTextInput);
+
+// Upper bound on how long the held splash may wait for the launch gates below. Generous
+// enough that it never pre-empts a normal cold start (which clears them in well under a
+// second), short enough that a wedged gate costs a blink rather than the whole app.
+const SPLASH_FAILSAFE_MS = 2500;
 
 // Hold the native splash screen up (instead of letting it auto-hide on the first JS
 // frame) so the app reveals ONCE, fully painted — fonts, icon glyphs and the decoded
@@ -242,21 +262,6 @@ export default function RootLayout() {
     ...MaterialCommunityIcons.font,
   });
 
-  // Gates hiding the splash (below) until the backdrop image is decoded, so the very
-  // first screen — and every pushed sub-screen after it — paints its backdrop from a
-  // warm cache instead of decoding + fading in. Held behind the splash (already on
-  // screen), so this reads as launch, not a block. A timeout floor guarantees we never
-  // hang on a slow/failed decode.
-  const [assetsReady, setAssetsReady] = useState(false);
-
-  // Animated brand-reveal shown once per cold launch (components/WelcomeReveal.tsx). This
-  // RootLayout mounts once per process cold start, so `true` here means "every cold launch"
-  // — it does NOT replay on a warm resume (AppState → active) or on re-renders; only the
-  // overlay's onDone flips it off. It renders above the Stack right as the native splash
-  // hides (the appReady gate below returns null until then), so launch reads as
-  // native splash → tree bloom → app, one continuous moment.
-  const [showWelcome, setShowWelcome] = useState(true);
-
   // One-shot cold-start bootstrap in a single mount effect: initDb(), settings,
   // then the Tier A stores that back the first screens (synchronous getAllSync
   // scans), then Tier B deferred behind InteractionManager. loadSettings() flips
@@ -279,14 +284,6 @@ export default function RootLayout() {
     // first paint instead of rendering as nothing until the roster arrives.
     useTagStore.getState().load();
     useTaskStore.getState().load();
-    // Tombstoned tasks, so the day-view's "Recently deleted" restore zone still offers a
-    // delete made in an earlier session (2026-07-27).
-    useTaskStore.getState().loadDeleted();
-    // Monthly recurring tasks have no native "day-of-month, clamped"/"nth
-    // weekday" repeating trigger, so their reminder is scheduled as a one-off
-    // for the next occurrence and re-armed here (and again on every foreground
-    // below) rather than only once ever.
-    useTaskStore.getState().syncMonthlyTaskNotifications();
     useShoppingStore.getState().load();
     useShoppingListStore.getState().load();
     useMonthlyListStore.getState().load();
@@ -303,19 +300,16 @@ export default function RootLayout() {
     useNotesStore.getState().load();
     useMealStore.getState().load();
     useCatalogStore.getState().load();
-    // Decode the backdrop image (+ icons/logos) into cache before we hide the splash,
-    // so the first screen and every pushed sub-screen paint their ImageBackground from
-    // a warm cache instead of decoding + fading in ("each screen loads in"). Flip
-    // `assetsReady` on settle — success OR failure — with a 1.5s timeout floor so a
-    // slow/failed decode never strands us behind the splash. This runs while the splash
-    // is still up, so it reads as launch, not an added block.
-    let settled = false;
-    const markAssetsReady = () => { if (!settled) { settled = true; setAssetsReady(true); } };
-    const assetTimeout = setTimeout(markAssetsReady, 1500);
+    // Warm the two bundled images the app itself draws — icon.png (onboarding's hero) and
+    // android-icon-monochrome.png (components/TreeWatermark). Fire-and-forget: launch is
+    // deliberately NOT gated on this any more. It used to block the held splash for up to
+    // 1.5s (its own timeout floor) so a decorative watermark wouldn't fade in — a bad trade
+    // that every cold start paid. Neither image is on Home at all, so warming them a beat
+    // after first paint is invisible.
     void Asset.loadAsync([
       require('../assets/icon.png'),
       require('../assets/android-icon-monochrome.png'),
-    ]).then(markAssetsReady).catch(markAssetsReady);
+    ]).catch(() => { /* a cold decode on first use is fine */ });
     if (__DEV__) {
       console.log(`[perf] cold-start sync boot (initDb + Tier A store loads): ${Date.now() - t0}ms`);
     }
@@ -325,6 +319,16 @@ export default function RootLayout() {
       useFeedbackStore.getState().load();
       usePeersStore.getState().load();
       useReceiptStore.getState().load();
+      // Tombstoned tasks, for the day-view's "Recently deleted" restore zone (2026-07-27).
+      // Tier B since 2026-07-28: nothing on any first paint draws a tombstone — the zone
+      // only appears once you open the day view's restore affordance.
+      useTaskStore.getState().loadDeleted();
+      // Monthly recurring tasks have no native "day-of-month, clamped"/"nth weekday"
+      // repeating trigger, so their reminder is scheduled as a one-off for the next
+      // occurrence and re-armed on boot + every foreground rather than once ever.
+      // Tier B since 2026-07-28: this is a per-task native scheduling call that nothing
+      // painted depends on, and the foreground handler re-runs it anyway.
+      useTaskStore.getState().syncMonthlyTaskNotifications();
       // Register the 'task-reminder' category's Done / Remind-me-later buttons. Every task
       // reminder is scheduled with categoryIdentifier: 'task-reminder', but until 2026-07-27
       // this only ran from app/settings.tsx's language-change branch — so a user who never
@@ -348,7 +352,6 @@ export default function RootLayout() {
       // beat after the app is visible is imperceptible and off the cold-start critical path.
       void syncWidgetsAndOverview();
     });
-    return () => clearTimeout(assetTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -457,26 +460,54 @@ export default function RootLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, setupComplete]);
 
-  // Gate on fonts AND settings hydration AND the decoded backdrop image. The boot
-  // effect finishes every store load before it flips `loaded`, so once this gate
-  // passes all five pre-mounted tab screens mount with their data (and the backdrop)
-  // already in memory — no empty-then-fill flicker. The native splash (held up above
-  // via preventAutoHideAsync) stays on screen the whole time and is hidden in
-  // onLayoutRootView once the real tree has laid out — so the cold launch goes
-  // splash → fully-painted app in one clean step, never through a half-built frame.
-  const appReady = fontsLoaded && loaded && assetsReady;
-  const onLayoutRootView = useCallback(() => {
-    if (appReady) {
+  // Gate rendering on fonts AND settings hydration. The boot effect finishes every
+  // Tier A store load before it flips `loaded`, so once this gate passes all five
+  // pre-mounted tab screens mount with their data already in memory — no
+  // empty-then-fill flicker. (Image decoding is deliberately NOT part of this gate —
+  // see the Asset.loadAsync call in the boot effect.)
+  const appReady = fontsLoaded && loaded;
+
+  // Which route we land on is only settled once we know the user finished setup — or,
+  // for one who hasn't, once the onboarding redirect below has actually landed. Until
+  // then the Stack's initial route is the tabs, so a brand-new user would otherwise get
+  // one frame of Home before being replaced onto onboarding/language. The held native
+  // splash covers that frame: the tree still RENDERS underneath (so effects run, the
+  // router has real navigation state, and the redirect can fire) — we just don't reveal
+  // it until the destination is real. Until 2026-07-28 the WelcomeReveal overlay was
+  // incidentally hiding this window; with that gone the splash has to do it explicitly.
+  // FAILSAFE: never let a condition above be the only thing standing between the user and
+  // their app. This ships OTA, and a splash that never hides is an app that never opens —
+  // unrecoverable without a reinstall, on installs we can't debug. So the reveal is also
+  // armed on a timer: if `canReveal` hasn't gone true within SPLASH_FAILSAFE_MS, show
+  // whatever we've got. Worst case that's the one frame of Home the routeSettled gate
+  // exists to avoid, which is a cosmetic blemish — categorically better than a dead launch.
+  const [failsafeElapsed, setFailsafeElapsed] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setFailsafeElapsed(true), SPLASH_FAILSAFE_MS);
+    return () => clearTimeout(id);
+  }, []);
+
+  const routeSettled = setupComplete || segments[0] === 'onboarding';
+  const canReveal = appReady && (routeSettled || failsafeElapsed);
+
+  const revealApp = useCallback(() => {
+    if (canReveal) {
       void SplashScreen.hideAsync().catch(() => { /* already hidden */ });
     }
-  }, [appReady]);
+  }, [canReveal]);
+
+  // onLayout covers the common case (destination already settled when the tree lays
+  // out); this covers the new-user case, where `canReveal` only flips true after the
+  // redirect lands — i.e. after layout has already happened, so onLayout won't re-fire.
+  // hideAsync is idempotent, so the two overlapping is harmless.
+  useEffect(() => { revealApp(); }, [revealApp]);
 
   if (!appReady) {
     return null;
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={revealApp}>
       <SafeAreaProvider>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack
@@ -515,7 +546,6 @@ export default function RootLayout() {
       </Stack>
       <AppModalHost />
       </SafeAreaProvider>
-      {showWelcome && <WelcomeReveal onDone={() => setShowWelcome(false)} />}
     </GestureHandlerRootView>
   );
 }
