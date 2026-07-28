@@ -129,6 +129,21 @@ const en = {
   seeAll: 'See all →',
   emptyMonthlyList: 'Nothing here yet — add your first staple item.',
   smallThingsCount: (n: number) => `You've done ${n} thing${n !== 1 ? 's' : ''} — small things add up!`,
+  // "One thing at a time" layout (lib/cardLayout.ts's focusFirst, design-system v6's
+  // `Focus First (1c)`). The done line is deliberately TODAY's count, not the all-time
+  // `smallThingsCount` above — this layout is about the day in front of you.
+  focusFirst: {
+    nextUp: 'Next up',
+    then: 'Then',
+    later: 'Later',
+    laterToday: 'Today',
+    laterWeek: 'Week',
+    laterBacklog: 'Whenever',
+    doneToday: (n: number) => `${n} done — small things add up`,
+    andMore: (n: number) => `and ${n} more today`,
+    allClear: 'Nothing left today. That counts.',
+    markDone: 'Done',
+  },
   // Home Energy meter (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Energy',
@@ -1071,6 +1086,10 @@ const en = {
         label: 'Now and next',
         hint: 'Only what you are doing and what follows it. The rest stays tucked away.',
       },
+      focusFirst: {
+        label: 'One thing at a time',
+        hint: 'One task front and centre, a short list under it, and a count of the rest.',
+      },
       byPerson: {
         label: 'By person',
         hint: "Split Today into one section per person — whose turn it is included. This week and All tasks keep their own grouping.",
@@ -1622,6 +1641,18 @@ const no: typeof en = {
   seeAll: 'Se alt →',
   emptyMonthlyList: 'Ingenting her ennå — legg til din første faste vare.',
   smallThingsCount: (n: number) => `Du har fullført ${n} ting — småting teller!`,
+  focusFirst: {
+    nextUp: 'Nå',
+    then: 'Så',
+    later: 'Senere',
+    laterToday: 'I dag',
+    laterWeek: 'Uka',
+    laterBacklog: 'Når som helst',
+    doneToday: (n: number) => `${n} gjort — småting teller`,
+    andMore: (n: number) => `og ${n} til i dag`,
+    allClear: 'Ingenting igjen i dag. Det teller.',
+    markDone: 'Ferdig',
+  },
   // Home Energy-måler (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Energi',
@@ -2186,6 +2217,10 @@ const no: typeof en = {
       nowNext: {
         label: 'Nå og neste',
         hint: 'Bare det du holder på med og det som kommer etter. Resten ligger skjult.',
+      },
+      focusFirst: {
+        label: 'Én ting om gangen',
+        hint: 'Én oppgave forrest, en kort liste under, og et tall på resten.',
       },
       byPerson: {
         label: 'Per person',

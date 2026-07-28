@@ -42,7 +42,7 @@ export type LayoutSurface = 'shopping' | 'plans' | 'notes' | 'health';
 export type DetailLevel = 'basic' | 'normal' | 'everything';
 
 /** Every layout id known to the app. */
-export type LayoutId = DetailLevel | 'inStore' | 'nowNext' | 'byPerson';
+export type LayoutId = DetailLevel | 'inStore' | 'nowNext' | 'byPerson' | 'focusFirst';
 
 export const DETAIL_LEVELS: readonly DetailLevel[] = ['basic', 'normal', 'everything'] as const;
 
@@ -55,7 +55,7 @@ export const FALLBACK_LAYOUT: DetailLevel = 'normal';
  */
 export const SURFACE_LAYOUTS: Record<LayoutSurface, readonly LayoutId[]> = {
   shopping: ['basic', 'normal', 'everything', 'inStore'],
-  plans: ['basic', 'normal', 'everything', 'nowNext', 'byPerson'],
+  plans: ['basic', 'normal', 'everything', 'nowNext', 'focusFirst', 'byPerson'],
   notes: ['basic', 'normal', 'everything'],
   health: ['basic', 'normal', 'everything'],
 };
@@ -120,6 +120,11 @@ export const LAYOUT_SPECS: Record<LayoutId, LayoutSpec> = {
   inStore: { ...spec('inStore', 'roomy', false, false, false, false, true), groupByAisle: true },
   // "Now and next" — the current item large, the next one small, the rest behind a count.
   nowNext: spec('nowNext', 'normal', true, false, false, true, false),
+  // "One thing at a time" (design-system v6's `Focus First (1c)`) — ONE task as a hero card,
+  // a short "Then" list under it, and a count of everything else. Shares `focusMode` with
+  // nowNext because the surface's collapse rule is the same; the difference is the SHAPE the
+  // surface draws around it, which is why this is its own id and not a nowNext variant.
+  focusFirst: spec('focusFirst', 'normal', true, false, false, true, false),
   // "By person" — the normal row, re-grouped under whoever each task is for. Same detail
   // as `normal` on purpose: this layout changes the GROUPING, not what a row shows, so it
   // stays readable next to the other four rather than being a second axis of density.
