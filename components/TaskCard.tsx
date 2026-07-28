@@ -74,7 +74,9 @@
  *             voiceNotesEnabled/contactsEnabled/locationEnabled gate the matching
  *             Advanced-options rows; Energy is no longer gated at all),
  *             store/usePeopleStore + components/PersonChip + lib/personColor (2026-07-28 —
- *             the "For" row's roster and the collapsed row's assignee dot)
+ *             the "For" row's roster and the collapsed row's assignee dot),
+ *             store/useTagStore + components/TagChip + components/TagPickerRow + lib/tags
+ *             (2026-07-28 — the editor's Tags row and the collapsed row's tag pills)
  *   Used by → app/(tabs)/plans.tsx; app/notes.tsx (indirectly — creates the task, then this
  *             screen's `autoExpand` opens its editor, replacing the old push to /task-form)
  *   Data    → reads the passed `task` + its linked goal (useGoalStore, for the glow dot) +
@@ -126,6 +128,10 @@ import { Task, TaskStep, useTaskStore } from '@/store/useTaskStore';
 import { useGoalStore } from '@/store/useGoalStore';
 import { usePeopleStore } from '@/store/usePeopleStore';
 import PersonChip, { PersonDot } from '@/components/PersonChip';
+import TagChip from '@/components/TagChip';
+import TagPickerRow from '@/components/TagPickerRow';
+import { resolveTags } from '@/lib/tags';
+import { useTagStore } from '@/store/useTagStore';
 import { personColor } from '@/lib/personColor';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import NewSinceGlow from '@/components/NewSinceGlow';
@@ -148,6 +154,13 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
+/**
+ * How many tag pills a collapsed row draws before the rest collapse into a "+N". Two is
+ * what fits beside a person cue and a time label at 360px without the title reflowing —
+ * the row already competes for width (see AGENTS.md's wrap audit).
+ */
+const ROW_TAG_LIMIT = 2;
 
 /** HH:MM -> minutes since midnight, or null if unparseable. Same convention as
  *  components/PlanTaskCard.tsx's own (unexported) helper of the same name. */
@@ -231,6 +244,10 @@ function TaskCard({
   const people = usePeopleStore((s) => s.people);
   const showPeople = peopleModeEnabled && people.length > 1;
   const assignedPerson = people.find((p) => p.id === task.assigneeId) ?? null;
+  // Tags (2026-07-28) — resolved against the shared roster, so an id whose row hasn't
+  // synced yet simply doesn't draw rather than showing a raw id. See lib/tags.ts.
+  const allTags = useTagStore((s) => s.tags);
+  const rowTags = resolveTags(task.tagIds, allTags);
   // Goals — the linked goal (if any), for the living-glow dot next to the title. Gated on
   // settings.featureGoals (opt-in, off for fresh installs): when off, both the dot and the
   // GoalPicker below stay hidden. An existing task's goalId is left alone either way, so
@@ -621,6 +638,19 @@ function TaskCard({
             </View>
           ) : null}
 
+          {/* Tags — word-only pills, capped at two so a heavily-tagged task can't push the
+              title onto a second line; the rest collapse into a "+N". See lib/tags.ts. */}
+          {spec.showMeta && rowTags.length ? (
+            <>
+              {rowTags.slice(0, ROW_TAG_LIMIT).map((tag) => (
+                <TagChip key={tag.id} label={tag.name} small />
+              ))}
+              {rowTags.length > ROW_TAG_LIMIT ? (
+                <TagChip label={t.tags.more(rowTags.length - ROW_TAG_LIMIT)} small />
+              ) : null}
+            </>
+          ) : null}
+
           {task.time && spec.showMeta ? (
             <Text style={[styles.timeLabel, { color: theme.textMuted }]}>
               {task.finishTime ? `${task.time}–${task.finishTime}` : task.time}
@@ -745,6 +775,13 @@ function TaskCard({
                 </View>
               </View>
             )}
+
+            {/* Tags — what kind of thing this is, the counterpart to "For" above. Always
+                offered: a tag is useful on a solo list too, unlike an assignee. */}
+            <TagPickerRow
+              value={draft.tagIds ?? []}
+              onChange={(tagIds) => patch({ tagIds })}
+            />
 
             {/* Steps — persist immediately for existing tasks; buffered on the local draft
                 for a new (isNew) card until Save creates the real task row. */}

@@ -82,7 +82,8 @@
  *             notification's Taken button on a language change),
  *             lib/useAppTheme, store/useFeedbackStore, store/useHabitStore, store/useMedicineStore
  *             (syncTrayReminders), store/useSettingsStore,
- *             store/useShoppingStore, store/useTaskStore
+ *             store/useShoppingStore, store/useTagStore (the Tags card — rename/remove the
+ *             household's shared tag vocabulary), store/useTaskStore
  *   Used by → Expo Router route "/settings" (linked from ScreenHeader's gear icon, tier='site')
  *   Data    → useSettingsStore (settings table; incl. energyMode/energy*Capacity, quietHours*,
  *             monthlyResetDate, taskNotificationsEnabled, habitNotificationsEnabled,
@@ -218,6 +219,7 @@ import { useHabitStore } from '@/store/useHabitStore';
 import { useMedicineStore } from '@/store/useMedicineStore';
 import { useFeedbackStore } from '@/store/useFeedbackStore';
 import { usePeopleStore } from '@/store/usePeopleStore';
+import { useTagStore } from '@/store/useTagStore';
 import { PersonDot } from '@/components/PersonChip';
 import { PERSON_PALETTE, paletteColorAt, personColor } from '@/lib/personColor';
 import { syncReminders } from '@/lib/reminders';
@@ -294,6 +296,11 @@ export default function SettingsScreen() {
   const addPerson = usePeopleStore((s) => s.add);
   const updatePerson = usePeopleStore((s) => s.update);
   const removePerson = usePeopleStore((s) => s.remove);
+  // Tags (2026-07-28) — the shared vocabulary. Created from a task, but renamed and
+  // removed here, since neither belongs in the middle of editing a to-do.
+  const tags = useTagStore((s) => s.tags);
+  const renameTag = useTagStore((s) => s.rename);
+  const removeTag = useTagStore((s) => s.remove);
   const feedbackNoteCount = useFeedbackStore((s) => s.notes.length);
   const clearFeedbackNotes = useFeedbackStore((s) => s.clearAll);
   const monthlyReset = useShoppingStore((s) => s.monthlyReset);
@@ -306,6 +313,9 @@ export default function SettingsScreen() {
   // Send Feedback (2026-07-13) — free-text composer, mailed via mailto:.
   const [feedbackText, setFeedbackText] = useState('');
   const [newChildName, setNewChildName] = useState('');
+  // In-flight tag renames, keyed by tag id. Only holds a tag while its field is focused —
+  // the entry is dropped on blur so the row falls back to the store's own name.
+  const [tagDrafts, setTagDrafts] = useState<Record<string, string>>({});
   const [inputWarning, setInputWarning] = useState<string | null>(null);
 
   // AI setup guide (download/upload) — lib/aiSetupGuide.ts + lib/aiSetupApply.ts.
@@ -333,6 +343,18 @@ export default function SettingsScreen() {
       {
         text: t.resetConfirmBtn, style: 'destructive',
         onPress: () => { heavy(); removePerson(id); },
+      },
+    ]);
+  }
+  /** Remove a tag. Its tasks keep everything else — useTagStore.remove() rewrites their
+   *  `tag_ids` in the same transaction as the tombstone. */
+  function removeTagWithConfirm(id: string, name: string) {
+    warning();
+    showAppModal(t.tags.removeTitle(name), t.tags.removeBody, [
+      { text: t.cancel, style: 'cancel' },
+      {
+        text: t.resetConfirmBtn, style: 'destructive',
+        onPress: () => { heavy(); removeTag(id); },
       },
     ]);
   }
@@ -1479,6 +1501,52 @@ export default function SettingsScreen() {
                         </PressableScale>
                       </View>
                     </>
+                  )}
+                </ExpandableCard>
+
+                {/* Tags — the household's shared vocabulary. Tags are COINED from a task
+                    (components/TagPickerRow.tsx), because that's where you discover you
+                    want one; this card is for the two things that don't belong mid-edit:
+                    renaming (which follows every task, since tasks carry the id) and
+                    removing. No add field here on purpose — a tag with no task on it is
+                    just a word. */}
+                <ExpandableCard title={t.tags.settingsTitle} accentColor={theme.accent} rounded>
+                  <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
+                    {t.tags.settingsHint}
+                  </Text>
+                  {tags.length === 0 ? (
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.tags.empty}</Text>
+                  ) : (
+                    tags.map((tag) => (
+                      <View key={tag.id} style={styles.personRow}>
+                        <View style={styles.personRowText}>
+                          {/* Committed on blur, like the profile name field above: a rename
+                              per keystroke would broadcast a row to every peer per letter. */}
+                          <Input
+                            value={tagDrafts[tag.id] ?? tag.name}
+                            onChangeText={(v) => setTagDrafts((d) => ({ ...d, [tag.id]: v }))}
+                            onBlur={() => {
+                              renameTag(tag.id, tagDrafts[tag.id] ?? tag.name);
+                              setTagDrafts((d) => {
+                                const next = { ...d };
+                                delete next[tag.id];
+                                return next;
+                              });
+                            }}
+                            returnKeyType="done"
+                          />
+                        </View>
+                        <PressableScale
+                          onPress={() => removeTagWithConfirm(tag.id, tag.name)}
+                          hitSlop={8}
+                          accessibilityRole="button"
+                          accessibilityLabel={t.tags.removeTitle(tag.name)}
+                          scaleTo={0.9}
+                        >
+                          <Ionicons name="close-circle" size={20} color={theme.textMuted} />
+                        </PressableScale>
+                      </View>
+                    ))
                   )}
                 </ExpandableCard>
 

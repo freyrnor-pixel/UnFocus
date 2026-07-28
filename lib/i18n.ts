@@ -621,6 +621,24 @@ const en = {
     /** Shown under someone with no paired phone — you keep their side up to date yourself. */
     onThisPhone: 'Kept on this phone',
   },
+  tags: {
+    /** Row label in the task editor, beside the "For" person row. */
+    label: 'Tags',
+    /** The "coin a new tag" chip. */
+    new: 'New',
+    newPlaceholder: 'Tag name',
+    /** Settings card. */
+    settingsTitle: 'Tags',
+    settingsHint:
+      'Tags are shared with everyone you are paired with, so a tag means the same thing on both phones. Renaming one updates every task that carries it.',
+    empty: 'No tags yet. Add one from a task.',
+    removeTitle: (name: string) => `Remove ${name}?`,
+    removeBody: 'The tasks keep everything else — they just lose this tag.',
+    /** Plans filter row: clears the tag filter. */
+    filterAll: 'All tags',
+    /** Count cue when a row has more tags than it can draw. */
+    more: (n: number) => `+${n}`,
+  },
   habitCategories: {
     physical: 'Physical',
     mental: 'Mental',
@@ -2285,6 +2303,19 @@ const no: typeof en = {
     you: 'Deg',
     linkedDevice: 'Synkronisert med telefonen deres',
     onThisPhone: 'Holdes oppdatert på denne telefonen',
+  },
+  tags: {
+    label: 'Merkelapper',
+    new: 'Ny',
+    newPlaceholder: 'Navn på merkelapp',
+    settingsTitle: 'Merkelapper',
+    settingsHint:
+      'Merkelapper deles med alle du er koblet til, så en merkelapp betyr det samme på begge telefonene. Endrer du navnet, følger det med på alle oppgavene.',
+    empty: 'Ingen merkelapper ennå. Legg til en fra en oppgave.',
+    removeTitle: (name: string) => `Fjerne ${name}?`,
+    removeBody: 'Oppgavene beholder alt annet — de mister bare denne merkelappen.',
+    filterAll: 'Alle merkelapper',
+    more: (n: number) => `+${n}`,
   },
   habitCategories: {
     physical: 'Fysisk',

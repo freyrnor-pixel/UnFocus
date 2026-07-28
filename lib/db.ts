@@ -933,6 +933,25 @@ export function initDb() {
     "ALTER TABLE tasks ADD COLUMN assignee_id TEXT DEFAULT ''",
     "ALTER TABLE tasks ADD COLUMN created_by_person_id TEXT DEFAULT ''",
     "CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assignee_id)",
+    // Tags (2026-07-28, to-do sharing phase 2) — a household-shared vocabulary for
+    // "what kind of thing is this", orthogonal to who it's for (assignee_id) and to
+    // which surface it lives on. Synced, because a tag the other phone can't resolve
+    // would render as a bare id on a shared task.
+    `CREATE TABLE IF NOT EXISTS tags (
+      id TEXT PRIMARY KEY,
+      name TEXT DEFAULT '',
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT '',
+      origin_device_id TEXT DEFAULT '',
+      deleted_at TEXT DEFAULT NULL
+    )`,
+    // Tag membership lives on the task as a comma-separated id list rather than in a
+    // join table, deliberately: liveSync's unit of replication is a single row+column,
+    // so a join table would need its own SyncTable, its own soft-delete tombstones and
+    // its own LWW race for every (task,tag) pair. One column means retagging is one
+    // LWW write — the loser of a simultaneous edit loses their retag, not the task.
+    "ALTER TABLE tasks ADD COLUMN tag_ids TEXT DEFAULT ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

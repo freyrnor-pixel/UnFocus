@@ -70,6 +70,11 @@ describe('Decision 038b — live-sync data model', () => {
     test('accepts the people table', () => {
       expect(parseDelta({ ...good, table: 'people', fields: { name: 'Sam' } })).not.toBeNull();
     });
+    // Tags joined on 2026-07-28 (phase 2) for the same reason people did: a tag id the
+    // other phone can't resolve renders as nothing on a shared task.
+    test('accepts the tags table', () => {
+      expect(parseDelta({ ...good, table: 'tags', fields: { name: 'Kitchen' } })).not.toBeNull();
+    });
     test('still rejects tables outside the whitelist', () => {
       for (const table of ['habits', 'medicines', 'app_meta', 'settings', '']) {
         expect(parseDelta({ ...good, table })).toBeNull();
@@ -103,6 +108,12 @@ describe('Decision 038b — live-sync data model', () => {
       // saw the task, neither could see whose it was.
       expect(taskBlock).toMatch(/['"]assignee_id['"]/);
       expect(taskBlock).toMatch(/['"]created_by_person_id['"]/);
+    });
+    test('carries tag membership', () => {
+      // Membership is one comma-separated column rather than a join table — see the
+      // `tag_ids` migration in lib/db.ts. If that ever becomes a table, it needs its own
+      // SyncTable entry and this assertion should move with it.
+      expect(taskBlock).toMatch(/['"]tag_ids['"]/);
     });
     test('does NOT carry the legacy assignee name mirror', () => {
       // `assignee` is a denormalised display copy of the person's name. Syncing it would

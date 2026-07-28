@@ -44,10 +44,10 @@ import { SQLValue } from '@/lib/dataAccess';
  * roster is the one thing that HAS to sync before anything else can: without it, "assigned
  * to Sam" means a different person on each phone.
  */
-export type SyncTable = 'tasks' | 'shopping_items' | 'people';
+export type SyncTable = 'tasks' | 'shopping_items' | 'people' | 'tags';
 
 /** Every value `parseDelta` will accept for `table`. Kept next to the type so the two can't drift. */
-const SYNC_TABLES: readonly SyncTable[] = ['tasks', 'shopping_items', 'people'] as const;
+const SYNC_TABLES: readonly SyncTable[] = ['tasks', 'shopping_items', 'people', 'tags'] as const;
 
 /** Whitelisted syncable data columns per table (meta columns handled separately). */
 const TABLE_COLUMNS: Record<SyncTable, string[]> = {
@@ -59,6 +59,10 @@ const TABLE_COLUMNS: Record<SyncTable, string[]> = {
     // device-local, which made a shared to-do list unusable: both phones saw the task and
     // neither could see whose it was.
     'assignee_id', 'created_by_person_id',
+    // Which tags a task carries (2026-07-28). Syncs as one opaque comma-separated
+    // string — see lib/db.ts's `tag_ids` migration for why membership is a column
+    // rather than a join table.
+    'tag_ids',
   ],
   shopping_items: [
     'name', 'amount', 'unit', 'list_type', 'checked', 'store', 'price', 'created_at', 'list_id',
@@ -72,6 +76,13 @@ const TABLE_COLUMNS: Record<SyncTable, string[]> = {
     // device a person uses is how the receiver tells a live person from a hand-kept one.
     'name', 'color', 'device_id', 'daily_capacity', 'weekly_capacity',
     'sort_order', 'created_at',
+  ],
+  tags: [
+    // A tag is nothing but a shared name, so every data column syncs. There is no
+    // colour here on purpose (see lib/tags.ts): a tag is drawn as a neutral outlined
+    // pill, because the card border, the done/overdue rail, the person dot and the
+    // goal glow have already claimed every colour channel a task row can carry.
+    'name', 'sort_order', 'created_at',
   ],
 };
 

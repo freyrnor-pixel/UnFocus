@@ -143,6 +143,9 @@ import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { usePeopleStore } from '@/store/usePeopleStore';
 import PersonChip from '@/components/PersonChip';
+import TagChip from '@/components/TagChip';
+import { useTagStore } from '@/store/useTagStore';
+import { matchesTagFilter, toggleTagId } from '@/lib/tags';
 import { personColor } from '@/lib/personColor';
 import { FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { Spring } from '@/constants/motion';
@@ -385,6 +388,7 @@ export default function TasksScreen() {
   // "there is somebody else to filter by".
   const people = usePeopleStore((s) => s.people);
   const showPeople = peopleModeEnabled && people.length > 1;
+  const allTags = useTagStore((s) => s.tags);
   // Sharing is opt-in (Settings → Advanced → Features), off on a fresh install — it hides
   // the shared-tasks section below. Tasks already shared stay in the store untouched.
   const featureSharing = useSettingsStore((s) => s.featureSharing);
@@ -396,6 +400,9 @@ export default function TasksScreen() {
   const [hintOpen, setHintOpen] = useFirstVisitHint('plans', false);
   // Person filter (People/family mode): null = Everyone, otherwise a person id.
   const [personFilter, setPersonFilter] = useState<string | null>(null);
+  // Tag filter (2026-07-28) — selected tag ids; empty means "All tags". Unlike the person
+  // filter this is multi-select, because tags are not mutually exclusive the way people are.
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   // Inline "add a row" input for the Whenever section — the one add affordance on this screen.
   const [wheneverInput, setWheneverInput] = useState('');
 
@@ -421,10 +428,14 @@ export default function TasksScreen() {
   // the self person, matching the pre-registry convention that '' meant "me".
   const filterPerson = personFilter ? people.find((p) => p.id === personFilter) ?? null : null;
   const addAssigneeName = filterPerson && !filterPerson.isSelf ? filterPerson.name : '';
-  const matchPerson = useCallback(
+  // Both filter rows in one predicate: a task has to pass the person filter AND the tag
+  // filter to show. (Within the TAG row, multiple chips are "any of" — see lib/tags.ts's
+  // matchesTagFilter for why intersecting there reads as a broken filter.)
+  const matchFilters = useCallback(
     (tk: Task) =>
-      !showPeople || personFilter === null || (tk.assigneeId || selfPersonId) === personFilter,
-    [showPeople, personFilter, selfPersonId]
+      (!showPeople || personFilter === null || (tk.assigneeId || selfPersonId) === personFilter) &&
+      matchesTagFilter(tk.tagIds, tagFilter),
+    [showPeople, personFilter, selfPersonId, tagFilter]
   );
 
   const weekDates = useMemo(() => getWeekDates(today), [today]);
@@ -432,28 +443,28 @@ export default function TasksScreen() {
 
   // ── Section selectors ──
   const wheneverAll = useMemo(
-    () => tasks.filter((tk) => tk.recurring === 'none' && !tk.sharedOut && matchPerson(tk)),
-    [tasks, matchPerson]
+    () => tasks.filter((tk) => tk.recurring === 'none' && !tk.sharedOut && matchFilters(tk)),
+    [tasks, matchFilters]
   );
   const recurringAll = useMemo(
-    () => tasks.filter((tk) => tk.recurring !== 'none' && !tk.sharedOut && matchPerson(tk)),
-    [tasks, matchPerson]
+    () => tasks.filter((tk) => tk.recurring !== 'none' && !tk.sharedOut && matchFilters(tk)),
+    [tasks, matchFilters]
   );
-  const sharedOutAll = useMemo(() => tasks.filter((tk) => tk.sharedOut && matchPerson(tk)), [tasks, matchPerson]);
+  const sharedOutAll = useMemo(() => tasks.filter((tk) => tk.sharedOut && matchFilters(tk)), [tasks, matchFilters]);
   const undatedWhenever = useMemo(
-    () => tasks.filter((tk) => tk.recurring === 'none' && !tk.hasStartDate && !tk.sharedOut && matchPerson(tk)),
-    [tasks, matchPerson]
+    () => tasks.filter((tk) => tk.recurring === 'none' && !tk.hasStartDate && !tk.sharedOut && matchFilters(tk)),
+    [tasks, matchFilters]
   );
 
   const todayList = useMemo(
-    () => tasksForDate(today).filter((tk) => (tk.hasStartDate || tk.recurring !== 'none') && matchPerson(tk)).sort(byTime),
+    () => tasksForDate(today).filter((tk) => (tk.hasStartDate || tk.recurring !== 'none') && matchFilters(tk)).sort(byTime),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `tasks` drives recompute (tasksForDate reads the store, not this var), not read directly
-    [tasksForDate, today, tasks, matchPerson]
+    [tasksForDate, today, tasks, matchFilters]
   );
   const weekGroups = useMemo(
-    () => tasksForWeek(weekStart).map((g) => ({ ...g, tasks: g.tasks.filter(matchPerson) })),
+    () => tasksForWeek(weekStart).map((g) => ({ ...g, tasks: g.tasks.filter(matchFilters) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `tasks` drives recompute (tasksForWeek reads the store, not this var), not read directly
-    [tasksForWeek, weekStart, tasks, matchPerson]
+    [tasksForWeek, weekStart, tasks, matchFilters]
   );
 
   // ── "What was this view hiding" glow (2026-07-27) ────────────────────────────
@@ -620,6 +631,26 @@ export default function TasksScreen() {
                 color={personColor(person.color, index)}
                 selected={personFilter === person.id}
                 onPress={() => setPersonFilter(person.id)}
+              />
+            ))}
+          </View>
+        </Collapsible>
+
+        {/* Tag filter — only worth a row once tags exist, so it stays out of the way on a
+            list that doesn't use them. Multi-select ("any of"), unlike the person row. */}
+        <Collapsible open={allTags.length > 0}>
+          <View style={styles.personFilterRow}>
+            <TagChip
+              label={t.tags.filterAll}
+              selected={tagFilter.length === 0}
+              onPress={() => setTagFilter([])}
+            />
+            {allTags.map((tag) => (
+              <TagChip
+                key={tag.id}
+                label={tag.name}
+                selected={tagFilter.includes(tag.id)}
+                onPress={() => setTagFilter((prev) => toggleTagId(prev, tag.id))}
               />
             ))}
           </View>
