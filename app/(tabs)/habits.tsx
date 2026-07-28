@@ -492,7 +492,9 @@ export default function HabitsScreen() {
   const childProfiles = useSettingsStore((s) => s.childProfiles);
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
 
-  const [hintOpen, setHintOpen] = useFirstVisitHint('habits');
+  // autoOpen=false (2026-07-28 design review) — StarterCard + the one-tap starter habits
+  // already teach this; see lib/useFirstVisitHint.ts's `autoOpen` doc.
+  const [hintOpen, setHintOpen] = useFirstVisitHint('habits', false);
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);

@@ -472,7 +472,8 @@ const baseStyles = StyleSheet.create({
   paceText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginBottom: Spacing.sm },
   // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
   // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
-  title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8, flexShrink: 1, includeFontPadding: false, textAlignVertical: 'center' },
+  // Sentence case (2026-07-28 design review): all-caps belongs on ≤13px labels, not 20px card titles.
+  title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, flexShrink: 1, includeFontPadding: false, textAlignVertical: 'center' },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   // Wells removed (2026-07-13 grouping pass): rows sit directly on the card face.

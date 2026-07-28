@@ -1595,7 +1595,10 @@ export default function ShoppingScreen() {
         scaleTo={0.97}
       >
         <Surface borderColor={mealDomainColor.accent} style={styles.subScreenLinkCard}>
-          <CardAccentBadge domain="meal" icon="restaurant" size={24} />
+          {/* `restaurant` (crossed fork+knife) read as a ✕ / cancel glyph at 24px inside the
+              filled circular badge — next to the word "Food" it looked like a close button
+              (2026-07-28 design review). `fast-food` stays legible at badge size. */}
+          <CardAccentBadge domain="meal" icon="fast-food" size={24} />
           <Text style={[styles.subScreenLinkText, { color: theme.text }]}>{t.foodTabLabel}</Text>
         </Surface>
       </PressableScale>

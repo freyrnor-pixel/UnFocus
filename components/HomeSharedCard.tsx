@@ -134,7 +134,8 @@ const baseStyles = StyleSheet.create({
   // Home preview cards (Notes/Tasks/Shopping) and the dot-header cards (SectionCard).
   cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm, gap: Spacing.sm },
-  title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8 },
+  // Sentence case (2026-07-28 design review): all-caps belongs on ≤13px labels, not 20px card titles.
+  title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   titleRight: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: Spacing.md },

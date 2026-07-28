@@ -180,7 +180,10 @@ export default function MedicineTrayCard() {
     <Surface borderColor={healthColor.accent} style={styles.card}>
       <View style={styles.cardContent}>
         <View style={styles.headerRow}>
-          <CardAccentBadge domain="health" size={22} />
+          {/* `medkit`, not the domain default heart (2026-07-28 design review) — Health's three
+              cards (Medicine, Quick log, This week) all fell back to DOMAIN_ICON.health and read
+              as the same badge repeated three times. See app/(tabs)/health.tsx's matching note. */}
+          <CardAccentBadge domain="health" icon="medkit" size={22} />
           <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.medicine.title}</Text>
           <IconButton
             icon={remindersEnabled ? 'alarm-outline' : 'notifications-off-outline'}

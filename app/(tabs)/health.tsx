@@ -106,7 +106,9 @@ export default function HealthScreen() {
   const ensureSymptom = useHealthStore((s) => s.ensureSymptom);
   const featureMedicine = useSettingsStore((s) => s.featureMedicine);
 
-  const [hintOpen, setHintOpen] = useFirstVisitHint('health');
+  // autoOpen=false (2026-07-28 design review) — StarterCard already teaches this; see
+  // lib/useFirstVisitHint.ts's `autoOpen` doc for the rule and which screens keep it on.
+  const [hintOpen, setHintOpen] = useFirstVisitHint('health', false);
   const [quickDraft, setQuickDraft] = useState('');
   const [quickSeverity, setQuickSeverity] = useState(3);
   const [quickStartTime, setQuickStartTime] = useState('');
@@ -247,7 +249,11 @@ export default function HealthScreen() {
           <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
             <View style={styles.overviewCardContent}>
               <View style={styles.sectionLabelRow}>
-                <CardAccentBadge domain="health" size={22} />
+                {/* Per-card glyph, not the domain default (2026-07-28 design review): Medicine,
+                    Quick log and This week all fell back to DOMAIN_ICON.health (heart), so three
+                    stacked cards carried the identical badge and it signified nothing. The heart
+                    still marks the Health tab itself in BottomNav. */}
+                <CardAccentBadge domain="health" icon="pulse" size={22} />
                 <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.quickLogLabel}</Text>
               </View>
               <AddRow
@@ -318,7 +324,8 @@ export default function HealthScreen() {
           <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
             <View style={styles.overviewCardContent}>
               <View style={styles.sectionLabelRow}>
-                <CardAccentBadge domain="health" size={22} />
+                {/* Distinct from Medicine/Quick log — see the note at the Quick log badge. */}
+                <CardAccentBadge domain="health" icon="stats-chart" size={22} />
                 <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.thisWeekLabel}</Text>
               </View>
               {thisWeekSymptoms.length === 0 && (

@@ -10,11 +10,16 @@
  *
  * NOTE (2026-07-19 "Card accent system"): domain colour now comes from the `card*` ramp, NOT the
  * `feat*` octet. `feat*` still drives the per-SCREEN hue (lib/screenColor.ts — green Shopping, teal
- * Health, …); `card*` is a separate cohesive blue→violet ramp for CARD identity. So a card's badge
- * intentionally need not match its screen's background hue (decision: cards-only palette scope).
+ * Health, …); `card*` is a separate ramp for CARD identity. So a card's badge intentionally need
+ * not match its screen's background hue (decision: cards-only palette scope).
  *
- * Domain → palette token (the card* hexes are ordered by ROUTINE SEQUENCE in constants/colors.ts —
- * colour signifies the order of a day walked as one blue→violet family, not a random rainbow):
+ * WIDENED 2026-07-28 (design review): the ramp was a blue→violet family spanning ~40° of hue,
+ * which made adjacent domains indistinguishable at badge size — see constants/colors.ts's card
+ * block for the full rationale, the co-occurrence map the new hues are chosen against, and why
+ * cardHealth/cardBudget deliberately avoid the semantic red/green. It is still ONE calm,
+ * low-saturation family, just one you can actually tell apart.
+ *
+ * Domain → palette token (the card* hexes are ordered by ROUTINE SEQUENCE in constants/colors.ts):
  *   plan→cardPlan · task→cardTask · habit→cardHabit · health→cardHealth
  *   meal→cardMeal · shop→cardShop · budget→cardBudget · note→cardNote
  *

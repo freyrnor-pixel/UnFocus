@@ -790,7 +790,7 @@ const en = {
   healthTitle: 'Health',
   thisWeekLabel: 'This week',
   quickLogLabel: 'Quick log',
-  healthLogTitle: 'Health-log',
+  healthLogTitle: 'Health log',
   logSymptomTrigger: 'Log occurrence',
   ailmentLabel: 'Issue',
   severityLabel: 'Severity',

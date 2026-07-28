@@ -8,6 +8,10 @@
  * the settings the old onboarding wizard collected are now taught in context — the
  * relevant screen's hint (with the setting embedded) greets first-time users.
  *
+ * The second arg `autoOpen` (2026-07-28) turns that greeting off per screen — see its own
+ * doc comment for which screens pass `false` and why. Home and Shopping deliberately keep
+ * it: their hint body holds the only copy of a real setup control.
+ *
  * Connections:
  *   Imports → react-native (LayoutAnimation/Platform/UIManager), expo-router (useFocusEffect),
  *             store/useSettingsStore, lib/useAppTheme (useAccessibility)
@@ -39,7 +43,19 @@ if (Platform.OS === 'android') {
 }
 
 export function useFirstVisitHint(
-  key: string
+  key: string,
+  /**
+   * Whether the hint auto-opens on first visit (2026-07-28 design review). Screens whose ⓘ
+   * text is already taught by a StarterCard — plans/health/habits — pass `false`: the two
+   * stacked panels said the same thing, and the StarterCard says it better because it carries
+   * a concrete example row. Screens whose hint is LOAD-BEARING keep the default `true`,
+   * because the hint body is the only place their setup control lives: Home (plan-notification
+   * + weekly-reminder opt-in) and Shopping (weekly-reset weekday + monthly-reset date). Those
+   * settings moved out of the old onboarding wizard and into the hint precisely so they'd be
+   * taught in context — silencing the auto-open there would strand them behind an ⓘ nobody
+   * taps. The key is still marked seen either way, so this only controls the auto-open.
+   */
+  autoOpen: boolean = true
 ): [boolean, React.Dispatch<React.SetStateAction<boolean>>] {
   const [hintOpen, setHintOpen] = useState(false);
   const { reducedMotion } = useAccessibility();
@@ -60,11 +76,13 @@ export function useFirstVisitHint(
     useCallback(() => {
       const { seenScreenHints, markScreenHintSeen } = useSettingsStore.getState();
       if (!seenScreenHints.includes(key)) {
-        setHintOpenAnimated(true);
+        // Mark seen regardless of autoOpen, so flipping a screen back to auto-opening later
+        // doesn't ambush users who have already been through it.
         markScreenHintSeen(key);
+        if (autoOpen) setHintOpenAnimated(true);
       }
       return () => setHintOpenAnimated(false);
-    }, [key, setHintOpenAnimated])
+    }, [key, autoOpen, setHintOpenAnimated])
   );
 
   return [hintOpen, setHintOpenAnimated];

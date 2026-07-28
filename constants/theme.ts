@@ -198,8 +198,10 @@ export const HEADER_TITLE_LINE_RATIO = 1.45; // headroom over Nunito Bold's ~1.3
 // itself) since that scale is reused by unrelated onboarding screens this pass isn't meant
 // to touch. Same-day follow-up dialed the size back to 28 (matching the old FontSize.xxl
 // this token was split from) after the initial 32 + uppercase + centering fix together read
-// as too large — the uppercase casing and the row's centering (paddingVertical: Spacing.md
-// in ScreenHeader.tsx, which must stay put — see that file's comment) are kept.
+// as too large — the row's centering (paddingVertical: Spacing.md in ScreenHeader.tsx, which
+// must stay put — see that file's comment) is kept. The uppercase casing that pass also
+// introduced was REMOVED 2026-07-28 (design review): all-caps at 24px reads as a label style
+// at a heading size. This token still drives the band height in lockstep, unchanged.
 // 2026-07-24: dialed 28 → 24. This value drives ALL header titles uniformly (and the band
 // height below, in lockstep), so lowering it makes every screen's title one consistent,
 // still-legible size AND gives the long uppercase "HANDLELISTE" (11 chars, extrabold) room
