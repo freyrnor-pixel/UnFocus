@@ -153,7 +153,7 @@ import { matchesTagFilter, toggleTagId } from '@/lib/tags';
 import { effectiveAssigneeId } from '@/lib/taskRotation';
 import { personColor } from '@/lib/personColor';
 import { FontSize, Radius, Spacing, TabularNums, Type } from '@/constants/theme';
-import { Spring, Travel } from '@/constants/motion';
+import { Spring } from '@/constants/motion';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
@@ -353,10 +353,14 @@ function InlineTaskAdd({
  * "One thing at a time" (lib/cardLayout.ts's `focusFirst`) — the Today tab's 1c shape from
  * design-system v6's `Focus First (1c)`.
  *
- * Order is the whole point of this layout, and it goes: the ONE thing you're on → what else
- * exists (a count, not a list) → the couple of things after it → add → what you already did.
- * Everything a normal Today shows is still there; it is drawn in a different order and with
- * everything past the first two collapsed.
+ * Order is the whole point of this layout, and it goes: the ONE thing you're on → the couple
+ * of things after it → add → what you already did. Everything a normal Today shows is still
+ * there; it is drawn in a different order and with everything past the first two collapsed.
+ *
+ * The mock's "Later" row of count chips is NOT here. It duplicated the tab bar sitting a few
+ * pixels above it — same three destinations, same tap behaviour — so the counts moved onto
+ * the tab bar's own `accessory` slot instead (see the TabSlider call below) and the second
+ * control went away. One control, and it stays where the user already knows it is.
  *
  * Presentation only, like every other layout: nothing here filters, reschedules or reorders
  * the underlying tasks — `tasks` arrives already sorted by time from the screen, and the hero
@@ -364,16 +368,12 @@ function InlineTaskAdd({
  */
 function FocusFirstToday({
   tasks,
-  laterCounts,
-  onGoToTab,
   onToggleDone,
   spec,
   newSinceIds,
   footer,
 }: {
   tasks: Task[];
-  laterCounts: { week: number; backlog: number };
-  onGoToTab: (tab: Tab) => void;
   onToggleDone: (task: Task) => void;
   spec: LayoutSpec;
   newSinceIds: ReadonlySet<string>;
@@ -388,12 +388,6 @@ function FocusFirstToday({
   // the day doesn't look like a wall. Anything past it is reachable one tap away via Later.
   const then = unfinished.slice(1, 1 + FOCUS_THEN_VISIBLE);
   const overflow = Math.max(0, unfinished.length - 1 - then.length);
-
-  const later: { key: Tab; label: string; count: number }[] = [
-    { key: 'today', label: t.focusFirst.laterToday, count: unfinished.length },
-    { key: 'week', label: t.focusFirst.laterWeek, count: laterCounts.week },
-    { key: 'all', label: t.focusFirst.laterBacklog, count: laterCounts.backlog },
-  ];
 
   return (
     <View style={styles.focusWrap}>
@@ -417,27 +411,6 @@ function FocusFirstToday({
           {t.focusFirst.allClear}
         </Text>
       )}
-
-      {/* Later — what else exists, as counts rather than rows. Each chip is also the way into
-          that list, so the count isn't just information you can't act on. */}
-      <View style={styles.focusLater}>
-        <Text style={[styles.focusLabel, { color: theme.textMuted }]}>{t.focusFirst.later}</Text>
-        <View style={styles.focusChips}>
-          {later.map((l) => (
-            <PressableScale
-              key={l.key}
-              style={[styles.focusChip, { backgroundColor: theme.surface, borderColor: theme.border }]}
-              onPress={() => { tap(); onGoToTab(l.key); }}
-              travel={Travel.sm}
-              accessibilityRole="button"
-              accessibilityLabel={`${l.label}: ${l.count}`}
-            >
-              <Text style={[styles.focusChipLabel, { color: theme.text }]} numberOfLines={1}>{l.label}</Text>
-              <Text style={[styles.focusChipCount, TabularNums, { color: theme.textMuted }]}>{l.count}</Text>
-            </PressableScale>
-          ))}
-        </View>
-      </View>
 
       {then.length > 0 && (
         <View style={styles.focusThen}>
@@ -604,6 +577,19 @@ export default function TasksScreen() {
     [tasksForWeek, weekStart, tasks, matchFilters]
   );
 
+  // Unfinished counts per tab, for the "One thing at a time" tab-bar accessories. Only
+  // computed when that layout is on — every other layout's tab bar shows no counts, so
+  // there's nothing to keep up to date.
+  const tabCounts = useMemo(() => {
+    if (layoutSpec.id !== 'focusFirst') return { today: 0, week: 0, all: 0 };
+    const open = (list: Task[]) => list.filter((tk) => !tk.done).length;
+    return {
+      today: open(todayList),
+      week: weekGroups.reduce((n, g) => n + open(g.tasks), 0),
+      all: open(undatedWhenever),
+    };
+  }, [layoutSpec.id, todayList, weekGroups, undatedWhenever]);
+
   // "By person" layout — only meaningful once there's more than one person to group under,
   // so it degrades to the normal single-section list rather than drawing one card labelled
   // with your own name.
@@ -737,6 +723,27 @@ export default function TasksScreen() {
       options={(['today', 'week', 'all'] as Tab[]).map((tabOption) => ({
         value: tabOption,
         label: tabOption === 'all' ? t.tasksTabAll : tabOption === 'today' ? t.tasksTabToday : t.tasksTabWeek,
+        // "One thing at a time" wants a count of everything it isn't drawing. That belongs
+        // on the ONE control that already switches between these lists, not on a second row
+        // of chips below the hero duplicating it — TabSlider's `accessory` slot exists for
+        // exactly this. Only this layout asks for the counts, so only this layout gets them;
+        // every other layout's tab bar is untouched.
+        // The active-state colour has to be baked in here — TabSlider's `accessory` is a
+        // plain node that doesn't know whether its segment is selected (see that file's
+        // edit note). Without this the count sits in muted grey ON the accent pill, which
+        // is the one place muted grey has no contrast.
+        accessory:
+          layoutSpec.id === 'focusFirst' ? (
+            <Text
+              style={[
+                styles.tabCount,
+                TabularNums,
+                { color: tab === tabOption ? theme.accentInk : theme.textMuted },
+              ]}
+            >
+              {tabCounts[tabOption]}
+            </Text>
+          ) : undefined,
       }))}
       style={styles.stickyBar}
     />
@@ -939,11 +946,6 @@ export default function TasksScreen() {
                    the Later chips, and is one tap away. */
                 <FocusFirstToday
                   tasks={todayList}
-                  laterCounts={{
-                    week: weekGroups.reduce((n, g) => n + g.tasks.filter((tk) => !tk.done).length, 0),
-                    backlog: undatedWhenever.filter((tk) => !tk.done).length,
-                  }}
-                  onGoToTab={setTab}
                   onToggleDone={handleToggleDone}
                   spec={layoutSpec}
                   newSinceIds={newSinceIds}
@@ -1018,30 +1020,16 @@ const styles = StyleSheet.create({
   focusWrap: { gap: Spacing.lg },
   focusHero: { gap: Spacing.xs },
   focusThen: { gap: Spacing.xs },
-  focusLater: { gap: Spacing.sm },
+  // Count badge in a tab-bar segment ("One thing at a time" only). Deliberately smaller and
+  // muted rather than a filled pill: the segment already has the sliding accent pill behind
+  // it, and a second filled shape inside that would read as two competing highlights.
+  tabCount: { fontSize: FontSize.xs, fontFamily: Type.label.fontFamily },
   focusLabel: {
     fontSize: FontSize.xs,
     fontFamily: Type.label.fontFamily,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
-  // `flex: 1` children with NO minWidth — three chips at a hard minimum is exactly the
-  // pattern that breaks at 360px (see AGENTS.md's wrap-audit lessons).
-  focusChips: { flexDirection: 'row', gap: Spacing.sm },
-  focusChip: {
-    flex: 1,
-    minWidth: 0,
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    minHeight: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  focusChipLabel: { fontSize: FontSize.xs, fontFamily: Type.label.fontFamily },
-  focusChipCount: { fontSize: FontSize.lg, fontFamily: Type.heading.fontFamily },
   focusOverflow: { fontSize: FontSize.xs, paddingHorizontal: Spacing.xs },
   focusDone: { fontSize: FontSize.sm, fontFamily: Type.label.fontFamily, textAlign: 'center' },
   focusAllClear: {
