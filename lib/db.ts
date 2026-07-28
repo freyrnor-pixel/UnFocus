@@ -968,6 +968,14 @@ export function initDb() {
     // the exact untouched default get the new card; anyone who reordered or removed a card
     // has a different value and is left alone (they can still add it via "Add a card").
     "UPDATE settings SET home_card_order = '[\"plans\",\"habits\",\"notes\",\"shopping\"]' WHERE home_card_order = '[\"plans\",\"notes\",\"shopping\"]'",
+    // Home preview card: Goals added under Habits (2026-07-28). Goals get a real surface —
+    // before this they existed only as a picker inside the task/habit forms and a glow dot on
+    // linked rows. Same targeted approach as the two home_card_order migrations above: only
+    // rows still holding an exact untouched default get the new card, so anyone who reordered
+    // or removed a card keeps their arrangement and can add this one via "Add a card". Both
+    // prior defaults are covered, since an install that never saw the Habits migration's
+    // predecessor default is still on the older string.
+    "UPDATE settings SET home_card_order = '[\"plans\",\"habits\",\"goals\",\"notes\",\"shopping\"]' WHERE home_card_order = '[\"plans\",\"habits\",\"notes\",\"shopping\"]'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
