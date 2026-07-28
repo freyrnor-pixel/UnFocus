@@ -37,7 +37,10 @@
  *     screen's own StarterCard) that read as a run-on on this card's narrow width. Gated on a
  *     plain `totalCount === 0`, so it also returns if the list is later cleared. The suggestion
  *     is deliberately WEEKLY-only here — the monthly-vs-weekly distinction is explained in the
- *     text, and the full Shopping screen's own StarterCard is where both examples live.
+ *     text, and the full Shopping screen's own StarterCard is where both examples live. Its
+ *     `StarterExampleRow` carries no `meta` pill (2026-07-28, user report) — a "Weekly" tag on
+ *     the one suggested row was redundant once the explainer above already states the cadence,
+ *     and this card's suggestion is always weekly, never mixed with a monthly one.
  *   - **Header tightened + moved down (2026-07-26, user report)**: `titleRow`'s paddingLeft
  *     went 56 → 52 (badge 32 + a 4px gap, was 8px — "more closely linked with the badge") and
  *     `badgeFixed`/`cardContent` both got a matching +4 top/paddingTop bump ("move it a bit
@@ -308,7 +311,6 @@ export default function HomeShoppingCard({
               <StarterExampleRow
                 icon="cart-outline"
                 title={t.starters.shopping.exampleWeekly}
-                meta={t.habitRecurrenceWeekly}
                 accent={domainColor.accent}
                 onAdd={() => onAddItem(t.starters.shopping.exampleWeekly, 1)}
                 addLabel={t.starters.addExample}
@@ -485,7 +487,9 @@ const baseStyles = StyleSheet.create({
   // Empty-state explainer + suggestion (2026-07-27) — same bulb + italic treatment
   // components/StarterCard uses, inlined so the card doesn't nest a Surface in a Surface.
   // Kept identical to PlanTaskCard's own empty block so the two cards read as one system.
-  emptyWrap: { gap: Spacing.sm, marginBottom: Spacing.sm },
+  // marginTop (2026-07-28, user report — the explainer sat right against the header wash's
+  // lower edge with no breathing room, more noticeable now the text is two stacked lines).
+  emptyWrap: { gap: Spacing.sm, marginTop: Spacing.xs, marginBottom: Spacing.sm },
   emptyTextRow: { flexDirection: 'row', gap: Spacing.xs },
   emptyBulb: { marginTop: 2 },
   // List form (2026-07-28, user report — the two cadences read as one run-on sentence):
