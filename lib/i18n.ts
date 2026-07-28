@@ -135,10 +135,6 @@ const en = {
   focusFirst: {
     nextUp: 'Next up',
     then: 'Then',
-    later: 'Later',
-    laterToday: 'Today',
-    laterWeek: 'Week',
-    laterBacklog: 'Whenever',
     doneToday: (n: number) => `${n} done — small things add up`,
     andMore: (n: number) => `and ${n} more today`,
     allClear: 'Nothing left today. That counts.',
@@ -1675,10 +1671,6 @@ const no: typeof en = {
   focusFirst: {
     nextUp: 'Nå',
     then: 'Så',
-    later: 'Senere',
-    laterToday: 'I dag',
-    laterWeek: 'Uka',
-    laterBacklog: 'Når som helst',
     doneToday: (n: number) => `${n} gjort — småting teller`,
     andMore: (n: number) => `og ${n} til i dag`,
     allClear: 'Ingenting igjen i dag. Det teller.',
