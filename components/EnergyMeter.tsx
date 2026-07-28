@@ -43,6 +43,12 @@
  * Purely visual, NOT actually pressable (there's nothing to tap on a pip) — the point is the
  * bar reading like a row of game HUD charges being used up, not a real control.
  *
+ * **Stacked row layout (2026-07-28 fix)**: label+value share a top line (`meterTopRow`); the
+ * pip row is a full-width line below it, not squeezed into the same row as the label/value
+ * text. At the default capacity of 10, ten fixed 18px pips need ~216px, which doesn't fit
+ * alongside label/value text on real phone widths in a single row — they overflowed and
+ * painted over the value text. Don't put pips back on the same line as the label/value.
+ *
  * **Depleted/recovered pulse (2026-07-28)**: `EnergyPulse` fires a single ~1.5s glow (via
  * `getGlow`) the moment a period's `current` crosses the zero line — `theme.good` when it
  * goes from ≤0 back to positive ("recovered"), `theme.accent` (deliberately NOT `theme.bad`)
@@ -198,7 +204,10 @@ export default function EnergyMeter() {
           />
         )}
         <View style={styles.meterRow}>
-          <Text style={[styles.meterLabel, { color: theme.text }]}>{label}</Text>
+          <View style={styles.meterTopRow}>
+            <Text style={[styles.meterLabel, { color: theme.text }]}>{label}</Text>
+            <Text style={[styles.meterValue, { color: theme.textMuted }]}>{`${current} / ${capacity}`}</Text>
+          </View>
           <View style={styles.pipRow}>
             {Array.from({ length: pipCount }).map((_, i) => {
               const active = i < filled;
@@ -221,7 +230,6 @@ export default function EnergyMeter() {
               );
             })}
           </View>
-          <Text style={[styles.meterValue, { color: theme.textMuted }]}>{`${current} / ${capacity}`}</Text>
         </View>
       </View>
     );
@@ -318,9 +326,18 @@ const styles = StyleSheet.create({
   // Wraps each meter row so EnergyPulse (an absoluteFill sibling) has a position:relative
   // parent to glow behind — see the "Depleted/recovered pulse" file-header note.
   meterRowWrap: { position: 'relative', borderRadius: Radius.sm },
-  meterRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  meterLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, minWidth: 62 },
-  pipRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  // Stacked (2026-07-28 fix): label+value share a top line, the pip row gets the full
+  // card width on its own line below. A single-line layout (label — pips — value all in
+  // one row) ran out of horizontal room on real phones once pips became fixed-size
+  // "keycaps" — at the default capacity of 10, the pips alone need ~216px, which doesn't
+  // fit alongside the label/value text at typical content widths (~296-330px), so the
+  // pips overflowed their box and painted over the value text. Stacking removes the
+  // three-way competition for width entirely instead of trying to tune sizes that could
+  // break again at another font-scale/language/width combination.
+  meterRow: { gap: 4 },
+  meterTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  meterLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  pipRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   // "Keycap" pip — an available (unspent) pip is raised/popped via getElevation('raised'),
   // a spent pip sits flat/sunken via getElevation('flat') over theme.surfaceInset. Purely
   // visual (see file header) — never wrapped in PressableScale, nothing to actually press.
