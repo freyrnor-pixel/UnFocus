@@ -70,7 +70,7 @@ import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { showAppModal } from '@/components/AppModal';
-import { contrastOn, Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { contrastOn, Fonts, FontSize, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { useMountedTransition } from '@/lib/useMountedTransition';
@@ -376,7 +376,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                           />
                         </PressableScale>
                         {total > 0 && (
-                          <Text style={[styles.dishPrice, { color: theme.textMuted }]}>{formatKr(total, 0)}</Text>
+                          <Text style={[styles.dishPrice, TabularNums, { color: theme.textMuted }]}>{formatKr(total, 0)}</Text>
                         )}
                         <PressableScale
                           style={[styles.dishAddBtn, { backgroundColor: color }]}
@@ -400,7 +400,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                                 {ing.amount}{ing.unit ? ` ${ing.unit}` : ''}
                               </Text>
                               {ing.priceNok > 0 && (
-                                <Text style={[styles.ingPrice, { color: theme.textMuted }]}>{formatKr(ing.priceNok, 0)}</Text>
+                                <Text style={[styles.ingPrice, TabularNums, { color: theme.textMuted }]}>{formatKr(ing.priceNok, 0)}</Text>
                               )}
                               <PressableScale onPress={() => removeIngredient(ing.id)} hitSlop={8} accessibilityLabel={t.removeItemLabel} scaleTo={0.9}>
                                 <Ionicons name="remove-circle-outline" size={18} color={theme.textMuted} />

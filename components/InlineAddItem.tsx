@@ -52,7 +52,7 @@
 import React, { useMemo, useState } from 'react';
 import { LayoutAnimation, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FontSize, Fonts, Radius, Spacing, contrastOn } from '@/constants/theme';
+import { contrastOn, Fonts, FontSize, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
@@ -191,7 +191,7 @@ export default function InlineAddItem({
             <PressableScale key={s.id} style={styles.suggestionRow} onPress={() => handlePickSuggestion(s)} scaleTo={0.97}>
               <Text style={[styles.suggestionName, { color: theme.text }]} numberOfLines={1}>{s.name}</Text>
               {s.price > 0 && (
-                <Text style={[styles.suggestionPrice, { color: theme.textMuted }]}>{formatKr(s.price, 0)}</Text>
+                <Text style={[styles.suggestionPrice, TabularNums, { color: theme.textMuted }]}>{formatKr(s.price, 0)}</Text>
               )}
             </PressableScale>
           ))}

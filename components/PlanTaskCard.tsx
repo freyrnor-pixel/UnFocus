@@ -210,7 +210,7 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import { Task, Recurring } from '@/store/useTaskStore';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, TabularNums, rgba } from '@/constants/theme';
 import { Duration, Ease, Spring } from '@/constants/motion';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
@@ -589,7 +589,7 @@ export default function PlanTaskCard({
       >
         <Text
           numberOfLines={1}
-          style={[styles.timeBoxText, { color: isHappeningNow ? theme.accent : dimmed ? theme.textMuted : theme.text }]}
+          style={[styles.timeBoxText, TabularNums, { color: isHappeningNow ? theme.accent : dimmed ? theme.textMuted : theme.text }]}
         >
           {task.time}
         </Text>
@@ -605,7 +605,7 @@ export default function PlanTaskCard({
       <>
         <View style={styles.titleRow}>
           {timed && (
-            <Text style={[styles.flatTimeText, { color: theme.textMuted }]}>{task.time}</Text>
+            <Text style={[styles.flatTimeText, TabularNums, { color: theme.textMuted }]}>{task.time}</Text>
           )}
           <Text
             numberOfLines={1}
@@ -618,7 +618,7 @@ export default function PlanTaskCard({
             {task.title}
           </Text>
           {timed && task.taskType === 'time-box' && (
-            <Text style={[styles.durationText, { color: theme.textMuted }]}>–{minutesToLabel(timed.end)}</Text>
+            <Text style={[styles.durationText, TabularNums, { color: theme.textMuted }]}>–{minutesToLabel(timed.end)}</Text>
           )}
           {showAnytimeBadge ? (
             <View style={[styles.followerBadge, { backgroundColor: theme.surfaceMuted, borderColor: theme.border, borderWidth: 1 }]}>

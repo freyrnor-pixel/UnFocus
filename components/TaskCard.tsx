@@ -86,6 +86,16 @@
  *             onCommitNew fires.
  *
  * Edit notes:
+ *   - **Row rule (2026-07-28, design-system v6 `Checklist Redesign Options`)**: the collapsed
+ *     row is title + ONE right-hand value (the time, in `TabularNums` so the right edge lines
+ *     up row to row) on line 1, and ONE meta line (person · tags · goal dot) on line 2. Those
+ *     three used to sit inline with the title, competing with it for width — which is what
+ *     made a tagged, assigned task's name truncate at 360px. `hasMetaLine` gates line 2 and
+ *     its conditions MUST mirror the JSX gates below; add a meta element without adding it
+ *     there and the line silently won't render for a task that only has that one thing.
+ *     The meta line deliberately does NOT wrap (every child is width-capped) — a row must
+ *     never become three lines. The check circle and chevron stay on the right: they are
+ *     controls, not values, and moving them was explicitly out of that pass's scope.
  *   - There is no lock and no per-field immediate save for settings: the Discard/Save bar
  *     is the commit point. Only Shared-out, Then, and Delete bypass the draft outright;
  *     Steps bypass the draft for an existing task but are draft-buffered for `isNew`.
@@ -117,7 +127,7 @@ import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Contact, ContactField } from 'expo-contacts';
 import * as Contacts from 'expo-contacts';
-import { Fonts, FontSize, Radius, Spacing, Type, contrastOn, getElevation, rgba } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, TabularNums, Type, contrastOn, getElevation, rgba } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0, formatDisplayDate, todayStr } from '@/lib/date';
@@ -263,6 +273,16 @@ function TaskCard({
   const featureGoals = useSettingsStore((s) => s.featureGoals);
   const linkedGoal = useGoalStore((s) => (task.goalId ? s.goals.find((g) => g.id === task.goalId) ?? null : null));
   const goal = featureGoals ? linkedGoal : null;
+
+  // The row rule's ONE meta line (2026-07-28): person · tags · goal dot, rendered under the
+  // title only when at least one of them has something to draw — a plain task keeps its
+  // single-line row. Each condition mirrors the matching JSX gate exactly; if you add a
+  // meta element below, add it here too or the line won't render for a task that only has
+  // that one thing.
+  const hasMetaLine =
+    (showPeople && spec.showMeta && !!cuePerson) ||
+    (spec.showMeta && rowTags.length > 0) ||
+    (!!goal && spec.showExtras);
 
   const stepsOnly = variant === 'steps';
 
@@ -612,8 +632,15 @@ function TaskCard({
       >
         <GlowPulse active={editing} color={theme.accent} mode="breathe" radius={Radius.md} />
         {/* ── Collapsed row ── */}
-        {/* Anatomy (2026-07-13 redesign): [sent chip?] · title (flex) · assignee · time · ◯ circle · ⌄ chevron.
-            The done-circle sits to the RIGHT of the title and to the LEFT of the expand chevron. */}
+        {/* Anatomy (row rule, 2026-07-28 — design-system v6 `Checklist Redesign Options`):
+              line 1  [sent chip?] · title (flex) · time (the ONE right-hand value) · ◯ circle · ⌄ chevron
+              line 2  the ONE meta line — assignee · tags · goal dot
+            Everything that used to compete with the title on line 1 (person chip, up to
+            three tag pills, the goal dot) now sits on its own meta line, so the title has
+            the width it needs and the right edge is a single tabular-figure column that
+            lines up row to row. The done-circle stays to the RIGHT of the title and to the
+            LEFT of the chevron (2026-07-13 redesign) — those are controls, not values, and
+            moving them was not part of this pass. */}
         <View style={styles.row}>
           {sharedDirection === 'out' && (
             <View style={[styles.dirChip, { backgroundColor: railColor ? railColor : theme.surfaceMuted }]}>
@@ -635,47 +662,8 @@ function TaskCard({
             </Text>
           </PressableScale>
 
-          {goal && spec.showExtras ? (
-            <GoalGlowDot
-              color={goal.color}
-              strength={goal.strength}
-              strengthUpdatedAt={goal.strengthUpdatedAt}
-              size={10}
-            />
-          ) : null}
-
-          {/* Who it's for — the person's own colour as a dot, never as this card's border
-              (that channel is the domain hue). See lib/personColor.ts's header.
-              A rotating chore shows WHOSE TURN it is on this task's date, which is the
-              only honest answer: its fixed assigneeId is not who does it. The little
-              sync-ish glyph marks it as a turn rather than a permanent assignment. */}
-          {showPeople && spec.showMeta && cuePerson ? (
-            <View style={[styles.assigneeCue, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-              <PersonDot
-                color={personColor(cuePerson.color, people.indexOf(cuePerson))}
-                name={cuePerson.name}
-                size={14}
-              />
-              <Text style={[styles.assigneeCueText, { color: theme.textMuted }]} numberOfLines={1}>{cuePerson.name}</Text>
-              {rotating ? <Ionicons name="repeat" size={12} color={theme.textMuted} /> : null}
-            </View>
-          ) : null}
-
-          {/* Tags — word-only pills, capped at two so a heavily-tagged task can't push the
-              title onto a second line; the rest collapse into a "+N". See lib/tags.ts. */}
-          {spec.showMeta && rowTags.length ? (
-            <>
-              {rowTags.slice(0, ROW_TAG_LIMIT).map((tag) => (
-                <TagChip key={tag.id} label={tag.name} small />
-              ))}
-              {rowTags.length > ROW_TAG_LIMIT ? (
-                <TagChip label={t.tags.more(rowTags.length - ROW_TAG_LIMIT)} small />
-              ) : null}
-            </>
-          ) : null}
-
           {task.time && spec.showMeta ? (
-            <Text style={[styles.timeLabel, { color: theme.textMuted }]}>
+            <Text style={[styles.timeLabel, TabularNums, { color: theme.textMuted }]}>
               {task.finishTime ? `${task.time}–${task.finishTime}` : task.time}
             </Text>
           ) : null}
@@ -706,6 +694,55 @@ function TaskCard({
             </PressableScale>
           )}
         </View>
+
+        {/* ── The one meta line ── */}
+        {/* Renders only when it has something to say, so a bare task stays a single-line
+            row. Never wraps: the person chip has its own maxWidth, tags are capped at
+            ROW_TAG_LIMIT with a "+N" overflow pill, and the whole line is one non-wrapping
+            row — a task with a long name, three tags and an assignee must not grow a
+            third line. */}
+        {hasMetaLine && (
+          <View style={styles.metaLine}>
+            {/* Who it's for — the person's own colour as a dot, never as this card's border
+                (that channel is the domain hue). See lib/personColor.ts's header.
+                A rotating chore shows WHOSE TURN it is on this task's date, which is the
+                only honest answer: its fixed assigneeId is not who does it. The little
+                sync-ish glyph marks it as a turn rather than a permanent assignment. */}
+            {showPeople && spec.showMeta && cuePerson ? (
+              <View style={[styles.assigneeCue, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+                <PersonDot
+                  color={personColor(cuePerson.color, people.indexOf(cuePerson))}
+                  name={cuePerson.name}
+                  size={14}
+                />
+                <Text style={[styles.assigneeCueText, { color: theme.textMuted }]} numberOfLines={1}>{cuePerson.name}</Text>
+                {rotating ? <Ionicons name="repeat" size={12} color={theme.textMuted} /> : null}
+              </View>
+            ) : null}
+
+            {/* Tags — word-only pills, capped at two so a heavily-tagged task can't push the
+                meta line onto a second row; the rest collapse into a "+N". See lib/tags.ts. */}
+            {spec.showMeta && rowTags.length ? (
+              <>
+                {rowTags.slice(0, ROW_TAG_LIMIT).map((tag) => (
+                  <TagChip key={tag.id} label={tag.name} small />
+                ))}
+                {rowTags.length > ROW_TAG_LIMIT ? (
+                  <TagChip label={t.tags.more(rowTags.length - ROW_TAG_LIMIT)} small />
+                ) : null}
+              </>
+            ) : null}
+
+            {goal && spec.showExtras ? (
+              <GoalGlowDot
+                color={goal.color}
+                strength={goal.strength}
+                strengthUpdatedAt={goal.strengthUpdatedAt}
+                size={10}
+              />
+            ) : null}
+          </View>
+        )}
 
         {/* ── Steps-only expansion (Today / This week) ── */}
         {stepsOnly && hasSteps && (
@@ -1303,6 +1340,9 @@ const styles = StyleSheet.create({
   assigneeCueText: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
   card: { borderRadius: Radius.md, borderWidth: 1, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 40 },
+  // The one meta line. No flexWrap on purpose — see the JSX comment: every child is
+  // individually width-capped, so this must clip rather than grow a third line.
+  metaLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingBottom: 4, overflow: 'hidden' },
   circle: {
     width: 22,
     height: 22,

@@ -129,7 +129,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import type { FlightRect } from '@/components/FlightOverlay';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -330,7 +330,7 @@ function ShoppingRow({
             </Text>
             {priceTotal !== null && (
               <NewSinceGlow active={!!newFields?.price} tight>
-                <Text style={[styles.priceTotal, { color: dimmed ? theme.textMuted : theme.text }]}>
+                <Text style={[styles.priceTotal, TabularNums, { color: dimmed ? theme.textMuted : theme.text }]}>
                   {formatKr(priceTotal, 0)}
                 </Text>
               </NewSinceGlow>

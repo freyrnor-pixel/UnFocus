@@ -116,7 +116,7 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
-import { Fonts, FontSize, getElevation, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, getElevation, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { ThemePalette } from '@/constants/colors';
 import { useT } from '@/lib/i18n';
@@ -177,7 +177,7 @@ const CatalogueRow = React.memo(function CatalogueRow({
         {item.name}
       </Text>
       {item.price > 0 && (
-        <Text style={[styles.itemPrice, { color: theme.textMuted }]} onPress={() => onStartEdit(item)}>
+        <Text style={[styles.itemPrice, TabularNums, { color: theme.textMuted }]} onPress={() => onStartEdit(item)}>
           {formatKr(item.price, 0)}
         </Text>
       )}

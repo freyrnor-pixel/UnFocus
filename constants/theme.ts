@@ -18,6 +18,8 @@
  * subheading/body/bodyStrong/label/caption) — `size` still goes through `getFontSize`, `line`
  * is a lineHeight ratio. `FontSize.*` stays the base scale; not every call site is migrated
  * (see AGENTS.md's type-migration follow-up list).
+ * `TabularNums` (2026-07-28 row-rule pass) is the fixed-width-figures style for values that
+ * sit in a list row's right-hand column, so the column edge lines up row to row.
  *
  * Connections:
  *   Imports → —
@@ -251,6 +253,22 @@ export const Type = {
   label: { fontFamily: Fonts.semibold, size: 14, line: 1.30 },
   caption: { fontFamily: Fonts.medium, size: 13, line: 1.35 },
 } as const;
+
+/**
+ * Tabular (fixed-width) figures — the row rule's "right edge is a single column"
+ * (design-system v6 `Checklist Redesign Options`). Apply to any value that sits in a
+ * list row's right-hand slot (a time, a price, a count) so the digits occupy the same
+ * width on every row and the column's edge lines up instead of jittering between
+ * "1" and "11". Nunito ships the `tnum` feature, so this is a font-feature switch,
+ * not a font swap — it never changes the family, size or weight it's mixed into.
+ *
+ * Deliberately NOT applied to prose or to numbers inside a sentence: proportional
+ * figures read better there, and there's no column to align to.
+ */
+/* Not `as const`: React Native types `fontVariant` as a MUTABLE `FontVariant[]`, and a
+   `readonly [...]` tuple won't assign to it. This file stays import-free (see the header),
+   so the element type is written out rather than pulled from react-native's `TextStyle`. */
+export const TabularNums: { fontVariant: 'tabular-nums'[] } = { fontVariant: ['tabular-nums'] };
 
 export type ElevationLevel = 'flat' | 'raised' | 'floating';
 

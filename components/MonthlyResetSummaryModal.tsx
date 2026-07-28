@@ -32,7 +32,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
@@ -88,7 +88,7 @@ export default function MonthlyResetSummaryModal({ visible, summary, onClose }: 
                   <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
                   <Text style={[styles.itemMeta, { color: theme.textMuted }]}>{(item.purchasedAt ?? '').slice(0, 10)}</Text>
                   {item.price > 0 && (
-                    <Text style={[styles.itemPrice, { color: theme.textMuted }]}>{formatKr(item.price, 0)}</Text>
+                    <Text style={[styles.itemPrice, TabularNums, { color: theme.textMuted }]}>{formatKr(item.price, 0)}</Text>
                   )}
                 </View>
               ))}
@@ -102,7 +102,7 @@ export default function MonthlyResetSummaryModal({ visible, summary, onClose }: 
                     <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
                     <Text style={[styles.itemMeta, { color: theme.textMuted }]}>{(item.purchasedAt ?? '').slice(0, 10)}</Text>
                     {item.price > 0 && (
-                      <Text style={[styles.itemPrice, { color: theme.textMuted }]}>{formatKr(item.price, 0)}</Text>
+                      <Text style={[styles.itemPrice, TabularNums, { color: theme.textMuted }]}>{formatKr(item.price, 0)}</Text>
                     )}
                   </View>
                 ))}

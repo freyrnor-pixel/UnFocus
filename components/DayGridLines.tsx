@@ -33,7 +33,7 @@
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { DayScale, GUTTER_WIDTH, NOW_LABEL_WIDTH } from '@/lib/dayGrid';
@@ -67,7 +67,7 @@ export default function DayGridLines({ scale, now }: Props) {
       ))}
       {scale.hourMarks.map((mark) => (
         <View key={`h-${mark.hour}-${Math.round(mark.y)}`} style={[styles.hourRow, { top: mark.y }]}>
-          <Text style={[styles.hourLabel, { color: theme.textMuted }]}>{String(mark.hour).padStart(2, '0')}:00</Text>
+          <Text style={[styles.hourLabel, TabularNums, { color: theme.textMuted }]}>{String(mark.hour).padStart(2, '0')}:00</Text>
           <View style={[styles.hourLine, { backgroundColor: theme.border }]} />
         </View>
       ))}
