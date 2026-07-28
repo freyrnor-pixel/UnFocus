@@ -22,10 +22,13 @@ jest.mock('@/lib/db', () => ({
 }));
 
 describe('homeCardOrder', () => {
-  it('defaults to plans/habits/notes/shopping (To-do first, Habits right under it) when the settings row has no value', () => {
+  it('defaults to plans/habits/goals/notes/shopping when the settings row has no value', () => {
+    // Order is deliberate: To-do first, then the three things that feed it (habits, and the
+    // goals those habits and to-dos add up to), then notes and shopping. Goals joined the
+    // default set 2026-07-28 when they got a real surface.
     (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1 });
     useSettingsStore.getState().load();
-    expect(useSettingsStore.getState().homeCardOrder).toEqual(['plans', 'habits', 'notes', 'shopping']);
+    expect(useSettingsStore.getState().homeCardOrder).toEqual(['plans', 'habits', 'goals', 'notes', 'shopping']);
   });
 
   it('reads a persisted order back from the JSON column', () => {

@@ -831,7 +831,7 @@ const en = {
       done: 'Done',
       add: 'Add a card',
       remove: (label: string) => `Remove ${label}`,
-      kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping', habits: 'Habits' },
+      kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping', habits: 'Habits', goals: 'Goals' },
     },
   },
   health: {
@@ -938,6 +938,21 @@ const en = {
     deleteConfirmTitle: (name: string) => `Delete "${name}"?`,
     deleteConfirmBody: 'Tasks and habits linked to it will be unlinked. This cannot be undone.',
     strengthLabel: 'Goal momentum — grows as you work on it, gently fades when you don’t.',
+    // ── The Goals screen (app/goals.tsx) + its Home card, 2026-07-28 ──
+    // Wording rule for this whole group: a goal is NEVER failing, weak or neglected. One
+    // that hasn't been worked in a while has simply cooled back to neutral — lib/
+    // goalStrength.ts floors at 0 and is never driven below it — so the copy has to say
+    // that too, or the mechanic and the words disagree.
+    title: 'Goals',
+    strengthStrong: 'Going strong',
+    strengthWarm: 'Warming up',
+    strengthNeutral: 'Ready when you are',
+    linkedCount: (tasks: number, habits: number) =>
+      `${tasks} to-do${tasks !== 1 ? 's' : ''} · ${habits} habit${habits !== 1 ? 's' : ''}`,
+    lastWorked: (days: number) =>
+      days === 0 ? 'Worked on today' : days === 1 ? 'Last worked on yesterday' : `Last worked on ${days} days ago`,
+    neverWorked: 'Nothing linked yet',
+    seeAll: 'See all →',
   },
   // IFTTT-style automations
   automations: {
@@ -1366,6 +1381,10 @@ const en = {
       text: 'Quick notes you can send to shopping or plans.',
       example: '',
     },
+    goals: {
+      text: 'A goal is the bigger thing your to-dos and habits are for. Link them to one and watch it get stronger.',
+      example: 'A goal can be something you want less of too — link the things you do instead.',
+    },
   },
   /**
    * Empty-state explainers (components/StarterCard.tsx, 2026-07-26). Shown inline where the
@@ -1443,6 +1462,18 @@ const en = {
     // "Nothing" label), unlike its sibling Home cards. See HomeNotesCard.tsx.
     notes: {
       text: 'Note thoughts for later.',
+    },
+    goals: {
+      text: 'Goals are what your to-dos and habits add up to — including things you want less of.',
+      tapToAdd: 'Tap one to start:',
+      suggestions: {
+        rested: 'Be better rested',
+        moving: 'Move every day',
+        // The "less of" example. Deliberately phrased as the thing you're aiming at, not as
+        // a failure to avoid — see lib/goalStarters.ts.
+        cutBack: 'Less time on my phone',
+        together: 'More time with the people I love',
+      },
     },
   },
   // Medicine trays (2026-07-27) — the Health tab's dose card + app/medicine-form.tsx.
@@ -2085,6 +2116,16 @@ const no: typeof en = {
     deleteConfirmTitle: (name: string) => `Slette «${name}»?`,
     deleteConfirmBody: 'Oppgaver og vaner som er koblet til, blir frakoblet. Dette kan ikke angres.',
     strengthLabel: 'Måldriv — vokser når du jobber med det, avtar rolig når du ikke gjør det.',
+    title: 'Mål',
+    strengthStrong: 'Går sterkt',
+    strengthWarm: 'Er i gang',
+    strengthNeutral: 'Klart når du er det',
+    linkedCount: (tasks: number, habits: number) =>
+      `${tasks} gjøremål · ${habits} vane${habits !== 1 ? 'r' : ''}`,
+    lastWorked: (days: number) =>
+      days === 0 ? 'Jobbet med i dag' : days === 1 ? 'Sist jobbet med i går' : `Sist jobbet med for ${days} dager siden`,
+    neverWorked: 'Ingenting koblet ennå',
+    seeAll: 'Se alle →',
   },
   automations: {
     title: 'Automatiseringer',
@@ -2585,7 +2626,7 @@ const no: typeof en = {
       done: 'Ferdig',
       add: 'Legg til kort',
       remove: (label: string) => `Fjern ${label}`,
-      kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste', habits: 'Vaner' },
+      kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste', habits: 'Vaner', goals: 'Mål' },
     },
   },
   health: {
@@ -2774,6 +2815,10 @@ const no: typeof en = {
       text: 'Raske notater du kan sende til handleliste eller planer.',
       example: '',
     },
+    goals: {
+      text: 'Et mål er det større gjøremålene og vanene dine er til for. Koble dem til ett og se det bli sterkere.',
+      example: 'Et mål kan også være noe du vil ha mindre av — koble til det du gjør i stedet.',
+    },
   },
   starters: {
     exampleLabel: 'Eksempel',
@@ -2814,6 +2859,16 @@ const no: typeof en = {
     },
     notes: {
       text: 'Noter tanker til senere.',
+    },
+    goals: {
+      text: 'Mål er det gjøremålene og vanene dine går til sammen om — også ting du vil ha mindre av.',
+      tapToAdd: 'Trykk på en for å starte:',
+      suggestions: {
+        rested: 'Bli mer uthvilt',
+        moving: 'Være i bevegelse hver dag',
+        cutBack: 'Mindre tid på telefonen',
+        together: 'Mer tid med dem jeg er glad i',
+      },
     },
   },
   medicine: {

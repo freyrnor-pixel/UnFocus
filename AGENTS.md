@@ -84,13 +84,42 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 - **Onboarding** (`app/onboarding/*`): language → privacy → guided/explore → intro (short icon-per-feature tour) → features ("what do you want to use?" picker — Sharing & QR and Automations only, see below) → index (name, finishes onboarding) → home. The Explore path skips the tour/picker/name and goes straight to home on the same defaults. The old setup steps (work mode / shopping days / notifications / handedness) were removed — those settings now default and are taught in context: each tab screen's ⓘ hint auto-expands on first visit (via `lib/useFirstVisitHint.ts` + `settings.seenScreenHints`) with the relevant control embedded (weekly/monthly reset on Shopping, notification opt-in on Home). Handedness stays in Settings only.
 - **Empty-state explainers** (`components/StarterCard.tsx`, 2026-07-26; extended 2026-07-27): a second, more visible teaching layer than the ⓘ hint — a short explanation plus one concrete example row, rendered inline where content would be while a surface is empty, and gone once the user has their own (gated on a plain `length === 0`, so it also returns if they delete everything). Live on Habits (plus four one-tap starter habits from `lib/habitStarters.ts`), Plans, Shopping and Health, and — since 2026-07-27 — on the **Home preview cards** too: the day-view card (`components/PlanTaskCard.tsx`) and the shopping card (`components/HomeShoppingCard.tsx`) each render their own explainer + suggested-add row *inside* the card, without a StarterCard wrapper (a Surface inside a Surface reads as a nested panel). Copy lives under `starters.*` in `lib/i18n.ts`; each one's core message is also in the matching `hints.*.example`, which is where it stays reachable after the card disappears. The StarterCard shell is styled with a **neutral** `theme.border` Surface, deliberately NOT the accent-barred HintCard look — on a first visit both are on screen at once and twins would read as a duplicate — while `components/StarterExampleRow.tsx` (the suggestion itself) deliberately DOES copy the surrounding list's real row styling (accent wash + accent edge), so a suggestion reads as a row of that list rather than a callout about one. **The Energy meter is the exception**: its explainer is a permanent one-line hint inside its own card (`t.energyMeter.hint`), not a disappearing StarterCard — as a separate card between Energy and the to-do card it read as belonging to the to-do card, and an explanation that self-destructs isn't there when you come back to the number months later.
 - **Medicine trays** (2026-07-27, `components/MedicineTrayCard.tsx` + `app/medicine-form.tsx` + `store/useMedicineStore.ts` + `lib/medicineSchedule.ts` + `lib/medicineNotifications.ts`): the Health tab's first card. Medicine is organised into four **trays** — morning/midday/evening/night — deliberately NOT exact per-medicine clock times: a tray is a *window*, so a dose taken at 11:40 is still a morning dose and an untaken one reads "still due", never "missed" (the same no-shame framing as habits' rest days; keep any new copy on that side of it). One reminder per tray, shared by its medicines, with a **Taken** action button that logs the whole tray from the notification shade (`'medicine-reminder'` category, next to the existing `'task-reminder'` one). As-needed (PRN) medicines belong to no tray and are guarded by a minimum gap + optional daily cap instead (`asNeededState`) — nothing ever nudges you to take one. Per-person via People/family mode (`child_name`, same convention as tasks/habits). `health_logs.medicine_id` optionally attributes a symptom entry to a medicine ("this ADHD med gives me stomach issues"), picked in `app/health-form.tsx`'s "Possibly from" row and surfaced on that medicine's own page. Gated on `settings.featureMedicine` (on by default, still a real toggle). **Deliberately NOT in the AI setup guide** — medicine names/doses are the most sensitive rows in the DB, and the guide already refuses health-log data. Stock/refill tracking is a known follow-up, not built.
+- **The row rule + matte buttons** (2026-07-28, from design-system v6's `Checklist Redesign
+  Options` / `Focus First (1c)` / `handoff/BUTTONS.md` — the only parts of that bundle that
+  post-date the rebuild; the rest of it describes the pre-rebuild app and is dead).
+  - **Row anatomy**: check → title → ONE meta line → ONE right-hand value. `TaskCard`'s
+    person chip, tags and goal dot moved off the title line onto their own meta line (gated
+    by `hasMetaLine`, which must mirror the JSX gates); the right-hand value carries
+    `TabularNums` (`constants/theme.ts`) so a column of times/prices/counts lines up row to
+    row. Row dividers inset past the check (`ROW_DIVIDER_INSET`, exported from `ShoppingRow`).
+    **NOT taken from that spec**: dropping the accent stripe / category-as-a-dot — the
+    gradient badge, keycap edge and domain ramp stay (maintainer's call, #390/#393/#410).
+  - **Shopping quantity is an input, not a value**: it READS in the row's leading cluster and
+    is EDITED in `components/ShoppingItemSheet.tsx` (a row-body tap). That sheet is also the
+    only editor for a weekly item's unit/price/category. `onIncrement`/`onDecrement` on
+    `ShoppingRow` are gone — `onOpenDetail` replaced them.
+  - **Matte finish**: there is no specular highlight any more (removed — it read as gloss;
+    `__tests__/glassMaterial.test.ts` asserts the token is GONE, not merely dimmed). The face
+    lift is 10% white gone by 42% plus a 4% bottom shade; the rim is a flat white .22 that
+    stops at 12%. Don't raise these back — that is exactly the "too glossy, too rounded
+    towards the user" state the maintainer rejected.
+  - **Press = sink, not shrink**: `PressableScale`'s `travel` (px, from `Travel.*` in
+    `constants/motion.ts`) translates a cap down into a base; `sunk` is the stays-pressed
+    "on" state (active tab, active IconButton). A caller passing `travel` must also draw a
+    base — see `Button.tsx`'s `keyBase` — or the cap sinks into nothing. Note `style` moves
+    to the wrapper on that path.
 - **Card layouts + the "what was hidden" glow** (2026-07-27, `lib/cardLayout.ts` +
   `lib/useSurfaceLayout.ts` + `lib/viewSnapshot.ts` + `lib/useNewSinceSeen.ts` +
   `components/LayoutPickerSheet.tsx` + `components/NewSinceGlow.tsx`): list-bearing surfaces
   can be drawn at three shared detail levels — **Just the basics / Normal / Show everything**
   (`settings.layoutDetail`, the global default in Settings → Personal → Layout) — plus
-  surface-specific shapes: **In the store** (Shopping: big rows, names only, no money) and
-  **Now and next** (Plans: only the current + next task, rest behind "The rest").
+  surface-specific shapes: **In the store** (Shopping: big rows, names only, no money, and
+  since 2026-07-28 grouped by aisle — a `groupByAisle` flag that a test pins to this layout
+  alone, because every other layout keeps the order the user dragged rows into), **Now and
+  next** (Plans: only the current + next task, rest behind "The rest") and **One thing at a
+  time** (Plans, 2026-07-28 — v6's `Focus First (1c)`: a Next up hero, a Later row of three
+  tappable count chips, a short Then list, then the day's done count; it also hides the
+  Whenever section, whose count is the third chip).
   Per-surface overrides live in `settings.cardLayouts` (JSON `{surface: layoutId}`, same
   storage shape as `home_card_order`) and are picked from the surface's own header icon, not
   from Settings. Layout names describe the *situation* you'd want them in, never the
@@ -149,6 +178,20 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
     (This week groups by day and All tasks by kind, so both keep their own grouping). A
     `SectionCard` hue is the one place `lib/personColor.ts` permits the identity colour
     beyond an avatar dot.
+- **Goals — and where "cutting back" lives** (2026-07-28, `app/goals.tsx` +
+  `components/HomeGoalsCard.tsx` + `lib/goalStarters.ts`, over the pre-existing
+  `store/useGoalStore.ts` + `lib/goalStrength.ts`). Design-system v6 proposed a "Cutting
+  back" section on Habits (negative habits, a "Log a slip" button, a best-stretch counter).
+  **That was rejected**: habits stay positive-only — no negative kind, no slip logging, no
+  broken streak — and something you want to do LESS of is expressed as a **Goal** ("Less time
+  on my phone") whose linked tasks/habits are the replacement behaviour. This needs no new
+  column: the title carries the direction, and the existing strength mechanic already rises
+  on progress and cools back toward neutral, **never below** (`goalStrength.ts` floors at 0),
+  so there is no state in which a goal is failing. Goals previously had no surface at all
+  (picker-only, plus a glow dot); they now have a screen + Home card showing three
+  fine-to-be-in strength bands, what's linked, and when it was last worked — deliberately no
+  fourth, worse band. One starter goal is a cutting-back one and a test asserts it stays,
+  with wording on the aiming-at side, since that's the only place the pattern is taught.
 - **Settings** (`app/settings.tsx`): three tabs — **General** (profile, appearance, accessibility, account/backup, version, reset), **Personal** (notifications, shopping cadence, layout, device features), **Advanced** (the Features card, People/family, paired devices, Freyr-mode, debug). Reorganized 2026-07-25 from four tabs; see that file's header for the full before/after.
 - **Feature flags** (2026-07-25, defaults revised same day): three states, not one.
   - **On by default, still a real toggle** (Settings → Advanced → Features): `energySystemEnabled` (Energy system), `featureGoals` (Goals) and `featureMedicine` (Medicine trays, 2026-07-27). Not offered in the onboarding picker — "opt in from nothing" doesn't fit a feature that's already on. Turning `featureMedicine` off must actually CANCEL its four tray reminders, not just hide the card — `app/settings.tsx`'s `applyAndSync` re-syncs them on that key.
