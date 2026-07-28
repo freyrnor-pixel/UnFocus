@@ -29,7 +29,10 @@
  *             the header share icon's push to /share-modal), lib/date,
  *             lib/domainColor, lib/haptics,
  *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, store/useTaskStore,
- *             store/useSettingsStore
+ *             store/useSettingsStore, store/usePeopleStore + components/PersonChip (the person
+ *             filter row), store/useTagStore + components/TagChip + lib/tags (the tag filter
+ *             row — multi-select, "any of"), components/EnergyBalanceCard (the shared-load
+ *             comparison, People mode only, day/week tabs only)
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx;
  *             also reached with `?tab=all&expandTaskId=…` from app/notes.tsx's "Add to plans"
  *             (UX audit B1, 2026-07-23 — creates the task, then lands here with its editor open)
@@ -144,6 +147,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { usePeopleStore } from '@/store/usePeopleStore';
 import PersonChip from '@/components/PersonChip';
 import TagChip from '@/components/TagChip';
+import EnergyBalanceCard from '@/components/EnergyBalanceCard';
 import { useTagStore } from '@/store/useTagStore';
 import { matchesTagFilter, toggleTagId } from '@/lib/tags';
 import { personColor } from '@/lib/personColor';
@@ -635,6 +639,10 @@ export default function TasksScreen() {
             ))}
           </View>
         </Collapsible>
+
+        {/* Shared load (2026-07-28) — only once there's somebody to compare against, and
+            only on the day/week tabs it actually reports on ("All" spans no period). */}
+        {showPeople && tab !== 'all' && <EnergyBalanceCard date={today} />}
 
         {/* Tag filter — only worth a row once tags exist, so it stays out of the way on a
             list that doesn't use them. Multi-select ("any of"), unlike the person row. */}

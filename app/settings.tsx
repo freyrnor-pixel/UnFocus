@@ -463,6 +463,27 @@ export default function SettingsScreen() {
     if (keys.some((k) => ['language', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'featureMedicine'].includes(k))) {
       syncMedicineNotifs();
     }
+    // Energy capacity is ALSO a fact about a person, not just a device setting: the
+    // household balance card (components/EnergyBalanceCard.tsx) measures everyone against
+    // their own capacity, so without this the self row would sit at usePeopleStore's 10/50
+    // default forever and every comparison against it would be wrong.
+    if (keys.some((k) => ['energyMode', 'energyDailyCapacity', 'energyWeeklyCapacity', 'energyCustomCapacities'].includes(k))) {
+      publishSelfCapacity();
+    }
+  }
+
+  /**
+   * Push this device's RESOLVED Energy capacity onto the self person row. 'custom' mode
+   * has no single daily number — it's seven per-weekday amounts — so the day figure is
+   * their mean, which is the only value that stays consistent with the week's sum.
+   * Reads the store after `update()` so it always publishes the new value, not the old.
+   */
+  function publishSelfCapacity() {
+    const s = useSettingsStore.getState();
+    const customTotal = s.energyCustomCapacities.reduce((sum, n) => sum + n, 0);
+    const daily = s.energyMode === 'custom' ? Math.round(customTotal / 7) : s.energyDailyCapacity;
+    const weekly = s.energyMode === 'custom' ? customTotal : s.energyWeeklyCapacity;
+    usePeopleStore.getState().publishSelfCapacity(daily, weekly);
   }
 
   function confirmReset(label: string, action: () => void) {
@@ -1294,7 +1315,7 @@ export default function SettingsScreen() {
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.energy.modeLabel}</Text>
                   <SegmentedControl
                     value={settings.energyMode}
-                    onChange={(v) => settings.update({ energyMode: v as EnergyMode })}
+                    onChange={(v) => applyAndSync({ energyMode: v as EnergyMode })}
                     options={[
                       { value: 'daily', label: t.settings.energy.modeDaily },
                       { value: 'weekly', label: t.settings.energy.modeWeekly },
@@ -1306,7 +1327,7 @@ export default function SettingsScreen() {
                       <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.dailyCapacity}</Text>
                       <Stepper
                         value={settings.energyDailyCapacity}
-                        onChange={(n) => settings.update({ energyDailyCapacity: n })}
+                        onChange={(n) => applyAndSync({ energyDailyCapacity: n })}
                         min={0}
                       />
                     </View>
@@ -1316,7 +1337,7 @@ export default function SettingsScreen() {
                       <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.energy.weeklyCapacity}</Text>
                       <Stepper
                         value={settings.energyWeeklyCapacity}
-                        onChange={(n) => settings.update({ energyWeeklyCapacity: n })}
+                        onChange={(n) => applyAndSync({ energyWeeklyCapacity: n })}
                         min={0}
                       />
                     </View>
@@ -1332,7 +1353,7 @@ export default function SettingsScreen() {
                             onChange={(n) => {
                               const next = [...settings.energyCustomCapacities];
                               next[i] = n;
-                              settings.update({ energyCustomCapacities: next });
+                              applyAndSync({ energyCustomCapacities: next });
                             }}
                             min={0}
                           />

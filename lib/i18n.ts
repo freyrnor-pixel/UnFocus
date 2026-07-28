@@ -639,6 +639,18 @@ const en = {
     /** Count cue when a row has more tags than it can draw. */
     more: (n: number) => `+${n}`,
   },
+  energyBalance: {
+    title: 'Shared load',
+    day: 'Today',
+    week: 'This week',
+    /** Energy left if everything booked happens, against their own capacity. */
+    projected: (left: number, capacity: number) => `${left} / ${capacity}`,
+    /** Their habits live on their own phone and habits don't sync — the bar is a floor. */
+    tasksOnly: 'Tasks only — their habits stay on their phone',
+    /** Deliberately never says anyone is doing too little. See the card's header. */
+    lopsided: (name: string) => `${name} is carrying most of this. Moving one thing would even it out.`,
+    shared: 'This looks evenly shared.',
+  },
   habitCategories: {
     physical: 'Physical',
     mental: 'Mental',
@@ -2316,6 +2328,15 @@ const no: typeof en = {
     removeBody: 'Oppgavene beholder alt annet — de mister bare denne merkelappen.',
     filterAll: 'Alle merkelapper',
     more: (n: number) => `+${n}`,
+  },
+  energyBalance: {
+    title: 'Delt belastning',
+    day: 'I dag',
+    week: 'Denne uka',
+    projected: (left: number, capacity: number) => `${left} / ${capacity}`,
+    tasksOnly: 'Kun oppgaver — vanene deres ligger på deres egen telefon',
+    lopsided: (name: string) => `${name} bærer mesteparten av dette. Å flytte én ting ville jevnet det ut.`,
+    shared: 'Dette ser jevnt fordelt ut.',
   },
   habitCategories: {
     physical: 'Fysisk',
