@@ -113,6 +113,9 @@ import {
   HabitReminderMode,
 } from '@/store/useHabitStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { usePeopleStore } from '@/store/usePeopleStore';
+import PersonChip from '@/components/PersonChip';
+import { personColor } from '@/lib/personColor';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0 } from '@/lib/date';
@@ -183,7 +186,7 @@ export default function HabitForm() {
   const addHabit = useHabitStore((s) => s.add);
   const updateHabit = useHabitStore((s) => s.update);
   const removeHabit = useHabitStore((s) => s.remove);
-  const childProfiles = useSettingsStore((s) => s.childProfiles);
+  const people = usePeopleStore((s) => s.people);
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
   const featureGoals = useSettingsStore((s) => s.featureGoals);
 
@@ -361,31 +364,25 @@ export default function HabitForm() {
           />
         </View>
 
-        {/* For — profile assignment */}
-        {peopleModeEnabled && childProfiles.length > 0 && (
+        {/* For — person assignment. The roster comes from the People registry now, but
+            habits still STORE a name (`childName`): they don't sync between devices, so a
+            name is sufficient here and avoids a second id migration. See the People note
+            in store/usePeopleStore.ts. */}
+        {peopleModeEnabled && people.length > 1 && (
           <View style={styles.field}>
             <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitForLabel}</Text>
             <View style={styles.chipRow}>
-              {(['', ...childProfiles] as string[]).map((name) => {
-                const active = childName === name;
+              {people.map((person, index) => {
+                const value = person.isSelf ? '' : person.name;
                 return (
-                  <PressableScale
-                    key={name || '__me__'}
-                    style={[
-                      styles.chip,
-                      { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                      active && { backgroundColor: theme.accent, borderColor: theme.accent },
-                    ]}
-                    onPress={() => {
-                      tap();
-                      setChildName(name);
-                    }}
-                    scaleTo={0.97}
-                  >
-                    <Text style={[styles.chipText, { color: theme.text }, active && { color: theme.accentInk }]}>
-                      {name || t.habitForMe}
-                    </Text>
-                  </PressableScale>
+                  <PersonChip
+                    key={person.id}
+                    label={person.isSelf ? person.name || t.habitForMe : person.name}
+                    name={person.name}
+                    color={personColor(person.color, index)}
+                    selected={childName === value}
+                    onPress={() => { tap(); setChildName(value); }}
+                  />
                 );
               })}
             </View>

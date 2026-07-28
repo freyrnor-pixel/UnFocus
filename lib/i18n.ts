@@ -602,16 +602,24 @@ const en = {
   habitForLabel: 'For',
   habitForMe: 'Me',
   // People / family mode (2026-07-12 redesign) — one settings toggle that shows the
-  // person selector in Tasks + Habits. Profiles are managed in Settings.
+  // person selector in Tasks + Habits. People are managed in Settings.
+  // 2026-07-28: backed by the People registry (store/usePeopleStore.ts) instead of a list
+  // of names, so everyone has a colour and keeps their tasks through a rename.
   peopleMode: {
     label: 'People / family',
     hint: 'Assign tasks and habits to the people in your household.',
-    profilesHint: 'Add the people you want to assign tasks and habits to. Tap a name to remove it.',
+    profilesHint: 'Add the people you want to assign tasks and habits to. Tap a colour to change it.',
     addPlaceholder: 'Name',
     addButton: 'Add person',
     removeTitle: (name: string) => `Remove ${name}?`,
     removeBody: "Their tasks and habits won't be deleted — they move back to you.",
     filterAll: 'Everyone',
+    /** Row label for the person representing this device's owner. */
+    you: 'You',
+    /** Shown under someone whose phone is paired — their side updates by itself. */
+    linkedDevice: 'Synced with their phone',
+    /** Shown under someone with no paired phone — you keep their side up to date yourself. */
+    onThisPhone: 'Kept on this phone',
   },
   habitCategories: {
     physical: 'Physical',
@@ -2268,12 +2276,15 @@ const no: typeof en = {
   peopleMode: {
     label: 'Personer / familie',
     hint: 'Tildel oppgaver og vaner til personene i husstanden.',
-    profilesHint: 'Legg til personene du vil tildele oppgaver og vaner til. Trykk på et navn for å fjerne det.',
+    profilesHint: 'Legg til personene du vil tildele oppgaver og vaner til. Trykk på en farge for å endre den.',
     addPlaceholder: 'Navn',
     addButton: 'Legg til person',
     removeTitle: (name: string) => `Fjerne ${name}?`,
     removeBody: 'Oppgavene og vanene deres slettes ikke — de flyttes tilbake til deg.',
     filterAll: 'Alle',
+    you: 'Deg',
+    linkedDevice: 'Synkronisert med telefonen deres',
+    onThisPhone: 'Holdes oppdatert på denne telefonen',
   },
   habitCategories: {
     physical: 'Fysisk',

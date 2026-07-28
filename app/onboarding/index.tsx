@@ -44,6 +44,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
+import { usePeopleStore } from '@/store/usePeopleStore';
 import { requestPermissions } from '@/lib/notifications';
 import { syncReminders } from '@/lib/reminders';
 import { todayStr } from '@/lib/date';
@@ -70,6 +71,9 @@ export default function OnboardingName() {
       // "haven't reset this period yet", covering the first-visit ⓘ hint underneath it.
       lastMonthlyReset: todayStr(),
     });
+    // The People registry's self row was created nameless during the app bootstrap —
+    // that runs before this screen exists — so this is where it learns who you are.
+    usePeopleStore.getState().publishSelfName(name.trim());
     // Notifications default OFF (no notification step). If a flag ended up enabled,
     // request the OS permission as a safety net; either way, schedule reminders.
     if (settings.taskNotificationsEnabled || settings.remindersEnabled) {

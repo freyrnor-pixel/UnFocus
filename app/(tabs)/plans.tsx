@@ -141,6 +141,9 @@ import { tap, success } from '@/lib/haptics';
 import { PLAN_STARTER_STEPS, PLAN_STARTER_TIME, PLAN_STARTER_FINISH_TIME } from '@/lib/taskStarters';
 import { Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { usePeopleStore } from '@/store/usePeopleStore';
+import PersonChip from '@/components/PersonChip';
+import { personColor } from '@/lib/personColor';
 import { FontSize, Radius, Spacing, Type } from '@/constants/theme';
 import { Spring } from '@/constants/motion';
 import { getDomainColor } from '@/lib/domainColor';
@@ -271,11 +274,16 @@ function DoneSplitList({
 function InlineTaskAdd({
   date,
   accent,
+  assigneeId = '',
   assignee = '',
   wrapped,
 }: {
   date: string;
   accent: string;
+  /** Person the new task belongs to — the active filter, so adding while filtered to
+   *  someone puts the row where the user is looking rather than back on themselves. */
+  assigneeId?: string;
+  /** Denormalised name mirror written alongside assigneeId (see Task.assignee). */
   assignee?: string;
   wrapped?: boolean;
 }) {
@@ -301,10 +309,11 @@ function InlineTaskAdd({
       monthWeekday: 0,
       sortOrder: 0,
       hasStartDate: true,
+      assigneeId,
       assignee,
     });
     setValue('');
-  }, [value, date, assignee, addTask]);
+  }, [value, date, assigneeId, assignee, addTask]);
 
   const row = (
     <AddRow
@@ -372,8 +381,10 @@ export default function TasksScreen() {
   const handleToggleDone = useCallback((task: Task) => toggle(task.id), [toggle]);
 
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
-  const childProfiles = useSettingsStore((s) => s.childProfiles);
-  const showPeople = peopleModeEnabled && childProfiles.length > 0;
+  // People registry (2026-07-28) — the self row always exists, so >1 is what actually means
+  // "there is somebody else to filter by".
+  const people = usePeopleStore((s) => s.people);
+  const showPeople = peopleModeEnabled && people.length > 1;
   // Sharing is opt-in (Settings → Advanced → Features), off on a fresh install — it hides
   // the shared-tasks section below. Tasks already shared stay in the store untouched.
   const featureSharing = useSettingsStore((s) => s.featureSharing);
@@ -383,7 +394,7 @@ export default function TasksScreen() {
   // same thing WITH a tappable example row, so auto-opening the ⓘ on top of it stacked two
   // instruction panels above four more empty-state messages. The ⓘ button still opens it.
   const [hintOpen, setHintOpen] = useFirstVisitHint('plans', false);
-  // Person filter (People/family mode): null = Everyone, '' = Me, name = that profile.
+  // Person filter (People/family mode): null = Everyone, otherwise a person id.
   const [personFilter, setPersonFilter] = useState<string | null>(null);
   // Inline "add a row" input for the Whenever section — the one add affordance on this screen.
   const [wheneverInput, setWheneverInput] = useState('');
@@ -402,10 +413,18 @@ export default function TasksScreen() {
   const today = todayStr();
 
   // Person filter predicate — identity unless People/family mode is on AND a specific
-  // person (not "Everyone") is selected.
+  // person (not "Everyone") is selected. An empty assigneeId means "mine": that covers
+  // rows written before the People back-fill, rows a peer created without assigning, and
+  // rows whose person was removed — none of which should vanish from every filter.
+  const selfPersonId = people.find((p) => p.isSelf)?.id ?? '';
+  // What a row added while filtered should be assigned to. The name mirror stays '' for
+  // the self person, matching the pre-registry convention that '' meant "me".
+  const filterPerson = personFilter ? people.find((p) => p.id === personFilter) ?? null : null;
+  const addAssigneeName = filterPerson && !filterPerson.isSelf ? filterPerson.name : '';
   const matchPerson = useCallback(
-    (tk: Task) => !showPeople || personFilter === null || (tk.assignee || '') === personFilter,
-    [showPeople, personFilter]
+    (tk: Task) =>
+      !showPeople || personFilter === null || (tk.assigneeId || selfPersonId) === personFilter,
+    [showPeople, personFilter, selfPersonId]
   );
 
   const weekDates = useMemo(() => getWeekDates(today), [today]);
@@ -584,25 +603,25 @@ export default function TasksScreen() {
           />
         )}
 
-        {/* Person filter (People/family mode) — Everyone + Me + each profile. */}
+        {/* Person filter (People/family mode) — Everyone + one chip per person, each in
+            that person's own colour so the row doubles as a legend for the list below. */}
         <Collapsible open={showPeople}>
           <View style={styles.personFilterRow}>
-            {([null, '', ...childProfiles] as (string | null)[]).map((p) => {
-              const active = personFilter === p;
-              const label = p === null ? t.peopleMode.filterAll : p === '' ? t.habitForMe : p;
-              return (
-                <PressableScale
-                  key={p === null ? '__all__' : p || '__me__'}
-                  style={[styles.personChip, { backgroundColor: active ? theme.accent : theme.surfaceMuted, borderColor: active ? theme.accent : theme.border }]}
-                  onPress={() => setPersonFilter(p)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  scaleTo={0.96}
-                >
-                  <Text style={[styles.personChipText, { color: active ? theme.accentInk : theme.text }]}>{label}</Text>
-                </PressableScale>
-              );
-            })}
+            <PersonChip
+              label={t.peopleMode.filterAll}
+              selected={personFilter === null}
+              onPress={() => setPersonFilter(null)}
+            />
+            {people.map((person, index) => (
+              <PersonChip
+                key={person.id}
+                label={person.isSelf ? person.name || t.habitForMe : person.name}
+                name={person.name}
+                color={personColor(person.color, index)}
+                selected={personFilter === person.id}
+                onPress={() => setPersonFilter(person.id)}
+              />
+            ))}
           </View>
         </Collapsible>
 
@@ -677,7 +696,7 @@ export default function TasksScreen() {
                   tasks={todayList}
                   emptyText={t.noPlansToday}
                   focusMode={layoutSpec.focusMode}
-                  footer={<InlineTaskAdd date={today} accent={theme.accent} assignee={personFilter ?? ''} wrapped />}
+                  footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
                   renderCard={(tk) => (
                     <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
                   )}
@@ -709,7 +728,7 @@ export default function TasksScreen() {
                   tasks={[...group.tasks].sort(byTime)}
                   emptyText={t.tasksDayEmpty}
                   focusMode={layoutSpec.focusMode}
-                  footer={<InlineTaskAdd date={group.date} accent={theme.accent} assignee={personFilter ?? ''} wrapped />}
+                  footer={<InlineTaskAdd date={group.date} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
                   renderCard={(tk) => (
                     <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
                   )}

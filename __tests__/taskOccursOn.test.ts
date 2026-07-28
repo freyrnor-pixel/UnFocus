@@ -51,7 +51,7 @@ function task(overrides: Partial<Task>): Task {
     followsTaskId: null,
     hasStartDate: false,
     sharedOut: false,
-    assignee: '',
+    assignee: '', assigneeId: '', createdByPersonId: '',
     steps: [],
     ...overrides,
   } as Task;

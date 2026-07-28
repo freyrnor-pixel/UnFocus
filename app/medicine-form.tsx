@@ -50,6 +50,9 @@ import { showAppModal } from '@/components/AppModal';
 import { useMedicineStore } from '@/store/useMedicineStore';
 import { useHealthStore } from '@/store/useHealthStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { usePeopleStore } from '@/store/usePeopleStore';
+import PersonChip from '@/components/PersonChip';
+import { personColor } from '@/lib/personColor';
 import { useT } from '@/lib/i18n';
 import { getWeekDates, todayStr } from '@/lib/date';
 import { heavy, tap, warning } from '@/lib/haptics';
@@ -73,7 +76,7 @@ export default function MedicineFormScreen() {
   const removeMedicine = useMedicineStore((s) => s.remove);
   const healthLogs = useHealthStore((s) => s.logs);
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
-  const childProfiles = useSettingsStore((s) => s.childProfiles);
+  const people = usePeopleStore((s) => s.people);
 
   const t = useT();
   const theme = useAppTheme();
@@ -268,33 +271,25 @@ export default function MedicineFormScreen() {
             </View>
           )}
 
-          {/* For — profile assignment (People/family mode), same chips as app/habit-form.tsx. */}
-          {peopleModeEnabled && childProfiles.length > 0 && (
+          {/* For — person assignment (People/family mode), same chips as app/habit-form.tsx.
+              Medicines store a NAME, not a person id: they never sync (medicine rows are the
+              most sensitive in the DB and are deliberately outside SyncTable), so there is
+              no second device that could disagree about who "Sam" is. */}
+          {peopleModeEnabled && people.length > 1 && (
             <View style={styles.field}>
               <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.personLabel}</Text>
               <View style={styles.chipRow}>
-                {(['', ...childProfiles] as string[]).map((profile) => {
-                  const isActive = childName === profile;
+                {people.map((person, index) => {
+                  const value = person.isSelf ? '' : person.name;
                   return (
-                    <PressableScale
-                      key={profile || '__me__'}
-                      style={[
-                        styles.chip,
-                        { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                        isActive && { backgroundColor: theme.accent, borderColor: theme.accent },
-                      ]}
-                      onPress={() => {
-                        tap();
-                        setChildName(profile);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: isActive }}
-                      scaleTo={0.97}
-                    >
-                      <Text style={[styles.chipText, { color: theme.text }, isActive && { color: theme.accentInk }]}>
-                        {profile || t.medicine.forMe}
-                      </Text>
-                    </PressableScale>
+                    <PersonChip
+                      key={person.id}
+                      label={person.isSelf ? person.name || t.medicine.forMe : person.name}
+                      name={person.name}
+                      color={personColor(person.color, index)}
+                      selected={childName === value}
+                      onPress={() => { tap(); setChildName(value); }}
+                    />
                   );
                 })}
               </View>
