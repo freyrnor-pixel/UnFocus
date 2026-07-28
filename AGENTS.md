@@ -114,6 +114,41 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
     (snapshotting an unloaded store saves "nothing visible" and then glows everything); and
     add any new layout/glow prop to `ShoppingRow`'s `React.memo` comparator, or a layout
     change won't repaint the list.
+- **To-do sharing: People, tags, shared load, rotation** (2026-07-28, phases 1–4). Four
+  pieces that together make a to-do list something two phones can actually divide.
+  - **People registry** (`store/usePeopleStore.ts` + `lib/personColor.ts` +
+    `components/PersonChip.tsx`) — the synced `people` table replaced
+    `settings.childProfiles` (a `string[]` of names that a rename silently orphaned).
+    `tasks.assignee_id` is who a task is FOR, `created_by_person_id` who it came FROM;
+    both sync, and neither is `origin_device_id`, which is the LAST WRITER and so flips
+    the moment the other person ticks the task. **`is_self` is deliberately NOT syncable**
+    — a peer's self row arriving with `is_self=1` gives the receiver two "me" rows. The
+    `childProfiles` back-fill is a one-shot gated on `app_meta` and **cannot be re-run**.
+  - **Tags** (`lib/tags.ts` + `store/useTagStore.ts` + `components/TagChip.tsx`) — a synced
+    `tags` table; membership is `tasks.tag_ids`, one comma-separated column, **not a join
+    table** (liveSync replicates a row+column, so a join table would need its own
+    SyncTable, tombstones and per-pair LWW race). **A tag has no colour**: the card border,
+    the status rail, the person dot and the goal glow have already claimed every channel a
+    task row can carry — tags are told apart by their word. Create only via `ensure()`,
+    which name-matches case/spacing-insensitively.
+  - **Shared load** (`lib/personEnergy.ts` + `components/EnergyBalanceCard.tsx`) — per-person
+    Energy on the To-do tab. It compares **pressure (load ÷ that person's OWN capacity)**,
+    never raw point totals: capacities differ on purpose, so ranking by absolute load would
+    punish whoever set an honest lower number. **Habits don't sync**, so a person with their
+    own paired phone is `tasksOnly` and their row says so rather than under-counting
+    silently. There is deliberately no "you're behind" state.
+  - **Rotation** (`lib/taskRotation.ts`) — `rotation` / `rotation_person_ids` /
+    `rotation_anchor` on tasks, per day/week/month. **Whose turn it is is DERIVED from the
+    date, never stored**: both phones compute the same answer, so no device ever writes
+    "advance the turn" for LWW to lose or double-apply. Never recompute `rotation_anchor`
+    on an existing task — it reshuffles every past and future turn. Ask
+    `effectiveAssigneeId(task, date)`, never `task.assigneeId`, or rotation is ignored.
+    A removed person keeps their roster slot (dropping it re-indexes everyone after them).
+  - **"By person" layout** — a `plans`-only layout id in `lib/cardLayout.ts` whose
+    `groupByPerson` flag regroups **the Today tab** into one person-hued `SectionCard` each
+    (This week groups by day and All tasks by kind, so both keep their own grouping). A
+    `SectionCard` hue is the one place `lib/personColor.ts` permits the identity colour
+    beyond an avatar dot.
 - **Settings** (`app/settings.tsx`): three tabs — **General** (profile, appearance, accessibility, account/backup, version, reset), **Personal** (notifications, shopping cadence, layout, device features), **Advanced** (the Features card, People/family, paired devices, Freyr-mode, debug). Reorganized 2026-07-25 from four tabs; see that file's header for the full before/after.
 - **Feature flags** (2026-07-25, defaults revised same day): three states, not one.
   - **On by default, still a real toggle** (Settings → Advanced → Features): `energySystemEnabled` (Energy system), `featureGoals` (Goals) and `featureMedicine` (Medicine trays, 2026-07-27). Not offered in the onboarding picker — "opt in from nothing" doesn't fit a feature that's already on. Turning `featureMedicine` off must actually CANCEL its four tray reminders, not just hide the card — `app/settings.tsx`'s `applyAndSync` re-syncs them on that key.

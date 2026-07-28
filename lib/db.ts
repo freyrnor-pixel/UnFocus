@@ -952,6 +952,17 @@ export function initDb() {
     // its own LWW race for every (task,tag) pair. One column means retagging is one
     // LWW write — the loser of a simultaneous edit loses their retag, not the task.
     "ALTER TABLE tasks ADD COLUMN tag_ids TEXT DEFAULT ''",
+    // Rotation (2026-07-28, to-do sharing phase 4) — a recurring chore that takes turns.
+    // Whose turn it is is DERIVED from the date (lib/taskRotation.ts), never stored and
+    // never written on a schedule: both phones compute the same answer from the same three
+    // columns, so there is no "advance the turn" write for LWW to lose or double-apply.
+    //
+    // `rotation_anchor` is the date turn 0 belongs to, captured when rotation is switched
+    // on. It must not be recomputed later — moving the anchor reshuffles every past and
+    // future turn at once.
+    "ALTER TABLE tasks ADD COLUMN rotation TEXT DEFAULT 'none'",
+    "ALTER TABLE tasks ADD COLUMN rotation_person_ids TEXT DEFAULT ''",
+    "ALTER TABLE tasks ADD COLUMN rotation_anchor TEXT DEFAULT ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

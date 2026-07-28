@@ -14,8 +14,9 @@
  * both sit at 0.8 while carrying very different absolute loads, and that's correct.
  *
  * Connections:
- *   Imports → lib/energy (the single-budget helpers this reuses), store type imports
- *             (Task/Habit/HabitLog/Person)
+ *   Imports → lib/energy (the single-budget helpers this reuses), lib/date (getWeekDates),
+ *             lib/taskRotation (effectiveAssigneeId — a rotating chore's owner changes by
+ *             the day), store type imports (Task/Habit/HabitLog/Person)
  *   Used by → components/EnergyBalanceCard.tsx, lib/__tests__/personEnergy.test.ts
  *   Data    → none (pure functions over arrays the caller already has)
  *
@@ -43,6 +44,8 @@ import {
   plannedEnergyDeltaForDay,
   plannedEnergyDeltaForWeek,
 } from '@/lib/energy';
+import { getWeekDates } from '@/lib/date';
+import { effectiveAssigneeId } from '@/lib/taskRotation';
 import type { Task } from '@/store/useTaskStore';
 import type { Habit, HabitLog } from '@/store/useHabitStore';
 import type { Person } from '@/store/usePeopleStore';
@@ -74,9 +77,20 @@ export type PersonEnergyRow = {
   tasksOnly: boolean;
 };
 
-/** Tasks belonging to a person. '' assignee means "me" — see the edit note. */
-export function matchTasks(tasks: readonly Task[], person: Person, selfPersonId: string): Task[] {
-  return tasks.filter((t) => (t.assigneeId || selfPersonId) === person.id);
+/**
+ * Tasks belonging to a person ON A GIVEN DATE. '' assignee means "me" (see the edit note),
+ * and a rotating chore belongs to whoever holds the turn that day — which is why this takes
+ * a date at all. Partitioning once for a whole week would hand every day of a daily
+ * rotation to the same person, i.e. manufacture exactly the imbalance the card exists to
+ * detect.
+ */
+export function matchTasks(
+  tasks: readonly Task[],
+  person: Person,
+  selfPersonId: string,
+  date: string,
+): Task[] {
+  return tasks.filter((t) => (effectiveAssigneeId(t, date) || selfPersonId) === person.id);
 }
 
 /**
@@ -122,18 +136,31 @@ export function personEnergy(
   habitLogs: readonly HabitLog[],
   selfPersonId: string,
 ): PersonEnergyRow {
-  const mine = matchTasks(tasks, person, selfPersonId);
   const myHabits = matchHabits(habits, person);
   const capacity = period === 'day' ? person.dailyCapacity : person.weeklyCapacity;
 
-  const appliedDelta =
+  // TASKS are summed day by day, re-asking who owns each one on that day, so a rotating
+  // chore lands on a different person across the week exactly as it will in real life.
+  const dates = period === 'day' ? [date] : getWeekDates(date);
+  let appliedDelta = 0;
+  let plannedDelta = 0;
+  for (const d of dates) {
+    const mine = matchTasks(tasks, person, selfPersonId, d);
+    appliedDelta += energyDeltaForDay(d, mine, [], []);
+    plannedDelta += plannedEnergyDeltaForDay(d, mine, []);
+  }
+
+  // HABITS don't rotate, and the week helpers already handle `weekly-flexible` correctly
+  // (counted once for the week, not once per day) — so they go through those rather than
+  // being folded into the per-day loop above, which would over-count them up to 7x.
+  appliedDelta +=
     period === 'day'
-      ? energyDeltaForDay(date, mine, myHabits, habitLogs as HabitLog[])
-      : energyDeltaForWeek(date, mine, myHabits, habitLogs as HabitLog[]);
-  const plannedDelta =
+      ? energyDeltaForDay(date, [], myHabits, habitLogs as HabitLog[])
+      : energyDeltaForWeek(date, [], myHabits, habitLogs as HabitLog[]);
+  plannedDelta +=
     period === 'day'
-      ? plannedEnergyDeltaForDay(date, mine, myHabits)
-      : plannedEnergyDeltaForWeek(date, mine, myHabits);
+      ? plannedEnergyDeltaForDay(date, [], myHabits)
+      : plannedEnergyDeltaForWeek(date, [], myHabits);
 
   return {
     personId: person.id,

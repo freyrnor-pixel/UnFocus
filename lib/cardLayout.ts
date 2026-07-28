@@ -42,7 +42,7 @@ export type LayoutSurface = 'shopping' | 'plans' | 'notes' | 'health';
 export type DetailLevel = 'basic' | 'normal' | 'everything';
 
 /** Every layout id known to the app. */
-export type LayoutId = DetailLevel | 'inStore' | 'nowNext';
+export type LayoutId = DetailLevel | 'inStore' | 'nowNext' | 'byPerson';
 
 export const DETAIL_LEVELS: readonly DetailLevel[] = ['basic', 'normal', 'everything'] as const;
 
@@ -55,7 +55,7 @@ export const FALLBACK_LAYOUT: DetailLevel = 'normal';
  */
 export const SURFACE_LAYOUTS: Record<LayoutSurface, readonly LayoutId[]> = {
   shopping: ['basic', 'normal', 'everything', 'inStore'],
-  plans: ['basic', 'normal', 'everything', 'nowNext'],
+  plans: ['basic', 'normal', 'everything', 'nowNext', 'byPerson'],
   notes: ['basic', 'normal', 'everything'],
   health: ['basic', 'normal', 'everything'],
 };
@@ -81,6 +81,12 @@ export type LayoutSpec = {
   focusMode: boolean;
   /** Oversized rows and hit targets for one-handed use while walking around. */
   bigTouch: boolean;
+  /**
+   * Re-group the list under whoever each row is for, instead of its usual sections. Only
+   * surfaces that HAVE a per-person notion honour it; everywhere else it's simply false,
+   * which is why it's optional rather than another positional arg to `spec()`.
+   */
+  groupByPerson?: boolean;
 };
 
 const spec = (
@@ -104,6 +110,10 @@ export const LAYOUT_SPECS: Record<LayoutId, LayoutSpec> = {
   inStore: spec('inStore', 'roomy', false, false, false, false, true),
   // "Now and next" — the current item large, the next one small, the rest behind a count.
   nowNext: spec('nowNext', 'normal', true, false, false, true, false),
+  // "By person" — the normal row, re-grouped under whoever each task is for. Same detail
+  // as `normal` on purpose: this layout changes the GROUPING, not what a row shows, so it
+  // stays readable next to the other four rather than being a second axis of density.
+  byPerson: { ...spec('byPerson', 'normal', true, true, false), groupByPerson: true },
 };
 
 /** True when `id` is a layout this surface actually offers. */

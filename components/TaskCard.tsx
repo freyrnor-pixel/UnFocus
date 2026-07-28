@@ -120,7 +120,7 @@ import * as Contacts from 'expo-contacts';
 import { Fonts, FontSize, Radius, Spacing, Type, contrastOn, getElevation, rgba } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { dayOfWeekMon0, formatDisplayDate } from '@/lib/date';
+import { dayOfWeekMon0, formatDisplayDate, todayStr } from '@/lib/date';
 import { energyStepperValue, energyFieldsFromStepper } from '@/lib/energy';
 import { tap, warning } from '@/lib/haptics';
 import { generateId } from '@/lib/id';
@@ -130,8 +130,9 @@ import { usePeopleStore } from '@/store/usePeopleStore';
 import PersonChip, { PersonDot } from '@/components/PersonChip';
 import TagChip from '@/components/TagChip';
 import TagPickerRow from '@/components/TagPickerRow';
-import { resolveTags } from '@/lib/tags';
+import { resolveTags, toggleTagId } from '@/lib/tags';
 import { useTagStore } from '@/store/useTagStore';
+import { isRotating, rotationAssigneeFor, type RotationMode } from '@/lib/taskRotation';
 import { personColor } from '@/lib/personColor';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import NewSinceGlow from '@/components/NewSinceGlow';
@@ -248,6 +249,13 @@ function TaskCard({
   // synced yet simply doesn't draw rather than showing a raw id. See lib/tags.ts.
   const allTags = useTagStore((s) => s.tags);
   const rowTags = resolveTags(task.tagIds, allTags);
+  // Rotation (2026-07-28) — whose turn it is on the task's own date. Derived, never
+  // stored: see lib/taskRotation.ts for why nothing writes an "advance the turn".
+  const turnPersonId = rotationAssigneeFor(task, task.date || todayStr());
+  const turnPerson = people.find((p) => p.id === turnPersonId) ?? null;
+  const rotating = isRotating(task);
+  // The row draws the turn-holder when rotating, the fixed assignee otherwise.
+  const cuePerson = rotating ? turnPerson : assignedPerson;
   // Goals — the linked goal (if any), for the living-glow dot next to the title. Gated on
   // settings.featureGoals (opt-in, off for fresh installs): when off, both the dot and the
   // GoalPicker below stay hidden. An existing task's goalId is left alone either way, so
@@ -267,6 +275,17 @@ function TaskCard({
   const [newStep, setNewStep] = useState('');
   // Buffered edits (full variant only). Initialised from the task on first expand.
   const [draft, setDraft] = useState<Task>(task);
+  // The EDITOR previews the draft's rotation, not the saved row's — switching "Take turns"
+  // on would otherwise show a nameless turn until Save, since `task` is still un-rotated.
+  const draftTurnPerson =
+    people.find((p) => p.id === rotationAssigneeFor(draft, draft.date || todayStr())) ?? null;
+  // Your own turn gets its own sentence: feeding the "Me" fallback into `turn(name)`
+  // produces "Me's turn", which is not a sentence in either language.
+  const turnLine = !draftTurnPerson
+    ? ''
+    : draftTurnPerson.isSelf
+      ? t.rotation.turnYou
+      : t.rotation.turn(draftTurnPerson.name);
   // Advanced options (Energy/Hint/Contact/Location/Goal/Then — ported from the retired
   // app/task-form.tsx, UX audit B1/F3, 2026-07-23): collapsed by default, one reveal
   // toggle, same progressive-disclosure pattern as the rest of this editor.
@@ -626,15 +645,19 @@ function TaskCard({
           ) : null}
 
           {/* Who it's for — the person's own colour as a dot, never as this card's border
-              (that channel is the domain hue). See lib/personColor.ts's header. */}
-          {showPeople && spec.showMeta && assignedPerson ? (
+              (that channel is the domain hue). See lib/personColor.ts's header.
+              A rotating chore shows WHOSE TURN it is on this task's date, which is the
+              only honest answer: its fixed assigneeId is not who does it. The little
+              sync-ish glyph marks it as a turn rather than a permanent assignment. */}
+          {showPeople && spec.showMeta && cuePerson ? (
             <View style={[styles.assigneeCue, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
               <PersonDot
-                color={personColor(assignedPerson.color, people.indexOf(assignedPerson))}
-                name={assignedPerson.name}
+                color={personColor(cuePerson.color, people.indexOf(cuePerson))}
+                name={cuePerson.name}
                 size={14}
               />
-              <Text style={[styles.assigneeCueText, { color: theme.textMuted }]} numberOfLines={1}>{assignedPerson.name}</Text>
+              <Text style={[styles.assigneeCueText, { color: theme.textMuted }]} numberOfLines={1}>{cuePerson.name}</Text>
+              {rotating ? <Ionicons name="repeat" size={12} color={theme.textMuted} /> : null}
             </View>
           ) : null}
 
@@ -773,6 +796,63 @@ function TaskCard({
                     />
                   ))}
                 </View>
+              </View>
+            )}
+
+            {/* Take turns — a chore that rotates instead of belonging to one person. Only
+                offered when there IS somebody to rotate with. Turning it on captures
+                today as the anchor; it is never recomputed afterwards, because moving the
+                anchor reshuffles every past and future turn (lib/taskRotation.ts). */}
+            {showPeople && (
+              <View style={styles.forRow}>
+                <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.rotation.label}</Text>
+                <View style={styles.forChips}>
+                  {(['none', 'daily', 'weekly', 'monthly'] as RotationMode[]).map((mode) => (
+                    <PersonChip
+                      key={mode}
+                      label={t.rotation[mode === 'none' ? 'off' : mode]}
+                      selected={(draft.rotation ?? 'none') === mode}
+                      onPress={() => {
+                        tap();
+                        patch({
+                          rotation: mode,
+                          rotationAnchor: draft.rotationAnchor || todayStr(),
+                          // Seed the roster with everyone, so switching it on does
+                          // something visible instead of needing a second step.
+                          rotationPersonIds:
+                            draft.rotationPersonIds?.length
+                              ? draft.rotationPersonIds
+                              : people.map((p) => p.id),
+                        });
+                      }}
+                    />
+                  ))}
+                </View>
+                {(draft.rotation ?? 'none') !== 'none' && (
+                  <>
+                    <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.rotation.rosterLabel}</Text>
+                    <View style={styles.forChips}>
+                      {people.map((person, index) => (
+                        <PersonChip
+                          key={person.id}
+                          label={person.isSelf ? person.name || t.habitForMe : person.name}
+                          name={person.name}
+                          color={personColor(person.color, index)}
+                          selected={(draft.rotationPersonIds ?? []).includes(person.id)}
+                          onPress={() => {
+                            tap();
+                            patch({ rotationPersonIds: toggleTagId(draft.rotationPersonIds ?? [], person.id) });
+                          }}
+                        />
+                      ))}
+                    </View>
+                    <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>
+                      {(draft.rotationPersonIds ?? []).length > 1
+                        ? turnLine
+                        : t.rotation.needsTwo}
+                    </Text>
+                  </>
+                )}
               </View>
             )}
 

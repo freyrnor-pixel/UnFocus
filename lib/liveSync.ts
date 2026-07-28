@@ -63,6 +63,11 @@ const TABLE_COLUMNS: Record<SyncTable, string[]> = {
     // string — see lib/db.ts's `tag_ids` migration for why membership is a column
     // rather than a join table.
     'tag_ids',
+    // Rotation is a rule, not a result: these three columns are the whole state, and whose
+    // turn it is falls out of the date. Syncing the RULE means both phones agree on every
+    // turn forever; syncing a "current assignee" would have needed a periodic write and an
+    // LWW race over it. See lib/taskRotation.ts.
+    'rotation', 'rotation_person_ids', 'rotation_anchor',
   ],
   shopping_items: [
     'name', 'amount', 'unit', 'list_type', 'checked', 'store', 'price', 'created_at', 'list_id',

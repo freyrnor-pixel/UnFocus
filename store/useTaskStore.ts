@@ -138,6 +138,7 @@ import { generateId } from '@/lib/id';
 import { dateStr } from '@/lib/date';
 import { taskOccursOn } from '@/lib/taskRecurrence';
 import { parseTagIds, serializeTagIds } from '@/lib/tags';
+import { sanitizeRotationMode, type RotationMode } from '@/lib/taskRotation';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useSharedStore } from '@/store/useSharedStore';
@@ -210,6 +211,16 @@ export type Task = {
    *  opaque string; see lib/tags.ts for the parse/serialise rules and lib/db.ts's
    *  migration for why membership isn't a join table. */
   tagIds: string[];
+  /** Rotation (2026-07-28) — 'none' | 'daily' | 'weekly' | 'monthly'. Whose turn it is is
+   *  DERIVED from the date by lib/taskRotation.ts, never stored: both phones compute the
+   *  same answer, so no periodic "advance the turn" write exists for LWW to lose. */
+  rotation: RotationMode;
+  /** Rotation roster — ordered person ids taking turns. A removed person keeps their slot;
+   *  dropping it would re-index everyone after them and change every future turn. */
+  rotationPersonIds: string[];
+  /** Rotation anchor — the 'YYYY-MM-DD' that turn 0 belongs to, captured when rotation is
+   *  switched on. Never recompute it for an existing task (see lib/taskRotation.ts). */
+  rotationAnchor: string;
   /** Goals (2026-07-23) — id of the Goal this task is connected to, or null. Set through
    *  the normal add/update payload (a plain nullable pointer, like a form field). Completing
    *  the task nudges that goal's strength up — see toggle()/completeDirect(). */
@@ -256,6 +267,9 @@ export type TaskInput = {
   assigneeId?: string;
   createdByPersonId?: string;
   tagIds?: string[];
+  rotation?: RotationMode;
+  rotationPersonIds?: string[];
+  rotationAnchor?: string;
   goalId?: string | null;
   contactName?: string;
   contactPhone?: string;
@@ -404,6 +418,11 @@ function rowToTask(row: Row): Task {
     assigneeId: readStr(row, 'assignee_id', ''),
     createdByPersonId: readStr(row, 'created_by_person_id', ''),
     tagIds: parseTagIds(readStr(row, 'tag_ids', '')),
+    rotation: sanitizeRotationMode(readStr(row, 'rotation', 'none')),
+    // The roster reuses the tag-id list format — same comma-separated column shape, same
+    // total-by-design parse, and it arrives from another device just as tag_ids does.
+    rotationPersonIds: parseTagIds(readStr(row, 'rotation_person_ids', '')),
+    rotationAnchor: readStr(row, 'rotation_anchor', ''),
     goalId: readStr(row, 'goal_id') || null,
     contactName: readStr(row, 'contact_name') || undefined,
     contactPhone: readStr(row, 'contact_phone') || undefined,
@@ -441,6 +460,9 @@ const TASK_COLUMNS: FieldMap<Task> = {
   assigneeId: { col: 'assignee_id', to: (v) => v ?? '' },
   createdByPersonId: { col: 'created_by_person_id', to: (v) => v ?? '' },
   tagIds: { col: 'tag_ids', to: (v) => serializeTagIds((v as string[]) ?? []) },
+  rotation: { col: 'rotation', to: (v) => sanitizeRotationMode(v) },
+  rotationPersonIds: { col: 'rotation_person_ids', to: (v) => serializeTagIds((v as string[]) ?? []) },
+  rotationAnchor: { col: 'rotation_anchor', to: (v) => v ?? '' },
   goalId: { col: 'goal_id', to: (v) => v ?? null },
   contactName: { col: 'contact_name', to: (v) => v ?? null },
   contactPhone: { col: 'contact_phone', to: (v) => v ?? null },
@@ -565,6 +587,9 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       assigneeId: t.assigneeId ?? '',
       createdByPersonId: t.createdByPersonId ?? '',
       tagIds: parseTagIds((t.tagIds ?? []).join(',')),
+      rotation: sanitizeRotationMode(t.rotation),
+      rotationPersonIds: parseTagIds((t.rotationPersonIds ?? []).join(',')),
+      rotationAnchor: t.rotationAnchor ?? '',
       goalId: t.goalId ?? null,
       // duration_minutes is derived from Start→Finish so the Home day-view keeps working.
       durationMinutes: deriveDurationMinutes(t.time, t.finishTime) ?? t.durationMinutes,

@@ -651,6 +651,23 @@ const en = {
     lopsided: (name: string) => `${name} is carrying most of this. Moving one thing would even it out.`,
     shared: 'This looks evenly shared.',
   },
+  rotation: {
+    label: 'Take turns',
+    off: 'Off',
+    daily: 'Each day',
+    weekly: 'Each week',
+    monthly: 'Each month',
+    /** Who is in the rotation, in order. */
+    rosterLabel: 'In this order',
+    /** Whose turn it is on the day being viewed. */
+    turn: (name: string) => `${name}'s turn`,
+    /** Same line when the turn is YOURS — "Me's turn" is not a sentence. */
+    turnYou: 'Your turn',
+    /** A rotation with fewer than two people can never change hands. */
+    needsTwo: 'Pick at least two people for this to take turns.',
+    /** Section header for tasks nobody is assigned. */
+    unassigned: 'Anyone',
+  },
   habitCategories: {
     physical: 'Physical',
     mental: 'Mental',
@@ -1035,6 +1052,10 @@ const en = {
       nowNext: {
         label: 'Now and next',
         hint: 'Only what you are doing and what follows it. The rest stays tucked away.',
+      },
+      byPerson: {
+        label: 'By person',
+        hint: "Split Today into one section per person — whose turn it is included. This week and All tasks keep their own grouping.",
       },
     },
     // Settings screen top-level tab labels — kept short on purpose: TabSlider has no
@@ -2128,6 +2149,10 @@ const no: typeof en = {
         label: 'Nå og neste',
         hint: 'Bare det du holder på med og det som kommer etter. Resten ligger skjult.',
       },
+      byPerson: {
+        label: 'Per person',
+        hint: 'Del I dag i én seksjon per person — med hvem sin tur det er. Denne uka og Alle oppgaver beholder sin egen gruppering.',
+      },
     },
     tabs: {
       general: 'Generelt',
@@ -2337,6 +2362,18 @@ const no: typeof en = {
     tasksOnly: 'Kun oppgaver — vanene deres ligger på deres egen telefon',
     lopsided: (name: string) => `${name} bærer mesteparten av dette. Å flytte én ting ville jevnet det ut.`,
     shared: 'Dette ser jevnt fordelt ut.',
+  },
+  rotation: {
+    label: 'Bytt på',
+    off: 'Av',
+    daily: 'Hver dag',
+    weekly: 'Hver uke',
+    monthly: 'Hver måned',
+    rosterLabel: 'I denne rekkefølgen',
+    turn: (name: string) => `${name} sin tur`,
+    turnYou: 'Din tur',
+    needsTwo: 'Velg minst to personer for at dette skal gå på omgang.',
+    unassigned: 'Hvem som helst',
   },
   habitCategories: {
     physical: 'Fysisk',

@@ -32,7 +32,8 @@ function task(o: Partial<Task>): Task {
     monthDay: 1, monthOrdinal: 'first', monthWeekday: 0, energyEnabled: false,
     energyValue: 1, sortOrder: 0, hint: '', followsTaskId: null, hasStartDate: true,
     sharedOut: false, assignee: '', assigneeId: '', createdByPersonId: '',
-    tagIds: [], steps: [], ...o,
+    tagIds: [], rotation: 'none', rotationPersonIds: [], rotationAnchor: '',
+    steps: [], ...o,
   } as Task;
 }
 
@@ -64,14 +65,14 @@ describe('matchTasks', () => {
     // Covers pre-back-fill rows, rows a peer created without assigning, and rows whose
     // person was removed — none of which should drop out of the household total.
     const tasks = [task({ id: 'a', assigneeId: '' })];
-    expect(matchTasks(tasks, ME, 'me').map((t) => t.id)).toEqual(['a']);
-    expect(matchTasks(tasks, PARTNER, 'me')).toEqual([]);
+    expect(matchTasks(tasks, ME, 'me', DAY).map((t) => t.id)).toEqual(['a']);
+    expect(matchTasks(tasks, PARTNER, 'me', DAY)).toEqual([]);
   });
 
   it('routes an explicitly assigned task to that person only', () => {
     const tasks = [task({ id: 'a', assigneeId: 'partner' })];
-    expect(matchTasks(tasks, PARTNER, 'me').map((t) => t.id)).toEqual(['a']);
-    expect(matchTasks(tasks, ME, 'me')).toEqual([]);
+    expect(matchTasks(tasks, PARTNER, 'me', DAY).map((t) => t.id)).toEqual(['a']);
+    expect(matchTasks(tasks, ME, 'me', DAY)).toEqual([]);
   });
 });
 
@@ -161,6 +162,56 @@ describe('personEnergy', () => {
     const pairedRow = personEnergy(DAY, 'day', paired, [], habits, NO_LOGS, 'me');
     expect(pairedRow.plannedDelta).toBe(0);
     expect(pairedRow.tasksOnly).toBe(true);
+  });
+});
+
+describe('rotation splits the load across the week', () => {
+  // The case the per-day partition exists for: a daily-rotating chore must NOT dump the
+  // whole week onto whoever happens to hold today's turn — that would manufacture exactly
+  // the imbalance this card is supposed to detect.
+  const chore = task({
+    id: 'bins',
+    recurring: 'daily',
+    hasStartDate: false,
+    energyEnabled: true,
+    energyValue: -1,
+    rotation: 'daily',
+    rotationPersonIds: ['me', 'partner'],
+    rotationAnchor: '2026-07-13', // Monday
+  });
+
+  it('gives each person their own days, not the whole week', () => {
+    const rows = householdEnergy(DAY, 'week', [ME, PARTNER], [chore], [], NO_LOGS);
+    const mine = rows.find((r) => r.personId === 'me')!;
+    const theirs = rows.find((r) => r.personId === 'partner')!;
+    // Mon–Sun is 7 days: turns alternate 4/3 from a Monday anchor.
+    expect(mine.plannedDelta).toBe(-4);
+    expect(theirs.plannedDelta).toBe(-3);
+    expect(mine.plannedDelta + theirs.plannedDelta).toBe(-7);
+  });
+
+  it('attributes a single day to whoever holds that day\'s turn', () => {
+    // 2026-07-14 is the Tuesday — turn index 1, the partner.
+    const tue = householdEnergy('2026-07-14', 'day', [ME, PARTNER], [chore], [], NO_LOGS);
+    expect(tue.find((r) => r.personId === 'partner')!.plannedDelta).toBe(-1);
+    expect(tue.find((r) => r.personId === 'me')!.plannedDelta).toBe(0);
+    // …and the Monday to me.
+    const mon = householdEnergy('2026-07-13', 'day', [ME, PARTNER], [chore], [], NO_LOGS);
+    expect(mon.find((r) => r.personId === 'me')!.plannedDelta).toBe(-1);
+    expect(mon.find((r) => r.personId === 'partner')!.plannedDelta).toBe(0);
+  });
+
+  it('reports a rotating chore as balanced, where a fixed one is lopsided', () => {
+    const rotated = householdEnergy(DAY, 'week', [ME, PARTNER], [chore], [], NO_LOGS);
+    const fixed = householdEnergy(
+      DAY,
+      'week',
+      [ME, PARTNER],
+      [task({ ...chore, rotation: 'none', rotationPersonIds: [], assigneeId: 'partner' })],
+      [],
+      NO_LOGS,
+    );
+    expect(energyImbalance(rotated)).toBeLessThan(energyImbalance(fixed));
   });
 });
 
