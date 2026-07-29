@@ -6,6 +6,13 @@
  * inside components/GoalPicker.tsx, and the only place one appeared afterwards was a small
  * glow dot on a linked row. A goal you can't see isn't encouragement.
  *
+ * **No longer a Home card (2026-07-29, user report: Home had too many lists).** Goals had a
+ * Home preview card (components/HomeGoalsCard.tsx, 2026-07-28) for exactly one day — it's
+ * deleted now. Goals are reached from Habits and Plans instead (a "Goals" link button, same
+ * idea as Shopping's Food/Catalogue links), since that's where a goal is actually worked —
+ * this screen itself is unchanged, still the one place to see every goal's strength and what
+ * points at it.
+ *
  * **This is also where "cutting back" lives.** Habits in this app are positive-only — there
  * is no negative-habit kind, no "log a slip", no broken-streak state, and none is planned.
  * Something you want to do LESS of is expressed as a Goal ("Less time on my phone"), and the
@@ -22,14 +29,17 @@
  *             lib/goalStarters, lib/goalStrength (decayedStrength), lib/haptics, lib/i18n,
  *             lib/useAppTheme, lib/useFirstVisitHint, store/useGoalStore, store/useTaskStore,
  *             store/useHabitStore (linked counts only)
- *   Used by → Expo Router route "/goals", reached from components/HomeGoalsCard.tsx's title
+ *   Used by → Expo Router route "/goals", reached from a "Goals" SubScreenLinkButton on
+ *             app/(tabs)/habits.tsx and app/(tabs)/plans.tsx (2026-07-29 — Goals dropped its
+ *             own Home card, components/HomeGoalsCard.tsx, deleted; see below)
  *   Data    → reads/writes useGoalStore (goals table) via add/rename/remove; reads
  *             useTaskStore/useHabitStore only to COUNT what points at each goal. Schedules
  *             nothing.
  *
  * Edit notes:
- *   - Gated on `settings.featureGoals` at its CALL SITE (the Home card), not here — this
- *     screen stays reachable by direct route so an existing deep link never dead-ends.
+ *   - Gated on `settings.featureGoals` at its CALL SITEs (the Habits/Plans link buttons),
+ *     not here — this screen stays reachable by direct route so an existing deep link
+ *     never dead-ends.
  *   - Deleting a goal unlinks every task and habit pointing at it (useGoalStore.remove does
  *     that in one transaction). The confirm copy already says so — keep it.
  *   - Strength shown is always `decayedStrength(...)`, never the raw stored value. See
