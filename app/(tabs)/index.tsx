@@ -129,7 +129,6 @@ import HomeNotesCard from '@/components/HomeNotesCard';
 import HomeSharedCard from '@/components/HomeSharedCard';
 import HomeShoppingCard from '@/components/HomeShoppingCard';
 import HomeHabitsCard from '@/components/HomeHabitsCard';
-import HomeGoalsCard from '@/components/HomeGoalsCard';
 import HomeCardManager from '@/components/HomeCardManager';
 import FlightOverlay, { FlightPill, Flight, FlightRect } from '@/components/FlightOverlay';
 import HintCard from '@/components/HintCard';
@@ -161,7 +160,11 @@ import { computeSpendPace } from '@/lib/budget';
 // 'habits' sits right after 'plans' (2026-07-28, user report: "Habits card must be added
 // to home screen under to-do") — this order is also the fallback default whenever a
 // persisted homeCardOrder is empty/corrupt (see sanitizeHomeCardOrder below).
-const HOME_CARD_KINDS = ['plans', 'habits', 'goals', 'notes', 'shopping'] as const;
+// 'goals' was dropped 2026-07-29 (user report: Home had too many lists) — Goals no
+// longer has a Home card at all; sanitizeHomeCardOrder below drops a leftover 'goals'
+// entry from anyone's already-persisted order for free (unknown kinds are filtered).
+// See app/goals.tsx's header for the screen's new entry points (Habits, Plans).
+const HOME_CARD_KINDS = ['plans', 'habits', 'notes', 'shopping'] as const;
 type HomeCardKind = (typeof HOME_CARD_KINDS)[number];
 
 /** Defensive parse for the persisted order: drop unknown/duplicate kinds, fall back to the default order if the result is empty (corrupt/legacy row). */
@@ -243,8 +246,6 @@ export default function HomeScreen() {
   // Scan & receipts used to gate the spend-vs-budget pace line the same way, but is now
   // always on (2026-07-25 defaults revision) — see the `pace` prop further down.
   const featureSharing = useSettingsStore((s) => s.featureSharing);
-  // Goals card gate (2026-07-28). On by default, still a real toggle — Settings → Advanced.
-  const featureGoals = useSettingsStore((s) => s.featureGoals);
 
   const hasIncomingShared =
     featureSharing &&
@@ -278,11 +279,8 @@ export default function HomeScreen() {
       plans: t.home.manageCards.kinds.plans,
       shopping: t.home.manageCards.kinds.shopping,
       habits: t.home.manageCards.kinds.habits,
-      // Only offered in the add-picker while the feature is on, so turning Goals off can't
-      // leave a card in the picker that renders nothing when added.
-      ...(featureGoals ? { goals: t.home.manageCards.kinds.goals } : {}),
     }),
-    [t, featureGoals]
+    [t]
   );
 
   useFocusEffect(
@@ -498,15 +496,6 @@ export default function HomeScreen() {
             <HomeHabitsCard />
           </DebugNoteAnchor>
         );
-      case 'goals':
-        // Gated at the CALL SITE, never inside the card or the store: turning the Goals
-        // feature off hides the surface and leaves every goal and every task/habit link
-        // completely untouched, so turning it back on restores all of it.
-        return featureGoals ? (
-          <DebugNoteAnchor id="home.goalsPreview" label="Home — Goals preview" style={styles.section}>
-            <HomeGoalsCard />
-          </DebugNoteAnchor>
-        ) : null;
       case 'shopping':
         return (
           <DebugNoteAnchor id="home.shoppingPreview" label="Home — Shopping preview" style={styles.section}>

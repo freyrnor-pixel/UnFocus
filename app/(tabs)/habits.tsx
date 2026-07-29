@@ -20,7 +20,8 @@
  *             (first-run explainer), components/StarterExampleRow (habits empty-state
  *             preview row), components/SlideSelector,
  *             components/PressableScale, components/IconButton (per-row habit edit button),
- *             components/GoalGlowDot (goal glow), components/DebugNoteAnchor,
+ *             components/GoalGlowDot (goal glow), components/SubScreenLinkButton (2026-07-29,
+ *             the "Goals" link — see below), components/DebugNoteAnchor,
  *             constants/theme, lib/date, lib/haptics, lib/habitStarters, lib/i18n,
  *             lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor, lib/screenColor,
  *             lib/habitRecurrence, store/useHabitStore, store/useGoalStore, store/useSettingsStore
@@ -35,6 +36,10 @@
  *
  * Edit notes:
  *   - Decision 001 tier='site' scaffold (BottomNav + header chrome).
+ *   - **Goals link (2026-07-29)**: a SubScreenLinkButton to /goals sits right under the
+ *     HintCard, gated on `featureGoals` — one of Goals' two entry points now that it no
+ *     longer has its own Home card (see app/goals.tsx's header). Mirrors app/(tabs)/plans.tsx's
+ *     identical link.
  *   - **No streaks (2026-07-20)**: the habit card shows an Energy badge (habit.energyValue,
  *     from the optional Energy system, lib/energy.ts) instead of a streak counter — only
  *     for habits with `energyEnabled`. Rest day no longer needs to "protect" anything (it
@@ -71,6 +76,7 @@ import { GoalGlowDot } from '@/components/GoalGlowDot';
 import EmptyState from '@/components/EmptyState';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
+import SubScreenLinkButton from '@/components/SubScreenLinkButton';
 import { HABIT_STARTERS, HabitStarter } from '@/lib/habitStarters';
 import SlideSelector from '@/components/SlideSelector';
 import PressableScale from '@/components/PressableScale';
@@ -494,6 +500,9 @@ export default function HabitsScreen() {
   const lang = useSettingsStore((s) => s.language);
   const people = usePeopleStore((s) => s.people);
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
+  // Gates the "Goals" link button below (2026-07-29) — same flag HabitCard's own goal
+  // glow dot already reads, so turning Goals off hides both at once.
+  const featureGoals = useSettingsStore((s) => s.featureGoals);
 
   // autoOpen=false (2026-07-28 design review) — StarterCard + the one-tap starter habits
   // already teach this; see lib/useFirstVisitHint.ts's `autoOpen` doc.
@@ -618,6 +627,19 @@ export default function HabitsScreen() {
       >
         <View style={styles.content}>
           <HintCard text={t.hints.habits.text} example={t.hints.habits.example} open={hintOpen} noPill />
+
+          {/* Goals link (2026-07-29) — Goals dropped its own Home card (too many lists on
+              Home); this is now one of its two entry points, alongside Plans. Gated on
+              featureGoals so turning the feature off removes the button, not just the
+              screen it points to. */}
+          {featureGoals && (
+            <SubScreenLinkButton
+              domain="habit"
+              icon="flag"
+              label={t.goals.title}
+              onPress={() => router.push('/goals')}
+            />
+          )}
 
           {/* Habits — boxed in a single hue-edged SectionCard so the whole section (filter ·
               view tabs · cards · add row) reads as one group instead of loose controls on the

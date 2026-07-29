@@ -183,8 +183,8 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
     `SectionCard` hue is the one place `lib/personColor.ts` permits the identity colour
     beyond an avatar dot.
 - **Goals — and where "cutting back" lives** (2026-07-28, `app/goals.tsx` +
-  `components/HomeGoalsCard.tsx` + `lib/goalStarters.ts`, over the pre-existing
-  `store/useGoalStore.ts` + `lib/goalStrength.ts`). Design-system v6 proposed a "Cutting
+  `lib/goalStarters.ts`, over the pre-existing `store/useGoalStore.ts` +
+  `lib/goalStrength.ts`). Design-system v6 proposed a "Cutting
   back" section on Habits (negative habits, a "Log a slip" button, a best-stretch counter).
   **That was rejected**: habits stay positive-only — no negative kind, no slip logging, no
   broken streak — and something you want to do LESS of is expressed as a **Goal** ("Less time
@@ -192,10 +192,18 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
   column: the title carries the direction, and the existing strength mechanic already rises
   on progress and cools back toward neutral, **never below** (`goalStrength.ts` floors at 0),
   so there is no state in which a goal is failing. Goals previously had no surface at all
-  (picker-only, plus a glow dot); they now have a screen + Home card showing three
+  (picker-only, plus a glow dot); they got a screen + Home card showing three
   fine-to-be-in strength bands, what's linked, and when it was last worked — deliberately no
   fourth, worse band. One starter goal is a cutting-back one and a test asserts it stays,
   with wording on the aiming-at side, since that's the only place the pattern is taught.
+  **The Home card was dropped again one day later (2026-07-29, user report: Home had too
+  many lists)** — `components/HomeGoalsCard.tsx` is deleted, `'goals'` came out of
+  `HOME_CARD_KINDS`/`homeCardOrder` (`app/(tabs)/index.tsx`, `store/useSettingsStore.ts`),
+  and the screen's two entry points are now a `components/SubScreenLinkButton.tsx` ("Goals",
+  gated on `featureGoals`) on `app/(tabs)/habits.tsx` and `app/(tabs)/plans.tsx` — the same
+  button-launched-sub-screen pattern as Shopping's Food/Catalogue links. The screen itself
+  (`app/goals.tsx`), the strength mechanic, and the per-item `GoalPicker` in `TaskCard`/
+  `habit-form.tsx` are all unchanged — only Home's standing presence went away.
 - **Settings** (`app/settings.tsx`): three tabs — **General** (profile, appearance, accessibility, account/backup, version, reset), **Personal** (notifications, shopping cadence, layout, device features), **Advanced** (the Features card, People/family, paired devices, Freyr-mode, debug). Reorganized 2026-07-25 from four tabs; see that file's header for the full before/after.
 - **Feature flags** (2026-07-25, defaults revised same day): three states, not one.
   - **On by default, still a real toggle** (Settings → Advanced → Features): `energySystemEnabled` (Energy system), `featureGoals` (Goals) and `featureMedicine` (Medicine trays, 2026-07-27). Not offered in the onboarding picker — "opt in from nothing" doesn't fit a feature that's already on. Turning `featureMedicine` off must actually CANCEL its four tray reminders, not just hide the card — `app/settings.tsx`'s `applyAndSync` re-syncs them on that key.

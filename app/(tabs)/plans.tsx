@@ -32,7 +32,9 @@
  *             store/useSettingsStore, store/usePeopleStore + components/PersonChip (the person
  *             filter row), store/useTagStore + components/TagChip + lib/tags (the tag filter
  *             row — multi-select, "any of"), components/EnergyBalanceCard (the shared-load
- *             comparison, People mode only, day/week tabs only)
+ *             comparison, People mode only, day/week tabs only), components/SubScreenLinkButton
+ *             (2026-07-29, the "Goals" link under HintCard — Goals dropped its own Home card;
+ *             see app/goals.tsx's header)
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx;
  *             also reached with `?tab=all&expandTaskId=…` from app/notes.tsx's "Add to plans"
  *             (UX audit B1, 2026-07-23 — creates the task, then lands here with its editor open)
@@ -136,6 +138,7 @@ import AnimatedChevron from '@/components/AnimatedChevron';
 import TabSlider from '@/components/TabSlider';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
+import SubScreenLinkButton from '@/components/SubScreenLinkButton';
 import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -497,6 +500,9 @@ export default function TasksScreen() {
   // Sharing is opt-in (Settings → Advanced → Features), off on a fresh install — it hides
   // the shared-tasks section below. Tasks already shared stay in the store untouched.
   const featureSharing = useSettingsStore((s) => s.featureSharing);
+  // Gates the "Goals" link button below (2026-07-29) — same flag TaskCard's own GoalPicker
+  // field already reads, so turning Goals off hides both at once.
+  const featureGoals = useSettingsStore((s) => s.featureGoals);
 
   const [tab, setTab] = useState<Tab>('today');
   // autoOpen=false (2026-07-28 design review): this screen's StarterCard already teaches the
@@ -772,6 +778,19 @@ export default function TasksScreen() {
             `workModeEnabled` was never read by anything: the switch promised to hide
             personal plans and did nothing at all. */}
         <HintCard text={t.hints.plans.text} example={t.hints.plans.example} open={hintOpen} noPill />
+
+        {/* Goals link (2026-07-29) — Goals dropped its own Home card (too many lists on
+            Home); this is now one of its two entry points, alongside Habits. Gated on
+            featureGoals so turning the feature off removes the button, not just the
+            screen it points to. */}
+        {featureGoals && (
+          <SubScreenLinkButton
+            domain="task"
+            icon="flag"
+            label={t.goals.title}
+            onPress={() => router.push('/goals')}
+          />
+        )}
 
         {/* First-run explainer (2026-07-26): what a to-do is for here, plus an example.
             Shown only while there is not a single task on any tab, so it costs nothing once
