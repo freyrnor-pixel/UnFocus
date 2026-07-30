@@ -46,7 +46,8 @@
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
  *             groupByCategory, computeListGroups, listProgress, catalogItemsForList),
  *             lib/shoppingCategories (categoryPresets, categoryLabel),
- *             lib/reorder (reorderByDrag), lib/useAppTheme,
+ *             lib/reorder (reorderByDrag), lib/useAppTheme, lib/prefill (usePrefill — a note
+ *             sent here seeds THIS week's add row),
  *             lib/useFirstVisitHint, lib/domainColor, lib/screenColor, lib/budget (computeSpendPace),
  *             store/useSettingsStore, store/useShoppingListStore, store/useMonthlyListStore,
  *             store/useReceiptStore, components/NewMonthlyListRow,
@@ -360,9 +361,10 @@ import { useMonthlyListStore, MonthlyList } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
-import ShoppingRow, { ROW_DIVIDER_INSET } from '@/components/ShoppingRow';
+import ShoppingRow from '@/components/ShoppingRow';
 import LayoutPickerSheet from '@/components/LayoutPickerSheet';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
+import { usePrefill } from '@/lib/prefill';
 import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
 import EmptyState from '@/components/EmptyState';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
@@ -559,6 +561,11 @@ export default function ShoppingScreen() {
   // and feeds nothing but rendering — no reminder, automation, or sync path consults it.
   const layoutSpec = useSurfaceLayout('shopping');
   const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
+  // Arrived from a note's ⋯ → Send it to… → Shopping list (2026-07-30). The text seeds the add
+  // row of the list that covers today — `currentList` is the same helper Home's card uses to
+  // pick its default target, so both entry points agree on which list "the shopping list" is.
+  const prefill = usePrefill();
+  const prefillListId = useShoppingListStore((s) => s.currentList(todayStr()))?.id;
   // "Arrived while you were away" glow. Computed once per visit against the surface's seen
   // watermark, so switching layout keeps the same rows marked and the user can find them
   // again in the new arrangement. `itemsLoaded` (not `items.length`) is the readiness gate —
@@ -2006,6 +2013,10 @@ export default function ShoppingScreen() {
                             onRemoveItem={handleRemoveWeeklyItem}
                             onOpenItem={setDetailItem}
                             onDecrementCartItem={handleDecrementCartItem}
+                            // A note sent here (lib/prefill.ts) seeds THIS week's add row only
+                            // — the list whose date range contains today — so a prefill can
+                            // never land on a week the user isn't looking at.
+                            addPrefill={list.id === prefillListId ? prefill : undefined}
                             onAddInlineItem={(input) => {
                               add({
                                 name: input.name,
@@ -2387,8 +2398,9 @@ const styles = StyleSheet.create({
 
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md },
   // Inset past the check so the column of checks reads as one line down the card
-  // (row rule, 2026-07-28). ROW_DIVIDER_INSET lives in ShoppingRow so it tracks its check.
-  rowDivider: { height: 1, marginLeft: ROW_DIVIDER_INSET },
+  // Full-width now (2026-07-30): the check moved to the right margin, so there is no leading
+  // column left to inset past, and a rule that crosses the whole line reads as ruled paper.
+  rowDivider: { height: 1 },
   section: { gap: Spacing.sm },
   // Quiet category-cluster caption (Monthly's ungrouped rows only) — lighter-weight than
   // sectionHeaderRow's bordered/backgrounded treatment, just a small label above each cluster.

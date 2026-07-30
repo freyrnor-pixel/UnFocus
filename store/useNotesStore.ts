@@ -7,7 +7,8 @@
  * ordering directly, with no client-side grouping logic.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/widgets/sync (scheduleWidgetSync — debounced
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/date (todayStr — stamps checkedAt),
+ *             lib/widgets/sync (scheduleWidgetSync — debounced
  *             widget/notification refresh on add/update (covers toggleChecked)/remove, so live
  *             widgets don't wait for foreground/background)
  *   Used by → app/notes.tsx, components/NoteRow.tsx (Note type), components/HomeNotesCard.tsx,
@@ -21,7 +22,11 @@
  *   - add() appends to the end of the active notes (sortOrder = current note count)
  *     so new notes land at the bottom of the active section, not the top.
  *   - toggleChecked() is a thin wrapper over update() — kept distinct because it's
- *     the row's checkmark-circle tap target, mirroring useTaskStore's toggle().
+ *     the row's checkmark-circle tap target, mirroring useTaskStore's toggle(). It also
+ *     stamps `checkedAt` (2026-07-30), which is what lets the pad keep a just-ticked note
+ *     in place for the rest of the day instead of whisking it into the checked zone the
+ *     instant you tap it. Anything that sets `checked` WITHOUT going through here will
+ *     leave `checkedAt` stale — route ticks through toggleChecked, not update().
  *   - Note widens the Decision 015 stub (adds sortOrder/createdAt) — additive, so
  *     NoteRow (which only reads id/header/body/checked) still compiles unchanged.
  */
@@ -29,6 +34,7 @@ import { create } from 'zustand';
 import db from '@/lib/db';
 import { Row, FieldMap, loadAll, insertRow, updateRow, rowValues, readStr, readInt, readBool } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
+import { todayStr } from '@/lib/date';
 import { scheduleWidgetSync } from '@/lib/widgets/sync';
 
 export type Note = {
@@ -36,6 +42,15 @@ export type Note = {
   header: string;
   body: string;
   checked: boolean;
+  /**
+   * The day this note was ticked ('YYYY-MM-DD'), or '' when it isn't ticked.
+   *
+   * Exists so a tick doesn't make a note vanish from under your finger: a note checked
+   * TODAY stays struck-through in place on the pad, and only sinks into the "Checked off"
+   * zone from tomorrow (2026-07-30). System-managed — set by toggleChecked, never edited by
+   * the user, and deliberately not importable via lib/aiSetupGuide.ts.
+   */
+  checkedAt: string;
   sortOrder: number;
   createdAt: string;
 };
@@ -55,6 +70,7 @@ function rowToNote(row: Row): Note {
     header: readStr(row, 'header'),
     body: readStr(row, 'body'),
     checked: readBool(row, 'checked'),
+    checkedAt: readStr(row, 'checked_at'),
     sortOrder: readInt(row, 'sort_order'),
     createdAt: readStr(row, 'created_at'),
   };
@@ -65,6 +81,7 @@ const NOTE_COLUMNS: FieldMap<Note> = {
   header: { col: 'header' },
   body: { col: 'body' },
   checked: { col: 'checked', to: (v) => (v ? 1 : 0) },
+  checkedAt: { col: 'checked_at' },
   sortOrder: { col: 'sort_order' },
   createdAt: { col: 'created_at' },
 };
@@ -82,6 +99,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       header: '',
       body: '',
       checked: false,
+      checkedAt: '',
       sortOrder: get().notes.length,
       createdAt: new Date().toISOString(),
     };
@@ -103,7 +121,11 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
   toggleChecked(id) {
     const note = get().notes.find((n) => n.id === id);
     if (!note) return;
-    get().update(id, { checked: !note.checked });
+    const checked = !note.checked;
+    // Stamp the day, so the card can keep a just-ticked note in place and only sink it into
+    // the "Checked off" zone tomorrow. Un-ticking clears the stamp, so a note that comes back
+    // is fully active again rather than reading as "checked a while ago".
+    get().update(id, { checked, checkedAt: checked ? todayStr() : '' });
   },
 
   remove(id) {

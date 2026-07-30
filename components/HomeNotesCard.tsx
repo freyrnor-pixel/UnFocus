@@ -1,111 +1,111 @@
 /**
- * HomeNotesCard.tsx — Home-screen preview of the real Notes feature (useNotesStore).
+ * HomeNotesCard.tsx — Home's notes pad (useNotesStore), and the reference implementation of
+ * the pad language every other list-bearing card follows.
  *
- * Mirrors PlanTaskCard's Surface + domain-colored-border layout: always shows a collapsed
- * preview of the first COLLAPSED_COUNT active notes, with a footer toggle to reveal
- * the rest. Inline checkbox taps mark notes checked/unchecked; a "+" header action
- * creates a blank note and routes to /notes; a "See all →" footer link opens the full
- * Notes screen. Shows an empty-state message inline when the notes list is empty
- * (always-render-header per Decision 043 rule 4) — it does not render nothing/null.
+ * A ruled sheet (components/PadSheet.tsx): a "Type note" line on the first rule, one
+ * components/PadRow.tsx per note under it, two blank rules at the end, and one chevron
+ * cycling the card's three sizes (closed → preview → open, lib/padState.ts). Each row carries
+ * a ⋯ that sends the note somewhere else (components/SendToSheet.tsx) and a check circle in
+ * the right margin.
+ *
+ * Rebuilt 2026-07-30 from a hand-rolled row list + a bottom "+ Add a note" AddRow bar. What
+ * changed and why, since each was a specific complaint:
+ *   - **Ruled lines instead of between-row dividers.** Rules now sit under every row and the
+ *     type line, and two spare ones follow, so a light card still reads as a page rather than
+ *     as a card that ran out of content ("look like notepads").
+ *   - **Type line moved to the TOP and is always open.** The old collapsed "+ Add a note" bar
+ *     cost two taps (expand, then focus) and sat after the list like chrome. Its prompt clears
+ *     on FOCUS, not on the first keystroke — see PadTypeRow's header for why that needs a
+ *     custom layer.
+ *   - **Check moved to the right margin, ⋯ beside it.** App-wide row-rule change; see
+ *     AGENTS.md. It also freed the left edge, which is what lets the rules run the full line.
+ *   - **A ticked note stays put.** It strikes through and fades where it is for the rest of
+ *     the day (`checkedAt`, lib/padState's isDoneRowStillInPlace) and only sinks into the
+ *     "Checked off" zone tomorrow. It used to vanish from under your finger the instant you
+ *     tapped, with no way to see that the tap had landed.
+ *   - **One left edge.** The badge is inline in the header again; the old absolutely-pinned
+ *     `badgeFixed` + `paddingLeft: 52` pair is gone, along with the react-native-web
+ *     padding-inheritance trap it came with (see the note at the end of Edit notes).
  *
  * Connections:
- *   Imports → components/Surface, components/PressableScale, components/CardAccent
- *             (badge+wash gradient move), components/AddRow,
+ *   Imports → components/PadSheet, components/PadRow, components/PadTypeRow,
+ *             components/PadFooterToggle, components/SendToSheet, components/Surface,
+ *             components/PressableScale, components/CardAccent (badge + wash),
+ *             components/Collapsible + components/AnimatedChevron (checked-zone reveal),
  *             components/TimeBoxInput (quick-add's companion-task time field),
- *             components/Collapsible + components/AnimatedChevron (checked-zone clip reveal),
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
- *             lib/domainColor, lib/useVoiceCapture, store/useNotesStore, store/useTaskStore
- *             (quick-add's optional companion task only)
+ *             lib/domainColor, lib/padState, lib/useCardState, lib/prefill (prefillRoute),
+ *             lib/useVoiceCapture, store/useNotesStore, store/useTaskStore (quick-add's
+ *             optional companion task only)
  *   Used by → app/(tabs)/index.tsx (the Notes preview slot)
  *   Data    → reads/writes useNotesStore (notes table): toggleChecked, add, update; quick-add's
- *             "also add as a task" toggle additionally writes useTaskStore (tasks table): add
+ *             "also add as a task" toggle additionally writes useTaskStore (tasks table): add.
+ *             Card size persists to settings.cardStates via lib/useCardState.
  *
  * Edit notes:
- *   - **Collapsed sizing (2026-07-13)**: `cardCollapsed` (minHeight:
- *     `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) is a compact shared *resting* floor
- *     applied only while `!expanded`, so this card reads the same size as
- *     PlanTaskCard/HomeShoppingCard when light — then grows per note row above it;
- *     `noteRow`'s paddingVertical was trimmed to `Spacing.xs` for a slimmer collapsed row.
- *   - **Empty state (2026-07-24 text removed → 2026-07-26 "Nothing" label → 2026-07-28
- *     explainer)**: an empty list used to render the shared `HomePreviewEmpty` "Nothing" label
- *     (which itself replaced blank space that read as "too empty"). That confirmed the
- *     blankness was intentional but taught nothing — unlike its Shopping/Plans siblings, which
- *     already explain what the surface is for. Now renders a short italic bulb line
- *     (`t.starters.notes.text`) instead, matching HomeShoppingCard's empty-state treatment.
- *     `HomePreviewEmpty` was this file's only remaining caller and has been deleted.
- *   - **Header tightened + moved down (2026-07-26, user report)**: `titleRow`'s paddingLeft
- *     went 56 → 52 (badge 32 + a 4px gap, was 8px — "more closely linked with the badge") and
- *     `badgeFixed`/`cardContent` both got a matching +4 top/paddingTop bump ("move it a bit
- *     down"). Same tightening applied to PlanTaskCard/HomeShoppingCard's headers.
- *   - Existing note rows are read-only previews (no inline TextInput) — editing them is the
- *     /notes screen's job. The only inline TextInput here is the trailing AddRow, which
- *     *creates* a new note (title-only, mirrors Health's add-habit / Plans' add-task AddRow
- *     flow) rather than editing one — it calls addNote() + updateNote(id, {header}) on submit,
- *     so a typed quick note is a sibling of the mic's voice-note create, not a variant of it.
- *   - Checked notes are shown in a dimmed collapsed sub-section only when fully expanded,
- *     mirroring PlanTaskCard's done zone.
- *   - **Inline mic button (title row)**: records a voice note without leaving Home, via
- *     lib/useVoiceCapture (the same recording logic app/notes.tsx's VoiceNoteFAB uses) — on a
- *     finished transcript it creates a note (add() + update({body})), matching notes.tsx's own
- *     onTranscript handler exactly, so a note recorded from Home is identical to one recorded
- *     from /notes. Sits as a sibling of the title's PressableScale (not nested inside it) so
- *     its tap doesn't also trigger the title's navigate-to-/notes press. success() haptic on
- *     a created note; tap() haptic on toggle/expand.
- *   - **Quick-add essential settings (2026-07-24)**: notes have no fields beyond
- *     header/body/checked, so there's nothing to expose from useNotesStore itself. Instead the
- *     AddRow's `extras` carry the three things that actually matter for a note captured
- *     in-passing: a secondary "extra info" TextInput (→ `body`, same field the full /notes
- *     editor uses), an "also add as a task" toggle chip, and — only while that toggle is on
- *     (standalone notes have no time field) — a `TimeBoxInput` for the companion task's start
- *     time. The companion task is a plain independent `useTaskStore.add()` call (undated/
- *     Whenever, dated today, non-recurring — the same shape Home's Plans-preview quick-add
- *     uses for its own title-only case) — there's no `noteId`/`taskId` link column, so this is
- *     "also create a task with this title", not a synced pointer. All three extras reset to
- *     their defaults after each commit.
- *   - **Touch target (2026-07-11)**: check circle is visually 22x22 but `hitSlop={13}`
- *     brings the tappable area to ~48dp, meeting Android's minimum touch-target size.
- *   - **Badge pinned (2026-07-24)**: `CardAccentBadge` is absolutely positioned (`badgeFixed`)
- *     instead of inline in `titleLeft` — see the JSX comment at the header block.
- *   - **Badge/wash moved outside cardContent's padding (2026-07-24, follow-up — user report,
- *     screenshot)**: `badgeFixed`'s `top`/`left` used to be plain `0`, with `cardContent`'s own
- *     padding relied on to inset it — except React Native's real (native) behavior is that an
- *     absolutely-positioned child DOES inherit its parent's padding as part of its origin
- *     (confirmed by `CardAccentWash`'s pre-existing `-Spacing.md` bleed, which exists purely to
- *     cancel that same inheritance) — while react-native-web (this repo's headless preview
- *     tooling) does NOT reproduce that inheritance, since it compiles straight to CSS, where the
- *     absolute containing block is the padding *edge*, not the content box. Testing changes here
- *     against the web preview alone is actively misleading for this exact interaction. Setting
- *     `top: Spacing.md, left: Spacing.md` on top of `cardContent`'s own padding "fixed" it on web
- *     but doubled the inset on native (compounded: 16 inherited + 16 explicit = 32), which read as
- *     the badge floating away from the corner instead of framing it. Fix: `CardAccentWash` and
- *     `CardAccentBadge` now mount as siblings of `cardContent` (not children of it), directly
- *     inside `Surface` — which itself adds no padding of its own (see Surface.tsx: padding keys in
- *     the `style` prop route to its inner content view, and `card`'s style here carries none) — so
- *     their `top`/`left` offsets are unambiguous on both platforms; no padding-inheritance question
- *     to get wrong. `cardContent` keeps its own padding for its own (flow) children unchanged.
+ *   - **Send-to ticks the note off.** Picking a target navigates there with the text prefilled
+ *     (lib/prefill.ts) AND checks the note: it has been dealt with, so the pad clears itself as
+ *     things are routed out of it. That was the maintainer's explicit choice over leaving it
+ *     unticked — don't quietly drop the tick when editing this.
+ *   - Existing rows stay read-only previews (no inline TextInput). Editing a note is
+ *     app/notes.tsx's job; the type line here only CREATES.
+ *   - `visibleNotes` is what the pad actually draws — pass that, never the full list, anywhere
+ *     that asks "what is on screen" (the same rule lib/viewSnapshot's glow ids follow).
+ *   - The summary count is computed from the FULL list, never from what's visible: folding the
+ *     card away must not quietly tell the user they have less to do.
+ *   - A note's check takes PadRow's default accessible name — the note's own title. It briefly
+ *     passed `t.notes.checkedLabel` instead, which gave every check on the card the identical
+ *     name ("Checked off"), so a screen reader couldn't tell which note it would tick.
+ *   - Quick-add extras (2026-07-24, preserved through the rebuild): notes have no fields beyond
+ *     header/body/checked, so the extras carry the three things that matter for a note captured
+ *     in passing — a "details" field (→ `body`), an "also add as a task" chip, and (only while
+ *     that's on) a TimeBoxInput for the companion task's start time. The companion task is a
+ *     plain independent useTaskStore.add() — there's no noteId/taskId link column, so this is
+ *     "also create a task with this title", not a synced pointer.
+ *   - **Historical trap, now avoided rather than worked around**: the badge used to be
+ *     absolutely positioned, which meant its origin inherited the parent's padding on native
+ *     but NOT on react-native-web (which compiles to CSS, where the containing block is the
+ *     padding edge). Testing that offset in the web preview was actively misleading. The badge
+ *     is a normal flex child now, so there is no padding-inheritance question to get wrong —
+ *     don't reintroduce an absolutely-positioned badge. CardAccentWash is still absolute, but
+ *     it is a full-width band with no left offset to disagree about.
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
-import AddRow from '@/components/AddRow';
+import PadSheet from '@/components/PadSheet';
+import PadRow from '@/components/PadRow';
+import PadTypeRow from '@/components/PadTypeRow';
+import PadFooterToggle from '@/components/PadFooterToggle';
+import SendToSheet, { SendToTarget } from '@/components/SendToSheet';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TimeBoxInput from '@/components/TimeBoxInput';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
+import {
+  FontSize,
+  Fonts,
+  HOME_PREVIEW_CARD_MIN_HEIGHT,
+  PAD_GUTTER,
+  Radius,
+  Spacing,
+  TabularNums,
+  rgba,
+} from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
+import { isDoneRowStillInPlace, padVisibleRows } from '@/lib/padState';
+import { useCardState } from '@/lib/useCardState';
+import { prefillRoute } from '@/lib/prefill';
 import { useNotesStore } from '@/store/useNotesStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { getDomainColor } from '@/lib/domainColor';
 import { useVoiceCapture } from '@/lib/useVoiceCapture';
-
-const COLLAPSED_COUNT = 5;
 
 export default function HomeNotesCard() {
   const t = useT();
@@ -113,6 +113,7 @@ export default function HomeNotesCard() {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const domainColor = getDomainColor(theme, 'note');
+  const today = todayStr();
 
   const notes = useNotesStore((s) => s.notes);
   const toggleChecked = useNotesStore((s) => s.toggleChecked);
@@ -120,18 +121,31 @@ export default function HomeNotesCard() {
   const updateNote = useNotesStore((s) => s.update);
   const addTask = useTaskStore((s) => s.add);
 
-  const [expanded, setExpanded] = useState(false);
+  const [state, setState] = useCardState('notes');
   const [checkedOpen, setCheckedOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
   const [extraInfoDraft, setExtraInfoDraft] = useState('');
   const [addAsTask, setAddAsTask] = useState(false);
   const [taskTimeDraft, setTaskTimeDraft] = useState('');
+  const [sendToId, setSendToId] = useState<string | null>(null);
 
   const { listening, toggle: toggleVoiceCapture } = useVoiceCapture((text) => {
     const note = addNote();
     updateNote(note.id, { body: text });
     success();
   });
+
+  // On the pad: everything unticked, plus anything ticked TODAY (struck through, in place —
+  // a tick shouldn't make a row disappear from under your finger). Sunk: ticked earlier.
+  const { padNotes, sunkNotes } = useMemo(() => {
+    const pad = notes.filter((n) => !n.checked || isDoneRowStillInPlace(n.checkedAt, today));
+    const sunk = notes.filter((n) => n.checked && !isDoneRowStillInPlace(n.checkedAt, today));
+    return { padNotes: pad, sunkNotes: sunk };
+  }, [notes, today]);
+
+  const visibleNotes = padVisibleRows(padNotes, state);
+  // From the FULL list, never from what's on screen — see the edit note.
+  const leftCount = notes.filter((n) => !n.checked).length;
 
   function commitNoteDraft() {
     const trimmed = noteDraft.trim();
@@ -142,7 +156,7 @@ export default function HomeNotesCard() {
     if (addAsTask) {
       addTask({
         title: trimmed,
-        date: todayStr(),
+        date: today,
         time: taskTimeDraft || undefined,
         taskType: 'start-at',
         done: false,
@@ -159,43 +173,49 @@ export default function HomeNotesCard() {
     success();
   }
 
-  const activeNotes = notes.filter((n) => !n.checked);
-  const checkedNotes = notes.filter((n) => n.checked);
-
-  const visibleActive = expanded ? activeNotes : activeNotes.slice(0, COLLAPSED_COUNT);
-  const showToggle = activeNotes.length > COLLAPSED_COUNT;
-
   function handleToggle(id: string) {
     tap();
     toggleChecked(id);
   }
 
-  function handleTitlePress() {
-    router.push('/notes');
+  // Send it elsewhere: navigate with the text prefilled AND tick the note — it's been dealt
+  // with, so the pad clears itself as things are routed out of it.
+  function handleSendTo(target: SendToTarget) {
+    const note = notes.find((n) => n.id === sendToId);
+    setSendToId(null);
+    if (!note) return;
+    const text = note.header.trim() || note.body.trim();
+    if (!note.checked) toggleChecked(note.id);
+    router.push(prefillRoute(target, text));
   }
 
   return (
     <Surface
       surfaceContext="ambient"
       borderColor={domainColor.accent}
-      style={[styles.card, !expanded && styles.cardCollapsed]}
+      style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
-      {/* Header wash + badge mount OUTSIDE cardContent, directly in Surface — see the
-          "Badge/wash moved outside cardContent's padding" edit note below for why. */}
+      {/* Full-width band with no left offset, so it has no padding-inheritance question to
+          disagree about across platforms (unlike the retired absolute badge). */}
       <CardAccentWash domain="note" />
-      <CardAccentBadge domain="note" size={32} style={styles.badgeFixed} />
       <View style={styles.cardContent}>
-        {/* Title row — title/badge (navigates to /notes) and the mic button are siblings,
-            not nested Pressables, so tapping the mic doesn't also fire the title's navigate. */}
-        <View style={styles.titleRow}>
-          <PressableScale onPress={handleTitlePress} style={styles.titleLeftPressable} scaleTo={0.97}>
-            <View style={styles.titleLeft}>
-              <Text style={[styles.title, { color: theme.text }]}>{t.notes.title}</Text>
-              {activeNotes.length > 0 && (
-                <View style={[styles.badge, { backgroundColor: domainColor.soft, borderColor: rgba(domainColor.accent, 0.4) }]}>
-                  <Text style={[styles.badgeText, { color: domainColor.accent }]}>{activeNotes.length}</Text>
-                </View>
-              )}
+        {/* Header. Badge is a normal flex child — one left edge for the whole card. */}
+        <View style={styles.header}>
+          <PressableScale
+            onPress={() => router.push('/notes')}
+            style={styles.headerLeft}
+            scaleTo={0.98}
+          >
+            <CardAccentBadge domain="note" size={32} />
+            <View style={styles.headerText}>
+              <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+                {t.notes.title}
+              </Text>
+              {notes.length > 0 ? (
+                <Text style={[styles.summary, { color: theme.textMuted }]}>
+                  {t.pad.summary(leftCount, notes.length)}
+                </Text>
+              ) : null}
             </View>
           </PressableScale>
           <PressableScale
@@ -208,163 +228,200 @@ export default function HomeNotesCard() {
             <View
               style={[
                 styles.micButton,
-                { backgroundColor: listening ? theme.badSoft : domainColor.soft, borderColor: rgba(listening ? theme.bad : domainColor.accent, 0.4) },
+                {
+                  backgroundColor: listening ? theme.badSoft : domainColor.soft,
+                  borderColor: rgba(listening ? theme.bad : domainColor.accent, 0.4),
+                },
               ]}
             >
-              <Ionicons name={listening ? 'stop' : 'mic'} size={15} color={listening ? theme.bad : domainColor.accent} />
+              <Ionicons
+                name={listening ? 'stop' : 'mic'}
+                size={15}
+                color={listening ? theme.bad : domainColor.accent}
+              />
             </View>
           </PressableScale>
         </View>
 
-        {/* Active note rows */}
-        {activeNotes.length === 0 ? (
+        {/* An empty pad says what it's for once, above the first rule — not as a row, so it
+            can't be mistaken for a note. */}
+        {notes.length === 0 ? (
           <View style={styles.emptyWrap}>
             <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.emptyBulb} />
             <Text style={[styles.emptyExplainer, { color: theme.text }]}>{t.starters.notes.text}</Text>
           </View>
-        ) : (
-          <View style={styles.rowsContainer}>
-            <View style={styles.rows}>
-              {visibleActive.map((note, idx) => (
-                <View key={note.id}>
-                  {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
-                  <View style={styles.noteRow}>
-                    <PressableScale
-                      style={[styles.check, { borderColor: domainColor.accent }]}
-                      onPress={() => handleToggle(note.id)}
-                      hitSlop={13}
-                      accessibilityLabel={t.notes.checkedLabel}
-                      scaleTo={0.97}
-                    >
-                      {/* circle only — tap marks it checked and it moves to the done section */}
-                    </PressableScale>
-                    <View style={styles.noteText}>
-                      <Text
-                        style={[styles.noteHeader, { color: theme.text }]}
-                        numberOfLines={1}
-                      >
-                        {note.header || t.notes.headerPlaceholder}
-                      </Text>
-                      {!!note.body && (
-                        <Text
-                          style={[styles.noteBody, { color: theme.textMuted }]}
-                          numberOfLines={1}
-                        >
-                          {note.body}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
+        ) : null}
 
-        {/* Type-to-add: a title-only quick-create, mirrors Health's add-habit / Plans'
-            add-task AddRow (bottom-of-list, hairline divider — no nested "well" box, since
-            this card's rows already sit flush per the 2026-07-13 wells-removed pass). */}
-        <AddRow
-          placeholder={t.notes.addNote}
-          value={noteDraft}
-          onChangeText={setNoteDraft}
-          onSubmit={commitNoteDraft}
-          accent={domainColor.accent}
-          accessibilityLabel={t.notes.addNote}
-          extras={
-            <>
-              <TextInput
-                style={[styles.extraInfoInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-                value={extraInfoDraft}
-                onChangeText={setExtraInfoDraft}
-                placeholder={t.home.extraInfoPlaceholder}
-                placeholderTextColor={theme.textMuted}
-                onSubmitEditing={commitNoteDraft}
-              />
-              <PressableScale
-                style={[
-                  styles.taskChip,
-                  { borderColor: addAsTask ? domainColor.accent : theme.border },
-                  addAsTask && { backgroundColor: domainColor.soft },
-                ]}
-                onPress={() => { tap(); setAddAsTask((v) => !v); }}
-                hitSlop={8}
-                scaleTo={0.9}
-                accessibilityRole="button"
-                accessibilityState={{ selected: addAsTask }}
-                accessibilityLabel={t.home.addToTaskLabel}
-              >
-                <Ionicons name="checkbox-outline" size={15} color={addAsTask ? domainColor.accent : theme.textMuted} />
-              </PressableScale>
-              {addAsTask && <TimeBoxInput value={taskTimeDraft} onChange={setTaskTimeDraft} />}
-            </>
+        <PadSheet
+          state={state}
+          typeRow={
+            <PadTypeRow
+              prompt={t.pad.type.note}
+              value={noteDraft}
+              onChangeText={setNoteDraft}
+              onSubmit={commitNoteDraft}
+              accent={domainColor.accent}
+              extras={
+                <>
+                  <TextInput
+                    style={[
+                      styles.extraInfoInput,
+                      { backgroundColor: theme.surfaceMuted, color: theme.text },
+                    ]}
+                    value={extraInfoDraft}
+                    onChangeText={setExtraInfoDraft}
+                    placeholder={t.home.extraInfoPlaceholder}
+                    placeholderTextColor={theme.textMuted}
+                    onSubmitEditing={commitNoteDraft}
+                  />
+                  <PressableScale
+                    style={[
+                      styles.taskChip,
+                      { borderColor: addAsTask ? domainColor.accent : theme.border },
+                      addAsTask && { backgroundColor: domainColor.soft },
+                    ]}
+                    onPress={() => {
+                      tap();
+                      setAddAsTask((v) => !v);
+                    }}
+                    hitSlop={8}
+                    scaleTo={0.9}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: addAsTask }}
+                    accessibilityLabel={t.home.addToTaskLabel}
+                  >
+                    <Ionicons
+                      name="checkbox-outline"
+                      size={15}
+                      color={addAsTask ? domainColor.accent : theme.textMuted}
+                    />
+                  </PressableScale>
+                  {addAsTask && <TimeBoxInput value={taskTimeDraft} onChange={setTaskTimeDraft} />}
+                </>
+              }
+            />
           }
+          footer={
+            sunkNotes.length > 0 ? (
+              <View>
+                <PressableScale
+                  style={styles.doneHeader}
+                  onPress={() => {
+                    tap();
+                    setCheckedOpen((v) => !v);
+                  }}
+                  scaleTo={0.97}
+                >
+                  <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>
+                    {t.notes.checkedLabel} ({sunkNotes.length})
+                  </Text>
+                  <AnimatedChevron open={checkedOpen} size={14} color={theme.textMuted} />
+                </PressableScale>
+                {/* Clip-reveal, not a fade: folded away, still there. */}
+                <Collapsible open={checkedOpen}>
+                  {sunkNotes.map((note) => (
+                    <PadRow
+                      key={note.id}
+                      title={note.header || t.notes.headerPlaceholder}
+                      accent={domainColor.accent}
+                      done
+                      onToggle={() => handleToggle(note.id)}
+                    />
+                  ))}
+                </Collapsible>
+              </View>
+            ) : null
+          }
+        >
+          {visibleNotes.map((note) => (
+            <PadRow
+              key={note.id}
+              title={note.header || t.notes.headerPlaceholder}
+              accent={domainColor.accent}
+              done={note.checked}
+              meta={
+                note.body ? (
+                  <Text style={[styles.noteBody, { color: theme.textMuted }]} numberOfLines={1}>
+                    {note.body}
+                  </Text>
+                ) : undefined
+              }
+              onAction={() => {
+                tap();
+                setSendToId(note.id);
+              }}
+              actionLabel={t.sendTo.title}
+              onToggle={() => handleToggle(note.id)}
+            />
+          ))}
+        </PadSheet>
+
+        <PadFooterToggle
+          state={state}
+          onChange={setState}
+          total={padNotes.length}
+          accent={domainColor.accent}
         />
-
-        {/* Expand/collapse active notes */}
-        {showToggle && (
-          <PressableScale
-            style={styles.footerBtn}
-            onPress={() => { tap(); setExpanded((v) => !v); }}
-            scaleTo={0.97}
-          >
-            <Text style={[styles.footerBtnText, { color: domainColor.accent }]}>
-              {expanded ? t.home.notesCollapse : t.home.notesExpand}
-            </Text>
-          </PressableScale>
-        )}
-
-        {/* Checked/done zone — only shown when expanded, mirroring PlanTaskCard done zone */}
-        {expanded && checkedNotes.length > 0 && (
-          <View style={styles.rowsContainer}>
-            <PressableScale
-              style={styles.doneHeader}
-              onPress={() => { tap(); setCheckedOpen((v) => !v); }}
-              scaleTo={0.97}
-            >
-              <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>
-                {t.notes.checkedLabel} ({checkedNotes.length})
-              </Text>
-              <AnimatedChevron open={checkedOpen} size={14} color={theme.textMuted} />
-            </PressableScale>
-            {/* Clip-reveal (unveil), not a pop/fade — the checked notes feel folded away, still
-                there, matching the Tasks/PlanTaskCard done zones (see Collapsible header). */}
-            <Collapsible open={checkedOpen}>
-              {checkedNotes.map((note, idx) => (
-                <View key={note.id}>
-                  {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
-                  <View style={styles.noteRow}>
-                    <PressableScale
-                      style={[styles.check, { borderColor: domainColor.accent, backgroundColor: domainColor.accent }]}
-                      onPress={() => handleToggle(note.id)}
-                      hitSlop={8}
-                      scaleTo={0.97}
-                    >
-                      <Ionicons name="checkmark" size={12} color={theme.accentInk} />
-                    </PressableScale>
-                    <View style={styles.noteText}>
-                      <Text
-                        style={[styles.noteHeader, { color: theme.textMuted, textDecorationLine: 'line-through' }]}
-                        numberOfLines={1}
-                      >
-                        {note.header || t.notes.headerPlaceholder}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </Collapsible>
-          </View>
-        )}
       </View>
+
+      <SendToSheet
+        visible={sendToId !== null}
+        onClose={() => setSendToId(null)}
+        onPick={handleSendTo}
+      />
     </Surface>
   );
 }
 
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
-  // Quick-add extras (2026-07-24) — secondary "extra info" input + the "also add as a task"
-  // toggle chip (TimeBoxInput, when shown, brings its own sizing).
+  // Minimum height for the CLOSED and PREVIEW states, never for OPEN (maintainer's call,
+  // 2026-07-30): the four cards read as one intentional size at rest, and an open card is free
+  // to grow to whatever its content needs. Same constant, and the same "only while not fully
+  // open" gate, the pre-pad card used — `state !== 'open'` is what `!expanded` used to mean.
+  cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
+  // ONE horizontal inset for the whole card (PAD_GUTTER). The old paddingLeft:52 title inset
+  // that dodged an absolutely-pinned badge is gone with the badge.
+  cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  headerText: { flex: 1, minWidth: 0 },
+  // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
+  // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
+  title: {
+    fontSize: 20,
+    lineHeight: 25,
+    fontFamily: Fonts.bold,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  // Tabular figures so the four Home cards' counts line up down the screen.
+  summary: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, ...TabularNums },
+  micButton: {
+    width: 28,
+    height: 28,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  emptyWrap: { flexDirection: 'row', gap: Spacing.xs, marginBottom: Spacing.sm },
+  emptyBulb: { marginTop: 2 },
+  emptyExplainer: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    fontFamily: Fonts.medium,
+    fontStyle: 'italic',
+  },
+  noteBody: { flex: 1, fontSize: FontSize.xs, fontFamily: Fonts.regular },
+  // Quick-add extras (2026-07-24) — the "details" field and the "also add as a task" chip.
   extraInfoInput: {
     width: 76,
     fontSize: FontSize.sm,
@@ -381,62 +438,11 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Collapsed-only floor so Notes/Plans/Shopping read as the same size regardless of how
-  // little content one of them has (e.g. a single note) — see constants/theme.ts.
-  cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
-  // paddingTop Spacing.md (was Spacing.sm) so the header sits VERTICALLY CENTERED in the 64px
-  // CardAccentWash band instead of hugging the top edge — matches PlanTaskCard's 2026-07-24 fix
-  // for "title too high, not centered between the top border and the wash divider". Bumped +4
-  // (2026-07-26, user report: "move it a bit down") alongside badgeFixed's matching top offset.
-  cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.md + 4 },
-  // marginBottom Spacing.md (was .sm) so the content starts near the 64px wash divider — see the
-  // CardAccentWash comment above.
-  // paddingLeft (badge offset 16 + badge size 32 + a 4px gap, was 8px) clears the fixed badge
-  // (badgeFixed below) — the badge no longer sits inline here, see the edit note above. Tightened
-  // 56 → 52 (2026-07-26, user report: "more closely linked with the badge").
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md, gap: Spacing.sm, paddingLeft: 52 },
-  titleLeftPressable: { flexShrink: 1 },
-  titleLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  // Takes the badge out of flex flow so its position is fixed regardless of sibling content
-  // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
-  // Mounts as a sibling of cardContent now (not a child of it), directly in the unpadded
-  // Surface — see the "Badge/wash moved outside cardContent's padding" file-header note for
-  // why. left Spacing.md is an unambiguous single inset on both platforms; top bumped +4
-  // alongside cardContent's paddingTop (2026-07-26, "move it a bit down").
-  badgeFixed: { position: 'absolute', top: Spacing.md + 4, left: Spacing.md, zIndex: 2 },
-  // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
-  // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
-  // Sentence case (2026-07-28 design review): all-caps belongs on ≤13px labels, not 20px card titles.
-  title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, includeFontPadding: false, textAlignVertical: 'center' },
-  badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
-  badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-  micButton: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  // Wells removed (2026-07-13 grouping pass): rows sit directly on the card face so the
-  // whole section reads as one thing, instead of a flat surfaceMuted box-in-a-box.
-  rowsContainer: { marginBottom: Spacing.sm },
-  rows: { gap: 0 },
-  // Empty-state explainer (2026-07-28) — same bulb + italic treatment as HomeShoppingCard's
-  // and PlanTaskCard's empty blocks, replacing the bare "Nothing" label (HomePreviewEmpty) so
-  // Notes teaches its purpose like its sibling Home cards instead of just confirming blankness.
-  emptyWrap: { flexDirection: 'row', gap: Spacing.xs, marginBottom: Spacing.sm },
-  emptyBulb: { marginTop: 2 },
-  emptyExplainer: { flex: 1, fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.medium, fontStyle: 'italic' },
-  noteRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: Spacing.xs, gap: Spacing.sm },
-  check: {
-    width: 22,
-    height: 22,
-    borderRadius: Radius.full,
-    borderWidth: 2,
+  doneHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.sm,
   },
-  noteText: { flex: 1 },
-  noteHeader: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  noteBody: { fontSize: FontSize.xs, fontFamily: Fonts.regular, marginTop: 1 },
-  divider: { height: 1 },
-  footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
-  footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
-  doneHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
   doneHeaderText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
 });

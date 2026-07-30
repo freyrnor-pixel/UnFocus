@@ -87,11 +87,23 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 - **The row rule + matte buttons** (2026-07-28, from design-system v6's `Checklist Redesign
   Options` / `Focus First (1c)` / `handoff/BUTTONS.md` — the only parts of that bundle that
   post-date the rebuild; the rest of it describes the pre-rebuild app and is dead).
-  - **Row anatomy**: check → title → ONE meta line → ONE right-hand value. `TaskCard`'s
-    person chip, tags and goal dot moved off the title line onto their own meta line (gated
-    by `hasMetaLine`, which must mirror the JSX gates); the right-hand value carries
-    `TabularNums` (`constants/theme.ts`) so a column of times/prices/counts lines up row to
-    row. Row dividers inset past the check (`ROW_DIVIDER_INSET`, exported from `ShoppingRow`).
+  - **Row anatomy (amended 2026-07-30 — the check moved to the RIGHT)**:
+    `[leading?] title → ONE meta line → ONE right-hand value → [⋯ action] → [○ check]`.
+    `components/PadRow.tsx` is the shared implementation; every list-bearing surface should
+    draw through it rather than hand-rolling a row. The check led every row until this pass;
+    the maintainer's call was to move it app-wide, on the reasoning that a paper checklist
+    puts its ticks in the right margin. `TaskCard` already ended its line 1 that way, so it
+    was the model. The ⋯ is ONE row-level action button, replacing the assorted trailing
+    trash/send/put-back buttons.
+    `TaskCard`'s person chip, tags and goal dot live on the meta line (gated by
+    `hasMetaLine`, **which must mirror the JSX gates exactly** — if they drift, a row with
+    one meta item silently loses its line; `app/(tabs)/habits.tsx`'s `HabitCard` carries the
+    same gate); the right-hand value carries `TabularNums` (`constants/theme.ts`) so a column
+    of times/prices/counts lines up row to row.
+    Row dividers are **full-width** now — `ROW_DIVIDER_INSET` is deleted. It existed to clear
+    the leading check; with the check on the right there is nothing to clear, and a rule that
+    crosses the whole line is what reads as ruled paper. Prefer letting
+    `components/PadSheet.tsx` draw the rules rather than drawing your own.
     **NOT taken from that spec**: dropping the accent stripe / category-as-a-dot — the
     gradient badge, keycap edge and domain ramp stay (maintainer's call, #390/#393/#410).
   - **Shopping quantity is an input, not a value**: it READS in the row's leading cluster and

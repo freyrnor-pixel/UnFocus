@@ -27,7 +27,8 @@
  *             components/Surface, components/GoalGlowDot, components/AddRow,
  *             components/IconButton, components/PressableScale, constants/theme,
  *             lib/goalStarters, lib/goalStrength (decayedStrength), lib/haptics, lib/i18n,
- *             lib/useAppTheme, lib/useFirstVisitHint, store/useGoalStore, store/useTaskStore,
+ *             lib/useAppTheme, lib/useFirstVisitHint, lib/prefill (usePrefill — a note sent
+ *             here seeds the add field), store/useGoalStore, store/useTaskStore,
  *             store/useHabitStore (linked counts only)
  *   Used by → Expo Router route "/goals", reached from a "Goals" SubScreenLinkButton on
  *             app/(tabs)/habits.tsx and app/(tabs)/plans.tsx (2026-07-29 — Goals dropped its
@@ -46,7 +47,7 @@
  *     lib/goalStrength.ts: the raw number plus a timestamp IS the state; decay is computed
  *     on read, so anything that renders the raw value shows a stale, too-warm goal.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenScaffold from '@/components/ScreenScaffold';
@@ -64,6 +65,7 @@ import { tap, success } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
+import { usePrefill } from '@/lib/prefill';
 import { useGoalStore } from '@/store/useGoalStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
@@ -80,6 +82,13 @@ export default function GoalsScreen() {
   const habits = useHabitStore((s) => s.habits);
   const [hintOpen, setHintOpen] = useFirstVisitHint('goals', false);
   const [draft, setDraft] = useState('');
+
+  // Arrived here from a note's ⋯ → Send it to… → Goals: the note's text is on the route, so
+  // seed the add field with it rather than making the user retype what they just wrote.
+  const prefill = usePrefill();
+  useEffect(() => {
+    if (prefill) setDraft(prefill);
+  }, [prefill]);
 
   // How many tasks/habits point at each goal. One pass over each list rather than a filter
   // per goal — this renders on every store change and the lists can be long.

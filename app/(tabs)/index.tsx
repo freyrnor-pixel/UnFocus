@@ -135,7 +135,7 @@ import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import PressableScale from '@/components/PressableScale';
 import { goToSite } from '@/lib/siteNav';
-import { todayStr, getWeekRangeContaining } from '@/lib/date';
+import { todayStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { computeListGroups } from '@/lib/shoppingGroups';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -150,6 +150,8 @@ import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
+import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
+import { useCardState } from '@/lib/useCardState';
 import { requestPermissions } from '@/lib/notifications';
 import { syncReminders } from '@/lib/reminders';
 import { computeSpendPace } from '@/lib/budget';
@@ -262,6 +264,10 @@ export default function HomeScreen() {
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
   const userName = useSettingsStore((s) => s.userName);
   const planTimelineHorizontal = useSettingsStore((s) => s.planTimelineHorizontal);
+  // Home's to-do card resolves its own layout + size, independently of the To-do tab — see the
+  // `spec` prop's comment at the PlanTaskCard mount below.
+  const todoSpec = useSurfaceLayout('homeTodo');
+  const [todoState, setTodoState] = useCardState('homeTodo');
   const homeCardOrderRaw = useSettingsStore((s) => s.homeCardOrder);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
@@ -307,12 +313,43 @@ export default function HomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentListFn, today, shoppingLists]
   );
-  const { dishGroups, ungroupedUnchecked, checked } = useMemo(
-    () =>
-      currentShoppingList
-        ? computeListGroups(shoppingItems, currentShoppingList.id)
-        : { dishGroups: [], ungroupedUnchecked: [], checked: [] },
-    [currentShoppingList, shoppingItems]
+  /**
+   * The Shopping card's four pages — Week 1–4 of the monthly cycle (2026-07-30, user report:
+   * "user can tap left/right button to go through different lists"). One entry per week
+   * whether or not a list exists for it: a week with no list is a real, visible state ("no
+   * list this week"), not a page the arrows skip over, or the pager's length would change
+   * under the user's finger.
+   *
+   * Week ↔ list resolution reuses `weekOfMonthlyCycle`/`dateRangeForCycleWeek` from lib/date —
+   * the same helpers app/(tabs)/shopping.tsx buckets its own Week 1–4 sections with, so the two
+   * surfaces can't disagree about which week a list belongs to.
+   */
+  const shoppingWeeks = useMemo(() => {
+    const active = shoppingLists.filter((l) => !l.isTemplate);
+    return [1, 2, 3, 4].map((week) => {
+      const list = active.find((l) => weekOfMonthlyCycle(l.startDate, monthlyResetDate) === week) ?? null;
+      const groups = list
+        ? computeListGroups(shoppingItems, list.id)
+        : { dishGroups: [], ungroupedUnchecked: [], checked: [] };
+      return {
+        week,
+        list,
+        range: dateRangeForCycleWeek(today, monthlyResetDate, week, weeklyResetDay),
+        ...groups,
+      };
+    });
+  }, [shoppingLists, shoppingItems, monthlyResetDate, weeklyResetDay, today]);
+
+  // Card size for the Shopping pager, persisted per surface like the other pad cards.
+  const [shoppingCardState, setShoppingCardState] = useCardState('shopping');
+  // Week-range labels are date-formatted, so they need the active language (lib/date's
+  // formatDateRange puts the month before/after the day depending on it).
+  const language = useSettingsStore((s) => s.language);
+
+  // Which page the pager opens on: the week that actually contains today.
+  const currentShoppingWeek = useMemo(
+    () => weekOfMonthlyCycle(today, monthlyResetDate),
+    [today, monthlyResetDate]
   );
 
   // Spend-vs-budget pace (Decision 026), shared with app/budget.tsx and the Shopping
@@ -487,6 +524,13 @@ export default function HomeScreen() {
               onRestoreTask={handleRestoreTask}
               onAddExample={handleAddExampleTask}
               horizontal={planTimelineHorizontal}
+              // Home's to-do card is its OWN layout surface, separate from the To-do tab
+              // (2026-07-30): the tab defaults to the day timeline, which needs a whole screen
+              // to be readable, while this card defaults to a plain ruled list like its three
+              // siblings. Both offer the other via the layout picker.
+              spec={todoSpec}
+              padState={todoState}
+              onPadStateChange={setTodoState}
             />
           </DebugNoteAnchor>
         );
@@ -500,10 +544,10 @@ export default function HomeScreen() {
         return (
           <DebugNoteAnchor id="home.shoppingPreview" label="Home — Shopping preview" style={styles.section}>
             <HomeShoppingCard
-              list={currentShoppingList}
-              dishGroups={dishGroups}
-              ungroupedUnchecked={ungroupedUnchecked}
-              checked={checked}
+              // Four pages, one per cycle week (2026-07-30) — see the `shoppingWeeks` memo.
+              weeks={shoppingWeeks}
+              initialWeek={currentShoppingWeek}
+              formatRange={(startDate, endDate) => formatDateRange(startDate, endDate, t.monthsShort, language)}
               pace={shoppingPace}
               onToggle={handleToggleShopping}
               onCollect={handleCollectShopping}
@@ -511,8 +555,9 @@ export default function HomeScreen() {
               onNavigateToShopping={handleNavigateToShopping}
               onAddItem={handleAddShoppingItem}
               monthlyLists={monthlyLists}
-              inStockLabel={t.inStockLabel}
               onFlightStart={handleFlightStart}
+              padState={shoppingCardState}
+              onPadStateChange={setShoppingCardState}
             />
           </DebugNoteAnchor>
         );

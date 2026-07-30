@@ -20,6 +20,9 @@
  * (see AGENTS.md's type-migration follow-up list).
  * `TabularNums` (2026-07-28 row-rule pass) is the fixed-width-figures style for values that
  * sit in a list row's right-hand column, so the column edge lines up row to row.
+ * `PAD_*` + `DONE_ROW_OPACITY` (2026-07-30 notepad pass) are the ruled-sheet geometry every
+ * list-bearing surface shares — one gutter, one row height, two spare rules, one done fade.
+ * See their own doc comment; components/PadSheet.tsx draws from them.
  *
  * Connections:
  *   Imports → —
@@ -158,6 +161,39 @@ export type AspectRatioKey = keyof typeof AspectRatio;
 // collapsed/unexpanded; it's a floor, not a cap — content past it (added rows up to 5, an
 // expanded task's steps, Plans' proportional time-gap rail) is free to grow taller.
 export const HOME_PREVIEW_CARD_MIN_HEIGHT = 140;
+
+/**
+ * Pad ("notepad") geometry — the shared ruled-sheet language every list-bearing surface
+ * draws itself with (2026-07-30, user report: "look like notepads", "related cards should
+ * look practically the same", "the feel of 1, 2, 3, everything inside a card is connected
+ * and in orderly fashion feels like it's not there").
+ *
+ * Before this, one Home card could carry FOUR different left edges — a title row inset 52
+ * to clear an absolutely-pinned badge, rows at Spacing.md, a day-grid at GUTTER_WIDTH +
+ * Spacing.xs, and dividers at ShoppingRow's old 30px check inset — which is most of why
+ * nothing inside a card read as belonging to the same list. `PAD_GUTTER` is the ONE
+ * horizontal inset for everything inside a pad card: header, rules, rows, type line,
+ * footer. Don't add a second one.
+ *
+ * `PAD_ROW_MIN_HEIGHT` is the baseline rhythm — every pad row is one line of the pad,
+ * whatever it contains, which is what makes a stack of them read as ruled paper. Rules are
+ * drawn by components/PadSheet.tsx and run the full card width (there is no leading check
+ * column to inset past any more — see the row rule in AGENTS.md).
+ */
+export const PAD_ROW_MIN_HEIGHT = 44;
+export const PAD_GUTTER = Spacing.md;
+/** Blank ruled lines drawn after the last real row — the "keep writing" invitation. */
+export const PAD_SPARE_LINES = 2;
+/** Rows shown in a pad card's middle ("preview") state, between closed and open. */
+export const PAD_PREVIEW_ROWS = 3;
+
+/**
+ * A finished row's fade. Struck through AND faded, in place — the shared "done" treatment
+ * for notes, tasks, shopping items and completed habits, so one tick looks the same
+ * everywhere. Promoted here from components/ShoppingRow.tsx's `CHECKED_OPACITY` (same
+ * value, still re-exported there for its existing callers).
+ */
+export const DONE_ROW_OPACITY = 0.55;
 
 // Body text is never below 16; secondary/caption text never below 14.
 export const FontSize = {

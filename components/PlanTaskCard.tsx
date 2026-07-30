@@ -1,10 +1,26 @@
 /**
- * PlanTaskCard.tsx — the day-view: a fixed-hour calendar grid of one day's tasks.
+ * PlanTaskCard.tsx — one day's tasks, drawn either as a ruled list or as a calendar grid.
  *
  * This is the single shared "time now + rest of day" surface (Decisions 009 / 009a /
- * 009b). The full /plans screen renders it interactively; the Home preview renders the
+ * 009b). The To-do tab renders it interactively; the Home preview renders the
  * SAME component with `readOnly` (Decision 009a — "the preview IS the day-view,
  * rendered read-only"). There is intentionally no Home-specific variant.
+ *
+ * **Two layouts, one component (2026-07-30)**: `spec.timeline` (lib/cardLayout) picks the
+ * clock-time calendar grid described below; anything else draws a ruled pad list
+ * (components/PadSheet + PadRow) with the time as each row's one right-hand value. The two
+ * surfaces DEFAULT differently on purpose, which is why `homeTodo` is its own LayoutSurface:
+ * the To-do tab opens on the timeline (a 24h grid needs a whole screen to be readable), Home's
+ * card on the list (so it matches its three sibling cards). Each offers the other in its
+ * layout picker. Rows the active layout doesn't draw are still live rows — they keep their
+ * reminders and still count in the header summary.
+ *
+ * **Card size** is the shared three-state cycle (lib/padState): closed → preview → open, via
+ * components/PadFooterToggle. `expanded` below is just `state === 'open'`, so every "is the
+ * whole day showing" check that predates this still reads correctly — including the
+ * `HOME_PREVIEW_CARD_MIN_HEIGHT` floor, which applies while NOT open (closed and preview both)
+ * so the four Home cards read as one size at rest, and never while open, so a full day can grow
+ * as tall as it needs.
  *
  * **Elastic-hour grid (2026-07-26 rebuild, compressed 2026-07-27)**: the vertical (default)
  * rail positions every timed task by real clock time (`lib/dayGrid.ts` +
@@ -37,7 +53,12 @@
  * `PX_PER_MIN`/`MIN_GAP`/`MAX_GAP`/`railTailMinutes` tuning are horizontal-only now.
  *
  * Connections:
- *   Imports → components/Surface, components/PressableScale, components/ProgressBar,
+ *   Imports → components/PadSheet + components/PadRow + components/PadTypeRow +
+ *             components/PadFooterToggle (the ruled-list layout, the type line and the
+ *             three-size footer — the type line is ONE node shared by both layouts, so they
+ *             can't drift into two differently-worded adds), lib/cardLayout (LayoutSpec, type
+ *             only), lib/padState (PadState, padVisibleRows),
+ *             components/Surface, components/PressableScale, components/ProgressBar,
  *             components/DayGridLines (hour lines + compressed-gap bands + now-line),
  *             components/StarterExampleRow (the empty day's suggested-add row),
  *             lib/dayGrid (buildDayScale — the elastic axis — plus layoutGridEntries,
@@ -205,12 +226,17 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import DayGridLines from '@/components/DayGridLines';
-import AddRow from '@/components/AddRow';
+import PadSheet from '@/components/PadSheet';
+import PadRow from '@/components/PadRow';
+import PadTypeRow from '@/components/PadTypeRow';
+import PadFooterToggle from '@/components/PadFooterToggle';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import { Task, Recurring } from '@/store/useTaskStore';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, TabularNums, rgba } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, TabularNums, rgba } from '@/constants/theme';
+import type { LayoutSpec } from '@/lib/cardLayout';
+import { PadState, padVisibleRows } from '@/lib/padState';
 import { Duration, Ease, Spring } from '@/constants/motion';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
@@ -258,6 +284,18 @@ type Props = {
   now?: number;
   /** Rail orientation — settings.planTimelineHorizontal. Default false (fixed-hour grid). */
   horizontal?: boolean;
+  /**
+   * How this surface draws its rows (lib/cardLayout). `spec.timeline` picks the clock-time
+   * calendar grid; anything else draws a ruled pad list. The To-do tab defaults to the
+   * timeline, Home's card to the list — see lib/cardLayout's LayoutSurface note.
+   */
+  spec: LayoutSpec;
+  /**
+   * Card size (lib/padState): closed → preview → open. Omit to keep it as local state (the
+   * default), pass together with `onPadStateChange` to persist it per surface.
+   */
+  padState?: PadState;
+  onPadStateChange?: (next: PadState) => void;
 };
 
 // Horizontal-only proportional rail tuning (2026-07-26: the vertical/default rail moved to
@@ -322,7 +360,10 @@ function railTailMinutes(spanMinutes: number): number {
   return Math.max(spanMinutes * 0.1, 15);
 }
 
-const COLLAPSED_COUNT = 5; // anytime-list cap, and (horizontal-only) current+next+3 after
+// Anytime-list cap, and (horizontal-only) current+next+3 after. Distinct from
+// PAD_PREVIEW_ROWS, which caps the ruled-list layout's rows — this one governs the
+// timeline's own flat "Anytime" strip above the grid.
+const COLLAPSED_COUNT = 5;
 
 export default function PlanTaskCard({
   tasks,
@@ -338,6 +379,9 @@ export default function PlanTaskCard({
   onAddExample,
   now: nowOverride,
   horizontal = false,
+  spec,
+  padState,
+  onPadStateChange,
 }: Props) {
   const router = useRouter();
   const theme = useAppTheme();
@@ -355,7 +399,12 @@ export default function PlanTaskCard({
     hasMounted.current = true;
   }, []);
 
-  const [expanded, setExpanded] = useState(false);
+  // Card size. `expanded` (the old boolean) is now just the top of the three-state cycle, so
+  // every "is the whole day showing" check below keeps working unchanged.
+  const [localPadState, setLocalPadState] = useState<PadState>('preview');
+  const state = padState ?? localPadState;
+  const setState = onPadStateChange ?? setLocalPadState;
+  const expanded = state === 'open';
   const [doneOpen, setDoneOpen] = useState(false);
   const [deletedOpen, setDeletedOpen] = useState(false);
   const [addDraft, setAddDraft] = useState('');
@@ -454,6 +503,13 @@ export default function PlanTaskCard({
 
   const pendingCount = anytimePending.length + timedPending.length;
 
+  // The ruled-list layout's rows: timed tasks in clock order first, then Anytime. Deliberately
+  // NOT the grid's `timedLayout` — that carries pixel geometry a flat list has no use for.
+  const listTasks = useMemo(
+    () => [...timedPending.map((e) => e.task), ...anytimePending],
+    [timedPending, anytimePending]
+  );
+
   // Auto-scrolls the grid's collapsed viewport to the current hour — on mount, whenever the
   // card collapses back down, and whenever the grid's own task count changes (e.g. a task is
   // added/removed, which is also when the ScrollView node underneath `gridScrollRef` first
@@ -502,12 +558,10 @@ export default function PlanTaskCard({
       ? anytimePending
       : anytimePending.slice(0, COLLAPSED_COUNT);
 
-  // Vertical: only offer "Show full day" when the compressed axis actually doesn't fit the
-  // resting viewport. Since the 2026-07-27 compression a normal day usually DOES fit, and a
-  // toggle that expands to the same height it already had reads as broken.
-  const showToggle = horizontal
-    ? pendingCount > collapsedVisibleH.size
-    : dayScale.totalHeight > COLLAPSED_GRID_HEIGHT || anytimePending.length > COLLAPSED_COUNT;
+  // `showToggle` is gone (2026-07-30): the footer is components/PadFooterToggle.tsx now, and it
+  // cycles three card sizes rather than answering one "does the day fit?" question. It hides
+  // itself when there is nothing to reveal (`total === 0`), which covers the case this used to —
+  // a toggle that expands to the height it already had.
 
   // The single task considered "up" (current or next) — the one whose hint is worth
   // showing right now (Decision 019).
@@ -824,6 +878,70 @@ export default function PlanTaskCard({
   // appear to get "covered" by an exiting row.
   const containerLayout = reducedMotion ? undefined : LinearTransition.duration(Duration.listMove).easing(Ease.move);
 
+  /**
+   * The pad's type line, built once and used by BOTH layouts (see its two mount points below)
+   * so the ruled list and the timeline can never end up with two differently-worded adds.
+   *
+   * Its extras are the three settings that actually matter for a task captured in passing
+   * (2026-07-24, carried over from the AddRow this replaced): a start time, a repeat cycle, and
+   * an energy cost. Everything else is edited later in the task's own form.
+   */
+  const typeRow = onAddTask ? (
+    <PadTypeRow
+      prompt={t.pad.type.task}
+      value={addDraft}
+      onChangeText={setAddDraft}
+      onSubmit={commitAdd}
+      accent={domainColor.accent}
+      extras={
+        <>
+          <TimeBoxInput value={addTime} onChange={setAddTime} />
+          <PressableScale
+            style={[
+              styles.quickChip,
+              { borderColor: addRecurring !== 'none' ? domainColor.accent : theme.border },
+              addRecurring !== 'none' && { backgroundColor: domainColor.soft },
+            ]}
+            onPress={cycleRecurring}
+            hitSlop={8}
+            scaleTo={0.9}
+            accessibilityRole="button"
+            accessibilityLabel={`${t.taskRecurringToggle}: ${recurringLabel(addRecurring)}`}
+          >
+            <Ionicons
+              name="repeat"
+              size={14}
+              color={addRecurring !== 'none' ? domainColor.accent : theme.textMuted}
+            />
+            {addRecurring !== 'none' && (
+              <Text style={[styles.quickChipText, { color: domainColor.accent }]}>
+                {recurringLabel(addRecurring).charAt(0)}
+              </Text>
+            )}
+          </PressableScale>
+          <PressableScale
+            style={[
+              styles.quickChip,
+              { borderColor: addEnergyValue !== 0 ? domainColor.accent : theme.border },
+              addEnergyValue !== 0 && { backgroundColor: domainColor.soft },
+            ]}
+            onPress={cycleEnergy}
+            hitSlop={8}
+            scaleTo={0.9}
+            accessibilityRole="button"
+            accessibilityLabel={`${t.energyConsumeLabel}: ${addEnergyValue === 0 ? t.off : addEnergyValue > 0 ? '+1' : '-1'}`}
+          >
+            <Ionicons
+              name={addEnergyValue === 0 ? 'flash-outline' : addEnergyValue > 0 ? 'flash' : 'flash-off'}
+              size={14}
+              color={addEnergyValue > 0 ? theme.good : addEnergyValue < 0 ? theme.warn : theme.textMuted}
+            />
+          </PressableScale>
+        </>
+      }
+    />
+  ) : null;
+
   return (
     <Surface
       surfaceContext="ambient"
@@ -831,27 +949,27 @@ export default function PlanTaskCard({
       elevated={expanded}
       style={[styles.card, !expanded && styles.cardCollapsed]}
     >
-      {/* Header wash + badge mount OUTSIDE cardContent, directly in Surface (only in
-          read-only/Home-preview mode) — see the "Badge/wash moved outside cardContent's
-          padding" edit note below for why. */}
-      {readOnly && (
-        <>
-          <CardAccentWash domain="plan" />
-          <CardAccentBadge domain="plan" size={32} style={styles.badgeFixed} />
-        </>
-      )}
+      {/* A full-width band with no left offset — nothing for native and react-native-web to
+          disagree about (unlike the absolutely-positioned badge this replaced). */}
+      {readOnly && <CardAccentWash domain="plan" />}
       <View style={styles.cardContent}>
 
-        {/* Section header — only in read-only (Home preview) mode */}
+        {/* Section header — only in read-only (Home preview) mode. The badge is a normal flex
+            child now, so the whole card sits on ONE left edge. */}
         {readOnly && (
-          <PressableScale onPress={() => router.push('/plans')} style={styles.headerRowPressable} scaleTo={0.97}>
+          <PressableScale onPress={() => router.push('/plans')} style={styles.headerRowPressable} scaleTo={0.98}>
             <View style={styles.headerTopRow}>
-              <Text style={[styles.headerTitle, { color: theme.text }]}>{t.home.todaysPlans}</Text>
-              {pendingCount > 0 && (
-                <View style={[styles.badge, { backgroundColor: domainColor.soft }]}>
-                  <Text style={[styles.badgeText, { color: domainColor.accent }]}>{pendingCount}</Text>
-                </View>
-              )}
+              <CardAccentBadge domain="plan" size={32} />
+              <View style={styles.headerText}>
+                <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
+                  {t.home.todaysPlans}
+                </Text>
+                {dayTasks.length > 0 && (
+                  <Text style={[styles.summary, { color: theme.textMuted }]}>
+                    {t.pad.summary(pendingCount, dayTasks.length)}
+                  </Text>
+                )}
+              </View>
             </View>
             {dayTasks.length > 0 && (
               <ProgressBar
@@ -911,6 +1029,34 @@ export default function PlanTaskCard({
           </View>
         ) : allDone ? (
           <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.dayViewAllDone}</Text>
+        ) : !spec.timeline ? (
+          /* Ruled pad list (2026-07-30) — the default on Home, where a card is too short for a
+             calendar grid to be readable. Timed tasks first in clock order, then Anytime; the
+             time is the row's ONE right-hand value, in tabular figures so a column of them
+             lines up. The timeline is still one tap away in this card's layout picker. */
+          <PadSheet state={state} typeRow={typeRow}>
+            {padVisibleRows(listTasks, state).map((task) => (
+              <PadRow
+                key={task.id}
+                title={task.title}
+                accent={domainColor.accent}
+                done={task.done}
+                rightValue={task.time || undefined}
+                meta={
+                  task.time ? undefined : (
+                    <Text style={[styles.followerBadgeText, { color: theme.textMuted }]}>
+                      {t.dayViewAnytimeBadge}
+                    </Text>
+                  )
+                }
+                onPress={readOnly || !onPressTask ? undefined : () => onPressTask(task)}
+                onAction={onDeleteTask ? () => { tap(); onDeleteTask(task); } : undefined}
+                actionLabel={`${t.dayViewDeleteTask} ${task.title}`}
+                onToggle={onToggleTask ? () => handleToggle(task) : undefined}
+                toggleLabel={task.title}
+              />
+            ))}
+          </PadSheet>
         ) : horizontal ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRail}>
             {hGapMarker}
@@ -942,64 +1088,14 @@ export default function PlanTaskCard({
           </>
         )}
 
-        {/* Inline quick-add (debug-note 2026-07-24) — gated on `onAddTask` (not on `readOnly`,
-            same pattern as the done-toggle), so the read-only Home preview can create a task
-            directly instead of forcing a trip to /plans. Renders whether the day is empty or
-            full. Mirrors the Whenever AddRow on app/(tabs)/plans.tsx: an undated, non-recurring
-            task dated today (the caller's onAddTask owns the store shape). */}
-        {onAddTask ? (
-          <AddRow
-            placeholder={t.newTask}
-            value={addDraft}
-            onChangeText={setAddDraft}
-            onSubmit={commitAdd}
-            accent={domainColor.accent}
-            accessibilityLabel={t.newTask}
-            extras={
-              <>
-                <TimeBoxInput value={addTime} onChange={setAddTime} />
-                <PressableScale
-                  style={[
-                    styles.quickChip,
-                    { borderColor: addRecurring !== 'none' ? domainColor.accent : theme.border },
-                    addRecurring !== 'none' && { backgroundColor: domainColor.soft },
-                  ]}
-                  onPress={cycleRecurring}
-                  hitSlop={8}
-                  scaleTo={0.9}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${t.taskRecurringToggle}: ${recurringLabel(addRecurring)}`}
-                >
-                  <Ionicons name="repeat" size={14} color={addRecurring !== 'none' ? domainColor.accent : theme.textMuted} />
-                  {addRecurring !== 'none' && (
-                    <Text style={[styles.quickChipText, { color: domainColor.accent }]}>
-                      {recurringLabel(addRecurring).charAt(0)}
-                    </Text>
-                  )}
-                </PressableScale>
-                {(
-                  <PressableScale
-                    style={[
-                      styles.quickChip,
-                      { borderColor: addEnergyValue !== 0 ? domainColor.accent : theme.border },
-                      addEnergyValue !== 0 && { backgroundColor: domainColor.soft },
-                    ]}
-                    onPress={cycleEnergy}
-                    hitSlop={8}
-                    scaleTo={0.9}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${t.energyConsumeLabel}: ${addEnergyValue === 0 ? t.off : addEnergyValue > 0 ? '+1' : '-1'}`}
-                  >
-                    <Ionicons
-                      name={addEnergyValue === 0 ? 'flash-outline' : addEnergyValue > 0 ? 'flash' : 'flash-off'}
-                      size={14}
-                      color={addEnergyValue > 0 ? theme.good : addEnergyValue < 0 ? theme.warn : theme.textMuted}
-                    />
-                  </PressableScale>
-                )}
-              </>
-            }
-          />
+        {/* The type line lives on the pad's first rule (PadSheet's `typeRow`) whenever the pad
+            is drawn. When it ISN'T — the timeline layout, an empty day, or an all-done day, all
+            three of which render something else in the body — it gets its own line here, as a
+            PadSheet drawing nothing but the type row. Either way it is the SAME node, so the
+            branches can't drift into differently-worded adds, and there is no state in which
+            the card offers no way to write on it. */}
+        {onAddTask && (spec.timeline || showEmpty || allDone) ? (
+          <PadSheet state="closed" typeRow={typeRow} />
         ) : null}
 
         {/* Done zone — dimmed, collapsed by default (Decision 009a). Always the flat-row
@@ -1068,19 +1164,15 @@ export default function PlanTaskCard({
           </Animated.View>
         ) : null}
 
-        {showToggle ? (
-          <PressableScale
-            style={styles.footerBtn}
-            layout={containerLayout}
-            onPress={() => { tap(); setExpanded((v) => !v); }}
-            scaleTo={0.97}
-            releaseSpring={Spring.calm}
-          >
-            <Text style={[styles.footerBtnText, { color: theme.accent }]}>
-              {expanded ? t.plansCollapse : t.plansExpand}
-            </Text>
-          </PressableScale>
-        ) : null}
+        {/* One chevron for all three card sizes (2026-07-30). In the timeline layout the rows
+            aren't a flat list, so `total` is the pending count — which is what the label is
+            about either way ("3 more" to see). */}
+        <PadFooterToggle
+          state={state}
+          onChange={setState}
+          total={spec.timeline ? pendingCount : listTasks.length}
+          accent={domainColor.accent}
+        />
 
       </View>
     </Surface>
@@ -1089,17 +1181,15 @@ export default function PlanTaskCard({
 
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
-  // Collapsed-only floor so Notes/Plans/Shopping read as the same size regardless of how
-  // few tasks today has — see constants/theme.ts. Content can still grow taller than this
-  // floor (e.g. the expanded full-day grid) — it's a min, not a cap.
+  // Minimum height while NOT fully open — i.e. for both the closed and preview states, never
+  // for open (maintainer's call, 2026-07-30). `expanded` is `state === 'open'`, so this is the
+  // same gate the pre-pad card used, against the new three-state value. The two spare ruled
+  // lines still do the work of making a light card read as a page; the floor makes the four
+  // cards read as one size at rest.
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
-  // paddingTop Spacing.md (was Spacing.sm) so the header sits VERTICALLY CENTERED in the 64px
-  // CardAccentWash band instead of hugging the top edge (2026-07-24: the old "hug the top / sit
-  // high in the band" tuning read as "title too high, not centered between the top border and the
-  // wash divider" — user report). The 32px badge now centers at ~y=32 in the [0,64] band.
-  // Bumped +4 (2026-07-26, user report: header sat too high) — nudges the whole badge+title
-  // header down a touch; see badgeFixed's matching top offset below.
-  cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.md + 4, position: 'relative' },
+  // ONE horizontal inset for the whole card (PAD_GUTTER). The old paddingLeft:52 title inset
+  // that dodged an absolutely-pinned badge is gone with the badge.
+  cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER, position: 'relative' },
   // Quick-add extras (2026-07-24) — compact repeat/energy toggle chips beside TimeBoxInput.
   quickChip: {
     flexDirection: 'row',
@@ -1249,26 +1339,16 @@ const baseStyles = StyleSheet.create({
   // (paddingTop 20 + badge 32 + 16 = 68 as of the 2026-07-26 +4 header nudge — see cardContent's
   // paddingTop comment above; 4px past the divider reads fine, not worth chasing exactly).
   headerRowPressable: { marginBottom: Spacing.md },
-  // Badge is pinned absolute (badgeFixed below) — headerTopRow's paddingLeft is what actually
-  // clears it, not flex order. Tightened 56 → 52 (2026-07-26, user report: "more closely
-  // linked with the badge") — badge offset 16 + badge size 32 + a 4px gap (was 8px).
-  // minHeight 32 = the badge's own size, so the row is never shorter than the thing pinned
-  // beside it and whatever follows (the progress bar) starts BELOW the badge's bottom edge
-  // rather than crossing it (2026-07-27, user report: "upper left icon badge and line visual
-  // issue" — the full-width progress bar ran straight through the badge).
-  headerTopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 52, minHeight: 32 },
-  // Takes the badge out of flex flow so its position is fixed regardless of sibling content
-  // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
-  // Mounts as a sibling of cardContent now (not a child of it), directly in the unpadded
-  // Surface — see the "Badge/wash moved outside cardContent's padding" file-header note for
-  // why. left Spacing.md is an unambiguous single inset on both platforms; top bumped +4
-  // alongside cardContent's paddingTop (2026-07-26, "move it a bit down") so it stays level
-  // with the title.
-  badgeFixed: { position: 'absolute', top: Spacing.md + 4, left: Spacing.md, zIndex: 2 },
-  // marginLeft matches headerTopRow's paddingLeft so the bar starts under the TITLE, not under
-  // the pinned badge — belt-and-braces with headerTopRow's minHeight above, and it reads as
-  // measuring the title's section rather than as a stray rule across the card.
-  progressBar: { marginTop: Spacing.xs, marginLeft: 52 },
+  // The badge is an ordinary flex child again (2026-07-30). It used to be absolutely
+  // positioned, with this row's paddingLeft:52 dodging it and the progress bar's matching
+  // marginLeft dodging it a second time — three coupled numbers, and a documented
+  // native-vs-react-native-web disagreement about whether an absolute child inherits its
+  // parent's padding. In flex flow there is nothing to dodge and nothing to disagree about.
+  headerTopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 32 },
+  headerText: { flex: 1, minWidth: 0 },
+  // Tabular figures so the four Home cards' counts line up down the screen.
+  summary: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, ...TabularNums },
+  progressBar: { marginTop: Spacing.xs },
   // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
   // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
   // Sentence case (2026-07-28 design review): all-caps belongs on ≤13px labels, not 20px card titles.

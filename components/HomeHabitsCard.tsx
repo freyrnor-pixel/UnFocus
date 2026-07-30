@@ -2,6 +2,11 @@
  * HomeHabitsCard.tsx — Home-screen preview of today's habits, mirroring PlanTaskCard/
  * HomeShoppingCard's Surface + domain-colored-border layout.
  *
+ * Rebuilt on the shared pad language 2026-07-30 (components/PadSheet + PadRow + PadTypeRow +
+ * PadFooterToggle): ruled lines, a "Type habit" line on the first rule, the check/counter in the
+ * right margin, and one chevron cycling the card's three sizes. The per-row bordered `rowCard`
+ * fill is gone — a bordered box per row is the opposite of a ruled sheet.
+ *
  * Shows habits due today (lib/habitRecurrence's habitOccursOn), each row a compact
  * title + −/+ log control (the same increment/decrement model app/(tabs)/habits.tsx's
  * HabitCard uses — a habit's dailyGoal can be >1, so a plain checkbox can't always mean
@@ -67,8 +72,11 @@ import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 import ProgressBar from '@/components/ProgressBar';
 import HabitIcon from '@/components/HabitIcon';
 import StarterExampleRow from '@/components/StarterExampleRow';
-import AddRow from '@/components/AddRow';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
+import PadSheet from '@/components/PadSheet';
+import PadRow from '@/components/PadRow';
+import PadTypeRow from '@/components/PadTypeRow';
+import PadFooterToggle from '@/components/PadFooterToggle';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -77,8 +85,9 @@ import { useHabitStore, Habit } from '@/store/useHabitStore';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 import { HABIT_STARTERS } from '@/lib/habitStarters';
 import { getDomainColor } from '@/lib/domainColor';
+import { padVisibleRows } from '@/lib/padState';
+import { useCardState } from '@/lib/useCardState';
 
-const COLLAPSED_COUNT = 5;
 
 /**
  * How many starter chips the EMPTY card offers. Two, not the full four — the same call, for
@@ -104,15 +113,14 @@ export default function HomeHabitsCard() {
   const decrement = useHabitStore((s) => s.decrement);
   const addHabit = useHabitStore((s) => s.add);
 
-  const [expanded, setExpanded] = useState(false);
+  const [state, setState] = useCardState('habits');
   const [habitDraft, setHabitDraft] = useState('');
 
   const dueTodayHabits = habits.filter((h) => habitOccursOn(h, today));
   const doneCount = dueTodayHabits.filter((h) => habitProgress(h, logs, today).isDone).length;
   const pendingCount = dueTodayHabits.length - doneCount;
 
-  const visibleHabits = expanded ? dueTodayHabits : dueTodayHabits.slice(0, COLLAPSED_COUNT);
-  const showToggle = dueTodayHabits.length > COLLAPSED_COUNT;
+  const visibleHabits = padVisibleRows(dueTodayHabits, state);
 
   function handleTitlePress() {
     router.push('/habits');
@@ -156,54 +164,64 @@ export default function HomeHabitsCard() {
     setHabitDraft('');
   }
 
+  /**
+   * One habit as a pad row. The trailing control is a −/+ pair rather than a check whenever
+   * `dailyGoal > 1` — a single tap can't mean "done" for "drink 4 glasses of water" — and a
+   * plain check when the goal is 1, so the common case matches every other pad row in the app.
+   * Either way the row only strikes through once the day's FULL count is met (habitProgress's
+   * `isDone`), which is the maintainer's rule: a partial day is not a failed one.
+   */
   function renderHabitRow(habit: Habit) {
     const { count, goal, isDone } = habitProgress(habit, logs, today);
+    const counted = () => {
+      if (!isDone && count + 1 >= goal) success();
+      else tap();
+      increment(habit.id, today);
+    };
     return (
-      <View key={habit.id} style={styles.row}>
-        <View
-          style={[
-            styles.rowCard,
-            { backgroundColor: rgba(domainColor.accent, 0.05) },
-            { borderColor: rgba(domainColor.accent, 0.2) },
-          ]}
-        >
-          {isDone
-            ? <Ionicons name="checkmark" size={16} color={domainColor.accent} />
-            : <HabitIcon icon={habit.icon} size={16} color={domainColor.accent} />}
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.rowTitle,
-              { color: isDone ? theme.textMuted : theme.text },
-              isDone && { textDecorationLine: 'line-through' },
-            ]}
-          >
-            {habit.title}
-          </Text>
-        </View>
-        <View style={styles.adjRow}>
-          <PressableScale
-            style={[styles.adjBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-            onPress={() => { tap(); decrement(habit.id, today); }}
-            hitSlop={8}
-            scaleTo={0.9}
-          >
-            <Text style={[styles.adjBtnText, { color: theme.textMuted }]}>−</Text>
-          </PressableScale>
-          <PressableScale
-            style={[styles.adjBtn, styles.adjBtnPlus, { backgroundColor: domainColor.accent }]}
-            onPress={() => {
-              if (!isDone && count + 1 >= goal) success();
-              else tap();
-              increment(habit.id, today);
-            }}
-            hitSlop={8}
-            scaleTo={0.9}
-          >
-            <Text style={[styles.adjBtnPlusText, { color: theme.accentInk }]}>+</Text>
-          </PressableScale>
-        </View>
-      </View>
+      <PadRow
+        key={habit.id}
+        title={habit.title}
+        accent={domainColor.accent}
+        done={isDone}
+        leading={
+          isDone ? (
+            <Ionicons name="checkmark" size={16} color={domainColor.accent} />
+          ) : (
+            <HabitIcon icon={habit.icon} size={16} color={domainColor.accent} />
+          )
+        }
+        rightValue={goal > 1 ? `${count}/${goal}` : undefined}
+        onPress={() => router.push('/habits')}
+        trailing={
+          goal > 1 ? (
+            <View style={styles.adjRow}>
+              <PressableScale
+                style={[styles.adjBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                onPress={() => { tap(); decrement(habit.id, today); }}
+                hitSlop={8}
+                scaleTo={0.9}
+                accessibilityRole="button"
+                accessibilityLabel={`${t.decreaseQty} ${habit.title}`}
+              >
+                <Text style={[styles.adjBtnText, { color: theme.textMuted }]}>−</Text>
+              </PressableScale>
+              <PressableScale
+                style={[styles.adjBtn, styles.adjBtnPlus, { backgroundColor: domainColor.accent }]}
+                onPress={counted}
+                hitSlop={8}
+                scaleTo={0.9}
+                accessibilityRole="button"
+                accessibilityLabel={`${t.increaseQty} ${habit.title}`}
+              >
+                <Text style={[styles.adjBtnText, { color: theme.accentInk }]}>+</Text>
+              </PressableScale>
+            </View>
+          ) : undefined
+        }
+        onToggle={goal > 1 ? undefined : () => (isDone ? decrement(habit.id, today) : counted())}
+        toggleLabel={habit.title}
+      />
     );
   }
 
@@ -211,22 +229,25 @@ export default function HomeHabitsCard() {
     <Surface
       surfaceContext="ambient"
       borderColor={domainColor.accent}
-      style={[styles.card, !expanded && styles.cardCollapsed]}
+      style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
       {/* Header wash + badge mount OUTSIDE cardContent, directly in Surface — see
           HomeShoppingCard/HomeNotesCard's "Badge/wash moved outside cardContent's padding"
           edit note for why (native padding inheritance vs. react-native-web). */}
       <CardAccentWash domain="habit" />
-      <CardAccentBadge domain="habit" size={32} style={styles.badgeFixed} />
       <View style={styles.cardContent}>
-        <PressableScale onPress={handleTitlePress} style={styles.titleRowPressable} scaleTo={0.97}>
+        {/* Badge is a normal flex child — one left edge for the whole card. */}
+        <PressableScale onPress={handleTitlePress} style={styles.titleRowPressable} scaleTo={0.98}>
           <View style={styles.titleRow}>
-            <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>{t.habitsTitle}</Text>
-            {pendingCount > 0 && (
-              <View style={[styles.badge, { backgroundColor: domainColor.soft, borderColor: rgba(domainColor.accent, 0.4) }]}>
-                <Text style={[styles.badgeText, { color: domainColor.accent }]}>{pendingCount}</Text>
-              </View>
-            )}
+            <CardAccentBadge domain="habit" size={32} />
+            <View style={styles.headerText}>
+              <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>{t.habitsTitle}</Text>
+              {dueTodayHabits.length > 0 && (
+                <Text style={[styles.summary, { color: theme.textMuted }]}>
+                  {t.pad.summary(pendingCount, dueTodayHabits.length)}
+                </Text>
+              )}
+            </View>
           </View>
           {dueTodayHabits.length > 0 && (
             <ProgressBar
@@ -276,32 +297,29 @@ export default function HomeHabitsCard() {
           // Habits exist but none occur today — the same quiet one-liner habits.tsx's
           // Today tab shows in this case.
           <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
-        ) : (
-          <View style={styles.rowsContainer}>
-            {visibleHabits.map(renderHabitRow)}
-          </View>
-        )}
+        ) : null}
 
-        <AddRow
-          placeholder={t.health.addHabit}
-          value={habitDraft}
-          onChangeText={setHabitDraft}
-          onSubmit={commitHabit}
+        <PadSheet
+          state={state}
+          typeRow={
+            <PadTypeRow
+              prompt={t.pad.type.habit}
+              value={habitDraft}
+              onChangeText={setHabitDraft}
+              onSubmit={commitHabit}
+              accent={domainColor.accent}
+            />
+          }
+        >
+          {visibleHabits.map(renderHabitRow)}
+        </PadSheet>
+
+        <PadFooterToggle
+          state={state}
+          onChange={setState}
+          total={dueTodayHabits.length}
           accent={domainColor.accent}
-          accessibilityLabel={t.health.addHabit}
         />
-
-        {showToggle && (
-          <PressableScale
-            style={styles.footerBtn}
-            onPress={() => { tap(); setExpanded((v) => !v); }}
-            scaleTo={0.97}
-          >
-            <Text style={[styles.footerBtnText, { color: domainColor.accent }]}>
-              {expanded ? t.home.habitsCollapse : t.home.habitsExpand}
-            </Text>
-          </PressableScale>
-        )}
       </View>
     </Surface>
   );
@@ -309,13 +327,22 @@ export default function HomeHabitsCard() {
 
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
+  // Minimum height for the CLOSED and PREVIEW states, never for OPEN (maintainer's call,
+  // 2026-07-30): the four cards read as one intentional size at rest, and an open card is free
+  // to grow to whatever its content needs. Same constant, and the same "only while not fully
+  // open" gate, the pre-pad card used — `state !== 'open'` is what `!expanded` used to mean.
+  cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   // Collapsed-only floor so Habits reads the same size as its Notes/Plans/Shopping
   // siblings regardless of how few habits are due — see constants/theme.ts.
-  cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
-  cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.md + 4 },
+  // ONE horizontal inset for the whole card (PAD_GUTTER). The height floor is `cardCollapsed`
+  // above — applied while not open, see its comment.
+  cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER },
   titleRowPressable: { marginBottom: Spacing.md },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 52 },
-  badgeFixed: { position: 'absolute', top: Spacing.md + 4, left: Spacing.md, zIndex: 2 },
+  // Badge is a normal flex child now, so there is no paddingLeft dodging an absolute one.
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  headerText: { flex: 1, minWidth: 0 },
+  // Tabular figures so the four Home cards' counts line up down the screen.
+  summary: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, ...TabularNums },
   progressBar: { marginTop: Spacing.xs },
   title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, includeFontPadding: false, textAlignVertical: 'center' },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
@@ -340,7 +367,7 @@ const baseStyles = StyleSheet.create({
     borderWidth: 1,
   },
   starterChipText: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
-  rowsContainer: { gap: Spacing.xs, marginBottom: Spacing.sm },
+
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   rowCard: {
     flex: 1,
@@ -365,6 +392,5 @@ const baseStyles = StyleSheet.create({
   adjBtnPlus: { borderWidth: 0 },
   adjBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold, lineHeight: FontSize.sm },
   adjBtnPlusText: { fontSize: FontSize.sm, fontFamily: Fonts.bold, lineHeight: FontSize.sm },
-  footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
-  footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
+
 });

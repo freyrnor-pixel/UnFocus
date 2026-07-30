@@ -75,22 +75,15 @@ function NoteRow({
 
   return (
     <Surface style={styles.card}>
+      {/* Title first, then delete, then the CHECK in the right margin (2026-07-30 row rule —
+          see AGENTS.md and components/PadRow.tsx). The check used to lead this row. */}
       <View style={styles.topRow}>
-        <PressableScale
-          style={[
-            styles.check,
-            { borderColor: theme.accent },
-            note.checked && { backgroundColor: theme.accent },
-          ]}
-          onPress={onToggleChecked}
-          hitSlop={8}
-          accessibilityLabel={t.notes.checkedLabel}
-          scaleTo={0.97}
-        >
-          {note.checked && <Ionicons name="checkmark" size={14} color={theme.accentInk} />}
-        </PressableScale>
         <TextInput
-          style={[styles.headerInput, { color: theme.text }]}
+          style={[
+            styles.headerInput,
+            { color: note.checked ? theme.textMuted : theme.text },
+            note.checked && styles.headerInputDone,
+          ]}
           value={headerInput}
           onChangeText={setHeaderInput}
           onBlur={commitHeader}
@@ -100,6 +93,21 @@ function NoteRow({
         />
         <PressableScale onPress={onDelete} hitSlop={8} accessibilityLabel={t.notes.deleteNote} scaleTo={0.93}>
           <Ionicons name="trash-outline" size={16} color={theme.bad} />
+        </PressableScale>
+        <PressableScale
+          style={[
+            styles.check,
+            { borderColor: theme.accent },
+            note.checked && { backgroundColor: theme.accent },
+          ]}
+          onPress={onToggleChecked}
+          hitSlop={13}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: note.checked }}
+          accessibilityLabel={t.notes.checkedLabel}
+          scaleTo={0.97}
+        >
+          {note.checked && <Ionicons name="checkmark" size={14} color={theme.accentInk} />}
         </PressableScale>
       </View>
 
@@ -138,6 +146,9 @@ function NoteRow({
 
 const styles = StyleSheet.create({
   card: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
+  // Struck through when checked, matching the shared finished-row treatment (constants/theme's
+  // DONE_ROW_OPACITY handles the fade wherever the whole row is dimmed).
+  headerInputDone: { textDecorationLine: 'line-through' },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   check: {
     width: 24,

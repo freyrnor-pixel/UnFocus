@@ -101,10 +101,17 @@ describe('surface/layout registry integrity', () => {
     }
   });
 
-  it('offers "One thing at a time" on plans only, and collapses like nowNext', () => {
-    expect(isLayoutValidFor('plans', 'focusFirst')).toBe(true);
-    for (const surface of SURFACES.filter((s) => s !== 'plans')) {
+  it('offers the focus layouts on the two to-do surfaces only, and collapses like nowNext', () => {
+    // 'plans' is the To-do tab, 'homeTodo' is Home's to-do card (2026-07-30) — the same
+    // list of tasks drawn on two surfaces, so both offer the focus shapes. Nothing else does.
+    const TODO_SURFACES: LayoutSurface[] = ['plans', 'homeTodo'];
+    for (const surface of TODO_SURFACES) {
+      expect(isLayoutValidFor(surface, 'focusFirst')).toBe(true);
+      expect(isLayoutValidFor(surface, 'nowNext')).toBe(true);
+    }
+    for (const surface of SURFACES.filter((s) => !TODO_SURFACES.includes(s))) {
       expect(isLayoutValidFor(surface, 'focusFirst')).toBe(false);
+      expect(isLayoutValidFor(surface, 'nowNext')).toBe(false);
     }
     // It shares nowNext's collapse rule — the difference is the SHAPE the surface draws
     // around the tasks, not how many of them survive the cut.
@@ -113,6 +120,34 @@ describe('surface/layout registry integrity', () => {
     // A focus layout hides money and third-tier detail: it exists to reduce what's on screen.
     expect(LAYOUT_SPECS.focusFirst.showPrice).toBe(false);
     expect(LAYOUT_SPECS.focusFirst.showExtras).toBe(false);
+  });
+
+  it('offers "On a timeline" on the two to-do surfaces only', () => {
+    // A calendar grid keyed to clock time only means anything for a list of timed tasks.
+    expect(isLayoutValidFor('plans', 'timeline')).toBe(true);
+    expect(isLayoutValidFor('homeTodo', 'timeline')).toBe(true);
+    for (const surface of SURFACES.filter((s) => s !== 'plans' && s !== 'homeTodo')) {
+      expect(isLayoutValidFor(surface, 'timeline')).toBe(false);
+    }
+  });
+
+  it('makes "On a timeline" a SHAPE change, not another density level', () => {
+    // Same detail as `normal` on purpose: it changes where a row sits, not what it says. A
+    // to-do has no price, so that one flag differs.
+    const timeline = LAYOUT_SPECS.timeline;
+    expect(timeline.timeline).toBe(true);
+    expect(timeline.density).toBe(LAYOUT_SPECS.normal.density);
+    expect(timeline.showMeta).toBe(LAYOUT_SPECS.normal.showMeta);
+    expect(timeline.showExtras).toBe(LAYOUT_SPECS.normal.showExtras);
+    expect(timeline.showPrice).toBe(false);
+    // It is NOT a focus layout — it shows the whole day, just spaced by the clock.
+    expect(timeline.focusMode).toBe(false);
+  });
+
+  it('draws a calendar grid ONLY in "On a timeline"', () => {
+    for (const id of Object.keys(LAYOUT_SPECS) as (keyof typeof LAYOUT_SPECS)[]) {
+      if (id !== 'timeline') expect(LAYOUT_SPECS[id].timeline).toBeFalsy();
+    }
   });
 
   it('groups by aisle ONLY in "In the store"', () => {
