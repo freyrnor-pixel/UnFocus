@@ -150,6 +150,8 @@ import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
+import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
+import { useCardState } from '@/lib/useCardState';
 import { requestPermissions } from '@/lib/notifications';
 import { syncReminders } from '@/lib/reminders';
 import { computeSpendPace } from '@/lib/budget';
@@ -262,6 +264,10 @@ export default function HomeScreen() {
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
   const userName = useSettingsStore((s) => s.userName);
   const planTimelineHorizontal = useSettingsStore((s) => s.planTimelineHorizontal);
+  // Home's to-do card resolves its own layout + size, independently of the To-do tab — see the
+  // `spec` prop's comment at the PlanTaskCard mount below.
+  const todoSpec = useSurfaceLayout('homeTodo');
+  const [todoState, setTodoState] = useCardState('homeTodo');
   const homeCardOrderRaw = useSettingsStore((s) => s.homeCardOrder);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
@@ -487,6 +493,13 @@ export default function HomeScreen() {
               onRestoreTask={handleRestoreTask}
               onAddExample={handleAddExampleTask}
               horizontal={planTimelineHorizontal}
+              // Home's to-do card is its OWN layout surface, separate from the To-do tab
+              // (2026-07-30): the tab defaults to the day timeline, which needs a whole screen
+              // to be readable, while this card defaults to a plain ruled list like its three
+              // siblings. Both offer the other via the layout picker.
+              spec={todoSpec}
+              padState={todoState}
+              onPadStateChange={setTodoState}
             />
           </DebugNoteAnchor>
         );

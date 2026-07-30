@@ -12,7 +12,8 @@
  * Connections:
  *   Imports → components/AnimatedChevron, components/PressableScale, constants/theme,
  *             lib/haptics (tap), lib/i18n, lib/padState (PadState, nextPadState,
- *             padHiddenCount), lib/useAppTheme
+ *             padHiddenCount). No theme hook — the caller passes its domain accent, which is
+ *             the only colour this control uses.
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
  *             app/(tabs)/plans.tsx
  *   Data    → none — presentational; the caller persists via settings.cardStates
@@ -31,7 +32,6 @@ import { FontSize, Fonts, Spacing } from '@/constants/theme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { PadState, nextPadState, padHiddenCount } from '@/lib/padState';
-import { useAppTheme } from '@/lib/useAppTheme';
 
 type Props = {
   state: PadState;
@@ -44,7 +44,6 @@ type Props = {
 };
 
 export default function PadFooterToggle({ state, onChange, total, accent, style }: Props) {
-  const theme = useAppTheme();
   const t = useT();
 
   if (total === 0) return null;

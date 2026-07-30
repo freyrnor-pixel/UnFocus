@@ -129,8 +129,10 @@ import SharedTasksSection from '@/components/SharedTasksSection';
 import SectionRail from '@/components/SectionRail';
 import SectionCard from '@/components/SectionCard';
 import TaskCard from '@/components/TaskCard';
+import PlanTaskCard from '@/components/PlanTaskCard';
 import LayoutPickerSheet from '@/components/LayoutPickerSheet';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
+import { useCardState } from '@/lib/useCardState';
 import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
 import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
@@ -147,7 +149,7 @@ import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { usePrefill } from '@/lib/prefill';
 import { tap, success } from '@/lib/haptics';
 import { PLAN_STARTER_STEPS, PLAN_STARTER_TIME, PLAN_STARTER_FINISH_TIME } from '@/lib/taskStarters';
-import { Task, useTaskStore } from '@/store/useTaskStore';
+import { Recurring, Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { usePeopleStore } from '@/store/usePeopleStore';
 import PersonChip from '@/components/PersonChip';
@@ -483,6 +485,10 @@ export default function TasksScreen() {
   // that the layout doesn't draw is still a live task — it keeps its reminders, still counts
   // in every section header, and is one tap away behind "The rest".
   const layoutSpec = useSurfaceLayout('plans');
+  // Card size for the timeline layout's day card (2026-07-30). Keyed to 'plans', so the To-do
+  // tab remembers its own size independently of Home's to-do card ('homeTodo').
+  const [todayCardState, setTodayCardState] = useCardState('plans');
+  const planTimelineHorizontal = useSettingsStore((s) => s.planTimelineHorizontal);
   const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
   const tasksForWeek = useTaskStore((s) => s.tasksForWeek);
@@ -550,6 +556,39 @@ export default function TasksScreen() {
   // the self person, matching the pre-registry convention that '' meant "me".
   const filterPerson = personFilter ? people.find((p) => p.id === personFilter) ?? null : null;
   const addAssigneeName = filterPerson && !filterPerson.isSelf ? filterPerson.name : '';
+
+  // The timeline layout's own quick-add (2026-07-30). Unlike InlineTaskAdd's title-only create,
+  // PlanTaskCard's type line also carries a start time, a repeat cycle and an energy cost — so a
+  // task typed straight onto the timeline can land at a real hour, which is the whole point of
+  // being on a timeline. `hasStartDate: true` because this IS the dated Today list, not Whenever.
+  const handleTimelineAddTask = useCallback(
+    (
+      title: string,
+      extra: { time?: string; recurring: Recurring; recurringDays: number[]; energyEnabled: boolean; energyValue: number }
+    ) => {
+      addTask({
+        title,
+        date: today,
+        time: extra.time,
+        taskType: 'start-at',
+        done: false,
+        recurring: extra.recurring,
+        recurringDays: extra.recurringDays,
+        weekInterval: 1,
+        monthlyMode: 'day',
+        monthDay: new Date().getDate(),
+        monthOrdinal: 'first',
+        monthWeekday: 0,
+        energyEnabled: extra.energyEnabled,
+        energyValue: extra.energyValue,
+        sortOrder: 0,
+        hasStartDate: true,
+        assigneeId: personFilter ?? '',
+        assignee: addAssigneeName,
+      });
+    },
+    [addTask, today, personFilter, addAssigneeName]
+  );
   // Both filter rows in one predicate: a task has to pass the person filter AND the tag
   // filter to show. (Within the TAG row, multiple chips are "any of" — see lib/tags.ts's
   // matchesTagFilter for why intersecting there reads as a broken filter.)
@@ -969,6 +1008,24 @@ export default function TasksScreen() {
                     />
                   </SectionCard>
                 ))
+              ) : layoutSpec.timeline ? (
+                /* "On a timeline" — the day as a clock-time calendar grid (2026-07-30). This is
+                   the To-do tab's DEFAULT (seeded in lib/db.ts's migrations), because a full
+                   screen is the only place a 24h grid is actually readable; Home's card defaults
+                   to the ruled list instead. The grid lives in components/PlanTaskCard.tsx, the
+                   same component Home mounts — there is deliberately no second implementation.
+                   Not read-only here: rows open their editor, and the card owns its own add. */
+                <PlanTaskCard
+                  tasks={todayList}
+                  allTasks={tasks}
+                  spec={layoutSpec}
+                  padState={todayCardState}
+                  onPadStateChange={setTodayCardState}
+                  horizontal={planTimelineHorizontal}
+                  onPressTask={(task: Task) => router.push({ pathname: '/task-form', params: { id: task.id } })}
+                  onToggleTask={handleToggleDone}
+                  onAddTask={handleTimelineAddTask}
+                />
               ) : layoutSpec.id === 'focusFirst' ? (
                 /* "One thing at a time" — a different SHAPE for the same tasks, so it replaces
                    the Today SectionCard rather than sitting inside it. Every task the layout
