@@ -166,6 +166,33 @@ const en = {
   a11yDiscardRow: 'Discard new row',
   showHint: 'How this works',
   hideHint: 'Hide instructions',
+  /**
+   * The pad (notepad) language, 2026-07-30 — shared by every list-bearing card so the four
+   * Home cards stop wording the same control four different ways. `summary` is the closed
+   * state's one line; `more`/`all`/`less` label the single chevron that cycles closed →
+   * preview → open. `type.*` are the always-open first line's prompts, worded per card.
+   */
+  pad: {
+    summary: (left: number, total: number) => `${left}/${total} left`,
+    more: (n: number) => `${n} more`,
+    all: 'Show all',
+    less: 'Less',
+    type: {
+      note: 'Type note',
+      task: 'Type task',
+      habit: 'Type habit',
+      item: 'Type item',
+    },
+  },
+  padRow: { actionLabel: 'More for this row' },
+  /** The ⋯ router on a note row (components/SendToSheet.tsx). */
+  sendTo: {
+    title: 'Send it to…',
+    todo: 'To-do',
+    shopping: 'Shopping list',
+    habits: 'Habits',
+    goals: 'Goals',
+  },
   // Task form
   newTask: 'New task',
   add: 'Add',
@@ -1091,6 +1118,10 @@ const en = {
         label: 'In the store',
         hint: 'Big rows grouped by aisle, names only, no prices — easy to read one-handed while shopping.',
       },
+      timeline: {
+        label: 'On a timeline',
+        hint: 'The day by the clock. Quiet stretches shrink, so what you have on stands out.',
+      },
       nowNext: {
         label: 'Now and next',
         hint: 'Only what you are doing and what follows it. The rest stays tucked away.',
@@ -1695,6 +1726,26 @@ const no: typeof en = {
   a11yDiscardRow: 'Forkast ny rad',
   showHint: 'Slik fungerer det',
   hideHint: 'Skjul instruksjoner',
+  pad: {
+    summary: (left: number, total: number) => `${left}/${total} igjen`,
+    more: (n: number) => `${n} flere`,
+    all: 'Vis alle',
+    less: 'Mindre',
+    type: {
+      note: 'Skriv notat',
+      task: 'Skriv oppgave',
+      habit: 'Skriv vane',
+      item: 'Skriv vare',
+    },
+  },
+  padRow: { actionLabel: 'Mer for denne raden' },
+  sendTo: {
+    title: 'Send den til…',
+    todo: 'Gjøremål',
+    shopping: 'Handleliste',
+    habits: 'Vaner',
+    goals: 'Mål',
+  },
   newTask: 'Ny oppgave',
   add: 'Legg til',
   taskTitlePlaceholder: 'Hva må gjøres?',
@@ -2242,6 +2293,10 @@ const no: typeof en = {
       inStore: {
         label: 'I butikken',
         hint: 'Store rader gruppert etter avdeling, bare navn, ingen priser — lett å lese med én hånd mens du handler.',
+      },
+      timeline: {
+        label: 'På en tidslinje',
+        hint: 'Dagen etter klokka. Stille perioder krymper, så det du har på, kommer fram.',
       },
       nowNext: {
         label: 'Nå og neste',

@@ -35,14 +35,27 @@
  *     default is always valid for every surface and resolution can't dead-end.
  */
 
-/** A list-bearing surface that can have its own layout. */
-export type LayoutSurface = 'shopping' | 'plans' | 'notes' | 'health';
+/**
+ * A list-bearing surface that can have its own layout.
+ *
+ * `homeTodo` is Home's to-do card, deliberately SEPARATE from `plans` (the To-do tab): as of
+ * 2026-07-30 the two default differently on purpose — the tab opens on the day timeline, which
+ * needs a whole screen to be readable, while Home's card is a plain ruled list like its three
+ * sibling cards. One shared key couldn't express that.
+ */
+export type LayoutSurface = 'shopping' | 'plans' | 'homeTodo' | 'notes' | 'habits' | 'health';
 
 /** The three levels every surface understands; also the shape of the global default. */
 export type DetailLevel = 'basic' | 'normal' | 'everything';
 
 /** Every layout id known to the app. */
-export type LayoutId = DetailLevel | 'inStore' | 'nowNext' | 'byPerson' | 'focusFirst';
+export type LayoutId =
+  | DetailLevel
+  | 'inStore'
+  | 'nowNext'
+  | 'byPerson'
+  | 'focusFirst'
+  | 'timeline';
 
 export const DETAIL_LEVELS: readonly DetailLevel[] = ['basic', 'normal', 'everything'] as const;
 
@@ -55,8 +68,13 @@ export const FALLBACK_LAYOUT: DetailLevel = 'normal';
  */
 export const SURFACE_LAYOUTS: Record<LayoutSurface, readonly LayoutId[]> = {
   shopping: ['basic', 'normal', 'everything', 'inStore'],
-  plans: ['basic', 'normal', 'everything', 'nowNext', 'focusFirst', 'byPerson'],
+  plans: ['basic', 'normal', 'everything', 'timeline', 'nowNext', 'focusFirst', 'byPerson'],
+  // Home's to-do card offers the timeline too — it just doesn't default to it. `byPerson`
+  // is deliberately absent: a Home preview card is not the place for a second person filter
+  // (the same call the Habits card already makes).
+  homeTodo: ['basic', 'normal', 'everything', 'timeline', 'nowNext', 'focusFirst'],
   notes: ['basic', 'normal', 'everything'],
+  habits: ['basic', 'normal', 'everything'],
   health: ['basic', 'normal', 'everything'],
 };
 
@@ -96,6 +114,12 @@ export type LayoutSpec = {
    * switching back restores the dragged order exactly.
    */
   groupByAisle?: boolean;
+  /**
+   * Draw the day as a clock-time calendar grid (lib/dayGrid + components/DayGridLines)
+   * instead of a ruled list. A surface asks for this flag, never for the `timeline` id — same
+   * rule as every other flag here.
+   */
+  timeline?: boolean;
 };
 
 const spec = (
@@ -125,6 +149,12 @@ export const LAYOUT_SPECS: Record<LayoutId, LayoutSpec> = {
   // nowNext because the surface's collapse rule is the same; the difference is the SHAPE the
   // surface draws around it, which is why this is its own id and not a nowNext variant.
   focusFirst: spec('focusFirst', 'normal', true, false, false, true, false),
+  // "Timeline" — the day as a calendar grid on an elastic hour axis (hour labels in a left
+  // gutter, a live now-line, empty stretches folded into short dashed bands). Same detail as
+  // `normal` because it changes the SHAPE, not what a row shows; no price, because a to-do
+  // has none. The To-do tab defaults to this (seeded in lib/db.ts's migrations); Home's card
+  // offers it but defaults to the ruled list, so the two surfaces read differently on purpose.
+  timeline: { ...spec('timeline', 'normal', true, false, false), timeline: true },
   // "By person" — the normal row, re-grouped under whoever each task is for. Same detail
   // as `normal` on purpose: this layout changes the GROUPING, not what a row shows, so it
   // stays readable next to the other four rather than being a second axis of density.

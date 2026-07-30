@@ -976,6 +976,30 @@ export function initDb() {
     // prior defaults are covered, since an install that never saw the Habits migration's
     // predecessor default is still on the older string.
     "UPDATE settings SET home_card_order = '[\"plans\",\"habits\",\"goals\",\"notes\",\"shopping\"]' WHERE home_card_order = '[\"plans\",\"habits\",\"notes\",\"shopping\"]'",
+    // ── Notepad pass (2026-07-30) ───────────────────────────────────────────
+    // `card_states` is a JSON object of per-surface card sizes
+    // ({"notes":"closed"}), same storage shape as home_card_order/card_layouts.
+    // Three sizes now, not two: closed (header + "8/10 left" + the type line) →
+    // preview (the first 3 rows) → open (everything). Read through
+    // lib/padState.ts's sanitizeCardStates rather than trusted raw, so an unknown
+    // value degrades to 'preview' instead of blanking a card. Default '{}' means
+    // every surface follows 'preview', which is roughly the card an upgrading
+    // user already has — no back-fill UPDATE needed.
+    "ALTER TABLE settings ADD COLUMN card_states TEXT DEFAULT '{}'",
+    // When a note is ticked it now stays struck-through IN PLACE for the rest of
+    // that day and only moves into the "Checked off" zone the next day, so
+    // ticking something doesn't make it vanish from under your finger. That needs
+    // to know WHEN it was ticked; '' means "not checked" (or checked by a build
+    // older than this column, which reads as "checked a while ago" — correct).
+    // System-managed: deliberately NOT added to lib/aiSetupGuide.ts's notes
+    // domain, so AI_SETUP_SCHEMA_VERSION does not bump.
+    "ALTER TABLE notes ADD COLUMN checked_at TEXT DEFAULT ''",
+    // The day timeline moved from Home's to-do card to the To-do tab, where a
+    // full screen can actually hold a calendar grid; Home's card is a plain ruled
+    // list. Seed the tab's override so it opens on the timeline — but ONLY for
+    // users who have never picked a layout themselves, or this would silently
+    // discard their choice.
+    `UPDATE settings SET card_layouts = '{"plans":"timeline"}' WHERE card_layouts IS NULL OR card_layouts = '' OR card_layouts = '{}'`,
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

@@ -129,6 +129,7 @@ import { generateId } from '@/lib/id';
 import { DEFAULT_TRAY_TIMES, normalizeTrayTimes, TrayTimes } from '@/lib/medicineSchedule';
 import { AspectRatioKey } from '@/constants/theme';
 import { DetailLevel, sanitizeCardLayouts, sanitizeDetailLevel } from '@/lib/cardLayout';
+import { sanitizeCardStates } from '@/lib/padState';
 
 // The app ships a single palette ("Default"). The union is kept as a type so
 // existing casts (`as ColorTheme`) still compile; only 'default' is ever stored.
@@ -324,6 +325,19 @@ export type Settings = {
   // lib/cardLayout.ts's header and lib/__tests__/cardLayout.test.ts.
   layoutDetail: DetailLevel;
   cardLayouts: Record<string, string>;
+  // ---- Card states (2026-07-30, notepad pass) ----
+  // How BIG each list-bearing surface is drawn, as opposed to how much detail its rows
+  // carry (that's `cardLayouts` above — the two are independent axes). Maps a surface id
+  // to 'closed' | 'preview' | 'open'; an absent key means 'preview'.
+  //
+  // Validated on read through lib/padState.ts's sanitizeCardStates, same defence as
+  // cardLayouts: a value from an edited backup can't blank a card.
+  //
+  // Presentation ONLY, and this matters more here than for layouts: a CLOSED card draws no
+  // rows at all, and every one of those rows is still live — it keeps its reminders and
+  // still counts in the card's own "8/10 left" summary. Nothing in the reminder, widget,
+  // sync or automation paths may read this field.
+  cardStates: Record<string, string>;
   /** Habits' Today/Week/Month selector, persisted so it survives a remount. */
   habitViewTab: HabitViewTab;
 };
@@ -418,6 +432,7 @@ function rowToSettings(row: Row): Settings {
     medicineRemindersEnabled: readBool(row, 'medicine_reminders_enabled'),
     layoutDetail: sanitizeDetailLevel(readStr(row, 'layout_detail', 'normal')),
     cardLayouts: sanitizeCardLayouts(readJson<unknown>(row, 'card_layouts', {})),
+    cardStates: sanitizeCardStates(readJson<unknown>(row, 'card_states', {})),
     habitViewTab: readEnum<HabitViewTab>(row, 'habit_view_tab', ['today', 'week', 'month'], 'today'),
   };
 }
@@ -496,6 +511,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   medicineRemindersEnabled: { col: 'medicine_reminders_enabled', to: bool },
   layoutDetail: { col: 'layout_detail' },
   cardLayouts: { col: 'card_layouts', to: (v) => JSON.stringify(v) },
+  cardStates: { col: 'card_states', to: (v) => JSON.stringify(v) },
   habitViewTab: { col: 'habit_view_tab' },
 };
 
@@ -582,6 +598,9 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   // upgrading user sees no change until they pick one.
   layoutDetail: 'normal' as DetailLevel,
   cardLayouts: {},
+  // Empty = every surface follows 'preview' (lib/padState's DEFAULT_PAD_STATE), which is
+  // roughly the card an upgrading user already has.
+  cardStates: {},
   habitViewTab: 'today' as HabitViewTab,
   loaded: false,
   workModeSessionOverride: false,
