@@ -18,7 +18,7 @@
  * Connections:
  *   Imports → components/Surface, components/CardAccent (badge+wash gradient move),
  *             components/HabitIcon, components/PressableScale, components/ProgressBar,
- *             components/StarterExampleRow (empty-state example row), components/AddRow,
+ *             components/CardHintNote (foot-of-card explainer), components/AddRow,
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
  *             lib/domainColor, lib/habitRecurrence (habitOccursOn, habitProgress),
  *             lib/habitStarters (HABIT_STARTERS — one-tap starter chips), store/useHabitStore
@@ -44,12 +44,16 @@
  *     completes the goal (mirrors PlanTaskCard's done-toggle haptic rule); lesser taps
  *     get the lighter `tap()`.
  *   - **Empty states, two tiers (mirrors habits.tsx's Today tab exactly)**: no habits AT
- *     ALL → bulb explainer (`t.starters.habits.text`) + an "Example habits" divider
- *     caption (`t.starters.habits.exampleLabel`, 2026-07-28 — a suggestion styled like a
- *     real row didn't read as an example without one) + one read-only `StarterExampleRow`
- *     (no `onAdd` — the real one-tap add is the starter chips below it, same split
- *     habits.tsx's own StarterCard uses) + one-tap `HABIT_STARTERS` chips, capped at
- *     `STARTER_PREVIEW_COUNT` (see that constant — the Habits TAB still offers all four).
+ *     ALL → one-tap `HABIT_STARTERS` chips, capped at `STARTER_PREVIEW_COUNT` (see that
+ *     constant — the Habits TAB still offers all four), and the explainer
+ *     (`t.starters.habits.text`) as a foot-of-card `components/CardHintNote`.
+ *     **Simplified 2026-07-30**: this block used to open with a bulb explainer, then an
+ *     "Example habits" caption, then a read-only `StarterExampleRow` — which rendered the
+ *     first starter's own title and goal ("Drink 4 glasses of water 0/4") directly above a
+ *     chip reading "Drink 4 glasses of water +". Same suggestion twice, four lines deep,
+ *     before anything actionable. The chips ARE the example and they're tappable, so the
+ *     row went; the explainer moved to the foot (see CardHintNote's header for why teaching
+ *     no longer sits between a card's title and its content).
  *     Habits exist but none are due today → the same quiet `t.noHabitsYet` one-liner
  *     habits.tsx's Today tab shows in that case, so the two surfaces never disagree.
  *   - **Quick-add**: a trailing `AddRow`, title-only, creates a daily/dailyGoal-1 habit
@@ -71,7 +75,7 @@ import PressableScale from '@/components/PressableScale';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 import ProgressBar from '@/components/ProgressBar';
 import HabitIcon from '@/components/HabitIcon';
-import StarterExampleRow from '@/components/StarterExampleRow';
+import CardHintNote from '@/components/CardHintNote';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
@@ -260,21 +264,13 @@ export default function HomeHabitsCard() {
         </PressableScale>
 
         {habits.length === 0 ? (
-          // No habits AT ALL — explainer + labelled example + one-tap starters (mirrors
-          // habits.tsx's Today-tab StarterCard exactly, inlined so this card doesn't nest
-          // a Surface inside a Surface).
+          // No habits AT ALL — one-tap starters, and nothing else (2026-07-30). This block used
+          // to open with a bulb explainer, then an "EXAMPLE HABITS" caption, then a read-only
+          // StarterExampleRow — which rendered "Drink 4 glasses of water 0/4" directly above a
+          // chip reading "Drink 4 glasses of water +", i.e. the same suggestion twice, four
+          // lines deep, before anything you could act on. The chips ARE the example and they're
+          // tappable; the explainer moved to the card's foot (CardHintNote, below).
           <View style={styles.emptyWrap}>
-            <View style={styles.emptyTextRow}>
-              <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.emptyBulb} />
-              <Text style={[styles.emptyExplainer, { color: theme.text }]}>{t.starters.habits.text}</Text>
-            </View>
-            <Text style={[styles.exampleDivider, { color: theme.textMuted }]}>{t.starters.habits.exampleLabel}</Text>
-            <StarterExampleRow
-              icon={HABIT_STARTERS[0].icon}
-              title={t.starters.habits.suggestions[HABIT_STARTERS[0].key]}
-              meta={`0/${HABIT_STARTERS[0].dailyGoal}`}
-              accent={domainColor.accent}
-            />
             <Text style={[styles.starterTapLabel, { color: theme.textMuted }]}>{t.starters.habits.tapToAdd}</Text>
             <View style={styles.starterChips}>
               {HABIT_STARTERS.slice(0, STARTER_PREVIEW_COUNT).map((s) => (
@@ -320,6 +316,10 @@ export default function HomeHabitsCard() {
           total={dueTodayHabits.length}
           accent={domainColor.accent}
         />
+
+        {/* Explainer at the FOOT (2026-07-30) — it used to lead the empty state, between the
+            title and the first tappable thing. Only while there are no habits at all. */}
+        {habits.length === 0 ? <CardHintNote text={t.starters.habits.text} /> : null}
       </View>
     </Surface>
   );
@@ -347,14 +347,10 @@ const baseStyles = StyleSheet.create({
   title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, includeFontPadding: false, textAlignVertical: 'center' },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  // Just the starter chips now — the explainer moved to a foot-of-card CardHintNote and the
+  // read-only example row (a duplicate of chip #1) is gone entirely (2026-07-30).
   emptyWrap: { gap: Spacing.sm, marginBottom: Spacing.sm },
-  emptyTextRow: { flexDirection: 'row', gap: Spacing.xs },
-  emptyBulb: { marginTop: 2 },
-  emptyExplainer: { flex: 1, fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.medium, fontStyle: 'italic' },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', paddingVertical: Spacing.sm, marginBottom: Spacing.sm },
-  // "Example habits" divider caption — mirrors components/StarterCard's own exampleLabel
-  // caption styling so the two surfaces read as one system.
-  exampleDivider: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.4 },
   starterTapLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginTop: Spacing.xs },
   starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   starterChip: {

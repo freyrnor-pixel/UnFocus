@@ -107,14 +107,16 @@
  *     `COLLAPSED_GRID_HEIGHT` (lib/dayGrid.ts) does the real height budgeting for the timed
  *     portion now.
  *   - **Empty state (2026-07-24 text removed → 2026-07-25 blank row → hour ruler → 2026-07-26
- *     real grid → 2026-07-27 explainer + suggestion → 2026-07-28 "Example tasks" divider)**: an
- *     empty day (`showEmpty`) now renders a short italic explainer (`t.starters.plans.text`),
- *     an uppercase "Example tasks" caption (`t.starters.plans.exampleLabel`, `exampleDivider`
- *     style — mirrors components/StarterCard's own exampleLabel treatment), then one real
- *     suggested-add row (`StarterExampleRow`, its "+" wired through `onAddExample`), where the
- *     content would be. The divider was added because a suggestion styled to look like a real
- *     row (by design — see StarterExampleRow's own header) read as an actual task without it
- *     (2026-07-28 user report). That replaced an empty hour grid, which filled the space
+ *     real grid → 2026-07-27 explainer + suggestion → 2026-07-30 the teaching moved to the
+ *     foot)**: an empty day (`showEmpty`) renders one real suggested-add row
+ *     (`StarterExampleRow`, its "+" wired through `onAddExample`) where the content would be,
+ *     and the explainer (`t.starters.plans.text`) as a `components/CardHintNote` at the very
+ *     bottom of the card. Until 2026-07-30 the explainer LED the block and an uppercase
+ *     "Example tasks" caption sat under it — three lines of teaching between the title and the
+ *     first thing you could act on. The caption's job (a suggestion styled to look like a real
+ *     row reads as an actual task) is done by the row's own `tag` chip now; see
+ *     StarterExampleRow's header.
+ *     That whole block replaced an empty hour grid, which filled the space
  *     without teaching anything — the user asked for "example text by default when the card is
  *     empty, and a row with suggested adds, designed the same as the other rows".
  *     `components/DayHourScale` existed only for that empty-grid branch and was deleted with
@@ -230,6 +232,7 @@ import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
 import PadFooterToggle from '@/components/PadFooterToggle';
+import CardHintNote from '@/components/CardHintNote';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TimeBoxInput from '@/components/TimeBoxInput';
@@ -984,30 +987,24 @@ export default function PlanTaskCard({
 
         {showEmpty ? (
           <View style={styles.emptyWrap}>
-            {/* Empty-day explainer + one concrete suggestion, in the card, where the content
-                would be (2026-07-27, user report: each card should carry its own example text
-                and a suggested-add row while empty). This replaced an empty hour ruler that
-                filled the space without saying anything — the suggestion row IS a real row,
-                and its "+" writes a real task. */}
-            <View style={styles.emptyTextRow}>
-              <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.emptyBulb} />
-              <Text style={[styles.emptyExplainer, { color: theme.text }]}>{t.starters.plans.text}</Text>
-            </View>
+            {/* One concrete suggestion, in the card, where the content would be (2026-07-27,
+                user report). This replaced an empty hour ruler that filled the space without
+                saying anything — the suggestion row IS a real row, and its "+" writes a real
+                task. The explainer that used to lead this block is now a one-line
+                CardHintNote at the FOOT of the card (2026-07-30) — see that mount below, and
+                its component header for why teaching moved out from between the title and the
+                content. The "EXAMPLE TASKS" caption line went with it: the marker is the
+                row's own `tag` chip now. */}
             {onAddExample ? (
-              <>
-                {/* Divider caption (2026-07-28, user report: a suggested row styled like a
-                    real row didn't read as an EXAMPLE without a label) — same uppercase
-                    caption treatment components/StarterCard uses for exampleLabel. */}
-                <Text style={[styles.exampleDivider, { color: theme.textMuted }]}>{t.starters.plans.exampleLabel}</Text>
-                <StarterExampleRow
-                  icon="ellipse-outline"
-                  title={t.starters.plans.exampleTitle}
-                  meta="17:00–17:20"
-                  accent={domainColor.accent}
-                  onAdd={onAddExample}
-                  addLabel={t.starters.addExample}
-                />
-              </>
+              <StarterExampleRow
+                icon="ellipse-outline"
+                title={t.starters.plans.exampleTitle}
+                tag={t.starters.exampleLabel}
+                meta="17:00–17:20"
+                accent={domainColor.accent}
+                onAdd={onAddExample}
+                addLabel={t.starters.addExample}
+              />
             ) : null}
             {/* Ghost "add" row (debug-note 2026-07-21) — an empty day should still offer a
                 place to add something. Deep-links to the Plans tab; only shown as a FALLBACK
@@ -1174,6 +1171,11 @@ export default function PlanTaskCard({
           accent={domainColor.accent}
         />
 
+        {/* The empty-day explainer, at the FOOT of the card (2026-07-30) — it used to lead the
+            empty state, between the title and the first thing you can actually do. Only while
+            the day is genuinely empty: once there are tasks, the ⓘ hint is where this lives. */}
+        {showEmpty ? <CardHintNote text={t.starters.plans.text} /> : null}
+
       </View>
     </Surface>
   );
@@ -1204,15 +1206,10 @@ const baseStyles = StyleSheet.create({
   },
   quickChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
+  // Just the suggestion row + the ghost add row now — the bulb/italic explainer and the
+  // "EXAMPLE TASKS" caption that used to lead this block became a foot-of-card CardHintNote
+  // and the row's own `tag` chip respectively (2026-07-30).
   emptyWrap: { gap: Spacing.sm },
-  // Empty-day explainer (2026-07-27) — same bulb + italic treatment components/StarterCard
-  // uses, inlined here so the card's own empty state doesn't need a nested Surface-in-Surface.
-  emptyTextRow: { flexDirection: 'row', gap: Spacing.xs },
-  emptyBulb: { marginTop: 2 },
-  emptyExplainer: { flex: 1, fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.medium, fontStyle: 'italic' },
-  // "Example tasks" divider caption (2026-07-28) — mirrors components/StarterCard's own
-  // exampleLabel caption styling so the two surfaces read as one system.
-  exampleDivider: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.4 },
   emptyAddRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -19,8 +19,8 @@
  *             exactly what AddRow's header tells callers not to do), components/AnimatedListItem (habit
  *             add/remove fade), components/GlowPulse (done-state static halo),
  *             components/HabitIcon, components/EmptyState, components/StarterCard
- *             (first-run explainer), components/StarterExampleRow (habits empty-state
- *             preview row), components/SlideSelector,
+ *             (first-run explainer — no example row since 2026-07-30; the starter chips
+ *             in its `children` slot are the example), components/SlideSelector,
  *             components/PressableScale, components/IconButton (per-row habit edit button),
  *             components/GoalGlowDot (goal glow), components/SubScreenLinkButton (2026-07-29,
  *             the "Goals" link — see below), components/DebugNoteAnchor,
@@ -86,7 +86,6 @@ import HabitIcon from '@/components/HabitIcon';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import EmptyState from '@/components/EmptyState';
 import StarterCard from '@/components/StarterCard';
-import StarterExampleRow from '@/components/StarterExampleRow';
 import SubScreenLinkButton from '@/components/SubScreenLinkButton';
 import { HABIT_STARTERS, HabitStarter } from '@/lib/habitStarters';
 
@@ -741,19 +740,13 @@ export default function HabitsScreen() {
                   // reappear on a day when the user's existing habits simply aren't due — and
                   // it does come back if they later delete every habit. Habits exist but none
                   // occur today → the old quiet one-liner, unchanged.
+                  // No `example` row on this StarterCard (2026-07-30): it was a read-only copy
+                  // of the very first starter chip below it — "Drink 4 glasses of water 0/4"
+                  // stacked directly above "Drink 4 glasses of water +". The chips are the
+                  // example, and unlike the row they actually do something. Same call, same
+                  // reason, as components/HomeHabitsCard.tsx's own empty state.
                   profileHabits.length === 0 ? (
-                    <StarterCard
-                      text={t.starters.habits.text}
-                      exampleLabel={t.starters.habits.exampleLabel}
-                      example={
-                        <StarterExampleRow
-                          icon={HABIT_STARTERS[0].icon}
-                          title={t.starters.habits.suggestions[HABIT_STARTERS[0].key]}
-                          meta={`0/${HABIT_STARTERS[0].dailyGoal}`}
-                          accent={habitDomainColor.accent}
-                        />
-                      }
-                    >
+                    <StarterCard text={t.starters.habits.text}>
                       <Text style={[styles.starterTapLabel, { color: theme.textMuted }]}>{t.starters.habits.tapToAdd}</Text>
                       {/* Two chips, not four (2026-07-30) — the same measured call
                           components/HomeHabitsCard.tsx already made. `npm run wraps --lang=no`

@@ -81,6 +81,7 @@ import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
 import PadFooterToggle from '@/components/PadFooterToggle';
+import CardHintNote from '@/components/CardHintNote';
 import SendToSheet, { SendToTarget } from '@/components/SendToSheet';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
@@ -244,15 +245,6 @@ export default function HomeNotesCard() {
           </PressableScale>
         </View>
 
-        {/* An empty pad says what it's for once, above the first rule — not as a row, so it
-            can't be mistaken for a note. */}
-        {notes.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.emptyBulb} />
-            <Text style={[styles.emptyExplainer, { color: theme.text }]}>{t.starters.notes.text}</Text>
-          </View>
-        ) : null}
-
         <PadSheet
           state={state}
           typeRow={
@@ -363,6 +355,10 @@ export default function HomeNotesCard() {
           total={padNotes.length}
           accent={domainColor.accent}
         />
+
+        {/* Explainer at the FOOT (2026-07-30) — it used to sit between the header and the
+            first rule, where it crowded the mic button and pushed the type line down. */}
+        {notes.length === 0 ? <CardHintNote text={t.starters.notes.text} /> : null}
       </View>
 
       <SendToSheet
@@ -415,15 +411,6 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-  },
-  emptyWrap: { flexDirection: 'row', gap: Spacing.xs, marginBottom: Spacing.sm },
-  emptyBulb: { marginTop: 2 },
-  emptyExplainer: {
-    flex: 1,
-    fontSize: FontSize.sm,
-    lineHeight: 20,
-    fontFamily: Fonts.medium,
-    fontStyle: 'italic',
   },
   noteBody: { flex: 1, fontSize: FontSize.xs, fontFamily: Fonts.regular },
   // Quick-add extras (2026-07-24) — the "details" field and the "also add as a task" chip.
