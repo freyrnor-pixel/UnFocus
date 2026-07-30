@@ -865,6 +865,10 @@ const en = {
     scan: 'Scan',
     budget: 'Budget',
   },
+  // Home shopping card's week arrows (2026-07-30) — accessibility labels only; the visible
+  // label is the week number plus its date range.
+  shoppingWeekPrev: 'Previous week',
+  shoppingWeekNext: 'Next week',
   inStockLabel: 'In stock',
   priceTotal: (total: string) => `${total} total`,
   // Shopping item detail sheet (components/ShoppingItemSheet.tsx). Quantity moved out of the
@@ -2682,6 +2686,8 @@ const no: typeof en = {
     scan: 'Skann',
     budget: 'Budsjett',
   },
+  shoppingWeekPrev: 'Forrige uke',
+  shoppingWeekNext: 'Neste uke',
   inStockLabel: 'På lager',
   priceTotal: (total: string) => `${total} totalt`,
   shoppingItemSheet: {

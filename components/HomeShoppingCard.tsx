@@ -1,193 +1,226 @@
 /**
- * HomeShoppingCard.tsx — Home-screen preview of the current week's shopping list.
+ * HomeShoppingCard.tsx — Home's shopping list, as a pageable notepad of the four cycle weeks.
  *
- * Mirrors PlanTaskCard's Surface + domain-colored-border layout: shows the first 5 items
- * from "In list" in a collapsed preview, with an expand toggle to reveal "In list",
- * "In cart", and "Purchased" sections. Clicking the title navigates to the full
- * Shopping screen.
+ * A ruled sheet (components/PadSheet) of the selected week's items, with `‹ Week 2 · 12–18 May ›`
+ * arrows in the header to step through Weeks 1–4 of the monthly cycle. Rebuilt 2026-07-30 from a
+ * card that showed exactly one list — whichever one's date range contained today — and expanded
+ * into a nested structure of dish `ExpandableCard`s plus three labelled sections.
+ *
+ * What changed and why (user report: "simplify, make it look more or less just like a shopping
+ * list, but user can tap left/right button to go through different lists — when doing so it
+ * should animate"):
+ *   - **A week pager instead of one fixed list.** Every week gets a page whether or not a list
+ *     exists for it, so the pager's length never changes under the user's finger and "no list
+ *     this week" is a real, visible state rather than a page the arrows skip.
+ *   - **One flat ruled list instead of nested cards.** A dish is a row's meta line now, not an
+ *     `ExpandableCard` wrapping more rows — a card inside a card inside a card was the opposite
+ *     of "just like a shopping list".
+ *   - **In cart is a caption, not a section card.** Shopping keeps its existing move logic
+ *     (maintainer's call: only Notes changed to stay-in-place-until-tomorrow), so a ticked item
+ *     still moves — it just moves under a plain caption inside the same pad.
+ *   - Purchased history isn't on Home at all any more; that's the Shopping screen's job.
  *
  * Connections:
- *   Imports → components/Surface, components/ExpandableCard, components/CardAccent
- *             (badge+wash gradient move), components/FlightOverlay
- *             (FlightRect type only), components/ShoppingRow, components/PressableScale,
- *             components/ProgressBar, components/AddRow +
- *             components/Stepper (quick-add's inline quantity/target extras),
+ *   Imports → components/PadSheet + components/PadRow + components/PadTypeRow +
+ *             components/PadFooterToggle (the ruled sheet, the type line, the three-size
+ *             footer), components/Surface, components/IconButton (the week arrows),
+ *             components/CardAccent (badge + wash), components/PressableScale,
+ *             components/ProgressBar, components/Stepper (quick-add quantity),
  *             components/ShoppingItemSheet (this card mounts its own item detail sheet —
  *             AnimatedBottomSheet renders into a Modal, so depth in the tree doesn't matter),
- *             constants/theme,
- *             lib/haptics, lib/i18n, lib/shoppingGroups (listProgress), lib/useAppTheme,
- *             lib/domainColor, lib/budget (SpendPace type only), expo-router,
- *             store/useShoppingStore (ShoppingItem type), store/useShoppingListStore
- *             (ShoppingList type)
- *   Used by → app/(tabs)/index.tsx (Home shopping preview)
- *   Data    → mutations bubble up via callbacks (parent owns the stores), EXCEPT the item
- *             detail sheet it mounts, which writes shopping_items itself via
- *             useShoppingStore.update();
- *             the `pace` prop is likewise computed by the parent (lib/budget.ts's computeSpendPace())
+ *             constants/theme, constants/motion (Duration/Ease — the week slide),
+ *             lib/haptics (selection on each arrow), lib/i18n, lib/shoppingGroups (listProgress),
+ *             lib/useAppTheme, lib/domainColor, lib/padState, lib/budget (SpendPace type only),
+ *             react-native-reanimated, store/useShoppingStore (ShoppingItem type),
+ *             store/useShoppingListStore (ShoppingList type)
+ *   Used by → app/(tabs)/index.tsx (Home shopping preview — it builds the `weeks` array with
+ *             lib/date's weekOfMonthlyCycle/dateRangeForCycleWeek, the same helpers
+ *             app/(tabs)/shopping.tsx buckets its own Week 1–4 sections with)
+ *   Data    → mutations bubble up via callbacks (Home owns the stores), EXCEPT the item detail
+ *             sheet it mounts, which writes shopping_items itself via useShoppingStore.update().
+ *             Card size persists to settings.cardStates via the `padState` props.
  *
  * Edit notes:
- *   - **Collapsed sizing (2026-07-13)**: `cardCollapsed` (minHeight:
- *     `HOME_PREVIEW_CARD_MIN_HEIGHT`, constants/theme.ts) is a compact shared *resting* floor
- *     applied only while `!expanded`, so this card reads the same size as
- *     HomeNotesCard/PlanTaskCard when light — then grows per item row above it;
- *     `previewRow`'s paddingVertical was trimmed to `Spacing.xs` for a slimmer collapsed row.
- *   - **Empty state (2026-07-24 text removed → 2026-07-26 "Nothing" label → 2026-07-27 explainer
- *     + suggestion → 2026-07-28 explainer split into a two-line list, example row dropped)**: an
- *     empty list renders two short italic bullet lines, one per cadence
- *     (`t.starters.shopping.textWeekly` / `textMonthly`) sharing a single bulb icon — no
- *     suggested-add example row any more (user report: Shopping doesn't need one, just a short
- *     explanation of the two cadences; the full /shopping screen's StarterCard dropped its own
- *     two example rows the same day, for the same reason — see app/(tabs)/shopping.tsx). This
- *     replaced the shared `HomePreviewEmpty` "Nothing" label, then a single comma-joined
- *     sentence that read as a run-on on this card's narrow width. Gated on a plain
- *     `totalCount === 0`, so it also returns if the list is later cleared.
- *   - **Header tightened + moved down (2026-07-26, user report)**: `titleRow`'s paddingLeft
- *     went 56 → 52 (badge 32 + a 4px gap, was 8px — "more closely linked with the badge") and
- *     `badgeFixed`/`cardContent` both got a matching +4 top/paddingTop bump ("move it a bit
- *     down"). Same tightening applied to PlanTaskCard/HomeNotesCard's headers.
- *   - Collapsed preview shows the first 5 items from ungroupedUnchecked (In list only).
- *   - Expanded shows full nested structure with "In list" (ungrouped items),
- *     "In cart" (checked items), and "Purchased" sections.
- *   - Title click navigates to /shopping; no "See all →" button.
- *   - Drag-reorder is intentionally absent (needs parent screen hit-testing — Decision 011 R1).
- *   - `totalCount` comes from `listProgress()`'s `total` (matches the old ad-hoc sum) — reuse
- *     that helper rather than re-deriving it, since it's also the only correct way to count
- *     dish-group items as checked/unchecked (Decision 011a items don't live wholly in one
- *     bucket). The title row's progress bar uses the same call's `pct`, tinted with
- *     `getDomainColor(theme,'shop').accent`.
- *   - **Touch target (2026-07-11)**: the collapsed-preview check circle is visually 22x22
- *     but `hitSlop={13}` brings the tappable area to ~48dp, meeting Android's minimum
- *     touch-target size (the expanded/full-list rows reuse ShoppingRow, fixed separately).
- *   - **Spend-pace line (2026-07-22)**: an optional `pace` prop (Decision 026 — actual kr/day
- *     spent since lastMonthlyReset vs. budgeted kr/day for the payday-to-payday period) renders
- *     right under the title row's progress bar, tinted `theme.warn`/`theme.good` same as
- *     app/budget.tsx's own pace row (never `bad`/red, no-shame rule). Omitted entirely when the
- *     parent passes null/undefined (no budget set yet, or no monthly reset has happened).
- *   - **Flight animation (Phase 1, 2026-07-11)**: two destination anchors depending on mode —
- *     expanded rows (real `ShoppingRow`s) fly to the "In cart" section label (`cartHeaderRef`,
- *     always mounted whenever `checked.length > 0`); collapsed-preview rows (hand-rolled, not
- *     `ShoppingRow` — there's no "In cart" section mounted in that mode to fly to) fly to the
- *     card's own item-count badge instead (`badgeRef`) rather than forcing the card open —
- *     "some motion" is the bar, not a literal cross-section flight, per product direction.
- *     Both paths gate on `reducedMotion` and fall through to plain `onToggle()`.
- *   - **Badge pinned (2026-07-24)**: `CardAccentBadge` is absolutely positioned (`badgeFixed`)
- *     instead of inline in `titleRow` — see the JSX comment at the header block.
- *   - **Badge/wash moved outside cardContent's padding (2026-07-24, follow-up — user report,
- *     screenshot)**: `badgeFixed`'s `top`/`left` used to be plain `0`, with `cardContent`'s own
- *     padding relied on to inset it — except React Native's real (native) behavior is that an
- *     absolutely-positioned child DOES inherit its parent's padding as part of its origin
- *     (confirmed by `CardAccentWash`'s pre-existing `-Spacing.md` bleed, which exists purely to
- *     cancel that same inheritance) — while react-native-web (this repo's headless preview
- *     tooling) does NOT reproduce that inheritance, since it compiles straight to CSS, where the
- *     absolute containing block is the padding *edge*, not the content box. Testing changes here
- *     against the web preview alone is actively misleading for this exact interaction. Setting
- *     `top: Spacing.md, left: Spacing.md` on top of `cardContent`'s own padding "fixed" it on web
- *     but doubled the inset on native (compounded: 16 inherited + 16 explicit = 32), which read as
- *     the badge floating away from the corner instead of framing it. Fix: `CardAccentWash` and
- *     `CardAccentBadge` now mount as siblings of `cardContent` (not children of it), directly
- *     inside `Surface` — which itself adds no padding of its own (see Surface.tsx: padding keys in
- *     the `style` prop route to its inner content view, and `card`'s style here carries none) — so
- *     their `top`/`left` offsets are unambiguous on both platforms; no padding-inheritance question
- *     to get wrong. `cardContent` keeps its own padding for its own (flow) children unchanged.
- *   - **Quick-add (2026-07-24)**: previously this card had no add affordance at all — items
- *     could only be toggled/adjusted, not created. A trailing `AddRow` (gated on the optional
- *     `onAddItem` callback, same "gate on the callback" convention as PlanTaskCard's own
- *     quick-add) renders below the rows/empty-state in all three modes (empty/collapsed/
- *     expanded). Its `extras` carry the two essential settings: a `Stepper` quantity (1–99)
- *     and a target chip that cycles Weekly (the `list` prop, i.e. "this week") → each entry in
- *     `monthlyLists` → back to Weekly. `onAddItem(name, quantity, monthlyListId?)` — an absent
- *     `monthlyListId` means "the current week's list"; the caller (Home) owns turning that into
- *     the right `ShoppingItemInput` shape (status `inWeeklyList` vs `catalog`), same split
- *     app/(tabs)/shopping.tsx already makes between its Week and Monthly tabs. Both qty and
- *     target reset to their defaults after each commit.
+ *   - **Quantity READS here and is EDITED in the sheet** (row rule, 2026-07-28) — it is the
+ *     row's one right-hand value, and `components/ShoppingItemSheet.tsx` is still the only
+ *     editor for a weekly item's quantity/unit/price/category. Don't add a stepper to a row.
+ *   - **The pager animates, and the animation is the feedback.** `translateX` + fade over
+ *     `Duration.tabSwitch`, direction taken from the arrow pressed, snapped instantly under
+ *     `reducedMotion` (gate at the trigger, per ANIMATION_GUIDELINES §7). A `selection()`
+ *     haptic per arrow, matching components/SlideSelector.
+ *   - **Week index is local state, deliberately not persisted.** It resets to the week
+ *     containing today on every mount, which is nearly always the week you want; a remembered
+ *     week would silently show a stale list days later.
+ *   - The flight animation (ANIMATION_GUIDELINES §8) targets the card's own item-count badge:
+ *     there is no "In cart" section card left to fly to, and the badge is always mounted
+ *     whenever there is an item to tick. Reduced motion falls straight through to `onToggle`.
+ *   - `HOME_PREVIEW_CARD_MIN_HEIGHT` is deliberately not used any more — see PlanTaskCard's
+ *     header for why a genuinely closed card can't carry a height floor.
  */
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
-import ExpandableCard from '@/components/ExpandableCard';
+import IconButton from '@/components/IconButton';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
-import ShoppingRow, { ROW_DIVIDER_INSET } from '@/components/ShoppingRow';
+import PadSheet from '@/components/PadSheet';
+import PadRow from '@/components/PadRow';
+import PadTypeRow from '@/components/PadTypeRow';
+import PadFooterToggle from '@/components/PadFooterToggle';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
-import AddRow from '@/components/AddRow';
 import Stepper from '@/components/Stepper';
 import ShoppingItemSheet from '@/components/ShoppingItemSheet';
 import type { FlightRect } from '@/components/FlightOverlay';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, Radius, Spacing, rgba } from '@/constants/theme';
+import {
+  FontSize,
+  Fonts,
+  PAD_GUTTER,
+  Radius,
+  Spacing,
+  TabularNums,
+  rgba,
+} from '@/constants/theme';
+import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { tap } from '@/lib/haptics';
+import { selection, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { listProgress } from '@/lib/shoppingGroups';
 import { getDomainColor } from '@/lib/domainColor';
+import { PadState, padVisibleRows } from '@/lib/padState';
 import { SpendPace } from '@/lib/budget';
 
-const COLLAPSED_COUNT = 5;
-
-type Props = {
-  list?: ShoppingList | null;
+/** One page of the pager: a cycle week, whatever list sits in it, and that list's items. */
+export type ShoppingWeek = {
+  week: number;
+  list: ShoppingList | null;
+  range: { startDate: string; endDate: string };
   dishGroups: [string, ShoppingItem[]][];
   ungroupedUnchecked: ShoppingItem[];
   checked: ShoppingItem[];
+};
+
+type Props = {
+  /** The four cycle weeks, in order. Built by app/(tabs)/index.tsx — see its `shoppingWeeks`. */
+  weeks: ShoppingWeek[];
+  /** Which week to open on — the one containing today. */
+  initialWeek: number;
   onToggle: (id: string) => void;
+  /** Cart row's ⋯ — "got it", moving the item from the cart to purchased. */
   onCollect: (id: string) => void;
   onRemove: (item: ShoppingItem) => void;
   onNavigateToShopping: () => void;
-  inStockLabel: string;
-  /** See "Flight animation" edit note above. Omit to keep today's fade-only toggle. */
+  /** See the flight edit note. Omit to keep a plain, un-animated toggle. */
   onFlightStart?: (item: ShoppingItem, from: FlightRect, to: FlightRect) => void;
-  /** Spend-vs-budget pace (Decision 026, lib/budget.ts's computeSpendPace()) — null/undefined
-   *  hides the line (no budget set yet, or no monthly reset has happened). */
+  /** Spend-vs-budget pace (Decision 026) — null/undefined hides the line. */
   pace?: SpendPace | null;
-  /** Inline quick-add (2026-07-24) — see the Edit notes' "Quick-add" entry above. Omit to
-   *  render the card with no add affordance (its pre-2026-07-24 behavior). */
+  /** Inline quick-add. Omit to render the card with no add affordance. */
   onAddItem?: (name: string, quantity: number, monthlyListId?: string) => void;
   /** Target chip's cycle options beyond "this week" — id/name is all it needs. */
   monthlyLists?: { id: string; name: string }[];
+  /** Card size (lib/padState). Omit to keep it as local state. */
+  padState?: PadState;
+  onPadStateChange?: (next: PadState) => void;
+  /** Formats a week's date range for the header, e.g. "12–18 May". */
+  formatRange: (startDate: string, endDate: string) => string;
 };
 
 export default function HomeShoppingCard({
-  list,
-  dishGroups,
-  ungroupedUnchecked,
-  checked,
+  weeks,
+  initialWeek,
   onToggle,
   onCollect,
   onRemove,
   onNavigateToShopping,
-  inStockLabel,
   onFlightStart,
   pace,
   onAddItem,
   monthlyLists = [],
+  padState,
+  onPadStateChange,
+  formatRange,
 }: Props) {
   const t = useT();
-  const router = useRouter();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const { reducedMotion } = useAccessibility();
   const domainColor = getDomainColor(theme, 'shop');
-  const [expanded, setExpanded] = useState(false);
+
+  const [localPadState, setLocalPadState] = useState<PadState>('preview');
+  const state = padState ?? localPadState;
+  const setState = onPadStateChange ?? setLocalPadState;
+
+  // Local, not persisted: it resets to the week containing today on every mount, which is
+  // nearly always the week you want. See the edit note.
+  const [pageIndex, setPageIndex] = useState(() =>
+    Math.max(0, weeks.findIndex((w) => w.week === initialWeek))
+  );
+  useEffect(() => {
+    const i = weeks.findIndex((w) => w.week === initialWeek);
+    if (i >= 0) setPageIndex(i);
+  }, [initialWeek, weeks.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // This card owns its own item detail sheet rather than threading one up through Home and
   // HomeCardManager: AnimatedBottomSheet renders into a Modal, so mounting depth doesn't
   // affect where the sheet appears, and Home's card set stays a plain list of cards.
   const [detailItem, setDetailItem] = useState<ShoppingItem | null>(null);
-  const cartHeaderRef = useRef<any>(null);
   const badgeRef = useRef<any>(null);
-  const collapsedRowNodes = useRef<Map<string, any>>(new Map());
+  const rowNodes = useRef<Map<string, any>>(new Map());
 
-  // Quick-add — see the Edit notes' "Quick-add" entry above. addTargetIndex 0 = weekly (the
-  // `list` prop); i>0 = monthlyLists[i-1].
+  // Quick-add. addTargetIndex 0 = this week's list; i>0 = monthlyLists[i-1].
   const [addDraft, setAddDraft] = useState('');
   const [addQty, setAddQty] = useState(1);
   const [addTargetIndex, setAddTargetIndex] = useState(0);
 
-  function cycleAddTarget() {
-    tap();
-    setAddTargetIndex((i) => (i + 1) % (monthlyLists.length + 1));
+  // The week slide. `slide` is a -1…1 offset the page content is nudged by, sprung back to 0 —
+  // the motion carries "a different list came in from that side".
+  const slide = useSharedValue(0);
+  const fade = useSharedValue(1);
+  const pageStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: slide.value }],
+    opacity: fade.value,
+  }));
+
+  const page = weeks[pageIndex] ?? weeks[0];
+  const progress = listProgress({
+    dishGroups: page?.dishGroups ?? [],
+    ungroupedUnchecked: page?.ungroupedUnchecked ?? [],
+    checked: page?.checked ?? [],
+  });
+  const totalCount = progress.total;
+
+  // Every unchecked row the week has, dish rows included — a dish is a meta line now, not a
+  // nested card, so its ingredients are ordinary rows of the same list.
+  const dishRows = (page?.dishGroups ?? []).flatMap(([dishName, items]) =>
+    items.filter((i) => !i.checked).map((item) => ({ item, dishName }))
+  );
+  const listRows = [
+    ...dishRows,
+    ...(page?.ungroupedUnchecked ?? []).map((item) => ({ item, dishName: undefined as string | undefined })),
+  ];
+  const visibleRows = padVisibleRows(listRows, state);
+  const cartRows = page?.checked ?? [];
+
+  function step(direction: 1 | -1) {
+    if (weeks.length === 0) return;
+    selection();
+    const next = (pageIndex + direction + weeks.length) % weeks.length;
+    if (reducedMotion) {
+      setPageIndex(next);
+      return;
+    }
+    // Out the way it's going, then in from the other side — so the direction of travel matches
+    // the arrow that was pressed.
+    slide.value = withTiming(-direction * 24, { duration: Duration.tabSwitch / 2, easing: Ease.exit });
+    fade.value = withTiming(0, { duration: Duration.tabSwitch / 2, easing: Ease.exit }, () => {
+      slide.value = direction * 24;
+      slide.value = withTiming(0, { duration: Duration.tabSwitch, easing: Ease.enter });
+      fade.value = withTiming(1, { duration: Duration.tabSwitch, easing: Ease.enter });
+    });
+    setPageIndex(next);
   }
 
   function commitAdd() {
@@ -200,49 +233,11 @@ export default function HomeShoppingCard({
     setAddTargetIndex(0);
   }
 
-  const progress = listProgress({ dishGroups, ungroupedUnchecked, checked });
-  const totalCount = progress.total;
-
-  const previewItems = ungroupedUnchecked.slice(0, COLLAPSED_COUNT);
-  const showToggle = ungroupedUnchecked.length > COLLAPSED_COUNT || checked.length > 0;
-
-  function handleExpandedFlightStart(item: ShoppingItem, from: FlightRect) {
-    if (!onFlightStart) return;
-    const dest = cartHeaderRef.current;
-    if (!dest?.measureInWindow) return; // "In cart" section not mounted yet — falls back to today's fade
-    dest.measureInWindow((x: number, y: number, width: number, height: number) => {
-      onFlightStart(item, from, { x, y, width, height });
-    });
-  }
-
-  function renderShoppingRow(item: ShoppingItem, idx: number, total: number, variant: 'planned' | 'cart') {
-    return (
-      <View key={item.id}>
-        <ShoppingRow
-          item={item}
-          variant={variant}
-          onToggle={() => onToggle(item.id)}
-          onCollect={variant === 'cart' ? () => onCollect(item.id) : undefined}
-          onRemove={() => onRemove(item)}
-          onOpenDetail={() => setDetailItem(item)}
-          inStockLabel={inStockLabel}
-          onFlightStart={variant === 'planned' ? (rect) => handleExpandedFlightStart(item, rect) : undefined}
-        />
-        {idx < total - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.surfaceMuted }]} />}
-      </View>
-    );
-  }
-
-  function handleTitlePress() {
-    router.push('/shopping');
-  }
-
-  // Collapsed-preview rows are hand-rolled (not ShoppingRow) and have no "In cart" section
-  // mounted to fly to — fly toward the card's own item-count badge instead, which is always
-  // mounted whenever there's an item to toggle (totalCount counts regardless of checked state).
-  function handleCollapsedToggle(item: ShoppingItem) {
+  // Ticking flies the row to the card's count badge — there's no "In cart" section card left to
+  // land on, and the badge is always mounted whenever there's an item to tick.
+  function handleToggle(item: ShoppingItem) {
     if (reducedMotion || !onFlightStart) { onToggle(item.id); return; }
-    const rowNode = collapsedRowNodes.current.get(item.id);
+    const rowNode = rowNodes.current.get(item.id);
     const badgeNode = badgeRef.current;
     if (!rowNode?.measureInWindow || !badgeNode?.measureInWindow) { onToggle(item.id); return; }
     rowNode.measureInWindow((x: number, y: number, width: number, height: number) => {
@@ -253,38 +248,97 @@ export default function HomeShoppingCard({
     });
   }
 
-  return (
-    <Surface
-      surfaceContext="ambient"
-      borderColor={domainColor.accent}
-      style={[styles.card, !expanded && styles.cardCollapsed]}
-    >
-      {/* Header wash + badge mount OUTSIDE cardContent, directly in Surface — see the
-          "Badge/wash moved outside cardContent's padding" edit note above for why. */}
-      <CardAccentWash domain="shop" />
-      <CardAccentBadge domain="shop" size={32} style={styles.badgeFixed} />
-      <View style={styles.cardContent}>
-        {/* Title row */}
-        <PressableScale onPress={handleTitlePress} style={styles.titleRowPressable} scaleTo={0.97}>
-          <View style={styles.titleRow}>
-            <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
-              {list?.name ?? t.shoppingTitle}
-            </Text>
-            {totalCount > 0 && (
-              <View ref={badgeRef} style={[styles.badge, { backgroundColor: domainColor.soft, borderColor: rgba(domainColor.accent, 0.4) }]}>
-                <Text style={[styles.badgeText, { color: domainColor.accent }]}>{totalCount}</Text>
-              </View>
-            )}
-          </View>
-          {totalCount > 0 && (
-            <ProgressBar
-              value={progress.pct}
+  const typeRow = onAddItem ? (
+    <PadTypeRow
+      prompt={t.pad.type.item}
+      value={addDraft}
+      onChangeText={setAddDraft}
+      onSubmit={commitAdd}
+      accent={domainColor.accent}
+      extras={
+        <>
+          <Stepper value={addQty} onChange={setAddQty} min={1} max={99} accessibilityLabel={t.home.quantityLabel} />
+          <PressableScale
+            style={[styles.targetChip, { borderColor: domainColor.accent }]}
+            onPress={() => { tap(); setAddTargetIndex((i) => (i + 1) % (monthlyLists.length + 1)); }}
+            hitSlop={8}
+            scaleTo={0.95}
+            accessibilityRole="button"
+            accessibilityLabel={addTargetIndex === 0 ? t.home.weeklyListChip : monthlyLists[addTargetIndex - 1]?.name}
+          >
+            <Ionicons
+              name={addTargetIndex === 0 ? 'calendar-outline' : 'file-tray-full-outline'}
+              size={13}
               color={domainColor.accent}
-              height={4}
-              style={styles.progressBar}
             />
+            <Text style={[styles.targetChipText, { color: domainColor.accent }]} numberOfLines={1}>
+              {addTargetIndex === 0 ? t.home.weeklyListChip : monthlyLists[addTargetIndex - 1]?.name}
+            </Text>
+          </PressableScale>
+        </>
+      }
+    />
+  ) : null;
+
+  return (
+    <Surface surfaceContext="ambient" borderColor={domainColor.accent} style={styles.card}>
+      <CardAccentWash domain="shop" />
+      <View style={styles.cardContent}>
+        {/* Header: badge + title/summary, then the week arrows on their own row so the week
+            label has the full width and can't be squeezed between two buttons. */}
+        <View style={styles.header}>
+          <PressableScale onPress={onNavigateToShopping} style={styles.headerLeft} scaleTo={0.98}>
+            <CardAccentBadge domain="shop" size={32} />
+            <View style={styles.headerText}>
+              <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+                {t.shoppingTitle}
+              </Text>
+              {totalCount > 0 && (
+                <Text style={[styles.summary, { color: theme.textMuted }]}>
+                  {t.pad.summary(progress.total - progress.inCart, progress.total)}
+                </Text>
+              )}
+            </View>
+          </PressableScale>
+          {totalCount > 0 && (
+            <View
+              ref={badgeRef}
+              style={[styles.badge, { backgroundColor: domainColor.soft, borderColor: rgba(domainColor.accent, 0.4) }]}
+            >
+              <Text style={[styles.badgeText, { color: domainColor.accent }]}>{totalCount}</Text>
+            </View>
           )}
-        </PressableScale>
+        </View>
+
+        {/* Week pager. Both arrows always enabled — the pager wraps, so there is no dead end. */}
+        <View style={styles.weekRow}>
+          <IconButton
+            icon="chevron-back"
+            label={t.shoppingWeekPrev}
+            onPress={() => step(-1)}
+            size={32}
+            tint={domainColor.accent}
+          />
+          <View style={styles.weekLabelWrap}>
+            <Text style={[styles.weekLabel, { color: theme.text }]} numberOfLines={1}>
+              {t.weekNumberChip(page?.week ?? 1)}
+            </Text>
+            <Text style={[styles.weekRange, { color: theme.textMuted }]} numberOfLines={1}>
+              {page ? formatRange(page.range.startDate, page.range.endDate) : ''}
+            </Text>
+          </View>
+          <IconButton
+            icon="chevron-forward"
+            label={t.shoppingWeekNext}
+            onPress={() => step(1)}
+            size={32}
+            tint={domainColor.accent}
+          />
+        </View>
+
+        {totalCount > 0 && (
+          <ProgressBar value={progress.pct} color={domainColor.accent} height={4} style={styles.progressBar} />
+        )}
 
         {pace && (
           <Text
@@ -295,12 +349,11 @@ export default function HomeShoppingCard({
           </Text>
         )}
 
-        {totalCount === 0 ? (
-          // Empty-state explainer only (2026-07-27, example row dropped 2026-07-28 — user
-          // report: Shopping doesn't need a suggested-add example, just a short explanation
-          // of the two cadences) — see the "Empty state" edit note. Replaces the bare
-          // "Nothing" label.
-          <View style={styles.emptyWrap}>
+        <Animated.View style={pageStyle}>
+          {!page?.list ? (
+            // A week with no list is a real state, not an error — say so and offer the way in.
+            <Text style={[styles.emptyExplainer, { color: theme.textMuted }]}>{t.weekSectionEmpty}</Text>
+          ) : totalCount === 0 ? (
             <View style={styles.emptyTextRow}>
               <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.emptyBulb} />
               <View style={styles.emptyExplainerList}>
@@ -308,136 +361,75 @@ export default function HomeShoppingCard({
                 <Text style={[styles.emptyExplainer, { color: theme.text }]}>• {t.starters.shopping.textMonthly}</Text>
               </View>
             </View>
-          </View>
-        ) : expanded ? (
-          // Expanded: full nested structure
-          <View style={styles.rowsContainer}>
-            <View style={styles.expandedBody}>
-              {dishGroups.map(([dishName, groupItems]) => (
-                <ExpandableCard
-                  key={dishName}
-                  title={dishName}
-                  subtitle={t.ingredientsCount(groupItems.length)}
-                  accentColor={domainColor.accent}
-                  defaultOpen={false}
-                >
-                  {groupItems.map((item, idx) => renderShoppingRow(item, idx, groupItems.length, 'planned'))}
-                </ExpandableCard>
-              ))}
+          ) : null}
 
-              {ungroupedUnchecked.length > 0 && (
-                <View style={styles.shoppingSection}>
-                  <Text style={[styles.sectionLabel, { color: domainColor.accent }]}>{t.inWeeklyListSection}</Text>
-                  {ungroupedUnchecked.map((item, idx) => renderShoppingRow(item, idx, ungroupedUnchecked.length, 'planned'))}
-                </View>
-              )}
-
-              {checked.length > 0 && (
-                <View style={styles.shoppingSection}>
-                  <Text ref={cartHeaderRef} style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.inKurvenSection(checked.length)}</Text>
-                  {checked.map((item, idx) => renderShoppingRow(item, idx, checked.length, 'cart'))}
-                </View>
-              )}
-            </View>
-          </View>
-        ) : (
-          // Collapsed: flat preview rows
-          <View style={styles.rowsContainer}>
-            <View style={styles.rows}>
-              {previewItems.map((item, idx) => (
-                <View
-                  key={item.id}
-                  ref={(node) => {
-                    if (node) collapsedRowNodes.current.set(item.id, node);
-                    else collapsedRowNodes.current.delete(item.id);
-                  }}
-                >
-                  {idx > 0 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
-                  <View style={styles.previewRow}>
-                    <PressableScale
-                      style={[
-                        styles.check,
-                        { borderColor: domainColor.accent },
-                        item.checked && { backgroundColor: domainColor.accent },
-                      ]}
-                      onPress={() => handleCollapsedToggle(item)}
-                      hitSlop={13}
-                      scaleTo={0.97}
-                    >
-                      {item.checked && <Ionicons name="checkmark" size={12} color={theme.accentInk} />}
-                    </PressableScale>
-                    <Text
-                      style={[
-                        styles.previewName,
-                        { color: item.checked ? theme.textMuted : theme.text },
-                        item.checked && { textDecorationLine: 'line-through' },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {item.name}
-                    </Text>
-                    {!!item.amount && (
-                      <Text style={[styles.previewAmount, { color: theme.textMuted }]} numberOfLines={1}>
-                        {item.amount}{item.unit ? ` ${item.unit}` : ''}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Inline quick-add — see the Edit notes' "Quick-add" entry above. Renders whether the
-            list is empty, collapsed, or expanded (gated on `onAddItem`, not on any of those
-            three modes). */}
-        {onAddItem ? (
-          <AddRow
-            placeholder={t.shoppingItemPlaceholder}
-            value={addDraft}
-            onChangeText={setAddDraft}
-            onSubmit={commitAdd}
-            accent={domainColor.accent}
-            accessibilityLabel={t.shoppingItemPlaceholder}
-            confirmIcon="checkmark"
-            extras={
-              <>
-                <Stepper value={addQty} onChange={setAddQty} min={1} max={99} accessibilityLabel={t.home.quantityLabel} />
-                <PressableScale
-                  style={[styles.targetChip, { borderColor: domainColor.accent }]}
-                  onPress={cycleAddTarget}
-                  hitSlop={8}
-                  scaleTo={0.95}
-                  accessibilityRole="button"
-                  accessibilityLabel={addTargetIndex === 0 ? t.home.weeklyListChip : monthlyLists[addTargetIndex - 1]?.name}
-                >
-                  <Ionicons
-                    name={addTargetIndex === 0 ? 'calendar-outline' : 'file-tray-full-outline'}
-                    size={13}
-                    color={domainColor.accent}
-                  />
-                  <Text style={[styles.targetChipText, { color: domainColor.accent }]} numberOfLines={1}>
-                    {addTargetIndex === 0 ? t.home.weeklyListChip : monthlyLists[addTargetIndex - 1]?.name}
+          <PadSheet
+            state={state}
+            typeRow={typeRow}
+            footer={
+              cartRows.length > 0 ? (
+                <View>
+                  <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
+                    {t.inKurvenSection(cartRows.length)}
                   </Text>
-                </PressableScale>
-              </>
+                  {cartRows.map((item) => (
+                    <PadRow
+                      key={item.id}
+                      title={item.name}
+                      accent={domainColor.accent}
+                      done
+                      rightValue={item.amount ? `${item.amount}${item.unit ? ` ${item.unit}` : ''}` : undefined}
+                      onPress={() => setDetailItem(item)}
+                      onAction={() => { tap(); onCollect(item.id); }}
+                      actionLabel={t.doneShoppingBtn}
+                      onToggle={() => onToggle(item.id)}
+                      toggleLabel={item.name}
+                    />
+                  ))}
+                </View>
+              ) : null
             }
-          />
-        ) : null}
-
-        {/* Expand/collapse toggle */}
-        {showToggle && (
-          <PressableScale
-            style={styles.footerBtn}
-            onPress={() => { tap(); setExpanded((v) => !v); }}
-            scaleTo={0.97}
           >
-            <Text style={[styles.footerBtnText, { color: domainColor.accent }]}>
-              {expanded ? t.home.shoppingCollapse : t.home.shoppingExpand}
-            </Text>
-          </PressableScale>
-        )}
+            {visibleRows.map(({ item, dishName }) => (
+              <View
+                key={item.id}
+                ref={(node) => {
+                  if (node) rowNodes.current.set(item.id, node);
+                  else rowNodes.current.delete(item.id);
+                }}
+              >
+                <PadRow
+                  title={item.name}
+                  accent={domainColor.accent}
+                  // A dish is the row's ONE meta line now — not an ExpandableCard around it.
+                  meta={
+                    dishName ? (
+                      <Text style={[styles.metaText, { color: theme.textMuted }]} numberOfLines={1}>
+                        {dishName}
+                      </Text>
+                    ) : undefined
+                  }
+                  // Quantity READS here; ShoppingItemSheet is the only place it's edited.
+                  rightValue={item.amount ? `${item.amount}${item.unit ? ` ${item.unit}` : ''}` : undefined}
+                  onPress={() => setDetailItem(item)}
+                  onAction={() => { tap(); onRemove(item); }}
+                  actionLabel={t.removeItemLabel}
+                  onToggle={() => handleToggle(item)}
+                  toggleLabel={item.name}
+                />
+              </View>
+            ))}
+          </PadSheet>
+        </Animated.View>
+
+        <PadFooterToggle
+          state={state}
+          onChange={setState}
+          total={listRows.length}
+          accent={domainColor.accent}
+        />
       </View>
+
       <ShoppingItemSheet
         visible={detailItem !== null}
         item={detailItem}
@@ -449,81 +441,58 @@ export default function HomeShoppingCard({
 
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
-  // Collapsed-only floor so Notes/Plans/Shopping read as the same size regardless of how
-  // few items are in the list — see constants/theme.ts.
-  cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
-  // paddingTop Spacing.md (was Spacing.sm) so the header sits VERTICALLY CENTERED in the 64px
-  // CardAccentWash band instead of hugging the top edge — matches PlanTaskCard's 2026-07-24 fix
-  // for "title too high, not centered between the top border and the wash divider". Bumped +4
-  // (2026-07-26, user report: "move it a bit down") alongside badgeFixed's matching top offset.
-  cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.md + 4 },
-  // marginBottom Spacing.md (was .sm) so the content starts near the 64px wash divider — see the
-  // CardAccentWash comment above.
-  titleRowPressable: { marginBottom: Spacing.md },
-  // paddingLeft (badge offset 16 + badge size 32 + a 4px gap, was 8px) clears the fixed badge
-  // (badgeFixed below) — the badge no longer sits inline here, see the edit note above. Tightened
-  // 56 → 52 (2026-07-26, user report: "more closely linked with the badge").
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: 52 },
-  // Takes the badge out of flex flow so its position is fixed regardless of sibling content
-  // height (e.g. a scaled-up title at large accessibility text sizes) — see edit note above.
-  // Mounts as a sibling of cardContent now (not a child of it), directly in the unpadded
-  // Surface — see the "Badge/wash moved outside cardContent's padding" file-header note for
-  // why. left Spacing.md is an unambiguous single inset on both platforms; top bumped +4
-  // alongside cardContent's paddingTop (2026-07-26, "move it a bit down").
-  badgeFixed: { position: 'absolute', top: Spacing.md + 4, left: Spacing.md, zIndex: 2 },
-  progressBar: { marginTop: Spacing.xs },
-  paceText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginBottom: Spacing.sm },
-  // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
-  // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
-  // Sentence case (2026-07-28 design review): all-caps belongs on ≤13px labels, not 20px card titles.
-  title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, flexShrink: 1, includeFontPadding: false, textAlignVertical: 'center' },
+  // ONE horizontal inset for the whole card — see PlanTaskCard's cardContent note.
+  cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER },
+  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
+  headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  headerText: { flex: 1, minWidth: 0 },
+  title: {
+    fontSize: 20,
+    lineHeight: 25,
+    fontFamily: Fonts.bold,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  summary: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, ...TabularNums },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-  // Wells removed (2026-07-13 grouping pass): rows sit directly on the card face.
-  rowsContainer: { marginBottom: Spacing.sm },
-  // Empty-state explainer + suggestion (2026-07-27) — same bulb + italic treatment
-  // components/StarterCard uses, inlined so the card doesn't nest a Surface in a Surface.
-  // Kept identical to PlanTaskCard's own empty block so the two cards read as one system.
-  // marginTop (2026-07-28, user report — the explainer sat right against the header wash's
-  // lower edge with no breathing room, more noticeable now the text is two stacked lines).
-  emptyWrap: { gap: Spacing.sm, marginTop: Spacing.xs, marginBottom: Spacing.sm },
-  emptyTextRow: { flexDirection: 'row', gap: Spacing.xs },
+  // The week label gets the middle of its own row, with an arrow either side. `flex: 1` and no
+  // minWidth on the label (see AGENTS.md's wrap-audit lesson) so it shrinks rather than pushing
+  // an arrow off the card at 360px.
+  weekRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.xs },
+  weekLabelWrap: { flex: 1, minWidth: 0, alignItems: 'center' },
+  weekLabel: { fontSize: FontSize.md, fontFamily: Fonts.bold },
+  weekRange: { fontSize: FontSize.xs, fontFamily: Fonts.regular, ...TabularNums },
+  progressBar: { marginBottom: Spacing.xs },
+  paceText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginBottom: Spacing.xs },
+  emptyTextRow: { flexDirection: 'row', gap: Spacing.xs, marginBottom: Spacing.sm },
   emptyBulb: { marginTop: 2 },
-  // List form (2026-07-28, user report — the two cadences read as one run-on sentence):
-  // one bulb icon shared by both lines, each line its own bullet instead of a comma clause.
   emptyExplainerList: { flex: 1, gap: 2 },
-  emptyExplainer: { fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.medium, fontStyle: 'italic' },
-  rows: {},
-  previewRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.xs, gap: Spacing.sm },
-  check: {
-    width: 22,
-    height: 22,
-    borderRadius: Radius.full,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+  emptyExplainer: {
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    fontFamily: Fonts.medium,
+    fontStyle: 'italic',
+    marginBottom: Spacing.sm,
   },
-  previewName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.regular },
-  previewAmount: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
-  // Inset past the check so the column of checks reads as one line down the card
-  // (row rule, 2026-07-28). ROW_DIVIDER_INSET lives in ShoppingRow so it tracks its check.
-  rowDivider: { height: 1, marginLeft: ROW_DIVIDER_INSET },
-  footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
-  // Quick-add target chip (2026-07-24) — cycles Weekly/Monthly-list, so it carries text
-  // (unlike PlanTaskCard's icon-only quick-add chips) and needs a maxWidth to stay compact.
+  metaText: { flex: 1, fontSize: FontSize.xs, fontFamily: Fonts.regular },
+  // Uppercase is capped at ≤13px labels (2026-07-28 design review) — FontSize.xs is 12.
+  sectionLabel: {
+    fontSize: FontSize.xs,
+    fontFamily: Fonts.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    paddingTop: Spacing.sm,
+  },
   targetChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     height: 30,
     maxWidth: 92,
-    paddingHorizontal: Spacing.sm,
     borderRadius: Radius.full,
     borderWidth: 1.5,
+    paddingHorizontal: Spacing.sm,
   },
-  targetChipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, flexShrink: 1 },
-  footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
-  expandedBody: { gap: 0 },
-  shoppingSection: { gap: Spacing.xs, marginTop: Spacing.sm },
-  sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: Spacing.xs },
+  targetChipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
 });
