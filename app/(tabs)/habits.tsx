@@ -14,7 +14,9 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/Surface,
- *             components/SectionCard, components/AddRow, components/AnimatedListItem (habit
+ *             components/PadTypeRow (the always-open "Type habit" line at the foot of the
+ *             Today list — replaced an AddRow that was wrapped in its own Surface, which is
+ *             exactly what AddRow's header tells callers not to do), components/AnimatedListItem (habit
  *             add/remove fade), components/GlowPulse (done-state static halo),
  *             components/HabitIcon, components/EmptyState, components/StarterCard
  *             (first-run explainer), components/StarterExampleRow (habits empty-state
@@ -45,6 +47,15 @@
  *     from the optional Energy system, lib/energy.ts) instead of a streak counter — only
  *     for habits with `energyEnabled`. Rest day no longer needs to "protect" anything (it
  *     never drove Energy) — see lib/energy.ts's habitMetOn for the exemption.
+ *   - **Simplified (2026-07-30, user report: "this is generally too messy, simplify")**: three
+ *     changes, no features removed. (1) The wrapping `SectionCard` became a plain `Surface`:
+ *     its header label was the string "Habits" — this screen's own title, verbatim, a second
+ *     time — and it made every habit card a Surface inside a Surface inside a Surface.
+ *     (2) The add row's own Surface wrapper is gone (see PadTypeRow above). (3) `HabitCard`'s
+ *     header followed the row rule: it used to pack up to NINE elements onto one line, and the
+ *     goal dot / weekly progress / done state / energy badge moved onto ONE meta line under
+ *     the title, with today's count as the single right-hand value. `hasMetaLine` must mirror
+ *     that line's JSX gates exactly.
  *   - **Add-habit affordance (2026-07-13 rows pass)**: an inline `AddRow` at the bottom of
  *     the Today habit list is the add-habit trigger — a title-only quick-create with sensible
  *     defaults (icon/goal/recurrence via `commitHabit` → useHabitStore.add), matching Plans'
@@ -67,8 +78,7 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import Surface from '@/components/Surface';
-import SectionCard from '@/components/SectionCard';
-import AddRow from '@/components/AddRow';
+import PadTypeRow from '@/components/PadTypeRow';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Collapsible from '@/components/Collapsible';
 import GlowPulse from '@/components/GlowPulse';
@@ -87,7 +97,7 @@ import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { usePrefill } from '@/lib/prefill';
 import { todayStr, getWeekDates, getMonthDates } from '@/lib/date';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
-import { FontSize, Radius, Shadow, Spacing, Fonts, Type } from '@/constants/theme';
+import { FontSize, PAD_GUTTER, Radius, Shadow, Spacing, Fonts, TabularNums, Type } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
@@ -203,6 +213,9 @@ function HabitCard({
   const isRestToday = log?.restDay ?? false;
   const { count, goal, ratio, isDone } = habitProgress(habit, logs, today);
   const isWeeklyFlexible = habit.recurrence === 'weekly-flexible';
+  // MUST mirror the meta-line JSX gates below exactly (the trap components/TaskCard.tsx
+  // documents): if the two drift, a habit with only one meta item silently loses its line.
+  const hasMetaLine = !!linkedGoal || isWeeklyFlexible || isDone || habit.energyEnabled;
 
   const accent = habitColor(habit.kind, theme);
 
@@ -230,6 +243,12 @@ function HabitCard({
         <View style={[styles.habitAccent, { backgroundColor: barColor }]} />
         <View style={styles.habitCardContent}>
 
+        {/* Row rule (2026-07-30, user report: "this is generally too messy, simplify"). This
+            header used to pack up to NINE elements onto one line — icon, title, goal dot,
+            weekly-progress text, a "Done today" pill, the gear, an Energy badge, and the −/+
+            pair — which is why a list of them read as noise. Now: icon → title → ONE meta line
+            (goal dot · weekly progress · energy) → ONE right-hand value (the count) → gear →
+            the −/+ control. Nothing was removed; the middle four moved down a line. */}
         <View style={styles.cardHeader}>
           <View style={styles.habitIcon}>
             {isDone
@@ -237,25 +256,30 @@ function HabitCard({
               : <HabitIcon icon={habit.icon} size={22} color={accent} />}
           </View>
           <View style={styles.habitTitleWrap}>
-            <View style={styles.habitTitleRow}>
-              <Text style={[styles.habitTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
-              {linkedGoal ? (
-                <GoalGlowDot color={linkedGoal.color} strength={linkedGoal.strength} strengthUpdatedAt={linkedGoal.strengthUpdatedAt} size={9} />
-              ) : null}
-            </View>
-            <View style={styles.titleMetaRow}>
-              {isWeeklyFlexible && (
-                <Text style={[styles.weeklyProgressText, { color: theme.textMuted }]}>
-                  {t.habits.weeklyProgress(count, goal)}
-                </Text>
-              )}
-              {isDone && (
-                <View style={[styles.donePill, { backgroundColor: accent }]}>
-                  <Text style={[styles.donePillText, { color: theme.accentInk }]}>{t.habits.doneToday}</Text>
-                </View>
-              )}
-            </View>
+            <Text style={[styles.habitTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
+            {hasMetaLine && (
+              <View style={styles.titleMetaRow}>
+                {linkedGoal ? (
+                  <GoalGlowDot color={linkedGoal.color} strength={linkedGoal.strength} strengthUpdatedAt={linkedGoal.strengthUpdatedAt} size={9} />
+                ) : null}
+                {isWeeklyFlexible && (
+                  <Text style={[styles.weeklyProgressText, { color: theme.textMuted }]}>
+                    {t.habits.weeklyProgress(count, goal)}
+                  </Text>
+                )}
+                {/* "Done today" is already said by the checkmark icon and the struck-through
+                    count; as a filled pill next to them it was a third copy of one fact. It
+                    reads as a quiet word on the meta line instead. */}
+                {isDone && (
+                  <Text style={[styles.weeklyProgressText, { color: accent }]}>{t.habits.doneToday}</Text>
+                )}
+                {habit.energyEnabled && <EnergyBadge value={habit.energyValue} theme={theme} />}
+              </View>
+            )}
           </View>
+          {/* The ONE right-hand value: today's count against the goal, in tabular figures so a
+              column of them lines up row to row. */}
+          <Text style={[styles.habitCount, { color: theme.textMuted }]}>{count}/{goal}</Text>
           <IconButton
             icon="settings-outline"
             label={t.habits.editButtonLabel}
@@ -264,14 +288,13 @@ function HabitCard({
             tint="transparent"
             color={theme.textMuted}
           />
-          {/* Small progress-dots circle replaced with the Energy +/- indicator (debug-note
-              2026-07-21) — informational, shown only when this habit opts into Energy. */}
-          {habit.energyEnabled && <EnergyBadge value={habit.energyValue} theme={theme} />}
           <PressableScale
             style={[styles.adjBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
             onPress={() => decrement(habit.id, today)}
             hitSlop={8}
             scaleTo={0.9}
+            accessibilityRole="button"
+            accessibilityLabel={`${t.decreaseQty} ${habit.title}`}
           >
             <Text style={[styles.adjBtnText, { color: theme.textMuted }]}>−</Text>
           </PressableScale>
@@ -280,6 +303,8 @@ function HabitCard({
             onPress={() => increment(habit.id, today)}
             hitSlop={8}
             scaleTo={0.9}
+            accessibilityRole="button"
+            accessibilityLabel={`${t.increaseQty} ${habit.title}`}
           >
             <Text style={[styles.adjBtnPlusText, { color: theme.accentInk }]}>+</Text>
           </PressableScale>
@@ -650,12 +675,15 @@ export default function HabitsScreen() {
             />
           )}
 
-          {/* Habits — boxed in a single hue-edged SectionCard so the whole section (filter ·
-              view tabs · cards · add row) reads as one group instead of loose controls on the
-              backdrop (2026-07-17). Debug notes: anchor the whole section, not the inner
-              habit cards/add row. */}
+          {/* Habits — one hue-edged card holding the filter · view tabs · rows · add line.
+              This used to be a `SectionCard`, whose header label was the string "Habits"
+              — the screen's own title, verbatim, a second time (2026-07-30, user report:
+              "this is generally too messy, simplify"). A plain Surface keeps the grouping
+              and drops the duplicate heading; it also stops being a Surface wrapping a
+              Surface wrapping every habit card. Debug notes: anchor the whole section,
+              not the inner habit cards/add row. */}
           <DebugNoteAnchor id="habits.section" label="Habits">
-          <SectionCard hue={habitDomainColor.accent} domain="habit" label={t.habitsTitle} contentStyle={styles.habitsSectionContent}>
+          <Surface borderColor={habitDomainColor.accent} style={styles.habitsCard}>
             {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
             <Collapsible open={showHabitProfiles}>
               <ScrollView
@@ -757,19 +785,19 @@ export default function HabitsScreen() {
                 )}
               </View>
 
-              {/* Inline quick-add row (replaces the old "+" bubble). Title-only create with
-                  defaults; tap a habit's settings-gear icon to edit the rest. */}
-              <Surface borderColor={habitDomainColor.accent} style={styles.habitAddRowCard}>
-                <AddRow
-                  placeholder={t.health.addHabit}
-                  value={habitDraft}
-                  onChangeText={setHabitDraft}
-                  onSubmit={commitHabit}
-                  accent={habitDomainColor.accent}
-                  showDivider={false}
-                  accessibilityLabel={t.health.addHabit}
-                />
-              </Surface>
+              {/* The pad's type line — always open, at the bottom of this list where the add
+                  row has always been. It used to be an AddRow inside its OWN Surface, which
+                  is exactly what AddRow's header tells callers not to do ("mount inside the
+                  section's Surface — do NOT wrap it in its own card, or the add row detaches
+                  from its list"); that nested card was one of the things making this screen
+                  read as a pile of boxes. */}
+              <PadTypeRow
+                prompt={t.pad.type.habit}
+                value={habitDraft}
+                onChangeText={setHabitDraft}
+                onSubmit={commitHabit}
+                accent={habitDomainColor.accent}
+              />
             </View>
 
             {habitTab === 'week' && (
@@ -787,7 +815,7 @@ export default function HabitsScreen() {
                 theme={theme}
               />
             )}
-          </SectionCard>
+          </Surface>
           </DebugNoteAnchor>
 
           <View style={{ height: Spacing.xl + Spacing.xxl }} />
@@ -804,7 +832,16 @@ const baseStyles = StyleSheet.create({
   // Boxed in a <SectionCard> (2026-07-17): the section's inner controls stack with a
   // Spacing.md gap below the card's SectionRail header (overrides SectionCard's default
   // Spacing.sm content gap, keeping the habits sub-controls' original breathing room).
-  habitsSectionContent: { gap: Spacing.md },
+  // Replaced the old SectionCard (2026-07-30) — same grouping, no duplicate "Habits" heading,
+  // and one fewer Surface in the nesting. PAD_GUTTER is the single horizontal inset, matching
+  // Home's four pad cards so the two surfaces read as the same kind of thing.
+  habitsCard: {
+    borderRadius: Radius.md,
+    paddingHorizontal: PAD_GUTTER,
+    paddingTop: PAD_GUTTER,
+    paddingBottom: PAD_GUTTER,
+    gap: Spacing.md,
+  },
   profileRow: {
     paddingBottom: Spacing.sm,
     gap: Spacing.xs,
@@ -823,7 +860,7 @@ const baseStyles = StyleSheet.create({
   habitsEmptyCard: { borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', justifyContent: 'center' },
   sectionCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   // Inline habit quick-add row card (mirrors Plans' addRowCard).
-  habitAddRowCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, marginTop: Spacing.sm },
+
   dashedAddText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
   // Empty-state starter chips (inside StarterCard) — one-tap example habits.
   starterTapLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginBottom: Spacing.xs },
@@ -857,10 +894,15 @@ const baseStyles = StyleSheet.create({
     gap: Spacing.sm,
   },
   habitIcon: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
-  habitTitleWrap: { flex: 1 },
-  habitTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  // minWidth:0 so the title shrinks instead of pushing the trailing cluster (count · gear ·
+  // −/+) off the card — the same guard components/PadRow.tsx carries.
+  habitTitleWrap: { flex: 1, minWidth: 0 },
   habitTitle: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
-  titleMetaRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 2, flexWrap: 'wrap' },
+  // ONE meta line, and it never wraps (row rule) — a habit's goal dot, weekly progress,
+  // done-word and energy badge all live here now instead of on the title line.
+  titleMetaRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 2 },
+  // The row's ONE right-hand value. Tabular figures so a column of counts lines up.
+  habitCount: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, ...TabularNums },
   energyPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -871,12 +913,6 @@ const baseStyles = StyleSheet.create({
     borderWidth: 1,
   },
   energyPillText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-  donePill: {
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-  },
-  donePillText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   weeklyProgressText: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
   adjBtn: {
     width: 30, height: 30,
