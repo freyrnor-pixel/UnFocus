@@ -53,6 +53,9 @@
  *     that asks "what is on screen" (the same rule lib/viewSnapshot's glow ids follow).
  *   - The summary count is computed from the FULL list, never from what's visible: folding the
  *     card away must not quietly tell the user they have less to do.
+ *   - A note's check takes PadRow's default accessible name — the note's own title. It briefly
+ *     passed `t.notes.checkedLabel` instead, which gave every check on the card the identical
+ *     name ("Checked off"), so a screen reader couldn't tell which note it would tick.
  *   - Quick-add extras (2026-07-24, preserved through the rebuild): notes have no fields beyond
  *     header/body/checked, so the extras carry the three things that matter for a note captured
  *     in passing — a "details" field (→ `body`), an "also add as a task" chip, and (only while
@@ -318,7 +321,6 @@ export default function HomeNotesCard() {
                       accent={domainColor.accent}
                       done
                       onToggle={() => handleToggle(note.id)}
-                      toggleLabel={t.notes.checkedLabel}
                     />
                   ))}
                 </Collapsible>
@@ -345,7 +347,6 @@ export default function HomeNotesCard() {
               }}
               actionLabel={t.sendTo.title}
               onToggle={() => handleToggle(note.id)}
-              toggleLabel={t.notes.checkedLabel}
             />
           ))}
         </PadSheet>

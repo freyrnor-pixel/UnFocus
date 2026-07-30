@@ -228,6 +228,53 @@ async function main() {
     await page.waitForTimeout(1000);
     await shot(page, 'home-again');
 
+    // Home's pad cards (2026-07-30). Three things worth a regression check, all new surface
+    // area: writing on a card's own type line, ticking a note (which must stay IN PLACE,
+    // struck through, rather than vanishing into the checked zone until tomorrow), and
+    // stepping the Shopping card's week pager. The type line is an always-open input whose
+    // grey prompt clears on focus — target it by accessible name, not by placeholder.
+    console.log('> Home pad cards (type line, tick-in-place, week pager)');
+    const noteTitle = `Preview note ${Date.now()}`;
+    const noteInput = page.getByLabel('Type note', { exact: true }).first();
+    await noteInput.scrollIntoViewIfNeeded();
+    await noteInput.focus();
+    await noteInput.fill(noteTitle);
+    await noteInput.press('Enter');
+    await page.waitForTimeout(700);
+    const noteVisible = await page.getByText(noteTitle, { exact: true }).first().isVisible().catch(() => false);
+    console.log(`  note written from Home's type line: ${noteVisible}`);
+    if (!noteVisible) pageErrors.push(`Note "${noteTitle}" was not created from Home's type line`);
+    await shot(page, 'home-note-added');
+
+    // Tick it: the row must still be on screen afterwards (in place, struck through).
+    const noteRow = page.getByText(noteTitle, { exact: true }).first();
+    const noteCheck = page.getByRole('checkbox', { name: noteTitle, exact: true }).first();
+    if (await noteCheck.count()) {
+      await noteCheck.scrollIntoViewIfNeeded();
+      await noteCheck.click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      const stillThere = await noteRow.isVisible().catch(() => false);
+      console.log(`  ticked note stayed in place: ${stillThere}`);
+      if (!stillThere) pageErrors.push('A note ticked today vanished instead of staying struck-through in place');
+      await shot(page, 'home-note-ticked-in-place');
+    } else {
+      pageErrors.push(`No checkbox found for note "${noteTitle}" — PadRow's check may not be wired`);
+    }
+
+    // Step the Shopping card's week pager one week forward and back.
+    const weekNext = page.getByRole('button', { name: 'Next week', exact: true }).first();
+    if (await weekNext.count()) {
+      await weekNext.scrollIntoViewIfNeeded();
+      await weekNext.click({ timeout: 10000 });
+      await page.waitForTimeout(600);
+      await shot(page, 'home-shopping-week-next');
+      await page.getByRole('button', { name: 'Previous week', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(600);
+      console.log('  shopping week pager stepped both ways: true');
+    } else {
+      pageErrors.push('Shopping card week-pager arrows not found on Home');
+    }
+
     // Exercise real store logic (not just static render): add a task via the inline
     // AddRow at the bottom of the Whenever section (type + Enter), and confirm it
     // round-trips through the in-memory sql.js DB by reappearing after navigating away.
@@ -258,22 +305,22 @@ async function main() {
     if (!persisted) pageErrors.push(`Task "${taskTitle}" did not persist after navigating away and back`);
     await shot(page, 'task-persisted-check');
 
-    // Exercise a second store's write path: add a habit via the inline AddRow at the
-    // bottom of the Habits tab (placeholder = t.health.addHabit; habits split out of
-    // Health into its own tab 2026-07-23, UX audit E1), then confirm it round-trips
-    // through the in-memory sql.js DB after a tab away-and-back.
+    // Exercise a second store's write path: add a habit from the Habits tab's type line, then
+    // confirm it round-trips through the in-memory sql.js DB after a tab away-and-back.
+    //
+    // **This is a text input, not a button** (2026-07-30): the collapsed "+ Add habit" AddRow
+    // bar became components/PadTypeRow.tsx — an always-open line whose grey prompt clears on
+    // focus. There is no bar to tap open any more, and the prompt is our own Text layer rather
+    // than a `placeholder` attribute, so `getByPlaceholder` won't find it either. Target the
+    // input by its accessible name (the prompt string, t.pad.type.habit).
     console.log('> add a habit (store logic check)');
     await page.getByRole('button', { name: 'Habits', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
     const habitTitle = `Preview habit ${Date.now()}`;
-    // Same collapse/expand as the task AddRow: tap the "+ Add habit" bar first.
-    const habitAddBar = page.getByRole('button', { name: 'Add habit', exact: true }).first();
-    await habitAddBar.scrollIntoViewIfNeeded();
-    await habitAddBar.click({ timeout: 10000 });
-    await page.waitForTimeout(400);
-    const habitInput = page.getByPlaceholder('Add habit').first();
+    const habitInput = page.getByLabel('Type habit', { exact: true }).first();
     await habitInput.scrollIntoViewIfNeeded();
+    await habitInput.focus();
     await habitInput.fill(habitTitle);
     await habitInput.press('Enter');
     await page.waitForTimeout(800);

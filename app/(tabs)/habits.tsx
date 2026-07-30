@@ -89,6 +89,9 @@ import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import SubScreenLinkButton from '@/components/SubScreenLinkButton';
 import { HABIT_STARTERS, HabitStarter } from '@/lib/habitStarters';
+
+/** Starter chips the empty Habits list offers. See the row's own comment for the measurement. */
+const HABIT_STARTER_CHIPS = 2;
 import SlideSelector from '@/components/SlideSelector';
 import PressableScale from '@/components/PressableScale';
 import IconButton from '@/components/IconButton';
@@ -752,8 +755,14 @@ export default function HabitsScreen() {
                       }
                     >
                       <Text style={[styles.starterTapLabel, { color: theme.textMuted }]}>{t.starters.habits.tapToAdd}</Text>
+                      {/* Two chips, not four (2026-07-30) — the same measured call
+                          components/HomeHabitsCard.tsx already made. `npm run wraps --lang=no`
+                          had this row wrapping at every width tested: 4 chips on 2 lines at
+                          393px and 4 lines at 360px (560px of chips into 254px of row). A row
+                          with a hard minimum width can't be fixed by shortening copy, so the
+                          fix is fewer chips; the rest are one tap away on the type line below. */}
                       <View style={styles.starterChips}>
-                        {HABIT_STARTERS.map((s) => (
+                        {HABIT_STARTERS.slice(0, HABIT_STARTER_CHIPS).map((s) => (
                           <PressableScale
                             key={s.key}
                             onPress={() => addStarterHabit(s)}
