@@ -1338,10 +1338,11 @@ const baseStyles = StyleSheet.create({
   doneRows: { paddingBottom: Spacing.xs },
   footerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   footerBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
-  // marginBottom Spacing.md (was .sm) so the content starts close to the 64px wash divider
-  // (paddingTop 20 + badge 32 + 16 = 68 as of the 2026-07-26 +4 header nudge — see cardContent's
-  // paddingTop comment above; 4px past the divider reads fine, not worth chasing exactly).
-  headerRowPressable: { marginBottom: Spacing.md },
+  // marginBottom Spacing.lg (was .md, was .sm before that) — the badge/title row still reads
+  // as "close to the wash divider" at this size; the room bought back goes to the content
+  // below it instead, matching HomeNotesCard/HomeHabitsCard/HomeShoppingCard's own header gap
+  // (2026-07-30, user report: content read as crowding the colored badge).
+  headerRowPressable: { marginBottom: Spacing.lg },
   // The badge is an ordinary flex child again (2026-07-30). It used to be absolutely
   // positioned, with this row's paddingLeft:52 dodging it and the progress bar's matching
   // marginLeft dodging it a second time — three coupled numbers, and a documented

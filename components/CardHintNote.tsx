@@ -59,7 +59,10 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: Spacing.xs,
-    marginTop: Spacing.sm,
+    // Spacing.md, up from .sm (2026-07-30, user report: the hairline above this and the
+    // pad's own last rule/type-line rule read as two lines stacked right on top of each
+    // other on an empty card). This is the gap that separates them.
+    marginTop: Spacing.md,
   },
   icon: { marginTop: 1 },
   text: { flex: 1, fontSize: FontSize.xs, lineHeight: 16, fontStyle: 'italic' },
