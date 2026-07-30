@@ -1000,6 +1000,21 @@ export function initDb() {
     // users who have never picked a layout themselves, or this would silently
     // discard their choice.
     `UPDATE settings SET card_layouts = '{"plans":"timeline"}' WHERE card_layouts IS NULL OR card_layouts = '' OR card_layouts = '{}'`,
+    // ── First-run personalization (2026-07-30) ─────────────────────────────
+    // Gate for app/first-run.tsx — the four-step motion / text size / appearance /
+    // starting-screen flow. Every value that flow writes already has a working default
+    // applied here and in store/useSettingsStore.ts's defaultSettings, so the flow only
+    // ever ADJUSTS defaults; skipping it, or force-quitting mid-way, leaves an app that
+    // works exactly as it did before.
+    'ALTER TABLE settings ADD COLUMN first_run_complete INTEGER DEFAULT 0',
+    // Anyone already past onboarding has had their own appearance settings for a while —
+    // don't ambush them with a personalization flow on the next launch. Only a genuinely
+    // fresh install (setup_complete = 0) meets it.
+    'UPDATE settings SET first_run_complete = 1 WHERE setup_complete = 1',
+    // Which of the 5 pager tabs the app opens on — read by app/(tabs)/_layout.tsx as the
+    // navigator's initialRouteName, via START_SCREEN_ROUTES in lib/firstRunOptions.ts.
+    // Presentation only: every tab is one tap away whatever this says.
+    `ALTER TABLE settings ADD COLUMN start_screen TEXT DEFAULT 'home'`,
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

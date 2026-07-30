@@ -54,12 +54,14 @@ const L = {
   en: {
     pick: 'English', newHere: "No, I'm new here", gotIt: 'Got it →', guided: 'Walk me through it',
     next: 'Next →', start: 'Get started →', go: "Let's go! 🌿",
+    firstRunNext: 'Continue', firstRunDone: 'Done',
     tabs: ['Shopping', 'To-do', 'Health', 'Habits'], home: 'Home', settings: 'Settings',
     dismiss: ['Skip', 'Got it', 'Got it →', 'OK'],
   },
   no: {
     pick: 'Norsk', newHere: 'Nei, jeg er ny her', gotIt: 'Skjønner →', guided: 'Vis meg rundt',
     next: 'Neste →', start: 'Kom i gang →', go: 'Kom i gang! 🌿',
+    firstRunNext: 'Fortsett', firstRunDone: 'Ferdig',
     tabs: ['Handleliste', 'Gjøremål', 'Helse', 'Vaner'], home: 'Hjem', settings: 'Innstillinger',
     dismiss: ['Hopp over', 'Skjønner', 'Skjønner →', 'OK'],
   },
@@ -210,6 +212,17 @@ async function main() {
     await scan(page, 'onboarding-name');
     await clickText(page, L.go);
     await page.waitForTimeout(1500);
+
+    // First-run personalization (app/first-run.tsx) — four one-question steps between
+    // onboarding and Home on a fresh install. Each is an option-card list, exactly the
+    // shape this audit exists to catch, so all four get measured. Stepped with Continue
+    // (Done on the last) and left on its defaults, so Home below is still the standard app.
+    for (let i = 0; i < 4; i++) {
+      await scan(page, `first-run-${i + 1}`);
+      await clickText(page, i === 3 ? L.firstRunDone : L.firstRunNext);
+      await page.waitForTimeout(500);
+    }
+    await page.waitForTimeout(1200);
 
     await scan(page, 'home');
     for (const tab of L.tabs) {

@@ -98,6 +98,10 @@
  *   - loadSettings() flips `loaded` only after Tier A has hydrated in the same effect, so
  *     once the gate passes the first screens mount with their data already in memory rather
  *     than empty-then-fill. Screens keep their guarded focus-loads as redundant safety nets.
+ *   - First-run guard (2026-07-30): after setupComplete, an install with firstRunComplete
+ *     still false is sent to /first-run (app/first-run.tsx). This is a SAFETY NET only —
+ *     onboarding's own finish()/Explore handlers route there directly, so it normally
+ *     never fires. Both gates are satisfied by skipping, so neither can trap a user.
  *   - Onboarding guard: once settings.loaded is true and setupComplete is false, and we
  *     aren't already under /onboarding, redirect to /onboarding/language. segments are
  *     read inside the effect as a guard, intentionally kept out of its deps.
@@ -242,6 +246,7 @@ export default function RootLayout() {
   const loadSettings = useSettingsStore((s) => s.load);
   const loaded = useSettingsStore((s) => s.loaded);
   const setupComplete = useSettingsStore((s) => s.setupComplete);
+  const firstRunComplete = useSettingsStore((s) => s.firstRunComplete);
   const lanSyncEnabled = useSettingsStore((s) => s.lanSyncEnabled);
   const deviceId = useSettingsStore((s) => s.deviceId);
   const userName = useSettingsStore((s) => s.userName);
@@ -452,14 +457,23 @@ export default function RootLayout() {
     return () => sub.remove();
   }, []);
 
-  // Onboarding guard: send new users to the flow until setup is complete.
+  // Onboarding guard: send new users to the flow until setup is complete, then through
+  // first-run personalization (app/first-run.tsx) until that's been seen once. The second
+  // leg is a SAFETY NET, not the normal path — onboarding's own finish/Explore handlers
+  // route straight to /first-run, so this only fires if an install somehow reaches the tabs
+  // with firstRunComplete still false. Both gates are one-way and both are satisfied by
+  // skipping, so neither can trap a user.
   useEffect(() => {
-    if (!loaded || setupComplete) return;
-    if (segments[0] !== 'onboarding') {
-      router.replace('/onboarding/language');
+    if (!loaded) return;
+    if (!setupComplete) {
+      if (segments[0] !== 'onboarding') router.replace('/onboarding/language');
+      return;
+    }
+    if (!firstRunComplete && segments[0] !== 'first-run') {
+      router.replace('/first-run');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded, setupComplete]);
+  }, [loaded, setupComplete, firstRunComplete]);
 
   // Gate rendering on fonts AND settings hydration. The boot effect finishes every
   // Tier A store load before it flips `loaded`, so once this gate passes all five
@@ -488,7 +502,10 @@ export default function RootLayout() {
     return () => clearTimeout(id);
   }, []);
 
-  const routeSettled = setupComplete || segments[0] === 'onboarding';
+  const routeSettled =
+    (setupComplete && firstRunComplete) ||
+    segments[0] === 'onboarding' ||
+    segments[0] === 'first-run';
   const canReveal = appReady && (routeSettled || failsafeElapsed);
 
   const revealApp = useCallback(() => {
@@ -529,6 +546,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="onboarding" />
+        <Stack.Screen name="first-run" />
         <Stack.Screen name="inventory-edit" />
         <Stack.Screen name="scan" />
         <Stack.Screen name="food" />

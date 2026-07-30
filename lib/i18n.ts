@@ -22,6 +22,11 @@
  *     shopping.scan, shopping.budget, notes.*, hints.notes.
  *   - Added keys: peers.* (Decision 038 LAN live-sync wiring — app/pair-device.tsx,
  *     app/settings.tsx's sync toggle card).
+ *   - Added keys: firstRun.* (2026-07-30 first-run personalization, app/first-run.tsx).
+ *     Note what is NOT there: the text-size and starting-screen options carry no labels
+ *     of their own — the flow reuses settings.accessibility.fontSize* and nav.* so it
+ *     and Settings can't drift apart. Only appearance names its own three, because
+ *     Settings' Off/System/On read as nothing on a standalone card.
  *   - Added keys: webPreview.notAvailable (web preview placeholder screens —
  *     app/scan.web.tsx).
  */
@@ -386,6 +391,54 @@ const en = {
     sub: 'Pick the extras you want. Leave them off and the app stays simple.',
     alwaysOn: 'To-dos, shopping, notes, habits and health are always available. Your energy budget, goals, receipt scanning and recipes are also included from the start.',
     note: 'Energy, goals, sharing and automations can all be turned on or off later in Settings → Advanced.',
+  },
+  // First-run personalization (app/first-run.tsx). Four steps, one question each.
+  // Labels that already exist elsewhere are REUSED rather than restated — text sizes come
+  // from settings.accessibility.fontSize*, starting screens from nav.* — so the flow and
+  // Settings say the same words for the same value. The one exception is appearance: the
+  // Settings control is a segmented "Light/Dark mode" row whose options are Off/System/On,
+  // which read as nothing at all on a standalone card, so this step names them outright.
+  firstRun: {
+    // Quiet step position. Deliberately a count, never a filling progress bar.
+    step: (n: number, total: number) => `${n} of ${total}`,
+    skip: 'Skip for now',
+    continue: 'Continue',
+    finish: 'Done',
+    settingsNote: 'You can change any of this later in Settings.',
+    reRun: 'Run setup again',
+    reRunHint: 'Step through motion, text size, appearance and starting screen again. It starts from what you have now.',
+    motion: {
+      title: 'How much movement do you want?',
+      sub: 'Animation can help things feel connected, or it can get in the way.',
+      osReduced: 'Your phone asks for reduced motion, so the app already keeps movement down.',
+      full: { label: 'Full', desc: 'Smooth transitions and moving background.' },
+      reduced: { label: 'Reduced', desc: 'Transitions stay, moving background goes.' },
+      none: { label: 'None', desc: 'No animation anywhere.' },
+    },
+    textSize: {
+      title: 'How large should text be?',
+      sub: 'This screen changes as you tap, so you can see the size you are picking.',
+      small: 'A little smaller than standard.',
+      default: 'The standard size.',
+      large: 'Larger text everywhere in the app.',
+    },
+    appearance: {
+      title: 'Pick how the app looks.',
+      sub: 'This screen changes as you tap.',
+      off: { label: 'Light', desc: 'Dark text on a light background.' },
+      system: { label: 'System', desc: "Follows your phone's light or dark setting." },
+      on: { label: 'Dark', desc: 'Light text on a dark background.' },
+    },
+    startScreen: {
+      title: 'Where should the app open?',
+      // Short form for the permanent control in Settings → Personal → Layout, where a
+      // question would read oddly next to the other field labels.
+      settingsLabel: 'Starting screen',
+      sub: 'Every other tab stays one tap away.',
+      home: 'The day at a glance.',
+      plans: "The day's to-do list.",
+      shopping: 'Your shopping lists.',
+    },
   },
   chooseLanguage: 'Choose language',
   chooseLanguageSub: 'You can change this in Settings at any time.',
@@ -1911,6 +1964,45 @@ const no: typeof en = {
     sub: 'Velg de ekstra funksjonene du vil ha. Lar du dem stå av, holder appen seg enkel.',
     alwaysOn: 'Gjøremål, handleliste, notater, vaner og helse er alltid tilgjengelig. Energibudsjettet, mål, kvitteringsskanning og oppskrifter er også med fra start.',
     note: 'Energi, mål, deling og automatisering kan alle skrus av og på senere i Innstillinger → Avansert.',
+  },
+  firstRun: {
+    step: (n: number, total: number) => `${n} av ${total}`,
+    skip: 'Hopp over',
+    continue: 'Fortsett',
+    finish: 'Ferdig',
+    settingsNote: 'Du kan endre alt dette senere i innstillingene.',
+    reRun: 'Kjør oppsettet på nytt',
+    reRunHint: 'Gå gjennom bevegelse, skriftstørrelse, utseende og startskjerm en gang til. Det starter med det du har nå.',
+    motion: {
+      title: 'Hvor mye bevegelse vil du ha?',
+      sub: 'Animasjon kan gjøre at ting henger sammen, eller den kan komme i veien.',
+      osReduced: 'Telefonen din ber om redusert bevegelse, så appen holder bevegelsen nede allerede.',
+      full: { label: 'Full', desc: 'Myke overganger og bevegelig bakgrunn.' },
+      reduced: { label: 'Redusert', desc: 'Overgangene blir, bakgrunnen står stille.' },
+      none: { label: 'Ingen', desc: 'Ingen animasjon noe sted.' },
+    },
+    textSize: {
+      title: 'Hvor stor skal teksten være?',
+      sub: 'Denne skjermen endrer seg mens du trykker, så du ser størrelsen du velger.',
+      small: 'Litt mindre enn standard.',
+      default: 'Standardstørrelsen.',
+      large: 'Større tekst i hele appen.',
+    },
+    appearance: {
+      title: 'Velg hvordan appen ser ut.',
+      sub: 'Skjermen endrer seg mens du trykker.',
+      off: { label: 'Lys', desc: 'Mørk tekst på lys bakgrunn.' },
+      system: { label: 'System', desc: 'Følger telefonens lys- eller mørkinnstilling.' },
+      on: { label: 'Mørk', desc: 'Lys tekst på mørk bakgrunn.' },
+    },
+    startScreen: {
+      title: 'Hvor skal appen åpne?',
+      settingsLabel: 'Startskjerm',
+      sub: 'De andre fanene er ett trykk unna.',
+      home: 'Dagen i et overblikk.',
+      plans: 'Dagens gjøremålsliste.',
+      shopping: 'Handlelistene dine.',
+    },
   },
   chooseLanguage: 'Velg språk',
   chooseLanguageSub: 'Du kan endre dette i innstillingene når som helst.',

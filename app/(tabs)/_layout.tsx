@@ -29,6 +29,10 @@
  *             wrapper, not @react-navigation/material-top-tabs directly; see Edit notes),
  *             react-native-safe-area-context, components/BottomNav, components/ScreenBackground,
  *             components/HomeHeroBackground, components/ParticleBackground, lib/siteNav
+ *   Note    → the navigator's `initialRouteName` is the user's chosen starting tab
+ *             (settings.startScreen → lib/firstRunOptions.ts's START_SCREEN_ROUTES),
+ *             frozen at mount. That is NOT the same thing as `unstable_settings.
+ *             initialRouteName` below it, which is the static deep-link back target.
  *   Used by → Expo Router route group "(tabs)" — app/_layout.tsx's single
  *             <Stack.Screen name="(tabs)" /> entry
  *   Data    → none (pure navigation composition)
@@ -193,6 +197,8 @@ import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
 import { useAccessibility } from '@/lib/useAppTheme';
+import { useSettingsStore } from '@/store/useSettingsStore';
+import { START_SCREEN_ROUTES } from '@/lib/firstRunOptions';
 import { SITE_ITEMS, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import { Duration } from '@/constants/motion';
 
@@ -302,12 +308,25 @@ function PagerFloatingNav({ activeRouteName, insetsBottom, navigationRef }: Page
 // pager's `initialPage` mounts directly on Home with no settle/animation in from Shopping
 // (PagerViewAdapter uses `initialPage={navigationState.index}`). Must be a registered
 // TopTabs.Screen name — 'index' is app/(tabs)/index.tsx (Home); TAB_ROUTE_NAME['/'] === 'index'.
+// Static back-behaviour target for deep links. NOT the same thing as the navigator's
+// `initialRouteName` prop below, which is the user's chosen starting tab and is dynamic —
+// this one has to be a constant, and Home is the right place for a back press to land.
 export const unstable_settings = { initialRouteName: 'index' };
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { reducedMotion } = useAccessibility();
-  const [activeRouteName, setActiveRouteName] = useState<string>(TAB_ROUTE_NAME['/']!);
+  // Which tab the app opens on (first-run step 4 / Settings → Personal → Layout). Read
+  // once, at mount: app/_layout.tsx gates rendering on settings being loaded, so this is
+  // the real value by the time we get here, and a later change should NOT yank the user to
+  // another tab mid-session — it applies from the next launch. Falls back to Home for any
+  // value the enum doesn't cover. Every tab stays reachable regardless; this only picks
+  // which one is focused first.
+  const [activeRouteName, setActiveRouteName] = useState<string>(
+    () => START_SCREEN_ROUTES[useSettingsStore.getState().startScreen] ?? TAB_ROUTE_NAME['/']!,
+  );
+  // Frozen at mount so a settings change mid-session can't re-key the navigator.
+  const startRouteName = useRef(activeRouteName).current;
   const isHomeActive = activeRouteName === TAB_ROUTE_NAME['/'];
 
   // The pager's live scroll position (0..4 across the 5 tabs), lifted up from the tab bar
@@ -426,6 +445,7 @@ export default function TabsLayout() {
         </Animated.View>
 
         <TopTabs
+        initialRouteName={startRouteName}
         tabBarPosition="bottom"
         screenOptions={{
           swipeEnabled: true,

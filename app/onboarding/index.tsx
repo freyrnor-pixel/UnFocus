@@ -27,6 +27,10 @@
  *     YYYY-MM, default monthlyResetDate=1) doesn't fire on a brand-new install's very
  *     first Shopping visit — it otherwise always satisfied "haven't reset this period",
  *     covering the first-visit ⓘ hint underneath it (the bug this fixes).
+ *   - finish() ends on router.replace('/first-run') unless firstRunComplete is already
+ *     set (i.e. the user re-ran onboarding from Settings), in which case it goes to '/'.
+ *     Routing via '/' unconditionally would flash a frame of Home before app/_layout.tsx's
+ *     guard bounced them to the same place.
  *   - Notifications default OFF now (no notification step), so the requestPermissions
  *     branch is skipped unless the user enabled them via a first-run hint beforehand.
  *   - Decision 006 tokens throughout — no raw hex, no legacy theme.* names.
@@ -85,7 +89,11 @@ export default function OnboardingName() {
       syncReminders();
       useTaskStore.getState().syncAllTaskNotifications();
     }
-    router.replace('/');
+    // Straight into first-run personalization (app/first-run.tsx) unless it's already been
+    // seen — which it will have been if the user re-ran onboarding from Settings. Going
+    // via '/' instead would show a frame of Home before app/_layout.tsx's guard bounced
+    // them; this makes that guard a pure safety net.
+    router.replace(settings.firstRunComplete ? '/' : '/first-run');
   }
 
   return (
