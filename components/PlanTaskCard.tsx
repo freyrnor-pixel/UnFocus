@@ -1088,11 +1088,15 @@ export default function PlanTaskCard({
           </>
         )}
 
-        {/* In the ruled-list layout the type line is the pad's first rule (PadSheet's `typeRow`
-            above); in the timeline layout there is no pad to put it on, so it gets its own line
-            with a rule under it — a PadSheet drawing nothing but the type row. Either way it is
-            the SAME node, so the two layouts can't drift into two differently-worded adds. */}
-        {onAddTask && spec.timeline ? <PadSheet state="closed" typeRow={typeRow} /> : null}
+        {/* The type line lives on the pad's first rule (PadSheet's `typeRow`) whenever the pad
+            is drawn. When it ISN'T — the timeline layout, an empty day, or an all-done day, all
+            three of which render something else in the body — it gets its own line here, as a
+            PadSheet drawing nothing but the type row. Either way it is the SAME node, so the
+            branches can't drift into differently-worded adds, and there is no state in which
+            the card offers no way to write on it. */}
+        {onAddTask && (spec.timeline || showEmpty || allDone) ? (
+          <PadSheet state="closed" typeRow={typeRow} />
+        ) : null}
 
         {/* Done zone — dimmed, collapsed by default (Decision 009a). Always the flat-row
             layout, even in horizontal mode — this is a secondary dropdown list, not the
