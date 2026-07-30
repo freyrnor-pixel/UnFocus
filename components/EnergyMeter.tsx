@@ -83,7 +83,7 @@
  *
  * Connections:
  *   Imports → components/Surface, components/Stepper, components/Collapsible,
- *             components/PressableScale, constants/theme, lib/useAppTheme, lib/i18n,
+ *             components/PressableScale, components/CardHintNote, constants/theme, lib/useAppTheme, lib/i18n,
  *             lib/date, lib/energy, store/useSettingsStore, store/useTaskStore,
  *             store/useHabitStore, store/useEnergyStore, react-native-reanimated
  *   Used by → app/(tabs)/index.tsx (Home)
@@ -98,6 +98,7 @@ import Surface from '@/components/Surface';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
+import CardHintNote from '@/components/CardHintNote';
 import { Fonts, FontSize, Radius, Spacing, darken, lighten, getGlow } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -170,6 +171,14 @@ export default function EnergyMeter() {
   // week total is derived from the seven day amounts.
   const showDay = energyMode !== 'weekly';
   const showWeek = energyMode !== 'daily';
+  /**
+   * The common case ('daily'/'weekly' — one meter on the card). The `current / capacity`
+   * value then moves UP onto the header row beside the title (2026-07-30, user report: "Energy
+   * card is too high"), because with no label to sit beside it, it otherwise got an entire
+   * 20px line to itself between the header and the pips. 'custom' shows both meters, where
+   * each row needs its own label+value line to stay tellable apart, so the value stays put.
+   */
+  const singleMeter = !(showDay && showWeek);
 
   const today = todayStr();
   const dayCapacity = capacityForDay(today);
@@ -239,10 +248,14 @@ export default function EnergyMeter() {
           />
         )}
         <View style={styles.meterRow}>
-          <View style={styles.meterTopRow}>
-            {label && <Text style={[styles.meterLabel, { color: theme.text }]}>{label}</Text>}
-            <Text style={[styles.meterValue, { color: theme.textMuted }]}>{`${current} / ${capacity}`}</Text>
-          </View>
+          {/* Single-meter mode draws no top line at all — the value moved up into the card
+              header (see `singleMeter` below), so this would be an empty 20px band. */}
+          {!singleMeter && (
+            <View style={styles.meterTopRow}>
+              {label && <Text style={[styles.meterLabel, { color: theme.text }]}>{label}</Text>}
+              <Text style={[styles.meterValue, { color: theme.textMuted }]}>{`${current} / ${capacity}`}</Text>
+            </View>
+          )}
           <View style={styles.pipRow}>
             {Array.from({ length: pipCount }).map((_, i) => {
               const active = i < filled;
@@ -289,19 +302,25 @@ export default function EnergyMeter() {
     <Surface style={styles.card}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <Ionicons name="flash" size={16} color={theme.accent} />
+          <Ionicons name="flash" size={18} color={theme.accent} />
           <Text style={[styles.title, { color: theme.text }]}>{t.energyMeter.title}</Text>
         </View>
+        {/* The value rides the header in single-meter mode — see `singleMeter`. */}
+        {singleMeter && (
+          <Text style={[styles.headerValue, { color: theme.textMuted }]}>
+            {showDay ? `${dayCurrent} / ${dayCapacity}` : `${weekCurrent} / ${weekCapacity}`}
+          </Text>
+        )}
         <PressableScale
           onPress={() => setEditing((v) => !v)}
-          hitSlop={8}
+          hitSlop={12}
           scaleTo={0.9}
           accessibilityRole="button"
           accessibilityLabel={t.energyMeter.editTitle}
         >
           <Ionicons
             name={editing ? 'checkmark' : 'create-outline'}
-            size={18}
+            size={16}
             color={editing ? theme.accent : theme.textMuted}
           />
         </PressableScale>
@@ -354,11 +373,9 @@ export default function EnergyMeter() {
 
       {/* Permanent one-line explainer, INSIDE the card, directly under the meter it explains
           (2026-07-27, user report). See the file header for why this is no longer a
-          disappearing StarterCard sibling. */}
-      <View style={[styles.hintRow, { borderTopColor: theme.border }]}>
-        <Ionicons name="bulb-outline" size={12} color={theme.textMuted} style={styles.hintIcon} />
-        <Text style={[styles.hintText, { color: theme.textMuted }]}>{t.energyMeter.hint}</Text>
-      </View>
+          disappearing StarterCard sibling. The shape this pioneered became the shared
+          components/CardHintNote.tsx (2026-07-30), which every Home card's tip now uses. */}
+      <CardHintNote text={t.energyMeter.hint} style={styles.hint} />
 
     </Surface>
   );
@@ -370,9 +387,16 @@ const styles = StyleSheet.create({
   // Spacing.md band above and below. Horizontal padding stays md so it still lines up with the
   // other Home cards' content.
   card: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, gap: Spacing.xs },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  title: { fontSize: FontSize.md, fontFamily: Fonts.bold },
+  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  // flex:1 so the title block takes the slack and the value + edit icon sit together at the
+  // right edge, rather than the value floating in the middle on a space-between row.
+  titleRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  // 18, up from FontSize.md/16 (2026-07-30, user report: "Energy header a bit bigger") — still
+  // below the 20px the four domain cards' titles use, since this is the smallest card on Home.
+  title: { fontSize: 18, fontFamily: Fonts.bold },
+  // The hoisted single-meter value (see `singleMeter`). Tabular-ish weight matching meterValue
+  // so 'custom' mode's per-row values and this one read as the same number in two places.
+  headerValue: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
   // Wraps each meter row so EnergyPulse (an absoluteFill sibling) has a position:relative
   // parent to glow behind — see the "Depleted/recovered pulse" file-header note.
   meterRowWrap: { position: 'relative', borderRadius: Radius.sm },
@@ -414,9 +438,7 @@ const styles = StyleSheet.create({
   editor: { gap: Spacing.sm, paddingTop: Spacing.sm },
   editRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   editLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  // Permanent explainer — a hairline rule ties it to the meter above rather than letting it
-  // float as its own paragraph, and it stays small enough not to compete with the numbers.
-  hintRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.xs, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: Spacing.xs, marginTop: 2 },
-  hintIcon: { marginTop: 1 },
-  hintText: { flex: 1, fontSize: FontSize.xs, lineHeight: 16, fontStyle: 'italic' },
+  // CardHintNote brings its own hairline/type; this only trims its default top margin, since
+  // the card's own `gap` already separates it from the meter above.
+  hint: { marginTop: 2 },
 });

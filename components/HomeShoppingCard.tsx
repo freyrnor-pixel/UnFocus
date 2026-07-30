@@ -69,6 +69,7 @@ import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
 import PadFooterToggle from '@/components/PadFooterToggle';
+import CardHintNote from '@/components/CardHintNote';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import Stepper from '@/components/Stepper';
@@ -359,14 +360,6 @@ export default function HomeShoppingCard({
           {!page?.list ? (
             // A week with no list is a real state, not an error — say so and offer the way in.
             <Text style={[styles.emptyExplainer, { color: theme.textMuted }]}>{t.weekSectionEmpty}</Text>
-          ) : totalCount === 0 ? (
-            <View style={styles.emptyTextRow}>
-              <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.emptyBulb} />
-              <View style={styles.emptyExplainerList}>
-                <Text style={[styles.emptyExplainer, { color: theme.text }]}>• {t.starters.shopping.textWeekly}</Text>
-                <Text style={[styles.emptyExplainer, { color: theme.text }]}>• {t.starters.shopping.textMonthly}</Text>
-              </View>
-            </View>
           ) : null}
 
           <PadSheet
@@ -434,6 +427,12 @@ export default function HomeShoppingCard({
           total={listRows.length}
           accent={domainColor.accent}
         />
+
+        {/* Explainer at the FOOT (2026-07-30). This was a two-line bullet list ("Weekly list
+            for groceries." / "Monthly list for what the house needs.") wedged between the week
+            pager and the type line — the single biggest block of teaching on Home. It is one
+            short line now, below the content. */}
+        {totalCount === 0 ? <CardHintNote text={t.starters.shopping.text} /> : null}
       </View>
 
       <ShoppingItemSheet
@@ -479,9 +478,8 @@ const baseStyles = StyleSheet.create({
   weekRange: { fontSize: FontSize.xs, fontFamily: Fonts.regular, ...TabularNums },
   progressBar: { marginBottom: Spacing.xs },
   paceText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginBottom: Spacing.xs },
-  emptyTextRow: { flexDirection: 'row', gap: Spacing.xs, marginBottom: Spacing.sm },
-  emptyBulb: { marginTop: 2 },
-  emptyExplainerList: { flex: 1, gap: 2 },
+  // Still used by the "no list for this week" line; the bulb + two-bullet block it used to
+  // share styles with became a foot-of-card CardHintNote (2026-07-30).
   emptyExplainer: {
     fontSize: FontSize.sm,
     lineHeight: 20,

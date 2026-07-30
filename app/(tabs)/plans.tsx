@@ -854,11 +854,11 @@ export default function TasksScreen() {
         {tasks.length === 0 && !(tab === 'today' && layoutSpec.timeline) && (
           <StarterCard
             text={t.starters.plans.text}
-            exampleLabel={t.starters.plans.exampleLabel}
             example={
               <StarterExampleRow
                 icon="ellipse-outline"
                 title={t.starters.plans.exampleTitle}
+                tag={t.starters.exampleLabel}
                 meta="17:00–17:20"
                 accent={wheneverHue}
                 onAdd={addPlanStarterTask}

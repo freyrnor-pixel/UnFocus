@@ -35,6 +35,13 @@
  *     it, matching the house pattern (see app/(tabs)/habits.tsx's createHabit).
  *   - `meta`/`metaVariant` reuse components/Badge — keep meta text short (a count,
  *     a signed number, a recurrence word) so it reads as a pill, not a second sentence.
+ *   - **`tag` replaced the caption line (2026-07-30)**: the "is this a real row?" ambiguity
+ *     that this row's deliberate real-row styling creates used to be answered by a full-width
+ *     uppercase "EXAMPLE TASKS" caption above it (StarterCard's `exampleLabel`, plus
+ *     hand-rolled copies in PlanTaskCard/HomeHabitsCard). That cost a whole line on a card
+ *     whose whole problem was already too many lines of teaching before any content — so the
+ *     marker moved onto the row itself. Keep the copy to one word (`t.starters.exampleLabel`);
+ *     it competes for width with the title, meta pill and "+" at 360px.
  *   - There used to be a `compact` chip variant for a `compact` StarterCard. Its only caller
  *     was components/EnergyMeter's disappearing empty-state explainer, which became a
  *     permanent one-line hint with no examples (2026-07-27) — the variant went with it.
@@ -52,6 +59,12 @@ type Props = {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   /** Row title — the example item itself (e.g. "Milk", "Headache"). */
   title: string;
+  /**
+   * Short "this is an example, not a real row" marker (`t.starters.exampleLabel`), drawn as a
+   * small chip between the icon and the title. Replaces the full-width uppercase caption line
+   * that used to sit above these rows — see the Edit notes.
+   */
+  tag?: string;
   /** Optional trailing pill (e.g. "Weekly", "+1", "3/5"). */
   meta?: string;
   metaVariant?: 'neutral' | 'success' | 'warning' | 'danger';
@@ -64,13 +77,18 @@ type Props = {
   addLabel?: string;
 };
 
-export default function StarterExampleRow({ icon, title, meta, metaVariant = 'neutral', accent, onAdd, addLabel }: Props) {
+export default function StarterExampleRow({ icon, title, tag, meta, metaVariant = 'neutral', accent, onAdd, addLabel }: Props) {
   const theme = useAppTheme();
   return (
     <View style={[styles.row, { backgroundColor: rgba(accent, 0.05), borderColor: rgba(accent, 0.2) }]}>
       <View style={[styles.iconWrap, { borderColor: accent }]}>
         <Ionicons name={icon} size={13} color={accent} />
       </View>
+      {tag ? (
+        <View style={[styles.tag, { borderColor: rgba(accent, 0.45) }]}>
+          <Text style={[styles.tagText, { color: accent }]} numberOfLines={1}>{tag}</Text>
+        </View>
+      ) : null}
       <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
         {title}
       </Text>
@@ -112,9 +130,23 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
+    // minWidth:0 so the title yields to the tag/meta/add cluster instead of pushing them off
+    // the row — see AGENTS.md's wrap-audit lesson about minWidth on flex children.
+    minWidth: 0,
     fontSize: FontSize.sm,
     fontFamily: Fonts.semibold,
   },
+  // The "Example" marker (2026-07-30) — a small outlined chip that replaced the full-width
+  // uppercase caption line above these rows. flexShrink:0 keeps it whole; the title shrinks
+  // first, since a clipped marker would defeat the point of having one.
+  tag: {
+    flexShrink: 0,
+    borderWidth: 1,
+    borderRadius: Radius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  tagText: { fontSize: 10, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.3 },
   addBtn: {
     width: 22,
     height: 22,
