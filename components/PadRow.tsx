@@ -16,7 +16,7 @@
  * button, replacing the assorted per-surface trailing trash/send/put-back buttons.
  *
  * Connections:
- *   Imports → components/PressableScale, constants/theme (PAD_ROW_MIN_HEIGHT,
+ *   Imports → components/PressableScale, constants/theme (PAD_ROW_HEIGHT,
  *             DONE_ROW_OPACITY, FontSize, Fonts, Radius, Spacing, TabularNums),
  *             lib/i18n, lib/useAppTheme, @expo/vector-icons
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
@@ -51,7 +51,7 @@ import {
   DONE_ROW_OPACITY,
   FontSize,
   Fonts,
-  PAD_ROW_MIN_HEIGHT,
+  PAD_ROW_HEIGHT,
   Radius,
   Spacing,
   TabularNums,
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    minHeight: PAD_ROW_MIN_HEIGHT,
+    minHeight: PAD_ROW_HEIGHT,
   },
   // Fades the whole row, not just the title — the shared finished-row look (see header).
   rowDone: { opacity: DONE_ROW_OPACITY },

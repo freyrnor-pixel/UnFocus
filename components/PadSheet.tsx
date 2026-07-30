@@ -13,7 +13,7 @@
  * crosses the whole line is what actually reads as paper.
  *
  * Connections:
- *   Imports → constants/theme (PAD_ROW_MIN_HEIGHT), components/Collapsible,
+ *   Imports → constants/theme (PAD_ROW_HEIGHT, PAD_ROW_MIN_HEIGHT), components/Collapsible,
  *             lib/padState (PadState, padSpareLines), lib/useAppTheme
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
  *             app/(tabs)/{plans,habits,shopping}.tsx
@@ -40,7 +40,7 @@
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import Collapsible from '@/components/Collapsible';
-import { PAD_ROW_MIN_HEIGHT } from '@/constants/theme';
+import { PAD_ROW_HEIGHT, PAD_ROW_MIN_HEIGHT } from '@/constants/theme';
 import { PadState, padSpareLines } from '@/lib/padState';
 import { useAppTheme } from '@/lib/useAppTheme';
 
@@ -84,7 +84,7 @@ export default function PadSheet({
     <View style={[styles.sheet, style]}>
       {typeRow ? (
         <>
-          <View style={styles.line}>{typeRow}</View>
+          <View style={styles.typeLine}>{typeRow}</View>
           <View style={[styles.rule, rule]} />
         </>
       ) : null}
@@ -115,11 +115,14 @@ const styles = StyleSheet.create({
   // No padding of its own: the card's own PAD_GUTTER already insets the sheet, and the rules
   // are meant to reach both edges of that gutter.
   sheet: { width: '100%' },
-  // Every row is one line of the pad, whatever it holds — that shared rhythm is what makes a
-  // stack of them read as ruled paper rather than as a list of differently-sized widgets.
-  line: { minHeight: PAD_ROW_MIN_HEIGHT, justifyContent: 'center' },
+  // The always-open type line keeps the fuller rhythm (its own 44px minHeight, PadTypeRow) —
+  // this wrapper just needs to not clip it short.
+  typeLine: { minHeight: PAD_ROW_MIN_HEIGHT, justifyContent: 'center' },
+  // Real rows and the blank lines after them share the shorter, compressed rhythm
+  // (2026-07-30, user report — see PAD_ROW_HEIGHT's own comment in constants/theme.ts).
+  line: { minHeight: PAD_ROW_HEIGHT, justifyContent: 'center' },
   // Blank paper. Inert on purpose (see the header) — the type line is the way to add a row.
-  spare: { height: PAD_ROW_MIN_HEIGHT },
+  spare: { height: PAD_ROW_HEIGHT },
   // Spans the pad's whole writing area (gutter edge to gutter edge) but deliberately does NOT
   // bleed to the card's outer edge: the accent rim is the binding, and a rule running into it
   // is exactly the "text/lines too close to a border" complaint this pass is fixing.

@@ -175,12 +175,17 @@ export const HOME_PREVIEW_CARD_MIN_HEIGHT = 140;
  * horizontal inset for everything inside a pad card: header, rules, rows, type line,
  * footer. Don't add a second one.
  *
- * `PAD_ROW_MIN_HEIGHT` is the baseline rhythm — every pad row is one line of the pad,
- * whatever it contains, which is what makes a stack of them read as ruled paper. Rules are
- * drawn by components/PadSheet.tsx and run the full card width (there is no leading check
- * column to inset past any more — see the row rule in AGENTS.md).
+ * `PAD_ROW_MIN_HEIGHT` is the always-open TYPE line's own rhythm (PadTypeRow) — it needs the
+ * fuller height for its 32px commit button + comfortable typing target, so it stays 44.
+ * `PAD_ROW_HEIGHT` (2026-07-30, user report: "lines can be compressed for all except the
+ * empty one with the Type text-box") is the shorter rhythm for actual list rows (PadRow) and
+ * the blank spare lines after them — a real row's 22px check + hitSlop don't need 44px of
+ * air, and the taller uniform height read as loose/floaty next to the type line above it.
+ * Rules are drawn by components/PadSheet.tsx and run the full card width (there is no
+ * leading check column to inset past any more — see the row rule in AGENTS.md).
  */
 export const PAD_ROW_MIN_HEIGHT = 44;
+export const PAD_ROW_HEIGHT = 38;
 export const PAD_GUTTER = Spacing.md;
 /** Blank ruled lines drawn after the last real row — the "keep writing" invitation. */
 export const PAD_SPARE_LINES = 2;
