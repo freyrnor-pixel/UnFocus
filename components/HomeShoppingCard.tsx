@@ -454,10 +454,9 @@ const baseStyles = StyleSheet.create({
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   // ONE horizontal inset for the whole card — see PlanTaskCard's cardContent note.
   cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER },
-  // Spacing.md, matching HomeHabitsCard/PlanTaskCard's header gap (2026-07-30, user report:
-  // "the shopping left/right buttons are off-place" — the week pager's round arrow buttons
-  // sat crowded right under the header at the old Spacing.sm).
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
+  // Spacing.lg (was .md, matching HomeHabitsCard/PlanTaskCard/HomeNotesCard's header gap —
+  // 2026-07-30, user report: content below still read as crowding the colored badge at .md).
+  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.lg },
   headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   headerText: { flex: 1, minWidth: 0 },
   title: {

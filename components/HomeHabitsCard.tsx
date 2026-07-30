@@ -337,7 +337,9 @@ const baseStyles = StyleSheet.create({
   // ONE horizontal inset for the whole card (PAD_GUTTER). The height floor is `cardCollapsed`
   // above — applied while not open, see its comment.
   cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER },
-  titleRowPressable: { marginBottom: Spacing.md },
+  // Spacing.lg (was .md), matching HomeNotesCard/HomeShoppingCard/PlanTaskCard's header gap
+  // (2026-07-30, user report: content below still read as crowding the colored badge at .md).
+  titleRowPressable: { marginBottom: Spacing.lg },
   // Badge is a normal flex child now, so there is no paddingLeft dodging an absolute one.
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   headerText: { flex: 1, minWidth: 0 },
