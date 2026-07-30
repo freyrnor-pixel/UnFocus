@@ -361,7 +361,7 @@ import { useMonthlyListStore, MonthlyList } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
-import ShoppingRow, { ROW_DIVIDER_INSET } from '@/components/ShoppingRow';
+import ShoppingRow from '@/components/ShoppingRow';
 import LayoutPickerSheet from '@/components/LayoutPickerSheet';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
 import { usePrefill } from '@/lib/prefill';
@@ -2398,8 +2398,9 @@ const styles = StyleSheet.create({
 
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md },
   // Inset past the check so the column of checks reads as one line down the card
-  // (row rule, 2026-07-28). ROW_DIVIDER_INSET lives in ShoppingRow so it tracks its check.
-  rowDivider: { height: 1, marginLeft: ROW_DIVIDER_INSET },
+  // Full-width now (2026-07-30): the check moved to the right margin, so there is no leading
+  // column left to inset past, and a rule that crosses the whole line reads as ruled paper.
+  rowDivider: { height: 1 },
   section: { gap: Spacing.sm },
   // Quiet category-cluster caption (Monthly's ungrouped rows only) — lighter-weight than
   // sectionHeaderRow's bordered/backgrounded treatment, just a small label above each cluster.

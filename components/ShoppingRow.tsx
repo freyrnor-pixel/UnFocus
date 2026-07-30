@@ -131,7 +131,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import type { FlightRect } from '@/components/FlightOverlay';
-import { Fonts, FontSize, Radius, Spacing, TabularNums } from '@/constants/theme';
+import { DONE_ROW_OPACITY, Fonts, FontSize, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -150,18 +150,17 @@ type Variant = 'planned' | 'cart' | 'purchased';
 const MIN_QTY = 1;
 
 /**
- * How far a divider between two ShoppingRows should be inset from the left (row rule,
- * 2026-07-28): past the check circle and the row's gap, so the column of checks runs
- * uninterrupted down the card instead of being sliced by a full-bleed rule every row.
- * Deliberately stops at the CHECK, not at the title — the leading quantity is optional
- * (`spec.showMeta`), and an inset that moved with it would make the dividers jump between
- * layouts. Exported so the three callers that draw dividers can't drift from the check size.
+ * `ROW_DIVIDER_INSET` is GONE as of 2026-07-30. It existed so a divider cleared the LEADING
+ * check circle, keeping the column of checks unbroken. The check moved to the right margin in
+ * the same pass (see the trailing cluster in the JSX below), so there is nothing on the left to
+ * clear any more and a rule that crosses the whole line is what reads as ruled paper. Callers
+ * draw a full-width hairline instead — or better, let components/PadSheet.tsx draw it.
+ *
+ * Shared "marked as done" dim amount. Re-exported from constants/theme's `DONE_ROW_OPACITY`,
+ * which is where it lives now that notes, tasks, shopping items and completed habits all share
+ * one finished-row treatment — this alias keeps the existing call sites compiling.
  */
-export const ROW_DIVIDER_INSET = 22 + Spacing.sm;
-
-/** Shared "marked as done" dim amount — reuse this anywhere an item/button needs the same
- * reduced-opacity treatment (e.g. the disabled "Shopping done" button on the shopping screen). */
-export const CHECKED_OPACITY = 0.55;
+export const CHECKED_OPACITY = DONE_ROW_OPACITY;
 
 type Props = {
   item: ShoppingItem;
@@ -308,31 +307,6 @@ function ShoppingRow({
           pointerEvents="none"
           style={[styles.highlight, { backgroundColor: theme.goodSoft, borderColor: theme.good }, highlightStyle]}
         />
-        <PressableScale
-          style={[
-            styles.check,
-            spec.bigTouch && styles.checkBig,
-            variant === 'planned' && (item.checked
-              ? { backgroundColor: theme.good, borderColor: theme.good }
-              : { borderColor: theme.good }),
-            variant === 'cart' && { backgroundColor: theme.good, borderColor: theme.good },
-            variant === 'purchased' && { backgroundColor: theme.good, borderColor: theme.good },
-          ]}
-          onPress={handleCheckPress}
-          disabled={variant === 'purchased'}
-          hitSlop={13}
-          scaleTo={0.97}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: !!item.checked }}
-          accessibilityLabel={item.name}
-        >
-          {variant === 'planned' && (item.checked
-            ? <Ionicons name="checkmark" size={14} color={theme.textInverse} />
-            : <Ionicons name="add" size={16} color={theme.good} />)}
-          {variant === 'cart' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
-          {variant === 'purchased' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
-        </PressableScale>
-
         {/* Quantity — READ here, EDITED in the detail sheet. It sits in the leading cluster
             next to the check (row rule, 2026-07-28) so the right column belongs to money
             alone and the row can't reflow while a number is being changed. */}
@@ -376,6 +350,11 @@ function ShoppingRow({
           )}
         </PressableScale>
 
+        {/* Trailing cluster (2026-07-30): remove, then the CHECK in the right margin — where a
+            paper checklist puts its ticks, and the app-wide row anatomy since this pass (see
+            AGENTS.md's row rule and components/PadRow.tsx). Moving the check off the leading
+            edge is also what let the notepad rules run the whole line instead of being inset
+            past a check column, which is why ROW_DIVIDER_INSET is retired. */}
         {variant !== 'purchased' && (
           <PressableScale
             style={styles.deleteBtn}
@@ -390,6 +369,31 @@ function ShoppingRow({
               : <Ionicons name="close-outline" size={18} color={locked ? theme.border : theme.textMuted} />}
           </PressableScale>
         )}
+
+        <PressableScale
+          style={[
+            styles.check,
+            spec.bigTouch && styles.checkBig,
+            variant === 'planned' && (item.checked
+              ? { backgroundColor: theme.good, borderColor: theme.good }
+              : { borderColor: theme.good }),
+            variant === 'cart' && { backgroundColor: theme.good, borderColor: theme.good },
+            variant === 'purchased' && { backgroundColor: theme.good, borderColor: theme.good },
+          ]}
+          onPress={handleCheckPress}
+          disabled={variant === 'purchased'}
+          hitSlop={13}
+          scaleTo={0.97}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: !!item.checked }}
+          accessibilityLabel={item.name}
+        >
+          {variant === 'planned' && (item.checked
+            ? <Ionicons name="checkmark" size={14} color={theme.textInverse} />
+            : <Ionicons name="add" size={16} color={theme.good} />)}
+          {variant === 'cart' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
+          {variant === 'purchased' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
+        </PressableScale>
       </Animated.View>
       </NewSinceGlow>
     </Animated.View>

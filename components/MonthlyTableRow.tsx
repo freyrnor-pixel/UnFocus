@@ -70,15 +70,6 @@ function MonthlyTableRow({ item, onCheckboxPress, onPress, temporaryLabel, onInc
 
   const Body = (
     <View style={[styles.row, { backgroundColor: theme.surface }]}>
-      <PressableScale
-        style={[styles.check, { borderColor: theme.accent }, item.pendingRestock && { backgroundColor: theme.accent, borderColor: theme.accent }]}
-        onPress={onCheckboxPress}
-        hitSlop={6}
-        scaleTo={0.97}
-      >
-        {item.pendingRestock && <Ionicons name="checkmark" size={14} color={theme.accentInk} />}
-      </PressableScale>
-
       <View style={styles.itemCol}>
         <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
           {item.name}
@@ -119,6 +110,20 @@ function MonthlyTableRow({ item, onCheckboxPress, onPress, temporaryLabel, onInc
           <Ionicons name="close" size={18} color={theme.textMuted} />
         </PressableScale>
       )}
+
+      {/* The CHECK in the right margin (2026-07-30 row rule — see AGENTS.md and
+          components/PadRow.tsx). It used to lead this row. */}
+      <PressableScale
+        style={[styles.check, { borderColor: theme.accent }, item.pendingRestock && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+        onPress={onCheckboxPress}
+        hitSlop={13}
+        scaleTo={0.97}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: !!item.pendingRestock }}
+        accessibilityLabel={item.name}
+      >
+        {item.pendingRestock && <Ionicons name="checkmark" size={14} color={theme.accentInk} />}
+      </PressableScale>
     </View>
   );
 

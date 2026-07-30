@@ -300,24 +300,6 @@ export default function MedicineTrayCard() {
                 return (
                   <View key={med.id} style={styles.medRow}>
                     <PressableScale
-                      onPress={() => toggleDose(med, tray)}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: isTaken }}
-                      accessibilityLabel={isTaken ? t.medicine.undoTaken(med.name) : t.medicine.markTaken(med.name)}
-                      hitSlop={8}
-                      scaleTo={0.9}
-                    >
-                      <View
-                        style={[
-                          styles.doseCircle,
-                          { borderColor: isTaken ? theme.good : theme.border },
-                          isTaken && { backgroundColor: theme.good },
-                        ]}
-                      >
-                        {isTaken && <Ionicons name="checkmark" size={13} color={theme.accentInk} />}
-                      </View>
-                    </PressableScale>
-                    <PressableScale
                       style={styles.medNameWrap}
                       onPress={() => router.push({ pathname: '/medicine-form', params: { id: med.id } })}
                       accessibilityRole="button"
@@ -338,6 +320,26 @@ export default function MedicineTrayCard() {
                     {isTaken && dose?.takenAt ? (
                       <Text style={[styles.medMeta, { color: theme.good }]}>{t.medicine.takenAt(dose.takenAt)}</Text>
                     ) : null}
+                    {/* Dose circle in the right margin (2026-07-30 row rule — see AGENTS.md and
+                        components/PadRow.tsx). It used to lead this row. */}
+                    <PressableScale
+                      onPress={() => toggleDose(med, tray)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: isTaken }}
+                      accessibilityLabel={isTaken ? t.medicine.undoTaken(med.name) : t.medicine.markTaken(med.name)}
+                      hitSlop={13}
+                      scaleTo={0.9}
+                    >
+                      <View
+                        style={[
+                          styles.doseCircle,
+                          { borderColor: isTaken ? theme.good : theme.border },
+                          isTaken && { backgroundColor: theme.good },
+                        ]}
+                      >
+                        {isTaken && <Ionicons name="checkmark" size={13} color={theme.accentInk} />}
+                      </View>
+                    </PressableScale>
                   </View>
                 );
               })}
@@ -482,7 +484,9 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  medNameWrap: { flex: 1 },
+  // minWidth:0 so a long medicine name shrinks instead of pushing the trailing dose circle
+  // off the card — the same guard components/PadRow.tsx carries.
+  medNameWrap: { flex: 1, minWidth: 0 },
   medName: { fontSize: FontSize.sm },
   medMeta: { fontSize: FontSize.xs },
 });
