@@ -76,7 +76,7 @@ import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
 import PadFooterToggle from '@/components/PadFooterToggle';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, TabularNums } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, TabularNums, HitSlop } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -199,7 +199,7 @@ export default function HomeHabitsCard() {
               <PressableScale
                 style={[styles.adjBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
                 onPress={() => { tap(); decrement(habit.id, today); }}
-                hitSlop={8}
+                hitSlop={HitSlop.base}
                 scaleTo={0.9}
                 accessibilityRole="button"
                 accessibilityLabel={`${t.decreaseQty} ${habit.title}`}
@@ -209,7 +209,7 @@ export default function HomeHabitsCard() {
               <PressableScale
                 style={[styles.adjBtn, styles.adjBtnPlus, { backgroundColor: domainColor.accent }]}
                 onPress={counted}
-                hitSlop={8}
+                hitSlop={HitSlop.base}
                 scaleTo={0.9}
                 accessibilityRole="button"
                 accessibilityLabel={`${t.increaseQty} ${habit.title}`}

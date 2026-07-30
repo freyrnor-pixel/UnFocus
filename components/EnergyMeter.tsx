@@ -93,12 +93,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, RadialGradient, Stop, Circle, Rect } from 'react-native-svg';
-import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming, Easing } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
 import Surface from '@/components/Surface';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
-import { Fonts, FontSize, Radius, Spacing, darken, lighten, getGlow } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, darken, lighten, getGlow, HitSlop } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
@@ -107,6 +107,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { useEnergyStore } from '@/store/useEnergyStore';
+import { Duration, Ease } from '@/constants/motion';
 
 type PulseKind = 'recovered' | 'depleted';
 
@@ -122,9 +123,9 @@ function EnergyPulse({ color, reducedMotion }: { color: string; reducedMotion: b
       return;
     }
     opacity.value = withSequence(
-      withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) }),
-      withTiming(1, { duration: 900 }),
-      withTiming(0, { duration: 400, easing: Easing.in(Easing.ease) }),
+      withTiming(1, { duration: Duration.cardOut, easing: Ease.enter }),
+      withTiming(1, { duration: Duration.hold }),
+      withTiming(0, { duration: Duration.holdOut, easing: Ease.exit }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -294,7 +295,7 @@ export default function EnergyMeter() {
         </View>
         <PressableScale
           onPress={() => setEditing((v) => !v)}
-          hitSlop={8}
+          hitSlop={HitSlop.base}
           scaleTo={0.9}
           accessibilityRole="button"
           accessibilityLabel={t.energyMeter.editTitle}

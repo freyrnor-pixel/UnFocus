@@ -94,6 +94,7 @@ import {
   Spacing,
   TabularNums,
   rgba,
+  HitSlop,
 } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
@@ -220,7 +221,7 @@ export default function HomeNotesCard() {
           </PressableScale>
           <PressableScale
             onPress={toggleVoiceCapture}
-            hitSlop={8}
+            hitSlop={HitSlop.base}
             accessibilityRole="button"
             accessibilityLabel={listening ? t.notes.stopRecording : t.notes.recordVoiceNote}
             scaleTo={0.9}
@@ -284,7 +285,7 @@ export default function HomeNotesCard() {
                       tap();
                       setAddAsTask((v) => !v);
                     }}
-                    hitSlop={8}
+                    hitSlop={HitSlop.base}
                     scaleTo={0.9}
                     accessibilityRole="button"
                     accessibilityState={{ selected: addAsTask }}

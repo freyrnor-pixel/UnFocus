@@ -401,7 +401,7 @@ import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
-import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { reorderByDrag } from '@/lib/reorder';
@@ -409,6 +409,7 @@ import { formatKr } from '@/lib/money';
 import { computeSpendPace } from '@/lib/budget';
 import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
+import { Duration } from '@/constants/motion';
 
 type Tab = 'weekly' | 'monthly';
 
@@ -1437,8 +1438,8 @@ export default function ShoppingScreen() {
           )}
           {value === 'weekly' && weeklyAddCue && (
             <Animated.View
-              entering={reducedMotion ? undefined : ZoomIn.duration(200)}
-              exiting={reducedMotion ? undefined : ZoomOut.duration(150)}
+              entering={reducedMotion ? undefined : ZoomIn.duration(Duration.cardOut)}
+              exiting={reducedMotion ? undefined : ZoomOut.duration(Duration.control)}
               style={[styles.tabCue, { backgroundColor: theme.good }]}
             >
               <Ionicons name="checkmark" size={10} color={theme.textInverse} />
@@ -1655,7 +1656,7 @@ export default function ShoppingScreen() {
                           onPress={() => router.push({ pathname: '/budget', params: { listId: list.id } })}
                           accessibilityRole="button"
                           accessibilityLabel={t.budget.title}
-                          hitSlop={6}
+                          hitSlop={HitSlop.snug}
                           scaleTo={0.97}
                         >
                           <Ionicons name="wallet-outline" size={14} color={theme.featBudget} />
@@ -1883,7 +1884,7 @@ export default function ShoppingScreen() {
                   <View key={dishName} style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
                     <View style={styles.unallocatedGroupHeader}>
                       <Text style={[styles.unallocatedGroupName, { color: theme.text }]} numberOfLines={1}>{dishName}</Text>
-                      <PressableScale style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate(groupItems)} hitSlop={6} scaleTo={0.97}>
+                      <PressableScale style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate(groupItems)} hitSlop={HitSlop.snug} scaleTo={0.97}>
                         <Ionicons name="arrow-forward" size={14} color={theme.textInverse} />
                         <Text style={[styles.allocateBtnText, { color: theme.textInverse }]}>{t.allocateItemLabel}</Text>
                       </PressableScale>
@@ -1895,7 +1896,7 @@ export default function ShoppingScreen() {
                           <Text style={[styles.unallocatedItemMeta, { color: theme.textMuted }]}>
                             {item.amount}{item.unit ? ` ${item.unit}` : ''}{item.price > 0 ? ` · ${formatKr(item.price, 0)}` : ''}
                           </Text>
-                          <PressableScale onPress={() => removeWithSource(item.id)} hitSlop={8} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
+                          <PressableScale onPress={() => removeWithSource(item.id)} hitSlop={HitSlop.base} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
                             <Ionicons name="close" size={18} color={theme.textMuted} />
                           </PressableScale>
                         </View>
@@ -1912,10 +1913,10 @@ export default function ShoppingScreen() {
                         <Text style={[styles.unallocatedItemMeta, { color: theme.textMuted }]}>
                           {item.amount}{item.unit ? ` ${item.unit}` : ''}{item.price > 0 ? ` · ${formatKr(item.price, 0)}` : ''}
                         </Text>
-                        <PressableScale style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate([item])} hitSlop={6} scaleTo={0.97}>
+                        <PressableScale style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate([item])} hitSlop={HitSlop.snug} scaleTo={0.97}>
                           <Ionicons name="arrow-forward" size={14} color={theme.textInverse} />
                         </PressableScale>
-                        <PressableScale onPress={() => removeWithSource(item.id)} hitSlop={8} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
+                        <PressableScale onPress={() => removeWithSource(item.id)} hitSlop={HitSlop.base} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
                           <Ionicons name="close" size={18} color={theme.textMuted} />
                         </PressableScale>
                       </View>
@@ -2328,7 +2329,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    minHeight: 44,
+    minHeight: MIN_TAP_TARGET,
   },
   addTriggerText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   addItemSpacing: { marginTop: Spacing.sm },

@@ -37,6 +37,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { getGlow, Radius } from '@/constants/theme';
 import { useAccessibility } from '@/lib/useAppTheme';
+import { Duration } from '@/constants/motion';
 
 type Props = {
   /** Whether the halo is shown at all. */
@@ -71,7 +72,7 @@ export default function GlowPulse({ active, color, mode = 'breathe', level = 'so
         true,
       );
     } else {
-      opacity.value = withTiming(1, { duration: 200 });
+      opacity.value = withTiming(1, { duration: Duration.cardOut });
     }
     return () => cancelAnimation(opacity);
   }, [active, breathe, opacity]);

@@ -29,7 +29,8 @@
  *     themselves — this hook only guards *whether* to render, not *what* to render.
  */
 import { useEffect, useState } from 'react';
-import { Easing, runOnJS, useSharedValue, withTiming } from 'react-native-reanimated';
+import { runOnJS, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Duration, Ease } from '@/constants/motion';
 
 export function useMountedTransition(visible: boolean, reducedMotion: boolean) {
   const [mounted, setMounted] = useState(visible);
@@ -40,13 +41,13 @@ export function useMountedTransition(visible: boolean, reducedMotion: boolean) {
       setMounted(true);
       progress.value = reducedMotion
         ? 1
-        : withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
+        : withTiming(1, { duration: Duration.modalIn, easing: Ease.enter });
     } else if (mounted) {
       if (reducedMotion) {
         progress.value = 0;
         setMounted(false);
       } else {
-        progress.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.cubic) }, (done) => {
+        progress.value = withTiming(0, { duration: Duration.modalOut, easing: Ease.exit }, (done) => {
           if (done) runOnJS(setMounted)(false);
         });
       }

@@ -132,7 +132,7 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { MonthlyList } from '@/store/useMonthlyListStore';
-import { Fonts, FontSize, Radius, Spacing, Type } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Type, MIN_TAP_TARGET } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { listProgress, groupByCategory } from '@/lib/shoppingGroups';
@@ -877,6 +877,6 @@ const baseStyles = StyleSheet.create({
     borderWidth: 1,
   },
   addOptionText: { fontFamily: Type.label.fontFamily, fontSize: FontSize.sm },
-  doneShoppingBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
+  doneShoppingBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: MIN_TAP_TARGET },
   doneShoppingText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 });

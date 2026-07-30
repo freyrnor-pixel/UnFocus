@@ -36,7 +36,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -47,6 +46,7 @@ import Surface from '@/components/Surface';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { getTranslations } from '@/lib/i18n';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
+import { Duration, Ease } from '@/constants/motion';
 
 export type AppModalButton = {
   text: string;
@@ -82,7 +82,7 @@ export default function AppModalHost() {
     listener = (req) => {
       seq.current += 1;
       setRequest(req);
-      progress.value = reducedMotion ? 1 : withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
+      progress.value = reducedMotion ? 1 : withTiming(1, { duration: Duration.modalIn, easing: Ease.enter });
     };
     return () => {
       listener = null;
@@ -100,7 +100,7 @@ export default function AppModalHost() {
       setRequest(null);
       return;
     }
-    progress.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.cubic) }, (done) => {
+    progress.value = withTiming(0, { duration: Duration.modalOut, easing: Ease.exit }, (done) => {
       if (done && seq.current === mySeq) runOnJS(setRequest)(null);
     });
   }

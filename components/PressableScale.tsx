@@ -65,7 +65,7 @@ import Animated, {
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { tap as hapticTap } from '@/lib/haptics';
 import { ElevationLevel, getElevation } from '@/constants/theme';
-import { Ease, PRESS_DURATION, Spring } from '@/constants/motion';
+import { Ease, PRESS_DURATION, Spring, Duration } from '@/constants/motion';
 
 type Props = PressableProps & {
   /** Container style (animated). */
@@ -173,7 +173,7 @@ export default function PressableScale({
         if (isKey) {
           press.value = reducedMotion ? 1 : withTiming(1, { duration: PRESS_DURATION, easing: Ease.press });
         } else if (!reducedMotion) {
-          scale.value = withTiming(scaleTo, { duration: 80 });
+          scale.value = withTiming(scaleTo, { duration: Duration.pressIn });
         }
         onPressIn?.(e);
       }}

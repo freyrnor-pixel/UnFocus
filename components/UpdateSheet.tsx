@@ -35,7 +35,7 @@ import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShoppingItem } from '@/store/useShoppingStore';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import Surface from '@/components/Surface';
@@ -133,7 +133,7 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
             <PressableScale
               style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted }]}
               onPress={() => setTargetQty((q) => Math.max(1, q - 1))}
-              hitSlop={6}
+              hitSlop={HitSlop.snug}
               scaleTo={0.90}
             >
               <Text style={[styles.stepText, { color: theme.text }]}>−</Text>
@@ -142,7 +142,7 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
             <PressableScale
               style={[styles.stepBtn, { backgroundColor: theme.accent }]}
               onPress={() => setTargetQty((q) => q + 1)}
-              hitSlop={6}
+              hitSlop={HitSlop.snug}
               scaleTo={0.90}
             >
               <Text style={[styles.stepText, { color: theme.accentInk }]}>+</Text>

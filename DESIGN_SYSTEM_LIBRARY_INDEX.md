@@ -2,6 +2,21 @@
 
 **Quick reference:** Use this table to find which library covers your design question. Read the library directly—don't read this index.
 
+> **Read `DESIGN_RULES.md` first.** The 8 libraries below describe *what the system
+> contains*; `DESIGN_RULES.md` states *what any screen must satisfy* (spacing, placement,
+> contrast, hierarchy, tap targets, motion, copy tone) and is the only design doc backed by
+> CI tests. Where a library and `DESIGN_RULES.md` disagree, check `DESIGN_RULES_AUDIT.md` —
+> some of these libraries have drifted from `constants/` and the audit says which.
+
+---
+
+## The rulebook
+
+| Doc | Covers | When to use |
+|---------|--------|-----------|
+| **DESIGN_RULES.md** | 25 numbered invariants across spacing, placement & order, colour, hierarchy, tap targets, motion and copy tone — plus the open conflicts between those rules and shipped decisions | **Before building or changing any screen.** Its self-check list is the ship gate |
+| **DESIGN_RULES_AUDIT.md** | The app measured rule-by-rule: what passes, what was fixed, what conflicts and is awaiting a maintainer ruling | Working out whether a rule is binding yet, or why a violation is still there on purpose |
+
 ---
 
 ## 8 Design Libraries @ `constants/theme.ts`
@@ -21,6 +36,8 @@
 
 ## Decision Tree
 
+- **"Is this screen allowed to look like this?"** → DESIGN_RULES.md
+- **"Why is this rule violated on purpose?"** → DESIGN_RULES_AUDIT.md
 - **"What button should I use?"** → BUTTON_LIBRARY.md
 - **"What colour should this be?"** → COLOR_THEME_LIBRARY.md
 - **"How much space between these?"** → SPACING_LAYOUT_LIBRARY.md
@@ -38,7 +55,7 @@
 
 ---
 
-**Related docs**: ANIMATION_GUIDELINES.md, AGENTS.md
+**Related docs**: DESIGN_RULES.md, DESIGN_RULES_AUDIT.md, ANIMATION_GUIDELINES.md, AGENTS.md
 
 > `DESIGN_SYSTEM_IMPLEMENTATION.md` is a frozen 2026-06-25 checklist from an earlier,
 > now-superseded design pass (references a "5 colour schemes" system and a

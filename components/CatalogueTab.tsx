@@ -116,7 +116,7 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
-import { Fonts, FontSize, getElevation, Radius, Spacing, TabularNums } from '@/constants/theme';
+import { Fonts, FontSize, getElevation, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { ThemePalette } from '@/constants/colors';
 import { useT } from '@/lib/i18n';
@@ -187,7 +187,7 @@ const CatalogueRow = React.memo(function CatalogueRow({
           of the Catalogue tab's open latency. Opacity dip keeps the tap feeling responsive. */}
       <Pressable
         onPress={() => onRemove(item.id)}
-        hitSlop={8}
+        hitSlop={HitSlop.base}
         accessibilityLabel={deleteLabel}
         style={({ pressed }) => (pressed ? { opacity: 0.5 } : null)}
       >
@@ -378,13 +378,13 @@ export default function CatalogueTab({ onNotify, header }: Props) {
             keyboardType="decimal-pad"
             onSubmitEditing={commitEdit}
           />
-          <PressableScale style={[styles.iconBtn, { backgroundColor: theme.good }]} onPress={commitEdit} hitSlop={4} scaleTo={0.9}>
+          <PressableScale style={[styles.iconBtn, { backgroundColor: theme.good }]} onPress={commitEdit} hitSlop={HitSlop.tight} scaleTo={0.9}>
             <Ionicons name="checkmark" size={16} color={theme.textInverse} />
           </PressableScale>
           <PressableScale
             style={[styles.iconBtn, { backgroundColor: theme.badSoft }]}
             onPress={() => { removeItem(item.id); heavy(); setEditingId(null); }}
-            hitSlop={4}
+            hitSlop={HitSlop.tight}
             accessibilityLabel={t.catalogueDeleteItemLabel}
             scaleTo={0.93}
           >
@@ -428,7 +428,7 @@ export default function CatalogueTab({ onNotify, header }: Props) {
           {query.length > 0 && (
             <PressableScale
               onPress={() => setQuery('')}
-              hitSlop={8}
+              hitSlop={HitSlop.base}
               scaleTo={0.9}
               accessibilityLabel={t.catalogueSearchClearLabel}
               accessibilityRole="button"
@@ -608,7 +608,7 @@ const baseStyles = StyleSheet.create({
   addRowCard: { paddingHorizontal: Spacing.md },
   addPriceInput: { width: 76, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8, fontSize: FontSize.sm },
   empty: { fontSize: FontSize.sm, paddingVertical: Spacing.md, textAlign: 'center' },
-  itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, minHeight: 44 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, minHeight: MIN_TAP_TARGET },
   rowFirst: { borderTopLeftRadius: Radius.md, borderTopRightRadius: Radius.md },
   // listFiller: grows to soak up any leftover FlatList viewport height below the real rows
   // (see the ListFooterComponent note above) — the rounded bottom now lives here instead of

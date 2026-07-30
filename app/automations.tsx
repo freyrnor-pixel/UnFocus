@@ -37,7 +37,7 @@ import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
 import { useT } from '@/lib/i18n';
 import { warning, heavy } from '@/lib/haptics';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 function triggerLabel(t: ReturnType<typeof useT>, type: TriggerType): string {
@@ -88,7 +88,7 @@ function RuleCard({ rule, onToggle, onDelete }: {
         trackColor={{ false: theme.border, true: theme.accentSoft }}
         thumbColor={rule.active ? theme.accent : theme.textMuted}
       />
-      <PressableScale onPress={confirmDelete} hitSlop={8} style={styles.deleteBtn} scaleTo={0.93}>
+      <PressableScale onPress={confirmDelete} hitSlop={HitSlop.base} style={styles.deleteBtn} scaleTo={0.93}>
         <Ionicons name="close" size={18} color={theme.textMuted} />
       </PressableScale>
     </Surface>

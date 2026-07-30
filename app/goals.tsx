@@ -57,7 +57,7 @@ import Surface from '@/components/Surface';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
-import { FontSize, Radius, Spacing, TabularNums, Type } from '@/constants/theme';
+import { FontSize, Radius, Spacing, TabularNums, Type, HitSlop } from '@/constants/theme';
 import { Travel } from '@/constants/motion';
 import { GOAL_STARTERS } from '@/lib/goalStarters';
 import { decayedStrength } from '@/lib/goalStrength';
@@ -184,7 +184,7 @@ export default function GoalsScreen() {
                     </Text>
                     <PressableScale
                       onPress={() => confirmDelete(goal.id, goal.title)}
-                      hitSlop={8}
+                      hitSlop={HitSlop.base}
                       travel={Travel.sm}
                       accessibilityRole="button"
                       accessibilityLabel={t.goals.deleteLabel}

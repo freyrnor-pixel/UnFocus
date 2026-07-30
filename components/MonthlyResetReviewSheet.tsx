@@ -39,7 +39,7 @@
  */
 import React, { useRef, useState } from 'react';
 import { LayoutAnimation, StyleSheet, Text, View } from 'react-native';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { reorderByDrag } from '@/lib/reorder';
@@ -196,7 +196,7 @@ export default function MonthlyResetReviewSheet({
                     <PressableScale
                       style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted }]}
                       onPress={() => onSetInventoryQty(item.id, Math.max(0, item.inventoryQty - 1))}
-                      hitSlop={6}
+                      hitSlop={HitSlop.snug}
                       scaleTo={0.9}
                     >
                       <Text style={[styles.stepText, { color: theme.text }]}>−</Text>
@@ -205,7 +205,7 @@ export default function MonthlyResetReviewSheet({
                     <PressableScale
                       style={[styles.stepBtn, { backgroundColor: theme.accent }]}
                       onPress={() => onSetInventoryQty(item.id, item.inventoryQty + 1)}
-                      hitSlop={6}
+                      hitSlop={HitSlop.snug}
                       scaleTo={0.9}
                     >
                       <Text style={[styles.stepText, { color: theme.accentInk }]}>+</Text>
@@ -261,6 +261,6 @@ const baseStyles = StyleSheet.create({
   stepText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   qtyText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, minWidth: 20, textAlign: 'center' },
   footer: { flexDirection: 'row', gap: Spacing.sm },
-  footerBtn: { flex: 1, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center', minHeight: 44, justifyContent: 'center' },
+  footerBtn: { flex: 1, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center', minHeight: MIN_TAP_TARGET, justifyContent: 'center' },
   footerBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 });

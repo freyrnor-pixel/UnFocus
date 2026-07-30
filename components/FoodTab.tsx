@@ -70,7 +70,7 @@ import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { showAppModal } from '@/components/AppModal';
-import { contrastOn, Fonts, FontSize, Radius, Spacing, TabularNums } from '@/constants/theme';
+import { contrastOn, Fonts, FontSize, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { useMountedTransition } from '@/lib/useMountedTransition';
@@ -347,7 +347,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                 onPress={(e) => { e.stopPropagation(); openNewDishModal(mealType); }}
                 accessibilityRole="button"
                 accessibilityLabel={t.addDishToMealBtn}
-                hitSlop={6}
+                hitSlop={HitSlop.snug}
                 scaleTo={0.9}
               >
                 <Ionicons name="add" size={18} color={color} />
@@ -367,7 +367,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                     <View key={dish.id} style={[styles.dishCard, { backgroundColor: theme.surface }]}>
                       {/* Collapsed row: expand toggle · name · total price · "+" */}
                       <View style={styles.dishRow}>
-                        <PressableScale style={styles.dishNameTap} onPress={() => setExpanded((p) => ({ ...p, [dish.id]: !p[dish.id] }))} hitSlop={4} scaleTo={0.97}>
+                        <PressableScale style={styles.dishNameTap} onPress={() => setExpanded((p) => ({ ...p, [dish.id]: !p[dish.id] }))} hitSlop={HitSlop.tight} scaleTo={0.97}>
                           <Ionicons name={isOpen ? 'chevron-down' : 'chevron-forward'} size={16} color={theme.textMuted} />
                           <Text style={[styles.dishName, { color: theme.text }]} numberOfLines={1}>{dish.name}</Text>
                           <Badge
@@ -383,7 +383,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                           onPress={() => setPopupDish(dish)}
                           accessibilityRole="button"
                           accessibilityLabel={t.addDishPopupTitle(dish.name)}
-                          hitSlop={6}
+                          hitSlop={HitSlop.snug}
                           scaleTo={0.9}
                         >
                           <Ionicons name="add" size={18} color={contrastOn(color)} />
@@ -402,7 +402,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                               {ing.priceNok > 0 && (
                                 <Text style={[styles.ingPrice, TabularNums, { color: theme.textMuted }]}>{formatKr(ing.priceNok, 0)}</Text>
                               )}
-                              <PressableScale onPress={() => removeIngredient(ing.id)} hitSlop={8} accessibilityLabel={t.removeItemLabel} scaleTo={0.9}>
+                              <PressableScale onPress={() => removeIngredient(ing.id)} hitSlop={HitSlop.base} accessibilityLabel={t.removeItemLabel} scaleTo={0.9}>
                                 <Ionicons name="remove-circle-outline" size={18} color={theme.textMuted} />
                               </PressableScale>
                             </View>
@@ -442,14 +442,14 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                             <PressableScale
                               style={styles.deleteDishRow}
                               onPress={() => { duplicateDish(dish.id); success(); }}
-                              hitSlop={6}
+                              hitSlop={HitSlop.snug}
                               scaleTo={0.93}
                               accessibilityLabel={t.duplicateDishBtn}
                             >
                               <Ionicons name="copy-outline" size={14} color={theme.textMuted} />
                               <Text style={[styles.deleteDishText, { color: theme.textMuted }]}>{t.duplicateDishBtn}</Text>
                             </PressableScale>
-                            <PressableScale style={styles.deleteDishRow} onPress={() => { removeDish(dish.id); heavy(); }} hitSlop={6} scaleTo={0.93}>
+                            <PressableScale style={styles.deleteDishRow} onPress={() => { removeDish(dish.id); heavy(); }} hitSlop={HitSlop.snug} scaleTo={0.93}>
                               <Ionicons name="trash-outline" size={14} color={theme.bad} />
                               <Text style={[styles.deleteDishText, { color: theme.bad }]}>{t.deleteDish}</Text>
                             </PressableScale>
@@ -478,7 +478,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
             <Surface surfaceContext="overlay" style={styles.popupCard}>
               <View style={styles.popupHeader}>
                 <Text style={[styles.popupTitle, { color: theme.text }]} numberOfLines={1}>{popupDish?.name}</Text>
-                <PressableScale onPress={() => setPopupDish(null)} hitSlop={8} accessibilityLabel={t.closePopupLabel} scaleTo={0.9}>
+                <PressableScale onPress={() => setPopupDish(null)} hitSlop={HitSlop.base} accessibilityLabel={t.closePopupLabel} scaleTo={0.9}>
                   <Ionicons name="close" size={22} color={theme.textMuted} />
                 </PressableScale>
               </View>
@@ -555,7 +555,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                     {ing.amount}{ing.unit ? ` ${ing.unit}` : ''} {ing.name}
                     {ing.price > 0 ? ` · ${formatKr(ing.price, 0)}` : ''}
                   </Text>
-                  <PressableScale onPress={() => removeDraftIngredient(idx)} hitSlop={8} scaleTo={0.9}>
+                  <PressableScale onPress={() => removeDraftIngredient(idx)} hitSlop={HitSlop.base} scaleTo={0.9}>
                     <Ionicons name="remove-circle-outline" size={18} color={theme.textMuted} />
                   </PressableScale>
                 </View>
@@ -637,7 +637,7 @@ const baseStyles = StyleSheet.create({
   sectionEmpty: { fontSize: FontSize.sm, opacity: 0.85, paddingVertical: Spacing.xs },
   dishList: { gap: Spacing.xs },
   dishCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs },
-  dishRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 44 },
+  dishRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: MIN_TAP_TARGET },
   dishNameTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   dishName: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
   dishPrice: { fontSize: FontSize.sm, fontFamily: Fonts.bold },

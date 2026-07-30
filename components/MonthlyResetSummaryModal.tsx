@@ -32,7 +32,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Fonts, FontSize, Radius, Spacing, TabularNums } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, TabularNums, MIN_TAP_TARGET } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
@@ -144,6 +144,6 @@ const baseStyles = StyleSheet.create({
   itemMeta: { fontSize: FontSize.xs },
   itemPrice: { fontSize: FontSize.xs, minWidth: 50, textAlign: 'right' },
   emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.lg },
-  closeBtn: { borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center', minHeight: 44, justifyContent: 'center' },
+  closeBtn: { borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center', minHeight: MIN_TAP_TARGET, justifyContent: 'center' },
   closeBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 });

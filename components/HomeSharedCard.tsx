@@ -27,7 +27,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
-import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, rgba, HitSlop } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -68,7 +68,7 @@ export default function HomeSharedCard() {
             <Text style={[styles.badgeText, { color: theme.accent }]}>{total}</Text>
           </View>
           <View style={styles.titleRight}>
-            <PressableScale onPress={openShared} hitSlop={8} scaleTo={0.97}>
+            <PressableScale onPress={openShared} hitSlop={HitSlop.base} scaleTo={0.97}>
               <Text style={[styles.seeAll, { color: theme.accent }]}>{t.seeAll}</Text>
             </PressableScale>
           </View>

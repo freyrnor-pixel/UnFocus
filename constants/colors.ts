@@ -175,12 +175,23 @@ const defaultLight: ThemePalette = {
   accent: '#2563EB',
   accentSoft: '#CFE0FB',
   accentInk: '#FFFFFF',
-  good: '#1FA974',
+  // ── Semantic trio, darkened 2026-07-30 for WCAG AA (DESIGN_RULES.md rule 10) ──────────
+  // All three are used as *small text*, not just as fills — `theme.good` on MedicineTrayCard's
+  // "Taken at 08:15" and ShoppingRow's in-stock meta, `theme.bad` on error/delete labels,
+  // `theme.warn` on budget-over copy. At their previous values they measured 2.69 / 3.37 /
+  // 3.13 against `bg` — `good` failed even the 3:1 non-text floor, and none of the three
+  // cleared the 4.5:1 body-text minimum. Darkened along their own hue until each clears 4.5:1
+  // against `bg` (the harder of the two backgrounds; surface is lighter and scores ~0.45 higher).
+  // Same approach as the 2026-07-24 pass that raised `border` to clear 1.4.11's 3:1.
+  // Dark mode was already 7-10:1 and is untouched. Verified in lib/__tests__/colors.test.ts —
+  // don't lighten these back without re-running it.
+  good: '#177E56', // was #1FA974 — 2.69:1 → 4.53:1 on bg
   goodSoft: '#C4EFDD',
-  // bad = Delete/destructive colour. Aligned to the DS --status-danger (#EF4444 / soft #FEE2E2).
-  bad: '#EF4444',
+  // bad = Delete/destructive colour. Was the DS --status-danger #EF4444 (3.37:1); darkened
+  // to clear AA while staying the same red. Soft background unchanged.
+  bad: '#CA3939', // was #EF4444 — 3.37:1 → 4.53:1 on bg
   badSoft: '#FEE2E2',
-  warn: '#BF7A1C',
+  warn: '#9A6217', // was #BF7A1C — 3.13:1 → 4.55:1 on bg
   warnSoft: '#FBEBD3',
   shadow: 'rgba(38,58,92,0.10)',
   overlay: 'rgba(20,28,44,0.42)',

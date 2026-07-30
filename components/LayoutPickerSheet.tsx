@@ -36,7 +36,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, MIN_TAP_TARGET } from '@/constants/theme';
 import {
   LayoutId,
   LayoutSurface,
@@ -186,7 +186,7 @@ const baseStyles = StyleSheet.create({
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     alignItems: 'center',
-    minHeight: 44,
+    minHeight: MIN_TAP_TARGET,
     justifyContent: 'center',
     marginTop: Spacing.xs,
   },

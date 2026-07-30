@@ -52,7 +52,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { contrastOn, Fonts, FontSize, Radius, Spacing, TabularNums } from '@/constants/theme';
+import { contrastOn, Fonts, FontSize, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
@@ -259,7 +259,7 @@ export default function InlineAddItem({
         <PressableScale
           style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted }]}
           onPress={() => setTargetQty((q) => Math.max(1, q - 1))}
-          hitSlop={6}
+          hitSlop={HitSlop.snug}
           scaleTo={0.90}
         >
           <Text style={[styles.stepText, { color: theme.text }]}>−</Text>
@@ -268,7 +268,7 @@ export default function InlineAddItem({
         <PressableScale
           style={[styles.stepBtn, { backgroundColor: theme.accent }]}
           onPress={() => setTargetQty((q) => q + 1)}
-          hitSlop={6}
+          hitSlop={HitSlop.snug}
           scaleTo={0.90}
         >
           <Text style={[styles.stepText, { color: theme.accentInk }]}>+</Text>
@@ -316,7 +316,7 @@ const baseStyles = StyleSheet.create({
     borderRadius: Radius.md,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    minHeight: 44,
+    minHeight: MIN_TAP_TARGET,
   },
   addBarLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   panel: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md },

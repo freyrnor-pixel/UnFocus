@@ -81,7 +81,7 @@ import {
   trayProgress,
   traysInUse,
 } from '@/lib/medicineSchedule';
-import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, Type, HitSlop } from '@/constants/theme';
 
 /** Time-of-day glyph per tray — the pill-organiser row, read left to right. */
 const TRAY_ICONS: Record<TrayId, React.ComponentProps<typeof Ionicons>['name']> = {
@@ -327,7 +327,7 @@ export default function MedicineTrayCard() {
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: isTaken }}
                       accessibilityLabel={isTaken ? t.medicine.undoTaken(med.name) : t.medicine.markTaken(med.name)}
-                      hitSlop={13}
+                      hitSlop={HitSlop.check}
                       scaleTo={0.9}
                     >
                       <View
@@ -376,7 +376,7 @@ export default function MedicineTrayCard() {
                     accessibilityRole="button"
                     accessibilityLabel={t.medicine.logDose(med.name)}
                     accessibilityState={{ disabled: !state.canTake }}
-                    hitSlop={8}
+                    hitSlop={HitSlop.base}
                     scaleTo={0.9}
                   >
                     <View
@@ -414,7 +414,7 @@ export default function MedicineTrayCard() {
                       }}
                       accessibilityRole="button"
                       accessibilityLabel={t.medicine.undoTaken(med.name)}
-                      hitSlop={8}
+                      hitSlop={HitSlop.base}
                       scaleTo={0.92}
                     >
                       <Text style={[styles.medMeta, { color: theme.good }]}>

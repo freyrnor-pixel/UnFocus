@@ -51,6 +51,7 @@ import {
   Shadow,
   Spacing,
   contrastOn,
+  HitSlop,
 } from '@/constants/theme';
 import { confirm as hapticConfirm } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -159,7 +160,7 @@ export default function PadTypeRow({
           ]}
           onPress={commit}
           disabled={!active}
-          hitSlop={8}
+          hitSlop={HitSlop.base}
           scaleTo={0.9}
           haptic={false}
           accessibilityRole="button"

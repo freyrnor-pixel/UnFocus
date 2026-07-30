@@ -152,6 +152,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import * as NavigationBar from 'expo-navigation-bar';
 import { Fonts, MAX_FONT_SCALE } from '@/constants/theme';
+import { Duration } from '@/constants/motion';
 import { initDb, pruneOldData } from '@/lib/db';
 import { getTranslations } from '@/lib/i18n';
 import { cancelReNudge, cancelTrayReNudge, onMedicineAction, onNotificationAction, syncNotificationCategories } from '@/lib/notifications';
@@ -231,7 +232,7 @@ const SPLASH_FAILSAFE_MS = 2500;
 // onLayout callback once fonts + settings + image assets are ready. No-op on web.
 void SplashScreen.preventAutoHideAsync().catch(() => { /* already hidden / unsupported */ });
 // iOS gets a short cross-fade out; Android hides instantly (fade is iOS-only here).
-SplashScreen.setOptions({ duration: 220, fade: true });
+SplashScreen.setOptions({ duration: Duration.modalOut, fade: true });
 
 export default function RootLayout() {
   const router = useRouter();

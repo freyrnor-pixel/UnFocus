@@ -46,7 +46,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, StyleProp, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
 import { usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Shadow, Spacing, HitSlop } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { tap } from '@/lib/haptics';
@@ -121,7 +121,7 @@ function AnnotatedAnchor({ id, label, children, style }: Props) {
         <Pressable
           style={[styles.bubble, { backgroundColor: theme.accent, borderColor: theme.surface }]}
           onPress={openComposer}
-          hitSlop={8}
+          hitSlop={HitSlop.base}
           accessibilityRole="button"
           accessibilityLabel={t.debug.editNote}
         >
@@ -133,7 +133,7 @@ function AnnotatedAnchor({ id, label, children, style }: Props) {
         <Pressable
           style={[styles.addPill, { backgroundColor: theme.accent, borderColor: theme.surface }]}
           onPress={openComposer}
-          hitSlop={4}
+          hitSlop={HitSlop.tight}
           accessibilityRole="button"
           accessibilityLabel={t.debug.noteForLabel(label)}
         >

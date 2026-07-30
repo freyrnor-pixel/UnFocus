@@ -36,13 +36,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { Fonts, FontSize, Radius, Spacing, TabularNums } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, TabularNums, MIN_TAP_TARGET } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
@@ -52,6 +51,7 @@ import ShoppingFilterBar from '@/components/ShoppingFilterBar';
 import { Checkbox } from '@/components/FormControls';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { MonthlyList } from '@/store/useMonthlyListStore';
+import { Duration, Ease } from '@/constants/motion';
 
 type Props = {
   visible: boolean;
@@ -84,12 +84,12 @@ export default function AddFromMonthlyModal({ visible, items, lists, onAdd, onCl
   useEffect(() => {
     if (visible) {
       setMounted(true);
-      progress.value = reducedMotion ? 1 : withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
+      progress.value = reducedMotion ? 1 : withTiming(1, { duration: Duration.modalIn, easing: Ease.enter });
     } else if (reducedMotion) {
       progress.value = 0;
       setMounted(false);
     } else {
-      progress.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.cubic) }, (done) => {
+      progress.value = withTiming(0, { duration: Duration.modalOut, easing: Ease.exit }, (done) => {
         if (done) runOnJS(setMounted)(false);
       });
     }
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 44,
+    minHeight: MIN_TAP_TARGET,
     gap: Spacing.sm,
   },
   rowPrice: { fontSize: FontSize.xs },
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: MIN_TAP_TARGET,
   },
   footerBtnText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
 });

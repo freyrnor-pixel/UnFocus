@@ -45,7 +45,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
-  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -58,7 +57,7 @@ import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppThem
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
 import { success } from '@/lib/haptics';
-import { Spring } from '@/constants/motion';
+import { Spring, Duration, Ease } from '@/constants/motion';
 import { useMealStore, MealType, Dish, dishTotalPrice } from '@/store/useMealStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import Surface from '@/components/Surface';
@@ -106,7 +105,7 @@ export default function AddDishSheet({ visible, onClose, onAdded, target }: Prop
         opacity.value = 1;
         scale.value = 1;
       } else {
-        opacity.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
+        opacity.value = withTiming(1, { duration: Duration.modalIn, easing: Ease.enter });
         scale.value = withSpring(1, Spring.snappy);
       }
     } else if (mounted) {
@@ -115,8 +114,8 @@ export default function AddDishSheet({ visible, onClose, onAdded, target }: Prop
         scale.value = 0.82;
         setMounted(false);
       } else {
-        scale.value = withTiming(0.92, { duration: 220, easing: Easing.in(Easing.cubic) });
-        opacity.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.cubic) }, (done) => {
+        scale.value = withTiming(0.92, { duration: Duration.modalOut, easing: Ease.exit });
+        opacity.value = withTiming(0, { duration: Duration.modalOut, easing: Ease.exit }, (done) => {
           if (done) runOnJS(setMounted)(false);
         });
       }

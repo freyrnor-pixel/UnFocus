@@ -20,6 +20,8 @@
  * (see AGENTS.md's type-migration follow-up list).
  * `TabularNums` (2026-07-28 row-rule pass) is the fixed-width-figures style for values that
  * sit in a list row's right-hand column, so the column edge lines up row to row.
+ * `MIN_TAP_TARGET` + `HitSlop` + `hitSlopFor()` (2026-07-30, DESIGN_RULES.md rule 17) are the
+ * WCAG 2.2 target-size tokens — never write a bare `44` or `hitSlop={8}` at a call site.
  * `PAD_*` + `DONE_ROW_OPACITY` (2026-07-30 notepad pass) are the ruled-sheet geometry every
  * list-bearing surface shares — one gutter, one row height, two spare rules, one done fade.
  * See their own doc comment; components/PadSheet.tsx draws from them.
@@ -199,6 +201,63 @@ export const PAD_PREVIEW_ROWS = 3;
  * value, still re-exported there for its existing callers).
  */
 export const DONE_ROW_OPACITY = 0.55;
+
+/**
+ * Minimum tappable target, in px — WCAG 2.2 target size (DESIGN_RULES.md rule 17).
+ * A hard floor, not a preference: never write a bare `44` at a call site.
+ *
+ * When the *visual* control is deliberately smaller than this (an icon button's 36px
+ * cap, a chip), don't grow the art — expand the touch area instead, either with a
+ * `minHeight`/`minWidth` of MIN_TAP_TARGET or with a `HitSlop` token. The pattern is
+ * components/IconButton.tsx: `Math.max(MIN_TAP_TARGET, size + Spacing.sm)`.
+ *
+ * Three shipped heights sit deliberately below this — `PAD_ROW_HEIGHT` (38, the
+ * compressed notepad row the user asked for on 2026-07-30), `Button`'s `sm` (36) and
+ * FormControls' 40px rows. They're open conflict #6 in DESIGN_RULES.md and are NOT to
+ * be "fixed" in passing; `sm` buttons carry a HitSlop to reach 44 of touch area instead.
+ */
+export const MIN_TAP_TARGET = 44;
+
+/**
+ * The slop needed to lift a `visualSize`-px control up to MIN_TAP_TARGET of touch area.
+ * **Prefer this over a hand-picked `HitSlop.*` constant** — it takes the one number you
+ * actually know (how big the icon/glyph is) and does the arithmetic, so the target can't
+ * silently come out under 44 the way a guessed `hitSlop={6}` on a 22px check does (34px).
+ *
+ *   <Pressable hitSlop={hitSlopFor(CHECK_SIZE)}>   // 22px check → 11px slop → 44px target
+ *
+ * Returns 0-slop for a control already at or over target. RN's `hitSlop` extends the touch
+ * area outside the view's bounds and does not affect layout, so this is free.
+ */
+export function hitSlopFor(visualSize: number) {
+  const pad = Math.max(0, Math.ceil((MIN_TAP_TARGET - visualSize) / 2));
+  return { top: pad, bottom: pad, left: pad, right: pad };
+}
+
+/**
+ * Named hitSlop values, replacing the eight different bare numbers this codebase carried
+ * (8, 6, 13, 4, 12, 16, 10, 2). Each is labelled with the *smallest visual control it
+ * actually makes compliant*, because that — not the slop number — is what rule 17 is about.
+ * If your control is smaller than the label says, use `hitSlopFor(size)` instead of reaching
+ * for the next token up.
+ *
+ * DESIGN_RULES.md rule 17 also asks for ≥8px of dead space *around* a target, so don't put
+ * `loose` on two controls sitting 8px apart — their touch areas would overlap and the wrong
+ * one wins.
+ */
+export const HitSlop = {
+  /** 4px — lifts a ≥36px control (an IconButton cap) to target. */
+  tight: { top: 4, bottom: 4, left: 4, right: 4 },
+  /** 6px — lifts a ≥32px control to target. */
+  snug: { top: 6, bottom: 6, left: 6, right: 6 },
+  /** 8px — lifts a ≥28px control (most header/row icons) to target. */
+  base: { top: 8, bottom: 8, left: 8, right: 8 },
+  /** 13px — the row check: 22px + 26 = 48px of target. Deliberately above the minimum;
+   *  components/PadRow.tsx's header warns not to shrink it to tidy up the trailing cluster. */
+  check: { top: 13, bottom: 13, left: 13, right: 13 },
+  /** 16px — lifts a ≥12px glyph/dot to target. */
+  loose: { top: 16, bottom: 16, left: 16, right: 16 },
+} as const;
 
 // Body text is never below 16; secondary/caption text never below 14.
 export const FontSize = {

@@ -43,7 +43,7 @@ import PressableScale from '@/components/PressableScale';
 import Stepper from '@/components/Stepper';
 import Surface from '@/components/Surface';
 import { Input } from '@/components/FormControls';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, MIN_TAP_TARGET } from '@/constants/theme';
 import { selection } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { categoryPresets } from '@/lib/shoppingCategories';
@@ -245,7 +245,7 @@ const baseStyles = StyleSheet.create({
   title: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   field: { gap: Spacing.xs },
   fieldLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
-  input: { minHeight: 44 },
+  input: { minHeight: MIN_TAP_TARGET },
   // Two half-width fields. `flex: 1` with no minWidth on purpose — a minWidth pair is what
   // breaks at 360px (see AGENTS.md's wrap-audit lessons).
   pair: { flexDirection: 'row', gap: Spacing.sm },
@@ -265,7 +265,7 @@ const baseStyles = StyleSheet.create({
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     alignItems: 'center',
-    minHeight: 44,
+    minHeight: MIN_TAP_TARGET,
     justifyContent: 'center',
     marginTop: Spacing.xs,
   },

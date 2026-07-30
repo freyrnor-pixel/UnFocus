@@ -36,7 +36,7 @@ import { StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Radius, computeRimGradient } from '@/constants/theme';
+import { MIN_TAP_TARGET, Radius, Spacing, computeRimGradient } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useToggleColor } from '@/lib/useToggleColor';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -72,7 +72,7 @@ export default function IconButton({
   const isDark = useIsDark();
   const glass = useSettingsStore((s) => s.glassSurfaces);
   const iconSize = Math.round(size * 0.5);
-  const hitTarget = Math.max(44, size + 8);
+  const hitTarget = Math.max(MIN_TAP_TARGET, size + Spacing.sm);
 
   const inactiveBg = tint ?? theme.surfaceMuted;
   const fgColor = color ?? (disabled ? theme.textMuted : active ? theme.accent : theme.text);

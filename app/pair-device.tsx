@@ -53,7 +53,7 @@ import Button from '@/components/Button';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 import { Switch as FormSwitch } from '@/components/FormControls';
 import PressableScale from '@/components/PressableScale';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, HitSlop } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 const QR_BG = '#000000';
@@ -196,7 +196,7 @@ export default function PairDeviceScreen() {
                       {t.peers.pairedAt(formatDisplayDate(dateStr(new Date(peer.pairedAt)), lang))}
                     </Text>
                   </View>
-                  <PressableScale onPress={() => confirmRemove(peer.deviceId)} hitSlop={8} scaleTo={0.93}>
+                  <PressableScale onPress={() => confirmRemove(peer.deviceId)} hitSlop={HitSlop.base} scaleTo={0.93}>
                     <Text style={[styles.removeLink, { color: theme.bad }]}>{t.peers.removeDevice}</Text>
                   </PressableScale>
                 </View>

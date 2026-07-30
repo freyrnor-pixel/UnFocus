@@ -13,9 +13,10 @@
  * destination anchor → animate a floating clone between them).
  *
  * Connections:
- *   Imports → constants/theme, lib/money, lib/useAppTheme, react-native-reanimated, @expo/vector-icons
+ *   Imports → constants/theme, constants/motion, lib/money, lib/useAppTheme, react-native-reanimated, @expo/vector-icons
  *   Used by → app/(tabs)/shopping.tsx, app/(tabs)/index.tsx (Phase 1: Shopping list→cart only)
- *   Data    → none — pure presentational, driven entirely by the `flights` prop
+ *   Data    → reads reducedMotion via useAccessibility(); otherwise pure presentational,
+ *             driven entirely by the `flights` prop
  *
  * Edit notes:
  *   - `content` is a generic ReactNode (not hardcoded to Shopping) so this stays reusable
@@ -44,8 +45,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Fonts, FontSize, Radius, Shadow, Spacing, TabularNums } from '@/constants/theme';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { formatKr } from '@/lib/money';
+import { Duration } from '@/constants/motion';
 
 export type FlightRect = { x: number; y: number; width: number; height: number };
 
@@ -71,22 +73,39 @@ type Props = {
   duration?: number;
 };
 
-export default function FlightOverlay({ flights, onFlightEnd, duration = 220 }: Props) {
+export default function FlightOverlay({ flights, onFlightEnd, duration = Duration.card }: Props) {
+  // Guarded here rather than at each caller: this is the single choke point both owners
+  // (app/(tabs)/shopping.tsx, app/(tabs)/index.tsx) render through, and neither of them
+  // gates its own setFlights() on reduced motion. DESIGN_RULES.md rule 20.
+  const { reducedMotion } = useAccessibility();
   if (flights.length === 0) return null;
   return (
     <View style={styles.root} pointerEvents="none">
       {flights.map((flight) => (
-        <FlightClone key={flight.key} flight={flight} duration={duration} onFlightEnd={onFlightEnd} />
+        <FlightClone
+          key={flight.key}
+          flight={flight}
+          duration={duration}
+          reducedMotion={reducedMotion}
+          onFlightEnd={onFlightEnd}
+        />
       ))}
     </View>
   );
 }
 
-function FlightClone({ flight, duration, onFlightEnd }: { flight: Flight; duration: number; onFlightEnd: (key: string) => void }) {
+function FlightClone({ flight, duration, reducedMotion, onFlightEnd }: { flight: Flight; duration: number; reducedMotion: boolean; onFlightEnd: (key: string) => void }) {
   const progress = useSharedValue(0);
   const { from, to, key, content } = flight;
 
   React.useEffect(() => {
+    if (reducedMotion) {
+      // Skip the travel entirely, but still report the end — the owner removes the flight
+      // from state in onFlightEnd, so returning early without it would leak the clone.
+      progress.value = 1;
+      onFlightEnd(key);
+      return;
+    }
     progress.value = withTiming(1, { duration, easing: Easing.out(Easing.cubic) }, (finished) => {
       if (finished) runOnJS(onFlightEnd)(key);
     });
@@ -108,7 +127,7 @@ function FlightClone({ flight, duration, onFlightEnd }: { flight: Flight; durati
   return (
     <Animated.View
       style={[styles.clone, { left: from.x, top: from.y }, style]}
-      exiting={FadeOut.duration(120)}
+      exiting={FadeOut.duration(Duration.micro)}
       importantForAccessibility="no-hide-descendants"
       accessibilityElementsHidden
     >

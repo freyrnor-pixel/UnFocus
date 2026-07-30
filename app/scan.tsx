@@ -95,6 +95,7 @@ import { parseReceiptText, findFuzzyMatch, ParsedReceiptItem as ParsedItem } fro
 import { persistPhoto } from '@/lib/photoStorage';
 import { Fonts, FontSize, Radius, rgba, Shadow, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
+import { Duration } from '@/constants/motion';
 
 // Fixed camera-chrome colours (Decision 025) — theme-independent, always white-on-black.
 const QR_BG = '#000000';
@@ -180,8 +181,8 @@ export default function ScanScreen() {
     if (mode === 'scanning' && !reducedMotion) {
       pulseRef.current = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.14, duration: 600, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1.14, duration: Duration.pulse, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: Duration.pulse, useNativeDriver: true }),
         ])
       );
       pulseRef.current.start();

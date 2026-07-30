@@ -141,7 +141,7 @@ import { computeListGroups } from '@/lib/shoppingGroups';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getScreenColor } from '@/lib/screenColor';
 import { tap } from '@/lib/haptics';
-import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, Type, HitSlop } from '@/constants/theme';
 import { Task, Recurring, useTaskStore } from '@/store/useTaskStore';
 import { SharedShoppingItem, SharedTask, useSharedStore } from '@/store/useSharedStore';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
@@ -646,7 +646,7 @@ export default function HomeScreen() {
                     tap();
                     setCardsEditMode(true);
                   }}
-                  hitSlop={8}
+                  hitSlop={HitSlop.base}
                   accessibilityRole="button"
                   accessibilityLabel={t.home.manageCards.edit}
                 >

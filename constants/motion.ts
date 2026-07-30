@@ -8,14 +8,24 @@
  * Connections:
  *   Imports → react-native-reanimated (Easing)
  *   Used by → components/Collapsible, components/AnimatedChevron, lib/useToggleProgress,
- *             components/BottomNav (tabSwitch), and any new animated surface (older files
- *             may migrate opportunistically)
+ *             components/BottomNav (tabSwitch), components/AppModal, AnimatedBottomSheet,
+ *             AddDishSheet, AddFromMonthlyModal, ConfirmationBanner, DraggableTaskRow,
+ *             EnergyMeter, FlightOverlay, FormControls, GlowPulse, PressableScale,
+ *             ProgressBar, ShoppingRow, SlideSelector, TabSlider, lib/useMountedTransition,
+ *             app/scan.tsx, app/(tabs)/shopping.tsx — i.e. every animated surface
  *   Data    → none (pure constants)
  *
  * Edit notes:
  *   - Values mirror ANIMATION_GUIDELINES.md §1: exits are faster than entrances.
  *   - `Ease` is named to avoid shadowing reanimated's own `Easing` export at call sites.
  *   - reducedMotion is handled per-call-site (run the same timing with duration 0), not here.
+ *   - **No raw millisecond literals in animated code** (DESIGN_RULES.md rule 21) — if a
+ *     duration you need isn't here, add a named token rather than inlining the number.
+ *     Two tokens deliberately share a value with another (`value`/`listIn` both 250,
+ *     `card`/`modalOut`/`listMove` all 220): they're independent knobs that happen to
+ *     agree today, so don't collapse them. The remaining literals are
+ *     components/ParticleBackground.tsx's per-particle 7000-10500ms drifts, which are
+ *     ambient scenery data rather than an interaction's timing.
  */
 import { Easing } from 'react-native-reanimated';
 
@@ -33,6 +43,9 @@ export const Duration = {
   cardOut: 200,
   /** list row entrance */
   listIn: 250,
+  /** a displayed number/bar travelling to a new value (ProgressBar's fill). Same 250 as
+   *  `listIn` by coincidence, not by relation — don't collapse them. */
+  value: 250,
   /** list reflow (LinearTransition) */
   listMove: 220,
   /** modal/sheet enter */
@@ -41,6 +54,20 @@ export const Duration = {
   modalOut: 220,
   /** celebration bloom */
   celebration: 650,
+  /** a cap sinking under the finger in PressableScale's *scale* mode — 80, not
+   *  PRESS_DURATION's 90, which is the `travel` mode's curve. Both are tester-validated
+   *  (2026-07-21, "buttons don't feel animated" resolved as press-in duration); don't
+   *  collapse them into one number without re-checking on device. */
+  pressIn: 80,
+  /** a slow ambient pulse's half-cycle (the scan viewfinder breathing) */
+  pulse: 600,
+  /** how long a transient highlight *holds* at full strength before it fades — the
+   *  quantity-changed wash on a shopping row, the Energy pulse. Not an entrance: it is
+   *  dwell time, which is why it sits far above the §1 bands. */
+  hold: 900,
+  /** the fade-out after a `hold` — longer than a normal exit so the wash recedes rather
+   *  than blinking off. */
+  holdOut: 400,
 } as const;
 
 /** Easing presets: ease-out for entrances/taps, ease-in for exits, ease-in-out for travel. */

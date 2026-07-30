@@ -60,7 +60,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
 import { tap } from '@/lib/haptics';
 import { useAccessibility } from '@/lib/useAppTheme';
-import { Spring } from '@/constants/motion';
+import { Spring, Duration } from '@/constants/motion';
 
 type Props = {
   children: React.ReactNode;
@@ -139,8 +139,8 @@ export default function DraggableTaskRow({
     })
     .onEnd(() => {
       lifted.value = 0;
-      translateY.value = reducedMotion ? 0 : withTiming(0, { duration: 200 });
-      scale.value = reducedMotion ? 1 : withTiming(1, { duration: 150 });
+      translateY.value = reducedMotion ? 0 : withTiming(0, { duration: Duration.cardOut });
+      scale.value = reducedMotion ? 1 : withTiming(1, { duration: Duration.control });
       runOnJS(onDragEnd)();
     });
 

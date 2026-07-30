@@ -36,13 +36,13 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet } from 'react-native';
 import Animated, {
-  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
+import { Duration, Ease } from '@/constants/motion';
 
 type Props = {
   visible: boolean;
@@ -62,14 +62,14 @@ export default function AnimatedBottomSheet({ visible, onClose, children }: Prop
       if (reducedMotion) {
         progress.value = 1;
       } else {
-        progress.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
+        progress.value = withTiming(1, { duration: Duration.modalIn, easing: Ease.enter });
       }
     } else if (mounted) {
       if (reducedMotion) {
         progress.value = 0;
         setMounted(false);
       } else {
-        progress.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.cubic) }, (done) => {
+        progress.value = withTiming(0, { duration: Duration.modalOut, easing: Ease.exit }, (done) => {
           if (done) runOnJS(setMounted)(false);
         });
       }
