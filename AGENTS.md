@@ -217,6 +217,35 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
   button-launched-sub-screen pattern as Shopping's Food/Catalogue links. The screen itself
   (`app/goals.tsx`), the strength mechanic, and the per-item `GoalPicker` in `TaskCard`/
   `habit-form.tsx` are all unchanged — only Home's standing presence went away.
+- **First-run personalization** (2026-07-30, `app/first-run.tsx` + `lib/firstRunOptions.ts`):
+  four one-question steps — **motion / text size / appearance / starting screen** — shown
+  once, after onboarding, on a fresh install (`settings.firstRunComplete`). Both onboarding
+  exits (the name step's finish and the Explore path) route into it; `app/_layout.tsx`'s
+  guard is a safety net, not the normal path. It is **not** more setup: every value it
+  writes already has a working default applied before it renders, so it only ADJUSTS —
+  skipping it, or force-quitting mid-flow, leaves an app that behaves identically.
+  - **One atomic write.** Selections live in local state until commit;
+    `settingsPatchFromPicks()` returns ONE patch holding all four steps *plus*
+    `firstRunComplete: true`, so the gate can never be set without the selections landing
+    with it. That also makes "Run setup again" (Settings → Personal → Layout) idempotent:
+    it seeds from current settings, so pressing straight through writes them back unchanged.
+    A test pins the picks ⇄ settings round-trip over all 81 combinations.
+  - **Live preview means changing the actual screen**, which is why the flow resolves its
+    own palette and text scale from local state via the *pure* `buildTheme` /
+    `resolveIsDark` / `scaleStyles` helpers in `lib/useAppTheme.ts` — and why it can't use
+    `Surface`/`Button` (they read the store, so they'd sit at the committed appearance
+    while everything around them previewed the new one). Hand-rolled cards are deliberate.
+  - **Motion is a three-rung ladder over two existing booleans** — full → reduced
+    (`particlesEnabled` off) → none (also `reducedMotion`). Monotonic on purpose: the OS
+    reduce-motion flag is OR'd in by `useAccessibility()`, so picking "Full" can never give
+    a phone more movement than it asked for; when the OS flag is on the flow pre-selects
+    "Reduced" and says why. There is deliberately no new motion setting.
+  - **Starting screen** (`settings.startScreen`, home/plans/shopping) is the navigator's
+    `initialRouteName`, frozen at mount in `app/(tabs)/_layout.tsx` — NOT the same thing as
+    the `unstable_settings.initialRouteName` beside it, which is the static deep-link back
+    target and stays `index`. Presentation only; every tab is one tap away regardless, and
+    a change from Settings applies at the next launch rather than yanking the tab mid-session.
+  - Four steps is a hard cap. A fifth thing goes to Settings.
 - **Settings** (`app/settings.tsx`): three tabs — **General** (profile, appearance, accessibility, account/backup, version, reset), **Personal** (notifications, shopping cadence, layout, device features), **Advanced** (the Features card, People/family, paired devices, Freyr-mode, debug). Reorganized 2026-07-25 from four tabs; see that file's header for the full before/after.
 - **Feature flags** (2026-07-25, defaults revised same day): three states, not one.
   - **On by default, still a real toggle** (Settings → Advanced → Features): `energySystemEnabled` (Energy system), `featureGoals` (Goals) and `featureMedicine` (Medicine trays, 2026-07-27). Not offered in the onboarding picker — "opt in from nothing" doesn't fit a feature that's already on. Turning `featureMedicine` off must actually CANCEL its four tray reminders, not just hide the card — `app/settings.tsx`'s `applyAndSync` re-syncs them on that key.

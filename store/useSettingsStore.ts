@@ -18,6 +18,12 @@
  * freyrModeEnabled/freyrSeedIds back the Additional-modes-tab "Freyr-mode" toggle —
  * see lib/freyrModeSeed.ts for the seed/unseed logic; freyrSeedIds is a JSON blob,
  * not read/written by anything in this file beyond passthrough.
+ * firstRunComplete/startScreen (2026-07-30) back the first-run personalization flow
+ * (app/first-run.tsx): the first gates whether it runs, the second is which of the 5 pager
+ * tabs the app opens on (read at mount by app/(tabs)/_layout.tsx as the navigator's
+ * initialRouteName). The flow writes both — plus reducedMotion/particlesEnabled/fontSize/
+ * darkMode — in ONE update() call, so it can never half-commit; see lib/firstRunOptions.ts
+ * for the option sets and the picks ⇄ settings mapping it uses.
  * planTimelineHorizontal switches the Plans day-view rail (components/PlanTaskCard.tsx)
  * between the default vertical rail and a horizontal one; read by app/(tabs)/index.tsx
  * and passed down as a prop (PlanTaskCard itself stays store-free/presentational).
@@ -48,7 +54,7 @@
  *
  * Connections:
  *   Imports → lib/dataAccess, lib/id, lib/medicineSchedule (TrayTimes + its normalizer/defaults), constants/theme (AspectRatioKey)
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/medicine-form.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/MedicineTrayCard.tsx, components/ParticleBackground.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/first-run.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/medicine-form.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/MedicineTrayCard.tsx, components/ParticleBackground.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns the single-row SQLite table settings (id = 1)
  *
  * Edit notes:
@@ -138,6 +144,12 @@ export type Language = 'en' | 'no';
 export type DarkMode = 'system' | 'on' | 'off';
 export type FontSizePref = 'small' | 'default' | 'large';
 export type EnergyMode = 'daily' | 'weekly' | 'custom';
+/**
+ * Which of the 5 pager tabs the app opens on (first-run step 4, and Settings → Personal
+ * → Layout). Presentation only — every tab is still one tap away, so no value here can
+ * make anything unreachable. The id → route map lives in lib/firstRunOptions.ts.
+ */
+export type StartScreen = 'home' | 'plans' | 'shopping';
 /** Habits' Today/Week/Month selector. Persisted so it survives a remount. */
 export type HabitViewTab = 'today' | 'week' | 'month';
 
@@ -149,6 +161,16 @@ export type Settings = {
   reminderTime: string;
   taskNotificationsEnabled: boolean;
   setupComplete: boolean;
+  /**
+   * Gate for the first-run personalization flow (app/first-run.tsx) — false means the
+   * flow hasn't been seen yet. Separate from `setupComplete` on purpose: onboarding
+   * establishes the app, this one only adjusts already-applied defaults, so a user can
+   * re-run either without the other. Written exactly once per run, in the same patch as
+   * the selections themselves, so the flow can never half-commit.
+   */
+  firstRunComplete: boolean;
+  /** Which tab the app opens on — see the StartScreen type above. */
+  startScreen: StartScreen;
   workModeEnabled: boolean;
   workHoursStart: string;
   workHoursEnd: string;
@@ -363,6 +385,8 @@ function rowToSettings(row: Row): Settings {
     reminderTime: readStr(row, 'reminder_time', '08:00'),
     taskNotificationsEnabled: readBool(row, 'task_notifications_enabled'),
     setupComplete: readBool(row, 'setup_complete'),
+    firstRunComplete: readBool(row, 'first_run_complete'),
+    startScreen: readEnum<StartScreen>(row, 'start_screen', ['home', 'plans', 'shopping'], 'home'),
     workModeEnabled: readBool(row, 'work_mode_enabled'),
     workHoursStart: readStr(row, 'work_hours_start', '07:00'),
     workHoursEnd: readStr(row, 'work_hours_end', '17:00'),
@@ -447,6 +471,8 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   reminderTime: { col: 'reminder_time' },
   taskNotificationsEnabled: { col: 'task_notifications_enabled', to: bool },
   setupComplete: { col: 'setup_complete', to: bool },
+  firstRunComplete: { col: 'first_run_complete', to: bool },
+  startScreen: { col: 'start_screen' },
   workModeEnabled: { col: 'work_mode_enabled', to: bool },
   workHoursStart: { col: 'work_hours_start' },
   workHoursEnd: { col: 'work_hours_end' },
@@ -523,6 +549,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   reminderTime: '08:00',
   taskNotificationsEnabled: false,
   setupComplete: false,
+  firstRunComplete: false,
+  // Safe, working default applied BEFORE the first-run flow ever renders — the flow reads
+  // it back as its starting selection rather than establishing it (handoff invariant 1).
+  startScreen: 'home' as StartScreen,
   workModeEnabled: false,
   workHoursStart: '07:00',
   workHoursEnd: '17:00',

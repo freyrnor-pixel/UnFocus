@@ -116,6 +116,14 @@
  *     note), so a translation coming out longer than expected (Norwegian's "Generelt" vs.
  *     English's "General") no longer truncates one tab while the others sit with unused
  *     space. Same shared component as app/(tabs)/shopping.tsx and app/(tabs)/plans.tsx.
+ *   - **Personal → Layout also owns first-run's permanent controls (2026-07-30)**: the
+ *     "Starting screen" segmented row (settings.startScreen, applied at the next launch
+ *     by app/(tabs)/_layout.tsx's initialRouteName) and a "Run setup again" link into
+ *     app/first-run.tsx. The re-run link is deliberately NOT in the red Reset card — it
+ *     re-enters the flow seeded from current settings, so walking it and pressing Done
+ *     changes nothing. Its option values come from lib/firstRunOptions.ts, shared with
+ *     the flow. Motion and text size are reversible via the existing General →
+ *     Accessibility switches (reducedMotion + particlesEnabled) and font-size row.
  *   - applyAndSync() is the single write path: updates settings AND fires the right notification
  *     re-sync based on which keys changed — route every settings change through it, never
  *     settings.update() directly. Quiet-hours keys re-sync task notifications; language or
@@ -211,8 +219,10 @@ import {
   FontSizePref,
   DarkMode,
   EnergyMode,
+  StartScreen,
 } from '@/store/useSettingsStore';
 import { DETAIL_LEVELS, type DetailLevel } from '@/lib/cardLayout';
+import { START_SCREEN_CHOICES } from '@/lib/firstRunOptions';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
@@ -1232,6 +1242,35 @@ export default function SettingsScreen() {
                   </View>
                   <FormSwitch checked={settings.planTimelineHorizontal} onChange={(v) => settings.update({ planTimelineHorizontal: v })} />
                 </View>
+                {/* Starting screen — the permanent home of first-run step 4. Same three
+                    values from lib/firstRunOptions.ts and the same nav labels the flow
+                    uses, so a choice made there and a choice made here are the same thing.
+                    Applies from the next launch: app/(tabs)/_layout.tsx freezes the
+                    navigator's initialRouteName at mount rather than yanking the user to
+                    another tab mid-session. */}
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.firstRun.startScreen.settingsLabel}</Text>
+                <SegmentedControl
+                  value={settings.startScreen}
+                  onChange={(v) => settings.update({ startScreen: v as StartScreen })}
+                  options={START_SCREEN_CHOICES.map((v) => ({
+                    value: v,
+                    label: v === 'home' ? t.nav.home : v === 'plans' ? t.nav.plans : t.nav.shop,
+                  }))}
+                />
+                <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.firstRun.startScreen[settings.startScreen]}</Text>
+                {/* Re-run the first-run flow. Non-destructive, so it lives here rather than
+                    in the red Reset card: it re-enters app/first-run.tsx seeded from the
+                    settings the user has right now, which means walking through it and
+                    pressing Done without touching anything changes nothing at all. */}
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <PressableScale style={styles.switchRow} onPress={() => router.push('/first-run')} scaleTo={0.97}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.firstRun.reRun}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.firstRun.reRunHint}</Text>
+                  </View>
+                  <Text style={[styles.switchLabel, { color: theme.accent }]}>{'→'}</Text>
+                </PressableScale>
               </Surface>
             </View>
 

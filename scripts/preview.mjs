@@ -163,6 +163,22 @@ async function main() {
     await clickText(page, "Let's go! 🌿");
     await page.waitForTimeout(1500);
 
+    // First-run personalization (app/first-run.tsx): four one-question steps that follow
+    // onboarding on a fresh install. Walked one card at a time rather than skipped, so the
+    // shots cover all four AND the live preview actually gets exercised — steps 2 and 3
+    // redraw the screen from the tapped value. The picks are deliberately left on their
+    // defaults (Full / Default / Light / Home) apart from the taps below, so the tab
+    // screenshots further down still show the standard app.
+    console.log('> first-run: personalization');
+    for (const label of ['Full', 'Default', 'Light', 'Home']) {
+      await shot(page, `first-run-${label.toLowerCase()}`);
+      await page.getByRole('radio', { name: new RegExp(`^${label}\\.`) }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(400);
+      await clickText(page, label === 'Home' ? 'Done' : 'Continue');
+      await page.waitForTimeout(600);
+    }
+    await page.waitForTimeout(1200);
+
     console.log('> Home');
     await shot(page, 'home');
 
