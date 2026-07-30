@@ -18,7 +18,7 @@
 import React from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FontSize, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Radius, Spacing, MIN_TAP_TARGET } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { categoryLabel, categoryPresets } from '@/lib/shoppingCategories';
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.sm,
     fontSize: FontSize.sm,
-    minHeight: 44,
+    minHeight: MIN_TAP_TARGET,
   },
   categoryBtn: {
     flexDirection: 'row',
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     borderRadius: Radius.sm,
     borderWidth: 1,
-    minHeight: 44,
+    minHeight: MIN_TAP_TARGET,
     maxWidth: 140,
   },
   categoryBtnText: { fontSize: FontSize.sm },

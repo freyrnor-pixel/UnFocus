@@ -139,7 +139,7 @@ import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
 import FieldDivider from '@/components/FieldDivider';
 import OptionalTag from '@/components/OptionalTag';
-import { AspectRatio, FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { AspectRatio, FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
 
 const INTERVAL_OPTIONS = [30, 60, 90, 120, 180, 240];
 
@@ -350,7 +350,7 @@ export default function HabitForm() {
         // Icon + text, not a bare ✓ (2026-07-26): a lone checkmark in a header doesn't say
         // what it does. The bottom Discard/Save row is the primary affordance; this stays
         // so a long form can be saved without scrolling back down.
-        <PressableScale onPress={save} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.save} scaleTo={0.9}>
+        <PressableScale onPress={save} hitSlop={HitSlop.base} accessibilityRole="button" accessibilityLabel={t.save} scaleTo={0.9}>
           <View style={styles.headerSaveBtn}>
             <Ionicons name="checkmark" size={16} color={theme.accent} />
             <Text style={[styles.headerSaveText, { color: theme.accent }]}>{t.save}</Text>

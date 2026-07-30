@@ -47,11 +47,12 @@
  */
 import React, { useEffect, useState } from 'react';
 import { LayoutChangeEvent, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { selection } from '@/lib/haptics';
 import PressableScale from '@/components/PressableScale';
+import { Duration, Ease } from '@/constants/motion';
 
 export type SlideOption<T extends string | number> = { value: T; label: string };
 
@@ -103,7 +104,7 @@ export default function SlideSelector<T extends string | number>({
   const tx = useSharedValue(0);
   useEffect(() => {
     const to = activeIndex * (segW + TRACK_GAP);
-    tx.value = reducedMotion ? to : withTiming(to, { duration: 150, easing: Easing.out(Easing.cubic) });
+    tx.value = reducedMotion ? to : withTiming(to, { duration: Duration.control, easing: Ease.enter });
   }, [activeIndex, segW, reducedMotion, tx]);
 
   const pillStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));

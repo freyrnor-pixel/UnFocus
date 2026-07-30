@@ -238,7 +238,7 @@ import { todayStr } from '@/lib/date';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
 import { selection, warning, heavy } from '@/lib/haptics';
-import { AspectRatioKey, FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
+import { AspectRatioKey, FontSize, Fonts, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import TabSlider from '@/components/TabSlider';
 
 type SettingsTab = 'general' | 'personal' | 'advanced';
@@ -1460,7 +1460,7 @@ export default function SettingsScreen() {
                           <View key={person.id} style={styles.personRow}>
                             <PressableScale
                               onPress={() => cycleColor(person.id, color)}
-                              hitSlop={8}
+                              hitSlop={HitSlop.base}
                               accessibilityRole="button"
                               accessibilityLabel={t.peopleMode.profilesHint}
                               scaleTo={0.9}
@@ -1489,7 +1489,7 @@ export default function SettingsScreen() {
                             {!person.isSelf && (
                               <PressableScale
                                 onPress={() => removeProfile(person.id, person.name)}
-                                hitSlop={8}
+                                hitSlop={HitSlop.base}
                                 accessibilityRole="button"
                                 accessibilityLabel={t.peopleMode.removeTitle(person.name)}
                                 scaleTo={0.9}
@@ -1559,7 +1559,7 @@ export default function SettingsScreen() {
                         </View>
                         <PressableScale
                           onPress={() => removeTagWithConfirm(tag.id, tag.name)}
-                          hitSlop={8}
+                          hitSlop={HitSlop.base}
                           accessibilityRole="button"
                           accessibilityLabel={t.tags.removeTitle(tag.name)}
                           scaleTo={0.9}
@@ -1685,8 +1685,8 @@ const baseStyles = StyleSheet.create({
   workHoursCol: { flex: 1 },
   dayRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   dayChip: {
-    minWidth: 44,
-    minHeight: 44,
+    minWidth: MIN_TAP_TARGET,
+    minHeight: MIN_TAP_TARGET,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.sm,

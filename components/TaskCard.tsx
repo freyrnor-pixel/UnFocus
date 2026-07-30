@@ -136,7 +136,7 @@ import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Contact, ContactField } from 'expo-contacts';
 import * as Contacts from 'expo-contacts';
-import { Fonts, FontSize, Radius, Spacing, TabularNums, Type, contrastOn, getElevation, rgba } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, TabularNums, Type, contrastOn, getElevation, rgba, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0, formatDisplayDate, todayStr } from '@/lib/date';
@@ -683,7 +683,7 @@ function TaskCard({
           ) : null}
 
           <PressableScale
-            hitSlop={8}
+            hitSlop={HitSlop.base}
             onPress={() => onToggleDone(task)}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: task.done }}
@@ -703,7 +703,7 @@ function TaskCard({
           </PressableScale>
 
           {canExpand && (
-            <PressableScale hitSlop={6} onPress={openEditor} style={styles.chevronBtn} scaleTo={0.9}>
+            <PressableScale hitSlop={HitSlop.snug} onPress={openEditor} style={styles.chevronBtn} scaleTo={0.9}>
               <AnimatedChevron open={expanded} size={18} color={theme.textMuted} />
             </PressableScale>
           )}
@@ -763,7 +763,7 @@ function TaskCard({
           <Collapsible open={expanded}>
           <View style={styles.stepsWrap}>
             {sortedSteps.map((step) => (
-              <PressableScale key={step.id} hitSlop={6} onPress={() => toggleStep(step.id)} style={styles.stepCheckTap} scaleTo={0.97}>
+              <PressableScale key={step.id} hitSlop={HitSlop.snug} onPress={() => toggleStep(step.id)} style={styles.stepCheckTap} scaleTo={0.97}>
                 <View
                   style={[
                     styles.stepCheck,
@@ -809,7 +809,7 @@ function TaskCard({
               {voiceNotesEnabled && (
                 <PressableScale
                   onPress={toggleTitleVoice}
-                  hitSlop={8}
+                  hitSlop={HitSlop.base}
                   accessibilityRole="button"
                   accessibilityLabel={titleListening ? t.taskVoiceTitleStop : t.taskVoiceTitleLabel}
                   scaleTo={0.9}
@@ -934,7 +934,7 @@ function TaskCard({
               <View style={styles.stepsWrap}>
                 {sortedSteps.map((step) => (
                   <View key={step.id} style={styles.stepRow}>
-                    <PressableScale hitSlop={6} onPress={() => handleToggleStep(step.id)} style={styles.stepCheckTap} scaleTo={0.97}>
+                    <PressableScale hitSlop={HitSlop.snug} onPress={() => handleToggleStep(step.id)} style={styles.stepCheckTap} scaleTo={0.97}>
                       <View
                         style={[
                           styles.stepCheck,
@@ -955,7 +955,7 @@ function TaskCard({
                         {step.title}
                       </Text>
                     </PressableScale>
-                    <PressableScale hitSlop={6} onPress={() => handleRemoveStep(step.id)} scaleTo={0.9}>
+                    <PressableScale hitSlop={HitSlop.snug} onPress={() => handleRemoveStep(step.id)} scaleTo={0.9}>
                       <Ionicons name="close" size={16} color={theme.textMuted} />
                     </PressableScale>
                   </View>
@@ -1439,7 +1439,7 @@ const styles = StyleSheet.create({
   chevronBtn: { padding: 2 },
   editor: { gap: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.xs },
   titleInput: {
-    minHeight: 44,
+    minHeight: MIN_TAP_TARGET,
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.md,
     fontFamily: Type.bodyStrong.fontFamily,

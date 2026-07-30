@@ -24,7 +24,7 @@
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, HitSlop, hitSlopFor } from '@/constants/theme';
 import { todayStr } from '@/lib/date';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import PressableScale from '@/components/PressableScale';
@@ -131,7 +131,7 @@ export default function DatePickerCalendar({ value, onChange, dayLabels, monthLa
         <PressableScale
           onPress={jumpToToday}
           disabled={isViewingCurrentMonth}
-          hitSlop={6}
+          hitSlop={HitSlop.snug}
           style={styles.todayBtn}
           accessibilityRole="button"
           accessibilityLabel={calendarLabels.jumpToTodayHint}
@@ -175,7 +175,7 @@ export default function DatePickerCalendar({ value, onChange, dayLabels, monthLa
                 key={di}
                 style={styles.cell}
                 onPress={() => onChange(ds)}
-                hitSlop={2}
+                hitSlop={hitSlopFor(CELL)}
                 accessibilityRole="button"
                 accessibilityLabel={suffix ? `${fullLabel}, ${suffix}` : fullLabel}
                 accessibilityState={{ selected: isSelected }}

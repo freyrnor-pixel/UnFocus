@@ -40,9 +40,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Shadow, Spacing, HitSlop } from '@/constants/theme';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
 import PressableScale from '@/components/PressableScale';
+import { Duration } from '@/constants/motion';
 
 type Variant = 'success' | 'danger' | 'warn';
 
@@ -75,12 +76,12 @@ export default function ConfirmationBanner({ message, onDismiss, duration = 2200
 
   useEffect(() => {
     if (!message) return;
-    progress.value = reducedMotion ? 1 : withTiming(1, { duration: 220 });
+    progress.value = reducedMotion ? 1 : withTiming(1, { duration: Duration.card });
     const id = setTimeout(() => {
       if (reducedMotion) {
         runOnJS(onDismiss)();
       } else {
-        progress.value = withTiming(0, { duration: 200 }, (done) => {
+        progress.value = withTiming(0, { duration: Duration.cardOut }, (done) => {
           if (done) runOnJS(onDismiss)();
         });
       }
@@ -120,7 +121,7 @@ export default function ConfirmationBanner({ message, onDismiss, duration = 2200
               onAction!();
               onDismiss();
             }}
-            hitSlop={8}
+            hitSlop={HitSlop.base}
             style={styles.actionBtn}
             scaleTo={0.97}
           >

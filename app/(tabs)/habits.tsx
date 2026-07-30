@@ -99,7 +99,7 @@ import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { usePrefill } from '@/lib/prefill';
 import { todayStr, getWeekDates, getMonthDates } from '@/lib/date';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
-import { FontSize, PAD_GUTTER, Radius, Shadow, Spacing, Fonts, TabularNums, Type } from '@/constants/theme';
+import { FontSize, PAD_GUTTER, Radius, Shadow, Spacing, Fonts, TabularNums, Type, HitSlop } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
@@ -293,7 +293,7 @@ function HabitCard({
           <PressableScale
             style={[styles.adjBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
             onPress={() => decrement(habit.id, today)}
-            hitSlop={8}
+            hitSlop={HitSlop.base}
             scaleTo={0.9}
             accessibilityRole="button"
             accessibilityLabel={`${t.decreaseQty} ${habit.title}`}
@@ -303,7 +303,7 @@ function HabitCard({
           <PressableScale
             style={[styles.adjBtn, styles.adjBtnPlus, { backgroundColor: barColor }]}
             onPress={() => increment(habit.id, today)}
-            hitSlop={8}
+            hitSlop={HitSlop.base}
             scaleTo={0.9}
             accessibilityRole="button"
             accessibilityLabel={`${t.increaseQty} ${habit.title}`}

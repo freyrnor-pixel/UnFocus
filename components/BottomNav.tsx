@@ -163,7 +163,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
-import { Fonts, FontSize, Radius, Spacing, Shadow, getGlow, getLayeredShadow, computeRimGradient } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Shadow, getGlow, getLayeredShadow, computeRimGradient, HitSlop } from '@/constants/theme';
 import { Duration, Ease, Travel } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -374,7 +374,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
             prev.x === x && prev.y === y && prev.w === width && prev.h === height ? prev : { x, y, w: width, h: height }
           );
         }}
-        hitSlop={8}
+        hitSlop={HitSlop.base}
       >
         {glass ? (
           <LinearGradient
@@ -501,7 +501,7 @@ function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
       accessibilityState={{ selected: active }}
       style={styles.item}
       onPress={onPress}
-      hitSlop={6}
+      hitSlop={HitSlop.snug}
     >
       <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={iconColor} />
       <Text

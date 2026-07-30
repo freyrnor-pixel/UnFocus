@@ -68,11 +68,12 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { LayoutChangeEvent, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { selection } from '@/lib/haptics';
 import PressableScale from '@/components/PressableScale';
+import { Duration, Ease } from '@/constants/motion';
 
 export type TabSliderOption<T extends string | number> = {
   value: T;
@@ -117,8 +118,8 @@ export default function TabSlider<T extends string | number>({
       tx.value = active.x;
       pw.value = active.width;
     } else {
-      tx.value = withTiming(active.x, { duration: 150, easing: Easing.out(Easing.cubic) });
-      pw.value = withTiming(active.width, { duration: 150, easing: Easing.out(Easing.cubic) });
+      tx.value = withTiming(active.x, { duration: Duration.control, easing: Ease.enter });
+      pw.value = withTiming(active.width, { duration: Duration.control, easing: Ease.enter });
     }
   // Deliberately depends on active's primitives, not `active` itself, since segLayouts
   // recreates the object every render.

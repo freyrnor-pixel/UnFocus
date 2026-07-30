@@ -40,6 +40,7 @@ see AGENTS.md.)
 
 ## Before Starting
 
+- **For ANY screen or visual change:** Read `DESIGN_RULES.md` first — 25 numbered invariants (spacing, placement, colour, hierarchy, tap targets, motion, copy tone) plus the open conflicts where a rule is *not* yet binding. Its "Quick self-check" list is the ship gate. `DESIGN_RULES_AUDIT.md` says which violations are deliberate and why.
 - **For ANY build, version bump, or APK work:** Read `OTA_BUILD_WORKFLOW.md` first. It documents the exact sequence to avoid runtime mismatches and broken OTA updates.
 - **Read file headers first.** Every `.ts`/`.tsx` file starts with a JSDoc block listing imports, callers, data touches, and gotchas. This is the fastest way to understand a file's purpose — no need to read the whole thing.
 - **Trust AGENTS.md's hand-maintained dependency maps.** Don't grep the repo to re-derive what's already written in the `Connections:` blocks in file headers. If a header looks stale, update it as you go — cheap now, expensive later.
@@ -62,6 +63,8 @@ see AGENTS.md.)
 | SQLite file: `unfocus.db` (in `lib/db.ts`) | Fixed name for device storage |
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations | Runs once; never drop/recreate |
 | Stores use `lib/dataAccess.ts` | 13 of 14 stores rely on this pattern |
+| No bare `44`, `hitSlop: 8`, or `duration: 220` — use `MIN_TAP_TARGET`/`HitSlop` (`constants/theme.ts`) and `Duration.*` (`constants/motion.ts`) | `DESIGN_RULES.md` rules 17 + 21, guarded by `lib/__tests__/designTokens.test.ts` in CI |
+| No guilt/urgency copy in `lib/i18n.ts` — never "missed", "overdue", "forgot", "behind" | `DESIGN_RULES.md` rule 23; `lib/__tests__/copyTone.test.ts` fails the PR. A tray is "still due", never "missed" |
 | ALWAYS open a PR and merge it to `main` | Every change ends with a PR into `main` that you merge yourself — never stop at the branch, never hand the merge off. OTA (`update.yml`) fires only on push to `main` (see the "Publishing" section above + `PUBLISHING.md`) |
 | Native builds: trigger `eas-build-android.yml` yourself; bump `runtimeVersion`/`version` first, then trigger | This is the OTA-capable preview APK, non-interactive, already used this way repeatedly — NOT maintainer-gated. Only the debug-gradle build, production AAB, and TestFlight (real signing/store submission) stay maintainer-only. See AGENTS.md "New preview APK build" + "Runtime version" for the exact sequencing (bump-then-build here, the reverse of the maintainer-only paths) |
 

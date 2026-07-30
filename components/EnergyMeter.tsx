@@ -93,13 +93,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, RadialGradient, Stop, Circle, Rect } from 'react-native-svg';
-import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming, Easing } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
 import Surface from '@/components/Surface';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
 import CardHintNote from '@/components/CardHintNote';
-import { Fonts, FontSize, Radius, Spacing, darken, lighten, getGlow } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, darken, lighten, getGlow, hitSlopFor } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
@@ -108,8 +108,14 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
 import { useEnergyStore } from '@/store/useEnergyStore';
+import { Duration, Ease } from '@/constants/motion';
 
 type PulseKind = 'recovered' | 'depleted';
+
+/** The header's edit glyph. Named so `hitSlopFor()` can expand it to MIN_TAP_TARGET from the
+ *  one number that matters — at 16px it needs 14px of slop, which a hand-picked 8 or 12
+ *  (40px of target) doesn't reach. */
+const EDIT_ICON_SIZE = 16;
 
 /** One-shot ~1.5s glow behind a meter row — see the file header's "Depleted/recovered pulse"
  *  note. Local to this file (not GlowPulse) because it needs a timed fade in→hold→out
@@ -123,9 +129,9 @@ function EnergyPulse({ color, reducedMotion }: { color: string; reducedMotion: b
       return;
     }
     opacity.value = withSequence(
-      withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) }),
-      withTiming(1, { duration: 900 }),
-      withTiming(0, { duration: 400, easing: Easing.in(Easing.ease) }),
+      withTiming(1, { duration: Duration.cardOut, easing: Ease.enter }),
+      withTiming(1, { duration: Duration.hold }),
+      withTiming(0, { duration: Duration.holdOut, easing: Ease.exit }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -313,14 +319,14 @@ export default function EnergyMeter() {
         )}
         <PressableScale
           onPress={() => setEditing((v) => !v)}
-          hitSlop={12}
+          hitSlop={hitSlopFor(EDIT_ICON_SIZE)}
           scaleTo={0.9}
           accessibilityRole="button"
           accessibilityLabel={t.energyMeter.editTitle}
         >
           <Ionicons
             name={editing ? 'checkmark' : 'create-outline'}
-            size={16}
+            size={EDIT_ICON_SIZE}
             color={editing ? theme.accent : theme.textMuted}
           />
         </PressableScale>

@@ -37,7 +37,7 @@
  *     all look the same. The row stays in place; whether and when it moves is the surface's
  *     own logic (notes move the next day, shopping/to-do keep their existing zones, a habit
  *     only strikes once the day's full count is met).
- *   - Check is visually 22×22 with `hitSlop={13}` → ~48dp, Android's minimum touch target.
+ *   - Check is visually 22×22 with `hitSlop={HitSlop.check}` → ~48dp, Android's minimum touch target.
  *     Don't shrink the hitSlop to "tidy up" the trailing cluster.
  *   - `leading` is for an icon or a quantity — never a second check. StarterExampleRow's own
  *     leading circle is an icon and stays where it is, so an example still reads as a row of
@@ -55,6 +55,7 @@ import {
   Radius,
   Spacing,
   TabularNums,
+  HitSlop,
 } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -164,7 +165,7 @@ export default function PadRow({
               done && { backgroundColor: accent },
             ]}
             onPress={onToggle}
-            hitSlop={13}
+            hitSlop={HitSlop.check}
             scaleTo={0.9}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: !!done }}

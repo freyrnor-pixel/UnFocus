@@ -70,7 +70,7 @@ import OptionalTag from '@/components/OptionalTag';
 import IconButton from '@/components/IconButton';
 import Button from '@/components/Button';
 import { showAppModal } from '@/components/AppModal';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
 
 /** Mon–Sun quick-pick row + collapsible full calendar — copied from task-form.tsx. */
 function DateChipPicker({
@@ -263,7 +263,7 @@ export default function HealthFormScreen() {
       tier="sub"
       onBack={() => router.back()}
       headerRight={
-        <PressableScale onPress={save} hitSlop={8} accessibilityRole="button" accessibilityLabel={t.save} scaleTo={0.9}>
+        <PressableScale onPress={save} hitSlop={HitSlop.base} accessibilityRole="button" accessibilityLabel={t.save} scaleTo={0.9}>
           <Ionicons name="checkmark" size={24} color={theme.accent} />
         </PressableScale>
       }

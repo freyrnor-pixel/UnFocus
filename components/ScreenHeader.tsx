@@ -111,7 +111,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
-import { FontSize, Fonts, Spacing, getHeaderMetrics } from '@/constants/theme';
+import { FontSize, Fonts, Spacing, getHeaderMetrics, HitSlop } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
@@ -269,7 +269,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const gearButton = (
     <PressableScale
       onPress={handleSettingsPress}
-      hitSlop={8}
+      hitSlop={HitSlop.base}
       accessibilityRole="button"
       accessibilityLabel={t.settingsTitle}
       scaleTo={0.9}
@@ -280,7 +280,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const shareButton = onSharePress ? (
     <PressableScale
       onPress={onSharePress}
-      hitSlop={8}
+      hitSlop={HitSlop.base}
       accessibilityRole="button"
       accessibilityLabel={t.shareTitle}
       scaleTo={0.9}
@@ -291,7 +291,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const scanButton = onScanPress ? (
     <PressableScale
       onPress={onScanPress}
-      hitSlop={8}
+      hitSlop={HitSlop.base}
       accessibilityRole="button"
       accessibilityLabel={t.shopping.scan}
       scaleTo={0.9}
@@ -305,7 +305,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const layoutButton = onLayoutPress ? (
     <PressableScale
       onPress={onLayoutPress}
-      hitSlop={8}
+      hitSlop={HitSlop.base}
       accessibilityRole="button"
       accessibilityLabel={t.config.layouts.title}
       scaleTo={0.9}
@@ -316,7 +316,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const infoButton = onInfoToggle ? (
     <PressableScale
       onPress={onInfoToggle}
-      hitSlop={8}
+      hitSlop={HitSlop.base}
       accessibilityRole="button"
       accessibilityLabel={infoActive ? t.hideHint : t.showHint}
       accessibilityState={{ selected: !!infoActive }}
@@ -334,7 +334,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const updateButton = isHome && updateAvailable ? (
     <PressableScale
       onPress={handleUpdatePress}
-      hitSlop={8}
+      hitSlop={HitSlop.base}
       accessibilityRole="button"
       accessibilityLabel={t.version.updateAvailable}
       scaleTo={0.9}
@@ -357,7 +357,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const bugButton = debugModeEnabled ? (
     <PressableScale
       onPress={handleDebugTogglePress}
-      hitSlop={8}
+      hitSlop={HitSlop.base}
       accessibilityRole="button"
       accessibilityLabel={t.debug.toggleLabel}
       accessibilityState={{ selected: debugModeEnabled }}
@@ -370,7 +370,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const emailButton = debugModeEnabled ? (
     <PressableScale
       onPress={handleEmailNotesPress}
-      hitSlop={8}
+      hitSlop={HitSlop.base}
       accessibilityRole="button"
       accessibilityLabel={t.debug.emailNotes}
       scaleTo={0.9}
@@ -383,7 +383,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   const deleteButton = debugModeEnabled ? (
     <PressableScale
       onPress={handleDeleteAllPress}
-      hitSlop={8}
+      hitSlop={HitSlop.base}
       accessibilityRole="button"
       accessibilityLabel={t.debug.deleteAllNotes}
       scaleTo={0.9}
@@ -454,7 +454,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   return (
     <Surface surfaceContext="overlay" style={[styles.header, style]}>
       {Platform.OS === 'ios' && onBack ? (
-        <PressableScale onPress={onBack} hitSlop={8} scaleTo={0.97}>
+        <PressableScale onPress={onBack} hitSlop={HitSlop.base} scaleTo={0.97}>
           <Text style={[styles.back, { color: theme.accent }]}>{t.back}</Text>
         </PressableScale>
       ) : null}

@@ -51,7 +51,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Badge } from '@/components/Badge';
 import PressableScale from '@/components/PressableScale';
-import { Fonts, FontSize, Radius, Spacing, rgba } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, rgba, HitSlop } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 
 type Props = {
@@ -97,7 +97,7 @@ export default function StarterExampleRow({ icon, title, tag, meta, metaVariant 
         <PressableScale
           onPress={onAdd}
           scaleTo={0.9}
-          hitSlop={8}
+          hitSlop={HitSlop.base}
           accessibilityRole="button"
           accessibilityLabel={addLabel ? `${addLabel} ${title}` : title}
           style={[styles.addBtn, { borderColor: accent }]}

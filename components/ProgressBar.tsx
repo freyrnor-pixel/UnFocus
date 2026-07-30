@@ -20,6 +20,7 @@ import React, { useEffect } from 'react';
 import { StyleSheet, View, StyleProp, ViewStyle } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
+import { Duration } from '@/constants/motion';
 
 type Props = {
   value: number;
@@ -42,7 +43,7 @@ export default function ProgressBar({ value, state, color, trackColor, height = 
       animatedWidth.value = targetWidth;
     } else {
       animatedWidth.value = withTiming(targetWidth, {
-        duration: 250,
+        duration: Duration.value,
         easing: Easing.out(Easing.ease),
       });
     }

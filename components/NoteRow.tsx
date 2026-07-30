@@ -33,7 +33,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import Surface from '@/components/Surface';
@@ -91,7 +91,7 @@ function NoteRow({
           placeholderTextColor={theme.textMuted}
           returnKeyType="done"
         />
-        <PressableScale onPress={onDelete} hitSlop={8} accessibilityLabel={t.notes.deleteNote} scaleTo={0.93}>
+        <PressableScale onPress={onDelete} hitSlop={HitSlop.base} accessibilityLabel={t.notes.deleteNote} scaleTo={0.93}>
           <Ionicons name="trash-outline" size={16} color={theme.bad} />
         </PressableScale>
         <PressableScale
@@ -101,7 +101,7 @@ function NoteRow({
             note.checked && { backgroundColor: theme.accent },
           ]}
           onPress={onToggleChecked}
-          hitSlop={13}
+          hitSlop={HitSlop.check}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: note.checked }}
           accessibilityLabel={t.notes.checkedLabel}

@@ -64,7 +64,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { confirm as hapticConfirm } from '@/lib/haptics';
-import { FontSize, Fonts, Radius, Shadow, Spacing, contrastOn } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Shadow, Spacing, contrastOn, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import PressableScale from '@/components/PressableScale';
 import { ScrollIntoViewContext } from '@/components/ScreenScaffold';
 
@@ -206,7 +206,7 @@ export default function AddRow({
       <PressableScale
         style={styles.discard}
         onPress={collapse}
-        hitSlop={8}
+        hitSlop={HitSlop.base}
         scaleTo={0.9}
         accessibilityRole="button"
         accessibilityLabel={t.a11yDiscardRow}
@@ -229,7 +229,7 @@ export default function AddRow({
         ]}
         onPress={commit}
         disabled={!active}
-        hitSlop={8}
+        hitSlop={HitSlop.base}
         scaleTo={0.9}
         haptic={false}
         accessibilityRole="button"
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,
-    minHeight: 44,
+    minHeight: MIN_TAP_TARGET,
   },
   addBar: {
     flex: 1,

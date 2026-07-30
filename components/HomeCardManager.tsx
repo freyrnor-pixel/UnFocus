@@ -52,7 +52,7 @@ import { LayoutAnimation, Modal, Pressable, StyleSheet, Text, View } from 'react
 import { Ionicons } from '@expo/vector-icons';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import PressableScale from '@/components/PressableScale';
-import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Shadow, Spacing, HitSlop } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -163,7 +163,7 @@ export default function HomeCardManager({ order, labels, editMode, onReorder, on
                   order.length <= 1 && styles.removeBadgeDisabled,
                 ]}
                 onPress={() => handleRemove(kind)}
-                hitSlop={8}
+                hitSlop={HitSlop.base}
                 scaleTo={0.9}
                 disabled={order.length <= 1}
                 accessibilityRole="button"

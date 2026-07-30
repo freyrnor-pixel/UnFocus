@@ -179,7 +179,7 @@
  *     sibling (never nested inside) the tappable content, positioned as a trailing column in
  *     flat rows (anytime list, done zone) or pinned to a grid card's top-right corner.
  *   - **Touch target (2026-07-11)**: the done-toggle `dot` is visually 16x16 but
- *     `hitSlop={16}` brings the tappable area to ~48dp, meeting Android's minimum
+ *     `hitSlop={HitSlop.loose}` brings the tappable area to ~48dp, meeting Android's minimum
  *     touch-target size.
  *   - **Purposeful Depth System (2026-07-14)**: passes Surface's `elevated` when
  *     `expanded` — the card the user has actively opened to see the full day becomes
@@ -237,7 +237,7 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import { Task, Recurring } from '@/store/useTaskStore';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, TabularNums, rgba } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, TabularNums, rgba, HitSlop } from '@/constants/theme';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { PadState, padVisibleRows } from '@/lib/padState';
 import { Duration, Ease, Spring } from '@/constants/motion';
@@ -589,7 +589,7 @@ export default function PlanTaskCard({
     return (
       <PressableScale
         disabled={!onToggleTask}
-        hitSlop={16}
+        hitSlop={HitSlop.loose}
         onPress={() => handleToggle(task)}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: task.done }}
@@ -906,7 +906,7 @@ export default function PlanTaskCard({
               addRecurring !== 'none' && { backgroundColor: domainColor.soft },
             ]}
             onPress={cycleRecurring}
-            hitSlop={8}
+            hitSlop={HitSlop.base}
             scaleTo={0.9}
             accessibilityRole="button"
             accessibilityLabel={`${t.taskRecurringToggle}: ${recurringLabel(addRecurring)}`}
@@ -929,7 +929,7 @@ export default function PlanTaskCard({
               addEnergyValue !== 0 && { backgroundColor: domainColor.soft },
             ]}
             onPress={cycleEnergy}
-            hitSlop={8}
+            hitSlop={HitSlop.base}
             scaleTo={0.9}
             accessibilityRole="button"
             accessibilityLabel={`${t.energyConsumeLabel}: ${addEnergyValue === 0 ? t.off : addEnergyValue > 0 ? '+1' : '-1'}`}

@@ -23,7 +23,7 @@
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, HitSlop } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import PressableScale from '@/components/PressableScale';
@@ -61,7 +61,7 @@ export default function Stepper({ value, onChange, min, max, step = 1, suffix, s
       <PressableScale
         onPress={dec}
         disabled={atMin}
-        hitSlop={6}
+        hitSlop={HitSlop.snug}
         scaleTo={0.9}
         accessibilityRole="button"
         style={[styles.btn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }, atMin && styles.disabled]}
@@ -74,7 +74,7 @@ export default function Stepper({ value, onChange, min, max, step = 1, suffix, s
       <PressableScale
         onPress={inc}
         disabled={atMax}
-        hitSlop={6}
+        hitSlop={HitSlop.snug}
         scaleTo={0.9}
         accessibilityRole="button"
         style={[styles.btn, { backgroundColor: theme.accent }, atMax && styles.disabled]}

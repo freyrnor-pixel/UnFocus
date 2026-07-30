@@ -29,7 +29,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { ShoppingList } from '@/store/useShoppingListStore';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, MIN_TAP_TARGET } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import Surface from '@/components/Surface';
@@ -135,8 +135,8 @@ const baseStyles = StyleSheet.create({
   intervalBlock: { gap: Spacing.xs },
   fieldLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   chipRow: { flexDirection: 'row', gap: Spacing.xs },
-  chip: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.full, paddingHorizontal: Spacing.xs },
+  chip: { flex: 1, minHeight: MIN_TAP_TARGET, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.full, paddingHorizontal: Spacing.xs },
   chipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
-  doneBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', minHeight: 44, justifyContent: 'center' },
+  doneBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', minHeight: MIN_TAP_TARGET, justifyContent: 'center' },
   doneBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 });

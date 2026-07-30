@@ -84,6 +84,7 @@ import {
   Spacing,
   TabularNums,
   rgba,
+  HitSlop,
 } from '@/constants/theme';
 import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -264,7 +265,7 @@ export default function HomeShoppingCard({
           <PressableScale
             style={[styles.targetChip, { borderColor: domainColor.accent }]}
             onPress={() => { tap(); setAddTargetIndex((i) => (i + 1) % (monthlyLists.length + 1)); }}
-            hitSlop={8}
+            hitSlop={HitSlop.base}
             scaleTo={0.95}
             accessibilityRole="button"
             accessibilityLabel={addTargetIndex === 0 ? t.home.weeklyListChip : monthlyLists[addTargetIndex - 1]?.name}

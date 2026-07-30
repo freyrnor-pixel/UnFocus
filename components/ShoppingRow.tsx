@@ -102,7 +102,7 @@
  *     cardOut/listMove` (same values, now the shared token) and each animation calls
  *     `.easing(Ease.enter/exit/move)` explicitly, matching Collapsible.tsx's house pattern
  *     (fixed alongside the same gap in PlanTaskCard.tsx and AnimatedListItem.tsx).
- *   - **Touch target (2026-07-11)**: the check circle is visually 22x22 but `hitSlop={13}`
+ *   - **Touch target (2026-07-11)**: the check circle is visually 22x22 but `hitSlop={HitSlop.check}`
  *     brings the tappable area to ~48dp, meeting Android's minimum touch-target size.
  *   - **Flight animation (Phase 1, 2026-07-11)**: `onFlightStart` (optional) fires with this
  *     row's window-space rect right before `onToggle`, letting the parent kick off a
@@ -131,7 +131,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import type { FlightRect } from '@/components/FlightOverlay';
-import { DONE_ROW_OPACITY, Fonts, FontSize, Radius, Spacing, TabularNums } from '@/constants/theme';
+import { DONE_ROW_OPACITY, Fonts, FontSize, Radius, Spacing, TabularNums, HitSlop } from '@/constants/theme';
 import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -240,9 +240,9 @@ function ShoppingRow({
     if (wasNewOnMount) {
       if (reducedMotion) {
         highlight.value = 0.9;
-        highlight.value = withTiming(0, { duration: 900 });
+        highlight.value = withTiming(0, { duration: Duration.hold });
       } else {
-        highlight.value = withSequence(withTiming(1, { duration: 120 }), withTiming(0, { duration: 900 }));
+        highlight.value = withSequence(withTiming(1, { duration: Duration.micro }), withTiming(0, { duration: Duration.hold }));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -252,9 +252,9 @@ function ShoppingRow({
       if (reducedMotion) {
         // No leading pop under reduced motion — start visible and fade out.
         highlight.value = 0.9;
-        highlight.value = withTiming(0, { duration: 900 });
+        highlight.value = withTiming(0, { duration: Duration.hold });
       } else {
-        highlight.value = withSequence(withTiming(1, { duration: 120 }), withTiming(0, { duration: 900 }));
+        highlight.value = withSequence(withTiming(1, { duration: Duration.micro }), withTiming(0, { duration: Duration.hold }));
       }
     }
     prevQty.current = safeQty;
@@ -360,7 +360,7 @@ function ShoppingRow({
             style={styles.deleteBtn}
             onPress={handleRemovePress}
             disabled={locked}
-            hitSlop={8}
+            hitSlop={HitSlop.base}
             accessibilityLabel={isPutBack ? t.putBackItemLabel : t.removeItemLabel}
             scaleTo={0.93}
           >
@@ -382,7 +382,7 @@ function ShoppingRow({
           ]}
           onPress={handleCheckPress}
           disabled={variant === 'purchased'}
-          hitSlop={13}
+          hitSlop={HitSlop.check}
           scaleTo={0.97}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: !!item.checked }}

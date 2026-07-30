@@ -401,7 +401,7 @@ export default function TabsLayout() {
     }
     const anim = Animated.timing(heroOpacity, {
       toValue: to,
-      duration: 220,
+      duration: Duration.card,
       useNativeDriver: true,
     });
     anim.start();

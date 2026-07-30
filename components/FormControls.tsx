@@ -44,12 +44,12 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming, ZoomIn, ZoomOut } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { FontSize, Fonts, Radius, Spacing, rgba } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, rgba, MIN_TAP_TARGET } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useToggleColor } from '@/lib/useToggleColor';
-import { Duration } from '@/constants/motion';
+import { Duration, Ease } from '@/constants/motion';
 import { selection } from '@/lib/haptics';
 import PressableScale from '@/components/PressableScale';
 import OptionalTag from '@/components/OptionalTag';
@@ -147,7 +147,7 @@ export function SegmentedControl({ options, value, onChange, style }: SegmentedC
   const tx = useSharedValue(0);
   useEffect(() => {
     const to = activeIndex * segW;
-    tx.value = reducedMotion ? to : withTiming(to, { duration: 150, easing: Easing.out(Easing.cubic) });
+    tx.value = reducedMotion ? to : withTiming(to, { duration: Duration.control, easing: Ease.enter });
   }, [activeIndex, segW, reducedMotion, tx]);
 
   const pillStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 44,
+    minHeight: MIN_TAP_TARGET,
   },
   checkboxBox: {
     width: 24,
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderRadius: Radius.sm,
     padding: 4,
-    minHeight: 44,
+    minHeight: MIN_TAP_TARGET,
     borderWidth: 1.5,
   },
   segment: {
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   switchRow: {
-    minHeight: 44,
+    minHeight: MIN_TAP_TARGET,
     justifyContent: 'center',
   },
   segmentLabel: {
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.semibold,
   },
   input: {
-    minHeight: 44,
+    minHeight: MIN_TAP_TARGET,
     borderWidth: 1,
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.sm,
