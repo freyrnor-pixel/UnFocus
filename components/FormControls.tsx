@@ -7,12 +7,16 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme (useAppTheme, useAccessibility), lib/haptics,
- *             components/PressableScale, react-native-reanimated
+ *             components/PressableScale, components/OptionalTag, react-native-reanimated
  *   Used by → any screen wanting a themed checkbox/switch/segmented-control/input
  *   Data    → none (purely presentational, controlled components)
  *
  * Edit notes:
  *   - All interactive targets respect the 44px minimum hit area.
+ *   - **`optional` on Input (2026-07-30)**: renders components/OptionalTag.tsx's "Opt" badge
+ *     next to the label, replacing the old inline "(Note (optional))"-style label text —
+ *     see app/health-form.tsx/app/medicine-form.tsx for callers. Only meaningful when `label`
+ *     is also set.
  *   - SegmentedControl options/labels must already be localized by the caller.
  *   - Input border is `border` normally, `borderStrong` while focused (or `bad` on error,
  *     regardless of focus); active segment background is `surface` — a raised surface,
@@ -48,6 +52,7 @@ import { useToggleColor } from '@/lib/useToggleColor';
 import { Duration } from '@/constants/motion';
 import { selection } from '@/lib/haptics';
 import PressableScale from '@/components/PressableScale';
+import OptionalTag from '@/components/OptionalTag';
 
 // ── Checkbox ─────────────────────────────────────────────────────────────────
 
@@ -192,16 +197,23 @@ export function SegmentedControl({ options, value, onChange, style }: SegmentedC
 type InputProps = TextInputProps & {
   label?: string;
   error?: string;
+  /** Renders a small "Opt" tag beside the label — this field isn't required to save. */
+  optional?: boolean;
 };
 
-export function Input({ label, error, style, onFocus, onBlur, ...rest }: InputProps) {
+export function Input({ label, error, optional, style, onFocus, onBlur, ...rest }: InputProps) {
   const theme = useAppTheme();
   const [focused, setFocused] = useState(false);
   const borderColor = error ? theme.bad : focused ? theme.borderStrong : theme.border;
 
   return (
     <View>
-      {label ? <Text style={[styles.inputLabel, { color: theme.textMuted }]}>{label}</Text> : null}
+      {label ? (
+        <View style={styles.labelRow}>
+          <Text style={[styles.inputLabel, { color: theme.textMuted }]}>{label}</Text>
+          {optional && <OptionalTag />}
+        </View>
+      ) : null}
       <TextInput
         {...rest}
         placeholderTextColor={theme.textMuted}
@@ -274,10 +286,15 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     fontFamily: Fonts.semibold,
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
   inputLabel: {
     fontSize: FontSize.xs,
     fontFamily: Fonts.semibold,
-    marginBottom: Spacing.xs,
   },
   input: {
     minHeight: 44,

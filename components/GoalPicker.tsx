@@ -9,8 +9,9 @@
  *
  * Connections:
  *   Imports → components/Button, components/IconButton, components/PressableScale,
- *             components/GoalGlowDot, components/FormControls (Input), constants/theme,
- *             lib/useAppTheme, lib/i18n, lib/haptics, store/useGoalStore, components/AppModal
+ *             components/GoalGlowDot, components/FormControls (Input), components/OptionalTag,
+ *             constants/theme, lib/useAppTheme, lib/i18n, lib/haptics, store/useGoalStore,
+ *             components/AppModal
  *   Used by → components/TaskCard.tsx (was app/task-form.tsx, retired 2026-07-23, UX audit
  *             B1 — see that file's header), app/habit-form.tsx
  *   Data    → reads/writes useGoalStore (goals table) via add/rename/remove; the selected
@@ -30,6 +31,7 @@ import PressableScale from '@/components/PressableScale';
 import { Input } from '@/components/FormControls';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import { showAppModal } from '@/components/AppModal';
+import OptionalTag from '@/components/OptionalTag';
 import { Spacing, Radius, FontSize, Fonts } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -87,7 +89,10 @@ export function GoalPicker({ value, onChange }: Props) {
 
   return (
     <View style={styles.field}>
-      <Text style={[styles.label, { color: theme.textMuted }]}>{t.goals.pickerLabel}</Text>
+      <View style={styles.labelRow}>
+        <Text style={[styles.label, { color: theme.textMuted }]}>{t.goals.pickerLabel}</Text>
+        <OptionalTag />
+      </View>
 
       {selected ? (
         <View style={[styles.row, { backgroundColor: theme.surfaceMuted }]}>
@@ -154,6 +159,7 @@ export function GoalPicker({ value, onChange }: Props) {
 const baseStyles = StyleSheet.create({
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   hint: { fontSize: FontSize.sm, marginTop: Spacing.xs },
   row: {
     flexDirection: 'row',

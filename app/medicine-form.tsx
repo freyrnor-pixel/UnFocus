@@ -15,7 +15,8 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls
  *             (Input/Switch), components/Stepper, components/PressableScale,
- *             components/HintCard, components/AppModal (delete confirm), constants/theme,
+ *             components/HintCard, components/FieldDivider, components/OptionalTag,
+ *             components/AppModal (delete confirm), constants/theme,
  *             lib/date (todayStr/getWeekDates), lib/haptics, lib/i18n, lib/severity
  *             (side-effect severity dots), lib/useAppTheme, lib/medicineSchedule (TRAY_IDS),
  *             store/useMedicineStore, store/useHealthStore (attributed symptom entries),
@@ -26,6 +27,9 @@
  *             7-day count and useHealthStore.logs for entries whose medicineId matches
  *
  * Edit notes:
+ *   - **Field dividers + Opt tags (2026-07-30)**: `FieldDivider` hairlines separate each field
+ *     block, and Dose/For/Notes/the as-needed gap+cap fields carry `OptionalTag`/`optional` —
+ *     only Name (and, unless "as needed" is on, the tray picker) actually block save().
  *   - **A medicine must be in at least one tray OR be as-needed** — save is blocked with an
  *     inline error otherwise, because a scheduled medicine in no tray would be invisible on
  *     the card. The store enforces the other half of the invariant (as-needed ⇒ no trays).
@@ -46,6 +50,8 @@ import { Input, Switch } from '@/components/FormControls';
 import Stepper from '@/components/Stepper';
 import PressableScale from '@/components/PressableScale';
 import HintCard from '@/components/HintCard';
+import FieldDivider from '@/components/FieldDivider';
+import OptionalTag from '@/components/OptionalTag';
 import { showAppModal } from '@/components/AppModal';
 import { useMedicineStore } from '@/store/useMedicineStore';
 import { useHealthStore } from '@/store/useHealthStore';
@@ -181,11 +187,14 @@ export default function MedicineFormScreen() {
           <View style={styles.field}>
             <Input
               label={t.medicine.doseLabel}
+              optional
               value={dose}
               onChangeText={setDose}
               placeholder={t.medicine.dosePlaceholder}
             />
           </View>
+
+          <FieldDivider />
 
           {/* As needed — flips the whole scheduling model, so it sits above the tray picker. */}
           <Surface style={styles.switchRow}>
@@ -199,11 +208,16 @@ export default function MedicineFormScreen() {
             />
           </Surface>
 
+          <FieldDivider />
+
           {asNeeded ? (
             <>
               <Text style={[styles.hint, { color: theme.textMuted }]}>{t.medicine.asNeededHint}</Text>
               <View style={styles.field}>
-                <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.minIntervalLabel}</Text>
+                <View style={styles.labelRow}>
+                  <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.minIntervalLabel}</Text>
+                  <OptionalTag />
+                </View>
                 <View style={styles.chipRow}>
                   {GAP_OPTIONS.map((min) => {
                     const isActive = minIntervalMin === min;
@@ -232,7 +246,10 @@ export default function MedicineFormScreen() {
                 </View>
               </View>
               <View style={[styles.field, styles.stepperRow]}>
-                <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.maxPerDayLabel}</Text>
+                <View style={styles.labelRow}>
+                  <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.maxPerDayLabel}</Text>
+                  <OptionalTag />
+                </View>
                 <Stepper value={maxPerDay} onChange={setMaxPerDay} min={0} max={12} accessibilityLabel={t.medicine.maxPerDayLabel} />
               </View>
               <Text style={[styles.hint, { color: theme.textMuted }]}>{t.medicine.maxPerDayPlaceholder}</Text>
@@ -276,8 +293,13 @@ export default function MedicineFormScreen() {
               most sensitive in the DB and are deliberately outside SyncTable), so there is
               no second device that could disagree about who "Sam" is. */}
           {peopleModeEnabled && people.length > 1 && (
+            <>
+            <FieldDivider />
             <View style={styles.field}>
-              <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.personLabel}</Text>
+              <View style={styles.labelRow}>
+                <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.personLabel}</Text>
+                <OptionalTag />
+              </View>
               <View style={styles.chipRow}>
                 {people.map((person, index) => {
                   const value = person.isSelf ? '' : person.name;
@@ -294,11 +316,15 @@ export default function MedicineFormScreen() {
                 })}
               </View>
             </View>
+            </>
           )}
+
+          <FieldDivider />
 
           <View style={styles.field}>
             <Input
               label={t.medicine.notesLabel}
+              optional
               value={notes}
               onChangeText={setNotes}
               placeholder={t.medicine.notesPlaceholder}
@@ -306,6 +332,8 @@ export default function MedicineFormScreen() {
               style={styles.notesInput}
             />
           </View>
+
+          <FieldDivider />
 
           <Surface style={styles.switchRow}>
             <Text style={[styles.switchLabel, { color: theme.text }]}>{t.medicine.activeLabel}</Text>
@@ -315,6 +343,7 @@ export default function MedicineFormScreen() {
 
           {isEdit && existing && (
             <>
+              <FieldDivider />
               <Text style={[styles.hint, { color: theme.textMuted }]}>
                 {takenDays > 0 ? t.medicine.takenRecently(takenDays) : t.medicine.takenNeverRecently}
               </Text>
@@ -427,6 +456,7 @@ const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.lg },
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   hint: { fontSize: FontSize.xs, fontStyle: 'italic' },
   error: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   switchRow: {
