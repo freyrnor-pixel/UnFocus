@@ -388,7 +388,11 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.sm,
-    marginBottom: Spacing.sm,
+    // Spacing.md, matching HomeHabitsCard/PlanTaskCard's header gap (2026-07-30, user
+    // report: "tips-text too close to color field... in notes it overlaps with color
+    // field") — this card's header carries a mic button beside the badge, and the old
+    // Spacing.sm left the empty-state hint crowding both of them.
+    marginBottom: Spacing.md,
   },
   headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   headerText: { flex: 1, minWidth: 0 },

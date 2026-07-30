@@ -844,8 +844,14 @@ export default function TasksScreen() {
 
         {/* First-run explainer (2026-07-26): what a to-do is for here, plus an example.
             Shown only while there is not a single task on any tab, so it costs nothing once
-            the list is in use — and comes back if every task is later deleted. */}
-        {tasks.length === 0 && (
+            the list is in use — and comes back if every task is later deleted.
+            **Suppressed on Today's timeline layout (2026-07-30 fix)**: since the "on a
+            timeline" default (see `layoutSpec.timeline` below) mounts PlanTaskCard directly
+            on this tab, an empty day already draws its OWN "Break it into smaller pieces"
+            explainer + example row inline where the list would be — this screen-level card
+            used to stack a second, near-identical explainer above it (user report, preview
+            screenshot: the same bulb text and example twice in a row). */}
+        {tasks.length === 0 && !(tab === 'today' && layoutSpec.timeline) && (
           <StarterCard
             text={t.starters.plans.text}
             exampleLabel={t.starters.plans.exampleLabel}
@@ -1025,6 +1031,11 @@ export default function TasksScreen() {
                   onPressTask={(task: Task) => router.push({ pathname: '/task-form', params: { id: task.id } })}
                   onToggleTask={handleToggleDone}
                   onAddTask={handleTimelineAddTask}
+                  // Same one-tap "Tidy up" example the screen-level StarterCard offered before
+                  // it was suppressed for this layout (see that card's gate above) — without
+                  // this, an empty day on the timeline default would lose the quick-add
+                  // affordance entirely, not just the redundant second copy of the explainer.
+                  onAddExample={addPlanStarterTask}
                 />
               ) : layoutSpec.id === 'focusFirst' ? (
                 /* "One thing at a time" — a different SHAPE for the same tasks, so it replaces

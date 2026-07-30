@@ -30,9 +30,15 @@
  *   - Rows animate open/shut through components/Collapsible (measured-height clip, no fade)
  *     so folding a card reads as "still there, just folded", matching the done zones. Do not
  *     swap in an opacity fade — see Collapsible's header for why.
- *   - Spare lines are inert `View`s at PAD_ROW_MIN_HEIGHT, not pressables: tapping empty
- *     paper does nothing, the type line is the way in. They exist so a short list still
- *     reads as a page rather than as a card that ran out.
+ *   - Spare lines are inert — tapping empty paper does nothing, the type line is the way in.
+ *     They exist so a short list still reads as a page rather than as a card that ran out.
+ *     Each one carries a faint, non-interactive circle in the same right-edge slot a real
+ *     row's check occupies (2026-07-30, user report: "shopping list doesn't look like a
+ *     shopping list" — bare ruled lines with nothing on them read as leftover blank paper,
+ *     not as more rows of the same checkable list). Same geometry as `PadRow`'s check
+ *     (22×22, `Radius.full`, 2px ring) so a spare line previews exactly where a future row's
+ *     check would land; muted `theme.border` instead of a domain accent since it's a ghost,
+ *     not a real control — and unlike the real check, it's a plain `View`, not a Pressable.
  *   - This draws the rules as child views INSIDE the card, never as border styles on a
  *     Surface's `style` — Surface silently drops every border/background key you pass it
  *     (see Surface.tsx's style-splitting contract).
@@ -40,7 +46,7 @@
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import Collapsible from '@/components/Collapsible';
-import { PAD_ROW_HEIGHT, PAD_ROW_MIN_HEIGHT } from '@/constants/theme';
+import { PAD_ROW_HEIGHT, PAD_ROW_MIN_HEIGHT, Radius } from '@/constants/theme';
 import { PadState, padSpareLines } from '@/lib/padState';
 import { useAppTheme } from '@/lib/useAppTheme';
 
@@ -100,7 +106,9 @@ export default function PadSheet({
         ))}
         {Array.from({ length: spare }, (_, i) => (
           <React.Fragment key={`spare-${i}`}>
-            <View style={styles.spare} />
+            <View style={styles.spare}>
+              <View style={[styles.ghostCheck, { borderColor: theme.border }]} />
+            </View>
             <View style={[styles.rule, rule]} />
           </React.Fragment>
         ))}
@@ -122,7 +130,11 @@ const styles = StyleSheet.create({
   // (2026-07-30, user report — see PAD_ROW_HEIGHT's own comment in constants/theme.ts).
   line: { minHeight: PAD_ROW_HEIGHT, justifyContent: 'center' },
   // Blank paper. Inert on purpose (see the header) — the type line is the way to add a row.
-  spare: { height: PAD_ROW_HEIGHT },
+  // Row layout so the ghost check below can sit in the same right-edge slot a real row's
+  // check occupies.
+  spare: { height: PAD_ROW_HEIGHT, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
+  // Same geometry as PadRow's `check` — see the header note for why it's not a Pressable.
+  ghostCheck: { width: 22, height: 22, borderRadius: Radius.full, borderWidth: 2 },
   // Spans the pad's whole writing area (gutter edge to gutter edge) but deliberately does NOT
   // bleed to the card's outer edge: the accent rim is the binding, and a rule running into it
   // is exactly the "text/lines too close to a border" complaint this pass is fixing.
