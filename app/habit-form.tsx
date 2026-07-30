@@ -33,6 +33,12 @@
  *     making a habit and making a task end identically. The header keeps a save button but
  *     it reads "✓ Save" — a bare checkmark didn't say what it did.
  *
+ * **Field dividers + Opt tags (2026-07-30)**: a hairline `FieldDivider` now separates every
+ * field block (matching app/settings.tsx's in-card divider convention), and For/Energy/Goal/
+ * the whole "More options" disclosure (How often, Daily goal, Icon, Category — all four
+ * already sensible-default fields per the field-order note above) carry
+ * `OptionalTag`/`Input`'s `optional` prop — only Title actually blocks save().
+ *
  * Build/break kind and the cue→craving→response→reward "atomic habits" steps were
  * removed (habits are now simple, task-shaped) — `kind` is written as 'neutral' and the
  * step columns are saved empty; the DB columns are retained (never dropped).
@@ -42,8 +48,8 @@
  *             components/Collapsible (animated "More options" disclosure),
  *             components/HintCard, components/HabitIcon, components/AppModal,
  *             components/PressableScale, components/Stepper, components/GoalPicker (gated on
- *             settings.featureGoals), lib/haptics,
- *             lib/i18n, lib/useAppTheme, store/useHabitStore, store/useSettingsStore
+ *             settings.featureGoals), components/FieldDivider, components/OptionalTag,
+ *             lib/haptics, lib/i18n, lib/useAppTheme, store/useHabitStore, store/useSettingsStore
  *   Used by → Expo Router route "/habit-form"; reached from app/(tabs)/habits.tsx (its own
  *             bottom-nav tab as of 2026-07-23 — was embedded in health.tsx before that;
  *             each habit card's settings-gear IconButton, 2026-07-21 — replaced the old
@@ -131,6 +137,8 @@ import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
+import FieldDivider from '@/components/FieldDivider';
+import OptionalTag from '@/components/OptionalTag';
 import { AspectRatio, FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 
 const INTERVAL_OPTIONS = [30, 60, 90, 120, 180, 240];
@@ -369,8 +377,13 @@ export default function HabitForm() {
             name is sufficient here and avoids a second id migration. See the People note
             in store/usePeopleStore.ts. */}
         {peopleModeEnabled && people.length > 1 && (
+          <>
+          <FieldDivider />
           <View style={styles.field}>
-            <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitForLabel}</Text>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitForLabel}</Text>
+              <OptionalTag />
+            </View>
             <View style={styles.chipRow}>
               {people.map((person, index) => {
                 const value = person.isSelf ? '' : person.name;
@@ -387,7 +400,10 @@ export default function HabitForm() {
               })}
             </View>
           </View>
+          </>
         )}
+
+        <FieldDivider />
 
         {/* ── Reminder (moved below the schedule, 2026-07-26): you decide WHEN the habit
                happens before you decide whether to be nudged about it. ── */}
@@ -485,13 +501,18 @@ export default function HabitForm() {
           </View>
         )}
 
+        <FieldDivider />
+
         {/* Energy give / take — one signed stepper (2026-07-26): the old "Affects energy"
             switch + separate value stepper were two controls for one number, and 0 already
             means "no effect" to lib/energy.ts. energyEnabled is derived on save. Not gated on
             a setting any more — 0 by default means it costs nothing until you say otherwise. */}
         <View style={styles.field}>
           <View style={styles.energyStepperRow}>
-            <Text style={[styles.label, { color: theme.textMuted }]}>{t.energyGiveTakeLabel}</Text>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, { color: theme.textMuted }]}>{t.energyGiveTakeLabel}</Text>
+              <OptionalTag />
+            </View>
             <Stepper value={energyValue} onChange={setEnergyValue} signed accessibilityLabel={t.energyGiveTakeLabel} />
           </View>
           <Text style={[styles.reminderPreview, { color: theme.textMuted }]}>{t.energyGiveTakeHint}</Text>
@@ -499,10 +520,19 @@ export default function HabitForm() {
 
         {/* Goal — connect this habit to a Goal (create/select/delete inline).
             Opt-in via settings.featureGoals (Settings → Advanced → Features). */}
-        {featureGoals && <GoalPicker value={goalId} onChange={setGoalId} />}
+        {featureGoals && (
+          <>
+            <FieldDivider />
+            <GoalPicker value={goalId} onChange={setGoalId} />
+          </>
+        )}
+
+        <FieldDivider />
 
         {/* More options disclosure — icon/category only now; both are cosmetic/organizational,
-            not load-bearing, so they stay tucked away by default. */}
+            not load-bearing, so they stay tucked away by default. The schedule (How often/
+            Daily goal) inside is covered by the same "Opt" tag: sensible defaults already
+            apply, per the header comment above. */}
         <PressableScale
           style={[styles.disclosure, { borderColor: theme.border }]}
           onPress={() => {
@@ -511,9 +541,12 @@ export default function HabitForm() {
           }}
           scaleTo={0.97}
         >
-          <Text style={[styles.disclosureText, { color: theme.textMuted }]}>
-            {showMore ? `${t.habits.fewerOptions} ↑` : `${t.habits.moreOptions} ↓`}
-          </Text>
+          <View style={styles.labelRow}>
+            <Text style={[styles.disclosureText, { color: theme.textMuted }]}>
+              {showMore ? `${t.habits.fewerOptions} ↑` : `${t.habits.moreOptions} ↓`}
+            </Text>
+            <OptionalTag />
+          </View>
         </PressableScale>
         {!showMore && (
           <Text style={[styles.reminderPreview, { color: theme.textMuted }]}>{`${scheduleSummary} — ${t.habitMoreOptionsHint}`}</Text>
@@ -575,6 +608,8 @@ export default function HabitForm() {
           )}
         </View>
 
+        <FieldDivider />
+
         {/* Daily/weekly goal stepper — shown by default alongside Recurrence, same reasoning.
             Reuses the same `dailyGoal` field as a per-week target when recurrence is
             'weekly-flexible' (lib/habitRecurrence.ts) — only the label changes. */}
@@ -584,6 +619,8 @@ export default function HabitForm() {
           </Text>
           <Stepper value={dailyGoal} onChange={setDailyGoal} min={1} max={20} accessibilityLabel={t.habitDailyGoal} />
         </View>
+
+        <FieldDivider />
 
             {/* Icon picker */}
             <View style={styles.field}>
@@ -613,6 +650,8 @@ export default function HabitForm() {
                 </View>
               </ScrollView>
             </View>
+
+            <FieldDivider />
 
             {/* Category */}
             <View style={styles.field}>
@@ -698,6 +737,7 @@ const baseStyles = StyleSheet.create({
   dayChip: { flex: 1, aspectRatio: AspectRatio.square, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
   dayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   chip: { paddingHorizontal: Spacing.sm, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1.5 },
   chipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },

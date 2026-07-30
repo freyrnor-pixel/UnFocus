@@ -47,6 +47,10 @@ const en = {
   previous: '← Back',
   done: "Let's go! 🌿",
   ok: 'OK',
+  // Small badge next to a field's label marking it as not required to save — see
+  // components/OptionalTag.tsx. Kept as a single short word/abbreviation in both
+  // languages so it reads as a tag, not a sentence fragment.
+  optionalTag: 'Opt',
   webPreview: { notAvailable: 'Not available in the web preview.' },
   // Home screen
   addNew: '+ New',
@@ -900,7 +904,7 @@ const en = {
   logSymptomTrigger: 'Log occurrence',
   ailmentLabel: 'Issue',
   severityLabel: 'Severity',
-  notesLabel: 'Note (optional)',
+  notesLabel: 'Note',
   notesPlaceholder: 'Any notes…',
   severityLabels: ['Mild', 'Slight', 'Moderate', 'Strong', 'Severe'],
   whenStartedLabel: 'When started',
@@ -1619,6 +1623,7 @@ const no: typeof en = {
   previous: '← Tilbake',
   done: 'Kom i gang! 🌿',
   ok: 'OK',
+  optionalTag: 'Valgfri',
   webPreview: { notAvailable: 'Ikke tilgjengelig i nettleserforhåndsvisningen.' },
   addNew: '+ Ny',
   backlog: 'Venter på deg',
@@ -2707,7 +2712,7 @@ const no: typeof en = {
   logSymptomTrigger: 'Logg hendelse',
   ailmentLabel: 'Plage',
   severityLabel: 'Alvorlighet',
-  notesLabel: 'Notat (valgfritt)',
+  notesLabel: 'Notat',
   notesPlaceholder: 'Eventuelle notater…',
   severityLabels: ['Mild', 'Litt', 'Moderat', 'Kraftig', 'Alvorlig'],
   whenStartedLabel: 'Når startet',

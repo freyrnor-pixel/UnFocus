@@ -7,8 +7,8 @@
  * who it's for, and what kind of thing it is.
  *
  * Connections:
- *   Imports → components/TagChip, components/PressableScale, constants/theme, lib/haptics,
- *             lib/i18n, lib/tags, lib/useAppTheme, store/useTagStore
+ *   Imports → components/TagChip, components/OptionalTag, components/PressableScale,
+ *             constants/theme, lib/haptics, lib/i18n, lib/tags, lib/useAppTheme, store/useTagStore
  *   Used by → components/TaskCard.tsx (the task editor's Tags row)
  *   Data    → reads store/useTagStore's roster; creates rows through its `ensure()`
  *
@@ -24,6 +24,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import TagChip from '@/components/TagChip';
+import OptionalTag from '@/components/OptionalTag';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -55,7 +56,10 @@ export default function TagPickerRow({ value, onChange }: Props) {
 
   return (
     <View style={styles.row}>
-      <Text style={[styles.label, { color: theme.textMuted }]}>{t.tags.label}</Text>
+      <View style={styles.labelRow}>
+        <Text style={[styles.label, { color: theme.textMuted }]}>{t.tags.label}</Text>
+        <OptionalTag />
+      </View>
       <View style={styles.chips}>
         {tags.map((tag) => (
           <TagChip
@@ -101,6 +105,7 @@ export default function TagPickerRow({ value, onChange }: Props) {
 const styles = StyleSheet.create({
   row: { gap: Spacing.xs },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, alignItems: 'center' },
   input: {
     minWidth: 120,

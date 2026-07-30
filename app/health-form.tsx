@@ -16,6 +16,7 @@
  *             components/Collapsible (animated inline calendar reveal),
  *             components/HintCard, components/ConfirmationBanner, components/DatePickerCalendar,
  *             components/IconButton, components/Button, components/AppModal, components/PressableScale,
+ *             components/FieldDivider, components/OptionalTag,
  *             lib/date, lib/haptics, lib/i18n, lib/severity, lib/useAppTheme, store/useHealthStore,
  *             store/useMedicineStore (the "Possibly from" chip row — read-only)
  *   Used by → Expo Router route "/health-form"; pushed from app/(tabs)/health.tsx's "This week"
@@ -25,6 +26,11 @@
  *             reads useMedicineStore.medicines to offer the optional `medicineId` attribution
  *
  * Edit notes:
+ *   - **Field dividers + Opt tags (2026-07-30)**: a hairline `FieldDivider` now separates each
+ *     field block (matching app/settings.tsx's long-standing in-card divider convention), and
+ *     Note + "Possibly from" carry `OptionalTag`/`Input`'s `optional` prop since neither is
+ *     required to save — only Issue actually blocks save(). `notesLabel`'s old inline
+ *     "(optional)" text was dropped from lib/i18n.ts in favour of the tag.
  *   - Picking/typing the Issue field sets both `ailment` (display name) and `symptomId` (stable
  *     trend key), same as the old inline health.tsx editor; a typed name with no picked
  *     suggestion is committed to the catalog via ensureSymptom() on save. A `name` route param
@@ -59,6 +65,8 @@ import HintCard from '@/components/HintCard';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import DatePickerCalendar from '@/components/DatePickerCalendar';
 import Collapsible from '@/components/Collapsible';
+import FieldDivider from '@/components/FieldDivider';
+import OptionalTag from '@/components/OptionalTag';
 import IconButton from '@/components/IconButton';
 import Button from '@/components/Button';
 import { showAppModal } from '@/components/AppModal';
@@ -301,6 +309,8 @@ export default function HealthFormScreen() {
           )}
         </View>
 
+        <FieldDivider />
+
         {/* Severity */}
         <View style={styles.field}>
           <Text style={[styles.label, { color: theme.textMuted }]}>{t.severityLabel}</Text>
@@ -328,6 +338,8 @@ export default function HealthFormScreen() {
           </View>
         </View>
 
+        <FieldDivider />
+
         {/* When started */}
         <View style={styles.field}>
           <Text style={[styles.label, { color: theme.textMuted }]}>{t.whenStartedLabel}</Text>
@@ -345,6 +357,8 @@ export default function HealthFormScreen() {
             style={styles.timeInput}
           />
         </View>
+
+        <FieldDivider />
 
         {/* When finished */}
         <View style={styles.field}>
@@ -378,8 +392,13 @@ export default function HealthFormScreen() {
             when no medicine exists, so a user who doesn't use that feature never sees it.
             "Not sure" (medicineId '') is always available and is the default. */}
         {medicines.length > 0 && (
+          <>
+          <FieldDivider />
           <View style={styles.field}>
-            <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.attributionLabel}</Text>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.attributionLabel}</Text>
+              <OptionalTag />
+            </View>
             <View style={styles.chipRow}>
               {[{ id: '', name: t.medicine.attributionNone }, ...medicines.filter((m) => m.active)].map((m) => {
                 const active = medicineId === m.id;
@@ -407,12 +426,16 @@ export default function HealthFormScreen() {
               })}
             </View>
           </View>
+          </>
         )}
+
+        <FieldDivider />
 
         {/* Note */}
         <View style={styles.field}>
           <Input
             label={t.notesLabel}
+            optional
             value={notes}
             onChangeText={setNotes}
             placeholder={t.notesPlaceholder}
@@ -435,6 +458,7 @@ const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.lg },
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   // "Possibly from" medicine chips — same pill sizing as app/habit-form.tsx's chip rows.
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   chip: { paddingHorizontal: Spacing.sm, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1.5 },

@@ -63,7 +63,8 @@
  *             lib/cardLayout (LayoutSpec — gates the COLLAPSED row's cues only, never the editor),
  *             components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
  *             components/IconButton, components/Stepper, components/Button, components/GoalPicker,
- *             components/FormControls (Switch), components/AppModal,
+ *             components/FormControls (Switch), components/AppModal, components/FieldDivider,
+ *             components/OptionalTag,
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron (animated
  *             steps/editor/advanced reveal + rotating chevrons), components/GlowPulse (breathing editing halo),
  *             constants/theme (incl. getElevation, rgba), lib/date, lib/haptics, lib/i18n, lib/id,
@@ -86,6 +87,14 @@
  *             onCommitNew fires.
  *
  * Edit notes:
+ *   - **Field dividers + Opt tags (2026-07-30)**: a hairline `FieldDivider` now separates every
+ *     field group in the expanded editor (Title/For+Rotation/Tags/Steps/Repeat/When/Time of
+ *     day/Energy/Advanced), matching app/settings.tsx's long-standing in-card divider
+ *     convention. For/Rotation/Tags/When/Start-from/Hint/Contact/Location/Then all carry
+ *     `OptionalTag` (Goal's lives inside components/GoalPicker.tsx, Tags' inside
+ *     components/TagPickerRow.tsx, since both are shared with app/habit-form.tsx) — only
+ *     Title actually blocks save. Toggle rows (Repeat, Time of day, Shared-out) are left
+ *     untagged: the switch itself already reads as optional/binary.
  *   - **Row rule (2026-07-28, design-system v6 `Checklist Redesign Options`)**: the collapsed
  *     row is title + ONE right-hand value (the time, in `TabularNums` so the right edge lines
  *     up row to row) on line 1, and ONE meta line (person · tags · goal dot) on line 2. Those
@@ -163,6 +172,8 @@ import PressableScale from '@/components/PressableScale';
 import GlowPulse from '@/components/GlowPulse';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
+import FieldDivider from '@/components/FieldDivider';
+import OptionalTag from '@/components/OptionalTag';
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
@@ -373,7 +384,10 @@ function TaskCard({
   function renderDayPicker(label: string, offLabel: string) {
     return (
       <View style={styles.field}>
-        <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{label}</Text>
+        <View style={styles.labelRow}>
+          <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{label}</Text>
+          <OptionalTag />
+        </View>
         <SlideSelector
           compact
           options={[
@@ -815,10 +829,16 @@ function TaskCard({
               )}
             </View>
 
+            <FieldDivider />
+
             {/* For — person/profile assignment (People/family mode). Mirrors habit-form. */}
             {showPeople && (
+              <>
               <View style={styles.forRow}>
-                <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.habitForLabel}</Text>
+                <View style={styles.labelRow}>
+                  <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.habitForLabel}</Text>
+                  <OptionalTag />
+                </View>
                 <View style={styles.forChips}>
                   {people.map((person, index) => (
                     <PersonChip
@@ -834,15 +854,18 @@ function TaskCard({
                   ))}
                 </View>
               </View>
-            )}
 
-            {/* Take turns — a chore that rotates instead of belonging to one person. Only
-                offered when there IS somebody to rotate with. Turning it on captures
-                today as the anchor; it is never recomputed afterwards, because moving the
-                anchor reshuffles every past and future turn (lib/taskRotation.ts). */}
-            {showPeople && (
+              <FieldDivider />
+
+              {/* Take turns — a chore that rotates instead of belonging to one person. Only
+                  offered when there IS somebody to rotate with. Turning it on captures
+                  today as the anchor; it is never recomputed afterwards, because moving the
+                  anchor reshuffles every past and future turn (lib/taskRotation.ts). */}
               <View style={styles.forRow}>
-                <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.rotation.label}</Text>
+                <View style={styles.labelRow}>
+                  <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.rotation.label}</Text>
+                  <OptionalTag />
+                </View>
                 <View style={styles.forChips}>
                   {(['none', 'daily', 'weekly', 'monthly'] as RotationMode[]).map((mode) => (
                     <PersonChip
@@ -891,7 +914,10 @@ function TaskCard({
                   </>
                 )}
               </View>
+              </>
             )}
+
+            <FieldDivider />
 
             {/* Tags — what kind of thing this is, the counterpart to "For" above. Always
                 offered: a tag is useful on a solo list too, unlike an assignee. */}
@@ -899,6 +925,8 @@ function TaskCard({
               value={draft.tagIds ?? []}
               onChange={(tagIds) => patch({ tagIds })}
             />
+
+            <FieldDivider />
 
             {/* Steps — persist immediately for existing tasks; buffered on the local draft
                 for a new (isNew) card until Save creates the real task row. */}
@@ -946,6 +974,8 @@ function TaskCard({
               />
               <IconButton icon="add" label={t.stepPlaceholder} onPress={handleAddStep} size={30} />
             </View>
+
+            <FieldDivider />
 
             {/* Repeat */}
             <View style={styles.toggleRow}>
@@ -1068,6 +1098,8 @@ function TaskCard({
                 different entirely (a start boundary), so that lives in Advanced options. */}
             {!isRecurring && renderDayPicker(t.taskWhenLabel, t.taskWhenWhenever)}
 
+            <FieldDivider />
+
             {/* Time of day — opt-in. Independent of the day: "sometime Tuesday" and
                 "17:00, whenever" are both real, so neither implies the other. */}
             <View style={styles.toggleRow}>
@@ -1087,6 +1119,8 @@ function TaskCard({
               </View>
             )}
 
+            <FieldDivider />
+
             {/* Energy give / take — promoted out of Advanced options (2026-07-26): it changes
                 whether the task shows up as affordable on the Home meter, which is a main-flow
                 decision, not a power-user one. One signed stepper; 0 means no effect, which is
@@ -1094,7 +1128,10 @@ function TaskCard({
                 so the system stays out of the way without needing an opt-out. */}
             <View style={styles.field}>
               <View style={styles.energyCostRow}>
-                <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.energyGiveTakeLabel}</Text>
+                <View style={styles.labelRow}>
+                  <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.energyGiveTakeLabel}</Text>
+                  <OptionalTag />
+                </View>
                 <Stepper
                   value={energyShown}
                   onChange={(v) => patch(energyFieldsFromStepper(v))}
@@ -1117,7 +1154,10 @@ function TaskCard({
               accessibilityState={{ expanded: advancedOpen }}
               scaleTo={0.98}
             >
-              <Text style={[styles.toggleLabel, { color: theme.accent }]}>{t.taskAdvancedOptions}</Text>
+              <View style={styles.labelRow}>
+                <Text style={[styles.toggleLabel, { color: theme.accent }]}>{t.taskAdvancedOptions}</Text>
+                <OptionalTag />
+              </View>
               <AnimatedChevron open={advancedOpen} size={16} color={theme.accent} />
             </PressableScale>
             <Collapsible open={advancedOpen}>
@@ -1125,11 +1165,19 @@ function TaskCard({
                 {/* Start from — a recurring task's `hasStartDate` is a "no occurrences before
                     this date" boundary (lib/taskRecurrence.ts), NOT the task's day. Niche, so
                     it sits here rather than in the main When slot a one-off task gets. */}
-                {isRecurring && renderDayPicker(t.taskStartFromLabel, t.taskStartFromNone)}
+                {isRecurring && (
+                  <>
+                    {renderDayPicker(t.taskStartFromLabel, t.taskStartFromNone)}
+                    <FieldDivider />
+                  </>
+                )}
 
                 {/* Hint — Decision 019, freeform "next time" note, display-only */}
                 <View style={styles.field}>
-                  <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskHintLabel}</Text>
+                  <View style={styles.labelRow}>
+                    <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskHintLabel}</Text>
+                    <OptionalTag />
+                  </View>
                   <TextInput
                     style={[styles.hintInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
                     value={draft.hint}
@@ -1142,8 +1190,13 @@ function TaskCard({
 
                 {/* Contact — reserve-only, attach a name+phone snapshot, tap-to-call */}
                 {contactsEnabled && (
+                  <>
+                  <FieldDivider />
                   <View style={styles.field}>
-                    <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskContactLabel}</Text>
+                    <View style={styles.labelRow}>
+                      <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskContactLabel}</Text>
+                      <OptionalTag />
+                    </View>
                     {draft.contactName ? (
                       <View style={[styles.thenRow, { backgroundColor: theme.surfaceMuted }]}>
                         <PressableScale onPress={handleCallContact} disabled={!draft.contactPhone} style={{ flex: 1 }} scaleTo={0.98}>
@@ -1161,12 +1214,18 @@ function TaskCard({
                       </>
                     )}
                   </View>
+                  </>
                 )}
 
                 {/* Location — reserve-only, foreground "tag my current location", no reverse geocoding */}
                 {locationEnabled && (
+                  <>
+                  <FieldDivider />
                   <View style={styles.field}>
-                    <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskLocationLabel}</Text>
+                    <View style={styles.labelRow}>
+                      <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskLocationLabel}</Text>
+                      <OptionalTag />
+                    </View>
                     {draft.locationLat != null && draft.locationLng != null ? (
                       <View style={[styles.thenRow, { backgroundColor: theme.surfaceMuted }]}>
                         <View style={styles.locationRowContent}>
@@ -1189,21 +1248,30 @@ function TaskCard({
                       </>
                     )}
                   </View>
+                  </>
                 )}
 
                 {/* Goal — connect this task to a Goal (create/select/delete inline).
                     Opt-in via settings.featureGoals (Settings → Advanced → Features). */}
                 {featureGoals && (
+                  <>
+                  <FieldDivider />
                   <View style={styles.field}>
                     <GoalPicker value={draft.goalId} onChange={(id) => patch({ goalId: id })} />
                   </View>
+                  </>
                 )}
 
                 {/* Then — Decision 020, one-to-one follower link, immediate-persist (see
                     pickFollower/removeFollower above) — gated on an existing task, same as Steps. */}
                 {!isNew && (
+                  <>
+                  <FieldDivider />
                   <View style={styles.field}>
-                    <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.thenTaskLabel}</Text>
+                    <View style={styles.labelRow}>
+                      <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.thenTaskLabel}</Text>
+                      <OptionalTag />
+                    </View>
                     {currentFollower ? (
                       <View style={[styles.thenRow, { backgroundColor: theme.surfaceMuted }]}>
                         <Text style={[styles.thenRowText, { color: theme.text }]} numberOfLines={1}>
@@ -1247,14 +1315,18 @@ function TaskCard({
                       </View>
                     )}
                   </View>
+                  </>
                 )}
 
                 {/* Shared out toggle (persists immediately — emits an outgoing shared row) */}
                 {showShareOut && !isNew && (
+                  <>
+                  <FieldDivider />
                   <View style={styles.toggleRow}>
                     <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskSharedOut}</Text>
                     <Switch checked={task.sharedOut} onChange={(on) => setSharedOut(task.id, on)} />
                   </View>
+                  </>
                 )}
               </View>
             </Collapsible>
@@ -1395,6 +1467,7 @@ const styles = StyleSheet.create({
   },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   toggleLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   dateWrap: { gap: Spacing.sm },
   timeRow: { flexDirection: 'row', gap: Spacing.lg },
   timeCol: { gap: 4 },
