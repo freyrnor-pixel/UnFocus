@@ -52,9 +52,7 @@ const en = {
   addNew: '+ New',
   backlog: 'Waiting for you',
   // Plans widget (home preview + full /plans screen)
-  noPlansToday: 'No plans today — enjoy your day',
-  plansExpand: 'Show full day',
-  plansCollapse: 'Show less',
+  noPlansToday: 'Nothing to do today — enjoy your day',
   notesCollapse: 'Show less',
   timelineEmptyAdd: 'Add a plan',
   timelineNow: 'Now',
@@ -90,7 +88,7 @@ const en = {
   tasksSectionWheneverEmpty: 'Nothing here yet',
   tasksSharedSent: 'Sent',
   tasksSharedReceived: 'Received',
-  tasksDayEmpty: 'No plans',
+  tasksDayEmpty: 'Nothing to do',
   tasksDoneLabel: 'Done',
   taskSave: 'Save',
   taskDiscard: 'Discard',
@@ -329,7 +327,7 @@ const en = {
   sectionLanguage: 'Language',
   sectionReset: 'Reset data',
   resetMonthly: 'Reset monthly list',
-  resetTasks: 'Reset all plans',
+  resetTasks: 'Reset all to-dos',
   resetOnboarding: 'Reset onboarding',
   resetConfirmTitle: (label: string) => `Reset ${label}?`,
   resetConfirmBody: 'This cannot be undone.',
@@ -340,11 +338,11 @@ const en = {
   // Onboarding
   features: [
     { icon: 'home-outline', text: 'Home — quick actions and a simple overview of your day' },
-    { icon: 'checkbox-outline', text: "A to-do list that holds today's plans, so you don't have to remember them" },
+    { icon: 'checkbox-outline', text: "A to-do list that holds what today needs, so you don't have to remember it" },
     { icon: 'cart-outline', text: "Shopping lists that reset themselves, what's already in your cupboards, and recipes you can push straight to the list" },
     { icon: 'repeat-outline', text: 'Habits that give your days structure, one day at a time — no streak to lose' },
     { icon: 'heart-outline', text: 'Health — log symptoms and occurrences, and see the trends over time' },
-    { icon: 'battery-half-outline', text: 'An energy system that balances plans, habits and health against the energy you actually have' },
+    { icon: 'battery-half-outline', text: 'An energy system that balances to-dos, habits and health against the energy you actually have' },
   ],
   whatsYourName: "What's your name?",
   nameHint: 'Only used to say hi — no data leaves your phone.',
@@ -382,7 +380,7 @@ const en = {
   featurePicker: {
     title: 'What do you want to use?',
     sub: 'Pick the extras you want. Leave them off and the app stays simple.',
-    alwaysOn: 'Plans, shopping, notes, habits and health are always available. Your energy budget, goals, receipt scanning and recipes are also included from the start.',
+    alwaysOn: 'To-dos, shopping, notes, habits and health are always available. Your energy budget, goals, receipt scanning and recipes are also included from the start.',
     note: 'Energy, goals, sharing and automations can all be turned on or off later in Settings → Advanced.',
   },
   chooseLanguage: 'Choose language',
@@ -721,7 +719,7 @@ const en = {
   },
   // Sharing
   sharedTitle: 'Shared',
-  sharedTasks: 'Shared plans',
+  sharedTasks: 'Shared to-dos',
   sharedShopping: 'Shared shopping',
   shareSelected: 'Share selected',
   shareSendText: 'Send as text',
@@ -746,7 +744,7 @@ const en = {
   noSharedItems: 'Nothing shared yet. Share a list or scan someone\'s QR code.',
   selectAll: 'Select all',
   deselectAll: 'Deselect all',
-  sharedTasksTab: 'Plans',
+  sharedTasksTab: 'To-do',
   sharedShoppingTab: 'Shopping',
   // LAN live-sync (Decision 038 app integration) — pairing + sync toggle
   peers: {
@@ -835,14 +833,8 @@ const en = {
   },
   home: {
     todaysPlans: "Today's to-do",
-    seeAllPlans: 'See all plans',
+    seeAllPlans: 'See all to-dos',
     more: 'More',
-    notesExpand: 'Show all notes',
-    notesCollapse: 'Show less',
-    shoppingExpand: 'Show full list',
-    shoppingCollapse: 'Show less',
-    habitsExpand: 'Show all habits',
-    habitsCollapse: 'Show less',
     quantityLabel: 'Quantity',
     weeklyListChip: 'This week',
     addToTaskLabel: 'Also add as a task',
@@ -1046,8 +1038,8 @@ const en = {
       fontSizeLarge: 'Large',
       leftHanded: 'Left-handed mode',
       leftHandedHint: 'Moves the menu button to the left side',
-      timelineHorizontal: 'Horizontal plans timeline',
-      timelineHorizontalHint: "Shows today's plans as a left-to-right timeline instead of top-to-bottom",
+      timelineHorizontal: 'Horizontal to-do timeline',
+      timelineHorizontalHint: "Shows today's to-dos as a left-to-right timeline instead of top-to-bottom",
     },
     photoFormat: {
       title: 'Photo format',
@@ -1157,11 +1149,11 @@ const en = {
       intro: 'Turn on only what you need. You can change this at any time.',
       goals: {
         label: 'Goals',
-        hint: 'Link plans and habits to a goal, and see how strong it is.',
+        hint: 'Link to-dos and habits to a goal, and see how strong it is.',
       },
       sharing: {
         label: 'Sharing & QR',
-        hint: 'Send plans and shopping items to someone else, and receive theirs.',
+        hint: 'Send to-dos and shopping items to someone else, and receive theirs.',
       },
       automations: {
         label: 'Automations',
@@ -1351,7 +1343,7 @@ const en = {
   },
   hints: {
     home: {
-      text: "See today's notes, plans and shopping at a glance. Hold a card to rearrange it, or tap Edit cards to remove or add one back.",
+      text: "See today's notes, to-dos and shopping at a glance. Hold a card to rearrange it, or tap Edit cards to remove or add one back.",
       example: 'Plan with energy in mind: give draining tasks a minus and restoring ones a plus, and try to keep the day above zero.',
     },
     taskForm: {
@@ -1407,7 +1399,7 @@ const en = {
       example: '',
     },
     notes: {
-      text: 'Quick notes you can send to shopping or plans.',
+      text: 'Quick notes you can send to shopping or your to-do list.',
       example: '',
     },
     goals: {
@@ -1631,9 +1623,7 @@ const no: typeof en = {
   addNew: '+ Ny',
   backlog: 'Venter på deg',
   // Plans widget (home preview + full /plans screen)
-  noPlansToday: 'Ingen planer i dag! Nyt dagen',
-  plansExpand: 'Vis hele dagen',
-  plansCollapse: 'Vis mindre',
+  noPlansToday: 'Ingen gjøremål i dag! Nyt dagen',
   notesCollapse: 'Vis mindre',
   timelineEmptyAdd: 'Legg til en plan',
   timelineNow: 'Nå',
@@ -1665,7 +1655,7 @@ const no: typeof en = {
   tasksSectionWheneverEmpty: 'Ingenting her ennå',
   tasksSharedSent: 'Sendt',
   tasksSharedReceived: 'Mottatt',
-  tasksDayEmpty: 'Ingen planer',
+  tasksDayEmpty: 'Ingen gjøremål',
   tasksDoneLabel: 'Ferdig',
   taskSave: 'Lagre',
   taskDiscard: 'Forkast',
@@ -1874,7 +1864,7 @@ const no: typeof en = {
   sectionLanguage: 'Språk',
   sectionReset: 'Nullstill data',
   resetMonthly: 'Nullstill månedsliste',
-  resetTasks: 'Nullstill alle planer',
+  resetTasks: 'Nullstill alle gjøremål',
   resetOnboarding: 'Nullstill introduksjon',
   resetConfirmTitle: (label: string) => `Nullstill ${label}?`,
   resetConfirmBody: 'Dette kan ikke angres.',
@@ -1884,11 +1874,11 @@ const no: typeof en = {
   deleteConfirmBtn: 'Slett',
   features: [
     { icon: 'home-outline', text: 'Hjem — hurtigvalg og en enkel oversikt over dagen' },
-    { icon: 'checkbox-outline', text: 'En gjøremålsliste som holder på dagens planer, så du slipper å huske dem' },
+    { icon: 'checkbox-outline', text: 'En gjøremålsliste som holder på det dagen krever, så du slipper å huske det' },
     { icon: 'cart-outline', text: 'Handlelister som setter seg selv opp, oversikt over hva du har hjemme, og matretter du kan skyve rett til lista' },
     { icon: 'repeat-outline', text: 'Vaner som gir dagene struktur, én dag av gangen — uten en rekke å miste' },
     { icon: 'heart-outline', text: 'Helse — logg symptomer og hendelser, og se trendene over tid' },
-    { icon: 'battery-half-outline', text: 'Et energisystem som balanserer planer, vaner og helse mot energien du faktisk har' },
+    { icon: 'battery-half-outline', text: 'Et energisystem som balanserer gjøremål, vaner og helse mot energien du faktisk har' },
   ],
   whatsYourName: 'Hva heter du?',
   nameHint: 'Brukes bare til å si hei — ingen data forlater telefonen din.',
@@ -1920,7 +1910,7 @@ const no: typeof en = {
   featurePicker: {
     title: 'Hva vil du bruke?',
     sub: 'Velg de ekstra funksjonene du vil ha. Lar du dem stå av, holder appen seg enkel.',
-    alwaysOn: 'Planer, handleliste, notater, vaner og helse er alltid tilgjengelig. Energibudsjettet, mål, kvitteringsskanning og oppskrifter er også med fra start.',
+    alwaysOn: 'Gjøremål, handleliste, notater, vaner og helse er alltid tilgjengelig. Energibudsjettet, mål, kvitteringsskanning og oppskrifter er også med fra start.',
     note: 'Energi, mål, deling og automatisering kan alle skrus av og på senere i Innstillinger → Avansert.',
   },
   chooseLanguage: 'Velg språk',
@@ -2232,8 +2222,8 @@ const no: typeof en = {
       fontSizeLarge: 'Stor',
       leftHanded: 'Venstrehendt modus',
       leftHandedHint: 'Flytter menyknappen til venstre side',
-      timelineHorizontal: 'Horisontal plantidslinje',
-      timelineHorizontalHint: 'Viser dagens planer som en tidslinje fra venstre til høyre i stedet for ovenfra og ned',
+      timelineHorizontal: 'Horisontal gjøremålstidslinje',
+      timelineHorizontalHint: 'Viser dagens gjøremål som en tidslinje fra venstre til høyre i stedet for ovenfra og ned',
     },
     photoFormat: {
       title: 'Bildeformat',
@@ -2324,11 +2314,11 @@ const no: typeof en = {
       intro: 'Skru på bare det du trenger. Du kan endre dette når som helst.',
       goals: {
         label: 'Mål',
-        hint: 'Knytt planer og vaner til et mål, og se hvor sterkt det står.',
+        hint: 'Knytt gjøremål og vaner til et mål, og se hvor sterkt det står.',
       },
       sharing: {
         label: 'Deling og QR',
-        hint: 'Send planer og varer til noen andre, og ta imot deres.',
+        hint: 'Send gjøremål og varer til noen andre, og ta imot deres.',
       },
       automations: {
         label: 'Automatisering',
@@ -2548,7 +2538,7 @@ const no: typeof en = {
   },
   // Sharing
   sharedTitle: 'Delt',
-  sharedTasks: 'Delte planer',
+  sharedTasks: 'Delte gjøremål',
   sharedShopping: 'Delt handleliste',
   shareSelected: 'Del valgte',
   shareSendText: 'Send som tekst',
@@ -2573,11 +2563,11 @@ const no: typeof en = {
   noSharedItems: 'Ingenting delt ennå. Del en liste eller skann en annens QR-kode.',
   selectAll: 'Velg alle',
   deselectAll: 'Fjern alle',
-  sharedTasksTab: 'Planer',
+  sharedTasksTab: 'Gjøremål',
   sharedShoppingTab: 'Handlelist',
   peers: {
     title: 'Sammenkoblede enheter',
-    settingsCardDesc: 'Hold planer og handleliste automatisk synkronisert med en sammenkoblet telefon på samme Wi-Fi.',
+    settingsCardDesc: 'Hold gjøremål og handleliste automatisk synkronisert med en sammenkoblet telefon på samme Wi-Fi.',
     syncToggleLabel: 'Synkroniser over Wi-Fi',
     syncUnavailable: 'Sanntidssynk krever en versjon med nettverksmodulene installert — ikke tilgjengelig i denne appversjonen ennå.',
     manageLink: 'Sammenkoblede enheter →',
@@ -2656,14 +2646,8 @@ const no: typeof en = {
   },
   home: {
     todaysPlans: 'Dagens gjøremål',
-    seeAllPlans: 'Se alle planer',
+    seeAllPlans: 'Se alle gjøremål',
     more: 'Mer',
-    notesExpand: 'Vis alle notater',
-    notesCollapse: 'Vis mindre',
-    shoppingExpand: 'Vis full liste',
-    shoppingCollapse: 'Vis mindre',
-    habitsExpand: 'Vis alle vaner',
-    habitsCollapse: 'Vis mindre',
     quantityLabel: 'Antall',
     weeklyListChip: 'Denne uken',
     addToTaskLabel: 'Legg også til som oppgave',
@@ -2809,7 +2793,7 @@ const no: typeof en = {
   },
   hints: {
     home: {
-      text: 'Se dagens notater, planer og handleliste på ett blikk. Hold et kort for å ordne rekkefølgen, eller trykk «Rediger kort» for å fjerne eller legge til igjen.',
+      text: 'Se dagens notater, gjøremål og handleliste på ett blikk. Hold et kort for å ordne rekkefølgen, eller trykk «Rediger kort» for å fjerne eller legge til igjen.',
       example: 'Planlegg med energi i tankene: gi krevende oppgaver minus og de som gir påfyll pluss, og prøv å holde dagen over null.',
     },
     taskForm: {
@@ -2861,7 +2845,7 @@ const no: typeof en = {
       example: '',
     },
     notes: {
-      text: 'Raske notater du kan sende til handleliste eller planer.',
+      text: 'Raske notater du kan sende til handleliste eller gjøremålslista.',
       example: '',
     },
     goals: {
