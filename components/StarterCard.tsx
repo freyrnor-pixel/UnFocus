@@ -33,7 +33,9 @@
  *     `components/StarterExampleRow` inside it so the "example" actually looks like a row
  *     from that list (icon + title + meta pill) instead of a description of one
  *     (2026-07-27 — the old italic sentence read as more prose, not a concrete example).
- *     `exampleLabel` is the small caption above those rows (e.g. "Example").
+ *   - **The `exampleLabel` caption is gone (2026-07-30)**: the uppercase "EXAMPLE TASKS" line
+ *     above the rows became a small `tag` chip on the row itself (see StarterExampleRow's own
+ *     Edit notes) — same disambiguation, one fewer full-width line of teaching.
  *   - `children` is the optional action slot (Habits puts its starter chips there). Keep it
  *     to lightweight chips — this is an explainer, not a form.
  *   - `compact` (2026-07-27) is the note-sized variant: smaller padding + type and no
@@ -55,8 +57,6 @@ type Props = {
   text: string;
   /** Optional concrete example — one or more StarterExampleRow nodes, not plain text. */
   example?: React.ReactNode;
-  /** Caption shown above `example` (e.g. "Example"), already localized. */
-  exampleLabel?: string;
   /** Optional action slot — e.g. the Habits one-tap starter chips. */
   children?: React.ReactNode;
   /**
@@ -68,7 +68,7 @@ type Props = {
   compact?: boolean;
 };
 
-export default function StarterCard({ text, example, exampleLabel, children, compact }: Props) {
+export default function StarterCard({ text, example, children, compact }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   return (
@@ -79,9 +79,6 @@ export default function StarterCard({ text, example, exampleLabel, children, com
       </View>
       {example ? (
         <View style={[styles.exampleBlock, compact && styles.exampleBlockCompact]}>
-          {exampleLabel && !compact ? (
-            <Text style={[styles.exampleLabel, { color: theme.textMuted }]}>{exampleLabel}</Text>
-          ) : null}
           <View style={[styles.exampleRows, compact && styles.exampleRowsCompact]}>{example}</View>
         </View>
       ) : null}
@@ -124,12 +121,6 @@ const baseStyles = StyleSheet.create({
   },
   exampleBlockCompact: {
     marginTop: 0,
-  },
-  exampleLabel: {
-    fontSize: FontSize.xs,
-    fontFamily: Fonts.semibold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
   },
   exampleRows: {
     gap: Spacing.xs,

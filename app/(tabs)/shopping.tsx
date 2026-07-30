@@ -1518,8 +1518,10 @@ export default function ShoppingScreen() {
           something, and what the two reset cadences actually mean — the weekly/monthly
           distinction is exactly what's opaque before you have one of each. No suggested-add
           example rows here any more (user report: Shopping doesn't need one, just a short
-          explanation) — text-only, matching the same two-line form HomeShoppingCard's Home
-          preview uses, so the two surfaces read as one explanation. Gated on no weekly lists
+          explanation) — text-only. This screen KEEPS the two-line weekly/monthly form while
+          Home's card dropped to one short line (2026-07-30, `t.starters.shopping.text`): this
+          is where the two lists actually sit side by side, so the split is the point here and
+          a detail there. Gated on no weekly lists
           AND no items anywhere, NOT on monthlyLists: lib/db.ts seeds one empty monthly list on
           install (the `INSERT … WHERE NOT EXISTS` migration), so that count is never 0 and
           would suppress this for every new user. Items covers the seeded list having been

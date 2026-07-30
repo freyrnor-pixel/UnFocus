@@ -221,11 +221,11 @@ export default function HealthScreen() {
           {logs.length === 0 && (
             <StarterCard
               text={t.starters.health.text}
-              exampleLabel={t.starters.exampleLabel}
               example={
                 <StarterExampleRow
                   icon="medical-outline"
                   title={t.starters.health.exampleTitle}
+                  tag={t.starters.exampleLabel}
                   meta="3/5"
                   metaVariant="warning"
                   accent={SEVERITY_COLORS[2]}
