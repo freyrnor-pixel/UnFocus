@@ -76,7 +76,7 @@ import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
 import PadFooterToggle from '@/components/PadFooterToggle';
-import { FontSize, Fonts, PAD_GUTTER, Radius, Spacing, TabularNums } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -229,7 +229,7 @@ export default function HomeHabitsCard() {
     <Surface
       surfaceContext="ambient"
       borderColor={domainColor.accent}
-      style={styles.card}
+      style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
       {/* Header wash + badge mount OUTSIDE cardContent, directly in Surface — see
           HomeShoppingCard/HomeNotesCard's "Badge/wash moved outside cardContent's padding"
@@ -327,10 +327,15 @@ export default function HomeHabitsCard() {
 
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
+  // Minimum height for the CLOSED and PREVIEW states, never for OPEN (maintainer's call,
+  // 2026-07-30): the four cards read as one intentional size at rest, and an open card is free
+  // to grow to whatever its content needs. Same constant, and the same "only while not fully
+  // open" gate, the pre-pad card used — `state !== 'open'` is what `!expanded` used to mean.
+  cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   // Collapsed-only floor so Habits reads the same size as its Notes/Plans/Shopping
   // siblings regardless of how few habits are due — see constants/theme.ts.
-  // No collapsed height floor any more — a genuinely closed card has to be short; see
-  // PlanTaskCard's header. ONE horizontal inset for the whole card (PAD_GUTTER).
+  // ONE horizontal inset for the whole card (PAD_GUTTER). The height floor is `cardCollapsed`
+  // above — applied while not open, see its comment.
   cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER },
   titleRowPressable: { marginBottom: Spacing.md },
   // Badge is a normal flex child now, so there is no paddingLeft dodging an absolute one.

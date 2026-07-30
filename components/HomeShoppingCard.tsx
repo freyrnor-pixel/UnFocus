@@ -54,8 +54,9 @@
  *   - The flight animation (ANIMATION_GUIDELINES §8) targets the card's own item-count badge:
  *     there is no "In cart" section card left to fly to, and the badge is always mounted
  *     whenever there is an item to tick. Reduced motion falls straight through to `onToggle`.
- *   - `HOME_PREVIEW_CARD_MIN_HEIGHT` is deliberately not used any more — see PlanTaskCard's
- *     header for why a genuinely closed card can't carry a height floor.
+ *   - `HOME_PREVIEW_CARD_MIN_HEIGHT` applies while the card is NOT open — closed and preview
+ *     both — so the four Home cards read as one size at rest; never while open, so a long list
+ *     grows freely. See PlanTaskCard's header.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -76,6 +77,7 @@ import type { FlightRect } from '@/components/FlightOverlay';
 import {
   FontSize,
   Fonts,
+  HOME_PREVIEW_CARD_MIN_HEIGHT,
   PAD_GUTTER,
   Radius,
   Spacing,
@@ -281,7 +283,11 @@ export default function HomeShoppingCard({
   ) : null;
 
   return (
-    <Surface surfaceContext="ambient" borderColor={domainColor.accent} style={styles.card}>
+    <Surface
+      surfaceContext="ambient"
+      borderColor={domainColor.accent}
+      style={[styles.card, state !== 'open' && styles.cardCollapsed]}
+    >
       <CardAccentWash domain="shop" />
       <View style={styles.cardContent}>
         {/* Header: badge + title/summary, then the week arrows on their own row so the week
@@ -441,6 +447,11 @@ export default function HomeShoppingCard({
 
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
+  // Minimum height for the CLOSED and PREVIEW states, never for OPEN (maintainer's call,
+  // 2026-07-30): the four cards read as one intentional size at rest, and an open card is free
+  // to grow to whatever its content needs. Same constant, and the same "only while not fully
+  // open" gate, the pre-pad card used — `state !== 'open'` is what `!expanded` used to mean.
+  cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   // ONE horizontal inset for the whole card — see PlanTaskCard's cardContent note.
   cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },

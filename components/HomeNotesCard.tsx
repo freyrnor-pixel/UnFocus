@@ -88,6 +88,7 @@ import TimeBoxInput from '@/components/TimeBoxInput';
 import {
   FontSize,
   Fonts,
+  HOME_PREVIEW_CARD_MIN_HEIGHT,
   PAD_GUTTER,
   Radius,
   Spacing,
@@ -189,7 +190,11 @@ export default function HomeNotesCard() {
   }
 
   return (
-    <Surface surfaceContext="ambient" borderColor={domainColor.accent} style={styles.card}>
+    <Surface
+      surfaceContext="ambient"
+      borderColor={domainColor.accent}
+      style={[styles.card, state !== 'open' && styles.cardCollapsed]}
+    >
       {/* Full-width band with no left offset, so it has no padding-inheritance question to
           disagree about across platforms (unlike the retired absolute badge). */}
       <CardAccentWash domain="note" />
@@ -370,6 +375,11 @@ export default function HomeNotesCard() {
 
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
+  // Minimum height for the CLOSED and PREVIEW states, never for OPEN (maintainer's call,
+  // 2026-07-30): the four cards read as one intentional size at rest, and an open card is free
+  // to grow to whatever its content needs. Same constant, and the same "only while not fully
+  // open" gate, the pre-pad card used — `state !== 'open'` is what `!expanded` used to mean.
+  cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   // ONE horizontal inset for the whole card (PAD_GUTTER). The old paddingLeft:52 title inset
   // that dodged an absolutely-pinned badge is gone with the badge.
   cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER },

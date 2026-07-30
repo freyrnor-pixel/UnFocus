@@ -17,10 +17,10 @@
  *
  * **Card size** is the shared three-state cycle (lib/padState): closed → preview → open, via
  * components/PadFooterToggle. `expanded` below is just `state === 'open'`, so every "is the
- * whole day showing" check that predates this still reads correctly. The old 140px collapsed
- * floor (`HOME_PREVIEW_CARD_MIN_HEIGHT`) is deliberately gone — a closed card has to be
- * genuinely short, and the pad's two spare ruled lines are what stop a light card reading as
- * empty now.
+ * whole day showing" check that predates this still reads correctly — including the
+ * `HOME_PREVIEW_CARD_MIN_HEIGHT` floor, which applies while NOT open (closed and preview both)
+ * so the four Home cards read as one size at rest, and never while open, so a full day can grow
+ * as tall as it needs.
  *
  * **Elastic-hour grid (2026-07-26 rebuild, compressed 2026-07-27)**: the vertical (default)
  * rail positions every timed task by real clock time (`lib/dayGrid.ts` +
@@ -234,7 +234,7 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import { Task, Recurring } from '@/store/useTaskStore';
-import { FontSize, Fonts, PAD_GUTTER, Radius, Spacing, TabularNums, rgba } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, TabularNums, rgba } from '@/constants/theme';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { PadState, padVisibleRows } from '@/lib/padState';
 import { Duration, Ease, Spring } from '@/constants/motion';
@@ -947,7 +947,7 @@ export default function PlanTaskCard({
       surfaceContext="ambient"
       borderColor={domainColor.accent}
       elevated={expanded}
-      style={styles.card}
+      style={[styles.card, !expanded && styles.cardCollapsed]}
     >
       {/* A full-width band with no left offset — nothing for native and react-native-web to
           disagree about (unlike the absolutely-positioned badge this replaced). */}
@@ -1181,11 +1181,12 @@ export default function PlanTaskCard({
 
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
-  // `HOME_PREVIEW_CARD_MIN_HEIGHT` (a 140px collapsed floor) is deliberately GONE as of
-  // 2026-07-30: with three card sizes, a CLOSED card has to be genuinely short or closing it
-  // achieves nothing. The two spare ruled lines are what stop a light card reading as empty
-  // now — a height floor was solving that problem with blank space instead.
-  //
+  // Minimum height while NOT fully open — i.e. for both the closed and preview states, never
+  // for open (maintainer's call, 2026-07-30). `expanded` is `state === 'open'`, so this is the
+  // same gate the pre-pad card used, against the new three-state value. The two spare ruled
+  // lines still do the work of making a light card read as a page; the floor makes the four
+  // cards read as one size at rest.
+  cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   // ONE horizontal inset for the whole card (PAD_GUTTER). The old paddingLeft:52 title inset
   // that dodged an absolutely-pinned badge is gone with the badge.
   cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER, position: 'relative' },
