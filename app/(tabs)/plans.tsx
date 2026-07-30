@@ -28,7 +28,8 @@
  *             expo-router (useLocalSearchParams — `tab`/`expandTaskId`, see below; useRouter —
  *             the header share icon's push to /share-modal), lib/date,
  *             lib/domainColor, lib/haptics,
- *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, store/useTaskStore,
+ *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/prefill (usePrefill — a note
+ *             sent here seeds the Whenever add row), lib/screenColor, store/useTaskStore,
  *             store/useSettingsStore, store/usePeopleStore + components/PersonChip (the person
  *             filter row), store/useTagStore + components/TagChip + lib/tags (the tag filter
  *             row — multi-select, "any of"), components/EnergyBalanceCard (the shared-load
@@ -143,6 +144,7 @@ import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
+import { usePrefill } from '@/lib/prefill';
 import { tap, success } from '@/lib/haptics';
 import { PLAN_STARTER_STEPS, PLAN_STARTER_TIME, PLAN_STARTER_FINISH_TIME } from '@/lib/taskStarters';
 import { Task, useTaskStore } from '@/store/useTaskStore';
@@ -527,6 +529,15 @@ export default function TasksScreen() {
   useEffect(() => {
     if (tabParam) setTab(tabParam);
   }, [tabParam]);
+
+  // Arrived from a note's ⋯ → Send it to… → To-do (2026-07-30): seed the Whenever add row
+  // with the note's text (lib/prefill.ts). Distinct from `expandTaskId` above, which arrives
+  // AFTER a task already exists — here the task hasn't been created yet, and the user gets to
+  // adjust the wording before it is.
+  const prefill = usePrefill();
+  useEffect(() => {
+    if (prefill) setWheneverInput(prefill);
+  }, [prefill]);
 
   const today = todayStr();
 

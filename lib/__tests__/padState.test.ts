@@ -12,6 +12,7 @@
 import {
   DEFAULT_PAD_STATE,
   PAD_STATES,
+  isDoneRowStillInPlace,
   isPadState,
   nextPadState,
   padHiddenCount,
@@ -102,6 +103,28 @@ describe('padSpareLines', () => {
   it('draws the spare lines in both open states', () => {
     expect(padSpareLines('preview')).toBe(PAD_SPARE_LINES);
     expect(padSpareLines('open')).toBe(PAD_SPARE_LINES);
+  });
+});
+
+describe('isDoneRowStillInPlace', () => {
+  it('keeps a row ticked today where it is, so the tap is visibly acknowledged', () => {
+    expect(isDoneRowStillInPlace('2026-07-30', '2026-07-30')).toBe(true);
+  });
+
+  it('sinks a row ticked on any earlier day', () => {
+    expect(isDoneRowStillInPlace('2026-07-29', '2026-07-30')).toBe(false);
+    expect(isDoneRowStillInPlace('2025-01-01', '2026-07-30')).toBe(false);
+  });
+
+  it('treats an unstamped row as finished a while ago, so it sinks', () => {
+    // A row ticked by a build older than the stamp column has ''. "Long ago" is the right
+    // reading — the alternative would pin every historical row to today's pad forever.
+    expect(isDoneRowStillInPlace('', '2026-07-30')).toBe(false);
+  });
+
+  it('does not treat a future stamp as today', () => {
+    // Can only happen from a clock change or an edited backup; it must not stick around.
+    expect(isDoneRowStillInPlace('2026-07-31', '2026-07-30')).toBe(false);
   });
 });
 

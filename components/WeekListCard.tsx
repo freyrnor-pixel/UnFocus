@@ -195,6 +195,12 @@ type Props = {
   onOpenItem: (item: ShoppingItem) => void;
   /** Inline add row submission — called when the user confirms adding a new item. */
   onAddInlineItem: (input: { name: string; price: number; qty: number; category?: string }) => void;
+  /**
+   * Open the inline add row expanded with this text in the name field (2026-07-30) — how a note
+   * sent to the shopping list arrives. The screen passes it only to the CURRENT week's list, so
+   * a prefill can't land on some other week the user isn't looking at.
+   */
+  addPrefill?: string;
   /** Decrement a cart item — at qty=1 moves it back to "In list"; at qty>1 splits one unit back. */
   onDecrementCartItem: (item: ShoppingItem) => void;
   /** The curated monthly-list items (status 'catalog', across every Monthly list) shown in
@@ -265,6 +271,7 @@ export default function WeekListCard({
   onRemoveItem,
   onOpenItem,
   onAddInlineItem,
+  addPrefill,
   onDecrementCartItem,
   monthlyItems,
   monthlyLists,
@@ -637,6 +644,7 @@ export default function WeekListCard({
                 showTemporaryToggle={false}
                 categories={categoryPresets(t)}
                 quantityLabel={t.onsketAntallWeeklyLabel}
+                prefill={addPrefill}
                 onAdd={({ name, price, targetQuantity, category }) =>
                   onAddInlineItem({ name, price, qty: targetQuantity, category })
                 }

@@ -49,7 +49,7 @@
  *     `quantityLabel={t.onsketAntallWeeklyLabel}` to override it, since Weekly items are never
  *     reset — the field there is just "how many do you want."
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { contrastOn, Fonts, FontSize, Radius, Spacing, TabularNums } from '@/constants/theme';
@@ -81,6 +81,12 @@ type Props = {
    *  at reset"), which is only true for catalog rows (Monthly tab) — pass
    *  t.onsketAntallWeeklyLabel from WeekListCard, since Weekly items are never reset. */
   quantityLabel?: string;
+  /**
+   * Open this row already expanded with `prefill` in the name field (2026-07-30) — how a note
+   * sent to the shopping list arrives (lib/prefill.ts). One-shot: it seeds on the value
+   * CHANGING, so it can't fight the user's own typing or re-seed on every render.
+   */
+  prefill?: string;
 };
 
 export default function InlineAddItem({
@@ -91,6 +97,7 @@ export default function InlineAddItem({
   showTemporaryToggle = true,
   categories,
   quantityLabel,
+  prefill,
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -112,6 +119,17 @@ export default function InlineAddItem({
     () => (suggestionsDismissed ? [] : catalogSuggest(name, 5)),
     [catalogSuggest, name, suggestionsDismissed]
   );
+
+  // A note sent here arrives with its text on the route: open expanded with the name seeded so
+  // the user lands mid-edit. Keyed on the value changing, so it fires once per arrival and
+  // never overwrites what they're typing.
+  const seeded = useRef('');
+  useEffect(() => {
+    if (!prefill || seeded.current === prefill) return;
+    seeded.current = prefill;
+    setName(prefill);
+    setExpanded(true);
+  }, [prefill]);
 
   function reset() {
     setName('');

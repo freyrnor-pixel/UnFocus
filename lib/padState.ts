@@ -121,3 +121,19 @@ export function padHiddenCount(total: number, state: PadState): number {
 export function padSpareLines(state: PadState): number {
   return state === 'closed' ? 0 : PAD_SPARE_LINES;
 }
+
+/**
+ * Whether a row finished on `doneOn` should still be drawn among the live rows.
+ *
+ * Ticking something should not make it disappear from under your finger — you need to see
+ * that the tap landed, and to be able to untick a mis-tap. So a row finished TODAY stays
+ * where it is (struck through and faded, via DONE_ROW_OPACITY), and only sinks into the
+ * card's "Checked off" zone from the next day onwards.
+ *
+ * `doneOn` is a 'YYYY-MM-DD' stamp, or '' for a row that isn't finished. An empty stamp on a
+ * row that IS marked done means it was ticked by a build older than the stamp column — which
+ * correctly reads as "finished a while ago", so it sinks.
+ */
+export function isDoneRowStillInPlace(doneOn: string, today: string): boolean {
+  return doneOn !== '' && doneOn === today;
+}

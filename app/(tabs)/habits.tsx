@@ -23,7 +23,8 @@
  *             components/GoalGlowDot (goal glow), components/SubScreenLinkButton (2026-07-29,
  *             the "Goals" link — see below), components/DebugNoteAnchor,
  *             constants/theme, lib/date, lib/haptics, lib/habitStarters, lib/i18n,
- *             lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor, lib/screenColor,
+ *             lib/useAppTheme, lib/useFirstVisitHint, lib/prefill (usePrefill — a note sent
+ *             here seeds the quick-add), lib/domainColor, lib/screenColor,
  *             lib/habitRecurrence, store/useHabitStore, store/useGoalStore, store/useSettingsStore
  *   - Habit Today/Week/Month uses the shared SlideSelector; the person filter row +
  *     habit-form "For" chips are gated on settings.peopleModeEnabled (People/family
@@ -83,6 +84,7 @@ import PressableScale from '@/components/PressableScale';
 import IconButton from '@/components/IconButton';
 import { useT } from '@/lib/i18n';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
+import { usePrefill } from '@/lib/prefill';
 import { todayStr, getWeekDates, getMonthDates } from '@/lib/date';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 import { FontSize, Radius, Shadow, Spacing, Fonts, Type } from '@/constants/theme';
@@ -527,6 +529,13 @@ export default function HabitsScreen() {
   // the card's settings-gear icon → /habit-form. Mirrors Plans' AddRow → addTask flow.
   const addHabitQuick = useHabitStore((s) => s.add);
   const [habitDraft, setHabitDraft] = useState('');
+
+  // Arrived from a note's ⋯ → Send it to… → Habits: seed the quick-add with the note's text
+  // instead of making the user retype it (lib/prefill.ts).
+  const prefill = usePrefill();
+  useEffect(() => {
+    if (prefill) setHabitDraft(prefill);
+  }, [prefill]);
 
   useFocusEffect(
     useCallback(() => {
