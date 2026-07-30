@@ -227,10 +227,14 @@ const defaultLight: ThemePalette = {
   // hue), which is why the Food screen was the only one that read at a glance.
   //
   // Hues are chosen against the co-occurrence clusters, not just spread evenly:
-  //   Home shows plan+task+note+shop+budget together → those five are the widest-spread set
+  //   Home shows plan+habit+note+shop together (2026-07-30, since HomeHabitsCard) → those
+  //     four need to be clearly apart, which is why cardHabit moved off the teal cluster
   //   Shopping shows shop+meal+budget together       → rose / terracotta / sage, all distinct
   //   Plans shows task+meal+plan                     → indigo / terracotta / teal-blue
-  // habit sits near plan in hue (185 vs 195) deliberately: no screen renders both.
+  // habit USED to sit near plan in hue (185 vs 195) on the theory that no screen rendered
+  // both — that broke the moment Home gained a Habits card next to the to-do card, and the
+  // two read as one color (2026-07-30 user report). habit is now h128, a moss green, clear
+  // of plan's teal-blue.
   //
   // Saturation stays in MEAL_COLORS' calm band, and every stop steers clear of the semantic
   // tokens it could otherwise be mistaken for — good `#1FA974` (h162), bad `#EF4444` (h0),
@@ -238,7 +242,10 @@ const defaultLight: ThemePalette = {
   // a yellow-leaning sage (h100) rather than a green, for exactly that reason.
   cardPlan: '#3789A6',   // teal-blue   h195
   cardTask: '#4E62C8',   // indigo      h233
-  cardHabit: '#2E8A94',  // deep teal   h185
+  cardHabit: '#2E943B',  // moss green  h128 — 2026-07-30: was h185 (deep teal), 10° from
+  // cardPlan's h195 "deliberately: no screen renders both" — Home now renders plan+habit
+  // cards back to back (HomeHabitsCard shipped 2026-07-28), so that assumption broke and the
+  // two cards read as one color. Moved off the teal cluster entirely.
   cardHealth: '#C4667A', // muted coral h350 — NOT `bad` red (half its saturation)
   cardMeal: '#D9825A',   // terracotta  h18  — same hex as FoodTab's dinner, on purpose
   cardShop: '#BC6494',   // rose-mauve  h330
@@ -319,7 +326,7 @@ const defaultDark: ThemePalette = {
   // widened light ramp — see the light block for the full rationale and the co-occurrence map.
   cardPlan: '#5FA1B8',   // teal-blue
   cardTask: '#7181D3',   // indigo
-  cardHabit: '#58A1A9',  // deep teal
+  cardHabit: '#57A862',  // moss green (h128 — see light block for why this moved off teal)
   cardHealth: '#D08595', // muted coral
   cardMeal: '#E19B7B',   // terracotta
   cardShop: '#C983A9',   // rose-mauve

@@ -1269,7 +1269,13 @@ const baseStyles = StyleSheet.create({
   // the full 24h grid, and that's exactly what this wrapper's auto height should be too;
   // absolutely-positioned grid cards (siblings) don't contribute to that auto height.
   gridInner: { position: 'relative', width: '100%' },
-  gridCardWrap: { position: 'absolute' },
+  // overflow:'hidden' (2026-07-30, user report: "info-text overlapping") — lib/dayGrid.ts's
+  // layoutGridEntries CLAMPS a card's height so it can't visually run into whatever starts
+  // next, but a clamp only works if content is actually clipped to it. Without this, a card
+  // whose natural content (title + the "up next" hint line, or just two tasks scheduled
+  // close together) is taller than its clamped height still painted past its own box and
+  // over the neighboring card.
+  gridCardWrap: { position: 'absolute', overflow: 'hidden' },
   // Column sub-wrapper (overlap layout, lib/dayGrid.ts) — left/width are set inline as
   // percentages of gridCardWrap's own width so RN resolves them relative to the slot,
   // not the whole card. A small horizontal inset only when genuinely side-by-side with
