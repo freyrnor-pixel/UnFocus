@@ -383,6 +383,25 @@ const en = {
     title: 'This is an experimental build',
     body: 'UnFocus is a work in progress. Things may change, move or arrive half-finished — that is expected. Everything stays on your phone, and all feedback is welcome — it shapes what comes next.',
   },
+  // The Energy vs Quiet growth screen (app/onboarding/energy.tsx). Its whole job is the
+  // DISTINCTION: Energy is about today and helps you plan; growth is about the long run and
+  // is scenery. Neither is a score, and neither can tell you that you are behind — keep any
+  // new copy on that side of it.
+  energyIntro: {
+    title: 'Two things worth explaining',
+    sub: 'Both of these sound like scoring. Neither one is, and you can turn either off.',
+    energy: {
+      title: 'Energy',
+      body: 'Tasks and habits can carry an energy cost, and the meter shows what today has left. It is for planning around the energy you actually have, not for measuring you.',
+      note: 'Turning it off hides the meter and keeps every value you have set, so turning it back on restores them.',
+    },
+    growth: {
+      title: 'Quiet growth',
+      body: 'The tree behind the app slowly fills in on days you get something done, and eases back when you have other things going on.',
+      note: 'There is no number, no streak count and no level — nowhere in the app. A quiet day returns the background to exactly how it always looks.',
+    },
+    note: 'Both live in Settings → Advanced, so you can change your mind at any point.',
+  },
   // Onboarding feature picker (app/onboarding/features.tsx) — the guided path's
   // "what do you want to use?" step. Everything listed there is optional and starts
   // off; the labels/hints themselves come from config.features.
@@ -438,6 +457,29 @@ const en = {
       home: 'The day at a glance.',
       plans: "The day's to-do list.",
       shopping: 'Your shopping lists.',
+    },
+  },
+  // The Basics screen (app/onboarding/basics.tsx) — the six setup rows on one screen. Most of
+  // its copy is REUSED from firstRun.* above, so a value described here and the same value in
+  // Settings say the same words. Only the row labels and the two rows that had no wizard step
+  // of their own (language, handedness) live here.
+  basics: {
+    title: 'A few basics',
+    sub: 'This screen changes as you tap, so you can see what you are picking. All of it has a working default already.',
+    appearance: 'Appearance',
+    textSize: 'Text size',
+    motion: 'Movement',
+    language: {
+      label: 'Language',
+      // Language names are deliberately NOT translated — you have to be able to find your own
+      // language without already reading the current one.
+      en: { label: 'English', desc: 'The app speaks English.' },
+      no: { label: 'Norsk', desc: 'The app speaks Norwegian.' },
+    },
+    handedness: {
+      label: 'Menu side',
+      right: { label: 'Right', desc: 'Menu button on the right, for a right hand.' },
+      left: { label: 'Left', desc: 'Menu button on the left, for a left hand.' },
     },
   },
   chooseLanguage: 'Choose language',
@@ -1972,6 +2014,21 @@ const no: typeof en = {
     title: 'Dette er en eksperimentell versjon',
     body: 'UnFocus er under arbeid. Ting kan endre seg, flytte på seg eller komme halvferdig — det er som forventet. Alt blir liggende på telefonen din, og alle tilbakemeldinger er velkomne — de former det som kommer.',
   },
+  energyIntro: {
+    title: 'To ting som er verdt en forklaring',
+    sub: 'Begge høres ut som poeng. Ingen av dem er det, og du kan slå av begge.',
+    energy: {
+      title: 'Energi',
+      body: 'Gjøremål og vaner kan ha en energikostnad, og måleren viser hva dagen har igjen. Den er til for å planlegge etter energien du faktisk har, ikke for å måle deg.',
+      note: 'Slår du den av, skjules måleren og alle verdiene du har satt beholdes, så de er der igjen hvis du slår den på.',
+    },
+    growth: {
+      title: 'Stille vekst',
+      body: 'Treet bak appen fylles sakte ut på dager du får gjort noe, og trekker seg rolig tilbake når du har andre ting på gang.',
+      note: 'Det finnes ikke noe tall, ingen rekke og ingen nivåer — ingen steder i appen. En rolig dag gir bakgrunnen tilbake akkurat slik den alltid ser ut.',
+    },
+    note: 'Begge ligger i Innstillinger → Avansert, så du kan ombestemme deg når som helst.',
+  },
   featurePicker: {
     title: 'Hva vil du bruke?',
     sub: 'Velg de ekstra funksjonene du vil ha. Lar du dem stå av, holder appen seg enkel.',
@@ -2015,6 +2072,23 @@ const no: typeof en = {
       home: 'Dagen i et overblikk.',
       plans: 'Dagens gjøremålsliste.',
       shopping: 'Handlelistene dine.',
+    },
+  },
+  basics: {
+    title: 'Litt grunnleggende',
+    sub: 'Denne skjermen endrer seg mens du trykker, så du ser hva du velger. Alt har allerede en standard som fungerer.',
+    appearance: 'Utseende',
+    textSize: 'Tekststørrelse',
+    motion: 'Bevegelse',
+    language: {
+      label: 'Språk',
+      en: { label: 'English', desc: 'Appen snakker engelsk.' },
+      no: { label: 'Norsk', desc: 'Appen snakker norsk.' },
+    },
+    handedness: {
+      label: 'Menyside',
+      right: { label: 'Høyre', desc: 'Menyknappen til høyre, for høyre hånd.' },
+      left: { label: 'Venstre', desc: 'Menyknappen til venstre, for venstre hånd.' },
     },
   },
   chooseLanguage: 'Velg språk',

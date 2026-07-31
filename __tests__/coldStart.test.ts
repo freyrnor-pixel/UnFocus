@@ -8,10 +8,11 @@
  * these are read as source contracts — the same approach lib/__tests__/cardLayout.test.ts
  * uses to keep layouts from reaching the store layer.
  *
- * The watermark block is here for a related reason: the mark is drawn from Android's
- * *monochrome themed icon*, a near-white silhouette the OS is expected to tint. Drawn
+ * The watermark block is here for a related reason. The mark was drawn from Android's
+ * *monochrome themed icon*, a near-white silhouette the OS is expected to tint; drawn
  * untinted it is invisible on a light surface at any opacity — a bug you cannot see by
- * looking at the light theme, because there is simply nothing there to look at.
+ * looking at the light theme, because there is simply nothing there to look at. The
+ * component was deleted on 2026-07-31, so that block now guards the deletion instead.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
@@ -133,31 +134,21 @@ describe('boot work that first paint does not read is deferred', () => {
   );
 });
 
-describe('the tree watermark is always tinted', () => {
-  // assets/android-icon-monochrome.png is ~white on transparency. Untinted it disappears into
-  // any light surface no matter what opacity it is given, which is why raising SectionDivider's
-  // mark from 0.14 to 0.3 (2026-07-27) didn't fix the divider reading as two disconnected
-  // hairlines — opacity was never the variable.
-  //
-  // SectionDivider dropped off this list on 2026-07-31: it draws the `trunk-divider` motif
-  // now, which solved the same problem by removing the mark rather than re-tinting it. The
-  // rule below still guards the remaining caller and any new one.
-  const CALLERS = ['app/onboarding/_layout.tsx'];
-
-  it.each(CALLERS)('%s passes a tintColor to every TreeWatermark it renders', (rel) => {
-    const tags = read(rel).match(/<TreeWatermark[\s\S]*?\/>/g) ?? [];
-    expect(tags.length).toBeGreaterThan(0);
-    for (const tag of tags) expect(tag).toMatch(/tintColor=/);
-  });
-
-  it('finds no untinted call site anywhere else', () => {
-    // If a new caller appears, it belongs in CALLERS above — with a tintColor.
+describe('the tree watermark is gone', () => {
+  // components/TreeWatermark.tsx was deleted on 2026-07-31. Its two callers both moved to the
+  // motif system: SectionDivider draws `trunk-divider`, and onboarding's backdrop is the
+  // `onboarding-triptych` strip. The old rule here was "every call site must pass a
+  // tintColor", because the asset is Android's monochrome themed icon — a near-white
+  // silhouette that vanishes on a light surface at any opacity unless the caller tints it.
+  // That trap only existed because the component did; this replaces the rule with the reason
+  // it can't come back by accident.
+  it('has no TreeWatermark component and no call sites', () => {
+    expect(existsSync(join(ROOT, 'components', 'TreeWatermark.tsx'))).toBe(false);
     const found = ['components', 'app']
       .flatMap((dir) => walk(join(ROOT, dir)))
-      .filter((abs) => !abs.endsWith('TreeWatermark.tsx'))
-      .filter((abs) => readFileSync(abs, 'utf8').includes('<TreeWatermark'))
+      .filter((abs) => /<TreeWatermark\b/.test(readFileSync(abs, 'utf8')))
       .map((abs) => abs.slice(ROOT.length + 1));
-    expect(found.sort()).toEqual([...CALLERS].sort());
+    expect(found).toEqual([]);
   });
 });
 

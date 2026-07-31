@@ -12,7 +12,7 @@
  *   Imports → @/lib/i18n, @/constants/theme, @/lib/useAppTheme, @/components/Button,
  *             @/components/AppModal (showAppModal), @/lib/backup
  *             (pickAndParseBackup/restoreBackup/reloadApp), @/lib/haptics, @expo/vector-icons
- *   Used by → Expo Router route "/onboarding/restore" (pushed from onboarding/language.tsx)
+ *   Used by → Expo Router route "/onboarding/restore" (pushed from onboarding/basics.tsx)
  *   Data    → via lib/backup: restore DELETEs+re-INSERTs every table in unfocus.db
  *
  * Edit notes:

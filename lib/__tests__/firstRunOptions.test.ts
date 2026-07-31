@@ -2,51 +2,73 @@
  * firstRunOptions.test.ts — the invariants FIRST_RUN_PERSONALIZATION_HANDOFF.md calls
  * "not suggestions, the whole point", pinned where they're actually decidable.
  *
- * app/first-run.tsx's safety comes almost entirely from this module: if every option is a
- * member of a fixed set, the commit patch always covers every step plus the gate, and
+ * app/onboarding/basics.tsx's safety comes almost entirely from this module: if every option
+ * is a member of a fixed set, the commit patch always covers every row plus the gate, and
  * picks ⇄ settings round-trips, then no sequence of taps can leave the app in a state it
  * couldn't already have been in. Those are the properties tested here. What is NOT
- * testable headlessly (and stays a device check): that the flow's live preview redraws,
+ * testable headlessly (and stays a device check): that the screen's live preview redraws,
  * and that the pager actually opens on the chosen tab.
+ *
+ * 2026-07-31: the four wizard steps plus the separate language screen became six rows on one
+ * screen, so the cross product these tests sweep grew from 81 to 324.
  */
 import {
+  BASICS_ROWS,
   DARK_MODE_CHOICES,
-  FIRST_RUN_STEPS,
   FONT_SIZE_CHOICES,
   FirstRunPicks,
   FirstRunSettings,
+  HANDEDNESS_CHOICES,
+  HANDEDNESS_SETTINGS,
+  LANGUAGE_CHOICES,
   MOTION_CHOICES,
   MOTION_SETTINGS,
   START_SCREEN_CHOICES,
   START_SCREEN_PATHS,
   START_SCREEN_ROUTES,
+  handednessChoiceOf,
   motionChoiceOf,
   picksFromSettings,
   settingsPatchFromPicks,
 } from '@/lib/firstRunOptions';
 
-/** Every pick the flow can possibly hold — 3 × 3 × 3 × 3 = 81 combinations. */
+/** Every pick the screen can possibly hold — 2 × 3 × 3 × 3 × 2 × 3 = 324 combinations. */
 function everyPick(): FirstRunPicks[] {
   const out: FirstRunPicks[] = [];
-  for (const motion of MOTION_CHOICES)
-    for (const fontSize of FONT_SIZE_CHOICES)
-      for (const darkMode of DARK_MODE_CHOICES)
-        for (const startScreen of START_SCREEN_CHOICES)
-          out.push({ motion, fontSize, darkMode, startScreen });
+  for (const language of LANGUAGE_CHOICES)
+    for (const motion of MOTION_CHOICES)
+      for (const fontSize of FONT_SIZE_CHOICES)
+        for (const darkMode of DARK_MODE_CHOICES)
+          for (const handedness of HANDEDNESS_CHOICES)
+            for (const startScreen of START_SCREEN_CHOICES)
+              out.push({ language, motion, fontSize, darkMode, handedness, startScreen });
   return out;
 }
 
-describe('anti-overwhelm: at most four steps, each with 2–4 options', () => {
-  test('four steps, no more', () => {
-    // The handoff doc's hard cap. A fifth thing goes to Settings, not here.
-    expect(FIRST_RUN_STEPS.length).toBeLessThanOrEqual(4);
-    expect(new Set(FIRST_RUN_STEPS).size).toBe(FIRST_RUN_STEPS.length);
+describe('anti-overwhelm: one screen, each row with 2–4 options', () => {
+  test('six rows, no more, and no duplicates', () => {
+    // The old cap was four WIZARD STEPS; the rule it encoded — don't make getting started a
+    // long walk — is now "one screen". Six rows of pills fit one; a seventh thing goes to
+    // Settings. Raising this number should mean re-checking the screen still fits, not just
+    // editing the assertion.
+    expect(BASICS_ROWS.length).toBeLessThanOrEqual(6);
+    expect(new Set(BASICS_ROWS).size).toBe(BASICS_ROWS.length);
+  });
+
+  test('every row is backed by a choice list, and vice versa', () => {
+    // A row with no options renders an empty pill strip; a choice list with no row is dead
+    // code. Neither shows up in a typecheck.
+    expect([...BASICS_ROWS].sort()).toEqual(
+      ['appearance', 'handedness', 'language', 'motion', 'startScreen', 'textSize'].sort(),
+    );
   });
 
   test.each([
+    ['language', LANGUAGE_CHOICES],
     ['motion', MOTION_CHOICES],
     ['text size', FONT_SIZE_CHOICES],
     ['appearance', DARK_MODE_CHOICES],
+    ['handedness', HANDEDNESS_CHOICES],
     ['starting screen', START_SCREEN_CHOICES],
   ])('%s offers 2–4 distinct options', (_name, choices) => {
     expect(choices.length).toBeGreaterThanOrEqual(2);
@@ -85,14 +107,17 @@ describe('invariant 2: no pick can produce an invalid state', () => {
 });
 
 describe('invariant 5: the commit is one atomic, complete patch', () => {
-  test('every patch carries all four steps AND the gate', () => {
+  test('every patch carries all six rows AND the gate', () => {
     for (const picks of everyPick()) {
       const patch = settingsPatchFromPicks(picks);
       // If firstRunComplete could ever be written without the selections, a crash between
       // the two writes would leave the flow "done" with nothing applied. One object, so it
       // can't be.
       expect(Object.keys(patch).sort()).toEqual(
-        ['darkMode', 'firstRunComplete', 'fontSize', 'particlesEnabled', 'reducedMotion', 'startScreen'].sort(),
+        [
+          'darkMode', 'firstRunComplete', 'fontSize', 'language', 'leftHanded',
+          'particlesEnabled', 'reducedMotion', 'startScreen',
+        ].sort(),
       );
       expect(patch.firstRunComplete).toBe(true);
     }
@@ -114,18 +139,24 @@ describe('re-running the flow is idempotent (invariant 3 / "Re-run setup")', () 
       for (const particlesEnabled of [false, true])
         for (const fontSize of FONT_SIZE_CHOICES)
           for (const darkMode of DARK_MODE_CHOICES)
-            for (const startScreen of START_SCREEN_CHOICES) {
+            for (const language of LANGUAGE_CHOICES)
+              for (const leftHanded of [false, true])
+                for (const startScreen of START_SCREEN_CHOICES) {
               const current: FirstRunSettings = {
                 reducedMotion,
                 particlesEnabled,
                 fontSize,
                 darkMode,
+                language,
+                leftHanded,
                 startScreen,
               };
               const { firstRunComplete, ...writtenBack } = settingsPatchFromPicks(picksFromSettings(current));
               expect(firstRunComplete).toBe(true);
               expect(writtenBack.fontSize).toBe(current.fontSize);
               expect(writtenBack.darkMode).toBe(current.darkMode);
+              expect(writtenBack.language).toBe(current.language);
+              expect(writtenBack.leftHanded).toBe(current.leftHanded);
               expect(writtenBack.startScreen).toBe(current.startScreen);
               // Motion is the one lossy axis: reducedMotion=true with particles on isn't a
               // state the three cards can express, so it normalises to 'none' (particles
