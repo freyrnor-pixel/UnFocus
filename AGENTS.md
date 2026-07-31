@@ -83,8 +83,12 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 
 - **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` (**Shopping/Plans/Home/Habits/Health** — that is the real `<TopTabs.Screen>` order in `app/(tabs)/_layout.tsx`; this line said Health/Habits for months and building against it put every tab's backdrop panel on its neighbour, so trust the navigator, not the prose. Decision 036, amended 2026-07-23 — UX audit E1/E2 swapped Scan out for Habits, its own tab again); other screens are reached via links/buttons from those 5. Notes and Food/Meals are NOT tabs — reached via Home's "More" links (Notes) and Shopping's Food button (F1, 2026-07-23). Scan is also not a tab anymore — it's a pushed sub-screen (`app/scan.tsx`) reached via a "Scan" button on Shopping's header; its idle screen still offers both receipt OCR and QR import. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
 - **Onboarding** (`app/onboarding/*`, rebuilt 2026-07-31): **basics → restore → privacy →
-  guided/explore → energy → features → index (name) → home**, then the guided tour. It was ~18
-  screens and is now 7.
+  guided/explore → energy → index (name) → home**, then the guided tour. It was ~18
+  screens, then 7, and is now **6** (B1-1 deleted the feature picker).
+  - **The order is NOT declared anywhere.** `_layout.tsx` renders a bare `<Stack>`; the real
+    order lives in hard-coded `router.push` literals across the screens, with a PARALLEL
+    `STEPS` array (`_layout.tsx`) driving only the backdrop. Nothing keeps the two in sync
+    except `__tests__/onboardingFlow.test.ts` — run it after touching either.
   - `basics.tsx` is screen ONE and replaced both `language.tsx` and the old four-step
     `app/first-run.tsx` wizard (both deleted): six rows of pills on one screen — language,
     appearance, text size, movement, menu side, starting screen. Every value already has a
@@ -93,8 +97,14 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
     why it no longer needs a screen ahead of everything else. Values live in
     `lib/firstRunOptions.ts`; the old "four steps" cap is now "one screen — a seventh thing
     goes to Settings".
-  - `energy.tsx` explains Energy vs Quiet growth, the two systems that sound like scoring and
-    aren't. `showGrowth` moved here out of the feature picker, which stays a list of one-liners.
+  - `energy.tsx` explained Energy AND Quiet growth — the two systems that sound like scoring
+    and aren't — until B1-2 (2026-07-31) cut it to **Energy alone**, relaid out as one centred
+    explanation. Quiet growth still exists and still works; it is just no longer pre-taught,
+    on the reasoning that a numberless, ambient, off-by-default reward doesn't need it.
+    `showGrowth` is now Settings-only. **Its `title` is a placeholder** ("One thing worth
+    explaining") and `sub`/`note` were deleted rather than rewritten, because both said
+    "Both" — so the screen currently has a heading with no sub-heading, the only onboarding
+    screen like that. Awaiting the maintainer's wording; don't treat the placeholder as final.
   - **The 8-page `intro.tsx` slideshow is deleted.** Its job — teaching the features — is done
     by the guided tour on the real app (see below). Its "experimental build" note and the AI
     setup guide download moved to the tour's closing card; `t.introPrinciples` moved to Settings.
@@ -327,7 +337,7 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
 - **Settings** (`app/settings.tsx`): three tabs — **General** (profile, appearance, accessibility, account/backup, version, reset), **Personal** (notifications, shopping cadence, layout, device features), **Advanced** (the Features card, People/family, paired devices, Freyr-mode, debug). Reorganized 2026-07-25 from four tabs; see that file's header for the full before/after.
 - **Feature flags** (2026-07-25, defaults revised same day): three states, not one.
   - **On by default, still a real toggle** (Settings → Advanced → Features): `energySystemEnabled` (Energy system), `featureGoals` (Goals) and `featureMedicine` (Medicine trays, 2026-07-27). Not offered in the onboarding picker — "opt in from nothing" doesn't fit a feature that's already on. Turning `featureMedicine` off must actually CANCEL its four tray reminders, not just hide the card — `app/settings.tsx`'s `applyAndSync` re-syncs them on that key. `energySystemEnabled` is the one flag that has flip-flopped: a toggle → inert/always-on (2026-07-26) → **a real toggle again (2026-07-31)**, gating `EnergyMeter`, `EnergyBalanceCard`, both editors' energy steppers and `PlanTaskCard`'s quick-add chip. It gates SURFACES only — per-task/habit `energyEnabled`/`energyValue` keep their stored values while off, so switching back on restores every number.
-  - **Off by default, still opt-in** (Settings → Advanced → Features, also offered in `app/onboarding/features.tsx`'s picker): `featureSharing` (Sharing & QR) and `featureAutomations` (Automations). `showGrowth` (Quiet growth — the ambient reward; the DB column is still `show_points` from the Bonsai/points system it replaced within a day) is off by default too, but is offered on `app/onboarding/energy.tsx` rather than in the picker: it needs a paragraph, not a one-line switch.
+  - **Off by default, still opt-in** (Settings → Advanced → Features — **and nowhere else since 2026-07-31, B1-1**): `featureSharing` (Sharing & QR) and `featureAutomations` (Automations). The onboarding feature picker (`app/onboarding/features.tsx`) is **deleted** — don't look for it, and don't add a new flag to it. Onboarding no longer offers ANY feature opt-in: a new install now gets the defaults and nothing to choose, which is the point. `showGrowth` (Quiet growth — the ambient reward; the DB column is still `show_points` from the Bonsai/points system it replaced within a day) is off by default too, and was offered on `app/onboarding/energy.tsx` until B1-2 removed the Quiet growth half of that screen; it is now Settings-only as well.
   - **Permanently on, no longer a toggle at all**: `featureScan` (Scan & receipts) and `featureFood` (Food & recipes) — removed from both Settings and the onboarding picker; the DB columns and Settings-type fields survive (this repo never drops columns) but nothing reads them for gating any more — see `store/useSettingsStore.ts`'s "Inert columns" note.
   - All defaults are set via migrations in `lib/db.ts` (append-only — corrections are new `UPDATE` statements, never edits to an already-merged line). Only gate something ADDITIVE this way — data pruning, widget/overview sync, foreground store reload, catalog/dish/symptom seeding, the automation store's boot load and the monthly reminder re-arm are load-bearing and stay unconditional.
 - **i18n**: `const t = useT()` in any component; `t.someKey`; add new keys to both `en` and `no` objects in `lib/i18n.ts`
@@ -380,7 +390,8 @@ copy under `config.features.*` in BOTH languages, and gate the surface at its ca
 never the data or the store — so turning the flag back on always restores everything
 untouched. Then pick which of the three shapes it needs:
 - **Off-by-default opt-in** (most common): add the row to `FEATURE_ROWS` in
-  `app/settings.tsx` AND to `ROWS` in `app/onboarding/features.tsx`; back-fill existing
+  `app/settings.tsx` — that is now the ONLY place (the onboarding picker was deleted
+  2026-07-31, B1-1; there is no `ROWS` array to add to any more). Back-fill existing
   users with `UPDATE settings SET <col> = 1 WHERE setup_complete = 1` so nobody who's
   already using the surface loses it.
 - **On-by-default toggle** (like Energy/Goals): add the row to `FEATURE_ROWS` only —

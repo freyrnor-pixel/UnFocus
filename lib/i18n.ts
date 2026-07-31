@@ -383,33 +383,21 @@ const en = {
     title: 'This is an experimental build',
     body: 'UnFocus is a work in progress. Things may change, move or arrive half-finished — that is expected. Everything stays on your phone, and all feedback is welcome — it shapes what comes next.',
   },
-  // The Energy vs Quiet growth screen (app/onboarding/energy.tsx). Its whole job is the
-  // DISTINCTION: Energy is about today and helps you plan; growth is about the long run and
-  // is scenery. Neither is a score, and neither can tell you that you are behind — keep any
-  // new copy on that side of it.
+  // The Energy screen (app/onboarding/energy.tsx). Its whole job is one distinction: Energy
+  // is about today and helps you plan — it is not a score, and it cannot tell you that you
+  // are behind. Keep any new copy on that side of it.
+  //
+  // This block used to carry a second explanation, `growth` (Quiet growth), plus a `sub` and
+  // a `note` that both said "Both …". All three went with the second card on 2026-07-31 —
+  // wording that counts two things cannot survive there being one. `title` is a PLACEHOLDER
+  // pending the maintainer's own wording (see that screen's header).
   energyIntro: {
-    title: 'Two things worth explaining',
-    sub: 'Both of these sound like scoring. Neither one is, and you can turn either off.',
+    title: 'One thing worth explaining',
     energy: {
       title: 'Energy',
       body: 'Tasks and habits can carry an energy cost, and the meter shows what today has left. It is for planning around the energy you actually have, not for measuring you.',
       note: 'Turning it off hides the meter and keeps every value you have set, so turning it back on restores them.',
     },
-    growth: {
-      title: 'Quiet growth',
-      body: 'The tree behind the app slowly fills in on days you get something done, and eases back when you have other things going on.',
-      note: 'There is no number, no streak count and no level — nowhere in the app. A quiet day returns the background to exactly how it always looks.',
-    },
-    note: 'Both live in Settings → Advanced, so you can change your mind at any point.',
-  },
-  // Onboarding feature picker (app/onboarding/features.tsx) — the guided path's
-  // "what do you want to use?" step. Everything listed there is optional and starts
-  // off; the labels/hints themselves come from config.features.
-  featurePicker: {
-    title: 'What do you want to use?',
-    sub: 'Pick the extras you want. Leave them off and the app stays simple.',
-    alwaysOn: 'To-dos, shopping, notes, habits and health are always available. Your energy budget, goals, receipt scanning and recipes are also included from the start.',
-    note: 'Energy, goals, sharing and automations can all be turned on or off later in Settings → Advanced.',
   },
   // First-run personalization (app/first-run.tsx). Four steps, one question each.
   // Labels that already exist elsewhere are REUSED rather than restated — text sizes come
@@ -2053,25 +2041,12 @@ const no: typeof en = {
     body: 'UnFocus er under arbeid. Ting kan endre seg, flytte på seg eller komme halvferdig — det er som forventet. Alt blir liggende på telefonen din, og alle tilbakemeldinger er velkomne — de former det som kommer.',
   },
   energyIntro: {
-    title: 'To ting som er verdt en forklaring',
-    sub: 'Begge høres ut som poeng. Ingen av dem er det, og du kan slå av begge.',
+    title: 'Én ting som er verdt en forklaring',
     energy: {
       title: 'Energi',
       body: 'Gjøremål og vaner kan ha en energikostnad, og måleren viser hva dagen har igjen. Den er til for å planlegge etter energien du faktisk har, ikke for å måle deg.',
       note: 'Slår du den av, skjules måleren og alle verdiene du har satt beholdes, så de er der igjen hvis du slår den på.',
     },
-    growth: {
-      title: 'Stille vekst',
-      body: 'Treet bak appen fylles sakte ut på dager du får gjort noe, og trekker seg rolig tilbake når du har andre ting på gang.',
-      note: 'Det finnes ikke noe tall, ingen rekke og ingen nivåer — ingen steder i appen. En rolig dag gir bakgrunnen tilbake akkurat slik den alltid ser ut.',
-    },
-    note: 'Begge ligger i Innstillinger → Avansert, så du kan ombestemme deg når som helst.',
-  },
-  featurePicker: {
-    title: 'Hva vil du bruke?',
-    sub: 'Velg de ekstra funksjonene du vil ha. Lar du dem stå av, holder appen seg enkel.',
-    alwaysOn: 'Gjøremål, handleliste, notater, vaner og helse er alltid tilgjengelig. Energibudsjettet, mål, kvitteringsskanning og oppskrifter er også med fra start.',
-    note: 'Energi, mål, deling og automatisering kan alle skrus av og på senere i Innstillinger → Avansert.',
   },
   firstRun: {
     step: (n: number, total: number) => `${n} av ${total}`,

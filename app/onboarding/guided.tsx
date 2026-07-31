@@ -1,9 +1,10 @@
 /**
  * guided.tsx — Guided-setup vs Explore choice (after language)
  *
- * Branch point: "Guided" runs the short intro tour, then the feature picker, then the name
- * step; "Explore" skips all three and jumps straight to the home screen, marking setup
- * complete and leaving every optional feature at its off default. The per-screen ⓘ hints
+ * Branch point: "Guided" explains Energy, then takes the name step; "Explore" skips both and
+ * jumps straight to the home screen, marking setup complete and leaving every optional
+ * feature at its off default. (A feature picker sat between those two screens until
+ * 2026-07-31 — deleted, its switches kept in Settings.) The per-screen ⓘ hints
  * (which teach the settings the old wizard collected) are available on both paths —
  * components/HintCard.tsx always renders its pill, and first-visit auto-expand is driven by
  * settings.seenScreenHints.
@@ -19,9 +20,9 @@
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
- *   - goGuided() → router.push "/onboarding/energy" (the Energy/growth explainer → feature
- *     picker → name step). The old 8-page intro slideshow it used to open is deleted; the
- *     guided tour now runs on the real app after onboarding (lib/tourSteps.ts).
+ *   - goGuided() → router.push "/onboarding/energy" (the Energy explainer → name step). The
+ *     old 8-page intro slideshow it used to open is deleted; the guided tour now runs on the
+ *     real app after onboarding (lib/tourSteps.ts).
  *   - Both paths end on "/" — app/onboarding/basics.tsx is screen ONE now and has already
  *     written firstRunComplete, so there is no personalization step left to route through.
  *   - goExplore() sets setupComplete + lastMonthlyReset (stamped to today, 2026-07-26 —
@@ -67,8 +68,8 @@ export default function GuidedScreen() {
   }
 
   function goExplore() {
-    // Explore skips the tour, the feature picker and the name step, so it lands on the
-    // plain opt-in defaults — every optional feature off, which is the whole promise of
+    // Explore skips the Energy explainer and the name step, so it lands on the plain opt-in
+    // defaults — every optional feature off, which is the whole promise of
     // "jump right in". Schedule reminders the same way the name-step finish() does, so
     // Explore users aren't left unscheduled.
     // lastMonthlyReset stamp: see app/onboarding/index.tsx's finish() for why — same
