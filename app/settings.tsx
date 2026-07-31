@@ -18,7 +18,8 @@
  *   → Layout (horizontal plans timeline) → Device features (voice/contacts/location/calendar).
  * - Advanced — modes and toggles: Energy (mode + capacities; NOT a toggle since 2026-07-26)
  *   → Features card (the FEATURE_ROWS flags, then the Automations link when that flag is on) →
- *   [Personer-familie / Paired devices] one merged panel → Freyr-modus → Debug mode.
+ *   [Personer-familie / Paired devices] one merged panel → Sample data (the toggle still
+ *   keyed `freyrMode*` internally; renamed in copy 2026-07-31) → Debug mode.
  *
  * **Reorganization (2026-07-25)**: was four tabs (Generelt | Handle | Varsler | Modi) where
  * Generelt alone carried eight unrelated groups and Handle carried exactly two settings.
@@ -49,7 +50,7 @@
  * is exactly the grouping pattern ExpandableCard's own header already documents (Decision 043
  * rule 1 / WeekListCard's dish-group rows) — multiple ExpandableCards as siblings inside one
  * caller-owned Surface, each getting its own hairline top divider for separation. Destructive
- * (Reset data) and single-toggle cards with no accordion body (Debug mode, Freyr-modus, the
+ * (Reset data) and single-toggle cards with no accordion body (Debug mode, Sample data, the
  * Layout row) stay their own standalone card — folding a warning-red destructive card into a
  * neutral panel would bury its visual distinctiveness, and a plain toggle has nothing to
  * collapse.
@@ -1643,7 +1644,8 @@ export default function SettingsScreen() {
               </Surface>
             </View>
 
-            {/* FREYR-MODUS — standalone single-toggle card (nothing to collapse, and its
+            {/* SAMPLE DATA (freyrMode* keys/columns) — standalone single-toggle card
+                (nothing to collapse, and its
                 seed/unseed is the most side-effect-heavy switch on the screen). */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>

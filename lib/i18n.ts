@@ -59,7 +59,7 @@ const en = {
   webPreview: { notAvailable: 'Not available in the web preview.' },
   // Home screen
   addNew: '+ New',
-  backlog: 'Waiting for you',
+  backlog: 'Not started',
   // Plans widget (home preview + full /plans screen)
   noPlansToday: 'Nothing to do today — enjoy your day',
   notesCollapse: 'Show less',
@@ -963,7 +963,7 @@ const en = {
   },
   // Radial menu labels
   nav: {
-    newTask: 'New task', plans: 'To-do', shop: 'Shopping', habits: 'Habits',
+    newTask: 'New task', plans: 'To-do', shop: 'Shop', habits: 'Habits',
     meals: 'Food', health: 'Health', scan: 'Scan', settings: 'Settings',
     capture: 'Quick note', home: 'Home', budget: 'Budget', automations: 'Automations',
     shared: 'Shared', settingsLabel: 'Settings',
@@ -1034,7 +1034,7 @@ const en = {
   thisWeekLabel: 'This week',
   quickLogLabel: 'Quick log',
   healthLogTitle: 'Health log',
-  logSymptomTrigger: 'Log occurrence',
+  logSymptomTrigger: "What's bothering you?",
   ailmentLabel: 'Issue',
   severityLabel: 'Severity',
   notesLabel: 'Note',
@@ -1314,11 +1314,11 @@ const en = {
         hint: 'Branches slowly grow in around the edges of the screen, and the colour warms, as the days you keep up add together.',
       },
     },
-    // Freyr-mode (Advanced tab) — one-tap seed/unseed of a starter set of
-    // shopping/task/habit/note rows (lib/freyrModeSeed.ts). Turning it off removes
-    // only the rows it added.
+    // Sample data (Advanced tab; key/column still named freyrMode) — one-tap
+    // seed/unseed of a starter set of shopping/task/habit/note rows
+    // (lib/freyrModeSeed.ts). Turning it off removes only the rows it added.
     freyrMode: {
-      label: 'Freyr-mode',
+      label: 'Sample data',
       hint: 'Adds a starter set of shopping items, tasks, a habit, and notes. Turning this off removes only what it added.',
     },
     // Auto-backup to a persistent, user-chosen location that survives uninstall
@@ -1766,7 +1766,7 @@ const no: typeof en = {
   optionalTag: 'Valgfri',
   webPreview: { notAvailable: 'Ikke tilgjengelig i nettleserforhåndsvisningen.' },
   addNew: '+ Ny',
-  backlog: 'Venter på deg',
+  backlog: 'Ikke startet',
   // Plans widget (home preview + full /plans screen)
   noPlansToday: 'Ingen gjøremål i dag! Nyt dagen',
   notesCollapse: 'Vis mindre',
@@ -2590,7 +2590,7 @@ const no: typeof en = {
       },
     },
     freyrMode: {
-      label: 'Freyr-modus',
+      label: 'Eksempeldata',
       hint: 'Legger til en startpakke med handleliste-varer, oppgaver, en vane og notater. Slår du den av igjen, fjernes kun det den la til.',
     },
     autoBackup: {
@@ -2899,7 +2899,7 @@ const no: typeof en = {
     healthOngoing: (n: number) => (n === 1 ? '1 pågående' : `${n} pågående`),
   },
   nav: {
-    newTask: 'Ny oppgave', plans: 'Gjøremål', shop: 'Handleliste', habits: 'Vaner',
+    newTask: 'Ny oppgave', plans: 'Gjøremål', shop: 'Handle', habits: 'Vaner',
     meals: 'Mat', health: 'Helse', scan: 'Skann', settings: 'Innst.',
     capture: 'Notér', home: 'Hjem', budget: 'Budsjett', automations: 'Automatisering',
     shared: 'Delt', settingsLabel: 'Innstillinger',
@@ -2964,7 +2964,7 @@ const no: typeof en = {
   thisWeekLabel: 'Denne uken',
   quickLogLabel: 'Hurtiglogg',
   healthLogTitle: 'Helse-logg',
-  logSymptomTrigger: 'Logg hendelse',
+  logSymptomTrigger: 'Hva plager deg?',
   ailmentLabel: 'Plage',
   severityLabel: 'Alvorlighet',
   notesLabel: 'Notat',
