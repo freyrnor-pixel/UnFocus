@@ -7,6 +7,14 @@
  * useMealStore inserts these into the `dishes`/`ingredients` tables on every
  * load() (seedDishes), so the Food tab has real content out of the box.
  *
+ * The "Matprat/Rema-inspired" block (2026-07-31) adds wok, fish, vegetarian,
+ * soup, lunch-box and breakfast dishes modeled on real recipe names and
+ * ingredient composition found via search of matprat.no and rema.no
+ * (Norway's largest recipe site and a major grocery chain) — direct page
+ * fetches of those domains are blocked by this environment's egress policy,
+ * so ingredient amounts/prices here are this app's own estimates in the
+ * existing seed style, not scraped/verbatim quantities from either site.
+ *
  * Connections:
  *   Imports → store/useMealStore (MealType, Difficulty — type-only)
  *   Used by → store/useMealStore.ts
@@ -454,6 +462,241 @@ export const DISH_SEED: SeedDish[] = [
       { name: 'Skinke', amount: '40', unit: 'g', priceNok: 12 },
       { name: 'Ost', amount: '40', unit: 'g', priceNok: 8 },
       { name: 'Smør', amount: '10', unit: 'g', priceNok: 3 },
+    ],
+  },
+
+  // ── Matprat/Rema-inspired: breakfast ──
+  {
+    name: 'Hjemmelaget frokostblanding', mealType: 'breakfast', difficulty: 'easy',
+    ingredients: [
+      { name: 'Havregryn', amount: '4', unit: 'dl', priceNok: 15 },
+      { name: 'Solsikkefrø', amount: '0.5', unit: 'dl', priceNok: 6 },
+      { name: 'Mandler', amount: '0.5', unit: 'dl', priceNok: 12 },
+      { name: 'Tørket frukt', amount: '1', unit: 'dl', priceNok: 15 },
+    ],
+  },
+  {
+    name: 'Sunne pannekaker med havregryn', mealType: 'breakfast', difficulty: 'normal',
+    ingredients: [
+      { name: 'Havregryn', amount: '2', unit: 'dl', priceNok: 10 },
+      { name: 'Egg', amount: '3', unit: 'stk', priceNok: 12 },
+      { name: 'Cottage cheese', amount: '2', unit: 'dl', priceNok: 20 },
+      { name: 'Banan', amount: '1', unit: 'stk', priceNok: 4 },
+    ],
+  },
+
+  // ── Matprat/Rema-inspired: lunch ──
+  {
+    name: 'Blomkålsuppe', mealType: 'lunch', difficulty: 'easy',
+    ingredients: [
+      { name: 'Blomkål', amount: '1', unit: 'stk', priceNok: 30 },
+      { name: 'Løk', amount: '1', unit: 'stk', priceNok: 3 },
+      { name: 'Buljong', amount: '6', unit: 'dl', priceNok: 15 },
+      { name: 'Melk', amount: '2', unit: 'dl', priceNok: 6 },
+    ],
+  },
+  {
+    name: 'Grønnsakssuppe', mealType: 'lunch', difficulty: 'easy',
+    ingredients: [
+      { name: 'Poteter', amount: '3', unit: 'stk', priceNok: 6 },
+      { name: 'Løk', amount: '1', unit: 'stk', priceNok: 3 },
+      { name: 'Gulrøtter', amount: '2', unit: 'stk', priceNok: 6 },
+      { name: 'Kålrot', amount: '0.5', unit: 'stk', priceNok: 8 },
+      { name: 'Hodekål', amount: '0.25', unit: 'stk', priceNok: 8 },
+      { name: 'Buljong', amount: '8', unit: 'dl', priceNok: 15 },
+    ],
+  },
+  {
+    name: 'Matpakkepita', mealType: 'lunch', difficulty: 'easy',
+    ingredients: [
+      { name: 'Pitabrød', amount: '2', unit: 'stk', priceNok: 15 },
+      { name: 'Pesto', amount: '2', unit: 'ss', priceNok: 8 },
+      { name: 'Mozzarella', amount: '100', unit: 'g', priceNok: 20 },
+      { name: 'Skinke', amount: '60', unit: 'g', priceNok: 18 },
+    ],
+  },
+  {
+    name: 'Ost- og skinkeomelett', mealType: 'lunch', difficulty: 'easy',
+    ingredients: [
+      { name: 'Egg', amount: '3', unit: 'stk', priceNok: 12 },
+      { name: 'Skinke', amount: '60', unit: 'g', priceNok: 18 },
+      { name: 'Ost', amount: '50', unit: 'g', priceNok: 10 },
+      { name: 'Melk', amount: '1', unit: 'ss', priceNok: 1 },
+    ],
+  },
+  {
+    name: 'Wrap med salami og kremost', mealType: 'lunch', difficulty: 'easy',
+    ingredients: [
+      { name: 'Tortillalefse', amount: '2', unit: 'stk', priceNok: 10 },
+      { name: 'Salami', amount: '60', unit: 'g', priceNok: 15 },
+      { name: 'Kremost', amount: '3', unit: 'ss', priceNok: 8 },
+      { name: 'Salatblad', amount: '2', unit: 'stk', priceNok: 3 },
+    ],
+  },
+
+  // ── Matprat/Rema-inspired: dinner, fish ──
+  {
+    name: 'Ovnsbakt laks med spinat og blomkål', mealType: 'dinner', difficulty: 'easy',
+    ingredients: [
+      { name: 'Laksefilet', amount: '400', unit: 'g', priceNok: 90 },
+      { name: 'Fersk spinat', amount: '150', unit: 'g', priceNok: 25 },
+      { name: 'Blomkål', amount: '0.5', unit: 'stk', priceNok: 15 },
+      { name: 'Hvitløk', amount: '2', unit: 'fedd', priceNok: 2 },
+      { name: 'Chili', amount: '1', unit: 'stk', priceNok: 5 },
+      { name: 'Lime', amount: '1', unit: 'stk', priceNok: 6 },
+    ],
+  },
+  {
+    name: 'Laksewok', mealType: 'dinner', difficulty: 'easy',
+    ingredients: [
+      { name: 'Laksefilet', amount: '400', unit: 'g', priceNok: 90 },
+      { name: 'Blandede grønnsaker', amount: '400', unit: 'g', priceNok: 30 },
+      { name: 'Soyasaus', amount: '2', unit: 'ss', priceNok: 4 },
+      { name: 'Lime', amount: '1', unit: 'stk', priceNok: 6 },
+      { name: 'Ingefær', amount: '1', unit: 'ss', priceNok: 3 },
+      { name: 'Ris', amount: '3', unit: 'dl', priceNok: 10 },
+    ],
+  },
+  {
+    name: 'Alt-i-ett-form med laks og grønnsaker', mealType: 'dinner', difficulty: 'easy',
+    ingredients: [
+      { name: 'Laksefilet', amount: '400', unit: 'g', priceNok: 90 },
+      { name: 'Poteter', amount: '4', unit: 'stk', priceNok: 8 },
+      { name: 'Squash', amount: '1', unit: 'stk', priceNok: 10 },
+      { name: 'Fløte', amount: '2', unit: 'dl', priceNok: 18 },
+      { name: 'Hvitløk', amount: '2', unit: 'fedd', priceNok: 2 },
+      { name: 'Persille', amount: '1', unit: 'ss', priceNok: 2 },
+    ],
+  },
+
+  // ── Matprat/Rema-inspired: dinner, chicken & wok ──
+  {
+    name: 'Kyllingwok med brokkoli', mealType: 'dinner', difficulty: 'easy',
+    ingredients: [
+      { name: 'Kyllingfilet', amount: '400', unit: 'g', priceNok: 80 },
+      { name: 'Brokkoli', amount: '1', unit: 'stk', priceNok: 25 },
+      { name: 'Sopp', amount: '150', unit: 'g', priceNok: 20 },
+      { name: 'Vårløk', amount: '3', unit: 'stk', priceNok: 10 },
+      { name: 'Østerssaus', amount: '1', unit: 'ss', priceNok: 6 },
+      { name: 'Soyasaus', amount: '2', unit: 'ss', priceNok: 4 },
+      { name: 'Ingefær', amount: '1', unit: 'ss', priceNok: 3 },
+      { name: 'Hvitløk', amount: '2', unit: 'fedd', priceNok: 2 },
+      { name: 'Ris', amount: '3', unit: 'dl', priceNok: 10 },
+    ],
+  },
+  {
+    name: 'Wok med kylling og nudler', mealType: 'dinner', difficulty: 'normal',
+    ingredients: [
+      { name: 'Kyllingfilet', amount: '400', unit: 'g', priceNok: 80 },
+      { name: 'Nudler', amount: '250', unit: 'g', priceNok: 25 },
+      { name: 'Paprika', amount: '1', unit: 'stk', priceNok: 12 },
+      { name: 'Rødløk', amount: '1', unit: 'stk', priceNok: 5 },
+      { name: 'Squash', amount: '1', unit: 'stk', priceNok: 10 },
+      { name: 'Babymais', amount: '1', unit: 'boks', priceNok: 15 },
+      { name: 'Soyasaus', amount: '3', unit: 'ss', priceNok: 6 },
+      { name: 'Ingefær', amount: '1', unit: 'ss', priceNok: 3 },
+      { name: 'Chiliflak', amount: '1', unit: 'ts', priceNok: 1 },
+    ],
+  },
+  {
+    name: 'Kyllinggryte med kikerter, tomat og spinat', mealType: 'dinner', difficulty: 'easy',
+    ingredients: [
+      { name: 'Kyllingfilet', amount: '400', unit: 'g', priceNok: 80 },
+      { name: 'Kikerter', amount: '1', unit: 'boks', priceNok: 12 },
+      { name: 'Hermetiske tomater', amount: '1', unit: 'boks', priceNok: 10 },
+      { name: 'Fersk spinat', amount: '100', unit: 'g', priceNok: 18 },
+      { name: 'Løk', amount: '1', unit: 'stk', priceNok: 3 },
+      { name: 'Hvitløk', amount: '2', unit: 'fedd', priceNok: 2 },
+    ],
+  },
+  {
+    name: 'Kyllingkjøttkaker', mealType: 'dinner', difficulty: 'normal',
+    ingredients: [
+      { name: 'Kyllingdeig', amount: '500', unit: 'g', priceNok: 75 },
+      { name: 'Potetmel', amount: '1', unit: 'ss', priceNok: 2 },
+      { name: 'Muskat', amount: '1', unit: 'ts', priceNok: 1 },
+      { name: 'Melk', amount: '1', unit: 'dl', priceNok: 3 },
+      { name: 'Poteter', amount: '4', unit: 'stk', priceNok: 8 },
+      { name: 'Brun saus', amount: '3', unit: 'dl', priceNok: 12 },
+    ],
+  },
+
+  // ── Matprat/Rema-inspired: dinner, vegetarian & pasta ──
+  {
+    name: 'Chili sin carne', mealType: 'dinner', difficulty: 'normal',
+    ingredients: [
+      { name: 'Løk', amount: '1', unit: 'stk', priceNok: 3 },
+      { name: 'Gulrot', amount: '2', unit: 'stk', priceNok: 6 },
+      { name: 'Rød paprika', amount: '1', unit: 'stk', priceNok: 12 },
+      { name: 'Hvitløk', amount: '2', unit: 'fedd', priceNok: 2 },
+      { name: 'Hermetiske tomater', amount: '2', unit: 'bokser', priceNok: 20 },
+      { name: 'Tomatpuré', amount: '1', unit: 'ss', priceNok: 3 },
+      { name: 'Røde bønner', amount: '1', unit: 'boks', priceNok: 12 },
+      { name: 'Kikerter', amount: '1', unit: 'boks', priceNok: 12 },
+      { name: 'Spisskummen', amount: '1', unit: 'ts', priceNok: 1 },
+    ],
+  },
+  {
+    name: 'Vegetarisk thaigryte', mealType: 'dinner', difficulty: 'normal',
+    ingredients: [
+      { name: 'Rød currypasta', amount: '2', unit: 'ss', priceNok: 10 },
+      { name: 'Kokosmelk', amount: '1', unit: 'boks', priceNok: 20 },
+      { name: 'Linser', amount: '2', unit: 'dl', priceNok: 12 },
+      { name: 'Kikerter', amount: '1', unit: 'boks', priceNok: 12 },
+      { name: 'Butternut squash', amount: '300', unit: 'g', priceNok: 25 },
+      { name: 'Lime', amount: '1', unit: 'stk', priceNok: 5 },
+      { name: 'Ris', amount: '3', unit: 'dl', priceNok: 10 },
+    ],
+  },
+  {
+    name: 'Åpen vegetarlasagne', mealType: 'dinner', difficulty: 'normal',
+    ingredients: [
+      { name: 'Aubergine', amount: '1', unit: 'stk', priceNok: 20 },
+      { name: 'Grønn squash', amount: '1', unit: 'stk', priceNok: 10 },
+      { name: 'Rød paprika', amount: '1', unit: 'stk', priceNok: 12 },
+      { name: 'Gul paprika', amount: '1', unit: 'stk', priceNok: 12 },
+      { name: 'Hermetiske tomater', amount: '2', unit: 'bokser', priceNok: 20 },
+      { name: 'Lasagneplater', amount: '6', unit: 'stk', priceNok: 15 },
+      { name: 'Ost', amount: '150', unit: 'g', priceNok: 30 },
+      { name: 'Timian', amount: '1', unit: 'ts', priceNok: 2 },
+    ],
+  },
+  {
+    name: 'One pot pasta med kjøttdeig', mealType: 'dinner', difficulty: 'normal',
+    ingredients: [
+      { name: 'Kjøttdeig', amount: '400', unit: 'g', priceNok: 60 },
+      { name: 'Spaghetti', amount: '400', unit: 'g', priceNok: 20 },
+      { name: 'Løk', amount: '1', unit: 'stk', priceNok: 3 },
+      { name: 'Hvitløk', amount: '1', unit: 'fedd', priceNok: 1 },
+      { name: 'Hermetiske tomater', amount: '1', unit: 'boks', priceNok: 10 },
+      { name: 'Cherrytomater', amount: '250', unit: 'g', priceNok: 25 },
+      { name: 'Fersk spinat', amount: '100', unit: 'g', priceNok: 18 },
+      { name: 'Parmesan', amount: '50', unit: 'g', priceNok: 15 },
+    ],
+  },
+
+  // ── Matprat/Rema-inspired: dinner, quick & family ──
+  {
+    name: 'Rask middagsgryte med kjøttdeig', mealType: 'dinner', difficulty: 'easy',
+    ingredients: [
+      { name: 'Kjøttdeig', amount: '400', unit: 'g', priceNok: 60 },
+      { name: 'Poteter', amount: '4', unit: 'stk', priceNok: 8 },
+      { name: 'Gulrøtter', amount: '2', unit: 'stk', priceNok: 6 },
+      { name: 'Løk', amount: '1', unit: 'stk', priceNok: 3 },
+      { name: 'Buljong', amount: '5', unit: 'dl', priceNok: 10 },
+    ],
+  },
+  {
+    name: 'Burrito med kjøttdeig', mealType: 'dinner', difficulty: 'normal',
+    ingredients: [
+      { name: 'Kjøttdeig', amount: '400', unit: 'g', priceNok: 60 },
+      { name: 'Løk', amount: '1', unit: 'stk', priceNok: 3 },
+      { name: 'Taco-krydder', amount: '1', unit: 'pk', priceNok: 15 },
+      { name: 'Salsa', amount: '1', unit: 'boks', priceNok: 20 },
+      { name: 'Tortillalefser', amount: '6', unit: 'stk', priceNok: 30 },
+      { name: 'Ost', amount: '150', unit: 'g', priceNok: 30 },
+      { name: 'Svarte bønner', amount: '1', unit: 'boks', priceNok: 12 },
+      { name: 'Cherrytomater', amount: '150', unit: 'g', priceNok: 15 },
     ],
   },
 ];
