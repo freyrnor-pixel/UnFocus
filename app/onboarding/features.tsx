@@ -6,15 +6,19 @@
  * intro tour and the name step; the Explore path skips it entirely and keeps the same
  * defaults, which is exactly the "just show me the app" behaviour it promises.
  *
- * **Only two rows here (2026-07-25 defaults revision)** — Sharing & QR and Automations.
- * This screen originally offered six: Energy, Goals, Sharing, Scan, Food, Automations, all
- * unchecked. Maintainer feedback the same day changed that: Energy and Goals now default ON
- * (still real toggles, just in Settings → Advanced → Features, not here — an "opt in from
- * nothing" picker doesn't fit a feature that's already on), and Scan & receipts / Food &
- * recipes are permanently on, like Habits/Health, so there's nothing left to offer for
- * either. Only Sharing and Automations are still genuinely off-by-default opt-ins.
+ * **Three rows here** — Sharing & QR, Automations, and Bonsai/points (2026-07-31 addition,
+ * see lib/bonsai.ts). This screen originally offered six: Energy, Goals, Sharing, Scan,
+ * Food, Automations, all unchecked. Maintainer feedback the same day (2026-07-25) changed
+ * that: Energy and Goals now default ON (still real toggles, just in Settings → Advanced →
+ * Features, not here — an "opt in from nothing" picker doesn't fit a feature that's already
+ * on), and Scan & receipts / Food & recipes are permanently on, like Habits/Health, so
+ * there's nothing left to offer for either. Sharing, Automations and — as of 2026-07-31 —
+ * the Bonsai/points reward system are the genuinely off-by-default opt-ins: unlike Energy/
+ * Goals it's pure reward rather than balance/planning, which is exactly the kind of "ask
+ * first" feature this picker exists for (see components/BonsaiCard.tsx's header for why it
+ * isn't on by default — the app has deliberately avoided score/reward framing elsewhere).
  *
- * Choices are written once on Next; the same two switches live in Settings → Advanced →
+ * Choices are written once on Next; the same three switches live in Settings → Advanced →
  * Features afterwards.
  *
  * Connections:
@@ -22,7 +26,7 @@
  *             @/lib/haptics, @/components/Button, @/components/Surface,
  *             @/components/FormControls (Switch)
  *   Used by → Expo Router route "/onboarding/features" (pushed from onboarding/intro.tsx)
- *   Data    → useSettingsStore (writes featureSharing/featureAutomations on Next)
+ *   Data    → useSettingsStore (writes featureSharing/featureAutomations/showPoints on Next)
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text. The per-feature
@@ -57,11 +61,12 @@ import Surface from '@/components/Surface';
 import { Switch as FormSwitch } from '@/components/FormControls';
 
 /** The still-optional features offered here, in the order they're shown. */
-type FeatureKey = 'featureSharing' | 'featureAutomations';
+type FeatureKey = 'featureSharing' | 'featureAutomations' | 'showPoints';
 
 const ROWS: { key: FeatureKey; copy: (t: ReturnType<typeof useT>) => { label: string; hint: string } }[] = [
   { key: 'featureSharing', copy: (t) => t.config.features.sharing },
   { key: 'featureAutomations', copy: (t) => t.config.features.automations },
+  { key: 'showPoints', copy: (t) => t.config.features.bonsai },
 ];
 
 export default function OnboardingFeatures() {
@@ -76,6 +81,7 @@ export default function OnboardingFeatures() {
   const [picked, setPicked] = useState<Record<FeatureKey, boolean>>({
     featureSharing: false,
     featureAutomations: false,
+    showPoints: false,
   });
 
   function toggle(key: FeatureKey, value: boolean) {
