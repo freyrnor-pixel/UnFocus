@@ -1174,7 +1174,7 @@ export default function PlanTaskCard({
         {/* The empty-day explainer, at the FOOT of the card (2026-07-30) — it used to lead the
             empty state, between the title and the first thing you can actually do. Only while
             the day is genuinely empty: once there are tasks, the ⓘ hint is where this lives. */}
-        {showEmpty ? <CardHintNote text={t.starters.plans.text} /> : null}
+        {showEmpty ? <CardHintNote text={t.starters.plans.text} noBorder /> : null}
 
       </View>
     </Surface>

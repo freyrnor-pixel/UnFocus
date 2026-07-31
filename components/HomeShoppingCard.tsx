@@ -433,7 +433,7 @@ export default function HomeShoppingCard({
             for groceries." / "Monthly list for what the house needs.") wedged between the week
             pager and the type line — the single biggest block of teaching on Home. It is one
             short line now, below the content. */}
-        {totalCount === 0 ? <CardHintNote text={t.starters.shopping.text} /> : null}
+        {totalCount === 0 ? <CardHintNote text={t.starters.shopping.text} noBorder /> : null}
       </View>
 
       <ShoppingItemSheet

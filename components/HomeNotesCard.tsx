@@ -358,7 +358,7 @@ export default function HomeNotesCard() {
 
         {/* Explainer at the FOOT (2026-07-30) — it used to sit between the header and the
             first rule, where it crowded the mic button and pushed the type line down. */}
-        {notes.length === 0 ? <CardHintNote text={t.starters.notes.text} /> : null}
+        {notes.length === 0 ? <CardHintNote text={t.starters.notes.text} noBorder /> : null}
       </View>
 
       <SendToSheet

@@ -146,6 +146,16 @@ export default function PadTypeRow({
         ) : null}
       </View>
 
+      {/* Ghost check preview — idle state only (2026-07-31, user report: the blank spare
+          lines below used to each carry their own ghost ring, which read as several
+          identical previews; there is really only one "next thing to check" and it belongs
+          on this row, the one actually empty-but-selected for input). Same 22×22/Radius.full
+          ring as PadRow's real check and the old spare-line ghost, but dimmer — it's a
+          preview of where a check WILL go once this line becomes a real row, not a control. */}
+      {!showControls ? (
+        <View style={[styles.ghostCheck, { borderColor: theme.border }]} pointerEvents="none" />
+      ) : null}
+
       {showControls ? extras : null}
 
       {showControls ? (
@@ -205,5 +215,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1.5,
   },
+  // Same ring geometry as PadRow's real check (22×22, Radius.full, 2px), but faint — a
+  // preview of where a check will land, not a control (see the mount note above).
+  ghostCheck: { width: 22, height: 22, borderRadius: Radius.full, borderWidth: 2, opacity: 0.4 },
   gated: { opacity: 0.45 },
 });

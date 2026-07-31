@@ -319,7 +319,7 @@ export default function HomeHabitsCard() {
 
         {/* Explainer at the FOOT (2026-07-30) — it used to lead the empty state, between the
             title and the first tappable thing. Only while there are no habits at all. */}
-        {habits.length === 0 ? <CardHintNote text={t.starters.habits.text} /> : null}
+        {habits.length === 0 ? <CardHintNote text={t.starters.habits.text} noBorder /> : null}
       </View>
     </Surface>
   );
