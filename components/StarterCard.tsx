@@ -19,7 +19,8 @@
  * "instructions for this screen".
  *
  * Connections:
- *   Imports → components/Surface, components/Badge (via StarterExampleRow), constants/theme,
+ *   Imports → components/Surface, components/Motif (the `empty-branch` watermark),
+ *             components/Badge (via StarterExampleRow), constants/theme,
  *             lib/useAppTheme, @expo/vector-icons
  *   Used by → app/(tabs)/habits.tsx (with one-tap starter chips in `children`),
  *             app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx, app/(tabs)/health.tsx,
@@ -48,11 +49,16 @@
  *     carrying example rows in the first place. Energy's compact card, the other original
  *     caller, became a permanent inline hint in its own card instead (see EnergyMeter's
  *     header). List surfaces (Habits/Plans/Shopping/Health) keep the default size.
+ *   - **The `empty-branch` watermark (2026-07-31)** is drawn in `theme.border`, NOT the
+ *     accent — this card is deliberately the neutral twin of HintCard's accent-barred look
+ *     (see above), and an accent watermark would undo exactly that distinction. It is also
+ *     the reason `card` sets `overflow: 'hidden'`.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
+import Motif from '@/components/Motif';
 import { Fonts, FontSize, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
@@ -77,6 +83,13 @@ export default function StarterCard({ text, example, children, compact }: Props)
   const styles = useScaledStyles(baseStyles);
   return (
     <Surface borderColor={theme.border} style={[styles.card, compact && styles.cardCompact]}>
+      {/* A bare trunk, no canopy — the empty-state member of the motif family. It says
+          "nothing has grown here yet" without saying anything is wrong, and it visually
+          anticipates the growth backdrop the app fills in later. Skipped on `compact`, which
+          is too small to carry a watermark without crowding its one line of text. */}
+      {compact ? null : (
+        <Motif id="empty-branch" color={theme.border} fit="meet" style={styles.branch} />
+      )}
       <View style={styles.textRow}>
         <Ionicons name="bulb-outline" size={compact ? 12 : 14} color={theme.textMuted} style={styles.bulbIcon} />
         <Text style={[styles.text, compact && styles.textCompact, { color: theme.text }]}>{text}</Text>
@@ -95,6 +108,20 @@ const baseStyles = StyleSheet.create({
   card: {
     padding: Spacing.md,
     gap: Spacing.xs,
+    // The branch watermark is absolutely positioned inside; without this it would paint
+    // outside the card's rounded corners.
+    overflow: 'hidden',
+  },
+  // Tucked into the trailing edge, vertically centred, sized so it reads as texture behind
+  // the copy rather than an illustration competing with it. pointerEvents is already 'none'
+  // inside Motif, so it can never intercept a tap on the example row.
+  branch: {
+    position: 'absolute',
+    right: -Spacing.sm,
+    top: 0,
+    bottom: 0,
+    width: 96,
+    opacity: 0.5,
   },
   cardCompact: {
     paddingHorizontal: Spacing.sm,

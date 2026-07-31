@@ -138,7 +138,11 @@ describe('the tree watermark is always tinted', () => {
   // any light surface no matter what opacity it is given, which is why raising SectionDivider's
   // mark from 0.14 to 0.3 (2026-07-27) didn't fix the divider reading as two disconnected
   // hairlines — opacity was never the variable.
-  const CALLERS = ['components/SectionDivider.tsx', 'app/onboarding/_layout.tsx'];
+  //
+  // SectionDivider dropped off this list on 2026-07-31: it draws the `trunk-divider` motif
+  // now, which solved the same problem by removing the mark rather than re-tinting it. The
+  // rule below still guards the remaining caller and any new one.
+  const CALLERS = ['app/onboarding/_layout.tsx'];
 
   it.each(CALLERS)('%s passes a tintColor to every TreeWatermark it renders', (rel) => {
     const tags = read(rel).match(/<TreeWatermark[\s\S]*?\/>/g) ?? [];

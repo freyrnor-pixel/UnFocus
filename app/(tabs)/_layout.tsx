@@ -24,6 +24,13 @@
  * as laggy swiping. The 5 tab screens pass ownBackground={false} to ScreenScaffold so they
  * don't ALSO paint their own copy.
  *
+ * This layout is also the ONLY caller that passes ScreenBackground a `panelPosition`. The tree
+ * motif behind the tabs is one continuous strip five screens wide (constants/motifs.ts's
+ * `screen-bg-strip`), and handing it bgIndexAnim slides it a full screen width per tab — so a
+ * swipe travels ALONG one branch rather than crossfading between five unrelated pictures. Note
+ * this is a different, much larger motion than the ±MAX_PARALLAX drift below, and the two
+ * compose: the drift still applies to the whole group on top of the panel slide.
+ *
  * Connections:
  *   Imports → expo-router/js-top-tabs (TopTabs — Expo Router's own SDK-56 top-tabs
  *             wrapper, not @react-navigation/material-top-tabs directly; see Edit notes),
@@ -430,14 +437,19 @@ export default function TabsLayout() {
   return (
       <View style={{ flex: 1 }}>
         {/* Shared L1/L2 background, rendered once behind the whole pager (see file header).
-            ScreenBackground is the shared blue field + corner branch accents (same on every
-            tab); HomeHeroBackground is an extra focal glow that cross-fades in over it on Home.
+            ScreenBackground is the shared blue field + the tree motif; HomeHeroBackground is an
+            extra focal glow that cross-fades in over it on Home.
             The whole group lives in a parallax layer that drifts ±MAX_PARALLAX horizontally
             with the pager scroll — oversized by MAX_PARALLAX on each side (styles.bgLayer) so
             the drift never exposes a bare edge. bgParallax is null under reducedMotion (or
-            before the position node arrives), leaving the backdrop fixed as before. */}
+            before the position node arrives), leaving the backdrop fixed as before.
+            `panelPosition` is a SEPARATE, larger motion from that drift: it slides the
+            five-panel tree strip a full screen width per tab, which is what makes the branch
+            run unbroken from one tab to the next instead of being swapped at the seam. Passing
+            bgIndexAnim (not the raw pager `position`) is deliberate — see its declaration for
+            why the app owns that node. */}
         <Animated.View style={[styles.bgLayer, bgParallax]} pointerEvents="none">
-          <ScreenBackground activeRoute={activeRouteName} />
+          <ScreenBackground activeRoute={activeRouteName} panelPosition={bgIndexAnim} />
           <Animated.View style={[StyleSheet.absoluteFill, { opacity: heroOpacity }]} pointerEvents="none">
             <HomeHeroBackground />
           </Animated.View>
