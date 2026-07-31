@@ -34,8 +34,9 @@
  *             filter row), store/useTagStore + components/TagChip + lib/tags (the tag filter
  *             row — multi-select, "any of"), components/EnergyBalanceCard (the shared-load
  *             comparison, People mode only, day/week tabs only), components/SubScreenLinkButton
- *             (2026-07-29, the "Goals" link under HintCard — Goals dropped its own Home card;
- *             see app/goals.tsx's header)
+ *             (2026-07-29, the "Edit Goals" link at the bottom of the screen — Goals dropped
+ *             its own Home card; see app/goals.tsx's header), components/GoalsSheet (2026-07-31,
+ *             the popup that link opens)
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx;
  *             also reached with `?tab=all&expandTaskId=…` from app/notes.tsx's "Add to plans"
  *             (UX audit B1, 2026-07-23 — creates the task, then lands here with its editor open)
@@ -142,6 +143,7 @@ import TabSlider from '@/components/TabSlider';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import SubScreenLinkButton from '@/components/SubScreenLinkButton';
+import GoalsSheet from '@/components/GoalsSheet';
 import { todayStr, getWeekDates } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -490,6 +492,7 @@ export default function TasksScreen() {
   const [todayCardState, setTodayCardState] = useCardState('plans');
   const planTimelineHorizontal = useSettingsStore((s) => s.planTimelineHorizontal);
   const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
+  const [goalsSheetOpen, setGoalsSheetOpen] = useState(false);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
   const tasksForWeek = useTaskStore((s) => s.tasksForWeek);
   const toggle = useTaskStore((s) => s.toggle);
@@ -829,19 +832,6 @@ export default function TasksScreen() {
             personal plans and did nothing at all. */}
         <HintCard text={t.hints.plans.text} example={t.hints.plans.example} open={hintOpen} noPill />
 
-        {/* Goals link (2026-07-29) — Goals dropped its own Home card (too many lists on
-            Home); this is now one of its two entry points, alongside Habits. Gated on
-            featureGoals so turning the feature off removes the button, not just the
-            screen it points to. */}
-        {featureGoals && (
-          <SubScreenLinkButton
-            domain="task"
-            icon="flag"
-            label={t.goals.title}
-            onPress={() => router.push('/goals')}
-          />
-        )}
-
         {/* First-run explainer (2026-07-26): what a to-do is for here, plus an example.
             Shown only while there is not a single task on any tab, so it costs nothing once
             the list is in use — and comes back if every task is later deleted.
@@ -1099,12 +1089,30 @@ export default function TasksScreen() {
             ))}
           </>
         )}
+
+        {/* Edit Goals link (2026-07-29, moved to the bottom + renamed + popup 2026-07-31) —
+            Goals dropped its own Home card (too many lists on Home); this is now one of its
+            two entry points, alongside Habits. Sits below the task list rather than above it
+            (under HintCard, its original spot) since it's an occasional edit action, not
+            something that should outrank the day's tasks on every visit. Opens GoalsSheet as
+            a popup instead of pushing to /goals, so editing goals doesn't leave this tab.
+            Gated on featureGoals so turning the feature off removes the link, not just the
+            sheet it opens. */}
+        {featureGoals && (
+          <SubScreenLinkButton
+            domain="task"
+            icon="flag"
+            label={t.goals.editLink}
+            onPress={() => setGoalsSheetOpen(true)}
+          />
+        )}
       </View>
       <LayoutPickerSheet
         visible={layoutPickerOpen}
         surface="plans"
         onClose={() => setLayoutPickerOpen(false)}
       />
+      <GoalsSheet visible={goalsSheetOpen} onClose={() => setGoalsSheetOpen(false)} />
     </ScreenScaffold>
   );
 }

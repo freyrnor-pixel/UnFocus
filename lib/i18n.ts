@@ -1018,6 +1018,11 @@ const en = {
     // goalStrength.ts floors at 0 and is never driven below it — so the copy has to say
     // that too, or the mechanic and the words disagree.
     title: 'Goals',
+    // Bottom-of-screen link on Habits/Plans that opens the GoalsSheet popup (2026-07-31 —
+    // moved off the top of those screens; see those files' Edit notes). Deliberately
+    // "Edit Goals" not "Goals": it opens straight into add/delete, not a browse view.
+    editLink: 'Edit Goals',
+    close: 'Done',
     strengthStrong: 'Going strong',
     strengthWarm: 'Warming up',
     strengthNeutral: 'Ready when you are',
@@ -2241,6 +2246,8 @@ const no: typeof en = {
     deleteConfirmBody: 'Oppgaver og vaner som er koblet til, blir frakoblet. Dette kan ikke angres.',
     strengthLabel: 'Måldriv — vokser når du jobber med det, avtar rolig når du ikke gjør det.',
     title: 'Mål',
+    editLink: 'Rediger mål',
+    close: 'Ferdig',
     strengthStrong: 'Går sterkt',
     strengthWarm: 'Er i gang',
     strengthNeutral: 'Klart når du er det',
