@@ -46,9 +46,16 @@
  *     The whole field is hidden when no medicine exists, and "Not sure" ('') is the default,
  *     so this never becomes a question a user has to answer. A `medicineId` route param
  *     pre-selects it (app/medicine-form.tsx's "note something it caused" button).
+ *   - **Keyboard fix (2026-07-31)**: the whole screen is wrapped in a `KeyboardAvoidingView`
+ *     (iOS `padding` only — Android already resizes the window via
+ *     `windowSoftInputMode=resize`, so a second RN-level shrink would double up and misplace
+ *     content, see ScreenScaffold's header note). Fixes the Note field (and Ailment, at the
+ *     top) being covered by the keyboard on iOS — this screen was missing the wrapper that
+ *     app/habit-form.tsx and app/medicine-form.tsx already have, since ScreenScaffold itself
+ *     has no keyboard-avoidance for a plain sub-screen ScrollView.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useHealthStore, Symptom } from '@/store/useHealthStore';
@@ -258,6 +265,7 @@ export default function HealthFormScreen() {
   }
 
   return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
     <ScreenScaffold
       title={existing ? t.editHealthEntryTitle : t.newHealthEntryTitle}
       tier="sub"
@@ -451,10 +459,12 @@ export default function HealthFormScreen() {
 
       <ConfirmationBanner message={confirm} onDismiss={() => setConfirm(null)} />
     </ScreenScaffold>
+    </KeyboardAvoidingView>
   );
 }
 
 const baseStyles = StyleSheet.create({
+  flex: { flex: 1 },
   content: { padding: Spacing.md, gap: Spacing.lg },
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },

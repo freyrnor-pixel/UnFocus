@@ -78,3 +78,22 @@ a real device by the maintainer (or a local emulator where KVM exists). The web
 preview is faithful for layout/navigation/store logic but differs from native in
 shadows, some font metrics, and Reanimated timing — use it for "does the flow work,"
 not final visual sign-off.
+
+## Component checklist — match the check to what actually changed
+
+Most bugs here aren't caught by `tsc`/Jest at all (they're native-rendering or
+layout bugs), but they ARE catchable by inspection/grep without a device. Check the
+row that matches what you touched — don't run the whole list for a one-line change.
+
+| You added/changed... | Check this |
+|---|---|
+| A new `TextInput`/`Input` (FormControls) on a **sub-screen** (`ScreenScaffold tier="sub"`, e.g. a `*-form.tsx`) | The screen must be wrapped in `KeyboardAvoidingView` (`behavior={Platform.OS === 'ios' ? 'padding' : undefined}`) — `ScreenScaffold`'s ScrollView has **no built-in keyboard avoidance** outside `AddRow`'s own `scrollIntoView` (see its header note). Grep `KeyboardAvoidingView` in the file; if it's missing and the field isn't the very first thing on screen, add it — pattern lives in `app/habit-form.tsx` / `app/medicine-form.tsx` / `app/health-form.tsx`. Found and fixed missing wrappers on `app/health-form.tsx` and `app/settings.tsx` this way (2026-07-31) — both had `Input` fields hundreds of lines into a long scroll with zero keyboard handling.
+| A new `TextInput`/`Input` on a **site-tier tab screen** (`app/(tabs)/*.tsx`) | Same risk exists (`Input` never calls `scrollIntoView`), but wrapping a pager tab in `KeyboardAvoidingView` touches the shared pager layout — verify on device/emulator before changing, don't blind-patch. Known unverified cases: `app/(tabs)/shopping.tsx`'s monthly-list rename `TextInput` (can be far down a long list) and `app/(tabs)/health.tsx`'s quick-log start-time/duration fields (lower risk — they render directly below the already-scrolled-into-view `AddRow`).
+| A new `AddRow` inline input | Confirm it's inside a scrollable `ScreenScaffold` (not `scrollable={false}`) so `ScrollIntoViewContext` is actually provided — a self-scrolling `FlatList` screen (Catalogue) must handle its own scroll-into-view instead.
+| A new tap target (button/icon/chip) | Use `MIN_TAP_TARGET`/`HitSlop` from `constants/theme` — never a bare `44`/`hitSlop: 8`. Enforced by `lib/__tests__/designTokens.test.ts`.
+| A new animation/transition duration | Use `Duration.*` from `constants/motion` — never a bare `duration: 220`. Same test file enforces it.
+| New user-facing copy (either language) | Add both `en` and `no` keys — `tsc` catches a missing one via `no: typeof en`. If the copy touches a due/undone state, `lib/__tests__/copyTone.test.ts` fails on "missed"/"overdue"/"forgot"/"behind".
+| A new row/label on a list-bearing surface | Run `npm run wraps` (check `--lang=no` too — it consistently finds far more near-misses than English at the same width).
+| A new SQLite column/store field | Migration in `lib/db.ts` + FieldMap/`update()`, per AGENTS.md's "Add a new SQLite column" cookbook step; add a headless store test if it's a new logic branch.
+| A new modal/sheet/flow reachable from a button | Exercise it via `npm run preview` (Playwright). If it's gated behind `Alert.alert`, it can't be driven in the web preview at all (react-native-web doesn't render `Alert`) — needs a device check instead.
+| A new pure helper (date/time/recurrence/reminder math) | Ship a unit test in the same PR — see the standing rule above.
