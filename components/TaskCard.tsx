@@ -68,7 +68,7 @@
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron (animated
  *             steps/editor/advanced reveal + rotating chevrons), components/GlowPulse (breathing editing halo),
  *             constants/theme (incl. getElevation, rgba), lib/date, lib/haptics, lib/i18n, lib/id,
- *             lib/useAppTheme, lib/useVoiceCapture, lib/location (getCurrentTaskLocation),
+ *             lib/useAppTheme, lib/useVoiceCapture, lib/useKeyboardLift, lib/location (getCurrentTaskLocation),
  *             expo-contacts, components/GoalGlowDot + components/GoalPicker (both gated on
  *             settings.featureGoals), store/useTaskStore, store/useGoalStore,
  *             store/useSettingsStore (peopleModeEnabled gates the "For" assignee chip row;
@@ -130,6 +130,10 @@
  *     breathing `GlowPulse` (mode="breathe", theme.accent) alongside `borderColor: theme.accent`.
  *     The two cues (border + breath) replaced the earlier floating-elevation bump + static glow
  *     stack — same focus signal, less visual load.
+ *   - **Keyboard-avoidance (2026-07-31)**: Title, the add-step field, the month-day field, and
+ *     Hint each get their own `useKeyboardLift` — the expanded editor is tall, so a field deep
+ *     in Advanced options (Hint) or far down a long task list is easily hidden behind the
+ *     keyboard on Android's `windowSoftInputMode=resize`. See lib/useKeyboardLift.ts.
  */
 import React, { useMemo, useState } from 'react';
 import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -174,6 +178,7 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import FieldDivider from '@/components/FieldDivider';
 import OptionalTag from '@/components/OptionalTag';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
@@ -258,6 +263,12 @@ function TaskCard({
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
   const voiceNotesEnabled = useSettingsStore((s) => s.voiceNotesEnabled);
   const contactsEnabled = useSettingsStore((s) => s.contactsEnabled);
+  // Keyboard-avoidance (2026-07-31) for the editor's raw TextInputs — each field lifts itself
+  // independently since they sit at different depths inside the expanded editor.
+  const titleLift = useKeyboardLift<TextInput>();
+  const addStepLift = useKeyboardLift<TextInput>();
+  const monthDayLift = useKeyboardLift<TextInput>();
+  const hintLift = useKeyboardLift<TextInput>();
   const locationEnabled = useSettingsStore((s) => s.locationEnabled);
   const lang = useSettingsStore((s) => s.language);
   // People registry (2026-07-28) — the roster is `people` rows now, not childProfiles
@@ -799,9 +810,12 @@ function TaskCard({
             <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskNameLabel}</Text>
             <View style={styles.titleFieldRow}>
               <TextInput
+                ref={titleLift.ref}
                 style={[styles.titleInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
                 value={draft.title}
                 onChangeText={(v) => patch({ title: v })}
+                onFocus={titleLift.onFocus}
+                onBlur={titleLift.onBlur}
                 placeholder={t.taskTitlePlaceholder}
                 placeholderTextColor={theme.textMuted}
                 returnKeyType="done"
@@ -964,9 +978,12 @@ function TaskCard({
             )}
             <View style={styles.addStepRow}>
               <TextInput
+                ref={addStepLift.ref}
                 style={[styles.addStepInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
                 value={newStep}
                 onChangeText={setNewStep}
+                onFocus={addStepLift.onFocus}
+                onBlur={addStepLift.onBlur}
                 placeholder={t.stepPlaceholder}
                 placeholderTextColor={theme.textMuted}
                 returnKeyType="done"
@@ -1045,12 +1062,15 @@ function TaskCard({
                       <View style={styles.monthDayRow}>
                         <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskMonthDayLabel}</Text>
                         <TextInput
+                          ref={monthDayLift.ref}
                           style={[styles.monthDayInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
                           value={String(draft.monthDay)}
                           onChangeText={(txt) => {
                             const n = Math.min(31, Math.max(1, parseInt(txt.replace(/\D/g, ''), 10) || 1));
                             patch({ monthDay: n });
                           }}
+                          onFocus={monthDayLift.onFocus}
+                          onBlur={monthDayLift.onBlur}
                           keyboardType="number-pad"
                           maxLength={2}
                         />
@@ -1179,9 +1199,12 @@ function TaskCard({
                     <OptionalTag />
                   </View>
                   <TextInput
+                    ref={hintLift.ref}
                     style={[styles.hintInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
                     value={draft.hint}
                     onChangeText={(v) => patch({ hint: v })}
+                    onFocus={hintLift.onFocus}
+                    onBlur={hintLift.onBlur}
                     placeholder={t.taskHintPlaceholder}
                     placeholderTextColor={theme.textMuted}
                     multiline

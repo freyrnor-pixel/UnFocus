@@ -108,6 +108,12 @@
  *     white/black strip over the colourful field and read as the list being "bordered off / cut
  *     off" behind the nav. Horizontal inset moved from `listContent` onto `root` so the clipping
  *     card aligns with the rows.
+ *   - **Keyboard-avoidance (2026-07-31)**: this list has no ScrollIntoViewContext (it's the
+ *     self-scrolling FlatList, `scrollable={false}` on the parent ScreenScaffold — see that
+ *     component's own doc), so `startEdit` calls `flatListRef.scrollToIndex` itself instead,
+ *     reusing the same ref the A–Z scrubber already drives. Don't drop this when editing —
+ *     without it, editing a row past the first screenful hides the edit fields behind the
+ *     keyboard on Android's `windowSoftInputMode=resize`.
  */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { FlatList, PanResponder, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -329,10 +335,27 @@ export default function CatalogueTab({ onNotify, header }: Props) {
     setAddPrice('');
   }
 
+  // Lets startEdit find the tapped row's current index without depending on `displayItems`
+  // (which would change its identity — and every memoized CatalogueRow's onStartEdit prop
+  // with it — on every search keystroke).
+  const displayItemsRef = useRef(displayItems);
+  displayItemsRef.current = displayItems;
+
   const startEdit = useCallback((item: StoreItem) => {
     setEditingId(item.id);
     setEditName(item.name);
     setEditPrice(item.price > 0 ? String(item.price) : '');
+    // Keyboard-avoidance (2026-07-31): this is a self-scrolling FlatList (scrollable={false}
+    // on the parent ScreenScaffold), so there's no ScrollIntoViewContext to hand off to —
+    // scrollToIndex is this list's own equivalent. viewPosition 0.25 leaves room below the
+    // edit row for the keyboard instead of just centering it. requestAnimationFrame so the
+    // edit row (autoFocus'd name field) has actually swapped in before we measure/scroll.
+    const idx = displayItemsRef.current.findIndex((i) => i.id === item.id);
+    if (idx >= 0) {
+      requestAnimationFrame(() => {
+        flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.25 });
+      });
+    }
   }, []);
 
   const handleRemove = useCallback(

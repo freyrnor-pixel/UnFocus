@@ -21,9 +21,13 @@
  *     never has to know about pager tab bars vs. absolute BottomNav vs. sub-tier screens.
  *   - Save button reads "Save and send" (t.debug.saveAndSend), same label as
  *     DebugNoteAnchor's composer — a reminder notes go out via the header's email export.
+ *   - **Keyboard-avoidance (2026-07-31)**: the composer wrap is a `KeyboardAvoidingView` — RN's
+ *     `<Modal>` renders outside the screen's own scaffold/KeyboardAvoidingView subtree, so
+ *     without this the keyboard covered the (vertically centered) input on short screens. Same
+ *     fix as components/UpdateSheet.tsx / components/DebugNoteAnchor.tsx.
  */
 import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
@@ -81,7 +85,7 @@ function GeneralNoteButton({ bottomOffset }: Props) {
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
-        <View style={styles.composerWrap}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.composerWrap}>
           <View style={[styles.composerSheet, { backgroundColor: theme.surface }]}>
             <Text style={[styles.composerTitle, { color: theme.text }]}>{t.debug.generalNote}</Text>
             <TextInput
@@ -102,7 +106,7 @@ function GeneralNoteButton({ bottomOffset }: Props) {
               </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );

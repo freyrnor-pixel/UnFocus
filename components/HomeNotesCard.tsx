@@ -35,7 +35,7 @@
  *             components/TimeBoxInput (quick-add's companion-task time field),
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
  *             lib/domainColor, lib/padState, lib/useCardState, lib/prefill (prefillRoute),
- *             lib/useVoiceCapture, store/useNotesStore, store/useTaskStore (quick-add's
+ *             lib/useVoiceCapture, lib/useKeyboardLift, store/useNotesStore, store/useTaskStore (quick-add's
  *             optional companion task only)
  *   Used by → app/(tabs)/index.tsx (the Notes preview slot)
  *   Data    → reads/writes useNotesStore (notes table): toggleChecked, add, update; quick-add's
@@ -108,6 +108,7 @@ import { useNotesStore } from '@/store/useNotesStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { getDomainColor } from '@/lib/domainColor';
 import { useVoiceCapture } from '@/lib/useVoiceCapture';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 
 export default function HomeNotesCard() {
   const t = useT();
@@ -130,6 +131,10 @@ export default function HomeNotesCard() {
   const [addAsTask, setAddAsTask] = useState(false);
   const [taskTimeDraft, setTaskTimeDraft] = useState('');
   const [sendToId, setSendToId] = useState<string | null>(null);
+  // PadTypeRow's own keyboard-lift only fires for ITS primary field's focus/blur (see that
+  // component's ScrollIntoViewContext wiring) — this extras field needs its own, or focusing
+  // it while the row sits low in the card leaves it hidden behind the keyboard.
+  const extraInfoLift = useKeyboardLift<TextInput>();
 
   const { listening, toggle: toggleVoiceCapture } = useVoiceCapture((text) => {
     const note = addNote();
@@ -257,12 +262,15 @@ export default function HomeNotesCard() {
               extras={
                 <>
                   <TextInput
+                    ref={extraInfoLift.ref}
                     style={[
                       styles.extraInfoInput,
                       { backgroundColor: theme.surfaceMuted, color: theme.text },
                     ]}
                     value={extraInfoDraft}
                     onChangeText={setExtraInfoDraft}
+                    onFocus={extraInfoLift.onFocus}
+                    onBlur={extraInfoLift.onBlur}
                     placeholder={t.home.extraInfoPlaceholder}
                     placeholderTextColor={theme.textMuted}
                     onSubmitEditing={commitNoteDraft}
