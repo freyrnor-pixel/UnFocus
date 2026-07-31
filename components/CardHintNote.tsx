@@ -27,6 +27,12 @@
  *   - The hairline is a `borderTopWidth`, so this attaches to whatever it follows rather than
  *     floating as its own paragraph. Mount it as the LAST child of the card's content view,
  *     after the pad/list — never above it.
+ *   - **`noBorder`** (2026-07-31, user report): every current caller except EnergyMeter mounts
+ *     this directly after a `PadSheet`, which already draws its own trailing rule under the
+ *     type line — two hairlines back to back read as one doubled-up line. Pass `noBorder` in
+ *     that case so this note relies on the pad's own rule and only adds the gap (`marginTop`)
+ *     below it; leave it unset (the default) when nothing above already drew a rule, as in
+ *     EnergyMeter.
  *   - Deliberately not a StarterCard: that is a bordered Surface for an empty SCREEN, and a
  *     Surface inside a card's Surface reads as a nested panel.
  */
@@ -39,13 +45,16 @@ import { useAppTheme } from '@/lib/useAppTheme';
 type Props = {
   /** The one-line tip, already localized. */
   text: string;
+  /** Skip the top hairline — for when this directly follows a PadSheet, which already drew
+   *  its own trailing rule under the type line (see the edit note above). */
+  noBorder?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
-export default function CardHintNote({ text, style }: Props) {
+export default function CardHintNote({ text, noBorder, style }: Props) {
   const theme = useAppTheme();
   return (
-    <View style={[styles.row, { borderTopColor: theme.border }, style]}>
+    <View style={[styles.row, { borderTopColor: theme.border }, noBorder && styles.noBorder, style]}>
       <Ionicons name="bulb-outline" size={12} color={theme.textMuted} style={styles.icon} />
       <Text style={[styles.text, { color: theme.textMuted }]}>{text}</Text>
     </View>
@@ -64,6 +73,7 @@ const styles = StyleSheet.create({
     // other on an empty card). This is the gap that separates them.
     marginTop: Spacing.md,
   },
+  noBorder: { borderTopWidth: 0 },
   icon: { marginTop: 1 },
   text: { flex: 1, fontSize: FontSize.xs, lineHeight: 16, fontStyle: 'italic' },
 });
