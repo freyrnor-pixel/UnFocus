@@ -1,7 +1,53 @@
 # PREFERENCES.md — personalisation audit + proposal (phase 1)
 
-**Status:** proposal only. No code written. Awaiting review before phase 2.
+**Status:** reviewed. All decisions recorded in §D. No code written — awaiting go-ahead for phase 2.
 **Date:** 2026-07-31 · **Branch:** `claude/personalization-audit-proposal-5dbbiu`
+
+---
+
+## D. Decisions (maintainer review, 2026-07-31)
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | Energy switchable again? | **Yes** — re-gate it. The user picks an engine during onboarding. |
+| 2 | Module scope | **Sub-surfaces and cards only.** Tabs stay fixed; no `BottomNav` work. |
+| 3 | Onboarding placement | **Replace** `onboarding/features.tsx`'s picker. `first-run.tsx` untouched at four steps. |
+| 4 | Skippable? | **Required — no skip.** "Plain" is presented as an equal third answer, not an opt-out. |
+| 5 | Tier B size | **Four**, then three — see #9. Scan and Food do *not* come back. |
+| 6 | Which tree | **Both** — backdrop's vector primitives, logo's broadleaf species. |
+| 7 | Sapling method | **Option B** — build from `ScreenBackground`'s branch vocabulary. |
+| 8 | Palette | **Backdrop geometry + green ink.** Preserves the green↔grey health tint. |
+| 9 | Automations | **Delete entirely.** Separate PR, not part of personalisation. |
+| 10 | Migration for both-on users | **Map everyone to `balance`.** Bonsai users re-opt-in. |
+| 11 | Points while hidden | **Keep accruing.** |
+| 12 | Personalise placement | **A card in Settings → Personal.** |
+
+**Net effect on this document:** Tier B drops to **three** modules (Goals, Medicine, Sharing).
+Tier A becomes a required onboarding choice. §4's "keep Automations" recommendation is
+superseded by #9. §5.5's migration is simplified by #10. §7's four open questions are all
+resolved. Sections below have been updated in place; original reasoning is preserved where it
+still applies.
+
+### D.1 Consequences that need spec'ing in phase 2
+
+Three follow-on effects, none of which were in the original proposal:
+
+1. **The Explore path must now route through the question.** `app/onboarding/guided.tsx:89`
+   currently does `router.replace(firstRunComplete ? '/' : '/first-run')` — it bypasses
+   `intro` → `features` entirely. With no skip button, Explore has to pass through the
+   motivation step too, or the app's fastest path produces a user who was never asked. This is
+   the one place decision #4 has teeth.
+
+2. **Existing users are never asked.** Everyone with `setup_complete = 1` skips onboarding
+   forever, so they land on the `balance` default and discover Personalise later. Combined with
+   #10, that means **current Bonsai users lose their tree on next launch** until they re-opt-in.
+   Points keep accruing throughout (#11), so nothing is destroyed and the tree they come back to
+   is fully up to date. This is the accepted cost of #10 — flagging it here so it isn't a
+   surprise in testing.
+
+3. **Deleting Automations touches a "load-bearing" note.** `AGENTS.md` lists the automation
+   store's boot load among the things that *"stay unconditional"* because gating them would break
+   app logic. That note becomes stale on deletion and must be updated in the same PR.
 
 ---
 
@@ -177,11 +223,13 @@ back feel continuous rather than punishing — but it means the hidden engine is
 
 ### Tier B — Feature modules (on/off, data preserved)
 
-Scoped to sub-surfaces and cards, per §0.1. Every one is **purely additive** — the repo's existing
-rule holds: *"gate the surface at its call site — never the data or the store."* Off hides an entry
-point. Rows, reminders, and history all stay on disk.
+Scoped to sub-surfaces and cards, per §0.1 (confirmed, decision #2). Every one is **purely
+additive** — the repo's existing rule holds: *"gate the surface at its call site — never the data
+or the store."* Off hides an entry point. Rows, reminders, and history all stay on disk.
 
-Six modules proposed. Four exist today as flags; two are new.
+**Three modules: Goals, Medicine, Sharing.** All three exist today as flags, so Tier B is a
+re-homing exercise rather than new gating. Scan and Food do not return (#5); Automations is
+deleted rather than toggled (#9).
 
 ### Tier C — Sensory / intensity
 
@@ -225,15 +273,10 @@ saying out loud: **hiding the input does not retro-cost old tasks.**
 | `moduleGoals` | **on** | `SubScreenLinkButton` on Habits + Plans; `GoalPicker` in task/habit editors; `GoalGlowDot` on cards. `/goals` route stays reachable by deep link; goal rows and strength history untouched | `app/(tabs)/habits.tsx`, `app/(tabs)/plans.tsx`, `components/TaskCard.tsx`, `app/habit-form.tsx`, `components/GoalGlowDot.tsx`, `components/GoalPicker.tsx` |
 | `moduleMedicine` | **on** | Medicine tray card on Health. **Must also cancel the four tray reminders** — hiding the card without cancelling leaves notifications firing for an invisible feature. This is already handled in `app/settings.tsx`'s `applyAndSync`; the same key must be re-wired | `app/(tabs)/health.tsx`, `components/MedicineTrayCard.tsx`, `store/useMedicineStore.ts`, `lib/medicineNotifications.ts`, `app/settings.tsx` |
 | `moduleSharing` | **off** | Header share icon, `HomeSharedCard`, shared task/request sections, `SendToSheet`. Received rows stay in `shared_tasks` / `shared_shopping_items` | `components/ScreenHeader.tsx`, `components/HomeSharedCard.tsx`, `components/SharedRequestsSection.tsx`, `components/SharedTasksSection.tsx`, `components/SendToSheet.tsx`, `app/share-modal.tsx`, `app/shared.tsx` |
-| `moduleAutomations` | **off** | Settings entry point to `/automations`. **Existing rules keep running** (current behaviour — deliberate, and I'd keep it) | `app/settings.tsx`, `app/automations.tsx` |
-| `moduleScan` | **on** *(new)* | Scan button on Shopping's header. Receipts, `purchase_log`, and catalog entries untouched; Budget still reads existing receipts | `app/(tabs)/shopping.tsx`, `app/scan.tsx` |
-| `moduleFood` | **on** *(new)* | Food button on Shopping. Dishes, meals, `WeekListCard` dish groups all stay on disk | `app/(tabs)/shopping.tsx`, `components/FoodTab.tsx`, `app/food.tsx` |
 
-**Note on the two new ones:** `feature_scan` and `feature_food` are *existing SQLite columns*,
-deliberately retired to inert on 2026-07-25 (maintainer: both should just always be on). Adding
-them back as modules **reverses a decision one week old.** The columns are still there so it costs
-no migration — but it is a reversal, and you should confirm you want it. If not, drop them and
-Tier B is four modules.
+**Not modules, per review:** `moduleScan` / `moduleFood` were proposed and **declined** (#5) —
+`feature_scan` and `feature_food` stay inert and both surfaces stay permanently on, leaving the
+2026-07-25 decision intact. `moduleAutomations` is moot: Automations is being deleted (#9, §4.1).
 
 **Deliberately NOT modules:** People/family mode (`peopleModeEnabled` stays its own thing — it
 changes data semantics, not just visibility), LAN sync (a device-pairing setting, not a
@@ -269,7 +312,7 @@ You asked to be told what shouldn't get a switch. These would each reveal a stub
 
 | Candidate | Verdict | Why |
 |---|---|---|
-| **Automations** | ⚠️ **Ship the toggle, but know what's behind it** | 2 triggers × 2 actions. "Rules that run by themselves" promises a system; the user gets *when a task is completed* or *when shopping is opened* → *show a message* or *add a shopping item*. It works, it's honest in the UI, and it's already an off-by-default opt-in — so nobody meets it by accident. **Keep, but it's the weakest module.** If you want to cut one thing from Tier B, cut this. |
+| **Automations** | 🗑️ **Delete entirely** (decision #9 — see §4.1) | 2 triggers × 2 actions. "Rules that run by themselves" promises a system; the user gets *when a task is completed* or *when shopping is opened* → *show a message* or *add a shopping item*. Live but off-by-default, so it has effectively never been seen. Maintainer's call: remove it rather than give it a toggle. |
 | **Location on tasks** | **Cut the toggle** | `locationEnabled` reads like geofencing. It is a one-shot "tag this task with where I am now" and nothing ever reads the tag back. Leave it in Settings → Device features where it already sits as a permission pre-bake. Do **not** promote it to Personalise. |
 | **Contacts on tasks** | **Cut the toggle** | Same shape: attaches a name+phone snapshot, nothing acts on it. Same home as above. |
 | **Calendar sync** | **Cut the toggle** | Mirrors only one-off timed tasks. A user with recurring tasks turns it on and finds most of their tasks missing. A switch promising "calendar sync" that syncs a subset is worse than no switch. |
@@ -279,9 +322,42 @@ You asked to be told what shouldn't get a switch. These would each reveal a stub
 | **Widgets** | **Cut the toggle** | Android-only with no iOS equivalent. A cross-platform preference that silently does nothing on half the targets. |
 | **LAN live sync** | **Cut from Personalise** | Real, but unverifiable here and conceptually a pairing setting. Stays in Settings → Advanced. |
 
-**Net:** Tier B is 4–6 modules, not a dozen. The rest of the app's optionality is either
+**Net:** Tier B is **three** modules, not a dozen. The rest of the app's optionality is either
 load-bearing (can't be gated), device configuration (belongs in Settings), or a stub (shouldn't
 be shown).
+
+### 4.1 Deleting Automations — scope (separate PR)
+
+Decision #9. **This is its own PR, landed before or after the personalisation work but not mixed
+into it** — it's a removal, not a personalisation change, and mixing them makes both harder to
+review and revert.
+
+What comes out:
+
+| Item | Action |
+|---|---|
+| `app/automations.tsx` (309 lines) | delete |
+| `store/useAutomationStore.ts` (130 lines) | delete |
+| Boot load — `app/_layout.tsx:283` + its header note at `:275` | delete |
+| `fireTrigger` call sites — `store/useTaskStore.ts:643, 661, 781` | delete calls, keep surrounding logic |
+| `fireTrigger` call site — `app/(tabs)/shopping.tsx:452` | delete call, keep the mount effect |
+| Settings entry point — `app/settings.tsx:1457` + `FEATURE_ROWS:283` | delete |
+| Onboarding picker row — `app/onboarding/features.tsx:68` | moot, file is being replaced anyway |
+| i18n — `automations.*`, `nav.automations`, `hints.automations`, `config.features.automations` (both `en` and `no`) | delete |
+| i18n — `onboarding` note at `lib/i18n.ts:416` ("Energy, goals, sharing and automations…") | reword |
+
+What stays:
+
+- **The `ifttt_rules` table.** Never dropped — repo rule. It becomes an orphaned table, same
+  status as the `glass_blur` column.
+- **The `feature_automations` column.** Same reason; it joins the "Inert columns" note in
+  `store/useSettingsStore.ts`.
+- **`lib/aiSetupGuide.ts` needs no change** — automations were already explicitly out of scope
+  for the AI setup guide, so nothing there references them.
+
+One doc fix, easy to miss: `AGENTS.md` currently lists *"the automation store's boot load"* among
+the load-bearing things that stay unconditional. That sentence becomes false and must be updated
+in the same PR.
 
 ---
 
@@ -423,59 +499,71 @@ Three notes on the signature:
 ```
 1. CREATE TABLE preferences (…)                          -- migrations array
 2. One-shot, gated on app_meta 'pref:migrated:v1':        -- runs once, ever
-     feature_goals        → modules.goals
-     feature_medicine     → modules.medicine
-     feature_sharing      → modules.sharing
-     feature_automations  → modules.automations
-     feature_scan         → modules.scan          (currently pinned 1)
-     feature_food         → modules.food          (currently pinned 1)
-     show_points          → motivationEngine = 'growth' if 1, else 'balance'
+     feature_goals    → modules.goals
+     feature_medicine → modules.medicine
+     feature_sharing  → modules.sharing
      reduced_motion + particles_enabled → animationLevel
+     motivationEngine → 'balance' for EVERY existing install   (decision #10)
 3. Old columns: left written-but-unread. Added to the "Inert columns" note
    in store/useSettingsStore.ts, per the never-drop rule.
 ```
 
-The `show_points` → engine mapping deserves a flag: a user who has **both** Bonsai on and Energy
-visible today (possible — they're independent right now) will be moved to `growth`, and **loses the
-Energy meter on next launch.** That's the one genuinely user-visible regression in this whole
-proposal. Options: (a) accept it, (b) map to `balance` and make Bonsai users re-opt-in, or (c) show
-a one-time notice. **I'd recommend (a) plus a line in the Personalise screen's first render** —
-they explicitly opted into points, so honouring that choice is the better read. Your call.
+**`show_points` is deliberately not read by the migration.** Decision #10 puts every existing
+install on `balance`, so the engine needs no back-fill logic at all — it's a constant. That's
+simpler than the conditional I originally proposed, and it means no upgrading user loses a surface
+they currently have.
+
+The trade, stated plainly: **users who deliberately turned points on lose their tree on next
+launch** until they go to Settings → Personalise and pick Growth. Because points keep accruing
+regardless (#11), the tree they come back to reflects everything they did in the meantime —
+nothing is lost, only hidden. This is the accepted cost; see §D.1 note 2.
+
+`show_points` itself joins the inert-columns list alongside `feature_automations`.
 
 ---
 
 ## 6. Onboarding + Settings surface
 
-**Onboarding — one question, skippable.** `app/onboarding/features.tsx` is repurposed from a
+**Onboarding — one question, required (#4).** `app/onboarding/features.tsx` is repurposed from a
 three-row picker to a single three-option choice:
 
 > **How do you want the app to keep you going?**
 > **Growth** — a small tree that grows as you keep up your habits
 > **Balance** — a daily energy budget, so you can see when a day is overfull
-> **Neither** — just the lists
-> *Skip*
+> **Plain** — just the lists
 
-Skip writes nothing and leaves the default (`balance`). Sharing and Automations drop out of
-onboarding entirely and live only in Settings → Personalise — which is exactly the brief's rule
-that everything except the one question is discoverable later.
+**No skip button.** "Plain" is the third answer, presented as an equal choice rather than an
+opt-out — so the user always makes an explicit decision, and choosing nothing-extra is still a
+decision. Nothing is locked in: all three are changeable in Settings → Personalise at any time,
+and the screen should say so.
+
+Sharing drops out of onboarding and lives only in Settings → Personalise — the brief's rule that
+everything except the one question is discoverable later. Automations drops out by deletion (§4.1).
+
+**The Explore path has to route through it (§D.1 note 1).** `app/onboarding/guided.tsx:89`
+currently does `router.replace(firstRunComplete ? '/' : '/first-run')`, skipping `intro` and
+`features` entirely. With no skip button that's a hole: the fastest path through onboarding would
+produce a user who was never asked. Explore must pass through the motivation step before
+`/first-run`. This is the only structural change decision #4 forces.
 
 `app/first-run.tsx` is **untouched** — still four steps, hard cap intact.
 
-**Settings → Personalise** — a new tab (or a card in Personal; I'd suggest a card, since a fourth
-tab dilutes the 2026-07-25 three-tab reorganisation) mirroring the same options plus Tiers B and C:
+**Settings → Personalise — a card in the Personal tab (#12).** Keeps the 2026-07-25 three-tab
+structure intact, and sits naturally beside the existing Layout row, which is conceptually the
+same kind of control.
 
 ```
 Personalise
-  Motivation      [ Growth | Balance | Neither ]     ← same control as onboarding
-  Features        Goals · Medicine · Scan · Food · Sharing · Automations
+  Motivation      [ Growth | Balance | Plain ]      ← same control as onboarding
+  Features        Goals · Medicine · Sharing
   Movement        [ Full | Reduced | None ]
   Vibration       [ Full | Light | Off ]
   Notifications   [ All | Essential only | None ]
                   › per-channel toggles (existing five, unchanged, under the level)
 ```
 
-Nothing is locked in — every control writes through `patch()` and applies immediately, matching
-Settings' existing no-buffered-save contract.
+Every control writes through `patch()` and applies immediately, matching Settings' existing
+no-buffered-save contract.
 
 ---
 
@@ -568,41 +656,64 @@ Render the logo and clip it, growing the clip upward with points.
   ~3% opaque at 81 KB, so it will look washed out at card size.
 - ❌ **I'd rule this out.** Listing it because it's the tempting shortcut, and it doesn't work.
 
-### 7.4 What I need from you before touching any of it
+### 7.4 Decided (#6, #7, #8)
 
-1. **Which tree is "the" tree** — the blue corner branches (`ScreenBackground`) or the watercolour
-   logo (`TreeWatermark`)? They are not the same thing and the brief assumes one tree.
-2. **Option A, B, or C** (recommendation: **B**).
-3. **If B — palette (i), (ii), or (iii)?** (recommendation: **(ii)**, backdrop geometry + green ink.)
-4. **Confirm `components/BonsaiTree.tsx` is replaceable.** It shipped one day ago. `lib/bonsai.ts`
-   and its tests are unaffected either way — but the art file itself would be rewritten.
+**Build the sapling with `ScreenBackground`'s vector primitives, shaped like the logo's broadleaf
+species, inked green.**
 
----
+Concretely, for phase 2:
 
-## 8. Open questions
+- **Primitives** — tapering quadratic-Bézier `<Path>` strokes with `strokeLinecap="round"`, plus
+  filled `<Circle>` leaves. Same construction as `ScreenBackground`'s `BRANCHES`/`LEAVES`, so the
+  drawing system is shared rather than imitated.
+- **Stroke ramp** — reuse the backdrop's own widths (3.2 main → 1.8 → 1.4 → 1.1 sub) and leaf radii
+  (3.5–5.0), scaled to the card's viewBox. Matching the ramp is most of what makes two drawings
+  read as one hand.
+- **Silhouette** — the logo's broadleaf: a slender trunk forking into a *wide, asymmetric,
+  spreading* canopy. Explicitly **not** the potted-bonsai shape that shipped — no pot, no
+  terracotta, no blossom dots.
+- **Ink** — green, with the existing `mix(greyColor, goodColor, health)` tint preserved so a
+  neglected tree still greys and a tended one still reads vividly. This is the one deliberate
+  departure from the backdrop's blue, and it's what keeps `health` meaningful.
+- **Growth** — stages add strokes and leaves, exactly the way the backdrop's three corners already
+  differ from each other. A sapling is one trunk stroke + 2 sub-branches + 5–7 leaves; the top
+  stage is the full spread.
 
-Blocking phase 2:
+**Scope of the change: one file.** `components/BonsaiTree.tsx` is rewritten. Everything else
+survives untouched — `lib/bonsai.ts`'s six stages, thresholds, health decay and
+`daysSinceLastTended`, plus `lib/__tests__/bonsai.test.ts`, because the art already sits behind a
+`STAGE_ART` lookup keyed by `BonsaiStageKey`. `components/BonsaiCard.tsx` keeps its props contract
+(`stage` / `health` / `goodColor` / `greyColor` / `size`).
 
-1. **§0.1** — Confirm feature modules gate sub-surfaces and cards, **not tabs**. Removable tabs is
-   a `BottomNav` redesign, costed separately.
-2. **§0.2** — Confirm you want Energy to become switchable again, reversing the 2026-07-26
-   "Energy is always on" decision.
-3. **§0.3** — Confirm the motivation question **replaces** `onboarding/features.tsx`'s picker, and
-   `first-run.tsx` stays at four steps.
-4. **§3 Tier B** — Do `scan` and `food` come back as modules (reversing 2026-07-25), or does Tier B
-   stay at four?
-5. **§4** — Confirm the cut list, especially **Automations** (2 triggers × 2 actions — keep or cut?).
-6. **§5.5** — Migration for users who currently have Bonsai **and** Energy on: accept the Energy
-   loss (recommended), or map them to `balance`?
-7. **§7.4** — The four Bonsai visual questions above.
-
-Non-blocking, but worth deciding:
-
-8. Should points keep accruing while `balance` is selected? (Recommendation: yes — it's what makes
-   switching back non-destructive in feel as well as in data.)
-9. Personalise as a **card in Settings → Personal**, or a **fourth Settings tab**?
-   (Recommendation: card.)
+**Not touched, per the brief:** `ScreenBackground.tsx`, `TreeWatermark.tsx`, and
+`assets/android-icon-monochrome.png`. The backdrop and the logo are read for reference only —
+neither is redrawn, restyled, or re-tinted.
 
 ---
 
-**Nothing in this document has been implemented.** No source file has been modified. Awaiting review.
+## 8. Phase 2 — proposed order of work
+
+All twelve questions are resolved (§D). Suggested sequencing, smallest-risk first:
+
+| # | PR | Why here |
+|---|---|---|
+| 1 | **Delete Automations** (§4.1) | Independent of everything else, and shrinks the surface the rest of the work has to touch. Reverting it later is a clean revert. |
+| 2 | **`preferences` table + `lib/preferences.ts` + `usePreferencesStore`** (§5) | Pure infrastructure: schema, registry, hook, migration, tests. Nothing reads it yet, so it can't regress anything. |
+| 3 | **Tier C — haptics** (§3) | One file (`lib/haptics.ts`), four functions, no call-site changes. Cheapest real win and an unaddressed accessibility gap. |
+| 4 | **Tier C — motion + notifications** | Motion is mostly re-derivation of two existing booleans. Notifications is the riskiest item in Tier C — see the `medicineNotifications` cancel/reschedule trap. |
+| 5 | **Tier B — three modules re-homed** | Moves Goals/Medicine/Sharing gates from `useSettingsStore` to `usePreferences`. Behaviour-neutral if done right. |
+| 6 | **Tier A — motivation engine** | The big one: re-gating Energy at three mount sites, plus the editors. |
+| 7 | **Onboarding question + Explore routing + Personalise card** | Needs Tier A to exist first. Includes the `guided.tsx` routing fix (§D.1 note 1). |
+| 8 | **Bonsai sapling art** (§7.4) | Fully independent of 1–7 — could land any time, including first if you want to see it sooner. |
+
+Two things I'd want to pin with tests, since they're the invariants most likely to rot:
+
+- **Engine switching is non-destructive** — a `plain → growth → balance → growth` cycle must not
+  touch `lifetime_bonsai_points` or `energy_budgets`.
+- **`lib/preferences.ts` stays dependency-free** — no store, no `lib/db`, no `lib/notifications`,
+  same assertion `lib/__tests__/cardLayout.test.ts` already makes for `lib/cardLayout.ts`.
+
+---
+
+**Nothing in this document has been implemented.** No source file has been modified — the only
+change on this branch is `PREFERENCES.md` itself. Ready for phase 2 on your word.
