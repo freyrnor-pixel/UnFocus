@@ -14,8 +14,7 @@
  *             store/useGoalStore (registerProgress on increment when a habit has a goalId),
  *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
  *             add/update/remove/increment/decrement/markRestDay, so live widgets don't wait for
- *             foreground/background), lib/habitRecurrence (habitMetOn), lib/bonsai
- *             (BONSAI_POINTS_PER_HABIT — see increment()'s Bonsai/points award)
+ *             foreground/background)
  *   Used by → app/habit-form.tsx, app/(tabs)/habits.tsx (its own bottom-nav tab again as of
  *             2026-07-23 — see that file's header for the fold-in/split-out history);
  *             app/_layout.tsx, app/settings.tsx
@@ -38,14 +37,12 @@
  *     (lib/energy.ts, components/EnergyMeter.tsx). Also shown directly on the habit card as a
  *     small +/- pill (app/(tabs)/habits.tsx's EnergyBadge) — replaced the old streak badge.
  *     Always active — Energy stopped being a toggle (2026-07-26); a 0 value means no effect.
- *   - **Bonsai/points (2026-07-31, lib/bonsai.ts)** — increment() awards
- *     BONSAI_POINTS_PER_HABIT to settings.lifetimeBonsaiPoints exactly once, on the
- *     not-met→met transition (checked via habitMetOn before and after the log write, so a
- *     weekly-flexible habit only pays out on the day its weekly cumulative count first
- *     crosses the goal). Never decremented by decrement() — no punishment, matching the
- *     Goals registerProgress precedent right below. The card that shows it
- *     (components/BonsaiCard.tsx) is gated on settings.showPoints; the counter itself
- *     always accumulates regardless, so turning the card on later shows full history.
+ *   - **This store awards nothing (2026-07-31).** A Bonsai/points counter briefly lived in
+ *     increment() and was removed the same day along with the rest of that system. The
+ *     replacement reward (lib/growth.ts) DERIVES its streak by reading habit_logs after the
+ *     fact, so there is no award hook here to keep in sync and no counter that a failed
+ *     write could desynchronise. Don't reintroduce one: if the reward needs to know about a
+ *     habit, it can read the logs.
  *   - **Decision 016 Q2 — no legacy `notificationTime` field.** `notificationTimes` is the
  *     sole live source of truth; the `notification_time` DB column is dead (never read/written
  *     here — see lib/db.ts's header for the precedent).
@@ -75,8 +72,6 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useGoalStore } from '@/store/useGoalStore';
 import { syncHabitReminder as scheduleHabitReminder, cancelHabitReminders } from '@/lib/habitNotifications';
 import { scheduleWidgetSync } from '@/lib/widgets/sync';
-import { habitMetOn } from '@/lib/habitRecurrence';
-import { BONSAI_POINTS_PER_HABIT } from '@/lib/bonsai';
 
 export type HabitKind = 'build' | 'break' | 'neutral';
 /** 'weekly-flexible' (2026-07-22) — due every day of the week; met once the week's
@@ -154,15 +149,6 @@ type HabitStore = {
    *  by useGoalStore.remove() in the same transaction as the delete). */
   clearGoal: (goalId: string) => void;
 };
-
-/** Award Bonsai/points (lib/bonsai.ts) for a habit that just became "met" — see increment()'s
- *  not-met→met check. Never decremented: no punishment, mirrors useGoalStore's
- *  registerProgress (a decrement doesn't undo a goal's progress either) — the tree's
- *  greying/health is a separate, purely time-based decay, not tied to this counter. */
-function bumpLifetimeBonsaiPoints(): void {
-  const settings = useSettingsStore.getState();
-  settings.update({ lifetimeBonsaiPoints: settings.lifetimeBonsaiPoints + BONSAI_POINTS_PER_HABIT });
-}
 
 /** Schedule (or cancel) a habit's daily reminder using the current language/quiet-hours settings. */
 function syncHabitReminder(habit: Habit): void {
@@ -322,7 +308,6 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
   increment(habitId, date) {
     const { logs, habits } = get();
     const habit = habits.find((h) => h.id === habitId);
-    const wasMet = habit ? habitMetOn(habit, logs, date) : false;
     const existing = logs.find((l) => l.habitId === habitId && l.logDate === date);
     if (existing) {
       const newCount = existing.count + 1;
@@ -334,12 +319,6 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
       const id = generateId();
       insertRow('habit_logs', { id, habit_id: habitId, log_date: date, count: 1 });
       set((s) => ({ logs: [...s.logs, { id, habitId, logDate: date, count: 1, restDay: false }] }));
-    }
-    // Bonsai/points (2026-07-31): award once, exactly on the not-met→met transition — the
-    // same "met" definition Energy's per-habit delta uses (lib/habitRecurrence.ts's
-    // habitMetOn), so a weekly-flexible habit is awarded once per week, not once per day.
-    if (habit && !wasMet && habitMetOn(habit, get().logs, date)) {
-      bumpLifetimeBonsaiPoints();
     }
     // Goals: logging a linked habit nudges its goal's "living glow" up (decrement never
     // lowers it — no punishment; decay handles the fade). See store/useGoalStore.ts.

@@ -20,9 +20,7 @@
  *             add/remove fade), components/GlowPulse (done-state static halo),
  *             components/HabitIcon, components/EmptyState, components/StarterCard
  *             (first-run explainer — no example row since 2026-07-30; the starter chips
- *             in its `children` slot are the example), components/BonsaiCard (top of the
- *             screen, gated on settings.showPoints — the opt-in Bonsai/points reward
- *             system), components/SlideSelector,
+ *             in its `children` slot are the example), components/SlideSelector,
  *             components/PressableScale, components/IconButton (per-row habit edit button),
  *             components/GoalGlowDot (goal glow), components/SubScreenLinkButton (2026-07-29,
  *             the "Edit Goals" link — see below), components/GoalsSheet (2026-07-31, the popup
@@ -93,7 +91,6 @@ import HabitIcon from '@/components/HabitIcon';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import EmptyState from '@/components/EmptyState';
 import StarterCard from '@/components/StarterCard';
-import BonsaiCard from '@/components/BonsaiCard';
 import SubScreenLinkButton from '@/components/SubScreenLinkButton';
 import GoalsSheet from '@/components/GoalsSheet';
 import { HABIT_STARTERS, HabitStarter } from '@/lib/habitStarters';
@@ -542,8 +539,6 @@ export default function HabitsScreen() {
   // HabitCard's own goal glow dot already reads, so turning Goals off hides both at once.
   const featureGoals = useSettingsStore((s) => s.featureGoals);
   const [goalsSheetOpen, setGoalsSheetOpen] = useState(false);
-  // Bonsai/points reward system (2026-07-31) — off-by-default opt-in, see BonsaiCard's header.
-  const showPoints = useSettingsStore((s) => s.showPoints);
 
   // autoOpen=false (2026-07-28 design review) — StarterCard + the one-tap starter habits
   // already teach this; see lib/useFirstVisitHint.ts's `autoOpen` doc.
@@ -674,13 +669,12 @@ export default function HabitsScreen() {
         onInfoToggle={() => setHintOpen((v) => !v)}
       >
         <View style={styles.content}>
-          {/* Bonsai/points (2026-07-31) — opt-in reward system, off by default (see
-              lib/bonsai.ts). Deliberately gated, not app-wide: a 2026-07-21 debug note
-              right below removed a plain "X / Y done" tally from this same screen because
-              an always-on score reintroduces the shame/reward framing the app avoids by
-              default — this stays out of everyone's way unless a user asks for it. */}
-          {showPoints && <BonsaiCard />}
-
+          {/* The reward system deliberately has NO card here (2026-07-31). The Bonsai card
+              that briefly sat at the top of this screen was replaced by ambient growth in
+              the app's own backdrop (lib/growth.ts + components/ScreenBackground.tsx) —
+              which is also why the 2026-07-21 debug note below, removing a plain "X / Y
+              done" tally from this same screen, still holds: no score belongs on this
+              screen. */}
           <HintCard text={t.hints.habits.text} example={t.hints.habits.example} open={hintOpen} noPill />
 
           {/* Habits — one hue-edged card holding the filter · view tabs · rows · add line.

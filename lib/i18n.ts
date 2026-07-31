@@ -169,29 +169,6 @@ const en = {
     depletedDay: "Today's energy is fully spent. That's a cue to ease off, not a target to hit.",
     depletedWeek: "This week's energy is fully spent. Worth easing off rather than filling the days ahead.",
   },
-  // Habits tab Bonsai/points card (components/BonsaiCard.tsx, lib/bonsai.ts) — an opt-in
-  // reward system, off by default. Unlike energyMeter above there's no over-committed/
-  // depleted state — points only ever add up; health (the tree's tint) is the only thing
-  // that moves down, and it recovers the moment a habit is met again.
-  bonsai: {
-    title: 'Bonsai',
-    pointsValue: (n: number) => `${n} points`,
-    stages: {
-      seed: 'Seed',
-      sprout: 'Sprout',
-      sapling: 'Sapling',
-      young: 'Young tree',
-      mature: 'Bonsai',
-      flourishing: 'Flourishing bonsai',
-    },
-    captionSeed: 'Meet a habit to plant it.',
-    captionThriving: 'Thriving.',
-    captionSteady: 'Steady.',
-    captionLow: 'Could use some water.',
-    captionWaiting: 'Waiting for you.',
-    /** Permanent one-liner under the tree — see CardHintNote's "keep it to ONE line" note. */
-    hint: 'A habit grows this tree; time apart lets it fade.',
-  },
   a11yAdd: 'Add',
   a11yDiscardRow: 'Discard new row',
   showHint: 'How this works',
@@ -1248,9 +1225,13 @@ const en = {
         label: 'Medicine',
         hint: 'A dose card on the Health tab, with a reminder for each part of the day.',
       },
-      bonsai: {
-        label: 'Points',
-        hint: 'A points total and a small tree that grows as you keep up your habits.',
+      energy: {
+        label: 'Energy',
+        hint: 'Give tasks and habits an energy value, and see what a day or week adds up to.',
+      },
+      growth: {
+        label: 'Quiet growth',
+        hint: 'Branches slowly grow in around the edges of the screen, and the colour warms, as the days you keep up add together.',
       },
     },
     // Freyr-mode (Advanced tab) — one-tap seed/unseed of a starter set of
@@ -1799,24 +1780,6 @@ const no: typeof en = {
     hint: 'Planlegg dagen ut fra energien du faktisk har.',
     depletedDay: 'Dagens energi er brukt opp. Det er et signal om å ta det roligere, ikke et mål å nå.',
     depletedWeek: 'Ukens energi er brukt opp. Verdt å ta det roligere fremover, ikke fylle på mer.',
-  },
-  bonsai: {
-    title: 'Bonsai',
-    pointsValue: (n: number) => `${n} poeng`,
-    stages: {
-      seed: 'Frø',
-      sprout: 'Spire',
-      sapling: 'Ung plante',
-      young: 'Ungtre',
-      mature: 'Bonsai',
-      flourishing: 'Blomstrende bonsai',
-    },
-    captionSeed: 'Fullfør en vane for å plante frøet.',
-    captionThriving: 'Trives.',
-    captionSteady: 'Stabil.',
-    captionLow: 'Kunne trengt litt vann.',
-    captionWaiting: 'Venter på deg.',
-    hint: 'En vane får treet til å vokse; tid uten lar det falme.',
   },
   a11yAdd: 'Legg til',
   a11yDiscardRow: 'Forkast ny rad',
@@ -2471,9 +2434,13 @@ const no: typeof en = {
         label: 'Medisin',
         hint: 'Et dosekort på Helse-fanen, med påminnelse for hver del av dagen.',
       },
-      bonsai: {
-        label: 'Poeng',
-        hint: 'En poengsum og et lite tre som vokser når du følger opp vanene dine.',
+      energy: {
+        label: 'Energi',
+        hint: 'Gi oppgaver og vaner en energiverdi, og se hva en dag eller uke summerer seg til.',
+      },
+      growth: {
+        label: 'Stille vekst',
+        hint: 'Grener vokser sakte fram langs kantene av skjermen, og fargen blir varmere, etter hvert som dagene du holder følge legger seg sammen.',
       },
     },
     freyrMode: {

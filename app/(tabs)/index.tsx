@@ -248,6 +248,8 @@ export default function HomeScreen() {
   // Scan & receipts used to gate the spend-vs-budget pace line the same way, but is now
   // always on (2026-07-25 defaults revision) — see the `pace` prop further down.
   const featureSharing = useSettingsStore((s) => s.featureSharing);
+  // Energy is a real toggle again (2026-07-31) — gates the meter below.
+  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
 
   const hasIncomingShared =
     featureSharing &&
@@ -657,15 +659,17 @@ export default function HomeScreen() {
             </View>
           </DebugNoteAnchor>
 
-          {/* Energy meter — always shown (2026-07-26): Energy stopped being a toggle. A
-              task/habit reads 0 unless given a value, so the meter just sits at capacity
-              until something has one. Its explainer now lives INSIDE that card as a permanent
-              line (2026-07-27) — it used to be a separate StarterCard rendered here, which sat
-              directly above the Plans card and so read as belonging to the to-do card, making
-              its disappear-on-first-use behaviour look like a bug in the wrong place. */}
-          <View style={styles.section}>
-            <EnergyMeter />
-          </View>
+          {/* Energy meter — gated on settings.energySystemEnabled again (2026-07-31, on by
+              default; it was unconditional 2026-07-26→2026-07-31). Its explainer lives INSIDE
+              that card as a permanent line (2026-07-27) — it used to be a separate StarterCard
+              rendered here, which sat directly above the Plans card and so read as belonging to
+              the to-do card, making its disappear-on-first-use behaviour look like a bug in the
+              wrong place. */}
+          {energySystemEnabled && (
+            <View style={styles.section}>
+              <EnergyMeter />
+            </View>
+          )}
 
           {/* Shared preview — HomeSharedCard (incoming shared tasks + shopping). Self-hides
               when nothing is incoming — gated here too (not just inside HomeSharedCard) so no

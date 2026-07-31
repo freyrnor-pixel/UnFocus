@@ -217,6 +217,30 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
   button-launched-sub-screen pattern as Shopping's Food/Catalogue links. The screen itself
   (`app/goals.tsx`), the strength mechanic, and the per-item `GoalPicker` in `TaskCard`/
   `habit-form.tsx` are all unchanged — only Home's standing presence went away.
+- **The reward system is the backdrop** (2026-07-31, `lib/growth.ts` + `lib/useGrowth.ts`,
+  drawn by `components/ScreenBackground.tsx`). A Bonsai/points card shipped and was replaced
+  the same day; `lib/bonsai.ts`, `components/BonsaiCard.tsx` and `components/BonsaiTree.tsx`
+  are **deleted** — don't look for them. The replacement shows the user **no number at all**:
+  no streak count, no total, no level, nowhere.
+  - **Two channels, deliberately different in kind.** `intensity` [0,1] tints the whole branch
+    cluster from the neutral blue toward green as a streak climbs, and fades back; `level`
+    grows extra branches in around the screen border (starting with the bottom-right corner
+    the original art left empty) from a **high-water mark**, so branches never un-grow.
+  - **Neutral is the floor, and that's the whole point.** A lapsed streak returns the backdrop
+    to exactly the art the app always had — never to a visibly worse one. Same shape as
+    `lib/goalStrength.ts` flooring at 0. There is no "you broke it" state, and the streak
+    doesn't break at midnight either: decay runs off *days since the last active day*, so an
+    untouched morning costs a sliver of tint rather than the streak.
+  - **A day is active from a habit met OR a task completed** — the whole app, not just Habits.
+  - `lib/growth.ts` is dependency-free (plain arrays in, numbers out) like `lib/cardLayout.ts`;
+    all store access lives in `lib/useGrowth.ts`. Gated on `settings.showGrowth` (off by
+    default) whose DB column is still `show_points`; the high-water mark persists to
+    `settings.lifetimeGrowth` over the `lifetime_bonsai_points` column, and keeps accruing
+    while the feature is off. **No store awards anything** — the streak is derived by reading
+    `habit_logs`/`tasks` after the fact, so there's no award hook to keep in sync.
+  - Only the tint animates (`Duration.ambient`, 2400ms). A `level` change is deliberately
+    un-animated: it's derived from a streak that turns over between sessions, so nobody is
+    watching. Adding a growth stroke? Keep it out of the centre box (x 60–220, y 170–440).
 - **First-run personalization** (2026-07-30, `app/first-run.tsx` + `lib/firstRunOptions.ts`):
   four one-question steps — **motion / text size / appearance / starting screen** — shown
   once, after onboarding, on a fresh install (`settings.firstRunComplete`). Both onboarding
@@ -248,8 +272,8 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
   - Four steps is a hard cap. A fifth thing goes to Settings.
 - **Settings** (`app/settings.tsx`): three tabs — **General** (profile, appearance, accessibility, account/backup, version, reset), **Personal** (notifications, shopping cadence, layout, device features), **Advanced** (the Features card, People/family, paired devices, Freyr-mode, debug). Reorganized 2026-07-25 from four tabs; see that file's header for the full before/after.
 - **Feature flags** (2026-07-25, defaults revised same day): three states, not one.
-  - **On by default, still a real toggle** (Settings → Advanced → Features): `energySystemEnabled` (Energy system), `featureGoals` (Goals) and `featureMedicine` (Medicine trays, 2026-07-27). Not offered in the onboarding picker — "opt in from nothing" doesn't fit a feature that's already on. Turning `featureMedicine` off must actually CANCEL its four tray reminders, not just hide the card — `app/settings.tsx`'s `applyAndSync` re-syncs them on that key.
-  - **Off by default, still opt-in** (Settings → Advanced → Features, also offered in `app/onboarding/features.tsx`'s picker): `featureSharing` (Sharing & QR) and `featureAutomations` (Automations).
+  - **On by default, still a real toggle** (Settings → Advanced → Features): `energySystemEnabled` (Energy system), `featureGoals` (Goals) and `featureMedicine` (Medicine trays, 2026-07-27). Not offered in the onboarding picker — "opt in from nothing" doesn't fit a feature that's already on. Turning `featureMedicine` off must actually CANCEL its four tray reminders, not just hide the card — `app/settings.tsx`'s `applyAndSync` re-syncs them on that key. `energySystemEnabled` is the one flag that has flip-flopped: a toggle → inert/always-on (2026-07-26) → **a real toggle again (2026-07-31)**, gating `EnergyMeter`, `EnergyBalanceCard`, both editors' energy steppers and `PlanTaskCard`'s quick-add chip. It gates SURFACES only — per-task/habit `energyEnabled`/`energyValue` keep their stored values while off, so switching back on restores every number.
+  - **Off by default, still opt-in** (Settings → Advanced → Features, also offered in `app/onboarding/features.tsx`'s picker): `featureSharing` (Sharing & QR), `featureAutomations` (Automations) and `showGrowth` (Quiet growth — the ambient reward, 2026-07-31; note the DB column is still `show_points` from the Bonsai/points system it replaced within a day).
   - **Permanently on, no longer a toggle at all**: `featureScan` (Scan & receipts) and `featureFood` (Food & recipes) — removed from both Settings and the onboarding picker; the DB columns and Settings-type fields survive (this repo never drops columns) but nothing reads them for gating any more — see `store/useSettingsStore.ts`'s "Inert columns" note.
   - All defaults are set via migrations in `lib/db.ts` (append-only — corrections are new `UPDATE` statements, never edits to an already-merged line). Only gate something ADDITIVE this way — data pruning, widget/overview sync, foreground store reload, catalog/dish/symptom seeding, the automation store's boot load and the monthly reminder re-arm are load-bearing and stay unconditional.
 - **i18n**: `const t = useT()` in any component; `t.someKey`; add new keys to both `en` and `no` objects in `lib/i18n.ts`

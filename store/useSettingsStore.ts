@@ -34,9 +34,10 @@
  * completed-task count, maintained by store/useTaskStore.ts so it survives
  * pruneOldData() pruning old completed tasks out of the `tasks` table; read
  * directly by app/(tabs)/index.tsx.
- * lifetimeBonsaiPoints (2026-07-31) is the same shape of counter for the Bonsai/points
- * reward system — maintained by store/useHabitStore.ts, read by components/BonsaiCard.tsx
- * via lib/bonsai.ts. showPoints gates the card that shows it (see that field's own doc).
+ * lifetimeGrowth (2026-07-31) is the same shape of counter for the ambient growth reward —
+ * the best streak of active days ever reached, banked by lib/useGrowth.ts and read by
+ * components/ScreenBackground.tsx via lib/growth.ts. showGrowth gates what the backdrop
+ * draws from it (see that field's own doc).
  * photoAspectRatio (aspect-ratio formats pass) is the app-wide default format for
  * photo tiles — see components/PhotoFrame.tsx and constants/theme.ts's AspectRatio map.
  * featureGoals/featureSharing/featureScan/featureFood/featureAutomations (2026-07-25,
@@ -57,7 +58,7 @@
  *
  * Connections:
  *   Imports → lib/dataAccess, lib/id, lib/medicineSchedule (TrayTimes + its normalizer/defaults), constants/theme (AspectRatioKey)
- *   Used by → app/_layout.tsx, app/budget.tsx, app/first-run.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/(tabs)/habits.tsx, app/index.tsx, app/medicine-form.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/BonsaiCard.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/MedicineTrayCard.tsx, components/ParticleBackground.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/first-run.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/(tabs)/habits.tsx, app/index.tsx, app/medicine-form.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/MedicineTrayCard.tsx, components/ParticleBackground.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns the single-row SQLite table settings (id = 1)
  *
  * Edit notes:
@@ -84,10 +85,12 @@
  *     `showHints`, `backgroundLocationEnabled`, `monthlyBudgetNok`
  *     (superseded by per-list budgets in store/useMonthlyListStore.ts). Do NOT wire new
  *     UI to these without building the behaviour they imply.
- *   - **`showPoints` LEFT the inert list on 2026-07-31** — exactly the "build the behaviour
- *     it implies" case the note above anticipates. It's now the Bonsai/points feature flag
- *     (see its own field doc, near `lifetimeCompletedTasks`/`lifetimeBonsaiPoints`) — a real
- *     off-by-default opt-in, same shape as featureSharing/featureAutomations.
+ *   - **`show_points` LEFT the inert list on 2026-07-31** — exactly the "build the behaviour
+ *     it implies" case the note above anticipates. Its TS field is now `showGrowth` (see its
+ *     own field doc, near `lifetimeCompletedTasks`/`lifetimeGrowth`) — a real off-by-default
+ *     opt-in, same shape as featureSharing/featureAutomations. It briefly gated a
+ *     Bonsai/points card on the same day before that was replaced by the ambient growth
+ *     backdrop; only the column name still carries the old wording.
  *   - **`childProfiles` joined the inert list on 2026-07-28** — a third flavour: it holds
  *     real user data that was MIGRATED rather than abandoned. The People registry
  *     (store/usePeopleStore.ts) read this `string[]` of names once, on an app_meta-gated
@@ -106,22 +109,28 @@
  *     longer read either field. `featureGoals` stayed a REAL toggle through the same
  *     revision — only its default flipped from off to on — so it's still in
  *     FEATURE_ROWS (app/settings.tsx) and the onboarding ROWS, unlike these two.
- *   - **`energySystemEnabled` joined the inert list on 2026-07-26** — same flavour as
- *     featureScan/featureFood. Maintainer: "Energy is always on, just on 0 by default for
- *     simplicity." The per-task/habit control became a single signed stepper reading 0
- *     until you set it, so an untouched task costs nothing and the system needs no opt-out
- *     to stay out of the way. The switch is gone from Settings' Features card; the Home
- *     meter (components/EnergyMeter.tsx), both editors, and PlanTaskCard's quick-add energy
- *     chip are all un-gated, and lib/db.ts pins the column to 1 for every row. NOTE the
- *     sibling columns are emphatically NOT inert: `energyMode`, `energyDailyCapacity`,
- *     `energyWeeklyCapacity` and `energyCustomCapacities` are still live configuration,
- *     still in Settings, and still read by store/useEnergyStore.ts.
+ *   - **`energySystemEnabled` LEFT the inert list again on 2026-07-31** — it is a REAL
+ *     on-by-default toggle once more, at the maintainer's request, reversing the
+ *     2026-07-26 "Energy is always on, just on 0 by default for simplicity" call. It was
+ *     inert for five days; the column has been pinned to 1 for every row that whole time
+ *     (lib/db.ts), which is exactly why flipping it back on costs no migration and why
+ *     every existing user keeps Energy switched on. It now gates the surfaces it always
+ *     implied: the Home meter (components/EnergyMeter.tsx), the To-do tab's
+ *     EnergyBalanceCard, both editors' energy steppers and PlanTaskCard's quick-add energy
+ *     chip. Gate the SURFACE, never the data — the per-task/habit `energyEnabled`/
+ *     `energyValue` columns keep their values while the system is off, so turning it back
+ *     on restores every number untouched. NOTE the sibling columns are emphatically NOT
+ *     inert either: `energyMode`, `energyDailyCapacity`, `energyWeeklyCapacity` and
+ *     `energyCustomCapacities` are still live configuration, still in Settings, and still
+ *     read by store/useEnergyStore.ts.
  *   - `glassBlur` was removed (2026-07-18 glass simplification — the Android blur-target
  *     subsystem it gated no longer exists). Its `glass_blur` SQLite column is intentionally
  *     left orphaned (never drop columns) — see lib/db.ts's migration comment.
  *   - **`energySystemEnabled` history**: defaulted `false`, flipped to `true` 2026-07-21 so
- *     the Home Energy meter was visible out of the box, then stopped being a toggle at all
- *     on 2026-07-26 (see the inert-columns note above). Nothing gates on it now.
+ *     the Home Energy meter was visible out of the box, stopped being a toggle at all on
+ *     2026-07-26, then became a real on-by-default toggle again on 2026-07-31 (see the
+ *     inert-columns note above — it is NOT inert now). Three reversals in eleven days:
+ *     check the live FEATURE_ROWS in app/settings.tsx before trusting any prose about it.
  */
 import { create } from 'zustand';
 import {
@@ -184,12 +193,15 @@ export type Settings = {
   enforceWorkHours: boolean;
   workDays: number[];
   // LIVE again as of 2026-07-31 — was inert (see the removed 2026-07-25 note), now the
-  // feature flag for the Bonsai/points reward system (components/BonsaiCard.tsx,
-  // lib/bonsai.ts): off-by-default opt-in, offered in app/onboarding/features.tsx and
-  // Settings → Advanced → Features (FEATURE_ROWS). Gates the CARD only — points still
-  // accumulate in lifetimeBonsaiPoints while off, so turning it back on restores the
-  // tree's full progress untouched (same rule as every other feature flag here).
-  showPoints: boolean;
+  // feature flag for the ambient growth reward (lib/growth.ts +
+  // components/ScreenBackground.tsx): off-by-default opt-in, offered in
+  // app/onboarding/features.tsx and Settings → Advanced → Features (FEATURE_ROWS). Gates
+  // only what the BACKDROP draws — the high-water mark still accumulates in lifetimeGrowth
+  // while off, so turning it back on reflects the streaks actually built rather than
+  // starting bare (same rule as every other feature flag here).
+  // NOTE the SQLite column is still `show_points`, from the one-day-lived Bonsai/points
+  // system this replaced (2026-07-31). This repo never drops columns — see lib/db.ts.
+  showGrowth: boolean;
   showHints: boolean;
   language: Language;
   holidaysEnabled: boolean;
@@ -287,9 +299,9 @@ export type Settings = {
   // Home; see app/(tabs)/index.tsx.
   homeCardOrder: string[];
   // Energy system (2026-07-20) — optional per-task energy-budget model replacing the
-  // removed Focus mode / task Importance. energySystemEnabled is INERT (2026-07-26) —
-  // Energy is always on, pinned to 1 by migration; nothing reads this. The capacities and
-  // energyMode below are live configuration and very much still read.
+  // removed Focus mode / task Importance. energySystemEnabled is a REAL on-by-default
+  // toggle again as of 2026-07-31 (it was inert 2026-07-26 → 2026-07-31; see the
+  // inert-columns note in this file's header for the full back-and-forth):
   // when off, all energy UI is hidden. energyDailyCapacity / energyWeeklyCapacity are
   // the DEFAULT capacities (a plain number) used when no per-period override exists in
   // energy_budgets (store/useEnergyStore.ts). Consumed energy is derived from completed
@@ -309,12 +321,14 @@ export type Settings = {
   // store/useTaskStore.ts at the same sites that fire the 'task_completed'
   // automation trigger (plus remove()/clearAll()); read directly by app/(tabs)/index.tsx.
   lifetimeCompletedTasks: number;
-  // All-time Bonsai/points counter (2026-07-31) — same "persisted, survives log pruning"
-  // shape as lifetimeCompletedTasks above. Incremented by store/useHabitStore.ts's
-  // increment() on a not-met→met transition; never decremented (no punishment — see
-  // lib/bonsai.ts). Drives the Bonsai tree's growth stage on the Habits tab, gated on
-  // showPoints below.
-  lifetimeBonsaiPoints: number;
+  // Growth high-water mark (2026-07-31) — same "persisted, survives log pruning"
+  // shape as lifetimeCompletedTasks above: the user's BEST streak of active days ever
+  // reached (lib/growth.ts), banked by lib/useGrowth.ts whenever the current streak beats
+  // it. Never decremented — no punishment — which is what makes the backdrop's grown-in
+  // border branches permanent while the tint above them is free to fade back to neutral.
+  // Column is still `lifetime_bonsai_points` (never dropped); the field was renamed off
+  // the deleted Bonsai system on 2026-07-31.
+  lifetimeGrowth: number;
   // Default aspect-ratio format for photo tiles (components/PhotoFrame.tsx) app-wide —
   // 'fit' shows a photo's natural proportions; the others center-crop to a fixed ratio.
   // A per-call `format` prop can still override this for a specific tile.
@@ -411,7 +425,7 @@ function rowToSettings(row: Row): Settings {
     workHoursEnd: readStr(row, 'work_hours_end', '17:00'),
     enforceWorkHours: readBool(row, 'enforce_work_hours'),
     workDays: readJson<number[]>(row, 'work_days', [0, 1, 2, 3, 4]),
-    showPoints: readBool(row, 'show_points'),
+    showGrowth: readBool(row, 'show_points'),
     showHints: readInt(row, 'show_hints', 1) !== 0,
     language: readEnum<Language>(row, 'language', ['en', 'no'], 'no'),
     holidaysEnabled: readInt(row, 'holidays_enabled', 1) !== 0,
@@ -459,7 +473,7 @@ function rowToSettings(row: Row): Settings {
     energyMode: readEnum<EnergyMode>(row, 'energy_mode', ['daily', 'weekly', 'custom'], 'daily'),
     energyCustomCapacities: readJson<number[]>(row, 'energy_custom_capacities', [10, 10, 10, 10, 10, 10, 10]),
     lifetimeCompletedTasks: readInt(row, 'lifetime_completed_tasks', 0),
-    lifetimeBonsaiPoints: readInt(row, 'lifetime_bonsai_points', 0),
+    lifetimeGrowth: readInt(row, 'lifetime_bonsai_points', 0),
     photoAspectRatio: readEnum<AspectRatioKey>(
       row,
       'photo_aspect_ratio',
@@ -498,7 +512,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   workHoursEnd: { col: 'work_hours_end' },
   enforceWorkHours: { col: 'enforce_work_hours', to: bool },
   workDays: { col: 'work_days', to: (v) => JSON.stringify(v) },
-  showPoints: { col: 'show_points', to: bool },
+  showGrowth: { col: 'show_points', to: bool },
   showHints: { col: 'show_hints', to: bool },
   language: { col: 'language' },
   holidaysEnabled: { col: 'holidays_enabled', to: bool },
@@ -546,7 +560,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   energyMode: { col: 'energy_mode' },
   energyCustomCapacities: { col: 'energy_custom_capacities', to: (v) => JSON.stringify(v) },
   lifetimeCompletedTasks: { col: 'lifetime_completed_tasks' },
-  lifetimeBonsaiPoints: { col: 'lifetime_bonsai_points' },
+  lifetimeGrowth: { col: 'lifetime_bonsai_points' },
   photoAspectRatio: { col: 'photo_aspect_ratio' },
   featureGoals: { col: 'feature_goals', to: bool },
   featureSharing: { col: 'feature_sharing', to: bool },
@@ -579,7 +593,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   workHoursEnd: '17:00',
   enforceWorkHours: false,
   workDays: [0, 1, 2, 3, 4],
-  showPoints: false,
+  showGrowth: false,
   showHints: true,
   language: 'no' as Language,
   holidaysEnabled: true,
@@ -630,7 +644,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   energyMode: 'daily' as EnergyMode,
   energyCustomCapacities: [10, 10, 10, 10, 10, 10, 10],
   lifetimeCompletedTasks: 0,
-  lifetimeBonsaiPoints: 0,
+  lifetimeGrowth: 0,
   photoAspectRatio: 'fit' as AspectRatioKey,
   // Feature flag defaults. These only apply before load() resolves the real row, and
   // the app doesn't render past the `loaded` gate until it has — so a user whose

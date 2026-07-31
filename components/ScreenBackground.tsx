@@ -10,6 +10,19 @@
  * the maintainer's new direction reintroduces a calm blue field as the app's identity, with the
  * branch motif standing in for the old centred watercolour-tree image.
  *
+ * **It is also the app's reward surface (2026-07-31, lib/growth.ts).** It replaced the
+ * one-day-old Bonsai/points card, and the whole point of moving the reward here is that it
+ * shows NO NUMBER — the user never sees a streak count, a total or a level:
+ *   - **Border branch growth.** GROWTH_STROKES adds branches around the border (starting with
+ *     the bottom-right corner, the one the original art left empty) as `level` rises. Driven
+ *     by a high-water mark, so branches that grew stay grown — nothing here can un-grow.
+ *   - **A positive tint.** The whole cluster crossfades from the neutral blue toward green as
+ *     `intensity` rises, and back to neutral as it fades. Neutral is the floor: a lapsed
+ *     streak returns the app to exactly the backdrop it always had, never to a worse-looking
+ *     one. Same floor-at-neutral shape as lib/goalStrength.ts.
+ * Both are gated on settings.showGrowth (off by default) via lib/useGrowth.ts, which returns
+ * a flat 0/0 when the feature is off — i.e. precisely the pre-2026-07-31 art.
+ *
  * The whole thing is ONE react-native-svg canvas (base linear gradient + two radial glows +
  * branch paths + leaf dots) so it costs a single native view behind the pager — the gradients
  * live in objectBoundingBox space and the branch coordinates live in a 280×607 viewBox scaled to
@@ -17,10 +30,11 @@
  * on non-phone aspect ratios rather than distorting.
  *
  * Connections:
- *   Imports → lib/useAppTheme (useIsDark)
+ *   Imports → react-native-reanimated, lib/useAppTheme (useIsDark, useAccessibility),
+ *             lib/useGrowth, constants/motion (Duration, Ease)
  *   Used by → app/(tabs)/_layout.tsx (one shared instance behind the whole pager); components/
  *             ScreenScaffold (its own first child, for sub-tier and non-pager site screens)
- *   Data    → —
+ *   Data    → via lib/useGrowth: tasks + habits + habit_logs, settings.showGrowth/lifetimeGrowth
  *
  * Edit notes:
  *   - Render this as an absolutely-positioned first child, then let the screen's
@@ -31,11 +45,30 @@
  *     against the darker dark-mode field). The glow strengths are likewise per-theme.
  *   - Keep the branches wrapped in their own <G opacity> so lowering their presence never dims
  *     the base gradient/glows.
+ *   - **The tint is a two-copy opacity crossfade, not an animated colour.** The cluster is
+ *     drawn twice — neutral underneath, green on top at `intensity` — because opacity is the
+ *     one SVG prop that is reliably animatable through Reanimated on both native and the web
+ *     preview. Don't "simplify" this into an animated `stroke`/`fill` without testing both.
+ *   - **Only the tint animates.** A level change adds branches with no transition, which is
+ *     fine because `level` is derived from a streak that turns over between app sessions —
+ *     you will effectively never watch one appear. Don't add per-tier reveal animation for a
+ *     frame nobody sees.
+ *   - Adding a growth stroke: keep it out of the centre box (roughly x 60–220, y 170–440) —
+ *     that is where cards and content live, and it's the reason the original art is
+ *     corners-only.
+ *   - `React.memo` no longer buys much now that useGrowth subscribes to the task/habit
+ *     stores; the intensity it returns is quantised so a single tick can't repaint the
+ *     backdrop for a sub-step change. See lib/useGrowth.ts's edit notes.
  */
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Path, Circle, G } from 'react-native-svg';
-import { useIsDark } from '@/lib/useAppTheme';
+import Animated, { useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Duration, Ease } from '@/constants/motion';
+import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
+import { useGrowth } from '@/lib/useGrowth';
+
+const AnimatedG = Animated.createAnimatedComponent(G);
 
 type Props = {
   /** Accepted for call-site compatibility (the pager passes the active tab); not used —
@@ -82,6 +115,46 @@ const LEAVES: Leaf[] = [
   { cx: 158, cy: 470, r: 4 }, { cx: 118, cy: 507, r: 3.5 },
 ];
 
+// ─── Growth geometry (lib/growth.ts `level` — 2026-07-31) ──────────────────────────────────
+// Branches that grow in around the BORDER as the user's best streak climbs. `tier` is the
+// growth level at which a stroke first appears; everything at or below the current level is
+// drawn. Level 1 opens the bottom-right corner, which the original three-corner art left
+// empty — that hole is the most visible place for the first reward to land. Later tiers work
+// along the left, right, top and bottom edges. Nothing enters the centre box (x 60–220,
+// y 170–440) where cards sit.
+
+type GrowthStroke = { tier: number; d: string; w: number };
+type GrowthLeaf = { tier: number; cx: number; cy: number; r: number };
+
+const GROWTH_STROKES: GrowthStroke[] = [
+  // tier 1 — bottom-right corner opens
+  { tier: 1, d: 'M290 545 Q 238 530 208 496', w: 2.8 },
+  { tier: 1, d: 'M238 530 Q 246 556 268 566', w: 1.4 },
+  // tier 2 — left edge, lower-middle
+  { tier: 2, d: 'M-8 430 Q 30 424 52 400', w: 2.2 },
+  { tier: 2, d: 'M30 424 Q 26 448 36 466', w: 1.2 },
+  // tier 3 — right edge, upper-middle
+  { tier: 3, d: 'M288 300 Q 250 292 232 268', w: 2.2 },
+  { tier: 3, d: 'M250 292 Q 254 268 244 250', w: 1.2 },
+  // tier 4 — top and bottom edges
+  { tier: 4, d: 'M118 -8 Q 132 22 162 34', w: 1.6 },
+  { tier: 4, d: 'M96 615 Q 118 592 148 588', w: 1.6 },
+  // tier 5 — long runs tying the corners along the edges
+  { tier: 5, d: 'M-8 120 Q 18 140 30 172', w: 1.4 },
+  { tier: 5, d: 'M288 400 Q 268 424 262 452', w: 1.4 },
+  { tier: 5, d: 'M208 496 Q 190 520 186 548', w: 1.2 },
+];
+
+const GROWTH_LEAVES: GrowthLeaf[] = [
+  { tier: 1, cx: 268, cy: 566, r: 4 }, { tier: 1, cx: 208, cy: 495, r: 3.5 },
+  { tier: 1, cx: 246, cy: 556, r: 3 },
+  { tier: 2, cx: 52, cy: 399, r: 4 }, { tier: 2, cx: 36, cy: 466, r: 3.5 },
+  { tier: 3, cx: 232, cy: 267, r: 4 }, { tier: 3, cx: 244, cy: 249, r: 3.5 },
+  { tier: 4, cx: 162, cy: 34, r: 3.5 }, { tier: 4, cx: 148, cy: 587, r: 3.5 },
+  { tier: 5, cx: 30, cy: 173, r: 3 }, { tier: 5, cx: 262, cy: 453, r: 3 },
+  { tier: 5, cx: 186, cy: 549, r: 3 },
+];
+
 // ─── Per-theme palette ──────────────────────────────────────────────────────────────────────
 
 type Palette = {
@@ -90,16 +163,22 @@ type Palette = {
   topGlowOpacity: number;
   botGlow: string;                // broad bottom glow tint
   botGlowOpacity: number;
-  branch: string;                 // branch stroke colour
-  leaf: string;                   // leaf fill colour
+  branch: string;                 // branch stroke colour (neutral — the always-there state)
+  leaf: string;                   // leaf fill colour (neutral)
+  growthBranch: string;           // branch stroke at full growth intensity
+  growthLeaf: string;             // leaf fill at full growth intensity
   branchOpacity: number;          // whole-cluster opacity (branches read stronger on dark)
 };
 
+// The growth greens sit in the same hue family as constants/colors.ts's `good` (#177E56,
+// h≈162) so the reward reads as the app's existing "positive", but lighter and less
+// saturated than that token — it is scenery behind content, not a status colour on text.
 const LIGHT: Palette = {
   base: ['#f7faff', '#eef3fc', '#e4ecfb'],
   topGlow: 'rgb(150,190,255)', topGlowOpacity: 0.28,
   botGlow: 'rgb(120,165,255)', botGlowOpacity: 0.22,
   branch: '#6f9aff', leaf: '#a9c4ff', branchOpacity: 0.5,
+  growthBranch: '#3f9e7a', growthLeaf: '#8ed3b4',
 };
 
 const DARK: Palette = {
@@ -107,11 +186,52 @@ const DARK: Palette = {
   topGlow: 'rgb(90,150,255)', topGlowOpacity: 0.55,
   botGlow: 'rgb(60,120,255)', botGlowOpacity: 0.4,
   branch: '#3f74ff', leaf: '#7fa8ff', branchOpacity: 0.7,
+  growthBranch: '#2f9b74', growthLeaf: '#63c49c',
 };
+
+/**
+ * One full copy of the branch cluster — the original corner art plus every growth stroke up
+ * to `level` — in a single colour pair. Rendered twice by ScreenBackground (neutral
+ * underneath, growth-green on top at `intensity`) so the tint is an opacity crossfade rather
+ * than an animated colour; see this file's edit notes.
+ */
+function Cluster({ branch, leaf, level }: { branch: string; leaf: string; level: number }) {
+  return (
+    <>
+      {BRANCHES.map((b, i) => (
+        <Path key={`b${i}`} d={b.d} stroke={branch} strokeWidth={b.w} strokeLinecap="round" fill="none" />
+      ))}
+      {GROWTH_STROKES.filter((g) => g.tier <= level).map((g, i) => (
+        <Path key={`g${i}`} d={g.d} stroke={branch} strokeWidth={g.w} strokeLinecap="round" fill="none" />
+      ))}
+      {LEAVES.map((l, i) => (
+        <Circle key={`l${i}`} cx={l.cx} cy={l.cy} r={l.r} fill={leaf} />
+      ))}
+      {GROWTH_LEAVES.filter((g) => g.tier <= level).map((g, i) => (
+        <Circle key={`gl${i}`} cx={g.cx} cy={g.cy} r={g.r} fill={leaf} />
+      ))}
+    </>
+  );
+}
 
 function ScreenBackground(_props: Props) {
   const isDark = useIsDark();
+  const { reducedMotion } = useAccessibility();
+  const { level, intensity } = useGrowth();
   const p = isDark ? DARK : LIGHT;
+
+  // The green copy's opacity. Starts at its real value so a cold launch shows the earned
+  // tint immediately instead of fading up into it every time the app opens.
+  const tint = useSharedValue(intensity * p.branchOpacity);
+  const target = intensity * p.branchOpacity;
+
+  useEffect(() => {
+    tint.value = reducedMotion
+      ? target
+      : withTiming(target, { duration: Duration.ambient, easing: Ease.move });
+  }, [target, reducedMotion, tint]);
+
+  const tintProps = useAnimatedProps(() => ({ opacity: tint.value }));
 
   return (
     <Svg
@@ -145,15 +265,15 @@ function ScreenBackground(_props: Props) {
       <Rect x="0" y="0" width="280" height="607" fill="url(#sbTopGlow)" />
       <Rect x="0" y="0" width="280" height="607" fill="url(#sbBotGlow)" />
 
-      {/* Corner branch-and-leaf accents — own opacity group so dimming them never touches the field. */}
+      {/* Corner branch-and-leaf accents — own opacity group so dimming them never touches the
+          field. This neutral copy is always at full cluster opacity; the growth tint is the
+          green copy fading in over it, so intensity 0 leaves exactly the original art. */}
       <G opacity={p.branchOpacity}>
-        {BRANCHES.map((b, i) => (
-          <Path key={i} d={b.d} stroke={p.branch} strokeWidth={b.w} strokeLinecap="round" fill="none" />
-        ))}
-        {LEAVES.map((l, i) => (
-          <Circle key={i} cx={l.cx} cy={l.cy} r={l.r} fill={p.leaf} />
-        ))}
+        <Cluster branch={p.branch} leaf={p.leaf} level={level} />
       </G>
+      <AnimatedG animatedProps={tintProps}>
+        <Cluster branch={p.growthBranch} leaf={p.growthLeaf} level={level} />
+      </AnimatedG>
     </Svg>
   );
 }

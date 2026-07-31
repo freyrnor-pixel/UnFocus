@@ -68,6 +68,12 @@ export const Duration = {
   /** the fade-out after a `hold` — longer than a normal exit so the wash recedes rather
    *  than blinking off. */
   holdOut: 400,
+  /** an ambient backdrop crossfade — components/ScreenBackground.tsx's growth tint and
+   *  branch reveal. Deliberately an order of magnitude above every band above: this is
+   *  scenery reacting to something that took days to earn, and it must never read as a
+   *  reward animation firing off a tap. Sits alongside ParticleBackground's multi-second
+   *  drifts rather than the §1 interaction bands. */
+  ambient: 2400,
 } as const;
 
 /** Easing presets: ease-out for entrances/taps, ease-in for exits, ease-in-out for travel. */
