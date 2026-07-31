@@ -107,12 +107,29 @@ async function main() {
     await page.waitForTimeout(1500);
     await shot(page, onlyRoute.replace(/\//g, '_') || 'root');
   } else {
-    console.log('> onboarding: language');
+    // Basics (2026-07-31): language, appearance, text size, movement, menu side and starting
+    // screen, all on ONE screen, replacing the old language screen plus the four-step
+    // first-run wizard. Each row is a strip of radio pills; the whole screen previews live,
+    // so tapping English re-renders the rest of it in English.
+    console.log('> onboarding: basics');
     await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
     await page.waitForTimeout(1000);
-    await shot(page, 'onboarding-language');
-    await clickText(page, 'English');
+    await shot(page, 'onboarding-basics-no');
+    // Language first — everything after this is asserted against English labels.
+    await page.getByRole('radio', { name: /^Språk: English\./ }).first().click({ timeout: 10000 });
     await page.waitForTimeout(500);
+    await shot(page, 'onboarding-basics-en');
+
+    // Walk a few rows so the live preview actually gets exercised rather than just rendered.
+    // Values are left on the shipped defaults (Light / Default / Full / Right / Home) so the
+    // tab screenshots further down still show the standard app.
+    for (const [row, option] of [['Appearance', 'Light'], ['Text size', 'Default'], ['Movement', 'Full']]) {
+      await page.getByRole('radio', { name: new RegExp(`^${row}: ${option}\\.`) }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(300);
+    }
+    await shot(page, 'onboarding-basics-picked');
+    await clickText(page, 'Continue');
+    await page.waitForTimeout(600);
 
     // "Have you used UnFocus before?" — the returning-user restore step. Take the
     // "No, I'm new here" path to continue a fresh onboarding walk.
@@ -131,28 +148,17 @@ async function main() {
     await clickText(page, 'Walk me through it');
     await page.waitForTimeout(500);
 
-    // Intro tour: one short page per feature (t.features), then the "built to be gentle"
-    // principles page and the experimental-build note; stepped with "Next →". The last
-    // page's primary button reads "Get started →" and continues to the name step. The cap
-    // is just a runaway guard — keep it above the real page count (t.features.length + 2).
-    console.log('> onboarding: intro tour');
-    for (let i = 0; i < 12; i++) {
-      await shot(page, `onboarding-intro-${i}`);
-      const onLastPage = await page.getByText('Get started →', { exact: true }).first().isVisible().catch(() => false);
-      if (onLastPage) {
-        await clickText(page, 'Get started →');
-        break;
-      }
-      await clickText(page, 'Next →', { nth: 0 });
-      await page.waitForTimeout(400);
-    }
+    // Energy vs Quiet growth (2026-07-31) — the screen that replaced the 8-page intro
+    // slideshow's one-liner about each. Left on its seeded values (Energy on, growth off),
+    // which is what a real new user lands with.
+    console.log('> onboarding: energy vs growth');
+    await shot(page, 'onboarding-energy');
+    await clickText(page, 'Next →');
     await page.waitForTimeout(500);
 
-    // Feature picker (2026-07-25): the "What do you want to use?" step between the tour and
-    // the name step. Screenshotted with everything left OFF, deliberately — that's the state
+    // Feature picker: screenshotted with everything left OFF, deliberately — that's the state
     // a real new user lands in, and the tab screenshots further down are meant to show the
-    // stripped-back default app, not the everything-on build. Flip a switch here if you ever
-    // need shots of the opted-in surfaces instead.
+    // stripped-back default app, not the everything-on build.
     console.log('> onboarding: feature picker');
     await shot(page, 'onboarding-features');
     await clickText(page, 'Next →');
@@ -161,23 +167,7 @@ async function main() {
     console.log('> onboarding: name + finish');
     await shot(page, 'onboarding-name');
     await clickText(page, "Let's go! 🌿");
-    await page.waitForTimeout(1500);
-
-    // First-run personalization (app/first-run.tsx): four one-question steps that follow
-    // onboarding on a fresh install. Walked one card at a time rather than skipped, so the
-    // shots cover all four AND the live preview actually gets exercised — steps 2 and 3
-    // redraw the screen from the tapped value. The picks are deliberately left on their
-    // defaults (Full / Default / Light / Home) apart from the taps below, so the tab
-    // screenshots further down still show the standard app.
-    console.log('> first-run: personalization');
-    for (const label of ['Full', 'Default', 'Light', 'Home']) {
-      await shot(page, `first-run-${label.toLowerCase()}`);
-      await page.getByRole('radio', { name: new RegExp(`^${label}\\.`) }).first().click({ timeout: 10000 });
-      await page.waitForTimeout(400);
-      await clickText(page, label === 'Home' ? 'Done' : 'Continue');
-      await page.waitForTimeout(600);
-    }
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(1800);
 
     console.log('> Home');
     await shot(page, 'home');

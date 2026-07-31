@@ -1,27 +1,27 @@
 /**
- * firstRunOptions.ts — the value sets behind the first-run personalization flow
+ * firstRunOptions.ts — the value sets behind the Basics screen
  *
- * One dependency-free module holding every option the first-run flow can offer, the
- * mapping from a picked option to the settings it writes, and the inverse mapping used
- * to seed the flow from the settings a user already has. `app/first-run.tsx` renders
- * these; `app/settings.tsx` reuses the same value sets for its permanent controls, so a
- * choice made in the flow and the same choice made in Settings are literally the same
- * set of values — there is no first-run-only sizing/appearance system.
+ * One dependency-free module holding every option `app/onboarding/basics.tsx` can offer, the
+ * mapping from a picked option to the settings it writes, and the inverse mapping used to seed
+ * the screen from the settings a user already has. `app/settings.tsx` reuses the same value
+ * sets for its permanent controls, so a choice made during onboarding and the same choice made
+ * in Settings are literally the same set of values — there is no onboarding-only
+ * sizing/appearance system.
  *
  * The invariants this file exists to make mechanical (FIRST_RUN_PERSONALIZATION_HANDOFF.md):
  *   - Every option is one of a fixed, enumerated set. Nothing is free text or numeric,
  *     so no pick needs validation and no combination can be invalid.
- *   - `settingsPatchFromPicks()` returns ONE patch object covering every step plus
- *     `firstRunComplete: true`, so the flow's single `settings.update()` call is
+ *   - `settingsPatchFromPicks()` returns ONE patch object covering every row plus
+ *     `firstRunComplete: true`, so the screen's single `settings.update()` call is
  *     all-or-nothing — the gate can never be set without the selections landing with it.
  *   - `picksFromSettings()` is its exact inverse for every reachable state, which is what
- *     makes "Re-run setup" idempotent: re-entering the flow and pressing straight through
+ *     makes "Run setup again" idempotent: re-entering and pressing straight through
  *     writes back the settings it started from.
  *
  * Connections:
  *   Imports → (types only) store/useSettingsStore
- *   Used by → app/first-run.tsx, app/settings.tsx, app/(tabs)/_layout.tsx (START_SCREEN_ROUTES),
- *             lib/__tests__/firstRunOptions.test.ts
+ *   Used by → app/onboarding/basics.tsx, app/settings.tsx,
+ *             app/(tabs)/_layout.tsx (START_SCREEN_ROUTES), lib/__tests__/firstRunOptions.test.ts
  *   Data    → none — pure data + pure functions, no store, no DB, no i18n
  *
  * Edit notes:
@@ -35,14 +35,27 @@
  *     OR'd with the OS reduce-motion flag in lib/useAppTheme.ts's useAccessibility(), so
  *     picking `full` here can never override a phone that asks for less motion — the flow
  *     only ever adds reduction on top of the OS.
- *   - Adding a step means adding to FIRST_RUN_STEPS *and* to both mapping functions.
- *     Four is the cap (handoff doc's anti-overwhelm rules); a fifth thing goes to Settings.
+ *   - **2026-07-31: four wizard steps became six rows on ONE screen.** The old
+ *     app/first-run.tsx ran motion/text size/appearance/starting screen as four separate
+ *     cards after onboarding, and app/onboarding/language.tsx asked for language before it.
+ *     Six sequential screens for six switches is the thing that made getting started feel
+ *     long, so they collapsed into app/onboarding/basics.tsx. The anti-overwhelm rule the
+ *     old four-step cap encoded still holds, restated: ONE screen, no wizard. A seventh
+ *     thing goes to Settings, not here.
+ *   - Adding a row means adding to BASICS_ROWS *and* to both mapping functions.
  */
-import type { DarkMode, FontSizePref, StartScreen } from '@/store/useSettingsStore';
+import type { DarkMode, FontSizePref, Language, StartScreen } from '@/store/useSettingsStore';
 
-/** The four steps, in the order the flow shows them. */
-export const FIRST_RUN_STEPS = ['motion', 'textSize', 'appearance', 'startScreen'] as const;
-export type FirstRunStep = (typeof FIRST_RUN_STEPS)[number];
+/** The six rows, in the order the Basics screen shows them. */
+export const BASICS_ROWS = [
+  'language',
+  'appearance',
+  'textSize',
+  'motion',
+  'handedness',
+  'startScreen',
+] as const;
+export type BasicsRow = (typeof BASICS_ROWS)[number];
 
 /* ── Step 1: motion ──────────────────────────────────────────────────────── */
 
@@ -74,7 +87,7 @@ export function motionChoiceOf(s: MotionSettings): MotionChoice {
   return s.particlesEnabled ? 'full' : 'reduced';
 }
 
-/* ── Step 2 & 3: text size and appearance ────────────────────────────────── */
+/* ── Text size and appearance ─────────────────────────────────────────────── */
 
 /** Same three values as Settings → General → Accessibility → Font size. */
 export const FONT_SIZE_CHOICES: readonly FontSizePref[] = ['small', 'default', 'large'];
@@ -82,7 +95,37 @@ export const FONT_SIZE_CHOICES: readonly FontSizePref[] = ['small', 'default', '
 /** Same three values as Settings → General → Appearance → Light/Dark mode. */
 export const DARK_MODE_CHOICES: readonly DarkMode[] = ['off', 'system', 'on'];
 
-/* ── Step 4: starting screen ─────────────────────────────────────────────── */
+/* ── Language ─────────────────────────────────────────────────────────────── */
+
+/**
+ * The app's two languages. This row is FIRST on the Basics screen and previews live: tapping
+ * it re-renders everything else in that language, which is both the demonstration that the
+ * screen previews at all and the reason language no longer needs a screen of its own.
+ */
+export const LANGUAGE_CHOICES: readonly Language[] = ['en', 'no'];
+
+/* ── Handedness ───────────────────────────────────────────────────────────── */
+
+/**
+ * Which hand the phone is in. Stored as the single boolean `leftHanded` (the DB column
+ * predates this screen), but offered as a named pair so it obeys the same
+ * "every option is a member of a fixed set" rule as every other row rather than being the
+ * one raw boolean.
+ */
+export type HandednessChoice = 'right' | 'left';
+
+export const HANDEDNESS_CHOICES: readonly HandednessChoice[] = ['right', 'left'];
+
+export const HANDEDNESS_SETTINGS: Record<HandednessChoice, { leftHanded: boolean }> = {
+  right: { leftHanded: false },
+  left: { leftHanded: true },
+};
+
+export function handednessChoiceOf(s: { leftHanded: boolean }): HandednessChoice {
+  return s.leftHanded ? 'left' : 'right';
+}
+
+/* ── Starting screen ──────────────────────────────────────────────────────── */
 
 export const START_SCREEN_CHOICES: readonly StartScreen[] = ['home', 'plans', 'shopping'];
 
@@ -110,18 +153,22 @@ export const START_SCREEN_PATHS: Record<StartScreen, '/' | '/plans' | '/shopping
 
 /* ── Picks ⇄ settings ────────────────────────────────────────────────────── */
 
-/** One selection per step, held in the flow's local state until it commits. */
+/** One selection per row, held in the screen's local state until it commits. */
 export type FirstRunPicks = {
-  motion: MotionChoice;
-  fontSize: FontSizePref;
+  language: Language;
   darkMode: DarkMode;
+  fontSize: FontSizePref;
+  motion: MotionChoice;
+  handedness: HandednessChoice;
   startScreen: StartScreen;
 };
 
-/** The slice of the settings row this flow reads from and writes back to. */
+/** The slice of the settings row this screen reads from and writes back to. */
 export type FirstRunSettings = MotionSettings & {
-  fontSize: FontSizePref;
+  language: Language;
   darkMode: DarkMode;
+  fontSize: FontSizePref;
+  leftHanded: boolean;
   startScreen: StartScreen;
 };
 
@@ -132,15 +179,17 @@ export type FirstRunSettings = MotionSettings & {
  */
 export function picksFromSettings(s: FirstRunSettings): FirstRunPicks {
   return {
-    motion: motionChoiceOf(s),
-    fontSize: s.fontSize,
+    language: s.language,
     darkMode: s.darkMode,
+    fontSize: s.fontSize,
+    motion: motionChoiceOf(s),
+    handedness: handednessChoiceOf(s),
     startScreen: s.startScreen,
   };
 }
 
 /**
- * The flow's one and only write. Returns every field for all four steps plus the gate, so
+ * The screen's one and only write. Returns every field for all six rows plus the gate, so
  * the caller's single `settings.update()` either lands the whole personalization or none
  * of it — there is no ordering in which `firstRunComplete` is set on its own.
  */
@@ -149,8 +198,10 @@ export function settingsPatchFromPicks(
 ): FirstRunSettings & { firstRunComplete: true } {
   return {
     ...MOTION_SETTINGS[picks.motion],
-    fontSize: picks.fontSize,
+    ...HANDEDNESS_SETTINGS[picks.handedness],
+    language: picks.language,
     darkMode: picks.darkMode,
+    fontSize: picks.fontSize,
     startScreen: picks.startScreen,
     firstRunComplete: true,
   };

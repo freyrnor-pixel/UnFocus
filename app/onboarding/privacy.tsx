@@ -12,7 +12,7 @@
  * Edit notes:
  *   - All strings through useT(); this screen has no local state.
  *   - "Got it" navigates to /onboarding/guided.
- *   - Previous navigates back to /onboarding/language.
+ *   - Previous navigates back to /onboarding/restore.
  *   - Decision 006 tokens throughout — no raw hex, no legacy theme.* names.
  */
 import React from 'react';

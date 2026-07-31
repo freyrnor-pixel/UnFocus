@@ -119,7 +119,7 @@
  *   - **Personal → Layout also owns first-run's permanent controls (2026-07-30)**: the
  *     "Starting screen" segmented row (settings.startScreen, applied at the next launch
  *     by app/(tabs)/_layout.tsx's initialRouteName) and a "Run setup again" link into
- *     app/first-run.tsx. The re-run link is deliberately NOT in the red Reset card — it
+ *     app/onboarding/basics.tsx. The re-run link is deliberately NOT in the red Reset card — it
  *     re-enters the flow seeded from current settings, so walking it and pressing Done
  *     changes nothing. Its option values come from lib/firstRunOptions.ts, shared with
  *     the flow. Motion and text size are reversible via the existing General →
@@ -1060,7 +1060,7 @@ export default function SettingsScreen() {
                     onPress={() =>
                       confirmReset(t.resetOnboarding.toLowerCase(), () => {
                         settings.update({ setupComplete: false });
-                        router.replace('/onboarding/language');
+                        router.replace('/onboarding/basics');
                       })
                     }
                     scaleTo={0.93}
@@ -1276,11 +1276,11 @@ export default function SettingsScreen() {
                 />
                 <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.firstRun.startScreen[settings.startScreen]}</Text>
                 {/* Re-run the first-run flow. Non-destructive, so it lives here rather than
-                    in the red Reset card: it re-enters app/first-run.tsx seeded from the
+                    in the red Reset card: it re-enters app/onboarding/basics.tsx seeded from the
                     settings the user has right now, which means walking through it and
                     pressing Done without touching anything changes nothing at all. */}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <PressableScale style={styles.switchRow} onPress={() => router.push('/first-run')} scaleTo={0.97}>
+                <PressableScale style={styles.switchRow} onPress={() => router.push('/onboarding/basics')} scaleTo={0.97}>
                   <View style={styles.switchTextCol}>
                     <Text style={[styles.switchLabel, { color: theme.text }]}>{t.firstRun.reRun}</Text>
                     <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.firstRun.reRunHint}</Text>

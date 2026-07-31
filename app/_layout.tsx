@@ -67,12 +67,13 @@
  *         it belongs in Tier B.
  *   - Cold-load asset warming (2026-07-16, un-gated 2026-07-28): the icon glyph fonts
  *     (Ionicons + MaterialCommunityIcons `.font`) are preloaded via useFonts alongside
- *     Nunito so icons paint on the first frame instead of popping in a beat late. The two
- *     bundled images are still warmed via Asset.loadAsync in the boot effect, but launch is
- *     no longer GATED on that decode — it used to hold the splash for up to 1.5s (its own
- *     timeout floor) so components/TreeWatermark wouldn't fade in. Neither image appears on
- *     Home, so that cost bought nothing on the launch path. (The backdrop is pure SVG —
- *     components/ScreenBackground — so there's no backdrop image to decode any more.)
+ *     Nunito so icons paint on the first frame instead of popping in a beat late. The one
+ *     bundled image the app draws (icon.png) is still warmed via Asset.loadAsync in the boot
+ *     effect, but launch is no longer GATED on that decode — it used to hold the splash for
+ *     up to 1.5s (its own timeout floor) so a decorative watermark wouldn't fade in. It
+ *     doesn't appear on Home, so that cost bought nothing on the launch path. (Every backdrop
+ *     is pure SVG — components/ScreenBackground and components/Motif — so there is no
+ *     backdrop image to decode at all.)
  *   - **Launch is ONE screen, not two (2026-07-28).** Cold start is: held native splash →
  *     the app. It used to be splash → a full-screen WelcomeReveal overlay (the same tree
  *     logo the splash had just shown, plus name + tagline, on a fixed ~1.5s timeline) →
@@ -99,11 +100,11 @@
  *     once the gate passes the first screens mount with their data already in memory rather
  *     than empty-then-fill. Screens keep their guarded focus-loads as redundant safety nets.
  *   - First-run guard (2026-07-30): after setupComplete, an install with firstRunComplete
- *     still false is sent to /first-run (app/first-run.tsx). This is a SAFETY NET only —
+ *     still false is sent to /onboarding/basics. This is a SAFETY NET only —
  *     onboarding's own finish()/Explore handlers route there directly, so it normally
  *     never fires. Both gates are satisfied by skipping, so neither can trap a user.
  *   - Onboarding guard: once settings.loaded is true and setupComplete is false, and we
- *     aren't already under /onboarding, redirect to /onboarding/language. segments are
+ *     aren't already under /onboarding, redirect to /onboarding/basics. segments are
  *     read inside the effect as a guard, intentionally kept out of its deps.
  *   - LAN live-sync (Decision 038 app integration): a dedicated effect starts/stops
  *     lib/syncService's transport as settings.lanSyncEnabled flips, once settings have
@@ -306,15 +307,17 @@ export default function RootLayout() {
     useNotesStore.getState().load();
     useMealStore.getState().load();
     useCatalogStore.getState().load();
-    // Warm the two bundled images the app itself draws — icon.png (onboarding's hero) and
-    // android-icon-monochrome.png (components/TreeWatermark). Fire-and-forget: launch is
-    // deliberately NOT gated on this any more. It used to block the held splash for up to
-    // 1.5s (its own timeout floor) so a decorative watermark wouldn't fade in — a bad trade
-    // that every cold start paid. Neither image is on Home at all, so warming them a beat
-    // after first paint is invisible.
+    // Warm the one bundled image the app itself draws — icon.png, onboarding's hero.
+    // Fire-and-forget: launch is deliberately NOT gated on this. It used to block the held
+    // splash for up to 1.5s (its own timeout floor) so a decorative watermark wouldn't fade
+    // in — a bad trade that every cold start paid. It isn't on Home at all, so warming it a
+    // beat after first paint is invisible.
+    // android-icon-monochrome.png dropped off this list on 2026-07-31 along with
+    // components/TreeWatermark, its only consumer. The file stays in assets/ because
+    // app.json still points Android's monochrome adaptive icon at it — but that is drawn by
+    // the launcher, not by us, so there is nothing for us to warm.
     void Asset.loadAsync([
       require('../assets/icon.png'),
-      require('../assets/android-icon-monochrome.png'),
     ]).catch(() => { /* a cold decode on first use is fine */ });
     if (__DEV__) {
       console.log(`[perf] cold-start sync boot (initDb + Tier A store loads): ${Date.now() - t0}ms`);
@@ -457,20 +460,21 @@ export default function RootLayout() {
     return () => sub.remove();
   }, []);
 
-  // Onboarding guard: send new users to the flow until setup is complete, then through
-  // first-run personalization (app/first-run.tsx) until that's been seen once. The second
-  // leg is a SAFETY NET, not the normal path — onboarding's own finish/Explore handlers
-  // route straight to /first-run, so this only fires if an install somehow reaches the tabs
-  // with firstRunComplete still false. Both gates are one-way and both are satisfied by
-  // skipping, so neither can trap a user.
+  // Onboarding guard: send new users to the flow until setup is complete, then through the
+  // Basics screen until that's been seen once. Basics is the FIRST onboarding screen
+  // (app/onboarding/basics.tsx), so on a fresh install the first leg covers both; the second
+  // leg is a SAFETY NET for an install that somehow reaches the tabs with firstRunComplete
+  // still false — most plausibly one that finished onboarding under an older build, before
+  // the four-step first-run flow was folded into Basics. Both gates are one-way and both are
+  // satisfied by skipping, so neither can trap a user.
   useEffect(() => {
     if (!loaded) return;
     if (!setupComplete) {
-      if (segments[0] !== 'onboarding') router.replace('/onboarding/language');
+      if (segments[0] !== 'onboarding') router.replace('/onboarding/basics');
       return;
     }
-    if (!firstRunComplete && segments[0] !== 'first-run') {
-      router.replace('/first-run');
+    if (!firstRunComplete && segments[0] !== 'onboarding') {
+      router.replace('/onboarding/basics');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, setupComplete, firstRunComplete]);
@@ -485,7 +489,7 @@ export default function RootLayout() {
   // Which route we land on is only settled once we know the user finished setup — or,
   // for one who hasn't, once the onboarding redirect below has actually landed. Until
   // then the Stack's initial route is the tabs, so a brand-new user would otherwise get
-  // one frame of Home before being replaced onto onboarding/language. The held native
+  // one frame of Home before being replaced onto onboarding/basics. The held native
   // splash covers that frame: the tree still RENDERS underneath (so effects run, the
   // router has real navigation state, and the redirect can fire) — we just don't reveal
   // it until the destination is real. Until 2026-07-28 the WelcomeReveal overlay was
@@ -504,8 +508,7 @@ export default function RootLayout() {
 
   const routeSettled =
     (setupComplete && firstRunComplete) ||
-    segments[0] === 'onboarding' ||
-    segments[0] === 'first-run';
+    segments[0] === 'onboarding';
   const canReveal = appReady && (routeSettled || failsafeElapsed);
 
   const revealApp = useCallback(() => {
@@ -546,7 +549,6 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="onboarding" />
-        <Stack.Screen name="first-run" />
         <Stack.Screen name="inventory-edit" />
         <Stack.Screen name="scan" />
         <Stack.Screen name="food" />

@@ -19,11 +19,11 @@
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text.
- *   - goGuided() → router.push "/onboarding/intro" (the short tour → name step).
- *   - Both paths end on "/first-run" (app/first-run.tsx) unless firstRunComplete is
- *     already set — Explore included. Those four questions are about how the app looks
- *     and moves, not more setup, and skipping them lands on exactly the defaults
- *     Explore promises.
+ *   - goGuided() → router.push "/onboarding/energy" (the Energy/growth explainer → feature
+ *     picker → name step). The old 8-page intro slideshow it used to open is deleted; the
+ *     guided tour now runs on the real app after onboarding (lib/tourSteps.ts).
+ *   - Both paths end on "/" — app/onboarding/basics.tsx is screen ONE now and has already
+ *     written firstRunComplete, so there is no personalization step left to route through.
  *   - goExplore() sets setupComplete + lastMonthlyReset (stamped to today, 2026-07-26 —
  *     same fix and same reason as app/onboarding/index.tsx's finish(): a fresh install's
  *     default '' otherwise always trips Shopping's auto-reset-review sheet on the very
@@ -63,7 +63,7 @@ export default function GuidedScreen() {
   const styles = useScaledStyles(baseStyles);
 
   function goGuided() {
-    router.push('/onboarding/intro');
+    router.push('/onboarding/energy');
   }
 
   function goExplore() {
@@ -83,10 +83,7 @@ export default function GuidedScreen() {
       syncReminders();
       useTaskStore.getState().syncAllTaskNotifications();
     }
-    // Explore still meets first-run personalization — it's four skippable questions about
-    // how the app looks and moves, not more setup, and its Skip lands on exactly the
-    // defaults Explore promises. See app/onboarding/index.tsx's finish() for the '/' case.
-    router.replace(settings.firstRunComplete ? '/' : '/first-run');
+    router.replace('/');
   }
 
   return (

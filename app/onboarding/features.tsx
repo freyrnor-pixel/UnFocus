@@ -26,8 +26,8 @@
  *   Imports → @/store/useSettingsStore, @/lib/i18n, @/constants/theme, @/lib/useAppTheme,
  *             @/lib/haptics, @/components/Button, @/components/Surface,
  *             @/components/FormControls (Switch)
- *   Used by → Expo Router route "/onboarding/features" (pushed from onboarding/intro.tsx)
- *   Data    → useSettingsStore (writes featureSharing/featureAutomations/showGrowth on Next)
+ *   Used by → Expo Router route "/onboarding/features" (pushed from onboarding/energy.tsx)
+ *   Data    → useSettingsStore (writes featureSharing/featureAutomations on Next)
  *
  * Edit notes:
  *   - All user-facing strings go through useT() — no hardcoded text. The per-feature
@@ -62,7 +62,7 @@ import Surface from '@/components/Surface';
 import { Switch as FormSwitch } from '@/components/FormControls';
 
 /** The still-optional features offered here, in the order they're shown. */
-type FeatureKey = 'featureSharing' | 'featureAutomations' | 'showGrowth';
+type FeatureKey = 'featureSharing' | 'featureAutomations';
 
 const ROWS: { key: FeatureKey; copy: (t: ReturnType<typeof useT>) => { label: string; hint: string } }[] = [
   { key: 'featureSharing', copy: (t) => t.config.features.sharing },
@@ -70,7 +70,11 @@ const ROWS: { key: FeatureKey; copy: (t: ReturnType<typeof useT>) => { label: st
   // Energy is deliberately NOT offered here even though it became a toggle again on
   // 2026-07-31: this screen's framing is "off unless you ask for it", and Energy is
   // on by default — same reasoning that keeps Goals and Medicine off this list.
-  { key: 'showGrowth', copy: (t) => t.config.features.growth },
+  //
+  // Quiet growth (showGrowth) moved OUT of this list on 2026-07-31, to
+  // app/onboarding/energy.tsx. It is off by default so it fitted the framing, but a bare
+  // switch labelled "Quiet growth" asks you to opt into a phrase whose meaning the app has
+  // not explained yet. It needs a paragraph, and this screen is a list of one-liners.
 ];
 
 export default function OnboardingFeatures() {
@@ -85,7 +89,6 @@ export default function OnboardingFeatures() {
   const [picked, setPicked] = useState<Record<FeatureKey, boolean>>({
     featureSharing: false,
     featureAutomations: false,
-    showGrowth: false,
   });
 
   function toggle(key: FeatureKey, value: boolean) {
