@@ -152,6 +152,7 @@ import ShoppingFilterBar from '@/components/ShoppingFilterBar';
 import { showAppModal } from '@/components/AppModal';
 import type { FlightRect } from '@/components/FlightOverlay';
 import { getDomainColor } from '@/lib/domainColor';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 import { Ionicons } from '@expo/vector-icons';
 
 type Props = {
@@ -297,6 +298,7 @@ export default function WeekListCard({
   // list shows its real name as the (still tappable) preview instead.
   const [nameEditing, setNameEditing] = useState(false);
   const [nameInput, setNameInput] = useState(list.isCustomName ? list.name : '');
+  const nameLift = useKeyboardLift<TextInput>();
   const [monthlyPreviewOpen, setMonthlyPreviewOpen] = useState(false);
   const [listSearch, setListSearch] = useState('');
   const [listCategory, setListCategory] = useState<string | null>(null);
@@ -428,13 +430,15 @@ export default function WeekListCard({
             />
             {nameEditing ? (
               <TextInput
+                ref={nameLift.ref}
                 style={[styles.nameInput, { color: theme.text, borderColor: theme.border }]}
                 value={nameInput}
                 onChangeText={setNameInput}
                 placeholder={t.shoppingListPlaceholder}
                 placeholderTextColor={theme.textMuted}
                 onSubmitEditing={commitRename}
-                onBlur={commitRename}
+                onFocus={nameLift.onFocus}
+                onBlur={() => { nameLift.onBlur(); commitRename(); }}
                 returnKeyType="done"
                 autoFocus
               />

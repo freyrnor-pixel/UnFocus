@@ -8,7 +8,8 @@
  *
  * Connections:
  *   Imports → components/TagChip, components/OptionalTag, components/PressableScale,
- *             constants/theme, lib/haptics, lib/i18n, lib/tags, lib/useAppTheme, store/useTagStore
+ *             constants/theme, lib/haptics, lib/i18n, lib/tags, lib/useAppTheme,
+ *             lib/useKeyboardLift, store/useTagStore
  *   Used by → components/TaskCard.tsx (the task editor's Tags row)
  *   Data    → reads store/useTagStore's roster; creates rows through its `ensure()`
  *
@@ -16,6 +17,8 @@
  *   - Creation goes through `useTagStore.ensure()`, never `add` — it name-matches first, so
  *     typing "kitchen" when "Kitchen" exists selects the existing tag instead of coining a
  *     near-duplicate that the paired phone would then show twice.
+ *   - **Keyboard-avoidance (2026-07-31)**: `useKeyboardLift` lifts the new-tag input above the
+ *     keyboard — this row sits mid-editor in TaskCard, easily covered on a long expanded card.
  *   - `ensure()` can return null (a blank/whitespace-only name); the caller must not assume
  *     a row came back.
  *   - The component owns no tag state of its own — `value`/`onChange` keep it controlled, so
@@ -30,6 +33,7 @@ import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { toggleTagId } from '@/lib/tags';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 import { useTagStore } from '@/store/useTagStore';
 
 type Props = {
@@ -45,6 +49,7 @@ export default function TagPickerRow({ value, onChange }: Props) {
   const ensure = useTagStore((s) => s.ensure);
   const [adding, setAdding] = useState(false);
   const [draftName, setDraftName] = useState('');
+  const lift = useKeyboardLift<TextInput>();
 
   function commitNew() {
     const created = ensure(draftName);
@@ -74,10 +79,12 @@ export default function TagPickerRow({ value, onChange }: Props) {
         ))}
         {adding ? (
           <TextInput
+            ref={lift.ref}
             value={draftName}
             onChangeText={setDraftName}
             onSubmitEditing={commitNew}
-            onBlur={commitNew}
+            onFocus={lift.onFocus}
+            onBlur={() => { lift.onBlur(); commitNew(); }}
             autoFocus
             returnKeyType="done"
             placeholder={t.tags.newPlaceholder}

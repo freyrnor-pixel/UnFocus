@@ -8,8 +8,8 @@
  *
  * Connections:
  *   Imports → components/Surface, components/PressableScale, constants/theme, lib/i18n,
- *             lib/useAppTheme, store/useNotesStore (Note type)
- *   Used by → (not yet mounted — Phase 5: app/notes.tsx)
+ *             lib/useAppTheme, lib/useKeyboardLift, store/useNotesStore (Note type)
+ *   Used by → app/notes.tsx
  *   Data    → none directly — header/body commits and the checkmark/shopping/plans/delete
  *             actions are all owned by the parent via props
  *
@@ -17,6 +17,10 @@
  *   - headerInput/bodyInput seed from `note` once on mount; safe because the parent always
  *     keys this component by note.id, so a given instance only ever represents one note and
  *     never gets fed a different note's text through the same state.
+ *   - **Keyboard-avoidance (2026-07-31)**: header/body each get their own `useKeyboardLift` —
+ *     a note far down the list (especially the body field, which sits at the card's bottom)
+ *     can end up hidden behind the keyboard on Android's `windowSoftInputMode=resize`. See
+ *     that hook's doc / components/AddRow.tsx for the underlying fix.
  *   - Checkmark circle styling mirrors components/TaskItem.tsx's check (24px, theme.accent
  *     border, fills accent + accentInk check when checked) for a consistent "done" affordance
  *     — kept as a hand-rolled circular Pressable rather than FormControls' Checkbox, which is
@@ -36,6 +40,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import { Note } from '@/store/useNotesStore';
@@ -63,6 +68,8 @@ function NoteRow({
   const theme = useAppTheme();
   const [headerInput, setHeaderInput] = useState(note.header);
   const [bodyInput, setBodyInput] = useState(note.body);
+  const headerLift = useKeyboardLift<TextInput>();
+  const bodyLift = useKeyboardLift<TextInput>();
 
   function commitHeader() {
     const trimmed = headerInput.trim();
@@ -79,6 +86,7 @@ function NoteRow({
           see AGENTS.md and components/PadRow.tsx). The check used to lead this row. */}
       <View style={styles.topRow}>
         <TextInput
+          ref={headerLift.ref}
           style={[
             styles.headerInput,
             { color: note.checked ? theme.textMuted : theme.text },
@@ -86,7 +94,8 @@ function NoteRow({
           ]}
           value={headerInput}
           onChangeText={setHeaderInput}
-          onBlur={commitHeader}
+          onFocus={headerLift.onFocus}
+          onBlur={() => { headerLift.onBlur(); commitHeader(); }}
           placeholder={t.notes.headerPlaceholder}
           placeholderTextColor={theme.textMuted}
           returnKeyType="done"
@@ -131,10 +140,12 @@ function NoteRow({
       </View>
 
       <TextInput
+        ref={bodyLift.ref}
         style={[styles.bodyInput, { color: theme.text, borderTopColor: theme.border }]}
         value={bodyInput}
         onChangeText={setBodyInput}
-        onBlur={commitBody}
+        onFocus={bodyLift.onFocus}
+        onBlur={() => { bodyLift.onBlur(); commitBody(); }}
         placeholder={t.notes.bodyPlaceholder}
         placeholderTextColor={theme.textMuted}
         multiline

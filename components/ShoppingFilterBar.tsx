@@ -10,10 +10,14 @@
  * Connections:
  *   Imports → components/AppModal (showAppModal), components/PressableScale, constants/theme,
  *             lib/i18n (useT), lib/shoppingCategories (categoryPresets, categoryLabel),
- *             lib/useAppTheme, @expo/vector-icons
+ *             lib/useAppTheme, lib/useKeyboardLift, @expo/vector-icons
  *   Used by → components/WeekListCard.tsx (per-list Weekly filter), components/AddFromMonthlyModal.tsx,
  *             app/(tabs)/shopping.tsx (Monthly tab filter)
  *   Data    → none — fully controlled by the caller's search/category state
+ *
+ * Edit notes:
+ *   - **Keyboard-avoidance (2026-07-31)**: `useKeyboardLift` lifts the search field above the
+ *     keyboard when this bar sits mid-screen (an expanded WeekListCard scrolled down).
  */
 import React from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
@@ -24,6 +28,7 @@ import { useT } from '@/lib/i18n';
 import { categoryLabel, categoryPresets } from '@/lib/shoppingCategories';
 import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 
 type Props = {
   search: string;
@@ -36,6 +41,7 @@ type Props = {
 export default function ShoppingFilterBar({ search, onSearchChange, category, onCategoryChange, placeholder }: Props) {
   const theme = useAppTheme();
   const t = useT();
+  const searchLift = useKeyboardLift<TextInput>();
 
   function openCategoryChooser() {
     showAppModal(t.categoryPickerLabel, undefined, [
@@ -50,9 +56,12 @@ export default function ShoppingFilterBar({ search, onSearchChange, category, on
   return (
     <View style={styles.row}>
       <TextInput
+        ref={searchLift.ref}
         style={[styles.search, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
         value={search}
         onChangeText={onSearchChange}
+        onFocus={searchLift.onFocus}
+        onBlur={searchLift.onBlur}
         placeholder={placeholder}
         placeholderTextColor={theme.textMuted}
       />

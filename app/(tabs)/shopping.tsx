@@ -349,6 +349,9 @@
  *     as `ConfirmationBanner`'s placement below). `handleScreenScroll` clears in-flight
  *     flights on scroll since window-space coords go stale. See
  *     ANIMATION_GUIDELINES.md's "Flight / Cross-Section Travel Animations" section.
+ *   - **Keyboard-avoidance (2026-07-31)**: the monthly-reset-date field (in the hint card) and
+ *     the Monthly list rename field each get their own `lib/useKeyboardLift` — see that hook's
+ *     doc / components/AddRow.tsx for the underlying Android `windowSoftInputMode=resize` fix.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -401,6 +404,7 @@ import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 import { Fonts, FontSize, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
@@ -454,6 +458,7 @@ export default function ShoppingScreen() {
   // Starts empty (placeholder-preview per the input UX pass); committing a valid 1–31
   // updates the setting, leaving it blank keeps the current value.
   const [monthlyDateInput, setMonthlyDateInput] = useState('');
+  const monthlyDateLift = useKeyboardLift<TextInput>();
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
   // Which target the shared AddDishSheet is pushing into — Monthly's own trigger, or a
   // specific Weekly list's "From a dish" add-chooser option. null = sheet closed.
@@ -490,6 +495,7 @@ export default function ShoppingScreen() {
   // pattern) — id of the list currently being renamed, or null.
   const [editingMonthlyListId, setEditingMonthlyListId] = useState<string | null>(null);
   const [monthlyListNameInput, setMonthlyListNameInput] = useState('');
+  const monthlyNameLift = useKeyboardLift<TextInput>();
 
   // ── Card collapse (2026-07-22 redesign: collapsed by default) ──
   const [expandedListIds, setExpandedListIds] = useState<Record<string, boolean>>({});
@@ -1499,6 +1505,7 @@ export default function ShoppingScreen() {
           </View>
           <Text style={[styles.hintSettingLabel, { color: theme.text, marginTop: Spacing.sm }]}>{t.monthlyResetDateQuestion}</Text>
           <TextInput
+            ref={monthlyDateLift.ref}
             style={[styles.hintDateInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface }]}
             value={monthlyDateInput}
             onChangeText={(v) => {
@@ -1506,7 +1513,8 @@ export default function ShoppingScreen() {
               const n = parseInt(v, 10);
               if (!isNaN(n) && n >= 1 && n <= 31) updateSettings({ monthlyResetDate: n });
             }}
-            onBlur={() => setMonthlyDateInput('')}
+            onFocus={monthlyDateLift.onFocus}
+            onBlur={() => { monthlyDateLift.onBlur(); setMonthlyDateInput(''); }}
             keyboardType="number-pad"
             placeholder={String(monthlyResetDate)}
             placeholderTextColor={theme.textMuted}
@@ -1628,13 +1636,15 @@ export default function ShoppingScreen() {
                         />
                         {editingMonthlyListId === list.id ? (
                           <TextInput
+                            ref={monthlyNameLift.ref}
                             style={[styles.monthlyNameInput, { color: theme.text, borderColor: theme.border }]}
                             value={monthlyListNameInput}
                             onChangeText={setMonthlyListNameInput}
                             placeholder={t.newMonthlyListNamePlaceholder}
                             placeholderTextColor={theme.textMuted}
                             onSubmitEditing={() => commitMonthlyListRename(list)}
-                            onBlur={() => commitMonthlyListRename(list)}
+                            onFocus={monthlyNameLift.onFocus}
+                            onBlur={() => { monthlyNameLift.onBlur(); commitMonthlyListRename(list); }}
                             returnKeyType="done"
                             autoFocus
                           />

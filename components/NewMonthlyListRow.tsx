@@ -15,7 +15,8 @@
  *
  * Connections:
  *   Imports → components/FormControls (Input), components/PressableScale, constants/theme,
- *             lib/i18n, lib/useAppTheme (useAccessibility for reducedMotion), lib/haptics
+ *             lib/i18n, lib/useAppTheme (useAccessibility for reducedMotion), lib/haptics,
+ *             lib/useKeyboardLift
  *   Used by → app/(tabs)/shopping.tsx (Monthly tab, below the last list card)
  *   Data    → none directly — creation flows out via onCreate(name); the parent calls
  *             useMonthlyListStore.add()
@@ -25,6 +26,11 @@
  *     every expand/collapse wraps the state change in `LayoutAnimation.configureNext` (gated on
  *     `!reducedMotion`, same idiom as InlineAddItem.tsx/HomeCardManager/MonthlyResetReviewSheet)
  *     so the height change glides instead of popping.
+ *   - **Keyboard-avoidance (2026-07-31)**: `useKeyboardLift` lifts the whole panel (not just the
+ *     field) above the keyboard — this row sits below the last Monthly list card, so on a
+ *     populated Monthly tab it's easily hidden behind the keyboard. FormControls' `Input` isn't
+ *     a forwardRef component, so the ref/onFocus/onBlur trio targets this panel View instead of
+ *     the field itself (still accurate: the whole panel moves together).
  */
 import React, { useState } from 'react';
 import { LayoutAnimation, StyleSheet, Text, View } from 'react-native';
@@ -35,6 +41,7 @@ import { useT } from '@/lib/i18n';
 import { confirm as hapticConfirm } from '@/lib/haptics';
 import { Input } from '@/components/FormControls';
 import PressableScale from '@/components/PressableScale';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 
 type Props = {
   onCreate: (name: string) => void;
@@ -47,6 +54,7 @@ export default function NewMonthlyListRow({ onCreate }: Props) {
   const { reducedMotion } = useAccessibility();
   const [expanded, setExpanded] = useState(false);
   const [name, setName] = useState('');
+  const lift = useKeyboardLift<View>();
 
   function collapse() {
     setName('');
@@ -84,7 +92,10 @@ export default function NewMonthlyListRow({ onCreate }: Props) {
 
   const canCreate = name.trim().length > 0;
   return (
-    <View style={[styles.panel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    <View
+      ref={lift.ref}
+      style={[styles.panel, { backgroundColor: theme.surface, borderColor: theme.border }]}
+    >
       <Input
         value={name}
         onChangeText={setName}
@@ -92,7 +103,9 @@ export default function NewMonthlyListRow({ onCreate }: Props) {
         returnKeyType="done"
         autoFocus
         onSubmitEditing={handleCreate}
+        onFocus={lift.onFocus}
         onBlur={() => {
+          lift.onBlur();
           if (name.trim()) return;
           if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           setExpanded(false);

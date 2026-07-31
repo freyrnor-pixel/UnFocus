@@ -9,7 +9,7 @@
  *   Imports → components/AppModal, components/ScreenScaffold, components/Surface,
  *             components/Collapsible (animated add-rule form reveal),
  *             components/PressableScale, constants/theme, lib/haptics, lib/i18n, lib/useAppTheme,
- *             store/useAutomationStore
+ *             lib/useKeyboardLift, store/useAutomationStore
  *   Used by → Expo Router route "/automations"
  *   Data    → useAutomationStore (ifttt_rules table)
  *
@@ -39,6 +39,7 @@ import { useT } from '@/lib/i18n';
 import { warning, heavy } from '@/lib/haptics';
 import { FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 
 function triggerLabel(t: ReturnType<typeof useT>, type: TriggerType): string {
   return type === 'task_completed' ? t.automations.triggerTaskCompleted : t.automations.triggerShoppingOpened;
@@ -103,6 +104,8 @@ function NewRuleForm({ onSave, onCancel }: { onSave: (triggerType: TriggerType, 
   const [actionType, setActionType] = useState<ActionType>('show_message');
   const [message, setMessage] = useState('');
   const [itemName, setItemName] = useState('');
+  // Only one of the two fields below is ever mounted at a time — one shared lift covers both.
+  const fieldLift = useKeyboardLift<TextInput>();
 
   const canSave = actionType === 'show_message' ? message.trim().length > 0 : itemName.trim().length > 0;
 
@@ -156,17 +159,23 @@ function NewRuleForm({ onSave, onCancel }: { onSave: (triggerType: TriggerType, 
 
       {actionType === 'show_message' ? (
         <TextInput
+          ref={fieldLift.ref}
           style={[styles.input, { borderColor: theme.border, color: theme.text }]}
           value={message}
           onChangeText={setMessage}
+          onFocus={fieldLift.onFocus}
+          onBlur={fieldLift.onBlur}
           placeholder={t.automations.messagePlaceholder}
           placeholderTextColor={theme.textMuted}
         />
       ) : (
         <TextInput
+          ref={fieldLift.ref}
           style={[styles.input, { borderColor: theme.border, color: theme.text }]}
           value={itemName}
           onChangeText={setItemName}
+          onFocus={fieldLift.onFocus}
+          onBlur={fieldLift.onBlur}
           placeholder={t.automations.itemNamePlaceholder}
           placeholderTextColor={theme.textMuted}
         />

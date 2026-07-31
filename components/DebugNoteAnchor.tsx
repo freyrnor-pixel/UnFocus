@@ -41,9 +41,13 @@
  *     tap regardless of what's underneath. Trade-off: a wrapped button does NOT perform its
  *     normal action while Debug mode is on — that's intended (Debug mode = annotate mode).
  *     BottomNav is never wrapped, so tabs stay navigable; turn Debug off to use content again.
+ *   - **Keyboard-avoidance (2026-07-31)**: the composer's `<View style={composerWrap}>` is now
+ *     a `KeyboardAvoidingView` — RN's `<Modal>` renders outside the screen's own scaffold/
+ *     KeyboardAvoidingView subtree, so without this the keyboard covered the (vertically
+ *     centered) composer input on short screens. Same fix as components/UpdateSheet.tsx.
  */
 import React, { useState } from 'react';
-import { Modal, Pressable, StyleProp, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleProp, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
 import { usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { FontSize, Fonts, Radius, Shadow, Spacing, HitSlop } from '@/constants/theme';
@@ -144,7 +148,7 @@ function AnnotatedAnchor({ id, label, children, style }: Props) {
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
-        <View style={styles.composerWrap}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.composerWrap}>
           <View style={[styles.composerSheet, { backgroundColor: theme.surface }]}>
             <Text style={[styles.composerTitle, { color: theme.text }]}>{t.debug.noteForLabel(label)}</Text>
             <TextInput
@@ -165,7 +169,7 @@ function AnnotatedAnchor({ id, label, children, style }: Props) {
               </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
