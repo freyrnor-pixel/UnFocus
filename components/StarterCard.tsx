@@ -5,16 +5,22 @@
  * anything has an energy value) gets a blank screen and no sense of what the feature is FOR.
  * This renders a short explanation plus one or more concrete example rows, inline where the
  * content would be — visible without hunting for the ⓘ pill, and gone the moment the user has
- * content of their own (every caller gates it on a plain `length === 0`, so it also comes back
- * if they later delete everything). **Exception (2026-07-31)**: a caller whose example carries
+ * content of their own (most callers gate it on a plain `length === 0`, so it also comes back
+ * if they later delete everything — but 3 of 7 now add extra terms: a sticky `|| …StarterAdded`,
+ * a layout-suppression term, and shopping's two-collection AND. Check the caller, don't assume).
+ * **Exception (2026-07-31)**: a caller whose example carries
  * a real `onAdd` (plans.tsx, health.tsx) keeps this card mounted for the rest of that visit
  * after the button is pressed — see components/StarterExampleRow's `added` Edit note — instead
  * of unmounting in the same tick the write flips `length` off zero, which read as the example
  * just disappearing.
  *
- * Deliberately NOT styled like components/HintCard: on a screen's first visit the ⓘ hint
- * auto-opens (lib/useFirstVisitHint.ts), and two identical accent-barred cards stacked would
- * read as a duplicate. This uses the neutral `theme.border` Surface of an empty placeholder —
+ * Deliberately NOT styled like components/HintCard: the two can be on screen together (tapping
+ * ⓘ on an empty surface opens the hint above this card), and two identical accent-barred cards
+ * stacked would read as a duplicate. NOTE (2026-07-31, B1-3): the ⓘ no longer auto-opens on
+ * first visit — it is collapsed until tapped, everywhere — so this is no longer guaranteed to
+ * happen unprompted. The reasoning still holds for the tapped case; don't "simplify" the
+ * styling on the assumption the two can never co-occur.
+ * This uses the neutral `theme.border` Surface of an empty placeholder —
  * "nothing here yet, here's what goes here" — while HintCard keeps the accent bar for
  * "instructions for this screen".
  *

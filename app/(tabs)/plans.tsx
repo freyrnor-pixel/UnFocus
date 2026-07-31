@@ -519,10 +519,10 @@ export default function TasksScreen() {
   const featureGoals = useSettingsStore((s) => s.featureGoals);
 
   const [tab, setTab] = useState<Tab>('today');
-  // autoOpen=false (2026-07-28 design review): this screen's StarterCard already teaches the
-  // same thing WITH a tappable example row, so auto-opening the ⓘ on top of it stacked two
-  // instruction panels above four more empty-state messages. The ⓘ button still opens it.
-  const [hintOpen, setHintOpen] = useFirstVisitHint('plans', false);
+  // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open, and the
+  // per-screen `autoOpen` arg that used to switch it off here, are both gone). This screen's
+  // StarterCard already teaches the same thing WITH a tappable example row.
+  const [hintOpen, setHintOpen] = useFirstVisitHint('plans');
   // Person filter (People/family mode): null = Everyone, otherwise a person id.
   const [personFilter, setPersonFilter] = useState<string | null>(null);
   // Tag filter (2026-07-28) — selected tag ids; empty means "All tags". Unlike the person

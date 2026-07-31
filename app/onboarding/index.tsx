@@ -1,17 +1,19 @@
 /**
  * index.tsx — Onboarding name capture + finish (final guided step)
  *
- * The last screen of the guided flow, reached from the feature picker. Captures the
+ * The last screen of the guided flow, reached from the Energy screen. Captures the
  * user's name, then finishes onboarding: marks setup complete, applies the new-user
  * defaults, and schedules any reminders. Kept short so it never scrolls — the feature
- * highlights moved to the intro tour (onboarding/intro.tsx), and the per-feature
- * settings the old wizard collected now default and are taught on each screen's ⓘ hint.
+ * highlights moved to the guided tour on the real app, and the per-feature settings the old
+ * wizard collected now default and are taught on each screen's ⓘ hint. (A feature picker sat
+ * between Energy and here until 2026-07-31; it is deleted, not moved — its two switches live
+ * on in Settings → Advanced → Features.)
  *
  * Connections:
  *   Imports → @/store/useSettingsStore, @/store/useTaskStore, @/lib/notifications,
  *             @/lib/reminders, @/lib/date (todayStr), @/lib/i18n, @/constants/theme,
  *             @/lib/useAppTheme, @/components/Button
- *   Used by → Expo Router route "/onboarding" (pushed from onboarding/features.tsx)
+ *   Used by → Expo Router route "/onboarding" (pushed from onboarding/energy.tsx)
  *   Data    → useSettingsStore (writes `userName`, `setupComplete`, `lastMonthlyReset`);
  *             schedules reminders via syncReminders() + useTaskStore.syncAllTaskNotifications()
  *

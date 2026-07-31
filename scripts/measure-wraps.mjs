@@ -55,14 +55,14 @@ const L = {
     langRow: /^Language: English\./, basicsNext: 'Continue',
     newHere: "No, I'm new here", gotIt: 'Got it →', guided: 'Walk me through it',
     next: 'Next →', go: "Let's go! 🌿", tourNext: 'Got it', skipTour: 'Skip the tour',
-    tabs: ['Shopping', 'To-do', 'Health', 'Habits'], home: 'Home', settings: 'Settings',
+    tabs: ['Shop', 'To-do', 'Health', 'Habits'], home: 'Home', settings: 'Settings',
     dismiss: ['Skip', 'Got it', 'Got it →', 'OK'],
   },
   no: {
     langRow: /^Språk: Norsk\./, basicsNext: 'Fortsett',
     newHere: 'Nei, jeg er ny her', gotIt: 'Skjønner →', guided: 'Vis meg rundt',
     next: 'Neste →', go: 'Kom i gang! 🌿', tourNext: 'Skjønner', skipTour: 'Hopp over omvisningen',
-    tabs: ['Handleliste', 'Gjøremål', 'Helse', 'Vaner'], home: 'Hjem', settings: 'Innstillinger',
+    tabs: ['Handle', 'Gjøremål', 'Helse', 'Vaner'], home: 'Hjem', settings: 'Innstillinger',
     dismiss: ['Hopp over', 'Skjønner', 'Skjønner →', 'OK'],
   },
 }[LANG];
@@ -204,10 +204,10 @@ async function main() {
     await page.waitForTimeout(400);
     await clickText(page, L.guided);
     await page.waitForTimeout(400);
+    // Energy pushes straight to the name screen. The feature picker that used to sit between
+    // them was deleted 2026-07-31 (B1-1) — onboarding no longer offers any feature opt-in, so
+    // there is one fewer `next` tap here than there were screens before that change.
     await scan(page, 'onboarding-energy');
-    await clickText(page, L.next);
-    await page.waitForTimeout(400);
-    await scan(page, 'onboarding-features');
     await clickText(page, L.next);
     await page.waitForTimeout(400);
     await scan(page, 'onboarding-name');

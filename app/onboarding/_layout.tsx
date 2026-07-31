@@ -13,9 +13,10 @@
  * impression of it.
  *
  * The travel is INTERPOLATED across however many steps there are, rather than snapping one
- * panel per screen: there are seven steps and three panels, so a step moves the tree about a
- * third of a panel and the growth reads as continuous. It also means adding or removing a
- * step needs no change here beyond the STEPS list.
+ * panel per screen: there are six steps and three panels, so a step moves the tree about
+ * two-fifths of a panel and the growth reads as continuous. It also means adding or removing
+ * a step needs no change here beyond the STEPS list — the last entry always lands exactly on
+ * the full-tree panel because the position is `index / (STEPS.length - 1)`.
  *
  * This doubles as the progress indicator. That is deliberate — a filling progress bar is
  * exactly the "how much more of this is there" pressure app/onboarding/basics.tsx's copy
@@ -55,7 +56,7 @@ import { Duration, Ease } from '@/constants/motion';
  * The onboarding steps in order, by route segment. The tree's position is this index over
  * `STEPS.length - 1`, so the last step lands exactly on the full-tree panel.
  */
-const STEPS = ['basics', 'restore', 'privacy', 'guided', 'energy', 'features', 'index'] as const;
+const STEPS = ['basics', 'restore', 'privacy', 'guided', 'energy', 'index'] as const;
 
 /** Three panels wide means two screen widths of travel. */
 const TRIPTYCH_PANELS = MOTIFS['onboarding-triptych'].w / MOTIFS['screen-bg-calm'].w;

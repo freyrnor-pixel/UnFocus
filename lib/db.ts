@@ -1033,6 +1033,27 @@ export function initDb() {
     // only ever greets a genuinely new install.
     "ALTER TABLE settings ADD COLUMN tour_progress TEXT DEFAULT ''",
     "UPDATE settings SET tour_progress = 'dismissed' WHERE setup_complete = 1",
+    // ── Fresh-install feature defaults, audited 2026-07-31 (B1-1) ──────────
+    // NO MIGRATION HERE, deliberately — this is the record of a check, so a later
+    // session doesn't append a redundant (and, for existing users, intrusive) UPDATE.
+    // The onboarding feature picker (app/onboarding/features.tsx) was deleted, so a new
+    // user chooses nothing and the defaults have to stand alone. Replaying this whole
+    // array from an empty DB and reading the settings row back gives:
+    //   energy_system_enabled 1 · feature_goals 1 · feature_medicine 1
+    //   show_points 0 · feature_sharing 0 · feature_automations 0 · people_mode_enabled 0
+    //   lan_sync_enabled 0 · persistent_notif_enabled 0 · debug_mode_enabled 0
+    // — which already matches the target for every LIVE gating flag, so nothing was
+    // appended. Two things to know before "fixing" a default here:
+    //   • Tasks/Shopping/Habits/Health/Notes are core surfaces with NO flag at all, and
+    //     neither has the AI setup guide. Don't add a column to satisfy a spec table.
+    //   • feature_food/feature_scan sit at 1 but are INERT (nothing reads them for
+    //     gating — see store/useSettingsStore.ts's "Inert columns"). Setting either to 0
+    //     would change no behaviour while making the DB disagree with the UI; defaulting
+    //     Food off means re-gating the Food surface first, which is a separate decision.
+    // And the general rule any future default flip must follow: flipping a feature ON is
+    // a DEFAULT change for new installs (the column's own DEFAULT), never a blanket
+    // UPDATE — an existing user who deliberately switched it off must not be flipped back
+    // on. Gate a retroactive UPDATE on `WHERE setup_complete = 0` if it's needed at all.
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

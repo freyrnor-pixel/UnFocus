@@ -19,7 +19,8 @@
  * see lib/freyrModeSeed.ts for the seed/unseed logic; freyrSeedIds is a JSON blob,
  * not read/written by anything in this file beyond passthrough.
  * firstRunComplete/startScreen (2026-07-30) back the first-run personalization flow
- * (app/first-run.tsx): the first gates whether it runs, the second is which of the 5 pager
+ * (app/onboarding/basics.tsx since 2026-07-31 — app/first-run.tsx is deleted): the first
+ * gates whether it runs, the second is which of the 5 pager
  * tabs the app opens on (read at mount by app/(tabs)/_layout.tsx as the navigator's
  * initialRouteName). The flow writes both — plus reducedMotion/particlesEnabled/fontSize/
  * darkMode — in ONE update() call, so it can never half-commit; see lib/firstRunOptions.ts
@@ -43,8 +44,9 @@
  * featureGoals/featureSharing/featureScan/featureFood/featureAutomations (2026-07-25,
  * defaults revised same day) are the feature flags — each originally hid a purely
  * additive surface when off (see their per-field docs below). Only featureSharing and
- * featureAutomations are still off-by-default opt-in toggles (Settings → Advanced →
- * Features, or the onboarding picker). featureGoals now defaults ON, same as
+ * featureAutomations are still off-by-default opt-in toggles; since the onboarding
+ * feature picker was deleted (2026-07-31, B1-1) their ONLY entry point is Settings →
+ * Advanced → Features. featureGoals now defaults ON, same as
  * energySystemEnabled, but stays a toggle. featureScan/featureFood are now permanently
  * on and unreadable by any UI gate — see "Inert columns" in Edit notes below.
  * featureMedicine (2026-07-27) gates the Health tab's medicine-tray card (on by default,
@@ -58,7 +60,7 @@
  *
  * Connections:
  *   Imports → lib/dataAccess, lib/id, lib/medicineSchedule (TrayTimes + its normalizer/defaults), constants/theme (AspectRatioKey)
- *   Used by → app/_layout.tsx, app/budget.tsx, app/first-run.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/(tabs)/habits.tsx, app/index.tsx, app/medicine-form.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/MedicineTrayCard.tsx, components/ParticleBackground.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/(tabs)/habits.tsx, app/index.tsx, app/medicine-form.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/MedicineTrayCard.tsx, components/ParticleBackground.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns the single-row SQLite table settings (id = 1)
  *
  * Edit notes:
@@ -123,6 +125,18 @@
  *     inert either: `energyMode`, `energyDailyCapacity`, `energyWeeklyCapacity` and
  *     `energyCustomCapacities` are still live configuration, still in Settings, and still
  *     read by store/useEnergyStore.ts.
+ *   - **Fresh-install feature defaults were audited on 2026-07-31 (B1-1)**, when the
+ *     onboarding feature picker was deleted and the defaults had to stand alone. The
+ *     migration log was replayed from an empty DB and the resulting `settings` row read
+ *     back; every LIVE gating flag already matched the target, so **no migration was
+ *     appended**. Fresh install lands on: `energy_system_enabled` 1, `feature_goals` 1,
+ *     `feature_medicine` 1, `show_points` 0, `feature_sharing` 0, `feature_automations` 0,
+ *     `people_mode_enabled` 0, `lan_sync_enabled` 0, `persistent_notif_enabled` 0,
+ *     `debug_mode_enabled` 0. Tasks/Shopping/Habits/Health/Notes have NO flag (core
+ *     surfaces) and neither does the AI setup guide — don't add one to satisfy a spec
+ *     table. `feature_food`/`feature_scan` land on 1 but are INERT (below): a request to
+ *     default Food off cannot be honoured by flipping the column, because nothing reads
+ *     it — that needs the Food surface re-gated first, which is a maintainer decision.
  *   - `glassBlur` was removed (2026-07-18 glass simplification — the Android blur-target
  *     subsystem it gated no longer exists). Its `glass_blur` SQLite column is intentionally
  *     left orphaned (never drop columns) — see lib/db.ts's migration comment.
@@ -178,7 +192,7 @@ export type Settings = {
   taskNotificationsEnabled: boolean;
   setupComplete: boolean;
   /**
-   * Gate for the first-run personalization flow (app/first-run.tsx) — false means the
+   * Gate for the first-run personalization flow (app/onboarding/basics.tsx) — false means the
    * flow hasn't been seen yet. Separate from `setupComplete` on purpose: onboarding
    * establishes the app, this one only adjusts already-applied defaults, so a user can
    * re-run either without the other. Written exactly once per run, in the same patch as
@@ -194,8 +208,9 @@ export type Settings = {
   workDays: number[];
   // LIVE again as of 2026-07-31 — was inert (see the removed 2026-07-25 note), now the
   // feature flag for the ambient growth reward (lib/growth.ts +
-  // components/ScreenBackground.tsx): off-by-default opt-in, offered in
-  // app/onboarding/features.tsx and Settings → Advanced → Features (FEATURE_ROWS). Gates
+  // components/ScreenBackground.tsx): off-by-default opt-in, offered on
+  // app/onboarding/energy.tsx (it needs a paragraph, not a one-line switch — it was never
+  // in the deleted feature picker) and Settings → Advanced → Features (FEATURE_ROWS). Gates
   // only what the BACKDROP draws — the high-water mark still accumulates in lifetimeGrowth
   // while off, so turning it back on reflects the streaks actually built rather than
   // starting bare (same rule as every other feature flag here).
@@ -340,8 +355,9 @@ export type Settings = {
   // boot load and the monthly reminder re-arm all stay unconditional).
   //
   // Only featureSharing/featureAutomations are still off-by-default, user-facing
-  // toggles — Settings → Advanced → Features, and offered in the onboarding picker
-  // (app/onboarding/features.tsx). featureGoals defaults ON (still a toggle, same
+  // toggles — Settings → Advanced → Features, which since the onboarding feature picker
+  // was deleted (2026-07-31, B1-1) is their only entry point; a fresh install therefore
+  // meets both off and finds them there. featureGoals defaults ON (still a toggle, same
   // Features card). featureScan/featureFood default ON and are no longer read by ANY
   // UI gate — see "Inert columns" in Edit notes for why the fields survive anyway.
   /** Goal linking: GoalPicker in the task/habit editors + the GoalGlowDot on cards. On by default. */

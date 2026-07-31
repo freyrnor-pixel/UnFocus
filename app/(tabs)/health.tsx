@@ -107,9 +107,9 @@ export default function HealthScreen() {
   const ensureSymptom = useHealthStore((s) => s.ensureSymptom);
   const featureMedicine = useSettingsStore((s) => s.featureMedicine);
 
-  // autoOpen=false (2026-07-28 design review) — StarterCard already teaches this; see
-  // lib/useFirstVisitHint.ts's `autoOpen` doc for the rule and which screens keep it on.
-  const [hintOpen, setHintOpen] = useFirstVisitHint('health', false);
+  // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open and its
+  // `autoOpen` arg are gone); StarterCard already teaches this.
+  const [hintOpen, setHintOpen] = useFirstVisitHint('health');
   const [quickDraft, setQuickDraft] = useState('');
   const [quickSeverity, setQuickSeverity] = useState(3);
   const [quickStartTime, setQuickStartTime] = useState('');

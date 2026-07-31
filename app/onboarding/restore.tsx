@@ -22,7 +22,8 @@
  *   - `busy` guards against double-taps while the file picker / restore runs.
  *   - **Hero icon is a themed badge, not an emoji (2026-07-27, user report)**: this page used a
  *     raw 💾 `<Text>` where every sibling onboarding page renders an accent-circle `iconBadge` +
- *     Ionicons (intro.tsx, features.tsx, guided.tsx). The emoji ignored the theme entirely and
+ *     Ionicons (guided.tsx; intro.tsx and features.tsx did too, both since deleted). The emoji
+ *     ignored the theme entirely and
  *     broke the flow's visual continuity. Keep any future illustration on the badge pattern.
  */
 import React, { useState } from 'react';
@@ -140,7 +141,7 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
   },
   top: { alignItems: 'center', gap: Spacing.md },
-  // Same accent-circle badge every other onboarding page uses (intro/features/guided) — see
+  // Same accent-circle badge every other onboarding page uses (guided) — see
   // the 2026-07-27 edit note above.
   iconBadge: {
     width: 104, height: 104, borderRadius: 52, alignItems: 'center', justifyContent: 'center',

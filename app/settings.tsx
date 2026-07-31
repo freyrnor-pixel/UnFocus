@@ -18,7 +18,8 @@
  *   → Layout (horizontal plans timeline) → Device features (voice/contacts/location/calendar).
  * - Advanced — modes and toggles: Energy (mode + capacities; NOT a toggle since 2026-07-26)
  *   → Features card (the FEATURE_ROWS flags, then the Automations link when that flag is on) →
- *   [Personer-familie / Paired devices] one merged panel → Freyr-modus → Debug mode.
+ *   [Personer-familie / Paired devices] one merged panel → Sample data (the toggle still
+ *   keyed `freyrMode*` internally; renamed in copy 2026-07-31) → Debug mode.
  *
  * **Reorganization (2026-07-25)**: was four tabs (Generelt | Handle | Varsler | Modi) where
  * Generelt alone carried eight unrelated groups and Handle carried exactly two settings.
@@ -49,7 +50,7 @@
  * is exactly the grouping pattern ExpandableCard's own header already documents (Decision 043
  * rule 1 / WeekListCard's dish-group rows) — multiple ExpandableCards as siblings inside one
  * caller-owned Surface, each getting its own hairline top divider for separation. Destructive
- * (Reset data) and single-toggle cards with no accordion body (Debug mode, Freyr-modus, the
+ * (Reset data) and single-toggle cards with no accordion body (Debug mode, Sample data, the
  * Layout row) stay their own standalone card — folding a warning-red destructive card into a
  * neutral panel would bury its visual distinctiveness, and a plain toggle has nothing to
  * collapse.
@@ -192,8 +193,10 @@
  *     one: add the flag to store/useSettingsStore.ts, append its `ALTER TABLE` (+ a
  *     back-fill UPDATE if it needs to default differently for existing vs. fresh installs)
  *     to lib/db.ts's migrations array, add a `config.features.*` entry in BOTH languages,
- *     add a line to `FEATURE_ROWS`, list it in app/onboarding/features.tsx if it's staying
- *     off-by-default, and gate the surface it owns at its call site. Only add a flag for
+ *     add a line to `FEATURE_ROWS`, and gate the surface it owns at its call site. There
+ *     is no longer an onboarding picker to also list it in — app/onboarding/features.tsx
+ *     was deleted (2026-07-31, B1-1), so THIS card is the only place a flag is offered
+ *     and an off-by-default flag must be one a fresh install is fine without. Only add a flag for
  *     something ADDITIVE — if the app misbehaves with it off, it does not get a toggle. Not
  *     every flag needs to stay a toggle forever: Scan & receipts and Food & recipes were
  *     removed from this list the same day they were added, once the maintainer decided both
@@ -266,17 +269,22 @@ const TAB_BAR_HEIGHT = 48;
  * is module-level (evaluated once) while `useT()` re-runs on every language change —
  * resolving here would freeze the labels in whatever language loaded first.
  *
- * The Energy system is deliberately NOT in this list: it's the one feature flag with its
- * own configuration (mode + capacities), so it's rendered by hand above these rows.
+ * The Energy system IS in this list again (2026-07-31, reversing the 2026-07-26 removal) —
+ * only its master switch. Its own configuration (mode + capacities) is a separate,
+ * hand-rendered section ABOVE these rows, since a plain on/off row can't hold steppers.
  *
  * **Scan & receipts and Food & recipes are NOT here (2026-07-25 defaults revision)** —
  * both used to be toggles in this list but are now permanently on, like Habits/Health,
  * so there's nothing left to switch. Only list a flag here if it's still a REAL,
  * off-by-default (or at least switchable) choice — see store/useSettingsStore.ts's
- * "Inert columns" note for why their fields still exist. app/onboarding/features.tsx
- * offers Sharing and Automations during onboarding; Goals defaults on there too but
- * isn't offered as a picker row since "on by default" doesn't fit that screen's
- * opt-in framing — it's still switchable here.
+ * "Inert columns" note for why their fields still exist.
+ *
+ * **There is no onboarding picker any more (2026-07-31, B1-1)** —
+ * app/onboarding/features.tsx used to offer Sharing and Automations during onboarding and
+ * was deleted, so this list is the sole surface for every flag. That makes each default a
+ * standalone decision: a new user meets whatever the migrations in lib/db.ts leave them on
+ * and is never asked. Don't add an off-by-default flag whose surface a first-time user
+ * would look for and not find.
  */
 type FeatureFlagKey =
   | 'featureGoals'
@@ -1424,15 +1432,19 @@ export default function SettingsScreen() {
                 switches for everything that isn't part of the basics. Every flag here
                 hides a purely ADDITIVE surface: turning one off never breaks app logic,
                 which is exactly why these got a toggle and things like data pruning,
-                widget/overview sync or catalog seeding deliberately did not. Goals
-                defaults on (FEATURE_ROWS); Sharing & QR and Automations default off so a
-                first-time user meets the basics first. Energy, Scan & receipts and Food &
-                recipes are no longer here at all — they're permanently on, like
-                Habits/Health (Energy joined them 2026-07-26; its capacity configuration
-                moved to its own section ABOVE this card) — see store/useSettingsStore.ts's
-                "Inert columns" note. Sharing and Automations are also offered during
-                onboarding by app/onboarding/features.tsx; Goals isn't (it's already on
-                by the time that screen would offer it). */}
+                widget/overview sync or catalog seeding deliberately did not. Goals,
+                Medicine and Energy default ON (FEATURE_ROWS — Energy is a toggle again as
+                of 2026-07-31, after five days always-on; its capacity configuration still
+                lives in its own section ABOVE this card). Sharing & QR, Automations and
+                Quiet growth default OFF so a first-time user meets the basics first.
+                Scan & receipts and Food & recipes are no longer here at all — they're
+                permanently on, like Habits/Health — see store/useSettingsStore.ts's
+                "Inert columns" note. **This card is now the ONLY place any of these are
+                offered**: app/onboarding/features.tsx was deleted (2026-07-31, B1-1), so
+                a fresh install takes the defaults untouched and comes here to change one.
+                The defaults were audited against that deletion and already matched what a
+                new install needs — no migration was required; see the fresh-install
+                default audit note in store/useSettingsStore.ts. */}
             <View style={styles.section}>
               <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.features}</Text>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
@@ -1643,7 +1655,8 @@ export default function SettingsScreen() {
               </Surface>
             </View>
 
-            {/* FREYR-MODUS — standalone single-toggle card (nothing to collapse, and its
+            {/* SAMPLE DATA (freyrMode* keys/columns) — standalone single-toggle card
+                (nothing to collapse, and its
                 seed/unseed is the most side-effect-heavy switch on the screen). */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
