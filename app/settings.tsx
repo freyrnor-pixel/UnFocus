@@ -199,7 +199,7 @@
  *     site, drop the FEATURE_ROWS/onboarding-picker row, keep the DB column).
  */
 import React, { useState, useMemo } from 'react';
-import { Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -711,6 +711,7 @@ export default function SettingsScreen() {
 
   return (
     <>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
     <ScreenScaffold
       title={t.settingsTitle}
       tier="sub"
@@ -1687,6 +1688,7 @@ export default function SettingsScreen() {
         <View style={{ height: 40 }} />
       </View>
     </ScreenScaffold>
+    </KeyboardAvoidingView>
     <ConfirmationBanner message={inputWarning} onDismiss={() => setInputWarning(null)} variant="warn" />
     <AiSetupPreviewModal
       visible={!!aiSetupConfig}
@@ -1700,6 +1702,7 @@ export default function SettingsScreen() {
 }
 
 const baseStyles = StyleSheet.create({
+  flex: { flex: 1 },
   // Was Spacing.xl (32) per Decision 043 rule 2 — read as too much dead air between cards
   // vs. every other screen's content gap (Spacing.md/lg); brought down to match (2026-07-21).
   content: { padding: Spacing.md, gap: Spacing.lg },
