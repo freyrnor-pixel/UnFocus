@@ -167,18 +167,16 @@ async function main() {
     // Energy vs Quiet growth (2026-07-31) — the screen that replaced the 8-page intro
     // slideshow's one-liner about each. Left on its seeded values (Energy on, growth off),
     // which is what a real new user lands with.
-    console.log('> onboarding: energy vs growth');
+    console.log('> onboarding: energy');
     await shot(page, 'onboarding-energy');
     await clickText(page, 'Next →');
     await page.waitForTimeout(500);
 
-    // Feature picker: screenshotted with everything left OFF, deliberately — that's the state
-    // a real new user lands in, and the tab screenshots further down are meant to show the
-    // stripped-back default app, not the everything-on build.
-    console.log('> onboarding: feature picker');
-    await shot(page, 'onboarding-features');
-    await clickText(page, 'Next →');
-    await page.waitForTimeout(500);
+    // The feature picker used to sit here and was deleted 2026-07-31 (B1-1): onboarding no
+    // longer offers any feature opt-in, so energy pushes straight to the name screen. The
+    // "stripped-back default app" the tab shots below are meant to show is now what a new
+    // user gets by default rather than by leaving switches off — same screenshots, one
+    // fewer tap. Don't re-add a `Next →` here; there is no screen to advance past.
 
     console.log('> onboarding: name + finish');
     await shot(page, 'onboarding-name');
