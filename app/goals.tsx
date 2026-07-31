@@ -85,7 +85,9 @@ export default function GoalsScreen() {
   const removeGoal = useGoalStore((s) => s.remove);
   const tasks = useTaskStore((s) => s.tasks);
   const habits = useHabitStore((s) => s.habits);
-  const [hintOpen, setHintOpen] = useFirstVisitHint('goals', false);
+  // Collapsed until the header ⓘ is tapped (2026-07-31 — the hook's first-visit auto-open
+  // and its `autoOpen` arg are gone; every screen behaves this way now).
+  const [hintOpen, setHintOpen] = useFirstVisitHint('goals');
   const [draft, setDraft] = useState('');
 
   // Arrived here from a note's ⋯ → Send it to… → Goals: the note's text is on the route, so

@@ -541,9 +541,9 @@ export default function HabitsScreen() {
   const featureGoals = useSettingsStore((s) => s.featureGoals);
   const [goalsSheetOpen, setGoalsSheetOpen] = useState(false);
 
-  // autoOpen=false (2026-07-28 design review) — StarterCard + the one-tap starter habits
-  // already teach this; see lib/useFirstVisitHint.ts's `autoOpen` doc.
-  const [hintOpen, setHintOpen] = useFirstVisitHint('habits', false);
+  // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open and its
+  // `autoOpen` arg are gone); StarterCard + the one-tap starter habits already teach this.
+  const [hintOpen, setHintOpen] = useFirstVisitHint('habits');
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);

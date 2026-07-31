@@ -352,6 +352,11 @@
  *   - **Keyboard-avoidance (2026-07-31)**: the monthly-reset-date field (in the hint card) and
  *     the Monthly list rename field each get their own `lib/useKeyboardLift` — see that hook's
  *     doc / components/AddRow.tsx for the underlying Android `windowSoftInputMode=resize` fix.
+ *   - **The ⓘ hint no longer auto-opens on first visit (2026-07-31)** — it is collapsed until
+ *     tapped, like every other screen (lib/useFirstVisitHint.ts). Its body still holds the ONLY
+ *     copy of the weekly-reset weekday and monthly-reset date pickers, so those are now reached
+ *     by a deliberate ⓘ tap. They were deliberately left where they are: re-homing them is a
+ *     separate design decision, not a side effect of this change.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -454,6 +459,8 @@ export default function ShoppingScreen() {
   }, []);
 
   const [tab, setTab] = useState<Tab>('weekly');
+  // Collapsed until the header ⓘ is tapped (2026-07-31 — see this file's edit note on the
+  // hint's embedded reset-cadence pickers, and lib/useFirstVisitHint.ts).
   const [hintOpen, setHintOpen] = useFirstVisitHint('shopping');
   // Local edit buffer for the monthly reset-date field embedded in the first-run hint.
   // Starts empty (placeholder-preview per the input UX pass); committing a valid 1–31

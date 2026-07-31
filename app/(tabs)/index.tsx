@@ -32,7 +32,12 @@
  *
  * Edit notes:
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus effect
- *     only resets the first-visit hint on blur — no per-screen initDb/load.
+ *     only resets the hint on blur — no per-screen initDb/load.
+ *   - **The ⓘ hint no longer auto-opens on first visit (2026-07-31)** — it is collapsed until
+ *     tapped, like every other screen (lib/useFirstVisitHint.ts). Its body still holds the ONLY
+ *     copy of the task-notification and weekly-reminder opt-ins (`hintSetting` rows below), so
+ *     those are now reached by a deliberate ⓘ tap. They were deliberately left where they are:
+ *     re-homing them is a separate design decision, not a side effect of this change.
  *   - **Plans preview = PlanTaskCard read-only (Decision 009a)**: the preview IS the
  *     day-view rendered read-only, with a "See everything →" link to /plans. Not a bespoke card.
  *     `readOnly` only disables row tap-through here (no `onPressTask`/`onSeeMore` passed) — the
@@ -189,6 +194,8 @@ export default function HomeScreen() {
   const styles = useScaledStyles(baseStyles);
   const today = todayStr();
 
+  // Collapsed until the header ⓘ is tapped (2026-07-31 — see this file's edit note on the
+  // hint's embedded notification settings, and lib/useFirstVisitHint.ts).
   const [hintOpen, setHintOpen] = useFirstVisitHint('home');
 
   // Flight animation (Phase 1, 2026-07-11) — mirrors app/(tabs)/shopping.tsx's screen-level

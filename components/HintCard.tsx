@@ -18,14 +18,16 @@
  *
  * Edit notes:
  *   - **Not the same thing as components/StarterCard.tsx** (2026-07-26). This is the ⓘ
- *     "instructions for this screen" card — opt-in, accent-barred, auto-opened once per
- *     screen by lib/useFirstVisitHint.ts. StarterCard is the neutral-bordered empty-state
+ *     "instructions for this screen" card — opt-in, accent-barred, and (since 2026-07-31)
+ *     collapsed until the header ⓘ is tapped on EVERY screen: lib/useFirstVisitHint.ts no
+ *     longer auto-opens it on first visit. StarterCard is the neutral-bordered empty-state
  *     explainer that renders inline while a surface has no content, and is gated on a plain
- *     `length === 0` rather than a seen-flag. They deliberately look different so a first
- *     visit (both visible) doesn't read as the same card twice.
- *   - Optional `children` render below text/example — used to embed a first-run setting
- *     control (shopping reset day, work mode, notifications) so a screen teaches it in
- *     context on first visit. See app/(tabs)/shopping.tsx / plans.tsx / index.tsx.
+ *     `length === 0`. They deliberately look different so a screen showing both at once
+ *     doesn't read as the same card twice.
+ *   - Optional `children` render below text/example — used to embed a setting control
+ *     (shopping reset cadence, notifications) that lives nowhere else. Since the card no
+ *     longer auto-opens, those controls are reachable only via the ⓘ button; don't assume a
+ *     user has seen one. See app/(tabs)/shopping.tsx / plans.tsx / index.tsx.
  *   - Always renders the how-to button (collapsed by default) — callers should still pass text/example.
  *   - text/example are passed in already-localized; this component does not call useT() itself
  *     except for the toggle button's own label (t.showHint/t.hideHint).
