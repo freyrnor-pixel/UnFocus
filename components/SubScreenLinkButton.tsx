@@ -6,14 +6,17 @@
  * Mirrors app/(tabs)/shopping.tsx's inline Food/Catalogue link row (UX audit F1,
  * 2026-07-23) — that pattern predates this component and stays as-is there; this is
  * the shared version for the two NEW callers (Habits, Plans/To-do) that needed the
- * same shape for their "Goals" entry point (2026-07-29, Goals dropped from Home — see
- * app/goals.tsx's header).
+ * same shape for their "Edit Goals" entry point (2026-07-29, Goals dropped from Home —
+ * see app/goals.tsx's header; renamed + moved to the bottom of each screen + `onPress`
+ * switched from a `router.push('/goals')` to opening components/GoalsSheet.tsx as a
+ * popup, 2026-07-31).
  *
  * Connections:
  *   Imports → components/Surface, components/PressableScale, components/CardAccent
  *             (CardAccentBadge), constants/theme, lib/useAppTheme, lib/domainColor (Domain)
- *   Used by → app/(tabs)/habits.tsx, app/(tabs)/plans.tsx (both a "Goals" link)
- *   Data    → none (presentational; onPress is the caller's router.push)
+ *   Used by → app/(tabs)/habits.tsx, app/(tabs)/plans.tsx (both an "Edit Goals" link)
+ *   Data    → none (presentational; `onPress` is the caller's — a router.push elsewhere,
+ *             opening a popup for the Habits/Plans Goals link)
  */
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';

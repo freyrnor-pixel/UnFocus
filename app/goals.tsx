@@ -30,19 +30,24 @@
  *             lib/useAppTheme, lib/useFirstVisitHint, lib/prefill (usePrefill — a note sent
  *             here seeds the add field), store/useGoalStore, store/useTaskStore,
  *             store/useHabitStore (linked counts only)
- *   Used by → Expo Router route "/goals", reached from a "Goals" SubScreenLinkButton on
- *             app/(tabs)/habits.tsx and app/(tabs)/plans.tsx (2026-07-29 — Goals dropped its
- *             own Home card, components/HomeGoalsCard.tsx, deleted; see below)
+ *   Used by → Expo Router route "/goals" — direct deep links only (a note's "Send it to… →
+ *             Goals" still routes here). The Habits/Plans "Edit Goals" link no longer opens
+ *             this screen (2026-07-31): it opens components/GoalsSheet.tsx, a popup that
+ *             duplicates this screen's list/add/delete behaviour, so editing goals doesn't
+ *             leave the tab you were on. This screen is kept unchanged so an existing deep
+ *             link never dead-ends. (2026-07-29 — Goals dropped its own Home card,
+ *             components/HomeGoalsCard.tsx, deleted; see below)
  *   Data    → reads/writes useGoalStore (goals table) via add/rename/remove; reads
  *             useTaskStore/useHabitStore only to COUNT what points at each goal. Schedules
  *             nothing.
  *
  * Edit notes:
- *   - Gated on `settings.featureGoals` at its CALL SITEs (the Habits/Plans link buttons),
- *     not here — this screen stays reachable by direct route so an existing deep link
- *     never dead-ends.
+ *   - `settings.featureGoals` gates the Habits/Plans "Edit Goals" link (and GoalsSheet.tsx,
+ *     the popup it opens), not this screen — this route stays reachable directly so an
+ *     existing deep link never dead-ends even with the feature off.
  *   - Deleting a goal unlinks every task and habit pointing at it (useGoalStore.remove does
- *     that in one transaction). The confirm copy already says so — keep it.
+ *     that in one transaction). The confirm copy already says so — keep it in sync with
+ *     GoalsSheet.tsx's copy of the same confirm.
  *   - Strength shown is always `decayedStrength(...)`, never the raw stored value. See
  *     lib/goalStrength.ts: the raw number plus a timestamp IS the state; decay is computed
  *     on read, so anything that renders the raw value shows a stale, too-warm goal.
