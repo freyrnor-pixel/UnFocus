@@ -48,7 +48,7 @@
  *             lib/shoppingCategories (categoryPresets, categoryLabel),
  *             lib/reorder (reorderByDrag), lib/useAppTheme, lib/prefill (usePrefill — a note
  *             sent here seeds THIS week's add row),
- *             lib/useFirstVisitHint, lib/domainColor, lib/screenColor, lib/budget (computeSpendPace),
+ *             lib/useFirstVisitHint, lib/domainColor, lib/budget (computeSpendPace),
  *             store/useSettingsStore, store/useShoppingListStore, store/useMonthlyListStore,
  *             store/useReceiptStore, components/NewMonthlyListRow,
  *             store/useShoppingStore (incl. UNALLOCATED_LIST_ID), @expo/vector-icons (Ionicons)
@@ -418,7 +418,6 @@ import { reorderByDrag } from '@/lib/reorder';
 import { formatKr } from '@/lib/money';
 import { computeSpendPace } from '@/lib/budget';
 import { getDomainColor } from '@/lib/domainColor';
-import { getScreenColor } from '@/lib/screenColor';
 import { Duration } from '@/constants/motion';
 
 type Tab = 'weekly' | 'monthly';
@@ -1594,7 +1593,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} pagerFloatingNav ownBackground={false} screenColor={getScreenColor(theme, 'shopping').base} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push('/scan')} onLayoutPress={() => setLayoutPickerOpen(true)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} pagerFloatingNav ownBackground={false} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push('/scan')} onLayoutPress={() => setLayoutPickerOpen(true)} onScroll={handleScreenScroll}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
@@ -1675,16 +1674,21 @@ export default function ShoppingScreen() {
                           {/* Budget is always available (2026-07-25 defaults revision — Scan &
                               receipts is no longer an opt-in, so neither is the screen that reads
                               its spend figures). */}
+                          {/* 2026-07-31 (A.5): was theme.featBudget (the retired amber "money"
+                              screen hue) on the border, icon and label. This is the one LABELLED
+                              call-to-action in a header row of otherwise unlabelled ancillary
+                              IconButtons, so it takes `accent` rather than a neutral — a neutral
+                              outline would sink the Budget entry point into the chrome beside it. */}
                           <PressableScale
-                            style={[styles.budgetPill, { borderColor: theme.featBudget }]}
+                            style={[styles.budgetPill, { borderColor: theme.accent }]}
                             onPress={() => router.push({ pathname: '/budget', params: { listId: list.id } })}
                             accessibilityRole="button"
                             accessibilityLabel={t.budget.title}
                             hitSlop={HitSlop.snug}
                             scaleTo={0.97}
                           >
-                            <Ionicons name="wallet-outline" size={14} color={theme.featBudget} />
-                            <Text style={[styles.budgetPillText, { color: theme.featBudget }]}>{t.budget.title}</Text>
+                            <Ionicons name="wallet-outline" size={14} color={theme.accent} />
+                            <Text style={[styles.budgetPillText, { color: theme.accent }]}>{t.budget.title}</Text>
                           </PressableScale>
                           <IconButton
                             icon="file-tray-full-outline"

@@ -16,7 +16,7 @@
  * instead of a bottom tab.
  *
  * Connections:
- *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, lib/screenColor, lib/photoStorage, store/useCatalogStore, store/useReceiptStore, store/useMonthlyListStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons)
+ *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, lib/photoStorage, store/useCatalogStore, store/useReceiptStore, store/useMonthlyListStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons)
  *   Used by → Expo Router route "/scan"; pushed from app/(tabs)/shopping.tsx's header
  *             "Scan" button, and its post-trip receipt pop-up (autoCapture param)
  *   Data    → confirmed items write to FOUR stores: useShoppingStore (shopping_items) + useReceiptStore.addReceipt (receipts, tagged with a monthlyListId — Shopping/Monthly redesign 2026-07-22, picked via renderMonthlyListSelector() when 2+ Monthly lists exist) + useCatalogStore.recordPurchases (purchase_log, linked via receipt_id, + store_items); QR import writes useSharedStore (shared_shopping_items / shared_tasks); scaled fontSize via useScaledStyles()
@@ -581,8 +581,9 @@ export default function ScanScreen() {
         <ScreenScaffold title={t.scanReceipt} tier="sub" onBack={() => router.back()}>
           <View style={styles.content}>
             {/* Tip — subtle bordered card with an info glyph, not a flat colour block.
-                Edge tinted to the inner accent (theme.good) so border matches content,
-                not the violet screen hue (debug-note 2026-07-21). */}
+                Edge tinted to the inner accent (theme.good) so border matches content
+                (debug-note 2026-07-21: it used to inherit the violet screen hue — that whole
+                per-screen hue layer is retired as of 2026-07-31, A.5). */}
             <Surface borderColor={theme.good} style={styles.tipCardRow}>
               <View style={[styles.tipAccent, { backgroundColor: theme.good }]} />
               <Ionicons name="bulb-outline" size={18} color={theme.good} style={styles.tipIcon} />
@@ -606,8 +607,13 @@ export default function ScanScreen() {
                 badge each, so they read as distinct choices instead of flat colour blocks. */}
             <View style={styles.optionList}>
               {[
-                { icon: 'images-outline' as const, color: theme.featShop, label: t.chooseFromLibrary, onPress: pickImage },
-                { icon: 'pencil-outline' as const, color: theme.featBudget, label: t.addManually, onPress: () => setMode('manual') },
+                // 2026-07-31 (A.5): these two were theme.featShop / theme.featBudget — screen hues
+                // borrowed decoratively (neither option has anything to do with the Shopping tab or
+                // a budget). Screen hues are retired, and these are secondary alternatives to the
+                // accent-filled camera hero above, so they take the neutral edge; the icon glyph and
+                // label are what tell the three options apart.
+                { icon: 'images-outline' as const, color: theme.border, label: t.chooseFromLibrary, onPress: pickImage },
+                { icon: 'pencil-outline' as const, color: theme.border, label: t.addManually, onPress: () => setMode('manual') },
                 { icon: 'qr-code-outline' as const, color: theme.good, label: t.scanQrCode, onPress: openQrScanner },
               ].map((opt) => (
                 <PressableScale key={opt.label} onPress={opt.onPress} scaleTo={0.98}>

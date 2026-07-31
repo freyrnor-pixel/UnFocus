@@ -126,7 +126,10 @@ function NoteRow({
           onPress={onShoppingPress}
           scaleTo={0.97}
         >
-          <Ionicons name="cart-outline" size={15} color={theme.featShop} />
+          {/* 2026-07-31 (A.5): was theme.featShop — the Shopping screen hue. Screen hues are
+              retired; the destination still reads from the cart glyph + the label beside it, so
+              the icon goes neutral with the muted chip it sits on. */}
+          <Ionicons name="cart-outline" size={15} color={theme.textMuted} />
           <Text style={[styles.actionText, { color: theme.text }]}>{t.notes.addToShoppingLabel}</Text>
         </PressableScale>
         <PressableScale
@@ -134,7 +137,9 @@ function NoteRow({
           onPress={onPlansPress}
           scaleTo={0.97}
         >
-          <Ionicons name="checkbox-outline" size={15} color={theme.featTask} />
+          {/* 2026-07-31 (A.5): was theme.featTask — the Home/Plans screen hue. Same reasoning as
+              the cart icon above. */}
+          <Ionicons name="checkbox-outline" size={15} color={theme.textMuted} />
           <Text style={[styles.actionText, { color: theme.text }]}>{t.notes.addToPlansLabel}</Text>
         </PressableScale>
       </View>

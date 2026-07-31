@@ -45,7 +45,7 @@
  *             components/DebugNoteAnchor, components/AddRow,
  *             components/FormControls (Input), constants/theme, lib/date, lib/i18n,
  *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor,
- *             lib/screenColor, lib/haptics, store/useHealthStore,
+ *             lib/haptics, store/useHealthStore,
  *             store/useSettingsStore (featureMedicine gate only)
  *   Used by → Expo Router route "/health" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx (BottomNav "Health" tab)
  *   Data    → useHealthStore — reads `logs` for the weekly summary, and calls `add()` +
@@ -98,7 +98,6 @@ import { SEVERITY_COLORS, severities, severityInk } from '@/lib/severity';
 import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
-import { getScreenColor } from '@/lib/screenColor';
 
 export default function HealthScreen() {
   const router = useRouter();
@@ -212,7 +211,6 @@ export default function HealthScreen() {
         bottomNav={false}
         pagerFloatingNav
         ownBackground={false}
-        screenColor={getScreenColor(theme, 'health').base}
         infoActive={hintOpen}
         onInfoToggle={() => setHintOpen((v) => !v)}
       >
@@ -402,7 +400,8 @@ export default function HealthScreen() {
                 scaleTo={0.98}
                 style={[styles.overviewLogLink, { borderTopColor: theme.border }]}
               >
-                <Ionicons name="document-text-outline" size={18} color={healthDomainColor.accent} />
+                {/* A.4 rule 1: a link glyph takes the action colour, not the health hue. */}
+                <Ionicons name="document-text-outline" size={18} color={theme.accent} />
                 <Text style={[styles.navCardText, { color: theme.text }]}>{t.healthLogTitle}</Text>
                 <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
               </PressableScale>

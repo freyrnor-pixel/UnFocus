@@ -1,25 +1,31 @@
 /**
- * screenColor.ts — per-SCREEN hue layer (one dominant colour per tab).
+ * screenColor.ts — per-SCREEN hue layer. **RETIRED 2026-07-31 (A.5) — NOTHING READS THIS.**
  *
- * Distinct from lib/domainColor.ts (which colours by *content domain*). This maps each of
- * the 5 tab screens to ONE dominant hue so a screen reads as a single colour family — a
- * low-mental-load "you're in the green screen" scanning cue (the user won't learn colour
- * meanings; the colour just differentiates screens). The hue drives (a) the shared
- * ScreenBackground blob (crossfaded per active tab in app/(tabs)/_layout.tsx) and (b) the
- * frosted tint of every ambient Surface on that screen (via ScreenColorContext →
- * components/Surface.tsx). Semantic colour (good/bad/warn = done/overdue/soon, accent = save)
- * is untouched — it still comes from getStatusColor / theme tokens, never from here.
+ * ⚠️ This module is intentionally dead code. Every consumer was removed in the A.5 pass; the
+ * definitions are kept in place (unused, exactly like the `feat*` tokens they resolve to in
+ * constants/colors.ts) so the retirement is a trivially revertable one-commit change rather
+ * than a delete-and-rewrite. **Do not wire anything new to it** — if you want a card to carry
+ * colour, give it its own identity hue via Surface's `borderColor` (see lib/domainColor.ts),
+ * which is the system that stayed.
  *
- * Screen → hue (day-arc, distinct): shopping→green, plans→indigo, home→blue, health→teal,
- * habits→violet. Reuses the feat* octet where it fits. Habits inherits the featScan violet
- * (2026-07-23, UX audit E1/E2 nav swap) — Scan no longer needs a screen-hue slot since it
- * moved off the bottom nav to a pushed sub-screen (which doesn't render this per-tab hue).
+ * What it used to do: map each of the 5 tab screens to ONE dominant hue so a screen read as a
+ * single colour family. That hue reached pixels through exactly one line — Surface's `edgeHue`
+ * fallback chain — which meant EVERY un-coded ambient card on a tab drew that tab's colour on
+ * its edge. That collided with the per-card identity hues (the card's own `borderColor`), since
+ * two different systems were competing for the same 2.5px bevel. The screen-hue term lost; an
+ * un-coded card now falls through to the neutral `theme.border`.
+ *
+ * Screen → hue it used to give (day-arc): shopping→green, plans→indigo, home→blue,
+ * health→teal, habits→violet (the last inherited from the retired Scan tab slot).
  *
  * Connections:
  *   Imports → constants/colors (ThemePalette), constants/theme (rgba), react
- *   Used by → app/(tabs)/_layout.tsx (ScreenBackground tint), components/ScreenBackground,
- *             components/Surface (default frosted tint via useScreenColor), and each
- *             app/(tabs)/*.tsx screen root (wraps its subtree in ScreenColorProvider)
+ *   Used by → NOTHING in app code (as of 2026-07-31). Formerly components/Surface.tsx (edge
+ *             hue via useScreenColor), components/ScreenScaffold.tsx (ScreenColorContext
+ *             provider + its `screenColor` prop, both deleted), and the 5 app/(tabs)/*.tsx
+ *             screen roots (each passed `screenColor={getScreenColor(theme, <route>).base}`).
+ *             Still exercised by lib/__tests__/screenColor.test.ts, which pins the pure
+ *             mapping and is deliberately left untouched.
  *   Data    → pure functions + a React context (no store/DB)
  *
  * Edit notes:

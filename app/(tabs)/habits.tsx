@@ -27,7 +27,7 @@
  *             that link opens), components/DebugNoteAnchor,
  *             constants/theme, lib/date, lib/haptics, lib/habitStarters, lib/i18n,
  *             lib/useAppTheme, lib/useFirstVisitHint, lib/prefill (usePrefill — a note sent
- *             here seeds the quick-add), lib/domainColor, lib/screenColor,
+ *             here seeds the quick-add), lib/domainColor,
  *             lib/habitRecurrence, store/useHabitStore, store/useGoalStore, store/useSettingsStore
  *   - Habit Today/Week/Month uses the shared SlideSelector; the person filter row +
  *     habit-form "For" chips are gated on settings.peopleModeEnabled (People/family
@@ -110,7 +110,6 @@ import { FontSize, PAD_GUTTER, Radius, Shadow, Spacing, Fonts, TabularNums, Type
 import type { ThemePalette } from '@/constants/colors';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
-import { getScreenColor } from '@/lib/screenColor';
 import { success, selection } from '@/lib/haptics';
 
 // Habits are no longer split into build/break — a single calm "met" colour (good),
@@ -665,7 +664,6 @@ export default function HabitsScreen() {
         bottomNav={false}
         pagerFloatingNav
         ownBackground={false}
-        screenColor={getScreenColor(theme, 'habits').base}
         infoActive={hintOpen}
         onInfoToggle={() => setHintOpen((v) => !v)}
       >
@@ -766,9 +764,11 @@ export default function HabitsScreen() {
                               accessibilityLabel={t.starters.habits.suggestions[s.key]}
                               style={[styles.starterChip, { borderColor: habitDomainColor.accent, backgroundColor: theme.surfaceMuted }]}
                             >
-                              <HabitIcon icon={s.icon} size={14} color={habitDomainColor.accent} />
+                              {/* A.4 rule 1: hue on the chip's edge only — glyph neutral, "+"
+                                  the action colour (mirrors HomeHabitsCard's starter chips). */}
+                              <HabitIcon icon={s.icon} size={14} color={theme.textMuted} />
                               <Text style={[styles.starterChipText, { color: theme.text }]}>{t.starters.habits.suggestions[s.key]}</Text>
-                              <Ionicons name="add" size={14} color={habitDomainColor.accent} />
+                              <Ionicons name="add" size={14} color={theme.accent} />
                             </PressableScale>
                           ))}
                         </View>

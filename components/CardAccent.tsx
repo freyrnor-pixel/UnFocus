@@ -1,53 +1,55 @@
 /**
  * CardAccent.tsx — the "one colour move" for a domain-coded card (2026-07-19 Card accent system;
- * badge flattened 2026-07-24, re-gradiented 2026-07-26 — see Edit notes).
+ * badge flattened 2026-07-24, re-gradiented 2026-07-26, wash DELETED 2026-07-31 — see Edit notes).
  *
- * A card borrows its identity colour from the blue→violet `card*` ramp (lib/domainColor.ts), keyed to
- * its life area, and expresses it as ONE colour move: a gradient icon BADGE + a soft header WASH
- * band, both built from the domain's palette so they read as one system. Never a full-card
- * fill — the wash is a top band only, so it doesn't reopen the 2026-07-14 "muddy whole-card tint"
- * issue (see Surface.tsx / domainColor.ts). Action colour (Save=primary, Delete=danger) is
- * deliberately NOT here — it stays constant across every card so it never competes with identity
- * colour.
+ * A card borrows its identity colour from the four-hue identity set (lib/domainColor.ts), keyed to
+ * its life area, and expresses it as ONE colour move: a gradient icon BADGE. The card's own
+ * low-alpha edge (Surface's `borderColor`) is the only other place that hue appears. Action colour
+ * (Save=primary, Delete=danger) is deliberately NOT here — it stays constant across every card so it
+ * never competes with identity colour.
  *
- * Two parts, used together:
- *   - <CardAccentBadge domain icon? size? /> — a round two-stop gradient badge (domain's
- *     `badgeGradient`, white glyph, light rim). Drop it as a leading element in any card/section header.
- *   - <CardAccentWash domain height? radius? /> — an absolutely-positioned wash band for the TOP of a
- *     card's content (mount as the first child inside a Surface, above text). Fades to the surface.
+ * One part now:
+ *   - <CardAccentBadge domain icon? size? /> — a round two-stop gradient badge (the domain's
+ *     `badgeGradient`) with the palette's declared ink for the glyph and a light rim. Drop it as a
+ *     leading element in any card/section header.
  *
  * Connections:
  *   Imports → @expo/vector-icons (Ionicons), expo-linear-gradient, constants/theme (Radius),
- *             lib/useAppTheme, lib/domainColor (Domain, getDomainColor, DOMAIN_ICON),
- *             components/Surface (GLASS_EDGE_WIDTH — the wash's inner-corner math),
- *             store/useSettingsStore (glassSurfaces, same reason)
- *   Used by → components/HomeShoppingCard, components/HomeNotesCard, components/PlanTaskCard (all
- *             three import CardAccentBadge + CardAccentWash as named exports, size=32)
+ *             lib/useAppTheme, lib/domainColor (Domain, getDomainColor)
+ *   Used by → components/HomeShoppingCard, components/HomeNotesCard, components/HomeHabitsCard,
+ *             components/PlanTaskCard, components/WeekListCard, components/MedicineTrayCard,
+ *             components/SectionRail, components/SubScreenLinkButton, app/(tabs)/health.tsx,
+ *             app/(tabs)/shopping.tsx (all import CardAccentBadge as a named export)
  *   Data    → none (presentational; colour derived from the active palette)
  *
  * Edit notes:
  *   - The domain→icon map lives here (DOMAIN_ICON) — filled Ionicons, reusing the nav's per-section
- *     glyphs where they overlap (cart/calendar/heart).
+ *     glyphs where they overlap (cart/calendar/heart). With identity collapsed to FOUR hues
+ *     (2026-07-31, addendum A.3) the GLYPH is what tells two same-hue cards apart, so domains
+ *     sharing a hue must keep clearly different silhouettes: shop=cart vs meal=restaurant vs
+ *     budget=wallet all ride the Shopping gold; task=checkmark-circle vs plan=calendar both ride
+ *     the To-do blue. Never assign two same-hue domains near-identical glyphs.
  *   - (2026-07-24) Badge flattened to a flat `domainColor.soft` circle + `accent` glyph/border — the
  *     complaint was the gradient sticker reading as a separate object stacked on the wash.
  *   - **(2026-07-26) Re-gradiented**: as part of a broader "bring the card colour back" pass (Surface's
  *     EDGE_WIDTH also widened 1.5→2.5 the same day), the flat badge was judged too colourless — it and
  *     the thin card edge were the two places the 2026-07-18→07-24 redesign sprint had progressively
  *     drained identity colour out of cards. Badge is back to the pre-07-24 two-stop `badgeGradient`
- *     fill with a white glyph and a translucent white rim (same recipe as the original 2026-07-19 Card
- *     accent system, not a new design). `lib/domainColor.ts`'s `badgeGradient`/`CARD_BADGE_DEEP` are
- *     live again (previously unused-but-kept for exactly this reason).
- *   - Also removed the unused default `CardAccent` export (badge absolutely floated across the
- *     wash/body boundary via `floatBadge`) — it had zero importers and was the exact floating-over-
- *     the-band composition the 2026-07-24 flatten moved away from (still true post-re-gradient).
- *     Compose `CardAccentBadge` + `CardAccentWash` directly, as every current caller already does.
- *   - Wash is `pointerEvents:'none'` and absolutely filled to the top band so it never intercepts
- *     taps or shifts layout; the caller gives the card its own paddingTop for the title to clear it.
- *   - **(2026-07-27) The wash's top corners round by the MASK's radius, not the card's.** Callers pass
- *     (or default to) the card's outer radius, but the band paints inside Surface's overflow-hidden
- *     mask, which is inset by the beveled edge in glass mode — rounding by the outer radius left a
- *     visible unpainted crescent of plain surface in each top corner (user report + screenshot). Keep
- *     the `radius - GLASS_EDGE_WIDTH` (glass-on) math in sync if Surface's edge/mask geometry changes.
+ *     fill with a translucent white rim (the original 2026-07-19 recipe, not a new design).
+ *   - **(2026-07-31, addendum A.4) The glyph is `ink`, never a hardcoded `#FFFFFF`.** The badge glyph
+ *     used to be literal white regardless of the fill under it. On the Shopping identity hue
+ *     (#D9A441) that is **2.25:1** — below even the 3:1 non-text-contrast floor (WCAG 1.4.11) — which
+ *     is precisely why `IDENTITY_HUES.shopping` declares DARK ink. `getDomainColor().ink` is
+ *     `contrastOn(accent)`, the same value `lib/__tests__/colors.test.ts` asserts at ≥3:1 against
+ *     BOTH gradient stops. Never put a literal colour back here.
+ *   - **(2026-07-31, addendum A.4 rule 3) `CardAccentWash` is DELETED.** A card was carrying its hue
+ *     three times — badge + header wash + edge — for one idea. Badge and edge stay; the wash and its
+ *     four call sites (HomeNotesCard, HomeHabitsCard, HomeShoppingCard, PlanTaskCard) are gone, along
+ *     with the mask-corner math (`radius - GLASS_EDGE_WIDTH`, 2026-07-27) that existed only to hide
+ *     the band's corner crescent, and this file's imports of `components/Surface` and
+ *     `store/useSettingsStore` with it. `getDomainColor().washTop` still exists in lib/domainColor.ts
+ *     with no consumers because an existing CI test pins it — do NOT wire it back to anything.
+ *   - Also removed (2026-07-26) the unused default `CardAccent` export — it had zero importers.
  */
 import React from 'react';
 import { StyleSheet, ViewStyle } from 'react-native';
@@ -56,12 +58,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { Radius } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { Domain, getDomainColor } from '@/lib/domainColor';
-import { GLASS_EDGE_WIDTH } from '@/components/Surface';
-import { useSettingsStore } from '@/store/useSettingsStore';
 
 type IoniconsName = keyof typeof Ionicons.glyphMap;
 
-/** Filled Ionicons per domain — reuses the nav's per-section glyphs where they overlap. */
+/**
+ * Filled Ionicons per domain — reuses the nav's per-section glyphs where they overlap.
+ * These are load-bearing since A.3 collapsed nine identity hues to four: several domains now
+ * share a hue, so the glyph is the only thing separating them. Keep the silhouettes distinct.
+ */
 const DOMAIN_ICON: Record<Domain, IoniconsName> = {
   task: 'checkmark-circle',
   plan: 'calendar',
@@ -87,14 +91,15 @@ type BadgeProps = {
 };
 
 /**
- * The icon badge — a round two-stop gradient fill (domain's `badgeGradient`) with a white glyph
- * and a light translucent rim, so the badge itself carries the domain colour rather than just
- * tinting a neutral circle (2026-07-26: restores the pre-2026-07-24 gradient look — the flat
- * soft-tint circle read as too colourless next to the rest of the "bring the colour back" pass).
+ * The icon badge — a round two-stop gradient fill (the domain's `badgeGradient`) with the palette's
+ * declared ink for the glyph and a light translucent rim, so the badge itself carries the domain
+ * colour rather than just tinting a neutral circle. This is the ONE place an identity hue appears as
+ * a fill on a card (the card's low-alpha edge is the other channel); it is never text or icon colour
+ * anywhere else — see addendum A.4 rule 1.
  */
 export function CardAccentBadge({ domain, icon, size = 44, style }: BadgeProps) {
   const theme = useAppTheme();
-  const { badgeGradient } = getDomainColor(theme, domain);
+  const { badgeGradient, ink } = getDomainColor(theme, domain);
   const glyph = icon ?? DOMAIN_ICON[domain];
   return (
     <LinearGradient
@@ -111,47 +116,9 @@ export function CardAccentBadge({ domain, icon, size = 44, style }: BadgeProps) 
         style,
       ]}
     >
-      <Ionicons name={glyph} size={Math.round(size * 0.44)} color="#FFFFFF" />
+      {/* `ink` = contrastOn(accent) — never a literal white; see the header's A.4 note. */}
+      <Ionicons name={glyph} size={Math.round(size * 0.44)} color={ink} />
     </LinearGradient>
-  );
-}
-
-type WashProps = {
-  domain: Domain;
-  /** Height of the wash band from the top of the card (default 64). */
-  height?: number;
-  /** Match the card's corner radius so the band's top corners stay rounded. */
-  radius?: number;
-  /**
-   * Positioning override — e.g. negative `top`/`left`/`right` to bleed the band past a padded
-   * content view to the card's own edge. Merged after the default absolute-top-band placement.
-   */
-  style?: ViewStyle;
-};
-
-/**
- * The header wash — a soft `[washTop → surface]` gradient band pinned to the TOP of a card's content.
- * Mount it as the first child inside a Surface (before the header row) so it sits above the frosted
- * fill and below the text. Absolutely positioned + non-interactive; give the card paddingTop to clear it.
- */
-export function CardAccentWash({ domain, height = 64, radius = Radius.md, style }: WashProps) {
-  const theme = useAppTheme();
-  const glass = useSettingsStore((s) => s.glassSurfaces);
-  const { washTop } = getDomainColor(theme, domain);
-  // `radius` is the CARD's outer radius, but this band is painted inside Surface's mask, whose
-  // corners are inset by the beveled edge when glass is on (Surface: `radius - GLASS_EDGE_WIDTH`).
-  // Rounding the band by the outer radius therefore curved it away from the mask's own corner and
-  // left a small unpainted crescent of plain surface in the card's top corners (2026-07-27 user
-  // report, screenshot). Match the mask exactly instead.
-  const innerRadius = Math.max(0, radius - (glass ? GLASS_EDGE_WIDTH : 0));
-  return (
-    <LinearGradient
-      pointerEvents="none"
-      colors={[washTop, theme.surface]}
-      start={GRAD_START}
-      end={GRAD_END}
-      style={[styles.wash, { height, borderTopLeftRadius: innerRadius, borderTopRightRadius: innerRadius }, style]}
-    />
   );
 }
 
@@ -159,14 +126,8 @@ const styles = StyleSheet.create({
   badge: {
     alignItems: 'center',
     justifyContent: 'center',
-    // A light rim so the badge reads as a lifted key against the wash (DS: 1.5px white .55).
+    // A light rim so the badge reads as a lifted key against the card (DS: 1.5px white .55).
     borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.55)',
-  },
-  wash: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
   },
 });

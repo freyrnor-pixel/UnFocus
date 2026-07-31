@@ -16,7 +16,7 @@
  *             of the 2026-07-25 defaults revision), components/HomeShoppingCard, components/HomeCardManager,
  *             components/FlightOverlay (FlightPill, Flight, FlightRect), components/DebugNoteAnchor,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
- *             lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, lib/notifications, lib/reminders,
+ *             lib/useAppTheme, lib/useFirstVisitHint, lib/notifications, lib/reminders,
  *             lib/budget (computeSpendPace), store/useTaskStore, store/useNotesStore, store/useSharedStore,
  *             store/useShoppingStore, store/useShoppingListStore, store/useMonthlyListStore, store/useSettingsStore, store/useReceiptStore
  *   Used by → Expo Router route "/" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
@@ -145,7 +145,6 @@ import { todayStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycle
 import { useT } from '@/lib/i18n';
 import { computeListGroups } from '@/lib/shoppingGroups';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { getScreenColor } from '@/lib/screenColor';
 import { tap } from '@/lib/haptics';
 import { FontSize, Fonts, Radius, Spacing, Type, HitSlop } from '@/constants/theme';
 import { Task, Recurring, useTaskStore } from '@/store/useTaskStore';
@@ -593,7 +592,6 @@ export default function HomeScreen() {
         bottomNav={false}
         pagerFloatingNav
         ownBackground={false}
-        screenColor={getScreenColor(theme, 'index').base}
         infoActive={hintOpen}
         onInfoToggle={() => setHintOpen((v) => !v)}
         onScroll={handleScreenScroll}

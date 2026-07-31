@@ -386,10 +386,12 @@ export default function MedicineTrayCard() {
                         !state.canTake && { opacity: 0.5 },
                       ]}
                     >
+                      {/* A.4 rule 1: the health hue stays on the circle's edge; the "+" glyph
+                          takes the app's one action colour. */}
                       <Ionicons
                         name="add"
                         size={14}
-                        color={state.canTake ? healthColor.accent : theme.textMuted}
+                        color={state.canTake ? theme.accent : theme.textMuted}
                       />
                     </View>
                   </PressableScale>

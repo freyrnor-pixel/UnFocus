@@ -73,7 +73,7 @@
  *             lib/useNowMinutes (the 60s "now" tick behind the grid's now-line — shared
  *             with components/MedicineTrayCard.tsx since 2026-07-27),
  *             lib/useAppTheme (incl. useAccessibility), lib/domainColor, components/CardAccent
- *             (badge+wash gradient move, read-only Home header), components/GlowPulse
+ *             (CardAccentBadge — the read-only Home header), components/GlowPulse
  *             (breathing "happening now" halo), store/useTaskStore (Task type only)
  *   Used by → app/(tabs)/index.tsx (Home — read-only day-view preview per Decision 009a). Reads
  *             settings.planTimelineHorizontal there and passes it down as the `horizontal`
@@ -199,26 +199,22 @@
  *     heavy card looks. Its (and the footer show-more toggle's) `PressableScale` passes
  *     `releaseSpring={Spring.calm}` (constants/motion) — a near-critically-damped spring
  *     instead of the default bouncy release, since these are repeatedly-tapped toggles.
- *   - **Badge pinned + header tightened (2026-07-24, tightened 2026-07-26)**: the header's
- *     `CardAccentBadge` is absolutely positioned (`badgeFixed`) instead of inline in the title
- *     row, so it can't drift toward the wash/surface seam when a sibling grows the row taller.
- *     `headerTopRow`'s paddingLeft is 52 (badge 32 + a 4px gap) so the title sits close to the
- *     badge (user report: "more closely linked with the badge"), and `badgeFixed`/`cardContent`
- *     both carry a matching +4 top/paddingTop bump ("move it a bit down"). The header's old
- *     live-clock chip is gone — the grid's own now-line (via `DayGridLines`) is the live clock
- *     now, since this component IS the calendar.
- *   - **Badge/wash moved outside cardContent's padding (2026-07-24, follow-up — user report,
- *     screenshot)**: `badgeFixed`'s `top`/`left` used to be plain `0`, with `cardContent`'s own
- *     padding relied on to inset it — except React Native's real (native) behavior is that an
- *     absolutely-positioned child DOES inherit its parent's padding as part of its origin
- *     (confirmed by `CardAccentWash`'s pre-existing `-Spacing.md` bleed, which exists purely to
- *     cancel that same inheritance) — while react-native-web (this repo's headless preview
- *     tooling) does NOT reproduce that inheritance, since it compiles straight to CSS, where the
- *     absolute containing block is the padding *edge*, not the content box. Testing changes here
- *     against the web preview alone is actively misleading for this exact interaction. Fix:
- *     `CardAccentWash` and `CardAccentBadge` mount as siblings of `cardContent` (not children of
- *     it), directly inside `Surface` (still gated on `readOnly`) — `Surface` itself adds no
- *     padding of its own — so their `top`/`left` offsets are unambiguous on both platforms.
+ *   - The header's old live-clock chip is gone — the grid's own now-line (via `DayGridLines`)
+ *     is the live clock now, since this component IS the calendar.
+ *   - **Historical trap, now avoided rather than worked around (2026-07-24 → 2026-07-30)**: the
+ *     header badge and the header wash used to be absolutely positioned siblings of
+ *     `cardContent`, because React Native's native behaviour is that an absolutely-positioned
+ *     child DOES inherit its parent's padding as part of its origin, while react-native-web
+ *     (this repo's headless preview tooling) does NOT — it compiles straight to CSS, where the
+ *     absolute containing block is the padding *edge*. Testing that offset against the web
+ *     preview alone was actively misleading. Both are gone: the badge is an ordinary flex child
+ *     (see `headerTopRow`'s style note), and the wash was deleted outright on 2026-07-31
+ *     (addendum A.4 rule 3). Don't reintroduce an absolutely-positioned header element here.
+ *   - **(2026-07-31, addendum A.4) The identity hue is a FILL only** — the badge, and the card's
+ *     own low-alpha `borderColor` edge. Never a text or icon colour on this card; the quick-add
+ *     chips and the section header's chevron read `theme.text`/`theme.textMuted` and show their
+ *     on/off state through their border + soft fill, which is the channel that survives both
+ *     greyscale and the four-hue collapse.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -249,7 +245,7 @@ import { getDomainColor } from '@/lib/domainColor';
 import { dayOfWeekMon0 } from '@/lib/date';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useNowMinutes } from '@/lib/useNowMinutes';
-import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
+import { CardAccentBadge } from '@/components/CardAccent';
 import GlowPulse from '@/components/GlowPulse';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import { COLLAPSED_GRID_HEIGHT, GUTTER_WIDTH, GridEntryLayout, buildDayScale, layoutGridEntries } from '@/lib/dayGrid';
@@ -688,7 +684,8 @@ export default function PlanTaskCard({
           ) : null}
           {surfaced && !task.done ? (
             <View style={[styles.followerBadge, { backgroundColor: domainColor.soft }]}>
-              <Text style={[styles.followerBadgeText, { color: domainColor.accent }]}>{t.dayViewFollowerBadge}</Text>
+              {/* A.4 rule 1: hue on the plate, plain ink on the word. */}
+              <Text style={[styles.followerBadgeText, { color: theme.text }]}>{t.dayViewFollowerBadge}</Text>
             </View>
           ) : null}
         </View>
@@ -915,13 +912,15 @@ export default function PlanTaskCard({
             accessibilityRole="button"
             accessibilityLabel={`${t.taskRecurringToggle}: ${recurringLabel(addRecurring)}`}
           >
+            {/* A.4 rule 1: "on" is carried by the chip's accent border + soft fill (a fill
+                channel). The glyph is the action colour and the letter is plain ink. */}
             <Ionicons
               name="repeat"
               size={14}
-              color={addRecurring !== 'none' ? domainColor.accent : theme.textMuted}
+              color={addRecurring !== 'none' ? theme.accent : theme.textMuted}
             />
             {addRecurring !== 'none' && (
-              <Text style={[styles.quickChipText, { color: domainColor.accent }]}>
+              <Text style={[styles.quickChipText, { color: theme.text }]}>
                 {recurringLabel(addRecurring).charAt(0)}
               </Text>
             )}
@@ -961,9 +960,6 @@ export default function PlanTaskCard({
       elevated={expanded}
       style={[styles.card, !expanded && styles.cardCollapsed]}
     >
-      {/* A full-width band with no left offset — nothing for native and react-native-web to
-          disagree about (unlike the absolutely-positioned badge this replaced). */}
-      {readOnly && <CardAccentWash domain="plan" />}
       <View style={styles.cardContent}>
 
         {/* Section header — only in read-only (Home preview) mode. The badge is a normal flex
@@ -1028,7 +1024,7 @@ export default function PlanTaskCard({
                 accessibilityRole="button"
                 accessibilityLabel={t.timelineEmptyAdd}
               >
-                <Ionicons name="add" size={16} color={domainColor.accent} />
+                <Ionicons name="add" size={16} color={theme.accent} />
                 <Text style={[styles.emptyAddText, { color: theme.textMuted }]}>{t.timelineEmptyAdd}</Text>
               </PressableScale>
             )}
@@ -1160,7 +1156,7 @@ export default function PlanTaskCard({
                         accessibilityLabel={`${t.dayViewRestore} ${task.title}`}
                         scaleTo={0.9}
                       >
-                        <Ionicons name="arrow-undo-outline" size={16} color={domainColor.accent} />
+                        <Ionicons name="arrow-undo-outline" size={16} color={theme.accent} />
                       </PressableScale>
                     </View>
                   </View>
@@ -1177,7 +1173,6 @@ export default function PlanTaskCard({
           state={state}
           onChange={setState}
           total={spec.timeline ? pendingCount : listTasks.length}
-          accent={domainColor.accent}
         />
 
         {/* The empty-day explainer, at the FOOT of the card (2026-07-30) — it used to lead the

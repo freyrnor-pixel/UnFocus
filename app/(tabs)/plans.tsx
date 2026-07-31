@@ -29,7 +29,7 @@
  *             the header share icon's push to /share-modal), lib/date,
  *             lib/domainColor, lib/haptics,
  *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/prefill (usePrefill — a note
- *             sent here seeds the Whenever add row), lib/screenColor, store/useTaskStore,
+ *             sent here seeds the Whenever add row), store/useTaskStore,
  *             store/useSettingsStore, store/usePeopleStore + components/PersonChip (the person
  *             filter row), store/useTagStore + components/TagChip + lib/tags (the tag filter
  *             row — multi-select, "any of"), components/EnergyBalanceCard (the shared-load
@@ -166,7 +166,6 @@ import { FontSize, Radius, Spacing, TabularNums, Type } from '@/constants/theme'
 import { Spring } from '@/constants/motion';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { getDomainColor } from '@/lib/domainColor';
-import { getScreenColor } from '@/lib/screenColor';
 
 type Tab = 'all' | 'today' | 'week';
 
@@ -826,7 +825,6 @@ export default function TasksScreen() {
       bottomNav={false}
       pagerFloatingNav
       ownBackground={false}
-      screenColor={getScreenColor(theme, 'plans').base}
       stickyGapColor="transparent"
       stickyBelowHeader={stickyBelowHeader}
       stickyBelowHeaderHeight={STICKY_HEIGHT}

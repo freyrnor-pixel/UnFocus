@@ -13,8 +13,8 @@
  *
  * Connections:
  *   Imports → components/AnimatedBottomSheet, components/PressableScale, components/Surface,
- *             constants/theme, lib/domainColor (getDomainColor), lib/haptics (tap),
- *             lib/i18n, lib/useAppTheme, @expo/vector-icons
+ *             components/CardAccent (CardAccentBadge), constants/theme, lib/domainColor
+ *             (Domain), lib/haptics (tap), lib/i18n, lib/useAppTheme, @expo/vector-icons
  *   Used by → components/HomeNotesCard.tsx (the ⋯ on a note row), app/notes.tsx
  *   Data    → none — presentational; `onPick` carries the choice back to the caller
  *
@@ -22,10 +22,15 @@
  *   - Option rows deliberately copy components/LayoutPickerSheet.tsx's geometry (minHeight 56,
  *     Radius.md, borderWidth 1, surfaceMuted fill) so the app has one bottom-sheet option row,
  *     not two that nearly match.
- *   - Each target is tinted with its OWN domain hue (lib/domainColor) so the choice is
- *     colour-coded the same way the destination card is. Goals has no `Domain` entry — it
- *     borrows `theme.accent` with the flag glyph that components/SubScreenLinkButton.tsx
- *     already uses for it, rather than being given a domain it doesn't have.
+ *   - Each target carries its destination's OWN identity hue so the choice is colour-coded the
+ *     same way the destination card is — as a `CardAccentBadge` FILL, not as a tinted icon.
+ *     It was a bare `<Ionicons color={domainAccent}>` until 2026-07-31 (addendum A.4 rule 1:
+ *     an identity hue is a fill, never an icon colour), which on the Shopping gold was a
+ *     2.25:1 glyph on the row's muted fill. The badge keeps the distinction and fixes the
+ *     contrast, since the badge picks its own ink.
+ *   - Goals has no `Domain` entry of its own: A.3 gives goals the To-do hue, so it rides
+ *     `domain="task"` with the flag glyph components/SubScreenLinkButton.tsx already uses for
+ *     it. Note "todo" here means the Plans/day view (`domain="plan"`) — same hue either way.
  *   - Closes itself on pick (the caller is about to navigate); no confirm step, because the
  *     created row lands focused and editable, which IS the confirm.
  */
@@ -35,8 +40,9 @@ import { Ionicons } from '@expo/vector-icons';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
+import { CardAccentBadge } from '@/components/CardAccent';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
-import { getDomainColor } from '@/lib/domainColor';
+import { Domain } from '@/lib/domainColor';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -54,11 +60,12 @@ export default function SendToSheet({ visible, onClose, onPick }: Props) {
   const theme = useAppTheme();
   const t = useT();
 
-  const targets: { id: SendToTarget; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
-    { id: 'todo', label: t.sendTo.todo, icon: 'calendar', color: getDomainColor(theme, 'plan').accent },
-    { id: 'shopping', label: t.sendTo.shopping, icon: 'cart', color: getDomainColor(theme, 'shop').accent },
-    { id: 'habits', label: t.sendTo.habits, icon: 'repeat', color: getDomainColor(theme, 'habit').accent },
-    { id: 'goals', label: t.sendTo.goals, icon: 'flag', color: theme.accent },
+  // Identity hue rides the badge FILL, never the glyph colour — see the header's A.4 note.
+  const targets: { id: SendToTarget; label: string; icon: keyof typeof Ionicons.glyphMap; domain: Domain }[] = [
+    { id: 'todo', label: t.sendTo.todo, icon: 'calendar', domain: 'plan' },
+    { id: 'shopping', label: t.sendTo.shopping, icon: 'cart', domain: 'shop' },
+    { id: 'habits', label: t.sendTo.habits, icon: 'repeat', domain: 'habit' },
+    { id: 'goals', label: t.sendTo.goals, icon: 'flag', domain: 'task' },
   ];
 
   return (
@@ -80,7 +87,7 @@ export default function SendToSheet({ visible, onClose, onPick }: Props) {
             accessibilityRole="button"
             accessibilityLabel={target.label}
           >
-            <Ionicons name={target.icon} size={20} color={target.color} />
+            <CardAccentBadge domain={target.domain} icon={target.icon} size={28} />
             <Text style={[styles.optionLabel, { color: theme.text }]}>{target.label}</Text>
             <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
           </PressableScale>
