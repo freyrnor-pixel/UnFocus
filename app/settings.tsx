@@ -186,7 +186,9 @@
  *     active) outline, matching the border `peopleChip`/`peopleAddBtn` already had.
  *   - **Feature toggles live in ONE place (2026-07-25)**: `FEATURE_ROWS` below is the whole
  *     list of plain on/off switches — currently Goals, Sharing & QR, Automations, Medicine,
- *     and (2026-07-31) Bonsai/points (showPoints — see lib/bonsai.ts). To add
+ *     and (both 2026-07-31) Energy (energySystemEnabled, a toggle again after five days
+ *     always-on) and Growth (showGrowth over the `show_points` column — see lib/growth.ts).
+ *     To add
  *     one: add the flag to store/useSettingsStore.ts, append its `ALTER TABLE` (+ a
  *     back-fill UPDATE if it needs to default differently for existing vs. fresh installs)
  *     to lib/db.ts's migrations array, add a `config.features.*` entry in BOTH languages,
@@ -276,13 +278,24 @@ const TAB_BAR_HEIGHT = 48;
  * isn't offered as a picker row since "on by default" doesn't fit that screen's
  * opt-in framing — it's still switchable here.
  */
-type FeatureFlagKey = 'featureGoals' | 'featureSharing' | 'featureAutomations' | 'featureMedicine' | 'showPoints';
+type FeatureFlagKey =
+  | 'featureGoals'
+  | 'featureSharing'
+  | 'featureAutomations'
+  | 'featureMedicine'
+  | 'energySystemEnabled'
+  | 'showGrowth';
 const FEATURE_ROWS: { key: FeatureFlagKey; copy: (t: ReturnType<typeof useT>) => { label: string; hint: string } }[] = [
   { key: 'featureGoals', copy: (t) => t.config.features.goals },
   { key: 'featureSharing', copy: (t) => t.config.features.sharing },
   { key: 'featureAutomations', copy: (t) => t.config.features.automations },
   { key: 'featureMedicine', copy: (t) => t.config.features.medicine },
-  { key: 'showPoints', copy: (t) => t.config.features.bonsai },
+  // Energy is a real toggle again as of 2026-07-31 (it was one until 2026-07-26, then
+  // always-on for five days). On by default — the column has been pinned to 1 the whole
+  // time, so every existing user keeps it. Gates energy SURFACES only; per-task/habit
+  // energy values are left in the DB untouched, so switching back on restores them.
+  { key: 'energySystemEnabled', copy: (t) => t.config.features.energy },
+  { key: 'showGrowth', copy: (t) => t.config.features.growth },
 ];
 
 /** Format an ISO auto-backup timestamp as "YYYY-MM-DD HH:MM" (local time). */

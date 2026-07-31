@@ -511,6 +511,8 @@ export default function TasksScreen() {
   // Sharing is opt-in (Settings → Advanced → Features), off on a fresh install — it hides
   // the shared-tasks section below. Tasks already shared stay in the store untouched.
   const featureSharing = useSettingsStore((s) => s.featureSharing);
+  // Energy is a real toggle again (2026-07-31) — gates the shared-load card below.
+  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   // Gates the "Goals" link button below (2026-07-29) — same flag TaskCard's own GoalPicker
   // field already reads, so turning Goals off hides both at once.
   const featureGoals = useSettingsStore((s) => s.featureGoals);
@@ -895,7 +897,7 @@ export default function TasksScreen() {
 
         {/* Shared load (2026-07-28) — only once there's somebody to compare against, and
             only on the day/week tabs it actually reports on ("All" spans no period). */}
-        {showPeople && tab !== 'all' && <EnergyBalanceCard date={today} />}
+        {energySystemEnabled && showPeople && tab !== 'all' && <EnergyBalanceCard date={today} />}
 
         {/* Tag filter — only worth a row once tags exist, so it stays out of the way on a
             list that doesn't use them. Multi-select ("any of"), unlike the person row. */}

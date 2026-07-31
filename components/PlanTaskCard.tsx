@@ -155,7 +155,8 @@
  *     compact inline controls beyond the title — a `TimeBoxInput` (start time, optional), a
  *     repeat chip that cycles none→daily→weekly→monthly (defaults `recurringDays` to today's
  *     weekday the first time it lands on weekly, mirroring TaskCard's own toggleRepeat), and an
- *     energy chip (always rendered — Energy stopped being a toggle 2026-07-26) that cycles
+ *     energy chip (gated on settings.energySystemEnabled — a real toggle again 2026-07-31,
+ *     after five days unconditional) that cycles
  *     off→+1→−1→off. All three reset to their defaults after each commit. `onAddTask`'s second
  *     argument carries whichever of these the user touched; the caller (Home) owns turning that
  *     into a full `TaskInput` the same way it already does for the title-only case.
@@ -246,6 +247,7 @@ import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { getDomainColor } from '@/lib/domainColor';
 import { dayOfWeekMon0 } from '@/lib/date';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { useNowMinutes } from '@/lib/useNowMinutes';
 import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
 import GlowPulse from '@/components/GlowPulse';
@@ -415,6 +417,8 @@ export default function PlanTaskCard({
   const [addRecurring, setAddRecurring] = useState<Recurring>('none');
   const [addRecurringDays, setAddRecurringDays] = useState<number[]>([]);
   const [addEnergyValue, setAddEnergyValue] = useState(0);
+  // Energy is a real toggle again (2026-07-31) — gates the quick-add energy chip below.
+  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
 
   const gridScrollRef = useRef<ScrollView>(null);
 
@@ -922,24 +926,29 @@ export default function PlanTaskCard({
               </Text>
             )}
           </PressableScale>
-          <PressableScale
-            style={[
-              styles.quickChip,
-              { borderColor: addEnergyValue !== 0 ? domainColor.accent : theme.border },
-              addEnergyValue !== 0 && { backgroundColor: domainColor.soft },
-            ]}
-            onPress={cycleEnergy}
-            hitSlop={HitSlop.base}
-            scaleTo={0.9}
-            accessibilityRole="button"
-            accessibilityLabel={`${t.energyConsumeLabel}: ${addEnergyValue === 0 ? t.off : addEnergyValue > 0 ? '+1' : '-1'}`}
-          >
-            <Ionicons
-              name={addEnergyValue === 0 ? 'flash-outline' : addEnergyValue > 0 ? 'flash' : 'flash-off'}
-              size={14}
-              color={addEnergyValue > 0 ? theme.good : addEnergyValue < 0 ? theme.warn : theme.textMuted}
-            />
-          </PressableScale>
+          {/* Quick-add energy chip — gated on settings.energySystemEnabled again
+              (2026-07-31). addEnergyValue stays 0 while Energy is off, so a task added
+              from here simply carries no energy value rather than a hidden one. */}
+          {energySystemEnabled && (
+            <PressableScale
+              style={[
+                styles.quickChip,
+                { borderColor: addEnergyValue !== 0 ? domainColor.accent : theme.border },
+                addEnergyValue !== 0 && { backgroundColor: domainColor.soft },
+              ]}
+              onPress={cycleEnergy}
+              hitSlop={HitSlop.base}
+              scaleTo={0.9}
+              accessibilityRole="button"
+              accessibilityLabel={`${t.energyConsumeLabel}: ${addEnergyValue === 0 ? t.off : addEnergyValue > 0 ? '+1' : '-1'}`}
+            >
+              <Ionicons
+                name={addEnergyValue === 0 ? 'flash-outline' : addEnergyValue > 0 ? 'flash' : 'flash-off'}
+                size={14}
+                color={addEnergyValue > 0 ? theme.good : addEnergyValue < 0 ? theme.warn : theme.textMuted}
+              />
+            </PressableScale>
+          )}
         </>
       }
     />

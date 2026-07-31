@@ -60,7 +60,7 @@ import { todayStr } from '@/lib/date';
 import type { SaveToDeviceResult } from '@/lib/backup';
 
 /** Bump whenever the guide's schema or documented content changes — see Edit notes. */
-export const AI_SETUP_SCHEMA_VERSION = 2;
+export const AI_SETUP_SCHEMA_VERSION = 3;
 
 /** Verbatim markers the guide instructs the AI to reproduce around its JSON reply. */
 export const AI_SETUP_BEGIN = '===UNFOCUS-AI-CONFIG-BEGIN===';
@@ -92,7 +92,8 @@ export type AiSettingsPatch = {
   featureGoals?: boolean;
   featureSharing?: boolean;
   featureAutomations?: boolean;
-  showPoints?: boolean;
+  energySystemEnabled?: boolean;
+  showGrowth?: boolean;
   photoAspectRatio?: 'fit' | 'square' | 'classic' | 'widescreen' | 'golden';
   peopleModeEnabled?: boolean;
 };
@@ -257,7 +258,9 @@ accepted (anything else is ignored):
   monthlyResetDate: 1-31
   energyMode: "daily" | "weekly" | "custom"
   energyDailyCapacity, energyWeeklyCapacity: number >= 0
-  featureGoals, featureSharing, featureAutomations, showPoints: boolean
+  featureGoals, featureSharing, featureAutomations: boolean
+  energySystemEnabled: boolean (the Energy system's master switch)
+  showGrowth: boolean (ambient growth in the app backdrop)
   photoAspectRatio: "fit" | "square" | "classic" | "widescreen" | "golden"
   peopleModeEnabled: boolean
   (Account/device/permission settings are never importable this way — those

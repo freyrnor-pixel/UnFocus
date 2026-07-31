@@ -1015,11 +1015,16 @@ export function initDb() {
     // navigator's initialRouteName, via START_SCREEN_ROUTES in lib/firstRunOptions.ts.
     // Presentation only: every tab is one tap away whatever this says.
     `ALTER TABLE settings ADD COLUMN start_screen TEXT DEFAULT 'home'`,
-    // Bonsai/points reward system (2026-07-31, lib/bonsai.ts + components/BonsaiCard.tsx):
-    // gated on the pre-existing `show_points` column (was inert, now the live feature flag —
-    // see store/useSettingsStore.ts's "Inert columns" note). All-time habit-met points,
-    // same "persisted counter that survives pruneOldData() pruning old habit_logs" pattern
-    // as lifetime_completed_tasks above — never decremented, only ever grows.
+    // Reward-system counter (2026-07-31), gated on the pre-existing `show_points` column
+    // (was inert, now the live feature flag — see store/useSettingsStore.ts's "Inert
+    // columns" note). Same "persisted counter that survives pruneOldData() pruning old
+    // habit_logs" pattern as lifetime_completed_tasks above — never decremented.
+    // NOTE both column names are historical. They were added for a Bonsai/points system
+    // that was replaced by ambient growth (lib/growth.ts) the same day, before either
+    // reached a release. The columns now back settings.showGrowth and
+    // settings.lifetimeGrowth (the best streak of active days ever reached). Migrations are
+    // an append-only log, so the names stay — do NOT edit this line to match the new
+    // fields; the FieldMap in store/useSettingsStore.ts is what maps them.
     "ALTER TABLE settings ADD COLUMN lifetime_bonsai_points INTEGER DEFAULT 0",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole

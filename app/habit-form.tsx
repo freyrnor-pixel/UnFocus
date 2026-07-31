@@ -197,6 +197,9 @@ export default function HabitForm() {
   const people = usePeopleStore((s) => s.people);
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
   const featureGoals = useSettingsStore((s) => s.featureGoals);
+  // Energy is a real toggle again (2026-07-31) — gates the energy stepper below. The stored
+  // energyValue is left alone while off, so turning it back on restores it.
+  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
 
   const theme = useAppTheme();
   const t = useT();
@@ -507,16 +510,18 @@ export default function HabitForm() {
             switch + separate value stepper were two controls for one number, and 0 already
             means "no effect" to lib/energy.ts. energyEnabled is derived on save. Not gated on
             a setting any more — 0 by default means it costs nothing until you say otherwise. */}
-        <View style={styles.field}>
-          <View style={styles.energyStepperRow}>
-            <View style={styles.labelRow}>
-              <Text style={[styles.label, { color: theme.textMuted }]}>{t.energyGiveTakeLabel}</Text>
-              <OptionalTag />
+        {energySystemEnabled && (
+          <View style={styles.field}>
+            <View style={styles.energyStepperRow}>
+              <View style={styles.labelRow}>
+                <Text style={[styles.label, { color: theme.textMuted }]}>{t.energyGiveTakeLabel}</Text>
+                <OptionalTag />
+              </View>
+              <Stepper value={energyValue} onChange={setEnergyValue} signed accessibilityLabel={t.energyGiveTakeLabel} />
             </View>
-            <Stepper value={energyValue} onChange={setEnergyValue} signed accessibilityLabel={t.energyGiveTakeLabel} />
+            <Text style={[styles.reminderPreview, { color: theme.textMuted }]}>{t.energyGiveTakeHint}</Text>
           </View>
-          <Text style={[styles.reminderPreview, { color: theme.textMuted }]}>{t.energyGiveTakeHint}</Text>
-        </View>
+        )}
 
         {/* Goal — connect this habit to a Goal (create/select/delete inline).
             Opt-in via settings.featureGoals (Settings → Advanced → Features). */}

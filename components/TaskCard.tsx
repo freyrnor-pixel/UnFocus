@@ -261,6 +261,8 @@ function TaskCard({
   const followerCycleChain = useTaskStore((s) => s.followerCycleChain);
   const allTasks = useTaskStore((s) => s.tasks);
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
+  // Energy is a real toggle again (2026-07-31) — gates the energy stepper in the editor.
+  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   const voiceNotesEnabled = useSettingsStore((s) => s.voiceNotesEnabled);
   const contactsEnabled = useSettingsStore((s) => s.contactsEnabled);
   // Keyboard-avoidance (2026-07-31) for the editor's raw TextInputs — each field lifts itself
@@ -1139,28 +1141,31 @@ function TaskCard({
               </View>
             )}
 
-            <FieldDivider />
+            {energySystemEnabled && <FieldDivider />}
 
             {/* Energy give / take — promoted out of Advanced options (2026-07-26): it changes
                 whether the task shows up as affordable on the Home meter, which is a main-flow
-                decision, not a power-user one. One signed stepper; 0 means no effect, which is
-                also why this is no longer gated on a setting — an untouched task costs nothing,
-                so the system stays out of the way without needing an opt-out. */}
-            <View style={styles.field}>
-              <View style={styles.energyCostRow}>
-                <View style={styles.labelRow}>
-                  <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.energyGiveTakeLabel}</Text>
-                  <OptionalTag />
+                decision, not a power-user one. One signed stepper; 0 means no effect. Gated on
+                settings.energySystemEnabled again as of 2026-07-31 — hiding the CONTROL only:
+                a task keeps whatever energy value it already had, so switching Energy back on
+                restores every number untouched. */}
+            {energySystemEnabled && (
+              <View style={styles.field}>
+                <View style={styles.energyCostRow}>
+                  <View style={styles.labelRow}>
+                    <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.energyGiveTakeLabel}</Text>
+                    <OptionalTag />
+                  </View>
+                  <Stepper
+                    value={energyShown}
+                    onChange={(v) => patch(energyFieldsFromStepper(v))}
+                    signed
+                    accessibilityLabel={t.energyGiveTakeLabel}
+                  />
                 </View>
-                <Stepper
-                  value={energyShown}
-                  onChange={(v) => patch(energyFieldsFromStepper(v))}
-                  signed
-                  accessibilityLabel={t.energyGiveTakeLabel}
-                />
+                <Text style={[styles.wheneverHint, { color: theme.textMuted }]}>{t.energyGiveTakeHint}</Text>
               </View>
-              <Text style={[styles.wheneverHint, { color: theme.textMuted }]}>{t.energyGiveTakeHint}</Text>
-            </View>
+            )}
 
             {/* Advanced options — Energy/Hint/Contact/Location/Goal/Then, ported from the
                 retired app/task-form.tsx (UX audit B1: one canonical task editor) behind a

@@ -443,7 +443,8 @@ const SETTINGS_WHITELIST = [
   'leftHanded', 'remindersEnabled', 'reminderTime', 'taskNotificationsEnabled',
   'habitNotificationsEnabled', 'persistentNotifEnabled', 'quietHoursEnabled', 'quietHoursStart',
   'quietHoursEnd', 'weeklyResetDay', 'monthlyResetDate', 'energyMode', 'energyDailyCapacity',
-  'energyWeeklyCapacity', 'featureGoals', 'featureSharing', 'featureAutomations', 'showPoints',
+  'energyWeeklyCapacity', 'featureGoals', 'featureSharing', 'featureAutomations',
+  'energySystemEnabled', 'showGrowth',
   'photoAspectRatio', 'peopleModeEnabled',
 ] as const satisfies readonly (keyof AiSettingsPatch)[];
 
@@ -455,7 +456,8 @@ const ASPECT_RATIOS = ['fit', 'square', 'classic', 'widescreen', 'golden'] as co
 const BOOLEAN_KEYS = new Set<string>([
   'reducedMotion', 'particlesEnabled', 'glassSurfaces', 'leftHanded', 'remindersEnabled',
   'taskNotificationsEnabled', 'habitNotificationsEnabled', 'persistentNotifEnabled',
-  'quietHoursEnabled', 'featureGoals', 'featureSharing', 'featureAutomations', 'showPoints',
+  'quietHoursEnabled', 'featureGoals', 'featureSharing', 'featureAutomations',
+  'energySystemEnabled', 'showGrowth',
   'peopleModeEnabled',
 ]);
 const TIME_KEYS = new Set(['reminderTime', 'quietHoursStart', 'quietHoursEnd']);

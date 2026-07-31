@@ -1,7 +1,39 @@
 # PREFERENCES.md — personalisation audit + proposal (phase 1)
 
-**Status:** reviewed. All decisions recorded in §D. No code written — awaiting go-ahead for phase 2.
+**Status:** phase 1 reviewed (§D). **The reward half of §D is superseded — see §D0 below.**
 **Date:** 2026-07-31 · **Branch:** `claude/personalization-audit-proposal-5dbbiu`
+
+---
+
+## D0. Superseding direction (maintainer, 2026-07-31, later same day)
+
+The Bonsai was **dropped entirely** before any of §D's sapling work was built. What shipped
+instead, in this branch:
+
+- **Energy is a real on/off toggle again** — §D #1's "re-gate it" stands, and is done:
+  `energySystemEnabled` is un-inerted and gates `EnergyMeter`, `EnergyBalanceCard`, both
+  editors' energy steppers and `PlanTaskCard`'s quick-add chip. On by default.
+- **No motivation-engine picker.** §D #1's "the user picks an engine during onboarding",
+  and the `growth`/`balance` engine split in §5, are **not built**. Energy and the reward
+  are two independent toggles, both of which can be on, off, or either. Nothing maps a user
+  to an engine, so §D #10's migration is moot — nobody is switched off anything.
+- **The reward is ambient, not a card.** No tree, no card, no stages, no health tint, and
+  **no number of any kind shown to the user**. Instead `components/ScreenBackground.tsx` —
+  the app's own backdrop — grows extra branches around the border as a high-water streak
+  climbs, and its whole branch cluster crossfades from the neutral blue toward green with a
+  `intensity` that rises on a streak and fades back to neutral. Neutral is the floor: a
+  lapsed streak returns the backdrop to exactly the art the app always had.
+- **A day counts from habits *or* tasks** — not habits alone, so the streak reflects the
+  whole app rather than only the Habits tab.
+- **§D #6/#7/#8 (which tree, sapling method, palette) are moot** — there is no tree to draw.
+  §D #7's underlying instinct survives, though: the reward is built from `ScreenBackground`'s
+  own branch vocabulary, which is exactly "Option B".
+- **§D #11 stands** — the high-water mark keeps accruing while the reward is switched off.
+
+`components/BonsaiCard.tsx`, `components/BonsaiTree.tsx`, `lib/bonsai.ts` and its tests are
+deleted; the `show_points` / `lifetime_bonsai_points` columns survive (this repo never drops
+columns) and now back `settings.showGrowth` / `settings.lifetimeGrowth`. §D #2, #3, #5, #9
+and #12 are untouched by this and remain open phase-2 work.
 
 ---
 
