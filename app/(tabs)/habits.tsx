@@ -82,6 +82,7 @@ import { personColor } from '@/lib/personColor';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
+import TourTarget from '@/components/TourTarget';
 import Surface from '@/components/Surface';
 import PadTypeRow from '@/components/PadTypeRow';
 import AnimatedListItem from '@/components/AnimatedListItem';
@@ -684,141 +685,143 @@ export default function HabitsScreen() {
               and drops the duplicate heading; it also stops being a Surface wrapping a
               Surface wrapping every habit card. Debug notes: anchor the whole section,
               not the inner habit cards/add row. */}
-          <DebugNoteAnchor id="habits.section" label="Habits">
-          <Surface borderColor={habitDomainColor.accent} style={styles.habitsCard}>
-            {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
-            <Collapsible open={showHabitProfiles}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.profileRow}
-              >
-                {people.map((person, index) => {
-                  const value = person.isSelf ? '' : person.name;
-                  return (
-                    <PersonChip
-                      key={person.id}
-                      label={person.isSelf ? person.name || t.habitForMe : person.name}
-                      name={person.name}
-                      color={personColor(person.color, index)}
-                      selected={selectedProfile === value}
-                      onPress={() => setSelectedProfile(value)}
-                    />
-                  );
-                })}
-              </ScrollView>
-            </Collapsible>
+          <TourTarget id="tour.habits.list">
+            <DebugNoteAnchor id="habits.section" label="Habits">
+            <Surface borderColor={habitDomainColor.accent} style={styles.habitsCard}>
+              {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
+              <Collapsible open={showHabitProfiles}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.profileRow}
+                >
+                  {people.map((person, index) => {
+                    const value = person.isSelf ? '' : person.name;
+                    return (
+                      <PersonChip
+                        key={person.id}
+                        label={person.isSelf ? person.name || t.habitForMe : person.name}
+                        name={person.name}
+                        color={personColor(person.color, index)}
+                        selected={selectedProfile === value}
+                        onPress={() => setSelectedProfile(value)}
+                      />
+                    );
+                  })}
+                </ScrollView>
+              </Collapsible>
 
-            {/* View tabs — shared bordered segmented control (SlideSelector). Explicit
-                radius={Radius.sm}: this is a MAIN-level screen view switcher (same tier as
-                components/TabSlider.tsx's tab bars, always boxed), not one of SlideSelector's
-                usual sub-level option pickers (which default to a full pill) — see
-                SlideSelector's "radius" edit note for the main/sub rule. */}
-            <SlideSelector
-              options={habitTabs.map(({ key, label }) => ({ value: key, label }))}
-              value={habitTab}
-              onChange={(v) => setHabitTab(v as HabitViewTab)}
-              radius={Radius.sm}
-            />
+              {/* View tabs — shared bordered segmented control (SlideSelector). Explicit
+                  radius={Radius.sm}: this is a MAIN-level screen view switcher (same tier as
+                  components/TabSlider.tsx's tab bars, always boxed), not one of SlideSelector's
+                  usual sub-level option pickers (which default to a full pill) — see
+                  SlideSelector's "radius" edit note for the main/sub rule. */}
+              <SlideSelector
+                options={habitTabs.map(({ key, label }) => ({ value: key, label }))}
+                value={habitTab}
+                onChange={(v) => setHabitTab(v as HabitViewTab)}
+                radius={Radius.sm}
+              />
 
-            {/* Kept mounted (hidden via display:none, not unmounted) when another view tab is
-                active — 2026-07-23 fix: unmounting this block on tab switch made every
-                AnimatedListItem card play its FadeOutDown exit animation at once, overlapping
-                visually with the Week/Month view mounting in the same spot (only visible when
-                there was at least one habit card to exit — see AGENTS.md's "habits animation"
-                debug note). Staying mounted means AnimatedListItem's enter/exit only fires for
-                genuine habit add/remove, matching ANIMATION_GUIDELINES.md §6's "never animate
-                tab switches" rule. */}
-            <View style={habitTab === 'today' ? undefined : styles.hiddenTab}>
-              {/* "X / Y done" tally removed (debug-note 2026-07-21): a score reintroduces
-                  the shame/reward framing the app deliberately avoids. */}
-              <View style={styles.section}>
-                {visibleHabits.length === 0 ? (
-                  // Two different kinds of "empty" (2026-07-26). No habits AT ALL → the
-                  // StarterCard explainer: what a habit is for here, plus four one-tap
-                  // examples. It's gated on profileHabits (not visibleHabits) so it doesn't
-                  // reappear on a day when the user's existing habits simply aren't due — and
-                  // it does come back if they later delete every habit. Habits exist but none
-                  // occur today → the old quiet one-liner, unchanged.
-                  // No `example` row on this StarterCard (2026-07-30): it was a read-only copy
-                  // of the very first starter chip below it — "Drink 4 glasses of water 0/4"
-                  // stacked directly above "Drink 4 glasses of water +". The chips are the
-                  // example, and unlike the row they actually do something. Same call, same
-                  // reason, as components/HomeHabitsCard.tsx's own empty state.
-                  profileHabits.length === 0 ? (
-                    <StarterCard text={t.starters.habits.text}>
-                      <Text style={[styles.starterTapLabel, { color: theme.textMuted }]}>{t.starters.habits.tapToAdd}</Text>
-                      {/* Two chips, not four (2026-07-30) — the same measured call
-                          components/HomeHabitsCard.tsx already made. `npm run wraps --lang=no`
-                          had this row wrapping at every width tested: 4 chips on 2 lines at
-                          393px and 4 lines at 360px (560px of chips into 254px of row). A row
-                          with a hard minimum width can't be fixed by shortening copy, so the
-                          fix is fewer chips; the rest are one tap away on the type line below. */}
-                      <View style={styles.starterChips}>
-                        {HABIT_STARTERS.slice(0, HABIT_STARTER_CHIPS).map((s) => (
-                          <PressableScale
-                            key={s.key}
-                            onPress={() => addStarterHabit(s)}
-                            scaleTo={0.96}
-                            accessibilityRole="button"
-                            accessibilityLabel={t.starters.habits.suggestions[s.key]}
-                            style={[styles.starterChip, { borderColor: habitDomainColor.accent, backgroundColor: theme.surfaceMuted }]}
-                          >
-                            <HabitIcon icon={s.icon} size={14} color={habitDomainColor.accent} />
-                            <Text style={[styles.starterChipText, { color: theme.text }]}>{t.starters.habits.suggestions[s.key]}</Text>
-                            <Ionicons name="add" size={14} color={habitDomainColor.accent} />
-                          </PressableScale>
-                        ))}
-                      </View>
-                    </StarterCard>
+              {/* Kept mounted (hidden via display:none, not unmounted) when another view tab is
+                  active — 2026-07-23 fix: unmounting this block on tab switch made every
+                  AnimatedListItem card play its FadeOutDown exit animation at once, overlapping
+                  visually with the Week/Month view mounting in the same spot (only visible when
+                  there was at least one habit card to exit — see AGENTS.md's "habits animation"
+                  debug note). Staying mounted means AnimatedListItem's enter/exit only fires for
+                  genuine habit add/remove, matching ANIMATION_GUIDELINES.md §6's "never animate
+                  tab switches" rule. */}
+              <View style={habitTab === 'today' ? undefined : styles.hiddenTab}>
+                {/* "X / Y done" tally removed (debug-note 2026-07-21): a score reintroduces
+                    the shame/reward framing the app deliberately avoids. */}
+                <View style={styles.section}>
+                  {visibleHabits.length === 0 ? (
+                    // Two different kinds of "empty" (2026-07-26). No habits AT ALL → the
+                    // StarterCard explainer: what a habit is for here, plus four one-tap
+                    // examples. It's gated on profileHabits (not visibleHabits) so it doesn't
+                    // reappear on a day when the user's existing habits simply aren't due — and
+                    // it does come back if they later delete every habit. Habits exist but none
+                    // occur today → the old quiet one-liner, unchanged.
+                    // No `example` row on this StarterCard (2026-07-30): it was a read-only copy
+                    // of the very first starter chip below it — "Drink 4 glasses of water 0/4"
+                    // stacked directly above "Drink 4 glasses of water +". The chips are the
+                    // example, and unlike the row they actually do something. Same call, same
+                    // reason, as components/HomeHabitsCard.tsx's own empty state.
+                    profileHabits.length === 0 ? (
+                      <StarterCard text={t.starters.habits.text}>
+                        <Text style={[styles.starterTapLabel, { color: theme.textMuted }]}>{t.starters.habits.tapToAdd}</Text>
+                        {/* Two chips, not four (2026-07-30) — the same measured call
+                            components/HomeHabitsCard.tsx already made. `npm run wraps --lang=no`
+                            had this row wrapping at every width tested: 4 chips on 2 lines at
+                            393px and 4 lines at 360px (560px of chips into 254px of row). A row
+                            with a hard minimum width can't be fixed by shortening copy, so the
+                            fix is fewer chips; the rest are one tap away on the type line below. */}
+                        <View style={styles.starterChips}>
+                          {HABIT_STARTERS.slice(0, HABIT_STARTER_CHIPS).map((s) => (
+                            <PressableScale
+                              key={s.key}
+                              onPress={() => addStarterHabit(s)}
+                              scaleTo={0.96}
+                              accessibilityRole="button"
+                              accessibilityLabel={t.starters.habits.suggestions[s.key]}
+                              style={[styles.starterChip, { borderColor: habitDomainColor.accent, backgroundColor: theme.surfaceMuted }]}
+                            >
+                              <HabitIcon icon={s.icon} size={14} color={habitDomainColor.accent} />
+                              <Text style={[styles.starterChipText, { color: theme.text }]}>{t.starters.habits.suggestions[s.key]}</Text>
+                              <Ionicons name="add" size={14} color={habitDomainColor.accent} />
+                            </PressableScale>
+                          ))}
+                        </View>
+                      </StarterCard>
+                    ) : (
+                      // Neutral edge to match the Week/Month empty placeholders (theme.border,
+                      // not the habit domain hue) — quiet "nothing here yet", not a coded surface.
+                      <Surface borderColor={theme.border} style={styles.sectionCard}>
+                        <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
+                      </Surface>
+                    )
                   ) : (
-                    // Neutral edge to match the Week/Month empty placeholders (theme.border,
-                    // not the habit domain hue) — quiet "nothing here yet", not a coded surface.
-                    <Surface borderColor={theme.border} style={styles.sectionCard}>
-                      <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
-                    </Surface>
-                  )
-                ) : (
-                  visibleHabits.map((h) => (
-                    <AnimatedListItem key={h.id} enabled={hasMountedHabits.current}>
-                      <HabitCard habit={h} today={today} onEdit={onEditHabit} lang={lang} theme={theme} />
-                    </AnimatedListItem>
-                  ))
-                )}
+                    visibleHabits.map((h) => (
+                      <AnimatedListItem key={h.id} enabled={hasMountedHabits.current}>
+                        <HabitCard habit={h} today={today} onEdit={onEditHabit} lang={lang} theme={theme} />
+                      </AnimatedListItem>
+                    ))
+                  )}
+                </View>
+
+                {/* The pad's type line — always open, at the bottom of this list where the add
+                    row has always been. It used to be an AddRow inside its OWN Surface, which
+                    is exactly what AddRow's header tells callers not to do ("mount inside the
+                    section's Surface — do NOT wrap it in its own card, or the add row detaches
+                    from its list"); that nested card was one of the things making this screen
+                    read as a pile of boxes. */}
+                <PadTypeRow
+                  prompt={t.pad.type.habit}
+                  value={habitDraft}
+                  onChangeText={setHabitDraft}
+                  onSubmit={commitHabit}
+                  accent={habitDomainColor.accent}
+                />
               </View>
 
-              {/* The pad's type line — always open, at the bottom of this list where the add
-                  row has always been. It used to be an AddRow inside its OWN Surface, which
-                  is exactly what AddRow's header tells callers not to do ("mount inside the
-                  section's Surface — do NOT wrap it in its own card, or the add row detaches
-                  from its list"); that nested card was one of the things making this screen
-                  read as a pile of boxes. */}
-              <PadTypeRow
-                prompt={t.pad.type.habit}
-                value={habitDraft}
-                onChangeText={setHabitDraft}
-                onSubmit={commitHabit}
-                accent={habitDomainColor.accent}
-              />
-            </View>
-
-            {habitTab === 'week' && (
-              <WeekView
-                habits={profileHabits}
-                today={today}
-                lang={lang}
-                theme={theme}
-              />
-            )}
-            {habitTab === 'month' && (
-              <MonthView
-                habits={profileHabits}
-                today={today}
-                theme={theme}
-              />
-            )}
-          </Surface>
-          </DebugNoteAnchor>
+              {habitTab === 'week' && (
+                <WeekView
+                  habits={profileHabits}
+                  today={today}
+                  lang={lang}
+                  theme={theme}
+                />
+              )}
+              {habitTab === 'month' && (
+                <MonthView
+                  habits={profileHabits}
+                  today={today}
+                  theme={theme}
+                />
+              )}
+            </Surface>
+            </DebugNoteAnchor>
+          </TourTarget>
 
           {/* Edit Goals link (2026-07-29, moved to the bottom + renamed + popup 2026-07-31)
               — Goals dropped its own Home card (too many lists on Home); this is now one of

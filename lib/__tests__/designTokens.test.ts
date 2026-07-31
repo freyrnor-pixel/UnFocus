@@ -140,6 +140,20 @@ const SCANNED = [join(ROOT, 'components'), join(ROOT, 'app')].flatMap(sourceFile
 /** Report as repo-relative paths so a failure message is clickable. */
 const rel = (f: string) => f.slice(ROOT.length + 1);
 
+/**
+ * A file's source with its leading JSDoc header stripped.
+ *
+ * Files in this repo document their own constraints, so a header legitimately NAMES the very
+ * literals this scan bans — components/TourSpotlight.tsx's header says "bare `44`, `hitSlop: 8`
+ * or `duration: 220` are CI failures", and that sentence used to fail the scan. Matching prose
+ * has a nasty second-order effect: the cheapest way to get green is to delete the explanation.
+ * Same reasoning and the same fix as __tests__/coldStart.test.ts's readCode().
+ */
+const readCode = (f: string) => {
+  const src = readFileSync(f, 'utf8');
+  return src.startsWith('/**') ? src.slice(src.indexOf('*/') + 2) : src;
+};
+
 describe('DESIGN_RULES.md — no bare design literals at call sites', () => {
   test('scan actually found the source tree', () => {
     expect(SCANNED.length).toBeGreaterThan(50);
@@ -155,7 +169,7 @@ describe('DESIGN_RULES.md — no bare design literals at call sites', () => {
       'app/onboarding/guided.tsx', // optionBadge — a decorative badge inside a tappable card
     ]);
     const offenders = SCANNED.filter(
-      (f) => !ALLOW.has(rel(f)) && /\b(minHeight|minWidth|height|width): 44\b/.test(readFileSync(f, 'utf8')),
+      (f) => !ALLOW.has(rel(f)) && /\b(minHeight|minWidth|height|width): 44\b/.test(readCode(f)),
     ).map(rel);
     expect(offenders).toEqual([]);
   });
@@ -166,7 +180,7 @@ describe('DESIGN_RULES.md — no bare design literals at call sites', () => {
     const ALLOW_VALUES = new Set(['10', '12']);
     const offenders: string[] = [];
     for (const f of SCANNED) {
-      for (const m of readFileSync(f, 'utf8').matchAll(/hitSlop=\{(\d+)\}/g)) {
+      for (const m of readCode(f).matchAll(/hitSlop=\{(\d+)\}/g)) {
         if (!ALLOW_VALUES.has(m[1])) offenders.push(`${rel(f)}: hitSlop={${m[1]}}`);
       }
     }
@@ -182,7 +196,7 @@ describe('DESIGN_RULES.md — no bare design literals at call sites', () => {
     const offenders: string[] = [];
     for (const f of SCANNED) {
       if (ALLOW.has(rel(f))) continue;
-      const src = readFileSync(f, 'utf8');
+      const src = readCode(f);
       for (const m of src.matchAll(/\bduration:\s*(\d+)/g)) offenders.push(`${rel(f)}: duration: ${m[1]}`);
       for (const m of src.matchAll(/\.duration\((\d+)\)/g)) offenders.push(`${rel(f)}: .duration(${m[1]})`);
     }

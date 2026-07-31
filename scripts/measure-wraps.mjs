@@ -54,14 +54,14 @@ const L = {
   en: {
     langRow: /^Language: English\./, basicsNext: 'Continue',
     newHere: "No, I'm new here", gotIt: 'Got it →', guided: 'Walk me through it',
-    next: 'Next →', go: "Let's go! 🌿",
+    next: 'Next →', go: "Let's go! 🌿", tourNext: 'Got it', skipTour: 'Skip the tour',
     tabs: ['Shopping', 'To-do', 'Health', 'Habits'], home: 'Home', settings: 'Settings',
     dismiss: ['Skip', 'Got it', 'Got it →', 'OK'],
   },
   no: {
     langRow: /^Språk: Norsk\./, basicsNext: 'Fortsett',
     newHere: 'Nei, jeg er ny her', gotIt: 'Skjønner →', guided: 'Vis meg rundt',
-    next: 'Neste →', go: 'Kom i gang! 🌿',
+    next: 'Neste →', go: 'Kom i gang! 🌿', tourNext: 'Skjønner', skipTour: 'Hopp over omvisningen',
     tabs: ['Handleliste', 'Gjøremål', 'Helse', 'Vaner'], home: 'Hjem', settings: 'Innstillinger',
     dismiss: ['Hopp over', 'Skjønner', 'Skjønner →', 'OK'],
   },
@@ -213,6 +213,15 @@ async function main() {
     await scan(page, 'onboarding-name');
     await clickText(page, L.go);
     await page.waitForTimeout(1800);
+
+    // The guided tour opens straight after onboarding. Measure its coach card — it is new copy
+    // in a fixed-width box, exactly what this audit is for — then dismiss it, or its scrim
+    // swallows every click below and the run dies somewhere unrelated.
+    if (await page.getByText(L.tourNext, { exact: true }).first().isVisible().catch(() => false)) {
+      await scan(page, 'tour-step');
+      await clickText(page, L.skipTour);
+      await page.waitForTimeout(900);
+    }
 
     await scan(page, 'home');
     for (const tab of L.tabs) {

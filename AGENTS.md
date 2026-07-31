@@ -69,7 +69,7 @@ Every `.ts`/`.tsx` file starts with a JSDoc header block. **Read it before editi
 | Stores read/write rows via `lib/dataAccess.ts` (`loadFirst`/`loadAll`/`updateRow` + `FieldMap`) | Used by 13 of 14 stores; don't hand-roll row mapping in a new store |
 | **Any screen or visual change is checked against `DESIGN_RULES.md`** | 25 numbered invariants (spacing, placement & order, colour, hierarchy, tap targets, motion, copy tone). Three of them are enforced in CI: tap targets/motion tokens (`lib/__tests__/designTokens.test.ts`), palette contrast (`colors.test.ts`), copy tone (`copyTone.test.ts`). **Eight rules have open conflicts with shipped decisions and are NOT binding yet** — read the audit before "fixing" one: `DESIGN_RULES_AUDIT.md`. Tap targets go through `MIN_TAP_TARGET`/`HitSlop`, motion through `Duration.*` — never a bare `44`/`hitSlop: 8`/`duration: 220` |
 | **ALWAYS open a PR and merge it to `main`** | Standing rule: every change ends with a PR from the `claude/**` branch into `main` that the agent merges itself — never stop at "pushed the branch," never hand the merge back to the user. OTA (`.github/workflows/update.yml`) publishes ONLY on push to `main`; a `claude/**` branch push publishes nothing. Only *cutting the APK/AAB build* stays human-gated — never the PR or the merge. See `PUBLISHING.md`. |
-| `AI_SETUP_SCHEMA_VERSION` in `lib/aiSetupGuide.ts` bumps whenever the AI setup guide's schema/content changes | The downloadable "AI setup guide" (Settings + onboarding intro) embeds this version; on upload, an older version is a 'stale' warning (import still proceeds) and a newer version is 'invalid' (this build can't safely interpret fields it doesn't know about yet) — see that file's header and the cookbook steps below |
+| `AI_SETUP_SCHEMA_VERSION` in `lib/aiSetupGuide.ts` bumps whenever the AI setup guide's schema/content changes | The downloadable "AI setup guide" (Settings + the guided tour's closing card) embeds this version; on upload, an older version is a 'stale' warning (import still proceeds) and a newer version is 'invalid' (this build can't safely interpret fields it doesn't know about yet) — see that file's header and the cookbook steps below |
 
 ## Architecture at a glance
 
@@ -81,8 +81,39 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
                        constants/theme.ts (getTheme, Colors)
 ```
 
-- **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` (Shopping/Plans/Home/Health/Habits, Decision 036, amended 2026-07-23 — UX audit E1/E2 swapped Scan out for Habits, its own tab again); other screens are reached via links/buttons from those 5. Notes and Food/Meals are NOT tabs — reached via Home's "More" links (Notes) and Shopping's Food button (F1, 2026-07-23). Scan is also not a tab anymore — it's a pushed sub-screen (`app/scan.tsx`) reached via a "Scan" button on Shopping's header; its idle screen still offers both receipt OCR and QR import. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
-- **Onboarding** (`app/onboarding/*`): language → privacy → guided/explore → intro (short icon-per-feature tour) → features ("what do you want to use?" picker — Sharing & QR and Automations only, see below) → index (name, finishes onboarding) → home. The Explore path skips the tour/picker/name and goes straight to home on the same defaults. The old setup steps (work mode / shopping days / notifications / handedness) were removed — those settings now default and are taught in context: each tab screen's ⓘ hint auto-expands on first visit (via `lib/useFirstVisitHint.ts` + `settings.seenScreenHints`) with the relevant control embedded (weekly/monthly reset on Shopping, notification opt-in on Home). Handedness stays in Settings only.
+- **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` (**Shopping/Plans/Home/Habits/Health** — that is the real `<TopTabs.Screen>` order in `app/(tabs)/_layout.tsx`; this line said Health/Habits for months and building against it put every tab's backdrop panel on its neighbour, so trust the navigator, not the prose. Decision 036, amended 2026-07-23 — UX audit E1/E2 swapped Scan out for Habits, its own tab again); other screens are reached via links/buttons from those 5. Notes and Food/Meals are NOT tabs — reached via Home's "More" links (Notes) and Shopping's Food button (F1, 2026-07-23). Scan is also not a tab anymore — it's a pushed sub-screen (`app/scan.tsx`) reached via a "Scan" button on Shopping's header; its idle screen still offers both receipt OCR and QR import. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
+- **Onboarding** (`app/onboarding/*`, rebuilt 2026-07-31): **basics → restore → privacy →
+  guided/explore → energy → features → index (name) → home**, then the guided tour. It was ~18
+  screens and is now 7.
+  - `basics.tsx` is screen ONE and replaced both `language.tsx` and the old four-step
+    `app/first-run.tsx` wizard (both deleted): six rows of pills on one screen — language,
+    appearance, text size, movement, menu side, starting screen. Every value already has a
+    working default, so the screen only ever ADJUSTS; skipping it is a no-op. It writes ONE
+    atomic patch including `firstRunComplete`. Language is row one and previews live, which is
+    why it no longer needs a screen ahead of everything else. Values live in
+    `lib/firstRunOptions.ts`; the old "four steps" cap is now "one screen — a seventh thing
+    goes to Settings".
+  - `energy.tsx` explains Energy vs Quiet growth, the two systems that sound like scoring and
+    aren't. `showGrowth` moved here out of the feature picker, which stays a list of one-liners.
+  - **The 8-page `intro.tsx` slideshow is deleted.** Its job — teaching the features — is done
+    by the guided tour on the real app (see below). Its "experimental build" note and the AI
+    setup guide download moved to the tour's closing card; `t.introPrinciples` moved to Settings.
+  - The Explore path skips energy/picker/name and goes straight to home on the same defaults.
+  - The backdrop is one continuous `onboarding-triptych` motif (seed → sprout → tree) slid
+    across the steps, which doubles as the progress indicator — deliberately not a filling bar.
+  - Old setup steps (work mode / shopping days / notifications) are still taught in context via
+    each tab's ⓘ hint (`lib/useFirstVisitHint.ts` + `settings.seenScreenHints`).
+- **Guided tour** (2026-07-31, `lib/tourSteps.ts` + `components/TourSpotlight.tsx` +
+  `components/TourTarget.tsx`): runs on the real app after onboarding — one spotlight step per
+  tab, dimming everything but one card, which stays live and tappable through the hole. Every
+  step is skippable on its own and the whole tour can be dismissed from any step; progress is a
+  SET of ids in `settings.tourProgress`, so a skipped step and a finished one are
+  indistinguishable and reordering can't strand anyone. Existing installs were back-filled to
+  `dismissed`. Two traps worth knowing before editing it: the pager runs `lazy: false` so ALL
+  five screens are mounted and every target measures immediately (a rect being present does not
+  mean its screen is visible — check it is on screen), and the pager moves pages by transform,
+  which fires no `onLayout`, so targets must re-measure on focus or they keep their mount-time
+  position.
 - **Empty-state explainers** (`components/StarterCard.tsx`, 2026-07-26; extended 2026-07-27): a second, more visible teaching layer than the ⓘ hint — a short explanation plus one concrete example row, rendered inline where content would be while a surface is empty, and gone once the user has their own (gated on a plain `length === 0`, so it also returns if they delete everything). Live on Habits (plus four one-tap starter habits from `lib/habitStarters.ts`), Plans, Shopping and Health, and — since 2026-07-27 — on the **Home preview cards** too: the day-view card (`components/PlanTaskCard.tsx`) and the shopping card (`components/HomeShoppingCard.tsx`) each render their own explainer + suggested-add row *inside* the card, without a StarterCard wrapper (a Surface inside a Surface reads as a nested panel). Copy lives under `starters.*` in `lib/i18n.ts`; each one's core message is also in the matching `hints.*.example`, which is where it stays reachable after the card disappears. The StarterCard shell is styled with a **neutral** `theme.border` Surface, deliberately NOT the accent-barred HintCard look — on a first visit both are on screen at once and twins would read as a duplicate — while `components/StarterExampleRow.tsx` (the suggestion itself) deliberately DOES copy the surrounding list's real row styling (accent wash + accent edge), so a suggestion reads as a row of that list rather than a callout about one. **The Energy meter is the exception**: its explainer is a permanent one-line hint inside its own card (`t.energyMeter.hint`), not a disappearing StarterCard — as a separate card between Energy and the to-do card it read as belonging to the to-do card, and an explanation that self-destructs isn't there when you come back to the number months later.
 - **Medicine trays** (2026-07-27, `components/MedicineTrayCard.tsx` + `app/medicine-form.tsx` + `store/useMedicineStore.ts` + `lib/medicineSchedule.ts` + `lib/medicineNotifications.ts`): the Health tab's first card. Medicine is organised into four **trays** — morning/midday/evening/night — deliberately NOT exact per-medicine clock times: a tray is a *window*, so a dose taken at 11:40 is still a morning dose and an untaken one reads "still due", never "missed" (the same no-shame framing as habits' rest days; keep any new copy on that side of it). One reminder per tray, shared by its medicines, with a **Taken** action button that logs the whole tray from the notification shade (`'medicine-reminder'` category, next to the existing `'task-reminder'` one). As-needed (PRN) medicines belong to no tray and are guarded by a minimum gap + optional daily cap instead (`asNeededState`) — nothing ever nudges you to take one. Per-person via People/family mode (`child_name`, same convention as tasks/habits). `health_logs.medicine_id` optionally attributes a symptom entry to a medicine ("this ADHD med gives me stomach issues"), picked in `app/health-form.tsx`'s "Possibly from" row and surfaced on that medicine's own page. Gated on `settings.featureMedicine` (on by default, still a real toggle). **Deliberately NOT in the AI setup guide** — medicine names/doses are the most sensitive rows in the DB, and the guide already refuses health-log data. Stock/refill tracking is a known follow-up, not built.
 - **The row rule + matte buttons** (2026-07-28, from design-system v6's `Checklist Redesign
@@ -217,6 +248,27 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
   button-launched-sub-screen pattern as Shopping's Food/Catalogue links. The screen itself
   (`app/goals.tsx`), the strength mechanic, and the per-item `GoalPicker` in `TaskCard`/
   `habit-form.tsx` are all unchanged — only Home's standing presence went away.
+- **The decorative motif system** (2026-07-31, `constants/motifs.ts` + `components/Motif.tsx`,
+  generated by `scripts/build-motifs.mjs` from `assets/decorative/*.svg`). The design system's
+  tree vocabulary — halo ring, brush-daub canopy, forking trunk, ground arc, floating dots.
+  - **`constants/motifs.ts` is GENERATED — never hand-edit it.** Every `-light`/`-dark` SVG
+    pair is geometrically identical and differs only in colour and opacity, so one entry holds
+    the shared geometry plus BOTH opacities and NO colour; the consumer passes a theme token.
+    That is what keeps raw hex out of components. Re-run the script after changing an SVG.
+  - **The tab backdrop is ONE continuous 1950×844 strip** (`screen-bg-strip`, five 390-wide
+    panels) slid by the pager's index, not five pictures crossfaded — so a swipe travels along
+    one branch. `scripts/author-screen-bgs.mjs` builds it from a shared spine, which is what
+    makes continuity structural. **Panel order must match `<TopTabs.Screen>` order**;
+    `lib/__tests__/motifs.test.ts` checks it, because getting it wrong shows every tab its
+    neighbour's art with no crash and nothing visible in review.
+  - **The centre box (x 84–306, y 236–612 per panel) stays clear** — that's where cards live,
+    and it is why the art is edge-anchored and why `assets/bg-light.png` was retired. Soft
+    `wash` fills are exempt: the design system files them under "holders", meant to sit behind
+    content. Pinned by test.
+  - `screen-bg-calm` is the standalone sub-tier backdrop; `trunk-divider` is `SectionDivider`;
+    `empty-branch` is `StarterCard`'s watermark; `onboarding-triptych` is onboarding's
+    growing-tree backdrop. `fab-halo` is filled circles meant to sit BEHIND something — do not
+    use it over content you want to stay untinted.
 - **The reward system is the backdrop** (2026-07-31, `lib/growth.ts` + `lib/useGrowth.ts`,
   drawn by `components/ScreenBackground.tsx`). A Bonsai/points card shipped and was replaced
   the same day; `lib/bonsai.ts`, `components/BonsaiCard.tsx` and `components/BonsaiTree.tsx`
@@ -241,19 +293,20 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
   - Only the tint animates (`Duration.ambient`, 2400ms). A `level` change is deliberately
     un-animated: it's derived from a streak that turns over between sessions, so nobody is
     watching. Adding a growth stroke? Keep it out of the centre box (x 60–220, y 170–440).
-- **First-run personalization** (2026-07-30, `app/first-run.tsx` + `lib/firstRunOptions.ts`):
-  four one-question steps — **motion / text size / appearance / starting screen** — shown
-  once, after onboarding, on a fresh install (`settings.firstRunComplete`). Both onboarding
-  exits (the name step's finish and the Explore path) route into it; `app/_layout.tsx`'s
-  guard is a safety net, not the normal path. It is **not** more setup: every value it
+- **First-run personalization** (2026-07-30; folded into `app/onboarding/basics.tsx` on
+  2026-07-31 — `app/first-run.tsx` is deleted. Values still live in `lib/firstRunOptions.ts`):
+  six rows on ONE screen — **language / appearance / text size / movement / menu side /
+  starting screen** — shown once on a fresh install (`settings.firstRunComplete`). It is now
+  the FIRST onboarding screen rather than a wizard after it; `app/_layout.tsx`'s second guard
+  is a safety net for an install that finished onboarding under an older build. It is **not** more setup: every value it
   writes already has a working default applied before it renders, so it only ADJUSTS —
   skipping it, or force-quitting mid-flow, leaves an app that behaves identically.
   - **One atomic write.** Selections live in local state until commit;
-    `settingsPatchFromPicks()` returns ONE patch holding all four steps *plus*
+    `settingsPatchFromPicks()` returns ONE patch holding all six rows *plus*
     `firstRunComplete: true`, so the gate can never be set without the selections landing
-    with it. That also makes "Run setup again" (Settings → Personal → Layout) idempotent:
+    with it. That also makes "Run setup again" (Settings → Personal → Layout, which now re-enters onboarding's Basics screen) idempotent:
     it seeds from current settings, so pressing straight through writes them back unchanged.
-    A test pins the picks ⇄ settings round-trip over all 81 combinations.
+    A test pins the picks ⇄ settings round-trip over all 324 combinations.
   - **Live preview means changing the actual screen**, which is why the flow resolves its
     own palette and text scale from local state via the *pure* `buildTheme` /
     `resolveIsDark` / `scaleStyles` helpers in `lib/useAppTheme.ts` — and why it can't use
@@ -269,15 +322,16 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
     the `unstable_settings.initialRouteName` beside it, which is the static deep-link back
     target and stays `index`. Presentation only; every tab is one tap away regardless, and
     a change from Settings applies at the next launch rather than yanking the tab mid-session.
-  - Four steps is a hard cap. A fifth thing goes to Settings.
+  - ONE SCREEN is the cap — the old "four steps" cap encoded the same anti-overwhelm rule.
+  A seventh row goes to Settings.
 - **Settings** (`app/settings.tsx`): three tabs — **General** (profile, appearance, accessibility, account/backup, version, reset), **Personal** (notifications, shopping cadence, layout, device features), **Advanced** (the Features card, People/family, paired devices, Freyr-mode, debug). Reorganized 2026-07-25 from four tabs; see that file's header for the full before/after.
 - **Feature flags** (2026-07-25, defaults revised same day): three states, not one.
   - **On by default, still a real toggle** (Settings → Advanced → Features): `energySystemEnabled` (Energy system), `featureGoals` (Goals) and `featureMedicine` (Medicine trays, 2026-07-27). Not offered in the onboarding picker — "opt in from nothing" doesn't fit a feature that's already on. Turning `featureMedicine` off must actually CANCEL its four tray reminders, not just hide the card — `app/settings.tsx`'s `applyAndSync` re-syncs them on that key. `energySystemEnabled` is the one flag that has flip-flopped: a toggle → inert/always-on (2026-07-26) → **a real toggle again (2026-07-31)**, gating `EnergyMeter`, `EnergyBalanceCard`, both editors' energy steppers and `PlanTaskCard`'s quick-add chip. It gates SURFACES only — per-task/habit `energyEnabled`/`energyValue` keep their stored values while off, so switching back on restores every number.
-  - **Off by default, still opt-in** (Settings → Advanced → Features, also offered in `app/onboarding/features.tsx`'s picker): `featureSharing` (Sharing & QR), `featureAutomations` (Automations) and `showGrowth` (Quiet growth — the ambient reward, 2026-07-31; note the DB column is still `show_points` from the Bonsai/points system it replaced within a day).
+  - **Off by default, still opt-in** (Settings → Advanced → Features, also offered in `app/onboarding/features.tsx`'s picker): `featureSharing` (Sharing & QR) and `featureAutomations` (Automations). `showGrowth` (Quiet growth — the ambient reward; the DB column is still `show_points` from the Bonsai/points system it replaced within a day) is off by default too, but is offered on `app/onboarding/energy.tsx` rather than in the picker: it needs a paragraph, not a one-line switch.
   - **Permanently on, no longer a toggle at all**: `featureScan` (Scan & receipts) and `featureFood` (Food & recipes) — removed from both Settings and the onboarding picker; the DB columns and Settings-type fields survive (this repo never drops columns) but nothing reads them for gating any more — see `store/useSettingsStore.ts`'s "Inert columns" note.
   - All defaults are set via migrations in `lib/db.ts` (append-only — corrections are new `UPDATE` statements, never edits to an already-merged line). Only gate something ADDITIVE this way — data pruning, widget/overview sync, foreground store reload, catalog/dish/symptom seeding, the automation store's boot load and the monthly reminder re-arm are load-bearing and stay unconditional.
 - **i18n**: `const t = useT()` in any component; `t.someKey`; add new keys to both `en` and `no` objects in `lib/i18n.ts`
-- **AI setup guide** (`lib/aiSetupGuide.ts` + `lib/aiSetupApply.ts`, 2026-07-26): the app has no in-app AI/automation-builder, so this lets a user download a technical `.txt` (Settings → General → Local account, and a link on onboarding's last "experimental" intro page) documenting the data model, hand it to an external AI, and upload the AI's filled-in reply back into Settings. The reply embeds one JSON block between fixed markers; `previewAiSetupConfig()`/`applyAiSetupConfig()` share one validation pass so the confirm-before-apply preview (`components/AiSetupPreviewModal.tsx`) can never disagree with what's actually written. v1 covers settings (a fixed whitelist), tasks, habits, goals, notes, shopping lists/items, household inventory, Catalogue-tab items, meals, and monthly lists — deliberately NOT automations (IFTTT rules), health-log data, or medicines/doses (too risky to validate / too sensitive — see that file's "out of scope" edit note before adding a medicine domain). See "Add a new SQLite column" / "Add a new setting toggle" below for the process rule that keeps the guide from drifting out of date.
+- **AI setup guide** (`lib/aiSetupGuide.ts` + `lib/aiSetupApply.ts`, 2026-07-26): the app has no in-app AI/automation-builder, so this lets a user download a technical `.txt` (Settings → General → Local account, and a link on the guided tour's closing card) documenting the data model, hand it to an external AI, and upload the AI's filled-in reply back into Settings. The reply embeds one JSON block between fixed markers; `previewAiSetupConfig()`/`applyAiSetupConfig()` share one validation pass so the confirm-before-apply preview (`components/AiSetupPreviewModal.tsx`) can never disagree with what's actually written. v1 covers settings (a fixed whitelist), tasks, habits, goals, notes, shopping lists/items, household inventory, Catalogue-tab items, meals, and monthly lists — deliberately NOT automations (IFTTT rules), health-log data, or medicines/doses (too risky to validate / too sensitive — see that file's "out of scope" edit note before adding a medicine domain). See "Add a new SQLite column" / "Add a new setting toggle" below for the process rule that keeps the guide from drifting out of date.
 
 ## Common tasks
 

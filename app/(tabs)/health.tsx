@@ -84,6 +84,7 @@ import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import MedicineTrayCard from '@/components/MedicineTrayCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
+import TourTarget from '@/components/TourTarget';
 import Surface from '@/components/Surface';
 import { CardAccentBadge } from '@/components/CardAccent';
 import PressableScale from '@/components/PressableScale';
@@ -255,79 +256,81 @@ export default function HealthScreen() {
 
           {/* Quick log — essentials-only instant record (name + start time + duration +
               severity, dated today). */}
-          <DebugNoteAnchor id="health.quickLog" label="Health — Quick log">
-          <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
-            <View style={styles.overviewCardContent}>
-              <View style={styles.sectionLabelRow}>
-                {/* Per-card glyph, not the domain default (2026-07-28 design review): Medicine,
-                    Quick log and This week all fell back to DOMAIN_ICON.health (heart), so three
-                    stacked cards carried the identical badge and it signified nothing. The heart
-                    still marks the Health tab itself in BottomNav. */}
-                <CardAccentBadge domain="health" icon="pulse" size={22} />
-                <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.quickLogLabel}</Text>
+          <TourTarget id="tour.health.log">
+            <DebugNoteAnchor id="health.quickLog" label="Health — Quick log">
+            <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
+              <View style={styles.overviewCardContent}>
+                <View style={styles.sectionLabelRow}>
+                  {/* Per-card glyph, not the domain default (2026-07-28 design review): Medicine,
+                      Quick log and This week all fell back to DOMAIN_ICON.health (heart), so three
+                      stacked cards carried the identical badge and it signified nothing. The heart
+                      still marks the Health tab itself in BottomNav. */}
+                  <CardAccentBadge domain="health" icon="pulse" size={22} />
+                  <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.quickLogLabel}</Text>
+                </View>
+                <AddRow
+                  placeholder={t.logSymptomTrigger}
+                  value={quickDraft}
+                  onChangeText={setQuickDraft}
+                  onSubmit={handleQuickLog}
+                  accent={healthDomainColor.accent}
+                  confirmIcon="checkmark"
+                  showDivider={false}
+                  accessibilityLabel={t.logSymptomTrigger}
+                />
+                {quickDraft.trim().length > 0 && (
+                  <>
+                    <View style={styles.quickTimeRow}>
+                      <View style={styles.quickTimeField}>
+                        <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.whenStartedLabel}</Text>
+                        <Input
+                          value={quickStartTime}
+                          onChangeText={setQuickStartTime}
+                          placeholder={t.timeInputPlaceholder}
+                          keyboardType="numbers-and-punctuation"
+                          style={styles.quickTimeInput}
+                        />
+                      </View>
+                      <View style={styles.quickTimeField}>
+                        <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.durationLabel}</Text>
+                        <Input
+                          value={quickDuration}
+                          onChangeText={setQuickDuration}
+                          placeholder={t.durationPlaceholder}
+                          keyboardType="number-pad"
+                          style={styles.quickTimeInput}
+                        />
+                      </View>
+                    </View>
+                    <View style={styles.quickSeverityRow}>
+                      <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.severityLabel}</Text>
+                      <View style={styles.quickSeverityChips}>
+                        {SEVERITIES.map((s) => {
+                          const active = quickSeverity === s.value;
+                          return (
+                            <PressableScale
+                              key={s.value}
+                              onPress={() => setQuickSeverity(s.value)}
+                              style={[
+                                styles.quickSevChip,
+                                { backgroundColor: s.color },
+                                active && { borderColor: theme.text, borderWidth: 2 },
+                              ]}
+                              accessibilityRole="button"
+                              accessibilityLabel={severityLabel(s.value)}
+                            >
+                              <Text style={[styles.quickSevChipText, { color: severityInk(s.value) }]}>{s.value}</Text>
+                            </PressableScale>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  </>
+                )}
               </View>
-              <AddRow
-                placeholder={t.logSymptomTrigger}
-                value={quickDraft}
-                onChangeText={setQuickDraft}
-                onSubmit={handleQuickLog}
-                accent={healthDomainColor.accent}
-                confirmIcon="checkmark"
-                showDivider={false}
-                accessibilityLabel={t.logSymptomTrigger}
-              />
-              {quickDraft.trim().length > 0 && (
-                <>
-                  <View style={styles.quickTimeRow}>
-                    <View style={styles.quickTimeField}>
-                      <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.whenStartedLabel}</Text>
-                      <Input
-                        value={quickStartTime}
-                        onChangeText={setQuickStartTime}
-                        placeholder={t.timeInputPlaceholder}
-                        keyboardType="numbers-and-punctuation"
-                        style={styles.quickTimeInput}
-                      />
-                    </View>
-                    <View style={styles.quickTimeField}>
-                      <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.durationLabel}</Text>
-                      <Input
-                        value={quickDuration}
-                        onChangeText={setQuickDuration}
-                        placeholder={t.durationPlaceholder}
-                        keyboardType="number-pad"
-                        style={styles.quickTimeInput}
-                      />
-                    </View>
-                  </View>
-                  <View style={styles.quickSeverityRow}>
-                    <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.severityLabel}</Text>
-                    <View style={styles.quickSeverityChips}>
-                      {SEVERITIES.map((s) => {
-                        const active = quickSeverity === s.value;
-                        return (
-                          <PressableScale
-                            key={s.value}
-                            onPress={() => setQuickSeverity(s.value)}
-                            style={[
-                              styles.quickSevChip,
-                              { backgroundColor: s.color },
-                              active && { borderColor: theme.text, borderWidth: 2 },
-                            ]}
-                            accessibilityRole="button"
-                            accessibilityLabel={severityLabel(s.value)}
-                          >
-                            <Text style={[styles.quickSevChipText, { color: severityInk(s.value) }]}>{s.value}</Text>
-                          </PressableScale>
-                        );
-                      })}
-                    </View>
-                  </View>
-                </>
-              )}
-            </View>
-          </Surface>
-          </DebugNoteAnchor>
+            </Surface>
+            </DebugNoteAnchor>
+          </TourTarget>
 
           {/* This week — debug notes: one anchor per region (the card, not its inner rows). */}
           <DebugNoteAnchor id="health.overview" label="Health — This week">

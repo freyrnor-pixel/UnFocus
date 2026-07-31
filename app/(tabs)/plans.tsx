@@ -126,6 +126,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
+import TourTarget from '@/components/TourTarget';
 import SharedTasksSection from '@/components/SharedTasksSection';
 import SectionRail from '@/components/SectionRail';
 import SectionCard from '@/components/SectionCard';
@@ -986,90 +987,92 @@ export default function TasksScreen() {
             )}
 
             {/* Debug notes: anchor the day-view section (not its inner task rows). */}
-            <DebugNoteAnchor id="plans.dayView" label="Plans — Today">
-              {groupByPerson ? (
-                // "By person" layout — one section per person, in that person's own hue.
-                // A SectionCard hue is the one place lib/personColor.ts permits the identity
-                // colour beyond an avatar dot, precisely for this grouping. A person with
-                // nothing today still gets their card, so an empty column is visible as
-                // "nothing assigned" rather than the person silently disappearing.
-                todayByPerson.map((group) => (
-                  <SectionCard
-                    key={group.personId || 'unassigned'}
-                    hue={group.hue}
-                    label={group.label}
-                    count={group.tasks.length}
-                  >
+            <TourTarget id="tour.plans.list">
+              <DebugNoteAnchor id="plans.dayView" label="Plans — Today">
+                {groupByPerson ? (
+                  // "By person" layout — one section per person, in that person's own hue.
+                  // A SectionCard hue is the one place lib/personColor.ts permits the identity
+                  // colour beyond an avatar dot, precisely for this grouping. A person with
+                  // nothing today still gets their card, so an empty column is visible as
+                  // "nothing assigned" rather than the person silently disappearing.
+                  todayByPerson.map((group) => (
+                    <SectionCard
+                      key={group.personId || 'unassigned'}
+                      hue={group.hue}
+                      label={group.label}
+                      count={group.tasks.length}
+                    >
+                      <DoneSplitList
+                        tasks={group.tasks}
+                        emptyText={t.noPlansToday}
+                        focusMode={layoutSpec.focusMode}
+                        footer={
+                          <InlineTaskAdd
+                            date={today}
+                            accent={group.hue}
+                            assigneeId={group.personId}
+                            assignee={group.addName}
+                            wrapped
+                          />
+                        }
+                        renderCard={(tk) => (
+                          <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
+                        )}
+                      />
+                    </SectionCard>
+                  ))
+                ) : layoutSpec.timeline ? (
+                  /* "On a timeline" — the day as a clock-time calendar grid (2026-07-30). This is
+                     the To-do tab's DEFAULT (seeded in lib/db.ts's migrations), because a full
+                     screen is the only place a 24h grid is actually readable; Home's card defaults
+                     to the ruled list instead. The grid lives in components/PlanTaskCard.tsx, the
+                     same component Home mounts — there is deliberately no second implementation.
+                     Not read-only here: rows open their editor, and the card owns its own add. */
+                  <PlanTaskCard
+                    tasks={todayList}
+                    allTasks={tasks}
+                    spec={layoutSpec}
+                    padState={todayCardState}
+                    onPadStateChange={setTodayCardState}
+                    horizontal={planTimelineHorizontal}
+                    onPressTask={(task: Task) => router.push({ pathname: '/task-form', params: { id: task.id } })}
+                    onToggleTask={handleToggleDone}
+                    onAddTask={handleTimelineAddTask}
+                    // Same one-tap "Tidy up" example the screen-level StarterCard offered before
+                    // it was suppressed for this layout (see that card's gate above) — without
+                    // this, an empty day on the timeline default would lose the quick-add
+                    // affordance entirely, not just the redundant second copy of the explainer.
+                    onAddExample={addPlanStarterTask}
+                  />
+                ) : layoutSpec.id === 'focusFirst' ? (
+                  /* "One thing at a time" — a different SHAPE for the same tasks, so it replaces
+                     the Today SectionCard rather than sitting inside it. Every task the layout
+                     doesn't draw is still a live row: it keeps its reminders, still counts in
+                     the Later chips, and is one tap away. */
+                  <FocusFirstToday
+                    tasks={todayList}
+                    onToggleDone={handleToggleDone}
+                    spec={layoutSpec}
+                    newSinceIds={newSinceIds}
+                    footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
+                  />
+                ) : (
+                  <SectionCard hue={theme.accent} label={t.tasksTabToday} count={todayList.length}>
+                    {/* Add row sits between the tasks and the collapsed "Done" zone (DoneSplitList
+                        footer) so the active/white containers stay grouped and green "Done" is last. */}
                     <DoneSplitList
-                      tasks={group.tasks}
+                      tasks={todayList}
                       emptyText={t.noPlansToday}
                       focusMode={layoutSpec.focusMode}
-                      footer={
-                        <InlineTaskAdd
-                          date={today}
-                          accent={group.hue}
-                          assigneeId={group.personId}
-                          assignee={group.addName}
-                          wrapped
-                        />
-                      }
+                      footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
                       renderCard={(tk) => (
                         <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
                       )}
                     />
                   </SectionCard>
-                ))
-              ) : layoutSpec.timeline ? (
-                /* "On a timeline" — the day as a clock-time calendar grid (2026-07-30). This is
-                   the To-do tab's DEFAULT (seeded in lib/db.ts's migrations), because a full
-                   screen is the only place a 24h grid is actually readable; Home's card defaults
-                   to the ruled list instead. The grid lives in components/PlanTaskCard.tsx, the
-                   same component Home mounts — there is deliberately no second implementation.
-                   Not read-only here: rows open their editor, and the card owns its own add. */
-                <PlanTaskCard
-                  tasks={todayList}
-                  allTasks={tasks}
-                  spec={layoutSpec}
-                  padState={todayCardState}
-                  onPadStateChange={setTodayCardState}
-                  horizontal={planTimelineHorizontal}
-                  onPressTask={(task: Task) => router.push({ pathname: '/task-form', params: { id: task.id } })}
-                  onToggleTask={handleToggleDone}
-                  onAddTask={handleTimelineAddTask}
-                  // Same one-tap "Tidy up" example the screen-level StarterCard offered before
-                  // it was suppressed for this layout (see that card's gate above) — without
-                  // this, an empty day on the timeline default would lose the quick-add
-                  // affordance entirely, not just the redundant second copy of the explainer.
-                  onAddExample={addPlanStarterTask}
-                />
-              ) : layoutSpec.id === 'focusFirst' ? (
-                /* "One thing at a time" — a different SHAPE for the same tasks, so it replaces
-                   the Today SectionCard rather than sitting inside it. Every task the layout
-                   doesn't draw is still a live row: it keeps its reminders, still counts in
-                   the Later chips, and is one tap away. */
-                <FocusFirstToday
-                  tasks={todayList}
-                  onToggleDone={handleToggleDone}
-                  spec={layoutSpec}
-                  newSinceIds={newSinceIds}
-                  footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
-                />
-              ) : (
-                <SectionCard hue={theme.accent} label={t.tasksTabToday} count={todayList.length}>
-                  {/* Add row sits between the tasks and the collapsed "Done" zone (DoneSplitList
-                      footer) so the active/white containers stay grouped and green "Done" is last. */}
-                  <DoneSplitList
-                    tasks={todayList}
-                    emptyText={t.noPlansToday}
-                    focusMode={layoutSpec.focusMode}
-                    footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
-                    renderCard={(tk) => (
-                      <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
-                    )}
-                  />
-                </SectionCard>
-              )}
-            </DebugNoteAnchor>
+                )}
+              </DebugNoteAnchor>
+            </TourTarget>
           </>
         )}
 

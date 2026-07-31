@@ -393,6 +393,8 @@ export type Settings = {
   // still counts in the card's own "8/10 left" summary. Nothing in the reminder, widget,
   // sync or automation paths may read this field.
   cardStates: Record<string, string>;
+  /** Guided-tour progress: comma-separated step ids from lib/tourSteps.ts. Device-local. */
+  tourProgress: string;
   /** Habits' Today/Week/Month selector, persisted so it survives a remount. */
   habitViewTab: HabitViewTab;
 };
@@ -491,6 +493,7 @@ function rowToSettings(row: Row): Settings {
     layoutDetail: sanitizeDetailLevel(readStr(row, 'layout_detail', 'normal')),
     cardLayouts: sanitizeCardLayouts(readJson<unknown>(row, 'card_layouts', {})),
     cardStates: sanitizeCardStates(readJson<unknown>(row, 'card_states', {})),
+    tourProgress: readStr(row, 'tour_progress', ''),
     habitViewTab: readEnum<HabitViewTab>(row, 'habit_view_tab', ['today', 'week', 'month'], 'today'),
   };
 }
@@ -573,6 +576,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   layoutDetail: { col: 'layout_detail' },
   cardLayouts: { col: 'card_layouts', to: (v) => JSON.stringify(v) },
   cardStates: { col: 'card_states', to: (v) => JSON.stringify(v) },
+  tourProgress: { col: 'tour_progress' },
   habitViewTab: { col: 'habit_view_tab' },
 };
 
@@ -667,6 +671,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   // Empty = every surface follows 'preview' (lib/padState's DEFAULT_PAD_STATE), which is
   // roughly the card an upgrading user already has.
   cardStates: {},
+  tourProgress: '',
   habitViewTab: 'today' as HabitViewTab,
   loaded: false,
   workModeSessionOverride: false,

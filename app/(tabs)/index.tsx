@@ -133,6 +133,7 @@ import HomeCardManager from '@/components/HomeCardManager';
 import FlightOverlay, { FlightPill, Flight, FlightRect } from '@/components/FlightOverlay';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
+import TourTarget from '@/components/TourTarget';
 import PressableScale from '@/components/PressableScale';
 import { goToSite } from '@/lib/siteNav';
 import { todayStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
@@ -514,27 +515,29 @@ export default function HomeScreen() {
         );
       case 'plans':
         return (
-          <DebugNoteAnchor id="home.plansPreview" label="Home — Plans preview" style={styles.section}>
-            <PlanTaskCard
-              tasks={todayTasks}
-              allTasks={tasks}
-              readOnly
-              onToggleTask={handleToggleTask}
-              onAddTask={handleAddTask}
-              onDeleteTask={handleDeleteTask}
-              deletedTasks={deletedTasks}
-              onRestoreTask={handleRestoreTask}
-              onAddExample={handleAddExampleTask}
-              horizontal={planTimelineHorizontal}
-              // Home's to-do card is its OWN layout surface, separate from the To-do tab
-              // (2026-07-30): the tab defaults to the day timeline, which needs a whole screen
-              // to be readable, while this card defaults to a plain ruled list like its three
-              // siblings. Both offer the other via the layout picker.
-              spec={todoSpec}
-              padState={todoState}
-              onPadStateChange={setTodoState}
-            />
-          </DebugNoteAnchor>
+          <TourTarget id="tour.home.today">
+            <DebugNoteAnchor id="home.plansPreview" label="Home — Plans preview" style={styles.section}>
+              <PlanTaskCard
+                tasks={todayTasks}
+                allTasks={tasks}
+                readOnly
+                onToggleTask={handleToggleTask}
+                onAddTask={handleAddTask}
+                onDeleteTask={handleDeleteTask}
+                deletedTasks={deletedTasks}
+                onRestoreTask={handleRestoreTask}
+                onAddExample={handleAddExampleTask}
+                horizontal={planTimelineHorizontal}
+                // Home's to-do card is its OWN layout surface, separate from the To-do tab
+                // (2026-07-30): the tab defaults to the day timeline, which needs a whole screen
+                // to be readable, while this card defaults to a plain ruled list like its three
+                // siblings. Both offer the other via the layout picker.
+                spec={todoSpec}
+                padState={todoState}
+                onPadStateChange={setTodoState}
+              />
+            </DebugNoteAnchor>
+          </TourTarget>
         );
       case 'habits':
         return (
