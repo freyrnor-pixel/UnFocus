@@ -6,7 +6,11 @@
  * This renders a short explanation plus one or more concrete example rows, inline where the
  * content would be — visible without hunting for the ⓘ pill, and gone the moment the user has
  * content of their own (every caller gates it on a plain `length === 0`, so it also comes back
- * if they later delete everything).
+ * if they later delete everything). **Exception (2026-07-31)**: a caller whose example carries
+ * a real `onAdd` (plans.tsx, health.tsx) keeps this card mounted for the rest of that visit
+ * after the button is pressed — see components/StarterExampleRow's `added` Edit note — instead
+ * of unmounting in the same tick the write flips `length` off zero, which read as the example
+ * just disappearing.
  *
  * Deliberately NOT styled like components/HintCard: on a screen's first visit the ⓘ hint
  * auto-opens (lib/useFirstVisitHint.ts), and two identical accent-barred cards stacked would

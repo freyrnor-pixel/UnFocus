@@ -527,6 +527,11 @@ export default function TasksScreen() {
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   // Inline "add a row" input for the Whenever section — the one add affordance on this screen.
   const [wheneverInput, setWheneverInput] = useState('');
+  // Screen-level StarterCard's example (2026-07-31, user report: it vanished with no feedback
+  // the instant its "+" was pressed, since that write flips `tasks.length` off zero). Keeps the
+  // card mounted, dimmed, for the rest of this visit instead — see addPlanStarterTask below and
+  // components/StarterExampleRow's `added` Edit note.
+  const [planStarterAdded, setPlanStarterAdded] = useState(false);
 
   // Arriving from app/notes.tsx's "Add to plans" (UX audit B1, 2026-07-23): it creates
   // the task then navigates here with the new task's id so its TaskCard editor opens
@@ -752,8 +757,10 @@ export default function TasksScreen() {
   // Empty-state example (2026-07-27): "Tidy up"/"Rydde" — a daily, time-boxed task with
   // steps, chosen over a flat one-liner because it actually demonstrates recurrence +
   // time-boxing + steps, the three things starters.plans.text talks about. Real store
-  // write (not a preview) — tasks.length flips to 1 right after, which unmounts the whole
-  // StarterCard (including this row), so there's no separate "dismiss" needed.
+  // write (not a preview) — tasks.length flips to 1 right after. This card also has an
+  // `onAddExample` copy mounted inside PlanTaskCard's own empty day (see the render block
+  // below); that one is left alone since adding there swaps the placeholder for the real
+  // task list rather than leaving a dead card on screen.
   function addPlanStarterTask() {
     const newTask = addTask({
       title: t.starters.plans.exampleTitle,
@@ -768,6 +775,7 @@ export default function TasksScreen() {
       hasStartDate: true,
     });
     PLAN_STARTER_STEPS.forEach((key) => addTaskStep(newTask.id, t.starters.plans.exampleSteps[key]));
+    setPlanStarterAdded(true);
     success();
   }
 
@@ -840,8 +848,12 @@ export default function TasksScreen() {
             on this tab, an empty day already draws its OWN "Break it into smaller pieces"
             explainer + example row inline where the list would be — this screen-level card
             used to stack a second, near-identical explainer above it (user report, preview
-            screenshot: the same bulb text and example twice in a row). */}
-        {tasks.length === 0 && !(tab === 'today' && layoutSpec.timeline) && (
+            screenshot: the same bulb text and example twice in a row).
+            **Stays mounted through `planStarterAdded` (2026-07-31)**: pressing the example's
+            "+" writes a real task, which flips `tasks.length` off zero in the same tick — without
+            the OR below the card would unmount itself the instant it was used, reading as the
+            example just disappearing. See components/StarterExampleRow's `added` Edit note. */}
+        {(tasks.length === 0 || planStarterAdded) && !(tab === 'today' && layoutSpec.timeline) && (
           <StarterCard
             text={t.starters.plans.text}
             example={
@@ -851,8 +863,9 @@ export default function TasksScreen() {
                 tag={t.starters.exampleLabel}
                 meta="17:00–17:20"
                 accent={wheneverHue}
-                onAdd={addPlanStarterTask}
+                onAdd={planStarterAdded ? undefined : addPlanStarterTask}
                 addLabel={t.starters.addExample}
+                added={planStarterAdded}
               />
             }
           />
