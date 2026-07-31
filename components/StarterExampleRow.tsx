@@ -45,6 +45,14 @@
  *   - There used to be a `compact` chip variant for a `compact` StarterCard. Its only caller
  *     was components/EnergyMeter's disappearing empty-state explainer, which became a
  *     permanent one-line hint with no examples (2026-07-27) — the variant went with it.
+ *   - `added` (2026-07-31, user report: tapping the "+" made the whole example vanish with no
+ *     feedback of what happened): callers used to gate their StarterCard/example on a plain
+ *     `list.length === 0`, so writing the example into the real store flipped that count to 1
+ *     and unmounted the row in the same tick — see StarterCard's Edit notes for why that read
+ *     as the example just disappearing rather than "added". Callers now keep the row mounted
+ *     for the rest of that visit and pass `added` instead: the row dims (`opacity: 0.5`) and
+ *     the "+" is replaced with a static, non-pressable checkmark — same geometry, so nothing
+ *     reflows. `onAdd` is ignored while `added` is true (the row has nothing left to add).
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -75,12 +83,15 @@ type Props = {
   onAdd?: () => void;
   /** Accessibility-label prefix for the add button, e.g. "Add" → "Add Milk". */
   addLabel?: string;
+  /** Already written to the real store this visit — dims the row and swaps the "+" for a
+   *  static checkmark instead of unmounting (see Edit notes). */
+  added?: boolean;
 };
 
-export default function StarterExampleRow({ icon, title, tag, meta, metaVariant = 'neutral', accent, onAdd, addLabel }: Props) {
+export default function StarterExampleRow({ icon, title, tag, meta, metaVariant = 'neutral', accent, onAdd, addLabel, added }: Props) {
   const theme = useAppTheme();
   return (
-    <View style={[styles.row, { backgroundColor: rgba(accent, 0.05), borderColor: rgba(accent, 0.2) }]}>
+    <View style={[styles.row, { backgroundColor: rgba(accent, 0.05), borderColor: rgba(accent, 0.2) }, added && styles.rowAdded]}>
       <View style={[styles.iconWrap, { borderColor: accent }]}>
         <Ionicons name={icon} size={13} color={accent} />
       </View>
@@ -93,7 +104,11 @@ export default function StarterExampleRow({ icon, title, tag, meta, metaVariant 
         {title}
       </Text>
       {meta ? <Badge label={meta} variant={metaVariant} /> : null}
-      {onAdd ? (
+      {added ? (
+        <View style={[styles.addBtn, { borderColor: theme.textMuted }]}>
+          <Ionicons name="checkmark" size={14} color={theme.textMuted} />
+        </View>
+      ) : onAdd ? (
         <PressableScale
           onPress={onAdd}
           scaleTo={0.9}
@@ -119,6 +134,11 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.sm,
+  },
+  // Already added this visit — dimmed, not a fifth row style, just a faded version of the
+  // same one (see the `added` Edit note).
+  rowAdded: {
+    opacity: 0.5,
   },
   iconWrap: {
     width: 22,

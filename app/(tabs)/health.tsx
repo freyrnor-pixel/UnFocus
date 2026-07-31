@@ -113,6 +113,10 @@ export default function HealthScreen() {
   const [quickSeverity, setQuickSeverity] = useState(3);
   const [quickStartTime, setQuickStartTime] = useState('');
   const [quickDuration, setQuickDuration] = useState('');
+  // StarterCard's example (2026-07-31, user report: it vanished with no feedback the instant
+  // its "+" was pressed, since that write flips `logs.length` off zero). Keeps the card
+  // mounted, dimmed, for the rest of this visit instead — see addHealthStarterLog below.
+  const [healthStarterAdded, setHealthStarterAdded] = useState(false);
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -158,8 +162,7 @@ export default function HealthScreen() {
   }
 
   // Empty-state example (2026-07-27): logs a real entry (today, now, severity 3) via the
-  // same ensureSymptom+add pair handleQuickLog uses — logs.length flips to 1 right after,
-  // which unmounts the whole StarterCard, so there's no separate "dismiss" needed.
+  // same ensureSymptom+add pair handleQuickLog uses — logs.length flips to 1 right after.
   function addHealthStarterLog() {
     const sym = ensureSymptom(t.starters.health.exampleTitle);
     addLog({
@@ -173,6 +176,7 @@ export default function HealthScreen() {
       notes: '',
       medicineId: '',
     });
+    setHealthStarterAdded(true);
     success();
   }
 
@@ -217,8 +221,13 @@ export default function HealthScreen() {
           {/* First-run explainer (2026-07-26): why to log at the moment it happens rather
               than from memory, plus what an entry looks like. Gated on the whole log being
               empty (not just this week's), so a user with history doesn't see it on a quiet
-              week — and it returns if every entry is later deleted. */}
-          {logs.length === 0 && (
+              week — and it returns if every entry is later deleted.
+              **Stays mounted through `healthStarterAdded` (2026-07-31)**: pressing the
+              example's "+" writes a real log, which flips `logs.length` off zero in the same
+              tick — without the OR below the card would unmount itself the instant it was
+              used, reading as the example just disappearing. See
+              components/StarterExampleRow's `added` Edit note. */}
+          {(logs.length === 0 || healthStarterAdded) && (
             <StarterCard
               text={t.starters.health.text}
               example={
@@ -229,8 +238,9 @@ export default function HealthScreen() {
                   meta="3/5"
                   metaVariant="warning"
                   accent={SEVERITY_COLORS[2]}
-                  onAdd={addHealthStarterLog}
+                  onAdd={healthStarterAdded ? undefined : addHealthStarterLog}
                   addLabel={t.starters.addExample}
+                  added={healthStarterAdded}
                 />
               }
             />
