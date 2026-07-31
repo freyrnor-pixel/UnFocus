@@ -185,7 +185,8 @@
  *     container became the same colour. Both now carry a `theme.border` (or `theme.accent` when
  *     active) outline, matching the border `peopleChip`/`peopleAddBtn` already had.
  *   - **Feature toggles live in ONE place (2026-07-25)**: `FEATURE_ROWS` below is the whole
- *     list of plain on/off switches — currently Goals, Sharing & QR, Automations, Medicine. To add
+ *     list of plain on/off switches — currently Goals, Sharing & QR, Automations, Medicine,
+ *     and (2026-07-31) Bonsai/points (showPoints — see lib/bonsai.ts). To add
  *     one: add the flag to store/useSettingsStore.ts, append its `ALTER TABLE` (+ a
  *     back-fill UPDATE if it needs to default differently for existing vs. fresh installs)
  *     to lib/db.ts's migrations array, add a `config.features.*` entry in BOTH languages,
@@ -275,12 +276,13 @@ const TAB_BAR_HEIGHT = 48;
  * isn't offered as a picker row since "on by default" doesn't fit that screen's
  * opt-in framing — it's still switchable here.
  */
-type FeatureFlagKey = 'featureGoals' | 'featureSharing' | 'featureAutomations' | 'featureMedicine';
+type FeatureFlagKey = 'featureGoals' | 'featureSharing' | 'featureAutomations' | 'featureMedicine' | 'showPoints';
 const FEATURE_ROWS: { key: FeatureFlagKey; copy: (t: ReturnType<typeof useT>) => { label: string; hint: string } }[] = [
   { key: 'featureGoals', copy: (t) => t.config.features.goals },
   { key: 'featureSharing', copy: (t) => t.config.features.sharing },
   { key: 'featureAutomations', copy: (t) => t.config.features.automations },
   { key: 'featureMedicine', copy: (t) => t.config.features.medicine },
+  { key: 'showPoints', copy: (t) => t.config.features.bonsai },
 ];
 
 /** Format an ISO auto-backup timestamp as "YYYY-MM-DD HH:MM" (local time). */

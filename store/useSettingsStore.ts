@@ -34,6 +34,9 @@
  * completed-task count, maintained by store/useTaskStore.ts so it survives
  * pruneOldData() pruning old completed tasks out of the `tasks` table; read
  * directly by app/(tabs)/index.tsx.
+ * lifetimeBonsaiPoints (2026-07-31) is the same shape of counter for the Bonsai/points
+ * reward system — maintained by store/useHabitStore.ts, read by components/BonsaiCard.tsx
+ * via lib/bonsai.ts. showPoints gates the card that shows it (see that field's own doc).
  * photoAspectRatio (aspect-ratio formats pass) is the app-wide default format for
  * photo tiles — see components/PhotoFrame.tsx and constants/theme.ts's AspectRatio map.
  * featureGoals/featureSharing/featureScan/featureFood/featureAutomations (2026-07-25,
@@ -54,7 +57,7 @@
  *
  * Connections:
  *   Imports → lib/dataAccess, lib/id, lib/medicineSchedule (TrayTimes + its normalizer/defaults), constants/theme (AspectRatioKey)
- *   Used by → app/_layout.tsx, app/budget.tsx, app/first-run.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/medicine-form.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/MedicineTrayCard.tsx, components/ParticleBackground.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/first-run.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/(tabs)/habits.tsx, app/index.tsx, app/medicine-form.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/BonsaiCard.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/MedicineTrayCard.tsx, components/ParticleBackground.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns the single-row SQLite table settings (id = 1)
  *
  * Edit notes:
@@ -78,9 +81,13 @@
  *     drops columns) so the features can be built later without a migration dance:
  *     `workModeEnabled`, `enforceWorkHours`, `workHoursStart`, `workHoursEnd`, `workDays`,
  *     `holidaysEnabled`, `schoolModeEnabled`, `childMode`, `childModePasswordSet`,
- *     `showPoints`, `showHints`, `backgroundLocationEnabled`, `monthlyBudgetNok`
+ *     `showHints`, `backgroundLocationEnabled`, `monthlyBudgetNok`
  *     (superseded by per-list budgets in store/useMonthlyListStore.ts). Do NOT wire new
  *     UI to these without building the behaviour they imply.
+ *   - **`showPoints` LEFT the inert list on 2026-07-31** — exactly the "build the behaviour
+ *     it implies" case the note above anticipates. It's now the Bonsai/points feature flag
+ *     (see its own field doc, near `lifetimeCompletedTasks`/`lifetimeBonsaiPoints`) — a real
+ *     off-by-default opt-in, same shape as featureSharing/featureAutomations.
  *   - **`childProfiles` joined the inert list on 2026-07-28** — a third flavour: it holds
  *     real user data that was MIGRATED rather than abandoned. The People registry
  *     (store/usePeopleStore.ts) read this `string[]` of names once, on an app_meta-gated
@@ -176,6 +183,12 @@ export type Settings = {
   workHoursEnd: string;
   enforceWorkHours: boolean;
   workDays: number[];
+  // LIVE again as of 2026-07-31 — was inert (see the removed 2026-07-25 note), now the
+  // feature flag for the Bonsai/points reward system (components/BonsaiCard.tsx,
+  // lib/bonsai.ts): off-by-default opt-in, offered in app/onboarding/features.tsx and
+  // Settings → Advanced → Features (FEATURE_ROWS). Gates the CARD only — points still
+  // accumulate in lifetimeBonsaiPoints while off, so turning it back on restores the
+  // tree's full progress untouched (same rule as every other feature flag here).
   showPoints: boolean;
   showHints: boolean;
   language: Language;
@@ -296,6 +309,12 @@ export type Settings = {
   // store/useTaskStore.ts at the same sites that fire the 'task_completed'
   // automation trigger (plus remove()/clearAll()); read directly by app/(tabs)/index.tsx.
   lifetimeCompletedTasks: number;
+  // All-time Bonsai/points counter (2026-07-31) — same "persisted, survives log pruning"
+  // shape as lifetimeCompletedTasks above. Incremented by store/useHabitStore.ts's
+  // increment() on a not-met→met transition; never decremented (no punishment — see
+  // lib/bonsai.ts). Drives the Bonsai tree's growth stage on the Habits tab, gated on
+  // showPoints below.
+  lifetimeBonsaiPoints: number;
   // Default aspect-ratio format for photo tiles (components/PhotoFrame.tsx) app-wide —
   // 'fit' shows a photo's natural proportions; the others center-crop to a fixed ratio.
   // A per-call `format` prop can still override this for a specific tile.
@@ -440,6 +459,7 @@ function rowToSettings(row: Row): Settings {
     energyMode: readEnum<EnergyMode>(row, 'energy_mode', ['daily', 'weekly', 'custom'], 'daily'),
     energyCustomCapacities: readJson<number[]>(row, 'energy_custom_capacities', [10, 10, 10, 10, 10, 10, 10]),
     lifetimeCompletedTasks: readInt(row, 'lifetime_completed_tasks', 0),
+    lifetimeBonsaiPoints: readInt(row, 'lifetime_bonsai_points', 0),
     photoAspectRatio: readEnum<AspectRatioKey>(
       row,
       'photo_aspect_ratio',
@@ -526,6 +546,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   energyMode: { col: 'energy_mode' },
   energyCustomCapacities: { col: 'energy_custom_capacities', to: (v) => JSON.stringify(v) },
   lifetimeCompletedTasks: { col: 'lifetime_completed_tasks' },
+  lifetimeBonsaiPoints: { col: 'lifetime_bonsai_points' },
   photoAspectRatio: { col: 'photo_aspect_ratio' },
   featureGoals: { col: 'feature_goals', to: bool },
   featureSharing: { col: 'feature_sharing', to: bool },
@@ -609,6 +630,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   energyMode: 'daily' as EnergyMode,
   energyCustomCapacities: [10, 10, 10, 10, 10, 10, 10],
   lifetimeCompletedTasks: 0,
+  lifetimeBonsaiPoints: 0,
   photoAspectRatio: 'fit' as AspectRatioKey,
   // Feature flag defaults. These only apply before load() resolves the real row, and
   // the app doesn't render past the `loaded` gate until it has — so a user whose

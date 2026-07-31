@@ -1015,6 +1015,12 @@ export function initDb() {
     // navigator's initialRouteName, via START_SCREEN_ROUTES in lib/firstRunOptions.ts.
     // Presentation only: every tab is one tap away whatever this says.
     `ALTER TABLE settings ADD COLUMN start_screen TEXT DEFAULT 'home'`,
+    // Bonsai/points reward system (2026-07-31, lib/bonsai.ts + components/BonsaiCard.tsx):
+    // gated on the pre-existing `show_points` column (was inert, now the live feature flag —
+    // see store/useSettingsStore.ts's "Inert columns" note). All-time habit-met points,
+    // same "persisted counter that survives pruneOldData() pruning old habit_logs" pattern
+    // as lifetime_completed_tasks above — never decremented, only ever grows.
+    "ALTER TABLE settings ADD COLUMN lifetime_bonsai_points INTEGER DEFAULT 0",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
