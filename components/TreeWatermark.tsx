@@ -7,8 +7,11 @@
  *
  * Connections:
  *   Imports → assets/android-icon-monochrome.png
- *   Used by → app/onboarding/_layout.tsx (faint centered intro backdrop),
- *             components/SectionDivider.tsx (tiny inline divider mark)
+ *   Used by → app/onboarding/_layout.tsx (faint centered intro backdrop)
+ *
+ * Note (2026-07-31): components/SectionDivider.tsx no longer uses this — it draws the
+ * `trunk-divider` motif instead, which fixed the invisible-mark problem described below by
+ * removing the mark rather than re-tinting it. This component is now down to one caller.
  *
  * Edit notes:
  *   - Always pointerEvents="none" — purely decorative, must never block taps.
