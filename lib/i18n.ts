@@ -459,6 +459,44 @@ const en = {
       shopping: 'Your shopping lists.',
     },
   },
+  // The guided tour (components/TourSpotlight.tsx + lib/tourSteps.ts) — one step per feature,
+  // running on the real app. It replaced an 8-page slideshow that described features on cards
+  // the user could not touch. Every step is skippable on its own AND the whole tour can be
+  // dismissed from any step, so nothing here should read as a requirement or a checklist.
+  tour: {
+    step: (n: number, total: number) => `${n} of ${total}`,
+    next: 'Got it',
+    skipStep: 'Skip this',
+    skipAll: 'Skip the tour',
+    steps: {
+      home: {
+        title: 'Home is the day at a glance',
+        body: 'Whatever is happening today gathers here — to-dos, shopping, habits. Hold a card to move it, so the thing you look at most sits at the top.',
+      },
+      plans: {
+        title: 'To-do holds what today needs',
+        body: 'Add one thing you want to get done. Small is good — a task you can finish beats a task you keep rewriting.',
+      },
+      shopping: {
+        title: 'Shopping resets itself',
+        body: 'A weekly list for groceries and a monthly one for what the house needs. Tick things off as you go; the weekly list starts fresh on the day you choose.',
+      },
+      habits: {
+        title: 'Habits, one day at a time',
+        body: 'Pick one to start with. There is no streak to lose here — a quiet day is just a quiet day.',
+      },
+      health: {
+        title: 'Health notices patterns',
+        body: 'Log a symptom or how you slept, and the trends build up over time. Medicine sits here too, in morning, midday, evening and night trays.',
+      },
+    },
+    finale: {
+      title: 'That is the tour',
+      body: 'Everything else is reachable from these five tabs, and each screen has an ⓘ button with tips and settings for that screen.',
+      experimental: 'UnFocus is a work in progress. Things may change, move or arrive half-finished — that is expected. Everything stays on your phone, and all feedback shapes what comes next.',
+      done: 'Start using the app',
+    },
+  },
   // The Basics screen (app/onboarding/basics.tsx) — the six setup rows on one screen. Most of
   // its copy is REUSED from firstRun.* above, so a value described here and the same value in
   // Settings say the same words. Only the row labels and the two rows that had no wizard step
@@ -2072,6 +2110,40 @@ const no: typeof en = {
       home: 'Dagen i et overblikk.',
       plans: 'Dagens gjøremålsliste.',
       shopping: 'Handlelistene dine.',
+    },
+  },
+  tour: {
+    step: (n: number, total: number) => `${n} av ${total}`,
+    next: 'Skjønner',
+    skipStep: 'Hopp over denne',
+    skipAll: 'Hopp over omvisningen',
+    steps: {
+      home: {
+        title: 'Hjem er dagen i et overblikk',
+        body: 'Det som skjer i dag samles her — gjøremål, handling, vaner. Hold på et kort for å flytte det, så det du ser mest på ligger øverst.',
+      },
+      plans: {
+        title: 'Gjøremål holder på det dagen trenger',
+        body: 'Legg inn én ting du vil få gjort. Lite er bra — et gjøremål du blir ferdig med slår et du stadig skriver om.',
+      },
+      shopping: {
+        title: 'Handlelisten nullstiller seg selv',
+        body: 'En ukeliste til dagligvarer og en månedsliste til det huset trenger. Kryss av mens du går; ukelisten starter på nytt på dagen du velger.',
+      },
+      habits: {
+        title: 'Vaner, én dag om gangen',
+        body: 'Velg én å begynne med. Det finnes ingen rekke å miste her — en rolig dag er bare en rolig dag.',
+      },
+      health: {
+        title: 'Helse legger merke til mønstre',
+        body: 'Loggfør et symptom eller hvordan du sov, så bygger trendene seg opp over tid. Medisiner ligger her også, i morgen-, midt på dagen-, kvelds- og nattbrett.',
+      },
+    },
+    finale: {
+      title: 'Det var omvisningen',
+      body: 'Alt annet er tilgjengelig fra disse fem fanene, og hver skjerm har en ⓘ-knapp med tips og innstillinger for den skjermen.',
+      experimental: 'UnFocus er under arbeid. Ting kan endre seg, flytte på seg eller komme halvferdig — det er forventet. Alt blir på telefonen din, og alle tilbakemeldinger former det som kommer.',
+      done: 'Begynn å bruke appen',
     },
   },
   basics: {

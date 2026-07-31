@@ -201,6 +201,7 @@ import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav, { BOTTOM_NAV_HEIGHT, NAV_FLOAT_GAP } from '@/components/BottomNav';
 import ScreenBackground from '@/components/ScreenBackground';
+import TourSpotlight from '@/components/TourSpotlight';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
 import { useAccessibility } from '@/lib/useAppTheme';
@@ -498,6 +499,11 @@ export default function TabsLayout() {
         </TopTabs>
 
         <PagerFloatingNav activeRouteName={activeRouteName} insetsBottom={insets.bottom} navigationRef={navigationRef} />
+
+        {/* The guided tour's overlay, mounted LAST so its scrim covers the pager AND the
+            floating bottom nav. It renders null unless a tour is actually running, which on a
+            fresh install is the window between finishing onboarding and dismissing the tour. */}
+        <TourSpotlight />
       </View>
   );
 }

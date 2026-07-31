@@ -1026,6 +1026,13 @@ export function initDb() {
     // an append-only log, so the names stay — do NOT edit this line to match the new
     // fields; the FieldMap in store/useSettingsStore.ts is what maps them.
     "ALTER TABLE settings ADD COLUMN lifetime_bonsai_points INTEGER DEFAULT 0",
+    // Guided-tour progress (2026-07-31) — a comma-separated set of completed/skipped step ids
+    // (lib/tourSteps.ts), same storage shape as tasks.tag_ids. Device-local: it is where you
+    // are in a walkthrough, not configuration, so it is deliberately NOT synced and NOT part
+    // of the AI setup guide. Existing users are back-filled to 'dismissed' below so the tour
+    // only ever greets a genuinely new install.
+    "ALTER TABLE settings ADD COLUMN tour_progress TEXT DEFAULT ''",
+    "UPDATE settings SET tour_progress = 'dismissed' WHERE setup_complete = 1",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

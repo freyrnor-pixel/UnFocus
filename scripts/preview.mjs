@@ -80,6 +80,22 @@ async function dismissModalIfPresent(page) {
   }
 }
 
+/**
+ * Dismiss the guided tour if it is on screen.
+ *
+ * Only needed after a page.goBack(), which reloads the document and so resets the in-memory
+ * web DB — reviving a tour that was already dismissed. Its scrim is a full-screen set of views
+ * that swallows whatever click comes next, and the resulting failure ("some empty div
+ * intercepts pointer events") points nowhere near the cause.
+ */
+async function dismissTour(page) {
+  const skip = page.getByText('Skip the tour', { exact: true }).first();
+  if (await skip.isVisible().catch(() => false)) {
+    await skip.click({ timeout: 10000 });
+    await page.waitForTimeout(600);
+  }
+}
+
 async function main() {
   const browser = await chromium.launch({
     executablePath: CHROMIUM_PATH,
@@ -169,6 +185,31 @@ async function main() {
     await clickText(page, "Let's go! 🌿");
     await page.waitForTimeout(1800);
 
+    // The guided tour (2026-07-31) starts as soon as onboarding finishes: one spotlight step
+    // per tab, walking itself to each screen. It has to be walked (or dismissed) here or its
+    // scrim would sit over every tab screenshot below. Stepped with "Got it" rather than
+    // "Skip the tour" so the shots cover each step AND the self-navigation is exercised.
+    // The cap is a runaway guard — keep it above TOUR_STEPS.length.
+    console.log('> guided tour');
+    for (let i = 0; i < 8; i++) {
+      const onFinale = await page
+        .getByText('Start using the app', { exact: true })
+        .first()
+        .isVisible()
+        .catch(() => false);
+      if (onFinale) {
+        await shot(page, 'tour-finale');
+        await clickText(page, 'Start using the app');
+        break;
+      }
+      const more = await page.getByText('Got it', { exact: true }).first().isVisible().catch(() => false);
+      if (!more) break;
+      await shot(page, `tour-${i}`);
+      await clickText(page, 'Got it');
+      await page.waitForTimeout(700);
+    }
+    await page.waitForTimeout(1200);
+
     console.log('> Home');
     await shot(page, 'home');
 
@@ -192,8 +233,15 @@ async function main() {
     await page.getByRole('button', { name: 'Food', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await shot(page, 'food');
+    // page.goBack() is the ONLY way back from a pushed sub-screen here: ScreenHeader renders
+    // its back link on iOS only, so on web there is no in-app affordance to click. But
+    // goBack() is a history navigation that reloads the document, and the web DB is in-memory
+    // sql.js (lib/sqlite.web.ts) — so every store resets, which revives the guided tour this
+    // walk already dismissed and lets its scrim swallow the next click. dismissTour() puts it
+    // back to sleep. Native is unaffected: there the DB is a real file.
     await page.goBack();
     await page.waitForTimeout(800);
+    await dismissTour(page);
 
     console.log('> Shopping -> Catalogue button');
     await page.getByRole('button', { name: 'Catalogue', exact: true }).first().click({ timeout: 10000 });
@@ -201,6 +249,7 @@ async function main() {
     await shot(page, 'catalogue');
     await page.goBack();
     await page.waitForTimeout(800);
+    await dismissTour(page);
 
     // Card layouts (2026-07-27): open Shopping's layout picker from the header, switch to a
     // surface-specific layout and then to the sparsest one, confirming both that the picker
@@ -398,6 +447,7 @@ async function main() {
     if (!formRendered) pageErrors.push('The medicine form did not render its tray picker');
     await page.goBack();
     await page.waitForTimeout(800);
+    await dismissTour(page);
 
     // Sub-tier header check (HEADER_CLIP_DEBUG.md): Settings was reported to show NO
     // header at all on device, and this walk never visited a sub-tier screen before —
