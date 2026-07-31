@@ -26,7 +26,7 @@ decision — flagged, code deliberately unchanged, needs a maintainer ruling).
 | 4 | One idea per row | PASS |
 | 5 | Whitespace over lines | **CONFLICT #8** |
 | 6 | Exactly one primary action per screen | PASS (with one note) |
-| 7 | Order by what's needed first | **OPEN** |
+| 7 | Order by what's needed first | **FIXED** (2026-08-01) |
 | 8 | Same element, same position | PASS |
 | 9 | Nothing jumps after load | **CONFLICT #8** |
 | 10 | AA contrast | **FIXED** |
@@ -49,6 +49,37 @@ decision — flagged, code deliberately unchanged, needs a maintainer ruling).
 ---
 
 ## FIXED in this pass
+
+### Rule 7 — content ordered by category, not by need (To-do tab) — fixed 2026-08-01
+
+Was OPEN in the 2026-07-30 pass: on `app/(tabs)/plans.tsx`, the **Whenever** card (the no-date
+backlog — by definition the least time-sensitive thing on the screen) rendered *above* the day's
+own content on **Today** and above the weekday groups on **This week**. In the preview
+walkthrough it took the top third of the screen showing "Whenever 0 / Nothing here yet", pushing
+today's actual list below it, on a tab whose name is Today. Rule 7's example is literally
+"today → next action → everything else".
+
+Fixed deliberately, as its own change rather than a drive-by:
+
+- **Today** and **This week** now render their own content first; Whenever follows as a
+  **collapsed drawer** (header + count visible, body behind a chevron, default closed).
+- The drawer is the *same* mechanism as the neighbouring "Done (n)" zone — `PressableScale` +
+  `SectionRail` + `AnimatedChevron` + `components/Collapsible`, wrapped in a `Surface` shell that
+  matches `SectionCard`'s box — so both fold-aways read as one pattern (local `CollapsedSection`
+  in `plans.tsx`).
+- **All tasks is unchanged**: Whenever stays expanded at the top there, where it is a real
+  section of the content rather than an interruption.
+- The `Now and next` / `One thing at a time` interaction the original entry worried about is
+  intact: `focusFirst` still drops the Whenever section from Today entirely (that predates this
+  change), and `focusMode` still truncates the drawer's rows exactly as before.
+- Presentation only: nothing was filtered or rescheduled, and every row in the drawer keeps its
+  reminders and its place in the section count. Its ids left `visibleTaskIds` for the same reason
+  finished rows are excluded — a permanently-collapsed row can't be a difference between two
+  layouts, and glowing one nobody can see would be worse than not glowing it.
+
+The related **rule 15** note below ("Whenever 0" rendered at heading size while empty) is reduced
+by the same change — the heading is still heading-sized, but it is no longer the first thing on
+the tab and no longer occupies a screenful with nothing in it.
 
 ### Rule 10 — contrast: the semantic trio failed AA as text
 
@@ -118,18 +149,6 @@ reduce-motion plus a user setting).
 ---
 
 ## OPEN — real gaps, nothing blocking them
-
-### Rule 7 — content is ordered by category, not by need (To-do tab)
-
-On `app/(tabs)/plans.tsx`'s **Today** tab, the **Whenever** card (the no-date backlog —
-by definition the least time-sensitive thing on the screen) renders *above* the day's own
-content. In the preview walkthrough it occupies the top third of the screen showing
-"Whenever 0 / Nothing here yet", pushing today's actual list below it. Rule 7's example is
-literally "today → next action → everything else".
-
-Not fixed here because it's a section-order change to a tab the user reads daily, and it
-interacts with the `Now and next` / `One thing at a time` layouts, which already reorder
-this surface. Worth doing deliberately, not as a drive-by in a tokens pass.
 
 ### Rule 15 — two focal points on Home, one spent on an empty section
 

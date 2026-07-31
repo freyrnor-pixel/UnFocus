@@ -8,6 +8,13 @@
  * (app/health-log.tsx), for browsing history or adding a multi-field entry
  * (severity/dates/notes) via app/health-form.tsx.
  *
+ * Card order (2026-08-01, addendum B.2): first-run explainer → **Quick log** → Medicine trays →
+ * This week + the full-log link. Quick log leads because writing down what is happening right
+ * now is the unplanned reason this tab gets opened, and the only thing here that is lost by not
+ * being recorded; the trays are a standing surface a reminder already brings you to. Quick log
+ * stays a CARD rather than a one-line strip — it is four fields (name / start time / duration /
+ * severity), three of which unfold once the name is non-empty, so a strip would only hide them.
+ *
  * A "Quick log" card above the weekly summary (2026-07-23) lets an occurrence be
  * recorded straight from this tab: type a name, then optionally set start time,
  * duration, and severity — it saves instantly (dated today, no notes) — no
@@ -19,11 +26,10 @@
  * are the fields users actually reach for at log time, per user feedback that
  * hiding them behind the full form made quick-logging feel incomplete.)
  *
- * **Medicine trays (2026-07-27)**: components/MedicineTrayCard.tsx sits between the
- * first-run explainer and Quick log — four time-of-day trays (morning/midday/evening/night)
- * with tap-to-take dose logging, one reminder per tray, and as-needed medicines guarded by a
- * minimum gap. It sits ABOVE Quick log because doses are the time-sensitive, recurring reason
- * to open this tab, while symptom logging is reactive. Symptom entries can optionally be
+ * **Medicine trays (2026-07-27)**: components/MedicineTrayCard.tsx — four time-of-day trays
+ * (morning/midday/evening/night) with tap-to-take dose logging, one reminder per tray, and
+ * as-needed medicines guarded by a minimum gap. It sat ABOVE Quick log until 2026-08-01 and now
+ * sits directly below it (see "Card order" above). Symptom entries can optionally be
  * attributed to a medicine (`health_logs.medicine_id`, picked in app/health-form.tsx), which
  * is what makes "this med gives me stomach issues" visible on the medicine's own page.
  * Gated on settings.featureMedicine (on by default, still a real toggle).
@@ -245,15 +251,20 @@ export default function HealthScreen() {
             />
           )}
 
-          {/* Medicine trays (2026-07-27) — placed ABOVE Quick log deliberately: doses are the
-              time-sensitive, recurring thing you open this tab for, while symptom logging is
-              reactive. Gated on settings.featureMedicine (on by default, Settings → Advanced →
-              Features); the card handles its own empty state, so it isn't gated on having
-              medicines. */}
-          {featureMedicine && <MedicineTrayCard />}
+          {/* Ongoing-episode prompt goes HERE (addendum phase 3, not built): a resume/close
+              prompt for an entry that was started and never ended belongs above Quick log,
+              since it is about an episode already in progress rather than a new one. Nothing
+              is wired for it yet — this is a placement note only. */}
 
           {/* Quick log — essentials-only instant record (name + start time + duration +
-              severity, dated today). */}
+              severity, dated today).
+              **Above the Medicine card as of 2026-08-01** (addendum B.2): logging what is
+              happening right now is the reason this tab gets opened unplanned, and it is the
+              only thing on the screen that can be lost by not being written down — the trays
+              are a standing, all-day surface that a reminder already brings you to. It stays a
+              CARD and was not thinned into a one-line strip: the addendum's strip proposal
+              assumed one field, and this is four (name, start time, duration, severity), three
+              of which unfold once the name is non-empty. */}
           <TourTarget id="tour.health.log">
             <DebugNoteAnchor id="health.quickLog" label="Health — Quick log">
             <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
@@ -329,6 +340,14 @@ export default function HealthScreen() {
             </Surface>
             </DebugNoteAnchor>
           </TourTarget>
+
+          {/* Medicine trays (2026-07-27; moved BELOW Quick log 2026-08-01) — gated on
+              settings.featureMedicine (on by default, Settings → Advanced → Features); the card
+              handles its own empty state, so it isn't gated on having medicines. It sat above
+              Quick log on the reasoning that doses are the time-sensitive, recurring reason to
+              open this tab — but that recurring-ness is exactly what a tray reminder already
+              handles, while an unlogged symptom is gone once the moment passes. */}
+          {featureMedicine && <MedicineTrayCard />}
 
           {/* This week — debug notes: one anchor per region (the card, not its inner rows). */}
           <DebugNoteAnchor id="health.overview" label="Health — This week">
