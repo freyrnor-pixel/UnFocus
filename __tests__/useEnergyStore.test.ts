@@ -7,7 +7,6 @@
  * Mocks '@/lib/db' (same headless idiom as settingsStore.test.ts) since useEnergyStore
  * persists overrides through lib/dataAccess.
  */
-import db from '@/lib/db';
 import { useEnergyStore } from '@/store/useEnergyStore';
 import { useSettingsStore, EnergyMode } from '@/store/useSettingsStore';
 

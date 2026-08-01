@@ -20,7 +20,8 @@
  * Connections:
  *   Imports → constants/theme (getGlow, Radius), lib/useAppTheme (useAppTheme/useAccessibility),
  *             react-native-reanimated
- *   Used by → components/ShoppingRow.tsx (row + field-level), components/TaskCard.tsx (row)
+ *   Used by → components/ShoppingRow.tsx (row + field-level), components/TaskCard.tsx (row +
+ *             field-level, 2026-08-01 — time label, assignee cue, tag pills, goal dot)
  *   Data    → none — `active`/`suppressed` are decided by lib/useNewSinceSeen.ts upstream
  *
  * Edit notes:

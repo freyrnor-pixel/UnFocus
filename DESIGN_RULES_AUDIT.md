@@ -221,17 +221,27 @@ probably not what was meant.
 Not part of the rules, but discovered while deciding where to point them — several
 `*_LIBRARY.md` files have drifted from `constants/`:
 
-| Doc | Claims | Actual |
-|---|---|---|
-| `SPACING_LAYOUT_LIBRARY.md` | `Radius.sm` 10, `md` 18, `lg` 26 | 12 / 16 / 24 |
-| `COLOR_THEME_LIBRARY.md` | 6 colour themes; `theme.orange`, `theme.cream` | `ThemeName = 'default'`; tokens are `accent`, `bg`, `surface` |
-| `TYPOGRAPHY_LIBRARY.md` | 7 sizes / 5 weights as the standard | Accurate, but conflicts with rules 14/16 (see #3/#4) |
-| `AGENTS.md` | references `npm run wraps:all` | No such script |
-| `DESIGN_SYSTEM_IMPLEMENTATION.md` | already flagged frozen/stale by the index | Still present; flagged for deletion |
+| Doc | Claims | Actual | Status |
+|---|---|---|---|
+| `SPACING_LAYOUT_LIBRARY.md` | `Radius.sm` 10, `md` 18, `lg` 26 | 12 / 16 / 24 | **Fixed 2026-08-01** |
+| `COLOR_THEME_LIBRARY.md` | 6 colour themes; `theme.orange`, `theme.cream` | `ThemeName = 'default'`; tokens are `accent`, `bg`, `surface` | **Rewritten 2026-08-01** (STALE_CODE_AUDIT.md) |
+| `TYPOGRAPHY_LIBRARY.md` | 7 sizes / 5 weights as the standard | Accurate, but conflicts with rules 14/16 (see #3/#4) | Open — not a factual error, a rule conflict |
+| ~~`AGENTS.md` references `npm run wraps:all`~~ | — | This row was itself stale: current `AGENTS.md` only references `npm run wraps` | **Removed 2026-08-01** — no longer true |
+| `DESIGN_SYSTEM_IMPLEMENTATION.md` | already flagged frozen/stale by the index | Was still present 5+ weeks after being flagged | **Deleted 2026-08-01** (STALE_CODE_AUDIT.md) |
 
 This is exactly why `DESIGN_RULES.md` points at `constants/` and at tests rather than
-restating numbers. Fixing these is a separate, uncontroversial cleanup — not done here to
-keep this pass reviewable.
+restating numbers.
+
+**Not yet fixed (found 2026-08-01, larger scope):** the same dead pre-rebuild token names
+(`theme.white`, `theme.cream`, `theme.orange`, `theme.gray`, etc.) that made
+`COLOR_THEME_LIBRARY.md` and `SPACING_LAYOUT_LIBRARY.md` wrong also appear in code samples
+across `BUTTON_LIBRARY.md` (16 occurrences), `CARD_CONTAINER_LIBRARY.md` (23),
+`ICON_LIBRARY.md` (10), `SHADOW_ELEVATION_LIBRARY.md` (9), and `FORM_PATTERNS_LIBRARY.md`
+(4). Left alone here deliberately — reconciling five more libraries is a bigger, separate
+pass, not a quick token swap, and doing it hastily risks introducing the kind of error this
+table exists to catch. (`PROGRESS_LOG.md` and `REBUILD_DECISIONS.md` also contain many of
+these names, but correctly so — they're dated history describing what was true at the time
+and should not be rewritten.)
 
 ---
 

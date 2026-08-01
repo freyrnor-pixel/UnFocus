@@ -51,13 +51,13 @@
 
 ## Key Principle
 
-**Single source of truth**: Each visual aspect documented once in `constants/theme.ts`. Change that one place → all screens inherit the update. Never hardcode hex, sizes, or spacing — always use tokens (`Spacing.md`, `FontSize.lg`, `theme.orange`, etc.).
+**Single source of truth**: Each visual aspect documented once in `constants/theme.ts`. Change that one place → all screens inherit the update. Never hardcode hex, sizes, or spacing — always use tokens (`Spacing.md`, `FontSize.lg`, `theme.accent`, etc.).
 
 ---
 
 **Related docs**: DESIGN_RULES.md, DESIGN_RULES_AUDIT.md, ANIMATION_GUIDELINES.md, AGENTS.md
 
-> `DESIGN_SYSTEM_IMPLEMENTATION.md` is a frozen 2026-06-25 checklist from an earlier,
-> now-superseded design pass (references a "5 colour schemes" system and a
-> `components/TaskItem.tsx` that no longer exist) — not a live reference. See the
-> session summary for details; flagged for the maintainer to confirm deletion.
+> `DESIGN_SYSTEM_IMPLEMENTATION.md` — the frozen 2026-06-25 checklist this note used to flag
+> as superseded-but-still-present — was deleted 2026-08-01 (STALE_CODE_AUDIT.md). It referenced
+> a "5 colour schemes" system and a `components/TaskItem.tsx` that no longer exist; nothing in
+> it was live.

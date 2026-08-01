@@ -1,406 +1,202 @@
 # Color & Theme System Library
 
-Complete reference for UnFocus's color palettes, theming system, and when to use each colour. This guides consistent visual decision-making across all screens.
-
-> ⚠️ **STALE — flagged, not yet reconciled.** The theme table below (Default/Tech/
-> Gothic/Nature/Fluffy/Custom) predates the Decision 006 colour token rebuild and
-> does not match `constants/colors.ts`'s actual model: a single named theme
-> (`ThemeName = 'default'`) with light/dark palettes ("Soft daylight" / "Midnight
-> glass", 2026-07-18 visual refresh) — no Tech/Gothic/Nature/Fluffy/Custom themes
-> exist, and `theme.orange`/`theme.cream`/`theme.white`/etc. are not real token
-> names (the actual `ThemePalette` tokens are `bg`/`surface`/`surfaceMuted`/
-> `surfaceInset`/`text`/`textMuted`/`accent`/`border`/the feature octet/etc. — see
-> `constants/colors.ts`). The glass surface finish itself is now frost + wash + a
-> purposeful `getGlow(color, level)` halo (AGENTS.md's "Materials" note), not the
-> multi-layer system this file's patterns assume. Treat `constants/colors.ts` +
-> AGENTS.md as the source of truth until this file gets a full reconciliation pass.
+Reference for UnFocus's actual colour tokens and when to use each one. Rewritten
+2026-08-01 (STALE_CODE_AUDIT.md) — the previous version described a pre-rebuild
+theme system (6 named colour themes, `theme.cream`/`theme.orange`/`theme.white`
+tokens, a user-facing custom-theme builder) that was replaced at the Decision 006
+colour rebuild and no longer exists anywhere in the code. Source of truth is
+`constants/colors.ts` (tokens) + `constants/theme.ts` (helpers) — if this file and
+those ever disagree again, trust the code.
 
 ---
 
-## 🎨 Theme Overview
+## Theme Overview
 
-UnFocus supports **6 colour themes** (5 predefined + custom):
-
-| Theme | Primary Accent | Vibe | Light Mode | Dark Mode |
-|-------|-----------------|------|-----------|-----------|
-| **Default** | Blue (`#2563EB`) | Clean, calm, focused | Light sky tones | Navy depth |
-| **Tech** | Cyan (`#0EA5E9`) | Modern, airy, smart | Bright sky | Deep tech |
-| **Gothic** | Purple (`#7C3AED`) | Mysterious, introspective | Soft pastels | True dark |
-| **Nature** | Green (`#16A34A`) | Grounded, organic, earthy | Fresh greens | Forest depth |
-| **Fluffy** | Pink (`#EC4899`) | Playful, soft, gentle | Pastel pinks | Deep plum |
-| **Custom** | User-chosen | User preference | Generated from primary | Generated from primary |
+UnFocus has **one theme** (`ThemeName = 'default'`), with a light palette ("Soft
+daylight") and a dark palette ("Midnight glass", 2026-07-18 visual refresh).
+There is no Tech/Gothic/Nature/Fluffy theme and no user-facing custom-theme
+builder — `darkMode` (off/on/system) is the only palette choice a user makes.
 
 ---
 
-## 📋 Core Color Palette (Light Mode)
+## Core Palette
 
-Every theme provides **18 semantic colours**. Here's the **Default** theme as reference:
+Every token below is required on both `light` and `dark` — TypeScript errors if
+either is missing a field (`constants/colors.ts`'s `ThemePalette` interface).
+Token names are semantic, not colour-based, on purpose: a token never has to be
+renamed because a colour changed.
+
+| Group | Tokens | Use for |
+|---|---|---|
+| Surfaces | `bg`, `surface`, `surfaceMuted`, `surfaceInset` | Page background → card → sunken/secondary → deepest inset well |
+| Rule (decorative only) | `rule` | Full-width notepad row dividers ONLY (`PadSheet`/`PadRow`) — **never** a control boundary. Deliberately below the 3:1 contrast floor; `border` is what marks a tappable edge |
+| Text | `text`, `textMuted`, `textInverse` | Primary body/headings, secondary/muted, text on a coloured (accent/good/bad) background |
+| Borders | `border`, `borderStrong` | Card/input/chip/focus-ring boundaries; `borderStrong` for emphasis |
+| Accent | `accent`, `accentSoft`, `accentInk` | Primary actions/active states; tinted backgrounds; text/icon colour ON an accent fill (re-derived via `contrastOn`, not stored per palette) |
+| Semantic state | `good`/`goodSoft`, `bad`/`badSoft`, `warn`/`warnSoft` | Success, error/destructive, warning — chromatic + matching soft background |
+| Depth | `shadow`, `overlay` | Shadow tint (theme-aware), modal/sheet backdrop rgba |
+| Hint card | `hintBg`, `hintBorder`, `hintAccent` | The `HintCard` explainer surface only |
+| Feature octet (screen hues) | `featTask`, `featPlan`, `featHabit`, `featShop`, `featMeal`, `featBudget`, `featNote`, `featHealth`, `featScan` | Per-screen accent hue (`lib/screenColor.ts`) — walks a deliberate arc, see that token block's comment in `constants/colors.ts` for the full ordering rationale |
+| Card identity hues | `cardTask`, `cardPlan`, `cardHabit`, `cardHealth`, `cardMeal`, `cardShop`, `cardBudget`, `cardNote`, `cardScan` | Card badge + header wash + domain edge (`lib/domainColor.ts`) — nine token **names**, but only **four distinct values** behind them since 2026-07-31 (see below) |
+| Priority ramp (reserved) | `priorityHigh(Soft)`, `priorityMedium(Soft)`, `priorityLow(Soft)` | Not read by any live feature yet |
+| Category palette (reserved) | `categoryWork(Soft)`, `categoryHealth(Soft)`, `categoryHome(Soft)`, `categoryPersonal(Soft)`, `categoryShared(Soft)` | Not read by any live feature yet |
+
+There is no `cream`, `orange`, `orangeLight`, `brown`, `brownLight`, `white`,
+`offWhite`, `gray`, `grayLight`, `danger`, `dangerLight`, or `neutral` token —
+those were the pre-rebuild names. The nearest current equivalents are `bg`
+(was `cream`), `surface` (was `white`), `accent`/`accentSoft` (was
+`orange`/`orangeLight`), `bad`/`badSoft` (was `danger`/`dangerLight`),
+`textMuted` (was `textLight` / `gray`).
+
+---
+
+## Card identity hues — four values, not nine (2026-07-31, addendum A.3)
+
+The nine `card*` token names above all still exist (so nothing has to be
+renamed), but they now alias just **four** distinct hues, one per thing a
+person actually thinks of as a separate part of their life:
+
+| Hue | Value | Badge ink | Owns |
+|---|---|---|---|
+| To-do | `#3F52B5` | white | tasks, plans, goals |
+| Habits | `#1F7A2E` | white | habits |
+| Health | `#A84A60` | white | health entries, medicines, episodes |
+| Shopping | `#D9A441` | **dark** | shopping, food, catalogue, budget, scan |
+
+Home and Notes get **no** identity hue — `IDENTITY_NEUTRAL` (`#6B7280`), a
+near-grey slate.
+
+**⚠️ Load-bearing constraint — read before touching any of these four values:**
+they separate by **L\*** (lightness: 38.6 / 44.8 / 44.3 / 70.7), not by hue.
+That's what makes them distinguishable in greyscale, in a black-and-white
+screenshot, and for every form of colour blindness. Never "harmonise" them to
+equal lightness — that reads tidier in a swatch strip and destroys the one
+channel that survives colour blindness. Shopping's dark ink (vs. the other
+three's white) is the price of that L* spread, not an inconsistency to "fix".
+See `constants/colors.ts`'s `IDENTITY_HUES` comment for the full reasoning,
+including the honest caveat that Habits and Health share near-identical L*
+and separate by hue/chroma instead (ΔE2000 61.7).
+
+---
+
+## Contrast & accessibility
+
+`lib/__tests__/colors.test.ts` sweeps the **whole palette**, both modes, for
+WCAG AA (≥4.5:1 text, ≥3:1 control boundaries) — this is enforced in CI, not
+just a guideline. Two helpers pick text colour dynamically rather than
+hardcoding it:
 
 ```typescript
-// From constants/theme.ts - THEMES.default
-{
-  cream:       '#F2F8FE',      // Page background (softest)
-  orange:      '#2563EB',      // Primary accent (blue in default)
-  orangeLight: '#BFDBFE',      // Primary tint (used for secondary actions)
-  green:       '#10B981',      // Success accent
-  greenLight:  '#A7F3D0',      // Success tint (backgrounds)
-  brown:       '#1E3A8A',      // Darker variant of primary
-  brownLight:  '#60A5FA',      // Lighter variant of primary
-  white:       '#FFFFFF',      // Elevated surface (cards, modals)
-  offWhite:    '#E8F2FE',      // Raised surface (cards above cream)
-  gray:        '#94A3B8',      // Secondary text / icons
-  grayLight:   '#DCEEFC',      // Light backgrounds, disabled states
-  text:        '#142545',      // Primary text (dark, high contrast)
-  textLight:   '#5C7299',      // Secondary text (muted)
-  danger:      '#EF4444',      // Error / destructive actions (always red)
-  dangerLight: '#FEE2E2',      // Error backgrounds (light red)
-  shadow:      'rgba(30,41,59,0.12)',  // Shadows (theme-aware darkness)
-  border:      '#CDE6FA',      // Borders, dividers, outlines
-  neutral:    '#A3C2E4',      // "Shame-free" elements (empty states, badges)
-}
+import { contrastOn } from '@/constants/theme';
+
+// Best of near-black or white against one background:
+const textColor = contrastOn('#3A78E4'); // '#FFFFFF' or '#1E293B'
 ```
-
----
-
-## 🌓 Dark Mode
-
-Dark mode inverts the depth ladder but maintains semantic meaning:
 
 ```typescript
-// Light mode depth:     offWhite (sunken) < cream (bg) < white (raised)
-// Dark mode depth:      offWhite (sunken) < cream (bg) < white (raised)
-// But uses dark hex values to stay in the navy family
+import { contrastRatio } from '@/constants/colors';
 
-// Default dark theme example:
-{
-  cream:       '#070C18',      // Page background (darkest)
-  white:       '#18243E',      // Elevated surface (raised card, still dark)
-  offWhite:    '#060914',      // Sunken surface (deepest)
-  text:        '#DDE9FB',      // Light text on dark (high contrast)
-  textLight:   '#7A9FC6',      // Muted text
-  border:      '#2A4264',      // Dark border (inky, subtle)
-  shadow:      'rgba(0, 3, 12, 0.6)',  // Darker shadow
-}
+// Raw WCAG ratio between two hex colours (≥4.5 is AA for body text):
+const ratio = contrastRatio('#142545', '#F2F8FE');
 ```
+
+`accentInk` (text/icon colour on an accent fill) is **not** stored per palette
+— `lib/useAppTheme.ts` re-derives it via `contrastOn` on every read, so it can
+never drift out of sync with `accent` itself.
 
 ---
 
-## 🎯 When to Use Each Colour
+## Accessing colours in code
 
-### **Primary Accent (`theme.orange` / `theme.orangeLight`)**
-- **Use `theme.orange`** (solid) for:
-  - Primary action buttons (`Button` variant="primary")
-  - Active states (selected chip, active toggle)
-  - Icon buttons in active state
-  - Key affordances (AddFAB)
-  - Loading spinners / progress indicators
-  
-- **Use `theme.orangeLight`** (tint) for:
-  - Secondary buttons (`Button` variant="secondary")
-  - Soft backgrounds for selected/active elements
-  - Hint boxes / info cards
-  - Disabled button tints
-  - Chip backgrounds when selected
-
-### **Success (`theme.green` / `theme.greenLight`)**
-- **`theme.green`** – Success messages, confirmation badges, completion indicators
-- **`theme.greenLight`** – Success backgrounds, confirmation banner backgrounds
-- **Never use for primary actions** — green is reserved for "done" semantics
-
-### **Text (`theme.text` / `theme.textLight`)**
-- **`theme.text`** – All body text, labels, headings (primary content)
-- **`theme.textLight`** – Secondary text, hints, captions, muted labels
-- **Never hardcode text colours** — always use `useAppTheme()` hook
-
-### **Background (`theme.cream` / `theme.white` / `theme.offWhite`)**
-- **`theme.cream`** – Page background / ScrollView background
-- **`theme.white`** – Elevated cards, modals, input fields (visually raised)
-- **`theme.offWhite`** – Subtle backgrounds, empty list placeholders (inset feel)
-- **Depth ladder**: offWhite (sunken) < cream (base) < white (raised)
-
-### **Borders & Dividers (`theme.border`)**
-- Card borders, TextInput borders, divider lines
-- Automatically themed to match the active theme
-
-### **Danger (`theme.danger` / `theme.dangerLight`)**
-- **`theme.danger`** – Red buttons, error text, warning icons
-- **`theme.dangerLight`** – Error backgrounds, warning banners
-- **Always red, never theme-dependent** — danger has universal meaning
-
-### **Neutral (`theme.neutral`)**
-- Empty state circles (e.g., uncompleted habit rings)
-- Backlog badges (task not yet scheduled)
-- Disabled/locked UI elements
-- "Shame-free" elements that don't imply good/bad
-
-### **Gray (`theme.gray` / `theme.grayLight`)**
-- **`theme.gray`** – Secondary icons, timestamps, disabled text
-- **`theme.grayLight`** – Disabled backgrounds, subtle dividers, chip containers
-
-### **Feature Colours** (NOT theme-dependent)
-Located in `constants/theme.ts` → `FeatureColors`:
-```typescript
-task:    '#3A78E4'  // Task bubble icon colour
-scan:    '#D97512'  // Receipt scanning / camera
-habits:  '#27915F'  // Habit tracking
-health:  '#DC3853'  // Health metrics
-meals:   '#AF8D1D'  // Meal planning
-shop:    '#2096B6'  // Shopping list
-shared:  '#8260D2'  // Shared requests
-focus:   '#E83A17'  // Focus / pomodoro
-capture: '#D6399C'  // Quick capture
-```
-
-These **never change with theme** — they're used in the Bubble Menu and task-type indicators.
-
----
-
-## 💡 Colour Usage Patterns
-
-### Pattern 1: Theme-Aware Button
+### In components (always)
 ```tsx
-import { useAppTheme } from '@/lib/useAppTheme';
-
-export function MyButton() {
-  const theme = useAppTheme();
-  
-  return (
-    <Button 
-      label="Save"
-      onPress={save}
-      variant="primary"  // Uses theme.orange automatically
-    />
-  );
-}
-```
-
-### Pattern 2: Theme-Aware Text & Background
-```tsx
-<View style={{ backgroundColor: theme.cream }}>
-  <Text style={{ color: theme.text }}>Primary text</Text>
-  <Text style={{ color: theme.textLight }}>Secondary text</Text>
-</View>
-```
-
-### Pattern 3: Status Badge with Theme
-```tsx
-<Badge 
-  label="Completed"
-  variant="success"  // Automatically uses theme.green
-/>
-```
-
-### Pattern 4: Conditional Danger
-```tsx
-<Button
-  label="Delete"
-  variant="danger"  // Always red, never theme-dependent
-  onPress={handleDelete}
-/>
-```
-
-### Pattern 5: Feature Colour with Tinting
-To tint a feature colour toward the active theme's accent:
-```typescript
-import { tintToTheme } from '@/constants/theme';
-
-const taskColour = tintToTheme(FeatureColors.task, theme.orange);
-// Result: task colour shifted toward the theme's primary accent
-```
-
----
-
-## 🎨 All Themes at a Glance
-
-### Default (Blue)
-- **Light**: `#F2F8FE` cream, `#2563EB` blue primary
-- **Dark**: `#070C18` cream, `#5AABFF` blue primary
-- **Vibe**: Clean, calm, focused — the default choice
-
-### Tech (Cyan)
-- **Light**: `#F0F5FC` cream, `#0EA5E9` cyan primary
-- **Dark**: `#080E16` cream, `#3DBEF9` cyan primary
-- **Vibe**: Modern, airy, smart — good for productivity focus
-
-### Gothic (Purple)
-- **Light**: `#F5F0FF` cream, `#7C3AED` purple primary
-- **Dark**: `#0E0818` cream, `#B366F2` purple primary (true dark!)
-- **Vibe**: Mysterious, introspective — best with dark mode
-
-### Nature (Green)
-- **Light**: `#F2FAF4` cream, `#16A34A` green primary
-- **Dark**: `#08140A` cream, `#34D399` green primary
-- **Vibe**: Grounded, organic — earthy and natural
-
-### Fluffy (Pink)
-- **Light**: `#FFF0F6` cream, `#EC4899` pink primary
-- **Dark**: `#1A0612` cream, `#F580BE` pink primary
-- **Vibe**: Playful, soft, gentle — fun and approachable
-
-### Custom
-- **User-controlled primary & secondary**
-- Generated from user-chosen hex values at runtime
-- Full colour palette derived automatically (`buildCustomTheme()`)
-
----
-
-## 🔧 Accessing Colours in Code
-
-### In Components (Recommended)
-```typescript
 import { useAppTheme } from '@/lib/useAppTheme';
 
 export default function MyComponent() {
   const theme = useAppTheme();
-  
   return (
-    <View style={{ backgroundColor: theme.cream }}>
+    <View style={{ backgroundColor: theme.bg }}>
       <Text style={{ color: theme.text }}>Hello</Text>
     </View>
   );
 }
 ```
+`useAppTheme()` resolves `darkMode` (off/on/system) + the system colour scheme
+into the live `ThemePalette` and re-renders on change — never hardcode a hex
+value in a component.
 
-### In Stores & Non-Component Code
+### In stores / non-component code
 ```typescript
-import { getTranslations } from '@/lib/i18n';
+import { getThemePalette } from '@/constants/colors';
 
-const currentLang = useSettingsStore.getState().language;
-const t = getTranslations(currentLang);
-
-// For colors in stores:
-const theme = useSettingsStore.getState().theme;
-const isDark = useSettingsStore.getState().darkMode;
-import { getTheme } from '@/constants/theme';
-const colors = getTheme(theme, isDark);
+const isDark = /* resolve from useSettingsStore.getState() + system scheme */;
+const theme = getThemePalette('default', isDark);
 ```
 
-### Static / Non-Theme Colours
+### Feature/card hues (theme-independent)
 ```typescript
-import { FeatureColors } from '@/constants/theme';
+import { IDENTITY_HUES } from '@/constants/colors';
 
-const taskColour = FeatureColors.task;  // Always the same
-const dangerColour = theme.danger;     // Always red
+const habitsHue = IDENTITY_HUES.habits.hue; // '#1F7A2E', same in light and dark
 ```
 
 ---
 
-## 🎯 Colour Contrast & Accessibility
+## Surface finish (glass material)
 
-### WCAG Compliance
-All text colours meet **WCAG AA contrast minimum** (4.5:1 for body text):
-- `text` on `cream` background ✅
-- `textLight` on `white` background ✅
-- `white` text on `orange` background ✅
-
-### Dynamic Contrast Helpers
-
-**`contrastOn(hexBg: string)`** – Pick the best text colour for a background:
-```typescript
-import { contrastOn } from '@/constants/theme';
-
-const bgColour = '#3A78E4';
-const textColour = contrastOn(bgColour); // Returns '#FFFFFF' or '#1E293B' depending on contrast
-```
-
-**`contrastOnAll(hexBgs: string[])`** – Pick one text colour for multiple backgrounds:
-```typescript
-const bubbleColours = [FeatureColors.task, FeatureColors.habits, ...];
-const labelColour = contrastOnAll(bubbleColours);
-// Picks the colour (white or dark) that has the highest minimum contrast across ALL bubbles
-```
-
----
-
-## 🌙 Dark Mode Detection
+The "glass" card finish is **frost + wash + a purposeful `getGlow` halo**
+(AGENTS.md's "Materials" note) — not a multi-material system. There is no
+metal/rock/paper/plain finish picker; `settings.glassSurfaces` (a
+reduce-transparency accessibility toggle) is the only material-related
+setting that exists.
 
 ```typescript
-import { useAppTheme } from '@/lib/useAppTheme';
+import { getMaterialStyle, getGlow } from '@/constants/theme';
 
-export function MyComponent() {
-  const theme = useAppTheme();
-  
-  // Theme object changes based on user's dark mode setting
-  // No need to check isDark explicitly — just use theme colours
-  
-  return <View style={{ backgroundColor: theme.cream }} />;
-}
+const cardStyle = getMaterialStyle(theme.surface, 'card', isDark ? 'dark' : 'light');
+const focusHalo = getGlow(theme.accent, 'soft'); // or 'strong'
 ```
+`getMaterialStyle` computes the translucent tinted wash + calm border from a
+single base colour, consumed by `components/GlassFill.tsx` (frost `BlurView`
+only in overlay/chrome contexts — ambient content cards get no blur layer).
 
 ---
 
-## 🎨 Custom Theme Builder
+## Best practices
 
-Users can create custom themes in Settings. The builder:
-1. Accepts a primary colour (hex)
-2. Accepts a secondary colour (hex)
-3. Generates full palette automatically:
-   - Light mode tints / shades
-   - Dark mode inverses
-   - All 18 semantic colours
+**Do:**
+- Use `useAppTheme()` in every component; never hardcode hex outside `constants/`.
+- Use semantic names (`theme.text`, `theme.bad`), not colour names.
+- Use the feature octet (`feat*`) / identity hues (`card*`, `IDENTITY_HUES`) for
+  per-screen or per-card-type accents — never invent a new hardcoded hue.
+- Run `lib/__tests__/colors.test.ts` after touching any token — it's the
+  CI-enforced contrast gate.
 
-**Built-in function**: `buildCustomTheme(primary: string, secondary: string, isDark: boolean)`
-
----
-
-## 🚀 Adding a New Global Colour
-
-If a new colour token is needed globally:
-
-1. **Add to `AppColors` interface** (constants/theme.ts):
-   ```typescript
-   interface AppColors {
-     // ... existing colours
-     newColour: string;
-   }
-   ```
-
-2. **Add to ALL theme definitions**:
-   ```typescript
-   THEMES.default = { ..., newColour: '#...' };
-   THEMES.tech = { ..., newColour: '#...' };
-   // ... repeat for all 6 themes
-   DARK_THEMES.default = { ..., newColour: '#...' };
-   // ... repeat for all 6 dark themes
-   ```
-
-3. **Add to buildCustomTheme()** for custom themes
-
-4. **Access via `useAppTheme()`**:
-   ```typescript
-   const theme = useAppTheme();
-   const myColour = theme.newColour;
-   ```
+**Don't:**
+- Hardcode hex in a component (the feature/identity hues are the one sanctioned
+  exception, and only via their named exports).
+- Reference `theme.cream`/`theme.orange`/`theme.white`/etc. — dead pre-rebuild
+  names, not real tokens.
+- "Harmonise" the four identity hues to equal lightness — see the load-bearing
+  constraint above.
+- Add a user-facing custom-theme picker without checking with the maintainer
+  first — the whole custom-theme system was removed at Decision 006, and this
+  file used to be the only place still describing it as live.
 
 ---
 
-## 🎓 Best Practices
+## Further reading
 
-✅ **DO:**
-- Use `useAppTheme()` in all components
-- Use semantic colour names (`theme.text`, `theme.danger`)
-- Use `FeatureColors` for bubble/task accents
-- Respect dark mode (use hook, not hardcoded hex)
-- Test with all 6 themes + dark mode
-
-❌ **DON'T:**
-- Hardcode hex values in components (except FeatureColors)
-- Ignore dark mode by using only light hex
-- Use arbitrary colour names (`myBlue`, `highlight`)
-- Mix theme-dependent and theme-independent colours without reason
+- **BUTTON_LIBRARY.md** — how buttons use theme colours
+- **TYPOGRAPHY_LIBRARY.md** — text colour hierarchy
+- **ANIMATION_GUIDELINES.md** — colour transitions, `getGlow` pulses
+- **AGENTS.md** — "Materials (frost + wash + glow)" note
+- Source: `constants/colors.ts` (tokens), `constants/theme.ts` (helpers),
+  `lib/useAppTheme.ts` (the hook), `lib/domainColor.ts` / `lib/screenColor.ts`
+  (identity hues / feature octet consumers)
 
 ---
 
-## 📚 Further Reading
-
-- **BUTTON_LIBRARY.md** – How buttons use theme colours
-- **TYPOGRAPHY_LIBRARY.md** – Text colour hierarchy
-- **ANIMATION_GUIDELINES.md** – Colour transitions & animations
-- **DESIGN_SYSTEM_IMPLEMENTATION.md** – Full system overview
-- Source: `constants/theme.ts`
-
----
-
-**Last updated**: 2026-06-27  
-**Themes available**: Default, Tech, Gothic, Nature, Fluffy, Custom  
-**Dark mode**: Automatic via user settings
+**Last updated**: 2026-08-01
+**Themes available**: One (`default`), light + dark
+**Dark mode**: `settings.darkMode` (off / on / system) via `useAppTheme()`
