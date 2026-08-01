@@ -198,7 +198,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonColumnItem: {
-    flex: 0,
+    // Spelled out rather than `flex: 0`, which means two different things on the two
+    // platforms: Yoga reads it as basis `auto` (the button sizes to its label, correct),
+    // CSS reads the shorthand as `0 1 0%` (basis 0 — the button collapses to its padding
+    // and the label spills out over the fill). Native was always fine; the stacked
+    // 3-button confirms were unreadable under react-native-web, which is what the preview
+    // and the wrap audit both run on, so every multi-button dialog in the app was
+    // invisible to them. Keep these three explicit.
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 'auto',
     width: '100%',
   },
   buttonText: {

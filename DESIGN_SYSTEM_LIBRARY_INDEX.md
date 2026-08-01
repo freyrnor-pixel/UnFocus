@@ -16,6 +16,7 @@
 |---------|--------|-----------|
 | **DESIGN_RULES.md** | 25 numbered invariants across spacing, placement & order, colour, hierarchy, tap targets, motion and copy tone — plus the open conflicts between those rules and shipped decisions | **Before building or changing any screen.** Its self-check list is the ship gate |
 | **DESIGN_RULES_AUDIT.md** | The app measured rule-by-rule: what passes, what was fixed, what conflicts and is awaiting a maintainer ruling | Working out whether a rule is binding yet, or why a violation is still there on purpose |
+| **INTERACTION_HANDOFF.md** | The control *vocabulary* — which control answers which need, what "unnatural" looks like, and the gesture/target/copy rules that keep a screen feeling like a normal mobile app | Choosing a control, or checking one you're about to invent. Its changelog records which of its rules bent to a shipped decision and which the app changed to meet |
 
 ---
 

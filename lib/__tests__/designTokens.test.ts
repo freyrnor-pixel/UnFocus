@@ -22,7 +22,7 @@ import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 import { Duration } from '@/constants/motion';
-import { HitSlop, MIN_TAP_TARGET, Radius, Spacing, hitSlopFor } from '@/constants/theme';
+import { HitSlop, MIN_TAP_TARGET, Radius, RowTrailing, Spacing, hitSlopFor } from '@/constants/theme';
 
 // constants/motion.ts imports reanimated's `Easing` to build the `Ease` presets, and
 // reanimated's native worklets half throws on require in the node env. Only `Duration`
@@ -80,6 +80,42 @@ describe('DESIGN_RULES.md rule 17 — tap targets', () => {
     ['loose', 12, HitSlop.loose],
   ])('HitSlop.%s lifts a %dpx control to at least MIN_TAP_TARGET', (_name, smallestControl, slop) => {
     expect(smallestControl + slop.top + slop.bottom).toBeGreaterThanOrEqual(MIN_TAP_TARGET);
+  });
+
+  // The trailing cluster is the app's only pair of independent targets sitting side by side,
+  // and it is the pair rule 17 names by example ("complete and delete"). Until 2026-08-01 the
+  // two carried symmetric HitSlop tokens across a Spacing.sm gap and their touch areas
+  // overlapped by 13-15px; RN resolves an overlap to the LAST sibling, so the check swallowed
+  // the right edge of the ⋯/×. These pin the arithmetic that fixed it — the failure was
+  // invisible in review and silent at runtime, so it needs a test rather than a comment.
+  describe('RowTrailing — the ⋯/× and ○ pair', () => {
+    test('the two touch areas never overlap, and leave 8px belonging to neither', () => {
+      const dead = RowTrailing.gap - RowTrailing.actionSlop.right - RowTrailing.checkSlop.left;
+      expect(dead).toBeGreaterThanOrEqual(8);
+    });
+
+    test('both controls still reach MIN_TAP_TARGET on the axis a thumb misses on', () => {
+      // Vertical: a row in a scrolling list is short and wide, so this is the tight axis.
+      // Horizontal deliberately lands at 39-40px — two fully compliant targets 8px apart need
+      // 96px of row and a 360px Norwegian shopping row hasn't got it. See RowTrailing's doc.
+      const { actionSize, checkSize, actionSlop, checkSlop } = RowTrailing;
+      expect(actionSize + actionSlop.top + actionSlop.bottom).toBeGreaterThanOrEqual(MIN_TAP_TARGET);
+      expect(checkSize + checkSlop.top + checkSlop.bottom).toBeGreaterThanOrEqual(MIN_TAP_TARGET);
+    });
+
+    test('each control is clipped only on the side it shares with its neighbour', () => {
+      // Asymmetry is the whole mechanism. If someone "tidies" these back to a symmetric
+      // HitSlop.* token the overlap returns, so assert the shared edges stay the narrow ones.
+      expect(RowTrailing.actionSlop.right).toBeLessThan(RowTrailing.actionSlop.left);
+      expect(RowTrailing.checkSlop.left).toBeLessThan(RowTrailing.checkSlop.right);
+    });
+
+    test('the rows that draw the pair use RowTrailing, not a symmetric HitSlop token', () => {
+      const offenders = ['components/PadRow.tsx', 'components/ShoppingRow.tsx'].filter((f) =>
+        /hitSlop=\{HitSlop\./.test(readCode(join(ROOT, f))),
+      );
+      expect(offenders).toEqual([]);
+    });
   });
 
   test('hitSlopFor() always reaches MIN_TAP_TARGET, and never pads an already-big control', () => {

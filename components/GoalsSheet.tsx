@@ -29,7 +29,7 @@
  *     animation.
  */
 import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 import Surface from '@/components/Surface';
@@ -37,6 +37,7 @@ import PressableScale from '@/components/PressableScale';
 import StarterCard from '@/components/StarterCard';
 import AddRow from '@/components/AddRow';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
+import { showAppModal } from '@/components/AppModal';
 import { FontSize, Fonts, HitSlop, Radius, Spacing, TabularNums, Type } from '@/constants/theme';
 import { Travel } from '@/constants/motion';
 import { GOAL_STARTERS } from '@/lib/goalStarters';
@@ -93,7 +94,7 @@ export default function GoalsSheet({ visible, onClose }: Props) {
 
   function confirmDelete(id: string, title: string) {
     tap();
-    Alert.alert(t.goals.deleteConfirmTitle(title), t.goals.deleteConfirmBody, [
+    showAppModal(t.goals.deleteConfirmTitle(title), t.goals.deleteConfirmBody, [
       { text: t.cancel, style: 'cancel' },
       { text: t.goals.deleteLabel, style: 'destructive', onPress: () => removeGoal(id) },
     ]);

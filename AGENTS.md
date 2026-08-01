@@ -565,11 +565,24 @@ device or EAS build.
   - `node scripts/preview.mjs --route=/some/path` for a focused single-screen recheck.
 - **What the preview genuinely CANNOT reach** (learned the hard way 2026-07-28 — check here
   before writing a driver script):
-  - **Anything behind `Alert.alert`.** react-native-web doesn't render it, so the tap appears
-    to do nothing. This blocks the **weekly shopping list** entirely: "Create a new list"
-    opens an Alert, so no weekly list can be made, so `components/ShoppingRow.tsx` and its
-    detail sheet are unreachable in the preview at ALL. Monthly rows are a different
-    component (`MonthlyTableRow`) and don't stand in for it.
+  - ~~**Anything behind `Alert.alert`.**~~ **Stale as of 2026-08-01 — the weekly shopping list
+    IS reachable.** This entry claimed "Create a new list" opened a native Alert that
+    react-native-web won't render, making `components/ShoppingRow.tsx` unreachable in the
+    preview at all. That stopped being true when the app moved off native alerts:
+    `app/(tabs)/shopping.tsx` uses `showAppModal` (components/AppModal.tsx), which is a plain
+    in-app `<Modal>` and renders fine on web. Driven end-to-end 2026-08-01: Shop → "Create a
+    new list" → "Start empty" → expand → add an item → a real `ShoppingRow` with a live
+    trailing cluster. The whole app now has **zero** `Alert.alert` call sites (the last two,
+    goals' delete confirms, went to `showAppModal` the same day), so nothing is blocked this
+    way any more. `scripts/preview.mjs` still doesn't walk it — that's a coverage gap in the
+    driver, not a limit of the preview.
+  - **A multi-button `showAppModal` was unreadable on web until 2026-08-01** — worth knowing
+    because it looks like a broken app rather than a rendering artifact. `AppModal`'s stacked
+    (≥3 button) layout used `flex: 0`, which Yoga reads as basis `auto` and CSS reads as
+    `0 1 0%`: on web every button collapsed to its padding with the label spilling over the
+    fill. Native was always correct. Fixed by spelling out `flexGrow/flexShrink/flexBasis`.
+    If a dialog ever looks collapsed in a screenshot again, suspect a `flex: N` shorthand
+    before suspecting the dialog.
   - Onboarding button labels differ per language and are easy to get wrong — a driver script
     that hangs on `getByRole('button', …)` is usually a wrong label, not a broken app. The
     Norwegian path is: `Norsk` → `Nei, jeg er ny her` → `Skjønner →` → `Vis meg rundt` →

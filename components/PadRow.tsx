@@ -45,8 +45,13 @@
  *     all look the same. The row stays in place; whether and when it moves is the surface's
  *     own logic (notes move the next day, shopping/to-do keep their existing zones, a habit
  *     only strikes once the day's full count is met).
- *   - Check is visually 22×22 with `hitSlop={HitSlop.check}` → ~48dp, Android's minimum touch target.
- *     Don't shrink the hitSlop to "tidy up" the trailing cluster.
+ *   - **The action and the check live in their own cluster with their own gap** (`RowTrailing`
+ *     in constants/theme.ts), not the row's. Until 2026-08-01 they sat `Spacing.sm` apart with
+ *     symmetric slops that overlapped by 15px, and because RN hit-tests siblings in reverse
+ *     order the check won — the right edge of the visible ⋯ fired "complete". The slops are now
+ *     asymmetric (clipped on the shared side) and the gap is sized to leave 8px belonging to
+ *     neither control. Don't swap them back to a symmetric `HitSlop.*` token to tidy this up,
+ *     and don't shrink the gap: either one restores the misfire.
  *   - **`titleInput` is for a row that edits itself in place**, and only that: components/
  *     NoteRow.tsx, where the header field IS the note. It swaps the title Text for the
  *     caller's TextInput and changes nothing else, so a screen full of editable rows still
@@ -67,9 +72,9 @@ import {
   Fonts,
   PAD_ROW_HEIGHT,
   Radius,
+  RowTrailing,
   Spacing,
   TabularNums,
-  HitSlop,
 } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -134,6 +139,9 @@ export default function PadRow({
 
   // Mirrors the JSX gate below exactly — see the edit note.
   const hasMetaLine = meta !== undefined && meta !== null && meta !== false;
+  // Same discipline for the cluster: an empty wrapper would still draw the row's own gap,
+  // padding the right edge of every row that has neither an action nor a check.
+  const hasTrailingCluster = !!onAction || !!trailing || !!onToggle;
 
   const body = (
     <View style={styles.body}>
@@ -171,37 +179,41 @@ export default function PadRow({
         </Text>
       ) : null}
 
-      {onAction ? (
-        <PressableScale
-          style={styles.action}
-          onPress={onAction}
-          hitSlop={10}
-          scaleTo={0.9}
-          accessibilityRole="button"
-          accessibilityLabel={actionLabel ?? t.padRow.actionLabel}
-        >
-          <Ionicons name="ellipsis-horizontal" size={18} color={theme.textMuted} />
-        </PressableScale>
-      ) : null}
+      {hasTrailingCluster ? (
+        <View style={styles.trailingCluster}>
+          {onAction ? (
+            <PressableScale
+              style={styles.action}
+              onPress={onAction}
+              hitSlop={RowTrailing.actionSlop}
+              scaleTo={0.9}
+              accessibilityRole="button"
+              accessibilityLabel={actionLabel ?? t.padRow.actionLabel}
+            >
+              <Ionicons name="ellipsis-horizontal" size={18} color={theme.textMuted} />
+            </PressableScale>
+          ) : null}
 
-      {trailing ??
-        (onToggle ? (
-          <PressableScale
-            style={[
-              styles.check,
-              { borderColor: accent },
-              done && { backgroundColor: accent },
-            ]}
-            onPress={onToggle}
-            hitSlop={HitSlop.check}
-            scaleTo={0.9}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: !!done }}
-            accessibilityLabel={toggleLabel ?? title}
-          >
-            {done ? <Ionicons name="checkmark" size={12} color={theme.accentInk} /> : null}
-          </PressableScale>
-        ) : null)}
+          {trailing ??
+            (onToggle ? (
+              <PressableScale
+                style={[
+                  styles.check,
+                  { borderColor: accent },
+                  done && { backgroundColor: accent },
+                ]}
+                onPress={onToggle}
+                hitSlop={RowTrailing.checkSlop}
+                scaleTo={0.9}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: !!done }}
+                accessibilityLabel={toggleLabel ?? title}
+              >
+                {done ? <Ionicons name="checkmark" size={12} color={theme.accentInk} /> : null}
+              </PressableScale>
+            ) : null)}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -225,10 +237,18 @@ const styles = StyleSheet.create({
   // Never wraps: one line, and whatever doesn't fit is the surface's problem to trim.
   metaLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   rightValue: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, ...TabularNums },
-  action: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  // The action and the check are the app's only side-by-side pair of independent targets,
+  // so they get their own gap rather than the row's — see RowTrailing in constants/theme.ts.
+  trailingCluster: { flexDirection: 'row', alignItems: 'center', gap: RowTrailing.gap },
+  action: {
+    width: RowTrailing.actionSize,
+    height: RowTrailing.actionSize,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   check: {
-    width: 22,
-    height: 22,
+    width: RowTrailing.checkSize,
+    height: RowTrailing.checkSize,
     borderRadius: Radius.full,
     borderWidth: 2,
     alignItems: 'center',
