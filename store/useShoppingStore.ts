@@ -40,7 +40,6 @@
  *             add/update/remove/removeWithSource/restoreDeleted/doneShopping/monthlyReset/
  *             resetMonthlyList, so live widgets don't wait for foreground/background)
  *   Used by → app/shopping.tsx, app/inventory-edit.tsx (add/update/removeWithSource),
- *             components/ShoppingQuickAddSheet.tsx,
  *             components/AddItemSheet.tsx (type), components/AddDishSheet.tsx (add), components/UpdateSheet.tsx (type),
  *             components/MonthlyTableRow.tsx (type), components/ShoppingRow.tsx (type), components/WeekListCard.tsx (type),
  *             components/SharedRequestsSection.tsx (add), components/MonthlyResetSummaryModal.tsx (MonthlyResetSummary),

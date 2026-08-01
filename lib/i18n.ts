@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → store/useSettingsStore
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/intro.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/pair-device.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/SharedRequestsSection.tsx, components/ShoppingQuickAddSheet.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/intro.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/pair-device.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/SharedRequestsSection.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
  *   Data    → reads `language` from the settings Zustand store
  *
  * Edit notes:
@@ -1090,7 +1090,6 @@ const en = {
   habits: {
     notYetToday: 'Not yet today',
     // --- W-D additions ---
-    doneToday: 'Done today',
     moreOptions: 'More options',
     fewerOptions: 'Fewer options',
     // --- end W-D additions ---
@@ -2389,7 +2388,6 @@ const no: typeof en = {
   habits: {
     notYetToday: 'Ikke ennå i dag',
     // --- W-D additions ---
-    doneToday: 'Fullført i dag',
     moreOptions: 'Flere valg',
     fewerOptions: 'Færre valg',
     // --- end W-D additions ---

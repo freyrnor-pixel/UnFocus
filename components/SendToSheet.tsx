@@ -14,8 +14,10 @@
  * Connections:
  *   Imports → components/AnimatedBottomSheet, components/PressableScale, components/Surface,
  *             components/CardAccent (CardAccentBadge), constants/theme, lib/domainColor
- *             (Domain), lib/haptics (tap), lib/i18n, lib/useAppTheme, @expo/vector-icons
- *   Used by → components/HomeNotesCard.tsx (the ⋯ on a note row), app/notes.tsx
+ *             (Domain), lib/haptics (tap, warning), lib/i18n, lib/useAppTheme, @expo/vector-icons
+ *   Used by → components/HomeNotesCard.tsx (the ⋯ on a note row) and app/notes.tsx (the ⋯ on
+ *             a note row THERE, 2026-08-01 — this line claimed the notes screen for months
+ *             before it was true; it is now)
  *   Data    → none — presentational; `onPick` carries the choice back to the caller
  *
  * Edit notes:
@@ -33,6 +35,12 @@
  *     it. Note "todo" here means the Plans/day view (`domain="plan"`) — same hue either way.
  *   - Closes itself on pick (the caller is about to navigate); no confirm step, because the
  *     created row lands focused and editable, which IS the confirm.
+ *   - **The optional delete row is not a fifth target** (2026-08-01, app/notes.tsx). It sits
+ *     under a rule, carries no identity badge, and fires `warning()` rather than `tap()`,
+ *     because everything above it moves the note somewhere and this one ends it. It exists
+ *     because the row rule allows a row ONE action button: on the notes screen that button is
+ *     this sheet, so a per-row delete has nowhere else to live. It still deletes immediately
+ *     with no confirm — the sheet itself is the deliberate step, and a note is one row.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -43,7 +51,7 @@ import Surface from '@/components/Surface';
 import { CardAccentBadge } from '@/components/CardAccent';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { Domain } from '@/lib/domainColor';
-import { tap } from '@/lib/haptics';
+import { tap, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 
@@ -54,9 +62,17 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onPick: (target: SendToTarget) => void;
+  /**
+   * Optional destructive row under the targets, separated by a rule. app/notes.tsx passes it:
+   * that screen's row-level ⋯ is the ONE action button the row rule allows, so "delete this
+   * note" has nowhere else to be. Omitted (Home's pad) renders nothing — the sheet is still a
+   * send-to picker first.
+   */
+  onDelete?: () => void;
+  deleteLabel?: string;
 };
 
-export default function SendToSheet({ visible, onClose, onPick }: Props) {
+export default function SendToSheet({ visible, onClose, onPick, onDelete, deleteLabel }: Props) {
   const theme = useAppTheme();
   const t = useT();
 
@@ -92,6 +108,29 @@ export default function SendToSheet({ visible, onClose, onPick }: Props) {
             <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
           </PressableScale>
         ))}
+
+        {onDelete ? (
+          <>
+            <View style={[styles.rule, { backgroundColor: theme.border }]} />
+            <PressableScale
+              style={[styles.option, { borderColor: theme.border }]}
+              onPress={() => {
+                warning();
+                onDelete();
+                onClose();
+              }}
+              scaleTo={0.98}
+              accessibilityRole="button"
+              accessibilityLabel={deleteLabel ?? t.deleteConfirmBtn}
+            >
+              {/* No badge: this is not a destination, and a filled identity badge is how the
+                  four above say that they are. A bare glyph in `bad` reads as the one row
+                  that does something to the note rather than with it. */}
+              <Ionicons name="trash-outline" size={20} color={theme.bad} style={styles.deleteIcon} />
+              <Text style={[styles.optionLabel, { color: theme.bad }]}>{deleteLabel ?? t.deleteConfirmBtn}</Text>
+            </PressableScale>
+          </>
+        ) : null}
       </Surface>
     </AnimatedBottomSheet>
   );
@@ -123,4 +162,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   optionLabel: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  rule: { height: StyleSheet.hairlineWidth, marginTop: Spacing.xs },
+  // Sits where a target's 28px badge would, so the labels line up down the sheet.
+  deleteIcon: { width: 28, textAlign: 'center' },
 });

@@ -21,6 +21,9 @@
  *     of array order (`notes.filter(n => !n.checked)` / `.filter(n => n.checked)`).
  *   - add() appends to the end of the active notes (sortOrder = current note count)
  *     so new notes land at the bottom of the active section, not the top.
+ *   - reorder(orderedIds) is the drag-reorder commit (2026-08-01) — one section's ids in
+ *     their new order, written once on drop, never per drag frame. See its own doc comment
+ *     for why the two sections' sort_order ranges are allowed to overlap.
  *   - toggleChecked() is a thin wrapper over update() — kept distinct because it's
  *     the row's checkmark-circle tap target, mirroring useTaskStore's toggle(). It also
  *     stamps `checkedAt` (2026-07-30), which is what lets the pad keep a just-ticked note
@@ -61,6 +64,8 @@ type NotesStore = {
   add: () => Note;
   update: (id: string, patch: Partial<Omit<Note, 'id'>>) => void;
   toggleChecked: (id: string) => void;
+  /** Write a new sort_order (by array position) for every id — the drag-reorder commit. */
+  reorder: (orderedIds: string[]) => void;
   remove: (id: string) => void;
 };
 
@@ -126,6 +131,26 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
     // the "Checked off" zone tomorrow. Un-ticking clears the stamp, so a note that comes back
     // is fully active again rather than reading as "checked a while ago".
     get().update(id, { checked, checkedAt: checked ? todayStr() : '' });
+  },
+
+  /**
+   * Commit a drag-reorder (app/notes.tsx, via lib/useDragReorder). `orderedIds` is ONE
+   * section's rows — active or checked — and gets 0…n-1; the other section keeps its own
+   * numbers. Two sections can therefore hold the same sort_order values, which is harmless
+   * because load() orders by `checked` FIRST: every active note sorts above every checked one
+   * regardless. Rows not named here are untouched.
+   */
+  reorder(orderedIds) {
+    const position = new Map(orderedIds.map((id, i) => [id, i]));
+    orderedIds.forEach((id, i) => updateRow('notes', { sort_order: i }, 'id = ?', [id]));
+    set((s) => ({
+      notes: [...s.notes]
+        .map((n) => (position.has(n.id) ? { ...n, sortOrder: position.get(n.id)! } : n))
+        // Keep the array in the same order load() would produce, so the screen's
+        // `filter(checked)` split still comes straight out of it.
+        .sort((a, b) => Number(a.checked) - Number(b.checked) || a.sortOrder - b.sortOrder),
+    }));
+    scheduleWidgetSync();
   },
 
   remove(id) {

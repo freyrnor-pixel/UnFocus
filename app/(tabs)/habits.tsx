@@ -63,7 +63,10 @@
  *     header followed the row rule: it used to pack up to NINE elements onto one line, and the
  *     goal dot / weekly progress / done state / energy badge moved onto ONE meta line under
  *     the title, with today's count as the single right-hand value. `hasMetaLine` must mirror
- *     that line's JSX gates exactly.
+ *     that line's JSX gates exactly. **The done state left that line again on 2026-08-01**:
+ *     once the row itself strikes through and fades beside a filled check (the PadRow
+ *     conversion), a "Done today" word was a third copy of one fact — so the meta line now
+ *     holds three things, not four, and `hasMetaLine` dropped `isDone` with it.
  *   - **Add-habit affordance (2026-07-13 rows pass)**: an inline `AddRow` at the bottom of
  *     the Today habit list is the add-habit trigger — a title-only quick-create with sensible
  *     defaults (icon/goal/recurrence via `commitHabit` → useHabitStore.add), matching Plans'
@@ -228,7 +231,7 @@ function HabitCard({
   const isWeeklyFlexible = habit.recurrence === 'weekly-flexible';
   // MUST mirror the meta-line JSX gates below exactly (the trap components/TaskCard.tsx
   // documents): if the two drift, a habit with only one meta item silently loses its line.
-  const hasMetaLine = !!linkedGoal || isWeeklyFlexible || isDone || habit.energyEnabled;
+  const hasMetaLine = !!linkedGoal || isWeeklyFlexible || habit.energyEnabled;
 
   const accent = habitColor(habit.kind, theme);
 
@@ -314,12 +317,13 @@ function HabitCard({
                   {t.habits.weeklyProgress(count, goal)}
                 </Text>
               )}
-              {/* "Done today" is already said by the checkmark icon and the struck-through
-                  count; as a filled pill next to them it was a third copy of one fact. It
-                  reads as a quiet word on the meta line instead. */}
-              {isDone && (
-                <Text style={[styles.weeklyProgressText, { color: accent }]}>{t.habits.doneToday}</Text>
-              )}
+              {/* "Done today" used to sit here as a filled pill, then (2026-07-30) as a quiet
+                  word. It is gone entirely as of 2026-08-01: since the PadRow conversion the
+                  row STRIKES THROUGH and fades next to a filled check, so the word was the
+                  third copy of one fact on a line that exists to hold the other three. Its
+                  string went with it (`habits.doneToday` in lib/i18n.ts, both languages — this
+                  was its only caller; plans.tsx's focus layout has its own `focusFirst.doneToday`
+                  and is untouched). */}
               {habit.energyEnabled && <EnergyBadge value={habit.energyValue} theme={theme} />}
             </>
           ) : undefined}

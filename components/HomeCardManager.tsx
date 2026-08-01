@@ -21,13 +21,15 @@
  * silently switched on the delete/add chrome) — undiscoverable and made long-press mean two
  * different things depending on where the finger ended up. Mirrors DraggableTaskRow's "owns
  * no data" contract — reorder/remove/add are bubbled to the parent via callbacks; this
- * component owns only the drag math (lib/reorder.reorderByDrag — the same stable,
- * no-flicker insertion used by app/(tabs)/shopping.tsx's in-section reorder), not edit-mode
- * state, which is now controlled by the parent.
+ * component owns neither the drag math nor edit-mode state: the first moved to
+ * lib/useDragReorder.ts on 2026-08-01 (this file's hand-rolled measure/reorder/commit block
+ * WAS that hook — it was extracted verbatim so notes, habits and the Whenever list could have
+ * the same gesture instead of a fourth copy), and the second is controlled by the parent.
  *
  * Connections:
  *   Imports → components/DraggableTaskRow, components/PressableScale, constants/theme,
- *             lib/haptics, lib/i18n, lib/reorder (reorderByDrag), lib/useAppTheme
+ *             lib/haptics, lib/i18n, lib/useDragReorder (the shared long-press-drag
+ *             bookkeeping, over lib/reorder's insertion math), lib/useAppTheme
  *   Used by → app/(tabs)/index.tsx (Home's To-do/Habits/Notes/Shopping preview stack) — owns the
  *             `editMode` state (`cardsEditMode`) and passes it down as a controlled prop,
  *             since the toggle button that flips it now renders in the greeting header there.
@@ -39,9 +41,9 @@
  *     privately). Dragging a card while it happens to be expanded works but reflows a
  *     larger block; accepted trade-off vs. threading expand state through three
  *     separately-owned card components for this.
- *   - **Reorder vs. edit mode are independent (2026-07-23):** `handleDragStart` never
- *     touches `editMode` — a long-press-drag reorders and commits via `onReorder`
- *     regardless of whether the delete/add chrome is showing.
+ *   - **Reorder vs. edit mode are independent (2026-07-23):** the drag never touches
+ *     `editMode` — a long-press-drag reorders and commits via `onReorder` regardless of
+ *     whether the delete/add chrome is showing.
  *   - **`editMode` is a controlled prop (2026-07-24)**, not local state — the "Edit cards" /
  *     "Done" toggle button that flips it now renders inline in Home's greeting header
  *     (app/(tabs)/index.tsx), not as its own row here, so the greeting→first-card gap
@@ -55,7 +57,7 @@
  *   - Deletion floor: `order.length <= 1` disables the last remaining card's × rather
  *     than allowing an empty Home — no separate empty-state UI needed.
  */
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { LayoutAnimation, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
@@ -64,7 +66,7 @@ import { FontSize, Fonts, Radius, Shadow, Spacing, HitSlop } from '@/constants/t
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
-import { reorderByDrag } from '@/lib/reorder';
+import { useDragReorder } from '@/lib/useDragReorder';
 
 type Props = {
   /** Ordered, currently-visible kind ids (e.g. ['notes', 'shopping']). */
@@ -79,8 +81,6 @@ type Props = {
   renderCard: (kind: string) => React.ReactNode;
 };
 
-type DragState = { kind: string; order: string[] };
-
 export default function HomeCardManager({ order, labels, editMode, onReorder, onRemove, onAdd, renderCard }: Props) {
   const theme = useAppTheme();
   const t = useT();
@@ -88,51 +88,11 @@ export default function HomeCardManager({ order, labels, editMode, onReorder, on
   const { reducedMotion } = useAccessibility();
 
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [drag, setDrag] = useState<DragState | null>(null);
-  const dragRef = useRef<DragState | null>(null);
-  dragRef.current = drag;
-
-  const nodes = useRef<Map<string, any>>(new Map());
-  const snapshot = useRef<Record<string, { y: number; height: number }>>({});
+  // The shared long-press-drag mechanic (lib/useDragReorder) — the same one the notes screen,
+  // the habit list and the Whenever list use. This file used to hold that logic itself.
+  const drag = useDragReorder(order, onReorder);
 
   const missingKinds = Object.keys(labels).filter((k) => !order.includes(k));
-
-  function registerNode(kind: string, node: any) {
-    if (node) nodes.current.set(kind, node);
-    else nodes.current.delete(kind);
-  }
-
-  function handleDragStart(kind: string) {
-    snapshot.current = {};
-    for (const k of order) {
-      nodes.current.get(k)?.measureInWindow?.((_x: number, y: number, _w: number, h: number) => {
-        snapshot.current[k] = { y, height: h };
-      });
-    }
-    setDrag({ kind, order });
-  }
-
-  function handleDragMove(kind: string, centerY: number) {
-    setDrag((prev) => {
-      if (!prev || prev.kind !== kind) return prev;
-      if (!Object.keys(snapshot.current).length) return prev;
-      // Stable, no-flicker insertion (lib/reorder): re-inserts the dragged card at the finger's
-      // position among the OTHERS, so a completed swap can't bounce back under the finger.
-      const next = reorderByDrag(centerY, prev.order, kind, snapshot.current);
-      if (!next.some((k, i) => k !== prev.order[i])) return prev;
-      if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      return { ...prev, order: next };
-    });
-  }
-
-  function handleDragEnd(kind: string) {
-    const prev = dragRef.current;
-    if (prev && prev.kind === kind) {
-      const changed = prev.order.some((k, i) => k !== order[i]);
-      if (changed) onReorder(prev.order);
-    }
-    setDrag(null);
-  }
 
   function handleRemove(kind: string) {
     if (order.length <= 1) return;
@@ -148,19 +108,10 @@ export default function HomeCardManager({ order, labels, editMode, onReorder, on
     setPickerOpen(false);
   }
 
-  const liveOrder = drag?.order ?? order;
-
   return (
     <View>
-      {liveOrder.map((kind) => (
-        <DraggableTaskRow
-          key={kind}
-          isOpen={false}
-          registerNode={(node) => registerNode(kind, node)}
-          onDragStart={() => handleDragStart(kind)}
-          onDragMove={(centerY) => handleDragMove(kind, centerY)}
-          onDragEnd={() => handleDragEnd(kind)}
-        >
+      {drag.order.map((kind) => (
+        <DraggableTaskRow key={kind} isOpen={false} {...drag.rowProps(kind)}>
           <View>
             {renderCard(kind)}
             {editMode && (
