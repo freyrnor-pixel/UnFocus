@@ -13,6 +13,8 @@
  *   Imports → constants/theme (getElevation, getLayeredShadow, getMaterialStyle,
  *             computeRimGradient), lib/useAppTheme, store/useSettingsStore (glassSurfaces),
  *             components/GlassFill, expo-linear-gradient
+ *             (2026-07-31 A.5: lib/screenColor's useScreenColor is NO LONGER imported — see the
+ *             `edgeHue` comment; the per-screen hue no longer reaches any pixel)
  *   Used by → app screens that render a "card" surface (see grep for `<Surface`)
  *   Data    → reads `glassSurfaces` from the settings store
  *
@@ -28,7 +30,7 @@
  *     for overlay) is decided by where the caller mounts the Surface, not here.
  *   - **Colour-architecture inversion (2026-07-18, retuned)**: the translucent FILL frosts the
  *     ScreenBackground FIELD showing through behind the card, so every card on a screen shares
- *     one uniform frosted hue; the domain/screen COLOUR lives ONLY in the thin beveled EDGE. The
+ *     one uniform frosted hue; the card's identity COLOUR lives ONLY in the thin beveled EDGE. The
  *     edge is a translucent gradient ring (not an opaque full-rect gradient behind the fill) —
  *     that's what stops each card bleeding its own edge colour through the fill (the earlier
  *     thick opaque-ring version tinted every card's whole face, reading as a multi-hue screen).
@@ -60,7 +62,7 @@
  *     borderRadius corner-rendering risk as the glass-on edge, not worth it for a subtle
  *     highlight in the already-lower-priority reduce-transparency fallback). Glass-ON is a
  *     beveled edge (~2.5px, `computeRimGradient()`): a vertical gradient ring, lit top → true-hue
- *     mid → darker bottom, in the edge hue (screen hue, or the `borderColor`/`tint` override) — a
+ *     mid → darker bottom, in the edge hue (the card's own `borderColor`/`tint`, else neutral) — a
  *     raised key, thick enough that a domain/screen colour reads as a real accent again (2026-07-26,
  *     see EDGE_WIDTH below — the 2026-07-18→07-24 thin-edge era had squeezed this down to ~1.5px).
  *   - shadowColor comes from the active theme's `shadow` token (not a fixed
@@ -88,7 +90,6 @@ import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { computeRimGradient, getElevation, getLayeredShadow, getMaterialStyle, Radius } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
-import { useScreenColor } from '@/lib/screenColor';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import GlassFill from '@/components/GlassFill';
 
@@ -163,8 +164,8 @@ const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
   nav: 0.97,
 };
 
-// Beveled edge: a translucent vertical gradient (computeRimGradient, keyed on the domain/screen
-// edge hue, not the neutral fill) drawn as a `LinearGradient` fill clipped by `borderRadius`,
+// Beveled edge: a translucent vertical gradient (computeRimGradient, keyed on the card's own
+// identity edge hue, not the neutral fill) drawn as a `LinearGradient` fill clipped by `borderRadius`,
 // rather than a single `View`'s border with three different per-side colours (top/side/bottom).
 // RN's native border renderer doesn't reliably curve/blend different border colours around a
 // rounded corner (worse on Android) — the corner can render as a flat cut even though the card's
@@ -210,20 +211,22 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
   const isDark = useIsDark();
   const mode = isDark ? 'dark' : 'light';
   const glass = useSettingsStore((s) => s.glassSurfaces);
-  const screenHue = useScreenColor();
   // Colour-architecture (2026-07-18, retuned): the translucent FILL frosts the ScreenBackground
   // FIELD behind the card (base = theme.surface, near-white/near-navy), so cards on one screen all
-  // read as a single uniform frosted hue. The domain/screen COLOUR lives ONLY in the thin beveled
-  // EDGE, keyed to the screen's dominant hue (lib/screenColor.ts). An explicit `tint` overrides the
-  // fill base; `borderColor` overrides the edge hue.
+  // read as a single uniform frosted hue. Card COLOUR lives ONLY in the thin beveled EDGE, and only
+  // when the card carries its own identity hue. An explicit `tint` overrides the fill base;
+  // `borderColor` overrides the edge hue.
   const base = tint ?? theme.surface;
   const mat = getMaterialStyle(base, 'card', mode);
-  // Edge colour source, in priority order: an explicit `borderColor` (a domain-coded card — e.g.
-  // the green shopping preview, indigo plans, note-coloured notes — so the edge matches that card's
-  // own icon/badge instead of the generic screen hue), then `tint`, then the screen hue (so an
-  // un-coded card on a tab carries that screen's edge colour), then a calm neutral edge for
-  // sub-tier screens (no hue). Whatever wins becomes the thin beveled ring's hue (computeRimGradient).
-  const edgeHue = borderColor ?? tint ?? (glass && screenHue ? screenHue : theme.border);
+  // Edge colour source, in priority order: an explicit `borderColor` (an identity-coded card — so
+  // the edge matches that card's own icon/badge), then `tint`, then a calm neutral edge.
+  // Whatever wins becomes the thin beveled ring's hue (computeRimGradient).
+  // 2026-07-31 (A.5, retire the screen hues): the per-SCREEN hue term is gone from this chain. It
+  // used to sit between `tint` and `theme.border`, so EVERY un-coded ambient card on a tab drew
+  // that tab's feat* colour on its edge — which collided with the identity-hue system that is the
+  // one meant to stay. An un-coded card now falls through to the neutral `theme.border`; cards that
+  // pass their own `borderColor` are unaffected, since that term still wins the chain.
+  const edgeHue = borderColor ?? tint ?? theme.border;
   // Glass-off (reduce-transparency) path uses the legacy single shadow; glass-on uses the
   // three-pass layered shadow. Both deepen to the `floating` tier when `elevated`.
   const shadowLevel = elevated ? 'floating' : 'raised';

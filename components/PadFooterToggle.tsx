@@ -11,9 +11,8 @@
  *
  * Connections:
  *   Imports → components/AnimatedChevron, components/PressableScale, constants/theme,
- *             lib/haptics (tap), lib/i18n, lib/padState (PadState, nextPadState,
- *             padHiddenCount). No theme hook — the caller passes its domain accent, which is
- *             the only colour this control uses.
+ *             lib/useAppTheme, lib/haptics (tap), lib/i18n, lib/padState (PadState,
+ *             nextPadState, padHiddenCount)
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
  *             app/(tabs)/plans.tsx
  *   Data    → none — presentational; the caller persists via settings.cardStates
@@ -23,6 +22,14 @@
  *     glyph covers a three-state cycle without a second control or a hidden long-press.
  *   - Renders nothing when `total === 0`: an empty pad has nothing to expand, and a dead
  *     control on an empty card is exactly the kind of noise this pass is removing.
+ *   - **(2026-07-31, addendum A.4 rule 1) The label and chevron are `theme.accent`, the app's
+ *     one action colour — NOT the card's identity hue.** They used to take an `accent` prop
+ *     that every caller filled with `getDomainColor(...).accent`, i.e. an identity hue used as
+ *     text and as an icon colour, which is the one thing those hues are not for. The prop is
+ *     gone rather than ignored. This also stopped the control changing colour card to card for
+ *     no reason — it does the same thing everywhere — and fixed two live contrast failures:
+ *     the Shopping gold at 2.25:1 on white, and Notes, whose hue is now IDENTITY_NEUTRAL grey
+ *     and made a live control read as disabled.
  */
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
@@ -31,6 +38,7 @@ import PressableScale from '@/components/PressableScale';
 import { FontSize, Fonts, Spacing } from '@/constants/theme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
+import { useAppTheme } from '@/lib/useAppTheme';
 import { PadState, nextPadState, padHiddenCount } from '@/lib/padState';
 
 type Props = {
@@ -38,13 +46,12 @@ type Props = {
   onChange: (next: PadState) => void;
   /** Total rows in the list, hidden ones included — drives the count label. */
   total: number;
-  /** Domain accent (lib/domainColor) for the label and chevron. */
-  accent: string;
   style?: StyleProp<ViewStyle>;
 };
 
-export default function PadFooterToggle({ state, onChange, total, accent, style }: Props) {
+export default function PadFooterToggle({ state, onChange, total, style }: Props) {
   const t = useT();
+  const theme = useAppTheme();
 
   if (total === 0) return null;
 
@@ -64,8 +71,8 @@ export default function PadFooterToggle({ state, onChange, total, accent, style 
       accessibilityLabel={label}
     >
       <View style={styles.inner}>
-        <Text style={[styles.label, { color: accent }]}>{label}</Text>
-        <AnimatedChevron open={state === 'open'} size={14} color={accent} />
+        <Text style={[styles.label, { color: theme.accent }]}>{label}</Text>
+        <AnimatedChevron open={state === 'open'} size={14} color={theme.accent} />
       </View>
     </PressableScale>
   );

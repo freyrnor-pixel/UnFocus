@@ -16,7 +16,7 @@
  * need Home's own cross-store aggregation (Habits doesn't touch any other store).
  *
  * Connections:
- *   Imports → components/Surface, components/CardAccent (badge+wash gradient move),
+ *   Imports → components/Surface, components/CardAccent (CardAccentBadge),
  *             components/HabitIcon, components/PressableScale, components/ProgressBar,
  *             components/CardHintNote (foot-of-card explainer), components/AddRow,
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
@@ -62,9 +62,11 @@
  *     /habit-form (tap through to /habits, then the habit's gear icon). Always rendered,
  *     regardless of which empty state (if any) is showing — mirrors habits.tsx's own
  *     Today tab, where the quick-add row sits below the section unconditionally.
- *   - Collapsed sizing / badge-and-wash-outside-padding follow the exact same pattern as
- *     HomeShoppingCard/HomeNotesCard/PlanTaskCard — see any of those files' own edit notes
- *     for the native-vs-web absolute-positioning caveat if touching `badgeFixed`.
+ *   - Collapsed sizing follows the exact same pattern as HomeShoppingCard/HomeNotesCard/
+ *     PlanTaskCard — see any of those files' own edit notes.
+ *   - **(2026-07-31, addendum A.4) The header wash is gone** — the card's identity hue now
+ *     appears exactly twice, as the badge fill and the card's own low-alpha edge, never as a
+ *     third band and never as text or icon colour.
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -72,7 +74,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
-import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
+import { CardAccentBadge } from '@/components/CardAccent';
 import ProgressBar from '@/components/ProgressBar';
 import HabitIcon from '@/components/HabitIcon';
 import CardHintNote from '@/components/CardHintNote';
@@ -189,10 +191,13 @@ export default function HomeHabitsCard() {
         accent={domainColor.accent}
         done={isDone}
         leading={
+          // A.4: done is a STATUS, so it takes the status token as ink (`good`); the habit's
+          // own glyph is neutral ink. Neither is the identity hue — that stays a fill (the
+          // header badge + the card edge).
           isDone ? (
-            <Ionicons name="checkmark" size={16} color={domainColor.accent} />
+            <Ionicons name="checkmark" size={16} color={theme.good} />
           ) : (
-            <HabitIcon icon={habit.icon} size={16} color={domainColor.accent} />
+            <HabitIcon icon={habit.icon} size={16} color={theme.textMuted} />
           )
         }
         rightValue={goal > 1 ? `${count}/${goal}` : undefined}
@@ -235,10 +240,6 @@ export default function HomeHabitsCard() {
       borderColor={domainColor.accent}
       style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
-      {/* Header wash + badge mount OUTSIDE cardContent, directly in Surface — see
-          HomeShoppingCard/HomeNotesCard's "Badge/wash moved outside cardContent's padding"
-          edit note for why (native padding inheritance vs. react-native-web). */}
-      <CardAccentWash domain="habit" />
       <View style={styles.cardContent}>
         {/* Badge is a normal flex child — one left edge for the whole card. */}
         <PressableScale onPress={handleTitlePress} style={styles.titleRowPressable} scaleTo={0.98}>
@@ -282,9 +283,9 @@ export default function HomeHabitsCard() {
                   accessibilityLabel={t.starters.habits.suggestions[s.key]}
                   style={[styles.starterChip, { borderColor: domainColor.accent, backgroundColor: theme.surfaceMuted }]}
                 >
-                  <HabitIcon icon={s.icon} size={13} color={domainColor.accent} />
+                  <HabitIcon icon={s.icon} size={13} color={theme.textMuted} />
                   <Text style={[styles.starterChipText, { color: theme.text }]}>{t.starters.habits.suggestions[s.key]}</Text>
-                  <Ionicons name="add" size={13} color={domainColor.accent} />
+                  <Ionicons name="add" size={13} color={theme.accent} />
                 </PressableScale>
               ))}
             </View>
@@ -314,7 +315,6 @@ export default function HomeHabitsCard() {
           state={state}
           onChange={setState}
           total={dueTodayHabits.length}
-          accent={domainColor.accent}
         />
 
         {/* Explainer at the FOOT (2026-07-30) — it used to lead the empty state, between the

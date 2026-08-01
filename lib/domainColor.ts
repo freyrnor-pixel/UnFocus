@@ -1,23 +1,32 @@
 /**
- * domainColor.ts — semantic color-coding layer over the card-identity ramp.
+ * domainColor.ts — semantic color-coding layer over the card-identity hues.
  *
  * One place that maps each app "domain" (task, plan, habit, shop, meal, budget,
  * note, health) to a triad {accent, soft, ink} + two gradient primitives, derived from
- * the palette's blue→violet `card*` ramp (constants/colors.ts), plus a per-status mapping
+ * the palette's `card*` tokens (constants/colors.ts), plus a per-status mapping
  * (done/overdue/soon/default) onto the semantic good/bad/warn tokens. Every screen's section
- * headers, AddRow accent, badges, ExpandableCard.accentColor, and CardAccent (badge+wash) pull
+ * headers, AddRow accent, badges, ExpandableCard.accentColor, and CardAccentBadge pull
  * their hue from here so a domain reads the same color everywhere (design criteria 1, 4, 8).
  *
- * NOTE (2026-07-19 "Card accent system"): domain colour now comes from the `card*` ramp, NOT the
- * `feat*` octet. `feat*` still drives the per-SCREEN hue (lib/screenColor.ts — green Shopping, teal
- * Health, …); `card*` is a separate ramp for CARD identity. So a card's badge intentionally need
- * not match its screen's background hue (decision: cards-only palette scope).
+ * ⚠️ **AN IDENTITY HUE IS A FILL. IT IS NEVER TEXT AND NEVER AN ICON COLOUR** (2026-07-31,
+ * addendum A.4 rule 1). The two channels it is allowed on are the gradient BADGE
+ * (components/CardAccent.tsx) and a card's own low-alpha EDGE (`<Surface borderColor>`), plus
+ * the fill-shaped derivatives of those: `soft` plates, chip/row washes, a progress-bar fill, an
+ * AddRow confirm button. Drawing `accent` as a glyph colour or as `style.color` is a bug — pass
+ * `theme.text`/`theme.textMuted` for ink, `theme.accent` for something you can act on, and a
+ * status token (`good`/`bad`/`warn`) for something that IS a status. Reason, not taste: with the
+ * hues collapsed to four, Shopping's gold is 2.25:1 on the light surface, so a gold word or
+ * glyph is not readable at all — and the whole point of the four-hue set is that it separates by
+ * L\*, which only survives on a filled shape big enough to read as a colour.
  *
- * WIDENED 2026-07-28 (design review): the ramp was a blue→violet family spanning ~40° of hue,
- * which made adjacent domains indistinguishable at badge size — see constants/colors.ts's card
- * block for the full rationale, the co-occurrence map the new hues are chosen against, and why
- * cardHealth/cardBudget deliberately avoid the semantic red/green. It is still ONE calm,
- * low-saturation family, just one you can actually tell apart.
+ * The mirror rule (A.4 rule 2): a STATUS token is the opposite — text/icon only, never a fill.
+ * `getStatusColor()` below is the sanctioned mapping and currently has no production callers.
+ *
+ * COLLAPSED 2026-07-31 (addendum A.3): the nine `card*` tokens now alias FOUR hues — To-do,
+ * Habits, Health, Shopping — plus IDENTITY_NEUTRAL for Notes. The token names all survive so
+ * DOMAIN_TOKEN below is untouched, but several domains deliberately share a value now
+ * (task/plan, shop/meal/budget/scan), which is why the badge GLYPH became load-bearing: see
+ * components/CardAccent.tsx's DOMAIN_ICON note.
  *
  * Domain → palette token (the card* hexes are ordered by ROUTINE SEQUENCE in constants/colors.ts):
  *   plan→cardPlan · task→cardTask · habit→cardHabit · health→cardHealth
@@ -28,7 +37,7 @@
  *
  * Connections:
  *   Imports → constants/colors (ThemePalette), constants/theme (rgba, contrastOn, mix)
- *   Used by → components/AddRow, components/CardAccent (badge+wash gradients), and screen
+ *   Used by → components/AddRow, components/CardAccent (badge gradient + its ink), and screen
  *             headers/badges (plans/shopping/health/settings and their card components) that
  *             color-code by domain
  *   Data    → pure functions over a ThemePalette; no state
@@ -38,14 +47,23 @@
  *     functions, not hooks, so they can be used inside render or memo.
  *   - `soft` is a translucent tint of the accent (works on any surface, both
  *     modes) rather than a second hardcoded token; `ink` is contrast-picked.
- *   - `washTop`/`badgeGradient` are the "one gradient move" (2026-07-19): a soft header-wash
- *     tint (accent blended 22% into the surface) and the icon-badge two-stop (accent →
- *     accent-mixed-toward-navy CARD_BADGE_DEEP). Both are consumed by components/CardAccent.
+ *   - **`ink` is what a glyph ON the badge takes** — `contrastOn(accent)`, which is white for
+ *     three hues and DARK for Shopping. components/CardAccent.tsx used to hardcode `#FFFFFF`
+ *     there; `lib/__tests__/colors.test.ts` now asserts `ink` at ≥3:1 against BOTH badgeGradient
+ *     stops. `ink` is not a licence to draw the hue as text elsewhere — it only ever means "on
+ *     top of this fill".
+ *   - **`washTop` HAS NO CONSUMERS as of 2026-07-31 (addendum A.4 rule 3).** The CardAccent
+ *     header wash it fed is deleted: a card was carrying its hue three times (badge + wash +
+ *     edge) for one idea, so the wash went and badge + edge stayed. It is still computed here
+ *     only because `lib/__tests__/domainColor.test.ts` case (e) pins it and that test is not to
+ *     be weakened. Do NOT wire it back into a component — if you want the wash gone entirely,
+ *     that is a test change and therefore a separate, deliberate decision.
+ *   - `badgeGradient` is the icon-badge two-stop (accent → accent-mixed-toward-navy
+ *     CARD_BADGE_DEEP), consumed by components/CardAccent.
  *   - **(2026-07-14) Dropped the whole-card `tint` field**: domain-coded cards used to wash the
  *     entire card fill with a soft blend of the accent into `theme.surface`. Feedback was that the
- *     tint read as muddy/unnatural, so cards pass `borderColor={accent}` to `<Surface>` (a colored
- *     edge on a plain fill) and, from 2026-07-19, a CardAccent header WASH (a top band only, never a
- *     whole-card fill) — the wash stays a band, not a full tint, so it doesn't reopen that issue.
+ *     tint read as muddy/unnatural, so cards pass `borderColor={accent}` to `<Surface>` — a
+ *     coloured edge on a plain fill, which is still the arrangement today.
  */
 import { ThemePalette } from '@/constants/colors';
 import { rgba, contrastOn, mix } from '@/constants/theme';
@@ -67,15 +85,23 @@ export type Domain =
   | 'health';
 
 export type DomainTriad = {
-  /** Solid domain hue — headers, active tab underline, AddRow confirm fill, card borders. */
+  /**
+   * Solid domain hue. **A FILL, never ink** (A.4 rule 1): the badge gradient, a card's
+   * `<Surface borderColor>` edge, an AddRow confirm fill, a chip/row wash. Not `style.color`,
+   * not an icon `color` — see the ⚠️ block in this file's header.
+   */
   accent: string;
-  /** Translucent tint of the accent for soft backgrounds/badges. */
+  /** Translucent tint of the accent for soft backgrounds/plates. Also a fill. */
   soft: string;
-  /** Legible text/icon color to sit on top of `accent`. */
+  /**
+   * Legible glyph/text colour to sit ON TOP of `accent` — i.e. only inside the badge or another
+   * accent-filled shape. `contrastOn(accent)`: white for To-do/Habits/Health, DARK for Shopping.
+   */
   ink: string;
   /**
-   * Header-wash tinted stop (2026-07-19): the accent blended 22% into `theme.surface`. The
-   * CardAccent header wash is a `[washTop → theme.surface]` gradient band behind the title row.
+   * Header-wash tinted stop (2026-07-19): the accent blended 22% into `theme.surface`.
+   * **UNUSED since 2026-07-31 (A.4 rule 3) — the CardAccent header wash it fed is deleted.**
+   * Kept only because domainColor.test.ts case (e) pins it; don't wire it into a component.
    */
   washTop: string;
   /**
@@ -113,6 +139,15 @@ export type RowStatus = 'done' | 'overdue' | 'soon' | 'default';
 /**
  * Map a row/item status to its {accent, soft} pair. `default` falls back to the
  * domain accent so an untagged row still carries its screen's identity color.
+ *
+ * **Zero production callers as of 2026-07-31** — verified while auditing A.4 rule 2 ("a status
+ * token is text/icon colour, never a fill"). Only domainColor.test.ts case (c) calls it, so the
+ * rule holds vacuously *here*. It does NOT hold app-wide: `theme.good` is used directly as a
+ * FILL in ~15 places (every done-checkbox in TaskCard/ShoppingRow/MedicineTrayCard, several
+ * confirm buttons, Badge/Button/ConfirmationBanner variants). That is a real, separate finding —
+ * unwinding it would rewrite the app's done-state affordance and was deliberately left alone.
+ * If you ever wire this function up, note its returned `accent` is a status colour: draw it as
+ * ink, and don't reach for the `soft` half to make a plate out of it.
  */
 export function getStatusColor(
   theme: ThemePalette,

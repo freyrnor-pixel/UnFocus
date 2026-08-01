@@ -1,5 +1,5 @@
 /**
- * EnergyMeter.tsx — Home card for the optional Energy system (2026-07-20).
+ * EnergyMeter.tsx — Home's Energy STRIP (not a card) for the optional Energy system (2026-07-20).
  *
  * Shows today's and this week's energy as `current / capacity`, where current =
  * capacity + the net signed value of every energy task completed / energy habit
@@ -10,14 +10,32 @@
  * (lib/energy.ts's plannedEnergyDeltaForDay/Week), so an over-committed day/week
  * is visible before anything on it has actually happened.
  *
- * Always rendered (2026-07-26): Energy stopped being a toggle — a task/habit reads 0 unless
- * you give it a value, so the meter simply sits at capacity until something has one.
+ * **Strip, not a card (2026-07-31, addendum task B.2)**: this stopped being a `Surface`. It has
+ * no card background, no shadow, no card padding and no title row — in the common single-meter
+ * case (`energyMode` 'daily'/'weekly') it is ONE thin line: the pips, the `current / capacity`
+ * value, and the edit affordance, with the permanent hint under it. Energy is chrome for the
+ * day, not a fifth list to scroll past, and as a card it competed with the four content cards
+ * below it. Don't re-wrap this in `Surface`/`GlassFill` and don't reinstate the flash-icon +
+ * `t.energyMeter.title` header row — the pips are lightning bolts and the hint names the thing;
+ * `t.energyMeter.title` survives only as the value's accessibility label.
+ *
+ * **Rendered only when `settings.energySystemEnabled` (2026-07-31)** — Energy is a real toggle
+ * again (it was unconditional 2026-07-26 → 2026-07-31), so app/(tabs)/index.tsx gates this
+ * mount. The strip is FIXED on Home: it sits outside `HOME_CARD_KINDS`/`HomeCardManager`, so it
+ * can be neither dragged nor removed with the ×; turning the feature off in Settings → Advanced
+ * → Features is the only way to make it go away.
  * settings.energyMode (2026-07-24) picks which meter(s) show: 'daily' hides the week
  * row, 'weekly' hides the day row, 'custom' (per-weekday capacities set in
- * app/settings.tsx) shows both since the week total derives from the seven days.
+ * app/settings.tsx) shows both since the week total derives from the seven days. 'custom' is
+ * the one case that ISN'T a single line — two meters need their labels to stay tellable apart,
+ * so each keeps the stacked label+value / pips shape below.
  *
- * **Permanent inline hint (2026-07-27)**: one small italic line (`t.energyMeter.hint`) under a
- * hairline rule, INSIDE this card, always. It replaced a `components/StarterCard` sibling that
+ * **Permanent inline hint (2026-07-27, kept through the 2026-07-31 strip pass)**: one small
+ * italic line (`t.energyMeter.hint`) under a hairline rule, attached directly below the meter,
+ * always — via the shared `components/CardHintNote.tsx` at its own `FontSize.xs`, i.e. at or
+ * under caption size. Losing the card surface did NOT orphan it: it hangs off the strip's
+ * bottom edge instead of the card's, and it is the only thing left naming what the pips are, so
+ * it matters more here than it did inside a titled card. It replaced a `components/StarterCard` sibling that
  * carried two "+" example rows and vanished once anything had an energy value. Two problems with
  * that, both reported: (1) as a separate card BELOW the meter and directly ABOVE the to-do card,
  * it read as belonging to the to-do card, so its disappearing act looked like a bug in the wrong
@@ -26,20 +44,23 @@
  * Keep it to ONE line and no examples — the meter is the smallest card on Home and an explainer
  * taller than the thing it explains was the earlier complaint.
  *
- * Compact everywhere (2026-07-27, user report — "the card can be vertically shorter"): tighter
- * vertical padding + gap than a standard card.
+ * Bolt-row meter (2026-07-27): each period reads as a row of small flash-icon "pips"
+ * (lib/energy.ts's energyPipCount — 1:1 up to 10, then scaled) plus the `current / capacity`
+ * value, replacing the old two-line label-row + ProgressBar stack. A hairline divider
+ * separates the day and week lines when both are shown (energyMode 'custom').
  *
- * Bolt-row meter (2026-07-27): each period is one line — label, a row of small flash-icon
- * "pips" (lib/energy.ts's energyPipCount — 1:1 up to 10, then scaled), and the `current /
- * capacity` value, replacing the old two-line label-row + ProgressBar stack to keep the
- * card short. A hairline divider separates the day and week lines when both are shown
- * (energyMode 'custom').
- *
- * **Stacked row layout (2026-07-28 fix)**: label+value share a top line (`meterTopRow`); the
- * pip row is a full-width line below it, not squeezed into the same row as the label/value
- * text. At the default capacity of 10, ten fixed 24px pips need ~285px, which doesn't fit
- * alongside label/value text on real phone widths in a single row — they overflowed and
- * painted over the value text. Don't put pips back on the same line as the label/value.
+ * **Two layouts, and the width math behind them.** Ten pips + the value + the edit glyph only
+ * fit on one line because the strip pass took back the card's 32px of horizontal padding AND
+ * shrank the pip from 24px to `PIP_SIZE` (18): at the audited 360px worst case that's 328px of
+ * content for 216px of pips (10x18 + 9x4 gap) + ~70px of value at the `large` font scale + 16px
+ * of glyph + two 8px gaps ≈ 318px. It is deliberately tight, so `pipRowInline` also carries
+ * `flex:1 / minWidth:0 / overflow:'hidden'` — if a future font scale or narrower phone does run
+ * out of room the pip row clips instead of painting over the value, which is exactly the
+ * 2026-07-28 bug that forced the stacked layout in the first place. Re-check `npm run wraps`
+ * before growing `PIP_SIZE` or putting a label back on this line.
+ * The 'custom' (both meters) case keeps that stacked layout: label+value share a top line
+ * (`meterTopRow`), the pip row is a full-width line below it. Two labels' worth of extra text
+ * genuinely does not fit inline at any pip size worth drawing.
  *
  * **Label dropped for the single-meter case (2026-07-28)**: `row()`'s `label` param is
  * nullable — passed only when BOTH day and week meters are on screen at once (`energyMode`
@@ -48,6 +69,10 @@
  * lone row already makes obvious. `meterValue`'s `marginLeft:'auto'` (not `meterTopRow`'s
  * `justifyContent`) does the right-alignment so this works with or without a label present,
  * without a conditional style branch.
+ *
+ * **The edit affordance travels** (`row()`'s `trailing` param): it rides the end of the single
+ * line in the common case, and the end of the FIRST visible meter's top line in 'custom' mode.
+ * It is passed to exactly one row — never render two.
  *
  * **Energy-token pip (2026-07-28, round 3 — after two shadow/bevel "keycap" passes still read
  * as flat or too grey, user then pointed at trading-card game energy-type icons as the actual
@@ -82,11 +107,13 @@
  * any future copy on that same side of the line.
  *
  * Connections:
- *   Imports → components/Surface, components/Stepper, components/Collapsible,
+ *   Imports → components/Stepper, components/Collapsible,
  *             components/PressableScale, components/CardHintNote, constants/theme, lib/useAppTheme, lib/i18n,
  *             lib/date, lib/energy, store/useSettingsStore, store/useTaskStore,
  *             store/useHabitStore, store/useEnergyStore, react-native-reanimated
- *   Used by → app/(tabs)/index.tsx (Home)
+ *             (components/Surface is deliberately NOT imported any more — see "Strip, not a card")
+ *   Used by → app/(tabs)/index.tsx (Home) — mounted fixed, above the Shared card and the
+ *             HomeCardManager stack, gated on settings.energySystemEnabled
  *   Data    → reads tasks/habits/habitLogs + energy_budgets overrides; writes overrides only
  */
 import React, { useEffect, useRef, useState } from 'react';
@@ -94,7 +121,6 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, RadialGradient, Stop, Circle, Rect } from 'react-native-svg';
 import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
-import Surface from '@/components/Surface';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
@@ -116,6 +142,14 @@ type PulseKind = 'recovered' | 'depleted';
  *  one number that matters — at 16px it needs 14px of slop, which a hand-picked 8 or 12
  *  (40px of target) doesn't reach. */
 const EDIT_ICON_SIZE = 16;
+
+/** Pip diameter + the gap between pips. Down from 24/5 in the 2026-07-31 strip pass — see the
+ *  file header's "Two layouts, and the width math behind them" note before changing either;
+ *  ten pips have to share one line with the value and the edit glyph now. */
+const PIP_SIZE = 18;
+const PIP_GAP = 4;
+/** The flash glyph inside a pip — ~60% of the badge, same proportion the 24px pip used. */
+const PIP_ICON_SIZE = 11;
 
 /** One-shot ~1.5s glow behind a meter row — see the file header's "Depleted/recovered pulse"
  *  note. Local to this file (not GlowPulse) because it needs a timed fade in→hold→out
@@ -178,11 +212,10 @@ export default function EnergyMeter() {
   const showDay = energyMode !== 'weekly';
   const showWeek = energyMode !== 'daily';
   /**
-   * The common case ('daily'/'weekly' — one meter on the card). The `current / capacity`
-   * value then moves UP onto the header row beside the title (2026-07-30, user report: "Energy
-   * card is too high"), because with no label to sit beside it, it otherwise got an entire
-   * 20px line to itself between the header and the pips. 'custom' shows both meters, where
-   * each row needs its own label+value line to stay tellable apart, so the value stays put.
+   * The common case ('daily'/'weekly' — one meter). This is what makes the strip ONE line: pips,
+   * value and edit glyph share a row, with no label and (since 2026-07-31) no title row above
+   * them. 'custom' shows both meters, where each row needs its own label+value line to stay
+   * tellable apart, so those keep the stacked shape.
    */
   const singleMeter = !(showDay && showWeek);
 
@@ -242,8 +275,82 @@ export default function EnergyMeter() {
   // on screen at once (energyMode 'custom'), where it's the one thing telling them apart.
   // rowKey is a stable 'day'/'week' discriminator for the pip gradient ids — kept separate
   // from `label` (which can be null) so id uniqueness never depends on translated text.
-  const row = (rowKey: 'day' | 'week', label: string | null, current: number, capacity: number, pulse: { id: number; kind: PulseKind } | null) => {
+  // Passed to exactly ONE row (see the file header's "The edit affordance travels" note) — the
+  // single meter's line, or the first visible meter's top line in 'custom' mode.
+  const editButton = (
+    <PressableScale
+      onPress={() => setEditing((v) => !v)}
+      hitSlop={hitSlopFor(EDIT_ICON_SIZE)}
+      scaleTo={0.9}
+      accessibilityRole="button"
+      accessibilityLabel={t.energyMeter.editTitle}
+    >
+      <Ionicons
+        name={editing ? 'checkmark' : 'create-outline'}
+        size={EDIT_ICON_SIZE}
+        color={editing ? theme.accent : theme.textMuted}
+      />
+    </PressableScale>
+  );
+
+  const row = (
+    rowKey: 'day' | 'week',
+    label: string | null,
+    current: number,
+    capacity: number,
+    pulse: { id: number; kind: PulseKind } | null,
+    trailing: React.ReactNode
+  ) => {
     const { pipCount, filled } = energyPipCount(current, capacity);
+    const pips = (
+      <View style={[styles.pipRow, singleMeter && styles.pipRowInline]}>
+        {Array.from({ length: pipCount }).map((_, i) => {
+          const active = i < filled;
+          if (!active) {
+            return (
+              <View key={i} style={[styles.pipEmpty, { backgroundColor: theme.surfaceInset, borderColor: theme.border }]}>
+                <Ionicons name="flash-outline" size={PIP_ICON_SIZE} color={theme.textMuted} />
+              </View>
+            );
+          }
+          const fillId = `${pipGradientBaseId}-${rowKey}-${i}-fill`;
+          const glossId = `${pipGradientBaseId}-${rowKey}-${i}-gloss`;
+          return (
+            <View key={i} style={[styles.pipBadge, { backgroundColor: theme.accent, shadowColor: theme.shadow }]}>
+              <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+                <Defs>
+                  <RadialGradient id={fillId} cx="50%" cy="36%" r="80%">
+                    <Stop offset="0%" stopColor={lighten(theme.accent, 0.22)} />
+                    <Stop offset="55%" stopColor={theme.accent} />
+                    <Stop offset="100%" stopColor={darken(theme.accent, 0.22)} />
+                  </RadialGradient>
+                  {/* Gloss highlight — keep this bold (high center opacity), not subtle.
+                      It's the one detail that reads as "glossy token" rather than "flat
+                      circle"; see the file header's "Energy-token pip" note. */}
+                  <RadialGradient id={glossId} cx="38%" cy="24%" rx="42%" ry="26%">
+                    <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.95} />
+                    <Stop offset="85%" stopColor="#FFFFFF" stopOpacity={0} />
+                  </RadialGradient>
+                </Defs>
+                <Circle cx="50%" cy="50%" r="46%" fill={`url(#${fillId})`} stroke={darken(theme.accent, 0.5)} strokeWidth={2} />
+                <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${glossId})`} />
+              </Svg>
+              <Ionicons name="flash" size={PIP_ICON_SIZE} color="#FFFFFF" />
+            </View>
+          );
+        })}
+      </View>
+    );
+    // The title row is gone (strip pass), so this value is the only thing naming the number for
+    // a screen reader — `t.energyMeter.title` lives on here rather than as visible text.
+    const value = (
+      <Text
+        style={[styles.meterValue, { color: theme.textMuted }]}
+        accessibilityLabel={`${t.energyMeter.title}${label ? ` — ${label}` : ''}: ${current} / ${capacity}`}
+      >
+        {`${current} / ${capacity}`}
+      </Text>
+    );
     return (
       <View style={styles.meterRowWrap}>
         {pulse && (
@@ -253,86 +360,31 @@ export default function EnergyMeter() {
             reducedMotion={reducedMotion}
           />
         )}
-        <View style={styles.meterRow}>
-          {/* Single-meter mode draws no top line at all — the value moved up into the card
-              header (see `singleMeter` below), so this would be an empty 20px band. */}
-          {!singleMeter && (
+        {singleMeter ? (
+          // THE strip: one line, nothing above it. See the file header's width math before
+          // adding anything else to this row.
+          <View style={styles.stripLine}>
+            {pips}
+            {value}
+            {trailing}
+          </View>
+        ) : (
+          <View style={styles.meterRow}>
             <View style={styles.meterTopRow}>
               {label && <Text style={[styles.meterLabel, { color: theme.text }]}>{label}</Text>}
-              <Text style={[styles.meterValue, { color: theme.textMuted }]}>{`${current} / ${capacity}`}</Text>
+              {value}
+              {trailing ? <View style={styles.topRowTrailing}>{trailing}</View> : null}
             </View>
-          )}
-          <View style={styles.pipRow}>
-            {Array.from({ length: pipCount }).map((_, i) => {
-              const active = i < filled;
-              if (!active) {
-                return (
-                  <View key={i} style={[styles.pipEmpty, { backgroundColor: theme.surfaceInset, borderColor: theme.border }]}>
-                    <Ionicons name="flash-outline" size={14} color={theme.textMuted} />
-                  </View>
-                );
-              }
-              const fillId = `${pipGradientBaseId}-${rowKey}-${i}-fill`;
-              const glossId = `${pipGradientBaseId}-${rowKey}-${i}-gloss`;
-              return (
-                <View key={i} style={[styles.pipBadge, { backgroundColor: theme.accent, shadowColor: theme.shadow }]}>
-                  <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-                    <Defs>
-                      <RadialGradient id={fillId} cx="50%" cy="36%" r="80%">
-                        <Stop offset="0%" stopColor={lighten(theme.accent, 0.22)} />
-                        <Stop offset="55%" stopColor={theme.accent} />
-                        <Stop offset="100%" stopColor={darken(theme.accent, 0.22)} />
-                      </RadialGradient>
-                      {/* Gloss highlight — keep this bold (high center opacity), not subtle.
-                          It's the one detail that reads as "glossy token" rather than "flat
-                          circle"; see the file header's "Energy-token pip" note. */}
-                      <RadialGradient id={glossId} cx="38%" cy="24%" rx="42%" ry="26%">
-                        <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.95} />
-                        <Stop offset="85%" stopColor="#FFFFFF" stopOpacity={0} />
-                      </RadialGradient>
-                    </Defs>
-                    <Circle cx="50%" cy="50%" r="46%" fill={`url(#${fillId})`} stroke={darken(theme.accent, 0.5)} strokeWidth={2} />
-                    <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${glossId})`} />
-                  </Svg>
-                  <Ionicons name="flash" size={14} color="#FFFFFF" />
-                </View>
-              );
-            })}
+            {pips}
           </View>
-        </View>
+        )}
       </View>
     );
   };
 
   return (
-    <Surface style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Ionicons name="flash" size={18} color={theme.accent} />
-          <Text style={[styles.title, { color: theme.text }]}>{t.energyMeter.title}</Text>
-        </View>
-        {/* The value rides the header in single-meter mode — see `singleMeter`. */}
-        {singleMeter && (
-          <Text style={[styles.headerValue, { color: theme.textMuted }]}>
-            {showDay ? `${dayCurrent} / ${dayCapacity}` : `${weekCurrent} / ${weekCapacity}`}
-          </Text>
-        )}
-        <PressableScale
-          onPress={() => setEditing((v) => !v)}
-          hitSlop={hitSlopFor(EDIT_ICON_SIZE)}
-          scaleTo={0.9}
-          accessibilityRole="button"
-          accessibilityLabel={t.energyMeter.editTitle}
-        >
-          <Ionicons
-            name={editing ? 'checkmark' : 'create-outline'}
-            size={EDIT_ICON_SIZE}
-            color={editing ? theme.accent : theme.textMuted}
-          />
-        </PressableScale>
-      </View>
-
-      {showDay && row('day', showWeek ? t.energyMeter.today : null, dayCurrent, dayCapacity, dayPulse)}
+    <View style={styles.strip}>
+      {showDay && row('day', showWeek ? t.energyMeter.today : null, dayCurrent, dayCapacity, dayPulse, editButton)}
       {showDay && dayCapacity > 0 && dayCurrent <= 0 && (
         <View style={styles.warningRow}>
           <Ionicons name="leaf-outline" size={14} color={theme.good} />
@@ -346,7 +398,9 @@ export default function EnergyMeter() {
         </View>
       )}
       {showDay && showWeek && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
-      {showWeek && row('week', showDay ? t.energyMeter.thisWeek : null, weekCurrent, weekCapacity, weekPulse)}
+      {/* `showDay ? null : editButton` — the glyph is drawn by whichever meter comes FIRST, so
+          'weekly' mode (no day row) still gets one and 'custom' mode never gets two. */}
+      {showWeek && row('week', showDay ? t.energyMeter.thisWeek : null, weekCurrent, weekCapacity, weekPulse, showDay ? null : editButton)}
       {showWeek && weekCapacity > 0 && weekCurrent <= 0 && (
         <View style={styles.warningRow}>
           <Ionicons name="leaf-outline" size={14} color={theme.good} />
@@ -377,43 +431,40 @@ export default function EnergyMeter() {
         </View>
       </Collapsible>
 
-      {/* Permanent one-line explainer, INSIDE the card, directly under the meter it explains
+      {/* Permanent one-line explainer, attached directly under the meter it explains
           (2026-07-27, user report). See the file header for why this is no longer a
           disappearing StarterCard sibling. The shape this pioneered became the shared
-          components/CardHintNote.tsx (2026-07-30), which every Home card's tip now uses. */}
+          components/CardHintNote.tsx (2026-07-30), which every Home card's tip now uses.
+          It KEEPS its top hairline (no `noBorder`): with the card surface gone that rule is
+          the strip's only bottom edge, and it's what stops the hint reading as a floating
+          paragraph between Energy and the card below. */}
       <CardHintNote text={t.energyMeter.hint} style={styles.hint} />
 
-    </Surface>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Tighter vertically than a standard card (2026-07-27, user report: "the Energy card can be
-  // vertically shorter") — one title row plus one or two single-line meters doesn't need a full
-  // Spacing.md band above and below. Horizontal padding stays md so it still lines up with the
-  // other Home cards' content.
-  card: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, gap: Spacing.xs },
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  // flex:1 so the title block takes the slack and the value + edit icon sit together at the
-  // right edge, rather than the value floating in the middle on a space-between row.
-  titleRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  // 18, up from FontSize.md/16 (2026-07-30, user report: "Energy header a bit bigger") — still
-  // below the 20px the four domain cards' titles use, since this is the smallest card on Home.
-  title: { fontSize: 18, fontFamily: Fonts.bold },
-  // The hoisted single-meter value (see `singleMeter`). Tabular-ish weight matching meterValue
-  // so 'custom' mode's per-row values and this one read as the same number in two places.
-  headerValue: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  // NO padding, NO background, NO shadow — this is the strip, not a card (2026-07-31, addendum
+  // task B.2). Dropping the card's 16px horizontal padding is half of what buys the room to put
+  // pips, value and edit glyph on one line; see the file header's width math. Because of that,
+  // the pips sit ~16px left of the neighbouring cards' CONTENT and flush with their outer edge —
+  // deliberate: it's what makes this read as chrome for the day rather than a fifth card.
+  strip: { gap: Spacing.xs },
+  // The one-line strip itself (single-meter case): pips take the slack, value and edit glyph
+  // sit at the right edge.
+  stripLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  // Keeps the edit glyph off the value in 'custom' mode's stacked top line, where there's no
+  // `gap` doing that job on the pip side.
+  topRowTrailing: { marginLeft: Spacing.sm },
   // Wraps each meter row so EnergyPulse (an absoluteFill sibling) has a position:relative
   // parent to glow behind — see the "Depleted/recovered pulse" file-header note.
   meterRowWrap: { position: 'relative', borderRadius: Radius.sm },
-  // Stacked (2026-07-28 fix): label+value share a top line, the pip row gets the full
-  // card width on its own line below. A single-line layout (label — pips — value all in
-  // one row) ran out of horizontal room on real phones once pips became fixed-size tokens
-  // — at the default capacity of 10, the pips alone need ~285px, which doesn't fit
-  // alongside the label/value text at typical content widths (~296-330px), so the
-  // pips overflowed their box and painted over the value text. Stacking removes the
-  // three-way competition for width entirely instead of trying to tune sizes that could
-  // break again at another font-scale/language/width combination.
+  // 'custom' mode only (both meters on screen). Stacked (2026-07-28 fix): label+value share a
+  // top line, the pip row gets the full width on its own line below. Putting a LABEL on the
+  // same line as ten pips and a value ran out of horizontal room on real phones — that's still
+  // true at PIP_SIZE 18, which is why only the label-less single-meter case went inline in the
+  // 2026-07-31 strip pass. Don't collapse this branch.
   meterRow: { gap: 6 },
   // No justifyContent here — meterValue's own marginLeft:'auto' pushes it to the right
   // edge whether or not meterLabel is rendered (label is omitted when only one meter
@@ -421,30 +472,34 @@ const styles = StyleSheet.create({
   // conditional style branch for the label-present vs. label-absent case.
   meterTopRow: { flexDirection: 'row', alignItems: 'center' },
   meterLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  // Full card width now that it's on its own line (2026-07-28 stack fix) — see `pipBadge`
-  // below for the size/gap math that keeps this fitting at the narrowest audited width.
-  pipRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  pipRow: { flexDirection: 'row', alignItems: 'center', gap: PIP_GAP },
+  // Inline (strip) variant: takes the leftover width AFTER the value and edit glyph have their
+  // intrinsic sizes, and clips rather than overflowing. See the file header — an overflowing
+  // pip row painting over the value text is the 2026-07-28 bug this guards against.
+  pipRowInline: { flex: 1, minWidth: 0, overflow: 'hidden' },
   // Energy-token pip (2026-07-28, round 3 — see file header's "Energy-token pip" note): an
   // available pip's real fill/rim/gloss are drawn by the Svg in row()'s renderer; this View
   // only needs a matching backgroundColor so its own shadow casts in the right (circular)
   // shape — the Svg fully covers it, nothing here is actually visible except the shadow.
-  // Purely visual, never wrapped in PressableScale — nothing here is pressable. Sized at
-  // 24px: 10*24 + 9*5 gap = 285px, fits the 360px-wide worst case (~296px content) with
-  // margin — don't grow this further without re-checking `npm run wraps` math.
+  // Purely visual, never wrapped in PressableScale — nothing here is pressable. Sized from
+  // PIP_SIZE (18, down from 24 in the strip pass) — don't grow it without re-running the
+  // one-line width math in the file header and `npm run wraps`.
   pipBadge: {
-    width: 24, height: 24, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center',
+    width: PIP_SIZE, height: PIP_SIZE, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center',
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.28, shadowRadius: 3, elevation: 4,
   },
   // A spent pip is a plain hollow ring — an emptied slot, no gradient, no gloss, no shadow.
-  pipEmpty: { width: 24, height: 24, borderRadius: Radius.full, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  meterValue: { fontSize: FontSize.sm, fontFamily: Fonts.medium, marginLeft: 'auto' },
+  pipEmpty: { width: PIP_SIZE, height: PIP_SIZE, borderRadius: Radius.full, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  // flexShrink:0 so the value keeps its full width on the strip line and the pip row is what
+  // gives, never the number.
+  meterValue: { fontSize: FontSize.sm, fontFamily: Fonts.medium, marginLeft: 'auto', flexShrink: 0 },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 2 },
   warningRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   warningText: { flex: 1, fontSize: FontSize.xs, fontFamily: Fonts.medium },
   editor: { gap: Spacing.sm, paddingTop: Spacing.sm },
   editRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   editLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  // CardHintNote brings its own hairline/type; this only trims its default top margin, since
-  // the card's own `gap` already separates it from the meter above.
+  // CardHintNote brings its own hairline/italic caption-or-smaller type; this only trims its
+  // default top margin, since `strip`'s own `gap` already separates it from the meter above.
   hint: { marginTop: 2 },
 });

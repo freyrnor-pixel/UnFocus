@@ -30,7 +30,7 @@
  * Connections:
  *   Imports → components/PadSheet, components/PadRow, components/PadTypeRow,
  *             components/PadFooterToggle, components/SendToSheet, components/Surface,
- *             components/PressableScale, components/CardAccent (badge + wash),
+ *             components/PressableScale, components/CardAccent (CardAccentBadge),
  *             components/Collapsible + components/AnimatedChevron (checked-zone reveal),
  *             components/TimeBoxInput (quick-add's companion-task time field),
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
@@ -67,8 +67,9 @@
  *     but NOT on react-native-web (which compiles to CSS, where the containing block is the
  *     padding edge). Testing that offset in the web preview was actively misleading. The badge
  *     is a normal flex child now, so there is no padding-inheritance question to get wrong —
- *     don't reintroduce an absolutely-positioned badge. CardAccentWash is still absolute, but
- *     it is a full-width band with no left offset to disagree about.
+ *     don't reintroduce an absolutely-positioned badge. Nothing on this card is absolutely
+ *     positioned any more: the header wash went with it (2026-07-31, addendum A.4 rule 3 — one
+ *     idea, one channel; the badge and the card's own edge already carry the hue twice).
  */
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
@@ -76,7 +77,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
-import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
+import { CardAccentBadge } from '@/components/CardAccent';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
@@ -202,9 +203,6 @@ export default function HomeNotesCard() {
       borderColor={domainColor.accent}
       style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
-      {/* Full-width band with no left offset, so it has no padding-inheritance question to
-          disagree about across platforms (unlike the retired absolute badge). */}
-      <CardAccentWash domain="note" />
       <View style={styles.cardContent}>
         {/* Header. Badge is a normal flex child — one left edge for the whole card. */}
         <View style={styles.header}>
@@ -241,10 +239,14 @@ export default function HomeNotesCard() {
                 },
               ]}
             >
+              {/* A.4 rule 1: the identity hue stays on the plate + rim (a fill); the glyph is
+                  the action colour, or the `bad` status token while recording. Notes' identity
+                  is IDENTITY_NEUTRAL grey since A.3, which made a live control read as
+                  disabled when the glyph took it. */}
               <Ionicons
                 name={listening ? 'stop' : 'mic'}
                 size={15}
-                color={listening ? theme.bad : domainColor.accent}
+                color={listening ? theme.bad : theme.accent}
               />
             </View>
           </PressableScale>
@@ -294,7 +296,7 @@ export default function HomeNotesCard() {
                     <Ionicons
                       name="checkbox-outline"
                       size={15}
-                      color={addAsTask ? domainColor.accent : theme.textMuted}
+                      color={addAsTask ? theme.accent : theme.textMuted}
                     />
                   </PressableScale>
                   {addAsTask && <TimeBoxInput value={taskTimeDraft} onChange={setTaskTimeDraft} />}
@@ -361,7 +363,6 @@ export default function HomeNotesCard() {
           state={state}
           onChange={setState}
           total={padNotes.length}
-          accent={domainColor.accent}
         />
 
         {/* Explainer at the FOOT (2026-07-30) — it used to sit between the header and the

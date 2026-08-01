@@ -8,8 +8,10 @@
  * this screen — which creates an undated, non-recurring task on submit; the editor can
  * then promote it (date / repeat / steps). Today / This week expand a task to its steps
  * only (no settings); the Today section sits inside its own card. The Home "Today's plans"
- * preview keeps the unchanged PlanTaskCard day-view. Every section (Shared out / Whenever /
- * Recurring on All tasks; Whenever on Today/This week; each weekday on This week) always
+ * preview keeps the unchanged PlanTaskCard day-view. On Today and This week the undated
+ * **Whenever** section sits BELOW the dated content as a collapsed drawer (see `CollapsedSection`
+ * and the Edit note); on All tasks it stays expanded at the top. Every section (Shared out /
+ * Whenever / Recurring on All tasks; Whenever on Today/This week; each weekday on This week) always
  * renders, showing an empty message instead of disappearing when it has no tasks — kept
  * consistent with Shopping's always-visible list layout (app/(tabs)/shopping.tsx). Within
  * every Today/This-week section, `<DoneSplitList>` splits tasks into unfinished (shown
@@ -19,8 +21,10 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedTasksSection,
  *             components/SectionRail, components/SectionCard, components/TaskCard, components/AddRow,
- *             components/PressableScale, components/Collapsible + components/AnimatedChevron
- *             (animated "Finished (n)" done-zone reveal), components/TabSlider,
+ *             components/PressableScale, components/Surface (the local CollapsedSection's card
+ *             shell), components/Collapsible + components/AnimatedChevron
+ *             (animated "Finished (n)" done-zone reveal, and the collapsed Whenever drawer),
+ *             components/TabSlider,
  *             components/StarterCard (first-run explainer, shown while there are no tasks at all),
  *             components/StarterExampleRow (its "Tidy up"/"Rydde" example row — a real daily,
  *             time-boxed, 5-step task its "+" button writes via useTaskStore), lib/taskStarters
@@ -29,7 +33,7 @@
  *             the header share icon's push to /share-modal), lib/date,
  *             lib/domainColor, lib/haptics,
  *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/prefill (usePrefill — a note
- *             sent here seeds the Whenever add row), lib/screenColor, store/useTaskStore,
+ *             sent here seeds the Whenever add row), store/useTaskStore,
  *             store/useSettingsStore, store/usePeopleStore + components/PersonChip (the person
  *             filter row), store/useTagStore + components/TagChip + lib/tags (the tag filter
  *             row — multi-select, "any of"), components/EnergyBalanceCard (the shared-load
@@ -45,6 +49,18 @@
  *             internally for incoming shares + accepts the sharedOut tasks as its "sent" half
  *
  * Edit notes:
+ *   - **Whenever moved below the day + collapsed (2026-08-01, DESIGN_RULES.md rule 7 —
+ *     "order by what's needed first")**: on **Today** and **This week** the undated backlog used
+ *     to render FIRST, above the tab's own content — the least time-sensitive section holding the
+ *     highest-priority slot on a tab literally called Today. It now renders LAST (before the
+ *     Goals link) as a `<CollapsedSection>` drawer, default closed, header + count still visible.
+ *     Three things to keep intact if you touch this: (1) **All tasks is deliberately unchanged** —
+ *     Whenever stays expanded at the top there, where it is a real section of the content rather
+ *     than an interruption; (2) "One thing at a time" (`focusFirst`) still drops the section from
+ *     Today entirely — that exclusion predates this change and is not the same thing as
+ *     collapsing it; (3) the drawer's rows are OUT of `visibleTaskIds`, for the same reason
+ *     finished rows are (see that memo's comment). Order per tab is now Today/week content →
+ *     Whenever drawer → Goals link, with each section's own "Done (n)" zone last inside it.
  *   - **Header share icon wired (2026-07-28)**: `onSharePress` (gated on `featureSharing`,
  *     same flag as SharedTasksSection above) pushes `/share-modal?kind=t` — mirrors
  *     Shopping's `kind=s` wiring (app/(tabs)/shopping.tsx, restored 2026-07-23). Previously
@@ -138,6 +154,7 @@ import { useCardState } from '@/lib/useCardState';
 import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
 import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
+import Surface from '@/components/Surface';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TabSlider from '@/components/TabSlider';
@@ -166,7 +183,6 @@ import { FontSize, Radius, Spacing, TabularNums, Type } from '@/constants/theme'
 import { Spring } from '@/constants/motion';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { getDomainColor } from '@/lib/domainColor';
-import { getScreenColor } from '@/lib/screenColor';
 
 type Tab = 'all' | 'today' | 'week';
 
@@ -280,6 +296,66 @@ function DoneSplitList({
         </View>
       )}
     </>
+  );
+}
+
+/**
+ * A section drawn as a DRAWER: its `<SectionRail>` header (hue badge + label + count) stays
+ * visible and its body collapses behind a chevron, default closed.
+ *
+ * Mechanism is deliberately the same one `DoneSplitList`'s "Done (n)" zone uses —
+ * `PressableScale` + `SectionRail` + `AnimatedChevron` + `components/Collapsible` — so the two
+ * read as the same kind of drawer rather than two different ways of folding a list away. The
+ * only difference is the shell: this one keeps `Surface`'s hue-edged card (matching the
+ * `<SectionCard>` sections it sits among) instead of the Done zone's inner frame, because it is
+ * a top-level section of the screen, not a zone inside one.
+ *
+ * Used for **Whenever** on the Today / This week tabs (2026-08-01, DESIGN_RULES.md rule 7): the
+ * undated backlog is by definition the least time-sensitive thing on a tab called "Today", so it
+ * moved below the day's own list — and once it is below, a drawer keeps its count in reach
+ * without the section spending a screenful on rows nobody came here for. The All-tasks tab keeps
+ * Whenever expanded at the top, where it is a real section of the content.
+ */
+function CollapsedSection({
+  hue,
+  domain,
+  label,
+  count,
+  children,
+}: {
+  hue: string;
+  domain?: React.ComponentProps<typeof SectionRail>['domain'];
+  label: string;
+  count?: number;
+  children: React.ReactNode;
+}) {
+  const theme = useAppTheme();
+  const [open, setOpen] = useState(false);
+  return (
+    <Surface borderColor={hue} style={styles.collapsedSection}>
+      <PressableScale
+        onPress={() => { tap(); setOpen((v) => !v); }}
+        scaleTo={0.97}
+        releaseSpring={Spring.calm}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ expanded: open }}
+      >
+        <SectionRail
+          hue={hue}
+          domain={domain}
+          label={label}
+          count={count}
+          right={<AnimatedChevron open={open} size={16} color={theme.textMuted} />}
+        />
+      </PressableScale>
+      {/* No gap between the header and the clip — SectionRail carries its own marginBottom, and
+          a gap would leave a phantom blank strip while collapsed (same reason styles.doneZone
+          has none). */}
+      <Collapsible open={open}>
+        <View style={styles.cardStack}>{children}</View>
+      </Collapsible>
+    </Surface>
   );
 }
 
@@ -702,14 +778,19 @@ export default function TasksScreen() {
       if (layoutSpec.id === 'focusFirst') {
         return todayList.filter((tk) => !tk.done).slice(0, 1 + FOCUS_THEN_VISIBLE).map((tk) => tk.id);
       }
-      return [...drawn(undatedWhenever), ...drawn(todayList)].map((tk) => tk.id);
+      // Whenever is a collapsed drawer on this tab as of 2026-08-01, in every layout that
+      // draws it at all — so, exactly like the finished rows inside a "Done (n)" zone, it can
+      // never be a difference between two views and its ids stay out of the snapshot. Leaving
+      // them in would make a switch out of "One thing at a time" glow rows that are folded
+      // away behind a chevron and can't be seen glowing.
+      return drawn(todayList).map((tk) => tk.id);
     }
     if (tab === 'week') {
-      return [...drawn(undatedWhenever), ...weekGroups.flatMap((g) => drawn(g.tasks))].map((tk) => tk.id);
+      return weekGroups.flatMap((g) => drawn(g.tasks)).map((tk) => tk.id);
     }
     // The All tab renders flat and takes no layout, so it has nothing to reveal or hide.
     return [];
-  }, [tab, layoutSpec.focusMode, layoutSpec.id, undatedWhenever, todayList, weekGroups]);
+  }, [tab, layoutSpec.focusMode, layoutSpec.id, todayList, weekGroups]);
 
   // Snapshot key is per TAB, not just per screen: Today and This week draw different sets,
   // and sharing one saved view between them would make every tab switch glow half the list.
@@ -826,7 +907,6 @@ export default function TasksScreen() {
       bottomNav={false}
       pagerFloatingNav
       ownBackground={false}
-      screenColor={getScreenColor(theme, 'plans').base}
       stickyGapColor="transparent"
       stickyBelowHeader={stickyBelowHeader}
       stickyBelowHeaderHeight={STICKY_HEIGHT}
@@ -969,23 +1049,6 @@ export default function TasksScreen() {
         {/* ── TODAY ── */}
         {tab === 'today' && (
           <>
-            {/* Whenever always sits on top (debug-note 2026-07-21) — undated tasks lead, the
-                dated Today section follows. "One thing at a time" is the exception: a second
-                list above the hero is the opposite of one thing at a time, and its count is
-                already the Later row's "Whenever" chip, which taps straight through to it. */}
-            {layoutSpec.id !== 'focusFirst' && (
-              <SectionCard hue={wheneverHue} domain="task" label={t.tasksSectionWhenever} count={undatedWhenever.length}>
-                <DoneSplitList
-                  tasks={undatedWhenever}
-                  emptyText={t.tasksSectionWheneverEmpty}
-                  focusMode={layoutSpec.focusMode}
-                  renderCard={(tk) => (
-                    <TaskCard key={tk.id} task={tk} variant="steps" spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
-                  )}
-                />
-              </SectionCard>
-            )}
-
             {/* Debug notes: anchor the day-view section (not its inner task rows). */}
             <TourTarget id="tour.plans.list">
               <DebugNoteAnchor id="plans.dayView" label="Plans — Today">
@@ -1073,24 +1136,34 @@ export default function TasksScreen() {
                 )}
               </DebugNoteAnchor>
             </TourTarget>
+
+            {/* Whenever, BELOW the day and collapsed (2026-08-01, DESIGN_RULES.md rule 7 —
+                previously the first thing on the tab). The undated backlog is the least
+                time-sensitive thing on a screen whose first tab is "Today", so it no longer
+                takes the top slot; the drawer keeps its count in reach and is one tap from
+                the rows themselves. Nothing is filtered out — this is presentation only, and
+                every task in here keeps its reminders and still counts in the header.
+                "One thing at a time" stays the exception and drops the section entirely: a
+                second list under the hero is the opposite of one thing at a time, and its
+                count is already on that layout's tab-bar accessory, which taps through to it. */}
+            {layoutSpec.id !== 'focusFirst' && (
+              <CollapsedSection hue={wheneverHue} domain="task" label={t.tasksSectionWhenever} count={undatedWhenever.length}>
+                <DoneSplitList
+                  tasks={undatedWhenever}
+                  emptyText={t.tasksSectionWheneverEmpty}
+                  focusMode={layoutSpec.focusMode}
+                  renderCard={(tk) => (
+                    <TaskCard key={tk.id} task={tk} variant="steps" spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
+                  )}
+                />
+              </CollapsedSection>
+            )}
           </>
         )}
 
         {/* ── THIS WEEK ── */}
         {tab === 'week' && (
           <>
-            {/* Whenever always sits on top (debug-note 2026-07-21) — before the weekday groups. */}
-            <SectionCard hue={wheneverHue} domain="task" label={t.tasksSectionWhenever} count={undatedWhenever.length}>
-              <DoneSplitList
-                tasks={undatedWhenever}
-                emptyText={t.tasksSectionWheneverEmpty}
-                focusMode={layoutSpec.focusMode}
-                renderCard={(tk) => (
-                  <TaskCard key={tk.id} task={tk} variant="steps" spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
-                )}
-              />
-            </SectionCard>
-
             {weekGroups.map((group, i) => (
               <SectionCard key={group.date} hue={theme.accent} label={t.dayFull[i]} count={group.tasks.length}>
                 {/* Add row between tasks and the collapsed "Done" zone — same grouping as Today. */}
@@ -1105,6 +1178,19 @@ export default function TasksScreen() {
                 />
               </SectionCard>
             ))}
+
+            {/* Whenever, BELOW the week and collapsed — same rule-7 reordering as the Today
+                tab above (2026-08-01); the weekday groups are what this tab is for. */}
+            <CollapsedSection hue={wheneverHue} domain="task" label={t.tasksSectionWhenever} count={undatedWhenever.length}>
+              <DoneSplitList
+                tasks={undatedWhenever}
+                emptyText={t.tasksSectionWheneverEmpty}
+                focusMode={layoutSpec.focusMode}
+                renderCard={(tk) => (
+                  <TaskCard key={tk.id} task={tk} variant="steps" spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
+                )}
+              />
+            </CollapsedSection>
           </>
         )}
 
@@ -1191,6 +1277,16 @@ const styles = StyleSheet.create({
   // outer clip wrapper stays mounted at 0 height). Collapsible's own reveal already resizes
   // this View smoothly — no extra layout-animation needed here.
   doneZone: { marginTop: Spacing.sm, borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm },
+  // CollapsedSection's shell — deliberately the same box SectionCard draws (Decision 043 rule 2:
+  // Spacing.xl above every section, padding routed inward by Surface), so a drawer section sits
+  // in the same rhythm as the expanded sections above it and only the chevron marks it apart.
+  collapsedSection: {
+    marginTop: Spacing.xl,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    paddingTop: Spacing.sm,
+  },
   personFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm },
   personChip: { borderRadius: Radius.full, borderWidth: 1, paddingVertical: 6, paddingHorizontal: Spacing.md, minHeight: 34, justifyContent: 'center' },
   personChipText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },

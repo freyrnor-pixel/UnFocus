@@ -41,6 +41,10 @@
  *     startsWith-priority) — just render its result; dismissed once a suggestion is picked or
  *     the name is cleared.
  *   - Resets every field on collapse (Add or Discard), so re-expanding starts clean.
+ *   - **The quantity stepper's "+" is muted, not accent (2026-08-01, addendum B.1)** — it
+ *     matches its own "−" now. The panel's ONE accent fill is the primary "Add" button at the
+ *     bottom (`fill`); an accent-filled "+" a few rows above it gave one small panel two
+ *     competing fills. See components/Stepper.tsx's edit note.
  *   - `categories` (from lib/shoppingCategories.ts's categoryPresets()) drives the chip row;
  *     omitting it renders nothing — no layout gap, no forced choice.
  *   - The "Ønsket antall" stepper's label defaults to t.onsketAntallLabel ("target quantity at
@@ -257,7 +261,7 @@ export default function InlineAddItem({
       <Text style={[styles.label, { color: theme.textMuted }]}>{quantityLabel ?? t.onsketAntallLabel}</Text>
       <View style={styles.stepperRow}>
         <PressableScale
-          style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted }]}
+          style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
           onPress={() => setTargetQty((q) => Math.max(1, q - 1))}
           hitSlop={HitSlop.snug}
           scaleTo={0.90}
@@ -266,12 +270,12 @@ export default function InlineAddItem({
         </PressableScale>
         <Text style={[styles.qtyText, { color: theme.text }]}>{targetQty}</Text>
         <PressableScale
-          style={[styles.stepBtn, { backgroundColor: theme.accent }]}
+          style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
           onPress={() => setTargetQty((q) => q + 1)}
           hitSlop={HitSlop.snug}
           scaleTo={0.90}
         >
-          <Text style={[styles.stepText, { color: theme.accentInk }]}>+</Text>
+          <Text style={[styles.stepText, { color: theme.text }]}>+</Text>
         </PressableScale>
       </View>
 
@@ -335,7 +339,10 @@ const baseStyles = StyleSheet.create({
   },
   categoryChipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   stepperRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  stepBtn: { width: 34, height: 34, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  // Both halves muted + bordered — see components/Stepper.tsx's edit note (addendum B.1,
+  // 2026-08-01). This panel already ends in a filled primary "Add" button; an accent-filled
+  // "+" a few rows above it gave the panel two competing fills.
+  stepBtn: { width: 34, height: 34, borderRadius: Radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   stepText: { fontSize: FontSize.lg, fontFamily: Fonts.bold, lineHeight: 22 },
   qtyText: { fontSize: FontSize.md, fontFamily: Fonts.bold, minWidth: 28, textAlign: 'center' },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.sm },

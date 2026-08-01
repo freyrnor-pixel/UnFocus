@@ -24,7 +24,7 @@
  *   Imports → components/PadSheet + components/PadRow + components/PadTypeRow +
  *             components/PadFooterToggle (the ruled sheet, the type line, the three-size
  *             footer), components/Surface, components/IconButton (the week arrows),
- *             components/CardAccent (badge + wash), components/PressableScale,
+ *             components/CardAccent (CardAccentBadge), components/PressableScale,
  *             components/ProgressBar, components/Stepper (quick-add quantity),
  *             components/ShoppingItemSheet (this card mounts its own item detail sheet —
  *             AnimatedBottomSheet renders into a Modal, so depth in the tree doesn't matter),
@@ -64,7 +64,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import IconButton from '@/components/IconButton';
-import { CardAccentBadge, CardAccentWash } from '@/components/CardAccent';
+import { CardAccentBadge } from '@/components/CardAccent';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
@@ -270,12 +270,14 @@ export default function HomeShoppingCard({
             accessibilityRole="button"
             accessibilityLabel={addTargetIndex === 0 ? t.home.weeklyListChip : monthlyLists[addTargetIndex - 1]?.name}
           >
+            {/* A.4 rule 1: the hue is the chip's EDGE; the glyph is the action colour and the
+                label is plain text. The Shopping gold is 2.25:1 on white — unreadable as ink. */}
             <Ionicons
               name={addTargetIndex === 0 ? 'calendar-outline' : 'file-tray-full-outline'}
               size={13}
-              color={domainColor.accent}
+              color={theme.accent}
             />
-            <Text style={[styles.targetChipText, { color: domainColor.accent }]} numberOfLines={1}>
+            <Text style={[styles.targetChipText, { color: theme.text }]} numberOfLines={1}>
               {addTargetIndex === 0 ? t.home.weeklyListChip : monthlyLists[addTargetIndex - 1]?.name}
             </Text>
           </PressableScale>
@@ -290,7 +292,6 @@ export default function HomeShoppingCard({
       borderColor={domainColor.accent}
       style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
-      <CardAccentWash domain="shop" />
       <View style={styles.cardContent}>
         {/* Header: badge + title/summary, then the week arrows on their own row so the week
             label has the full width and can't be squeezed between two buttons. */}
@@ -313,7 +314,8 @@ export default function HomeShoppingCard({
               ref={badgeRef}
               style={[styles.badge, { backgroundColor: domainColor.soft, borderColor: rgba(domainColor.accent, 0.4) }]}
             >
-              <Text style={[styles.badgeText, { color: domainColor.accent }]}>{totalCount}</Text>
+              {/* Count badge: hue as the plate + edge (a fill), the figure in plain ink. */}
+              <Text style={[styles.badgeText, { color: theme.text }]}>{totalCount}</Text>
             </View>
           )}
         </View>
@@ -426,7 +428,6 @@ export default function HomeShoppingCard({
           state={state}
           onChange={setState}
           total={listRows.length}
-          accent={domainColor.accent}
         />
 
         {/* Explainer at the FOOT (2026-07-30). This was a two-line bullet list ("Weekly list

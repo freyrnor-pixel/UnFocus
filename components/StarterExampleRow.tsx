@@ -27,6 +27,13 @@
  *     `surfaceMuted`/`theme.border` plate, which read as a callout box about a row instead of
  *     a row. `accent` therefore has to be the surrounding list's own domain accent; passing an
  *     arbitrary hue makes the suggestion look like it belongs to a different list.
+ *   - **(2026-07-31, addendum A.4 rule 1) `accent` is a FILL/EDGE colour here, never ink.** The
+ *     leading glyph and the "example" tag word used to be drawn in it; both are `textMuted`
+ *     now, and the "+" is `theme.accent` (it is an action, and the app has one action colour).
+ *     The row keeps every hue it had — wash, row edge, icon circle, tag chip, "+" button — so
+ *     it still reads as belonging to its list. The reason is legibility at the collapsed
+ *     four-hue set: Shopping's gold is 2.25:1 on white, so a 13px glyph and an 11px word drawn
+ *     in it were the two least readable things on an empty screen.
  *   - `onAdd` is optional — omit it for a purely read-only preview (Habits' row does
  *     this: its four *real* one-tap add chips, rendered separately in StarterCard's
  *     `children`, already cover the same item, so a second "+" here would just be a
@@ -76,7 +83,8 @@ type Props = {
   /** Optional trailing pill (e.g. "Weekly", "+1", "3/5"). */
   meta?: string;
   metaVariant?: 'neutral' | 'success' | 'warning' | 'danger';
-  /** The surrounding list's domain accent — drives the icon, the row wash, and its edge. */
+  /** The surrounding list's domain accent — drives the row wash and the three edges (row,
+   *  icon circle, tag chip, "+" button). Never the glyph or the text: see the A.4 note. */
   accent: string;
   /** When provided, renders a trailing "+" button that writes this example into the
    *  real store — omit for a read-only preview (see Edit notes). */
@@ -92,12 +100,14 @@ export default function StarterExampleRow({ icon, title, tag, meta, metaVariant 
   const theme = useAppTheme();
   return (
     <View style={[styles.row, { backgroundColor: rgba(accent, 0.05), borderColor: rgba(accent, 0.2) }, added && styles.rowAdded]}>
+      {/* A.4 rule 1: the hue is the row's wash + edges (a fill channel). The glyph and the
+          "example" word are neutral ink — see the header note. */}
       <View style={[styles.iconWrap, { borderColor: accent }]}>
-        <Ionicons name={icon} size={13} color={accent} />
+        <Ionicons name={icon} size={13} color={theme.textMuted} />
       </View>
       {tag ? (
         <View style={[styles.tag, { borderColor: rgba(accent, 0.45) }]}>
-          <Text style={[styles.tagText, { color: accent }]} numberOfLines={1}>{tag}</Text>
+          <Text style={[styles.tagText, { color: theme.textMuted }]} numberOfLines={1}>{tag}</Text>
         </View>
       ) : null}
       <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
@@ -117,7 +127,7 @@ export default function StarterExampleRow({ icon, title, tag, meta, metaVariant 
           accessibilityLabel={addLabel ? `${addLabel} ${title}` : title}
           style={[styles.addBtn, { borderColor: accent }]}
         >
-          <Ionicons name="add" size={14} color={accent} />
+          <Ionicons name="add" size={14} color={theme.accent} />
         </PressableScale>
       ) : null}
     </View>

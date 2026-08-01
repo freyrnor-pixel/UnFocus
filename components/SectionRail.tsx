@@ -20,11 +20,17 @@
  *     the app-wide unified card/section style (2026-07-19): a small dot + sentence-case
  *     title (20px, bold — was ALL-CAPS with letterSpacing 0.8 until the 2026-07-28 design
  *     review moved uppercase back to ≤13px labels only) over a hairline rule tinted
- *     `rgba(hue, 0.25)` — NOT a filled pill (that soft-plate look was dropped). The label is
- *     NOT pure `hue` (that was a same-hue-on-same-hue pairing that read low-contrast, e.g.
- *     green on light green) — it's `mix(hue, text, 0.3)`, a darkened/lightened hue that stays
- *     legible on the neutral frosted fill in both modes, while the dot keeps the pure `hue`
- *     for identity. Pass a solid accent, not an already-translucent colour.
+ *     `rgba(hue, 0.25)` — NOT a filled pill (that soft-plate look was dropped). Pass a solid
+ *     accent, not an already-translucent colour.
+ *   - **(2026-07-31, addendum A.4 rule 1) The LABEL is `theme.text`, never the hue.** It was
+ *     pure `hue` (a same-hue-on-same-hue pairing that read low-contrast), then `mix(hue, text,
+ *     0.3)` — but a 70% blend of an identity hue is still that hue used as TEXT colour, which
+ *     the identity hues are not for: they are a fill channel (the badge, the card edge). The
+ *     Shopping gold shows the cost — `mix(#D9A441, #1B2432, 0.3)` = `#A07E3D`, 3.79:1 on the
+ *     light surface: it scrapes past the 3:1 large-text floor at this size and fails AA's 4.5,
+ *     while every other hue's label sat at 7.5–8.9:1. That spread is the giveaway that the
+ *     colour was never carrying meaning here. The hue is still on this header twice, as the
+ *     dot/badge and the hairline rule; the words don't need to carry it a third time.
  *   - **(2026-07-26) Optional `domain` prop**: when the section has a real domain identity (not
  *     just an arbitrary hue like "Today" or a weekday group), pass `domain` to swap the plain
  *     10px dot for a small `CardAccentBadge` gradient badge — part of the same "bring the card
@@ -36,7 +42,7 @@
  */
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Fonts, FontSize, mix, rgba, Spacing, TabularNums } from '@/constants/theme';
+import { Fonts, FontSize, rgba, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { CardAccentBadge } from '@/components/CardAccent';
 import { Domain } from '@/lib/domainColor';
@@ -62,11 +68,10 @@ type Props = {
 
 export default function SectionRail({ hue, domain, icon, label, count, right, style }: Props) {
   const theme = useAppTheme();
-  // 2026-07-16 contrast raise: the label was a solid hue on a 14% tint of the SAME hue — a
-  // green/green (etc.) pairing that read low-contrast. Darken the label toward `text` (works
-  // both modes: text is near-black in light, near-white in dark) so it's clearly legible,
-  // and keep the dot at pure `hue` for the color identity. Firmer 18% pill plate too.
-  const labelColor = mix(hue, theme.text, 0.3);
+  // A.4 rule 1 (2026-07-31): an identity hue is a FILL, never text. The dot/badge and the
+  // hairline rule below already carry it; the heading itself is plain `text` so it is legible
+  // at every hue, including the light Shopping gold. See the header note.
+  const labelColor = theme.text;
   return (
     <View style={[styles.container, style]}>
       <View style={styles.row}>

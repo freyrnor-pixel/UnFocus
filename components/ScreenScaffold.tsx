@@ -12,8 +12,9 @@
  *             ScreenHeader can gate its OTA "update available" button to Home only), components/BottomNav,
  *             components/DebugGeneralNoteButton (floating "Add general note" FAB, self-gated on
  *             debugModeEnabled — mounted once here so every screen gets it for free),
- *             lib/useAppTheme, lib/screenColor (ScreenColorContext — per-screen frosted tint,
- *             provided to the scroll body only)
+ *             lib/useAppTheme
+ *             (2026-07-31 A.5: lib/screenColor's ScreenColorContext is NO LONGER imported/provided —
+ *             the per-screen hue is retired, so an un-coded Surface draws a neutral edge)
  *   Used by → every app screen (app/(tabs)/index.tsx, app/(tabs)/shopping.tsx, etc.); also
  *             exports ScrollIntoViewContext, consumed by components/AddRow.tsx to scroll
  *             itself above the keyboard on focus (see that Edit note below)
@@ -145,7 +146,6 @@ import { Keyboard, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { getHeaderMetrics, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
-import { ScreenColorContext } from '@/lib/screenColor';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
@@ -236,13 +236,6 @@ type Props = {
    */
   plainBackground?: boolean;
   /**
-   * Per-screen dominant hue (lib/screenColor.ts) — provided to the scroll body only (NOT the
-   * header/chrome, which stay neutral), so every ambient Surface in this screen's content
-   * picks it up as its frosted tint. The 5 tab screens pass their screen colour; sub-tier
-   * screens omit it (Surfaces fall back to the neutral surface base). See ScreenColorContext.
-   */
-  screenColor?: string;
-  /**
    * Optional override colour for the small filler strip between the header and the
    * sticky-below-header block (default: the page background `theme.bg`). Plans, Shopping,
    * and Settings all pass `theme.surface` so that seam reads white/clean instead of the
@@ -282,7 +275,6 @@ export default function ScreenScaffold({
   pagerFloatingNav = false,
   ownBackground = true,
   plainBackground = false,
-  screenColor,
   stickyGapColor,
   onScroll,
   scrollable = true,
@@ -480,12 +472,11 @@ export default function ScreenScaffold({
 
       {/* L3: Content — swipe-between-sites navigation now lives one level up, in
           app/(tabs)/_layout.tsx's pager, so tab screens render their scroll content
-          directly with no per-screen swipe wrapper. Wrapped in ScreenColorContext so this
-          screen's ambient Surfaces adopt the per-screen frosted tint; the header/chrome
-          (L4/L5) sit OUTSIDE this provider and stay neutral. */}
-      <ScreenColorContext.Provider value={screenColor ?? null}>
-        {scrollContent}
-      </ScreenColorContext.Provider>
+          directly with no per-screen swipe wrapper. Until 2026-07-31 (A.5) this was wrapped in a
+          ScreenColorContext.Provider so every ambient Surface in the body adopted the tab's own
+          feat* hue on its edge; that per-screen hue layer is retired, so the body renders bare and
+          an un-coded Surface falls through to the neutral theme.border. */}
+      {scrollContent}
 
       {/* L4: Top block (ScreenHeader) — extended up behind the status bar and
           padded down by the top inset so the bar content clears it. */}

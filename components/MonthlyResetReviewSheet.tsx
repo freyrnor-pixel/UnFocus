@@ -36,6 +36,10 @@
  *     stepper in this codebase (MonthlyTableRow's targetQuantity stepper, etc.) — no
  *     buffer/save step, since editing your current stock count isn't destructive the way
  *     discarding a list is.
+ *   - **The stepper's "+" is muted, not accent (2026-08-01, addendum B.1)** — it matches its
+ *     own "−" now, leaving the footer's Confirm button as this sheet's single accent fill.
+ *     Keep it in step with components/Stepper.tsx (read its edit note first) and the other
+ *     hand-rolled copies in MonthlyTableRow / InlineAddItem / UpdateSheet.
  */
 import React, { useRef, useState } from 'react';
 import { LayoutAnimation, StyleSheet, Text, View } from 'react-native';
@@ -194,7 +198,7 @@ export default function MonthlyResetReviewSheet({
                   <Text style={[styles.invName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
                   <View style={styles.stepperRow}>
                     <PressableScale
-                      style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted }]}
+                      style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
                       onPress={() => onSetInventoryQty(item.id, Math.max(0, item.inventoryQty - 1))}
                       hitSlop={HitSlop.snug}
                       scaleTo={0.9}
@@ -203,12 +207,12 @@ export default function MonthlyResetReviewSheet({
                     </PressableScale>
                     <Text style={[styles.qtyText, { color: theme.text }]}>{item.inventoryQty}</Text>
                     <PressableScale
-                      style={[styles.stepBtn, { backgroundColor: theme.accent }]}
+                      style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
                       onPress={() => onSetInventoryQty(item.id, item.inventoryQty + 1)}
                       hitSlop={HitSlop.snug}
                       scaleTo={0.9}
                     >
-                      <Text style={[styles.stepText, { color: theme.accentInk }]}>+</Text>
+                      <Text style={[styles.stepText, { color: theme.text }]}>+</Text>
                     </PressableScale>
                   </View>
                 </View>
@@ -257,7 +261,10 @@ const baseStyles = StyleSheet.create({
   invRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm, paddingVertical: Spacing.sm, borderTopWidth: StyleSheet.hairlineWidth },
   invName: { flex: 1, fontSize: FontSize.sm, minWidth: 0 },
   stepperRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  stepBtn: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  // Both halves muted + bordered — see components/Stepper.tsx's edit note (addendum B.1,
+  // 2026-08-01): a stepper is a paired control, so filling only the "+" in the app's action
+  // colour made an increment button compete with this sheet's own primary button.
+  stepBtn: { width: 28, height: 28, borderRadius: Radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   stepText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   qtyText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, minWidth: 20, textAlign: 'center' },
   footer: { flexDirection: 'row', gap: Spacing.sm },

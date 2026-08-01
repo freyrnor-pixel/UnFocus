@@ -104,9 +104,11 @@ export default function SharedTasksSection({ sentTasks, onToggleDone }: Props) {
               style={[styles.recvCard, { backgroundColor: theme.surface, borderColor: theme.border, borderLeftColor: hue }]}
             >
               <View style={styles.recvHead}>
+                {/* A.4 rule 1: hue on the chip plate + the card's left edge, plain ink on the
+                    arrow and the word. */}
                 <View style={[styles.dirChip, { backgroundColor: getDomainColor(theme, 'shop').soft }]}>
-                  <Ionicons name="arrow-down" size={11} color={hue} />
-                  <Text style={[styles.dirChipText, { color: hue }]}>{t.tasksSharedReceived}</Text>
+                  <Ionicons name="arrow-down" size={11} color={theme.text} />
+                  <Text style={[styles.dirChipText, { color: theme.text }]}>{t.tasksSharedReceived}</Text>
                 </View>
                 <Text style={[styles.fromLabel, { color: theme.textMuted }]} numberOfLines={1}>
                   {t.sharedRequests.fromLabel(item.sharedBy)}
