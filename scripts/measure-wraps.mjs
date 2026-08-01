@@ -23,6 +23,22 @@
  *                       a segmented control) whose children spill onto a second line.
  *                       These can't be fixed by shortening copy — the row has a hard
  *                       minimum width — so they have to be measured, not eyeballed.
+ *   4. CLIPPED        — a NON-text element (a button, an icon, a chip) whose box runs past
+ *                       the horizontal edge of the nearest ancestor that clips overflow, so
+ *                       part of it is physically sliced off. Added 2026-08-01 after the task
+ *                       editor's voice mic shipped sliced in half at 360px (#465): the row
+ *                       held a TextInput with no `flex: 1`/`minWidth: 0`, so the input kept
+ *                       its intrinsic width and shoved the mic out through the card's
+ *                       overflow mask. None of the three modes above can see that — the mic
+ *                       has no text to wrap or truncate, and its row has only two children,
+ *                       under the >= 3 that WRAPPED ROWS needs. It was found by eye, in a
+ *                       screenshot, which is exactly what this script exists to replace.
+ *
+ * Coverage note: this walks onboarding, the tour card, all five tabs, Settings, and — since
+ * the same 2026-08-01 pass — the **task editor**, which is where that mic bug lived. Pushed
+ * sub-screens and opened editors were invisible to this audit before that, so a whole class
+ * of the app's densest layouts was never measured. When you add a surface with tight
+ * horizontal pressure, add a step for it here rather than trusting a screenshot.
  *
  * Usage:
  *   node scripts/measure-wraps.mjs [--lang=no|en] [--width=393] [--json]
@@ -52,11 +68,19 @@ const AS_JSON = process.argv.includes('--json');
 // Every string the walk clicks, per language, so adding a language is a table edit.
 const L = {
   en: {
-    langRow: /^Language: English\./, basicsNext: 'Continue',
+    // Norwegian, deliberately: the app is Norwegian-first, so Basics renders in Norwegian
+    // until this very row is tapped — the label is "Språk: English." at the moment it is
+    // clicked, and only the screens AFTER it are English. `--lang=en` timed out on a
+    // "Language: English." that never exists (fixed 2026-08-01; scripts/preview.mjs always
+    // had this right). Everything below is post-switch and so is genuinely English.
+    langRow: /^Språk: English\./, basicsNext: 'Continue',
     newHere: "No, I'm new here", gotIt: 'Got it →', guided: 'Walk me through it',
     next: 'Next →', go: "Let's go! 🌿", tourNext: 'Got it', skipTour: 'Skip the tour',
     tabs: ['Shop', 'To-do', 'Health', 'Habits'], home: 'Home', settings: 'Settings',
     dismiss: ['Skip', 'Got it', 'Got it →', 'OK'],
+    // Task-editor walk: the "All tasks" tab is the only one with an add affordance, and a
+    // fresh profile has no tasks, so one has to be created before an editor can be opened.
+    tasksTabAll: 'All tasks', newTask: 'New task', probeTask: 'Wrap audit probe',
   },
   no: {
     langRow: /^Språk: Norsk\./, basicsNext: 'Fortsett',
@@ -64,6 +88,7 @@ const L = {
     next: 'Neste →', go: 'Kom i gang! 🌿', tourNext: 'Skjønner', skipTour: 'Hopp over omvisningen',
     tabs: ['Handle', 'Gjøremål', 'Helse', 'Vaner'], home: 'Hjem', settings: 'Innstillinger',
     dismiss: ['Hopp over', 'Skjønner', 'Skjønner →', 'OK'],
+    tasksTabAll: 'Alle', newTask: 'Ny oppgave', probeTask: 'Bredde-test',
   },
 }[LANG];
 
@@ -96,13 +121,71 @@ async function dismissModalIfPresent(page) {
 const SCAN = () => {
   const texts = [];
   const rows = [];
+  const clipped = [];
   const visible = (el, cs) => cs.display !== 'none' && cs.visibility !== 'hidden';
+
+  // How far past a clipping ancestor's horizontal edge this element sticks out, or 0.
+  //
+  // Only `hidden`/`clip` count, never `auto`/`scroll`: content outside a SCROLLER is
+  // reachable by scrolling, which is not a bug — and treating the tab pager (a horizontal
+  // scroller holding all five screens, lazy:false) as a clipper would report every
+  // off-screen tab on every run.
+  const clipOverflow = (el, rect) => {
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      const pcs = getComputedStyle(p);
+      const ox = pcs.overflowX;
+      if (ox !== 'hidden' && ox !== 'clip') continue;
+      const pr = p.getBoundingClientRect();
+      // Border-box vs the child's rect: a 1px border is not a clipped control.
+      const over = Math.max(rect.right - pr.right, pr.left - rect.left);
+      return { over, clipper: p, clipperWidth: pr.width };
+    }
+    return null;
+  };
 
   for (const el of document.querySelectorAll('*')) {
     const cs = getComputedStyle(el);
     if (!visible(el, cs)) continue;
     const rect = el.getBoundingClientRect();
     if (rect.width < 8 || rect.height < 4) continue;
+
+    // ── 4. Clipped controls: sliced by an ancestor's overflow mask.
+    // Skip anything off-screen: the pager keeps all five tab screens mounted, and its
+    // neighbours legitimately sit outside the viewport.
+    if (rect.left >= -1 && rect.left < window.innerWidth) {
+      // Text leaves are the TRUNCATED category's job — reporting them here too would
+      // double-count every ellipsised label. This mode is for the things that have no text
+      // to truncate: icon buttons, chips, avatars, controls.
+      const isTextLeaf = el.children.length === 0 && (el.textContent || '').trim().length > 0;
+      // Decorative art is SUPPOSED to bleed past its mask: the tab backdrop is one
+      // 1950px strip slid across five panels, and constants/motifs.ts's shapes are
+      // deliberately edge-anchored (AGENTS.md, "the centre box stays clear"). Every <svg>
+      // and everything inside one is scenery, not a control.
+      const inSvg = el.tagName.toLowerCase() === 'svg' || !!el.closest('svg');
+      if (!isTextLeaf && !inSvg) {
+        const c = clipOverflow(el, rect);
+        // 2px tolerance absorbs subpixel rounding and rounded-corner masks.
+        //
+        // `width <= clipperWidth` is what separates a BUG from a MECHANISM. The mic was
+        // 28px inside a 257px box: it fits with room to spare and was merely shoved out,
+        // which is always wrong. A child WIDER than its clipper is a sliding track — the
+        // tab pager (1800px of five screens in a 360px window), onboarding's three-panel
+        // triptych — where being clipped is the entire design. Without this the report is
+        // dominated by carousels and the one real finding is lost in them.
+        if (c && c.over > 2 && rect.width <= c.clipperWidth) {
+          clipped.push({
+            kind: 'clipped',
+            tag: el.tagName.toLowerCase(),
+            label: (el.getAttribute('aria-label') || el.getAttribute('data-testid') || '').slice(0, 40),
+            over: Math.round(c.over),
+            width: Math.round(rect.width),
+            clipperWidth: Math.round(c.clipperWidth),
+            // The clipper's own text is the most useful way to say WHERE this is.
+            near: (c.clipper.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 44),
+          });
+        }
+      }
+    }
 
     // ── 3. Control rows: a flex row whose children sit on more than one baseline.
     if (cs.display === 'flex' && cs.flexDirection === 'row' && el.children.length >= 3) {
@@ -172,7 +255,7 @@ const SCAN = () => {
       });
     }
   }
-  return { texts, rows };
+  return { texts, rows, clipped };
 };
 
 const screens = [];
@@ -230,6 +313,32 @@ async function main() {
       await dismissModalIfPresent(page);
       await scan(page, tab);
     }
+    // ── The task editor ──
+    // The densest form in the app, and invisible to this audit until 2026-08-01: it is only
+    // reachable by opening a task, and a fresh profile has none, so one is created here
+    // first. This is where the sliced voice mic (#465) lived. Best-effort — a failure here
+    // must not lose the tab/settings findings already collected, so it is wrapped rather
+    // than allowed to kill the run.
+    try {
+      await page.getByRole('button', { name: L.tabs[1], exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      await dismissModalIfPresent(page);
+      await clickText(page, L.tasksTabAll);
+      await page.waitForTimeout(500);
+      await page.getByRole('button', { name: L.newTask, exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(400);
+      const field = page.getByPlaceholder(L.newTask).first();
+      await field.fill(L.probeTask);
+      await field.press('Enter');
+      await page.waitForTimeout(900);
+      // Tapping the row opens the inline editor (components/TaskCard.tsx, variant="full").
+      await clickText(page, L.probeTask);
+      await page.waitForTimeout(1000);
+      await scan(page, 'task-editor');
+    } catch (e) {
+      console.error(`  (task-editor step skipped: ${e.message.split('\n')[0]})`);
+    }
+
     await page.getByRole('button', { name: L.home, exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: L.settings, exact: true }).first().click({ timeout: 10000 });
@@ -243,6 +352,7 @@ async function main() {
 
   const allTexts = screens.flatMap((s) => s.texts.map((t) => ({ ...t, screen: s.name })));
   const allRows = screens.flatMap((s) => s.rows.map((r) => ({ ...r, screen: s.name })));
+  const allClipped = screens.flatMap((s) => (s.clipped || []).map((c) => ({ ...c, screen: s.name })));
   const uniq = (arr, key) => {
     const seen = new Set();
     return arr.filter((x) => { const k = key(x); if (seen.has(k)) return false; seen.add(k); return true; });
@@ -250,7 +360,18 @@ async function main() {
 
   console.log(`\n=== wrap audit — lang=${LANG} width=${WIDTH}px ===\n`);
 
+  // Listed first, and deliberately: unlike the other three this one has no "confirm on
+  // device" caveat and no judgement call. A control sliced by an overflow mask is a bug at
+  // every width where it reproduces.
+  const clip = uniq(allClipped, (c) => `${c.screen}|${c.near}|${c.over}`);
+  console.log(`CLIPPED controls (sliced by an ancestor's overflow mask): ${clip.length}`);
+  for (const c of clip.sort((a, b) => b.over - a.over)) {
+    console.log(`  ${c.over}px past the edge | ${c.tag} w=${c.width} inside a ${c.clipperWidth}px box `
+      + `[${c.screen}]${c.label ? ` "${c.label}"` : ''} near ${JSON.stringify(c.near)}`);
+  }
+
   const rowsWrapped = uniq(allRows, (r) => r.sample);
+  console.log('');
   console.log(`CONTROL ROWS that wrapped (cannot be fixed by shortening copy): ${rowsWrapped.length}`);
   for (const r of rowsWrapped.sort((a, b) => a.short - b.short)) {
     console.log(`  short by ${r.short}px | ${r.children} items on ${r.linesUsed} lines | `
@@ -273,8 +394,9 @@ async function main() {
   }
 
   const totalWrapped = allTexts.filter((t) => t.kind === 'wrapped').length;
-  console.log(`\ntotals: ${totalWrapped} wrapped, ${allTexts.filter((t) => t.kind === 'truncated').length} truncated, `
-    + `${allRows.length} wrapped rows\n`);
+  console.log(`\nscreens measured: ${screens.map((s) => s.name).join(', ')}`);
+  console.log(`totals: ${totalWrapped} wrapped, ${allTexts.filter((t) => t.kind === 'truncated').length} truncated, `
+    + `${allRows.length} wrapped rows, ${allClipped.length} clipped\n`);
 }
 
 main().catch((e) => { console.error(e); process.exitCode = 1; });
