@@ -28,9 +28,11 @@ A complete reference guide for all reusable button and interactive components in
 | **Input** | Form Control | `components/FormControls.tsx` | Text/number input with label & error |
 | **Badge** | Status Pill | `components/Badge.tsx` | Non-interactive status labels |
 | **Chip** | Filter Pill | `components/Badge.tsx` | Selectable/toggleable filter option |
-| **Avatar** | Initials Circle | `components/Badge.tsx` | User/member initials display |
-| **SwatchPicker** | Selector | `components/SwatchPicker.tsx` | Circular option picker (theme/material) |
 | **ConfirmationBanner** | Toast/Overlay | `components/ConfirmationBanner.tsx` | Auto-dismissing confirmation message |
+
+> **Person identity is not a button.** For "who is this for/from", use
+> `components/PersonChip.tsx` with `lib/personColor.ts` — not a generic initials avatar.
+> An `Avatar` export was documented here for months and has never existed in this repo.
 
 ---
 
@@ -51,17 +53,23 @@ A complete reference guide for all reusable button and interactive components in
   iconRight?: Ionicons.glyphMap key; // Trailing icon
   disabled?: boolean;               // Disabled state (opacity 0.45)
   loading?: boolean;                // Loading spinner (disables button)
-  style?: StyleProp<ViewStyle>;     // Custom styles
+  emphasis?: boolean;               // Reserve-only breathing GlowPulse halo; primary only,
+                                    // max ONE per screen (ignored on other variants/disabled)
+  style?: StyleProp<ViewStyle>;     // Custom styles — note this lands on the WRAPPER on the
+                                    // keycap path, so it sizes the whole key, not just the cap
 }
 ```
 
 #### Variants & Sizes
 
 **Variants:**
-- **primary** (default) – Orange fill, white text. Use for primary actions.
-- **secondary** – Light orange tint fill, brown text. Use for secondary actions.
-- **danger** – Red fill, white text. Use for destructive actions (delete, clear).
-- **ghost** – Transparent, orange text. Use for lightweight/tertiary actions.
+- **primary** (default) – `theme.accent` fill, `theme.accentInk` text. Use for primary actions.
+- **secondary** – `theme.accentSoft` tint fill. Use for secondary actions.
+- **danger** – `theme.bad`. Use for destructive actions (delete, clear). **Always flat** —
+  never glass, regardless of `settings.glassSurfaces` (a destructive action shouldn't be the
+  shiniest thing on screen).
+- **ghost** – Transparent, accent text. Use for lightweight/tertiary actions. The one variant
+  with no cap to sink, so it keeps the historical scale-bounce instead of the keycap travel.
 
 **Sizes:**
 - **sm** – 36px height, small font, tight padding. For secondary/tertiary uses.
@@ -105,7 +113,7 @@ A complete reference guide for all reusable button and interactive components in
 
 ### 2. AddFAB (Floating Action Button)
 **File:** `components/AddFAB.tsx`  
-**Purpose:** Shared orange "+" button for "add new" actions across all sites. Consistent shape and colour everywhere.
+**Purpose:** Shared accent "+" button for "add new" actions across all screens. Consistent shape and colour everywhere.
 
 #### Props
 ```typescript
@@ -128,14 +136,16 @@ FAB_DEFAULT_BOTTOM = Spacing.xl + BOTTOM_NAV_HEIGHT;
 ```
 
 #### Usage Notes
-- **Always orange** (`theme.orange`); no variants.
+- **Always `theme.accent`**; no variants. This is the one shared shape.
+- The `'lg'` size carries `getGlow(theme.accent, 'strong')` — the app's one "always on"
+  purposeful glow. The `'sm'` inline variant does not.
 - Use `bottom` prop to adjust floating position if screen has extra sticky footer.
-- See `app/shopping.tsx` for example of stacking with extra footer content.
+- See `app/(tabs)/shopping.tsx` for example of stacking with extra footer content.
 
 #### Examples
 ```tsx
 // Screen-level floating "add new" task
-<AddFAB onPress={() => router.push('/task-form')} />
+<AddFAB onPress={handleAdd} />
 
 // With custom bottom spacing
 <AddFAB onPress={handleAdd} bottom={Spacing.xl + BOTTOM_NAV_HEIGHT + 80} />
@@ -160,9 +170,9 @@ FAB_DEFAULT_BOTTOM = Spacing.xl + BOTTOM_NAV_HEIGHT;
   label: string;                    // Accessibility label (required)
   onPress: () => void;              // Callback (required)
   size?: number;                    // Button size (default: 36). Icon = 50% of size.
-  tint?: string;                    // Background override (default: theme.offWhite)
+  tint?: string;                    // Background override (default: theme.surfaceMuted)
   color?: string;                   // Icon colour override
-  active?: boolean;                 // Active state (orange bg + border)
+  active?: boolean;                 // Active state (accent bg + border, and stays sunk)
   disabled?: boolean;               // Disabled state
   style?: StyleProp<ViewStyle>;     // Custom styles
 }
@@ -174,9 +184,10 @@ FAB_DEFAULT_BOTTOM = Spacing.xl + BOTTOM_NAV_HEIGHT;
 
 #### Active State
 When `active={true}`:
-- Background: `theme.orangeLight`
-- Border: 1.5px `theme.orange`
-- Icon colour: `theme.orange`
+- Background: `theme.accentSoft` (animated from `tint ?? theme.surfaceMuted`)
+- Border: `theme.accent` (from `theme.border`)
+- Icon colour: `theme.accent`
+- Sits **sunk** — the stays-pressed "on" state, not a shrink (see `PressableScale`'s `sunk`)
 - Accessible as `selected: true`
 
 #### Examples
@@ -197,8 +208,8 @@ When `active={true}`:
   icon="trash"
   label="Delete"
   onPress={handleDelete}
-  color={theme.danger}
-  tint={theme.dangerLight}
+  color={theme.bad}
+  tint={theme.badSoft}
 />
 
 // Small custom button
@@ -210,62 +221,13 @@ When `active={true}`:
 ### 4. SaveButton Component — REMOVED (2026-07-27)
 **Status:** `components/SaveButton.tsx` and its sibling `StickySaveBar.tsx` were deleted. Both
 were ported ahead of their intended screen (`app/settings.tsx`), which then shipped using a
-different pattern, so neither was ever imported by anything. The rest of this section is kept
-as a record of the shape in case an inline dirty-state save is wanted again — build it on
-`components/Button.tsx` + `PressableScale` rather than restoring the old file.
+different pattern, so neither was ever imported by anything.
 
-**Purpose (as built):** Inline, animated save button that appears when input is dirty.
-
-#### Props
-```typescript
-{
-  visible: boolean;                 // Show/hide button (controls animation)
-  onPress: () => void;              // Save callback (required)
-  label?: string;                   // Button text (default: 'Lagre')
-  theme?: AppColors;                // Theme override for background
-}
-```
-
-#### Animation
-- **Duration**: 150ms
-- **In**: opacity 0→1, scale 0.92→1
-- **Out**: opacity 1→0, scale 1→0.92
-- **Easing**: Linear (ease)
-
-#### Styling
-- Height: 34px (small)
-- BorderRadius: 8px
-- Background: `theme.orange` (or override via `theme` prop)
-- Text: white, 500 weight, 13px font
-- HitSlop: 6px (generous touch area)
-
-#### Usage Pattern
-```tsx
-const [value, setValue] = useState('');
-const [dirty, setDirty] = useState(false);
-
-const handleSave = () => {
-  // Save to store/db
-  setDirty(false);
-};
-
-return (
-  <View style={styles.inputRow}>
-    <TextInput
-      value={value}
-      onChangeText={(v) => {
-        setValue(v);
-        setDirty(true);
-      }}
-    />
-    <SaveButton visible={dirty} onPress={handleSave} />
-  </View>
-);
-```
-
-#### Used In
-- `app/settings.tsx` – name input, monthly date, budget, reminder time
-- Any screen with inline editable text fields
+If an inline dirty-state save is wanted again, build it on `components/Button.tsx` +
+`PressableScale` rather than restoring the old file. The old prop shape and styling notes
+that used to fill this section were deleted 2026-08-01 — they described a component nothing
+ever rendered, in token names (`theme.orange`) that no longer exist, under a "Used In" list
+naming screens that never imported it.
 
 ---
 
@@ -284,9 +246,9 @@ return (
 ```
 
 #### Appearance
-- Checked: Orange (`theme.orange`) filled, white checkmark
+- Checked: `theme.accent` filled + `theme.accent` border, `theme.accentInk` checkmark
 - Unchecked: Transparent, bordered (`theme.border`)
-- Label: Gray text (`theme.text`)
+- Label: `theme.text`
 - Size: 24×24px box
 - Touch target: ≥44px (flex row)
 
@@ -317,10 +279,11 @@ const [agreed, setAgreed] = useState(false);
 ```
 
 #### Theming
-- **Off track**: `theme.grayLight`
-- **On track**: `theme.orangeLight`
-- **Off thumb**: white
-- **On thumb**: `theme.orange`
+- **Off track**: `theme.surfaceMuted`
+- **On track**: `theme.accentSoft`
+- **Off thumb**: a fixed `'#FFFFFF'` — deliberately NOT `theme.textInverse`, which flips to
+  near-black in dark mode and made the off-thumb vanish into the track (2026-07-25)
+- **On thumb**: `theme.accent`
 
 #### Example
 ```tsx
@@ -346,9 +309,10 @@ const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 ```
 
 #### Appearance
-- Container: Gray background (`theme.grayLight`), rounded corners
-- Inactive segment: Transparent text
-- Active segment: White background, shadow, darker text
+- Container: `theme.surfaceMuted` background with a `theme.border` outline (2026-07-21),
+  rounded corners
+- Inactive segment: `theme.textMuted` label, no fill
+- Active segment: `theme.surface` pill, `theme.shadow`-tinted shadow, `theme.text` label
 - Touch target: ≥44px
 
 #### Notes
@@ -386,10 +350,11 @@ const [workMode, setWorkMode] = useState('pomodoro');
 ```
 
 #### Appearance
-- **Input**: 44px height min, rounded corners (`theme.border` or danger-red border if error)
-- **Label**: Gray text above, small font
-- **Error**: Red text below input (if `error` prop provided)
-- **Placeholder**: Gray text (`theme.textLight`)
+- **Input**: 44px height min, `theme.surface` fill, rounded corners. Border is
+  `theme.border` at rest → `theme.borderStrong` on focus → `theme.bad` if `error`
+- **Label**: `theme.textMuted` above, small font
+- **Error**: `theme.bad` text below input (if `error` prop provided)
+- **Placeholder**: `theme.textMuted`
 
 #### Example
 ```tsx
@@ -421,16 +386,17 @@ const [error, setError] = useState('');
 ```
 
 #### Variants
-- **neutral** – Gray background, gray text
-- **success** – Green background, green text
-- **warning** – Orange background, orange text
-- **danger** – Red background, red text
+Each is a `*Soft` fill with its matching chromatic ink:
+- **neutral** – `theme.surfaceMuted` background, `theme.textMuted` text
+- **success** – `theme.goodSoft` background, `theme.good` text
+- **warning** – `theme.warnSoft` background, `theme.warn` text
+- **danger** – `theme.badSoft` background, `theme.bad` text
 
 #### Example
 ```tsx
 <Badge label="In Progress" variant="warning" />
 <Badge label="Completed" variant="success" />
-<Badge label="Overdue" variant="danger" />
+<Badge label="Still due" variant="danger" />   {/* never "Overdue"/"Missed" — DESIGN_RULES rule 23 */}
 ```
 
 ---
@@ -450,8 +416,8 @@ const [error, setError] = useState('');
 ```
 
 #### Appearance
-- **Unselected**: Light background (`theme.offWhite`), bordered, dark text
-- **Selected**: Orange background (`theme.orange`), white text
+- **Unselected**: `theme.surfaceMuted` background, `theme.border` edge, `theme.text` label
+- **Selected**: `theme.accent` background + `theme.accent` edge, `theme.accentInk` label
 - **Touch target**: ≥32px height
 
 #### Example
@@ -479,90 +445,7 @@ const [filter, setFilter] = useState('all');
 
 ---
 
-### 11. Avatar Component
-**File:** `components/Badge.tsx`  
-**Purpose:** Circular initials display (non-interactive).
-
-#### Props
-```typescript
-{
-  name: string;                     // Full name (e.g. "John Smith")
-  size?: number;                    // Diameter (default: 36)
-  color?: string;                   // Background colour (default: theme.orange)
-}
-```
-
-#### Logic
-- Extracts first 2 initials from name (split on whitespace, uppercase).
-- Circular, filled with optional background colour.
-- White text at 40% of size font.
-
-#### Example
-```tsx
-<Avatar name="Sarah Johnson" size={44} />
-<Avatar name="John Doe" color={theme.green} />
-```
-
----
-
-### 12. SwatchPicker Component
-**File:** `components/SwatchPicker.tsx`  
-**Purpose:** Generic circular option picker (used for theme colours and bubble materials).
-
-#### Props
-```typescript
-{
-  items: { key: string; label: string }[]; // Options (required)
-  value: string;                    // Currently selected key (required)
-  onChange: (key: string) => void;  // Update callback (required)
-  renderSwatch: (key: string, active: boolean) => React.ReactNode; // Render fn (required)
-  size?: number;                    // Swatch diameter (default: 54)
-}
-```
-
-#### Active State
-- Orange border (3px)
-- Scale: 1.07 (slight zoom)
-- Heavy shadow
-- Label text bold
-
-#### Inactive State
-- Gray border (2px)
-- Normal scale
-- Regular shadow
-- Label text regular
-
-#### Example: Theme Picker
-```tsx
-const THEMES = [
-  { key: 'light', label: 'Light' },
-  { key: 'dark', label: 'Dark' },
-];
-
-<SwatchPicker
-  items={THEMES}
-  value={theme}
-  onChange={setTheme}
-  renderSwatch={(key, active) => (
-    <View
-      style={{
-        width: '100%',
-        height: '100%',
-        backgroundColor: key === 'light' ? '#fff' : '#000',
-        borderRadius: 999,
-      }}
-    />
-  )}
-/>
-```
-
-#### Used In
-- `app/onboarding/step5.tsx` – colour theme picker
-- `app/settings.tsx` – theme & material pickers
-
----
-
-### 13. ConfirmationBanner Component
+### 11. ConfirmationBanner Component
 **File:** `components/ConfirmationBanner.tsx`  
 **Purpose:** Auto-dismissing confirmation toast (positive feedback for actions).
 
@@ -576,7 +459,8 @@ const THEMES = [
 ```
 
 #### Appearance
-- Green background (`theme.green`), white text
+- Fill by variant: `theme.good` (success, default) / `theme.warn` / `theme.bad`,
+  with `theme.textInverse` text and icon
 - Checkmark icon on left
 - Top-aligned (below safe area)
 - Rounded corners, shadow
@@ -610,9 +494,10 @@ return (
 ```
 
 #### Used In
-- `app/task-form.tsx` – save confirmations
-- `app/meals.tsx` – add confirmations
-- `app/shopping.tsx` – add/purchase confirmations
+- `app/(tabs)/shopping.tsx` – add/purchase confirmations
+- `app/food.tsx` – add confirmations
+- (Task editing has no form screen — `app/task-form.tsx` was retired 2026-07-23; the one
+  task editor is `components/TaskCard.tsx`'s inline expansion)
 
 ---
 
@@ -631,7 +516,9 @@ Icon-only (header, settings, close)         → IconButton
 ### 2. **Touch Targets**
 All interactive components respect the **44px minimum** touch target:
 - Direct (Button lg/md, AddFAB lg, Checkbox, SegmentedControl, Switch, Chip): built-in height ≥44px
-- Indirect (IconButton, Badge, Avatar): hit-slop or Pressable wrapper ensures ≥44px
+- Indirect (IconButton, Chip): hit-slop or Pressable wrapper ensures ≥44px. Use
+  `MIN_TAP_TARGET`/`HitSlop`/`hitSlopFor()` from `constants/theme.ts` — never a bare `44`
+  or `hitSlop: 8` (`lib/__tests__/designTokens.test.ts` fails the PR)
 
 ### 3. **Icons & Labels**
 - **Icons**: Use Ionicons (`@expo/vector-icons`). Icon names: `check`, `checkmark`, `trash`, `cog`, `heart`, `close`, etc.
@@ -640,12 +527,13 @@ All interactive components respect the **44px minimum** touch target:
 
 ### 4. **Theming**
 All components use:
-- `theme.orange` – primary accent
-- `theme.orangeLight` – secondary tint
-- `theme.danger` – destructive
-- `theme.green` – success/confirmation
-- `theme.white`, `theme.text`, `theme.textLight` – text
-- Access via `useAppTheme()` hook
+- `theme.accent` – primary action / active state
+- `theme.accentSoft` – accent tint for backgrounds; `theme.accentInk` – text/icons on accent
+- `theme.bad` / `theme.badSoft` – destructive
+- `theme.good` / `theme.goodSoft` – success/confirmation; `theme.warn` / `theme.warnSoft`
+- `theme.text`, `theme.textMuted`, `theme.textInverse` – text
+- `theme.surface`, `theme.surfaceMuted`, `theme.border`, `theme.borderStrong` – surfaces/edges
+- Access via `useAppTheme()` hook. Full token table: `COLOR_THEME_LIBRARY.md`
 
 ### 5. **Loading & Disabled States**
 - **Loading**: Button only. Shows spinner, disables interaction. Use brief labels ("Saving..." or keep original).
@@ -653,7 +541,9 @@ All components use:
 
 ### 6. **Animations**
 - **ConfirmationBanner**: 220ms timing (in), 200ms timing (out).
-- **SwatchPicker**: Instant scale + shadow change on selection.
+- **Press is a sink, not a shrink** — `PressableScale`'s `travel` drops the cap onto its
+  base; `sunk` is the stays-pressed "on" state. See `ANIMATION_GUIDELINES.md` for the real
+  timing/easing values, and use `Duration.*` from `constants/motion.ts`, never a bare number.
 - All honour `reducedMotion` setting.
 
 ---
@@ -672,10 +562,9 @@ All components use:
 5. **Binary choice (yes/no)?** → Use `Checkbox` or `Switch`
 6. **Multiple mutually exclusive options?** → Use `SegmentedControl`
 7. **Status display (no action)?** → Use `Badge`
-8. **User/member initials?** → Use `Avatar`
+8. **Showing who a row is for/from?** → Use `PersonChip` (+ `lib/personColor.ts`)
 9. **Inline save on edit?** → Build it on `Button` (SaveButton was removed 2026-07-27)
-10. **Picking colour or material?** → Use `SwatchPicker`
-11. **Auto-dismiss success message?** → Use `ConfirmationBanner`
+10. **Auto-dismiss success message?** → Use `ConfirmationBanner`
 
 ### Template: New Screen with Buttons
 
@@ -741,8 +630,8 @@ Each button is self-contained; a design change in one component file automatical
 | `AddFAB.tsx` | All "add" buttons (floating + inline) |
 | `IconButton.tsx` | All icon-only buttons, active states |
 | `FormControls.tsx` | All checkboxes, switches, segmented controls, inputs |
-| `Badge.tsx` | All badges, chips, avatars |
-| `SwatchPicker.tsx` | All circular swatch pickers |
+| `Badge.tsx` | All badges and chips |
+| `PersonChip.tsx` | All person/assignee identity chips |
 | `ConfirmationBanner.tsx` | All confirmation toasts |
 
 ### To Change Button Appearance Globally
@@ -755,12 +644,14 @@ Each button is self-contained; a design change in one component file automatical
 ```tsx
 // In Button.tsx, update variant colours:
 const variantColors = {
-  primary: { bg: theme.blue, text: '#ffffff' }, // Changed from theme.orange
-  secondary: { bg: theme.blueTint, text: theme.brown },
+  primary: { bg: theme.accent, text: theme.accentInk },
+  secondary: { bg: theme.accentSoft, text: theme.text },
   // ...
 };
 ```
-All 50+ screens using `<Button variant="primary" />` now show blue instead of orange — no edits needed.
+Change `accent` once in `constants/colors.ts` (both the light and dark `ThemePalette`) and
+every screen using `<Button variant="primary" />` follows — no per-screen edits. Re-run
+`lib/__tests__/colors.test.ts`, which asserts the palette's contrast ratios.
 
 ---
 
@@ -769,11 +660,11 @@ All 50+ screens using `<Button variant="primary" />` now show blue instead of or
 ```
 components/
   ├── Button.tsx                  (main action button: primary, secondary, danger, ghost)
-  ├── AddFAB.tsx                  (orange "add" button: lg floating, sm inline)
+  ├── AddFAB.tsx                  (accent "add" button: lg floating, sm inline)
   ├── IconButton.tsx              (circular icon-only: header actions, toggles)
   ├── FormControls.tsx            (checkbox, switch, segmented control, input)
-  ├── Badge.tsx                   (badge, chip, avatar: status pills & filters)
-  ├── SwatchPicker.tsx            (circular swatch picker: themes, materials)
+  ├── Badge.tsx                   (badge, chip: status pills & filters)
+  ├── PersonChip.tsx              (person/assignee identity chip)
   ├── ConfirmationBanner.tsx      (auto-dismiss success toast)
   └── PressableScale.tsx          (shared press feedback wrapper for all buttons)
 

@@ -13,7 +13,7 @@ UnFocus uses **Ionicons** — a comprehensive, free icon library with 1000+ icon
 ```typescript
 import { Ionicons } from '@expo/vector-icons';
 
-<Ionicons name="heart" size={24} color={theme.orange} />
+<Ionicons name="heart" size={24} color={theme.accent} />
 ```
 
 ### Finding Icon Names
@@ -99,21 +99,25 @@ Icons often size relative to text font size:
 | ✓ | `checkmark-done` | Double-check, delivered |
 
 ### App-Specific (Feature Accents)
-These icons appear next to feature names (bubbles, task types):
+These icons appear next to feature names (domain bubbles, task types). The colour is a
+**theme token**, not a literal — it has a light and a dark value, so never paste the hex.
+The eight domain hues form a deliberate ramp (indigo → blue → sky → teal → orange → green →
+amber → yellow); `featScan` is a per-screen hue with no domain bubble.
 
-| Feature | Icon | Colour |
-|---------|------|--------|
-| **Task** | `list` | `#3A78E4` |
-| **Scan** | `camera` | `#D97512` |
-| **Habits** | `repeat` | `#27915F` |
-| **Health** | `heart` | `#DC3853` |
-| **Meals** | `restaurant` | `#AF8D1D` |
-| **Shopping** | `cart` | `#2096B6` |
-| **Shared** | `people` | `#8260D2` |
-| **Focus** | `flash` | `#E83A17` |
-| **Capture** | `flash` or `zap` | `#D6399C` |
+| Feature | Icon | Token | Light value |
+|---------|------|-------|-------------|
+| **Plans** | `calendar` | `theme.featPlan` | `#6E74EE` indigo |
+| **Task** | `list` | `theme.featTask` | `#4C8DF0` blue |
+| **Habits** | `repeat` | `theme.featHabit` | `#22A7E0` sky |
+| **Health** | `heart` | `theme.featHealth` | `#17BEB0` teal (deliberately off red/`bad`) |
+| **Meals** | `restaurant` | `theme.featMeal` | `#E88A52` orange |
+| **Shopping** | `cart` | `theme.featShop` | `#3DAF6F` green |
+| **Budget** | `wallet` | `theme.featBudget` | `#D69420` amber |
+| **Notes** | `document-text` | `theme.featNote` | `#E6BC1C` yellow |
+| **Scan** | `camera` | `theme.featScan` | `#9B72E3` violet (screen hue only) |
 
-See `THEME_ICONS` in `constants/theme.ts` for more theme-specific icons.
+The card-identity equivalents (`theme.cardPlan`, `cardTask`, …) are a separate, lighter
+set — see `COLOR_THEME_LIBRARY.md` for the four-hue identity system and its L* constraint.
 
 ---
 
@@ -123,7 +127,7 @@ See `THEME_ICONS` in `constants/theme.ts` for more theme-specific icons.
 Icon and text size are proportional:
 ```tsx
 <View style={{ flexDirection: 'row', gap: Spacing.xs, alignItems: 'center' }}>
-  <Ionicons name="heart" size={20} color={theme.orange} />
+  <Ionicons name="heart" size={20} color={theme.accent} />
   <Text style={{ fontSize: FontSize.md }}>Favorite</Text>
 </View>
 ```
@@ -154,20 +158,20 @@ Use the button's font size to derive icon size:
 ### Pattern 4: Section Header Icon
 ```tsx
 <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
-  <Ionicons name="list" size={24} color={theme.orange} />
+  <Ionicons name="list" size={24} color={theme.accent} />
   <Text style={{ fontSize: FontSize.xl, fontFamily: Fonts.bold }}>Tasks</Text>
 </View>
 ```
 
 ### Pattern 5: Tab Icon (BottomNav)
 ```tsx
-<Ionicons name="list-outline" size={24} color={active ? theme.orange : theme.textLight} />
+<Ionicons name="list-outline" size={24} color={active ? theme.accent : theme.textMuted} />
 ```
 
 ### Pattern 6: Status Icon
 ```tsx
 <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
-  <Ionicons name="checkmark-circle" size={20} color={theme.green} />
+  <Ionicons name="checkmark-circle" size={20} color={theme.good} />
   <Text style={{ fontSize: FontSize.md, color: theme.text }}>Completed</Text>
 </View>
 ```
@@ -185,10 +189,10 @@ Most Ionicons come in two styles:
 
 ```tsx
 // Outline for inactive state
-<Ionicons name="heart-outline" size={24} color={theme.textLight} />
+<Ionicons name="heart-outline" size={24} color={theme.textMuted} />
 
 // Filled for active state
-<Ionicons name="heart" size={24} color={theme.orange} />
+<Ionicons name="heart" size={24} color={theme.accent} />
 ```
 
 ---
@@ -219,13 +223,13 @@ If icon is paired with text, text is sufficient:
 Don't rely on colour alone:
 ```tsx
 // GOOD: Icon + colour
-<Ionicons name="checkmark-circle" size={20} color={theme.green} />
+<Ionicons name="checkmark-circle" size={20} color={theme.good} />
 
 // AVOID: Colour only
 <View style={{ 
   width: 20, 
   height: 20, 
-  backgroundColor: theme.green,  // Can't tell what this is
+  backgroundColor: theme.good,  // Can't tell what this is
 }} />
 ```
 
@@ -238,37 +242,42 @@ Icons inherit colour from theme:
 
 ```typescript
 // Primary action icon
-<Ionicons name="heart" size={24} color={theme.orange} />
+<Ionicons name="heart" size={24} color={theme.accent} />
 
 // Secondary/muted icon
-<Ionicons name="time" size={18} color={theme.textLight} />
+<Ionicons name="time" size={18} color={theme.textMuted} />
 
 // Success icon
-<Ionicons name="checkmark-circle" size={22} color={theme.green} />
+<Ionicons name="checkmark-circle" size={22} color={theme.good} />
 
 // Danger icon
-<Ionicons name="warning" size={22} color={theme.danger} />
+<Ionicons name="warning" size={22} color={theme.bad} />
 ```
 
 ### Feature-Specific Icons
-Feature icons use their fixed colour:
+Feature icons keep their domain hue instead of the accent — they come off the same theme
+object as everything else, so they still flip between light and dark:
 ```typescript
-import { FeatureColors } from '@/constants/theme';
+const theme = useAppTheme();
 
-// Task icon (always blue)
-<Ionicons name="list" size={24} color={FeatureColors.task} />
+// Task icon (blue in both modes)
+<Ionicons name="list" size={24} color={theme.featTask} />
 
-// Habit icon (always green)
-<Ionicons name="repeat" size={24} color={FeatureColors.habits} />
+// Habit icon (sky in both modes)
+<Ionicons name="repeat" size={24} color={theme.featHabit} />
 ```
+
+> There is no `FeatureColors` export and no `THEME_ICONS` map in `constants/theme.ts` —
+> both were documented here for months and neither has ever existed. Feature hues are
+> `ThemePalette` fields (`theme.feat*`) in `constants/colors.ts`.
 
 ### Dark Mode
 Icons automatically adapt via theme hook—no special handling:
 ```tsx
 const theme = useAppTheme();
-<Ionicons name="heart" size={24} color={theme.orange} />
-// Light mode: `#2563EB` (blue)
-// Dark mode: `#5AABFF` (lighter blue)
+<Ionicons name="heart" size={24} color={theme.accent} />
+// Light mode: #235EE0
+// Dark mode:  #6EA8FF (lifted for contrast on the dark bg)
 ```
 
 ---
@@ -281,7 +290,7 @@ const theme = useAppTheme();
 <Ionicons name="heart" size={24} color="#FF0000" />
 
 // GOOD:
-<Ionicons name="heart" size={24} color={theme.orange} />
+<Ionicons name="heart" size={24} color={theme.accent} />
 ```
 
 ### ❌ Don't Forget Accessibility Labels
@@ -381,7 +390,7 @@ Badge/chip icon          → 12-16px
 - Test icons across platforms
 
 ❌ **DON'T:**
-- Hardcode icon colours (except FeatureColors)
+- Hardcode icon colours — feature hues are tokens too (`theme.featTask`, not a hex)
 - Use oversized or undersized icons
 - Forget accessibility labels
 - Mix icon sources (stick to Ionicons)
@@ -394,7 +403,6 @@ Badge/chip icon          → 12-16px
 ```typescript
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '@/lib/useAppTheme';
-import { FeatureColors } from '@/constants/theme';
 
 export function MyComponent() {
   const theme = useAppTheme();
@@ -402,10 +410,10 @@ export function MyComponent() {
   return (
     <View style={{ gap: Spacing.xs, flexDirection: 'row' }}>
       {/* Theme-coloured icon */}
-      <Ionicons name="heart" size={24} color={theme.orange} />
+      <Ionicons name="heart" size={24} color={theme.accent} />
 
       {/* Feature-coloured icon */}
-      <Ionicons name="list" size={24} color={FeatureColors.task} />
+      <Ionicons name="list" size={24} color={theme.featTask} />
 
       {/* Text-coloured icon */}
       <Ionicons name="checkmark" size={24} color={theme.text} />
@@ -421,7 +429,9 @@ export function MyComponent() {
 - **BUTTON_LIBRARY.md** – Icons in buttons & IconButton
 - **COLOR_THEME_LIBRARY.md** – Icon colouring
 - **TYPOGRAPHY_LIBRARY.md** – Icon + text sizing
-- **FeatureColors** in `constants/theme.ts` – Feature icons
+- **`ThemePalette` in `constants/colors.ts`** – the `feat*` domain hues and the rest of the
+  token set
+- **`components/HabitIcon.tsx` / `InventoryIcon.tsx`** – the app's two icon-picking helpers
 
 ---
 

@@ -232,16 +232,30 @@ Not part of the rules, but discovered while deciding where to point them — sev
 This is exactly why `DESIGN_RULES.md` points at `constants/` and at tests rather than
 restating numbers.
 
-**Not yet fixed (found 2026-08-01, larger scope):** the same dead pre-rebuild token names
-(`theme.white`, `theme.cream`, `theme.orange`, `theme.gray`, etc.) that made
-`COLOR_THEME_LIBRARY.md` and `SPACING_LAYOUT_LIBRARY.md` wrong also appear in code samples
-across `BUTTON_LIBRARY.md` (16 occurrences), `CARD_CONTAINER_LIBRARY.md` (23),
-`ICON_LIBRARY.md` (10), `SHADOW_ELEVATION_LIBRARY.md` (9), and `FORM_PATTERNS_LIBRARY.md`
-(4). Left alone here deliberately — reconciling five more libraries is a bigger, separate
-pass, not a quick token swap, and doing it hastily risks introducing the kind of error this
-table exists to catch. (`PROGRESS_LOG.md` and `REBUILD_DECISIONS.md` also contain many of
-these names, but correctly so — they're dated history describing what was true at the time
-and should not be rewritten.)
+**The five-library follow-up — done 2026-08-01** (full detail: STALE_CODE_AUDIT.md §5.8).
+The flagged count (62 occurrences of `theme.white`/`cream`/`orange`/`gray`) turned out to
+understate it: counting every `theme.*` access in those five files gives **88 dead of 102**,
+because `theme.textLight`, `theme.green`, `theme.danger`, `theme.dangerLight`, `theme.blue`
+and `theme.blueTint` are equally gone and weren't in the original grep. The pass also found
+three things a token swap would have preserved: two components documented in full that have
+**never existed in this repo** (`Avatar`, `SwatchPicker`), and two `constants/theme.ts`
+exports cited as the way to colour icons that likewise don't exist (`FeatureColors`,
+`THEME_ICONS`).
+
+Outcome — **2 deleted, 3 reconciled**:
+- `CARD_CONTAINER_LIBRARY.md` and `SHADOW_ELEVATION_LIBRARY.md` **deleted**. Not a token
+  problem: their *pattern* is the anti-pattern. Both teach hand-rolling a card from
+  `backgroundColor` + `...Shadow.card` + a raw `Radius`, which is precisely what `<Surface>`
+  exists to stop. Renaming their tokens would have produced ~960 lines of plausible-looking
+  wrong guidance and removed the ⚠️ banners currently warning readers off. Both had already
+  been independently judged stale by two earlier sessions (PROGRESS_LOG.md:1391 records one
+  of them consulting `Surface.tsx`'s docstring instead).
+- `BUTTON_LIBRARY.md`, `ICON_LIBRARY.md`, `FORM_PATTERNS_LIBRARY.md` **fixed in place** —
+  their subject matter is real and their component APIs check out against source.
+
+(`PROGRESS_LOG.md` and `REBUILD_DECISIONS.md` also contain many of these names, but
+correctly so — they're dated history describing what was true at the time and should not be
+rewritten.)
 
 ---
 
