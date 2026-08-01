@@ -19,7 +19,20 @@
 
 ---
 
-## 6 Design Libraries @ `constants/theme.ts`
+## 6 Design Libraries
+
+The tokens live in **three** files, not one — `constants/theme.ts` does *not* re-export
+`constants/colors.ts`, so reaching for a colour in `theme.ts` finds nothing:
+
+| File | Holds |
+|---|---|
+| `constants/colors.ts` | Every **colour**: the `ThemePalette` type, the light/dark palettes, `getThemePalette`, `contrastRatio`, `IDENTITY_HUES`. Everything you reach through `theme.*` comes from here |
+| `constants/theme.ts` | Every **dimension and finish**: `Spacing`, `Radius`, `FontSize`, `Fonts`, `Type`, `MIN_TAP_TARGET`/`HitSlop`, `AspectRatio`, the `PAD_*` row metrics, plus the colour *functions* (`getMaterialStyle`, `getGlow`, `getElevation`, `getLayeredShadow`, `contrastOn`, `lighten`/`darken`/`mix`/`rgba`) — which take a colour and return a style, but define no palette of their own |
+| `constants/motion.ts` | Every **timing**: `Duration`, `Ease`, `Spring`, `Travel`. Never a bare `duration: 220` — `lib/__tests__/designTokens.test.ts` fails the PR |
+
+Components never import a palette directly: `useAppTheme()` (`lib/useAppTheme.ts`) resolves
+light/dark and hands back the `ThemePalette` as `theme`. Outside a component, call
+`getThemePalette()` — the same rule as `useT()` vs `getTranslations()`.
 
 | Library | Covers | When to use |
 |---------|--------|-----------|
@@ -63,7 +76,10 @@ For rows inside a surface, see `components/PadRow.tsx`/`PadSheet.tsx` and AGENTS
 
 ## Key Principle
 
-**Single source of truth**: Each visual aspect documented once in `constants/theme.ts`. Change that one place → all screens inherit the update. Never hardcode hex, sizes, or spacing — always use tokens (`Spacing.md`, `FontSize.lg`, `theme.accent`, etc.).
+**Single source of truth**: each visual aspect is defined once, in whichever of the three
+`constants/` files above owns it. Change that one place → all screens inherit the update.
+Never hardcode a hex, size, spacing or duration — always use tokens (`theme.accent` from
+`colors.ts`, `Spacing.md`/`FontSize.lg` from `theme.ts`, `Duration.control` from `motion.ts`).
 
 ---
 
