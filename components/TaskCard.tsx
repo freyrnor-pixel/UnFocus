@@ -1695,6 +1695,20 @@ const styles = StyleSheet.create({
   chevronBtn: { padding: 2 },
   editor: { gap: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.xs },
   titleInput: {
+    // `flex: 1` + `minWidth: 0` — and BOTH are load-bearing. `titleFieldRow` is a row, and
+    // without these the input keeps its intrinsic 237px instead of taking what's left, which
+    // pushes the voice mic past the card's edge to be sliced in half by its overflow mask.
+    // Measured at 360px (small Android): input 51.5→288.5, +8 gap, +28 mic = 324.5 against a
+    // card whose content box ends at 308.5 — 16px over. Invisible at 393/430px, which is how
+    // it survived this long.
+    //
+    // `minWidth: 0` is the half that isn't obvious: `flex: 1` alone measured as
+    // `flex-grow/shrink/basis = 1/1/0%` and STILL rendered 237px, because a flex item's
+    // default `min-width: auto` floors it at its automatic minimum size — and for a replaced
+    // element like RN-web's <input>, that floor is its intrinsic width. flex-shrink can't go
+    // below it. Don't drop either line; each on its own leaves the row overflowing.
+    flex: 1,
+    minWidth: 0,
     minHeight: MIN_TAP_TARGET,
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.md,
