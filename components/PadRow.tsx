@@ -19,8 +19,15 @@
  *   Imports → components/PressableScale, constants/theme (PAD_ROW_HEIGHT,
  *             DONE_ROW_OPACITY, FontSize, Fonts, Radius, Spacing, TabularNums),
  *             lib/i18n, lib/useAppTheme, @expo/vector-icons
- *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
- *             app/(tabs)/{plans,habits,shopping}.tsx
+ *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx
+ *             (the four HOME cards), and app/(tabs)/habits.tsx (2026-08-01).
+ *             **This line used to also claim app/(tabs)/{plans,shopping}.tsx and it was never
+ *             true** — an audit (AUDIT.md §0.4.2e) found this file imported by the Home cards
+ *             and by NO tab screen at all, which inverted a whole planned task (B2-3 was
+ *             written to convert Home to match the tabs; the tabs were what had drifted).
+ *             `plans.tsx` reaches this only indirectly, by mounting PlanTaskCard in the
+ *             timeline layout; `shopping.tsx` and `notes.tsx` still hand-roll their rows
+ *             (ShoppingRow / MonthlyTableRow / NoteRow) and are the remaining conversions.
  *   Data    → none (presentational; every callback is the caller's)
  *
  * Edit notes:

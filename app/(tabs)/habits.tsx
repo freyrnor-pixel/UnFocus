@@ -14,14 +14,17 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/Surface,
- *             components/PadTypeRow (the always-open "Type habit" line at the foot of the
+ *             components/PadRow (2026-08-01 — the shared row shell each habit's header line is
+ *             drawn through; see HabitCard's own PadRow mount for what that changed and for why
+ *             PadSheet was NOT adopted with it), components/PadTypeRow (the always-open
+ *             "Type habit" line at the foot of the
  *             Today list — replaced an AddRow that was wrapped in its own Surface, which is
  *             exactly what AddRow's header tells callers not to do), components/AnimatedListItem (habit
  *             add/remove fade), components/GlowPulse (done-state static halo),
  *             components/HabitIcon, components/EmptyState, components/StarterCard
  *             (first-run explainer — no example row since 2026-07-30; the starter chips
  *             in its `children` slot are the example), components/SlideSelector,
- *             components/PressableScale, components/IconButton (per-row habit edit button),
+ *             components/PressableScale,
  *             components/GoalGlowDot (goal glow), components/SubScreenLinkButton (2026-07-29,
  *             the "Edit Goals" link — see below), components/GoalsSheet (2026-07-31, the popup
  *             that link opens), components/DebugNoteAnchor,
@@ -84,6 +87,7 @@ import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import Surface from '@/components/Surface';
+import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Collapsible from '@/components/Collapsible';
@@ -100,13 +104,14 @@ import { HABIT_STARTERS, HabitStarter } from '@/lib/habitStarters';
 const HABIT_STARTER_CHIPS = 2;
 import SlideSelector from '@/components/SlideSelector';
 import PressableScale from '@/components/PressableScale';
-import IconButton from '@/components/IconButton';
 import { useT } from '@/lib/i18n';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { usePrefill } from '@/lib/prefill';
 import { todayStr, getWeekDates, getMonthDates } from '@/lib/date';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
-import { FontSize, PAD_GUTTER, Radius, Shadow, Spacing, Fonts, TabularNums, Type, HitSlop } from '@/constants/theme';
+// TabularNums went with the hand-rolled `habitCount` style — PadRow's `rightValue` already
+// carries it, so the count still lines up column-wise without this file importing it.
+import { FontSize, PAD_GUTTER, Radius, Shadow, Spacing, Fonts, Type, HitSlop } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
@@ -240,11 +245,19 @@ function HabitCard({
   // (donePill/checkmark already carry the "done" signal).
   const barColor = isDone ? accent : progressColor(ratio, habit.kind, theme);
 
+  /**
+   * The "+ one" path, shared by the `+` button (goal > 1) and the check (goal 1).
+   * `success()` is deliberately NOT fired here even though HomeHabitsCard's own `counted`
+   * does: this screen has always fired it from the `isDone` effect above, so firing it here
+   * as well would double the haptic on the exact tap that completes the goal. The lesser taps
+   * get the light one.
+   */
+  const counted = () => {
+    if (count + 1 < goal) selection();
+    increment(habit.id, today);
+  };
+
   return (
-    <PressableScale
-      onPress={() => setExpanded((v) => !v)}
-      scaleTo={0.97}
-    >
       <View style={styles.habitGlowWrap}>
       <GlowPulse active={isDone} color={accent} mode="static" radius={Radius.md} />
       <View style={[styles.habitCard, { backgroundColor: theme.surface }]}>
@@ -255,68 +268,95 @@ function HabitCard({
             header used to pack up to NINE elements onto one line — icon, title, goal dot,
             weekly-progress text, a "Done today" pill, the gear, an Energy badge, and the −/+
             pair — which is why a list of them read as noise. Now: icon → title → ONE meta line
-            (goal dot · weekly progress · energy) → ONE right-hand value (the count) → gear →
-            the −/+ control. Nothing was removed; the middle four moved down a line. */}
-        <View style={styles.cardHeader}>
-          <View style={styles.habitIcon}>
-            {isDone
-              ? <Ionicons name="checkmark" size={22} color={accent} />
-              : <HabitIcon icon={habit.icon} size={22} color={accent} />}
-          </View>
-          <View style={styles.habitTitleWrap}>
-            <Text style={[styles.habitTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
-            {hasMetaLine && (
-              <View style={styles.titleMetaRow}>
-                {linkedGoal ? (
-                  <GoalGlowDot color={linkedGoal.color} strength={linkedGoal.strength} strengthUpdatedAt={linkedGoal.strengthUpdatedAt} size={9} />
-                ) : null}
-                {isWeeklyFlexible && (
-                  <Text style={[styles.weeklyProgressText, { color: theme.textMuted }]}>
-                    {t.habits.weeklyProgress(count, goal)}
-                  </Text>
-                )}
-                {/* "Done today" is already said by the checkmark icon and the struck-through
-                    count; as a filled pill next to them it was a third copy of one fact. It
-                    reads as a quiet word on the meta line instead. */}
-                {isDone && (
-                  <Text style={[styles.weeklyProgressText, { color: accent }]}>{t.habits.doneToday}</Text>
-                )}
-                {habit.energyEnabled && <EnergyBadge value={habit.energyValue} theme={theme} />}
-              </View>
-            )}
-          </View>
-          {/* The ONE right-hand value: today's count against the goal, in tabular figures so a
-              column of them lines up row to row. */}
-          <Text style={[styles.habitCount, { color: theme.textMuted }]}>{count}/{goal}</Text>
-          <IconButton
-            icon="settings-outline"
-            label={t.habits.editButtonLabel}
-            onPress={() => onEdit(habit.id)}
-            size={26}
-            tint="transparent"
-            color={theme.textMuted}
-          />
-          <PressableScale
-            style={[styles.adjBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-            onPress={() => decrement(habit.id, today)}
-            hitSlop={HitSlop.base}
-            scaleTo={0.9}
-            accessibilityRole="button"
-            accessibilityLabel={`${t.decreaseQty} ${habit.title}`}
-          >
-            <Text style={[styles.adjBtnText, { color: theme.textMuted }]}>−</Text>
-          </PressableScale>
-          <PressableScale
-            style={[styles.adjBtn, styles.adjBtnPlus, { backgroundColor: barColor }]}
-            onPress={() => increment(habit.id, today)}
-            hitSlop={HitSlop.base}
-            scaleTo={0.9}
-            accessibilityRole="button"
-            accessibilityLabel={`${t.increaseQty} ${habit.title}`}
-          >
-            <Text style={[styles.adjBtnPlusText, { color: theme.accentInk }]}>+</Text>
-          </PressableScale>
-        </View>
+            (goal dot · weekly progress · energy) → ONE right-hand value (the count) → ⋯ →
+            the check or the −/+ control. Nothing was removed; the middle four moved down a line.
+
+            **Drawn by components/PadRow.tsx since 2026-08-01 (B2-3, inverted).** The audit
+            behind that task found the shared row primitive was imported by the four HOME cards
+            and by no tab screen at all — so Home was the newer code and the tabs were what had
+            drifted, and the task's "convert Home to match the tabs" direction ran backwards.
+            This screen was converted first. What changed with the shell: the gear became
+            PadRow's ONE ⋯ action (the row rule's "one row-level action button"), a habit whose
+            `dailyGoal` is 1 now gets a real check instead of a −/+ pair it never needed (the
+            −/+ stays for `goal > 1`, where one tap genuinely can't mean "done" — that is the
+            whole reason the pair exists), and `count/goal` is suppressed for those goal-1
+            habits because the check already says it. `done` now strikes and fades the WHOLE
+            row, which is the shared finished-row treatment a ticked note/task/shopping item
+            already had.
+
+            What deliberately did NOT change: the card shell around this row. The 4px progress
+            bar, the done-state GlowPulse halo and the expandable week-strip/rest-day drawer
+            below are all things a Home pad row has no equivalent of, and they are why this
+            surface is a card and not a bare line on a ruled sheet. PadSheet was NOT adopted
+            here for the same reason plus one more — its `typeRow` is pinned as the pad's FIRST
+            line, and this screen's add row deliberately sits at the BOTTOM of the list (see the
+            PadTypeRow mount below). */}
+        <PadRow
+          title={habit.title}
+          // theme.good, via habitColor. Every completion signal on this screen is already the
+          // good token (the bar, the halo, the checkmark, the done word), so the new check
+          // takes it too — Home passes its habit DOMAIN hue there instead, which is the one
+          // remaining divergence between the two surfaces and is a colour call, not this one.
+          accent={accent}
+          done={isDone}
+          // A.4: done is a STATUS, so it takes the status token as ink; the habit's own glyph
+          // is neutral. Mirrors HomeHabitsCard's leading exactly.
+          leading={isDone
+            ? <Ionicons name="checkmark" size={22} color={theme.good} />
+            : <HabitIcon icon={habit.icon} size={22} color={theme.textMuted} />}
+          meta={hasMetaLine ? (
+            <>
+              {linkedGoal ? (
+                <GoalGlowDot color={linkedGoal.color} strength={linkedGoal.strength} strengthUpdatedAt={linkedGoal.strengthUpdatedAt} size={9} />
+              ) : null}
+              {isWeeklyFlexible && (
+                <Text style={[styles.weeklyProgressText, { color: theme.textMuted }]}>
+                  {t.habits.weeklyProgress(count, goal)}
+                </Text>
+              )}
+              {/* "Done today" is already said by the checkmark icon and the struck-through
+                  count; as a filled pill next to them it was a third copy of one fact. It
+                  reads as a quiet word on the meta line instead. */}
+              {isDone && (
+                <Text style={[styles.weeklyProgressText, { color: accent }]}>{t.habits.doneToday}</Text>
+              )}
+              {habit.energyEnabled && <EnergyBadge value={habit.energyValue} theme={theme} />}
+            </>
+          ) : undefined}
+          // The ONE right-hand value: today's count against the goal. Suppressed when the goal
+          // is 1 — the check to its right already carries that, and "1/1" beside a ticked
+          // circle is the same fact twice (HomeHabitsCard made this call first).
+          rightValue={goal > 1 ? `${count}/${goal}` : undefined}
+          onPress={() => setExpanded((v) => !v)}
+          onAction={() => onEdit(habit.id)}
+          actionLabel={t.habits.editButtonLabel}
+          trailing={goal > 1 ? (
+            <View style={styles.adjRow}>
+              <PressableScale
+                style={[styles.adjBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                onPress={() => { selection(); decrement(habit.id, today); }}
+                hitSlop={HitSlop.base}
+                scaleTo={0.9}
+                accessibilityRole="button"
+                accessibilityLabel={`${t.decreaseQty} ${habit.title}`}
+              >
+                <Text style={[styles.adjBtnText, { color: theme.textMuted }]}>−</Text>
+              </PressableScale>
+              <PressableScale
+                style={[styles.adjBtn, styles.adjBtnPlus, { backgroundColor: barColor }]}
+                onPress={counted}
+                hitSlop={HitSlop.base}
+                scaleTo={0.9}
+                accessibilityRole="button"
+                accessibilityLabel={`${t.increaseQty} ${habit.title}`}
+              >
+                <Text style={[styles.adjBtnPlusText, { color: theme.accentInk }]}>+</Text>
+              </PressableScale>
+            </View>
+          ) : undefined}
+          onToggle={goal > 1 ? undefined : () => (isDone ? decrement(habit.id, today) : counted())}
+          toggleLabel={habit.title}
+        />
 
         {expanded && (
           <View style={styles.expanded}>
@@ -354,7 +394,6 @@ function HabitCard({
         </View>
       </View>
       </View>
-    </PressableScale>
   );
 }
 
@@ -911,21 +950,11 @@ const baseStyles = StyleSheet.create({
   },
   habitAccent: { width: 4, alignSelf: 'stretch' },
   habitCardContent: { flex: 1, padding: Spacing.md, position: 'relative' },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  habitIcon: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
-  // minWidth:0 so the title shrinks instead of pushing the trailing cluster (count · gear ·
-  // −/+) off the card — the same guard components/PadRow.tsx carries.
-  habitTitleWrap: { flex: 1, minWidth: 0 },
-  habitTitle: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
-  // ONE meta line, and it never wraps (row rule) — a habit's goal dot, weekly progress,
-  // done-word and energy badge all live here now instead of on the title line.
-  titleMetaRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 2 },
-  // The row's ONE right-hand value. Tabular figures so a column of counts lines up.
-  habitCount: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, ...TabularNums },
+  // The row shell itself — leading icon, title, the ONE meta line, the ONE right-hand value,
+  // the ⋯ and the check — is components/PadRow.tsx's since 2026-08-01 (B2-3, inverted), so the
+  // styles that used to build it here (cardHeader / habitIcon / habitTitleWrap / habitTitle /
+  // titleMetaRow / habitCount) are gone with it. Only the bits PadRow takes as NODES still need
+  // styles of their own: the meta line's own text, and the −/+ pair passed as `trailing`.
   energyPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -937,6 +966,9 @@ const baseStyles = StyleSheet.create({
   },
   energyPillText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   weeklyProgressText: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
+  // The −/+ pair, handed to PadRow as `trailing` (which replaces its check). Only drawn when
+  // dailyGoal > 1 — see the PadRow mount for why a goal of 1 gets a real check instead.
+  adjRow: { flexDirection: 'row', gap: Spacing.xs },
   adjBtn: {
     width: 30, height: 30,
     borderRadius: Radius.full,
