@@ -595,7 +595,17 @@ device or EAS build.
 Finds the "why is that on two lines when it nearly fits?" class of bug by measurement
 instead of eyeballing. `scripts/measure-wraps.mjs` walks the same preview build and, for
 every text node, forces `white-space: nowrap` to compare natural width against the box it
-actually got. Reports three separate failure modes:
+actually got. Reports four separate failure modes:
+- **Clipped controls** (added 2026-08-01) — a NON-text element (icon button, chip, avatar)
+  whose box runs past the horizontal edge of the nearest overflow-clipping ancestor, so part
+  of it is physically sliced off. Added after the task editor's voice mic shipped cut in half
+  at 360px (#465) and was found *by eye in a screenshot* — none of the three modes below can
+  see it, since the mic has no text to wrap or truncate and its row has only two children
+  (under the ≥3 that wrapped-rows needs). Two filters keep it honest, and don't remove
+  either: anything inside an `<svg>` is skipped (the backdrop motifs are *supposed* to bleed
+  past their mask), and a child WIDER than its clipper is skipped as a sliding track (the tab
+  pager is 1800px of five screens in a 360px window — being clipped is the design). What's
+  left is the real shape of the bug: something that would fit comfortably, shoved out anyway.
 - **Near-miss wrapped text** — `+Npx` = how much more width would collapse it to one line.
   A small N means the *container* is the problem, not the copy.
 - **Truncated single-line text** — how tabs/chips fail instead of wrapping. **⚠️ Confirm
@@ -613,6 +623,21 @@ ran ~7x more near-misses than English at the same width (28 vs 4 instances at 39
 the 2026-07-28 pass. Widths worth checking: 430 (Pro Max), 393 (iPhone 15/Pixel 8), 360
 (small Android), and 327 as a proxy for the `large` font setting (1.2x) at 393. Set
 `FORCE_BUILD=1` to rebuild `dist/` first; otherwise it reuses the existing bundle.
+
+**Coverage — and its one big hole, now half-closed.** The walk measures onboarding, the tour
+card, all five tabs, Settings, and (2026-08-01) the **task editor**, which it reaches by
+creating a task and tapping it — a fresh profile has none. Until then the audit had never
+opened an editor or a pushed sub-screen *at all*, so the app's densest forms were the one
+place it couldn't see, which is exactly where the mic bug lived. **`--lang=en` was also
+broken outright** until the same pass: it waited on a "Language: English." radio that never
+exists, because Basics renders in Norwegian until that very row is tapped. Both are worth
+knowing before trusting a clean run — a mode this audit doesn't walk is not a mode it
+passes. When you add a surface with tight horizontal pressure, add a step for it.
+
+Standing finding (2026-08-01, not yet fixed): at `--width=327` the **task editor** reports 4
+clipped controls — the Energy stepper, the add-step button and two of its neighbours — i.e.
+the same overflow class as the mic, at the `large` font setting. Fixing that row family is
+open work, not a regression from any one change.
 
 Two structural lessons from that pass, worth not re-learning: horizontal chrome **stacks**
 (three nested 16px paddings plus an icon gutter left text 306 of 393px, and onboarding's
