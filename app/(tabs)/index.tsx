@@ -1,15 +1,30 @@
 /**
  * index.tsx — Home screen (the daily landing hub).
  *
- * The app's calm daily overview: a low-weight greeting, then the four converged
- * previews — Plans (the shared PlanTaskCard day-view), Habits (HomeHabitsCard, added
- * 2026-07-28 directly under Plans), Notes (HomeNotesCard), and Shopping (HomeShoppingCard)
- * — plus gentle completed-count points. Mounts via ScreenScaffold (Decision 001): the
- * scaffold owns the background, particles, header chrome (Settings gear + Focus eye), and
- * BottomNav; this screen only supplies content and wires Focus mode.
+ * The app's calm daily overview. Mounts via ScreenScaffold (Decision 001): the scaffold owns
+ * the background, particles, header chrome (Settings gear + Focus eye), and BottomNav; this
+ * screen only supplies content and wires Focus mode.
+ *
+ * **Render order, and which parts of it the user can move** (settled 2026-07-31, addendum
+ * task B.2):
+ *   1. Greeting + date — fixed (its own `header` block).
+ *   2. Energy STRIP (components/EnergyMeter.tsx) — fixed, and absent entirely when
+ *      `settings.energySystemEnabled` is off. Not a card any more: one thin line, no surface.
+ *   3. Shared card (components/HomeSharedCard.tsx) — fixed, and only present when something
+ *      has actually arrived (`hasIncomingShared`). It sits ABOVE the four lists on purpose:
+ *      it is transient, time-sensitive and from another person, so below four lists it would
+ *      be missed. Interruptive content goes high or it does not work. Don't demote it.
+ *   4–7. To-do / Habits / Notes / Shopping — the ONLY reorderable, removable cards, driven by
+ *      `settings.homeCardOrder` through components/HomeCardManager.tsx (long-press to drag,
+ *      "Edit cards" for the ×/add chrome, floor of one card).
+ *   8. The cumulative "you've done N things" line — fixed to the bottom, and the last child
+ *      of `content` so it cannot be reordered into the stack.
+ * Items 2, 3 and 8 are fixed *structurally*: they are siblings of `HomeCardManager`, not
+ * entries in `HOME_CARD_KINDS`, so there is no code path that can drag or delete them.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/HomeHabitsCard
+ *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/EnergyMeter
+ *             (the fixed Energy strip, gated on settings.energySystemEnabled), components/HomeHabitsCard
  *             (self-contained — reads useHabitStore directly, no props from this screen),
  *             components/HomeNotesCard, components/HomeSharedCard (gated on
  *             settings.featureSharing; the shopping the spend-pace line is unconditional as
@@ -667,14 +682,20 @@ export default function HomeScreen() {
             </View>
           </DebugNoteAnchor>
 
-          {/* Energy meter — gated on settings.energySystemEnabled again (2026-07-31, on by
-              default; it was unconditional 2026-07-26→2026-07-31). Its explainer lives INSIDE
-              that card as a permanent line (2026-07-27) — it used to be a separate StarterCard
+          {/* Energy STRIP (2026-07-31, addendum task B.2) — no longer a card: one thin line of
+              pips + `n / n` + an edit glyph, with its permanent explainer under it. It is FIXED
+              here: outside HOME_CARD_KINDS/HomeCardManager, so it can be neither dragged nor
+              removed with the × — the only way to make it go away is turning Energy off in
+              Settings → Advanced → Features, which is what `energySystemEnabled` gates (on by
+              default; the meter was unconditional 2026-07-26→2026-07-31). It uses `energyStrip`,
+              not `section`: a full Spacing.xl band above a one-line strip re-created the card's
+              worth of vertical space the strip exists to give back. Its explainer lives INSIDE
+              the strip as a permanent line (2026-07-27) — it used to be a separate StarterCard
               rendered here, which sat directly above the Plans card and so read as belonging to
               the to-do card, making its disappear-on-first-use behaviour look like a bug in the
               wrong place. */}
           {energySystemEnabled && (
-            <View style={styles.section}>
+            <View style={styles.energyStrip}>
               <EnergyMeter />
             </View>
           )}
@@ -738,6 +759,10 @@ const baseStyles = StyleSheet.create({
   greeting: { fontFamily: Type.title.fontFamily, fontSize: Type.title.size, lineHeight: Math.round(Type.title.size * Type.title.line) },
   dateLabel: { fontSize: FontSize.sm, marginTop: Spacing.xs, textTransform: 'capitalize', fontFamily: Fonts.regular },
   section: { marginTop: Spacing.xl },
+  // The Energy strip is chrome, not a card, so it gets a card-gap's worth of space BELOW it
+  // (the next section's own Spacing.xl) but only a hair above — the greeting's own
+  // marginBottom (Spacing.sm) is already the separation it needs.
+  energyStrip: { marginTop: Spacing.xs },
   pointsText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },
   // "Edit cards" / "Done" toggle for the Notes/Plans/Shopping stack (moved here from
   // HomeCardManager's own row, 2026-07-24 — see the header comment above).

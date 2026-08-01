@@ -1,6 +1,14 @@
 /**
- * HomeCardManager.tsx — reorderable wrapper for Home's Notes/Plans/Shopping preview cards,
- * with a separate visible entry point for adding/removing cards.
+ * HomeCardManager.tsx — reorderable wrapper for Home's four preview cards (To-do, Habits,
+ * Notes, Shopping), with a separate visible entry point for adding/removing cards.
+ *
+ * **This component defines what "reorderable" means on Home, by omission.** Only the kinds
+ * Home passes in `order` (`HOME_CARD_KINDS` in app/(tabs)/index.tsx — plans/habits/notes/
+ * shopping) can be dragged or removed. The greeting, the Energy strip, the incoming-Shared
+ * card and the cumulative "you've done N things" line are rendered as SIBLINGS of this
+ * component, never as entries in it, which is exactly what makes them fixed — there is no
+ * flag to check and no way for a corrupt `homeCardOrder` to move them. Keep it that way:
+ * making one of them reorderable means adding it to that set, not adding a special case here.
  *
  * Wraps an ordered stack of "kind"-keyed cards. Long-pressing ANY card always starts a
  * drag-to-reorder (no mode to enter first) — reordering is the one thing long-press does
@@ -20,7 +28,7 @@
  * Connections:
  *   Imports → components/DraggableTaskRow, components/PressableScale, constants/theme,
  *             lib/haptics, lib/i18n, lib/reorder (reorderByDrag), lib/useAppTheme
- *   Used by → app/(tabs)/index.tsx (Home's Notes/Plans/Shopping preview stack) — owns the
+ *   Used by → app/(tabs)/index.tsx (Home's To-do/Habits/Notes/Shopping preview stack) — owns the
  *             `editMode` state (`cardsEditMode`) and passes it down as a controlled prop,
  *             since the toggle button that flips it now renders in the greeting header there.
  *   Data    → none — pure presentational, all mutations bubbled up via callbacks
