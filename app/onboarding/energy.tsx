@@ -14,6 +14,14 @@
  * measurement of the user. Keep any new wording on that line, and keep it off the "you're
  * behind" side of it entirely — see lib/__tests__/copyTone.test.ts.
  *
+ * **Heading + sub ratified 2026-08-01.** For one day this was the only onboarding screen with
+ * a heading and no sub-heading: the two-card version's `sub` and `note` both opened with
+ * "Both …", so they were deleted rather than rewritten when the second card went, and `title`
+ * was left as a placeholder. The maintainer kept the placeholder title and took a new `sub`
+ * written against it (`t.energyIntro.sub`). That line's job is to justify the interruption —
+ * it says the rest of the app needs no such screen — so keep it OFF the subject of the meter,
+ * which the card below already covers in `t.energyIntro.energy.body`.
+ *
  * **This screen used to explain two systems side by side** (2026-07-31): Quiet growth
  * (`showGrowth`) had the second card, having moved here out of the feature picker because a
  * bare switch asks you to opt into a phrase whose meaning the app has not explained yet. It
@@ -82,7 +90,16 @@ export default function OnboardingEnergy() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.heading, { color: theme.text }]}>{t.energyIntro.title}</Text>
+        {/* Heading and sub are ONE block: the ScrollView's own `gap` is Spacing.lg, sized to
+            separate the heading from the card, which is far too much air between a heading and
+            the line that belongs to it. The sub says why this screen exists at all and
+            deliberately does NOT describe the meter — that is the card's own `energy.body`, a
+            few lines below. Added 2026-08-01; until then this was the only onboarding screen
+            with a heading and nothing under it. */}
+        <View style={styles.headingBlock}>
+          <Text style={[styles.heading, { color: theme.text }]}>{t.energyIntro.title}</Text>
+          <Text style={[styles.subheading, { color: theme.textMuted }]}>{t.energyIntro.sub}</Text>
+        </View>
 
         <Surface style={styles.card}>
           {/* One holder motif for this surface, sat behind the icon. */}
@@ -128,7 +145,12 @@ const baseStyles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     gap: Spacing.lg,
   },
+  headingBlock: { gap: Spacing.xs },
   heading: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold, textAlign: 'center' },
+  // Muted, and a step down in size — it explains the heading rather than competing with it.
+  // Centred to match, and allowed to wrap: at the `large` text setting in Norwegian this is
+  // three lines, which is why it sits in its own block rather than being squeezed onto one.
+  subheading: { fontSize: FontSize.md, textAlign: 'center', lineHeight: 22 },
   card: {
     borderRadius: Radius.lg,
     padding: Spacing.lg,

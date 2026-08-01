@@ -389,10 +389,16 @@ const en = {
   //
   // This block used to carry a second explanation, `growth` (Quiet growth), plus a `sub` and
   // a `note` that both said "Both …". All three went with the second card on 2026-07-31 —
-  // wording that counts two things cannot survive there being one. `title` is a PLACEHOLDER
-  // pending the maintainer's own wording (see that screen's header).
+  // wording that counts two things cannot survive there being one.
+  //
+  // **Ratified 2026-08-01.** `title` was a placeholder for one day; the maintainer kept it and
+  // took a new `sub` written against it, which closes the gap where this was the only
+  // onboarding screen with a heading and no sub-heading. The sub's job is to say why the
+  // screen exists AT ALL — it earns the interruption by admitting the rest of the app doesn't
+  // need one. It must not describe the meter: that is the card's `energy.body`, directly below.
   energyIntro: {
     title: 'One thing worth explaining',
+    sub: "The rest of the app you can learn by poking at it. This part looks like a score, so it's worth a minute.",
     energy: {
       title: 'Energy',
       body: 'Tasks and habits can carry an energy cost, and the meter shows what today has left. It is for planning around the energy you actually have, not for measuring you.',
@@ -2069,6 +2075,10 @@ const no: typeof en = {
   },
   energyIntro: {
     title: 'Én ting som er verdt en forklaring',
+    // "poking at it" has no idiomatic Norwegian equivalent that stays this light — "prøve deg
+    // fram" (feel your way / try as you go) carries the same "you don't have to be taught this"
+    // sense without turning it into an instruction.
+    sub: 'Resten av appen kan du prøve deg fram i. Denne delen ser ut som en poengsum, så den er verdt et minutt.',
     energy: {
       title: 'Energi',
       body: 'Gjøremål og vaner kan ha en energikostnad, og måleren viser hva dagen har igjen. Den er til for å planlegge etter energien du faktisk har, ikke for å måle deg.',
