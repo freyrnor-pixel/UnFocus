@@ -20,8 +20,10 @@
  *   Imports → components/ScreenScaffold, components/HintCard, components/NoteRow,
  *             components/AnimatedListItem (note add/remove fade), components/DraggableTaskRow
  *             (the long-press-drag gesture), components/VoiceNoteFAB, components/SendToSheet,
+ *             components/GhostRow (2026-08-01, the "just deleted this note — restore?" row),
  *             constants/theme, lib/i18n, lib/prefill (prefillRoute), lib/domainColor,
- *             lib/useDragReorder, lib/useAppTheme, store/useNotesStore
+ *             lib/useDragReorder, lib/useGhostTimeout (2026-08-01, the ghost row's timing),
+ *             lib/useAppTheme, store/useNotesStore
  *   Used by → Expo Router route "/notes", reached via Home's "More → Notes" link
  *             (no BottomNav tab by design — Decision 036; note editing itself is Decision 012)
  *   Data    → reads/writes useNotesStore (notes table) directly — no draft buffer, since a
@@ -38,6 +40,13 @@
  *     so it reads as "the active colour theme", not a fixed hue.
  *   - Only rendered when both sections are non-empty — an all-active or all-checked list has
  *     nothing to visually separate.
+ *   - **Inline "ghost" undo row (2026-08-01)**: deleting a note (the ⋯ sheet's delete row) is
+ *     now a soft-delete (useNotesStore's `lastDeleted`), and whichever section the note came
+ *     from renders a GhostRow with a restore action for a few seconds after, or until you
+ *     leave this screen (lib/useGhostTimeout.ts). Both sections' emptiness gates and the
+ *     divider's gate fold in `lastDeletedNote` so a just-emptied section still shows its
+ *     header + ghost instead of collapsing, and the whole-screen empty state doesn't show
+ *     alongside it.
  *   - **tier='sub' (2026-08-01, addendum B.4)** — it was tier='site' from Decision 001, back
  *     when Notes was one of the BottomNav tabs. It stopped being a tab (Decision 036) but the
  *     tier never followed, so this screen kept a site header (a Settings gear) and its own
@@ -65,10 +74,12 @@ import AnimatedListItem from '@/components/AnimatedListItem';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import VoiceNoteFAB from '@/components/VoiceNoteFAB';
 import SendToSheet, { SendToTarget } from '@/components/SendToSheet';
+import GhostRow from '@/components/GhostRow';
 import { useT } from '@/lib/i18n';
 import { prefillRoute } from '@/lib/prefill';
 import { getDomainColor } from '@/lib/domainColor';
 import { useDragReorder } from '@/lib/useDragReorder';
+import { useGhostTimeout } from '@/lib/useGhostTimeout';
 import { FontSize, Fonts, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
@@ -86,6 +97,13 @@ export default function NotesScreen() {
   const toggleChecked = useNotesStore((s) => s.toggleChecked);
   const reorderNotes = useNotesStore((s) => s.reorder);
   const removeNote = useNotesStore((s) => s.remove);
+  // Inline "ghost" undo row (2026-08-01) — see useNotesStore's `lastDeleted` doc.
+  // useGhostTimeout owns the "a few seconds, or until you leave this screen" window;
+  // dismissLastDeleted only drops the offer to restore, it never un-deletes anything.
+  const lastDeletedNote = useNotesStore((s) => s.lastDeleted);
+  const restoreLastDeletedNote = useNotesStore((s) => s.restoreLastDeleted);
+  const dismissLastDeletedNote = useNotesStore((s) => s.dismissLastDeleted);
+  useGhostTimeout(!!lastDeletedNote, dismissLastDeletedNote);
 
   // Which note's ⋯ sheet is open (null = closed). One sheet at a time, like the Home pad's.
   const [sendToId, setSendToId] = useState<string | null>(null);
@@ -150,25 +168,41 @@ export default function NotesScreen() {
         <View style={styles.content}>
           <HintCard text={t.hints.notes.text} example={t.hints.notes.example} />
 
-          {notes.length === 0 ? (
+          {/* A pending ghost keeps its section (and the whole list) from reading as empty even
+              though the note it stands in for is already out of `notes` — see
+              useNotesStore's `lastDeleted` doc. */}
+          {notes.length === 0 && !lastDeletedNote ? (
             <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.notes.emptyState}</Text>
           ) : (
             <>
-              {activeNotes.length > 0 && (
+              {(activeNotes.length > 0 || (lastDeletedNote && !lastDeletedNote.checked)) && (
                 <View style={styles.section}>
                   <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.notes.activeLabel}</Text>
                   {renderSection(activeNotes, activeDrag)}
+                  {lastDeletedNote && !lastDeletedNote.checked ? (
+                    <GhostRow
+                      title={lastDeletedNote.header || t.notes.headerPlaceholder}
+                      onRestore={restoreLastDeletedNote}
+                    />
+                  ) : null}
                 </View>
               )}
 
-              {activeNotes.length > 0 && checkedNotes.length > 0 && (
-                <View style={[styles.divider, { backgroundColor: theme.accent }]} />
-              )}
+              {(activeNotes.length > 0 || (lastDeletedNote && !lastDeletedNote.checked)) &&
+                (checkedNotes.length > 0 || (lastDeletedNote && lastDeletedNote.checked)) && (
+                  <View style={[styles.divider, { backgroundColor: theme.accent }]} />
+                )}
 
-              {checkedNotes.length > 0 && (
+              {(checkedNotes.length > 0 || (lastDeletedNote && lastDeletedNote.checked)) && (
                 <View style={styles.section}>
                   <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.notes.checkedLabel}</Text>
                   {renderSection(checkedNotes, checkedDrag)}
+                  {lastDeletedNote && lastDeletedNote.checked ? (
+                    <GhostRow
+                      title={lastDeletedNote.header || t.notes.headerPlaceholder}
+                      onRestore={restoreLastDeletedNote}
+                    />
+                  ) : null}
                 </View>
               )}
             </>
