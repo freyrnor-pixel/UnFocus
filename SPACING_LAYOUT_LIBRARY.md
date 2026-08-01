@@ -141,14 +141,14 @@ From `constants/theme.ts` → `Radius`:
 
 ```typescript
 Radius = {
-  sm:   10,   // Small buttons, chips, modals
-  md:   18,   // Cards, input fields, standard surfaces
-  lg:   26,   // Large cards, large modals
+  sm:   12,   // Small buttons, chips, modals
+  md:   16,   // Cards, input fields, standard surfaces (nudged 18→16, 2026-07-18 "colored glass")
+  lg:   24,   // Large cards, large modals
   full: 999,  // Fully rounded pills (buttons, FABs)
 }
 ```
 
-### Radius.sm (10px)
+### Radius.sm (12px)
 - Small buttons, secondary elements
 - Segmented control segments
 - Chips, badges, small pills
@@ -159,7 +159,7 @@ Radius = {
 </View>
 ```
 
-### Radius.md (18px)
+### Radius.md (16px)
 - Standard cards
 - Input fields
 - Modals, sheets
@@ -168,14 +168,14 @@ Radius = {
 ```tsx
 <View style={{ 
   borderRadius: Radius.md,
-  backgroundColor: theme.white,
+  backgroundColor: theme.surface,
   padding: Spacing.md,
 }}>
   {/* Card content */}
 </View>
 ```
 
-### Radius.lg (26px)
+### Radius.lg (24px)
 - Large, prominent cards
 - Large modals
 - Emphasis surfaces
@@ -183,7 +183,7 @@ Radius = {
 ```tsx
 <View style={{ 
   borderRadius: Radius.lg,
-  backgroundColor: theme.white,
+  backgroundColor: theme.surface,
 }}>
   {/* Large card */}
 </View>
@@ -205,7 +205,7 @@ Radius = {
 
 ### Pattern 1: Full-Screen Page with Padding
 ```tsx
-<View style={{ flex: 1, backgroundColor: theme.cream }}>
+<View style={{ flex: 1, backgroundColor: theme.bg }}>
   <ScrollView 
     style={{ padding: Spacing.md }}
     contentContainerStyle={{ gap: Spacing.md }}
@@ -229,7 +229,7 @@ Radius = {
 ### Pattern 3: Card with Internal Layout
 ```tsx
 <View style={{
-  backgroundColor: theme.white,
+  backgroundColor: theme.surface,
   borderRadius: Radius.md,
   padding: Spacing.md,
   gap: Spacing.md,
@@ -390,7 +390,7 @@ export function MyComponent() {
     <View style={{
       padding: Spacing.md,           // 16px padding
       gap: Spacing.sm,               // 8px gaps
-      borderRadius: Radius.md,       // 18px corners
+      borderRadius: Radius.md,       // 16px corners
       marginBottom: Spacing.lg,      // 24px separation
     }}>
       {/* Content */}
@@ -411,9 +411,9 @@ Use Spacing.lg (24)    for: section separation
 Use Spacing.xl (32)    for: large gaps, FAB positioning
 Use Spacing.xxl (48)   for: rare, very large gaps
 
-Use Radius.sm (10)     for: small/secondary elements
-Use Radius.md (18)     for: cards, inputs, modals
-Use Radius.lg (26)     for: large cards, prominence
+Use Radius.sm (12)     for: small/secondary elements
+Use Radius.md (16)     for: cards, inputs, modals
+Use Radius.lg (24)     for: large cards, prominence
 Use Radius.full (999)  for: buttons, FABs, avatars
 
 ```
@@ -431,5 +431,5 @@ Use Radius.full (999)  for: buttons, FABs, avatars
 
 **Last updated**: 2026-07-12  
 **Spacing scale**: xs (4), sm (8), md (16), lg (24), xl (32), xxl (48)  
-**Radius scale**: sm (10), md (18), lg (26), full (999)  
+**Radius scale**: sm (12), md (16), lg (24), full (999)  
 **Consistent rhythm**: Use tokens, never hardcode

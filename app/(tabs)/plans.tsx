@@ -474,12 +474,14 @@ function FocusFirstToday({
   onToggleDone,
   spec,
   newSinceIds,
+  newFields,
   footer,
 }: {
   tasks: Task[];
   onToggleDone: (task: Task) => void;
   spec: LayoutSpec;
   newSinceIds: ReadonlySet<string>;
+  newFields: { meta: boolean; price: boolean; extras: boolean };
   footer: React.ReactNode;
 }) {
   const theme = useAppTheme();
@@ -506,6 +508,7 @@ function FocusFirstToday({
             tinted={hero.sharedOut}
             spec={spec}
             isNewSince={newSinceIds.has(hero.id)}
+            newFields={newFields}
             onToggleDone={onToggleDone}
           />
         </View>
@@ -527,6 +530,7 @@ function FocusFirstToday({
                 tinted={tk.sharedOut}
                 spec={spec}
                 isNewSince={newSinceIds.has(tk.id)}
+                newFields={newFields}
                 onToggleDone={onToggleDone}
               />
             ))}
@@ -1149,7 +1153,7 @@ export default function TasksScreen() {
                           />
                         }
                         renderCard={(tk) => (
-                          <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
+                          <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
                         )}
                       />
                     </SectionCard>
@@ -1187,6 +1191,7 @@ export default function TasksScreen() {
                     onToggleDone={handleToggleDone}
                     spec={layoutSpec}
                     newSinceIds={newSinceIds}
+                    newFields={newFields}
                     footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
                   />
                 ) : (
@@ -1199,7 +1204,7 @@ export default function TasksScreen() {
                       focusMode={layoutSpec.focusMode}
                       footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
                       renderCard={(tk) => (
-                        <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
+                        <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
                       )}
                     />
                   </SectionCard>
@@ -1223,7 +1228,7 @@ export default function TasksScreen() {
                   emptyText={t.tasksSectionWheneverEmpty}
                   focusMode={layoutSpec.focusMode}
                   renderCard={(tk) => (
-                    <TaskCard key={tk.id} task={tk} variant="steps" spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
+                    <TaskCard key={tk.id} task={tk} variant="steps" spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
                   )}
                 />
               </CollapsedSection>
@@ -1243,7 +1248,7 @@ export default function TasksScreen() {
                   focusMode={layoutSpec.focusMode}
                   footer={<InlineTaskAdd date={group.date} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
                   renderCard={(tk) => (
-                    <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
+                    <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
                   )}
                 />
               </SectionCard>
@@ -1257,7 +1262,7 @@ export default function TasksScreen() {
                 emptyText={t.tasksSectionWheneverEmpty}
                 focusMode={layoutSpec.focusMode}
                 renderCard={(tk) => (
-                  <TaskCard key={tk.id} task={tk} variant="steps" spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} onToggleDone={handleToggleDone} />
+                  <TaskCard key={tk.id} task={tk} variant="steps" spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
                 )}
               />
             </CollapsedSection>

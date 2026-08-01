@@ -213,8 +213,9 @@ dropped, `app/shopping.tsx:92`); `app/shared.tsx`, `app/inventory-edit.tsx`,
 **Decision needed (ask user):** (a) wire a Share entry point back into Shopping/Plans
 headers and keep the feature, or (b) delete the dead surfaces (`share-modal.tsx`,
 `_scaffold-demo.tsx`, possibly `inventory-edit.tsx`) plus their now-dead stores/i18n.
-Either way, clean up the stale `t.nav.close`/BubbleMenu references noted in the doc-
-hygiene section. Confirm direction before removing code.
+Confirm direction before removing code. (The `t.nav.close`/BubbleMenu cleanup this bullet
+used to point at is done — see the Documentation hygiene section below, updated
+2026-08-01.)
 
 ---
 
@@ -267,12 +268,17 @@ settings input (monthly date/budget) shows a warn banner and reverts the field.
 
 ---
 
-## Documentation hygiene (bundle into whichever commit touches these files)
+## Documentation hygiene (bundle into whichever commit touches these files) ✅ done
 
-- Remove dead **BubbleMenu** references (`AGENTS.md`, `CLAUDE.md`, `constants/theme.ts`,
-  `lib/i18n.ts` `t.nav.close`, various headers) — the component is deleted, not disabled.
-- Fix stale "no caller wired yet" headers on `app/task-form.tsx`, `app/habit-form.tsx`.
-- Fix stale "SiteSwipeView dropped" comments (it's mounted via `ScreenScaffold`).
+All three items below are resolved as of 2026-08-01 (verified during STALE_CODE_AUDIT.md):
+- ✅ **BubbleMenu** references — `constants/theme.ts` has none; `lib/i18n.ts` has no
+  `t.nav.close` key (removed); AGENTS.md/CLAUDE.md's remaining mentions correctly state
+  the component is deleted rather than treating it as live.
+- ✅ `app/task-form.tsx` — the file itself is gone (retired; `TaskCard.tsx` is the one
+  task editor per AGENTS.md). `app/habit-form.tsx`'s header carries no "no caller wired
+  yet" note.
+- ✅ No stale "SiteSwipeView dropped" comments found — every mention describes it as
+  mounted via `ScreenScaffold`, which is correct.
 
 ---
 

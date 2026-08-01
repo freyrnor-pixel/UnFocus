@@ -299,14 +299,19 @@ export function initDb() {
     "ALTER TABLE settings ADD COLUMN pet_color TEXT DEFAULT '#A78BFA'",
     // Left-handed mode
     "ALTER TABLE settings ADD COLUMN left_handed INTEGER DEFAULT 0",
-    // 1.1.0 — custom theme colors
+    // ORPHANED (found 2026-08-01, STALE_CODE_AUDIT.md): 1.1.0 — custom theme colors. The
+    // pre-rebuild custom-theme system these fed was never ported; nothing reads/writes them
+    // and they never got a TS field in store/useSettingsStore.ts. Left in place per the
+    // never-drop-columns invariant — see that store's "Orphaned columns" edit note.
     "ALTER TABLE settings ADD COLUMN custom_primary_color TEXT DEFAULT '#3B82F6'",
     "ALTER TABLE settings ADD COLUMN custom_secondary_color TEXT DEFAULT '#10B981'",
     // 1.1.0 — inventory tracking for shopping items
     "ALTER TABLE shopping_items ADD COLUMN inventory_qty REAL DEFAULT 0",
     // Track whether a catalog item's price came from the seed list or a real purchase
     "ALTER TABLE store_items ADD COLUMN price_source TEXT DEFAULT 'seed'",
-    // Bubble menu surface finish
+    // ORPHANED (found 2026-08-01, STALE_CODE_AUDIT.md): bubble menu surface finish. The
+    // radial BubbleMenu this configured was dropped before porting (Decision 008 #5) before
+    // its settings ever reached store/useSettingsStore.ts — never drop, never wire new UI here.
     "ALTER TABLE settings ADD COLUMN bubble_material TEXT DEFAULT 'glass'",
     // Estimated cost per dish, shown in the meals library
     "ALTER TABLE dishes ADD COLUMN estimated_price_nok REAL DEFAULT 0",
@@ -314,7 +319,9 @@ export function initDb() {
     "ALTER TABLE shopping_items ADD COLUMN dish_name TEXT DEFAULT NULL",
     // Persistent "today's overview" notification toggle
     "ALTER TABLE settings ADD COLUMN persistent_notif_enabled INTEGER DEFAULT 0",
-    // Debug mode — feedback pins + bubble-wheel tuning overlay
+    // Debug mode — feedback pins are live (components/DebugNoteAnchor.tsx). The four
+    // bubble_* tuning columns below are ORPHANED (same BubbleMenu removal as bubble_material
+    // above) — the "bubble-wheel tuning overlay" they were for never shipped.
     "ALTER TABLE settings ADD COLUMN debug_mode_enabled INTEGER DEFAULT 0",
     "ALTER TABLE settings ADD COLUMN bubble_size REAL DEFAULT 50",
     "ALTER TABLE settings ADD COLUMN bubble_spacing REAL DEFAULT 78",

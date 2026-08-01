@@ -87,6 +87,12 @@
  *             onCommitNew fires.
  *
  * Edit notes:
+ *   - **Field-level glow (2026-08-01, STALE_CODE_AUDIT.md)**: `newFields` drives `tight`
+ *     `NewSinceGlow` wraps on the time label, the assignee cue, each tag pill, and the goal
+ *     dot — mirroring `ShoppingRow`'s meta/price field glow so switching Plans into a richer
+ *     layout marks exactly which values just appeared, not just that the row did. Callers
+ *     pass the same `{ meta, price, extras }` object `useNewSinceSeen` returns; `price` is
+ *     accepted for type parity with `ShoppingRow` but never true here (a task has no price).
  *   - **Field dividers + Opt tags (2026-07-30)**: a hairline `FieldDivider` now separates every
  *     field group in the expanded editor (Title/For+Rotation/Tags/Steps/Repeat/When/Time of
  *     day/Energy/Advanced), matching app/settings.tsx's long-standing in-card divider
@@ -232,6 +238,14 @@ type Props = {
   /** Task arrived since the user last opened this surface (lib/useNewSinceSeen.ts). */
   isNewSince?: boolean;
   /**
+   * Which collapsed-row fields a layout switch just revealed (lib/useNewSinceSeen.ts) — the
+   * per-value "tight" sibling of `isNewSince`'s whole-row glow. `meta` covers the time label
+   * and the meta line's assignee/tag chips (all gated by `spec.showMeta`); `extras` covers the
+   * goal dot (`spec.showExtras`). `price` never applies here — a task has no price — but is
+   * kept in the type so callers can pass the same object `ShoppingRow` takes.
+   */
+  newFields?: { meta: boolean; price: boolean; extras: boolean };
+  /**
    * Reports the editor opening and closing. Only a parent that has to KNOW needs it — today
    * that is app/(tabs)/plans.tsx's drag-reorder, which stands the gesture down while a card's
    * editor is open (components/DraggableTaskRow's `isOpen`), so a long-press inside a text
@@ -255,6 +269,7 @@ function TaskCard({
   onToggleDone,
   spec = LAYOUT_SPECS.normal,
   isNewSince = false,
+  newFields,
   onExpandedChange,
 }: Props) {
   const theme = useAppTheme();
@@ -706,9 +721,11 @@ function TaskCard({
           </PressableScale>
 
           {task.time && spec.showMeta ? (
-            <Text style={[styles.timeLabel, TabularNums, { color: theme.textMuted }]}>
-              {task.finishTime ? `${task.time}–${task.finishTime}` : task.time}
-            </Text>
+            <NewSinceGlow active={!!newFields?.meta} tight>
+              <Text style={[styles.timeLabel, TabularNums, { color: theme.textMuted }]}>
+                {task.finishTime ? `${task.time}–${task.finishTime}` : task.time}
+              </Text>
+            </NewSinceGlow>
           ) : null}
 
           <PressableScale
@@ -752,37 +769,47 @@ function TaskCard({
                 only honest answer: its fixed assigneeId is not who does it. The little
                 sync-ish glyph marks it as a turn rather than a permanent assignment. */}
             {showPeople && spec.showMeta && cuePerson ? (
-              <View style={[styles.assigneeCue, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-                <PersonDot
-                  color={personColor(cuePerson.color, people.indexOf(cuePerson))}
-                  name={cuePerson.name}
-                  size={14}
-                />
-                <Text style={[styles.assigneeCueText, { color: theme.textMuted }]} numberOfLines={1}>{cuePerson.name}</Text>
-                {rotating ? <Ionicons name="repeat" size={12} color={theme.textMuted} /> : null}
-              </View>
+              <NewSinceGlow active={!!newFields?.meta} tight>
+                <View style={[styles.assigneeCue, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+                  <PersonDot
+                    color={personColor(cuePerson.color, people.indexOf(cuePerson))}
+                    name={cuePerson.name}
+                    size={14}
+                  />
+                  <Text style={[styles.assigneeCueText, { color: theme.textMuted }]} numberOfLines={1}>{cuePerson.name}</Text>
+                  {rotating ? <Ionicons name="repeat" size={12} color={theme.textMuted} /> : null}
+                </View>
+              </NewSinceGlow>
             ) : null}
 
             {/* Tags — word-only pills, capped at two so a heavily-tagged task can't push the
-                meta line onto a second row; the rest collapse into a "+N". See lib/tags.ts. */}
+                meta line onto a second row; the rest collapse into a "+N". See lib/tags.ts.
+                Each pill gets its own tight glow (rather than one glow around the whole
+                cluster) so it stays a per-value marker even when several tags reveal at once. */}
             {spec.showMeta && rowTags.length ? (
               <>
                 {rowTags.slice(0, ROW_TAG_LIMIT).map((tag) => (
-                  <TagChip key={tag.id} label={tag.name} small />
+                  <NewSinceGlow key={tag.id} active={!!newFields?.meta} tight>
+                    <TagChip label={tag.name} small />
+                  </NewSinceGlow>
                 ))}
                 {rowTags.length > ROW_TAG_LIMIT ? (
-                  <TagChip label={t.tags.more(rowTags.length - ROW_TAG_LIMIT)} small />
+                  <NewSinceGlow active={!!newFields?.meta} tight>
+                    <TagChip label={t.tags.more(rowTags.length - ROW_TAG_LIMIT)} small />
+                  </NewSinceGlow>
                 ) : null}
               </>
             ) : null}
 
             {goal && spec.showExtras ? (
-              <GoalGlowDot
-                color={goal.color}
-                strength={goal.strength}
-                strengthUpdatedAt={goal.strengthUpdatedAt}
-                size={10}
-              />
+              <NewSinceGlow active={!!newFields?.extras} tight>
+                <GoalGlowDot
+                  color={goal.color}
+                  strength={goal.strength}
+                  strengthUpdatedAt={goal.strengthUpdatedAt}
+                  size={10}
+                />
+              </NewSinceGlow>
             ) : null}
           </View>
         )}
