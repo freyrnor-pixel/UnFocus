@@ -16,6 +16,7 @@
  *
  * Connections:
  *   Imports → react-native (Platform), lib/date, lib/i18n (getTranslations),
+ *             lib/episodes (isOpen — the health "ongoing" count),
  *             lib/notifications (refresh/cancelPersistentNotification), lib/widgets/snapshot,
  *             lib/widgets/WidgetViews (renderWidgetByName, WIDGET_NAMES), store/useTaskStore,
  *             store/useShoppingStore, store/useShoppingListStore, store/useNotesStore,
@@ -37,6 +38,7 @@
  */
 import { Platform } from 'react-native';
 import { todayStr } from '@/lib/date';
+import { isOpen } from '@/lib/episodes';
 import { getTranslations } from '@/lib/i18n';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 import { refreshPersistentNotification, cancelPersistentNotification } from '@/lib/notifications';
@@ -113,11 +115,15 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
   const habitsRemaining = todayHabits.filter((h) => !habitDone(h)).length;
 
   // ── Health (ongoing issues + anything logged today), newest-first (store order). ──
-  const activeHealth = useHealthStore.getState().logs.filter((l) => l.endDate === '' || l.date === today);
+  // Openness comes from `episodeState`, never from `endDate === ''` (2026-08-01) — that
+  // sentinel only means "no end recorded", which is what a quick log with no duration
+  // writes. Before this the count included every entry that never got an end typed; it is
+  // correct for the first time now, so expect it to drop to 0 on existing installs.
+  const activeHealth = useHealthStore.getState().logs.filter((l) => isOpen(l) || l.date === today);
   const healthItems = activeHealth
     .slice(0, PREVIEW)
-    .map((l) => ({ id: l.id, label: l.ailment, severity: l.severity, ongoing: l.endDate === '' }));
-  const ongoingCount = activeHealth.filter((l) => l.endDate === '').length;
+    .map((l) => ({ id: l.id, label: l.ailment, severity: l.severity, ongoing: isOpen(l) }));
+  const ongoingCount = activeHealth.filter(isOpen).length;
 
   // ── Overview lines (also feeds the persistent notification body) ──
   const overviewLines: string[] = [];

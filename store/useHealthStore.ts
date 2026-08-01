@@ -7,7 +7,8 @@
  * than drifting free text. Log is ordered newest-first.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/symptomSeed, lib/widgets/sync (scheduleWidgetSync
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/symptomSeed, lib/episodes (EpisodeState +
+ *             toEpisodeState — the ongoing-episode state column), lib/widgets/sync (scheduleWidgetSync
  *             — debounced widget/notification refresh on add/update/remove, so live widgets don't
  *             wait for foreground/background)
  *   Used by → app/(tabs)/health.tsx, app/health-form.tsx, app/health-log.tsx, app/health-detail.tsx
@@ -15,9 +16,21 @@
  *
  * Edit notes:
  *   - DB column is log_date but the in-memory field is `date`; map both directions in load()/add()/update().
- *   - `date`/`startTime` are when the issue started; `endDate`/`endTime` are when it finished
- *     (`endDate === ''` means still ongoing). Added for the dedicated health-form.tsx (Issue/
- *     Severity/When started/When finished/Note) that replaced the old inline "+" log button.
+ *   - `date`/`startTime` are when the issue started; `endDate`/`endTime` are when it finished.
+ *     Added for the dedicated health-form.tsx (Issue/Severity/When started/When finished/Note)
+ *     that replaced the old inline "+" log button.
+ *   - **`endDate === ''` is NOT "still ongoing" any more (2026-08-01).** It means only "no end
+ *     recorded", which is also what a quick log with no duration writes. `episodeState` is the
+ *     single source of truth for openness — ask `isOpen()`/`openEpisodes()` from lib/episodes.ts,
+ *     never the end pair. Every pre-existing row migrated to 'point' regardless of its end date
+ *     (lib/db.ts, 2026-08-01), deliberately: back-filling 'ongoing' from `end_date = ''` would
+ *     have opened an episode for every headache ever logged. After the migration
+ *     `episodeState === 'ongoing'` implies `endDate === ''`, but the converse is NOT true.
+ *   - `reliefNote`/`reliefMedicineId` are written once, when an episode is closed, and are
+ *     always optional. They are DISPLAYED and never interpreted — no correlation, no ranking,
+ *     no "this usually helps". See lib/episodes.ts's header for the full limit.
+ *   - `closeEpisode()` exists so the state and the end pair are written in ONE patch; never
+ *     set `episodeState: 'closed'` from a screen without the end pair in the same call.
  *   - `ailment` stays the display name (free text); `symptomId` links to a `symptoms` row when the
  *     user picks/creates a catalog symptom. Legacy rows have symptomId = '' (null) — grouping falls
  *     back to the ailment string for those.
@@ -43,13 +56,14 @@ import db from '@/lib/db';
 import { Row, FieldMap, loadAll, insertRow, updateRow, rowValues, readStr, readInt } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
 import { SYMPTOM_SEED } from '@/lib/symptomSeed';
+import { EpisodeState, closePatch, toEpisodeState } from '@/lib/episodes';
 import { scheduleWidgetSync } from '@/lib/widgets/sync';
 
 export type HealthLog = {
   id: string;
   date: string; // YYYY-MM-DD — when the issue started
   startTime: string; // HH:MM, optional — '' = no specific time recorded
-  endDate: string; // YYYY-MM-DD, optional — '' = still ongoing
+  endDate: string; // YYYY-MM-DD, optional — '' = no end recorded (NOT "ongoing", see below)
   endTime: string; // HH:MM, optional
   ailment: string;
   symptomId: string; // links to a `symptoms` row; '' for legacy/free-text-only entries
@@ -58,6 +72,15 @@ export type HealthLog = {
   /** Optional attribution to a `medicines` row (2026-07-27) — "possibly from this medicine".
    *  '' for every entry not tied to one, which is most of them. See app/medicine-form.tsx. */
   medicineId: string;
+  /** Whether this entry is still happening (2026-08-01). THE source of truth — never derive
+   *  openness from `endDate`. See lib/episodes.ts. */
+  episodeState: EpisodeState;
+  /** Free-text answer to "Did anything help?", asked once when an episode is closed.
+   *  '' = not answered, which is the common case and fine. Displayed, never interpreted. */
+  reliefNote: string;
+  /** Optional pointer to the `medicines` row taken during the episode. '' for most entries.
+   *  A dangling id (deleted medicine) is accepted, same as `medicineId`. */
+  reliefMedicineId: string;
 };
 
 export type Symptom = {
@@ -79,6 +102,14 @@ type HealthStore = {
   ensureSymptom: (name: string, category?: string) => Symptom;
   /** All logs for a symptom (by id when present, else by matching ailment name), newest-first. */
   logsForSymptom: (symptomId: string, ailment: string) => HealthLog[];
+  /** add() forced to an open episode — no end pair, whatever the caller passed. */
+  startEpisode: (entry: Omit<HealthLog, 'id' | 'episodeState' | 'endDate' | 'endTime'>) => HealthLog;
+  /** Closes an open episode in ONE update: state + end pair (+ optional relief) together, so
+   *  no intermediate row exists that is closed without an end, or ended without being closed. */
+  closeEpisode: (
+    id: string,
+    input: { stop: { date: string; time: string }; reliefNote?: string; reliefMedicineId?: string }
+  ) => void;
 };
 
 function rowToHealthLog(row: Row): HealthLog {
@@ -93,6 +124,11 @@ function rowToHealthLog(row: Row): HealthLog {
     severity: readInt(row, 'severity', 3),
     notes: readStr(row, 'notes'),
     medicineId: readStr(row, 'medicine_id'),
+    // Normalised, so an unknown/legacy value degrades to 'point' rather than rendering an
+    // empty status — and never to 'ongoing'.
+    episodeState: toEpisodeState(readStr(row, 'episode_state')),
+    reliefNote: readStr(row, 'relief_note'),
+    reliefMedicineId: readStr(row, 'relief_medicine_id'),
   };
 }
 
@@ -114,6 +150,9 @@ const HEALTH_LOG_FIELDS: FieldMap<HealthLog> = {
   severity: { col: 'severity' },
   notes: { col: 'notes' },
   medicineId: { col: 'medicine_id', to: (v) => v || null },
+  episodeState: { col: 'episode_state' },
+  reliefNote: { col: 'relief_note' },
+  reliefMedicineId: { col: 'relief_medicine_id', to: (v) => v || null },
 };
 
 /** Stable id derived from name so seeding is safe to run on every load. */
@@ -159,6 +198,9 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
       severity: entry.severity,
       notes: entry.notes,
       medicine_id: entry.medicineId || null,
+      episode_state: entry.episodeState || 'point',
+      relief_note: entry.reliefNote,
+      relief_medicine_id: entry.reliefMedicineId || null,
     });
     const log = { ...entry, id };
     set((s) => ({ logs: [log, ...s.logs] }));
@@ -215,5 +257,15 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
     return get().logs.filter((l) =>
       symptomId ? l.symptomId === symptomId : l.ailment.trim().toLowerCase() === a
     );
+  },
+
+  startEpisode(entry) {
+    return get().add({ ...entry, episodeState: 'ongoing', endDate: '', endTime: '' });
+  },
+
+  closeEpisode(id, input) {
+    // One patch, built by lib/episodes.ts so the state and the end pair can never be
+    // written apart. Goes through update(), so the widget sync fires as usual.
+    get().update(id, closePatch(input));
   },
 }));

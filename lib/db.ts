@@ -1054,6 +1054,36 @@ export function initDb() {
     // a DEFAULT change for new installs (the column's own DEFAULT), never a blanket
     // UPDATE — an existing user who deliberately switched it off must not be flipped back
     // on. Gate a retroactive UPDATE on `WHERE setup_complete = 0` if it's needed at all.
+    // Ongoing symptom episodes (2026-08-01) — an entry that is STILL HAPPENING, as opposed
+    // to one logged after the fact. `episode_state` is the SINGLE SOURCE OF TRUTH for that:
+    //   'point'   — a moment logged after it was over (every legacy row, and the default
+    //               for a new entry, because most logging happens afterwards)
+    //   'ongoing' — still happening right now
+    //   'closed'  — was ongoing, then ended; end_date/end_time carry when
+    // Deliberately NOT derived from `end_date = ''`. That sentinel already means three
+    // different things — a quick log with no duration, an entry whose end was never typed,
+    // and "still ongoing" — so reading it as "open" would reclassify years of history as
+    // open episodes. Duration is never stored: it is computed on read from
+    // log_date/start_time + end_date/end_time (see lib/episodes.ts).
+    "ALTER TABLE health_logs ADD COLUMN episode_state TEXT DEFAULT 'point'",
+    // Every pre-existing row is 'point', regardless of its end_date. SQLite's ADD COLUMN
+    // already back-fills existing rows with the constant DEFAULT above, so this is
+    // belt-and-braces for any row an out-of-band build left NULL/''. It must NOT be
+    // written as "set 'ongoing' where end_date = ''" — that is precisely the silent
+    // reclassification this column exists to prevent.
+    "UPDATE health_logs SET episode_state = 'point' WHERE episode_state IS NULL OR episode_state = ''",
+    // "Did anything help?" — asked once, when an episode is closed, and never required.
+    // This is the second half of the Health tab's own promise ("Log what bothers you. And
+    // what helps.", t.starters.health.text), which had no storage until now. Recorded
+    // relief is DISPLAYED and never interpreted — see lib/episodes.ts's header.
+    "ALTER TABLE health_logs ADD COLUMN relief_note TEXT DEFAULT ''",
+    // TEXT to match medicines.id (TEXT PRIMARY KEY, generateId()) and the existing
+    // health_logs.medicine_id — NOT an INTEGER. No FOREIGN KEY; like medicine_id, a
+    // deleted medicine leaves a dangling id rather than losing the symptom entry.
+    "ALTER TABLE health_logs ADD COLUMN relief_medicine_id TEXT DEFAULT NULL",
+    // "Any open episodes?" runs on every Health-tab mount, every widget refresh and in the
+    // headless snapshot. health_logs had exactly one index (idx_health_date) before this.
+    'CREATE INDEX IF NOT EXISTS idx_health_episode_state ON health_logs(episode_state)',
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
@@ -1101,7 +1131,13 @@ export function pruneOldData() {
       "DELETE FROM tasks WHERE recurring = 'none' AND has_start_date = 1 AND done = 1 AND task_date < ?",
       [c]
     );
-    db.runSync('DELETE FROM health_logs WHERE log_date < ?', [c]);
+    // An episode the user still considers open is live data, not history — the same
+    // reasoning as the tasks guard above ("undone tasks are still live backlog"). Before
+    // this guard existed, an episode open longer than the retention window was silently
+    // deleted out from under the user on the next cold start.
+    // Note `episode_state != 'ongoing'` is NULL-unsafe BY DESIGN: a row with a NULL state
+    // fails the predicate and is KEPT. Failing safe here means not deleting.
+    db.runSync("DELETE FROM health_logs WHERE log_date < ? AND episode_state != 'ongoing'", [c]);
     db.runSync('DELETE FROM habit_logs WHERE log_date < ?', [c]);
     db.runSync('DELETE FROM purchase_log WHERE purchased_at < ?', [c]);
     db.runSync('DELETE FROM shared_tasks WHERE date < ?', [c]);

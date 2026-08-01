@@ -236,17 +236,20 @@ export function buildHeadlessSnapshot(): WidgetSnapshot | null {
     let ongoingCount = 0;
     let healthTotal = 0;
     try {
-      const rows = db.getAllSync<{ id: string; ailment: string; severity: number; end_date: string }>(
-        'SELECT id, ailment, severity, end_date FROM health_logs WHERE end_date = ? OR log_date = ? ORDER BY log_date DESC, created_at DESC',
-        ['', today]
+      // Openness is `episode_state`, never `end_date = ''` (2026-08-01) — that sentinel only
+      // means "no end recorded". This is the only raw SQL against health_logs outside the
+      // store, so it has to be kept in step with lib/episodes.ts's isOpen() by hand.
+      const rows = db.getAllSync<{ id: string; ailment: string; severity: number; episode_state: string }>(
+        'SELECT id, ailment, severity, episode_state FROM health_logs WHERE episode_state = ? OR log_date = ? ORDER BY log_date DESC, created_at DESC',
+        ['ongoing', today]
       );
       healthTotal = rows.length;
-      ongoingCount = rows.filter((r) => r.end_date === '').length;
+      ongoingCount = rows.filter((r) => r.episode_state === 'ongoing').length;
       healthItems = rows.slice(0, PREVIEW).map((r) => ({
         id: r.id,
         label: r.ailment,
         severity: r.severity,
-        ongoing: r.end_date === '',
+        ongoing: r.episode_state === 'ongoing',
       }));
     } catch {
       /* leave health empty */

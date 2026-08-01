@@ -3,9 +3,9 @@
  *
  * Sub-screen (Decision 001 tier='sub') for a single symptom/issue log: Issue (a
  * catalog-backed symptom picker, mirrors the old inline typeahead), Severity
- * (1–5 ramp), When started (date + optional time) and When finished (Ongoing
- * switch, or a date + optional time once resolved), an optional "Possibly from" medicine
- * attribution, and a free-text Note.
+ * (1–5 ramp), When started (backdate shortcuts + date + optional time) and When finished
+ * (a Still going / It's over pair, with a date + optional time once it's over), an optional
+ * "Possibly from" medicine attribution, and a free-text Note.
  * Structure is copied from app/task-form.tsx (weekRow + collapsible
  * DatePickerCalendar for date entry, checkmark-in-header save, confirm-gated
  * delete) and adapted to symptom logging. Presence of an `id` route param
@@ -13,11 +13,13 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
- *             components/Collapsible (animated inline calendar reveal),
- *             components/HintCard, components/ConfirmationBanner, components/DatePickerCalendar,
- *             components/IconButton, components/Button, components/AppModal, components/PressableScale,
+ *             components/DateChipRow (the Mon–Sun chips + collapsible calendar, extracted from
+ *             this file 2026-08-01 so components/EpisodeCloseSheet.tsx could share it),
+ *             components/HintCard, components/ConfirmationBanner,
+ *             components/Button, components/AppModal, components/PressableScale,
  *             components/FieldDivider, components/OptionalTag,
- *             lib/date, lib/haptics, lib/i18n, lib/severity, lib/useAppTheme, store/useHealthStore,
+ *             lib/date, lib/episodes (backdatedStart), lib/haptics, lib/i18n, lib/severity,
+ *             lib/useAppTheme, store/useHealthStore,
  *             store/useMedicineStore (the "Possibly from" chip row — read-only)
  *   Used by → Expo Router route "/health-form"; pushed from app/(tabs)/health.tsx's "This week"
  *             rows, app/health-log.tsx's AddRow (passes a `name` param to prefill the Issue
@@ -35,11 +37,20 @@
  *     trend key), same as the old inline health.tsx editor; a typed name with no picked
  *     suggestion is committed to the catalog via ensureSymptom() on save. A `name` route param
  *     (from the Health-log AddRow) prefills `ailment` for a new entry.
- *   - "When finished" defaults to Ongoing (endDate stays '') for a new entry — most symptoms are
- *     logged while still happening. Editing an entry whose endDate is already set starts with
- *     Ongoing off.
- *   - DateChipPicker is a small local subcomponent (weekRow + calendar toggle, copied from
- *     task-form.tsx's inline date UI) shared by the start/end date fields.
+ *   - **"When finished" is a Still going / It's over pair, defaulting to It's over (2026-08-01).**
+ *     This replaced an `Ongoing` Switch that defaulted to ON, on the reasoning that most logging
+ *     happens afterwards — during it, people are not opening apps. The maintainer ruled on the
+ *     flip (EPISODES.md D5) against this file's own former header claim; to reverse it, change
+ *     the one `useState` below and the matching default in app/(tabs)/health.tsx's Quick log.
+ *   - **Openness is `episodeState`, not `!endDate`.** Editing an entry seeds the control from
+ *     the stored state; an old entry with a blank end date is a 'point' entry, not an open one.
+ *   - The **backdate shortcuts** under "When started" (Just now / This morning / Last night)
+ *     set the date + time fields below them, which stay visible and editable — they are a
+ *     shortcut, not a replacement. `Last night` crossing the date boundary is why the
+ *     resolution lives in lib/episodes.ts's backdatedStart() rather than inline here.
+ *   - The date field is components/DateChipRow.tsx (weekRow + calendar toggle). It was a local
+ *     `DateChipPicker` subcomponent here until 2026-08-01; the close sheet needed the same
+ *     control, so it moved out verbatim. app/task-form.tsx still has its own inline copy.
  *   - On save a ConfirmationBanner is shown, then navigation is delayed ~900ms so it's visible,
  *     matching task-form.tsx.
  *   - **"Possibly from" (2026-07-27)** sets `medicineId` — the symptom↔medicine correlation.
@@ -54,7 +65,7 @@
  *     app/habit-form.tsx and app/medicine-form.tsx already have, since ScreenScaffold itself
  *     has no keyboard-avoidance for a plain sub-screen ScrollView.
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -62,105 +73,24 @@ import { useHealthStore, Symptom } from '@/store/useHealthStore';
 import { useMedicineStore } from '@/store/useMedicineStore';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { todayStr, dateStr, dayOfWeekMon0 } from '@/lib/date';
+import { todayStr } from '@/lib/date';
+import { backdatedStart, type BackdatePreset } from '@/lib/episodes';
 import { tap, warning } from '@/lib/haptics';
 import { severities, severityInk } from '@/lib/severity';
 import ScreenScaffold from '@/components/ScreenScaffold';
-import { Input, Switch } from '@/components/FormControls';
+import { Input } from '@/components/FormControls';
 import PressableScale from '@/components/PressableScale';
 import HintCard from '@/components/HintCard';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
-import DatePickerCalendar from '@/components/DatePickerCalendar';
-import Collapsible from '@/components/Collapsible';
+import DateChipRow from '@/components/DateChipRow';
 import FieldDivider from '@/components/FieldDivider';
 import OptionalTag from '@/components/OptionalTag';
-import IconButton from '@/components/IconButton';
 import Button from '@/components/Button';
 import { showAppModal } from '@/components/AppModal';
 import { FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
 
-/** Mon–Sun quick-pick row + collapsible full calendar — copied from task-form.tsx. */
-function DateChipPicker({
-  value, onChange, expanded, setExpanded,
-}: {
-  value: string; onChange: (d: string) => void; expanded: boolean; setExpanded: (v: boolean) => void;
-}) {
-  const t = useT();
-  const theme = useAppTheme();
-  const styles = useScaledStyles(baseStyles);
-  const { dayLabels } = t;
-
-  const weekDays = useMemo(() => {
-    const today = new Date();
-    const mon0 = dayOfWeekMon0(today);
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(today);
-      d.setDate(today.getDate() - mon0 + i);
-      return { value: dateStr(d), dayIdx: i, dayNum: d.getDate() };
-    });
-  }, []);
-
-  return (
-    <>
-      <View style={styles.weekRow}>
-        {weekDays.map((wd) => {
-          const active = value === wd.value;
-          return (
-            <PressableScale
-              key={wd.value}
-              style={[
-                styles.weekChip,
-                { backgroundColor: theme.surfaceMuted },
-                active && { backgroundColor: theme.accent },
-              ]}
-              onPress={() => {
-                tap();
-                onChange(wd.value);
-                setExpanded(false);
-              }}
-              scaleTo={0.97}
-            >
-              <Text style={[styles.weekChipDay, { color: theme.textMuted }, active && { color: theme.accentInk }]}>
-                {dayLabels[wd.dayIdx].slice(0, 2)}
-              </Text>
-              <Text
-                style={[
-                  styles.weekChipNum,
-                  { color: theme.text },
-                  active && { color: theme.accentInk, fontFamily: Fonts.bold },
-                ]}
-              >
-                {wd.dayNum}
-              </Text>
-            </PressableScale>
-          );
-        })}
-      </View>
-      <IconButton
-        icon="calendar-outline"
-        label={expanded ? t.hideCalendar : t.pickOtherDate(value)}
-        active={expanded}
-        style={styles.calToggleBtn}
-        onPress={() => {
-          tap();
-          setExpanded(!expanded);
-        }}
-      />
-      <Collapsible open={expanded}>
-        <DatePickerCalendar
-          value={value}
-          onChange={(d) => {
-            onChange(d);
-            setExpanded(false);
-          }}
-          dayLabels={t.dayLabels}
-          monthLabels={t.months}
-          calendarLabels={t.calendar}
-        />
-      </Collapsible>
-    </>
-  );
-}
+/** The three one-tap start shortcuts, in the order they read as a timeline back from now. */
+const BACKDATE_PRESETS: BackdatePreset[] = ['now', 'thisMorning', 'lastNight'];
 
 export default function HealthFormScreen() {
   const router = useRouter();
@@ -196,7 +126,9 @@ export default function HealthFormScreen() {
   const [severity, setSeverity] = useState(existing?.severity ?? 3);
   const [startDate, setStartDate] = useState(existing?.date ?? todayStr());
   const [startTime, setStartTime] = useState(existing?.startTime ?? '');
-  const [ongoing, setOngoing] = useState(existing ? !existing.endDate : true);
+  // Seeded from the stored STATE, never from `!endDate` — an old entry with a blank end date
+  // is a 'point' entry, not an open episode. A new entry defaults to "it's over" (D5).
+  const [ongoing, setOngoing] = useState(existing ? existing.episodeState === 'ongoing' : false);
   const [endDate, setEndDate] = useState(existing?.endDate || existing?.date || todayStr());
   const [endTime, setEndTime] = useState(existing?.endTime ?? '');
   const [notes, setNotes] = useState(existing?.notes ?? '');
@@ -231,6 +163,10 @@ export default function HealthFormScreen() {
       finalAilment = sym.name;
       finalSymptomId = sym.id;
     }
+    // `episodeState` is the source of truth; the end pair is cleared alongside it so a row is
+    // never both open and ended. An entry that was ongoing and is now marked over becomes
+    // 'closed'; one that was never ongoing stays a plain 'point' log.
+    const wasOngoing = existing?.episodeState === 'ongoing';
     const payload = {
       date: startDate,
       startTime: startTime.trim(),
@@ -241,6 +177,9 @@ export default function HealthFormScreen() {
       severity,
       notes: notes.trim(),
       medicineId,
+      episodeState: ongoing ? ('ongoing' as const) : wasOngoing ? ('closed' as const) : ('point' as const),
+      reliefNote: existing?.reliefNote ?? '',
+      reliefMedicineId: existing?.reliefMedicineId ?? '',
     };
     if (existing) {
       updateLog(existing.id, payload);
@@ -348,10 +287,31 @@ export default function HealthFormScreen() {
 
         <FieldDivider />
 
-        {/* When started */}
+        {/* When started — the backdate shortcuts fill the fields below rather than replacing
+            them, so a preset is a head start and everything stays editable. People log after
+            the fact; a flow that assumes "now" produces wrong data on the majority path. */}
         <View style={styles.field}>
           <Text style={[styles.label, { color: theme.textMuted }]}>{t.whenStartedLabel}</Text>
-          <DateChipPicker
+          <View style={styles.chipRow}>
+            {BACKDATE_PRESETS.map((preset) => (
+              <PressableScale
+                key={preset}
+                style={[styles.chip, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+                onPress={() => {
+                  tap();
+                  const resolved = backdatedStart(preset, new Date());
+                  setStartDate(resolved.date);
+                  setStartTime(resolved.time);
+                  setStartCalExpanded(false);
+                }}
+                accessibilityRole="button"
+                scaleTo={0.97}
+              >
+                <Text style={[styles.chipText, { color: theme.text }]}>{t.episodes.when[preset === 'now' ? 'justNow' : preset]}</Text>
+              </PressableScale>
+            ))}
+          </View>
+          <DateChipRow
             value={startDate}
             onChange={setStartDate}
             expanded={startCalExpanded}
@@ -368,18 +328,44 @@ export default function HealthFormScreen() {
 
         <FieldDivider />
 
-        {/* When finished */}
+        {/* When finished — Still going / It's over, defaulting to It's over. "Still going"
+            hides the end fields entirely: an end and an open episode contradict. */}
         <View style={styles.field}>
           <View style={styles.switchRow}>
             <Text style={[styles.switchLabel, { color: theme.textMuted }]}>{t.whenFinishedLabel}</Text>
           </View>
-          <View style={styles.ongoingRow}>
-            <Text style={[styles.ongoingLabel, { color: theme.text }]}>{t.ongoingLabel}</Text>
-            <Switch checked={ongoing} onChange={setOngoing} />
+          <View style={styles.chipRow}>
+            {[
+              { open: true, label: t.episodes.stillGoing },
+              { open: false, label: t.episodes.itsOver },
+            ].map((option) => {
+              const active = ongoing === option.open;
+              return (
+                <PressableScale
+                  key={option.label}
+                  style={[
+                    styles.chip,
+                    { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                    active && { backgroundColor: theme.accent, borderColor: theme.accent },
+                  ]}
+                  onPress={() => {
+                    tap();
+                    setOngoing(option.open);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  scaleTo={0.97}
+                >
+                  <Text style={[styles.chipText, { color: theme.text }, active && { color: theme.accentInk }]}>
+                    {option.label}
+                  </Text>
+                </PressableScale>
+              );
+            })}
           </View>
           {!ongoing && (
             <>
-              <DateChipPicker
+              <DateChipRow
                 value={endDate}
                 onChange={setEndDate}
                 expanded={endCalExpanded}
@@ -469,24 +455,13 @@ const baseStyles = StyleSheet.create({
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  // "Possibly from" medicine chips — same pill sizing as app/habit-form.tsx's chip rows.
+  // Shared by the "Possibly from" medicine chips, the backdate shortcuts and the
+  // Still going / It's over pair — same pill sizing as app/habit-form.tsx's chip rows.
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   chip: { paddingHorizontal: Spacing.sm, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1.5 },
   chipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   switchLabel: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  ongoingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: -Spacing.xs,
-  },
-  ongoingLabel: { fontSize: FontSize.sm },
-  weekRow: { flexDirection: 'row', gap: Spacing.xs, justifyContent: 'space-between' },
-  weekChip: { flex: 1, paddingVertical: Spacing.sm, borderRadius: Radius.md, alignItems: 'center', gap: 2 },
-  weekChipDay: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
-  weekChipNum: { fontSize: FontSize.sm },
-  calToggleBtn: { alignSelf: 'flex-start' },
   timeInput: { marginTop: Spacing.xs },
   notesInput: { minHeight: 80, textAlignVertical: 'top' },
   suggestList: { marginTop: 4, borderRadius: Radius.sm, overflow: 'hidden' },

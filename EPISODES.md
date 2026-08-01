@@ -1,11 +1,65 @@
 # Ongoing symptom episodes — specification
 
-**Status: specification only. No implementation code exists yet. Nothing in this document has
-been written to `lib/db.ts`, `store/useHealthStore.ts`, `lib/i18n.ts` or any screen.**
+**Status: IMPLEMENTED 2026-08-01** (branch `claude/phase-3-spec-b2-3-8n0iy8`). This document
+is now a design record rather than a plan — the code is the source of truth for behaviour, and
+the per-file headers carry the rules that have to survive future edits. Read
+"Implementation notes" directly below before treating any line reference here as current.
 
 Author: agent session, 2026-07-31, branch `claude/multi-agent-task-dispatch-ye7i54`.
 Source of truth for every schema fact below: `AUDIT.md` §0.6 (health data model), read and
-trusted rather than re-derived. Line references are to the working tree as of this date.
+trusted rather than re-derived. Line references are to the working tree as of 2026-07-31 and
+have drifted since.
+
+---
+
+## Implementation notes (2026-08-01)
+
+**Maintainer rulings on the §15 open questions:**
+
+- **D4 — singular.** `relief_medicine_id TEXT DEFAULT NULL`, one medicine per closed episode,
+  as specced. The multi-value `tasks.tag_ids` shape was not taken.
+- **D5 — "It's over" is the new-entry default**, as specced. This flipped
+  `app/health-form.tsx`'s long-standing ongoing-by-default and contradicted that file's own
+  header claim; the header now records the ruling and how to reverse it (one `useState` there,
+  one in `app/(tabs)/health.tsx`'s Quick log).
+- **D7 — narrowed.** The prune guard is `episode_state != 'ongoing'` ONLY. The proposed second
+  clause (`end_date = '' OR end_date < ?`, sparing an entry whose start is outside retention
+  but whose end is inside it) was **dropped**, along with its test assertion. The open-episode
+  protection is unaffected; `pruneOldData()` takes one param, not two.
+
+**Two deviations from §14's file list, both forced by what the screens actually are:**
+
+1. **`app/health-log.tsx` was not touched.** §4.5/§4.6 place the `Ongoing`/duration value on
+   "the row's right-hand value column" in both history screens — but `health-log.tsx` lists one
+   section PER SYMPTOM, not per entry, and its right-hand slot is a severity badge. There is no
+   entry row there to carry a duration. The value column and the row-level close action both
+   live on `app/health-detail.tsx`, which is the screen with entry rows. Closing from history
+   is still reachable: Health tab → This week row → detail, or Health log → section → detail,
+   plus the prompt on the tab itself.
+2. **`components/DateChipRow.tsx` is new and was not in the list.** §4.4 says "Pick a time"
+   reuses "the existing `DateChipPicker`… no new picker component" — but that was a *local*
+   subcomponent inside `app/health-form.tsx`, not importable. It was moved out verbatim
+   (no behaviour change) so the close sheet could use the same control instead of a second
+   copy. `app/task-form.tsx` still has its own inline copy; folding that in is a fine
+   follow-up, not part of this change.
+
+**One consequence worth knowing, in-spec but easy to mistake for a bug:** an episode started
+from Quick log with the start-time field left blank can never show a duration, because the
+start half of the pair is missing. §6 covers this — the history row renders nothing at all,
+not "unknown", not "—". Quick log deliberately has no backdate shortcut row (§4.2 adds only
+the state pair there); the full form is where the shortcuts live.
+
+**Verified:** `tsc --noEmit` clean; 63 suites / 979 tests pass (from 61/848 at the Appendix B
+baseline); wrap audit NO@360px = 21 wrapped / 6 truncated / 0 wrapped rows, improved from the
+30/12/0 baseline and unchanged by this feature. The whole flow was driven headlessly in the
+web preview — quick-log "Still going" (Duration hides), the prompt card renders and survives a
+tab round-trip, the close sheet opens, closing removes the prompt, and the closed entry shows
+`About 3 hours` in History — with 0 page errors and 0 console errors.
+**Not verified (needs a device):** whether the prompt card reads as an alert, sheet gestures,
+and the value column at `large` text scale in Norwegian — `Mesteparten av en dag` is a
+near-miss against a 360px row once the severity badge and chevron are counted, so it is set to
+shrink rather than reflow the row. The wrap audit cannot reach these strings, since they only
+render with an open episode.
 
 ---
 

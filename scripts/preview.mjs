@@ -214,7 +214,7 @@ async function main() {
     // Navigate via the in-app BottomNav (client-side route change), NOT page.goto() —
     // the DB is in-memory (sql.js fallback, see lib/sqlite.web.ts); a full page
     // navigation reloads the bundle and wipes it, bouncing back to onboarding.
-    for (const [tab, shotName] of [['Shopping', 'shopping'], ['To-do', 'plans'], ['Health', 'health'], ['Habits', 'habits']]) {
+    for (const [tab, shotName] of [['Shop', 'shopping'], ['To-do', 'plans'], ['Health', 'health'], ['Habits', 'habits']]) {
       console.log(`> ${tab} tab`);
       await page.getByRole('button', { name: tab, exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(1000);
@@ -226,7 +226,7 @@ async function main() {
     // 2026-07-23), not tabs — click through each via in-app navigation (same in-memory-DB
     // constraint as above) and back, confirming both render past onboarding's gate.
     console.log('> Shopping -> Food button');
-    await page.getByRole('button', { name: 'Shopping', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await page.getByRole('button', { name: 'Food', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
@@ -255,7 +255,7 @@ async function main() {
     // ShoppingRow is memoized on prop identity, so a layout change that didn't reach the
     // comparator would leave the list looking identical and this step would catch it.
     console.log('> Shopping -> layout picker');
-    await page.getByRole('button', { name: 'Shopping', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
     const layoutBtn = page.getByRole('button', { name: 'How lists look' }).first();
