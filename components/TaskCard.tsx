@@ -1380,8 +1380,15 @@ function TaskCard({
             {energySystemEnabled && (
               <View style={styles.field}>
                 <View style={styles.energyCostRow}>
-                  <View style={styles.labelRow}>
-                    <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.energyGiveTakeLabel}</Text>
+                  {/* The label side takes the leftover width and the Stepper keeps its own:
+                      a stepper is a fixed-size control (28 + 36 + 28 plus gaps) with nothing
+                      to give, so when the row runs out of room the LABEL is what must yield.
+                      Without this the whole stepper was pushed 22px out through the card's
+                      overflow mask at 327px — the `large` font setting on a 393pt phone. */}
+                  <View style={[styles.labelRow, styles.energyLabelWrap]}>
+                    <Text style={[styles.toggleLabel, styles.energyLabelText, { color: theme.textMuted }]}>
+                      {t.energyGiveTakeLabel}
+                    </Text>
                     <OptionalTag />
                   </View>
                   <Stepper
@@ -1632,8 +1639,22 @@ function TaskCard({
 
 const styles = StyleSheet.create({
   wrap: { gap: Spacing.xs },
-  bottomActionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Spacing.xs },
-  bottomActionsRight: { flexDirection: 'row', gap: Spacing.xs },
+  // Delete · Discard · Save. Unlike the two fixes above this row has nothing left to give:
+  // three labelled buttons at FontSize.xs genuinely need more width than a 224px card at the
+  // `large` font setting, and shrinking them further would truncate the words off the two
+  // that confirm or discard the edit. So it WRAPS instead of clipping — the audit's own
+  // "wrapped control rows cannot be fixed by shortening copy" case, answered honestly.
+  // `marginLeft: 'auto'` keeps Discard/Save hard right on whichever line they land on;
+  // `justify-content: space-between` alone would left-align them once they wrap.
+  bottomActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    rowGap: Spacing.xs,
+    paddingTop: Spacing.xs,
+  },
+  bottomActionsRight: { flexDirection: 'row', gap: Spacing.xs, marginLeft: 'auto' },
   smallActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1735,7 +1756,12 @@ const styles = StyleSheet.create({
   steppedBackText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   addStepRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   addStepInput: {
+    // `minWidth: 0` for the same reason as `titleInput` above — and it is the same bug,
+    // found by the same audit one width further down (327px, the `large` font proxy). `flex: 1`
+    // alone cannot shrink an <input> below its automatic minimum size, so the add-step
+    // button beside it was pushed 21px out through the card's overflow mask.
     flex: 1,
+    minWidth: 0,
     minHeight: 40,
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.sm,
@@ -1782,6 +1808,13 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
   },
   energyCostRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.xs },
+  // Applied ON TOP of the shared `labelRow` (10 call sites — don't add flex there), so only
+  // this row's label yields to its stepper. `minWidth: 0` is the half that does the work:
+  // without it the row's automatic minimum size still floors at the label's intrinsic width.
+  energyLabelWrap: { flex: 1, minWidth: 0 },
+  // And the Text itself has to be allowed to shrink inside that wrapper, or it just pushes
+  // the wrapper back out to its natural width and nothing has been gained.
+  energyLabelText: { flexShrink: 1 },
   wheneverHint: { fontSize: FontSize.sm },
   locationRowContent: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   thenRow: {

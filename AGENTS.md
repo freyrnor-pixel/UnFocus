@@ -634,10 +634,18 @@ exists, because Basics renders in Norwegian until that very row is tapped. Both 
 knowing before trusting a clean run — a mode this audit doesn't walk is not a mode it
 passes. When you add a surface with tight horizontal pressure, add a step for it.
 
-Standing finding (2026-08-01, not yet fixed): at `--width=327` the **task editor** reports 4
-clipped controls — the Energy stepper, the add-step button and two of its neighbours — i.e.
-the same overflow class as the mic, at the `large` font setting. Fixing that row family is
-open work, not a regression from any one change.
+The task editor's own `--width=327` findings (Energy stepper, add-step button,
+Delete·Discard·Save) were **fixed** the same day; the audit is clean at 327/360/393/430 in
+both languages. Three different causes, and the fix depended on which:
+- a flex row whose input wouldn't shrink → `flex: 1` **plus `minWidth: 0`** (`titleInput`,
+  `addStepInput`). `flex: 1` alone does nothing here — see the note in `components/TaskCard.tsx`.
+- a label competing with a fixed-size control → let the **label** yield (`flex: 1` +
+  `minWidth: 0` on the label side, `flexShrink` on its Text), never the stepper, which has
+  no width to give.
+- three labelled buttons that genuinely don't fit → **wrap the row** (`flexWrap` + `rowGap`,
+  `marginLeft: 'auto'` to keep the right-hand cluster right-aligned once it wraps). This is
+  the audit's own "cannot be fixed by shortening copy" case; shrinking further would have
+  truncated the words off the confirm/discard buttons.
 
 Two structural lessons from that pass, worth not re-learning: horizontal chrome **stacks**
 (three nested 16px paddings plus an icon gutter left text 306 of 393px, and onboarding's
