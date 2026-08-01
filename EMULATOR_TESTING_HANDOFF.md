@@ -30,7 +30,8 @@ under `/opt/pw-browsers` are the ready path.
 
 **Fidelity caveat (state this in any report you write):** react-native-web renders
 layout, navigation and store logic faithfully, but is **not pixel-identical to
-native**. Shadows/elevation (`SHADOW_ELEVATION_LIBRARY.md`), some font metrics, and
+native**. Shadows/elevation (`getElevation`/`getLayeredShadow` in
+`constants/theme.ts`), some font metrics, and
 Reanimated timing differ from the Android/iOS build. Use this for
 "layout/flow/logic correct," **not** pixel-perfect native sign-off — that still
 goes through a device/EAS build.

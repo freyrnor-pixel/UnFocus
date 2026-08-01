@@ -88,7 +88,7 @@ FontSize = {
 ### Level 6: Secondary Text (14px, Regular)
 **Use**: Labels, metadata, hints, secondary info  
 ```tsx
-<Text style={{ fontSize: FontSize.sm, fontFamily: Fonts.regular, color: theme.textLight }}>
+<Text style={{ fontSize: FontSize.sm, fontFamily: Fonts.regular, color: theme.textMuted }}>
   Last updated 2 hours ago
 </Text>
 ```
@@ -96,7 +96,7 @@ FontSize = {
 ### Level 7: Caption / Hint (12px, Regular)
 **Use**: Timestamps, tiny labels, inline hints  
 ```tsx
-<Text style={{ fontSize: FontSize.xs, color: theme.textLight }}>
+<Text style={{ fontSize: FontSize.xs, color: theme.textMuted }}>
   Jan 15, 2026
 </Text>
 ```
@@ -152,7 +152,7 @@ FontSize = {
 ### Secondary Text (Muted, Hints)
 ```typescript
 {
-  color: theme.textLight,         // Lighter, less prominent
+  color: theme.textMuted,         // Lighter, less prominent
   fontSize: FontSize.sm,          // 14px min for secondary
   fontFamily: Fonts.regular,      // Often with medium/semibold
 }
@@ -179,7 +179,7 @@ FontSize = {
 ### Captions & Timestamps
 ```typescript
 {
-  color: theme.textLight,         // Muted
+  color: theme.textMuted,         // Muted
   fontSize: FontSize.xs,          // 12px
   fontFamily: Fonts.regular,
 }
@@ -188,7 +188,7 @@ FontSize = {
 ### Error / Danger
 ```typescript
 {
-  color: theme.danger,            // Red
+  color: theme.bad,            // Red
   fontSize: FontSize.md,          // Same size as context
   fontFamily: Fonts.regular,      // Or bold if emphasis needed
 }
@@ -256,7 +256,7 @@ Rarely used, but available:
 
 ### Screen Title with Header
 ```tsx
-<View style={{ backgroundColor: theme.cream, padding: Spacing.md }}>
+<View style={{ backgroundColor: theme.bg, padding: Spacing.md }}>
   <Text style={{ fontSize: FontSize.xxl, fontFamily: Fonts.bold, color: theme.text }}>
     My Habits
   </Text>
@@ -269,7 +269,7 @@ Rarely used, but available:
   <Text style={{ fontSize: FontSize.md, fontFamily: Fonts.regular, color: theme.text }}>
     Morning Walk
   </Text>
-  <Text style={{ fontSize: FontSize.sm, fontFamily: Fonts.regular, color: theme.textLight }}>
+  <Text style={{ fontSize: FontSize.sm, fontFamily: Fonts.regular, color: theme.textMuted }}>
     7 days this week
   </Text>
 </View>
@@ -291,7 +291,7 @@ Rarely used, but available:
 <Text style={{ 
   fontSize: FontSize.sm, 
   fontFamily: Fonts.semibold,
-  color: theme.textLight,
+  color: theme.textMuted,
   marginBottom: Spacing.xs,
 }}>
   Your Name
@@ -303,7 +303,7 @@ Rarely used, but available:
 <Text style={{ 
   fontSize: FontSize.xs, 
   fontFamily: Fonts.regular,
-  color: theme.textLight,
+  color: theme.textMuted,
 }}>
   Jan 15, 7:30 AM
 </Text>
@@ -314,7 +314,7 @@ Rarely used, but available:
 <Text style={{ 
   fontSize: FontSize.lg, 
   fontFamily: Fonts.semibold,
-  color: theme.textLight,
+  color: theme.textMuted,
   textAlign: 'center',
 }}>
   No tasks yet. Add one to get started!
@@ -326,7 +326,7 @@ Rarely used, but available:
 <Text style={{ 
   fontSize: FontSize.sm, 
   fontFamily: Fonts.regular,
-  color: theme.danger,
+  color: theme.bad,
   marginTop: Spacing.xs,
 }}>
   This field is required
@@ -339,14 +339,14 @@ Rarely used, but available:
 
 ### Strikethrough (Completed Task)
 ```tsx
-<Text style={{ textDecorationLine: 'line-through', color: theme.textLight }}>
+<Text style={{ textDecorationLine: 'line-through', color: theme.textMuted }}>
   Completed item
 </Text>
 ```
 
 ### Underline (Link)
 ```tsx
-<Text style={{ textDecorationLine: 'underline', color: theme.orange }}>
+<Text style={{ textDecorationLine: 'underline', color: theme.accent }}>
   Tap to open
 </Text>
 ```

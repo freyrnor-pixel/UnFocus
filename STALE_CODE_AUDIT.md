@@ -193,6 +193,10 @@ no longer accurate; the audit meant to catch drift has itself drifted. **Fixed �
 | `t.nav.close` cleanup item is done but doc says pending | `USABILITY_FIX_PLAN.md:216` | **Fixed 2026-08-01** — plan doc updated (§5.6) |
 | `DESIGN_RULES_AUDIT.md`'s `wraps:all` row is outdated | `DESIGN_RULES_AUDIT.md:229` | **Fixed 2026-08-01** (§5.7) |
 | `SPACING_LAYOUT_LIBRARY.md`'s `Radius` numbers + `theme.white`/`theme.cream` samples | whole file | **Fixed 2026-08-01**, found while fixing the above (§5.7) |
+| Dead theme tokens across 5 more `*_LIBRARY.md` files (re-measured: 88 dead of 102, not 62) | `BUTTON`/`CARD_CONTAINER`/`ICON`/`SHADOW_ELEVATION`/`FORM_PATTERNS` | **Done 2026-08-01** — 2 deleted, 3 reconciled (§5.8) |
+| `CARD_CONTAINER_LIBRARY.md` + `SHADOW_ELEVATION_LIBRARY.md` teach hand-rolled cards, not `<Surface>` | whole files | **Deleted 2026-08-01** (§5.8) |
+| `Avatar` + `SwatchPicker` documented in full; neither has ever existed | `BUTTON_LIBRARY.md` §11–12 | **Deleted 2026-08-01** (§5.8) |
+| `FeatureColors` + `THEME_ICONS` cited as `constants/theme.ts` exports; neither exists | `ICON_LIBRARY.md` | **Fixed 2026-08-01** — repointed at `theme.feat*` (§5.8) |
 | No orphaned component/lib/store files | — | Verified clean, no action needed |
 | All AGENTS.md-claimed deletions (Bonsai, BubbleMenu, first-run.tsx, etc.) | — | Verified clean, no action needed |
 
@@ -270,14 +274,95 @@ and its `theme.white`/`theme.cream` code-sample references (corrected to
 flagged that file's `Radius` drift and the token-name errors were sitting right
 next to it.
 
-**Deliberately not done, and flagged instead** (`DESIGN_RULES_AUDIT.md`'s table
+**Deliberately not done here, and flagged instead** (`DESIGN_RULES_AUDIT.md`'s table
 carries the detail): the same dead token names also appear in code samples across
 `BUTTON_LIBRARY.md` (16 occurrences), `CARD_CONTAINER_LIBRARY.md` (23),
 `ICON_LIBRARY.md` (10), `SHADOW_ELEVATION_LIBRARY.md` (9), and
 `FORM_PATTERNS_LIBRARY.md` (4). That's a bigger, separate five-file reconciliation
 pass, not a quick swap — left for a dedicated follow-up rather than rushed here.
+**That follow-up ran the same day — see §5.8.**
 `PROGRESS_LOG.md` and `REBUILD_DECISIONS.md` also contain many of these names, but
 correctly so (dated history) and were not touched.
+
+### 5.8 The five-library follow-up: 2 deleted, 3 reconciled
+
+Ran the pass §5.7 deferred. Re-measured first, and the flagged number was low: counting
+**every** `theme.*` access across those five files (not just the `white`/`cream`/`orange`/
+`gray` family the first grep looked for) gives **88 dead names out of 102** — 86%. The
+extra 26 are `theme.textLight`, `theme.green`, `theme.danger`, `theme.dangerLight`,
+`theme.blue` and `theme.blueTint`, all equally absent from `ThemePalette`. Only
+`theme.text`, `theme.border`, `theme.shadow` and `theme.bg` were real.
+
+Three classes of rot a pure token swap would have carried forward untouched:
+
+1. **Two components documented in full that have never existed in this repo.**
+   `BUTTON_LIBRARY.md` carried a props table, styling notes, an active/inactive state
+   breakdown and a worked example for **`Avatar`** (claimed to live in `components/Badge.tsx`
+   — that file exports only `Badge` and `Chip`) and for **`SwatchPicker`**
+   (`components/SwatchPicker.tsx`, no such file), plus a "Used In" list naming
+   `app/onboarding/step5.tsx`, a route that doesn't exist either. Both were also in the
+   quick-reference table, the "which button do I use?" decision tree and the file map.
+   Deleted; the decision tree now points identity display at the real
+   `components/PersonChip.tsx` + `lib/personColor.ts`.
+2. **Two `constants/theme.ts` exports cited as the way to colour icons, neither of which
+   exists.** `ICON_LIBRARY.md` told readers to `import { FeatureColors } from
+   '@/constants/theme'` in three places, and pointed at a `THEME_ICONS` map. Zero hits for
+   either in the whole tree. Real feature hues are `ThemePalette` fields (`theme.featTask`,
+   `featPlan`, …) and the file's feature table listed the wrong set anyway (a "Focus" and a
+   "Capture" domain that aren't domains; no Plans/Budget/Notes, which are) with hardcoded
+   light-mode hexes rather than tokens.
+3. **A dead-component section that had outlived its own removal note.** `BUTTON_LIBRARY.md`
+   §4 kept 63 lines of props/animation/styling/usage for `SaveButton` — deleted 2026-07-27,
+   never imported by anything — under a "Used In" list naming screens that never rendered
+   it. Collapsed to the note plus the "build it on `Button`" pointer.
+
+**Deleted outright: `CARD_CONTAINER_LIBRARY.md` (517 lines) and
+`SHADOW_ELEVATION_LIBRARY.md` (445 lines).** These two are not a naming problem. Their
+*pattern* is the anti-pattern: every snippet in both hand-rolls a card as
+`backgroundColor: theme.white` + `borderRadius: Radius.md` + `...Shadow.card` on a bare
+`View`, which is exactly what `components/Surface.tsx` exists to replace — Surface owns the
+material, the beveled edge and the layered shadow together, and honours the `glassSurfaces`
+reduce-transparency setting that a hand-rolled View silently ignores. Swapping tokens would
+have left ~960 lines that *read* correct and still taught the wrong construction, while
+removing the ⚠️ STALE banners that at least warn readers off today. Both files also
+documented `Radius.md` as 18px (real: 16) and were already judged stale twice
+independently: `PROGRESS_LOG.md:1391` records an earlier session checking both, rejecting
+both, and using `Surface.tsx`'s own docstring instead, and `HANDOFF_SPACING_PASS.md`
+records the `Layout.*` correction it needed for the same reason. Same precedent as §5.5.
+`DESIGN_SYSTEM_LIBRARY_INDEX.md` is now a 6-library index and carries a short "cards,
+surfaces, modals, sheets and shadows have no library doc — that is deliberate" note routing
+to `Surface.tsx` / `constants/theme.ts` / `AppModal.tsx` / `AnimatedBottomSheet.tsx`
+instead. Live inbound links in `SPACING_LAYOUT_LIBRARY.md` and
+`EMULATOR_TESTING_HANDOFF.md` were repointed; the dated mentions in `PROGRESS_LOG.md`,
+`REBUILD_DECISIONS.md` and `HANDOFF_SPACING_PASS.md` were left as history.
+
+**Fixed in place: `BUTTON_LIBRARY.md`, `ICON_LIBRARY.md`, `FORM_PATTERNS_LIBRARY.md.**
+Their subject matter is real and their component APIs check out against source. Beyond the
+token renames and the three items above: `Button`'s missing `emphasis` prop and the
+`style`-moves-to-the-wrapper keycap caveat were added, the variant descriptions now say
+what the variants do (danger stays flat, ghost keeps the bounce) rather than naming a
+colour that no longer exists, `IconButton`'s active state is described as *sunk* rather
+than merely tinted, `FORM_PATTERNS_LIBRARY.md`'s "Form in Card" pattern was rewritten onto
+`<Surface>`, and its two `SaveButton` snippets became real `Button` conditionals. One
+copy-tone fix while in there: a `Badge` example read `label="Overdue"`, which
+`DESIGN_RULES.md` rule 23 forbids — now `"Still due"` with the rule cited inline
+(`copyTone.test.ts` only scans `lib/i18n.ts`, so a doc example teaching the banned word was
+invisible to CI).
+
+### Verification (§5.8)
+
+Doc-only — no `.ts`/`.tsx` file was touched, so `tsc`/Jest/eslint results are unchanged from
+§5.4–5.7. Verified instead by re-grepping across all six surviving library docs plus the
+index. Zero `theme.*` names outside the current `ThemePalette` remain **as live guidance**;
+three matches survive on purpose, each quoted inside a note saying the name is dead
+(`BUTTON_LIBRARY.md:229`, `COLOR_THEME_LIBRARY.md:5` and `:178`). Same shape for the file
+paths: three dead paths remain, all three inside explicit "was retired / was removed / no
+longer exists" notes (`app/task-form.tsx` and `components/SaveButton.tsx` in
+`BUTTON_LIBRARY.md`, `components/TaskItem.tsx` in the index's pre-existing
+`DESIGN_SYSTEM_IMPLEMENTATION.md` deletion note); every path presented as something to go
+read resolves. No remaining reference to `Avatar`, `SwatchPicker`, `FeatureColors` or
+`THEME_ICONS` as live API, and the only links to the two deleted libraries are the index's
+own note recording that they were deleted.
 
 ### Verification
 

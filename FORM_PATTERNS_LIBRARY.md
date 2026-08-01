@@ -71,7 +71,7 @@ Standard form layout follows this rhythm:
     onChangeText={setEmail}
     error={emailError}
   />
-  <Text style={{ fontSize: FontSize.xs, color: theme.textLight }}>
+  <Text style={{ fontSize: FontSize.xs, color: theme.textMuted }}>
     We'll never share your email
   </Text>
 </View>
@@ -84,7 +84,7 @@ Standard form layout follows this rhythm:
     <Text style={{ fontSize: FontSize.sm, fontFamily: Fonts.semibold, color: theme.text }}>
       Username
     </Text>
-    <Text style={{ fontSize: FontSize.xs, color: theme.textLight }}>
+    <Text style={{ fontSize: FontSize.xs, color: theme.textMuted }}>
       (optional)
     </Text>
   </View>
@@ -182,7 +182,7 @@ Standard form layout follows this rhythm:
       <Text style={{ fontSize: FontSize.md, fontFamily: Fonts.semibold }}>
         Dark Mode
       </Text>
-      <Text style={{ fontSize: FontSize.sm, color: theme.textLight }}>
+      <Text style={{ fontSize: FontSize.sm, color: theme.textMuted }}>
         Use dark theme
       </Text>
     </View>
@@ -198,7 +198,7 @@ Standard form layout follows this rhythm:
       <Text style={{ fontSize: FontSize.md, fontFamily: Fonts.semibold }}>
         Notifications
       </Text>
-      <Text style={{ fontSize: FontSize.sm, color: theme.textLight }}>
+      <Text style={{ fontSize: FontSize.sm, color: theme.textMuted }}>
         Receive alerts
       </Text>
     </View>
@@ -260,7 +260,7 @@ Standard form layout follows this rhythm:
     onChangeText={setDate}
     error={dateError}
   />
-  <Text style={{ fontSize: FontSize.xs, color: theme.textLight, marginTop: Spacing.xs }}>
+  <Text style={{ fontSize: FontSize.xs, color: theme.textMuted, marginTop: Spacing.xs }}>
     Format: YYYY-MM-DD
   </Text>
 </View>
@@ -280,11 +280,10 @@ Standard form layout follows this rhythm:
       onChangeText={setTime}
       style={{ flex: 1 }}
     />
-    <SaveButton /* removed 2026-07-27 — build on components/Button */
-      visible={timeChanged}
-      onPress={saveTime}
-      label="Save"
-    />
+    {/* SaveButton was removed 2026-07-27 — build inline save on Button */}
+    {timeChanged ? (
+      <Button label="Save" onPress={saveTime} variant="primary" size="sm" />
+    ) : null}
   </View>
 </View>
 ```
@@ -345,14 +344,13 @@ Standard form layout follows this rhythm:
 ```
 
 ### Pattern 3: Form in Card
+Use `<Surface>` — never a hand-rolled `backgroundColor` + `...Shadow.card` + `Radius` View.
+Surface owns the material, the beveled edge and the layered shadow together, and honours the
+`glassSurfaces` reduce-transparency setting; padding you pass in `style` is moved to the
+inner content automatically so the fill still spans the whole card.
+
 ```tsx
-<View style={{
-  backgroundColor: theme.white,
-  borderRadius: Radius.md,
-  padding: Spacing.md,
-  gap: Spacing.md,
-  ...Shadow.card,
-}}>
+<Surface style={{ borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md }}>
   <Text style={{ fontSize: FontSize.lg, fontFamily: Fonts.bold }}>
     Quick Edit
   </Text>
@@ -374,7 +372,7 @@ Standard form layout follows this rhythm:
     <Button label="Save" onPress={save} variant="primary" style={{ flex: 1 }} />
     <Button label="Cancel" onPress={cancel} variant="secondary" style={{ flex: 1 }} />
   </View>
-</View>
+</Surface>
 ```
 
 ---
@@ -397,14 +395,14 @@ Standard form layout follows this rhythm:
 ```tsx
 {formError && (
   <View style={{
-    backgroundColor: theme.dangerLight,
+    backgroundColor: theme.badSoft,
     borderRadius: Radius.md,
     padding: Spacing.md,
     borderLeftWidth: 4,
-    borderLeftColor: theme.danger,
+    borderLeftColor: theme.bad,
     marginBottom: Spacing.md,
   }}>
-    <Text style={{ fontSize: FontSize.md, color: theme.danger, fontFamily: Fonts.bold }}>
+    <Text style={{ fontSize: FontSize.md, color: theme.bad, fontFamily: Fonts.bold }}>
       Error
     </Text>
     <Text style={{ fontSize: FontSize.sm, color: theme.text, marginTop: Spacing.xs }}>
@@ -441,11 +439,10 @@ Standard form layout follows this rhythm:
     }}
     style={{ flex: 1 }}
   />
-  <SaveButton /* removed 2026-07-27 — build on components/Button */
-    visible={nameDirty}
-    onPress={saveName}
-    label="Save"
-  />
+  {/* SaveButton was removed 2026-07-27 — build inline save on Button */}
+  {nameDirty ? (
+    <Button label="Save" onPress={saveName} variant="primary" size="sm" />
+  ) : null}
 </View>
 ```
 
@@ -565,7 +562,7 @@ export function FormSection({ title, children }: FormSectionProps) {
 - Leave validation errors ambiguous
 - Allow submit while loading
 - Mix form field styles
-- Forget error message text colour (use theme.danger)
+- Forget error message text colour (use theme.bad)
 
 ---
 
@@ -574,11 +571,13 @@ export function FormSection({ title, children }: FormSectionProps) {
 - **BUTTON_LIBRARY.md** – Button patterns in forms
 - **SPACING_LAYOUT_LIBRARY.md** – Form spacing
 - **COLOR_THEME_LIBRARY.md** – Error colours, field borders
-- **CARD_CONTAINER_LIBRARY.md** – Form containers
+- **`components/Surface.tsx`** – form containers (there is no card/container library doc;
+  see `DESIGN_SYSTEM_LIBRARY_INDEX.md`)
+- **`components/FormControls.tsx`** – the real props for Input/Checkbox/Switch/SegmentedControl
 
 ---
 
-**Last updated**: 2026-06-27  
+**Last updated**: 2026-08-01  
 **Field spacing**: Spacing.md (16px)  
 **Section spacing**: Spacing.lg (24px)  
 **Action spacing**: Spacing.xl (32px)  

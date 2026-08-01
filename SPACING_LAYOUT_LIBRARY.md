@@ -196,7 +196,7 @@ Radius = {
 ```tsx
 <Button label="Click me" style={{ borderRadius: Radius.full }} />
 <AddFAB onPress={() => {}} />
-<Avatar name="John Doe" />
+<PersonChip person={person} />
 ```
 
 ---
@@ -255,7 +255,7 @@ Radius = {
 ### Pattern 5: Icon + Text Row
 ```tsx
 <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
-  <Ionicons name="checkmark" size={20} color={theme.green} />
+  <Ionicons name="checkmark" size={20} color={theme.good} />
   <Text>Completed</Text>
 </View>
 ```
@@ -424,7 +424,8 @@ Use Radius.full (999)  for: buttons, FABs, avatars
 
 - **BUTTON_LIBRARY.md** – Button sizes & touch targets
 - **COLOR_THEME_LIBRARY.md** – Visual separation with colour
-- **CARD_CONTAINER_LIBRARY.md** – Card layout patterns
+- **`components/Surface.tsx`** – card layout patterns (there is no card/container library
+  doc; see `DESIGN_SYSTEM_LIBRARY_INDEX.md`)
 - Source: `constants/theme.ts` (Spacing, Radius)
 
 ---

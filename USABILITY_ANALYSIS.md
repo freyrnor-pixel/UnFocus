@@ -159,7 +159,7 @@ Explore-path users to enable the pet/theme.
   **no label** `components/ScreenHeader.tsx:74-77`. `app/index.tsx` (Home) has zero a11y props.
 - **Shared primitives lack role/state:** `components/Button.tsx:66-92` (app-wide) sets no
   `accessibilityRole="button"` / disabled/busy state; `components/SaveButton.tsx:81-88` likewise.
-  Good reference implementations exist (`components/IconButton.tsx:61-63`, `SwatchPicker.tsx:52-54`).
+  Good reference implementations exist (`components/IconButton.tsx:61-63`). (A `SwatchPicker.tsx` was cited here too — it has never existed in this repo; see STALE_CODE_AUDIT.md §5.8.)
 - **Sub-44px touch targets:** `AddFAB` `'sm'` is 32×32 with no `hitSlop` (`AddFAB.tsx:41`);
   `SaveButton` is height 34 (`SaveButton.tsx:93-94`).
 - **Font scaling:** OS scaling is respected (no `allowFontScaling={false}`), but there is
