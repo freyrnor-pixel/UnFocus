@@ -54,6 +54,12 @@
  *
  * Connections:
  *   Imports → components/PadSheet + components/PadRow + components/PadTypeRow +
+ *             lib/cardType (isCompletable / steppedProgress — the per-ITEM card types.
+ *             This surface carries the MINIMUM the types require of it: a 'note' draws no
+ *             checkbox anywhere and counts for nothing in the summary/progress bar, and a
+ *             'stepped' row shows its progress as its one right-hand value. The full
+ *             four-type rendering and the type picker live in components/TaskCard.tsx.
+ *             Note "type" here is unrelated to PadTypeRow below, which is about TYPING),
  *             components/PadFooterToggle (the ruled-list layout, the type line and the
  *             three-size footer — the type line is ONE node shared by both layouts, so they
  *             can't drift into two differently-worded adds), lib/cardLayout (LayoutSpec, type
@@ -236,6 +242,7 @@ import TimeBoxInput from '@/components/TimeBoxInput';
 import { Task, Recurring } from '@/store/useTaskStore';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, TabularNums, rgba, HitSlop } from '@/constants/theme';
 import type { LayoutSpec } from '@/lib/cardLayout';
+import { isCompletable, visibleStepNumber } from '@/lib/cardType';
 import { PadState, padVisibleRows } from '@/lib/padState';
 import { Duration, Ease, Spring } from '@/constants/motion';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
@@ -502,9 +509,15 @@ export default function PlanTaskCard({
     () => layoutGridEntries(timedPending, { minHeightPx: MIN_TASK_HEIGHT, gapPx: GRID_CARD_GAP, y: dayScale.y }),
     [timedPending, dayScale]
   );
-  const doneTasks = useMemo(() => dayTasks.filter((task) => task.done), [dayTasks]);
+  // Everything on the day that can actually be finished (2026-08-01, card types): a 'note'
+  // card has no completion state, so it is listed like any other row but counts for nothing
+  // — not in the summary, not in the progress bar's denominator, not in the done zone. A day
+  // holding one task and three notes reads "1 left of 1" and reaches a full bar, rather than
+  // being permanently stuck at a quarter done.
+  const countableTasks = useMemo(() => dayTasks.filter((task) => isCompletable(task.cardType)), [dayTasks]);
+  const doneTasks = useMemo(() => countableTasks.filter((task) => task.done), [countableTasks]);
 
-  const pendingCount = anytimePending.length + timedPending.length;
+  const pendingCount = countableTasks.length - doneTasks.length;
 
   // The ruled-list layout's rows: timed tasks in clock order first, then Anytime. Deliberately
   // NOT the grid's `timedLayout` — that carries pixel geometry a flat list has no use for.
@@ -585,7 +598,17 @@ export default function PlanTaskCard({
     onPressTask(task);
   }
 
+  /** A stepped row's right-hand value: which step it is on, or that they're all done. Same
+   *  wording components/TaskCard.tsx uses, so one item reads the same on both surfaces. */
+  function steppedLabel(steps: Task['steps']): string {
+    const n = visibleStepNumber(steps);
+    return n === null ? t.cardTypes.allDone : t.cardTypes.progress(n, steps.length);
+  }
+
   function doneToggle(task: Task, isHappeningNow?: boolean) {
+    // A 'note' card has no completion state, so it draws no checkbox — here as well as in
+    // components/TaskCard.tsx. The control must be absent rather than present-and-inert.
+    if (!isCompletable(task.cardType)) return null;
     return (
       <PressableScale
         disabled={!onToggleTask}
@@ -874,7 +897,9 @@ export default function PlanTaskCard({
     }
   });
 
-  const showEmpty = pendingCount === 0 && doneTasks.length === 0;
+  // `dayTasks.length` (not the countable count) so a day holding only 'note' cards shows
+  // those notes rather than the "nothing here yet" starter — there IS something here.
+  const showEmpty = dayTasks.length === 0 && pendingCount === 0 && doneTasks.length === 0;
   const allDone = pendingCount === 0 && doneTasks.length > 0;
 
   // Shared with the anytime list/doneZone/footer so the whole card reflows in sync — otherwise
@@ -972,16 +997,16 @@ export default function PlanTaskCard({
                 <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
                   {t.home.todaysPlans}
                 </Text>
-                {dayTasks.length > 0 && (
+                {countableTasks.length > 0 && (
                   <Text style={[styles.summary, { color: theme.textMuted }]}>
-                    {t.pad.summary(pendingCount, dayTasks.length)}
+                    {t.pad.summary(pendingCount, countableTasks.length)}
                   </Text>
                 )}
               </View>
             </View>
-            {dayTasks.length > 0 && (
+            {countableTasks.length > 0 && (
               <ProgressBar
-                value={doneTasks.length / dayTasks.length}
+                value={doneTasks.length / countableTasks.length}
                 color={domainColor.accent}
                 height={4}
                 style={styles.progressBar}
@@ -1043,7 +1068,13 @@ export default function PlanTaskCard({
                 title={task.title}
                 accent={domainColor.accent}
                 done={task.done}
-                rightValue={task.time || undefined}
+                // A stepped card spends the row's ONE right-hand value on how far along it
+                // is; every other type keeps the time there. Same choice TaskCard makes.
+                rightValue={
+                  task.cardType === 'stepped' && task.steps.length > 0
+                    ? steppedLabel(task.steps)
+                    : task.time || undefined
+                }
                 meta={
                   task.time ? undefined : (
                     <Text style={[styles.followerBadgeText, { color: theme.textMuted }]}>
@@ -1054,7 +1085,8 @@ export default function PlanTaskCard({
                 onPress={readOnly || !onPressTask ? undefined : () => onPressTask(task)}
                 onAction={onDeleteTask ? () => { tap(); onDeleteTask(task); } : undefined}
                 actionLabel={`${t.dayViewDeleteTask} ${task.title}`}
-                onToggle={onToggleTask ? () => handleToggle(task) : undefined}
+                // Undefined for a note — PadRow draws no check when it has nothing to call.
+                onToggle={onToggleTask && isCompletable(task.cardType) ? () => handleToggle(task) : undefined}
                 toggleLabel={task.title}
               />
             ))}

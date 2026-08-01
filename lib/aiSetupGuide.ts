@@ -60,7 +60,7 @@ import { todayStr } from '@/lib/date';
 import type { SaveToDeviceResult } from '@/lib/backup';
 
 /** Bump whenever the guide's schema or documented content changes — see Edit notes. */
-export const AI_SETUP_SCHEMA_VERSION = 3;
+export const AI_SETUP_SCHEMA_VERSION = 4;
 
 /** Verbatim markers the guide instructs the AI to reproduce around its JSON reply. */
 export const AI_SETUP_BEGIN = '===UNFOCUS-AI-CONFIG-BEGIN===';
@@ -110,6 +110,12 @@ export type AiTaskDraft = {
   time?: string;
   finishTime?: string;
   hint?: string;
+  /** Card types (2026-08-01) — presentation only, and safe to accept: the worst a wrong
+   *  value can do is draw the item plainly, and lib/cardType.ts's sanitizeCardType falls
+   *  back to 'standard' anyway. Steps themselves stay out of scope (there's no task_steps
+   *  domain in this guide), so an imported 'stepped' card behaves like an ordinary one
+   *  until the user adds steps to it in the app. */
+  cardType?: 'standard' | 'simple' | 'note' | 'stepped';
 };
 
 export type AiHabitDraft = {
@@ -274,6 +280,9 @@ accepted (anything else is ignored):
   monthlyMode: "day" | "ordinal"; monthOrdinal: "first".."last"; monthWeekday: 0-6
   time, finishTime: "HH:MM"
   hint: string (a freeform display-only note)
+  cardType: "standard" | "simple" | "note" | "stepped" (default "standard") — how this
+    one item draws itself. "simple" is title + tick only, "note" holds text and cannot
+    be completed at all, "stepped" shows one step at a time (add the steps in the app).
   Example: { "title": "Pay rent", "date": "2026-08-01", "recurring": "monthly" }
 
 "habits" (array) — daily/weekly/monthly habits.

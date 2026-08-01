@@ -51,6 +51,7 @@ import type {
   AiSettingsPatch,
 } from '@/lib/aiSetupGuide';
 import { todayStr, dateStr, parseDateStr } from '@/lib/date';
+import { CARD_TYPES as CARD_TYPE_VALUES, type CardType } from '@/lib/cardType';
 import { useSettingsStore, Settings } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore, HabitKind, HabitCategory, HabitRecurrence } from '@/store/useHabitStore';
@@ -128,6 +129,9 @@ function asRecord(v: unknown): Record<string, unknown> {
 
 // ── tasks ───────────────────────────────────────────────────────────────────────────
 
+// Reuses lib/cardType.ts's own list rather than restating it, so a fifth type could never
+// be accepted here without the app knowing about it (or vice versa).
+const CARD_TYPES = CARD_TYPE_VALUES;
 const TASK_TYPES = ['start-at', 'time-box'] as const;
 const RECURRING = ['none', 'daily', 'weekly', 'monthly'] as const;
 const MONTHLY_MODES = ['day', 'ordinal'] as const;
@@ -152,6 +156,9 @@ function processTasks(drafts: AiTaskDraft[] | undefined, dryRun: boolean): Domai
     if (d.finishTime !== undefined && !isTimeStr(d.finishTime)) return skip(result, index, 'invalid-time');
     const hint = optStr(d.hint, MAX_LONG);
     if (d.hint !== undefined && hint === undefined) return skip(result, index, 'too-long');
+    // Rejected rather than silently coerced, so a typo is reported back in the preview
+    // instead of quietly producing an ordinary card the user didn't ask for.
+    if (d.cardType !== undefined && !isEnum(d.cardType, CARD_TYPES)) return skip(result, index, 'invalid-enum');
 
     if (!dryRun) {
       add({
@@ -167,6 +174,7 @@ function processTasks(drafts: AiTaskDraft[] | undefined, dryRun: boolean): Domai
         time: d.time as string | undefined,
         finishTime: d.finishTime as string | undefined,
         hint,
+        cardType: d.cardType as CardType | undefined,
         hasStartDate: true,
         sortOrder: baseSortOrder + index,
       });

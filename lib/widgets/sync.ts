@@ -16,6 +16,8 @@
  *
  * Connections:
  *   Imports → react-native (Platform), lib/date, lib/i18n (getTranslations),
+ *             lib/cardType (isCompletable — 'note' cards never reach the widget, since
+ *             every row it lists is tappable and a tap flips `done`),
  *             lib/episodes (isOpen — the health "ongoing" count),
  *             lib/notifications (refresh/cancelPersistentNotification), lib/widgets/snapshot,
  *             lib/widgets/WidgetViews (renderWidgetByName, WIDGET_NAMES), store/useTaskStore,
@@ -38,6 +40,7 @@
  */
 import { Platform } from 'react-native';
 import { todayStr } from '@/lib/date';
+import { isCompletable } from '@/lib/cardType';
 import { isOpen } from '@/lib/episodes';
 import { getTranslations } from '@/lib/i18n';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
@@ -76,7 +79,10 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
   const today = todayStr();
 
   // ── Tasks (today) ──
-  const todayTasks = useTaskStore.getState().tasksForDate(today);
+  // 'note' cards are dropped outright rather than merely uncounted: every row the widget
+  // lists is tappable, and a tap flips `done` (lib/widgets/widgetActions.ts). A note has no
+  // completion state, so offering one here would be offering a control that must not exist.
+  const todayTasks = useTaskStore.getState().tasksForDate(today).filter((task) => isCompletable(task.cardType));
   const tasksRemaining = todayTasks.filter((task) => !task.done).length;
   const taskItems = todayTasks
     .slice(0, PREVIEW)

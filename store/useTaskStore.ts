@@ -11,7 +11,8 @@
  * Decision 015 notImplemented stub.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, lib/notifications, lib/taskNotifications,
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, lib/cardType (the per-item card type
+ *             + the isCompletable rule a 'note' turns on), lib/notifications, lib/taskNotifications,
  *             lib/taskRecurrence (taskOccursOn — re-exported here for existing callers/tests),
  *             lib/taskCalendar (reserve-only calendar mirroring), lib/liveSync, lib/syncService,
  *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
@@ -114,7 +115,25 @@
  *     recurrence instances by construction, no extra code. Cross-date surfacing (open
  *     sub-question (b)): resolved as "pull the follower into today's view" — that's
  *     Home-phase day-view work (not this session's scope); not built here.
- *   - New columns (hint, follows_task_id, and everything else) go through the
+ *   - **Card types (2026-08-01, phase 1)**: `cardType` is 'standard' | 'simple' | 'note' |
+ *     'stepped' — a property of the ITEM (lib/cardType.ts holds the rules; lib/cardLayout.ts
+ *     is the per-surface one, don't confuse them). It rides the normal add/update payload
+ *     like any other field. Three things about it belong here rather than in a component:
+ *       1. **'note' has no completion state.** `toggle`/`completeDirect`/`toggleStep`'s
+ *          cascade all bail on one, so no path can give a note a done flag, a
+ *          `lifetimeCompletedTasks` increment or a 'task_completed' trigger. Everything that
+ *          COUNTS tasks asks `isCompletable(cardType)` instead of reading `done` raw.
+ *       2. **Switching type is lossless.** Nothing is cleared on a switch — not steps, not
+ *          `done`, not energy. A stepped card turned simple keeps every task_steps row with
+ *          its done flags, and switching back restores it exactly. That is also why a
+ *          previously-completed task switched to 'note' keeps its stored `done`: it simply
+ *          stops being counted, and reverting brings it back. (Its historical
+ *          `lifetimeCompletedTasks` increment stays too — that counter only ever moves on a
+ *          real transition, so a type switch can't drift it in either direction.)
+ *       3. **Stepped stores no current-step pointer.** The visible step is derived as the
+ *          first not-done one (lib/cardType.ts's `currentStepIndex`), so it can't disagree
+ *          with the done flags the widget, the cascade or a peer might have changed.
+ *   - New columns (hint, follows_task_id, card_type, and everything else) go through the
  *     migrations array in lib/db.ts; never recreate tables.
  */
 import { create } from 'zustand';
@@ -139,6 +158,7 @@ import { dateStr } from '@/lib/date';
 import { taskOccursOn } from '@/lib/taskRecurrence';
 import { parseTagIds, serializeTagIds } from '@/lib/tags';
 import { sanitizeRotationMode, type RotationMode } from '@/lib/taskRotation';
+import { sanitizeCardType, isCompletable, type CardType } from '@/lib/cardType';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useSharedStore } from '@/store/useSharedStore';
@@ -238,6 +258,13 @@ export type Task = {
    *  by lib/taskCalendar.ts's syncTaskCalendar wrapper; never set through the normal
    *  add/update payload (same rationale as followsTaskId — see TASK_COLUMNS below). */
   calendarEventId?: string;
+  /** Card types (2026-08-01) — how THIS item draws itself: 'standard' | 'simple' | 'note'
+   *  | 'stepped'. A property of the item, not of the list (lib/cardLayout.ts is the
+   *  per-surface one) and not a global setting. Presentation only, except that a 'note'
+   *  has no completion state at all — see lib/cardType.ts's `isCompletable` for every
+   *  count that follows from that. Switching type never deletes anything: a stepped card
+   *  turned simple keeps its task_steps rows, done flags included. Synced. */
+  cardType: CardType;
   steps: TaskStep[];
 };
 
@@ -275,6 +302,8 @@ export type TaskInput = {
   contactPhone?: string;
   locationLat?: number;
   locationLng?: number;
+  /** Defaults to 'standard' in add() — a new item is NEVER prompted for its type. */
+  cardType?: CardType;
   // calendarEventId is deliberately absent — system-managed only, see Task's own comment.
 };
 
@@ -433,6 +462,9 @@ function rowToTask(row: Row): Task {
     locationLat: readReal(row, 'location_lat') || undefined,
     locationLng: readReal(row, 'location_lng') || undefined,
     calendarEventId: readStr(row, 'calendar_event_id') || undefined,
+    // Total by design (sanitizeCardType): a row written by a newer build, or one an
+    // out-of-band write left blank, reads back as an ordinary 'standard' card.
+    cardType: sanitizeCardType(readStr(row, 'card_type', 'standard')),
     steps: [],
   };
 }
@@ -472,6 +504,7 @@ const TASK_COLUMNS: FieldMap<Task> = {
   contactPhone: { col: 'contact_phone', to: (v) => v ?? null },
   locationLat: { col: 'location_lat', to: (v) => v ?? null },
   locationLng: { col: 'location_lng', to: (v) => v ?? null },
+  cardType: { col: 'card_type', to: (v) => sanitizeCardType(v) },
   // followsTaskId is deliberately ABSENT from this map — rowValues() only ever
   // serialises keys present in the map, so neither add()'s insertRow nor update()'s
   // patch can accidentally write follows_task_id. All writes to it go through
@@ -595,6 +628,9 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       rotationPersonIds: parseTagIds((t.rotationPersonIds ?? []).join(',')),
       rotationAnchor: t.rotationAnchor ?? '',
       goalId: t.goalId ?? null,
+      // Always 'standard' unless a caller deliberately says otherwise. Creation never asks
+      // for a card type — the type is changed afterwards, from the item's own editor.
+      cardType: sanitizeCardType(t.cardType),
       // duration_minutes is derived from Start→Finish so the Home day-view keeps working.
       durationMinutes: deriveDurationMinutes(t.time, t.finishTime) ?? t.durationMinutes,
       steps: [],
@@ -630,6 +666,13 @@ export const useTaskStore = create<TaskStore>((set, get) => {
   toggle(id) {
     const task = get().tasks.find((t) => t.id === id);
     if (!task) return;
+    // A 'note' card has no completion state (lib/cardType.ts). Its row draws no check, so
+    // this is normally unreachable — it's here so a call from anywhere else (an automation,
+    // a widget action, a future surface) can't quietly give a note a done flag, a lifetime
+    // count and a 'task_completed' trigger. Any `done` it already carries from before the
+    // switch is left untouched: type changes are lossless, and every count asks
+    // isCompletable() rather than reading the flag raw.
+    if (!isCompletable(task.cardType)) return;
     const willBeDone = !task.done;
     // Cascade (task ↔ steps): marking a task done/undone marks all its steps to
     // match, so the two never disagree. Persist the steps first, then the task row via
@@ -654,6 +697,8 @@ export const useTaskStore = create<TaskStore>((set, get) => {
   completeDirect(id) {
     const task = get().tasks.find((t) => t.id === id);
     if (!task || task.done) return;
+    // See toggle() — a note cannot be completed by any path.
+    if (!isCompletable(task.cardType)) return;
     db.runSync('UPDATE task_steps SET done = 1 WHERE task_id = ?', [id]);
     set((s) => ({
       tasks: s.tasks.map((t) =>
@@ -795,6 +840,10 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     }));
     // Reverse cascade: once every step is done the task auto-completes; unchecking any
     // step re-opens it. Only writes when the derived state actually differs from now.
+    // A 'note' has no completion state to cascade into (it keeps whatever steps a stepped
+    // card left it, but draws none of them) — bail before the cascade rather than after,
+    // since it writes `done` through update(), which toggle()'s own guard never sees.
+    if (!isCompletable(owner.cardType)) return;
     const nextSteps = owner.steps.map((st) => (st.id === id ? { ...st, done } : st));
     const allDone = nextSteps.length > 0 && nextSteps.every((st) => st.done);
     if (allDone !== owner.done) {

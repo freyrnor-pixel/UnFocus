@@ -25,8 +25,14 @@
  * discrete "pips" for the Home card's bolt-row meter — 1:1 up to `maxPips`, then scaled
  * down proportionally so a large weekly capacity doesn't render 40 icons.
  *
+ * `energyDeltaForDay` spends a **stepped** card's value proportionally per step rather than
+ * all at once on completion, and never spends a **note** card's at all (2026-08-01) — the
+ * rule itself lives in lib/cardType.ts so this file and the cards can't disagree. Planned
+ * energy still counts a stepped card's full value; see that function's own note.
+ *
  * Connections:
- *   Imports → lib/date (getWeekDates), lib/taskRecurrence (taskOccursOn),
+ *   Imports → lib/date (getWeekDates), lib/cardType (energySpentFraction, isCompletable),
+ *             lib/taskRecurrence (taskOccursOn),
  *             lib/habitRecurrence (habitOccursOn, habitMetOn), store type imports
  *             (Task/Habit/HabitLog)
  *   Used by → store/useEnergyStore.ts, components/EnergyMeter.tsx, __tests__/energy.test.ts
@@ -37,6 +43,7 @@
  *   - week → 'w:YYYY-MM-DD' (the 'w:'-prefixed Monday of that week)
  */
 import { getWeekDates } from '@/lib/date';
+import { energySpentFraction, isCompletable } from '@/lib/cardType';
 import { taskOccursOn } from '@/lib/taskRecurrence';
 import { habitOccursOn, habitMetOn } from '@/lib/habitRecurrence';
 import type { Task } from '@/store/useTaskStore';
@@ -95,8 +102,31 @@ export function weekKey(date: string): string {
 }
 
 /**
+ * One decimal place, and only where a fraction can actually arise.
+ *
+ * Every energy value the user can enter is a whole number, so these sums were integers
+ * until stepped cards started spending a fraction of one (see energyDeltaForDay). Without
+ * this, a third of a step's worth renders as `6.300000000000001` in
+ * components/EnergyMeter.tsx, which prints `current` raw. Rounding an integer is a no-op,
+ * so nothing that predates stepped cards changes.
+ */
+function roundEnergy(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
+/**
  * Net signed energy applied on a single day: sum of every energy-enabled task
  * completed with that date, plus every energy-enabled habit met that day.
+ *
+ * **Stepped cards spend proportionally** (2026-08-01): a stepped task's value is applied
+ * one step at a time — 3 of 6 steps done spends half — instead of landing all at once on
+ * completion. Every other card type is unchanged, all-or-nothing on `done`; a 'note' never
+ * spends anything at all. The whole rule lives in lib/cardType.ts's `energySpentFraction`
+ * so the pure helper here can't drift from what the card draws.
+ *
+ * Note this is the CURRENT (already-spent) figure. `plannedEnergyDeltaForDay` deliberately
+ * still counts a stepped task's FULL value: it answers "if everything on the books happens,
+ * do I have enough", and all of a stepped task's steps happening is all of its cost.
  */
 export function energyDeltaForDay(
   date: string,
@@ -106,12 +136,13 @@ export function energyDeltaForDay(
 ): number {
   let total = 0;
   for (const t of tasks) {
-    if (t.energyEnabled && t.done && t.date === date) total += t.energyValue;
+    if (!t.energyEnabled || t.date !== date) continue;
+    total += t.energyValue * energySpentFraction(t.cardType, t.done, t.steps);
   }
   for (const h of habits) {
     if (h.energyEnabled && habitMetOn(h, habitLogs, date)) total += h.energyValue;
   }
-  return total;
+  return roundEnergy(total);
 }
 
 /** Net signed energy applied across the Mon–Sun week containing `date`. */
@@ -121,9 +152,8 @@ export function energyDeltaForWeek(
   habits: Habit[],
   habitLogs: HabitLog[]
 ): number {
-  return getWeekDates(date).reduce(
-    (sum, d) => sum + energyDeltaForDay(d, tasks, habits, habitLogs),
-    0
+  return roundEnergy(
+    getWeekDates(date).reduce((sum, d) => sum + energyDeltaForDay(d, tasks, habits, habitLogs), 0)
   );
 }
 
@@ -138,7 +168,9 @@ export function energyDeltaForWeek(
 export function plannedEnergyDeltaForDay(date: string, tasks: Task[], habits: Habit[]): number {
   let total = 0;
   for (const t of tasks) {
-    if (t.energyEnabled && taskOccursOn(t, date)) total += t.energyValue;
+    // A 'note' is information parked in the list, not work — it costs nothing now and
+    // nothing later, so it stays out of the planned total as well as the current one.
+    if (t.energyEnabled && isCompletable(t.cardType) && taskOccursOn(t, date)) total += t.energyValue;
   }
   for (const h of habits) {
     if (h.energyEnabled && h.recurrence !== 'weekly-flexible' && habitOccursOn(h, date)) total += h.energyValue;

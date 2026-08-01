@@ -199,6 +199,7 @@ import { personColor } from '@/lib/personColor';
 import { FontSize, Radius, Spacing, TabularNums, Type } from '@/constants/theme';
 import { Spring } from '@/constants/motion';
 import type { LayoutSpec } from '@/lib/cardLayout';
+import { isCompletable } from '@/lib/cardType';
 import { getDomainColor } from '@/lib/domainColor';
 
 type Tab = 'all' | 'today' | 'week';
@@ -258,10 +259,16 @@ function DoneSplitList({
   const [restOpen, setRestOpen] = useState(false);
   const unfinished = useMemo(() => tasks.filter((tk) => !tk.done), [tasks]);
   const finished = useMemo(() => tasks.filter((tk) => tk.done), [tasks]);
-  // Focus mode splits the unfinished rows; without it `rest` is empty and `focused` is the
-  // whole list, so the render below is identical to what it was before this feature.
-  const focused = focusMode ? unfinished.slice(0, FOCUS_VISIBLE) : unfinished;
-  const rest = focusMode ? unfinished.slice(FOCUS_VISIBLE) : [];
+  // A 'note' card is never done, so it always lands in `unfinished` — correct for an
+  // ordinary layout, where it should simply be in the list. In a FOCUS layout, which shows
+  // only the next few things, it must not take one of those slots: a note isn't work, and
+  // "what's next" answered with a note is a wrong answer. Notes go to "The rest" instead.
+  // Outside focus mode this is inert — `focused` is still the whole unfinished list and
+  // `rest` is still empty, exactly as before card types existed.
+  const actionable = useMemo(() => unfinished.filter((tk) => isCompletable(tk.cardType)), [unfinished]);
+  const unfinishedNotes = useMemo(() => unfinished.filter((tk) => !isCompletable(tk.cardType)), [unfinished]);
+  const focused = focusMode ? actionable.slice(0, FOCUS_VISIBLE) : unfinished;
+  const rest = focusMode ? [...actionable.slice(FOCUS_VISIBLE), ...unfinishedNotes] : [];
 
   if (tasks.length === 0) {
     return (
@@ -486,8 +493,11 @@ function FocusFirstToday({
 }) {
   const theme = useAppTheme();
   const t = useT();
-  const unfinished = useMemo(() => tasks.filter((tk) => !tk.done), [tasks]);
-  const doneCount = tasks.length - unfinished.length;
+  // 'note' cards are excluded outright here: this layout is "the one thing to do next", and
+  // a note has nothing to do. `doneCount` is counted directly rather than as a remainder of
+  // the list length, which would otherwise now count every note as finished.
+  const unfinished = useMemo(() => tasks.filter((tk) => !tk.done && isCompletable(tk.cardType)), [tasks]);
+  const doneCount = useMemo(() => tasks.filter((tk) => tk.done).length, [tasks]);
   const hero = unfinished[0];
   // "Then" is deliberately a SHORT list, not the remainder — the point of this layout is that
   // the day doesn't look like a wall. Anything past it is reachable one tap away via Later.
@@ -759,7 +769,8 @@ export default function TasksScreen() {
   // there's nothing to keep up to date.
   const tabCounts = useMemo(() => {
     if (layoutSpec.id !== 'focusFirst') return { today: 0, week: 0, all: 0 };
-    const open = (list: Task[]) => list.filter((tk) => !tk.done).length;
+    // "How many are left" — a note is never left to do, so it never counts here.
+    const open = (list: Task[]) => list.filter((tk) => !tk.done && isCompletable(tk.cardType)).length;
     return {
       today: open(todayList),
       week: weekGroups.reduce((n, g) => n + open(g.tasks), 0),
@@ -832,16 +843,23 @@ export default function TasksScreen() {
   // FOCUS_VISIBLE when "Now and next" is on. Switching layout re-diffs this against the
   // saved view, and whatever the previous layout was collapsing glows.
   const visibleTaskIds = useMemo(() => {
+    // Mirrors SectionCard's own split exactly, notes included — a snapshot that disagrees
+    // with what was drawn either glows a row that was visible all along or can never glow
+    // one that wasn't (see lib/viewSnapshot.ts).
     const drawn = (list: Task[]) => {
       const unfinished = list.filter((tk) => !tk.done);
-      return layoutSpec.focusMode ? unfinished.slice(0, FOCUS_VISIBLE) : unfinished;
+      if (!layoutSpec.focusMode) return unfinished;
+      return unfinished.filter((tk) => isCompletable(tk.cardType)).slice(0, FOCUS_VISIBLE);
     };
     if (tab === 'today') {
       // "One thing at a time" draws its hero + a short Then list and nothing else — no
       // Whenever section at all. Pass exactly that, or a row it collapses could never glow
       // when the user switches back to a layout that shows it.
       if (layoutSpec.id === 'focusFirst') {
-        return todayList.filter((tk) => !tk.done).slice(0, 1 + FOCUS_THEN_VISIBLE).map((tk) => tk.id);
+        return todayList
+          .filter((tk) => !tk.done && isCompletable(tk.cardType))
+          .slice(0, 1 + FOCUS_THEN_VISIBLE)
+          .map((tk) => tk.id);
       }
       // Whenever is a collapsed drawer on this tab as of 2026-08-01, in every layout that
       // draws it at all — so, exactly like the finished rows inside a "Done (n)" zone, it can

@@ -1091,6 +1091,22 @@ export function initDb() {
     // "Any open episodes?" runs on every Health-tab mount, every widget refresh and in the
     // headless snapshot. health_logs had exactly one index (idx_health_date) before this.
     'CREATE INDEX IF NOT EXISTS idx_health_episode_state ON health_logs(episode_state)',
+    // Per-card card type (2026-08-01) — how ONE to-do item draws itself:
+    // 'standard' (the existing card, unchanged) | 'simple' (title + check only) |
+    // 'note' (free text, no check, no completion state) | 'stepped' (one step at a time).
+    // It is a property of the item, never of the list and never a global setting — the
+    // opposite of settings.layoutDetail / settings.cardLayouts (lib/cardLayout.ts), which
+    // are per-surface. Presentation only, with ONE exception that is not: a 'note' has no
+    // completion state at all, so it is excluded from every done/remaining count and from
+    // Energy (see store/useTaskStore.ts's own note, lib/energy.ts and lib/growth.ts).
+    // Switching type NEVER deletes data — a stepped card turned simple keeps every row in
+    // task_steps, done flags and all, so switching back restores it exactly.
+    "ALTER TABLE tasks ADD COLUMN card_type TEXT DEFAULT 'standard'",
+    // Belt-and-braces for any row an out-of-band build left NULL/'' — SQLite's ADD COLUMN
+    // already back-fills existing rows with the constant DEFAULT above. Every pre-existing
+    // task is 'standard' by definition: the type didn't exist when they were written, and
+    // 'standard' is exactly the rendering they already had.
+    "UPDATE tasks SET card_type = 'standard' WHERE card_type IS NULL OR card_type = ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

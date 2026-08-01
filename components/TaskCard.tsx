@@ -46,6 +46,25 @@
  * stepper to one signed stepper — 0 already meant "no effect" to lib/energy.ts, so
  * `energyEnabled` is derived in handleSave(). Stored data is unchanged either way.
  *
+ * **Card types (2026-08-01, phase 1)** — `task.cardType` picks one of four renderings of the
+ * ONE row anatomy below; this is a switch inside this component, never four components.
+ * The rules live in lib/cardType.ts (per ITEM — not to be confused with lib/cardLayout.ts,
+ * which is per SURFACE; they stack as filters and only ever subtract).
+ *   - `standard` — untouched. Everything below describes it.
+ *   - `simple`   — title + tick. No right-hand value, no meta line, even when those fields
+ *                  hold values: they stay stored and their reminders still fire.
+ *   - `note`     — no tick at all and no completion state; the title wraps to
+ *                  NOTE_MAX_LINES because the text IS the content. Excluded from every
+ *                  count in the app (see lib/cardType.ts's `isCompletable`).
+ *   - `stepped`  — ONE step on screen at a time, with progress in the right-hand value slot
+ *                  and a "back a step" undo. The visible step is DERIVED (first not-done),
+ *                  never stored, so it survives a remount for free and can't drift from the
+ *                  done flags. Ticking it advances; unticking the one behind steps back.
+ * The type is picked from a labelled four-option SlideSelector in the editor (visible words,
+ * not icons), buffered on the draft like every other field so Discard reverts it. It is
+ * deliberately never asked for at creation time. Switching is lossless in both directions —
+ * nothing is cleared, so switching back restores the card exactly, steps and done flags and all.
+ *
  * Every task and every step carries a checkmark circle. The task ↔ steps done-cascade
  * lives in useTaskStore (toggle / toggleStep), so tapping a circle here keeps them in
  * lockstep automatically for an existing task; a new card's steps just toggle in the draft.
@@ -61,6 +80,9 @@
  * Connections:
  *   Imports → components/NewSinceGlow ("your last view was hiding this" marker),
  *             lib/cardLayout (LayoutSpec — gates the COLLAPSED row's cues only, never the editor),
+ *             lib/cardType (the four per-ITEM card types — see the block below),
+ *             react-native-reanimated (FadeIn/FadeOut/LinearTransition — the stepped card's
+ *             step-to-step transition, the same pair components/PlanTaskCard.tsx uses),
  *             components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
  *             components/IconButton, components/Stepper, components/Button, components/GoalPicker,
  *             components/FormControls (Switch), components/AppModal, components/FieldDivider,
@@ -143,12 +165,22 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Contact, ContactField } from 'expo-contacts';
 import * as Contacts from 'expo-contacts';
 import { Fonts, FontSize, Radius, Spacing, TabularNums, Type, contrastOn, getElevation, rgba, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { Duration, Ease } from '@/constants/motion';
+import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
+import {
+  CARD_TYPES,
+  currentStepIndex,
+  isCompletable,
+  orderedSteps,
+  visibleStepNumber,
+  type CardType,
+} from '@/lib/cardType';
 import { dayOfWeekMon0, formatDisplayDate, todayStr } from '@/lib/date';
 import { energyStepperValue, energyFieldsFromStepper } from '@/lib/energy';
 import { tap, warning } from '@/lib/haptics';
@@ -194,6 +226,14 @@ const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
  * the row already competes for width (see AGENTS.md's wrap audit).
  */
 const ROW_TAG_LIMIT = 2;
+
+/**
+ * How many lines a 'note' card's text wraps to before it clips. A note's text IS its
+ * content, so it must wrap rather than be cut to one line like a task title — but an
+ * unbounded note would push every row under it off the screen, and the full text is one
+ * tap away in the editor either way.
+ */
+const NOTE_MAX_LINES = 4;
 
 /** HH:MM -> minutes since midnight, or null if unparseable. Same convention as
  *  components/PlanTaskCard.tsx's own (unexported) helper of the same name. */
@@ -273,6 +313,10 @@ function TaskCard({
   onExpandedChange,
 }: Props) {
   const theme = useAppTheme();
+  // Union of the in-app toggle and the OS setting (ANIMATION_GUIDELINES §7) — under it the
+  // stepped card swaps steps with no transition at all rather than a shortened one.
+  const { reducedMotion } = useAccessibility();
+  const anim = !reducedMotion;
   const t = useT();
   const update = useTaskStore((s) => s.update);
   const removeTask = useTaskStore((s) => s.remove);
@@ -326,10 +370,21 @@ function TaskCard({
   // single-line row. Each condition mirrors the matching JSX gate exactly; if you add a
   // meta element below, add it here too or the line won't render for a task that only has
   // that one thing.
+  //
+  // Card types stack ON TOP of that as a second, per-ITEM filter (2026-08-01): `showsMeta`
+  // below is false for 'simple' and 'note', which draw no meta line at all no matter what
+  // the surface's layout allows. The two only ever subtract — neither can add a cue back.
+  const cardType = task.cardType;
+  const completable = isCompletable(cardType);
+  // 'simple' is title + tick, deliberately nothing else even when the fields hold values
+  // (the values stay stored and their reminders still fire — this is presentation, the
+  // same rule lib/cardLayout.ts follows). 'note' has no metadata to show either.
+  const showsMeta = cardType === 'standard' || cardType === 'stepped';
   const hasMetaLine =
-    (showPeople && spec.showMeta && !!cuePerson) ||
-    (spec.showMeta && rowTags.length > 0) ||
-    (!!goal && spec.showExtras);
+    showsMeta &&
+    ((showPeople && spec.showMeta && !!cuePerson) ||
+      (spec.showMeta && rowTags.length > 0) ||
+      (!!goal && spec.showExtras));
 
   const stepsOnly = variant === 'steps';
 
@@ -371,10 +426,27 @@ function TaskCard({
 
   // A new (unsaved) card has no store row yet, so its steps live on the local draft
   // (buffered into task_steps by the parent's onCommitNew, alongside the task itself).
-  const sortedSteps = [...(isNew ? draft.steps : task.steps)].sort((a, b) => a.orderIndex - b.orderIndex);
+  const sortedSteps = orderedSteps(isNew ? draft.steps : task.steps);
   const hasSteps = sortedSteps.length > 0;
+  // ── Stepped card (2026-08-01) ──
+  // The visible step is DERIVED — the first not-done one — never stored. See lib/cardType.ts
+  // for why: a stored pointer drifts the moment a step is ticked by the done-cascade, the
+  // widget or a peer. Deriving it also makes "step backwards" free (untick = step back) and
+  // makes progress survive a remount for nothing, since task_steps already writes straight
+  // to SQLite on every change.
+  const stepped = cardType === 'stepped';
+  const stepIndex = currentStepIndex(sortedSteps);
+  const currentStep = stepped && stepIndex < sortedSteps.length ? sortedSteps[stepIndex] : null;
+  // 1-based number of the step on screen (null once all are done) — the row's right-hand
+  // value. Deliberately not a done-count; see visibleStepNumber's note on why "Step 0 of 2"
+  // is the wrong label for a card that is showing its first step.
+  const stepNumber = visibleStepNumber(sortedSteps);
+  // The step BEHIND the current one — unticking it is how an accidental completion is undone.
+  const previousStep = stepped && stepIndex > 0 ? sortedSteps[stepIndex - 1] : null;
   // Steps variant only expands when there ARE steps (no arrow otherwise); full always can.
-  const canExpand = stepsOnly ? hasSteps : true;
+  // A stepped card in the steps variant has no expansion of its own: it already shows its
+  // step inline, and the full checklist behind a chevron would be the second copy of it.
+  const canExpand = stepsOnly ? hasSteps && !stepped : true;
 
   const editing = !stepsOnly && expanded;
   const recurring = draft.recurring;
@@ -519,6 +591,9 @@ function TaskCard({
       contactPhone: draft.contactPhone,
       locationLat: draft.locationLat,
       locationLng: draft.locationLng,
+      // Nothing else is cleared alongside it — switching type is lossless by design, so a
+      // stepped card turned simple keeps every task_steps row, done flags included.
+      cardType: draft.cardType,
     });
     setExpanded(false);
     setShowCalendar(false);
@@ -698,7 +773,14 @@ function TaskCard({
             the width it needs and the right edge is a single tabular-figure column that
             lines up row to row. The done-circle stays to the RIGHT of the title and to the
             LEFT of the chevron (2026-07-13 redesign) — those are controls, not values, and
-            moving them was not part of this pass. */}
+            moving them was not part of this pass.
+
+            The four CARD TYPES (2026-08-01) are variations on this one anatomy, never four
+            parallel rows: 'standard' is exactly the above and is untouched; 'simple' keeps
+            the title and the tick and drops the right-hand value and the meta line; 'note'
+            additionally drops the tick (it has no completion state at all) and lets its
+            title wrap, since the text IS the content; 'stepped' puts its progress in the
+            right-hand value slot and draws its one current step below. */}
         <View style={styles.row}>
           {sharedDirection === 'out' && (
             <View style={[styles.dirChip, { backgroundColor: railColor ? railColor : theme.surfaceMuted }]}>
@@ -712,15 +794,25 @@ function TaskCard({
               style={[
                 styles.title,
                 { color: theme.text },
-                task.done && { textDecorationLine: 'line-through', color: theme.textMuted },
+                // A note is never done, so it never strikes through — there is no state to strike.
+                completable && task.done && { textDecorationLine: 'line-through', color: theme.textMuted },
               ]}
-              numberOfLines={1}
+              // A note's text is the whole content, so it wraps instead of being clipped to
+              // one line. Capped so a long note still can't crowd out the rows under it.
+              numberOfLines={cardType === 'note' ? NOTE_MAX_LINES : 1}
             >
               {task.title || (editing ? '' : t.taskTitlePlaceholder)}
             </Text>
           </PressableScale>
 
-          {task.time && spec.showMeta ? (
+          {/* The ONE right-hand value. A stepped card spends it on its progress rather than
+              its time: two values would break the row rule, and "which step am I on" is the
+              question that card exists to answer. */}
+          {stepped && hasSteps ? (
+            <Text style={[styles.timeLabel, TabularNums, { color: theme.textMuted }]}>
+              {stepNumber === null ? t.cardTypes.allDone : t.cardTypes.progress(stepNumber, sortedSteps.length)}
+            </Text>
+          ) : task.time && spec.showMeta && showsMeta ? (
             <NewSinceGlow active={!!newFields?.meta} tight>
               <Text style={[styles.timeLabel, TabularNums, { color: theme.textMuted }]}>
                 {task.finishTime ? `${task.time}–${task.finishTime}` : task.time}
@@ -728,6 +820,9 @@ function TaskCard({
             </NewSinceGlow>
           ) : null}
 
+          {/* No tick on a note — it cannot be completed, so the control must not exist
+              rather than exist and be inert. */}
+          {completable && (
           <PressableScale
             hitSlop={HitSlop.base}
             onPress={() => onToggleDone(task)}
@@ -747,6 +842,7 @@ function TaskCard({
               {task.done && <Ionicons name="checkmark" size={14} color={contrastOn(theme.good)} />}
             </View>
           </PressableScale>
+          )}
 
           {canExpand && (
             <PressableScale hitSlop={HitSlop.snug} onPress={openEditor} style={styles.chevronBtn} scaleTo={0.9}>
@@ -814,8 +910,72 @@ function TaskCard({
           </View>
         )}
 
+        {/* ── Stepped card: the ONE visible step (2026-08-01) ── */}
+        {/* Exactly one step is on screen at a time — that is the point of the type. Ticking
+            it advances to the next, because "the current step" is just the first not-done
+            one; nothing here writes a pointer.
+
+            Motion: the outgoing step fades out and the incoming one fades in, with the card
+            reflowing under them via LinearTransition — the same Reanimated pair
+            components/PlanTaskCard.tsx already uses for its rows, at the same Duration.*
+            tokens. No new animation was invented for this (ANIMATION_GUIDELINES §1/§9), and
+            nothing here fires a celebration haptic: `success()` belongs to completing the
+            TASK and already fires from the row's tick via the done-cascade, so a second one
+            per step would be exactly the double-fire §9 forbids. */}
+        {stepped && (
+          <View style={styles.steppedWrap}>
+            {currentStep ? (
+              <Animated.View
+                key={currentStep.id}
+                entering={anim ? FadeIn.duration(Duration.card).easing(Ease.enter) : undefined}
+                exiting={anim ? FadeOut.duration(Duration.cardOut).easing(Ease.exit) : undefined}
+                layout={anim ? LinearTransition.duration(Duration.listMove).easing(Ease.move) : undefined}
+              >
+                <PressableScale
+                  hitSlop={HitSlop.snug}
+                  onPress={() => handleToggleStep(currentStep.id)}
+                  style={styles.stepCheckTap}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: false }}
+                  scaleTo={0.97}
+                >
+                  <View style={[styles.stepCheck, { borderColor: theme.textMuted }]} />
+                  <Text style={[styles.stepText, { color: theme.text }]} numberOfLines={2}>
+                    {currentStep.title}
+                  </Text>
+                </PressableScale>
+              </Animated.View>
+            ) : hasSteps ? (
+              // Every step done. The card says so plainly and stops — no celebration here,
+              // for the same reason as above: the task's own completion already carries one.
+              <Text style={[styles.steppedNote, { color: theme.textMuted }]}>{t.cardTypes.allDone}</Text>
+            ) : (
+              // A stepped card with no steps yet behaves like an ordinary one. This points at
+              // the fix rather than reporting a fault (DESIGN_RULES rule 23, copy tone).
+              <Text style={[styles.steppedNote, { color: theme.textMuted }]}>{t.cardTypes.noSteps}</Text>
+            )}
+
+            {/* Undo an accidental tick: unticking the step behind the current one IS stepping
+                back, and it persists like any other step write. Only offered when there is a
+                step to go back to. */}
+            {previousStep && (
+              <PressableScale
+                hitSlop={HitSlop.snug}
+                onPress={() => handleToggleStep(previousStep.id)}
+                accessibilityRole="button"
+                accessibilityLabel={t.cardTypes.back}
+                style={styles.steppedBack}
+                scaleTo={0.97}
+              >
+                <Ionicons name="arrow-undo-outline" size={13} color={theme.textMuted} />
+                <Text style={[styles.steppedBackText, { color: theme.textMuted }]}>{t.cardTypes.back}</Text>
+              </PressableScale>
+            )}
+          </View>
+        )}
+
         {/* ── Steps-only expansion (Today / This week) ── */}
-        {stepsOnly && hasSteps && (
+        {stepsOnly && hasSteps && !stepped && (
           <Collapsible open={expanded}>
           <View style={styles.stepsWrap}>
             {sortedSteps.map((step) => (
@@ -975,6 +1135,31 @@ function TaskCard({
               </View>
               </>
             )}
+
+            <FieldDivider />
+
+            {/* Card — how THIS one draws itself (2026-08-01). A labelled row of four
+                options with visible words, never icons: the difference between them is
+                what they show, which an icon can't say.
+
+                It is buffered on the draft like every other field here, so Discard reverts
+                it, and it is deliberately NOT asked for at creation time — a new item is
+                always a full card, and the type is something you change once you know what
+                the item turned out to be. Switching is lossless in both directions: steps,
+                energy, time and tags all stay stored whatever type is picked, so switching
+                back restores the card exactly, done flags included. */}
+            <View style={styles.labelRow}>
+              <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.cardTypes.label}</Text>
+              <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.cardTypes.hint}</Text>
+            </View>
+            <SlideSelector
+              options={CARD_TYPES.map((value) => ({ value, label: t.cardTypes[value] }))}
+              value={draft.cardType}
+              onChange={(value: CardType) => patch({ cardType: value })}
+            />
+            <Text style={[styles.miniLabel, { color: theme.textMuted }]}>
+              {t.cardTypes[`${draft.cardType}Desc`]}
+            </Text>
 
             <FieldDivider />
 
@@ -1528,6 +1713,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepText: { fontSize: FontSize.sm, flexShrink: 1 },
+  // Stepped card's inline current-step block. Same paddingTop as stepsWrap so a stepped
+  // card and an expanded steps checklist sit at the same distance below the row.
+  steppedWrap: { gap: Spacing.xs, paddingTop: Spacing.sm },
+  steppedNote: { fontSize: FontSize.sm },
+  steppedBack: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, alignSelf: 'flex-start' },
+  steppedBackText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   addStepRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   addStepInput: {
     flex: 1,

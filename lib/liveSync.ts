@@ -68,6 +68,11 @@ const TABLE_COLUMNS: Record<SyncTable, string[]> = {
     // turn forever; syncing a "current assignee" would have needed a periodic write and an
     // LWW race over it. See lib/taskRotation.ts.
     'rotation', 'rotation_person_ids', 'rotation_anchor',
+    // How the item draws itself (2026-08-01). Safe from the RECEIVER's point of view in a
+    // way `people.is_self` is not: it describes the item, not the device holding it, so it
+    // means the same thing on both phones. Not syncing it would let the same shared task be
+    // a note here and a checkable task there — and one of them would then count it.
+    'card_type',
   ],
   shopping_items: [
     'name', 'amount', 'unit', 'list_type', 'checked', 'store', 'price', 'created_at', 'list_id',

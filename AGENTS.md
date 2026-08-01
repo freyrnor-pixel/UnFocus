@@ -269,6 +269,46 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
     (snapshotting an unloaded store saves "nothing visible" and then glows everything); and
     add any new layout/glow prop to `ShoppingRow`'s `React.memo` comparator, or a layout
     change won't repaint the list.
+- **Per-item card types** (2026-08-01 phase 1, `lib/cardType.ts` + the switch inside
+  `components/TaskCard.tsx`, over the new `tasks.card_type` column). Four ways ONE to-do item
+  can draw itself: **standard** (the existing card, deliberately unchanged), **simple**
+  (title + tick, so a trivial task costs nothing to capture), **note** (free text, no tick,
+  no completion state) and **stepped** (an ordered list of steps, exactly one visible).
+  - **It is a property of the ITEM, and that is the whole distinction from
+    `lib/cardLayout.ts`**, which is per-surface and a user setting. The two stack as filters
+    on a row and only ever SUBTRACT: the card type decides what the item may show, the layout
+    may hide more, neither adds a cue back. Two files, two scopes, similar names — check which
+    one you mean before editing either.
+  - **One component, not four.** `TaskCard` switches on `cardType` over the same row anatomy,
+    container, press behaviour and shadows. `PlanTaskCard` carries only the minimum the types
+    require of a second surface (no checkbox on a note, progress on a stepped row); the full
+    rendering and the type picker live in `TaskCard` alone. Don't add a third renderer.
+  - **Steps were already built** — `task_steps` + the task↔steps done-cascade predate this by
+    months. Stepped reuses them wholesale and adds **no** step storage and, deliberately, **no
+    `currentStepIndex`**: the visible step is DERIVED as the first not-done one, so it can't
+    drift from flags the widget, the cascade or a peer might change, progress survives a
+    remount for free, and "back a step" is just unticking. Same derived-not-stored discipline
+    as `lib/taskRotation.ts` and `episode_state`.
+  - **'note' is the one type that isn't purely presentational.** It has no completion state at
+    all, so `isCompletable()` gates every count in the app: `toggle`/`completeDirect`/the step
+    cascade all bail, and it's excluded from `lifetimeCompletedTasks`, the growth streak, the
+    day summary + progress bar, the focus layouts' hero, the tab counts, Energy (current AND
+    planned) and the widget's task list — including the headless snapshot's raw SQL. Every
+    other type hides things in the row while the values stay stored and their reminders keep
+    firing, exactly like a layout.
+  - **Energy on a stepped card is spent proportionally per step**, not all at completion —
+    `lib/energy.ts`'s `energyDeltaForDay` now multiplies by `energySpentFraction`. Scoped to
+    stepped cards, so nothing that predates this changes; PLANNED energy still counts the full
+    value ("if everything happens" includes every step). Day/week totals round to 1 decimal
+    because `EnergyMeter` prints `current` raw.
+  - **Switching type is lossless and reversible** — nothing is cleared, ever. A stepped card
+    turned simple keeps every `task_steps` row with its done flags; a completed task turned
+    note keeps its `done` and simply stops being counted. Picked from a labelled four-option
+    row in the item's own editor (visible words, not icons), buffered on the draft so Discard
+    reverts it. **Never prompted at creation time**, and there is no long-press entry point:
+    long-press is already the drag-reorder gesture (`lib/useDragReorder.ts`) and the app has no
+    row context menu to add to. `card_type` syncs and is importable via the AI setup guide
+    (`AI_SETUP_SCHEMA_VERSION` 4).
 - **To-do sharing: People, tags, shared load, rotation** (2026-07-28, phases 1–4). Four
   pieces that together make a to-do list something two phones can actually divide.
   - **People registry** (`store/usePeopleStore.ts` + `lib/personColor.ts` +
