@@ -27,12 +27,14 @@
  * side effect. The store-reading wrapper is lib/useGrowth.ts.
  *
  * Connections:
- *   Imports → lib/date (dateStr), lib/habitRecurrence (habitMetOn), store type imports
+ *   Imports → lib/date (dateStr), lib/cardType (isCompletable — a 'note' card can't make a
+ *             day active), lib/habitRecurrence (habitMetOn), store type imports
  *             (Task from store/useTaskStore, Habit/HabitLog from store/useHabitStore)
  *   Used by → lib/useGrowth.ts, lib/__tests__/growth.test.ts
  *   Data    → none (pure functions)
  */
 import { dateStr } from '@/lib/date';
+import { isCompletable } from '@/lib/cardType';
 import { habitMetOn } from '@/lib/habitRecurrence';
 import type { Task } from '@/store/useTaskStore';
 import type { Habit, HabitLog } from '@/store/useHabitStore';
@@ -59,7 +61,11 @@ export function isActiveOn(
   logs: HabitLog[]
 ): boolean {
   for (const t of tasks) {
-    if (t.done && t.date === date) return true;
+    // isCompletable keeps 'note' cards out: a note is information parked in the list, and
+    // it can't be completed, so it can never be the thing that made a day active. (It can
+    // still carry a stale `done` from before it was switched to a note — type changes are
+    // lossless — which is exactly why this asks the card type rather than the flag alone.)
+    if (t.done && isCompletable(t.cardType) && t.date === date) return true;
   }
   for (const h of habits) {
     if (habitMetOn(h, logs, date)) return true;

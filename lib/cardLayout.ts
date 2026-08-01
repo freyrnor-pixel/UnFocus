@@ -12,6 +12,12 @@
  * falls back rather than throwing — a bad row in the settings JSON must never be able to
  * blank a screen.
  *
+ * **Not to be confused with lib/cardType.ts** (2026-08-01), which is the per-ITEM version of
+ * the same idea: this file answers "how does this LIST draw itself" and is a user setting;
+ * that one answers "how does this ONE item draw itself" and is a property of the item. They
+ * stack as filters on a row and only ever subtract — the card type decides what the item is
+ * allowed to show, the layout may then hide more, and neither can add a cue back.
+ *
  * Connections:
  *   Imports → (none — deliberately dependency-free so it stays unit-testable and can't
  *             drag notification/DB code into a render path)

@@ -132,6 +132,35 @@ const en = {
   taskOrdFourth: '4th',
   taskOrdLast: 'Last',
   taskSharedOut: 'Shared out',
+  // Per-item card types (2026-08-01) — how ONE item draws itself. Named for the situation
+  // you'd want them in, the same rule the layout names follow ("In the store", not
+  // "Compact"). Deliberately NOT reusing "One thing at a time" — that is already the name
+  // of a Plans LAYOUT (lib/cardLayout.ts's focusFirst), and two different things sharing a
+  // name is how a setting gets changed by mistake.
+  cardTypes: {
+    label: 'Card',
+    hint: 'Just for this one.',
+    // ONE word each. Four options share a single row, and a four-word row truncates at
+    // 430px in English before Norwegian is even considered (measured with `npm run wraps`
+    // — the repo's own audit for exactly this). The situational meaning that names would
+    // normally carry lives in the description line below the picker instead, which is
+    // always showing the selected option's own sentence.
+    standard: 'Full',
+    simple: 'Simple',
+    note: 'Note',
+    stepped: 'Steps',
+    standardDesc: 'Everything this one has — time, energy, tags.',
+    simpleDesc: 'Only the name and a tick. Nothing else shows.',
+    noteDesc: 'Something to keep in the list. Nothing to finish.',
+    steppedDesc: 'Shows one step at a time.',
+    // Partial progress is progress — this is a count, never a shortfall.
+    progress: (done: number, total: number) => `Step ${done} of ${total}`,
+    allDone: 'All steps done',
+    back: 'Back a step',
+    // Shown on a stepped card that has no steps yet. It still behaves like an ordinary
+    // card until there are some, so this points at the fix rather than reporting a fault.
+    noSteps: 'Add a step in this card to take it one at a time.',
+  },
   shoppingPreview: 'Shop soon',
   seeAll: 'See all →',
   emptyMonthlyList: 'Nothing here yet — add your first staple item.',
@@ -1852,6 +1881,22 @@ const no: typeof en = {
   taskOrdFourth: '4.',
   taskOrdLast: 'Siste',
   taskSharedOut: 'Delt ut',
+  cardTypes: {
+    label: 'Kort',
+    hint: 'Gjelder bare denne.',
+    standard: 'Fullt',
+    simple: 'Enkelt',
+    note: 'Notat',
+    stepped: 'Steg',
+    standardDesc: 'Alt denne har — tid, energi, merkelapper.',
+    simpleDesc: 'Bare navnet og en hake. Ingenting annet vises.',
+    noteDesc: 'Noe å ha i lista. Ingenting å bli ferdig med.',
+    steppedDesc: 'Viser ett steg om gangen.',
+    progress: (done: number, total: number) => `Steg ${done} av ${total}`,
+    allDone: 'Alle steg er gjort',
+    back: 'Ett steg tilbake',
+    noSteps: 'Legg til et steg i dette kortet for å ta det ett om gangen.',
+  },
   shoppingPreview: 'Handle snart',
   seeAll: 'Se alt →',
   emptyMonthlyList: 'Ingenting her ennå — legg til din første faste vare.',

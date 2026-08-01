@@ -155,8 +155,11 @@ export function buildHeadlessSnapshot(): WidgetSnapshot | null {
     let tasksRemaining = 0;
     let taskTotal = 0;
     try {
+      // card_type <> 'note' mirrors lib/widgets/sync.ts: every listed row is tappable and a
+      // tap flips `done`, which a note has no business having. `IS NULL` keeps a row written
+      // before the column existed (see lib/db.ts's migration) — failing safe means listing it.
       const rows = db.getAllSync<{ id: string; title: string; done: number }>(
-        'SELECT id, title, done FROM tasks WHERE task_date = ? ORDER BY sort_order, task_time, created_at',
+        "SELECT id, title, done FROM tasks WHERE task_date = ? AND (card_type IS NULL OR card_type <> 'note') ORDER BY sort_order, task_time, created_at",
         [today]
       );
       taskTotal = rows.length;
