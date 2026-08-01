@@ -30,6 +30,10 @@
  *     `item.id`-keyed field-reset effect below, which still reads `item` directly.
  *   - Decision 008: the sheet is a glass Surface in `overlay` context. Blur comes from
  *     Surface's BlurView; this file never imports expo-blur directly.
+ *   - **The quantity stepper's "+" is muted, not accent (2026-08-01, addendum B.1)** — it
+ *     matches its own "−" now, and the sheet's one accent fill is the primary "Save" button.
+ *     Keep it in step with components/Stepper.tsx (read its edit note first) and the other
+ *     hand-rolled copies in MonthlyTableRow / InlineAddItem / MonthlyResetReviewSheet.
  */
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -131,7 +135,7 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
           <Text style={[styles.label, { color: theme.textMuted }]}>{t.onsketAntallLabel}</Text>
           <View style={styles.stepperRow}>
             <PressableScale
-              style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted }]}
+              style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
               onPress={() => setTargetQty((q) => Math.max(1, q - 1))}
               hitSlop={HitSlop.snug}
               scaleTo={0.90}
@@ -140,12 +144,12 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
             </PressableScale>
             <Text style={[styles.qtyText, { color: theme.text }]}>{targetQty}</Text>
             <PressableScale
-              style={[styles.stepBtn, { backgroundColor: theme.accent }]}
+              style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
               onPress={() => setTargetQty((q) => q + 1)}
               hitSlop={HitSlop.snug}
               scaleTo={0.90}
             >
-              <Text style={[styles.stepText, { color: theme.accentInk }]}>+</Text>
+              <Text style={[styles.stepText, { color: theme.text }]}>+</Text>
             </PressableScale>
           </View>
 
@@ -198,7 +202,10 @@ const baseStyles = StyleSheet.create({
   label: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginTop: Spacing.sm, marginBottom: 4 },
   input: { borderRadius: Radius.sm, padding: Spacing.sm, fontSize: FontSize.md },
   stepperRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  stepBtn: { width: 34, height: 34, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  // Both halves muted + bordered — see components/Stepper.tsx's edit note (addendum B.1,
+  // 2026-08-01): a stepper is a paired control, so filling only the "+" in the app's action
+  // colour made an increment button compete with this sheet's own primary button.
+  stepBtn: { width: 34, height: 34, borderRadius: Radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   stepText: { fontSize: FontSize.lg, fontFamily: Fonts.bold, lineHeight: 22 },
   qtyText: { fontSize: FontSize.md, fontFamily: Fonts.bold, minWidth: 28, textAlign: 'center' },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.sm },

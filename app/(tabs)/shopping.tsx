@@ -199,6 +199,18 @@
  *     bottom nav — one consistent "selected" colour app-wide (visual-audit 2026-07-20: Weekly's
  *     old green `theme.good` + Food's meal-domain accent read as a competing selection colour
  *     against the blue nav on the same screen).
+ *     **That sliding pill is this screen's ONE solid accent fill (2026-08-01, addendum B.1)**
+ *     and it should stay that way. In the same pass the active tab's count badge was inverted
+ *     (`contrastOn(accent)` fill, accent number) so it stops being a second accent fill inside
+ *     the first — it was previously accent-on-accent and had no visible edge at all — and the
+ *     accent "+" was taken off the Monthly rows' inline stepper (components/MonthlyTableRow.tsx)
+ *     and the add panel's quantity stepper (components/InlineAddItem.tsx). What is deliberately
+ *     still accent-filled here: the catalog row's checked/restock mark (the app-wide done
+ *     state), the "In cart" section rule (a 2px 40%-opacity ruled line paired with its own
+ *     label, whose sibling "To buy" section uses `theme.good` the same way — demoting one half
+ *     breaks the pair), the weekday chip inside the ⓘ hint (only on screen while the hint is
+ *     open, and it matches the identical control in Settings → Personal), and NewSinceGlow's
+ *     edge (a transient marker shown only right after a layout switch).
  *   - **Sticky-bar label fix (visual-audit, 2026-07-11)**: the summary-row ternary fell
  *     through to a `tab === 'food' ? foodTabLabel : catalogueTabLabel` catch-all for any
  *     tab that wasn't `'monthly'` or `'weekly'`-with-a-`focusedList` — so a fresh/empty
@@ -411,7 +423,7 @@ import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRang
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
-import { Fonts, FontSize, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { contrastOn, Fonts, FontSize, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { reorderByDrag } from '@/lib/reorder';
@@ -1444,9 +1456,17 @@ export default function ShoppingScreen() {
       color: accent,
       accessory: (
         <>
+          {/* The ACTIVE badge is inverted — `contrastOn(accent)` fill, accent number — not
+              another accent fill (2026-08-01, addendum B.1). It used to be `accent` on
+              `accent`, i.e. an accent-filled badge sitting inside TabSlider's accent pill,
+              so the badge had no visible edge at all and read as a bare number; it was also
+              a second solid accent fill within a few pixels of the first. Inverting it makes
+              the badge actually read as a badge AND leaves the sliding pill as the one accent
+              fill in this screen's chrome. `contrastOn` rather than `theme.accentInk` because
+              `accent` here is the option's own colour, which need not be theme.accent. */}
           {count > 0 && (
-            <View style={[styles.tabBadge, { backgroundColor: isActive ? accent : theme.surfaceMuted }]}>
-              <Text style={[styles.tabBadgeText, { color: isActive ? theme.accentInk : theme.textMuted }]}>{count}</Text>
+            <View style={[styles.tabBadge, { backgroundColor: isActive ? contrastOn(accent) : theme.surfaceMuted }]}>
+              <Text style={[styles.tabBadgeText, { color: isActive ? accent : theme.textMuted }]}>{count}</Text>
             </View>
           )}
           {value === 'weekly' && weeklyAddCue && (

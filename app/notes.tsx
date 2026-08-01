@@ -28,8 +28,14 @@
  *     so it reads as "the active colour theme", not a fixed hue.
  *   - Only rendered when both sections are non-empty — an all-active or all-checked list has
  *     nothing to visually separate.
- *   - Decision 001 tier='site' scaffold (BottomNav + header chrome). VoiceNoteFAB + the sheet
- *     render as siblings of ScreenScaffold. Decision 006 tokens only (accent/textMuted).
+ *   - **tier='sub' (2026-08-01, addendum B.4)** — it was tier='site' from Decision 001, back
+ *     when Notes was one of the BottomNav tabs. It stopped being a tab (Decision 036) but the
+ *     tier never followed, so this screen kept a site header (a Settings gear) and its own
+ *     BottomNav even though it is reached by a `router.push` from Home's "More" links, exactly
+ *     like Food/Catalogue/Budget — all of which are tier='sub'. It is now title-only with an
+ *     iOS back link, matching them; Android uses the system back gesture as it does there.
+ *     `__tests__/screenHeaderContract.test.ts` pins this. VoiceNoteFAB + the sheet render as
+ *     siblings of ScreenScaffold. Decision 006 tokens only (accent/textMuted).
  *   - No manual "add blank note" affordance — VoiceNoteFAB both creates the note and fills
  *     its body from the transcript; the header is left for the user to type (see NoteRow).
  *   - Deep link `unfocus:///notes?capture=voice` (the Notes home-screen widget's mic button)
@@ -124,7 +130,7 @@ export default function NotesScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.notes.title} tier="site">
+      <ScreenScaffold title={t.notes.title} tier="sub" onBack={() => router.back()}>
         <View style={styles.content}>
           <HintCard text={t.hints.notes.text} example={t.hints.notes.example} />
 

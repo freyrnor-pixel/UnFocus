@@ -38,7 +38,14 @@
  *     one Surface/card; rows just flow inside it separated by a divider), so wrapping
  *     each row in its own Surface would double up the material treatment.
  *   - Checkmark circle is a hand-rolled circular Pressable (not FormControls' square
- *     Checkbox) to match NoteRow's and TaskItem's shared circular "done" affordance.
+ *     Checkbox) to match NoteRow's and TaskItem's shared circular "done" affordance. Its
+ *     accent fill is the app-wide checked state and is deliberately left alone.
+ *   - **The inline stepper's "+" is muted, not accent (2026-08-01, addendum B.1)** — it
+ *     matches its own "−" now. Read components/Stepper.tsx's edit note before changing it
+ *     back: this row renders once PER CATALOG ROW, so an accent-filled "+" here put a column
+ *     of the app's action colour down the Monthly tab, competing with the screen's real
+ *     primary. Keep all four copies of this stepper (here, InlineAddItem, UpdateSheet,
+ *     MonthlyResetReviewSheet) in step with the shared Stepper component.
  *   - Theming reads useAppTheme() internally.
  */
 import React from 'react';
@@ -82,12 +89,12 @@ function MonthlyTableRow({ item, onCheckboxPress, onPress, temporaryLabel, onInc
           )}
           {hasStepper ? (
             <View style={styles.stepperRow}>
-              <PressableScale style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted }]} onPress={onDecrement} hitSlop={HitSlop.snug} scaleTo={0.9}>
+              <PressableScale style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={onDecrement} hitSlop={HitSlop.snug} scaleTo={0.9}>
                 <Text style={[styles.stepText, { color: theme.text }]}>−</Text>
               </PressableScale>
               <Text style={[styles.qtyMeta, { color: theme.text }]}>×{item.targetQuantity}</Text>
-              <PressableScale style={[styles.stepBtn, { backgroundColor: theme.accent }]} onPress={onIncrement} hitSlop={HitSlop.snug} scaleTo={0.9}>
-                <Text style={[styles.stepText, { color: theme.accentInk }]}>+</Text>
+              <PressableScale style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={onIncrement} hitSlop={HitSlop.snug} scaleTo={0.9}>
+                <Text style={[styles.stepText, { color: theme.text }]}>+</Text>
               </PressableScale>
             </View>
           ) : (
@@ -144,7 +151,10 @@ const baseStyles = StyleSheet.create({
   priceText: { fontSize: FontSize.xs, textAlign: 'right' },
   totalText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, textAlign: 'right', marginTop: 1 },
   stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  stepBtn: { width: 24, height: 24, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  // Both halves muted + bordered — see components/Stepper.tsx's edit note (addendum B.1,
+  // 2026-08-01). The "+" carried a solid theme.accent fill here, once PER ROW, which made the
+  // Monthly list the noisiest accent surface in the app. A ± pair reads fine unfilled.
+  stepBtn: { width: 24, height: 24, borderRadius: Radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   stepText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   removeBtn: { paddingLeft: 4 },
 });
