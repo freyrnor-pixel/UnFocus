@@ -345,7 +345,11 @@ type TaskStore = {
   syncMonthlyTaskNotifications: () => void;
   /** Re-sync every eligible task's mirrored calendar event (after calendarSyncEnabled flips on). */
   syncAllTaskCalendarEvents: () => void;
-  /** Write a new sort_order (by array position) for every id in orderedIds. */
+  /**
+   * Commit a drag-reorder of the Whenever list: `orderedIds` is the rows the user could SEE,
+   * in their new order. Had no caller at all until 2026-08-01 (app/(tabs)/plans.tsx's drag) —
+   * see the implementation for why it slots rather than renumbering the subset 0…n-1.
+   */
   reorderTasks: (orderedIds: string[]) => void;
   /** Steps persist straight to SQLite on every change — no draft/save gate. */
   addStep: (taskId: string, title: string) => TaskStep;
@@ -696,14 +700,31 @@ export const useTaskStore = create<TaskStore>((set, get) => {
   },
 
   reorderTasks(orderedIds) {
-    const order = new Map(orderedIds.map((id, i) => [id, i]));
-    orderedIds.forEach((id, i) => updateRow('tasks', { sort_order: i }, 'id = ?', [id]));
+    const { tasks } = get();
+    // What the user was looking at: the Whenever list's order, which is sort_order with the
+    // load order (task_date, task_time) as the tie-break every task starts life on.
+    const sorted = tasks.map((t, i) => ({ t, i })).sort((a, b) => a.t.sortOrder - b.t.sortOrder || a.i - b.i);
+    const queue = orderedIds.filter((id) => tasks.some((t) => t.id === id));
+    if (queue.length < 2) return;
+    const moving = new Set(queue);
+    // The moved rows go back into the SLOTS they already occupied, in their new order, so a
+    // task the list was filtering out (another person's, a tag filter, a dated one on a tab
+    // that hides those) keeps whichever visible tasks it sat between instead of being shoved
+    // to one end by a drag it had no part in. Same contract as useHabitStore.reorder.
+    const nextIds = sorted.map(({ t }) => (moving.has(t.id) ? queue.shift()! : t.id));
+    const position = new Map(nextIds.map((id, i) => [id, i]));
+
+    // Renumbering everything is what makes this work at all on rows that have never been
+    // reordered (every sort_order starts at 0, so slot arithmetic alone would be a no-op) —
+    // but only rows whose number actually MOVES are written and broadcast. sort_order is a
+    // synced field (lib/liveSync's TABLE_COLUMNS), so writing all of them every time would
+    // put the whole task table on the wire for a two-row swap.
+    const changed = tasks.filter((t) => position.get(t.id) !== t.sortOrder);
+    changed.forEach((t) => updateRow('tasks', { sort_order: position.get(t.id)! }, 'id = ?', [t.id]));
     set((s) => ({
-      tasks: s.tasks.map((t) => (order.has(t.id) ? { ...t, sortOrder: order.get(t.id)! } : t)),
+      tasks: s.tasks.map((t) => (position.has(t.id) ? { ...t, sortOrder: position.get(t.id)! } : t)),
     }));
-    // sort_order is a synced field (lib/liveSync's TABLE_COLUMNS) — stamp + broadcast
-    // every reordered row, same as add/update.
-    orderedIds.forEach(syncTaskRow);
+    changed.forEach((t) => syncTaskRow(t.id));
   },
 
   setFollower(predecessorId, followerId) {

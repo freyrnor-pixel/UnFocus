@@ -26,8 +26,9 @@
  *             and by NO tab screen at all, which inverted a whole planned task (B2-3 was
  *             written to convert Home to match the tabs; the tabs were what had drifted).
  *             `plans.tsx` reaches this only indirectly, by mounting PlanTaskCard in the
- *             timeline layout; `shopping.tsx` and `notes.tsx` still hand-roll their rows
- *             (ShoppingRow / MonthlyTableRow / NoteRow) and are the remaining conversions.
+ *             timeline layout. **components/NoteRow.tsx joined on 2026-08-01** (the notes
+ *             screen's own rows, via `titleInput` — see below); `shopping.tsx` still
+ *             hand-rolls ShoppingRow / MonthlyTableRow and is the one remaining conversion.
  *   Data    → none (presentational; every callback is the caller's)
  *
  * Edit notes:
@@ -46,6 +47,12 @@
  *     only strikes once the day's full count is met).
  *   - Check is visually 22×22 with `hitSlop={HitSlop.check}` → ~48dp, Android's minimum touch target.
  *     Don't shrink the hitSlop to "tidy up" the trailing cluster.
+ *   - **`titleInput` is for a row that edits itself in place**, and only that: components/
+ *     NoteRow.tsx, where the header field IS the note. It swaps the title Text for the
+ *     caller's TextInput and changes nothing else, so a screen full of editable rows still
+ *     has the same anatomy, gutters and trailing cluster as a screen of read-only ones.
+ *     Match `styles.title` (FontSize.md / Fonts.semibold) in the input you pass, and keep
+ *     the `done` strike on it — the rest of the finished-row treatment comes from the row.
  *   - `leading` is for an icon or a quantity — never a second check. StarterExampleRow's own
  *     leading circle is an icon and stays where it is, so an example still reads as a row of
  *     the list it sits in.
@@ -75,6 +82,17 @@ type Props = {
   done?: boolean;
   /** Optional icon or quantity before the title. Never a second check. */
   leading?: React.ReactNode;
+  /**
+   * An editable title, for a row that IS its own editor (app/notes.tsx, where typing the
+   * header is the whole point of the screen). Replaces the rendered `title` Text and takes
+   * its place in the layout exactly — `title` is still required and still carries the row's
+   * accessible name. Pass a bare TextInput styled by the caller; everything else about the
+   * row is unchanged, including `done` striking and fading it.
+   *
+   * Not a general escape hatch: the anatomy is still one title line, one meta line, one
+   * right-hand value. A surface that wants a *different shape* of title wants a different row.
+   */
+  titleInput?: React.ReactNode;
   /** The ONE secondary line. Omit for a single-line row. */
   meta?: React.ReactNode;
   /** The ONE right-hand value — a time, a price, a count. Rendered in tabular figures. */
@@ -100,6 +118,7 @@ export default function PadRow({
   accent,
   done,
   leading,
+  titleInput,
   meta,
   rightValue,
   onPress,
@@ -118,16 +137,18 @@ export default function PadRow({
 
   const body = (
     <View style={styles.body}>
-      <Text
-        style={[
-          styles.title,
-          { color: done ? theme.textMuted : theme.text },
-          done && styles.titleDone,
-        ]}
-        numberOfLines={1}
-      >
-        {title}
-      </Text>
+      {titleInput ?? (
+        <Text
+          style={[
+            styles.title,
+            { color: done ? theme.textMuted : theme.text },
+            done && styles.titleDone,
+          ]}
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
+      )}
       {hasMetaLine ? <View style={styles.metaLine}>{meta}</View> : null}
     </View>
   );

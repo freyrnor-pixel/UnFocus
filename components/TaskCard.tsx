@@ -135,7 +135,7 @@
  *     in Advanced options (Hint) or far down a long task list is easily hidden behind the
  *     keyboard on Android's `windowSoftInputMode=resize`. See lib/useKeyboardLift.ts.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Contact, ContactField } from 'expo-contacts';
@@ -231,6 +231,13 @@ type Props = {
   spec?: LayoutSpec;
   /** Task arrived since the user last opened this surface (lib/useNewSinceSeen.ts). */
   isNewSince?: boolean;
+  /**
+   * Reports the editor opening and closing. Only a parent that has to KNOW needs it — today
+   * that is app/(tabs)/plans.tsx's drag-reorder, which stands the gesture down while a card's
+   * editor is open (components/DraggableTaskRow's `isOpen`), so a long-press inside a text
+   * field can't grab the row. The expand state itself stays this component's.
+   */
+  onExpandedChange?: (open: boolean) => void;
 };
 
 function TaskCard({
@@ -248,6 +255,7 @@ function TaskCard({
   onToggleDone,
   spec = LAYOUT_SPECS.normal,
   isNewSince = false,
+  onExpandedChange,
 }: Props) {
   const theme = useAppTheme();
   const t = useT();
@@ -311,6 +319,14 @@ function TaskCard({
   const stepsOnly = variant === 'steps';
 
   const [expanded, setExpanded] = useState(!!isNew || !!autoExpand);
+  // Report the editor's open/closed state up, for the one parent that needs it (see the prop).
+  // Through a ref so an inline closure in the caller can't re-fire this every render, and with
+  // `expanded` as the only dependency — setExpanded is called from several places.
+  const reportExpanded = useRef(onExpandedChange);
+  reportExpanded.current = onExpandedChange;
+  useEffect(() => {
+    reportExpanded.current?.(expanded);
+  }, [expanded]);
   const [showCalendar, setShowCalendar] = useState(false);
   // "Time of day" is its own opt-in (2026-07-26 clarity pass). It used to be implied by
   // `hasStartDate || isRecurring`, so switching Repeat on silently produced two empty

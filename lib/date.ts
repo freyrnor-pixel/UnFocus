@@ -8,8 +8,7 @@
  *
  * Connections:
  *   Imports → —
- *   Used by → components/ShoppingQuickAddSheet.tsx,
- *             components/SharedRequestsSection.tsx, app/shopping.tsx, app/budget.tsx,
+ *   Used by → components/SharedRequestsSection.tsx, app/shopping.tsx, app/budget.tsx,
  *             app/shared.tsx, store/useShoppingListStore.ts
  *             (formatDisplayDate — Norwegian date display, code-only, no ledger number;
  *             see Decision 028's numbering note — renders stored ISO keys as DD.MM.YYYY in NO)

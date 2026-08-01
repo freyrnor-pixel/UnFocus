@@ -314,6 +314,44 @@ async function main() {
       pageErrors.push(`No checkbox found for note "${noteTitle}" — PadRow's check may not be wired`);
     }
 
+    // The full Notes screen (2026-08-01). It was a blind spot in this walk — reachable only
+    // by tapping Home's Notes card header — and it is where the note rows are EDITABLE, which
+    // is the one thing the Home pad deliberately doesn't do. Checks three things the PadRow
+    // conversion touched: the header renders as a real text field seeded from the note, the
+    // row's ⋯ opens the send-to sheet, and that sheet carries this screen's delete row.
+    console.log('> Home -> Notes screen (editable rows + the ⋯ sheet)');
+    await clickText(page, 'Notes');
+    await page.waitForTimeout(900);
+    await shot(page, 'notes-screen');
+    // Read the live DOM values rather than matching on an attribute: react-native-web sets a
+    // controlled input's `value` PROPERTY, which an `input[value=…]` selector doesn't see.
+    const noteFieldSeeded = await page.evaluate(
+      (title) => Array.from(document.querySelectorAll('input, textarea')).some((el) => el.value === title),
+      noteTitle
+    );
+    console.log(`  note header rendered as an editable field: ${noteFieldSeeded}`);
+    if (!noteFieldSeeded) pageErrors.push(`The Notes screen did not render "${noteTitle}" as an editable header field`);
+
+    const noteAction = page.getByRole('button', { name: 'Send it to…', exact: true }).first();
+    if (await noteAction.count()) {
+      await noteAction.scrollIntoViewIfNeeded();
+      await noteAction.click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      await shot(page, 'notes-send-to-sheet');
+      const hasDelete = await page.getByText('Delete note', { exact: true }).first().isVisible().catch(() => false);
+      console.log(`  send-to sheet offers this screen's delete row: ${hasDelete}`);
+      if (!hasDelete) pageErrors.push("The Notes screen's ⋯ sheet is missing its delete row");
+      // Close on the backdrop rather than picking a target: picking one navigates away with a
+      // prefill that would seed the next leg's add row.
+      await page.mouse.click(215, 60);
+      await page.waitForTimeout(600);
+    } else {
+      pageErrors.push('No ⋯ (Send it to…) button on the Notes screen — PadRow\'s action may not be wired');
+    }
+    await page.goBack();
+    await page.waitForTimeout(900);
+    await dismissTour(page);
+
     // Step the Shopping card's week pager one week forward and back.
     const weekNext = page.getByRole('button', { name: 'Next week', exact: true }).first();
     if (await weekNext.count()) {

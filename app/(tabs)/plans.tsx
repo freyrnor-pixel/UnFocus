@@ -21,6 +21,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedTasksSection,
  *             components/SectionRail, components/SectionCard, components/TaskCard, components/AddRow,
+ *             components/DraggableTaskRow (the Whenever list's long-press-drag),
  *             components/PressableScale, components/Surface (the local CollapsedSection's card
  *             shell), components/Collapsible + components/AnimatedChevron
  *             (animated "Finished (n)" done-zone reveal, and the collapsed Whenever drawer),
@@ -32,7 +33,8 @@
  *             expo-router (useLocalSearchParams — `tab`/`expandTaskId`, see below; useRouter —
  *             the header share icon's push to /share-modal), lib/date,
  *             lib/domainColor, lib/haptics,
- *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/prefill (usePrefill — a note
+ *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/useDragReorder (that drag's
+ *             shared bookkeeping), lib/prefill (usePrefill — a note
  *             sent here seeds the Whenever add row), store/useTaskStore,
  *             store/useSettingsStore, store/usePeopleStore + components/PersonChip (the person
  *             filter row), store/useTagStore + components/TagChip + lib/tags (the tag filter
@@ -49,6 +51,19 @@
  *             internally for incoming shares + accepts the sharedOut tasks as its "sent" half
  *
  * Edit notes:
+ *   - **Drag to reorder, on the Whenever list only (2026-08-01)**: hold a card ~400ms and drag,
+ *     the same gesture Home's cards, the shopping list, notes and habits use
+ *     (lib/useDragReorder.ts). It is wired on the **All tasks** tab's Whenever section and
+ *     nowhere else on this screen, deliberately: that is the one list here whose rows have no
+ *     time to order them by, and it is the widest view of them — Today and This week show the
+ *     same backlog through a narrower filter and in the same order, as a collapsed drawer.
+ *     Every other list on this screen is ordered by the clock (`byTime`), where dragging a
+ *     09:00 task below a 14:00 one would either lie about the order or silently retime the
+ *     task. Three things to keep intact: render from `wheneverDragged` (the drag's live order),
+ *     not `wheneverAll`; keep `openEditorIds` fed by TaskCard's `onExpandedChange`, or a
+ *     long-press inside an open editor's text field grabs the row instead of placing the
+ *     caret; and both Whenever selectors must keep sorting by `sortOrder`, or the drawer on
+ *     Today/This week shows the same rows in a different order from where they were dropped.
  *   - **Whenever moved below the day + collapsed (2026-08-01, DESIGN_RULES.md rule 7 —
  *     "order by what's needed first")**: on **Today** and **This week** the undated backlog used
  *     to render FIRST, above the tab's own content — the least time-sensitive section holding the
@@ -153,6 +168,7 @@ import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
 import { useCardState } from '@/lib/useCardState';
 import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
 import AddRow from '@/components/AddRow';
+import DraggableTaskRow from '@/components/DraggableTaskRow';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
 import Collapsible from '@/components/Collapsible';
@@ -167,6 +183,7 @@ import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { usePrefill } from '@/lib/prefill';
+import { useDragReorder } from '@/lib/useDragReorder';
 import { tap, success } from '@/lib/haptics';
 import { PLAN_STARTER_STEPS, PLAN_STARTER_TIME, PLAN_STARTER_FINISH_TIME } from '@/lib/taskStarters';
 import { Recurring, Task, useTaskStore } from '@/store/useTaskStore';
@@ -574,6 +591,7 @@ export default function TasksScreen() {
   const tasksForWeek = useTaskStore((s) => s.tasksForWeek);
   const toggle = useTaskStore((s) => s.toggle);
   const addTask = useTaskStore((s) => s.add);
+  const reorderTasks = useTaskStore((s) => s.reorderTasks);
   const addTaskStep = useTaskStore((s) => s.addStep);
   // Stable handler so the memoised TaskCards / SharedTasksSection don't get a fresh
   // onToggleDone closure every render (which would defeat their React.memo).
@@ -695,8 +713,14 @@ export default function TasksScreen() {
   const weekStart = weekDates[0];
 
   // ── Section selectors ──
+  // Sorted by the manual drag order (2026-08-01). Array.prototype.sort is stable, so until
+  // somebody actually drags a row every sortOrder is still 0 and this is exactly the load
+  // order (task_date, task_time) it has always been.
   const wheneverAll = useMemo(
-    () => tasks.filter((tk) => tk.recurring === 'none' && !tk.sharedOut && matchFilters(tk)),
+    () =>
+      tasks
+        .filter((tk) => tk.recurring === 'none' && !tk.sharedOut && matchFilters(tk))
+        .sort((a, b) => a.sortOrder - b.sortOrder),
     [tasks, matchFilters]
   );
   const recurringAll = useMemo(
@@ -704,8 +728,14 @@ export default function TasksScreen() {
     [tasks, matchFilters]
   );
   const sharedOutAll = useMemo(() => tasks.filter((tk) => tk.sharedOut && matchFilters(tk)), [tasks, matchFilters]);
+  // Same manual order as the All tab's Whenever section — this is the same backlog seen
+  // through a narrower filter, so it must not come out in a different order. The drag itself
+  // lives on the All tab only; here the section is a collapsed drawer under the day's list.
   const undatedWhenever = useMemo(
-    () => tasks.filter((tk) => tk.recurring === 'none' && !tk.hasStartDate && !tk.sharedOut && matchFilters(tk)),
+    () =>
+      tasks
+        .filter((tk) => tk.recurring === 'none' && !tk.hasStartDate && !tk.sharedOut && matchFilters(tk))
+        .sort((a, b) => a.sortOrder - b.sortOrder),
     [tasks, matchFilters]
   );
 
@@ -732,6 +762,37 @@ export default function TasksScreen() {
       all: open(undatedWhenever),
     };
   }, [layoutSpec.id, todayList, weekGroups, undatedWhenever]);
+
+  // ── Drag to reorder the backlog ──
+  // The Whenever section on the All tab is where the manual order of the backlog is authored:
+  // it is the one list of tasks with no time to put them in order, and it is the widest view
+  // of them (Today and This week show the same rows through a narrower filter, in the same
+  // order, as a collapsed drawer). Everything else on this screen is ordered by the clock —
+  // dragging a 09:00 task under a 14:00 one would either lie or silently retime it — so those
+  // lists deliberately do not drag. See lib/useDragReorder.ts for the shared mechanic.
+  const wheneverDrag = useDragReorder(
+    useMemo(() => wheneverAll.map((tk) => tk.id), [wheneverAll]),
+    reorderTasks
+  );
+  const wheneverDragged = useMemo(
+    () =>
+      wheneverDrag.order
+        .map((id) => wheneverAll.find((tk) => tk.id === id))
+        .filter((tk): tk is Task => !!tk),
+    [wheneverDrag.order, wheneverAll]
+  );
+  // Which cards have their editor open: a drag has to stand down for those, or a long-press
+  // inside a text field grabs the row instead of placing the caret (DraggableTaskRow.isOpen).
+  const [openEditorIds, setOpenEditorIds] = useState<Set<string>>(new Set());
+  const setEditorOpen = useCallback((id: string, open: boolean) => {
+    setOpenEditorIds((prev) => {
+      if (prev.has(id) === open) return prev;
+      const next = new Set(prev);
+      if (open) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
 
   // "By person" layout — only meaningful once there's more than one person to group under,
   // so it degrades to the normal single-section list rather than drawing one card labelled
@@ -1006,8 +1067,17 @@ export default function TasksScreen() {
             <SectionCard hue={wheneverHue} domain="task" label={t.tasksSectionWhenever} count={wheneverAll.length}>
               {wheneverAll.length > 0 && (
                 <View style={styles.cardStack}>
-                  {wheneverAll.map((tk) => (
-                    <TaskCard key={tk.id} task={tk} showDelete showShareOut autoExpand={tk.id === expandTaskId} onToggleDone={handleToggleDone} />
+                  {wheneverDragged.map((tk) => (
+                    <DraggableTaskRow key={tk.id} isOpen={openEditorIds.has(tk.id)} {...wheneverDrag.rowProps(tk.id)}>
+                      <TaskCard
+                        task={tk}
+                        showDelete
+                        showShareOut
+                        autoExpand={tk.id === expandTaskId}
+                        onToggleDone={handleToggleDone}
+                        onExpandedChange={(open) => setEditorOpen(tk.id, open)}
+                      />
+                    </DraggableTaskRow>
                   ))}
                 </View>
               )}
