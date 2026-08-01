@@ -22,7 +22,8 @@
  *             (Input/Switch), constants/theme, lib/date (todayStr), lib/haptics, lib/i18n,
  *             lib/domainColor, lib/medicineSchedule (all tray/dose math), lib/useAppTheme,
  *             lib/useNowMinutes (60s tick, shared with components/PlanTaskCard.tsx),
- *             store/useMedicineStore, store/useSettingsStore
+ *             lib/useKeyboardLift (per tray-time field), store/useMedicineStore,
+ *             store/useSettingsStore
  *   Used by → app/(tabs)/health.tsx (rendered above Quick log, gated on settings.featureMedicine)
  *   Data    → useMedicineStore (medicines + medicine_doses) via add/takeDose/untakeDose;
  *             useSettingsStore for the tray times + reminder switch (written straight back)
@@ -41,6 +42,11 @@
  *     component never schedules a notification directly.
  *   - `person` is `null` (not '') when People mode is off, so the helpers don't filter at
  *     all; passing '' would hide every profile's medicine. See lib/medicineSchedule.ts.
+ *   - **Keyboard-avoidance (2026-08-01)**: each of the 4 tray-time fields gets its own
+ *     `useKeyboardLift`, same pattern as TaskCard's fields — the reminder panel can sit well
+ *     down the card, and `Input` doesn't forward a ref, so each field's wrapping View is what
+ *     gets measured/lifted (see lib/useKeyboardLift.ts's doc on wrapping vs. direct refs).
+ *     The trailing AddRow already lifts itself internally — nothing to add there.
  */
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -65,6 +71,7 @@ import { success, tap } from '@/lib/haptics';
 import { getDomainColor } from '@/lib/domainColor';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useNowMinutes } from '@/lib/useNowMinutes';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 import {
   asNeededMedicines,
   asNeededState,
@@ -117,6 +124,19 @@ export default function MedicineTrayCard() {
   const [timeDrafts, setTimeDrafts] = useState<Partial<Record<TrayId, string>>>({});
   const [selectedPerson, setSelectedPerson] = useState('');
 
+  // One lift per tray field (hooks can't be called from inside TRAY_IDS.map) — see the
+  // keyboard-avoidance edit note above.
+  const morningLift = useKeyboardLift<View>();
+  const middayLift = useKeyboardLift<View>();
+  const eveningLift = useKeyboardLift<View>();
+  const nightLift = useKeyboardLift<View>();
+  const trayLifts: Record<TrayId, ReturnType<typeof useKeyboardLift<View>>> = {
+    morning: morningLift,
+    midday: middayLift,
+    evening: eveningLift,
+    night: nightLift,
+  };
+
   const now = useNowMinutes();
   const today = todayStr();
   const showProfiles = peopleModeEnabled && people.length > 1;
@@ -141,7 +161,10 @@ export default function MedicineTrayCard() {
     }
     if (upcoming && activeTrays.includes(upcoming)) {
       return {
-        text: t.medicine.nextUp(t.medicine.trays[upcoming], formatMinutes(trayMinutes(trayTimes, upcoming))),
+        text: t.medicine.nextUp(
+          t.medicine.trays[upcoming],
+          formatMinutes(trayMinutes(trayTimes, upcoming))
+        ),
         color: theme.textMuted,
       };
     }
@@ -216,7 +239,10 @@ export default function MedicineTrayCard() {
                   name={person.name}
                   color={personColor(person.color, index)}
                   selected={selectedPerson === value}
-                  onPress={() => { tap(); setSelectedPerson(value); }}
+                  onPress={() => {
+                    tap();
+                    setSelectedPerson(value);
+                  }}
                 />
               );
             })}
@@ -227,7 +253,9 @@ export default function MedicineTrayCard() {
         <Collapsible open={remindersOpen}>
           <View style={[styles.reminderPanel, { borderColor: theme.border }]}>
             <View style={styles.reminderToggleRow}>
-              <Text style={[styles.reminderLabel, { color: theme.text }]}>{t.medicine.remindersToggle}</Text>
+              <Text style={[styles.reminderLabel, { color: theme.text }]}>
+                {t.medicine.remindersToggle}
+              </Text>
               <Switch
                 checked={remindersEnabled}
                 onChange={(v) => {
@@ -237,7 +265,9 @@ export default function MedicineTrayCard() {
               />
             </View>
             {!remindersEnabled && (
-              <Text style={[styles.reminderHint, { color: theme.textMuted }]}>{t.medicine.remindersOffHint}</Text>
+              <Text style={[styles.reminderHint, { color: theme.textMuted }]}>
+                {t.medicine.remindersOffHint}
+              </Text>
             )}
             {remindersEnabled && (
               <>
@@ -247,14 +277,20 @@ export default function MedicineTrayCard() {
                       <Text style={[styles.timeFieldLabel, { color: theme.textMuted }]}>
                         {t.medicine.trays[tray]}
                       </Text>
-                      <Input
-                        value={timeDrafts[tray] ?? trayTimes[tray]}
-                        onChangeText={(v) => setTimeDrafts((prev) => ({ ...prev, [tray]: v }))}
-                        onBlur={() => commitTrayTime(tray)}
-                        placeholder={t.timeInputPlaceholder}
-                        keyboardType="numbers-and-punctuation"
-                        style={styles.timeInput}
-                      />
+                      <View ref={trayLifts[tray].ref}>
+                        <Input
+                          value={timeDrafts[tray] ?? trayTimes[tray]}
+                          onChangeText={(v) => setTimeDrafts((prev) => ({ ...prev, [tray]: v }))}
+                          onFocus={trayLifts[tray].onFocus}
+                          onBlur={() => {
+                            commitTrayTime(tray);
+                            trayLifts[tray].onBlur();
+                          }}
+                          placeholder={t.timeInputPlaceholder}
+                          keyboardType="numbers-and-punctuation"
+                          style={styles.timeInput}
+                        />
+                      </View>
                     </View>
                   ))}
                 </View>
@@ -281,7 +317,9 @@ export default function MedicineTrayCard() {
                   size={15}
                   color={isDue ? theme.warn : theme.textMuted}
                 />
-                <Text style={[styles.trayLabel, { color: theme.text }]}>{t.medicine.trays[tray]}</Text>
+                <Text style={[styles.trayLabel, { color: theme.text }]}>
+                  {t.medicine.trays[tray]}
+                </Text>
                 <Text style={[styles.trayTime, { color: theme.textMuted }]}>
                   {formatMinutes(trayMinutes(trayTimes, tray))}
                 </Text>
@@ -296,12 +334,16 @@ export default function MedicineTrayCard() {
               </View>
               {inTray.map((med) => {
                 const isTaken = isDoseTaken(doses, med.id, tray, today);
-                const dose = doses.find((d) => d.medicineId === med.id && d.date === today && d.tray === tray);
+                const dose = doses.find(
+                  (d) => d.medicineId === med.id && d.date === today && d.tray === tray
+                );
                 return (
                   <View key={med.id} style={styles.medRow}>
                     <PressableScale
                       style={styles.medNameWrap}
-                      onPress={() => router.push({ pathname: '/medicine-form', params: { id: med.id } })}
+                      onPress={() =>
+                        router.push({ pathname: '/medicine-form', params: { id: med.id } })
+                      }
                       accessibilityRole="button"
                       accessibilityLabel={med.name}
                       scaleTo={0.98}
@@ -311,14 +353,20 @@ export default function MedicineTrayCard() {
                         numberOfLines={1}
                       >
                         {med.name}
-                        {med.dose ? <Text style={{ color: theme.textMuted }}>{`  ${med.dose}`}</Text> : null}
+                        {med.dose ? (
+                          <Text style={{ color: theme.textMuted }}>{`  ${med.dose}`}</Text>
+                        ) : null}
                       </Text>
                       {showProfiles && med.childName ? (
-                        <Text style={[styles.medMeta, { color: theme.textMuted }]}>{med.childName}</Text>
+                        <Text style={[styles.medMeta, { color: theme.textMuted }]}>
+                          {med.childName}
+                        </Text>
                       ) : null}
                     </PressableScale>
                     {isTaken && dose?.takenAt ? (
-                      <Text style={[styles.medMeta, { color: theme.good }]}>{t.medicine.takenAt(dose.takenAt)}</Text>
+                      <Text style={[styles.medMeta, { color: theme.good }]}>
+                        {t.medicine.takenAt(dose.takenAt)}
+                      </Text>
                     ) : null}
                     {/* Dose circle in the right margin (2026-07-30 row rule — see AGENTS.md and
                         components/PadRow.tsx). It used to lead this row. */}
@@ -326,7 +374,9 @@ export default function MedicineTrayCard() {
                       onPress={() => toggleDose(med, tray)}
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: isTaken }}
-                      accessibilityLabel={isTaken ? t.medicine.undoTaken(med.name) : t.medicine.markTaken(med.name)}
+                      accessibilityLabel={
+                        isTaken ? t.medicine.undoTaken(med.name) : t.medicine.markTaken(med.name)
+                      }
                       hitSlop={HitSlop.check}
                       scaleTo={0.9}
                     >
@@ -352,7 +402,9 @@ export default function MedicineTrayCard() {
           <View style={styles.traySection}>
             <View style={styles.trayHeader}>
               <Ionicons name="flash-outline" size={15} color={theme.textMuted} />
-              <Text style={[styles.trayLabel, { color: theme.text }]}>{t.medicine.asNeededLabel}</Text>
+              <Text style={[styles.trayLabel, { color: theme.text }]}>
+                {t.medicine.asNeededLabel}
+              </Text>
             </View>
             {asNeeded.map((med) => {
               const state = asNeededState(med, doses, today, now);
@@ -397,14 +449,18 @@ export default function MedicineTrayCard() {
                   </PressableScale>
                   <PressableScale
                     style={styles.medNameWrap}
-                    onPress={() => router.push({ pathname: '/medicine-form', params: { id: med.id } })}
+                    onPress={() =>
+                      router.push({ pathname: '/medicine-form', params: { id: med.id } })
+                    }
                     accessibilityRole="button"
                     accessibilityLabel={med.name}
                     scaleTo={0.98}
                   >
                     <Text style={[styles.medName, { color: theme.text }]} numberOfLines={1}>
                       {med.name}
-                      {med.dose ? <Text style={{ color: theme.textMuted }}>{`  ${med.dose}`}</Text> : null}
+                      {med.dose ? (
+                        <Text style={{ color: theme.textMuted }}>{`  ${med.dose}`}</Text>
+                      ) : null}
                     </Text>
                     <Text style={[styles.medMeta, { color: theme.textMuted }]}>{stateText}</Text>
                   </PressableScale>
@@ -465,7 +521,11 @@ const baseStyles = StyleSheet.create({
     borderTopWidth: 1,
     gap: Spacing.xs,
   },
-  reminderToggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  reminderToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   reminderLabel: { flex: 1, fontSize: FontSize.sm },
   reminderHint: { fontSize: FontSize.xs },
   timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
@@ -476,7 +536,12 @@ const baseStyles = StyleSheet.create({
   trayHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   trayLabel: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   trayTime: { fontSize: FontSize.xs },
-  trayCount: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, minWidth: 28, textAlign: 'right' },
+  trayCount: {
+    fontSize: FontSize.xs,
+    fontFamily: Fonts.semibold,
+    minWidth: 28,
+    textAlign: 'right',
+  },
   medRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.xs },
   doseCircle: {
     width: 24,

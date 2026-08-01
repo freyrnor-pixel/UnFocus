@@ -9,7 +9,7 @@
  * a plain, non-interactive label (used for the collapsed row's start-time display).
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme
+ *   Imports → constants/theme, lib/useAppTheme, lib/useKeyboardLift
  *   Used by → components/TaskCard.tsx (Start / Finish pair)
  *   Data    → none (controlled; value/onChange from props)
  *
@@ -17,11 +17,16 @@
  *   - The hidden TextInput carries only the raw digits (no colon), so maxLength=4 caps it.
  *   - onChange fires only with a fully-formed HH:MM (on the 4th digit or on blur) so the
  *     parent never sees an intermediate partial like "9:" — matches the collapsed-label sync.
+ *   - **Keyboard-avoidance (2026-08-01)**: `useKeyboardLift`'s own ref stands in for the
+ *     `.focus()` ref this component already needed (a hidden TextInput is a host component,
+ *     so no wrapping View is required — see lib/useKeyboardLift.ts's doc) — self-contained,
+ *     so TaskCard doesn't need to wire anything for the Start/Finish pair.
  */
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 
 type Props = {
   value?: string; // 'HH:MM' or ''
@@ -44,7 +49,7 @@ function normalize(digits: string): string {
 
 export default function TimeBoxInput({ value, onChange, readOnly, placeholder = '--' }: Props) {
   const theme = useAppTheme();
-  const inputRef = useRef<TextInput>(null);
+  const { ref: inputRef, onFocus: liftOnFocus, onBlur: liftOnBlur } = useKeyboardLift<TextInput>();
   const [focused, setFocused] = useState(false);
   const [digits, setDigits] = useState(() => digitsOf(value));
 
@@ -56,7 +61,11 @@ export default function TimeBoxInput({ value, onChange, readOnly, placeholder = 
 
   const hourStr = digits.slice(0, 2);
   const minStr = digits.slice(2, 4);
-  const activeField: 'hour' | 'minute' | null = focused ? (digits.length < 2 ? 'hour' : 'minute') : null;
+  const activeField: 'hour' | 'minute' | null = focused
+    ? digits.length < 2
+      ? 'hour'
+      : 'minute'
+    : null;
 
   if (readOnly) {
     return (
@@ -72,12 +81,19 @@ export default function TimeBoxInput({ value, onChange, readOnly, placeholder = 
     if (next.length === 4) onChange(normalize(next));
   }
 
+  function handleFocus() {
+    setFocused(true);
+    liftOnFocus();
+  }
+
   function handleBlur() {
     setFocused(false);
     onChange(normalize(digits));
+    liftOnBlur();
   }
 
-  const boxColor = (field: 'hour' | 'minute') => (activeField === field ? theme.accent : theme.border);
+  const boxColor = (field: 'hour' | 'minute') =>
+    activeField === field ? theme.accent : theme.border;
 
   return (
     <Pressable style={styles.wrap} onPress={() => inputRef.current?.focus()}>
@@ -87,7 +103,9 @@ export default function TimeBoxInput({ value, onChange, readOnly, placeholder = 
         </Text>
       </View>
       <Text style={[styles.colon, { color: theme.textMuted }]}>:</Text>
-      <View style={[styles.box, { borderColor: boxColor('minute'), backgroundColor: theme.surface }]}>
+      <View
+        style={[styles.box, { borderColor: boxColor('minute'), backgroundColor: theme.surface }]}
+      >
         <Text style={[styles.boxText, { color: minStr ? theme.text : theme.textMuted }]}>
           {minStr || placeholder}
         </Text>
@@ -97,7 +115,7 @@ export default function TimeBoxInput({ value, onChange, readOnly, placeholder = 
         style={styles.hiddenInput}
         value={digits}
         onChangeText={handleChange}
-        onFocus={() => setFocused(true)}
+        onFocus={handleFocus}
         onBlur={handleBlur}
         keyboardType="number-pad"
         maxLength={4}

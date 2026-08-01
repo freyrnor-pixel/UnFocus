@@ -21,7 +21,7 @@
  * Connections:
  *   Imports → components/FormControls (Input, Switch), components/PressableScale,
  *             constants/theme, lib/i18n, lib/money, lib/useAppTheme, lib/haptics,
- *             store/useCatalogStore, @expo/vector-icons
+ *             lib/useKeyboardLift, store/useCatalogStore, @expo/vector-icons
  *   Used by → app/(tabs)/shopping.tsx (Monthly tab catalog add),
  *             components/WeekListCard.tsx (Weekly tab's "In list" add row)
  *   Data    → none directly — creation flows out via onAdd (payload now optionally carries
@@ -52,11 +52,24 @@
  *     catalog rows restock to that target at monthly reset. WeekListCard passes
  *     `quantityLabel={t.onsketAntallWeeklyLabel}` to override it, since Weekly items are never
  *     reset — the field there is just "how many do you want."
+ *   - **Keyboard-avoidance (2026-08-01)**: name and price each get their own `useKeyboardLift`
+ *     (wrapping View, since `Input` doesn't forward a ref) — this panel expands inline and can
+ *     push the price field/category chips/quantity stepper/actions row below the keyboard on
+ *     Android, same class of bug AddRow.tsx already handles for the simpler single-field case.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutAnimation, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { contrastOn, Fonts, FontSize, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import {
+  contrastOn,
+  Fonts,
+  FontSize,
+  Radius,
+  Spacing,
+  TabularNums,
+  MIN_TAP_TARGET,
+  HitSlop,
+} from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
@@ -64,6 +77,7 @@ import { confirm as hapticConfirm } from '@/lib/haptics';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import PressableScale from '@/components/PressableScale';
 import { Input, Switch } from '@/components/FormControls';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 
 type Props = {
   label: string;
@@ -116,6 +130,9 @@ export default function InlineAddItem({
   const [temporary, setTemporary] = useState(false);
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+
+  const nameLift = useKeyboardLift<View>();
+  const priceLift = useKeyboardLift<View>();
 
   const fill = accent ?? theme.accent;
 
@@ -184,7 +201,9 @@ export default function InlineAddItem({
         scaleTo={0.97}
       >
         <Ionicons name="add-circle-outline" size={18} color={fill} />
-        <Text style={[styles.addBarLabel, { color: fill }]} numberOfLines={1}>{label}</Text>
+        <Text style={[styles.addBarLabel, { color: fill }]} numberOfLines={1}>
+          {label}
+        </Text>
       </PressableScale>
     );
   }
@@ -192,41 +211,67 @@ export default function InlineAddItem({
   // ── Expanded: the full add-item form, inline ──
   const canAdd = name.trim().length > 0;
   return (
-    <View style={[styles.panel, { backgroundColor: theme.surface, borderColor: theme.border }, style]}>
-      <Input
-        label={t.varenavnLabel}
-        value={name}
-        onChangeText={(v) => { setName(v); setSuggestionsDismissed(false); }}
-        placeholder={t.shoppingItemPlaceholder}
-        returnKeyType="done"
-        autoFocus
-        onSubmitEditing={handleAdd}
-        onBlur={() => {
-          if (name.trim() || price || targetQty !== 1 || temporary || category) return;
-          if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          setExpanded(false);
-        }}
-      />
+    <View
+      style={[styles.panel, { backgroundColor: theme.surface, borderColor: theme.border }, style]}
+    >
+      <View ref={nameLift.ref}>
+        <Input
+          label={t.varenavnLabel}
+          value={name}
+          onChangeText={(v) => {
+            setName(v);
+            setSuggestionsDismissed(false);
+          }}
+          placeholder={t.shoppingItemPlaceholder}
+          returnKeyType="done"
+          autoFocus
+          onSubmitEditing={handleAdd}
+          onFocus={nameLift.onFocus}
+          onBlur={() => {
+            nameLift.onBlur();
+            if (name.trim() || price || targetQty !== 1 || temporary || category) return;
+            if (!reducedMotion)
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setExpanded(false);
+          }}
+        />
+      </View>
       {suggestions.length > 0 && (
-        <View style={[styles.suggestionsBox, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+        <View
+          style={[
+            styles.suggestionsBox,
+            { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+          ]}
+        >
           {suggestions.map((s) => (
-            <PressableScale key={s.id} style={styles.suggestionRow} onPress={() => handlePickSuggestion(s)} scaleTo={0.97}>
-              <Text style={[styles.suggestionName, { color: theme.text }]} numberOfLines={1}>{s.name}</Text>
+            <PressableScale
+              key={s.id}
+              style={styles.suggestionRow}
+              onPress={() => handlePickSuggestion(s)}
+              scaleTo={0.97}
+            >
+              <Text style={[styles.suggestionName, { color: theme.text }]} numberOfLines={1}>
+                {s.name}
+              </Text>
               {s.price > 0 && (
-                <Text style={[styles.suggestionPrice, TabularNums, { color: theme.textMuted }]}>{formatKr(s.price, 0)}</Text>
+                <Text style={[styles.suggestionPrice, TabularNums, { color: theme.textMuted }]}>
+                  {formatKr(s.price, 0)}
+                </Text>
               )}
             </PressableScale>
           ))}
         </View>
       )}
 
-      <View style={styles.priceFieldWrap}>
+      <View style={styles.priceFieldWrap} ref={priceLift.ref}>
         <Input
           label={t.estimertPrisLabel}
           value={price}
           onChangeText={setPrice}
           keyboardType="decimal-pad"
           placeholder="0"
+          onFocus={priceLift.onFocus}
+          onBlur={priceLift.onBlur}
         />
       </View>
 
@@ -248,7 +293,10 @@ export default function InlineAddItem({
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
                 >
-                  <Text style={[styles.categoryChipText, { color: selected ? contrastOn(fill) : fill }]} numberOfLines={1}>
+                  <Text
+                    style={[styles.categoryChipText, { color: selected ? contrastOn(fill) : fill }]}
+                    numberOfLines={1}
+                  >
                     {c.label}
                   </Text>
                 </PressableScale>
@@ -258,22 +306,30 @@ export default function InlineAddItem({
         </>
       )}
 
-      <Text style={[styles.label, { color: theme.textMuted }]}>{quantityLabel ?? t.onsketAntallLabel}</Text>
+      <Text style={[styles.label, { color: theme.textMuted }]}>
+        {quantityLabel ?? t.onsketAntallLabel}
+      </Text>
       <View style={styles.stepperRow}>
         <PressableScale
-          style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+          style={[
+            styles.stepBtn,
+            { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+          ]}
           onPress={() => setTargetQty((q) => Math.max(1, q - 1))}
           hitSlop={HitSlop.snug}
-          scaleTo={0.90}
+          scaleTo={0.9}
         >
           <Text style={[styles.stepText, { color: theme.text }]}>−</Text>
         </PressableScale>
         <Text style={[styles.qtyText, { color: theme.text }]}>{targetQty}</Text>
         <PressableScale
-          style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+          style={[
+            styles.stepBtn,
+            { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+          ]}
           onPress={() => setTargetQty((q) => q + 1)}
           hitSlop={HitSlop.snug}
-          scaleTo={0.90}
+          scaleTo={0.9}
         >
           <Text style={[styles.stepText, { color: theme.text }]}>+</Text>
         </PressableScale>
@@ -281,7 +337,9 @@ export default function InlineAddItem({
 
       {showTemporaryToggle && (
         <View style={styles.toggleRow}>
-          <Text style={[styles.label, { color: theme.textMuted, marginBottom: 0 }]}>{t.midlertidigToggleLabel}</Text>
+          <Text style={[styles.label, { color: theme.textMuted, marginBottom: 0 }]}>
+            {t.midlertidigToggleLabel}
+          </Text>
           <Switch checked={temporary} onChange={setTemporary} />
         </View>
       )}
@@ -303,7 +361,11 @@ export default function InlineAddItem({
           scaleTo={0.95}
           haptic={false}
         >
-          <Text style={[styles.primaryBtnText, { color: canAdd ? contrastOn(fill) : theme.textMuted }]}>{t.addItemBtn}</Text>
+          <Text
+            style={[styles.primaryBtnText, { color: canAdd ? contrastOn(fill) : theme.textMuted }]}
+          >
+            {t.addItemBtn}
+          </Text>
         </PressableScale>
       </View>
     </View>
@@ -324,10 +386,21 @@ const baseStyles = StyleSheet.create({
   },
   addBarLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   panel: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md },
-  label: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginTop: Spacing.sm, marginBottom: 4 },
+  label: {
+    fontSize: FontSize.xs,
+    fontFamily: Fonts.semibold,
+    marginTop: Spacing.sm,
+    marginBottom: 4,
+  },
   priceFieldWrap: { marginTop: Spacing.sm },
   suggestionsBox: { borderRadius: Radius.sm, marginTop: 4, borderWidth: 1, overflow: 'hidden' },
-  suggestionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
   suggestionName: { flex: 1, fontSize: FontSize.sm },
   suggestionPrice: { fontSize: FontSize.xs },
   categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
@@ -342,13 +415,35 @@ const baseStyles = StyleSheet.create({
   // Both halves muted + bordered — see components/Stepper.tsx's edit note (addendum B.1,
   // 2026-08-01). This panel already ends in a filled primary "Add" button; an accent-filled
   // "+" a few rows above it gave the panel two competing fills.
-  stepBtn: { width: 34, height: 34, borderRadius: Radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  stepBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   stepText: { fontSize: FontSize.lg, fontFamily: Fonts.bold, lineHeight: 22 },
   qtyText: { fontSize: FontSize.md, fontFamily: Fonts.bold, minWidth: 28, textAlign: 'center' },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.sm },
-  actionsRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.lg, marginBottom: Spacing.xs },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.sm,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xs,
+  },
   ghostBtn: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: Radius.md },
   ghostBtnText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
-  primaryBtn: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: Radius.md },
+  primaryBtn: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    alignItems: 'center',
+    borderRadius: Radius.md,
+  },
   primaryBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 });

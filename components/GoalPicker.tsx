@@ -10,8 +10,8 @@
  * Connections:
  *   Imports → components/Button, components/IconButton, components/PressableScale,
  *             components/GoalGlowDot, components/FormControls (Input), components/OptionalTag,
- *             constants/theme, lib/useAppTheme, lib/i18n, lib/haptics, store/useGoalStore,
- *             components/AppModal
+ *             constants/theme, lib/useAppTheme, lib/i18n, lib/haptics, lib/useKeyboardLift,
+ *             store/useGoalStore, components/AppModal
  *   Used by → components/TaskCard.tsx (was app/task-form.tsx, retired 2026-07-23, UX audit
  *             B1 — see that file's header), app/habit-form.tsx
  *   Data    → reads/writes useGoalStore (goals table) via add/rename/remove; the selected
@@ -22,6 +22,11 @@
  *     button unlinks (onChange(null)) without deleting the goal itself.
  *   - Deleting a goal here removes it everywhere (useGoalStore.remove nulls every linked
  *     task/habit); if the deleted goal was the current selection, we also unlink it locally.
+ *   - **Keyboard-avoidance (2026-08-01)**: the inline "new goal" field self-lifts via
+ *     `useKeyboardLift` (wrapping its `newInputWrap` View, since `Input` doesn't forward a
+ *     ref) — needed when this picker is embedded in `TaskCard.tsx`, which has no page-level
+ *     `KeyboardAvoidingView` of its own; harmless/no-op inside `habit-form.tsx`, which already
+ *     wraps its whole form in one.
  */
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -37,6 +42,7 @@ import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { selection, tap } from '@/lib/haptics';
 import { useGoalStore } from '@/store/useGoalStore';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 
 type Props = {
   value: string | null;
@@ -54,8 +60,9 @@ export function GoalPicker({ value, onChange }: Props) {
 
   const [open, setOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  const newGoalLift = useKeyboardLift<View>();
 
-  const selected = value ? goals.find((g) => g.id === value) ?? null : null;
+  const selected = value ? (goals.find((g) => g.id === value) ?? null) : null;
 
   function pick(id: string) {
     selection();
@@ -74,17 +81,21 @@ export function GoalPicker({ value, onChange }: Props) {
   }
 
   function confirmDelete(id: string, title: string) {
-    showAppModal(t.goals.deleteConfirmTitle(title || t.goals.pickerLabel), t.goals.deleteConfirmBody, [
-      { text: t.cancel, style: 'cancel' },
-      {
-        text: t.goals.deleteLabel,
-        style: 'destructive',
-        onPress: () => {
-          removeGoal(id);
-          if (value === id) onChange(null);
+    showAppModal(
+      t.goals.deleteConfirmTitle(title || t.goals.pickerLabel),
+      t.goals.deleteConfirmBody,
+      [
+        { text: t.cancel, style: 'cancel' },
+        {
+          text: t.goals.deleteLabel,
+          style: 'destructive',
+          onPress: () => {
+            removeGoal(id);
+            if (value === id) onChange(null);
+          },
         },
-      },
-    ]);
+      ]
+    );
   }
 
   return (
@@ -96,11 +107,20 @@ export function GoalPicker({ value, onChange }: Props) {
 
       {selected ? (
         <View style={[styles.row, { backgroundColor: theme.surfaceMuted }]}>
-          <GoalGlowDot color={selected.color} strength={selected.strength} strengthUpdatedAt={selected.strengthUpdatedAt} />
+          <GoalGlowDot
+            color={selected.color}
+            strength={selected.strength}
+            strengthUpdatedAt={selected.strengthUpdatedAt}
+          />
           <Text style={[styles.rowText, { color: theme.text }]} numberOfLines={1}>
             {selected.title}
           </Text>
-          <IconButton icon="close-circle" label={t.goals.remove} onPress={() => onChange(null)} size={28} />
+          <IconButton
+            icon="close-circle"
+            label={t.goals.remove}
+            onPress={() => onChange(null)}
+            size={28}
+          />
         </View>
       ) : (
         <>
@@ -118,34 +138,59 @@ export function GoalPicker({ value, onChange }: Props) {
       {open && !selected && (
         <View style={[styles.list, { backgroundColor: theme.surfaceMuted }]}>
           {goals.length === 0 ? (
-            <Text style={[styles.hint, styles.emptyPad, { color: theme.textMuted }]}>{t.goals.emptyList}</Text>
+            <Text style={[styles.hint, styles.emptyPad, { color: theme.textMuted }]}>
+              {t.goals.emptyList}
+            </Text>
           ) : (
             goals.map((g, i) => (
               <View
                 key={g.id}
                 style={[
                   styles.pickRow,
-                  i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
+                  i > 0 && {
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: theme.border,
+                  },
                 ]}
               >
-                <PressableScale style={styles.pickRowMain} onPress={() => pick(g.id)} scaleTo={0.97}>
-                  <GoalGlowDot color={g.color} strength={g.strength} strengthUpdatedAt={g.strengthUpdatedAt} />
+                <PressableScale
+                  style={styles.pickRowMain}
+                  onPress={() => pick(g.id)}
+                  scaleTo={0.97}
+                >
+                  <GoalGlowDot
+                    color={g.color}
+                    strength={g.strength}
+                    strengthUpdatedAt={g.strengthUpdatedAt}
+                  />
                   <Text style={[styles.rowText, { color: theme.text }]} numberOfLines={1}>
                     {g.title}
                   </Text>
                 </PressableScale>
-                <IconButton icon="trash-outline" label={t.goals.deleteLabel} onPress={() => confirmDelete(g.id, g.title)} size={26} />
+                <IconButton
+                  icon="trash-outline"
+                  label={t.goals.deleteLabel}
+                  onPress={() => confirmDelete(g.id, g.title)}
+                  size={26}
+                />
               </View>
             ))
           )}
-          <View style={[styles.newRow, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }]}>
-            <View style={styles.newInputWrap}>
+          <View
+            style={[
+              styles.newRow,
+              { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
+            ]}
+          >
+            <View style={styles.newInputWrap} ref={newGoalLift.ref}>
               <Input
                 value={newTitle}
                 onChangeText={setNewTitle}
                 placeholder={t.goals.newPlaceholder}
                 returnKeyType="done"
                 onSubmitEditing={handleCreate}
+                onFocus={newGoalLift.onFocus}
+                onBlur={newGoalLift.onBlur}
               />
             </View>
             <IconButton icon="add" label={t.goals.add} onPress={handleCreate} />
@@ -174,7 +219,14 @@ const baseStyles = StyleSheet.create({
   list: { borderRadius: Radius.md, marginTop: Spacing.xs, overflow: 'hidden' },
   emptyPad: { padding: Spacing.md, marginTop: 0 },
   pickRow: { flexDirection: 'row', alignItems: 'center', paddingRight: Spacing.sm },
-  pickRowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
+  pickRowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
   newRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, padding: Spacing.sm },
   newInputWrap: { flex: 1 },
 });

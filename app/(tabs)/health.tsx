@@ -51,7 +51,8 @@
  *             components/DebugNoteAnchor, components/AddRow,
  *             components/FormControls (Input), constants/theme, lib/date, lib/i18n,
  *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor,
- *             lib/haptics, store/useHealthStore,
+ *             lib/haptics, lib/useKeyboardLift (Quick log's start-time/duration fields),
+ *             store/useHealthStore,
  *             store/useSettingsStore (featureMedicine gate only)
  *   Used by → Expo Router route "/health" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx (BottomNav "Health" tab)
  *   Data    → useHealthStore — reads `logs` for the weekly summary, and calls `add()` +
@@ -107,6 +108,7 @@ import { SEVERITY_COLORS, severities, severityInk } from '@/lib/severity';
 import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 
 export default function HealthScreen() {
   const router = useRouter();
@@ -122,6 +124,10 @@ export default function HealthScreen() {
   const [quickSeverity, setQuickSeverity] = useState(3);
   const [quickStartTime, setQuickStartTime] = useState('');
   const [quickDuration, setQuickDuration] = useState('');
+  // Both fields sit well down the Quick log card (behind the ⓘ hint/starter/episode prompts),
+  // so each self-lifts above the keyboard on focus — see lib/useKeyboardLift.ts.
+  const quickStartTimeLift = useKeyboardLift<View>();
+  const quickDurationLift = useKeyboardLift<View>();
   // StarterCard's example (2026-07-31, user report: it vanished with no feedback the instant
   // its "+" was pressed, since that write flips `logs.length` off zero). Keeps the card
   // mounted, dimmed, for the rest of this visit instead — see addHealthStarterLog below.
@@ -145,7 +151,9 @@ export default function HealthScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      return () => { setHintOpen(false); };
+      return () => {
+        setHintOpen(false);
+      };
     }, [setHintOpen])
   );
 
@@ -155,13 +163,21 @@ export default function HealthScreen() {
   // Symptoms with at least one entry this week + a per-(symptom,date) max-severity index.
   const { thisWeekSymptoms, severityAt } = useMemo(() => {
     const weekSet = new Set(weekDates);
-    const counts: Record<string, { name: string; symptomId: string; ailment: string; count: number }> = {};
+    const counts: Record<
+      string,
+      { name: string; symptomId: string; ailment: string; count: number }
+    > = {};
     const sevByKey = new Map<string, number>(); // `${groupKey}|${date}` -> max severity
     const groupKeyFor = (l: HealthLog) => l.symptomId || l.ailment.trim().toLowerCase();
     for (const l of logs) {
       const key = groupKeyFor(l);
       if (weekSet.has(l.date)) {
-        const entry = counts[key] ?? { name: l.ailment, symptomId: l.symptomId, ailment: l.ailment, count: 0 };
+        const entry = counts[key] ?? {
+          name: l.ailment,
+          symptomId: l.symptomId,
+          ailment: l.ailment,
+          count: 0,
+        };
         entry.count += 1;
         counts[key] = entry;
       }
@@ -172,7 +188,8 @@ export default function HealthScreen() {
     const top = Object.entries(counts)
       .sort((a, b) => b[1].count - a[1].count)
       .map(([key, v]) => ({ key, ...v }));
-    const severityAt = (key: string, d: string): number | null => sevByKey.get(`${key}|${d}`) ?? null;
+    const severityAt = (key: string, d: string): number | null =>
+      sevByKey.get(`${key}|${d}`) ?? null;
     return { thisWeekSymptoms: top, severityAt };
   }, [logs, weekDates]);
 
@@ -222,8 +239,8 @@ export default function HealthScreen() {
       date: todayStr(),
       startTime,
       // An open episode has no end, whatever was typed into Duration before switching.
-      endDate: quickOngoing ? '' : computedEnd?.endDate ?? '',
-      endTime: quickOngoing ? '' : computedEnd?.endTime ?? '',
+      endDate: quickOngoing ? '' : (computedEnd?.endDate ?? ''),
+      endTime: quickOngoing ? '' : (computedEnd?.endTime ?? ''),
       ailment: sym.name,
       symptomId: sym.id,
       severity: quickSeverity,
@@ -252,7 +269,12 @@ export default function HealthScreen() {
         onInfoToggle={() => setHintOpen((v) => !v)}
       >
         <View style={styles.content}>
-          <HintCard text={t.hints.health.text} example={t.hints.health.example} open={hintOpen} noPill />
+          <HintCard
+            text={t.hints.health.text}
+            example={t.hints.health.example}
+            open={hintOpen}
+            noPill
+          />
 
           {/* First-run explainer (2026-07-26): why to log at the moment it happens rather
               than from memory, plus what an entry looks like. Gated on the whole log being
@@ -290,9 +312,7 @@ export default function HealthScreen() {
             <OpenEpisodeCard
               key={episode.id}
               symptom={episode.ailment || t.unnamedIssue}
-              onStillGoing={() =>
-                setDismissedEpisodes((prev) => new Set(prev).add(episode.id))
-              }
+              onStillGoing={() => setDismissedEpisodes((prev) => new Set(prev).add(episode.id))}
               onItsOver={() => setClosing(episode)}
               onOpen={() => router.push({ pathname: '/health-form', params: { id: episode.id } })}
             />
@@ -321,113 +341,132 @@ export default function HealthScreen() {
               of which unfold once the name is non-empty. */}
           <TourTarget id="tour.health.log">
             <DebugNoteAnchor id="health.quickLog" label="Health — Quick log">
-            <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
-              <View style={styles.overviewCardContent}>
-                <View style={styles.sectionLabelRow}>
-                  {/* Per-card glyph, not the domain default (2026-07-28 design review): Medicine,
+              <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
+                <View style={styles.overviewCardContent}>
+                  <View style={styles.sectionLabelRow}>
+                    {/* Per-card glyph, not the domain default (2026-07-28 design review): Medicine,
                       Quick log and This week all fell back to DOMAIN_ICON.health (heart), so three
                       stacked cards carried the identical badge and it signified nothing. The heart
                       still marks the Health tab itself in BottomNav. */}
-                  <CardAccentBadge domain="health" icon="pulse" size={22} />
-                  <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.quickLogLabel}</Text>
-                </View>
-                <AddRow
-                  placeholder={t.logSymptomTrigger}
-                  value={quickDraft}
-                  onChangeText={setQuickDraft}
-                  onSubmit={handleQuickLog}
-                  accent={healthDomainColor.accent}
-                  confirmIcon="checkmark"
-                  showDivider={false}
-                  accessibilityLabel={t.logSymptomTrigger}
-                />
-                {quickDraft.trim().length > 0 && (
-                  <>
-                    {/* Still going / It's over — defaults to It's over (D5). Picking "Still
+                    <CardAccentBadge domain="health" icon="pulse" size={22} />
+                    <Text style={[styles.sectionLabel, { color: theme.text }]}>
+                      {t.quickLogLabel}
+                    </Text>
+                  </View>
+                  <AddRow
+                    placeholder={t.logSymptomTrigger}
+                    value={quickDraft}
+                    onChangeText={setQuickDraft}
+                    onSubmit={handleQuickLog}
+                    accent={healthDomainColor.accent}
+                    confirmIcon="checkmark"
+                    showDivider={false}
+                    accessibilityLabel={t.logSymptomTrigger}
+                  />
+                  {quickDraft.trim().length > 0 && (
+                    <>
+                      {/* Still going / It's over — defaults to It's over (D5). Picking "Still
                         going" hides Duration and writes an open episode with no end pair. */}
-                    <View style={styles.quickStateRow}>
-                      {[
-                        { open: true, label: t.episodes.stillGoing },
-                        { open: false, label: t.episodes.itsOver },
-                      ].map((option) => {
-                        const active = quickOngoing === option.open;
-                        return (
-                          <PressableScale
-                            key={option.label}
-                            style={[
-                              styles.quickStateChip,
-                              { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                              active && { backgroundColor: theme.accent, borderColor: theme.accent },
-                            ]}
-                            onPress={() => setQuickOngoing(option.open)}
-                            accessibilityRole="button"
-                            accessibilityState={{ selected: active }}
-                            scaleTo={0.97}
-                          >
-                            <Text
-                              style={[
-                                styles.quickStateChipText,
-                                { color: theme.text },
-                                active && { color: theme.accentInk },
-                              ]}
-                            >
-                              {option.label}
-                            </Text>
-                          </PressableScale>
-                        );
-                      })}
-                    </View>
-                    <View style={styles.quickTimeRow}>
-                      <View style={styles.quickTimeField}>
-                        <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.whenStartedLabel}</Text>
-                        <Input
-                          value={quickStartTime}
-                          onChangeText={setQuickStartTime}
-                          placeholder={t.timeInputPlaceholder}
-                          keyboardType="numbers-and-punctuation"
-                          style={styles.quickTimeInput}
-                        />
-                      </View>
-                      {!quickOngoing && (
-                        <View style={styles.quickTimeField}>
-                          <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.durationLabel}</Text>
-                          <Input
-                            value={quickDuration}
-                            onChangeText={setQuickDuration}
-                            placeholder={t.durationPlaceholder}
-                            keyboardType="number-pad"
-                            style={styles.quickTimeInput}
-                          />
-                        </View>
-                      )}
-                    </View>
-                    <View style={styles.quickSeverityRow}>
-                      <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.severityLabel}</Text>
-                      <View style={styles.quickSeverityChips}>
-                        {SEVERITIES.map((s) => {
-                          const active = quickSeverity === s.value;
+                      <View style={styles.quickStateRow}>
+                        {[
+                          { open: true, label: t.episodes.stillGoing },
+                          { open: false, label: t.episodes.itsOver },
+                        ].map((option) => {
+                          const active = quickOngoing === option.open;
                           return (
                             <PressableScale
-                              key={s.value}
-                              onPress={() => setQuickSeverity(s.value)}
+                              key={option.label}
                               style={[
-                                styles.quickSevChip,
-                                { backgroundColor: s.color },
-                                active && { borderColor: theme.text, borderWidth: 2 },
+                                styles.quickStateChip,
+                                { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                                active && {
+                                  backgroundColor: theme.accent,
+                                  borderColor: theme.accent,
+                                },
                               ]}
+                              onPress={() => setQuickOngoing(option.open)}
                               accessibilityRole="button"
-                              accessibilityLabel={severityLabel(s.value)}
+                              accessibilityState={{ selected: active }}
+                              scaleTo={0.97}
                             >
-                              <Text style={[styles.quickSevChipText, { color: severityInk(s.value) }]}>{s.value}</Text>
+                              <Text
+                                style={[
+                                  styles.quickStateChipText,
+                                  { color: theme.text },
+                                  active && { color: theme.accentInk },
+                                ]}
+                              >
+                                {option.label}
+                              </Text>
                             </PressableScale>
                           );
                         })}
                       </View>
-                    </View>
-                  </>
-                )}
-              </View>
-            </Surface>
+                      <View style={styles.quickTimeRow}>
+                        <View style={styles.quickTimeField} ref={quickStartTimeLift.ref}>
+                          <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>
+                            {t.whenStartedLabel}
+                          </Text>
+                          <Input
+                            value={quickStartTime}
+                            onChangeText={setQuickStartTime}
+                            placeholder={t.timeInputPlaceholder}
+                            keyboardType="numbers-and-punctuation"
+                            style={styles.quickTimeInput}
+                            onFocus={quickStartTimeLift.onFocus}
+                            onBlur={quickStartTimeLift.onBlur}
+                          />
+                        </View>
+                        {!quickOngoing && (
+                          <View style={styles.quickTimeField} ref={quickDurationLift.ref}>
+                            <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>
+                              {t.durationLabel}
+                            </Text>
+                            <Input
+                              value={quickDuration}
+                              onChangeText={setQuickDuration}
+                              placeholder={t.durationPlaceholder}
+                              keyboardType="number-pad"
+                              style={styles.quickTimeInput}
+                              onFocus={quickDurationLift.onFocus}
+                              onBlur={quickDurationLift.onBlur}
+                            />
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.quickSeverityRow}>
+                        <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>
+                          {t.severityLabel}
+                        </Text>
+                        <View style={styles.quickSeverityChips}>
+                          {SEVERITIES.map((s) => {
+                            const active = quickSeverity === s.value;
+                            return (
+                              <PressableScale
+                                key={s.value}
+                                onPress={() => setQuickSeverity(s.value)}
+                                style={[
+                                  styles.quickSevChip,
+                                  { backgroundColor: s.color },
+                                  active && { borderColor: theme.text, borderWidth: 2 },
+                                ]}
+                                accessibilityRole="button"
+                                accessibilityLabel={severityLabel(s.value)}
+                              >
+                                <Text
+                                  style={[styles.quickSevChipText, { color: severityInk(s.value) }]}
+                                >
+                                  {s.value}
+                                </Text>
+                              </PressableScale>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    </>
+                  )}
+                </View>
+              </Surface>
             </DebugNoteAnchor>
           </TourTarget>
 
@@ -441,81 +480,102 @@ export default function HealthScreen() {
 
           {/* This week — debug notes: one anchor per region (the card, not its inner rows). */}
           <DebugNoteAnchor id="health.overview" label="Health — This week">
-          <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
-            <View style={styles.overviewCardContent}>
-              <View style={styles.sectionLabelRow}>
-                {/* Distinct from Medicine/Quick log — see the note at the Quick log badge. */}
-                <CardAccentBadge domain="health" icon="stats-chart" size={22} />
-                <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.thisWeekLabel}</Text>
-              </View>
-              {thisWeekSymptoms.length === 0 && (
-                <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.noLogsThisWeek}</Text>
-              )}
-              {thisWeekSymptoms.map((s) => {
-                const weekSeverities = weekDates.map((d) => severityAt(s.key, d));
-                const maxCount = thisWeekSymptoms[0]?.count ?? 1;
-                return (
-                  <PressableScale
-                    key={s.key}
-                    style={styles.overviewAilment}
-                    onPress={() => openDetail(s.symptomId, s.ailment, s.name)}
-                    accessibilityRole="button"
-                    accessibilityLabel={t.symptomHistoryTitle(s.name)}
-                    scaleTo={0.97}
-                  >
-                    <View style={styles.overviewRow}>
-                      <Text style={[styles.overviewName, { color: theme.text }]}>{s.name}</Text>
-                      <View style={[styles.overviewBar, { backgroundColor: theme.surfaceMuted }]}>
-                        <View
-                          style={[
-                            styles.overviewFill,
-                            { backgroundColor: SEVERITY_COLORS[2], width: `${Math.min((s.count / maxCount) * 100, 100)}%` },
-                          ]}
-                        />
-                      </View>
-                      <Text style={[styles.overviewCount, { color: theme.textMuted }]}>{s.count}×</Text>
-                      <Ionicons name="chevron-forward" size={14} color={theme.textMuted} />
-                    </View>
-                    <View style={styles.ailmentWeekStrip}>
-                      {weekDates.map((d, i) => {
-                        const sev = weekSeverities[i];
-                        const sevColor = sev ? (SEVERITIES.find((x) => x.value === sev)?.color ?? theme.border) : 'transparent';
-                        const isFuture = d > today;
-                        return (
-                          <View key={d} style={styles.ailmentDotCol}>
-                            <Text style={[styles.ailmentDayAbbr, { color: theme.textMuted }]}>{t.dayLabels[i][0]}</Text>
-                            <View style={[
-                              styles.ailmentDot,
+            <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
+              <View style={styles.overviewCardContent}>
+                <View style={styles.sectionLabelRow}>
+                  {/* Distinct from Medicine/Quick log — see the note at the Quick log badge. */}
+                  <CardAccentBadge domain="health" icon="stats-chart" size={22} />
+                  <Text style={[styles.sectionLabel, { color: theme.text }]}>
+                    {t.thisWeekLabel}
+                  </Text>
+                </View>
+                {thisWeekSymptoms.length === 0 && (
+                  <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                    {t.noLogsThisWeek}
+                  </Text>
+                )}
+                {thisWeekSymptoms.map((s) => {
+                  const weekSeverities = weekDates.map((d) => severityAt(s.key, d));
+                  const maxCount = thisWeekSymptoms[0]?.count ?? 1;
+                  return (
+                    <PressableScale
+                      key={s.key}
+                      style={styles.overviewAilment}
+                      onPress={() => openDetail(s.symptomId, s.ailment, s.name)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t.symptomHistoryTitle(s.name)}
+                      scaleTo={0.97}
+                    >
+                      <View style={styles.overviewRow}>
+                        <Text style={[styles.overviewName, { color: theme.text }]}>{s.name}</Text>
+                        <View style={[styles.overviewBar, { backgroundColor: theme.surfaceMuted }]}>
+                          <View
+                            style={[
+                              styles.overviewFill,
                               {
-                                backgroundColor: sev ? sevColor : 'transparent',
-                                borderColor: isFuture ? theme.border : (sev ? sevColor : theme.border),
-                                opacity: isFuture ? 0.3 : 1,
+                                backgroundColor: SEVERITY_COLORS[2],
+                                width: `${Math.min((s.count / maxCount) * 100, 100)}%`,
                               },
-                            ]} />
-                          </View>
-                        );
-                      })}
-                    </View>
-                  </PressableScale>
-                );
-              })}
-              {/* Open full log — folded into the This week card (debug-note 2026-07-21):
+                            ]}
+                          />
+                        </View>
+                        <Text style={[styles.overviewCount, { color: theme.textMuted }]}>
+                          {s.count}×
+                        </Text>
+                        <Ionicons name="chevron-forward" size={14} color={theme.textMuted} />
+                      </View>
+                      <View style={styles.ailmentWeekStrip}>
+                        {weekDates.map((d, i) => {
+                          const sev = weekSeverities[i];
+                          const sevColor = sev
+                            ? (SEVERITIES.find((x) => x.value === sev)?.color ?? theme.border)
+                            : 'transparent';
+                          const isFuture = d > today;
+                          return (
+                            <View key={d} style={styles.ailmentDotCol}>
+                              <Text style={[styles.ailmentDayAbbr, { color: theme.textMuted }]}>
+                                {t.dayLabels[i][0]}
+                              </Text>
+                              <View
+                                style={[
+                                  styles.ailmentDot,
+                                  {
+                                    backgroundColor: sev ? sevColor : 'transparent',
+                                    borderColor: isFuture
+                                      ? theme.border
+                                      : sev
+                                        ? sevColor
+                                        : theme.border,
+                                    opacity: isFuture ? 0.3 : 1,
+                                  },
+                                ]}
+                              />
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </PressableScale>
+                  );
+                })}
+                {/* Open full log — folded into the This week card (debug-note 2026-07-21):
                   one consolidated card instead of a separate nav card below. Shown even on
                   an empty week so there's always a clear way into the full log. */}
-              <PressableScale
-                onPress={() => router.push('/health-log')}
-                accessibilityRole="button"
-                accessibilityLabel={t.healthLogTitle}
-                scaleTo={0.98}
-                style={[styles.overviewLogLink, { borderTopColor: theme.border }]}
-              >
-                {/* A.4 rule 1: a link glyph takes the action colour, not the health hue. */}
-                <Ionicons name="document-text-outline" size={18} color={theme.accent} />
-                <Text style={[styles.navCardText, { color: theme.text }]}>{t.healthLogTitle}</Text>
-                <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
-              </PressableScale>
-            </View>
-          </Surface>
+                <PressableScale
+                  onPress={() => router.push('/health-log')}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.healthLogTitle}
+                  scaleTo={0.98}
+                  style={[styles.overviewLogLink, { borderTopColor: theme.border }]}
+                >
+                  {/* A.4 rule 1: a link glyph takes the action colour, not the health hue. */}
+                  <Ionicons name="document-text-outline" size={18} color={theme.accent} />
+                  <Text style={[styles.navCardText, { color: theme.text }]}>
+                    {t.healthLogTitle}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+                </PressableScale>
+              </View>
+            </Surface>
           </DebugNoteAnchor>
 
           <View style={{ height: Spacing.xl + Spacing.xxl }} />
@@ -535,7 +595,12 @@ const baseStyles = StyleSheet.create({
   // Row wrapper (2026-07-26, "bring the card colour back"): holds the health-domain gradient
   // badge + the label together, carrying the label's old marginBottom so its spacing to the
   // content below is unchanged.
-  sectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
   sectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
   // "See all" past the three-card prompt cap — a plain link, no card, no count.
   moreEpisodesRow: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xs },
