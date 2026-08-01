@@ -1030,7 +1030,34 @@ const en = {
   severityLabels: ['Mild', 'Slight', 'Moderate', 'Strong', 'Severe'],
   whenStartedLabel: 'When started',
   whenFinishedLabel: 'When finished',
-  ongoingLabel: 'Ongoing',
+  // Ongoing symptom episodes (2026-08-01). An episode is a STATE, not a stopwatch — nothing
+  // here counts, and `duration.*` is a retrospective bucket for something already finished,
+  // rendered only on a history row. `stillGoingPrompt` is a question about the world, not
+  // about the user's diligence: never "you left this open" / "you forgot to close this".
+  // Replaced `ongoingLabel` ('Ongoing' / 'Pågår fortsatt'), the old health-form switch label.
+  episodes: {
+    ongoing: 'Ongoing',
+    stillGoing: 'Still going',
+    itsOver: "It's over",
+    stillGoingPrompt: (symptom: string) => `${symptom} — still going?`,
+    whenDidItStop: 'When did it stop?',
+    didAnythingHelp: 'Did anything help?',
+    seeAllOpen: 'See all',
+    when: {
+      justNow: 'Just now',
+      thisMorning: 'This morning',
+      lastNight: 'Last night',
+      pickTime: 'Pick a time',
+    },
+    duration: {
+      underHour: 'Under an hour',
+      aboutAnHour: 'About an hour',
+      hours: (n: number) => `About ${n} hours`,
+      mostOfADay: 'Most of a day',
+      aboutADay: 'About a day',
+      days: (n: number) => `About ${n} days`,
+    },
+  },
   newHealthEntryTitle: 'New entry',
   editHealthEntryTitle: 'Edit entry',
   unnamedIssue: 'Untitled issue',
@@ -2947,7 +2974,32 @@ const no: typeof en = {
   severityLabels: ['Mild', 'Litt', 'Moderat', 'Kraftig', 'Alvorlig'],
   whenStartedLabel: 'Når startet',
   whenFinishedLabel: 'Når avsluttet',
-  ongoingLabel: 'Pågår fortsatt',
+  // `Pågår` (verb, stands alone in a row's value column) deliberately coexists with
+  // widgets.healthOngoing's `pågående` (adjective agreeing with a count — "2 pågående" is
+  // correct Norwegian, "2 Pågår" is not). Not a collision; both spellings stay.
+  episodes: {
+    ongoing: 'Pågår',
+    stillGoing: 'Holder på',
+    itsOver: 'Det er over',
+    stillGoingPrompt: (symptom: string) => `${symptom} — holder det på?`,
+    whenDidItStop: 'Når ga det seg?',
+    didAnythingHelp: 'Var det noe som hjalp?',
+    seeAllOpen: 'Se alle',
+    when: {
+      justNow: 'Akkurat nå',
+      thisMorning: 'I morges',
+      lastNight: 'I går kveld',
+      pickTime: 'Velg tidspunkt',
+    },
+    duration: {
+      underHour: 'Under en time',
+      aboutAnHour: 'Omtrent en time',
+      hours: (n: number) => `Omtrent ${n} timer`,
+      mostOfADay: 'Mesteparten av en dag',
+      aboutADay: 'Omtrent et døgn',
+      days: (n: number) => `Omtrent ${n} døgn`,
+    },
+  },
   newHealthEntryTitle: 'Ny oppføring',
   editHealthEntryTitle: 'Rediger oppføring',
   unnamedIssue: 'Uten navn',

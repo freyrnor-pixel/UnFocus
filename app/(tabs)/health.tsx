@@ -89,6 +89,8 @@ import HintCard from '@/components/HintCard';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import MedicineTrayCard from '@/components/MedicineTrayCard';
+import OpenEpisodeCard from '@/components/OpenEpisodeCard';
+import EpisodeCloseSheet from '@/components/EpisodeCloseSheet';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import Surface from '@/components/Surface';
@@ -100,6 +102,7 @@ import { useT } from '@/lib/i18n';
 import { success } from '@/lib/haptics';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { todayStr, getWeekDates, addDurationToTime } from '@/lib/date';
+import { openEpisodes } from '@/lib/episodes';
 import { SEVERITY_COLORS, severities, severityInk } from '@/lib/severity';
 import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -123,6 +126,16 @@ export default function HealthScreen() {
   // its "+" was pressed, since that write flips `logs.length` off zero). Keeps the card
   // mounted, dimmed, for the rest of this visit instead — see addHealthStarterLog below.
   const [healthStarterAdded, setHealthStarterAdded] = useState(false);
+  // Quick log's Still going / It's over pair, defaulting to "it's over" (EPISODES.md D5 —
+  // most logging happens afterwards). "Still going" hides the Duration field, because a
+  // duration and an open episode contradict.
+  const [quickOngoing, setQuickOngoing] = useState(false);
+  // Prompts the user answered "Still going" to. In memory ONLY, deliberately: answering
+  // writes no column and no timestamp anywhere. The five tabs are co-mounted (lazy: false),
+  // so this survives tab switches for the whole session and returns on next launch — which
+  // is correct, because the app genuinely does not know whether it ended.
+  const [dismissedEpisodes, setDismissedEpisodes] = useState<Set<string>>(new Set());
+  const [closing, setClosing] = useState<HealthLog | null>(null);
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -167,6 +180,15 @@ export default function HealthScreen() {
     router.push({ pathname: '/health-detail', params: { symptomId, ailment, name } });
   }
 
+  // Open episodes still awaiting an answer this session. Capped at three cards with a plain
+  // link past that (EPISODES.md D10): a column of eight prompts is itself the alarming state
+  // this feature exists to avoid. Openness is `episodeState`, never a blank end date.
+  const OPEN_EPISODE_CARDS = 3;
+  const promptEpisodes = useMemo(
+    () => openEpisodes(logs).filter((l) => !dismissedEpisodes.has(l.id)),
+    [logs, dismissedEpisodes]
+  );
+
   // Empty-state example (2026-07-27): logs a real entry (today, now, severity 3) via the
   // same ensureSymptom+add pair handleQuickLog uses — logs.length flips to 1 right after.
   function addHealthStarterLog() {
@@ -181,6 +203,10 @@ export default function HealthScreen() {
       severity: 3,
       notes: '',
       medicineId: '',
+      // The teaching example must not create an open episode the user then has to close.
+      episodeState: 'point',
+      reliefNote: '',
+      reliefMedicineId: '',
     });
     setHealthStarterAdded(true);
     success();
@@ -195,18 +221,23 @@ export default function HealthScreen() {
     addLog({
       date: todayStr(),
       startTime,
-      endDate: computedEnd?.endDate ?? '',
-      endTime: computedEnd?.endTime ?? '',
+      // An open episode has no end, whatever was typed into Duration before switching.
+      endDate: quickOngoing ? '' : computedEnd?.endDate ?? '',
+      endTime: quickOngoing ? '' : computedEnd?.endTime ?? '',
       ailment: sym.name,
       symptomId: sym.id,
       severity: quickSeverity,
       notes: '',
       medicineId: '',
+      episodeState: quickOngoing ? 'ongoing' : 'point',
+      reliefNote: '',
+      reliefMedicineId: '',
     });
     setQuickDraft('');
     setQuickSeverity(3);
     setQuickStartTime('');
     setQuickDuration('');
+    setQuickOngoing(false);
   }
 
   return (
@@ -251,10 +282,33 @@ export default function HealthScreen() {
             />
           )}
 
-          {/* Ongoing-episode prompt goes HERE (addendum phase 3, not built): a resume/close
-              prompt for an entry that was started and never ended belongs above Quick log,
-              since it is about an episode already in progress rather than a new one. Nothing
-              is wired for it yet — this is a placement note only. */}
+          {/* Ongoing-episode prompts (2026-08-01) — above Quick log, because they are about an
+              episode already in progress rather than a new one. One quiet card per open entry,
+              deliberately neutral-bordered and un-animated: see components/OpenEpisodeCard.tsx
+              for why it must never escalate with age. "Still going" writes nothing at all. */}
+          {promptEpisodes.slice(0, OPEN_EPISODE_CARDS).map((episode) => (
+            <OpenEpisodeCard
+              key={episode.id}
+              symptom={episode.ailment || t.unnamedIssue}
+              onStillGoing={() =>
+                setDismissedEpisodes((prev) => new Set(prev).add(episode.id))
+              }
+              onItsOver={() => setClosing(episode)}
+              onOpen={() => router.push({ pathname: '/health-form', params: { id: episode.id } })}
+            />
+          ))}
+          {promptEpisodes.length > OPEN_EPISODE_CARDS && (
+            <PressableScale
+              onPress={() => router.push('/health-log')}
+              accessibilityRole="button"
+              scaleTo={0.98}
+              style={styles.moreEpisodesRow}
+            >
+              <Text style={[styles.moreEpisodesText, { color: theme.textMuted }]}>
+                {t.episodes.seeAllOpen}
+              </Text>
+            </PressableScale>
+          )}
 
           {/* Quick log — essentials-only instant record (name + start time + duration +
               severity, dated today).
@@ -289,6 +343,40 @@ export default function HealthScreen() {
                 />
                 {quickDraft.trim().length > 0 && (
                   <>
+                    {/* Still going / It's over — defaults to It's over (D5). Picking "Still
+                        going" hides Duration and writes an open episode with no end pair. */}
+                    <View style={styles.quickStateRow}>
+                      {[
+                        { open: true, label: t.episodes.stillGoing },
+                        { open: false, label: t.episodes.itsOver },
+                      ].map((option) => {
+                        const active = quickOngoing === option.open;
+                        return (
+                          <PressableScale
+                            key={option.label}
+                            style={[
+                              styles.quickStateChip,
+                              { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                              active && { backgroundColor: theme.accent, borderColor: theme.accent },
+                            ]}
+                            onPress={() => setQuickOngoing(option.open)}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: active }}
+                            scaleTo={0.97}
+                          >
+                            <Text
+                              style={[
+                                styles.quickStateChipText,
+                                { color: theme.text },
+                                active && { color: theme.accentInk },
+                              ]}
+                            >
+                              {option.label}
+                            </Text>
+                          </PressableScale>
+                        );
+                      })}
+                    </View>
                     <View style={styles.quickTimeRow}>
                       <View style={styles.quickTimeField}>
                         <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.whenStartedLabel}</Text>
@@ -300,16 +388,18 @@ export default function HealthScreen() {
                           style={styles.quickTimeInput}
                         />
                       </View>
-                      <View style={styles.quickTimeField}>
-                        <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.durationLabel}</Text>
-                        <Input
-                          value={quickDuration}
-                          onChangeText={setQuickDuration}
-                          placeholder={t.durationPlaceholder}
-                          keyboardType="number-pad"
-                          style={styles.quickTimeInput}
-                        />
-                      </View>
+                      {!quickOngoing && (
+                        <View style={styles.quickTimeField}>
+                          <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.durationLabel}</Text>
+                          <Input
+                            value={quickDuration}
+                            onChangeText={setQuickDuration}
+                            placeholder={t.durationPlaceholder}
+                            keyboardType="number-pad"
+                            style={styles.quickTimeInput}
+                          />
+                        </View>
+                      )}
                     </View>
                     <View style={styles.quickSeverityRow}>
                       <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>{t.severityLabel}</Text>
@@ -431,6 +521,8 @@ export default function HealthScreen() {
           <View style={{ height: Spacing.xl + Spacing.xxl }} />
         </View>
       </ScreenScaffold>
+
+      <EpisodeCloseSheet log={closing} onClose={() => setClosing(null)} />
     </>
   );
 }
@@ -445,6 +537,17 @@ const baseStyles = StyleSheet.create({
   // content below is unchanged.
   sectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
   sectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
+  // "See all" past the three-card prompt cap — a plain link, no card, no count.
+  moreEpisodesRow: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xs },
+  moreEpisodesText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  quickStateRow: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.sm },
+  quickStateChip: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+  },
+  quickStateChipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   quickTimeRow: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm },
   quickTimeField: { flex: 1, gap: Spacing.xs },
   quickTimeInput: { paddingVertical: Spacing.xs },

@@ -42,6 +42,29 @@ describe('pruneOldData — tasks query', () => {
 });
 
 /**
+ * Ongoing symptom episodes (2026-08-01). Same shape as the tasks block above, and for the
+ * same reason: an episode the user still considers open is LIVE data, not history. Without
+ * the state guard, a migraine that has been running longer than the retention window is
+ * silently deleted out from under them on the next cold start.
+ */
+describe('pruneOldData — health_logs query', () => {
+  it('spares an episode that is still ongoing', () => {
+    pruneOldData();
+    const healthCall = mockRunSync.mock.calls.find(([sql]: [string]) =>
+      sql.includes('FROM health_logs')
+    );
+    expect(healthCall).toBeDefined();
+    const [sql, params] = healthCall!;
+    expect(sql).toContain('log_date < ?');
+    // The guard. Note it is NULL-unsafe by design — a row with a NULL state fails the
+    // predicate and is KEPT, because failing safe here means not deleting.
+    expect(sql).toContain("episode_state != 'ongoing'");
+    expect(params).toHaveLength(1);
+    expect(params[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+/**
  * Feature opt-in migrations — ORIGINAL commit (2026-07-25 settings reorganization).
  *
  * Migrations are an append-only log (PRAGMA user_version indexes into the array), so this

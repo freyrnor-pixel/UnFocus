@@ -162,6 +162,43 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
     "on" state (active tab, active IconButton). A caller passing `travel` must also draw a
     base — see `Button.tsx`'s `keyBase` — or the cap sinks into nothing. Note `style` moves
     to the wrapper on that path.
+- **Ongoing symptom episodes** (2026-08-01, `lib/episodes.ts` + `components/OpenEpisodeCard.tsx`
+  + `components/EpisodeCloseSheet.tsx`, over `health_logs`' new `episode_state` / `relief_note` /
+  `relief_medicine_id` columns). A symptom entry that is STILL HAPPENING, as opposed to one
+  logged after the fact. Full design record: `EPISODES.md`.
+  - **It is not a stopwatch, and that is the whole design.** No live elapsed counter anywhere,
+    ever — an episode is a STATE, not a stretch of time. Duration is computed on read, rounded
+    into plain language (`About 4 hours`, never `3h 47m`), shown in exactly ONE place
+    (`app/health-detail.tsx`'s entry rows), and never stored, totalled or averaged. Same family
+    as a medicine tray being a window and a goal's strength flooring at neutral.
+  - **`episode_state` is the single source of truth; `end_date = ''` is NOT "ongoing".** That
+    sentinel already meant three different things, so every pre-existing row migrated to
+    `'point'` regardless of its end date — deliberately, because back-filling `'ongoing'` would
+    have opened an episode for every headache ever logged. `episodeState === 'ongoing'` implies
+    a blank end pair; **the converse is not true.** Ask `isOpen()`/`openEpisodes()`, never the
+    end pair. The two widget derivations were switched over with it, which makes the widget's
+    `healthOngoing` count correct for the first time (expect it to drop to 0 on existing
+    installs — intended, not a regression).
+  - **No auto-close, no notification, no escalation — at any horizon.** An episode open for
+    days is normal. The prompt card renders byte-for-byte identically on day 1 and day 9: no
+    day counter, no colour change, no second prompt, no badge or count anywhere else. It is
+    flat and neutral-bordered on purpose, unlike every other card on that tab. "Still going"
+    **writes nothing at all** — dismissal is in-memory, because storing "I asked at 14:02" is a
+    timestamp about being unwell. Recoverability is the answer to staleness instead: closing
+    always allows backdating, so a week's forgetting loses nothing.
+    `lib/__tests__/episodes.test.ts` source-scans the module and both components for
+    notification APIs and asserts zero hits — that test is what keeps the promise true.
+  - **Relief data is displayed and never interpreted.** No correlation, no ranking, no "this
+    usually helps", never aggregated across entries. The close sheet's medicine chips are a
+    filter ("you took this while it was happening"), not a claim. Read `lib/episodes.ts`'s
+    header before adding anything that reads these columns.
+  - Not synced (`health_logs` isn't in `SyncTable` and must not be added), not in the AI setup
+    guide (health is not an importable domain — **no `AI_SETUP_SCHEMA_VERSION` bump**), no
+    person column (§9 — a bigger privacy decision than this feature).
+  - Fixed a pre-existing bug while it was in there: `pruneOldData()` filtered `log_date` alone,
+    so an episode open past the 365-day window was silently deleted on the next cold start. It
+    now carries `episode_state != 'ongoing'`, NULL-unsafe by design — a NULL state fails the
+    predicate and is KEPT, because failing safe means not deleting.
 - **Card layouts + the "what was hidden" glow** (2026-07-27, `lib/cardLayout.ts` +
   `lib/useSurfaceLayout.ts` + `lib/viewSnapshot.ts` + `lib/useNewSinceSeen.ts` +
   `components/LayoutPickerSheet.tsx` + `components/NewSinceGlow.tsx`): list-bearing surfaces
