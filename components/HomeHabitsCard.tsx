@@ -21,7 +21,8 @@
  *             components/CardHintNote (foot-of-card explainer), components/AddRow,
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
  *             lib/domainColor, lib/habitRecurrence (habitOccursOn, habitProgress),
- *             lib/habitStarters (HABIT_STARTERS — one-tap starter chips), store/useHabitStore
+ *             lib/habitStarters (HABIT_STARTERS — one-tap starter chips), store/useHabitStore,
+ *             store/useSettingsStore (energySystemEnabled, gates the quick-add energy chip)
  *   Used by → app/(tabs)/index.tsx (Home habits preview, placed directly under the To-do/
  *             Plans card)
  *   Data    → reads/writes useHabitStore (habits + habit_logs) via increment/decrement/add
@@ -56,12 +57,16 @@
  *     no longer sits between a card's title and its content).
  *     Habits exist but none are due today → the same quiet `t.noHabitsYet` one-liner
  *     habits.tsx's Today tab shows in that case, so the two surfaces never disagree.
- *   - **Quick-add**: a trailing `AddRow`, title-only, creates a daily/dailyGoal-1 habit
- *     with the same neutral default icon ('ellipse-outline') as habits.tsx's own
- *     `commitHabit` — everything else (icon/goal/recurrence/reminders) is edited later via
- *     /habit-form (tap through to /habits, then the habit's gear icon). Always rendered,
- *     regardless of which empty state (if any) is showing — mirrors habits.tsx's own
- *     Today tab, where the quick-add row sits below the section unconditionally.
+ *   - **Quick-add**: creates a daily/dailyGoal-1 habit with the same neutral default icon
+ *     ('ellipse-outline') as habits.tsx's own `commitHabit`. As of 2026-08-01 the type line
+ *     carries one essential setting — an energy chip (off→+1→−1→off, gated on
+ *     `energySystemEnabled`, same cycle as PlanTaskCard's) — plus a "…" that commits the
+ *     draft and opens the just-created habit's full editor (`/habit-form?id=`) pre-filled,
+ *     for icon/goal/recurrence/reminders. Both the checkmark and "…" paths write the SAME
+ *     row (`useHabitStore.add` returns the created Habit), so editing further in the full
+ *     form is never a second copy. Always rendered, regardless of which empty state (if any)
+ *     is showing — mirrors habits.tsx's own Today tab, where the quick-add row sits below
+ *     the section unconditionally.
  *   - Collapsed sizing follows the exact same pattern as HomeShoppingCard/HomeNotesCard/
  *     PlanTaskCard — see any of those files' own edit notes.
  *   - **(2026-07-31, addendum A.4) The header wash is gone** — the card's identity hue now
@@ -88,6 +93,7 @@ import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { useHabitStore, Habit } from '@/store/useHabitStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 import { HABIT_STARTERS } from '@/lib/habitStarters';
 import { getDomainColor } from '@/lib/domainColor';
@@ -121,6 +127,10 @@ export default function HomeHabitsCard() {
 
   const [state, setState] = useCardState('habits');
   const [habitDraft, setHabitDraft] = useState('');
+  // Quick-add's one essential setting (2026-08-01) — mirrors PlanTaskCard's energy chip
+  // (off→+1→−1→off). Icon/goal/reminders stay full-editor-only; see the "…" button below.
+  const [habitEnergyValue, setHabitEnergyValue] = useState(0);
+  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
 
   const dueTodayHabits = habits.filter((h) => habitOccursOn(h, today));
   const doneCount = dueTodayHabits.filter((h) => habitProgress(h, logs, today).isDone).length;
@@ -134,9 +144,17 @@ export default function HomeHabitsCard() {
 
   // Same new-habit shape app/habit-form.tsx writes, minus the fields the quick-add/starter
   // chips leave at their defaults — mirrors habits.tsx's own createHabit exactly (icon and
-  // dailyGoal are the only inputs that actually vary between the two callers there).
-  function createHabit(title: string, icon: string, dailyGoal: number) {
-    addHabit({
+  // dailyGoal are the only inputs that actually vary between the two callers there). Returns
+  // the created Habit (useHabitStore.add does since 2026-08-01) so the "…" quick-add path can
+  // navigate straight to it.
+  function createHabit(
+    title: string,
+    icon: string,
+    dailyGoal: number,
+    energyEnabled = false,
+    energyValue = 1
+  ): Habit {
+    const habit = addHabit({
       title,
       icon,
       kind: 'neutral',
@@ -154,11 +172,17 @@ export default function HomeHabitsCard() {
       reminderEnd: null,
       routineOrder: 0,
       childName: '',
-      energyEnabled: false,
-      energyValue: 1,
+      energyEnabled,
+      energyValue,
       goalId: null,
     });
     success();
+    return habit;
+  }
+
+  function cycleEnergy() {
+    tap();
+    setHabitEnergyValue((current) => (current === 0 ? 1 : current > 0 ? -1 : 0));
   }
 
   function commitHabit() {
@@ -166,8 +190,21 @@ export default function HomeHabitsCard() {
     if (!title) return;
     // Neutral "to-do" marker default, matching habits.tsx's own quick-add — a star reads
     // as a reward/rating, against the app's no-shame framing.
-    createHabit(title, 'ellipse-outline', 1);
+    createHabit(title, 'ellipse-outline', 1, habitEnergyValue !== 0, habitEnergyValue || 1);
     setHabitDraft('');
+    setHabitEnergyValue(0);
+  }
+
+  // "…" — commits the same draft as the checkmark, then opens the just-created habit's full
+  // editor pre-filled (icon/goal/reminders live there). Same saved row either way, so editing
+  // in the full form updates the one the quick-add already wrote.
+  function commitHabitAndEdit() {
+    const title = habitDraft.trim();
+    if (!title) return;
+    const habit = createHabit(title, 'ellipse-outline', 1, habitEnergyValue !== 0, habitEnergyValue || 1);
+    setHabitDraft('');
+    setHabitEnergyValue(0);
+    router.push({ pathname: '/habit-form', params: { id: habit.id } });
   }
 
   /**
@@ -305,6 +342,29 @@ export default function HomeHabitsCard() {
               onChangeText={setHabitDraft}
               onSubmit={commitHabit}
               accent={domainColor.accent}
+              onMore={commitHabitAndEdit}
+              extras={
+                energySystemEnabled ? (
+                  <PressableScale
+                    style={[
+                      styles.energyChip,
+                      { borderColor: habitEnergyValue !== 0 ? domainColor.accent : theme.border },
+                      habitEnergyValue !== 0 && { backgroundColor: domainColor.soft },
+                    ]}
+                    onPress={cycleEnergy}
+                    hitSlop={HitSlop.base}
+                    scaleTo={0.9}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t.energyConsumeLabel}: ${habitEnergyValue === 0 ? t.off : habitEnergyValue > 0 ? '+1' : '-1'}`}
+                  >
+                    <Ionicons
+                      name={habitEnergyValue === 0 ? 'flash-outline' : habitEnergyValue > 0 ? 'flash' : 'flash-off'}
+                      size={14}
+                      color={habitEnergyValue > 0 ? theme.good : habitEnergyValue < 0 ? theme.warn : theme.textMuted}
+                    />
+                  </PressableScale>
+                ) : undefined
+              }
             />
           }
         >
@@ -349,6 +409,15 @@ const baseStyles = StyleSheet.create({
   title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, includeFontPadding: false, textAlignVertical: 'center' },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  // Quick-add's energy chip (2026-08-01) — same shape as PlanTaskCard's quickChip.
+  energyChip: {
+    width: 30,
+    height: 30,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   // Just the starter chips now — the explainer moved to a foot-of-card CardHintNote and the
   // read-only example row (a duplicate of chip #1) is gone entirely (2026-07-30).
   emptyWrap: { gap: Spacing.sm, marginBottom: Spacing.sm },

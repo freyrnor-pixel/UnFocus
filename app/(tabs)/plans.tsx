@@ -132,11 +132,15 @@
  *     bar is the commit point for edits; creation goes through the Whenever AddRow, which
  *     calls addTask() directly on submit (no local draft rows). TaskCard still supports an
  *     `isNew` draft mode but plans no longer uses it (candidate for later cleanup).
- *   - **`expandTaskId` (UX audit B1, 2026-07-23)**: app/notes.tsx's "Add to plans" creates
- *     the task the same way the Whenever AddRow does, then navigates here with the new
- *     task's id — the Whenever section's TaskCard passes `autoExpand={tk.id === expandTaskId}`
- *     so that ONE card's editor opens automatically. Distinct from `isNew`: the task is
- *     already a real store row by the time it arrives, just handed a "start open" cue.
+ *   - **`expandTaskId` (UX audit B1, 2026-07-23; first real caller 2026-08-01)**: built for
+ *     app/notes.tsx's "Add to plans" (create the task, then navigate here with its id so its
+ *     editor opens automatically), but that flow now uses `lib/prefill.ts` instead and never
+ *     called it — Home's To-do quick-add "…" (`app/(tabs)/index.tsx`'s `handleAddTaskAndEdit`)
+ *     is the first actual caller. Both the Whenever AND Repeating sections' TaskCard pass
+ *     `autoExpand={tk.id === expandTaskId}` (a quick-added task lands in whichever one its
+ *     recurring setting puts it in) so that ONE card's editor opens automatically. Distinct
+ *     from `isNew`: the task is already a real store row by the time it arrives, just handed
+ *     a "start open" cue.
  *   - Section selectors: Whenever = recurring 'none' & !sharedOut (All tab includes dated
  *     one-offs); Recurring = recurring !== 'none' & !sharedOut; Shared = sharedOut (sent) +
  *     useSharedStore 'in' rows (received). In Today / This week the "Whenever" section is
@@ -676,14 +680,15 @@ export default function TasksScreen() {
   const filterPerson = personFilter ? people.find((p) => p.id === personFilter) ?? null : null;
   const addAssigneeName = filterPerson && !filterPerson.isSelf ? filterPerson.name : '';
 
-  // The timeline layout's own quick-add (2026-07-30). Unlike InlineTaskAdd's title-only create,
-  // PlanTaskCard's type line also carries a start time, a repeat cycle and an energy cost — so a
-  // task typed straight onto the timeline can land at a real hour, which is the whole point of
-  // being on a timeline. `hasStartDate: true` because this IS the dated Today list, not Whenever.
+  // The timeline layout's own quick-add (2026-07-30, energy field dropped 2026-08-01 — see
+  // PlanTaskCard's header). Unlike InlineTaskAdd's title-only create, PlanTaskCard's type line
+  // also carries a start time and a repeat cycle — so a task typed straight onto the timeline
+  // can land at a real hour, which is the whole point of being on a timeline. `hasStartDate:
+  // true` because this IS the dated Today list, not Whenever.
   const handleTimelineAddTask = useCallback(
     (
       title: string,
-      extra: { time?: string; recurring: Recurring; recurringDays: number[]; energyEnabled: boolean; energyValue: number }
+      extra: { time?: string; recurring: Recurring; recurringDays: number[] }
     ) => {
       addTask({
         title,
@@ -698,8 +703,6 @@ export default function TasksScreen() {
         monthDay: new Date().getDate(),
         monthOrdinal: 'first',
         monthWeekday: 0,
-        energyEnabled: extra.energyEnabled,
-        energyValue: extra.energyValue,
         sortOrder: 0,
         hasStartDate: true,
         assigneeId: personFilter ?? '',
@@ -1127,7 +1130,14 @@ export default function TasksScreen() {
                 ) : (
                   <View style={styles.cardStack}>
                     {recurringAll.map((tk) => (
-                      <TaskCard key={tk.id} task={tk} showDelete showShareOut onToggleDone={handleToggleDone} />
+                      <TaskCard
+                        key={tk.id}
+                        task={tk}
+                        showDelete
+                        showShareOut
+                        autoExpand={tk.id === expandTaskId}
+                        onToggleDone={handleToggleDone}
+                      />
                     ))}
                   </View>
                 )}

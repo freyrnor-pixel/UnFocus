@@ -219,6 +219,9 @@ const en = {
       habit: 'Type habit',
       item: 'Type item',
     },
+    // Quick-add's "…" — commits the draft, then opens its full editor pre-filled with
+    // whatever was just typed (same saved row, so editing there saves in place).
+    continueEditing: 'Continue editing',
   },
   padRow: { actionLabel: 'More for this row' },
   /** The ⋯ router on a note row (components/SendToSheet.tsx). */
@@ -997,7 +1000,6 @@ const en = {
     more: 'More',
     quantityLabel: 'Quantity',
     weeklyListChip: 'This week',
-    addToTaskLabel: 'Also add as a task',
     extraInfoPlaceholder: 'Details…',
     manageCards: {
       edit: 'Edit cards',
@@ -1941,6 +1943,7 @@ const no: typeof en = {
       habit: 'Skriv vane',
       item: 'Skriv vare',
     },
+    continueEditing: 'Fortsett å redigere',
   },
   padRow: { actionLabel: 'Mer for denne raden' },
   sendTo: {
@@ -2965,7 +2968,6 @@ const no: typeof en = {
     more: 'Mer',
     quantityLabel: 'Antall',
     weeklyListChip: 'Denne uken',
-    addToTaskLabel: 'Legg også til som oppgave',
     extraInfoPlaceholder: 'Detaljer…',
     manageCards: {
       edit: 'Rediger kort',

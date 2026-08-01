@@ -32,15 +32,12 @@
  *             components/PadFooterToggle, components/SendToSheet, components/Surface,
  *             components/PressableScale, components/CardAccent (CardAccentBadge),
  *             components/Collapsible + components/AnimatedChevron (checked-zone reveal),
- *             components/TimeBoxInput (quick-add's companion-task time field),
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
  *             lib/domainColor, lib/padState, lib/useCardState, lib/prefill (prefillRoute),
- *             lib/useVoiceCapture, lib/useKeyboardLift, store/useNotesStore, store/useTaskStore (quick-add's
- *             optional companion task only)
+ *             lib/useVoiceCapture, lib/useKeyboardLift, store/useNotesStore
  *   Used by → app/(tabs)/index.tsx (the Notes preview slot)
- *   Data    → reads/writes useNotesStore (notes table): toggleChecked, add, update; quick-add's
- *             "also add as a task" toggle additionally writes useTaskStore (tasks table): add.
- *             Card size persists to settings.cardStates via lib/useCardState.
+ *   Data    → reads/writes useNotesStore (notes table): toggleChecked, add, update. Card size
+ *             persists to settings.cardStates via lib/useCardState.
  *
  * Edit notes:
  *   - **Send-to ticks the note off.** Picking a target navigates there with the text prefilled
@@ -56,12 +53,14 @@
  *   - A note's check takes PadRow's default accessible name — the note's own title. It briefly
  *     passed `t.notes.checkedLabel` instead, which gave every check on the card the identical
  *     name ("Checked off"), so a screen reader couldn't tell which note it would tick.
- *   - Quick-add extras (2026-07-24, preserved through the rebuild): notes have no fields beyond
- *     header/body/checked, so the extras carry the three things that matter for a note captured
- *     in passing — a "details" field (→ `body`), an "also add as a task" chip, and (only while
- *     that's on) a TimeBoxInput for the companion task's start time. The companion task is a
- *     plain independent useTaskStore.add() — there's no noteId/taskId link column, so this is
- *     "also create a task with this title", not a synced pointer.
+ *   - **Quick-add extras (2026-07-24, narrowed 2026-08-01)**: notes have no fields beyond
+ *     header/body/checked, so the only extra is a "details" field (→ `body`). The "also add as
+ *     a task" chip + companion TimeBoxInput are gone — that capability already exists from the
+ *     full Notes screen via each row's own "Send it to… → To-do" (SendToSheet), so keeping a
+ *     second copy of it inline here was redundant.
+ *   - **`onMore` / "…" (2026-08-01)**: commits the same draft as the checkmark, then navigates
+ *     to `/notes`. Unlike Habits/To-do there's nothing further to pre-fill — a note's header and
+ *     body are both already editable per-row on that screen — so this is just "take me to it".
  *   - **Historical trap, now avoided rather than worked around**: the badge used to be
  *     absolutely positioned, which meant its origin inherited the parent's padding on native
  *     but NOT on react-native-web (which compiles to CSS, where the containing block is the
@@ -86,7 +85,6 @@ import CardHintNote from '@/components/CardHintNote';
 import SendToSheet, { SendToTarget } from '@/components/SendToSheet';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
-import TimeBoxInput from '@/components/TimeBoxInput';
 import {
   FontSize,
   Fonts,
@@ -106,7 +104,6 @@ import { isDoneRowStillInPlace, padVisibleRows } from '@/lib/padState';
 import { useCardState } from '@/lib/useCardState';
 import { prefillRoute } from '@/lib/prefill';
 import { useNotesStore } from '@/store/useNotesStore';
-import { useTaskStore } from '@/store/useTaskStore';
 import { getDomainColor } from '@/lib/domainColor';
 import { useVoiceCapture } from '@/lib/useVoiceCapture';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
@@ -123,14 +120,11 @@ export default function HomeNotesCard() {
   const toggleChecked = useNotesStore((s) => s.toggleChecked);
   const addNote = useNotesStore((s) => s.add);
   const updateNote = useNotesStore((s) => s.update);
-  const addTask = useTaskStore((s) => s.add);
 
   const [state, setState] = useCardState('notes');
   const [checkedOpen, setCheckedOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
   const [extraInfoDraft, setExtraInfoDraft] = useState('');
-  const [addAsTask, setAddAsTask] = useState(false);
-  const [taskTimeDraft, setTaskTimeDraft] = useState('');
   const [sendToId, setSendToId] = useState<string | null>(null);
   // PadTypeRow's own keyboard-lift only fires for ITS primary field's focus/blur (see that
   // component's ScrollIntoViewContext wiring) — this extras field needs its own, or focusing
@@ -161,24 +155,18 @@ export default function HomeNotesCard() {
     const note = addNote();
     const body = extraInfoDraft.trim();
     updateNote(note.id, body ? { header: trimmed, body } : { header: trimmed });
-    if (addAsTask) {
-      addTask({
-        title: trimmed,
-        date: today,
-        time: taskTimeDraft || undefined,
-        taskType: 'start-at',
-        done: false,
-        recurring: 'none',
-        recurringDays: [],
-        sortOrder: 0,
-        hasStartDate: false,
-      });
-    }
     setNoteDraft('');
     setExtraInfoDraft('');
-    setAddAsTask(false);
-    setTaskTimeDraft('');
     success();
+  }
+
+  // "…" — commits the same draft as the checkmark, then opens the Notes screen: a note's
+  // header and body are both already editable per-row there (NoteRow's inline title-edit +
+  // its body textarea), so there's nothing left to pre-fill — this just takes you to it.
+  function commitNoteDraftAndEdit() {
+    if (!noteDraft.trim()) return;
+    commitNoteDraft();
+    router.push('/notes');
   }
 
   function handleToggle(id: string) {
@@ -261,46 +249,22 @@ export default function HomeNotesCard() {
               onChangeText={setNoteDraft}
               onSubmit={commitNoteDraft}
               accent={domainColor.accent}
+              onMore={commitNoteDraftAndEdit}
               extras={
-                <>
-                  <TextInput
-                    ref={extraInfoLift.ref}
-                    style={[
-                      styles.extraInfoInput,
-                      { backgroundColor: theme.surfaceMuted, color: theme.text },
-                    ]}
-                    value={extraInfoDraft}
-                    onChangeText={setExtraInfoDraft}
-                    onFocus={extraInfoLift.onFocus}
-                    onBlur={extraInfoLift.onBlur}
-                    placeholder={t.home.extraInfoPlaceholder}
-                    placeholderTextColor={theme.textMuted}
-                    onSubmitEditing={commitNoteDraft}
-                  />
-                  <PressableScale
-                    style={[
-                      styles.taskChip,
-                      { borderColor: addAsTask ? domainColor.accent : theme.border },
-                      addAsTask && { backgroundColor: domainColor.soft },
-                    ]}
-                    onPress={() => {
-                      tap();
-                      setAddAsTask((v) => !v);
-                    }}
-                    hitSlop={HitSlop.base}
-                    scaleTo={0.9}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: addAsTask }}
-                    accessibilityLabel={t.home.addToTaskLabel}
-                  >
-                    <Ionicons
-                      name="checkbox-outline"
-                      size={15}
-                      color={addAsTask ? theme.accent : theme.textMuted}
-                    />
-                  </PressableScale>
-                  {addAsTask && <TimeBoxInput value={taskTimeDraft} onChange={setTaskTimeDraft} />}
-                </>
+                <TextInput
+                  ref={extraInfoLift.ref}
+                  style={[
+                    styles.extraInfoInput,
+                    { backgroundColor: theme.surfaceMuted, color: theme.text },
+                  ]}
+                  value={extraInfoDraft}
+                  onChangeText={setExtraInfoDraft}
+                  onFocus={extraInfoLift.onFocus}
+                  onBlur={extraInfoLift.onBlur}
+                  placeholder={t.home.extraInfoPlaceholder}
+                  placeholderTextColor={theme.textMuted}
+                  onSubmitEditing={commitNoteDraft}
+                />
               }
             />
           }
@@ -422,7 +386,8 @@ const baseStyles = StyleSheet.create({
     borderWidth: 1,
   },
   noteBody: { flex: 1, fontSize: FontSize.xs, fontFamily: Fonts.regular },
-  // Quick-add extras (2026-07-24) — the "details" field and the "also add as a task" chip.
+  // Quick-add extras (2026-07-24, "also add as a task" chip removed 2026-08-01) — the
+  // "details" field (→ body).
   extraInfoInput: {
     width: 76,
     fontSize: FontSize.sm,
@@ -430,14 +395,6 @@ const baseStyles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
     borderRadius: Radius.sm,
-  },
-  taskChip: {
-    width: 30,
-    height: 30,
-    borderRadius: Radius.full,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   doneHeader: {
     flexDirection: 'row',

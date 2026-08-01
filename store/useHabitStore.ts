@@ -135,7 +135,10 @@ type HabitStore = {
   logs: HabitLog[];
   load: () => void;
   // goalId is optional here (defaults to null) so habit seeders/quick-adds needn't set it.
-  add: (h: Omit<Habit, 'id' | 'createdAt' | 'active' | 'goalId'> & { goalId?: string | null }) => void;
+  // Returns the created Habit (mirrors useTaskStore's add) so a caller can act on its id
+  // right away — e.g. HomeHabitsCard's quick-add "…" button, which navigates straight to
+  // that same habit's full editor without waiting for a re-render.
+  add: (h: Omit<Habit, 'id' | 'createdAt' | 'active' | 'goalId'> & { goalId?: string | null }) => Habit;
   update: (id: string, patch: Partial<Omit<Habit, 'id'>>) => void;
   remove: (id: string) => void;
   /**
@@ -263,6 +266,7 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
     set((s) => ({ habits: [...s.habits, habit].sort((a, b) => a.routineOrder - b.routineOrder) }));
     syncHabitReminder(habit);
     scheduleWidgetSync();
+    return habit;
   },
 
   update(id, patch) {

@@ -157,15 +157,20 @@
  *     stays disabled. `onAddTask` follows the same "gate on callback, not readOnly" rule —
  *     pass it to render the trailing inline AddRow so a task can be created from the
  *     read-only Home preview without navigating to /plans (2026-07-24).
- *   - **Quick-add essential settings (2026-07-24)**: the trailing AddRow's `extras` carry three
- *     compact inline controls beyond the title — a `TimeBoxInput` (start time, optional), a
- *     repeat chip that cycles none→daily→weekly→monthly (defaults `recurringDays` to today's
- *     weekday the first time it lands on weekly, mirroring TaskCard's own toggleRepeat), and an
- *     energy chip (gated on settings.energySystemEnabled — a real toggle again 2026-07-31,
- *     after five days unconditional) that cycles
- *     off→+1→−1→off. All three reset to their defaults after each commit. `onAddTask`'s second
- *     argument carries whichever of these the user touched; the caller (Home) owns turning that
- *     into a full `TaskInput` the same way it already does for the title-only case.
+ *   - **Quick-add essential settings (2026-07-24, energy chip removed 2026-08-01)**: the type
+ *     line's `extras` carry two compact inline controls beyond the title — a `TimeBoxInput`
+ *     (start time, optional) and a repeat chip that cycles none→daily→weekly→monthly (defaults
+ *     `recurringDays` to today's weekday the first time it lands on weekly, mirroring
+ *     TaskCard's own toggleRepeat). Both reset to their defaults after each commit. `onAddTask`'s
+ *     second argument carries whichever the user touched; the caller (Home) owns turning that
+ *     into a full `TaskInput` the same way it already does for the title-only case. Energy
+ *     moved to being a Habits-only quick-add setting (HomeHabitsCard) rather than duplicated
+ *     here — a task's energy value is still fully editable, just via "…"/the full editor now.
+ *   - **`onAddTaskAndEdit` / "…" (2026-08-01)**: same draft as `onAddTask`, but the caller also
+ *     navigates to the just-created task's full editor (TaskCard, via `plans.tsx`'s
+ *     `expandTaskId` — built for a note's "Add to plans" flow, previously uncalled) instead of
+ *     just collapsing the row. Same saved row either way, so further edits there aren't a
+ *     second copy. Gated on its own presence, independent of `onAddTask`.
  *   - **Anytime badge (2026-07-15)**: untimed rows carry a small "Anytime" text pill in
  *     `titleRow` — they have no clock position (no grid row/dot to mark them anymore since
  *     the 2026-07-26 rebuild dropped the old dashed rail marker along with the flow-list
@@ -250,7 +255,6 @@ import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { getDomainColor } from '@/lib/domainColor';
 import { dayOfWeekMon0 } from '@/lib/date';
-import { useSettingsStore } from '@/store/useSettingsStore';
 import { useNowMinutes } from '@/lib/useNowMinutes';
 import { CardAccentBadge } from '@/components/CardAccent';
 import GlowPulse from '@/components/GlowPulse';
@@ -275,7 +279,15 @@ type Props = {
    *  readOnly" pattern as the done-toggle). */
   onAddTask?: (
     title: string,
-    extra: { time?: string; recurring: Recurring; recurringDays: number[]; energyEnabled: boolean; energyValue: number }
+    extra: { time?: string; recurring: Recurring; recurringDays: number[] }
+  ) => void;
+  /** "…" quick-add action (2026-08-01): commits the same draft as onAddTask, then the caller
+   *  navigates to the just-created task's full editor (TaskCard, via expandTaskId) pre-filled
+   *  — same saved row, so further edits there aren't a second copy. Gated on its own presence,
+   *  same "gate on the callback" rule as onAddTask/onDeleteTask/onToggleTask. */
+  onAddTaskAndEdit?: (
+    title: string,
+    extra: { time?: string; recurring: Recurring; recurringDays: number[] }
   ) => void;
   /** Read-only preview: shows a "See everything →" link in the section header. */
   onSeeMore?: () => void;
@@ -380,6 +392,7 @@ export default function PlanTaskCard({
   onPressTask,
   onToggleTask,
   onAddTask,
+  onAddTaskAndEdit,
   onSeeMore,
   onDeleteTask,
   deletedTasks,
@@ -419,9 +432,6 @@ export default function PlanTaskCard({
   const [addTime, setAddTime] = useState('');
   const [addRecurring, setAddRecurring] = useState<Recurring>('none');
   const [addRecurringDays, setAddRecurringDays] = useState<number[]>([]);
-  const [addEnergyValue, setAddEnergyValue] = useState(0);
-  // Energy is a real toggle again (2026-07-31) — gates the quick-add energy chip below.
-  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
 
   const gridScrollRef = useRef<ScrollView>(null);
 
@@ -438,11 +448,6 @@ export default function PlanTaskCard({
     });
   }
 
-  function cycleEnergy() {
-    tap();
-    setAddEnergyValue((current) => (current === 0 ? 1 : current > 0 ? -1 : 0));
-  }
-
   function recurringLabel(mode: Recurring): string {
     if (mode === 'daily') return t.taskRecurDay;
     if (mode === 'weekly') return t.taskRecurWeek;
@@ -450,21 +455,35 @@ export default function PlanTaskCard({
     return t.off;
   }
 
-  function commitAdd() {
-    const title = addDraft.trim();
-    if (!title || !onAddTask) return;
-    onAddTask(title, {
+  function draftExtra() {
+    return {
       time: addTime || undefined,
       recurring: addRecurring,
       recurringDays: addRecurring === 'weekly' ? addRecurringDays : [],
-      energyEnabled: addEnergyValue !== 0,
-      energyValue: addEnergyValue,
-    });
+    };
+  }
+
+  function resetDraft() {
     setAddDraft('');
     setAddTime('');
     setAddRecurring('none');
     setAddRecurringDays([]);
-    setAddEnergyValue(0);
+  }
+
+  function commitAdd() {
+    const title = addDraft.trim();
+    if (!title || !onAddTask) return;
+    onAddTask(title, draftExtra());
+    resetDraft();
+  }
+
+  // "…" — commits the same draft as the checkmark, then the caller (Home/plans.tsx) opens the
+  // just-created task's full editor pre-filled. Same saved row either way.
+  function commitAddAndEdit() {
+    const title = addDraft.trim();
+    if (!title || !onAddTaskAndEdit) return;
+    onAddTaskAndEdit(title, draftExtra());
+    resetDraft();
   }
 
   // Decision 020 — surfaced followers: for each DONE task, its pending follower is
@@ -911,9 +930,10 @@ export default function PlanTaskCard({
    * The pad's type line, built once and used by BOTH layouts (see its two mount points below)
    * so the ruled list and the timeline can never end up with two differently-worded adds.
    *
-   * Its extras are the three settings that actually matter for a task captured in passing
-   * (2026-07-24, carried over from the AddRow this replaced): a start time, a repeat cycle, and
-   * an energy cost. Everything else is edited later in the task's own form.
+   * Its extras are the two settings that actually matter for a task captured in passing
+   * (2026-07-24, carried over from the AddRow this replaced; energy chip removed 2026-08-01 —
+   * Energy stayed a Habits-only quick-add setting): a start time and a repeat cycle. Everything
+   * else, including energy, is edited later in the task's own form — reachable inline via "…".
    */
   const typeRow = onAddTask ? (
     <PadTypeRow
@@ -922,6 +942,7 @@ export default function PlanTaskCard({
       onChangeText={setAddDraft}
       onSubmit={commitAdd}
       accent={domainColor.accent}
+      onMore={onAddTaskAndEdit ? commitAddAndEdit : undefined}
       extras={
         <>
           <TimeBoxInput value={addTime} onChange={setAddTime} />
@@ -950,29 +971,6 @@ export default function PlanTaskCard({
               </Text>
             )}
           </PressableScale>
-          {/* Quick-add energy chip — gated on settings.energySystemEnabled again
-              (2026-07-31). addEnergyValue stays 0 while Energy is off, so a task added
-              from here simply carries no energy value rather than a hidden one. */}
-          {energySystemEnabled && (
-            <PressableScale
-              style={[
-                styles.quickChip,
-                { borderColor: addEnergyValue !== 0 ? domainColor.accent : theme.border },
-                addEnergyValue !== 0 && { backgroundColor: domainColor.soft },
-              ]}
-              onPress={cycleEnergy}
-              hitSlop={HitSlop.base}
-              scaleTo={0.9}
-              accessibilityRole="button"
-              accessibilityLabel={`${t.energyConsumeLabel}: ${addEnergyValue === 0 ? t.off : addEnergyValue > 0 ? '+1' : '-1'}`}
-            >
-              <Ionicons
-                name={addEnergyValue === 0 ? 'flash-outline' : addEnergyValue > 0 ? 'flash' : 'flash-off'}
-                size={14}
-                color={addEnergyValue > 0 ? theme.good : addEnergyValue < 0 ? theme.warn : theme.textMuted}
-              />
-            </PressableScale>
-          )}
         </>
       }
     />
