@@ -53,7 +53,7 @@
  *     on read, so anything that renders the raw value shows a stale, too-warm goal.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
@@ -62,6 +62,7 @@ import Surface from '@/components/Surface';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
+import { showAppModal } from '@/components/AppModal';
 import { FontSize, Radius, Spacing, TabularNums, Type, HitSlop } from '@/constants/theme';
 import { Travel } from '@/constants/motion';
 import { GOAL_STARTERS } from '@/lib/goalStarters';
@@ -127,7 +128,7 @@ export default function GoalsScreen() {
 
   function confirmDelete(id: string, title: string) {
     tap();
-    Alert.alert(t.goals.deleteConfirmTitle(title), t.goals.deleteConfirmBody, [
+    showAppModal(t.goals.deleteConfirmTitle(title), t.goals.deleteConfirmBody, [
       { text: t.cancel, style: 'cancel' },
       { text: t.goals.deleteLabel, style: 'destructive', onPress: () => removeGoal(id) },
     ]);

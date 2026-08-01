@@ -102,8 +102,14 @@
  *     cardOut/listMove` (same values, now the shared token) and each animation calls
  *     `.easing(Ease.enter/exit/move)` explicitly, matching Collapsible.tsx's house pattern
  *     (fixed alongside the same gap in PlanTaskCard.tsx and AnimatedListItem.tsx).
- *   - **Touch target (2026-07-11)**: the check circle is visually 22x22 but `hitSlop={HitSlop.check}`
- *     brings the tappable area to ~48dp, meeting Android's minimum touch-target size.
+ *   - **Touch targets (2026-07-11, corrected 2026-08-01)**: remove (×) and complete (○) sit
+ *     side by side here — the exact pair DESIGN_RULES rule 17 names as costly to confuse. They
+ *     used to be `Spacing.sm` apart carrying symmetric `HitSlop.base` + `HitSlop.check`, whose
+ *     touch areas overlapped by 13px; RN hit-tests siblings in reverse order, so the check won
+ *     and the right edge of the visible × added the item to the cart instead of removing it.
+ *     Both now sit in a `trailingCluster` using `RowTrailing` (constants/theme.ts): asymmetric
+ *     slops clipped on the shared side, and a gap sized to leave 8px belonging to neither.
+ *     `bigTouch` (the In-the-store layout) widens the circle to 32 and only helps.
  *   - **Flight animation (Phase 1, 2026-07-11)**: `onFlightStart` (optional) fires with this
  *     row's window-space rect right before `onToggle`, letting the parent kick off a
  *     `FlightOverlay` clone (see ANIMATION_GUIDELINES.md). Only wired for the forward
@@ -131,7 +137,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import type { FlightRect } from '@/components/FlightOverlay';
-import { DONE_ROW_OPACITY, Fonts, FontSize, Radius, Spacing, TabularNums, HitSlop } from '@/constants/theme';
+import { DONE_ROW_OPACITY, Fonts, FontSize, Radius, RowTrailing, Spacing, TabularNums } from '@/constants/theme';
 import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -355,45 +361,47 @@ function ShoppingRow({
             AGENTS.md's row rule and components/PadRow.tsx). Moving the check off the leading
             edge is also what let the notepad rules run the whole line instead of being inset
             past a check column, which is why ROW_DIVIDER_INSET is retired. */}
-        {variant !== 'purchased' && (
-          <PressableScale
-            style={styles.deleteBtn}
-            onPress={handleRemovePress}
-            disabled={locked}
-            hitSlop={HitSlop.base}
-            accessibilityLabel={isPutBack ? t.putBackItemLabel : t.removeItemLabel}
-            scaleTo={0.93}
-          >
-            {isPutBack
-              ? <InventoryIcon size={18} color={locked ? theme.textMuted : theme.bad} />
-              : <Ionicons name="close-outline" size={18} color={locked ? theme.border : theme.textMuted} />}
-          </PressableScale>
-        )}
+        <View style={styles.trailingCluster}>
+          {variant !== 'purchased' && (
+            <PressableScale
+              style={styles.deleteBtn}
+              onPress={handleRemovePress}
+              disabled={locked}
+              hitSlop={RowTrailing.actionSlop}
+              accessibilityLabel={isPutBack ? t.putBackItemLabel : t.removeItemLabel}
+              scaleTo={0.93}
+            >
+              {isPutBack
+                ? <InventoryIcon size={18} color={locked ? theme.textMuted : theme.bad} />
+                : <Ionicons name="close-outline" size={18} color={locked ? theme.border : theme.textMuted} />}
+            </PressableScale>
+          )}
 
-        <PressableScale
-          style={[
-            styles.check,
-            spec.bigTouch && styles.checkBig,
-            variant === 'planned' && (item.checked
-              ? { backgroundColor: theme.good, borderColor: theme.good }
-              : { borderColor: theme.good }),
-            variant === 'cart' && { backgroundColor: theme.good, borderColor: theme.good },
-            variant === 'purchased' && { backgroundColor: theme.good, borderColor: theme.good },
-          ]}
-          onPress={handleCheckPress}
-          disabled={variant === 'purchased'}
-          hitSlop={HitSlop.check}
-          scaleTo={0.97}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: !!item.checked }}
-          accessibilityLabel={item.name}
-        >
-          {variant === 'planned' && (item.checked
-            ? <Ionicons name="checkmark" size={14} color={theme.textInverse} />
-            : <Ionicons name="add" size={16} color={theme.good} />)}
-          {variant === 'cart' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
-          {variant === 'purchased' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
-        </PressableScale>
+          <PressableScale
+            style={[
+              styles.check,
+              spec.bigTouch && styles.checkBig,
+              variant === 'planned' && (item.checked
+                ? { backgroundColor: theme.good, borderColor: theme.good }
+                : { borderColor: theme.good }),
+              variant === 'cart' && { backgroundColor: theme.good, borderColor: theme.good },
+              variant === 'purchased' && { backgroundColor: theme.good, borderColor: theme.good },
+            ]}
+            onPress={handleCheckPress}
+            disabled={variant === 'purchased'}
+            hitSlop={RowTrailing.checkSlop}
+            scaleTo={0.97}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: !!item.checked }}
+            accessibilityLabel={item.name}
+          >
+            {variant === 'planned' && (item.checked
+              ? <Ionicons name="checkmark" size={14} color={theme.textInverse} />
+              : <Ionicons name="add" size={16} color={theme.good} />)}
+            {variant === 'cart' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
+            {variant === 'purchased' && <Ionicons name="checkmark" size={14} color={theme.textInverse} />}
+          </PressableScale>
+        </View>
       </Animated.View>
       </NewSinceGlow>
     </Animated.View>
@@ -420,8 +428,8 @@ const baseStyles = StyleSheet.create({
     borderWidth: 1,
   },
   check: {
-    width: 22,
-    height: 22,
+    width: RowTrailing.checkSize,
+    height: RowTrailing.checkSize,
     borderRadius: Radius.full,
     borderWidth: 2,
     alignItems: 'center',
@@ -438,7 +446,15 @@ const baseStyles = StyleSheet.create({
   // right so the digits themselves align even when the unit varies.
   qtyLead: { minWidth: 34, maxWidth: 76, textAlign: 'right', fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   qtyLeadBig: { minWidth: 42, maxWidth: 92, fontSize: FontSize.sm },
-  deleteBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  deleteBtn: {
+    width: RowTrailing.actionSize,
+    height: RowTrailing.actionSize,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Remove and complete are the pair rule 17 warns about by name, so they get their own gap
+  // rather than the row's 8px — see RowTrailing in constants/theme.ts for the arithmetic.
+  trailingCluster: { flexDirection: 'row', alignItems: 'center', gap: RowTrailing.gap },
 });
 
 // React.memo with a custom comparator (perf sweep 2026-07-15): compare only the DATA props

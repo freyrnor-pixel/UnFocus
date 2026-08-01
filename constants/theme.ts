@@ -259,6 +259,45 @@ export const HitSlop = {
   loose: { top: 16, bottom: 16, left: 16, right: 16 },
 } as const;
 
+/**
+ * The trailing cluster — the ⋯/× action and the ○ check at the end of a row.
+ *
+ * This is the one place in the app where two independent tap targets sit side by side, and
+ * the pair is the exact one rule 17 singles out: complete and delete. The warning three
+ * comments up ("don't put `loose` on two controls sitting 8px apart") was being broken by
+ * the rows themselves — `HitSlop.base` on the action (8) plus `HitSlop.check` on the check
+ * (13) across a `Spacing.sm` gap overlapped by 13px, and RN hit-tests siblings in reverse
+ * order, so the check (rendered last) won. The right ~5px of the visible × or ⋯ silently
+ * fired "complete" instead. Measured on components/{PadRow,ShoppingRow}.tsx, 2026-08-01.
+ *
+ * These are deliberately NOT `HitSlop.*` tokens: those are symmetric by contract (pinned in
+ * lib/__tests__/designTokens.test.ts), and the fix here is asymmetry. Each control is clipped
+ * on the side it shares with its neighbour, and `gap` is sized so that after both clips there
+ * is still dead space between the two touch areas:
+ *
+ *   action  28 + 8 + 4 = 40 wide,  28 + 16 = 44 tall
+ *   check   22 + 4 + 13 = 39 wide, 22 + 26 = 48 tall
+ *   between them  16 − 4 − 4 = 8px belonging to neither
+ *
+ * The two land at 39–40px wide rather than 44. That is a knowing trade, not an oversight:
+ * two fully-compliant 44px targets with 8px between them need 96px of row, and a shopping
+ * row at 360px in Norwegian does not have it to give. The axis a thumb actually misses on in
+ * a scrolling list is the vertical one, and both controls keep ≥44 there. If the row budget
+ * ever grows, widen the *boxes* — growing the slop back is what reintroduces the overlap.
+ */
+export const RowTrailing = {
+  /** The ⋯ / × box. */
+  actionSize: 28,
+  /** The ○ check circle. (ShoppingRow's `bigTouch` layout widens it to 32, which only helps.) */
+  checkSize: 22,
+  /** Between the action and the check. Sized to leave 8px dead after both slops. */
+  gap: 16,
+  /** ⋯ / × — clipped on the right, where the check is. */
+  actionSlop: { top: 8, bottom: 8, left: 8, right: 4 },
+  /** ○ check — clipped on the left, where the action is; spreads right into card padding. */
+  checkSlop: { top: 13, bottom: 13, left: 4, right: 13 },
+} as const;
+
 // Body text is never below 16; secondary/caption text never below 14.
 export const FontSize = {
   xs: 12,

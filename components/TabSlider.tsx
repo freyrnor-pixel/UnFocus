@@ -188,7 +188,17 @@ export default function TabSlider<T extends string | number>({
             accessibilityState={{ selected: isActive }}
             scaleTo={0.97}
           >
-            <Text style={[styles.label, { color: isActive ? theme.accentInk : theme.textMuted }]} numberOfLines={1}>
+            {/* Shrinks rather than clipping: a tab bar has a hard width, and a Norwegian label
+                ("Handleliste", "Denne uka") overruns where its English twin fits. Truncating a
+                control's own name is the one failure the row can't recover from — the same
+                reason BottomNav auto-shrinks. `minimumFontScale` floors it at a legible size,
+                so a label that still doesn't fit wraps the row instead of vanishing. */}
+            <Text
+              style={[styles.label, { color: isActive ? theme.accentInk : theme.textMuted }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
               {opt.label}
             </Text>
             {opt.accessory}

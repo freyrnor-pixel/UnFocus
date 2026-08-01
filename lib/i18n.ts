@@ -1562,7 +1562,7 @@ const en = {
       example: 'e.g. painkillers as needed, at least 6 hours apart.',
     },
     shopping: {
-      text: 'Add things as you run out. Resets weekly.',
+      text: 'Add things as you run out. Resets weekly. Hold a row to move it.',
       example: 'e.g. milk weekly, washing powder monthly.',
     },
     meals: {
@@ -1588,11 +1588,11 @@ const en = {
     habits: {
       // Rewritten 2026-07-26: the old "build habits you want more of, or break ones you want
       // less of" described the build/break `kind` split removed from the store on 2026-07-20.
-      text: 'Small things you want to repeat. Tap to count it, gear to set it up.',
+      text: 'Small things you want to repeat. Tap to count it, gear to set it up. Hold a row to move it.',
       example: 'e.g. "Drink 4 glasses of water" — daily, 4 a day.',
     },
     plans: {
-      text: 'Everything to do, by day and week.',
+      text: 'Everything to do, by day and week. Under Whenever, hold a row to move it.',
       example: 'e.g. "Book the dentist" under Whenever.',
     },
     automations: {
@@ -1600,7 +1600,7 @@ const en = {
       example: '',
     },
     notes: {
-      text: 'Write it down. Send it anywhere.',
+      text: 'Write it down. Send it anywhere. Hold a note to move it.',
       example: '',
     },
     goals: {
@@ -3151,7 +3151,7 @@ const no: typeof en = {
       example: 'F.eks. smertestillende ved behov, minst 6 timer mellom.',
     },
     shopping: {
-      text: 'Legg til når du går tom. Nullstilles ukentlig.',
+      text: 'Legg til når du går tom. Nullstilles ukentlig. Hold en rad for å flytte.',
       example: 'F.eks. melk ukentlig, vaskepulver månedlig.',
     },
     meals: {
@@ -3175,11 +3175,11 @@ const no: typeof en = {
       example: '',
     },
     habits: {
-      text: 'Små ting du vil gjenta. Trykk for å telle, tannhjul for å sette opp.',
+      text: 'Små ting du vil gjenta. Trykk for å telle, tannhjul for å sette opp. Hold en rad for å flytte.',
       example: 'F.eks. «Drikk 4 glass vann» — daglig, 4 om dagen.',
     },
     plans: {
-      text: 'Alt som skal gjøres, etter dag og uke.',
+      text: 'Alt som skal gjøres, etter dag og uke. Under «Når som helst», hold en rad for å flytte.',
       example: 'F.eks. «Bestill tannlegetime» under «Når som helst».',
     },
     automations: {
@@ -3187,7 +3187,7 @@ const no: typeof en = {
       example: '',
     },
     notes: {
-      text: 'Skriv det ned. Send det videre.',
+      text: 'Skriv det ned. Send det videre. Hold et notat for å flytte.',
       example: '',
     },
     goals: {
