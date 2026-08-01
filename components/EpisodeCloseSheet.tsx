@@ -34,9 +34,13 @@
  *     different control).
  *   - No notification is scheduled here, ever — lib/__tests__/episodes.test.ts source-scans
  *     this file to keep that true.
+ *   - **Wrapped in a KeyboardAvoidingView** (same fix as components/UpdateSheet.tsx /
+ *     components/ShoppingItemSheet.tsx) because RN's `<Modal>` — which AnimatedBottomSheet
+ *     renders into — sits outside the screen's own KeyboardAvoidingView subtree. Without this
+ *     the keyboard covered the "did anything help" note field and the action buttons below it.
  */
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 import Surface from '@/components/Surface';
 import Button from '@/components/Button';
@@ -87,7 +91,15 @@ export default function EpisodeCloseSheet({ log, onClose }: Props) {
   const stop = resolveStop();
 
   const candidates = useMemo(
-    () => (log ? reliefCandidates(medicines.filter((m) => m.active), doses, log, stop) : []),
+    () =>
+      log
+        ? reliefCandidates(
+            medicines.filter((m) => m.active),
+            doses,
+            log,
+            stop
+          )
+        : [],
     [log, medicines, doses, stop.date, stop.time] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
@@ -125,77 +137,25 @@ export default function EpisodeCloseSheet({ log, onClose }: Props) {
 
   return (
     <AnimatedBottomSheet visible={log !== null} onClose={dismiss}>
-      <Surface surfaceContext="overlay" style={styles.sheet}>
-        <View style={[styles.handle, { backgroundColor: theme.border }]} />
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollBody}>
-          <Text style={[styles.title, { color: theme.text }]}>{log?.ailment ?? ''}</Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flexFill}
+      >
+        <Surface surfaceContext="overlay" style={styles.sheet}>
+          <View style={[styles.handle, { backgroundColor: theme.border }]} />
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollBody}>
+            <Text style={[styles.title, { color: theme.text }]}>{log?.ailment ?? ''}</Text>
 
-          {/* When did it stop? */}
-          <Text style={[styles.label, { color: theme.textMuted }]}>{t.episodes.whenDidItStop}</Text>
-          <View style={styles.chipRow}>
-            {STOP_OPTIONS.map((option) => {
-              const active = choice === option.id;
-              return (
-                <PressableScale
-                  key={option.id}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                    active && { backgroundColor: theme.accent, borderColor: theme.accent },
-                  ]}
-                  onPress={() => {
-                    tap();
-                    setChoice(option.id);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  scaleTo={0.97}
-                >
-                  <Text style={[styles.chipText, { color: theme.text }, active && { color: theme.accentInk }]}>
-                    {option.label}
-                  </Text>
-                </PressableScale>
-              );
-            })}
-          </View>
-
-          {choice === 'pick' && (
-            <View style={styles.pickBlock}>
-              <DateChipRow
-                value={pickDate}
-                onChange={setPickDate}
-                expanded={calExpanded}
-                setExpanded={setCalExpanded}
-              />
-              <Input
-                value={pickTime}
-                onChangeText={setPickTime}
-                placeholder={t.timeInputPlaceholder}
-                keyboardType="numbers-and-punctuation"
-              />
-            </View>
-          )}
-
-          {/* Did anything help? — optional, and it never blocks the close. */}
-          <Text style={[styles.label, { color: theme.textMuted }]}>{t.episodes.didAnythingHelp}</Text>
-          <Input
-            optional
-            value={note}
-            onChangeText={setNote}
-            placeholder={t.notesPlaceholder}
-            multiline
-            style={styles.noteInput}
-          />
-
-          {/* Medicines taken while it was happening. Absent — not empty — when there are
-              none. A chip is "you took this then", never "this helped". */}
-          {candidates.length > 0 && (
+            {/* When did it stop? */}
+            <Text style={[styles.label, { color: theme.textMuted }]}>
+              {t.episodes.whenDidItStop}
+            </Text>
             <View style={styles.chipRow}>
-              {candidates.map((m) => {
-                const active = medicineId === m.id;
+              {STOP_OPTIONS.map((option) => {
+                const active = choice === option.id;
                 return (
                   <PressableScale
-                    key={m.id}
+                    key={option.id}
                     style={[
                       styles.chip,
                       { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
@@ -203,32 +163,111 @@ export default function EpisodeCloseSheet({ log, onClose }: Props) {
                     ]}
                     onPress={() => {
                       tap();
-                      setMedicineId(active ? '' : m.id);
+                      setChoice(option.id);
                     }}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                     scaleTo={0.97}
                   >
-                    <Text style={[styles.chipText, { color: theme.text }, active && { color: theme.accentInk }]}>
-                      {m.name}
+                    <Text
+                      style={[
+                        styles.chipText,
+                        { color: theme.text },
+                        active && { color: theme.accentInk },
+                      ]}
+                    >
+                      {option.label}
                     </Text>
                   </PressableScale>
                 );
               })}
             </View>
-          )}
 
-          <View style={styles.actions}>
-            <Button label={t.skipBtn} variant="ghost" onPress={() => confirm(true)} style={styles.action} />
-            <Button label={t.episodes.itsOver} onPress={() => confirm()} style={styles.action} />
-          </View>
-        </ScrollView>
-      </Surface>
+            {choice === 'pick' && (
+              <View style={styles.pickBlock}>
+                <DateChipRow
+                  value={pickDate}
+                  onChange={setPickDate}
+                  expanded={calExpanded}
+                  setExpanded={setCalExpanded}
+                />
+                <Input
+                  value={pickTime}
+                  onChangeText={setPickTime}
+                  placeholder={t.timeInputPlaceholder}
+                  keyboardType="numbers-and-punctuation"
+                />
+              </View>
+            )}
+
+            {/* Did anything help? — optional, and it never blocks the close. */}
+            <Text style={[styles.label, { color: theme.textMuted }]}>
+              {t.episodes.didAnythingHelp}
+            </Text>
+            <Input
+              optional
+              value={note}
+              onChangeText={setNote}
+              placeholder={t.notesPlaceholder}
+              multiline
+              style={styles.noteInput}
+            />
+
+            {/* Medicines taken while it was happening. Absent — not empty — when there are
+              none. A chip is "you took this then", never "this helped". */}
+            {candidates.length > 0 && (
+              <View style={styles.chipRow}>
+                {candidates.map((m) => {
+                  const active = medicineId === m.id;
+                  return (
+                    <PressableScale
+                      key={m.id}
+                      style={[
+                        styles.chip,
+                        { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                        active && { backgroundColor: theme.accent, borderColor: theme.accent },
+                      ]}
+                      onPress={() => {
+                        tap();
+                        setMedicineId(active ? '' : m.id);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      scaleTo={0.97}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          { color: theme.text },
+                          active && { color: theme.accentInk },
+                        ]}
+                      >
+                        {m.name}
+                      </Text>
+                    </PressableScale>
+                  );
+                })}
+              </View>
+            )}
+
+            <View style={styles.actions}>
+              <Button
+                label={t.skipBtn}
+                variant="ghost"
+                onPress={() => confirm(true)}
+                style={styles.action}
+              />
+              <Button label={t.episodes.itsOver} onPress={() => confirm()} style={styles.action} />
+            </View>
+          </ScrollView>
+        </Surface>
+      </KeyboardAvoidingView>
     </AnimatedBottomSheet>
   );
 }
 
 const baseStyles = StyleSheet.create({
+  flexFill: { flex: 1 },
   sheet: {
     position: 'absolute',
     left: 0,
@@ -241,13 +280,24 @@ const baseStyles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.xl,
   },
-  handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: Radius.full, marginBottom: Spacing.xs },
+  handle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: Radius.full,
+    marginBottom: Spacing.xs,
+  },
   scrollBody: { gap: Spacing.sm, paddingBottom: Spacing.md },
   title: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, marginTop: Spacing.xs },
   // Same pill sizing as app/health-form.tsx's "Possibly from" row — one control, not two.
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  chip: { paddingHorizontal: Spacing.sm, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1.5 },
+  chip: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+  },
   chipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   pickBlock: { gap: Spacing.xs },
   noteInput: { minHeight: 64, textAlignVertical: 'top' },

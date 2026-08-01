@@ -35,9 +35,13 @@
  *   - `item` is nullable so the parent can keep the sheet mounted while it animates out
  *     (Decision 044b) — the last non-null item is cached in a ref and rendered during the
  *     exit, exactly like ListSettingsSheet. Read `shown`, never `item`, in the body.
+ *   - **Wrapped in a KeyboardAvoidingView** (same fix as components/UpdateSheet.tsx) because
+ *     RN's `<Modal>` — which AnimatedBottomSheet renders into — sits outside the screen's own
+ *     KeyboardAvoidingView subtree. Without this the keyboard covered the name/unit/price
+ *     fields and the category chips/Done button below them (2026-08-01 fix).
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 import PressableScale from '@/components/PressableScale';
 import Stepper from '@/components/Stepper';
@@ -128,107 +132,125 @@ export default function ShoppingItemSheet({ visible, item, onClose }: Props) {
 
   return (
     <AnimatedBottomSheet visible={visible} onClose={close}>
-      <Surface surfaceContext="overlay" style={styles.sheet}>
-        <View style={[styles.handle, { backgroundColor: theme.border }]} />
-        <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
-          {shown.name}
-        </Text>
-
-        {/* Quantity — the field this sheet exists for, so it sits first. */}
-        <View style={styles.field}>
-          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.shoppingItemSheet.quantity}</Text>
-          {isNumericAmount ? (
-            <Stepper
-              value={safeQty}
-              onChange={setQuantity}
-              min={MIN_QTY}
-              max={MAX_QTY}
-              accessibilityLabel={t.shoppingItemSheet.quantity}
-            />
-          ) : (
-            // Free-text amounts ("2-3", "a bunch") stay free text rather than being rounded.
-            <Input
-              value={amountText}
-              onChangeText={setAmountText}
-              placeholder={t.shoppingItemSheet.quantityPlaceholder}
-              style={styles.input}
-            />
-          )}
-        </View>
-
-        <Input
-          label={t.shoppingItemSheet.name}
-          value={name}
-          onChangeText={setName}
-          style={styles.input}
-        />
-
-        <View style={styles.pair}>
-          <View style={styles.pairCol}>
-            <Input
-              label={t.shoppingItemSheet.unit}
-              value={unit}
-              onChangeText={setUnit}
-              placeholder={t.shoppingItemSheet.unitPlaceholder}
-              style={styles.input}
-            />
-          </View>
-          <View style={styles.pairCol}>
-            <Input
-              label={t.shoppingItemSheet.price}
-              value={price}
-              onChangeText={setPrice}
-              keyboardType="decimal-pad"
-              placeholder="0"
-              style={styles.input}
-            />
-          </View>
-        </View>
-
-        <View style={styles.field}>
-          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.shoppingItemSheet.category}</Text>
-          <View style={styles.chips}>
-            {categories.map((c) => {
-              const active = (shown.category ?? 'other') === c.value;
-              return (
-                <PressableScale
-                  key={c.value}
-                  style={[
-                    styles.chip,
-                    {
-                      borderColor: active ? theme.accent : theme.border,
-                      backgroundColor: active ? theme.accentSoft : theme.surfaceMuted,
-                    },
-                  ]}
-                  onPress={() => chooseCategory(c.value)}
-                  scaleTo={0.95}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: active }}
-                >
-                  <Text style={[styles.chipText, { color: active ? theme.accent : theme.textMuted }]}>
-                    {c.label}
-                  </Text>
-                </PressableScale>
-              );
-            })}
-          </View>
-        </View>
-
-        {shown.inventoryQty > 0 ? (
-          <Text style={[styles.stock, { color: theme.good }]}>
-            {t.inStockLabel}: {shown.inventoryQty}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flexFill}
+      >
+        <Surface surfaceContext="overlay" style={styles.sheet}>
+          <View style={[styles.handle, { backgroundColor: theme.border }]} />
+          <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+            {shown.name}
           </Text>
-        ) : null}
 
-        <PressableScale style={[styles.doneBtn, { backgroundColor: theme.accent }]} onPress={close} scaleTo={0.95}>
-          <Text style={[styles.doneBtnText, { color: theme.accentInk }]}>{t.shoppingItemSheet.done}</Text>
-        </PressableScale>
-      </Surface>
+          {/* Quantity — the field this sheet exists for, so it sits first. */}
+          <View style={styles.field}>
+            <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>
+              {t.shoppingItemSheet.quantity}
+            </Text>
+            {isNumericAmount ? (
+              <Stepper
+                value={safeQty}
+                onChange={setQuantity}
+                min={MIN_QTY}
+                max={MAX_QTY}
+                accessibilityLabel={t.shoppingItemSheet.quantity}
+              />
+            ) : (
+              // Free-text amounts ("2-3", "a bunch") stay free text rather than being rounded.
+              <Input
+                value={amountText}
+                onChangeText={setAmountText}
+                placeholder={t.shoppingItemSheet.quantityPlaceholder}
+                style={styles.input}
+              />
+            )}
+          </View>
+
+          <Input
+            label={t.shoppingItemSheet.name}
+            value={name}
+            onChangeText={setName}
+            style={styles.input}
+          />
+
+          <View style={styles.pair}>
+            <View style={styles.pairCol}>
+              <Input
+                label={t.shoppingItemSheet.unit}
+                value={unit}
+                onChangeText={setUnit}
+                placeholder={t.shoppingItemSheet.unitPlaceholder}
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.pairCol}>
+              <Input
+                label={t.shoppingItemSheet.price}
+                value={price}
+                onChangeText={setPrice}
+                keyboardType="decimal-pad"
+                placeholder="0"
+                style={styles.input}
+              />
+            </View>
+          </View>
+
+          <View style={styles.field}>
+            <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>
+              {t.shoppingItemSheet.category}
+            </Text>
+            <View style={styles.chips}>
+              {categories.map((c) => {
+                const active = (shown.category ?? 'other') === c.value;
+                return (
+                  <PressableScale
+                    key={c.value}
+                    style={[
+                      styles.chip,
+                      {
+                        borderColor: active ? theme.accent : theme.border,
+                        backgroundColor: active ? theme.accentSoft : theme.surfaceMuted,
+                      },
+                    ]}
+                    onPress={() => chooseCategory(c.value)}
+                    scaleTo={0.95}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text
+                      style={[styles.chipText, { color: active ? theme.accent : theme.textMuted }]}
+                    >
+                      {c.label}
+                    </Text>
+                  </PressableScale>
+                );
+              })}
+            </View>
+          </View>
+
+          {shown.inventoryQty > 0 ? (
+            <Text style={[styles.stock, { color: theme.good }]}>
+              {t.inStockLabel}: {shown.inventoryQty}
+            </Text>
+          ) : null}
+
+          <PressableScale
+            style={[styles.doneBtn, { backgroundColor: theme.accent }]}
+            onPress={close}
+            scaleTo={0.95}
+          >
+            <Text style={[styles.doneBtnText, { color: theme.accentInk }]}>
+              {t.shoppingItemSheet.done}
+            </Text>
+          </PressableScale>
+        </Surface>
+      </KeyboardAvoidingView>
     </AnimatedBottomSheet>
   );
 }
 
 const baseStyles = StyleSheet.create({
+  flexFill: { flex: 1 },
   sheet: {
     position: 'absolute',
     left: 0,
@@ -241,7 +263,13 @@ const baseStyles = StyleSheet.create({
     paddingBottom: Spacing.xl,
     gap: Spacing.sm,
   },
-  handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: Radius.full, marginBottom: Spacing.xs },
+  handle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: Radius.full,
+    marginBottom: Spacing.xs,
+  },
   title: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   field: { gap: Spacing.xs },
   fieldLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
