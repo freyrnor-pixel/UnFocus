@@ -78,8 +78,17 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
                                                ↑
                        lib/i18n.ts (useT)  ───┘
                        lib/date.ts (dateStr, todayStr)
-                       constants/theme.ts (getTheme, Colors)
+                       lib/useAppTheme.ts (useAppTheme → ThemePalette)
+                         ├─ constants/colors.ts  (colours: getThemePalette, ThemePalette)
+                         ├─ constants/theme.ts   (dimensions/finish: Spacing, Radius,
+                         │                        FontSize, Fonts, getMaterialStyle, getGlow)
+                         └─ constants/motion.ts  (timing: Duration, Ease, Spring, Travel)
 ```
+
+`constants/theme.ts` does **not** re-export `constants/colors.ts` — colours and dimensions
+are separate modules. (This line read `constants/theme.ts (getTheme, Colors)` until
+2026-08-01; neither export has ever existed. See `DESIGN_SYSTEM_LIBRARY_INDEX.md` for which
+file owns which token.)
 
 - **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` (**Shopping/Plans/Home/Habits/Health** — that is the real `<TopTabs.Screen>` order in `app/(tabs)/_layout.tsx`; this line said Health/Habits for months and building against it put every tab's backdrop panel on its neighbour, so trust the navigator, not the prose. Decision 036, amended 2026-07-23 — UX audit E1/E2 swapped Scan out for Habits, its own tab again); other screens are reached via links/buttons from those 5. Notes and Food/Meals are NOT tabs — reached via Home's "More" links (Notes) and Shopping's Food button (F1, 2026-07-23). Scan is also not a tab anymore — it's a pushed sub-screen (`app/scan.tsx`) reached via a "Scan" button on Shopping's header; its idle screen still offers both receipt OCR and QR import. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
 - **Onboarding** (`app/onboarding/*`, rebuilt 2026-07-31): **basics → restore → privacy →

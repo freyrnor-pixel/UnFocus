@@ -197,6 +197,8 @@ no longer accurate; the audit meant to catch drift has itself drifted. **Fixed �
 | `CARD_CONTAINER_LIBRARY.md` + `SHADOW_ELEVATION_LIBRARY.md` teach hand-rolled cards, not `<Surface>` | whole files | **Deleted 2026-08-01** (§5.8) |
 | `Avatar` + `SwatchPicker` documented in full; neither has ever existed | `BUTTON_LIBRARY.md` §11–12 | **Deleted 2026-08-01** (§5.8) |
 | `FeatureColors` + `THEME_ICONS` cited as `constants/theme.ts` exports; neither exists | `ICON_LIBRARY.md` | **Fixed 2026-08-01** — repointed at `theme.feat*` (§5.8) |
+| Libraries framed as "@ `constants/theme.ts`" though colours live in `constants/colors.ts` | `DESIGN_SYSTEM_LIBRARY_INDEX.md` | **Fixed 2026-08-01** — three-file ownership table (§5.9) |
+| `getTheme` + `Colors` named in the architecture diagram; neither has ever existed | `AGENTS.md:81` | **Fixed 2026-08-01** (§5.9) |
 | No orphaned component/lib/store files | — | Verified clean, no action needed |
 | All AGENTS.md-claimed deletions (Bonsai, BubbleMenu, first-run.tsx, etc.) | — | Verified clean, no action needed |
 
@@ -348,6 +350,31 @@ copy-tone fix while in there: a `Badge` example read `label="Overdue"`, which
 `DESIGN_RULES.md` rule 23 forbids — now `"Still due"` with the rule cited inline
 (`copyTone.test.ts` only scans `lib/i18n.ts`, so a doc example teaching the banned word was
 invisible to CI).
+
+### 5.9 The "@ `constants/theme.ts`" framing — the index and AGENTS.md's diagram
+
+Flagged at the end of §5.8 and fixed immediately after. `DESIGN_SYSTEM_LIBRARY_INDEX.md`
+headed its library table *"N Design Libraries @ `constants/theme.ts`"* and its Key Principle
+said each visual aspect is "documented once in `constants/theme.ts`" — but **`theme.ts` does
+not re-export `colors.ts`** (checked: no `export *`, no import between them). Every colour a
+reader reaches through `theme.*` comes from `constants/colors.ts`, so the index sent them to
+the wrong file for the entire palette. Replaced with a three-file table stating who owns
+what — `colors.ts` colours, `theme.ts` dimensions/finish (including the colour *functions*,
+which take a colour and return a style but define no palette), `motion.ts` timing — plus the
+`useAppTheme()` vs `getThemePalette()` rule, which is the same in-component/out-of-component
+split as `useT()` vs `getTranslations()`.
+
+Same error, worse placement: **`AGENTS.md`'s "Architecture at a glance" diagram** ended with
+`constants/theme.ts (getTheme, Colors)`. **Neither export has ever existed** — no `getTheme`,
+no `Colors`, anywhere in `constants/`. That is the first diagram a new session reads.
+Replaced with the real `useAppTheme` → three-constants-files shape and a one-line note that
+the two modules are separate.
+
+Cross-checked every export named in both edits against source before committing (17 in
+`theme.ts`, 4 in `colors.ts`, 4 in `motion.ts`, `useAppTheme`) — all present. One caught in
+the act: the new Key Principle example originally read `Duration.quick`, which doesn't exist;
+the real keys are `micro`/`control`/`tabSwitch`/`card`/`cardOut`/`listIn`/`value`/`listMove`/
+`ambient`. Corrected to `Duration.control` before the commit.
 
 ### Verification (§5.8)
 
