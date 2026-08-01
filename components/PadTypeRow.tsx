@@ -37,6 +37,10 @@
  *     on the surfaces that still use AddRow (/plans' Whenever, health-log, automations).
  *   - Commits on submit and on blur-with-text, so a typed line is never silently lost by
  *     tapping elsewhere. Blur with an empty line just restores the prompt.
+ *   - **`onMore` (2026-08-01)**: an optional "…" beside the confirm check, same visibility
+ *     gate as extras. The caller's handler both commits the draft AND navigates to that same
+ *     row's full editor, pre-filled — so further edits made there save to the row the
+ *     quick-add already created, not a second copy. See HomeHabitsCard/PlanTaskCard.
  */
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Keyboard, StyleProp, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
@@ -67,6 +71,13 @@ type Props = {
   accent: string;
   /** Per-surface quick-add controls, shown only while the line is active. */
   extras?: React.ReactNode;
+  /** Optional "…" — commits the draft (same as onSubmit) and opens its full editor,
+   *  pre-filled, instead of just collapsing back to the prompt. Shown on the same terms as
+   *  extras/the confirm button (focused or has text). The caller owns what "commit and open
+   *  the full editor" means (it's the one holding the draft's other field values); this
+   *  component only renders the button and fires the callback. */
+  onMore?: () => void;
+  moreLabel?: string;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 };
@@ -78,6 +89,8 @@ export default function PadTypeRow({
   onSubmit,
   accent,
   extras,
+  onMore,
+  moreLabel,
   disabled,
   style,
 }: Props) {
@@ -158,6 +171,19 @@ export default function PadTypeRow({
 
       {showControls ? extras : null}
 
+      {showControls && onMore ? (
+        <PressableScale
+          style={styles.more}
+          onPress={onMore}
+          hitSlop={HitSlop.base}
+          scaleTo={0.9}
+          accessibilityRole="button"
+          accessibilityLabel={moreLabel ?? t.pad.continueEditing}
+        >
+          <Ionicons name="ellipsis-horizontal" size={16} color={theme.textMuted} />
+        </PressableScale>
+      ) : null}
+
       {showControls ? (
         <PressableScale
           style={[
@@ -207,6 +233,13 @@ const styles = StyleSheet.create({
   },
   prompt: { position: 'absolute', left: 0, right: 0 },
   promptText: { fontSize: FontSize.md, fontFamily: Fonts.regular },
+  more: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   confirm: {
     width: 32,
     height: 32,

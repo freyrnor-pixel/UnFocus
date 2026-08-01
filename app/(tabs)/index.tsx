@@ -94,11 +94,13 @@
  *     AddRow, whose extras carry a quantity Stepper and a Weekly/Monthly-list target chip;
  *     `monthlyLists` (already read for `shoppingPace`) is passed straight through for that
  *     chip to cycle over.
- *   - **Task quick-add's essential settings (2026-07-24)**: `handleAddTask`'s second argument
- *     now carries whatever PlanTaskCard's extras row (time/recurring/energy) the user touched;
- *     the quick-add energy chip always renders (Energy stopped being a toggle 2026-07-26; that system
- *     is on. `monthDay` defaults to today's day-of-month (not a hardcoded 1) so picking
- *     'monthly' from the chip is a valid occurrence immediately.
+ *   - **Task quick-add's essential settings (2026-07-24, energy dropped 2026-08-01)**:
+ *     `handleAddTask`'s second argument carries whatever PlanTaskCard's extras row
+ *     (time/recurring) the user touched — `buildQuickAddTaskInput` builds the shared
+ *     `TaskInput` for both this and `handleAddTaskAndEdit` (the "…" path, which additionally
+ *     navigates to the new task's full editor via `expandTaskId`). `monthDay` defaults to
+ *     today's day-of-month (not a hardcoded 1) so picking 'monthly' from the chip is a valid
+ *     occurrence immediately.
  *   - **Home preview card management (2026-07-19, A2/D1 split 2026-07-23, toggle relocated
  *     2026-07-24)**: off-Focus, Notes/Plans/Shopping render via `HomeCardManager`
  *     (components/HomeCardManager.tsx) in `settings.homeCardOrder` order. Holding any card
@@ -447,32 +449,47 @@ export default function HomeScreen() {
   // quick-add essential settings (time/recurring/energy) the user touched — monthDay defaults
   // to today's day-of-month so a 'monthly' pick from the chip is a valid occurrence out of the
   // gate (mirrors TaskCard's own defaulting for recurringDays/monthDay).
+  // Shared with handleAddTaskAndEdit below — building the TaskInput is the only part that's
+  // common; each caller decides what to do with the created Task afterward.
+  const buildQuickAddTaskInput = useCallback(
+    (title: string, extra: { time?: string; recurring: Recurring; recurringDays: number[] }) => ({
+      title,
+      date: today,
+      time: extra.time,
+      taskType: 'start-at' as const,
+      done: false,
+      recurring: extra.recurring,
+      recurringDays: extra.recurringDays,
+      weekInterval: 1,
+      monthlyMode: 'day' as const,
+      monthDay: new Date().getDate(),
+      monthOrdinal: 'first' as const,
+      monthWeekday: 0,
+      sortOrder: 0,
+      hasStartDate: false,
+      assignee: '',
+    }),
+    [today]
+  );
+
   const handleAddTask = useCallback(
-    (
-      title: string,
-      extra: { time?: string; recurring: Recurring; recurringDays: number[]; energyEnabled: boolean; energyValue: number }
-    ) => {
-      addTask({
-        title,
-        date: today,
-        time: extra.time,
-        taskType: 'start-at',
-        done: false,
-        recurring: extra.recurring,
-        recurringDays: extra.recurringDays,
-        weekInterval: 1,
-        monthlyMode: 'day',
-        monthDay: new Date().getDate(),
-        monthOrdinal: 'first',
-        monthWeekday: 0,
-        energyEnabled: extra.energyEnabled,
-        energyValue: extra.energyValue,
-        sortOrder: 0,
-        hasStartDate: false,
-        assignee: '',
-      });
+    (title: string, extra: { time?: string; recurring: Recurring; recurringDays: number[] }) => {
+      addTask(buildQuickAddTaskInput(title, extra));
     },
-    [addTask, today]
+    [addTask, buildQuickAddTaskInput]
+  );
+
+  // "…" quick-add (2026-08-01): same create as handleAddTask, but also opens the new task's
+  // full editor (TaskCard, on /plans) pre-filled, via the expandTaskId param plans.tsx already
+  // wires for exactly this (built for a note's "Add to plans" flow, previously uncalled).
+  // `tab: 'all'` because expandTaskId's autoExpand lives on the Whenever section's TaskCard,
+  // not Today's — and an undated (hasStartDate:false) task like this always shows there too.
+  const handleAddTaskAndEdit = useCallback(
+    (title: string, extra: { time?: string; recurring: Recurring; recurringDays: number[] }) => {
+      const task = addTask(buildQuickAddTaskInput(title, extra));
+      router.push({ pathname: '/plans', params: { tab: 'all', expandTaskId: task.id } });
+    },
+    [addTask, buildQuickAddTaskInput, router]
   );
 
   // Inline quick-add from the Home Shopping preview — new (2026-07-24), the card previously had
@@ -544,6 +561,7 @@ export default function HomeScreen() {
                 readOnly
                 onToggleTask={handleToggleTask}
                 onAddTask={handleAddTask}
+                onAddTaskAndEdit={handleAddTaskAndEdit}
                 onDeleteTask={handleDeleteTask}
                 deletedTasks={deletedTasks}
                 onRestoreTask={handleRestoreTask}
