@@ -6,6 +6,12 @@
  * reminder picker (Once / Several times / Every…, Decision 016). An `id` route param
  * switches it to edit mode (with delete).
  *
+ * **Delete has no confirm dialog (2026-08-01)** — it used to open a modal ("This cannot
+ * be undone."), which is no longer true: useHabitStore.remove() is a soft-delete and
+ * app/(tabs)/habits.tsx shows an inline "ghost" row with a restore action for a few seconds
+ * after landing back on the list (lib/useGhostTimeout.ts + components/GhostRow.tsx). Same
+ * "undo, not confirm" call already made for tasks (see useTaskStore.remove()'s doc).
+ *
  * **Field order + labelling (2026-07-26 clarity pass, maintainer-specified)**:
  * Name → For → **Reminder** (optional) → Energy → Goal → More options → Delete · Discard · Save.
  *   - A habit is recurring BY DEFINITION, so there is no repeat switch — unlike a task,
@@ -46,7 +52,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
  *             components/Collapsible (animated "More options" disclosure),
- *             components/HintCard, components/HabitIcon, components/AppModal,
+ *             components/HintCard, components/HabitIcon,
  *             components/PressableScale, components/Stepper, components/GoalPicker (gated on
  *             settings.featureGoals), components/FieldDivider, components/OptionalTag,
  *             lib/haptics, lib/i18n, lib/useAppTheme, store/useHabitStore, store/useSettingsStore
@@ -126,14 +132,13 @@ import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0 } from '@/lib/date';
 import { energyStepperValue, energyFieldsFromStepper } from '@/lib/energy';
-import { tap, warning, heavy } from '@/lib/haptics';
+import { tap, heavy } from '@/lib/haptics';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import { Input, SegmentedControl, Switch } from '@/components/FormControls';
 import HintCard from '@/components/HintCard';
 import { GoalPicker } from '@/components/GoalPicker';
 import HabitIcon, { HABIT_ICON_NAMES } from '@/components/HabitIcon';
-import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
@@ -327,17 +332,15 @@ export default function HabitForm() {
     router.back();
   }
 
+  // No confirm dialog (2026-08-01, matching useTaskStore's remove()/PlanTaskCard's "Recently
+  // deleted" precedent): removeHabit() is a soft-delete now, and app/(tabs)/habits.tsx shows
+  // an inline "ghost" row with a restore action for a few seconds after landing back on the
+  // list — the undo IS the safety net, so a confirm step here would just be a second one
+  // (and its old copy, "This cannot be undone.", would now be false).
   function performDelete() {
+    heavy();
     if (params.id) removeHabit(params.id);
     router.back();
-  }
-
-  function confirmDelete() {
-    warning();
-    showAppModal(t.resetConfirmTitle(title || t.habitTitlePlaceholder), t.resetConfirmBody, [
-      { text: t.cancel, style: 'cancel' },
-      { text: t.resetConfirmBtn, style: 'destructive', onPress: () => { heavy(); performDelete(); } },
-    ]);
   }
 
   const categoryKeys: HabitCategory[] = ['physical', 'mental', 'health', 'nutrition', 'sleep', 'work', 'wellbeing', 'other'];
@@ -697,7 +700,7 @@ export default function HabitForm() {
                which is what backing out of this screen has always done. ── */}
         <View style={styles.bottomActionsRow}>
           {isEdit ? (
-            <PressableScale style={styles.smallActionBtn} onPress={confirmDelete} scaleTo={0.93} accessibilityRole="button" accessibilityLabel={t.habitDeleteLabel}>
+            <PressableScale style={styles.smallActionBtn} onPress={performDelete} scaleTo={0.93} accessibilityRole="button" accessibilityLabel={t.habitDeleteLabel}>
               <Ionicons name="trash-outline" size={14} color={theme.bad} />
               <Text style={[styles.smallActionText, { color: theme.bad }]}>{t.habitDeleteLabel}</Text>
             </PressableScale>

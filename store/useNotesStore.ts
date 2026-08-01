@@ -11,14 +11,22 @@
  *             lib/widgets/sync (scheduleWidgetSync — debounced
  *             widget/notification refresh on add/update (covers toggleChecked)/remove, so live
  *             widgets don't wait for foreground/background)
- *   Used by → app/notes.tsx, components/NoteRow.tsx (Note type), components/HomeNotesCard.tsx,
- *             lib/widgets/sync.ts (Notes widget snapshot)
+ *   Used by → app/notes.tsx (also reads `lastDeleted`/`restoreLastDeleted`/`dismissLastDeleted`
+ *             for its inline "ghost" undo row, via lib/useGhostTimeout.ts), components/NoteRow.tsx
+ *             (Note type), components/HomeNotesCard.tsx, lib/widgets/sync.ts (Notes widget snapshot)
  *   Data    → defines a Zustand store; owns SQLite table notes
  *
  * Edit notes:
  *   - load() orders by `checked, sort_order` — checked=0 (active) sorts before
  *     checked=1, so the active/checked split in app/notes.tsx falls straight out
  *     of array order (`notes.filter(n => !n.checked)` / `.filter(n => n.checked)`).
+ *   - **Undoable delete (2026-08-01, user report: "no way to recover a deleted note").**
+ *     `remove()` is a device-local soft-delete (tombstone), not a hard DELETE — notes aren't
+ *     a SyncTable, so this is a plain column update, not lib/liveSync's touchRow/softDelete.
+ *     `lastDeleted` holds the removed note in memory so app/notes.tsx can show an inline
+ *     "ghost" row (components/GhostRow.tsx) with a restore action for a few seconds
+ *     (lib/useGhostTimeout.ts). Tombstoned notes are never purged (no pruneOldData() entry) —
+ *     same as shopping_items/habits.
  *   - add() appends to the end of the active notes (sortOrder = current note count)
  *     so new notes land at the bottom of the active section, not the top.
  *   - reorder(orderedIds) is the drag-reorder commit (2026-08-01) — one section's ids in
@@ -60,13 +68,24 @@ export type Note = {
 
 type NotesStore = {
   notes: Note[];
+  /** The most recently removed note, held in memory only — not persisted, not synced. Lets
+   *  app/notes.tsx render an inline "ghost" row with a restore action for a few seconds
+   *  after a delete, via lib/useGhostTimeout.ts. Only one at a time: a second delete simply
+   *  replaces it. */
+  lastDeleted: Note | null;
   load: () => void;
   add: () => Note;
   update: (id: string, patch: Partial<Omit<Note, 'id'>>) => void;
   toggleChecked: (id: string) => void;
   /** Write a new sort_order (by array position) for every id — the drag-reorder commit. */
   reorder: (orderedIds: string[]) => void;
+  /** Soft-deletes (tombstone) — see `lastDeleted`'s doc. */
   remove: (id: string) => void;
+  /** Undo a `remove()` — clears the tombstone and reloads. */
+  restoreLastDeleted: () => void;
+  /** Drop the pending ghost without restoring — called once its undo window closes
+   *  (lib/useGhostTimeout.ts). */
+  dismissLastDeleted: () => void;
 };
 
 function rowToNote(row: Row): Note {
@@ -93,9 +112,10 @@ const NOTE_COLUMNS: FieldMap<Note> = {
 
 export const useNotesStore = create<NotesStore>((set, get) => ({
   notes: [],
+  lastDeleted: null,
 
   load() {
-    set({ notes: loadAll('notes', rowToNote, { orderBy: 'checked, sort_order' }) });
+    set({ notes: loadAll('notes', rowToNote, { orderBy: 'checked, sort_order', where: 'deleted_at IS NULL' }) });
   },
 
   add() {
@@ -154,8 +174,23 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
   },
 
   remove(id) {
-    db.runSync('DELETE FROM notes WHERE id = ?', [id]);
-    set((s) => ({ notes: s.notes.filter((n) => n.id !== id) }));
+    const note = get().notes.find((n) => n.id === id);
+    if (!note) return;
+    db.runSync('UPDATE notes SET deleted_at = ? WHERE id = ?', [new Date().toISOString(), id]);
+    set((s) => ({ notes: s.notes.filter((n) => n.id !== id), lastDeleted: note }));
     scheduleWidgetSync();
+  },
+
+  restoreLastDeleted() {
+    const note = get().lastDeleted;
+    if (!note) return;
+    db.runSync('UPDATE notes SET deleted_at = NULL WHERE id = ?', [note.id]);
+    get().load();
+    set({ lastDeleted: null });
+    scheduleWidgetSync();
+  },
+
+  dismissLastDeleted() {
+    set({ lastDeleted: null });
   },
 }));

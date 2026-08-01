@@ -28,9 +28,11 @@
  *             components/PressableScale,
  *             components/GoalGlowDot (goal glow), components/SubScreenLinkButton (2026-07-29,
  *             the "Edit Goals" link — see below), components/GoalsSheet (2026-07-31, the popup
- *             that link opens), components/DebugNoteAnchor,
+ *             that link opens), components/DebugNoteAnchor, components/GhostRow (2026-08-01,
+ *             the "just deleted this habit — restore?" row, see below),
  *             constants/theme, lib/date, lib/haptics, lib/habitStarters, lib/i18n,
  *             lib/useAppTheme, lib/useFirstVisitHint, lib/useDragReorder (drag-to-reorder),
+ *             lib/useGhostTimeout (2026-08-01, the ghost row's timing),
  *             lib/prefill (usePrefill — a note sent here seeds the quick-add), lib/domainColor,
  *             lib/habitRecurrence, store/useHabitStore, store/useGoalStore, store/useSettingsStore
  *   - Habit Today/Week/Month uses the shared SlideSelector; the person filter row +
@@ -44,6 +46,14 @@
  *
  * Edit notes:
  *   - Decision 001 tier='site' scaffold (BottomNav + header chrome).
+ *   - **Inline "ghost" undo row (2026-08-01)**: deleting a habit (there's no delete affordance
+ *     on this screen — only app/habit-form.tsx's Delete button) is now a soft-delete
+ *     (useHabitStore's `lastDeleted`), and the Today list renders a GhostRow with a restore
+ *     action for a few seconds after, or until you leave this tab (lib/useGhostTimeout.ts),
+ *     whichever is first. It's appended after the Today list's own empty/populated branch so it still
+ *     shows even when deleting was the habit that made the list empty. habit-form.tsx's old
+ *     confirm-before-delete dialog is gone with it — same "undo, not confirm" call already
+ *     made for tasks.
  *   - **Edit Goals link (2026-07-29, moved + renamed + popup 2026-07-31)**: a
  *     SubScreenLinkButton sits at the BOTTOM of the screen, below the habit list — moved off
  *     its original spot right under HintCard so it stops outranking the day's habits on every
@@ -113,7 +123,9 @@ import EmptyState from '@/components/EmptyState';
 import StarterCard from '@/components/StarterCard';
 import SubScreenLinkButton from '@/components/SubScreenLinkButton';
 import GoalsSheet from '@/components/GoalsSheet';
+import GhostRow from '@/components/GhostRow';
 import { HABIT_STARTERS, HabitStarter } from '@/lib/habitStarters';
+import { useGhostTimeout } from '@/lib/useGhostTimeout';
 
 /** Starter chips the empty Habits list offers. See the row's own comment for the measurement. */
 const HABIT_STARTER_CHIPS = 2;
@@ -588,6 +600,15 @@ export default function HabitsScreen() {
   const router = useRouter();
   const habits = useHabitStore((s) => s.habits);
   const reorderHabits = useHabitStore((s) => s.reorder);
+  // Inline "ghost" undo row (2026-08-01) — see useHabitStore's `lastDeleted` doc. There's no
+  // delete affordance on this screen itself; it's app/habit-form.tsx's Delete button that
+  // calls remove() and stages the ghost, then routes back here to show it. useGhostTimeout
+  // owns the "a few seconds, or until you leave this tab" window; dismissLastDeleted only
+  // drops the offer to restore, it never un-deletes anything itself.
+  const lastDeletedHabit = useHabitStore((s) => s.lastDeleted);
+  const restoreLastDeletedHabit = useHabitStore((s) => s.restoreLastDeleted);
+  const dismissLastDeletedHabit = useHabitStore((s) => s.dismissLastDeleted);
+  useGhostTimeout(!!lastDeletedHabit, dismissLastDeletedHabit);
 
   const lang = useSettingsStore((s) => s.language);
   const people = usePeopleStore((s) => s.people);
@@ -867,6 +888,14 @@ export default function HabitsScreen() {
                       </AnimatedListItem>
                     ))
                   )}
+                  {/* The ghost row: rendered regardless of which branch above fired, so deleting
+                      a habit's own last visible-today row still offers its undo even though the
+                      list above it just switched to the empty state. */}
+                  {lastDeletedHabit ? (
+                    <AnimatedListItem key={`ghost-${lastDeletedHabit.id}`} enabled>
+                      <GhostRow title={lastDeletedHabit.title} onRestore={restoreLastDeletedHabit} />
+                    </AnimatedListItem>
+                  ) : null}
                 </View>
 
                 {/* The pad's type line — always open, at the bottom of this list where the add

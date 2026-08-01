@@ -1107,6 +1107,16 @@ export function initDb() {
     // task is 'standard' by definition: the type didn't exist when they were written, and
     // 'standard' is exactly the rendering they already had.
     "UPDATE tasks SET card_type = 'standard' WHERE card_type IS NULL OR card_type = ''",
+    // Undoable delete for Habits/Notes (2026-08-01) — same tombstone shape as
+    // tasks/shopping_items above, but device-local: neither table is a SyncTable, so this
+    // skips lib/liveSync's touchRow/broadcastRow and just sets the column directly. Read
+    // paths add `deleted_at IS NULL`; a delete holds the removed row in the store's
+    // `lastDeleted` for a few seconds so the list can show an inline "ghost" row with a
+    // restore action (lib/useGhostTimeout.ts + components/GhostRow.tsx) instead of the old
+    // silent, irreversible DELETE. Never purged by pruneOldData() — same as shopping_items'
+    // tombstones, config-like rows are left alone there.
+    "ALTER TABLE habits ADD COLUMN deleted_at TEXT DEFAULT NULL",
+    "ALTER TABLE notes ADD COLUMN deleted_at TEXT DEFAULT NULL",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

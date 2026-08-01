@@ -1,5 +1,6 @@
 /**
- * notesStore.test.ts — unit tests for useNotesStore.reorder(), the drag-reorder commit.
+ * notesStore.test.ts — unit tests for useNotesStore.reorder() (the drag-reorder commit) and
+ * remove()/restoreLastDeleted()/dismissLastDeleted() (the inline "ghost" undo, 2026-08-01).
  *
  * The notes screen drags rows within ONE section (active or checked) and commits that
  * section's ids on drop. Two things have to hold for the screen's `notes.filter(checked)`
@@ -8,11 +9,16 @@
  *   - the in-memory array comes back in the order load() would have produced — checked LAST,
  *     then sort_order — even though the two sections' number ranges now overlap.
  *
+ * The ghost-undo tests assert remove() is a soft-delete (an UPDATE, never a hard DELETE) that
+ * stages the removed note in `lastDeleted`, and that restoreLastDeleted()/dismissLastDeleted()
+ * are the only two things that can happen to that pending ghost.
+ *
  * Headless: the store imports the SQLite handle at top level, so '@/lib/db' is mocked, and
  * lib/dataAccess's updateRow goes through it. Widget sync is mocked to a no-op — it schedules
  * a native refresh we don't want in a unit test.
  */
 import { useNotesStore, Note } from '@/store/useNotesStore';
+import db from '@/lib/db';
 
 jest.mock('@/lib/db', () => ({
   __esModule: true,
@@ -92,5 +98,57 @@ describe('useNotesStore.reorder', () => {
     expect(byId.c).toBe(0);
     expect(byId.a).toBe(2);
     expect(byId.b).toBe(3);
+  });
+});
+
+describe('useNotesStore remove/restoreLastDeleted/dismissLastDeleted (ghost undo)', () => {
+  beforeEach(seed);
+  afterEach(() => {
+    useNotesStore.setState({ notes: [], lastDeleted: null });
+    (db.getAllSync as jest.Mock).mockReset().mockReturnValue([]);
+    (db.runSync as jest.Mock).mockClear();
+  });
+
+  it('remove() filters the note out, stages it as lastDeleted, and soft-deletes (never a hard DELETE)', () => {
+    useNotesStore.getState().remove('a');
+
+    expect(ids()).not.toContain('a');
+    expect(useNotesStore.getState().lastDeleted?.id).toBe('a');
+    const calls = (db.runSync as jest.Mock).mock.calls;
+    expect(calls.some(([sql]) => /UPDATE notes SET deleted_at/.test(sql))).toBe(true);
+    expect(calls.some(([sql]) => /DELETE FROM notes/.test(sql))).toBe(false);
+  });
+
+  it('a second remove() replaces the pending ghost rather than queuing it', () => {
+    useNotesStore.getState().remove('a');
+    useNotesStore.getState().remove('b');
+
+    expect(useNotesStore.getState().lastDeleted?.id).toBe('b');
+  });
+
+  it('dismissLastDeleted() drops the ghost without restoring anything', () => {
+    useNotesStore.getState().remove('a');
+    useNotesStore.getState().dismissLastDeleted();
+
+    expect(useNotesStore.getState().lastDeleted).toBeNull();
+    expect(ids()).not.toContain('a');
+  });
+
+  it('restoreLastDeleted() clears the tombstone, reloads the note back in, and clears lastDeleted', () => {
+    (db.getAllSync as jest.Mock).mockImplementation(() => [
+      { id: 'a', header: '', body: '', checked: 0, checked_at: '', sort_order: 0, created_at: '2026-08-01T00:00:00.000Z' },
+    ]);
+    useNotesStore.getState().remove('a');
+
+    useNotesStore.getState().restoreLastDeleted();
+
+    expect(ids()).toEqual(['a']);
+    expect(useNotesStore.getState().lastDeleted).toBeNull();
+  });
+
+  it('restoreLastDeleted() is a no-op when there is nothing pending', () => {
+    useNotesStore.getState().restoreLastDeleted();
+    expect(useNotesStore.getState().lastDeleted).toBeNull();
+    expect(ids()).toEqual(['a', 'b', 'c', 'x', 'y']);
   });
 });

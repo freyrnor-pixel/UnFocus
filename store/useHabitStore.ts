@@ -17,13 +17,23 @@
  *             foreground/background)
  *   Used by → app/habit-form.tsx, app/(tabs)/habits.tsx (its own bottom-nav tab again as of
  *             2026-07-23 — see that file's header for the fold-in/split-out history);
- *             app/_layout.tsx, app/settings.tsx
+ *             app/_layout.tsx, app/settings.tsx, lib/useGhostTimeout.ts (indirectly, via
+ *             habits.tsx's use of `lastDeleted`/`restoreLastDeleted`/`dismissLastDeleted`)
  *   Data    → defines a Zustand store; owns SQLite tables habits and habit_logs; schedules per-habit
  *             daily notifications; `habits.goal_id` is a nullable app-enforced pointer to a `goals` row
  *
  * Edit notes:
  *   - Per-habit daily reminders are scheduled here via syncHabitReminder() (ids `habit-<id>-<i>`, one per time in notificationTimes); call syncAllHabitReminders() after a language change since strings are baked in.
- *   - load() only fetches active habits and the last 35 days of logs — not full history.
+ *   - load() only fetches active habits (`deleted_at IS NULL`) and the last 35 days of logs — not full history.
+ *   - **Undoable delete (2026-08-01, user report: "no way to recover a deleted habit").**
+ *     `remove()` is a device-local soft-delete (tombstone) rather than a hard DELETE — habits
+ *     aren't a SyncTable, so this is a plain column update, not lib/liveSync's touchRow/
+ *     softDelete. habit_logs are left untouched (see remove()'s own comment for why that's
+ *     safe). `lastDeleted` holds the removed habit in memory so app/(tabs)/habits.tsx can show
+ *     an inline "ghost" row (components/GhostRow.tsx) with a restore action for a few seconds
+ *     (lib/useGhostTimeout.ts) — replaces the old confirm-then-irreversible-delete flow in
+ *     app/habit-form.tsx, mirroring useTaskStore's tombstone-instead-of-confirm precedent.
+ *     Tombstoned habits are never purged (no pruneOldData() entry) — same as shopping_items.
  *   - User-facing notification strings go through getTranslations(useSettingsStore.getState().language), NOT useT.
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
  *   - markRestDay() toggles the rest_day flag on a habit_logs row (upserting one if it doesn't
@@ -133,6 +143,15 @@ export type HabitLog = {
 type HabitStore = {
   habits: Habit[];
   logs: HabitLog[];
+  /**
+   * The most recently removed habit, held in memory only — not persisted, not synced.
+   * Lets app/(tabs)/habits.tsx render an inline "ghost" row with a restore action for a few
+   * seconds after a delete made anywhere (the list itself, or the full-screen editor's
+   * Delete button), via lib/useGhostTimeout.ts. Only one at a time: a second delete simply
+   * replaces it, same as useTaskStore's `deletedTasks` zone holding a rolling set rather
+   * than this hook needing a queue.
+   */
+  lastDeleted: Habit | null;
   load: () => void;
   // goalId is optional here (defaults to null) so habit seeders/quick-adds needn't set it.
   // Returns the created Habit (mirrors useTaskStore's add) so a caller can act on its id
@@ -140,7 +159,15 @@ type HabitStore = {
   // that same habit's full editor without waiting for a re-render.
   add: (h: Omit<Habit, 'id' | 'createdAt' | 'active' | 'goalId'> & { goalId?: string | null }) => Habit;
   update: (id: string, patch: Partial<Omit<Habit, 'id'>>) => void;
+  /** Soft-deletes (tombstone) — see `lastDeleted`'s doc. habit_logs are left untouched so a
+   *  restore brings back full history, not just the habit shell. */
   remove: (id: string) => void;
+  /** Undo a `remove()` — clears the tombstone, reloads, and re-arms the habit's reminder. */
+  restoreLastDeleted: () => void;
+  /** Drop the pending ghost without restoring — called once its undo window closes
+   *  (lib/useGhostTimeout.ts). The habit stays tombstoned; this only ends the offer to
+   *  bring it back. */
+  dismissLastDeleted: () => void;
   /**
    * Commit a drag-reorder: `orderedIds` is the rows the user could SEE, in their new order.
    * Replaced a neighbour-swapping `reorder(id, 'up' | 'down')` on 2026-08-01 — that one had
@@ -246,13 +273,14 @@ const HABIT_COLUMNS: FieldMap<Habit> = {
 export const useHabitStore = create<HabitStore>((set, get) => ({
   habits: [],
   logs: [],
+  lastDeleted: null,
 
   load() {
     const since = new Date();
     since.setDate(since.getDate() - 35);
     const sinceStr = dateStr(since); // local date, matching log_date storage (see lib/db.ts pruneOldData)
     set({
-      habits: loadAll('habits', rowToHabit, { where: 'active = 1', orderBy: 'routine_order, created_at' }),
+      habits: loadAll('habits', rowToHabit, { where: 'active = 1 AND deleted_at IS NULL', orderBy: 'routine_order, created_at' }),
       logs: loadAll('habit_logs', rowToLog, { where: 'log_date >= ?', params: [sinceStr] }),
     });
   },
@@ -282,14 +310,35 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
   },
 
   remove(id) {
-    db.runSync('DELETE FROM habits WHERE id = ?', [id]);
-    db.runSync('DELETE FROM habit_logs WHERE habit_id = ?', [id]);
+    const habit = get().habits.find((h) => h.id === id);
+    if (!habit) return;
+    // Soft-delete (tombstone), not a hard DELETE — see `lastDeleted`'s doc. habit_logs are
+    // deliberately left in place: nothing reads them independent of an active habit (see
+    // lib/growth.ts/lib/widgets/sync.ts, which both iterate `habits` and look up logs from
+    // there), so an orphaned log is inert, and keeping it is what lets a restore bring back
+    // full history instead of a blank habit.
+    db.runSync('UPDATE habits SET deleted_at = ? WHERE id = ?', [new Date().toISOString(), id]);
     void cancelHabitReminders(id);
     set((s) => ({
       habits: s.habits.filter((h) => h.id !== id),
-      logs: s.logs.filter((l) => l.habitId !== id),
+      lastDeleted: habit,
     }));
     scheduleWidgetSync();
+  },
+
+  restoreLastDeleted() {
+    const habit = get().lastDeleted;
+    if (!habit) return;
+    db.runSync('UPDATE habits SET deleted_at = NULL WHERE id = ?', [habit.id]);
+    get().load();
+    const restored = get().habits.find((h) => h.id === habit.id);
+    if (restored) syncHabitReminder(restored);
+    set({ lastDeleted: null });
+    scheduleWidgetSync();
+  },
+
+  dismissLastDeleted() {
+    set({ lastDeleted: null });
   },
 
   /**
