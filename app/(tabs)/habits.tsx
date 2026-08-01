@@ -20,7 +20,8 @@
  *             "Type habit" line at the foot of the
  *             Today list — replaced an AddRow that was wrapped in its own Surface, which is
  *             exactly what AddRow's header tells callers not to do), components/AnimatedListItem (habit
- *             add/remove fade), components/GlowPulse (done-state static halo),
+ *             add/remove fade), components/DraggableTaskRow (the long-press-drag gesture),
+ *             components/GlowPulse (done-state static halo),
  *             components/HabitIcon, components/EmptyState, components/StarterCard
  *             (first-run explainer — no example row since 2026-07-30; the starter chips
  *             in its `children` slot are the example), components/SlideSelector,
@@ -29,8 +30,8 @@
  *             the "Edit Goals" link — see below), components/GoalsSheet (2026-07-31, the popup
  *             that link opens), components/DebugNoteAnchor,
  *             constants/theme, lib/date, lib/haptics, lib/habitStarters, lib/i18n,
- *             lib/useAppTheme, lib/useFirstVisitHint, lib/prefill (usePrefill — a note sent
- *             here seeds the quick-add), lib/domainColor,
+ *             lib/useAppTheme, lib/useFirstVisitHint, lib/useDragReorder (drag-to-reorder),
+ *             lib/prefill (usePrefill — a note sent here seeds the quick-add), lib/domainColor,
  *             lib/habitRecurrence, store/useHabitStore, store/useGoalStore, store/useSettingsStore
  *   - Habit Today/Week/Month uses the shared SlideSelector; the person filter row +
  *     habit-form "For" chips are gated on settings.peopleModeEnabled (People/family
@@ -67,6 +68,16 @@
  *     once the row itself strikes through and fades beside a filled check (the PadRow
  *     conversion), a "Done today" word was a third copy of one fact — so the meta line now
  *     holds three things, not four, and `hasMetaLine` dropped `isDone` with it.
+ *   - **Drag to reorder (2026-08-01)**: hold a habit card ~400ms and drag it, the same
+ *     gesture Home's preview cards and the shopping list have always had, now shared through
+ *     lib/useDragReorder.ts. Two things to know before touching it. The Today list is
+ *     filtered by person AND by "is it due today", so the ids committed on drop are a SUBSET
+ *     of the habits table — useHabitStore.reorder() slots them back among the rows the user
+ *     couldn't see instead of renumbering the visible ones 0…n-1, so a habit that isn't due
+ *     today keeps whichever habits it sat between. And the list must render from
+ *     `habitDrag.order` (`draggedHabits`), never from `visibleHabits` directly, or nothing
+ *     moves under the finger. Week/Month views are not draggable: they are a calendar, and a
+ *     calendar's order is the calendar's.
  *   - **Add-habit affordance (2026-07-13 rows pass)**: an inline `AddRow` at the bottom of
  *     the Today habit list is the add-habit trigger — a title-only quick-create with sensible
  *     defaults (icon/goal/recurrence via `commitHabit` → useHabitStore.add), matching Plans'
@@ -93,6 +104,7 @@ import Surface from '@/components/Surface';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
 import AnimatedListItem from '@/components/AnimatedListItem';
+import DraggableTaskRow from '@/components/DraggableTaskRow';
 import Collapsible from '@/components/Collapsible';
 import GlowPulse from '@/components/GlowPulse';
 import HabitIcon from '@/components/HabitIcon';
@@ -109,6 +121,7 @@ import SlideSelector from '@/components/SlideSelector';
 import PressableScale from '@/components/PressableScale';
 import { useT } from '@/lib/i18n';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
+import { useDragReorder } from '@/lib/useDragReorder';
 import { usePrefill } from '@/lib/prefill';
 import { todayStr, getWeekDates, getMonthDates } from '@/lib/date';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
@@ -574,6 +587,7 @@ type HabitViewTab = SettingsHabitViewTab;
 export default function HabitsScreen() {
   const router = useRouter();
   const habits = useHabitStore((s) => s.habits);
+  const reorderHabits = useHabitStore((s) => s.reorder);
 
   const lang = useSettingsStore((s) => s.language);
   const people = usePeopleStore((s) => s.people);
@@ -637,6 +651,23 @@ export default function HabitsScreen() {
   const visibleHabits = useMemo(
     () => profileHabits.filter((h) => habitOccursOn(h, today)),
     [profileHabits, today]
+  );
+
+  // Drag-to-reorder, the same long-press-and-drag as Home's cards and the shopping list
+  // (2026-08-01, lib/useDragReorder). The Today list is filtered twice over — by person and by
+  // whether the habit is due today — so what gets committed is a SUBSET of the habits table;
+  // useHabitStore.reorder() is written to slot those ids back among the rows the user couldn't
+  // see rather than renumbering the visible ones 0…n-1. Render from `habitDrag.order`.
+  const habitDrag = useDragReorder(
+    useMemo(() => visibleHabits.map((h) => h.id), [visibleHabits]),
+    reorderHabits
+  );
+  const draggedHabits = useMemo(
+    () =>
+      habitDrag.order
+        .map((id) => visibleHabits.find((h) => h.id === id))
+        .filter((h): h is (typeof visibleHabits)[number] => !!h),
+    [habitDrag.order, visibleHabits]
   );
 
   // Gate habit-card entrance so only habits added after mount fade in (not the whole list).
@@ -824,9 +855,15 @@ export default function HabitsScreen() {
                       </Surface>
                     )
                   ) : (
-                    visibleHabits.map((h) => (
+                    draggedHabits.map((h) => (
                       <AnimatedListItem key={h.id} enabled={hasMountedHabits.current}>
-                        <HabitCard habit={h} today={today} onEdit={onEditHabit} lang={lang} theme={theme} />
+                        {/* isOpen={false}: a card's week-strip drawer is HabitCard's own private
+                            state, and threading it up here just to disable the drag isn't worth
+                            it — dragging an open card works, it simply reflows a taller block.
+                            components/HomeCardManager.tsx made the same call for the same reason. */}
+                        <DraggableTaskRow isOpen={false} {...habitDrag.rowProps(h.id)}>
+                          <HabitCard habit={h} today={today} onEdit={onEditHabit} lang={lang} theme={theme} />
+                        </DraggableTaskRow>
                       </AnimatedListItem>
                     ))
                   )}

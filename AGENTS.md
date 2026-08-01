@@ -132,15 +132,18 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
   - **Row anatomy (amended 2026-07-30 — the check moved to the RIGHT)**:
     `[leading?] title → ONE meta line → ONE right-hand value → [⋯ action] → [○ check]`.
     `components/PadRow.tsx` is the shared implementation; a list-bearing surface should
-    draw through it rather than hand-rolling a row. **Adoption is partial, and the gap runs
+    draw through it rather than hand-rolling a row. **Adoption is partial, and the gap ran
     the opposite way to what you'd guess** (measured 2026-07-31, AUDIT.md §0.4.2e): `PadRow`
-    is imported by exactly four files — `HomeNotesCard`, `HomeHabitsCard`, `HomeShoppingCard`
-    and `PlanTaskCard` — i.e. the four **Home** cards. **No tab screen draws rows through it**:
-    `habits.tsx` hand-rolls an in-file `HabitCard`, `notes.tsx` uses `NoteRow`, `shopping.tsx`
-    uses `ShoppingRow`/`MonthlyTableRow`, and `plans.tsx` uses `TaskCard` except in the
-    timeline layout, where it mounts `PlanTaskCard`. So the pad language is Home-only plus
-    `PlanTaskCard`, and **the Home cards are the newer code** — don't "fix" a Home card by
-    converting it to match its tab. The check led every row until this pass;
+    was imported by exactly four files — `HomeNotesCard`, `HomeHabitsCard`, `HomeShoppingCard`
+    and `PlanTaskCard`, i.e. the four **Home** cards — and by NO tab screen at all, which
+    inverted the conversion task written against it. **The Home cards are the newer code** —
+    don't "fix" a Home card by converting it to match its tab; convert the tab.
+    Two have been, so far: `app/(tabs)/habits.tsx`'s in-file `HabitCard` (2026-08-01) and
+    `components/NoteRow.tsx`, the notes screen's row (2026-08-01, via PadRow's `titleInput`
+    prop — a row whose title is EDITED IN PLACE, which is what that screen is for). Left:
+    `shopping.tsx` (`ShoppingRow`/`MonthlyTableRow`, much the largest); `plans.tsx` still
+    uses `TaskCard` except in the timeline layout, where it mounts `PlanTaskCard`.
+    The check led every row until this pass;
     the maintainer's call was to move it app-wide, on the reasoning that a paper checklist
     puts its ticks in the right margin. `TaskCard` already ended its line 1 that way, so it
     was the model. The ⋯ is ONE row-level action button, replacing the assorted trailing
@@ -207,6 +210,26 @@ Screens (app/)  →  Zustand stores (store/)  →  SQLite (lib/db.ts)
     so an episode open past the 365-day window was silently deleted on the next cold start. It
     now carries `episode_state != 'ongoing'`, NULL-unsafe by design — a NULL state fails the
     predicate and is KEPT, because failing safe means not deleting.
+- **Drag to reorder is universal** (2026-08-01, `lib/useDragReorder.ts` over the pre-existing
+  `components/DraggableTaskRow.tsx` + `lib/reorder.ts`). Hold a row ~400ms, drag, drop: the list
+  reflows under the finger and the new order is committed ONCE, on drop. It was already the
+  gesture on Home's preview cards, the shopping list, saved lists and the monthly-reset sheet;
+  the mechanic around it (measure at drag-start → `reorderByDrag` → LayoutAnimation → commit)
+  was hand-rolled in `HomeCardManager` and is now one hook, with the notes screen, the Habits
+  tab and Plans' Whenever list added as callers. Two rules worth keeping:
+  - **A list gets a manual order only if it has no natural one.** Notes, habits, shopping rows,
+    Home's cards and the undated Whenever backlog do. Plans' Today/This week lists do NOT —
+    they are ordered by the clock (`byTime`), and dragging a 09:00 task under a 14:00 one would
+    either lie about the order or silently retime the task. Habits' Week/Month views are a
+    calendar, same reasoning.
+  - **The committed ids are usually a SUBSET of the table** (the Today habit list is filtered by
+    person and by due-today; Whenever by person and tag). `useHabitStore.reorder` and
+    `useTaskStore.reorderTasks` therefore slot the moved rows back into the positions they
+    already occupied rather than renumbering the visible ones 0…n-1 — a row the user couldn't
+    see keeps whichever visible rows it sat between. `useNotesStore.reorder` is the exception
+    and renumbers per section, because notes are ordered `checked, sort_order`: the two
+    sections' number ranges may overlap and the checked flag still separates them.
+  Render from the hook's `order`, never from the store array, or nothing moves under the finger.
 - **Card layouts + the "what was hidden" glow** (2026-07-27, `lib/cardLayout.ts` +
   `lib/useSurfaceLayout.ts` + `lib/viewSnapshot.ts` + `lib/useNewSinceSeen.ts` +
   `components/LayoutPickerSheet.tsx` + `components/NewSinceGlow.tsx`): list-bearing surfaces

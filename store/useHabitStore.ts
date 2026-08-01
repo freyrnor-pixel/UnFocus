@@ -138,7 +138,12 @@ type HabitStore = {
   add: (h: Omit<Habit, 'id' | 'createdAt' | 'active' | 'goalId'> & { goalId?: string | null }) => void;
   update: (id: string, patch: Partial<Omit<Habit, 'id'>>) => void;
   remove: (id: string) => void;
-  reorder: (id: string, direction: 'up' | 'down') => void;
+  /**
+   * Commit a drag-reorder: `orderedIds` is the rows the user could SEE, in their new order.
+   * Replaced a neighbour-swapping `reorder(id, 'up' | 'down')` on 2026-08-01 — that one had
+   * no caller anywhere in the app, and the gesture the app actually uses is a drag.
+   */
+  reorder: (orderedIds: string[]) => void;
   increment: (habitId: string, date: string) => void;
   decrement: (habitId: string, date: string) => void;
   /** Toggle a day between "resting" and normal — no-shame opt-out; neutral for Energy (lib/energy.ts). */
@@ -283,25 +288,35 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
     scheduleWidgetSync();
   },
 
-  reorder(id, direction) {
+  /**
+   * Drag-reorder commit (app/(tabs)/habits.tsx, via lib/useDragReorder).
+   *
+   * `orderedIds` is only what the screen was DRAWING — the Today list is filtered by person
+   * and by whether the habit is due today, so most of the time it is a subset. The rows the
+   * user couldn't see must not move relative to the ones they could, so this doesn't renumber
+   * the subset 0…n-1: it takes the full list in its current order, drops the moved ids back
+   * into the SLOTS they already occupied (in the caller's new order), and renumbers everything
+   * from that. A hidden habit therefore keeps whichever visible habits it sat between.
+   *
+   * Renumbering all of them each time is also what makes this safe on a fresh install, where
+   * every `routine_order` is still 0 and a swap of two equal numbers would be a no-op.
+   */
+  reorder(orderedIds) {
     const { habits } = get();
-    const sorted = [...habits].sort((a, b) => a.routineOrder - b.routineOrder);
-    const idx = sorted.findIndex((h) => h.id === id);
-    if (idx < 0) return;
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= sorted.length) return;
-    const a = sorted[idx];
-    const b = sorted[swapIdx];
-    const aOrder = a.routineOrder;
-    const bOrder = b.routineOrder;
-    updateRow('habits', { routine_order: bOrder }, 'id = ?', [a.id]);
-    updateRow('habits', { routine_order: aOrder }, 'id = ?', [b.id]);
+    // load()'s ordering, so "current order" here means what the screen was showing.
+    const sorted = [...habits].sort(
+      (a, b) => a.routineOrder - b.routineOrder || a.createdAt.localeCompare(b.createdAt)
+    );
+    const queue = orderedIds.filter((id) => habits.some((h) => h.id === id));
+    if (queue.length < 2) return;
+    const moving = new Set(queue);
+    const nextIds = sorted.map((h) => (moving.has(h.id) ? queue.shift()! : h.id));
+    const position = new Map(nextIds.map((id, i) => [id, i]));
+    nextIds.forEach((id, i) => updateRow('habits', { routine_order: i }, 'id = ?', [id]));
     set((s) => ({
-      habits: s.habits.map((h) => {
-        if (h.id === a.id) return { ...h, routineOrder: bOrder };
-        if (h.id === b.id) return { ...h, routineOrder: aOrder };
-        return h;
-      }).sort((x, y) => x.routineOrder - y.routineOrder),
+      habits: [...s.habits]
+        .map((h) => ({ ...h, routineOrder: position.get(h.id) ?? h.routineOrder }))
+        .sort((a, b) => a.routineOrder - b.routineOrder),
     }));
   },
 

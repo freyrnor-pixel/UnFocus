@@ -149,3 +149,54 @@ describe('deletedTasks (undo buffer)', () => {
     expect(useTaskStore.getState().deletedTasks).toEqual([]);
   });
 });
+
+/**
+ * reorderTasks — the Whenever list's drag-reorder commit (2026-08-01).
+ *
+ * The two contracts worth pinning are both about rows the drag DIDN'T include: the Whenever
+ * list is filtered (by person, by tag, and on Today/This week by whether the task is dated),
+ * so a task the user couldn't see must keep its place among the ones they could. And it has
+ * to land at all on a table where every sort_order is still the default 0.
+ */
+describe('reorderTasks', () => {
+  const order = () => useTaskStore.getState().tasks.map((t) => t.sortOrder);
+  const idsBySortOrder = () =>
+    [...useTaskStore.getState().tasks].sort((a, b) => a.sortOrder - b.sortOrder).map((t) => t.id);
+
+  it('applies a new order when every task was visible', () => {
+    useTaskStore.setState({
+      tasks: [task({ id: 'a', sortOrder: 0 }), task({ id: 'b', sortOrder: 1 }), task({ id: 'c', sortOrder: 2 })],
+    });
+    useTaskStore.getState().reorderTasks(['c', 'a', 'b']);
+    expect(idsBySortOrder()).toEqual(['c', 'a', 'b']);
+  });
+
+  it('lands on a table that has never been reordered (every sort_order still 0)', () => {
+    useTaskStore.setState({
+      tasks: [task({ id: 'a' }), task({ id: 'b' }), task({ id: 'c' })],
+    });
+    useTaskStore.getState().reorderTasks(['b', 'c', 'a']);
+    expect(idsBySortOrder()).toEqual(['b', 'c', 'a']);
+  });
+
+  it('keeps a filtered-out task between the same two visible ones', () => {
+    useTaskStore.setState({
+      tasks: [
+        task({ id: 'a', sortOrder: 0 }),
+        task({ id: 'hidden', sortOrder: 1 }),
+        task({ id: 'b', sortOrder: 2 }),
+      ],
+    });
+    useTaskStore.getState().reorderTasks(['b', 'a']);
+    expect(idsBySortOrder()).toEqual(['b', 'hidden', 'a']);
+  });
+
+  it('ignores unknown ids and no-ops on a single id', () => {
+    useTaskStore.setState({ tasks: [task({ id: 'a', sortOrder: 4 }), task({ id: 'b', sortOrder: 9 })] });
+    useTaskStore.getState().reorderTasks(['a']);
+    expect(order()).toEqual([4, 9]);
+
+    useTaskStore.getState().reorderTasks(['b', 'gone', 'a']);
+    expect(idsBySortOrder()).toEqual(['b', 'a']);
+  });
+});
