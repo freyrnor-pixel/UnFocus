@@ -283,6 +283,12 @@ const en = {
     kinds: {
       medicine: 'Medicine',
     },
+    /** Which device calendars the timeline may READ. Never mentions granting access —
+     *  declining is a supported permanent state and the picker just doesn't appear. */
+    calendars: {
+      title: 'Calendars on the timeline',
+      hint: 'Events from these show up ahead of the now line. Nothing is written back.',
+    },
   },
   /** The ⋯ router on a note row (components/SendToSheet.tsx). */
   sendTo: {
@@ -2088,6 +2094,10 @@ const no: typeof en = {
     deleteMoment: 'Slett dette notatet',
     kinds: {
       medicine: 'Medisin',
+    },
+    calendars: {
+      title: 'Kalendere på tidslinjen',
+      hint: 'Hendelser herfra vises foran nå-linjen. Ingenting skrives tilbake.',
     },
   },
   sendTo: {

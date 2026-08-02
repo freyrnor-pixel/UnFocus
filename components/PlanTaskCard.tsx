@@ -301,6 +301,7 @@ import GlowPulse from '@/components/GlowPulse';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import { COLLAPSED_GRID_HEIGHT, GUTTER_WIDTH, GridEntryLayout, buildDayScale, layoutGridEntries } from '@/lib/dayGrid';
 import { DayEntry, formatEntryTime } from '@/lib/dayLog';
+import type { DeviceCalendarEvent } from '@/lib/deviceCalendar';
 
 type Props = {
   /** Tasks scheduled for the viewed date (already filtered by the caller). */
@@ -374,6 +375,15 @@ type Props = {
    * quietly becoming a form.
    */
   onCaptureMoment?: (text: string) => void;
+  /**
+   * Device-calendar events for this day (lib/deviceCalendar.ts), read-only.
+   *
+   * They are **structure, not achievement**: they draw on the grid ahead of the now-line,
+   * and they never enter the day log behind it — a meeting existing in your calendar is
+   * not something you did. Never completable (no check is drawn), never editable, and
+   * nothing here writes back to the device calendar.
+   */
+  calendarEvents?: DeviceCalendarEvent[];
   /** Test/preview override for the live clock (minutes since midnight). */
   now?: number;
   /** Rail orientation — settings.planTimelineHorizontal. Default false (fixed-hour grid). */
@@ -428,6 +438,13 @@ function minutesToLabel(mins: number): string {
 }
 
 type TimedEntry = { task: Task; start: number; end: number };
+
+/**
+ * One thing on the grid — either an app task or a device-calendar event. Exactly one of
+ * `task`/`event` is set. They share a list so a single `layoutGridEntries` pass can put an
+ * overlapping meeting and task side by side instead of stacking them.
+ */
+type GridItem = { start: number; end: number; task?: Task; event?: DeviceCalendarEvent };
 
 type RailItemOpts = {
   timed?: TimedEntry;
@@ -492,6 +509,7 @@ export default function PlanTaskCard({
   onPressEntry,
   onRemoveMoment,
   onCaptureMoment,
+  calendarEvents,
   now: nowOverride,
   horizontal = false,
   spec,
@@ -655,20 +673,45 @@ export default function PlanTaskCard({
     () => (dayLogActive ? timedPending.filter((e) => e.end <= now).map((e) => e.task) : []),
     [timedPending, dayLogActive, now]
   );
+  /**
+   * Everything the grid draws, tasks and device-calendar events together, in one list.
+   *
+   * They MUST share a single `layoutGridEntries` pass: that's what puts a meeting and a
+   * task that overlap in time into side-by-side columns instead of stacking one on the
+   * other. Two separate passes would each think it had the width to itself.
+   *
+   * Calendar events are still structure, not achievement — they draw here, ahead of the
+   * now-line, and never enter the day log behind it. See lib/deviceCalendar.ts.
+   */
+  const gridItems = useMemo<GridItem[]>(() => {
+    const items: GridItem[] = gridEntries.map((e) => ({ start: e.start, end: e.end, task: e.task }));
+    for (const event of calendarEvents ?? []) {
+      // Same "still ahead" filter the tasks got — a meeting that's over belongs to the day
+      // behind you, and the log deliberately doesn't claim it as something you did.
+      if (dayLogActive && event.endMinutes <= now) continue;
+      // A zero/negative-length event would collapse to nothing on the axis; give it the
+      // same nominal span a start-at task gets so its title stays legible.
+      const end = Math.max(event.endMinutes, event.startMinutes + DEFAULT_BOX_MIN);
+      items.push({ start: event.startMinutes, end, event });
+    }
+    // layoutGridEntries REQUIRES start-ascending input.
+    return items.sort((a, b) => a.start - b.start);
+  }, [gridEntries, calendarEvents, dayLogActive, now]);
+
   const dayScale = useMemo(
     () =>
-      buildDayScale(gridEntries.map((e) => ({ start: e.start, end: e.end })), {
+      buildDayScale(gridItems.map((e) => ({ start: e.start, end: e.end })), {
         now,
         ...(dayLogActive ? { startMinutes: now } : {}),
       }),
-    [gridEntries, now, dayLogActive]
+    [gridItems, now, dayLogActive]
   );
   // Side-by-side columns for genuinely overlapping tasks, plus a height clamp so the
   // MIN_TASK_HEIGHT floor can't visually run into whatever starts next (see lib/dayGrid.ts's
   // file header for why both are needed), all measured on the elastic axis above.
   const timedLayout = useMemo(
-    () => layoutGridEntries(gridEntries, { minHeightPx: MIN_TASK_HEIGHT, gapPx: GRID_CARD_GAP, y: dayScale.y }),
-    [gridEntries, dayScale]
+    () => layoutGridEntries(gridItems, { minHeightPx: MIN_TASK_HEIGHT, gapPx: GRID_CARD_GAP, y: dayScale.y }),
+    [gridItems, dayScale]
   );
   // Everything on the day that can actually be finished (2026-08-01, card types): a 'note'
   // card has no completion state, so it is listed like any other row but counts for nothing
@@ -1057,6 +1100,55 @@ export default function PlanTaskCard({
    *  real start/end time (lib/dayGrid.ts). Vertical/default orientation only. `layout` carries
    *  the overlap-aware column + height clamp from `layoutGridEntries` so genuinely-overlapping
    *  tasks render side-by-side (Google Calendar style) instead of stacking on top of each other. */
+  /**
+   * A device-calendar event on the grid.
+   *
+   * Visibly a different KIND of thing from a task, and that difference is the point: no
+   * check (it isn't yours to finish), no trash, no press-through to an editor, a dashed
+   * border and muted ink. It marks out the shape of the day — "how much runway before the
+   * next fixed thing" — and claims nothing about what you achieved.
+   *
+   * Rule 11 — the distinction is carried by the border STYLE and an icon, not by colour,
+   * so it survives greyscale.
+   */
+  function renderCalendarEntry(event: DeviceCalendarEvent, layout: GridEntryLayout) {
+    const { top, height, leftPct, widthPct } = layout;
+    const sideBySide = widthPct < 100;
+    return (
+      <View
+        key={`cal:${event.id}`}
+        style={[styles.gridCardWrap, { top, height, left: GUTTER_WIDTH + Spacing.xs, right: Spacing.xs }]}
+      >
+        <View
+          style={[
+            styles.gridCardColumn,
+            { left: `${leftPct}%`, width: `${widthPct}%` },
+            sideBySide && styles.gridCardColumnGapped,
+          ]}
+        >
+          <View
+            style={[
+              styles.rowCard,
+              styles.gridCardInner,
+              styles.calendarCard,
+              { borderColor: theme.border, backgroundColor: theme.surfaceMuted },
+            ]}
+          >
+            <View style={styles.titleRow}>
+              <Ionicons name="calendar-outline" size={12} color={theme.textMuted} />
+              <Text style={[styles.durationText, TabularNums, { color: theme.textMuted }]}>
+                {minutesToLabel(event.startMinutes)}
+              </Text>
+              <Text numberOfLines={1} style={[styles.title, { color: theme.textMuted }]}>
+                {event.title}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   function renderGridEntry(entry: TimedEntry, layout: GridEntryLayout) {
     const { task, start, end } = entry;
     const isHappeningNow = now >= start && now < end;
@@ -1437,10 +1529,10 @@ export default function PlanTaskCard({
             {/* Nothing fixed left today — a neutral statement of fact where the grid would
                 be, not an invitation and not an encouragement. Only when the log is on;
                 without it an empty grid is just an empty grid. */}
-            {dayLogActive && gridEntries.length === 0 && !showEmpty ? (
+            {dayLogActive && gridItems.length === 0 && !showEmpty ? (
               <Text style={[styles.nothingAhead, { color: theme.textMuted }]}>{t.dayLog.nothingAhead}</Text>
             ) : null}
-            {gridEntries.length > 0 && (
+            {gridItems.length > 0 && (
               <View
                 style={[
                   styles.gridViewport,
@@ -1453,7 +1545,11 @@ export default function PlanTaskCard({
                         boundary divider, and the axis starts at `now` — so the grid's own
                         line would sit redundantly on its top edge. One line, one meaning. */}
                     <DayGridLines scale={dayScale} now={dayLogActive ? undefined : now} />
-                    {gridEntries.map((entry, i) => renderGridEntry(entry, timedLayout[i]))}
+                    {gridItems.map((item, i) =>
+                      item.task
+                        ? renderGridEntry({ task: item.task, start: item.start, end: item.end }, timedLayout[i])
+                        : renderCalendarEntry(item.event!, timedLayout[i])
+                    )}
                   </View>
                 </ScrollView>
               </View>
@@ -1609,6 +1705,9 @@ const baseStyles = StyleSheet.create({
   // is flush, and PadRow's own fixed height is the only vertical rhythm it gets. Adding a
   // gap here would reintroduce exactly the emptiness the collapse exists to remove.
   dayLogList: {},
+  // A device-calendar event. Dashed = "not yours to finish" — a border STYLE rather than a
+  // hue, so the distinction survives greyscale (DESIGN_RULES rule 11).
+  calendarCard: { borderStyle: 'dashed', paddingRight: Spacing.sm },
   // The now-line, as a rule with its own word — the boundary the card is split by. Static:
   // it must never animate or tick (nothing moves in peripheral vision on this surface).
   nowDivider: {

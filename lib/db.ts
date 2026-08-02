@@ -1151,6 +1151,12 @@ export function initDb() {
     // It gates the SURFACE only: done_at keeps being stamped while the flag is off, so
     // switching it back on restores a complete log rather than one starting from today.
     'ALTER TABLE settings ADD COLUMN feature_day_log INTEGER DEFAULT 1',
+    // Which device calendars the timeline may READ (lib/deviceCalendar.ts). '[]' means all
+    // of them — a picker defaulting to nothing would show an empty timeline and read as
+    // broken. Same JSON-array-in-TEXT storage shape as home_card_order / card_layouts.
+    // Nothing in this feature ever WRITES a calendar event; the app's one write path is
+    // lib/taskCalendar.ts, behind its own `calendar_sync_enabled` switch.
+    `ALTER TABLE settings ADD COLUMN day_log_calendar_ids TEXT DEFAULT '[]'`,
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
