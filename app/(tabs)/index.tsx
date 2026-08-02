@@ -32,7 +32,11 @@
  *             components/FlightOverlay (FlightPill, Flight, FlightRect), components/DebugNoteAnchor,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, lib/useFirstVisitHint, lib/notifications, lib/reminders,
- *             lib/budget (computeSpendPace), store/useTaskStore, store/useNotesStore, store/useSharedStore,
+ *             lib/budget (computeSpendPace), lib/useDayLog + lib/dayLog (the day log — what
+ *             already happened today, passed into PlanTaskCard so its now-line becomes the
+ *             boundary; this card is why the feature needs no Home card of its own),
+ *             lib/useNowMinutes, store/useMomentsStore (manual capture + delete),
+ *             store/useTaskStore, store/useNotesStore, store/useSharedStore,
  *             store/useShoppingStore, store/useShoppingListStore, store/useMonthlyListStore, store/useSettingsStore, store/useReceiptStore
  *   Used by → Expo Router route "/" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → reads useTaskStore (tasks + deletedTasks, the restorable tombstones behind the

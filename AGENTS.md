@@ -68,6 +68,7 @@ Every `.ts`/`.tsx` file starts with a JSDoc header block. **Read it before editi
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations array | Runs once on upgrade; never drop or recreate tables |
 | Stores read/write rows via `lib/dataAccess.ts` (`loadFirst`/`loadAll`/`updateRow` + `FieldMap`) | Used by 13 of 14 stores; don't hand-roll row mapping in a new store |
 | **Any screen or visual change is checked against `DESIGN_RULES.md`** | 25 numbered invariants (spacing, placement & order, colour, hierarchy, tap targets, motion, copy tone). Three of them are enforced in CI: tap targets/motion tokens (`lib/__tests__/designTokens.test.ts`), palette contrast (`colors.test.ts`), copy tone (`copyTone.test.ts`). **Eight rules have open conflicts with shipped decisions and are NOT binding yet** — read the audit before "fixing" one: `DESIGN_RULES_AUDIT.md`. Tap targets go through `MIN_TAP_TARGET`/`HitSlop`, motion through `Duration.*` — never a bare `44`/`hitSlop: 8`/`duration: 220` |
+| Copy tone is `DESIGN_RULES.md` §7 (rules 22–25); `VOICE.md` records the ONE deliberate exception | The day log's empty state is the app's only first-person line. `VOICE.md` says why it is allowed, and why there is not a second — read it before "correcting" that string, and before adding any first-person copy of your own |
 | **ALWAYS open a PR and merge it to `main`** | Standing rule: every change ends with a PR from the `claude/**` branch into `main` that the agent merges itself — never stop at "pushed the branch," never hand the merge back to the user. OTA (`.github/workflows/update.yml`) publishes ONLY on push to `main`; a `claude/**` branch push publishes nothing. Only *cutting the APK/AAB build* stays human-gated — never the PR or the merge. See `PUBLISHING.md`. |
 | `AI_SETUP_SCHEMA_VERSION` in `lib/aiSetupGuide.ts` bumps whenever the AI setup guide's schema/content changes | The downloadable "AI setup guide" (Settings + the guided tour's closing card) embeds this version; on upload, an older version is a 'stale' warning (import still proceeds) and a newer version is 'invalid' (this build can't safely interpret fields it doesn't know about yet) — see that file's header and the cookbook steps below |
 
@@ -227,6 +228,61 @@ file owns which token.)
     so an episode open past the 365-day window was silently deleted on the next cold start. It
     now carries `episode_state != 'ongoing'`, NULL-unsafe by design — a NULL state fails the
     predicate and is KEPT, because failing safe means not deleting.
+- **The day log — the now-line as a boundary** (2026-08-02, `lib/dayLog.ts` + `lib/useDayLog.ts`,
+  drawn by `components/PlanTaskCard.tsx`, over the new `tasks.done_at` and `moments` table).
+  The day-view card is split by the current minute, and the two halves get deliberately
+  OPPOSITE treatment: **ahead of now** is the elastic timeline that already existed (real
+  durations, visible gaps — gaps read as room); **behind now** the same day collapses into a
+  flush, spacing-free list of what actually happened. A gap ahead of you is room; the
+  identical gap behind you is an accusation. That collapse is the entire feature — don't
+  "tidy" the log by giving it spacing, an hour rule, or a header.
+  - **It is a record, not a productivity surface.** No count, total, percentage, rate or
+    progress bar anywhere in it; no evaluation, no praise, no verdict on a quiet day; no
+    notification, ever, at any horizon. `lib/__tests__/dayLog.test.ts` source-scans the
+    module for aggregate derivations and notification APIs and asserts zero hits — same
+    mechanism that keeps the equivalent promise true for episodes.
+  - **Phase 2 of the handoff was already built.** `lib/dayGrid.ts`'s elastic axis, live
+    now-line and log-curve gap compression predate this by a week and are the To-do tab's
+    DEFAULT layout. The only change to them is `buildDayScale({ startMinutes })`, which lets
+    the axis span `[now → end of day]`; omit it and the axis is byte-identical to before.
+  - **The premise the handoff was specced on was false.** The app did not timestamp
+    completions: `tasks.done` was a bare flag and `updated_at` is the sync LWW stamp, which
+    moves on ANY edit by ANY device. Hence `tasks.done_at` (local `HH:MM`), stamped only by
+    `toggle()`/`completeDirect()`. It is deliberately **NOT** in `lib/liveSync`'s
+    `TABLE_COLUMNS.tasks`: the log is a record of what YOU did, so a peer ticking a shared
+    task lands `done` without writing a line into your day.
+  - **Absence beats invention.** No back-fill: a completion from before the column has no
+    honest time and is simply absent. Health entries reuse `health_logs.created_at`, which
+    has carried a wall clock since the first schema and was never read — it is **UTC** while
+    everything else in the app is local, so `lib/date.ts`'s `utcStampToLocalMinutes` is the
+    one place that crosses that line, and it returns null rather than filing an entry under
+    the wrong day. Sources are tasks, medicine doses, health entries and manual moments;
+    habits, shopping and notes are deliberately out (see `lib/dayLog.ts`'s header).
+  - **The cutoff is INCLUSIVE and that is load-bearing.** Everything here is minute-granular,
+    so the thing you just did is stamped at exactly the current minute. A strict `<` made the
+    log render empty for up to 60 seconds after every action — i.e. exactly when you'd look
+    at it. Pinned by a named regression test.
+  - **No new Home card.** Home already renders `PlanTaskCard` read-only, so its day-view
+    preview carries the log and the capture for free. (`HomeGoalsCard` shipped as a fifth
+    Home card on 2026-07-28 and was deleted the next day — "Home had too many lists".)
+    Capture goes through the existing pad type-line (`components/PadTypeRow.tsx`), not a new
+    input: a chip in its extras row switches whether a submit commits a task or a moment. The
+    standalone quick-capture inbox was removed 2026-07-27 and `inbox_items` is a dead table —
+    don't revive it.
+  - Device-calendar events (`lib/deviceCalendar.ts`) are **read-only** and are *structure,
+    not achievement*: they draw ahead of the now-line and never enter the log behind it. They
+    share ONE `layoutGridEntries` pass with tasks, or an overlapping meeting and task would
+    stack instead of going side by side. Permission is asked once, contextually, when the
+    timeline is first opened; declining is a supported permanent state with no nag and no
+    re-prompt. **This needed no native build** — `expo-calendar` was already a dependency and
+    already plugin-registered, and `lib/taskCalendar.ts` (a separate feature, which *writes*)
+    already called it.
+  - Gated on `settings.featureDayLog` — on by default, still a real toggle. It gates the
+    SURFACE only: `done_at` keeps being stamped while off, so switching it on shows a
+    complete history. `app/day-log.tsx` is the earlier-days screen (one day at a time, no
+    aggregation, no week view — two days compared is a scoreboard).
+  - Copy: `VOICE.md`. The empty state is **the only first-person line in the app**, and it is
+    deliberate — read that file before "correcting" it.
 - **Drag to reorder is universal** (2026-08-01, `lib/useDragReorder.ts` over the pre-existing
   `components/DraggableTaskRow.tsx` + `lib/reorder.ts`). Hold a row ~400ms, drag, drop: the list
   reflows under the finger and the new order is committed ONCE, on drop. It was already the

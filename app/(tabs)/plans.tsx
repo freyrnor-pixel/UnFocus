@@ -41,7 +41,16 @@
  *             store/useSettingsStore, store/usePeopleStore + components/PersonChip (the person
  *             filter row), store/useTagStore + components/TagChip + lib/tags (the tag filter
  *             row — multi-select, "any of"), components/EnergyBalanceCard (the shared-load
- *             comparison, People mode only, day/week tabs only), components/SubScreenLinkButton
+ *             comparison, People mode only, day/week tabs only),
+ *             lib/useDayLog + lib/dayLog (2026-08-02 — the day log, i.e. what already
+ *             happened today, passed into PlanTaskCard so its now-line becomes the boundary
+ *             between that and the day ahead), lib/useNowMinutes (the shared 60s tick both
+ *             the log's cutoff and the grid's now-line read, so they can't disagree),
+ *             lib/useCalendarEvents + lib/deviceCalendar (READ-ONLY device-calendar events on
+ *             the timeline; the hook owns the ONE contextual permission prompt — take
+ *             `useIsFocused` from expo-router, never @react-navigation/native, which fails the
+ *             bundle outright on SDK 56), store/useMomentsStore (manual capture + delete),
+ *             components/SubScreenLinkButton
  *             (2026-07-29, the "Edit Goals" link at the bottom of the screen — Goals dropped
  *             its own Home card; see app/goals.tsx's header), components/GoalsSheet (2026-07-31,
  *             the popup that link opens)

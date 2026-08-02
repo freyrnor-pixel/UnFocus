@@ -36,8 +36,9 @@
  * the expand toggle grows it to the full axis — and only appears when the axis genuinely
  * doesn't fit, since a compressed day usually does. Untimed ("Anytime") tasks have no clock
  * position, so they stay a plain flat list above the grid, capped at `COLLAPSED_COUNT` and
- * expanded by the same toggle. The "Done today" zone is unchanged — a separate dimmed,
- * collapsed flat list below the grid (Decision 009a); done tasks don't render on the grid.
+ * expanded by the same toggle. The "Done today" zone is a separate dimmed, collapsed flat
+ * list below the grid (Decision 009a); done tasks don't render on the grid. **It is replaced
+ * by the day log when that is on** — see below.
  *
  * **The day log (2026-08-02) — the now-line becomes the BOUNDARY.** When the caller passes
  * `dayLog` (lib/dayLog.ts, gated on `settings.featureDayLog`), this card is split in two by

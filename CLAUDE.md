@@ -40,6 +40,7 @@ see AGENTS.md.)
 
 ## Before Starting
 
+- **For ANY copy change:** `DESIGN_RULES.md` §7 (rules 22–25) is the rulebook, CI-enforced by `lib/__tests__/copyTone.test.ts`. `VOICE.md` records the app's one deliberate exception (the day log's first-person empty state) — read it before "correcting" that string or adding first-person copy anywhere.
 - **For ANY screen or visual change:** Read `DESIGN_RULES.md` first — 25 numbered invariants (spacing, placement, colour, hierarchy, tap targets, motion, copy tone) plus the open conflicts where a rule is *not* yet binding. Its "Quick self-check" list is the ship gate. `DESIGN_RULES_AUDIT.md` says which violations are deliberate and why.
 - **For ANY build, version bump, or APK work:** Read `OTA_BUILD_WORKFLOW.md` first. It documents the exact sequence to avoid runtime mismatches and broken OTA updates.
 - **Read file headers first.** Every `.ts`/`.tsx` file starts with a JSDoc block listing imports, callers, data touches, and gotchas. This is the fastest way to understand a file's purpose — no need to read the whole thing.
