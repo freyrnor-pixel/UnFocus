@@ -1180,6 +1180,14 @@ export function pruneOldData() {
     // Only day-shaped keys ('YYYY-MM-DD') are dated history; 'w:'-prefixed week
     // keys don't match the GLOB and are left as config.
     db.runSync("DELETE FROM energy_budgets WHERE period_key GLOB '____-__-__' AND period_key < ?", [c]);
+    // Today-only boosts ('b:YYYY-MM-DD', 2026-08-02) are dated history too, but the day-key
+    // GLOB above can't see them — 'b:2026-08-02' matches neither the pattern nor the plain
+    // date comparison. Without this line they would accumulate forever. Compare from
+    // character 3 so the 'b:' prefix doesn't skew the date ordering.
+    db.runSync(
+      "DELETE FROM energy_budgets WHERE period_key GLOB 'b:____-__-__' AND substr(period_key,3) < ?",
+      [c]
+    );
     db.runSync('DELETE FROM inbox_items WHERE created_at < ?', [c]);
     // Dose history is dated; the `medicines` rows themselves are config and stay.
     db.runSync('DELETE FROM medicine_doses WHERE log_date < ?', [c]);
