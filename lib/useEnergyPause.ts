@@ -28,8 +28,11 @@
  *             lib/energyPause (isOverBudget, decideCandidates),
  *             store/useSettingsStore, store/useTaskStore, store/useHabitStore,
  *             store/useEnergyStore
- *   Used by → components/EnergyMeter.tsx, components/EnergyPauseSheet.tsx,
- *             app/(tabs)/index.tsx, app/(tabs)/plans.tsx
+ *   Used by → components/EnergyMeter.tsx (the meter, the overspend control and both
+ *             pause-sheet triggers), components/TaskCard.tsx + components/PlanTaskCard.tsx
+ *             (the pin badge's unpin action), app/(tabs)/plans.tsx (the Today lift).
+ *             NOT app/(tabs)/index.tsx — Home draws its day card through PlanTaskCard,
+ *             which reads this hook itself, so Home needed no change at all.
  *   Data    → reads only; every write goes through store/useEnergyStore.ts's day-state
  *             actions, which persist to the device-local `app_meta` row (never synced)
  *

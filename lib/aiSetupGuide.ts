@@ -265,7 +265,9 @@ accepted (anything else is ignored):
   energyMode: "daily" | "weekly" | "custom"
   energyDailyCapacity, energyWeeklyCapacity: number >= 0
   featureGoals, featureSharing, featureAutomations: boolean
-  energySystemEnabled: boolean (the Energy system's master switch)
+  energySystemEnabled: boolean (true = Energy mode, false = Rewards mode. Rewards
+    mode has no meter, no costs and no budget; per-task/habit energy values are
+    kept untouched while it is off and reappear intact on switching back)
   showGrowth: boolean (ambient growth in the app backdrop)
   photoAspectRatio: "fit" | "square" | "classic" | "widescreen" | "golden"
   peopleModeEnabled: boolean

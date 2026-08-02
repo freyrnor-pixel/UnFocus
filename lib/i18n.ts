@@ -467,14 +467,20 @@ const en = {
      * real choices; neither is "off". `note` above still applies to both, so nothing here
      * repeats it.
      */
+    /* Segment labels are bare nouns here, NOT "Energy mode"/"Rewards mode" as in
+     * Settings. Two reasons: `label` above already says these are two ways this can
+     * work, so the suffix repeats it; and SlideSelector labels are numberOfLines={1},
+     * so they TRUNCATE rather than wrap — Norwegian "Belønningsmodus" was clipped by
+     * 16px at the `large` font setting (npm run wraps --lang=no --width=327).
+     * Settings keeps the longer form because its own label doesn't establish "mode". */
     modes: {
       label: 'Two ways this can work',
       energy: {
-        label: 'Energy mode',
+        label: 'Energy',
         hint: 'I keep an eye on what a day costs, and plan around what is left.',
       },
       rewards: {
-        label: 'Rewards mode',
+        label: 'Rewards',
         hint: 'I would rather just tick things off and not count anything.',
       },
     },
@@ -2204,14 +2210,16 @@ const no: typeof en = {
       body: 'Gjøremål og vaner kan ha en energikostnad, og måleren viser hva dagen har igjen. Den er til for å planlegge etter energien du faktisk har, ikke for å måle deg.',
       note: 'Slår du den av, skjules måleren og alle verdiene du har satt beholdes, så de er der igjen hvis du slår den på.',
     },
+    /* Bare nouns, not "…modus" — see the EN side's note. "Belønningsmodus" was the
+     * string that truncated at width=327. */
     modes: {
       label: 'To måter dette kan fungere på',
       energy: {
-        label: 'Energimodus',
+        label: 'Energi',
         hint: 'Jeg følger med på hva en dag koster, og planlegger etter det som er igjen.',
       },
       rewards: {
-        label: 'Belønningsmodus',
+        label: 'Belønning',
         hint: 'Jeg vil heller bare krysse av og slippe å telle noe.',
       },
     },
