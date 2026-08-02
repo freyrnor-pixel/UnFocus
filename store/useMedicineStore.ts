@@ -8,7 +8,10 @@
  * per-tray, not per-medicine, and are re-synced from here on every mutation.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/date (todayStr + current HH:MM),
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/date (todayStr, dateStr, nowHHMM —
+ *             the last of these lived here privately until 2026-08-02 and was promoted
+ *             to lib/date when the day log needed a second caller; this header always
+ *             claimed the import, so it is now simply true),
  *             lib/medicineSchedule (TrayId/tray helpers), lib/medicineNotifications
  *             (syncTrayReminders), store/useSettingsStore (reminder + People-mode settings),
  *             lib/widgets/sync (scheduleWidgetSync — same debounced refresh every other
@@ -55,7 +58,7 @@ import {
   readJson,
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
-import { dateStr, todayStr } from '@/lib/date';
+import { dateStr, nowHHMM, todayStr } from '@/lib/date';
 import { TrayId, toTrayIds, isDoseTaken, medicinesForTray } from '@/lib/medicineSchedule';
 import { syncTrayReminders } from '@/lib/medicineNotifications';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -153,13 +156,6 @@ const MEDICINE_FIELDS: FieldMap<Medicine> = {
   active: { col: 'active', to: (v) => (v ? 1 : 0) },
   sortOrder: { col: 'sort_order', to: (v) => v ?? 0 },
 };
-
-/** Current wall-clock time as HH:MM — when a dose was taken. */
-function nowHHMM(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 /** The settings slice the tray reminders need, read fresh at call time. */
 function reminderSettings() {

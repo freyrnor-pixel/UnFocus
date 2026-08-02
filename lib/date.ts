@@ -20,6 +20,16 @@
  *   - `parseTimeToMinutes`/`addDurationToTime` back app/(tabs)/health.tsx's Quick log
  *     start-time + duration fields — duration is quick-log-only UI, converted to
  *     endDate/endTime here so the store's existing HealthLog shape is unchanged.
+ *   - `nowHHMM`/`utcStampToLocalMinutes` (2026-08-02) back the day log (lib/dayLog.ts).
+ *     `nowHHMM` lived privately in store/useMedicineStore.ts for months — that file's
+ *     header already claimed it imported "current HH:MM" from here, so this is the
+ *     stale claim being made true, not a new convention.
+ *   - `utcStampToLocalMinutes` is the ONE place that crosses the UTC/local line. The
+ *     schema has three timestamp shapes: local `YYYY-MM-DD` (todayStr/dateStr), ISO-8601
+ *     UTC (`toISOString()`, the sync/created_at family), and SQLite `datetime('now')`
+ *     (`YYYY-MM-DD HH:MM:SS`, ALSO UTC — the CREATE TABLE defaults). Reading the third
+ *     as if it were local shifts an entry 1–2h in Norway, which is exactly the kind of
+ *     quiet lie a day log must not tell. Convert here, nowhere else.
  */
 export function todayStr(): string {
   const d = new Date();
@@ -144,6 +154,38 @@ export function formatDisplayDate(iso: string, lang: 'en' | 'no'): string {
   if (parts.length !== 3 || parts.some((p) => p === '')) return iso;
   const [y, m, d] = parts;
   return lang === 'no' ? `${d}.${m}.${y}` : iso;
+}
+
+/** Current local wall-clock time as `HH:MM`. Minute resolution — nothing in the app needs seconds. */
+export function nowHHMM(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/**
+ * Converts a SQLite `datetime('now')` stamp (`'YYYY-MM-DD HH:MM:SS'`, **UTC** — the
+ * shape every CREATE TABLE `created_at` default writes) to local minutes since midnight,
+ * but ONLY when it lands on `localDate`. Returns null otherwise, and on anything that
+ * doesn't parse.
+ *
+ * The null-on-different-day rule is the point: a row created at 23:30 UTC is 01:30 the
+ * NEXT local day in Norway. Silently folding that into the wrong day's log would make
+ * the log assert something that didn't happen, so the caller drops it instead. ISO-8601
+ * stamps (`toISOString()`, with the `T`/`Z`) parse here too — same instant, same rule.
+ */
+export function utcStampToLocalMinutes(stamp: string, localDate: string): number | null {
+  const trimmed = stamp?.trim();
+  if (!trimmed) return null;
+  // `YYYY-MM-DD HH:MM:SS` has no timezone designator, so Date would read it as LOCAL.
+  // Normalise to an explicit UTC instant before parsing; an already-ISO stamp is left alone.
+  const iso = /[zZ]|[+-]\d{2}:?\d{2}$/.test(trimmed)
+    ? trimmed.replace(' ', 'T')
+    : `${trimmed.replace(' ', 'T')}Z`;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  if (dateStr(d) !== localDate) return null;
+  return d.getHours() * 60 + d.getMinutes();
 }
 
 /** Parses a strict `H:MM`/`HH:MM` 24h time string into minutes since midnight, or null if malformed/out of range. */

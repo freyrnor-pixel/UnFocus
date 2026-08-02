@@ -382,6 +382,15 @@ export type Settings = {
   featureAutomations: boolean;
   /** Medicine trays: the dose card on the Health tab + its reminders. On by default, still a toggle. */
   featureMedicine: boolean;
+  /**
+   * Day log (2026-08-02): makes the day-view's now-line the boundary between what has
+   * already happened (a flush, spacing-free list of completed tasks, doses, health
+   * entries and captured moments) and what is still ahead (the existing elastic grid).
+   * On by default, still a toggle — it restructures the To-do tab's default layout, and
+   * off restores the previous rendering exactly. Gates the SURFACE only: `tasks.done_at`
+   * keeps being stamped while off, so turning it back on shows a complete history.
+   */
+  featureDayLog: boolean;
   // Medicine reminders (2026-07-27) — ONE time per tray (morning/midday/evening/night),
   // shared by every medicine in that tray, so a tray fires one notification rather than
   // one per pill. Stored as a JSON map keyed by TrayId; read through
@@ -514,6 +523,7 @@ function rowToSettings(row: Row): Settings {
     featureFood: readBool(row, 'feature_food'),
     featureAutomations: readBool(row, 'feature_automations'),
     featureMedicine: readBool(row, 'feature_medicine'),
+    featureDayLog: readBool(row, 'feature_day_log'),
     medicineTrayTimes: normalizeTrayTimes(readJson<unknown>(row, 'medicine_tray_times', DEFAULT_TRAY_TIMES)),
     medicineRemindersEnabled: readBool(row, 'medicine_reminders_enabled'),
     layoutDetail: sanitizeDetailLevel(readStr(row, 'layout_detail', 'normal')),
@@ -597,6 +607,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   featureFood: { col: 'feature_food', to: bool },
   featureAutomations: { col: 'feature_automations', to: bool },
   featureMedicine: { col: 'feature_medicine', to: bool },
+  featureDayLog: { col: 'feature_day_log', to: bool },
   medicineTrayTimes: { col: 'medicine_tray_times', to: (v) => JSON.stringify(v) },
   medicineRemindersEnabled: { col: 'medicine_reminders_enabled', to: bool },
   layoutDetail: { col: 'layout_detail' },
@@ -688,6 +699,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   featureFood: true,
   featureAutomations: false,
   featureMedicine: true,
+  featureDayLog: true,
   medicineTrayTimes: DEFAULT_TRAY_TIMES,
   medicineRemindersEnabled: true,
   // 'normal' reproduces the pre-2026-07-27 rendering of every surface exactly, so an

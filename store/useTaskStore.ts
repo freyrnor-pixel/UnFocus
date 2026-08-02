@@ -154,7 +154,7 @@ import {
   tx,
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
-import { dateStr } from '@/lib/date';
+import { dateStr, nowHHMM } from '@/lib/date';
 import { taskOccursOn } from '@/lib/taskRecurrence';
 import { parseTagIds, serializeTagIds } from '@/lib/tags';
 import { sanitizeRotationMode, type RotationMode } from '@/lib/taskRotation';
@@ -188,6 +188,14 @@ export type Task = {
   taskType: TaskType;
   durationMinutes?: number;
   done: boolean;
+  /**
+   * HH:MM (local) the task was actually ticked — the day log's only proof a task
+   * happened at a time (lib/dayLog.ts). '' means "no honest time": either it predates
+   * this column, or `done` arrived from a paired device (`done_at` is deliberately not
+   * a synced column), or the task isn't done. Never derive this from `updated_at`,
+   * which moves on any edit by any device.
+   */
+  doneAt: string;
   recurring: Recurring;
   recurringDays: number[]; // 0=Mon … 6=Sun (weekly)
   /** Weekly interval: 1 = every week, 2 = every 2nd, 3 = every 3rd. */
@@ -276,6 +284,7 @@ export type TaskInput = {
   taskType: TaskType;
   durationMinutes?: number;
   done: boolean;
+  doneAt?: string;
   recurring: Recurring;
   recurringDays: number[];
   weekInterval?: number;
@@ -433,6 +442,7 @@ function rowToTask(row: Row): Task {
     taskType: readStr(row, 'task_type', 'start-at') as TaskType,
     durationMinutes: readInt(row, 'duration_minutes') || undefined,
     done: readBool(row, 'done'),
+    doneAt: readStr(row, 'done_at'),
     recurring: readStr(row, 'recurring', 'none') as Recurring,
     recurringDays: readJson<number[]>(row, 'recurring_days', []),
     weekInterval: readInt(row, 'recurring_week_interval', 1) || 1,
@@ -479,6 +489,7 @@ const TASK_COLUMNS: FieldMap<Task> = {
   taskType: { col: 'task_type' },
   durationMinutes: { col: 'duration_minutes', to: (v) => v ?? null },
   done: { col: 'done', to: (v) => (v ? 1 : 0) },
+  doneAt: { col: 'done_at', to: (v) => v ?? '' },
   recurring: { col: 'recurring' },
   recurringDays: { col: 'recurring_days', to: (v) => JSON.stringify(v ?? []) },
   weekInterval: { col: 'recurring_week_interval', to: (v) => v ?? 1 },
@@ -609,6 +620,9 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       ...t,
       id,
       done: false,
+      // A brand-new task is never done, so it has no completion time. toggle() /
+      // completeDirect() are the only writers.
+      doneAt: '',
       hint: t.hint ?? '',
       followsTaskId: t.followsTaskId ?? null,
       weekInterval: t.weekInterval ?? 1,
@@ -684,7 +698,11 @@ export const useTaskStore = create<TaskStore>((set, get) => {
         t.id === id ? { ...t, steps: t.steps.map((st) => ({ ...st, done: willBeDone })) } : t
       ),
     }));
-    get().update(id, { done: willBeDone });
+    // `doneAt` (2026-08-02) is what puts this task in the day log — see lib/dayLog.ts.
+    // Stamped here and in completeDirect() only, so it means "ticked", not "touched"
+    // (which is all `updated_at` can ever mean). Cleared on un-tick: an entry the user
+    // took back should leave no trace in a record of what happened.
+    get().update(id, { done: willBeDone, doneAt: willBeDone ? nowHHMM() : '' });
     bumpLifetimeCompletedTasks(willBeDone ? 1 : -1);
     if (willBeDone) {
       useAutomationStore.getState().fireTrigger('task_completed');
@@ -705,7 +723,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
         t.id === id ? { ...t, steps: t.steps.map((st) => ({ ...st, done: true })) } : t
       ),
     }));
-    get().update(id, { done: true });
+    get().update(id, { done: true, doneAt: nowHHMM() });
     bumpLifetimeCompletedTasks(1);
     useAutomationStore.getState().fireTrigger('task_completed');
     if (task.goalId) useGoalStore.getState().registerProgress(task.goalId);

@@ -304,12 +304,14 @@ type FeatureFlagKey =
   | 'featureSharing'
   | 'featureAutomations'
   | 'featureMedicine'
+  | 'featureDayLog'
   | 'showGrowth';
 const FEATURE_ROWS: { key: FeatureFlagKey; copy: (t: ReturnType<typeof useT>) => { label: string; hint: string } }[] = [
   { key: 'featureGoals', copy: (t) => t.config.features.goals },
   { key: 'featureSharing', copy: (t) => t.config.features.sharing },
   { key: 'featureAutomations', copy: (t) => t.config.features.automations },
   { key: 'featureMedicine', copy: (t) => t.config.features.medicine },
+  { key: 'featureDayLog', copy: (t) => t.config.features.dayLog },
   // NOTE: `energySystemEnabled` deliberately does NOT live here (2026-08-02). It is a
   // two-mode SegmentedControl at the top of the same card — Energy mode / Rewards mode —
   // because the false side is a named peer, not an absence. Re-adding it as a switch would

@@ -185,6 +185,10 @@ import TaskCard from '@/components/TaskCard';
 import PlanTaskCard from '@/components/PlanTaskCard';
 import LayoutPickerSheet from '@/components/LayoutPickerSheet';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
+import { useDayLog } from '@/lib/useDayLog';
+import { useNowMinutes } from '@/lib/useNowMinutes';
+import { DayEntry } from '@/lib/dayLog';
+import { useMomentsStore } from '@/store/useMomentsStore';
 import { useCardState } from '@/lib/useCardState';
 import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
 import AddRow from '@/components/AddRow';
@@ -691,6 +695,25 @@ export default function TasksScreen() {
   }, [prefill]);
 
   const today = todayStr();
+
+  // The day log (2026-08-02) — what already happened today, cut at the now-line so a task
+  // due later never reads as already done. `useNowMinutes` is the same shared 60s tick the
+  // timeline's now-line runs on, so the log and the grid can't disagree about where "now"
+  // is. Returns [] when settings.featureDayLog is off.
+  const nowMinutes = useNowMinutes();
+  const dayLog = useDayLog(today, nowMinutes);
+  const removeMoment = useMomentsStore((s) => s.remove);
+  const addMoment = useMomentsStore((s) => s.add);
+  // A log row opens the record it came from. Only tasks have an in-app editor to open;
+  // doses and health entries live on the Health tab, and a moment IS its own record, so
+  // those simply aren't pressable rather than pretending to navigate somewhere.
+  const handlePressLogEntry = useCallback(
+    (entry: DayEntry) => {
+      if (entry.kind !== 'task' || !entry.sourceId) return;
+      router.push({ pathname: '/task-form', params: { id: entry.sourceId } });
+    },
+    [router]
+  );
 
   // Person filter predicate — identity unless People/family mode is on AND a specific
   // person (not "Everyone") is selected. An empty assigneeId means "mine": that covers
@@ -1269,6 +1292,14 @@ export default function TasksScreen() {
                     // this, an empty day on the timeline default would lose the quick-add
                     // affordance entirely, not just the redundant second copy of the explainer.
                     onAddExample={addPlanStarterTask}
+                    // The day log (2026-08-02) — what already happened, above the now-line.
+                    // Passing it is what makes the now-line this card's boundary; the hook
+                    // returns [] when settings.featureDayLog is off, and PlanTaskCard treats
+                    // an absent/empty log as "draw the day the way it always was".
+                    dayLog={dayLog}
+                    onPressEntry={handlePressLogEntry}
+                    onRemoveMoment={removeMoment}
+                    onCaptureMoment={addMoment}
                   />
                 ) : layoutSpec.id === 'focusFirst' ? (
                   /* "One thing at a time" — a different SHAPE for the same tasks, so it replaces
