@@ -34,7 +34,9 @@
  *             the header share icon's push to /share-modal), lib/date,
  *             lib/domainColor, lib/haptics,
  *             lib/i18n, lib/useAppTheme, lib/useFirstVisitHint, lib/useDragReorder (that drag's
- *             shared bookkeeping), lib/prefill (usePrefill — a note
+ *             shared bookkeeping), lib/useEnergyPause (2026-08-02 — which card "I'll decide"
+ *             pinned; drives the Today list's head and every Today TaskCard's pinned/dimmed
+ *             pair), lib/prefill (usePrefill — a note
  *             sent here seeds the Whenever add row), store/useTaskStore,
  *             store/useSettingsStore, store/usePeopleStore + components/PersonChip (the person
  *             filter row), store/useTagStore + components/TagChip + lib/tags (the tag filter
@@ -51,6 +53,20 @@
  *             internally for incoming shares + accepts the sharedOut tasks as its "sent" half
  *
  * Edit notes:
+ *   - **The "I'll decide" pin, Today only (2026-08-02, lib/useEnergyPause.ts)**: when the day is
+ *     over budget the user can settle on ONE card; it lifts to the head of `todayList` and every
+ *     other card on the tab drops to secondary weight (`pinned`/`dimmed` on TaskCard). Four
+ *     things to keep intact: (1) the lift lives **inside the `todayList` memo**, not in a render
+ *     branch — this tab has four of them (by-person, timeline, "One thing at a time", the plain
+ *     section list) and they must not disagree about which card is first; (2) `dimmed` is
+ *     opacity and nothing else — a dimmed card keeps its height, its check, its steps, its
+ *     reminders and its counts, exactly like a lib/cardLayout.ts layout may de-emphasise but
+ *     never remove; (3) **This week / All tasks / Whenever are deliberately untouched** — they
+ *     are not "today"; (4) `pinnedTaskId` re-checks that the pinned card is still on the list,
+ *     because nothing clears a pin when its task is finished, rescheduled or filtered out by
+ *     the person/tag rows, and a pin with no visible badge would dim the day with no way back.
+ *     The timeline branch handles its own pin inside components/PlanTaskCard.tsx — and there
+ *     the pinned card keeps its clock position, for the same reason this tab isn't draggable.
  *   - **Drag to reorder, on the Whenever list only (2026-08-01)**: hold a card ~400ms and drag,
  *     the same gesture Home's cards, the shopping list, notes and habits use
  *     (lib/useDragReorder.ts). It is wired on the **All tasks** tab's Whenever section and
@@ -188,6 +204,7 @@ import { useAppTheme } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { usePrefill } from '@/lib/prefill';
 import { useDragReorder } from '@/lib/useDragReorder';
+import { useEnergyPause } from '@/lib/useEnergyPause';
 import { tap, success } from '@/lib/haptics';
 import { PLAN_STARTER_STEPS, PLAN_STARTER_TIME, PLAN_STARTER_FINISH_TIME } from '@/lib/taskStarters';
 import { Recurring, Task, useTaskStore } from '@/store/useTaskStore';
@@ -486,6 +503,7 @@ function FocusFirstToday({
   spec,
   newSinceIds,
   newFields,
+  pinProps,
   footer,
 }: {
   tasks: Task[];
@@ -493,6 +511,8 @@ function FocusFirstToday({
   spec: LayoutSpec;
   newSinceIds: ReadonlySet<string>;
   newFields: { meta: boolean; price: boolean; extras: boolean };
+  /** Energy's "I'll decide" pin/dim pair for one card — see the screen's `pinProps`. */
+  pinProps: (task: Task) => { pinned: boolean; dimmed: boolean };
   footer: React.ReactNode;
 }) {
   const theme = useAppTheme();
@@ -524,6 +544,7 @@ function FocusFirstToday({
             isNewSince={newSinceIds.has(hero.id)}
             newFields={newFields}
             onToggleDone={onToggleDone}
+            {...pinProps(hero)}
           />
         </View>
       ) : (
@@ -546,6 +567,7 @@ function FocusFirstToday({
                 isNewSince={newSinceIds.has(tk.id)}
                 newFields={newFields}
                 onToggleDone={onToggleDone}
+                {...pinProps(tk)}
               />
             ))}
           </View>
@@ -756,10 +778,49 @@ export default function TasksScreen() {
     [tasks, matchFilters]
   );
 
-  const todayList = useMemo(
-    () => tasksForDate(today).filter((tk) => (tk.hasStartDate || tk.recurring !== 'none') && matchFilters(tk)).sort(byTime),
+  // Energy's "I'll decide" (2026-08-02, lib/useEnergyPause.ts). Null in Rewards mode, so the
+  // `pinnedTaskId === tk.id` tests below are already mode-safe and nothing here needs a second
+  // gate. Only the Today tab responds to it — this week and the backlog are not "today".
+  const energyPause = useEnergyPause();
+
+  // The day's list, clock-ordered as always, with the pinned card lifted to the head.
+  //
+  // Applied INSIDE this memo on purpose: Today has four render branches (by-person, timeline,
+  // "One thing at a time", and the plain section list) and they all read this one list, so
+  // ordering it here is the only way they can't disagree about which card came first. It is
+  // also the only list on this screen that reorders — This week, All tasks and Whenever are
+  // deliberately untouched.
+  const todayList = useMemo(() => {
+    const list = tasksForDate(today)
+      .filter((tk) => (tk.hasStartDate || tk.recurring !== 'none') && matchFilters(tk))
+      .sort(byTime);
+    const id = energyPause.pinnedTaskId;
+    if (!id) return list;
+    const at = list.findIndex((tk) => tk.id === id);
+    if (at <= 0) return list;
+    return [list[at], ...list.slice(0, at), ...list.slice(at + 1)];
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `tasks` drives recompute (tasksForDate reads the store, not this var), not read directly
-    [tasksForDate, today, tasks, matchFilters]
+  }, [tasksForDate, today, tasks, matchFilters, energyPause.pinnedTaskId]);
+
+  // The pin only applies while the pinned card is actually on today's list. Nothing clears a
+  // pin when its task is finished, rescheduled or filtered out by the person/tag rows, and a
+  // pin with no visible badge would dim the whole day with no way back — so it simply stops
+  // applying instead, and comes back with its row. Presentation only, like every layout here.
+  const pinnedTaskId = useMemo(
+    () =>
+      energyPause.pinnedTaskId && todayList.some((tk) => tk.id === energyPause.pinnedTaskId)
+        ? energyPause.pinnedTaskId
+        : null,
+    [energyPause.pinnedTaskId, todayList]
+  );
+  /**
+   * The two presentation props every Today-tab `<TaskCard>` gets. `dimmed` is opacity only —
+   * a dimmed row keeps its height, its check, its steps, its reminders and its counts, and is
+   * still one tap from its editor (see TaskCard's own prop docs).
+   */
+  const pinProps = useCallback(
+    (tk: Task) => ({ pinned: tk.id === pinnedTaskId, dimmed: !!pinnedTaskId && tk.id !== pinnedTaskId }),
+    [pinnedTaskId]
   );
   const weekGroups = useMemo(
     () => tasksForWeek(weekStart).map((g) => ({ ...g, tasks: g.tasks.filter(matchFilters) })),
@@ -1181,7 +1242,7 @@ export default function TasksScreen() {
                           />
                         }
                         renderCard={(tk) => (
-                          <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
+                          <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} {...pinProps(tk)} />
                         )}
                       />
                     </SectionCard>
@@ -1220,6 +1281,7 @@ export default function TasksScreen() {
                     spec={layoutSpec}
                     newSinceIds={newSinceIds}
                     newFields={newFields}
+                    pinProps={pinProps}
                     footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
                   />
                 ) : (
@@ -1232,7 +1294,7 @@ export default function TasksScreen() {
                       focusMode={layoutSpec.focusMode}
                       footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
                       renderCard={(tk) => (
-                        <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
+                        <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} {...pinProps(tk)} />
                       )}
                     />
                   </SectionCard>
