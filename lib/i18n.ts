@@ -187,16 +187,40 @@ const en = {
     todayCapacity: "Today's energy",
     weekCapacity: "This week's energy",
     done: 'Done',
-    overCommittedDay: (n: number) => `⚠️ Today is planned to use ${n} more Energy than you have available.`,
-    overCommittedWeek: (n: number) => `⚠️ This week is planned to use ${n} more Energy than you have available.`,
     /** Permanent one-liner under the meter (components/EnergyMeter.tsx). Keep it to one
      *  sentence with no examples — see that file's "Permanent inline hint" note. */
     hint: 'Plan the day around the energy you actually have.',
-    // Shown when current <= 0 (2026-07-28) — deliberately NOT a "great job"/celebration
-    // message. Using it all isn't the goal here (balance/planning is), so the tone stays
-    // calm and caring rather than congratulatory. See EnergyMeter.tsx's "Depleted state" note.
-    depletedDay: "Today's energy is fully spent. That's a cue to ease off, not a target to hit.",
-    depletedWeek: "This week's energy is fully spent. Worth easing off rather than filling the days ahead.",
+    // The "+ today only" boost, in the ✏️ editor beside the capacity stepper (2026-08-02).
+    // It is extra energy for ONE day, never a reward and never a target — the hint says
+    // where it goes and that tomorrow is unaffected, and stops there. `overCommittedDay/Week`
+    // and `depletedDay/Week` used to sit here; they were deleted with the two warning rows
+    // they fed (t.energyPause replaces both).
+    boostToday: 'Extra for today',
+    boostHint: 'Some days hold more than usual. This is added to today alone, and tomorrow starts from my normal amount again.',
+    /** Accessibility label for the extra pips drawn past a full bar (lib/energy.ts's `surplus`). */
+    surplusLabel: (n: number) => `${n} beyond today's energy`,
+  },
+  /**
+   * The daily energy pause (2026-08-02) — components/EnergyPauseSheet.tsx plus the meter's
+   * overspend control. This copy REPLACES the amber "⚠️ Today is planned to use 3 more
+   * Energy than you have available" line, which was the loudest piece of guilt copy left in
+   * the app.
+   *
+   * Narrator voice: first person, no questions, no imperatives, no exclamation marks. The
+   * sheet's two options carry equal weight in the words as well as in the layout — neither
+   * `decide` nor `imGood` is phrased as the sensible one, and both after-lines are settled
+   * rather than approving. Nothing here counts, compares or refers back to a previous day.
+   */
+  energyPause: {
+    sheetLine: "That's more than a day's worth. Mine usually is too.",
+    decide: "I'll decide",
+    imGood: "I'm good",
+    afterDecide: 'The rest keeps. This is the one.',
+    afterGood: 'Fair. Some days you just go.',
+    /** Accessibility label on the calm overspend control that opens the sheet. */
+    overspendLabel: "Over today's energy — options",
+    /** On the pinned card's badge — the tap target that removes the pin. */
+    pinnedLabel: 'Pinned — tap to unpin',
   },
   a11yAdd: 'Add',
   a11yDiscardRow: 'Discard new row',
@@ -435,6 +459,30 @@ const en = {
       title: 'Energy',
       body: 'Tasks and habits can carry an energy cost, and the meter shows what today has left. It is for planning around the energy you actually have, not for measuring you.',
       note: 'Turning it off hides the meter and keeps every value you have set, so turning it back on restores them.',
+    },
+    /**
+     * The same two peer modes as `config.features.energy.modes`, worded for someone meeting
+     * them for the first time (2026-08-02) — app/onboarding/energy.tsx renders these as a
+     * two-option SlideSelector where a FormSwitch used to be. Both options are offered as
+     * real choices; neither is "off". `note` above still applies to both, so nothing here
+     * repeats it.
+     */
+    /* Segment labels are bare nouns here, NOT "Energy mode"/"Rewards mode" as in
+     * Settings. Two reasons: `label` above already says these are two ways this can
+     * work, so the suffix repeats it; and SlideSelector labels are numberOfLines={1},
+     * so they TRUNCATE rather than wrap — Norwegian "Belønningsmodus" was clipped by
+     * 16px at the `large` font setting (npm run wraps --lang=no --width=327).
+     * Settings keeps the longer form because its own label doesn't establish "mode". */
+    modes: {
+      label: 'Two ways this can work',
+      energy: {
+        label: 'Energy',
+        hint: 'I keep an eye on what a day costs, and plan around what is left.',
+      },
+      rewards: {
+        label: 'Rewards',
+        hint: 'I would rather just tick things off and not count anything.',
+      },
     },
   },
   // First-run personalization (app/first-run.tsx). Four steps, one question each.
@@ -1356,9 +1404,28 @@ const en = {
         label: 'Medicine',
         hint: 'A dose card on the Health tab, with a reminder for each part of the day.',
       },
+      /**
+       * Energy is TWO NAMED PEER MODES now (2026-08-02), not a feature switched on and off.
+       * `label`/`hint` stay for anything still rendering it as a plain FEATURE_ROWS row;
+       * `modes.*` is what app/settings.tsx's SegmentedControl draws. Both write the same
+       * `settings.energySystemEnabled` — Rewards mode is the false side, and it is genuinely
+       * disabled rather than hidden, which is why it gets a name of its own instead of
+       * reading as an absence.
+       */
       energy: {
         label: 'Energy',
         hint: 'Give tasks and habits an energy value, and see what a day or week adds up to.',
+        modes: {
+          label: 'How finishing something lands',
+          energy: {
+            label: 'Energy mode',
+            hint: 'Tasks and habits carry an energy cost, and the meter shows what today has left.',
+          },
+          rewards: {
+            label: 'Rewards mode',
+            hint: 'No meter and no costs. Finishing something fills its check, and that is the whole of it.',
+          },
+        },
       },
       growth: {
         label: 'Quiet growth',
@@ -1922,11 +1989,23 @@ const no: typeof en = {
     todayCapacity: 'Energi i dag',
     weekCapacity: 'Energi denne uken',
     done: 'Ferdig',
-    overCommittedDay: (n: number) => `⚠️ I dag er det planlagt ${n} mer energibruk enn du har tilgjengelig.`,
-    overCommittedWeek: (n: number) => `⚠️ Denne uken er det planlagt ${n} mer energibruk enn du har tilgjengelig.`,
     hint: 'Planlegg dagen ut fra energien du faktisk har.',
-    depletedDay: 'Dagens energi er brukt opp. Det er et signal om å ta det roligere, ikke et mål å nå.',
-    depletedWeek: 'Ukens energi er brukt opp. Verdt å ta det roligere fremover, ikke fylle på mer.',
+    boostToday: 'Ekstra i dag',
+    boostHint: 'Noen dager rommer mer enn vanlig. Dette legges bare til i dag, og i morgen starter på det vanlige igjen.',
+    surplusLabel: (n: number) => `${n} utover dagens energi`,
+  },
+  energyPause: {
+    // "Mine er som regel det også" keeps the narrator alongside the user rather than above
+    // them — the same move as the English line, not a literal rendering of it.
+    sheetLine: 'Det er mer enn en dag rommer. Mine er som regel det også.',
+    decide: 'Jeg velger',
+    imGood: 'Det går fint',
+    afterDecide: 'Resten venter. Denne er den.',
+    // "bare kjører man på" is the everyday Norwegian for pressing on without a plan; it
+    // carries the shrug the English "you just go" has, which a literal translation loses.
+    afterGood: 'Greit nok. Noen dager bare kjører man på.',
+    overspendLabel: 'Over dagens energi — valg',
+    pinnedLabel: 'Festet — trykk for å løsne',
   },
   a11yAdd: 'Legg til',
   a11yDiscardRow: 'Forkast ny rad',
@@ -2130,6 +2209,19 @@ const no: typeof en = {
       title: 'Energi',
       body: 'Gjøremål og vaner kan ha en energikostnad, og måleren viser hva dagen har igjen. Den er til for å planlegge etter energien du faktisk har, ikke for å måle deg.',
       note: 'Slår du den av, skjules måleren og alle verdiene du har satt beholdes, så de er der igjen hvis du slår den på.',
+    },
+    /* Bare nouns, not "…modus" — see the EN side's note. "Belønningsmodus" was the
+     * string that truncated at width=327. */
+    modes: {
+      label: 'To måter dette kan fungere på',
+      energy: {
+        label: 'Energi',
+        hint: 'Jeg følger med på hva en dag koster, og planlegger etter det som er igjen.',
+      },
+      rewards: {
+        label: 'Belønning',
+        hint: 'Jeg vil heller bare krysse av og slippe å telle noe.',
+      },
     },
   },
   firstRun: {
@@ -2641,6 +2733,17 @@ const no: typeof en = {
       energy: {
         label: 'Energi',
         hint: 'Gi oppgaver og vaner en energiverdi, og se hva en dag eller uke summerer seg til.',
+        modes: {
+          label: 'Hvordan det kjennes å bli ferdig',
+          energy: {
+            label: 'Energimodus',
+            hint: 'Oppgaver og vaner har en energikostnad, og måleren viser hva dagen har igjen.',
+          },
+          rewards: {
+            label: 'Belønningsmodus',
+            hint: 'Ingen måler og ingen kostnader. Blir noe ferdig, fylles avkryssingen, og mer er det ikke.',
+          },
+        },
       },
       growth: {
         label: 'Stille vekst',

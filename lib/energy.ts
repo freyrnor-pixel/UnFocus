@@ -35,12 +35,15 @@
  *             lib/taskRecurrence (taskOccursOn),
  *             lib/habitRecurrence (habitOccursOn, habitMetOn), store type imports
  *             (Task/Habit/HabitLog)
- *   Used by → store/useEnergyStore.ts, components/EnergyMeter.tsx, __tests__/energy.test.ts
+ *   Used by → store/useEnergyStore.ts, components/EnergyMeter.tsx, lib/useEnergyPause.ts,
+ *             __tests__/energy.test.ts
  *   Data    → none (pure functions)
  *
  * Period keys (match the energy_budgets table, see lib/db.ts):
- *   - day  → 'YYYY-MM-DD' (the date itself)
- *   - week → 'w:YYYY-MM-DD' (the 'w:'-prefixed Monday of that week)
+ *   - day   → 'YYYY-MM-DD' (the date itself)
+ *   - week  → 'w:YYYY-MM-DD' (the 'w:'-prefixed Monday of that week)
+ *   - boost → 'b:YYYY-MM-DD' (2026-08-02 — today-only extra energy, ADDED to the day's
+ *             base capacity rather than replacing it; see boostKey below)
  */
 import { getWeekDates } from '@/lib/date';
 import { energySpentFraction, isCompletable } from '@/lib/cardType';
@@ -79,26 +82,65 @@ export function energyFieldsFromStepper(shown: number): { energyEnabled: boolean
 }
 
 /**
+ * How many surplus pips the meter may ever draw past a full bar.
+ *
+ * The pip row clips (`pipRowInline` in components/EnergyMeter.tsx), so an uncapped surplus
+ * on a day that went well would paint straight over the `7 / 10` value text beside it —
+ * the exact overflow bug fixed on 2026-07-28. A cap keeps "you have more than a full day
+ * left" legible as a shape rather than as an ever-growing count, which also matches the
+ * feature's own rule that nothing here is a number to chase.
+ */
+export const MAX_SURPLUS_PIPS = 4;
+
+/**
  * Discrete pip count for the Home card's bolt-row meter. 1 pip per unit of capacity up
  * to `maxPips`; past that, pips represent a proportional share so a large weekly
  * capacity (e.g. 40) still renders as a handful of icons instead of 40 of them.
  * `filled` is clamped to [0, pipCount] — a negative current (over-committed) fills
  * none, and current above capacity fills all of them.
+ *
+ * `surplus` (2026-08-02) is what the clamp used to swallow: pips EARNED past capacity, so
+ * `12 / 10` no longer draws identically to `10 / 10`. It is scaled exactly like `filled`
+ * (the same `pipCount`-per-capacity ratio, so one surplus pip means the same amount as one
+ * filled pip) and capped at `MAX_SURPLUS_PIPS`. It is 0 whenever `current <= capacity`, and
+ * 0 for a zero/negative capacity along with everything else.
  */
 export function energyPipCount(
   current: number,
   capacity: number,
   maxPips = 10
-): { pipCount: number; filled: number } {
-  if (capacity <= 0) return { pipCount: 0, filled: 0 };
+): { pipCount: number; filled: number; surplus: number } {
+  if (capacity <= 0) return { pipCount: 0, filled: 0, surplus: 0 };
   const pipCount = Math.min(maxPips, capacity);
   const ratio = Math.max(0, Math.min(1, current / capacity));
-  return { pipCount, filled: Math.round(ratio * pipCount) };
+  const over = current > capacity ? Math.round(((current - capacity) / capacity) * pipCount) : 0;
+  return {
+    pipCount,
+    filled: Math.round(ratio * pipCount),
+    surplus: Math.max(0, Math.min(MAX_SURPLUS_PIPS, over)),
+  };
 }
 
 /** Week period key ('w:'-prefixed Monday) for the Mon–Sun week containing `date`. */
 export function weekKey(date: string): string {
   return `w:${getWeekDates(date)[0]}`;
+}
+
+/**
+ * Boost period key ('b:'-prefixed date) — the TODAY-ONLY extra energy added on top of a
+ * day's base capacity (2026-08-02).
+ *
+ * Deliberately a third key shape in the same `energy_budgets` table rather than a column or
+ * a new table: it needs no migration, and — more importantly — it keeps the boost SEPARATE
+ * from the day override the ✏️ editor writes. Folding "+3 because today is a good day" into
+ * the override would silently redefine the user's usual capacity, so tomorrow would inherit
+ * a number they only ever meant for one day.
+ *
+ * Note lib/db.ts's retention prune needs its own line for these: the existing day-key prune
+ * matches `GLOB '____-__-__'`, which `b:2026-08-02` does not.
+ */
+export function boostKey(date: string): string {
+  return `b:${date}`;
 }
 
 /**

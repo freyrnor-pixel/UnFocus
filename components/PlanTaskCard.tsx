@@ -78,6 +78,9 @@
  *             constants/theme, constants/motion, lib/haptics, lib/i18n,
  *             lib/useNowMinutes (the 60s "now" tick behind the grid's now-line — shared
  *             with components/MedicineTrayCard.tsx since 2026-07-27),
+ *             lib/useEnergyPause (2026-08-02 — which card "I'll decide" pinned, and the
+ *             un-pin action behind its badge; see the edit note below for why this one hook
+ *             is read here instead of being threaded in as a prop),
  *             lib/useAppTheme (incl. useAccessibility), lib/domainColor, components/CardAccent
  *             (CardAccentBadge — the read-only Home header), components/GlowPulse
  *             (breathing "happening now" halo), store/useTaskStore (Task type only)
@@ -86,8 +89,9 @@
  *             prop — this component stays store-free/presentational. NOTE: the full /plans
  *             (Tasks/Oppgaver) screen no longer renders this day-view — it was rebuilt into
  *             a tabbed inline-list (2026-07-08); Home is now the sole caller.
- *   Data    → pure presentational; reads no stores. Tasks + callbacks + orientation are
- *             passed in. Live "now" line re-renders on a 60s interval (useNowMinutes).
+ *   Data    → presentational; tasks + callbacks + orientation are passed in. Live "now" line
+ *             re-renders on a 60s interval (useNowMinutes). ONE exception to "reads no
+ *             stores" since 2026-08-02: `useEnergyPause()` (see the pin edit note below).
  *
  * Edit notes:
  *   - **Overlap-safe grid cards (2026-07-26, user report: "not clean, make sure things don't
@@ -148,6 +152,23 @@
  *     supersedes Decision 020's own "highlight in place" leaning) — a cross-date follower
  *     is pulled into this day-view. Pass `allTasks` (the full store list) so cross-date
  *     followers can be found; without it, only same-list followers surface.
+ *   - **The "I'll decide" pin (2026-08-02, lib/useEnergyPause.ts)**: when the day is over
+ *     budget the user can settle on ONE card; it gets a pin badge and everything else on this
+ *     card drops to `DONE_ROW_OPACITY`. Four things worth knowing before editing it:
+ *       1. **The badge is the un-pin button.** There is no row menu to add one to — the ⋯ here
+ *          is hard-wired to delete and long-press is drag-reorder — so the badge is a labelled,
+ *          visible, one-tap control on its own (INTERACTION_HANDOFF §2.4).
+ *       2. **Dimming is opacity and nothing else.** A dimmed row keeps its height, its check,
+ *          its ⋯, its reminders and its place in the header count, and is still one tap from
+ *          its editor. Same contract as a lib/cardLayout.ts layout: de-emphasise, never remove.
+ *       3. **Only the ruled LIST reorders.** `listTasks` lifts the pinned row to the head; the
+ *          timeline leaves every card exactly where its clock puts it and adds only the badge.
+ *       4. **A pin whose row isn't drawn here doesn't apply** (`pinnedId` re-checks `dayTasks`).
+ *          Nothing clears a pin when its task is finished, and a pin with no on-screen badge
+ *          would dim the card with no way back.
+ *     The horizontal accessibility rail (`renderColumn`) is deliberately untouched: its 92px
+ *     columns have no leading slot, and dimming it without a badge would leave the state
+ *     carried by opacity alone.
  *   - **Decision 019 hint**: a task's `hint` renders under its title (display-only) while
  *     the task is "up" (current or next), so the reminder shows exactly when it's useful.
  *   - `readOnly` (Home preview) disables row tap-through only — structure, grid,
@@ -245,7 +266,7 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import { Task, Recurring } from '@/store/useTaskStore';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, TabularNums, rgba, HitSlop } from '@/constants/theme';
+import { DONE_ROW_OPACITY, FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, RowTrailing, Spacing, TabularNums, rgba, HitSlop } from '@/constants/theme';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable, visibleStepNumber } from '@/lib/cardType';
 import { PadState, padVisibleRows } from '@/lib/padState';
@@ -256,6 +277,7 @@ import { useT } from '@/lib/i18n';
 import { getDomainColor } from '@/lib/domainColor';
 import { dayOfWeekMon0 } from '@/lib/date';
 import { useNowMinutes } from '@/lib/useNowMinutes';
+import { useEnergyPause } from '@/lib/useEnergyPause';
 import { CardAccentBadge } from '@/components/CardAccent';
 import GlowPulse from '@/components/GlowPulse';
 import StarterExampleRow from '@/components/StarterExampleRow';
@@ -412,6 +434,12 @@ export default function PlanTaskCard({
   const domainColor = getDomainColor(theme, 'plan');
   const liveNow = useNowMinutes();
   const now = nowOverride ?? liveNow;
+  // Energy's "I'll decide" (2026-08-02). Read here rather than passed in as a prop: both
+  // callers (Home and the To-do tab's timeline layout) would otherwise have to derive and
+  // thread the same answer, and the hook is already the one place it is derived. It returns a
+  // frozen inert object with a null `pinnedTaskId` in Rewards mode, so nothing below fires
+  // there. See the header's Data note — this is the component's ONE store read.
+  const energyPause = useEnergyPause();
 
   // Gate row entrance animations to genuine post-mount reveals (the "Show more" toggle),
   // so the initially-visible collapsed rows don't all fade in on every navigation to Home.
@@ -538,12 +566,35 @@ export default function PlanTaskCard({
 
   const pendingCount = countableTasks.length - doneTasks.length;
 
+  // The pinned card, but only while this surface is actually DRAWING it as a pending row.
+  // Nothing clears a pin when its task is finished or leaves the day, and a pin whose badge is
+  // nowhere on screen would dim the whole card with no visible way back — so the pin simply
+  // stops applying here instead. Presentation only, and it self-heals: the row coming back
+  // brings its badge back with it.
+  const pinnedId = useMemo(() => {
+    const id = energyPause.pinnedTaskId;
+    if (!id) return null;
+    return dayTasks.some((task) => task.id === id && !task.done) ? id : null;
+  }, [energyPause.pinnedTaskId, dayTasks]);
+
+  const isPinned = (task: Task) => task.id === pinnedId;
+  /** Every OTHER row while one is pinned. Opacity only — see `rowDimmed`'s style note. */
+  const isDimmedByPin = (task: Task) => !!pinnedId && task.id !== pinnedId;
+
   // The ruled-list layout's rows: timed tasks in clock order first, then Anytime. Deliberately
   // NOT the grid's `timedLayout` — that carries pixel geometry a flat list has no use for.
-  const listTasks = useMemo(
-    () => [...timedPending.map((e) => e.task), ...anytimePending],
-    [timedPending, anytimePending]
-  );
+  //
+  // The pinned row lifts to the HEAD of this list. That is safe here and only here: a flat
+  // list has no axis to lie about. The timeline below deliberately does NOT reorder — a 09:00
+  // task drawn above a 14:00 one on a clock is false, which is the same reason Today isn't
+  // drag-reorderable (AGENTS.md's drag rule). There the pin is the badge alone.
+  const listTasks = useMemo(() => {
+    const rows = [...timedPending.map((e) => e.task), ...anytimePending];
+    if (!pinnedId) return rows;
+    const at = rows.findIndex((task) => task.id === pinnedId);
+    if (at <= 0) return rows;
+    return [rows[at], ...rows.slice(0, at), ...rows.slice(at + 1)];
+  }, [timedPending, anytimePending, pinnedId]);
 
   // Auto-scrolls the grid's collapsed viewport to the current hour — on mount, whenever the
   // card collapses back down, and whenever the grid's own task count changes (e.g. a task is
@@ -673,6 +724,38 @@ export default function PlanTaskCard({
     );
   }
 
+  /**
+   * The "I'll decide" pin badge — and the un-pin button, since there is nothing else on these
+   * rows to hang one off (the ⋯ is hard-wired to delete, long-press is drag-reorder). Drawn in
+   * the row's LEADING slot on every rendering this card has, which is the same slot
+   * components/TaskCard.tsx and components/PadRow.tsx use, so one task carries the same mark
+   * wherever it shows up. Carries the pin glyph as well as the accent — the state never rests
+   * on colour alone.
+   *
+   * Touch area: `RowTrailing.actionSlop` is clipped on the right, the side it shares with the
+   * row body, and the badge is the EARLIER sibling — RN resolves an overlap to the later one,
+   * so the overhang loses to the body rather than the badge stealing a tap. Its own drawn box
+   * is always its own.
+   */
+  function pinBadge(task: Task) {
+    if (!isPinned(task)) return null;
+    return (
+      <PressableScale
+        hitSlop={RowTrailing.actionSlop}
+        onPress={() => {
+          tap();
+          energyPause.unpin();
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t.energyPause.pinnedLabel}
+        style={[styles.pinBadge, { borderColor: theme.accent, backgroundColor: rgba(theme.accent, 0.12) }]}
+        scaleTo={0.9}
+      >
+        <Ionicons name="pin" size={13} color={theme.accent} />
+      </PressableScale>
+    );
+  }
+
   // Horizontal-only — the vertical grid draws its own time boxes as part of each grid card.
   function timeMarker(task: Task, timed: TimedEntry | undefined, dimmed: boolean, isHappeningNow: boolean | undefined, surfaced: boolean) {
     if (!timed) return <View style={[styles.anytimeDot, { borderColor: theme.border }]} />;
@@ -757,11 +840,12 @@ export default function PlanTaskCard({
     return (
       <Animated.View
         key={task.id}
-        style={styles.flatRow}
+        style={[styles.flatRow, isDimmedByPin(task) && styles.rowDimmed]}
         entering={anim ? FadeInDown.duration(Duration.listIn).easing(Ease.enter) : undefined}
         exiting={anim ? FadeOutDown.duration(Duration.cardOut).easing(Ease.exit) : undefined}
         layout={anim ? LinearTransition.duration(Duration.listMove).easing(Ease.move) : undefined}
       >
+        {pinBadge(task)}
         <PressableScale style={styles.flatContent} onPress={() => handlePress(task)} disabled={readOnly || !onPressTask} scaleTo={0.97}>
           <View
             style={[
@@ -796,8 +880,26 @@ export default function PlanTaskCard({
     const sideBySide = widthPct < 100;
 
     return (
-      <View key={task.id} style={[styles.gridCardWrap, { top, height, left: GUTTER_WIDTH + Spacing.xs, right: Spacing.xs }]}>
-        <View style={[styles.gridCardColumn, { left: `${leftPct}%`, width: `${widthPct}%` }, sideBySide && styles.gridCardColumnGapped]}>
+      <View
+        key={task.id}
+        style={[
+          styles.gridCardWrap,
+          { top, height, left: GUTTER_WIDTH + Spacing.xs, right: Spacing.xs },
+          isDimmedByPin(task) && styles.rowDimmed,
+        ]}
+      >
+        {/* The pinned card keeps its slot on the clock — `top`/`height` above are untouched by
+            the pin. Only the badge is added, laid out as a leading sibling (the column turns
+            into a row for it); `gridActions` is absolutely positioned, so it doesn't move. */}
+        <View
+          style={[
+            styles.gridCardColumn,
+            { left: `${leftPct}%`, width: `${widthPct}%` },
+            sideBySide && styles.gridCardColumnGapped,
+            isPinned(task) && styles.gridCardColumnPinned,
+          ]}
+        >
+          {pinBadge(task)}
           <PressableScale style={styles.gridCardPressable} onPress={() => handlePress(task)} disabled={readOnly || !onPressTask} scaleTo={0.97}>
             <View
               style={[
@@ -1066,6 +1168,11 @@ export default function PlanTaskCard({
                 title={task.title}
                 accent={domainColor.accent}
                 done={task.done}
+                // The pin goes in PadRow's `leading` slot — "an icon or a quantity, never a
+                // second check" — and every other row drops to secondary weight. Nothing is
+                // hidden: a dimmed row keeps its check, its ⋯, its reminders and its place.
+                leading={pinBadge(task)}
+                style={isDimmedByPin(task) ? styles.rowDimmed : undefined}
                 // A stepped card spends the row's ONE right-hand value on how far along it
                 // is; every other type keeps the time there. Same choice TaskCard makes.
                 rightValue={
@@ -1261,6 +1368,22 @@ const baseStyles = StyleSheet.create({
   // Flat row: [content][doneCol] — used by the anytime list and the "Done today" zone.
   flatRow: { flexDirection: 'row', alignItems: 'stretch', marginBottom: Spacing.xs },
   flatContent: { flex: 1 },
+  // Secondary weight while another row is pinned. Opacity ONLY — the row keeps its height, its
+  // controls, its reminders and its counts; the same shared amount a finished row uses.
+  rowDimmed: { opacity: DONE_ROW_OPACITY },
+  // The "I'll decide" pin badge / un-pin button. Sized to RowTrailing.actionSize so it matches
+  // the ⋯ button rows already draw; marginRight pads the gap to the row body past the slop it
+  // spreads that way (see pinBadge()'s note).
+  pinBadge: {
+    width: RowTrailing.actionSize,
+    height: RowTrailing.actionSize,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginRight: Spacing.xs,
+  },
   flatTimeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   timeBox: {
     minWidth: 44,
@@ -1313,6 +1436,9 @@ const baseStyles = StyleSheet.create({
   // another task, so the common single-column case is pixel-identical to before.
   gridCardColumn: { position: 'absolute', top: 0, bottom: 0 },
   gridCardColumnGapped: { paddingHorizontal: 1.5 },
+  // Only while pinned: the column becomes a row so the badge can lead it, exactly as it does on
+  // a flat row. The card's clock position (`top`/`height` on gridCardWrap) is untouched.
+  gridCardColumnPinned: { flexDirection: 'row', alignItems: 'center' },
   gridCardPressable: { flex: 1 },
   // Tighter vertical padding than the shared `rowCard` (short time-slots), and room on the
   // right for the corner done-toggle overlay.

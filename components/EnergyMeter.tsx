@@ -3,12 +3,42 @@
  *
  * Shows today's and this week's energy as `current / capacity`, where current =
  * capacity + the net signed value of every energy task completed / energy habit
- * met in the period (lib/energy.ts). Tapping the edit affordance reveals two
- * steppers to override today's and this week's capacity (store/useEnergyStore.ts).
- * Also warns (small alert icon + message) when everything still SCHEDULED for
- * the day/week — done or not — would take that period's capacity negative
- * (lib/energy.ts's plannedEnergyDeltaForDay/Week), so an over-committed day/week
- * is visible before anything on it has actually happened.
+ * met in the period (lib/energy.ts). Tapping the edit affordance reveals steppers
+ * to override today's and this week's capacity, plus today's one-day boost
+ * (store/useEnergyStore.ts).
+ *
+ * **Both warning rows are gone (2026-08-02).** The strip used to carry an amber "⚠️ Today is
+ * planned to use 3 more Energy than you have available" line and a muted green "fully spent"
+ * one — the loudest piece of guilt copy left in the app, plus a second line that could sit
+ * beside it saying the same thing in another colour. lib/energyPause.ts collapses both
+ * conditions into ONE predicate, and this file draws ONE calm accent control for it (see
+ * "The overspend control" below). `t.energyMeter.overCommittedDay/Week` and `depletedDay/Week`
+ * were deleted with them; don't reintroduce a warning line here.
+ *
+ * **The overspend control + the pause sheet (2026-08-02)**: while `useEnergyPause().overBudget`
+ * and not yet paused, a `pause-circle-outline` in `theme.accent` sits on the strip line next to
+ * the ✏️. It is a labelled control, never a badge — it does not animate, pulse, count or turn
+ * red, because an over-full day is the worst possible moment for something on screen to start
+ * moving. Tapping it opens components/EnergyPauseSheet.tsx; the sheet ALSO opens itself at most
+ * once a day (`shouldAutoShow`) while Home is focused and the ✏️ editor is closed. Both of the
+ * sheet's answers stamp the day in the store, so nothing re-opens after one, and the app never
+ * refers back to which one was pressed.
+ *
+ * **"I'm good" hides the whole strip for the rest of the day** (`pause.paused`) — meter, editor,
+ * hint and control — leaving ONE quiet muted line, `t.energyPause.afterGood`. Presentation only,
+ * exactly like a card layout: energy costs keep being recorded, every stored value is untouched,
+ * and the next date brings it all back. The sheet itself stays mounted through the pause so its
+ * exit animation can finish.
+ * That line is the acknowledgement, not a retrospective — the distinction the "the app never
+ * reacts to the choice afterwards" rule actually draws. It is static, not tappable, offers no
+ * way to un-pause, is never counted or referred to again, and disappears at midnight on its own.
+ * Without it the strip silently emptied, which read as a bug rather than as an answer.
+ *
+ * **Surplus pips (2026-08-02)**: `energyPipCount` returns a third number for energy earned PAST
+ * capacity, which the old clamp swallowed (`12 / 10` drew identically to `10 / 10`). Those draw
+ * after the full ones as soft accent-outlined pips — a third object, distinct from both the
+ * glossy token and the hollow spent ring. They are capped at MAX_SURPLUS_PIPS (4) in
+ * lib/energy.ts; do NOT raise that, and read the width math below before assuming they fit.
  *
  * **Strip, not a card (2026-07-31, addendum task B.2)**: this stopped being a `Surface`. It has
  * no card background, no shadow, no card padding and no title row — in the common single-meter
@@ -58,6 +88,15 @@
  * out of room the pip row clips instead of painting over the value, which is exactly the
  * 2026-07-28 bug that forced the stacked layout in the first place. Re-check `npm run wraps`
  * before growing `PIP_SIZE` or putting a label back on this line.
+ * **Two 2026-08-02 additions spend that margin, and both degrade by clipping the pip row —
+ * which is the row's documented job, not a new bug.** (1) The overspend control adds a second
+ * 16px glyph plus a `RowTrailing.gap` (16) beside the ✏️: +32px, and only while today is over
+ * budget. (2) Up to four surplus pips add up to 4 x (PIP_SIZE + PIP_GAP) = 88px, and only on a
+ * day that has finished above its capacity. At the audited 360px worst case a full ten-pip bar
+ * plus four surplus pips does NOT fit and the tail clips — the `current / capacity` readout
+ * beside it still states the number in full, and the a11y label on the pip row carries
+ * `t.energyMeter.surplusLabel(n)` regardless of what is drawn. The alternative (shrinking the
+ * pip, or dropping the value) costs the common case to serve the rare one.
  * The 'custom' (both meters) case keeps that stacked layout: label+value share a top line
  * (`meterTopRow`), the pip row is a full-width line below it. Two labels' worth of extra text
  * genuinely does not fit inline at any pip size worth drawing.
@@ -101,35 +140,43 @@
  * goes from ≤0 back to positive ("recovered"), `theme.accent` (deliberately NOT `theme.bad`)
  * when it drops to ≤0 ("depleted"). Tracked per-period via a prev-positive ref so it only
  * fires ON THE TRANSITION, never on mount or on every render while already in that state.
- * **Depleted state is not a failure state** — the accompanying `t.energyMeter.depletedDay/
- * Week` copy is deliberately calm/caring ("a cue to ease off"), never a "Great job!"
- * congratulation: the system's whole point is balance/planning, not spending it all. Keep
- * any future copy on that same side of the line.
+ * **Depleted state is not a failure state.** The glow is the whole of it now: the calm/caring
+ * `t.energyMeter.depletedDay/Week` line it used to be paired with was deleted along with the
+ * warning rows (see above), so there is no copy left to keep on the right side of that line —
+ * and nothing should be added. The system's point is balance/planning, not spending it all,
+ * and a day that hits zero is a cue to ease off, never a "Great job!" and never a scolding.
  *
  * Connections:
- *   Imports → components/Stepper, components/Collapsible,
- *             components/PressableScale, components/CardHintNote, constants/theme, lib/useAppTheme, lib/i18n,
- *             lib/date, lib/energy, store/useSettingsStore, store/useTaskStore,
- *             store/useHabitStore, store/useEnergyStore, react-native-reanimated
+ *   Imports → components/Stepper, components/Collapsible, components/PressableScale,
+ *             components/CardHintNote, components/EnergyPauseSheet, constants/theme,
+ *             constants/motion, lib/useAppTheme, lib/i18n, lib/date, lib/energy,
+ *             lib/useEnergyPause, store/useSettingsStore, store/useTaskStore,
+ *             store/useHabitStore, store/useEnergyStore, expo-router (useFocusEffect),
+ *             react-native-reanimated
  *             (components/Surface is deliberately NOT imported any more — see "Strip, not a card")
  *   Used by → app/(tabs)/index.tsx (Home) — mounted fixed, above the Shared card and the
  *             HomeCardManager stack, gated on settings.energySystemEnabled
- *   Data    → reads tasks/habits/habitLogs + energy_budgets overrides; writes overrides only
+ *   Data    → reads tasks/habits/habitLogs + energy_budgets overrides (base capacity AND the
+ *             'b:' boost row); writes those overrides, plus today's pause/pin state through
+ *             lib/useEnergyPause.ts (device-local `app_meta`, never synced)
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import Svg, { Defs, RadialGradient, Stop, Circle, Rect } from 'react-native-svg';
 import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
 import CardHintNote from '@/components/CardHintNote';
-import { Fonts, FontSize, Radius, Spacing, darken, lighten, getGlow, hitSlopFor } from '@/constants/theme';
+import EnergyPauseSheet from '@/components/EnergyPauseSheet';
+import { Fonts, FontSize, Radius, RowTrailing, Spacing, darken, lighten, getGlow, hitSlopFor } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
-import { energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek, energyPipCount } from '@/lib/energy';
+import { energyDeltaForDay, energyDeltaForWeek, energyPipCount } from '@/lib/energy';
+import { useEnergyPause } from '@/lib/useEnergyPause';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
@@ -142,6 +189,26 @@ type PulseKind = 'recovered' | 'depleted';
  *  one number that matters — at 16px it needs 14px of slop, which a hand-picked 8 or 12
  *  (40px of target) doesn't reach. */
 const EDIT_ICON_SIZE = 16;
+
+/**
+ * The two glyphs at the end of the strip line — ✏️ alone most days, the calm overspend
+ * control to its left when today is over its energy.
+ *
+ * They are the app's second pair of independent tap targets sitting side by side, so they
+ * follow `RowTrailing`'s arithmetic rather than each carrying a symmetric `hitSlopFor(16)`
+ * (14px a side, which across ANY sane gap would overlap — and RN hit-tests siblings in
+ * reverse order, so the ✏️ would silently swallow the right edge of the pause control). Each
+ * is clipped on the side it shares with its neighbour, to the same 4px `RowTrailing` uses,
+ * and the gap is `RowTrailing.gap` (16) so 16 − 4 − 4 = 8px belongs to neither. Both keep
+ * their full 14px top/bottom, i.e. 44px on the axis a thumb actually misses on.
+ */
+const PAIR_CLIP = RowTrailing.actionSlop.right;
+/** ✏️ on its own — nothing beside it, so it keeps a plain symmetric target. */
+const EDIT_SLOP = hitSlopFor(EDIT_ICON_SIZE);
+/** ✏️ with the pause control to its LEFT — clipped on that side. */
+const EDIT_SLOP_PAIRED = { ...EDIT_SLOP, left: PAIR_CLIP };
+/** The pause control, always the LEFT of the pair — clipped on its right. */
+const OVERSPEND_SLOP = { ...EDIT_SLOP, right: PAIR_CLIP };
 
 /** Pip diameter + the gap between pips. Down from 24/5 in the 2026-07-31 strip pass — see the
  *  file header's "Two layouts, and the width math behind them" note before changing either;
@@ -193,12 +260,20 @@ export default function EnergyMeter() {
   const capacityForWeek = useEnergyStore((s) => s.capacityForWeek);
   const setDayCapacity = useEnergyStore((s) => s.setDayCapacity);
   const setWeekCapacity = useEnergyStore((s) => s.setWeekCapacity);
+  const boostForDay = useEnergyStore((s) => s.boostForDay);
+  const setDayBoost = useEnergyStore((s) => s.setDayBoost);
 
   const tasks = useTaskStore((s) => s.tasks);
   const habits = useHabitStore((s) => s.habits);
   const habitLogs = useHabitStore((s) => s.logs);
 
+  // Today's over-budget state, the pause, and the "I'll decide" candidates — one hook so the
+  // control here and the pinned card on Home can never disagree about them (lib/useEnergyPause.ts).
+  const pause = useEnergyPause();
+
   const [editing, setEditing] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   // Document-unique base id for each active pip's pair of SVG gradients — see the file
   // header's "Energy-token pip" note. One call per component instance, suffixed per-pip
@@ -222,12 +297,27 @@ export default function EnergyMeter() {
   const today = todayStr();
   const dayCapacity = capacityForDay(today);
   const weekCapacity = capacityForWeek(today);
+  /**
+   * The two numbers behind `dayCapacity`, kept apart so the ✏️ editor's two steppers can't
+   * fight each other.
+   *
+   * `capacityForDay()` already returns base + boost (store/useEnergyStore.ts), and the meter
+   * shows that TOTAL — a boosted day genuinely has more energy in it, so the pips and the
+   * `13 / 13` readout should say so. But `setDayCapacity()` writes the BASE row, so feeding
+   * the total straight back into the capacity stepper would re-bank the boost as the user's
+   * usual capacity on every press (+3 today → stepper reads 13 → tapping it writes base 13 →
+   * total 16, and tomorrow starts from 13). Subtracting the boost for display and letting the
+   * stepper write what it shows keeps each control on its own row: the capacity stepper edits
+   * the base, the boost stepper edits the boost, and the readout above them is their sum.
+   */
+  const dayBoost = boostForDay(today);
+  const dayBaseCapacity = dayCapacity - dayBoost;
   const dayCurrent = dayCapacity + energyDeltaForDay(today, tasks, habits, habitLogs);
   const weekCurrent = weekCapacity + energyDeltaForWeek(today, tasks, habits, habitLogs);
 
-  // Over-committed = if everything still scheduled for the period happened, capacity would go negative.
-  const dayPlannedOver = -Math.min(0, dayCapacity + plannedEnergyDeltaForDay(today, tasks, habits));
-  const weekPlannedOver = -Math.min(0, weekCapacity + plannedEnergyDeltaForWeek(today, tasks, habits));
+  // "Over-committed" (plannedEnergyDeltaForDay) and "fully spent" (current <= 0) used to be
+  // computed here for two warning rows. Both now live behind lib/energyPause.ts's single
+  // `isOverBudget`, read through `pause.overBudget` above — one state, one control, one sheet.
 
   // Depleted/recovered pulse tracking — fires once ON THE TRANSITION across the zero line,
   // never on mount or while already sitting in that state. See file header.
@@ -269,6 +359,32 @@ export default function EnergyMeter() {
     return () => clearTimeout(id);
   }, [weekPulse]);
 
+  // The strip only lives on Home, so "is Home focused" is just "is this mounted and focused".
+  // Kept as state rather than a ref because the auto-show effect below has to re-run when it
+  // flips — a ref would go stale and the sheet would either never open or open behind a tab.
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, [])
+  );
+
+  /**
+   * The once-a-day automatic offer.
+   *
+   * Three gates, all of them about the moment being calm enough: the Home screen is focused
+   * (the pager mounts all five tabs, so being mounted proves nothing), the ✏️ editor is not
+   * open (never interrupt a user who is mid-interaction with the card), and today has not
+   * already offered it (`shouldAutoShow`, which lib/useEnergyPause.ts keeps true until the
+   * user actually answers — a backgrounded app re-offers rather than burning the day's one
+   * chance in silence). Both answers stamp the day in the store, so nothing re-opens after one.
+   */
+  useEffect(() => {
+    if (!focused || editing || sheetOpen) return;
+    if (!pause.shouldAutoShow) return;
+    setSheetOpen(true);
+  }, [focused, editing, sheetOpen, pause.shouldAutoShow]);
+
   // label is null when only one of day/week is shown (the common case, energyMode
   // 'daily'/'weekly') — with a single meter on the card, "Today"/"This week" repeats
   // what's already obvious and just eats space. It's only passed when BOTH rows are
@@ -277,10 +393,30 @@ export default function EnergyMeter() {
   // from `label` (which can be null) so id uniqueness never depends on translated text.
   // Passed to exactly ONE row (see the file header's "The edit affordance travels" note) — the
   // single meter's line, or the first visible meter's top line in 'custom' mode.
+  // The calm overspend control (2026-08-02) — what replaced the amber "⚠️ … more Energy than
+  // you have available" line and the muted "fully spent" one. ONE indicator for both states
+  // (lib/energyPause.ts's isOverBudget), in theme.accent, never theme.warn and never a
+  // triangle: being over today's energy is a situation with options, not an error. It is a
+  // control, so it is labelled and reaches target; it never animates, pulses or badges — an
+  // over-full day is exactly the wrong moment for something on screen to start moving.
+  const showOverspend = pause.overBudget && !pause.paused;
+
+  const overspendButton = (
+    <PressableScale
+      onPress={() => setSheetOpen(true)}
+      hitSlop={OVERSPEND_SLOP}
+      scaleTo={0.9}
+      accessibilityRole="button"
+      accessibilityLabel={t.energyPause.overspendLabel}
+    >
+      <Ionicons name="pause-circle-outline" size={EDIT_ICON_SIZE} color={theme.accent} />
+    </PressableScale>
+  );
+
   const editButton = (
     <PressableScale
       onPress={() => setEditing((v) => !v)}
-      hitSlop={hitSlopFor(EDIT_ICON_SIZE)}
+      hitSlop={showOverspend ? EDIT_SLOP_PAIRED : EDIT_SLOP}
       scaleTo={0.9}
       accessibilityRole="button"
       accessibilityLabel={t.energyMeter.editTitle}
@@ -293,6 +429,17 @@ export default function EnergyMeter() {
     </PressableScale>
   );
 
+  // Passed to exactly ONE row (see the file header's "The edit affordance travels" note).
+  // `RowTrailing.gap` between the two, which is what makes PAIR_CLIP's 8px of dead space work.
+  const trailingControls = showOverspend ? (
+    <View style={styles.trailingCluster}>
+      {overspendButton}
+      {editButton}
+    </View>
+  ) : (
+    editButton
+  );
+
   const row = (
     rowKey: 'day' | 'week',
     label: string | null,
@@ -301,9 +448,12 @@ export default function EnergyMeter() {
     pulse: { id: number; kind: PulseKind } | null,
     trailing: React.ReactNode
   ) => {
-    const { pipCount, filled } = energyPipCount(current, capacity);
+    const { pipCount, filled, surplus } = energyPipCount(current, capacity);
     const pips = (
-      <View style={[styles.pipRow, singleMeter && styles.pipRowInline]}>
+      <View
+        style={[styles.pipRow, singleMeter && styles.pipRowInline]}
+        accessibilityLabel={surplus > 0 ? t.energyMeter.surplusLabel(surplus) : undefined}
+      >
         {Array.from({ length: pipCount }).map((_, i) => {
           const active = i < filled;
           if (!active) {
@@ -339,6 +489,21 @@ export default function EnergyMeter() {
             </View>
           );
         })}
+        {/* Surplus (2026-08-02): energy EARNED past the day's capacity, which the old clamp
+            swallowed — `12 / 10` used to draw identically to `10 / 10`. Drawn after the full
+            ones and deliberately a third kind of object: neither the saturated glossy token
+            (that's a pip you still have) nor the hollow surfaceInset ring (that's one you've
+            spent), but a soft accent-outlined pip with the OUTLINE glyph. It has to read as
+            "extra, on top" rather than as a bigger day — the count is capped at
+            MAX_SURPLUS_PIPS in lib/energy.ts precisely so it stays a shape and not a score. */}
+        {Array.from({ length: surplus }).map((_, i) => (
+          <View
+            key={`surplus-${i}`}
+            style={[styles.pipSurplus, { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+          >
+            <Ionicons name="flash-outline" size={PIP_ICON_SIZE} color={theme.accent} />
+          </View>
+        ))}
       </View>
     );
     // The title row is gone (strip pass), so this value is the only thing naming the number for
@@ -384,62 +549,86 @@ export default function EnergyMeter() {
 
   return (
     <View style={styles.strip}>
-      {showDay && row('day', showWeek ? t.energyMeter.today : null, dayCurrent, dayCapacity, dayPulse, editButton)}
-      {showDay && dayCapacity > 0 && dayCurrent <= 0 && (
-        <View style={styles.warningRow}>
-          <Ionicons name="leaf-outline" size={14} color={theme.good} />
-          <Text style={[styles.warningText, { color: theme.textMuted }]}>{t.energyMeter.depletedDay}</Text>
-        </View>
-      )}
-      {showDay && dayPlannedOver > 0 && (
-        <View style={styles.warningRow}>
-          <Ionicons name="alert-circle" size={14} color={theme.warn} />
-          <Text style={[styles.warningText, { color: theme.warn }]}>{t.energyMeter.overCommittedDay(dayPlannedOver)}</Text>
-        </View>
-      )}
-      {showDay && showWeek && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
-      {/* `showDay ? null : editButton` — the glyph is drawn by whichever meter comes FIRST, so
-          'weekly' mode (no day row) still gets one and 'custom' mode never gets two. */}
-      {showWeek && row('week', showDay ? t.energyMeter.thisWeek : null, weekCurrent, weekCapacity, weekPulse, showDay ? null : editButton)}
-      {showWeek && weekCapacity > 0 && weekCurrent <= 0 && (
-        <View style={styles.warningRow}>
-          <Ionicons name="leaf-outline" size={14} color={theme.good} />
-          <Text style={[styles.warningText, { color: theme.textMuted }]}>{t.energyMeter.depletedWeek}</Text>
-        </View>
-      )}
-      {showWeek && weekPlannedOver > 0 && (
-        <View style={styles.warningRow}>
-          <Ionicons name="alert-circle" size={14} color={theme.warn} />
-          <Text style={[styles.warningText, { color: theme.warn }]}>{t.energyMeter.overCommittedWeek(weekPlannedOver)}</Text>
-        </View>
-      )}
+      {/* Paused (2026-08-02, "I'm good"): the strip stays mounted but draws NOTHING for the
+          rest of the day — no meter, no editor, no hint, no control. This is presentation
+          only, exactly like a card layout: every energy cost keeps being recorded, every
+          value keeps its stored number, and tomorrow's date brings the whole strip back
+          untouched. The sheet stays mounted through it so its exit animation can finish. */}
+      {!pause.paused && (
+        <>
+          {showDay && row('day', showWeek ? t.energyMeter.today : null, dayCurrent, dayCapacity, dayPulse, trailingControls)}
+          {showDay && showWeek && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
+          {/* `showDay ? null : trailingControls` — the glyphs are drawn by whichever meter comes
+              FIRST, so 'weekly' mode (no day row) still gets them and 'custom' mode never gets two. */}
+          {showWeek && row('week', showDay ? t.energyMeter.thisWeek : null, weekCurrent, weekCapacity, weekPulse, showDay ? null : trailingControls)}
 
-      <Collapsible open={editing}>
-        <View style={styles.editor}>
-          {showDay && (
-            <View style={styles.editRow}>
-              <Text style={[styles.editLabel, { color: theme.textMuted }]}>{t.energyMeter.todayCapacity}</Text>
-              <Stepper value={dayCapacity} onChange={(n) => setDayCapacity(today, n)} min={0} />
+          <Collapsible open={editing}>
+            <View style={styles.editor}>
+              {showDay && (
+                <View style={styles.editRow}>
+                  <Text style={[styles.editLabel, { color: theme.textMuted }]}>{t.energyMeter.todayCapacity}</Text>
+                  {/* BASE, not the total — see `dayBaseCapacity` above for why the two steppers
+                      would otherwise re-bank the boost into the user's usual capacity. */}
+                  <Stepper value={dayBaseCapacity} onChange={(n) => setDayCapacity(today, n)} min={0} />
+                </View>
+              )}
+              {showDay && (
+                <View style={styles.editRow}>
+                  <Text style={[styles.editLabel, { color: theme.textMuted }]}>{t.energyMeter.boostToday}</Text>
+                  <Stepper value={dayBoost} onChange={(n) => setDayBoost(today, n)} min={0} />
+                </View>
+              )}
+              {showWeek && (
+                <View style={styles.editRow}>
+                  <Text style={[styles.editLabel, { color: theme.textMuted }]}>{t.energyMeter.weekCapacity}</Text>
+                  <Stepper value={weekCapacity} onChange={(n) => setWeekCapacity(today, n)} min={0} />
+                </View>
+              )}
+              {/* The boost's own one-liner, inside the editor rather than under the strip: it
+                  only matters while you are looking at the stepper, and the strip already
+                  carries the one permanent hint it can afford. */}
+              {showDay && <CardHintNote text={t.energyMeter.boostHint} noBorder />}
             </View>
-          )}
-          {showWeek && (
-            <View style={styles.editRow}>
-              <Text style={[styles.editLabel, { color: theme.textMuted }]}>{t.energyMeter.weekCapacity}</Text>
-              <Stepper value={weekCapacity} onChange={(n) => setWeekCapacity(today, n)} min={0} />
-            </View>
-          )}
-        </View>
-      </Collapsible>
+          </Collapsible>
 
-      {/* Permanent one-line explainer, attached directly under the meter it explains
-          (2026-07-27, user report). See the file header for why this is no longer a
-          disappearing StarterCard sibling. The shape this pioneered became the shared
-          components/CardHintNote.tsx (2026-07-30), which every Home card's tip now uses.
-          It KEEPS its top hairline (no `noBorder`): with the card surface gone that rule is
-          the strip's only bottom edge, and it's what stops the hint reading as a floating
-          paragraph between Energy and the card below. */}
-      <CardHintNote text={t.energyMeter.hint} style={styles.hint} />
+          {/* Permanent one-line explainer, attached directly under the meter it explains
+              (2026-07-27, user report). See the file header for why this is no longer a
+              disappearing StarterCard sibling. The shape this pioneered became the shared
+              components/CardHintNote.tsx (2026-07-30), which every Home card's tip now uses.
+              It KEEPS its top hairline (no `noBorder`): with the card surface gone that rule is
+              the strip's only bottom edge, and it's what stops the hint reading as a floating
+              paragraph between Energy and the card below. */}
+          <CardHintNote text={t.energyMeter.hint} style={styles.hint} />
+        </>
+      )}
 
+      {/* The one line the pause leaves behind. It is the acknowledgement itself — the narrator
+          answering "I'm good" once, in place, in the space the meter just vacated — not a
+          retrospective on it: it is static, never counted, never referred to again, and gone
+          at midnight without anyone dismissing it. A strip that silently emptied read as a
+          bug, which is the other half of why it is here.
+          Deliberately NOT a CardHintNote (that tier carries a bulb icon and a hairline rule,
+          both of which would rebuild a card here), not tappable, and with no way back: the
+          day is the unit, and it resets on its own. No icon, no accent, no entrance. */}
+      {pause.paused && (
+        <Text style={[styles.pausedNote, { color: theme.textMuted }]}>{t.energyPause.afterGood}</Text>
+      )}
+
+      {/* Both triggers — the control above and the once-a-day auto-offer — land here. Closing
+          the sheet by any route IS "I'm good" (see EnergyPauseSheet's header), and both
+          answers stamp the day in the store, so nothing re-opens after one. */}
+      <EnergyPauseSheet
+        visible={sheetOpen}
+        candidates={pause.candidates}
+        onPin={(id) => {
+          setSheetOpen(false);
+          pause.pin(id);
+        }}
+        onImGood={() => {
+          setSheetOpen(false);
+          pause.pause();
+        }}
+      />
     </View>
   );
 }
@@ -490,16 +679,29 @@ const styles = StyleSheet.create({
   },
   // A spent pip is a plain hollow ring — an emptied slot, no gradient, no gloss, no shadow.
   pipEmpty: { width: PIP_SIZE, height: PIP_SIZE, borderRadius: Radius.full, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  // A surplus pip (2026-08-02) is the third kind: the empty ring's flat outlined shape, but in
+  // accent rather than muted grey, over a soft accent wash. Same geometry as pipEmpty so the
+  // row's rhythm doesn't break where the bar ends — only the colour says "extra".
+  pipSurplus: { width: PIP_SIZE, height: PIP_SIZE, borderRadius: Radius.full, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   // flexShrink:0 so the value keeps its full width on the strip line and the pip row is what
   // gives, never the number.
   meterValue: { fontSize: FontSize.sm, fontFamily: Fonts.medium, marginLeft: 'auto', flexShrink: 0 },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 2 },
-  warningRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  warningText: { flex: 1, fontSize: FontSize.xs, fontFamily: Fonts.medium },
+  // The pause control + the ✏️ glyph. The gap is RowTrailing's, not Spacing's, because it is
+  // load-bearing: it is what leaves 8px belonging to neither touch area once PAIR_CLIP has
+  // taken 4px off each facing edge. See the PAIR_CLIP block at the top of the file.
+  trailingCluster: { flexDirection: 'row', alignItems: 'center', gap: RowTrailing.gap },
   editor: { gap: Spacing.sm, paddingTop: Spacing.sm },
   editRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   editLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   // CardHintNote brings its own hairline/italic caption-or-smaller type; this only trims its
   // default top margin, since `strip`'s own `gap` already separates it from the meter above.
   hint: { marginTop: 2 },
+  // The paused day's single line. Same caption tier as CardHintNote's text (FontSize.xs,
+  // italic, theme.textMuted) so it reads as the quietest thing on Home, but hand-rolled
+  // rather than reusing that component — its bulb icon and hairline rule would give the
+  // pause a bordered header, i.e. exactly the status banner this must not be. No margin of
+  // its own: `strip`'s existing gap is the only spacing, so the strip's outer geometry is
+  // identical paused and unpaused.
+  pausedNote: { fontSize: FontSize.xs, fontStyle: 'italic' },
 });
