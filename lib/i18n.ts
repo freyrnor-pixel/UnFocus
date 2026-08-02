@@ -458,8 +458,13 @@ const en = {
   // onboarding screen with a heading and no sub-heading. The sub's job is to say why the
   // screen exists AT ALL — it earns the interruption by admitting the rest of the app doesn't
   // need one. It must not describe the meter: that is the card's `energy.body`, directly below.
+  //
+  // **`title` ratified again 2026-08-02.** The screen moved from "explain one system with a
+  // switch" to "choose between two named peer modes" and the heading still said "explaining" —
+  // fixed to "One choice worth making", which names the choice without naming the two modes
+  // (that's `modes.label`'s job, right below it on the control).
   energyIntro: {
-    title: 'One thing worth explaining',
+    title: 'One choice worth making',
     sub: "The rest of the app you can learn by poking at it. This part looks like a score, so it's worth a minute.",
     energy: {
       title: 'Energy',
@@ -2209,7 +2214,7 @@ const no: typeof en = {
     body: 'UnFocus er under arbeid. Ting kan endre seg, flytte på seg eller komme halvferdig — det er som forventet. Alt blir liggende på telefonen din, og alle tilbakemeldinger er velkomne — de former det som kommer.',
   },
   energyIntro: {
-    title: 'Én ting som er verdt en forklaring',
+    title: 'Ett valg verdt å ta',
     // "poking at it" has no idiomatic Norwegian equivalent that stays this light — "prøve deg
     // fram" (feel your way / try as you go) carries the same "you don't have to be taught this"
     // sense without turning it into an instruction.

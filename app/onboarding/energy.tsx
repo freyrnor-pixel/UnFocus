@@ -33,13 +33,11 @@
  * it says the rest of the app needs no such screen — so keep it OFF the subject of the meter,
  * which the card below already covers in `t.energyIntro.energy.body`.
  *
- * **PLACEHOLDER — awaiting maintainer wording.** `t.energyIntro.title` ("One thing worth
- * explaining") was ratified against a screen that explained ONE system and offered a switch.
- * The screen now offers a CHOICE between two named modes, and the heading does not say so.
- * It was left as-is on purpose rather than rewritten by an agent: the two-mode framing is
- * carried by `t.energyIntro.modes.label` on the control itself, which is where a first-time
- * user is looking when they need it, so the heading is imprecise rather than wrong. Treat
- * this as unfinished, not as settled, and don't delete this note when the wording lands.
+ * **`title` ratified again 2026-08-02.** "One thing worth explaining" was written against a
+ * screen that explained ONE system and offered a switch; once the screen became a CHOICE
+ * between two named modes, the heading no longer said so. Replaced with "One choice worth
+ * making" — names the choice without naming the two modes, which stays `t.energyIntro.modes.label`'s
+ * job on the control itself.
  *
  * **This screen used to explain two systems side by side** (2026-07-31): Quiet growth
  * (`showGrowth`) had the second card, having moved here out of the feature picker because a
@@ -121,12 +119,7 @@ export default function OnboardingEnergy() {
             the line that belongs to it. The sub says why this screen exists at all and
             deliberately does NOT describe the meter — that is the card's own `energy.body`, a
             few lines below. Added 2026-08-01; until then this was the only onboarding screen
-            with a heading and nothing under it.
-
-            PLACEHOLDER — awaiting maintainer wording: `t.energyIntro.title` still reads
-            "One thing worth explaining", written when this screen explained one system and
-            offered a switch. It now offers a choice between two named modes and the heading
-            doesn't say so. Not rewritten here on purpose — see this file's header note. */}
+            with a heading and nothing under it. */}
         <View style={styles.headingBlock}>
           <Text style={[styles.heading, { color: theme.text }]}>{t.energyIntro.title}</Text>
           <Text style={[styles.subheading, { color: theme.textMuted }]}>{t.energyIntro.sub}</Text>
