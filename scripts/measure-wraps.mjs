@@ -35,10 +35,24 @@
  *                       screenshot, which is exactly what this script exists to replace.
  *
  * Coverage note: this walks onboarding, the tour card, all five tabs, Settings, and — since
- * the same 2026-08-01 pass — the **task editor**, which is where that mic bug lived. Pushed
- * sub-screens and opened editors were invisible to this audit before that, so a whole class
- * of the app's densest layouts was never measured. When you add a surface with tight
- * horizontal pressure, add a step for it here rather than trusting a screenshot.
+ * the same 2026-08-01 pass — the **task editor** (where that mic bug lived), the **goals
+ * sheet**, the **health form** and the **medicine editor**. Pushed sub-screens and opened
+ * editors were invisible to this audit before that, so a whole class of the app's densest
+ * layouts was never measured. When you add a surface with tight horizontal pressure, add a
+ * step for it here rather than trusting a screenshot.
+ *
+ * Ordering is constrained by three facts, all verified rather than assumed — see main():
+ *   - the run is TWO passes, because `settings` and `medicine-form` are dead ends (pushed
+ *     screens with no BottomNav) and only one of them can end a pass;
+ *   - never page.goto()/goBack() mid-walk — both reload the document, resetting the
+ *     in-memory sql.js DB and dropping you back into onboarding;
+ *   - app/scan.tsx is never walked, because the web bundle resolves the OCR placeholder
+ *     app/scan.web.tsx and measuring it would report on a screen that isn't the real one.
+ *
+ * Known-benign: the goals sheet reports 1 wrapped control row at every width. That is
+ * `starterChips`, a flexWrap cloud of four sentence-length suggestions which is meant to
+ * wrap. It cannot be filtered out without also blinding mode 3 to the weekday-chip row,
+ * which uses flexWrap too but has a hard minimum width and IS a bug when it wraps.
  *
  * Usage:
  *   node scripts/measure-wraps.mjs [--lang=no|en] [--width=393] [--json]
@@ -81,6 +95,13 @@ const L = {
     // Task-editor walk: the "All tasks" tab is the only one with an add affordance, and a
     // fresh profile has no tasks, so one has to be created before an editor can be opened.
     tasksTabAll: 'All tasks', newTask: 'New task', probeTask: 'Wrap audit probe',
+    // Pushed sub-screens / popups. Each is reached by tapping, never page.goto() or
+    // goBack() — both reload the document, which resets the in-memory sql.js DB and drops
+    // you back into onboarding. BottomNav stays mounted over a pushed screen, so a tab tap
+    // is the way back out.
+    editGoals: 'Edit Goals', goalsClose: 'Done',
+    logSymptom: "What's bothering you?",
+    addMedicine: 'Add a medicine', probeMed: 'Wrap audit med',
   },
   no: {
     langRow: /^Språk: Norsk\./, basicsNext: 'Fortsett',
@@ -89,6 +110,9 @@ const L = {
     tabs: ['Handle', 'Gjøremål', 'Helse', 'Vaner'], home: 'Hjem', settings: 'Innstillinger',
     dismiss: ['Hopp over', 'Skjønner', 'Skjønner →', 'OK'],
     tasksTabAll: 'Alle', newTask: 'Ny oppgave', probeTask: 'Bredde-test',
+    editGoals: 'Rediger mål', goalsClose: 'Ferdig',
+    logSymptom: 'Hva plager deg?',
+    addMedicine: 'Legg til medisin', probeMed: 'Bredde-med',
   },
 }[LANG];
 
@@ -263,6 +287,55 @@ async function scan(page, name) {
   screens.push({ name, ...(await page.evaluate(SCAN)) });
 }
 
+/**
+ * Load the app fresh and walk onboarding to the tab bar, dismissing the guided tour.
+ *
+ * Extracted because the walk needs TWO passes (see main()): `settings` and `medicine-form`
+ * are both dead ends — pushed screens that render NO BottomNav, verified — so only one of
+ * them can be the last thing a pass visits. Getting back out of either means reloading, and
+ * a reload resets the in-memory sql.js DB, which puts onboarding back in front of you.
+ *
+ * `scanning` is false on the second pass: onboarding's own screens are identical both times
+ * and would just duplicate every finding.
+ */
+async function walkToTabs(page, { scanning }) {
+  await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
+  await page.waitForTimeout(1000);
+  // Basics is screen ONE and the densest control screen in the app: six rows of pills,
+  // three-across at the widest. It is exactly the shape this audit exists to catch, so it
+  // gets scanned before anything is tapped. The language row is a radio, not a button.
+  if (scanning) await scan(page, 'onboarding-basics');
+  await page.getByRole('radio', { name: L.langRow }).first().click({ timeout: 10000 });
+  await page.waitForTimeout(400);
+  await clickText(page, L.basicsNext);
+  await page.waitForTimeout(400);
+  await clickText(page, L.newHere);
+  await page.waitForTimeout(400);
+  if (scanning) await scan(page, 'onboarding-privacy');
+  await clickText(page, L.gotIt);
+  await page.waitForTimeout(400);
+  await clickText(page, L.guided);
+  await page.waitForTimeout(400);
+  // Energy pushes straight to the name screen. The feature picker that used to sit between
+  // them was deleted 2026-07-31 (B1-1) — onboarding no longer offers any feature opt-in, so
+  // there is one fewer `next` tap here than there were screens before that change.
+  if (scanning) await scan(page, 'onboarding-energy');
+  await clickText(page, L.next);
+  await page.waitForTimeout(400);
+  if (scanning) await scan(page, 'onboarding-name');
+  await clickText(page, L.go);
+  await page.waitForTimeout(1800);
+
+  // The guided tour opens straight after onboarding. Measure its coach card — it is new copy
+  // in a fixed-width box, exactly what this audit is for — then dismiss it, or its scrim
+  // swallows every click below and the run dies somewhere unrelated.
+  if (await page.getByText(L.tourNext, { exact: true }).first().isVisible().catch(() => false)) {
+    if (scanning) await scan(page, 'tour-step');
+    await clickText(page, L.skipTour);
+    await page.waitForTimeout(900);
+  }
+}
+
 async function main() {
   const browser = await chromium.launch({
     executablePath: CHROMIUM_PATH, headless: true,
@@ -270,41 +343,8 @@ async function main() {
   });
   const page = await browser.newPage({ viewport: { width: WIDTH, height: 852 } });
   try {
-    await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
-    await page.waitForTimeout(1000);
-    // Basics is screen ONE and the densest control screen in the app: six rows of pills,
-    // three-across at the widest. It is exactly the shape this audit exists to catch, so it
-    // gets scanned before anything is tapped. The language row is a radio, not a button.
-    await scan(page, 'onboarding-basics');
-    await page.getByRole('radio', { name: L.langRow }).first().click({ timeout: 10000 });
-    await page.waitForTimeout(400);
-    await clickText(page, L.basicsNext);
-    await page.waitForTimeout(400);
-    await clickText(page, L.newHere);
-    await page.waitForTimeout(400);
-    await scan(page, 'onboarding-privacy');
-    await clickText(page, L.gotIt);
-    await page.waitForTimeout(400);
-    await clickText(page, L.guided);
-    await page.waitForTimeout(400);
-    // Energy pushes straight to the name screen. The feature picker that used to sit between
-    // them was deleted 2026-07-31 (B1-1) — onboarding no longer offers any feature opt-in, so
-    // there is one fewer `next` tap here than there were screens before that change.
-    await scan(page, 'onboarding-energy');
-    await clickText(page, L.next);
-    await page.waitForTimeout(400);
-    await scan(page, 'onboarding-name');
-    await clickText(page, L.go);
-    await page.waitForTimeout(1800);
-
-    // The guided tour opens straight after onboarding. Measure its coach card — it is new copy
-    // in a fixed-width box, exactly what this audit is for — then dismiss it, or its scrim
-    // swallows every click below and the run dies somewhere unrelated.
-    if (await page.getByText(L.tourNext, { exact: true }).first().isVisible().catch(() => false)) {
-      await scan(page, 'tour-step');
-      await clickText(page, L.skipTour);
-      await page.waitForTimeout(900);
-    }
+    // ── Pass 1: onboarding, the tabs, the task editor, the goals sheet, health-form, Settings.
+    await walkToTabs(page, { scanning: true });
 
     await scan(page, 'home');
     for (const tab of L.tabs) {
@@ -339,11 +379,76 @@ async function main() {
       console.error(`  (task-editor step skipped: ${e.message.split('\n')[0]})`);
     }
 
+    // ── Goals (a popup, not a route) ──
+    // components/GoalsSheet.tsx replaced the old `router.push('/goals')` so editing goals
+    // doesn't leave the tab you were on. app/goals.tsx still exists but is direct-route
+    // only, and a page.goto() would reset the DB — so the sheet is what gets measured,
+    // which is also what users actually see.
+    try {
+      const link = page.getByText(L.editGoals, { exact: true }).first();
+      await link.scrollIntoViewIfNeeded({ timeout: 5000 });
+      await link.click({ timeout: 10000 });
+      await page.waitForTimeout(900);
+      await scan(page, 'goals-sheet');
+      await clickText(page, L.goalsClose);
+      await page.waitForTimeout(600);
+    } catch (e) {
+      console.error(`  (goals-sheet step skipped: ${e.message.split('\n')[0]})`);
+    }
+
+    // ── Health's symptom form ──
+    // A pushed screen, but one that KEEPS BottomNav, so the walk can step back onto the
+    // Health tab afterwards without a reload. (app/scan.tsx is deliberately never walked:
+    // the web bundle resolves app/scan.web.tsx, an OCR "not available" placeholder, so
+    // measuring it would report on a screen that does not exist on device. It needs a real
+    // device, like the rest of the native-only surface.)
+    try {
+      await page.getByRole('button', { name: L.tabs[2], exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(900);
+      await dismissModalIfPresent(page);
+      await clickText(page, L.logSymptom);
+      await page.waitForTimeout(1100);
+      await scan(page, 'health-form');
+      await page.getByRole('button', { name: L.tabs[2], exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+    } catch (e) {
+      console.error(`  (health-form step skipped: ${e.message.split('\n')[0]})`);
+    }
+
+    // Settings is a DEAD END — a pushed screen with no BottomNav — so nothing can follow it
+    // in this pass. Anything else that needs the app has to start a new one.
     await page.getByRole('button', { name: L.home, exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: L.settings, exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(1200);
     await scan(page, 'settings');
+
+    // ── Pass 2: the medicine editor ──
+    // The other dead end (full-screen, no BottomNav), so it gets a pass of its own rather
+    // than a goBack() — which would reload the document, reset the sql.js DB and land back
+    // in onboarding mid-walk. Onboarding is re-walked without scanning, since its screens
+    // are identical to pass 1 and would only duplicate findings.
+    try {
+      await walkToTabs(page, { scanning: false });
+      await page.getByRole('button', { name: L.tabs[2], exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(900);
+      await dismissModalIfPresent(page);
+      // The editor needs a medicine to open, and a fresh profile has none.
+      const medBar = page.getByRole('button', { name: L.addMedicine, exact: true }).first();
+      await medBar.scrollIntoViewIfNeeded({ timeout: 5000 });
+      await medBar.click({ timeout: 10000 });
+      await page.waitForTimeout(400);
+      const medField = page.getByPlaceholder(L.addMedicine).first();
+      await medField.scrollIntoViewIfNeeded({ timeout: 5000 });
+      await medField.fill(L.probeMed);
+      await medField.press('Enter');
+      await page.waitForTimeout(900);
+      await clickText(page, L.probeMed);
+      await page.waitForTimeout(1100);
+      await scan(page, 'medicine-form');
+    } catch (e) {
+      console.error(`  (medicine-form step skipped: ${e.message.split('\n')[0]})`);
+    }
   } finally {
     await browser.close();
   }

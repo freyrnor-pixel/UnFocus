@@ -637,15 +637,32 @@ the 2026-07-28 pass. Widths worth checking: 430 (Pro Max), 393 (iPhone 15/Pixel 
 (small Android), and 327 as a proxy for the `large` font setting (1.2x) at 393. Set
 `FORCE_BUILD=1` to rebuild `dist/` first; otherwise it reuses the existing bundle.
 
-**Coverage — and its one big hole, now half-closed.** The walk measures onboarding, the tour
-card, all five tabs, Settings, and (2026-08-01) the **task editor**, which it reaches by
-creating a task and tapping it — a fresh profile has none. Until then the audit had never
-opened an editor or a pushed sub-screen *at all*, so the app's densest forms were the one
-place it couldn't see, which is exactly where the mic bug lived. **`--lang=en` was also
-broken outright** until the same pass: it waited on a "Language: English." radio that never
-exists, because Basics renders in Norwegian until that very row is tapped. Both are worth
-knowing before trusting a clean run — a mode this audit doesn't walk is not a mode it
-passes. When you add a surface with tight horizontal pressure, add a step for it.
+**Coverage.** The walk measures onboarding, the tour card, all five tabs, Settings, and — as
+of 2026-08-01 — the **task editor**, the **goals sheet**, the **health form** and the
+**medicine editor**. Before that pass it had never opened an editor or pushed sub-screen *at
+all*, so the app's densest forms were the one place it couldn't see, which is exactly where
+the mic bug lived. **`--lang=en` was also broken outright** until the same pass: it waited on
+a "Language: English." radio that never exists, because Basics renders in Norwegian until
+that very row is tapped. Both are worth knowing before trusting a clean run — a mode this
+audit doesn't walk is not a mode it passes. When you add a surface with tight horizontal
+pressure, add a step for it.
+
+Three things constrain how steps can be ordered, all verified rather than assumed:
+- **The run is TWO passes.** `settings` and `medicine-form` are dead ends — pushed screens
+  that render no `BottomNav` — so only one of them can end a pass. `health-form` is a push
+  that *keeps* BottomNav, so it doesn't need one.
+- **Never `page.goto()` or `page.goBack()` mid-walk.** Both reload the document, which resets
+  the in-memory `sql.js` DB and drops you back into onboarding. Pass 2 re-walks onboarding
+  with scanning off (its screens are identical and would double every finding).
+- **`app/scan.tsx` is deliberately not walked.** The web bundle resolves `app/scan.web.tsx`,
+  an OCR "not available" placeholder, so measuring it would report on a screen that doesn't
+  exist on device. Like the rest of the native-only surface, it needs a real device.
+
+Known-benign finding, don't "fix" it: the **goals sheet** reports 1 wrapped control row at
+every width. That's `starterChips` — a `flexWrap` cloud of four sentence-length goal
+suggestions, which is *supposed* to wrap. The detector can't be taught to ignore it without
+also blinding it to the weekday-chip row, which uses `flexWrap` too but has a hard minimum
+width and IS a bug when it wraps. One documented false positive beats a blind spot.
 
 The task editor's own `--width=327` findings (Energy stepper, add-step button,
 Delete·Discard·Save) were **fixed** the same day; the audit is clean at 327/360/393/430 in
