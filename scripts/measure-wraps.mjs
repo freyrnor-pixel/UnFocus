@@ -285,6 +285,10 @@ async function main() {
     await scan(page, 'onboarding-privacy');
     await clickText(page, L.gotIt);
     await page.waitForTimeout(400);
+    // The branch screen. Three option cards, each a badge + arrow flanking a two-line
+    // description — the horizontal budget is the tightest in onboarding, and the AI card's
+    // copy (2026-08-02) is the longest of the three because it has to describe a round trip.
+    await scan(page, 'onboarding-guided');
     await clickText(page, L.guided);
     await page.waitForTimeout(400);
     // Energy pushes straight to the name screen. The feature picker that used to sit between

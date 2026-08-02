@@ -159,7 +159,9 @@ async function main() {
     await clickText(page, 'Got it →');
     await page.waitForTimeout(500);
 
-    console.log('> onboarding: guided/explore choice');
+    // Three peer ways to start since 2026-08-02 (guided / explore / AI setup). The AI card is
+    // deliberately NOT driven here: it opens the OS share sheet, which Playwright can't see.
+    console.log('> onboarding: guided/explore/AI choice');
     await shot(page, 'onboarding-guided-choice');
     await clickText(page, 'Walk me through it');
     await page.waitForTimeout(500);

@@ -10,6 +10,11 @@
  * The 2026-07-31 consolidation is what motivated these: app/onboarding/language.tsx,
  * app/onboarding/intro.tsx and app/first-run.tsx were deleted and their work folded into
  * app/onboarding/basics.tsx, which left several route strings pointing at nothing.
+ *
+ * The last block guards the branch screen's THREE exits (Guided / Explore / AI setup,
+ * 2026-08-02). Two of them complete setup, and the failure mode there is the same family: a
+ * second hand-written completion drifts from the first, and one way out of onboarding stops
+ * marking setupComplete. So it pins a single write site that both callers go through.
  */
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -95,6 +100,78 @@ describe('every screen is reachable, and the chain ends at the app', () => {
     // The Explore path and the name step's finish() both used to route via /first-run.
     for (const rel of ['app/onboarding/guided.tsx', 'app/onboarding/index.tsx']) {
       expect(read(rel)).toMatch(/router\.replace\('\/'\)/);
+    }
+  });
+});
+
+describe('the branch screen offers three ways to start, and every one of them lands somewhere', () => {
+  // app/onboarding/guided.tsx is a fork with no shared exit: Guided pushes on to another
+  // screen, while Explore and AI setup each have to complete setup themselves. Two hand-copied
+  // completions is exactly the shape that drifts — one path keeps working, the other quietly
+  // drops `setupComplete` and drops the user into an app that re-runs onboarding next launch.
+  // So the guard is structural: ONE write site, and every non-pushing branch calls it.
+  const src = read('app/onboarding/guided.tsx');
+  /** Source with the JSDoc header stripped — the header legitimately describes the branches. */
+  const code = src.slice(src.indexOf('*/') + 2);
+
+  /** The body of `function <name>(…) { … }`, by brace matching (nesting-safe). */
+  function bodyOf(name: string): string {
+    const at = code.search(new RegExp(`function ${name}\\s*\\(`));
+    expect({ fn: name, found: at >= 0 }).toEqual({ fn: name, found: true });
+    const open = code.indexOf('{', at);
+    let depth = 0;
+    for (let i = open; i < code.length; i += 1) {
+      if (code[i] === '{') depth += 1;
+      else if (code[i] === '}') {
+        depth -= 1;
+        if (depth === 0) return code.slice(open + 1, i);
+      }
+    }
+    throw new Error(`unbalanced braces in ${name}`);
+  }
+
+  it('completes setup in exactly one place', () => {
+    expect([...code.matchAll(/setupComplete:\s*true/g)]).toHaveLength(1);
+    expect([...code.matchAll(/router\.replace\('\/'\)/g)]).toHaveLength(1);
+  });
+
+  it('that one place is finishSetup(), and it stamps lastMonthlyReset with it', () => {
+    const finish = bodyOf('finishSetup');
+    expect(finish).toMatch(/setupComplete:\s*true/);
+    expect(finish).toMatch(/lastMonthlyReset:\s*todayStr\(\)/);
+    expect(finish).toMatch(/syncReminders\(\)/);
+    expect(finish).toMatch(/router\.replace\('\/'\)/);
+  });
+
+  it.each(['goExplore', 'goAiSetup'])('%s finishes through finishSetup()', (fn) => {
+    expect({ fn, callsFinish: /finishSetup\(\)/.test(bodyOf(fn)) }).toEqual({ fn, callsFinish: true });
+  });
+
+  it('the guided path pushes on instead of finishing here', () => {
+    const guided = bodyOf('goGuided');
+    expect(guided).toMatch(/router\.push\('\/onboarding\/energy'\)/);
+    expect(guided).not.toMatch(/finishSetup/);
+  });
+
+  it('the AI path hands over the file before it finishes', () => {
+    const ai = bodyOf('goAiSetup');
+    expect(ai).toMatch(/exportAiSetupGuide\(\)[\s\S]*finishSetup\(\)/);
+    expect([...ai.matchAll(/finishSetup\(\)/g)]).toHaveLength(1);
+  });
+
+  it('a failed download reports it and leaves the user on this screen', () => {
+    const ai = bodyOf('goAiSetup');
+    // Both failure shapes are handled: sharing unavailable, and a thrown export.
+    expect(ai).toMatch(/'unavailable'/);
+    expect([...ai.matchAll(/showAppModal\(/g)].length).toBeGreaterThanOrEqual(2);
+    const catchBody = ai.slice(ai.indexOf('} catch'));
+    expect(catchBody).toMatch(/showAppModal\(/);
+    expect(catchBody).not.toMatch(/finishSetup/);
+  });
+
+  it('all three options are labelled from i18n and none is hardcoded', () => {
+    for (const key of ['t.guidedBtn', 't.exploreBtn', 't.aiSetupBtn']) {
+      expect({ key, present: code.includes(key) }).toEqual({ key, present: true });
     }
   });
 });

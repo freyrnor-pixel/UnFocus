@@ -421,6 +421,12 @@ const en = {
   guidedDesc: "We'll go through each feature with a short explanation",
   exploreBtn: 'Jump right in',
   exploreDesc: 'Start right away — tips are available in Settings',
+  // The third way to start (app/onboarding/guided.tsx). The description has to spell out the
+  // whole round trip before the tap: this saves a file, the AI work happens outside the app,
+  // and the reply comes back in through Settings.
+  aiSetupBtn: 'Set it up with an AI',
+  aiSetupDesc: 'Saves a file to take to an AI. You upload its reply in Settings when you come back.',
+  aiSetupPickAnother: 'You can pick another way to start.',
   recommended: 'Recommended',
   introHintNote: 'Look for the ⓘ button on any screen for tips and settings.',
   // Intro tour closing pages (app/onboarding/intro.tsx) — the principles the app is
@@ -2184,6 +2190,9 @@ const no: typeof en = {
   guidedDesc: 'Vi går gjennom hver funksjon med en kort forklaring',
   exploreBtn: 'Hopp rett inn',
   exploreDesc: 'Begynn med en gang — tips er tilgjengelige i innstillingene',
+  aiSetupBtn: 'Sett opp med AI',
+  aiSetupDesc: 'Lagrer en fil du tar med til en AI. Svaret laster du opp i innstillingene når du kommer tilbake.',
+  aiSetupPickAnother: 'Du kan velge en annen måte å starte på.',
   recommended: 'Anbefalt',
   introHintNote: 'Se etter ⓘ-knappen på hver skjerm for tips og innstillinger.',
   introPrinciples: {

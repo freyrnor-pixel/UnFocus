@@ -118,6 +118,14 @@ file owns which token.)
     by the guided tour on the real app (see below). Its "experimental build" note and the AI
     setup guide download moved to the tour's closing card; `t.introPrinciples` moved to Settings.
   - The Explore path skips energy/picker/name and goes straight to home on the same defaults.
+  - **`guided.tsx` is a THREE-way branch since 2026-08-02**: Guided, Explore, and **AI setup**
+    — the AI setup guide is a peer way to start, not only a Settings/tour-closing-card
+    afterthought. The AI card downloads the guide (`exportAiSetupGuide()`) and then finishes
+    setup exactly like Explore, via that screen's single `finishSetup()`; a failed export
+    reports through `showAppModal` and leaves the user on the branch screen rather than
+    stranded. Both non-guided branches MUST go through `finishSetup()` — two hand-written
+    completions drift, and `__tests__/onboardingFlow.test.ts` pins the single write site.
+    Three cards is the cap here; a fourth option or a sub-step is not in scope.
   - The backdrop is one continuous `onboarding-triptych` motif (seed → sprout → tree) slid
     across the steps, which doubles as the progress indicator — deliberately not a filling bar.
   - Old setup steps (work mode / shopping days / notifications) are still taught in context via
