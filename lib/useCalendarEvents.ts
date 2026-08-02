@@ -36,6 +36,10 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 /**
  * `date` is `YYYY-MM-DD`. `focused` should be the screen's focus state — pass `true` from a
  * screen that's always mounted, or a `useIsFocused()` value to reload on return.
+ *
+ * Take that hook from **`expo-router`**, not `@react-navigation/native`: as of SDK 56
+ * expo-router is no longer compatible with react-navigation and importing from it fails
+ * the bundle outright ("expo-router is no longer compatible with react-navigation").
  */
 export function useCalendarEvents(date: string, focused: boolean): DeviceCalendarEvent[] {
   const enabled = useSettingsStore((s) => s.featureDayLog);

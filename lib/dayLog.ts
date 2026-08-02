@@ -89,9 +89,15 @@ function timeToMinutes(hhmm: string): number | null {
 /**
  * Union every source into one chronological stream, oldest first.
  *
- * `cutoffMinutes` is the now-line: entries at or after it are omitted, because they have
- * not happened yet and belong to the timeline ahead. Pass `1440` to get the whole day
- * (what app/day-log.tsx does for a past date, where every minute is behind you).
+ * `cutoffMinutes` is the now-line: entries AFTER it are omitted, because they have not
+ * happened yet and belong to the timeline ahead. Pass `1440` to get the whole day (what
+ * app/day-log.tsx does for a past date, where every minute is behind you).
+ *
+ * **The cutoff is inclusive, and that is load-bearing.** Both this and `useNowMinutes` are
+ * minute-granular, so the thing a user just did is stamped at exactly the current minute. A
+ * strict `<` dropped it for up to 60 seconds — which in practice meant the log looked empty
+ * every single time you ticked something, i.e. exactly when you'd look at it. An entry
+ * stamped at the current minute has already happened; that is what a timestamp means.
  *
  * Entries with no resolvable time are dropped — see the header's "absence beats invention".
  */
@@ -120,7 +126,7 @@ export function buildDayLog(sources: DayLogSources, cutoffMinutes: number): DayE
   }
 
   return entries
-    .filter((e) => e.atMinutes < cutoffMinutes)
+    .filter((e) => e.atMinutes <= cutoffMinutes)
     // Oldest → newest, so the list reads as the day unfolding. Ties break on the composite
     // id, which is stable and kind-prefixed, so two things logged in the same minute keep
     // a fixed order across renders instead of shuffling (DESIGN_RULES rule 9).

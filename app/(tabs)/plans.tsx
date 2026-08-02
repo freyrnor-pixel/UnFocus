@@ -173,7 +173,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
@@ -185,7 +185,6 @@ import TaskCard from '@/components/TaskCard';
 import PlanTaskCard from '@/components/PlanTaskCard';
 import LayoutPickerSheet from '@/components/LayoutPickerSheet';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
-import { useIsFocused } from '@react-navigation/native';
 import { useDayLog } from '@/lib/useDayLog';
 import { useCalendarEvents } from '@/lib/useCalendarEvents';
 import { useNowMinutes } from '@/lib/useNowMinutes';

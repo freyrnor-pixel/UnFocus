@@ -852,6 +852,11 @@ export default function PlanTaskCard({
         hitSlop={HitSlop.loose}
         onPress={() => handleToggle(task)}
         accessibilityRole="checkbox"
+        // Named after its row (2026-08-02). It was an anonymous "checkbox" to a screen
+        // reader — in a day full of them, that says nothing about which task it ticks.
+        // Matches components/PadRow.tsx's `toggleLabel`, which defaults to the title for
+        // exactly this reason, so the two layouts of this card now announce identically.
+        accessibilityLabel={task.title}
         accessibilityState={{ checked: task.done }}
         scaleTo={0.97}
       >
@@ -1300,8 +1305,14 @@ export default function PlanTaskCard({
 
   // `dayTasks.length` (not the countable count) so a day holding only 'note' cards shows
   // those notes rather than the "nothing here yet" starter — there IS something here.
-  const showEmpty = dayTasks.length === 0 && pendingCount === 0 && doneTasks.length === 0;
-  const allDone = pendingCount === 0 && doneTasks.length > 0;
+  // A day with a captured moment, a dose or a health entry on it is NOT an empty day, even
+  // with no tasks — showing the "nothing here yet" starter over a log that has things in it
+  // would be the card contradicting itself.
+  const showEmpty =
+    dayTasks.length === 0 && pendingCount === 0 && doneTasks.length === 0 && (dayLog?.length ?? 0) === 0;
+  // Likewise "all done" has to cover the log-only day: nothing pending, and something
+  // behind the now-line to show for it.
+  const allDone = pendingCount === 0 && (doneTasks.length > 0 || (dayLog?.length ?? 0) > 0);
 
   // Shared with the anytime list/doneZone/footer so the whole card reflows in sync — otherwise
   // these siblings snap instantly while rows are still fading, which used to make the done-zone
@@ -1465,7 +1476,17 @@ export default function PlanTaskCard({
             )}
           </View>
         ) : allDone ? (
-          <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.dayViewAllDone}</Text>
+          /* Everything on the day is finished.
+             With the day log on, this is the LEAST empty a day ever is — it is the exact
+             moment the record is worth having, so the log renders here too. Before that it
+             short-circuited to a single "all done" line and threw away the evidence, which
+             inverted the whole point of the feature. The line itself stays: it's a reward,
+             not an empty state (see the empty-state note in this file's header). */
+          <>
+            {renderDayLog()}
+            {renderNowDivider()}
+            <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.dayViewAllDone}</Text>
+          </>
         ) : !spec.timeline ? (
           /* Ruled pad list (2026-07-30) — the default on Home, where a card is too short for a
              calendar grid to be readable. Timed tasks first in clock order, then Anytime; the

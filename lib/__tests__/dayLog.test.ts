@@ -75,16 +75,51 @@ describe('buildDayLog — ordering', () => {
 });
 
 describe('buildDayLog — the now-line cutoff', () => {
-  it('omits entries at or after the cutoff', () => {
+  it('omits entries after the cutoff', () => {
     const sources: DayLogSources = {
       ...EMPTY,
       tasks: [
         { id: 'past', title: 'Behind now', doneAt: '09:00' },
-        { id: 'edge', title: 'Exactly now', doneAt: '12:00' },
         { id: 'ahead', title: 'Ahead of now', doneAt: '15:00' },
       ],
     };
     expect(buildDayLog(sources, 12 * 60).map((e) => e.label)).toEqual(['Behind now']);
+  });
+
+  /**
+   * REGRESSION (2026-08-02, caught in the web preview, not by a unit test).
+   *
+   * The cutoff was a strict `<`. Both this module and lib/useNowMinutes are
+   * minute-granular, so the thing a user JUST did is stamped at exactly the current
+   * minute — and was therefore dropped for up to 60 seconds. The log rendered empty
+   * every single time you ticked something, which is precisely when you'd look at it,
+   * so the feature appeared broken in the only moment that mattered.
+   *
+   * An entry stamped at the current minute has already happened. Do not tighten this
+   * back to `<`.
+   */
+  it('INCLUDES an entry stamped at exactly the cutoff minute', () => {
+    const sources: DayLogSources = {
+      ...EMPTY,
+      tasks: [{ id: 'just-now', title: 'Ticked this very minute', doneAt: '12:00' }],
+    };
+    expect(buildDayLog(sources, 12 * 60).map((e) => e.label)).toEqual(['Ticked this very minute']);
+  });
+
+  it('includes a moment captured at exactly the cutoff minute too', () => {
+    const sources: DayLogSources = {
+      ...EMPTY,
+      moments: [{ id: 'm', text: 'Rang the dentist', atTime: '12:00' }],
+    };
+    expect(buildDayLog(sources, 12 * 60)).toHaveLength(1);
+  });
+
+  it('still omits the very next minute', () => {
+    const sources: DayLogSources = {
+      ...EMPTY,
+      tasks: [{ id: 'soon', title: 'One minute ahead', doneAt: '12:01' }],
+    };
+    expect(buildDayLog(sources, 12 * 60)).toEqual([]);
   });
 
   it('1440 means the whole day — what a past date passes', () => {
