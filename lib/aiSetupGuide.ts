@@ -15,9 +15,10 @@
  *   Imports → lib/date (todayStr), lib/backup (SaveToDeviceResult type),
  *             expo-file-system/legacy, expo-sharing, expo-document-picker,
  *             expo-constants, react-native (Platform)
- *   Used by → app/settings.tsx (download + upload/preview), app/onboarding/intro.tsx
- *             (download only), lib/aiSetupApply.ts (consumes AiSetupConfig + the
- *             per-domain draft types), __tests__/aiSetupGuide.test.ts
+ *   Used by → app/settings.tsx (download + upload/preview), app/onboarding/guided.tsx
+ *             (download only — the third way to start), components/TourSpotlight.tsx
+ *             (download only — the tour's closing card), lib/aiSetupApply.ts (consumes
+ *             AiSetupConfig + the per-domain draft types), __tests__/aiSetupGuide.test.ts
  *   Data    → none — pure text template + JSON parse; never touches SQLite. The actual
  *             store writes live in lib/aiSetupApply.ts.
  *
@@ -59,8 +60,16 @@ import {
 import { todayStr } from '@/lib/date';
 import type { SaveToDeviceResult } from '@/lib/backup';
 
-/** Bump whenever the guide's schema or documented content changes — see Edit notes. */
-export const AI_SETUP_SCHEMA_VERSION = 4;
+/**
+ * Bump whenever the guide's schema or documented content changes — see Edit notes.
+ *
+ * v5 (2026-08-02) — content only, no field/validation/whitelist change: energySystemEnabled's
+ * description now names the Energy and Rewards modes and states the losslessness guarantee,
+ * instead of calling it "the Energy system's master switch". A v4 file still parses and
+ * applies exactly as before; it just reads as 'stale' now, which is the correct signal that
+ * the document it was generated from has been reworded.
+ */
+export const AI_SETUP_SCHEMA_VERSION = 5;
 
 /** Verbatim markers the guide instructs the AI to reproduce around its JSON reply. */
 export const AI_SETUP_BEGIN = '===UNFOCUS-AI-CONFIG-BEGIN===';

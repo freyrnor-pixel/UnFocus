@@ -16,6 +16,9 @@
  * The last panel is not a spotlight but a plain centred card: it carries the "this is an
  * experimental build" note and the AI setup guide download, both of which used to live on the
  * deleted intro slideshow's final pages and had nowhere else to be reachable from onboarding.
+ * Since 2026-08-02 the AI guide is ALSO offered up front, as the third card on
+ * app/onboarding/guided.tsx — this is the second entry point, not the only one, and the two
+ * do different jobs (that one is a way to START, this one a way to go further later).
  *
  * Connections:
  *   Imports → react-native, expo-router (useRouter), @expo/vector-icons, @/lib/tourSteps,
