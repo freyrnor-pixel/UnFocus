@@ -302,7 +302,13 @@ export default function TourSpotlight() {
             from any step, which is what the file header's promise actually rests on. */}
         <View style={styles.cardActions}>
           <Button label={t.tour.skipAll} onPress={dismissAll} variant="ghost" size="sm" />
-          <Button label={t.tour.next} onPress={() => record(step.id)} variant="primary" size="sm" />
+          <Button
+            label={t.tour.next}
+            onPress={() => record(step.id)}
+            variant="primary"
+            size="sm"
+            style={styles.cardPrimary}
+          />
         </View>
       </View>
     </Animated.View>
@@ -341,12 +347,22 @@ const baseStyles = StyleSheet.create({
     borderLeftWidth: 2,
     paddingLeft: Spacing.sm,
   },
+  // The escape and the primary share one row since 2026-08-03 (the third button went). That
+  // put the app's longest ghost label — Norwegian "Hopp over omvisningen" — beside "Got it"
+  // for the first time, and `npm run wraps --lang=no --width=327` caught the primary hanging
+  // 2px off the right edge at the `large` font scale. `flexWrap` + `rowGap` is the fix the
+  // task editor's Delete·Discard·Save row already uses for the same shape: three labelled
+  // buttons that genuinely don't fit can only wrap, since shortening the copy would truncate
+  // the words off them. `marginLeft: 'auto'` on the primary keeps it right-aligned whether
+  // the row wraps or not, so nothing moves in the common case.
   cardActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: Spacing.sm,
+    rowGap: Spacing.xs,
     minHeight: MIN_TAP_TARGET,
     marginTop: Spacing.xs,
   },
+  cardPrimary: { marginLeft: 'auto' },
 });

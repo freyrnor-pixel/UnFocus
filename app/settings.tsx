@@ -785,7 +785,13 @@ export default function SettingsScreen() {
                 these three used to be three separate floating Surface cards; merged into
                 one shared Surface with ExpandableCard rows, matching the grouping pattern
                 ExpandableCard's own header already documents — see its "Decision 043 rule 1"
-                note). */}
+                note).
+                The `groupHeader` above it is new (2026-08-03). Every other group on every
+                Settings tab is introduced by one; this was the only unheaded group, so the
+                General tab opened with a bare panel and then began using headings from
+                "Data" down — two hierarchies on one screen, which is how the first-time-user
+                walkthrough read it. */}
+            <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.you}</Text>
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <ExpandableCard title={t.sectionProfile} accentColor={theme.accent} first rounded>

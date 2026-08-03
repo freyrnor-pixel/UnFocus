@@ -162,7 +162,14 @@ const SCAN = () => {
       // deliberately edge-anchored (AGENTS.md, "the centre box stays clear"). Every <svg>
       // and everything inside one is scenery, not a control.
       const inSvg = el.tagName.toLowerCase() === 'svg' || !!el.closest('svg');
-      if (!isTextLeaf && !inSvg) {
+      // <noscript> is Expo's "You need to enable JavaScript to run this app" fallback, baked
+      // into the exported HTML shell. It is in the DOM on every screen and is laid out by
+      // the browser, so it measures — but it is never visible to anyone actually running the
+      // app, so a clip on it is an artifact of walking the document rather than a finding.
+      // Reported as a real clipped control until 2026-08-03, which is exactly the kind of
+      // false positive that teaches people to ignore this section.
+      const inNoscript = el.tagName.toLowerCase() === 'noscript' || !!el.closest('noscript');
+      if (!isTextLeaf && !inSvg && !inNoscript) {
         const c = clipOverflow(el, rect);
         // 2px tolerance absorbs subpixel rounding and rounded-corner masks.
         //

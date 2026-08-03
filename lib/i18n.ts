@@ -1203,7 +1203,13 @@ const en = {
     // Bottom-of-screen link on Habits/Plans that opens the GoalsSheet popup (2026-07-31 —
     // moved off the top of those screens; see those files' Edit notes). Deliberately
     // "Edit Goals" not "Goals": it opens straight into add/delete, not a browse view.
-    editLink: 'Edit Goals',
+    /* A bare noun, like Shopping's "Food" and "Catalogue" links, which this button's own
+       component header says it mirrors (components/SubScreenLinkButton.tsx). It read
+       "Edit Goals" until 2026-08-03 — a verb that overstates what the tap does (it opens
+       a sheet you can look at as well as edit) and that reads as a list row rather than a
+       way out of the screen, which is how the 2026-08-03 walkthrough took it on both the
+       To-do and Habits tabs. AGENTS.md had already recorded the label as "Goals". */
+    editLink: 'Goals',
     close: 'Done',
     strengthStrong: 'Going strong',
     strengthWarm: 'Warming up',
@@ -1328,6 +1334,12 @@ const en = {
     sections: {
       appearance: 'Appearance',
       notifications: 'Notifications',
+      /* The General tab's FIRST group (Profile / Appearance / Accessibility). Added
+         2026-08-03: every other group on every Settings tab is introduced by a bare
+         `groupHeader` above its cards, and this one alone had none — so the tab opened with
+         an unheaded panel and then started using headings from "Data" down, which reads as
+         two different hierarchies on one screen. */
+      you: 'You',
       data: 'Data',
       layout: 'Layout',
       features: 'Features',
@@ -2539,7 +2551,7 @@ const no: typeof en = {
     deleteConfirmBody: 'Oppgaver og vaner som er koblet til, blir frakoblet. Dette kan ikke angres.',
     strengthLabel: 'Måldriv — vokser når du jobber med det, avtar rolig når du ikke gjør det.',
     title: 'Mål',
-    editLink: 'Rediger mål',
+    editLink: 'Mål',
     close: 'Ferdig',
     strengthStrong: 'Går sterkt',
     strengthWarm: 'Er i gang',
@@ -2649,6 +2661,8 @@ const no: typeof en = {
     skipForNow: 'Jeg ordner dette senere',
     sections: {
       appearance: 'Utseende',
+      /* Se den engelske tvillingen (2026-08-03). */
+      you: 'Deg',
       notifications: 'Varsler',
       data: 'Data',
       layout: 'Oppsett',
