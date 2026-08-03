@@ -85,6 +85,66 @@ describe('PlanTaskCard — the Home header reserves its space', () => {
   });
 });
 
+/**
+ * The Energy strip (2026-08-03). Same review, adjacent rule: ten saturated pips and "10 / 10"
+ * at the top of Home, with no label, read as a score or a level — which is the one thing this
+ * system is documented as needing NOT to read as. And setting your own daily number, the
+ * primary thing you do to the strip, was behind a pencil.
+ *
+ * The maintainer's call was "on and shown by default, in a state the user can use to set
+ * energy per day/week — easy, and not forceful". These guard the three structural halves of
+ * that: one layout, always labelled, stepper on the strip rather than in the editor. Rewards
+ * mode hiding the whole thing is already covered, thoroughly, by energyModes.test.ts.
+ */
+describe('EnergyMeter — the strip names itself and can be set from where it is', () => {
+  const src = code('components/EnergyMeter.tsx');
+
+  it('has one layout, not a single-meter special case', () => {
+    // `singleMeter` picked a one-line, label-less shape for 'daily'/'weekly' and the stacked
+    // one for 'custom'. Two layouts is how the common case ended up being the unlabelled one.
+    // Matched as a DECLARATION and a USE rather than as the bare word: both files carry
+    // tombstone comments naming the thing they removed, and a session shouldn't have to
+    // delete the explanation to get this green (same reasoning as onboardingFlow.test.ts's
+    // header-stripping).
+    expect(src).not.toMatch(/const singleMeter/);
+    expect(src).not.toMatch(/singleMeter &&/);
+    expect(src).not.toMatch(/styles\.stripLine/);
+  });
+
+  it('always passes a label — the row signature no longer admits null', () => {
+    expect(src).toMatch(/label: string,/);
+    expect(src).not.toMatch(/label: string \| null/);
+    // Both call sites hand over a real string rather than a showX-conditional.
+    expect(src).toMatch(/row\('day', t\.energyMeter\.today,/);
+    expect(src).toMatch(/row\('week', t\.energyMeter\.thisWeek,/);
+  });
+
+  it('draws the capacity stepper on the strip, not inside the ✏️ editor', () => {
+    const editorAt = src.indexOf('<Collapsible open={editing}>');
+    expect(editorAt).toBeGreaterThan(-1);
+    for (const setter of ['setDayCapacity', 'setWeekCapacity']) {
+      const at = src.indexOf(setter + '(today');
+      expect({ setter, found: at > -1 }).toEqual({ setter, found: true });
+      // Before the editor in source order == on the row's own top line.
+      expect({ setter, onStrip: at < editorAt }).toEqual({ setter, onStrip: true });
+    }
+  });
+
+  it('keeps the today-only boost behind the ✏️', () => {
+    // The one thing that should NOT be one tap away: an always-visible "more for today"
+    // stepper is an invitation, and this system describes a day rather than rewarding one.
+    const editorAt = src.indexOf('<Collapsible open={editing}>');
+    expect(src.indexOf('setDayBoost(today')).toBeGreaterThan(editorAt);
+  });
+
+  it('names the meter in both languages', () => {
+    const i18n = read('lib/i18n.ts');
+    for (const s of ['Energy today', 'Energy this week', 'Energi i dag', 'Energi denne uken']) {
+      expect({ s, present: i18n.includes(s) }).toEqual({ s, present: true });
+    }
+  });
+});
+
 describe('PlanTaskCard — "nothing left" never contradicts a visible task', () => {
   const src = code('components/PlanTaskCard.tsx');
 

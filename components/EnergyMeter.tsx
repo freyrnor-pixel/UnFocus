@@ -41,13 +41,34 @@
  * lib/energy.ts; do NOT raise that, and read the width math below before assuming they fit.
  *
  * **Strip, not a card (2026-07-31, addendum task B.2)**: this stopped being a `Surface`. It has
- * no card background, no shadow, no card padding and no title row — in the common single-meter
- * case (`energyMode` 'daily'/'weekly') it is ONE thin line: the pips, the `current / capacity`
- * value, and the edit affordance, with the permanent hint under it. Energy is chrome for the
+ * no card background, no shadow, no card padding and no title row. Energy is chrome for the
  * day, not a fifth list to scroll past, and as a card it competed with the four content cards
- * below it. Don't re-wrap this in `Surface`/`GlassFill` and don't reinstate the flash-icon +
- * `t.energyMeter.title` header row — the pips are lightning bolts and the hint names the thing;
- * `t.energyMeter.title` survives only as the value's accessibility label.
+ * below it. Don't re-wrap this in `Surface`/`GlassFill`, and don't reinstate the flash-icon +
+ * `t.energyMeter.title` header ROW — the label described below does that job in a line the
+ * layout already has.
+ *
+ * **Two lines, one layout, always labelled and always settable (2026-08-03).** The strip was
+ * ONE line in the common single-meter case — pips, `current / capacity`, edit glyph, no label —
+ * and the stacked label+value shape only in `energyMode: 'custom'`. A first-time-user
+ * walkthrough killed that arrangement on two counts:
+ *   1. **It never said what it was.** Ten saturated pips and "10 / 10" at the very top of Home,
+ *      above all content, read as a score or a level — precisely what this system must not read
+ *      as. The only thing naming it was the 12px italic hint underneath. Rule 11 (never colour
+ *      or shape alone) in spirit if not letter.
+ *   2. **Setting your own number was behind a pencil.** The maintainer's call was that Energy
+ *      should be "on and shown by default, in a state the user can use to set energy per
+ *      day/week — easy, and not forceful."
+ * So: ONE layout for every mode. Line 1 is `label · [capacity stepper] · [overspend?] · ✏️`,
+ * line 2 is `pips · current / capacity`, and the permanent hint sits under both. The label
+ * carries the word "Energy" (see `t.energyMeter.today`/`thisWeek`).
+ * This also RESOLVES the width squeeze the old inline layout documented at length below rather
+ * than working around it: ten pips no longer share a row with a label, a value, a stepper and
+ * two glyphs, so the "deliberately tight ≈318px of 328px" arithmetic no longer applies to any
+ * mode. The pip row keeps its `flex:1 / minWidth:0 / overflow:'hidden'` clip guard anyway —
+ * surplus pips can still overrun a narrow phone, and clipping is that row's documented job.
+ * The ✏️ editor is now the today-only boost and nothing else: the two capacity steppers moved
+ * onto their rows' top lines. Keep the boost hidden — an always-visible "give myself more for
+ * today" stepper is an invitation, and this system describes a day rather than rewarding one.
  *
  * **Rendered only when `settings.energySystemEnabled` (2026-07-31)** — Energy is a real toggle
  * again (it was unconditional 2026-07-26 → 2026-07-31), so app/(tabs)/index.tsx gates this
@@ -286,13 +307,9 @@ export default function EnergyMeter() {
   // week total is derived from the seven day amounts.
   const showDay = energyMode !== 'weekly';
   const showWeek = energyMode !== 'daily';
-  /**
-   * The common case ('daily'/'weekly' — one meter). This is what makes the strip ONE line: pips,
-   * value and edit glyph share a row, with no label and (since 2026-07-31) no title row above
-   * them. 'custom' shows both meters, where each row needs its own label+value line to stay
-   * tellable apart, so those keep the stacked shape.
-   */
-  const singleMeter = !(showDay && showWeek);
+  /* `singleMeter` lived here until 2026-08-03. It picked the one-line, label-less strip for
+     'daily'/'weekly' and the stacked shape for 'custom'. There is one layout now — the stacked
+     one, in every mode — so nothing needs to ask the question any more. See the header. */
 
   const today = todayStr();
   const dayCapacity = capacityForDay(today);
@@ -442,16 +459,18 @@ export default function EnergyMeter() {
 
   const row = (
     rowKey: 'day' | 'week',
-    label: string | null,
+    label: string,
     current: number,
     capacity: number,
     pulse: { id: number; kind: PulseKind } | null,
-    trailing: React.ReactNode
+    trailing: React.ReactNode,
+    /** The always-visible capacity stepper for this period. See the header's layout note. */
+    capacityStepper: React.ReactNode
   ) => {
     const { pipCount, filled, surplus } = energyPipCount(current, capacity);
     const pips = (
       <View
-        style={[styles.pipRow, singleMeter && styles.pipRowInline]}
+        style={styles.pipRow}
         accessibilityLabel={surplus > 0 ? t.energyMeter.surplusLabel(surplus) : undefined}
       >
         {Array.from({ length: pipCount }).map((_, i) => {
@@ -525,24 +544,33 @@ export default function EnergyMeter() {
             reducedMotion={reducedMotion}
           />
         )}
-        {singleMeter ? (
-          // THE strip: one line, nothing above it. See the file header's width math before
-          // adding anything else to this row.
-          <View style={styles.stripLine}>
+        {/* ONE layout for every energyMode (2026-08-03). There used to be two — a single
+            inline line for 'daily'/'weekly' and this stacked shape for 'custom' — and the
+            inline one was where all the trouble lived: it had no room for a label (so the
+            meter never named itself), and the header's own width math called it "deliberately
+            tight", degrading by clipping the pip row once the overspend control or surplus
+            pips showed up. Stacking unconditionally buys back a whole line, which is what
+            makes room for both the label and an always-visible capacity stepper. */}
+        <View style={styles.meterRow}>
+          <View style={styles.meterTopRow}>
+            <Text style={[styles.meterLabel, { color: theme.text }]}>{label}</Text>
+            {/* Setting the number is the primary thing you do to this strip, so it is on the
+                strip rather than behind the ✏️ — "shown by default, in a state you can use to
+                set energy per day/week, easy and not forceful" (maintainer, 2026-08-03). The
+                ✏️ keeps the things that should NOT be one tap away: the today-only boost. */}
+            <View style={styles.topRowTrailing}>
+              {capacityStepper}
+              {trailing}
+            </View>
+          </View>
+          {/* The value rides the end of the pip line now that the top line carries the label
+              and the stepper. It reads against the pips it describes, and the line has room
+              for it because nothing else is competing for that row. */}
+          <View style={styles.pipLine}>
             {pips}
             {value}
-            {trailing}
           </View>
-        ) : (
-          <View style={styles.meterRow}>
-            <View style={styles.meterTopRow}>
-              {label && <Text style={[styles.meterLabel, { color: theme.text }]}>{label}</Text>}
-              {value}
-              {trailing ? <View style={styles.topRowTrailing}>{trailing}</View> : null}
-            </View>
-            {pips}
-          </View>
-        )}
+        </View>
       </View>
     );
   };
@@ -556,32 +584,40 @@ export default function EnergyMeter() {
           untouched. The sheet stays mounted through it so its exit animation can finish. */}
       {!pause.paused && (
         <>
-          {showDay && row('day', showWeek ? t.energyMeter.today : null, dayCurrent, dayCapacity, dayPulse, trailingControls)}
+          {/* Both labels are unconditional now — see the i18n note on `energyMeter.today`.
+              The capacity steppers moved OUT of the Collapsible below and onto each row's own
+              top line: setting your day's or week's number is the whole point of the strip,
+              and it was behind a pencil. The day row steps the BASE capacity, not the total —
+              see `dayBaseCapacity` for why stepping the total re-banks the boost. */}
+          {showDay && row('day', t.energyMeter.today, dayCurrent, dayCapacity, dayPulse, trailingControls,
+            <Stepper
+              value={dayBaseCapacity}
+              onChange={(n) => setDayCapacity(today, n)}
+              min={0}
+              accessibilityLabel={t.energyMeter.todayCapacity}
+            />
+          )}
           {showDay && showWeek && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
           {/* `showDay ? null : trailingControls` — the glyphs are drawn by whichever meter comes
               FIRST, so 'weekly' mode (no day row) still gets them and 'custom' mode never gets two. */}
-          {showWeek && row('week', showDay ? t.energyMeter.thisWeek : null, weekCurrent, weekCapacity, weekPulse, showDay ? null : trailingControls)}
+          {showWeek && row('week', t.energyMeter.thisWeek, weekCurrent, weekCapacity, weekPulse, showDay ? null : trailingControls,
+            <Stepper
+              value={weekCapacity}
+              onChange={(n) => setWeekCapacity(today, n)}
+              min={0}
+              accessibilityLabel={t.energyMeter.weekCapacity}
+            />
+          )}
 
+          {/* What is left behind the ✏️: the today-only boost, and nothing else. It stays
+              hidden on purpose — an always-visible "give myself more for today" stepper is an
+              invitation, and this system is meant to describe a day rather than reward one. */}
           <Collapsible open={editing}>
             <View style={styles.editor}>
               {showDay && (
                 <View style={styles.editRow}>
-                  <Text style={[styles.editLabel, { color: theme.textMuted }]}>{t.energyMeter.todayCapacity}</Text>
-                  {/* BASE, not the total — see `dayBaseCapacity` above for why the two steppers
-                      would otherwise re-bank the boost into the user's usual capacity. */}
-                  <Stepper value={dayBaseCapacity} onChange={(n) => setDayCapacity(today, n)} min={0} />
-                </View>
-              )}
-              {showDay && (
-                <View style={styles.editRow}>
                   <Text style={[styles.editLabel, { color: theme.textMuted }]}>{t.energyMeter.boostToday}</Text>
                   <Stepper value={dayBoost} onChange={(n) => setDayBoost(today, n)} min={0} />
-                </View>
-              )}
-              {showWeek && (
-                <View style={styles.editRow}>
-                  <Text style={[styles.editLabel, { color: theme.textMuted }]}>{t.energyMeter.weekCapacity}</Text>
-                  <Stepper value={weekCapacity} onChange={(n) => setWeekCapacity(today, n)} min={0} />
                 </View>
               )}
               {/* The boost's own one-liner, inside the editor rather than under the strip: it
@@ -640,32 +676,35 @@ const styles = StyleSheet.create({
   // the pips sit ~16px left of the neighbouring cards' CONTENT and flush with their outer edge —
   // deliberate: it's what makes this read as chrome for the day rather than a fifth card.
   strip: { gap: Spacing.xs },
-  // The one-line strip itself (single-meter case): pips take the slack, value and edit glyph
-  // sit at the right edge.
-  stripLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  // Keeps the edit glyph off the value in 'custom' mode's stacked top line, where there's no
-  // `gap` doing that job on the pip side.
-  topRowTrailing: { marginLeft: Spacing.sm },
+  // The top line's right-hand cluster: the always-visible capacity stepper, then the ✏️ (and
+  // the overspend control when it is showing). `marginLeft:'auto'` is what right-aligns it
+  // against the label without meterTopRow needing a justifyContent.
+  topRowTrailing: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginLeft: 'auto' },
+  // The pip line: pips take the slack, the `current / capacity` value sits at the right edge
+  // (its own marginLeft:'auto' does that). This is the row that used to also carry the label's
+  // job, the stepper's job and the glyphs' — see the header's layout note.
+  pipLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   // Wraps each meter row so EnergyPulse (an absoluteFill sibling) has a position:relative
   // parent to glow behind — see the "Depleted/recovered pulse" file-header note.
   meterRowWrap: { position: 'relative', borderRadius: Radius.sm },
-  // 'custom' mode only (both meters on screen). Stacked (2026-07-28 fix): label+value share a
-  // top line, the pip row gets the full width on its own line below. Putting a LABEL on the
-  // same line as ten pips and a value ran out of horizontal room on real phones — that's still
-  // true at PIP_SIZE 18, which is why only the label-less single-meter case went inline in the
-  // 2026-07-31 strip pass. Don't collapse this branch.
+  // EVERY mode now (2026-08-03), not just 'custom'. Stacked (2026-07-28 fix, generalised):
+  // label + stepper share a top line, the pip row gets the full width on its own line below.
+  // Putting a LABEL on the same line as ten pips and a value ran out of horizontal room on
+  // real phones — that is still true at PIP_SIZE 18, and it is exactly why the single-meter
+  // case went inline (and label-less) in the 2026-07-31 strip pass. Stacking unconditionally
+  // is the other way out of that squeeze: it costs one line and buys the label plus a
+  // settable stepper. Don't collapse this branch back to one line.
   meterRow: { gap: 6 },
-  // No justifyContent here — meterValue's own marginLeft:'auto' pushes it to the right
-  // edge whether or not meterLabel is rendered (label is omitted when only one meter
-  // row is on screen, see the `row()` comment above), so this layout doesn't need a
-  // conditional style branch for the label-present vs. label-absent case.
+  // No justifyContent here — topRowTrailing's own marginLeft:'auto' pushes the stepper and
+  // glyphs to the right edge, so this layout needs no conditional branch.
   meterTopRow: { flexDirection: 'row', alignItems: 'center' },
   meterLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  pipRow: { flexDirection: 'row', alignItems: 'center', gap: PIP_GAP },
-  // Inline (strip) variant: takes the leftover width AFTER the value and edit glyph have their
-  // intrinsic sizes, and clips rather than overflowing. See the file header — an overflowing
-  // pip row painting over the value text is the 2026-07-28 bug this guards against.
-  pipRowInline: { flex: 1, minWidth: 0, overflow: 'hidden' },
+  // Takes the leftover width AFTER the value has its intrinsic size, and clips rather than
+  // overflowing. See the file header — an overflowing pip row painting over the value text is
+  // the 2026-07-28 bug this guards against. Folded in unconditionally on 2026-08-03: the pips
+  // now share a line with the value in every mode, so there is no longer a variant where they
+  // don't need it (this was `pipRowInline`, applied only to the single-meter case).
+  pipRow: { flexDirection: 'row', alignItems: 'center', gap: PIP_GAP, flex: 1, minWidth: 0, overflow: 'hidden' },
   // Energy-token pip (2026-07-28, round 3 — see file header's "Energy-token pip" note): an
   // available pip's real fill/rim/gloss are drawn by the Svg in row()'s renderer; this View
   // only needs a matching backgroundColor so its own shadow casts in the right (circular)

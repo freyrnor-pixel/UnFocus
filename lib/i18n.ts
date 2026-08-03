@@ -179,8 +179,16 @@ const en = {
   // Home Energy meter (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Energy',
-    today: 'Today',
-    thisWeek: 'This week',
+    /* These two name the meter, not just the period (2026-08-03). They were 'Today' /
+       'This week' and were passed ONLY in `energyMode: 'custom'`, where two meters are on
+       screen and something has to tell them apart — the far commoner single-meter case
+       drew no label at all, on the reasoning that a lone row makes its period obvious. It
+       does; what it did not make obvious was what the row WAS. A first-time-user walkthrough
+       read the ten pips plus "10 / 10" at the top of Home as a score or a level, which is
+       precisely what this system must not read as. The label is now always drawn, and it
+       carries the word "Energy" so the strip names itself. */
+    today: 'Energy today',
+    thisWeek: 'Energy this week',
     remaining: (n: number) => `${n} left`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} used`,
     editTitle: 'Adjust energy',
@@ -2038,8 +2046,9 @@ const no: typeof en = {
   // Home Energy-måler (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Energi',
-    today: 'I dag',
-    thisWeek: 'Denne uken',
+    /* Se den engelske tvillingen: disse navngir måleren, ikke bare perioden (2026-08-03). */
+    today: 'Energi i dag',
+    thisWeek: 'Energi denne uken',
     remaining: (n: number) => `${n} igjen`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} brukt`,
     editTitle: 'Juster energi',
