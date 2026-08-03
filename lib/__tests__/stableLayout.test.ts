@@ -145,6 +145,30 @@ describe('EnergyMeter — the strip names itself and can be set from where it is
   });
 });
 
+describe('TourSpotlight — one primary, one escape, and it puts you back where you chose', () => {
+  const src = code('components/TourSpotlight.tsx');
+
+  it('offers two buttons per step, not three', () => {
+    // "Skip this" and "Got it" both called record(step.id) — one button, two labels.
+    expect(src).not.toMatch(/t\.tour\.skipStep/);
+    expect(read('lib/i18n.ts')).not.toMatch(/^\s*skipStep:/m);
+  });
+
+  it('still lets you leave from any step', () => {
+    // Deleting the per-step skip must not cost escapability — that promise now rests
+    // entirely on this one.
+    expect(src).toMatch(/t\.tour\.skipAll/);
+  });
+
+  it('navigates to the chosen start screen when the tour ends', () => {
+    // Without this the tour stops on whichever tab it walked to last (Health), which is
+    // where a brand-new user landed after finishing it.
+    expect(src).toMatch(/START_SCREEN_PATHS\[startScreen\]/);
+    const body = src.slice(src.indexOf('const dismissAll'), src.indexOf('const handleAiGuide'));
+    expect(body).toMatch(/router\.navigate/);
+  });
+});
+
 describe('PlanTaskCard — "nothing left" never contradicts a visible task', () => {
   const src = code('components/PlanTaskCard.tsx');
 

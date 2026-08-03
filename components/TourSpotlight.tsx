@@ -7,11 +7,21 @@
  * card underneath stays live and interactive through the hole, because most steps are asking
  * the user to actually use it.
  *
- * **Everything about it is escapable.** Every step has its own "Skip this", and every step also
- * offers "Skip the tour" outright. A walkthrough you can't leave is worse than none at all,
- * particularly here — and progress is recorded as a SET of step ids (lib/tourSteps.ts), so a
- * skipped step and a finished one are indistinguishable afterwards. There is deliberately no
- * "you left the tour unfinished" state to come back to.
+ * **Everything about it is escapable.** Every step offers "Skip the tour" outright. A
+ * walkthrough you can't leave is worse than none at all, particularly here — and progress is
+ * recorded as a SET of step ids (lib/tourSteps.ts), so a skipped step and a finished one are
+ * indistinguishable afterwards. There is deliberately no "you left the tour unfinished" state
+ * to come back to.
+ * Each step ALSO carried a per-step "Skip this" until 2026-08-03. It was deleted, not
+ * relabelled, because it and "Got it" both called `record(step.id)` — the same button under
+ * two names, which is what the set-not-sequence design implies and which left a reader
+ * comparing "Skip this" to "Skip the tour" for a difference that wasn't there. Two buttons,
+ * one primary, per rule 6.
+ *
+ * **Leaving the tour returns you to your chosen start screen** (2026-08-03). The tour walks
+ * tab to tab and used to just stop, so finishing it left a new user on Health — the last tab
+ * it visited, not one they picked — and skipping from step 2 left them on Shopping. `dismissAll`
+ * now navigates to `settings.startScreen`. See its own comment.
  *
  * The last panel is not a spotlight but a plain centred card: it carries the "this is an
  * experimental build" note and the AI setup guide download, both of which used to live on the
@@ -72,6 +82,9 @@ import {
   stepPosition,
 } from '@/lib/tourSteps';
 import { getTargetRect, subscribeTargets, type TargetRect } from '@/components/TourTarget';
+// Where to leave the user when the tour ends — see dismissAll. Same map app/(tabs)/_layout.tsx
+// uses for `initialRouteName`, in its navigate-there-now form.
+import { START_SCREEN_PATHS } from '@/lib/firstRunOptions';
 
 /** Breathing room between the target's edge and the hole. */
 const HOLE_PAD = 8;
@@ -90,6 +103,7 @@ export default function TourSpotlight() {
 
   const tourProgress = useSettingsStore((s) => s.tourProgress);
   const setupComplete = useSettingsStore((s) => s.setupComplete);
+  const startScreen = useSettingsStore((s) => s.startScreen);
   const update = useSettingsStore((s) => s.update);
 
   const done = useMemo(() => parseProgress(tourProgress), [tourProgress]);
@@ -154,12 +168,24 @@ export default function TourSpotlight() {
     [done, update],
   );
 
+  /**
+   * Leave the tour — from the "Skip the tour" button on any step, or from the closing card.
+   *
+   * Navigating is the point of the `router.navigate` here (2026-08-03). The tour walks tab to
+   * tab and simply STOPPED on whichever one the last step visited, so finishing it dropped a
+   * brand-new user on Health — a tab they had not chosen, holding a symptom log they had no
+   * reason to want first. Skipping from step 2 stranded them on Shopping just as arbitrarily.
+   * The user already told us where they want to start (`settings.startScreen`, the Basics
+   * screen's last row); this honours it at the one moment the app is deciding for them.
+   * `navigate`, not `push`, for the same reason the step walker uses it: these are tabs.
+   */
   const dismissAll = useCallback(() => {
     selection();
     const next = new Set(done);
     next.add(TOUR_DISMISSED);
     update({ tourProgress: formatProgress(next) });
-  }, [done, update]);
+    router.navigate(START_SCREEN_PATHS[startScreen] ?? '/');
+  }, [done, update, router, startScreen]);
 
   const handleAiGuide = useCallback(async () => {
     selection();
@@ -266,11 +292,18 @@ export default function TourSpotlight() {
         </Text>
         <Text style={[styles.cardTitle, { color: theme.text }]}>{copy.title}</Text>
         <Text style={[styles.cardBody, { color: theme.textMuted }]}>{copy.body}</Text>
+        {/* ONE primary and ONE escape (rule 6). There used to be three buttons here, and two
+            of them — "Skip this" and "Got it" — called `record(step.id)`, i.e. they were the
+            same button with two labels. That is a consequence of progress being a SET, which
+            makes a skipped step and a finished one deliberately indistinguishable; the
+            behaviour is right and the second label was the mistake. A first-time reader had
+            to parse "Skip this" against "Skip the tour" to discover the difference, and there
+            wasn't one worth the reading. Escapability is unchanged: "Skip the tour" leaves
+            from any step, which is what the file header's promise actually rests on. */}
         <View style={styles.cardActions}>
-          <Button label={t.tour.skipStep} onPress={() => record(step.id)} variant="ghost" size="sm" />
+          <Button label={t.tour.skipAll} onPress={dismissAll} variant="ghost" size="sm" />
           <Button label={t.tour.next} onPress={() => record(step.id)} variant="primary" size="sm" />
         </View>
-        <Button label={t.tour.skipAll} onPress={dismissAll} variant="ghost" size="sm" />
       </View>
     </Animated.View>
   );

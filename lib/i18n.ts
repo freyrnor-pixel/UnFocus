@@ -601,7 +601,9 @@ const en = {
   tour: {
     step: (n: number, total: number) => `${n} of ${total}`,
     next: 'Got it',
-    skipStep: 'Skip this',
+    /* `skipStep` ("Skip this") was deleted 2026-08-03. It sat beside `next` and did exactly
+       what `next` did — both recorded the step — so the card offered three buttons for two
+       outcomes and asked the reader to tell "Skip this" from "Skip the tour". */
     skipAll: 'Skip the tour',
     steps: {
       home: {
@@ -2353,7 +2355,7 @@ const no: typeof en = {
   tour: {
     step: (n: number, total: number) => `${n} av ${total}`,
     next: 'Skjønner',
-    skipStep: 'Hopp over denne',
+    /* `skipStep` fjernet 2026-08-03 — se den engelske tvillingen. */
     skipAll: 'Hopp over omvisningen',
     steps: {
       home: {
