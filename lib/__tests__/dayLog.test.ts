@@ -22,7 +22,7 @@ import { join } from 'path';
 import { buildDayLog, DayLogSources, formatEntryTime } from '@/lib/dayLog';
 
 /** A source set with every list empty; spread it and override just the one under test. */
-const EMPTY: DayLogSources = { tasks: [], doses: [], health: [], moments: [] };
+const EMPTY: DayLogSources = { tasks: [], habits: [], doses: [], health: [], moments: [] };
 
 const WHOLE_DAY = 1440;
 
@@ -31,6 +31,7 @@ describe('buildDayLog — ordering', () => {
     const entries = buildDayLog(
       {
         tasks: [{ id: 't1', title: 'Washed up', doneAt: '14:00' }],
+        habits: [{ id: 'hb1', name: 'Morning stretch', firstAt: '07:05' }],
         doses: [{ id: 'd1', label: 'Elvanse', takenAt: '08:15' }],
         health: [{ id: 'h1', label: 'Headache', atMinutes: 11 * 60 }],
         moments: [{ id: 'm1', text: 'Rang the dentist', atTime: '09:40' }],
@@ -38,6 +39,7 @@ describe('buildDayLog — ordering', () => {
       WHOLE_DAY
     );
     expect(entries.map((e) => e.label)).toEqual([
+      'Morning stretch',
       'Elvanse',
       'Rang the dentist',
       'Headache',
@@ -172,6 +174,83 @@ describe('buildDayLog — absence beats invention', () => {
   });
 });
 
+/**
+ * Habits (2026-08-02). A habit is a standing commitment the user set up, so doing it is
+ * exactly the evidence this log is for — my first pass excluded them on a weak argument
+ * about multi-count habits and the maintainer was right to reject it.
+ *
+ * The rule is the FIRST log of the day, deliberately not "was the daily goal met":
+ * gating on met-ness would import a pass/fail threshold into a surface that has none, and
+ * 5 of 7 glasses of water would leave no trace at all. Everything below encodes that
+ * choice; if someone "unifies" this with habitMetOn() these are what should fail.
+ *
+ * (The rest-day and count-of-zero gates live in lib/useDayLog.ts, which is what feeds
+ * this module — the selector is handed only habits that already qualify.)
+ */
+describe('buildDayLog — habits', () => {
+  it('places a habit at the time it was first logged', () => {
+    const entries = buildDayLog(
+      { ...EMPTY, habits: [{ id: 'h1', name: 'Morning stretch', firstAt: '07:05' }] },
+      WHOLE_DAY
+    );
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      kind: 'habit',
+      label: 'Morning stretch',
+      atMinutes: 7 * 60 + 5,
+      sourceId: 'h1',
+    });
+  });
+
+  // The whole point of choosing "first log" over "met". A counter habit the user got
+  // part-way through is still something they did, and the log must say so.
+  it('includes a partly-done counter habit — no threshold', () => {
+    const entries = buildDayLog(
+      { ...EMPTY, habits: [{ id: 'water', name: 'Drink water', firstAt: '08:00' }] },
+      WHOLE_DAY
+    );
+    expect(entries.map((e) => e.label)).toEqual(['Drink water']);
+  });
+
+  // Absence beats invention, same as tasks: a habit logged before habit_logs.first_at
+  // existed has no honest time and must not be floated to midnight.
+  it.each([
+    ['no stamp (pre-migration)', ''],
+    ['whitespace', '  '],
+    ['a malformed time', 'morning'],
+  ])('drops a habit with %s', (_label, firstAt) => {
+    const entries = buildDayLog({ ...EMPTY, habits: [{ id: 'h', name: 'X', firstAt }] }, WHOLE_DAY);
+    expect(entries).toEqual([]);
+  });
+
+  it('interleaves habits with every other kind by time, not by kind', () => {
+    const entries = buildDayLog(
+      {
+        ...EMPTY,
+        tasks: [{ id: 't', title: 'Washed up', doneAt: '09:00' }],
+        habits: [
+          { id: 'a', name: 'Early habit', firstAt: '06:30' },
+          { id: 'b', name: 'Late habit', firstAt: '21:00' },
+        ],
+      },
+      WHOLE_DAY
+    );
+    expect(entries.map((e) => e.label)).toEqual(['Early habit', 'Washed up', 'Late habit']);
+  });
+
+  it('gives habits their own id namespace so a habit and task cannot collide', () => {
+    const entries = buildDayLog(
+      {
+        ...EMPTY,
+        tasks: [{ id: 'same', title: 'A task', doneAt: '09:00' }],
+        habits: [{ id: 'same', name: 'A habit', firstAt: '08:00' }],
+      },
+      WHOLE_DAY
+    );
+    expect(entries.map((e) => e.id)).toEqual(['habit:same', 'task:same']);
+  });
+});
+
 describe('buildDayLog — per-kind mapping', () => {
   it('carries sourceId for kinds with an origin record to navigate back to', () => {
     const entries = buildDayLog(
@@ -200,13 +279,14 @@ describe('buildDayLog — per-kind mapping', () => {
     const entries = buildDayLog(
       {
         tasks: [{ id: 't', title: 'a', doneAt: '01:00' }],
-        doses: [{ id: 'd', label: 'b', takenAt: '02:00' }],
-        health: [{ id: 'h', label: 'c', atMinutes: 180 }],
-        moments: [{ id: 'm', text: 'd', atTime: '04:00' }],
+        habits: [{ id: 'hb', name: 'b', firstAt: '01:30' }],
+        doses: [{ id: 'd', label: 'c', takenAt: '02:00' }],
+        health: [{ id: 'h', label: 'd', atMinutes: 180 }],
+        moments: [{ id: 'm', text: 'e', atTime: '04:00' }],
       },
       WHOLE_DAY
     );
-    expect(entries.map((e) => e.kind)).toEqual(['task', 'medicine', 'health', 'moment']);
+    expect(entries.map((e) => e.kind)).toEqual(['task', 'habit', 'medicine', 'health', 'moment']);
   });
 });
 

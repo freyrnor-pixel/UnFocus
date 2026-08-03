@@ -11,8 +11,10 @@
  * Connections:
  *   Imports → lib/dayLog, lib/date (todayStr, utcStampToLocalMinutes), lib/i18n
  *             (getTranslations — labels for rows whose source has no user-visible title),
- *             store/useTaskStore, store/useMedicineStore, store/useHealthStore,
- *             store/useMomentsStore, store/useSettingsStore (language, featureDayLog)
+ *             store/useTaskStore, store/useHabitStore, store/useMedicineStore,
+ *             store/useHealthStore, store/useMomentsStore, store/usePeopleStore (the
+ *             person filter on habits), store/useSettingsStore (language, featureDayLog,
+ *             peopleModeEnabled)
  *   Used by → components/PlanTaskCard.tsx, app/day-log.tsx
  *   Data    → reads tasks, medicine_doses + medicines, health_logs, moments. Writes nothing.
  *
@@ -29,12 +31,21 @@
  *     everything), then `createdAt` via utcStampToLocalMinutes — which returns null when
  *     the UTC instant lands on a different LOCAL day, and null means the entry is dropped
  *     rather than filed under the wrong date.
+ *   - **Known boundary: habits go back 35 days, everything else 365.**
+ *     `useHabitStore.load()` only holds the last 35 days of `habit_logs` in memory
+ *     (store/useHabitStore.ts), while `pruneOldData()` keeps a year. So app/day-log.tsx
+ *     shows no habits past 35 days back even though tasks and health entries still appear.
+ *     The rows are still in SQLite — this is an in-memory window, not data loss — and
+ *     widening it would change what the growth streak and Energy scans load, so it is left
+ *     alone deliberately. Absent, not wrong.
  */
 import { useMemo } from 'react';
 import { buildDayLog, DayEntry, DayLogSources } from '@/lib/dayLog';
 import { utcStampToLocalMinutes } from '@/lib/date';
 import { getTranslations } from '@/lib/i18n';
 import { useTaskStore } from '@/store/useTaskStore';
+import { useHabitStore } from '@/store/useHabitStore';
+import { usePeopleStore } from '@/store/usePeopleStore';
 import { useMedicineStore } from '@/store/useMedicineStore';
 import { useHealthStore } from '@/store/useHealthStore';
 import { useMomentsStore } from '@/store/useMomentsStore';
@@ -59,17 +70,24 @@ function timeToMinutes(hhmm: string): number | null {
  */
 export function useDayLog(date: string, cutoffMinutes: number): DayEntry[] {
   const tasks = useTaskStore((s) => s.tasks);
+  const habits = useHabitStore((s) => s.habits);
+  const habitLogs = useHabitStore((s) => s.logs);
   const doses = useMedicineStore((s) => s.doses);
   const medicines = useMedicineStore((s) => s.medicines);
   const healthLogs = useHealthStore((s) => s.logs);
   const moments = useMomentsStore((s) => s.moments);
   const enabled = useSettingsStore((s) => s.featureDayLog);
   const language = useSettingsStore((s) => s.language);
+  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
+  const people = usePeopleStore((s) => s.people);
 
   return useMemo(() => {
     if (!enabled) return [];
     const t = getTranslations(language);
     const medicineName = new Map(medicines.map((m) => [m.id, m.name]));
+    // >1 because the self row always exists, so that is what actually means "there is
+    // somebody else to tell apart from me".
+    const showHabitProfiles = peopleModeEnabled && people.length > 1;
 
     const sources: DayLogSources = {
       // `done` AND a matching date: a recurring task's row carries the date it's due, and
@@ -77,6 +95,18 @@ export function useDayLog(date: string, cutoffMinutes: number): DayEntry[] {
       tasks: tasks
         .filter((task) => task.done && task.date === date && task.doneAt)
         .map((task) => ({ id: task.id, title: task.title, doneAt: task.doneAt })),
+      // A habit counts as "happened today" if it was logged at least once and the day
+      // isn't a rest day. Deliberately NOT habitMetOn() — see lib/dayLog.ts's header for
+      // why a threshold has no place on this surface.
+      //
+      // Person filter mirrors app/(tabs)/habits.tsx: only when People mode is on AND there
+      // is somebody else, because filtering while it's off would make a habit assigned to a
+      // family member silently vanish — the exact trap that screen warns about. `''` is
+      // "mine" and covers habits written before the People registry existed.
+      habits: (showHabitProfiles ? habits.filter((h) => (h.childName ?? '') === '') : habits)
+        .map((h) => ({ habit: h, log: habitLogs.find((l) => l.habitId === h.id && l.logDate === date) }))
+        .filter(({ log }) => !!log && log.count >= 1 && !log.restDay && !!log.firstAt)
+        .map(({ habit, log }) => ({ id: habit.id, name: habit.title, firstAt: log!.firstAt })),
       doses: doses
         .filter((d) => d.date === date)
         .map((d) => ({
@@ -99,7 +129,10 @@ export function useDayLog(date: string, cutoffMinutes: number): DayEntry[] {
     };
 
     return buildDayLog(sources, cutoffMinutes);
-  }, [enabled, language, tasks, doses, medicines, healthLogs, moments, date, cutoffMinutes]);
+  }, [
+    enabled, language, tasks, habits, habitLogs, doses, medicines, healthLogs, moments,
+    peopleModeEnabled, people, date, cutoffMinutes,
+  ]);
 }
 
 export default useDayLog;

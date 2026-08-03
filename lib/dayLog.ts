@@ -35,6 +35,11 @@
  *     the top of the day and not given a synthesised one. Tasks completed before
  *     `tasks.done_at` existed, and tasks a paired device ticked (done_at is not synced),
  *     therefore never appear. A log that guesses is worth less than a log with a hole in it.
+ *   - **Habits are in, and on the FIRST log of the day, not on "met".** A habit is a
+ *     standing commitment the user set up, so doing it is exactly the evidence this log is
+ *     for. Gating on met-ness would import a pass/fail threshold into a surface that has
+ *     none — 5 of 7 glasses of water would leave no trace, which reads as "you did nothing"
+ *     on precisely the kind of day this exists for. Don't "unify" this with `habitMetOn`.
  *   - Times are LOCAL minutes since midnight — the currency lib/useNowMinutes.ts and
  *     lib/dayGrid.ts already speak. Not epoch ms: the schema has exactly one epoch-ms
  *     column (ifttt_rules.created_at) and lib/db.ts flags it as a legacy outlier.
@@ -45,7 +50,7 @@
  * the same flush row shape, because the log answers "what happened", not "what kind of
  * thing happened".
  */
-export type DayEntryKind = 'task' | 'medicine' | 'health' | 'moment' | 'calendar';
+export type DayEntryKind = 'task' | 'habit' | 'medicine' | 'health' | 'moment' | 'calendar';
 
 export type DayEntry = {
   id: string;
@@ -64,6 +69,16 @@ export type DayEntry = {
 export type DayLogSources = {
   /** Completed tasks. `doneAt` is local 'HH:MM'; '' means no honest time and is dropped. */
   tasks: { id: string; title: string; doneAt: string }[];
+  /**
+   * Habits done at least once on the day. `firstAt` is local 'HH:MM' of the FIRST log.
+   *
+   * The caller has already excluded rest days and zero counts — see lib/useDayLog.ts.
+   * Note what this is NOT: it is not a "was the habit MET" test. The codebase already has
+   * several of those (`habitMetOn`, `habitProgress().isDone`, the widget variants) and this
+   * deliberately competes with none of them; the log asks the strictly simpler question
+   * "did this happen at all today", so a partly-done habit still leaves a trace.
+   */
+  habits: { id: string; name: string; firstAt: string }[];
   /** Doses taken. `takenAt` is local 'HH:MM', auto-stamped, so it is effectively always set. */
   doses: { id: string; label: string; takenAt: string }[];
   /**
@@ -108,6 +123,11 @@ export function buildDayLog(sources: DayLogSources, cutoffMinutes: number): DayE
     const at = timeToMinutes(t.doneAt);
     if (at === null) continue;
     entries.push({ id: `task:${t.id}`, kind: 'task', atMinutes: at, label: t.title, sourceId: t.id });
+  }
+  for (const h of sources.habits) {
+    const at = timeToMinutes(h.firstAt);
+    if (at === null) continue;
+    entries.push({ id: `habit:${h.id}`, kind: 'habit', atMinutes: at, label: h.name, sourceId: h.id });
   }
   for (const d of sources.doses) {
     const at = timeToMinutes(d.takenAt);

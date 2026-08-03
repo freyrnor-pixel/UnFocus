@@ -487,6 +487,7 @@ const COLLAPSED_COUNT = 5;
  */
 const DAY_LOG_ICONS: Record<DayEntry['kind'], keyof typeof Ionicons.glyphMap> = {
   task: 'checkmark-circle-outline',
+  habit: 'repeat',
   medicine: 'medkit-outline',
   health: 'pulse-outline',
   moment: 'ellipse-outline',

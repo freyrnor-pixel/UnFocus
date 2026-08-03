@@ -256,8 +256,23 @@ file owns which token.)
     has carried a wall clock since the first schema and was never read — it is **UTC** while
     everything else in the app is local, so `lib/date.ts`'s `utcStampToLocalMinutes` is the
     one place that crosses that line, and it returns null rather than filing an entry under
-    the wrong day. Sources are tasks, medicine doses, health entries and manual moments;
-    habits, shopping and notes are deliberately out (see `lib/dayLog.ts`'s header).
+    the wrong day. Sources are tasks, **habits**, medicine doses, health entries and manual
+    moments; shopping and notes are deliberately out (see `lib/dayLog.ts`'s header —
+    `monthlyReset()` NULLs every `purchased_at` and deletes trips, so shopping would vanish
+    from past days after a reset).
+  - **A habit enters the log on the FIRST log of the day, NOT on "met"** (`habit_logs.first_at`).
+    A habit is a standing commitment the user set up, so doing it is exactly the evidence
+    this log is for. Gating on `habitMetOn` would import a pass/fail threshold into a
+    surface that deliberately has none — 5 of 7 glasses of water would leave no trace at
+    all, reading as "you did nothing" on precisely the kind of day this exists for.
+    `dailyGoal` is 1 for almost every real habit anyway, so the two rules only differ on
+    counters. **Don't "unify" this with `habitMetOn`** — the codebase already has four
+    competing "done" definitions and this is deliberately not a fifth; it asks the simpler
+    question "did this happen at all today". Rest days and a count back at 0 are excluded.
+    Habits are the ONE source the log person-filters (only when People mode is on and
+    there's somebody else, mirroring `app/(tabs)/habits.tsx`). Note habits reach back only
+    **35 days** in `app/day-log.tsx` — `useHabitStore.load()`'s in-memory window — while
+    everything else reaches 365.
   - **The cutoff is INCLUSIVE and that is load-bearing.** Everything here is minute-granular,
     so the thing you just did is stamped at exactly the current minute. A strict `<` made the
     log render empty for up to 60 seconds after every action — i.e. exactly when you'd look

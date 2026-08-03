@@ -67,6 +67,7 @@ const WHOLE_DAY = 1440;
 /** Same glyph-per-kind map PlanTaskCard uses, so a past day reads identically to today's. */
 const DAY_LOG_ICONS: Record<DayEntry['kind'], keyof typeof Ionicons.glyphMap> = {
   task: 'checkmark-circle-outline',
+  habit: 'repeat',
   medicine: 'medkit-outline',
   health: 'pulse-outline',
   moment: 'ellipse-outline',

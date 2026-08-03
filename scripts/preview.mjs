@@ -519,6 +519,23 @@ async function main() {
     if (!habitPersisted) pageErrors.push(`Habit "${habitTitle}" did not persist after navigating away and back`);
     await shot(page, 'habit-persisted-check');
 
+    // A habit done today belongs in the day log (2026-08-02) — a habit is a standing
+    // commitment, so doing it is exactly the evidence the log is for. Tick it here, then
+    // check the To-do tab's log. The stamp is habit_logs.first_at, written on the FIRST
+    // log of the day, so this must hold for a partly-done counter habit too.
+    console.log('> day log: a ticked habit appears in it');
+    const habitCheck = page.getByRole('checkbox', { name: habitTitle, exact: true }).first();
+    await habitCheck.scrollIntoViewIfNeeded();
+    await habitCheck.click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await shot(page, 'day-log-habit-ticked');
+    await page.getByRole('button', { name: 'To-do', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(900);
+    const habitInLog = await anyVisibleText(page, habitTitle);
+    console.log(`  ticked habit shows in the day log: ${habitInLog}`);
+    if (!habitInLog) pageErrors.push(`Day log: habit "${habitTitle}" did not appear after being ticked`);
+    await shot(page, 'day-log-habit-in-log');
+
     // Exercise the medicine store's two write paths (2026-07-27): quick-create a medicine
     // from the Health tab's tray card, then LOG A DOSE by tapping its circle — the dose is
     // the whole point of the feature, and it's a separate table (medicine_doses) from the

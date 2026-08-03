@@ -44,7 +44,9 @@ function habit(o: Partial<Habit>): Habit {
 }
 
 const log = (habitId: string, logDate: string, count: number): HabitLog => ({
-  id: `${habitId}-${logDate}`, habitId, logDate, count, restDay: false,
+  // `firstAt` is the day log's stamp (lib/dayLog.ts) and has no bearing on Energy, which
+  // asks habitMetOn() about counts. Present only to satisfy the type.
+  id: `${habitId}-${logDate}`, habitId, logDate, count, restDay: false, firstAt: '',
 });
 
 const DAY = '2026-07-15'; // a Wednesday
@@ -99,10 +101,10 @@ describe('energyDeltaForDay', () => {
 
   it('excludes a rest-day habit from the delta — no reward, no penalty', () => {
     const h = habit({ id: 'w', energyEnabled: true, energyValue: 1, dailyGoal: 1 });
-    const restLog: HabitLog = { id: 'w-rest', habitId: 'w', logDate: DAY, count: 0, restDay: true };
+    const restLog: HabitLog = { id: 'w-rest', habitId: 'w', logDate: DAY, count: 0, restDay: true, firstAt: '' };
     expect(energyDeltaForDay(DAY, [], [h], [restLog])).toBe(0);
     // Even if count happens to reach goal, resting still excludes it.
-    const restLogMet: HabitLog = { id: 'w-rest2', habitId: 'w', logDate: DAY, count: 1, restDay: true };
+    const restLogMet: HabitLog = { id: 'w-rest2', habitId: 'w', logDate: DAY, count: 1, restDay: true, firstAt: '' };
     expect(energyDeltaForDay(DAY, [], [h], [restLogMet])).toBe(0);
   });
 

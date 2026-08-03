@@ -1157,6 +1157,21 @@ export function initDb() {
     // Nothing in this feature ever WRITES a calendar event; the app's one write path is
     // lib/taskCalendar.ts, behind its own `calendar_sync_enabled` switch.
     `ALTER TABLE settings ADD COLUMN day_log_calendar_ids TEXT DEFAULT '[]'`,
+    // Local 'HH:MM' the habit was FIRST logged on that day (2026-08-02) — what puts a habit
+    // in the day log. A habit is a standing commitment the user set up, so doing it is
+    // exactly the kind of evidence the log exists for.
+    //
+    // FIRST, not "when the daily goal was met", and that distinction is deliberate. Gating
+    // on met-ness would import a pass/fail threshold into a surface that has none: 5 of 7
+    // glasses of water would leave no trace at all, which reads as "you did nothing" on
+    // precisely the kind of day this feature is for. `dailyGoal` is 1 for almost every real
+    // habit anyway (3 of 4 in lib/habitStarters.ts, 8 of 10 in lib/freyrModeSeed.ts), so the
+    // two rules only differ on counters.
+    //
+    // Cleared when a decrement takes the count back to 0 — an undone habit leaves no trace,
+    // same as un-ticking a task clears tasks.done_at. NO back-fill, same reason: a habit
+    // logged before this column has no honest time and is simply absent.
+    "ALTER TABLE habit_logs ADD COLUMN first_at TEXT DEFAULT ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
