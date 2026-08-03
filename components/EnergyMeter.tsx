@@ -3,9 +3,10 @@
  *
  * Shows today's and this week's energy as `current / capacity`, where current =
  * capacity + the net signed value of every energy task completed / energy habit
- * met in the period (lib/energy.ts). Tapping the edit affordance reveals steppers
- * to override today's and this week's capacity, plus today's one-day boost
- * (store/useEnergyStore.ts).
+ * met in the period (lib/energy.ts). Tapping the edit affordance opens
+ * components/EnergyConfigSheet.tsx — the pop-up that owns every number: today's and this
+ * week's capacity, plus today's temporary extra (store/useEnergyStore.ts). There is no
+ * stepper on the strip itself; see the 2026-08-03 corrections below before adding one.
  *
  * **Both warning rows are gone (2026-08-02).** The strip used to carry an amber "⚠️ Today is
  * planned to use 3 more Energy than you have available" line and a muted green "fully spent"
@@ -47,28 +48,69 @@
  * `t.energyMeter.title` header ROW — the label described below does that job in a line the
  * layout already has.
  *
- * **Two lines, one layout, always labelled and always settable (2026-08-03).** The strip was
- * ONE line in the common single-meter case — pips, `current / capacity`, edit glyph, no label —
- * and the stacked label+value shape only in `energyMode: 'custom'`. A first-time-user
- * walkthrough killed that arrangement on two counts:
- *   1. **It never said what it was.** Ten saturated pips and "10 / 10" at the very top of Home,
- *      above all content, read as a score or a level — precisely what this system must not read
- *      as. The only thing naming it was the 12px italic hint underneath. Rule 11 (never colour
- *      or shape alone) in spirit if not letter.
- *   2. **Setting your own number was behind a pencil.** The maintainer's call was that Energy
- *      should be "on and shown by default, in a state the user can use to set energy per
- *      day/week — easy, and not forceful."
- * So: ONE layout for every mode. Line 1 is `label · [capacity stepper] · [overspend?] · ✏️`,
+ * **Two lines, one layout, always labelled (2026-08-03).** The strip was ONE line in the common
+ * single-meter case — pips, `current / capacity`, edit glyph, no label — and the stacked
+ * label+value shape only in `energyMode: 'custom'`. A first-time-user walkthrough killed that
+ * arrangement because **it never said what it was**: ten saturated pips and "10 / 10" at the
+ * very top of Home, above all content, read as a score or a level — precisely what this system
+ * must not read as. The only thing naming it was the 12px italic hint underneath. Rule 11
+ * (never colour or shape alone) in spirit if not letter.
+ * So: ONE layout for every mode. Line 1 is `label · [temporary chip?] · [overspend?] · ✏️`,
  * line 2 is `pips · current / capacity`, and the permanent hint sits under both. The label
  * carries the word "Energy" (see `t.energyMeter.today`/`thisWeek`).
  * This also RESOLVES the width squeeze the old inline layout documented at length below rather
- * than working around it: ten pips no longer share a row with a label, a value, a stepper and
- * two glyphs, so the "deliberately tight ≈318px of 328px" arithmetic no longer applies to any
- * mode. The pip row keeps its `flex:1 / minWidth:0 / overflow:'hidden'` clip guard anyway —
- * surplus pips can still overrun a narrow phone, and clipping is that row's documented job.
- * The ✏️ editor is now the today-only boost and nothing else: the two capacity steppers moved
- * onto their rows' top lines. Keep the boost hidden — an always-visible "give myself more for
- * today" stepper is an invitation, and this system describes a day rather than rewarding one.
+ * than working around it: ten pips no longer share a row with a label, a value and two glyphs,
+ * so the "deliberately tight ≈318px of 328px" arithmetic no longer applies to any mode. The pip
+ * row keeps its `flex:1 / minWidth:0 / overflow:'hidden'` clip guard anyway — surplus pips can
+ * still overrun a narrow phone, and clipping is that row's documented job.
+ *
+ * **Three corrections to that pass, from the maintainer's review the same day (2026-08-03).**
+ * The first version of it also moved the two capacity steppers OUT of the ✏️ and onto the
+ * strip's own top line, always visible. That lasted a day. The review, verbatim: *"the plus and
+ * minus is too flexible, and it is not obvious to a user what is what. Energy per day should be
+ * configured in a pop-up, not just whenever, and if they have extra Energy that is supposed to
+ * be shown as temporary. So it's better to just have a 'tutorial' there instead before anything
+ * is added."* Hence:
+ *   1. **No stepper anywhere on this strip.** Every number is set in
+ *      `components/EnergyConfigSheet.tsx`, which the ✏️ opens — a labelled pop-up where each
+ *      stepper has a name and a line saying what it changes, neither of which fits on a strip
+ *      line. A bare ± beside a `7 / 10` readout cannot say whether it moves the capacity or the
+ *      spend, and being always-there invites nudging the number on every glance. Setting how
+ *      much a day holds is a deliberate act. Read that file's header before reversing this: it
+ *      is the second reversal on this question, not the first.
+ *   2. **Extra energy reads as temporary, on the strip.** A boost used to vanish into the
+ *      total — `+3` simply made a 10-energy day print `13 / 13`, indistinguishable from
+ *      somebody whose usual day is 13. The day row now carries a muted `+N today only` chip
+ *      (`t.energyMeter.boostChip`) whenever `boostForDay > 0`. Deliberately a neutral
+ *      `components/Badge`, not accent and not a fourth kind of pip: borrowed energy is a
+ *      footnote about today, not a reward and not a bigger day. Four pip shapes on one row
+ *      (available / spent / surplus / borrowed) was the other option and it is not legible.
+ *   3. **Before anything has been added, this spot teaches instead of measuring** — see the
+ *      "Tutorial state" note below.
+ *
+ * **Tutorial state (2026-08-03)**: while nothing in the app carries an energy value AND the
+ * user has never set a period's capacity, the strip draws `components/StarterCard.tsx` with two
+ * sentences and one button into the config sheet, INSTEAD of the meter, the hint and the ✏️.
+ * A full ten-pip bar with nothing able to spend it is the score-reading problem at its worst:
+ * it is a number that only ever sits at 10/10, above every piece of real content, on the screen
+ * a new user sees first.
+ *   - **The gate is emptiness, and it is honest about not knowing yet.** `hasEnergyItems` (any
+ *     task or habit with a non-zero energy value) OR `hasSetCapacity` (any `energy_budgets`
+ *     override row, which is the fingerprint of anyone who has ever opened the sheet) sends the
+ *     meter back, and deleting everything brings the tutorial back — same contract as every
+ *     other StarterCard. But it is ALSO gated on all three stores having `loaded`: snapshotting
+ *     an unloaded store reads as "nothing added" and would flash teaching copy at a user who
+ *     has been using Energy for months. While loading, the meter draws (today's behaviour), so
+ *     the flash can only ever go the harmless way.
+ *   - **This does not contradict the permanent-hint rule below.** The objection that retired
+ *     the old Energy StarterCard was that it was a SIBLING card sitting between the meter and
+ *     the to-do card, so it read as belonging to the wrong one, and that a self-destructing
+ *     explanation is gone by the time you come back to the number months later. This card is
+ *     neither: it stands exactly where the meter will stand, with nothing above it, and the
+ *     explanation it replaces is still permanent — `t.energyMeter.hint` under the meter, and
+ *     every field's own line in the config sheet, both there forever.
+ *   - `pause.paused` still wins over it: a day the user has closed out shows the one quiet
+ *     line and nothing else, teaching included.
  *
  * **Rendered only when `settings.energySystemEnabled` (2026-07-31)** — Energy is a real toggle
  * again (it was unconditional 2026-07-26 → 2026-07-31), so app/(tabs)/index.tsx gates this
@@ -77,9 +119,9 @@
  * → Features is the only way to make it go away.
  * settings.energyMode (2026-07-24) picks which meter(s) show: 'daily' hides the week
  * row, 'weekly' hides the day row, 'custom' (per-weekday capacities set in
- * app/settings.tsx) shows both since the week total derives from the seven days. 'custom' is
- * the one case that ISN'T a single line — two meters need their labels to stay tellable apart,
- * so each keeps the stacked label+value / pips shape below.
+ * app/settings.tsx) shows both since the week total derives from the seven days. (Until
+ * 2026-08-03 'custom' was also the only mode drawn as two stacked lines; every mode is now, see
+ * the layout note above.)
  *
  * **Permanent inline hint (2026-07-27, kept through the 2026-07-31 strip pass)**: one small
  * italic line (`t.energyMeter.hint`) under a hairline rule, attached directly below the meter,
@@ -100,7 +142,10 @@
  * value, replacing the old two-line label-row + ProgressBar stack. A hairline divider
  * separates the day and week lines when both are shown (energyMode 'custom').
  *
- * **Two layouts, and the width math behind them.** Ten pips + the value + the edit glyph only
+ * **The width math, and the layout it used to justify (historical — read the 2026-08-03 layout
+ * note above first).** This described the ONE-line arrangement, which no mode draws any more;
+ * it is kept because the arithmetic still governs how much can go on the pip line.
+ * Ten pips + the value + the edit glyph only
  * fit on one line because the strip pass took back the card's 32px of horizontal padding AND
  * shrank the pip from 24px to `PIP_SIZE` (18): at the audited 360px worst case that's 328px of
  * content for 216px of pips (10x18 + 9x4 gap) + ~70px of value at the `large` font scale + 16px
@@ -118,21 +163,19 @@
  * beside it still states the number in full, and the a11y label on the pip row carries
  * `t.energyMeter.surplusLabel(n)` regardless of what is drawn. The alternative (shrinking the
  * pip, or dropping the value) costs the common case to serve the rare one.
- * The 'custom' (both meters) case keeps that stacked layout: label+value share a top line
- * (`meterTopRow`), the pip row is a full-width line below it. Two labels' worth of extra text
- * genuinely does not fit inline at any pip size worth drawing.
+ * Every mode now draws the stacked layout that 'custom' pioneered for this reason: label (+ the
+ * temporary chip) on a top line (`meterTopRow`), the pip row and the value on a full-width line
+ * below it. Two labels' worth of extra text genuinely does not fit inline at any pip size worth
+ * drawing — which is why the label-less one-liner existed, and why buying a second line was the
+ * only way to give the strip a name.
  *
- * **Label dropped for the single-meter case (2026-07-28)**: `row()`'s `label` param is
- * nullable — passed only when BOTH day and week meters are on screen at once (`energyMode`
- * 'custom') where it's the one thing telling the rows apart; in the far more common
- * single-meter case ('daily'/'weekly') it's dropped entirely rather than repeating what the
- * lone row already makes obvious. `meterValue`'s `marginLeft:'auto'` (not `meterTopRow`'s
- * `justifyContent`) does the right-alignment so this works with or without a label present,
- * without a conditional style branch.
+ * (**"Label dropped for the single-meter case (2026-07-28)"** used to be documented here:
+ * `row()`'s `label` was nullable and passed only in 'custom' mode. Reversed on 2026-08-03 — the
+ * label is unconditional and the param no longer admits null, which is the whole point of the
+ * layout note above. `meterValue`'s `marginLeft:'auto'` still does the value's right-alignment.)
  *
- * **The edit affordance travels** (`row()`'s `trailing` param): it rides the end of the single
- * line in the common case, and the end of the FIRST visible meter's top line in 'custom' mode.
- * It is passed to exactly one row — never render two.
+ * **The edit affordance travels** (`row()`'s `trailing` param): it rides the end of the FIRST
+ * visible meter's top line. It is passed to exactly one row — never render two.
  *
  * **Energy-token pip (2026-07-28, round 3 — after two shadow/bevel "keycap" passes still read
  * as flat or too grey, user then pointed at trading-card game energy-type icons as the actual
@@ -168,13 +211,16 @@
  * and a day that hits zero is a cue to ease off, never a "Great job!" and never a scolding.
  *
  * Connections:
- *   Imports → components/Stepper, components/Collapsible, components/PressableScale,
- *             components/CardHintNote, components/EnergyPauseSheet, constants/theme,
- *             constants/motion, lib/useAppTheme, lib/i18n, lib/date, lib/energy,
+ *   Imports → components/Badge (the `+N today only` chip), components/Button,
+ *             components/PressableScale, components/StarterCard (the tutorial state),
+ *             components/CardHintNote, components/EnergyConfigSheet, components/EnergyPauseSheet,
+ *             constants/theme, constants/motion, lib/useAppTheme, lib/i18n, lib/date, lib/energy,
  *             lib/useEnergyPause, store/useSettingsStore, store/useTaskStore,
  *             store/useHabitStore, store/useEnergyStore, expo-router (useFocusEffect),
  *             react-native-reanimated
- *             (components/Surface is deliberately NOT imported any more — see "Strip, not a card")
+ *             (components/Surface is deliberately NOT imported any more — see "Strip, not a card";
+ *              components/Stepper and components/Collapsible are gone with the inline editor —
+ *              every number is set in EnergyConfigSheet now, see correction 1 above)
  *   Used by → app/(tabs)/index.tsx (Home) — mounted fixed, above the Shared card and the
  *             HomeCardManager stack, gated on settings.energySystemEnabled
  *   Data    → reads tasks/habits/habitLogs + energy_budgets overrides (base capacity AND the
@@ -187,10 +233,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import Svg, { Defs, RadialGradient, Stop, Circle, Rect } from 'react-native-svg';
 import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
-import Stepper from '@/components/Stepper';
-import Collapsible from '@/components/Collapsible';
+import { Badge } from '@/components/Badge';
+import Button from '@/components/Button';
 import PressableScale from '@/components/PressableScale';
+import StarterCard from '@/components/StarterCard';
 import CardHintNote from '@/components/CardHintNote';
+import EnergyConfigSheet from '@/components/EnergyConfigSheet';
 import EnergyPauseSheet from '@/components/EnergyPauseSheet';
 import { Fonts, FontSize, Radius, RowTrailing, Spacing, darken, lighten, getGlow, hitSlopFor } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
@@ -276,7 +324,10 @@ export default function EnergyMeter() {
   useSettingsStore((s) => s.energyDailyCapacity);
   useSettingsStore((s) => s.energyWeeklyCapacity);
   useSettingsStore((s) => s.energyCustomCapacities);
-  useEnergyStore((s) => s.overrides);
+  // Captured, not just subscribed: a non-empty `overrides` is the fingerprint of a user who
+  // has set a period's capacity at least once, which is half the tutorial gate below.
+  const overrides = useEnergyStore((s) => s.overrides);
+  const energyLoaded = useEnergyStore((s) => s.loaded);
   const capacityForDay = useEnergyStore((s) => s.capacityForDay);
   const capacityForWeek = useEnergyStore((s) => s.capacityForWeek);
   const setDayCapacity = useEnergyStore((s) => s.setDayCapacity);
@@ -285,14 +336,18 @@ export default function EnergyMeter() {
   const setDayBoost = useEnergyStore((s) => s.setDayBoost);
 
   const tasks = useTaskStore((s) => s.tasks);
+  const tasksLoaded = useTaskStore((s) => s.loaded);
   const habits = useHabitStore((s) => s.habits);
+  const habitsLoaded = useHabitStore((s) => s.loaded);
   const habitLogs = useHabitStore((s) => s.logs);
 
   // Today's over-budget state, the pause, and the "I'll decide" candidates — one hook so the
   // control here and the pinned card on Home can never disagree about them (lib/useEnergyPause.ts).
   const pause = useEnergyPause();
 
-  const [editing, setEditing] = useState(false);
+  // `configOpen` was `editing` until 2026-08-03, when the inline Collapsible editor became
+  // components/EnergyConfigSheet.tsx. Same role — "the user is mid-adjustment, don't interrupt".
+  const [configOpen, setConfigOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [focused, setFocused] = useState(false);
 
@@ -331,6 +386,27 @@ export default function EnergyMeter() {
   const dayBaseCapacity = dayCapacity - dayBoost;
   const dayCurrent = dayCapacity + energyDeltaForDay(today, tasks, habits, habitLogs);
   const weekCurrent = weekCapacity + energyDeltaForWeek(today, tasks, habits, habitLogs);
+
+  /**
+   * The tutorial gate — see the file header's "Tutorial state" note for why this exists.
+   *
+   * Two ways to be past it, either of which means the number on the strip is about to mean
+   * something: the user has given a task or habit an energy value, or they have set a period's
+   * capacity themselves (any `energy_budgets` row — day override, week override or a boost).
+   * `energyEnabled` alone isn't enough: `energyValue` defaults to 1 behind a false flag in both
+   * stores (lib/energy.ts's `energyStepperValue`), so a row is only really in the system when
+   * the flag is on AND the value is non-zero.
+   *
+   * `ready` is the load-order guard: an unloaded store looks exactly like an empty one, and
+   * getting this backwards would flash two sentences of teaching copy at somebody who has used
+   * Energy for months. Until every store answers, the meter draws.
+   */
+  const ready = tasksLoaded && habitsLoaded && energyLoaded;
+  const hasEnergyItems =
+    tasks.some((task) => task.energyEnabled && task.energyValue !== 0) ||
+    habits.some((habit) => habit.energyEnabled && habit.energyValue !== 0);
+  const hasSetCapacity = Object.keys(overrides).length > 0;
+  const showTutorial = ready && !hasEnergyItems && !hasSetCapacity;
 
   // "Over-committed" (plannedEnergyDeltaForDay) and "fully spent" (current <= 0) used to be
   // computed here for two warning rows. Both now live behind lib/energyPause.ts's single
@@ -389,18 +465,20 @@ export default function EnergyMeter() {
   /**
    * The once-a-day automatic offer.
    *
-   * Three gates, all of them about the moment being calm enough: the Home screen is focused
-   * (the pager mounts all five tabs, so being mounted proves nothing), the ✏️ editor is not
-   * open (never interrupt a user who is mid-interaction with the card), and today has not
-   * already offered it (`shouldAutoShow`, which lib/useEnergyPause.ts keeps true until the
-   * user actually answers — a backgrounded app re-offers rather than burning the day's one
-   * chance in silence). Both answers stamp the day in the store, so nothing re-opens after one.
+   * Four gates, all of them about the moment being calm enough: the Home screen is focused
+   * (the pager mounts all five tabs, so being mounted proves nothing), the config sheet is not
+   * open (never interrupt a user who is mid-adjustment), the strip is not in its tutorial state
+   * (a first-time explanation is the last thing to cover with a sheet — belt and braces, since
+   * a day with no energy items can't be over budget either), and today has not already offered
+   * it (`shouldAutoShow`, which lib/useEnergyPause.ts keeps true until the user actually
+   * answers — a backgrounded app re-offers rather than burning the day's one chance in
+   * silence). Both answers stamp the day in the store, so nothing re-opens after one.
    */
   useEffect(() => {
-    if (!focused || editing || sheetOpen) return;
+    if (!focused || configOpen || sheetOpen || showTutorial) return;
     if (!pause.shouldAutoShow) return;
     setSheetOpen(true);
-  }, [focused, editing, sheetOpen, pause.shouldAutoShow]);
+  }, [focused, configOpen, sheetOpen, showTutorial, pause.shouldAutoShow]);
 
   // label is null when only one of day/week is shown (the common case, energyMode
   // 'daily'/'weekly') — with a single meter on the card, "Today"/"This week" repeats
@@ -430,18 +508,27 @@ export default function EnergyMeter() {
     </PressableScale>
   );
 
+  /**
+   * The one way in to every energy number (2026-08-03) — it opens
+   * components/EnergyConfigSheet.tsx rather than expanding an inline editor.
+   *
+   * It used to swap to a `checkmark` while the Collapsible was open, because the glyph WAS the
+   * open/close toggle. A sheet closes itself, so there is nothing to toggle: the glyph keeps
+   * one shape and only takes the accent while the sheet is up, which is the same "this control
+   * is what's on screen" cue every other opener in the app gives.
+   */
   const editButton = (
     <PressableScale
-      onPress={() => setEditing((v) => !v)}
+      onPress={() => setConfigOpen(true)}
       hitSlop={showOverspend ? EDIT_SLOP_PAIRED : EDIT_SLOP}
       scaleTo={0.9}
       accessibilityRole="button"
       accessibilityLabel={t.energyMeter.editTitle}
     >
       <Ionicons
-        name={editing ? 'checkmark' : 'create-outline'}
+        name="create-outline"
         size={EDIT_ICON_SIZE}
-        color={editing ? theme.accent : theme.textMuted}
+        color={configOpen ? theme.accent : theme.textMuted}
       />
     </PressableScale>
   );
@@ -464,8 +551,12 @@ export default function EnergyMeter() {
     capacity: number,
     pulse: { id: number; kind: PulseKind } | null,
     trailing: React.ReactNode,
-    /** The always-visible capacity stepper for this period. See the header's layout note. */
-    capacityStepper: React.ReactNode
+    /**
+     * A static note about this period, drawn beside the label — today's `+N today only` chip
+     * and nothing else so far. Never a control: it sits between the label and two real tap
+     * targets, and a third target on that line would put PAIR_CLIP's arithmetic back in play.
+     */
+    badge: React.ReactNode
   ) => {
     const { pipCount, filled, surplus } = energyPipCount(current, capacity);
     const pips = (
@@ -553,15 +644,19 @@ export default function EnergyMeter() {
             makes room for both the label and an always-visible capacity stepper. */}
         <View style={styles.meterRow}>
           <View style={styles.meterTopRow}>
-            <Text style={[styles.meterLabel, { color: theme.text }]}>{label}</Text>
-            {/* Setting the number is the primary thing you do to this strip, so it is on the
-                strip rather than behind the ✏️ — "shown by default, in a state you can use to
-                set energy per day/week, easy and not forceful" (maintainer, 2026-08-03). The
-                ✏️ keeps the things that should NOT be one tap away: the today-only boost. */}
-            <View style={styles.topRowTrailing}>
-              {capacityStepper}
-              {trailing}
+            {/* Label + chip are ONE yielding group: the label side is what gives when a long
+                translation meets a chip at the 1.2x font scale, never the glyphs, which have
+                no width to give (the wrap audit's documented rule — AGENTS.md). */}
+            <View style={styles.labelWrap}>
+              <Text style={[styles.meterLabel, { color: theme.text }]} numberOfLines={1}>{label}</Text>
+              {/* The temporary-extra chip, when there is one. It rides beside the label rather
+                  than beside the value because it qualifies WHAT the row is (a day with
+                  something borrowed against it), not what the number currently reads. */}
+              {badge}
             </View>
+            {/* Every number is set in the pop-up the ✏️ opens — see the header's correction 1.
+                A capacity stepper lived here for one day and was reversed; don't put one back. */}
+            <View style={styles.topRowTrailing}>{trailing}</View>
           </View>
           {/* The value rides the end of the pip line now that the top line carries the label
               and the stepper. It reads against the pips it describes, and the line has room
@@ -582,50 +677,38 @@ export default function EnergyMeter() {
           only, exactly like a card layout: every energy cost keeps being recorded, every
           value keeps its stored number, and tomorrow's date brings the whole strip back
           untouched. The sheet stays mounted through it so its exit animation can finish. */}
-      {!pause.paused && (
+      {/* Nothing has an energy value and no capacity has ever been set: teach, don't measure.
+          A full ten-pip bar with nothing able to spend it is the "reads as a score" problem at
+          its worst — see the header's "Tutorial state". The card stands exactly where the meter
+          will stand, and the button is the same pop-up the ✏️ opens, so the first thing a new
+          user can do here is the deliberate thing rather than a nudge. */}
+      {!pause.paused && showTutorial && (
+        <StarterCard text={t.starters.energy.text}>
+          <Button
+            label={t.starters.energy.action}
+            variant="secondary"
+            size="sm"
+            onPress={() => setConfigOpen(true)}
+            style={styles.tutorialAction}
+          />
+        </StarterCard>
+      )}
+
+      {!pause.paused && !showTutorial && (
         <>
           {/* Both labels are unconditional now — see the i18n note on `energyMeter.today`.
-              The capacity steppers moved OUT of the Collapsible below and onto each row's own
-              top line: setting your day's or week's number is the whole point of the strip,
-              and it was behind a pencil. The day row steps the BASE capacity, not the total —
-              see `dayBaseCapacity` for why stepping the total re-banks the boost. */}
+              The third argument after `trailingControls` is the row's static chip: today gets
+              `+N today only` while a boost is set, so borrowed energy can't hide inside the
+              total (header, correction 2). The week row never gets one — `capacityForWeek`
+              deliberately ignores the boost (store/useEnergyStore.ts), so there is nothing
+              temporary about that number to mark. */}
           {showDay && row('day', t.energyMeter.today, dayCurrent, dayCapacity, dayPulse, trailingControls,
-            <Stepper
-              value={dayBaseCapacity}
-              onChange={(n) => setDayCapacity(today, n)}
-              min={0}
-              accessibilityLabel={t.energyMeter.todayCapacity}
-            />
+            dayBoost > 0 ? <Badge label={t.energyMeter.boostChip(dayBoost)} /> : null
           )}
           {showDay && showWeek && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
           {/* `showDay ? null : trailingControls` — the glyphs are drawn by whichever meter comes
               FIRST, so 'weekly' mode (no day row) still gets them and 'custom' mode never gets two. */}
-          {showWeek && row('week', t.energyMeter.thisWeek, weekCurrent, weekCapacity, weekPulse, showDay ? null : trailingControls,
-            <Stepper
-              value={weekCapacity}
-              onChange={(n) => setWeekCapacity(today, n)}
-              min={0}
-              accessibilityLabel={t.energyMeter.weekCapacity}
-            />
-          )}
-
-          {/* What is left behind the ✏️: the today-only boost, and nothing else. It stays
-              hidden on purpose — an always-visible "give myself more for today" stepper is an
-              invitation, and this system is meant to describe a day rather than reward one. */}
-          <Collapsible open={editing}>
-            <View style={styles.editor}>
-              {showDay && (
-                <View style={styles.editRow}>
-                  <Text style={[styles.editLabel, { color: theme.textMuted }]}>{t.energyMeter.boostToday}</Text>
-                  <Stepper value={dayBoost} onChange={(n) => setDayBoost(today, n)} min={0} />
-                </View>
-              )}
-              {/* The boost's own one-liner, inside the editor rather than under the strip: it
-                  only matters while you are looking at the stepper, and the strip already
-                  carries the one permanent hint it can afford. */}
-              {showDay && <CardHintNote text={t.energyMeter.boostHint} noBorder />}
-            </View>
-          </Collapsible>
+          {showWeek && row('week', t.energyMeter.thisWeek, weekCurrent, weekCapacity, weekPulse, showDay ? null : trailingControls, null)}
 
           {/* Permanent one-line explainer, attached directly under the meter it explains
               (2026-07-27, user report). See the file header for why this is no longer a
@@ -649,6 +732,26 @@ export default function EnergyMeter() {
       {pause.paused && (
         <Text style={[styles.pausedNote, { color: theme.textMuted }]}>{t.energyPause.afterGood}</Text>
       )}
+
+      {/* The pop-up every number is set in (2026-08-03). Mounted outside the `pause.paused` /
+          `showTutorial` branches above on purpose: the tutorial's own button opens it, and it
+          must be free to finish its exit animation after a write flips the strip out of the
+          tutorial state under it. Each stepper writes through on press, so closing by any
+          route — Done, backdrop, back gesture — is the same thing and discards nothing. */}
+      <EnergyConfigSheet
+        visible={configOpen}
+        onClose={() => setConfigOpen(false)}
+        showDay={showDay}
+        showWeek={showWeek}
+        /* BASE, not the total the meter shows — see `dayBaseCapacity` above for why handing
+           over the sum would re-bank today's boost as the user's usual capacity. */
+        dayBaseCapacity={dayBaseCapacity}
+        onDayCapacity={(n) => setDayCapacity(today, n)}
+        weekCapacity={weekCapacity}
+        onWeekCapacity={(n) => setWeekCapacity(today, n)}
+        dayBoost={dayBoost}
+        onDayBoost={(n) => setDayBoost(today, n)}
+      />
 
       {/* Both triggers — the control above and the once-a-day auto-offer — land here. Closing
           the sheet by any route IS "I'm good" (see EnergyPauseSheet's header), and both
@@ -676,10 +779,16 @@ const styles = StyleSheet.create({
   // the pips sit ~16px left of the neighbouring cards' CONTENT and flush with their outer edge —
   // deliberate: it's what makes this read as chrome for the day rather than a fifth card.
   strip: { gap: Spacing.xs },
-  // The top line's right-hand cluster: the always-visible capacity stepper, then the ✏️ (and
-  // the overspend control when it is showing). `marginLeft:'auto'` is what right-aligns it
-  // against the label without meterTopRow needing a justifyContent.
+  // The top line's right-hand cluster: the ✏️, plus the overspend control to its left when it
+  // is showing. (It held a capacity stepper too for one day — reversed, see the header's
+  // correction 1.) `marginLeft:'auto'` is what right-aligns it without meterTopRow needing a
+  // justifyContent, and it keeps the cluster right-aligned even if `labelWrap` is ever given
+  // an intrinsic width instead of `flex: 1`.
   topRowTrailing: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginLeft: 'auto' },
+  // Label + the temporary chip, as one group that yields. `flex: 1` WITH `minWidth: 0` — the
+  // pair, not `flex: 1` alone, is what actually lets a child shrink under Yoga (the same fix
+  // components/TaskCard.tsx documents for its title input).
+  labelWrap: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   // The pip line: pips take the slack, the `current / capacity` value sits at the right edge
   // (its own marginLeft:'auto' does that). This is the row that used to also carry the label's
   // job, the stepper's job and the glyphs' — see the header's layout note.
@@ -698,7 +807,9 @@ const styles = StyleSheet.create({
   // No justifyContent here — topRowTrailing's own marginLeft:'auto' pushes the stepper and
   // glyphs to the right edge, so this layout needs no conditional branch.
   meterTopRow: { flexDirection: 'row', alignItems: 'center' },
-  meterLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  // flexShrink so a long translation beside a chip truncates rather than shoving the ✏️ off
+  // the line — `numberOfLines={1}` on the Text is the other half of that.
+  meterLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, flexShrink: 1 },
   // Takes the leftover width AFTER the value has its intrinsic size, and clips rather than
   // overflowing. See the file header — an overflowing pip row painting over the value text is
   // the 2026-07-28 bug this guards against. Folded in unconditionally on 2026-08-03: the pips
@@ -730,9 +841,13 @@ const styles = StyleSheet.create({
   // load-bearing: it is what leaves 8px belonging to neither touch area once PAIR_CLIP has
   // taken 4px off each facing edge. See the PAIR_CLIP block at the top of the file.
   trailingCluster: { flexDirection: 'row', alignItems: 'center', gap: RowTrailing.gap },
-  editor: { gap: Spacing.sm, paddingTop: Spacing.sm },
-  editRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  editLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  /* `editor` / `editRow` / `editLabel` lived here until 2026-08-03 — they styled the inline
+     Collapsible editor, which is now components/EnergyConfigSheet.tsx. */
+  // The tutorial card's one button. `alignSelf` keeps it button-sized instead of stretching to
+  // the card's full width: StarterCard's action slot is documented as "lightweight chips — this
+  // is an explainer, not a form", and a full-width CTA on the topmost card of Home reads as
+  // setup the user owes the app, which is the one thing this state must not do.
+  tutorialAction: { alignSelf: 'flex-start' },
   // CardHintNote brings its own hairline/italic caption-or-smaller type; this only trims its
   // default top margin, since `strip`'s own `gap` already separates it from the meter above.
   hint: { marginTop: 2 },

@@ -82,6 +82,11 @@ const L = {
     // Task-editor walk: the "All tasks" tab is the only one with an add affordance, and a
     // fresh profile has no tasks, so one has to be created before an editor can be opened.
     tasksTabAll: 'All tasks', newTask: 'New task', probeTask: 'Wrap audit probe',
+    // The Energy config sheet (2026-08-03). On a fresh profile the strip is in its tutorial
+    // state, so its StarterCard button is the way in; the ✏️ ("Adjust energy") opens the same
+    // sheet once anything has an energy value. Three label+stepper rows plus a hint line each,
+    // i.e. exactly the "label competing with a fixed-size control" case this audit exists for.
+    energyTutorialAction: "Set the day's energy", energyDone: 'Done',
   },
   no: {
     langRow: /^Språk: Norsk\./, basicsNext: 'Fortsett',
@@ -89,6 +94,7 @@ const L = {
     tabs: ['Handle', 'Gjøremål', 'Helse', 'Vaner'], home: 'Hjem', settings: 'Innstillinger',
     dismiss: ['Hopp over', 'Skjønner', 'Skjønner →', 'OK'],
     tasksTabAll: 'Alle', newTask: 'Ny oppgave', probeTask: 'Bredde-test',
+    energyTutorialAction: 'Sett dagens energi', energyDone: 'Ferdig',
   },
 }[LANG];
 
@@ -314,6 +320,25 @@ async function main() {
     }
 
     await scan(page, 'home');
+
+    // ── The Energy config sheet ──
+    // Opened from the strip's tutorial-state button (a fresh profile has no energy values, so
+    // that is what Home draws — components/EnergyMeter.tsx's "Tutorial state"). Three rows of
+    // "label + stepper" with an italic hint line under each: the stepper cannot shrink, so the
+    // label side is what has to yield, and that is precisely the failure this audit catches.
+    // Closed again before the tab loop — a bottom sheet's scrim swallows every click under it.
+    // Opening it writes nothing, so the strip is still in its tutorial state afterwards.
+    // Best-effort like the task editor: a failure must not lose the findings already collected.
+    try {
+      await clickText(page, L.energyTutorialAction);
+      await page.waitForTimeout(700);
+      await scan(page, 'energy-config-sheet');
+      await clickText(page, L.energyDone);
+      await page.waitForTimeout(600);
+    } catch (e) {
+      console.error(`  (energy-config-sheet step skipped: ${e.message.split('\n')[0]})`);
+    }
+
     for (const tab of L.tabs) {
       await page.getByRole('button', { name: tab, exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(900);

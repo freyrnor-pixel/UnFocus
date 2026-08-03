@@ -88,15 +88,21 @@ describe('PlanTaskCard — the Home header reserves its space', () => {
 /**
  * The Energy strip (2026-08-03). Same review, adjacent rule: ten saturated pips and "10 / 10"
  * at the top of Home, with no label, read as a score or a level — which is the one thing this
- * system is documented as needing NOT to read as. And setting your own daily number, the
- * primary thing you do to the strip, was behind a pencil.
+ * system is documented as needing NOT to read as.
  *
- * The maintainer's call was "on and shown by default, in a state the user can use to set
- * energy per day/week — easy, and not forceful". These guard the three structural halves of
- * that: one layout, always labelled, stepper on the strip rather than in the editor. Rewards
- * mode hiding the whole thing is already covered, thoroughly, by energyModes.test.ts.
+ * The first fix for that also moved the two capacity steppers onto the strip's own top line,
+ * always visible. **The maintainer's review reversed that within the day**, verbatim: "the plus
+ * and minus is too flexible, and it is not obvious to a user what is what. Energy per day
+ * should be configured in a pop-up, not just whenever, and if they have extra Energy that is
+ * supposed to be shown as temporary. So it's better to just have a 'tutorial' there instead
+ * before anything is added."
+ *
+ * These guard the four structural claims that came out of it — one layout, always labelled; no
+ * stepper on the strip at all; extra energy marked temporary where the number is; a tutorial in
+ * place of the meter until something has been added. Rewards mode hiding the whole system is
+ * already covered, thoroughly, by energyModes.test.ts.
  */
-describe('EnergyMeter — the strip names itself and can be set from where it is', () => {
+describe('EnergyMeter — the strip names itself, and is set from a pop-up', () => {
   const src = code('components/EnergyMeter.tsx');
 
   it('has one layout, not a single-meter special case', () => {
@@ -119,22 +125,73 @@ describe('EnergyMeter — the strip names itself and can be set from where it is
     expect(src).toMatch(/row\('week', t\.energyMeter\.thisWeek,/);
   });
 
-  it('draws the capacity stepper on the strip, not inside the ✏️ editor', () => {
-    const editorAt = src.indexOf('<Collapsible open={editing}>');
-    expect(editorAt).toBeGreaterThan(-1);
-    for (const setter of ['setDayCapacity', 'setWeekCapacity']) {
-      const at = src.indexOf(setter + '(today');
+  it('has no stepper of its own — every number is set in the pop-up', () => {
+    // The reversal, pinned at the strongest available level: the component cannot render a
+    // Stepper because it does not import one. A ± on this line has no way to say whether it
+    // moves the capacity or the spend, and being always-there invites nudging it on every
+    // glance. This is the SECOND reversal on the question (an inline Collapsible editor held
+    // the same steppers before that) — read EnergyConfigSheet's header before a third.
+    expect(src).not.toMatch(/from '@\/components\/Stepper'/);
+    expect(src).not.toMatch(/<Stepper/);
+    // The inline editor it replaced is gone with it, Collapsible and all.
+    expect(src).not.toMatch(/<Collapsible/);
+  });
+
+  it('hands all three setters to the config sheet, which owns all three steppers', () => {
+    const sheetAt = src.indexOf('<EnergyConfigSheet');
+    expect(sheetAt).toBeGreaterThan(-1);
+    for (const setter of ['setDayCapacity(today', 'setWeekCapacity(today', 'setDayBoost(today']) {
+      const at = src.indexOf(setter);
       expect({ setter, found: at > -1 }).toEqual({ setter, found: true });
-      // Before the editor in source order == on the row's own top line.
-      expect({ setter, onStrip: at < editorAt }).toEqual({ setter, onStrip: true });
+      // Passed as a prop on the sheet element, i.e. after its opening tag — not called from a
+      // control drawn on the strip above it.
+      expect({ setter, onSheet: at > sheetAt }).toEqual({ setter, onSheet: true });
+    }
+    // And the sheet is where the three steppers actually live.
+    const sheet = code('components/EnergyConfigSheet.tsx');
+    expect([...sheet.matchAll(/<Stepper/g)]).toHaveLength(1); // one shared `field()` renderer
+    for (const prop of ['onDayCapacity', 'onWeekCapacity', 'onDayBoost']) {
+      expect({ prop, wired: sheet.includes(prop) }).toEqual({ prop, wired: true });
+    }
+    // Every field carries a line saying what its stepper CHANGES — the copy half of "it is not
+    // obvious what is what". A stepper with a bare label is the state this replaced.
+    for (const hint of ['todayCapacityHint', 'weekCapacityHint', 'boostHint']) {
+      expect({ hint, used: sheet.includes(hint) }).toEqual({ hint, used: true });
     }
   });
 
-  it('keeps the today-only boost behind the ✏️', () => {
-    // The one thing that should NOT be one tap away: an always-visible "more for today"
-    // stepper is an invitation, and this system describes a day rather than rewarding one.
-    const editorAt = src.indexOf('<Collapsible open={editing}>');
-    expect(src.indexOf('setDayBoost(today')).toBeGreaterThan(editorAt);
+  it('marks extra energy as temporary on the row that has it', () => {
+    // A boost used to vanish into the total: `+3` on a 10-energy day printed `13 / 13`,
+    // indistinguishable from somebody whose usual day is 13.
+    expect(src).toMatch(/dayBoost > 0 \? <Badge label=\{t\.energyMeter\.boostChip\(dayBoost\)\} \/> : null/);
+    const i18n = read('lib/i18n.ts');
+    // "today only" is the payload, in both languages — not the number, which the meter already
+    // has, but that the number is borrowed against one day.
+    expect(i18n).toMatch(/boostChip: \(n: number\) => `\+\$\{n\} today only`/);
+    expect(i18n).toMatch(/boostChip: \(n: number\) => `\+\$\{n\} bare i dag`/);
+  });
+
+  it('teaches instead of measuring until something has been added', () => {
+    // A full ten-pip bar with nothing able to spend it is the score-reading problem at its
+    // worst. The tutorial stands where the meter will stand, with the same pop-up behind its
+    // button.
+    expect(src).toMatch(/<StarterCard text=\{t\.starters\.energy\.text\}>/);
+    expect(src).toMatch(/const showTutorial = ready && !hasEnergyItems && !hasSetCapacity/);
+    // Either kind of "something added" sends the meter back: an energy value on a task/habit,
+    // or a capacity the user set themselves (any energy_budgets override row).
+    expect(src).toMatch(/const hasEnergyItems =/);
+    expect(src).toMatch(/const hasSetCapacity = Object\.keys\(overrides\)\.length > 0/);
+    // The load-order guard, which is the one way this could misfire: an unloaded store looks
+    // exactly like an empty one, and getting it wrong flashes teaching copy at a long-time
+    // user. All three stores have to answer first.
+    expect(src).toMatch(/const ready = tasksLoaded && habitsLoaded && energyLoaded/);
+    for (const store of ['store/useTaskStore.ts', 'store/useHabitStore.ts', 'store/useEnergyStore.ts']) {
+      expect({ store, hasFlag: read(store).includes('loaded: true') }).toEqual({ store, hasFlag: true });
+    }
+    // The meter, its hint and the tutorial are mutually exclusive — a strip drawing both would
+    // be the "explainer taller than the thing it explains" complaint all over again.
+    expect(src).toMatch(/\{!pause\.paused && showTutorial && \(/);
+    expect(src).toMatch(/\{!pause\.paused && !showTutorial && \(/);
   });
 
   it('names the meter in both languages', () => {

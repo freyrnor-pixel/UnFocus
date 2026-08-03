@@ -161,6 +161,15 @@ type HabitStore = {
    * than this hook needing a queue.
    */
   lastDeleted: Habit | null;
+  /**
+   * Has `load()` run at least once? (2026-08-03.) Mirrors `useTaskStore.loaded` and
+   * `useEnergyStore.loaded`, and exists for the same reason they do: an unloaded store is
+   * indistinguishable from an empty one, so a consumer that draws different UI for "the user
+   * has nothing" needs to know which it is looking at. Added for
+   * components/EnergyMeter.tsx's tutorial state, which would otherwise flash two sentences of
+   * teaching copy at anyone whose energy items are all habits.
+   */
+  loaded: boolean;
   load: () => void;
   // goalId is optional here (defaults to null) so habit seeders/quick-adds needn't set it.
   // Returns the created Habit (mirrors useTaskStore's add) so a caller can act on its id
@@ -284,6 +293,7 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
   habits: [],
   logs: [],
   lastDeleted: null,
+  loaded: false,
 
   load() {
     const since = new Date();
@@ -292,6 +302,7 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
     set({
       habits: loadAll('habits', rowToHabit, { where: 'active = 1 AND deleted_at IS NULL', orderBy: 'routine_order, created_at' }),
       logs: loadAll('habit_logs', rowToLog, { where: 'log_date >= ?', params: [sinceStr] }),
+      loaded: true,
     });
   },
 

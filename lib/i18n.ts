@@ -191,9 +191,16 @@ const en = {
     thisWeek: 'Energy this week',
     remaining: (n: number) => `${n} left`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} used`,
+    /** Title of components/EnergyConfigSheet.tsx, and the ✏️'s accessibility label. */
     editTitle: 'Adjust energy',
     todayCapacity: "Today's energy",
     weekCapacity: "This week's energy",
+    /* One line per stepper in the config sheet, saying what that stepper CHANGES (2026-08-03).
+       This is the copy half of the fix for "it is not obvious to a user what is what": a ± beside
+       a `7 / 10` readout cannot say whether it moves the capacity or the spend, and on the strip
+       there was no room to tell them. Neither line names a good number or suggests one. */
+    todayCapacityHint: 'How much today holds. Every other day keeps its own number.',
+    weekCapacityHint: 'How much the whole week holds.',
     done: 'Done',
     /** Permanent one-liner under the meter (components/EnergyMeter.tsx). Keep it to one
      *  sentence with no examples — see that file's "Permanent inline hint" note. */
@@ -205,6 +212,16 @@ const en = {
     // they fed (t.energyPause replaces both).
     boostToday: 'Extra for today',
     boostHint: 'Some days hold more than usual. This is added to today alone, and tomorrow starts from my normal amount again.',
+    /**
+     * The temporary-extra chip on the day row (2026-08-03) — a neutral components/Badge beside
+     * "Energy today" whenever a boost is set.
+     *
+     * A boost used to disappear into the total: `+3` on a 10-energy day simply printed
+     * `13 / 13`, identical to somebody whose usual day is 13. "today only" is the whole
+     * payload — it says the number is borrowed against one day, not that the day is bigger.
+     * Keep it short enough to sit on a line that already carries a label and two glyphs.
+     */
+    boostChip: (n: number) => `+${n} today only`,
     /** Accessibility label for the extra pips drawn past a full bar (lib/energy.ts's `surplus`). */
     surplusLabel: (n: number) => `${n} beyond today's energy`,
   },
@@ -1773,6 +1790,23 @@ const en = {
     notes: {
       text: 'Note thoughts for later.',
     },
+    /**
+     * The Energy strip's tutorial state (2026-08-03) — what stands at the top of Home while
+     * nothing carries an energy value and no capacity has been set. See
+     * components/EnergyMeter.tsx's "Tutorial state" note.
+     *
+     * Two sentences, in this order for a reason: what energy IS, then the two things that make
+     * the meter mean anything. It must not read as setup the user owes the app — every number
+     * already has a working default, so this only ever adjusts one. `action` opens the same
+     * pop-up the ✏️ opens, so the first available move here is the deliberate one.
+     * Energy had a StarterCard until 2026-07-27 (two "+" example rows, retired in favour of the
+     * permanent hint); this is not that card back — it replaces the METER rather than sitting
+     * under it, and the permanent hint stays exactly where it is.
+     */
+    energy: {
+      text: 'Energy is how much a day holds. Give a to-do or a habit a cost, and the meter here shows what the day has left.',
+      action: "Set the day's energy",
+    },
     goals: {
       text: 'What your to-dos and habits add up to.',
       tapToAdd: 'Tap one to start:',
@@ -2016,10 +2050,15 @@ const no: typeof en = {
     editTitle: 'Juster energi',
     todayCapacity: 'Energi i dag',
     weekCapacity: 'Energi denne uken',
+    /* Se de engelske tvillingene: én linje per teller, som sier hva telleren endrer (2026-08-03). */
+    todayCapacityHint: 'Hvor mye dagen i dag rommer. Alle andre dager beholder sitt eget tall.',
+    weekCapacityHint: 'Hvor mye hele uken rommer.',
     done: 'Ferdig',
     hint: 'Planlegg dagen ut fra energien du faktisk har.',
     boostToday: 'Ekstra i dag',
     boostHint: 'Noen dager rommer mer enn vanlig. Dette legges bare til i dag, og i morgen starter på det vanlige igjen.',
+    /* "bare i dag" er hele poenget — tallet er lånt av én dag, ikke en større dag. */
+    boostChip: (n: number) => `+${n} bare i dag`,
     surplusLabel: (n: number) => `${n} utover dagens energi`,
   },
   energyPause: {
@@ -3345,6 +3384,11 @@ const no: typeof en = {
     },
     notes: {
       text: 'Noter tanker til senere.',
+    },
+    /* Se den engelske tvillingen: energistripens opplæringstilstand (2026-08-03). */
+    energy: {
+      text: 'Energi er hvor mye en dag rommer. Gi et gjøremål eller en vane en kostnad, så viser måleren her hva dagen har igjen.',
+      action: 'Sett dagens energi',
     },
     goals: {
       text: 'Det gjøremålene og vanene dine går til sammen om.',
