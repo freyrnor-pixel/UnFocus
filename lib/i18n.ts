@@ -179,8 +179,16 @@ const en = {
   // Home Energy meter (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Energy',
-    today: 'Today',
-    thisWeek: 'This week',
+    /* These two name the meter, not just the period (2026-08-03). They were 'Today' /
+       'This week' and were passed ONLY in `energyMode: 'custom'`, where two meters are on
+       screen and something has to tell them apart — the far commoner single-meter case
+       drew no label at all, on the reasoning that a lone row makes its period obvious. It
+       does; what it did not make obvious was what the row WAS. A first-time-user walkthrough
+       read the ten pips plus "10 / 10" at the top of Home as a score or a level, which is
+       precisely what this system must not read as. The label is now always drawn, and it
+       carries the word "Energy" so the strip names itself. */
+    today: 'Energy today',
+    thisWeek: 'Energy this week',
     remaining: (n: number) => `${n} left`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} used`,
     editTitle: 'Adjust energy',
@@ -451,94 +459,23 @@ const en = {
     { icon: 'heart-outline', text: 'Health — log symptoms and occurrences, and see the trends over time' },
     { icon: 'battery-half-outline', text: 'An energy system that balances to-dos, habits and health against the energy you actually have' },
   ],
-  whatsYourName: "What's your name?",
-  nameHint: 'Only used to say hi — no data leaves your phone.',
-  getStarted: 'Get started →',
   monthlyResetDateQuestion: 'Which date does the monthly list reset?',
   weeklyRemindersOnboarding: 'Weekly reminders',
-  finishBtn: "Let's go! 🌿",
-  guidedTitle: 'How do you want to start?',
-  guidedSub: 'You can always find tips and explanations in Settings.',
-  guidedBtn: 'Walk me through it',
-  guidedDesc: "We'll go through each feature with a short explanation",
-  exploreBtn: 'Jump right in',
-  exploreDesc: 'Start right away — tips are available in Settings',
-  // The third way to start (app/onboarding/guided.tsx). The description has to spell out the
-  // whole round trip before the tap: this saves a file, the AI work happens outside the app,
-  // and the reply comes back in through Settings.
+  /* The AI setup guide. It was one of three peer cards on the deleted branch screen; since
+     2026-08-03 it is a secondary link on app/onboarding/privacy.tsx, plus Settings and the
+     guided tour's closing card. `aiSetupDesc` went with the card — a link does not carry a
+     two-line description — but the round trip it described still needs saying somewhere
+     before the tap, which is `aiSetup.*`'s job on the Settings screen. */
   aiSetupBtn: 'Set it up with an AI',
-  aiSetupDesc: 'Saves a file to take to an AI. You upload its reply in Settings when you come back.',
   aiSetupPickAnother: 'You can pick another way to start.',
-  recommended: 'Recommended',
-  introHintNote: 'Look for the ⓘ button on any screen for tips and settings.',
-  // Intro tour closing pages (app/onboarding/intro.tsx) — the principles the app is
-  // designed within, then an honest note about the state of the build. Both render
-  // after the t.features pages; keep the copy short, the tour does not scroll.
-  introPrinciples: {
-    title: 'Built to be gentle',
-    bullets: [
-      { icon: 'accessibility-outline', text: 'For everyone — but tuned for ADHD, autism, anxiety and depression' },
-      { icon: 'hand-left-outline', text: 'Easy to use — few steps, nothing hidden' },
-      { icon: 'ribbon-outline', text: 'No punishment and no broken streaks — small rewards instead' },
-      { icon: 'gift-outline', text: 'Free, and always will be — no ads, no subscriptions' },
-    ],
-  },
-  introExperimental: {
-    title: 'This is an experimental build',
-    body: 'UnFocus is a work in progress. Things may change, move or arrive half-finished — that is expected. Everything stays on your phone, and all feedback is welcome — it shapes what comes next.',
-  },
-  // The Energy screen (app/onboarding/energy.tsx). Its whole job is one distinction: Energy
-  // is about today and helps you plan — it is not a score, and it cannot tell you that you
-  // are behind. Keep any new copy on that side of it.
-  //
-  // This block used to carry a second explanation, `growth` (Quiet growth), plus a `sub` and
-  // a `note` that both said "Both …". All three went with the second card on 2026-07-31 —
-  // wording that counts two things cannot survive there being one.
-  //
-  // **Ratified 2026-08-01.** `title` was a placeholder for one day; the maintainer kept it and
-  // took a new `sub` written against it, which closes the gap where this was the only
-  // onboarding screen with a heading and no sub-heading. The sub's job is to say why the
-  // screen exists AT ALL — it earns the interruption by admitting the rest of the app doesn't
-  // need one. It must not describe the meter: that is the card's `energy.body`, directly below.
-  //
-  // **`title` ratified again 2026-08-02.** The screen moved from "explain one system with a
-  // switch" to "choose between two named peer modes" and the heading still said "explaining" —
-  // fixed to "One choice worth making", which names the choice without naming the two modes
-  // (that's `modes.label`'s job, right below it on the control).
-  energyIntro: {
-    title: 'One choice worth making',
-    sub: "The rest of the app you can learn by poking at it. This part looks like a score, so it's worth a minute.",
-    energy: {
-      title: 'Energy',
-      body: 'Tasks and habits can carry an energy cost, and the meter shows what today has left. It is for planning around the energy you actually have, not for measuring you.',
-      note: 'Turning it off hides the meter and keeps every value you have set, so turning it back on restores them.',
-    },
-    /**
-     * The same two peer modes as `config.features.energy.modes`, worded for someone meeting
-     * them for the first time (2026-08-02) — app/onboarding/energy.tsx renders these as a
-     * two-option SlideSelector where a FormSwitch used to be. Both options are offered as
-     * real choices; neither is "off". `note` above still applies to both, so nothing here
-     * repeats it.
-     */
-    /* Segment labels are bare nouns here, NOT "Energy mode"/"Rewards mode" as in
-     * Settings. Two reasons: `label` above already says these are two ways this can
-     * work, so the suffix repeats it; and SlideSelector labels are numberOfLines={1},
-     * so they TRUNCATE rather than wrap — Norwegian "Belønningsmodus" was clipped by
-     * 16px at the `large` font setting (npm run wraps --lang=no --width=327).
-     * Settings keeps the longer form because its own label doesn't establish "mode". */
-    modes: {
-      label: 'Two ways this can work',
-      energy: {
-        label: 'Energy',
-        hint: 'I keep an eye on what a day costs, and plan around what is left.',
-      },
-      rewards: {
-        label: 'Rewards',
-        hint: 'I would rather just tick things off and not count anything.',
-      },
-    },
-  },
-  // First-run personalization (app/first-run.tsx). Four steps, one question each.
+  /* `introPrinciples`, `introExperimental` and the whole `energyIntro` block were deleted on
+     2026-08-03 with the screens that rendered them (app/onboarding/{intro,energy}.tsx —
+     intro went on 2026-07-31, energy in the two-screen cut). The Energy-vs-Rewards wording
+     lives on as `config.features.energy.modes` in Settings, which is now the only place the
+     choice is offered; the "experimental build" note lives on as `tour.finale.experimental`. */
+  // First-run personalization. Was app/first-run.tsx's four-step wizard, then
+  // app/onboarding/basics.tsx's six rows on one screen; since 2026-08-03 onboarding shows
+  // only the language row and the full six are behind Settings' "Run setup again".
   // Labels that already exist elsewhere are REUSED rather than restated — text sizes come
   // from settings.accessibility.fontSize*, starting screens from nav.* — so the flow and
   // Settings say the same words for the same value. The one exception is appearance: the
@@ -593,7 +530,9 @@ const en = {
   tour: {
     step: (n: number, total: number) => `${n} of ${total}`,
     next: 'Got it',
-    skipStep: 'Skip this',
+    /* `skipStep` ("Skip this") was deleted 2026-08-03. It sat beside `next` and did exactly
+       what `next` did — both recorded the step — so the card offered three buttons for two
+       outcomes and asked the reader to tell "Skip this" from "Skip the tour". */
     skipAll: 'Skip the tour',
     steps: {
       home: {
@@ -629,8 +568,19 @@ const en = {
   // Settings say the same words. Only the row labels and the two rows that had no wizard step
   // of their own (language, handedness) live here.
   basics: {
+    /* `title`/`sub` are the SETTINGS re-run wording ("Run setup again"), where all six rows
+       show and "what am I picking" is the only question left. The pair below is what a brand
+       new user sees, where it is not (2026-08-03). */
     title: 'A few basics',
     sub: 'This screen changes as you tap, so you can see what you are picking. All of it has a working default already.',
+    /* Screen ONE of a fresh install. Its job is to answer "what is this?" — the old first
+       screen was a six-row settings form that never said, and a first-time-user walkthrough
+       got all the way through onboarding and the guided tour without finding out. Name the
+       four things the app holds, in the order the tabs sit in, and say the one thing that
+       makes it different from every other list app. The privacy screen says the local-only
+       part, so this one must not spend a line on it. */
+    welcomeTitle: 'Your day, in one place',
+    welcomeSub: 'UnFocus keeps to-dos, shopping, habits and health together, so there is one place to look. Nothing here keeps score.',
     appearance: 'Appearance',
     textSize: 'Text size',
     motion: 'Movement',
@@ -1253,7 +1203,13 @@ const en = {
     // Bottom-of-screen link on Habits/Plans that opens the GoalsSheet popup (2026-07-31 —
     // moved off the top of those screens; see those files' Edit notes). Deliberately
     // "Edit Goals" not "Goals": it opens straight into add/delete, not a browse view.
-    editLink: 'Edit Goals',
+    /* A bare noun, like Shopping's "Food" and "Catalogue" links, which this button's own
+       component header says it mirrors (components/SubScreenLinkButton.tsx). It read
+       "Edit Goals" until 2026-08-03 — a verb that overstates what the tap does (it opens
+       a sheet you can look at as well as edit) and that reads as a list row rather than a
+       way out of the screen, which is how the 2026-08-03 walkthrough took it on both the
+       To-do and Habits tabs. AGENTS.md had already recorded the label as "Goals". */
+    editLink: 'Goals',
     close: 'Done',
     strengthStrong: 'Going strong',
     strengthWarm: 'Warming up',
@@ -1293,7 +1249,15 @@ const en = {
       headline: 'Your data stays with you',
       local: 'Everything is stored only on this device — nothing is sent anywhere.',
       free: 'UnFocus is free — and stays free.',
-      cta: 'Got it →',
+      /* This is now the LAST screen of onboarding, so its button finishes setup rather
+         than advancing (2026-08-03). "Got it →" described acknowledging a notice; "Start"
+         describes what the tap does, per rule 22. */
+      cta: 'Start',
+      /* Two secondary ways off this screen, both deliberately below the primary and both
+         plain links rather than cards. The restore path used to be a whole screen of its
+         own, asked of every new user before they had seen anything; it is a returning
+         user's question, so it waits here for the person who needs it. */
+      restoreLink: 'Restoring from a backup?',
     },
     // First-run "have you used UnFocus before?" step — offers to restore a backup
     // file before the user starts a fresh setup (restore replaces all data).
@@ -1370,6 +1334,12 @@ const en = {
     sections: {
       appearance: 'Appearance',
       notifications: 'Notifications',
+      /* The General tab's FIRST group (Profile / Appearance / Accessibility). Added
+         2026-08-03: every other group on every Settings tab is introduced by a bare
+         `groupHeader` above its cards, and this one alone had none — so the tab opened with
+         an unheaded panel and then started using headings from "Data" down, which reads as
+         two different hierarchies on one screen. */
+      you: 'You',
       data: 'Data',
       layout: 'Layout',
       features: 'Features',
@@ -2038,8 +2008,9 @@ const no: typeof en = {
   // Home Energy-måler (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Energi',
-    today: 'I dag',
-    thisWeek: 'Denne uken',
+    /* Se den engelske tvillingen: disse navngir måleren, ikke bare perioden (2026-08-03). */
+    today: 'Energi i dag',
+    thisWeek: 'Energi denne uken',
     remaining: (n: number) => `${n} igjen`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} brukt`,
     editTitle: 'Juster energi',
@@ -2247,61 +2218,10 @@ const no: typeof en = {
     { icon: 'heart-outline', text: 'Helse — logg symptomer og hendelser, og se trendene over tid' },
     { icon: 'battery-half-outline', text: 'Et energisystem som balanserer gjøremål, vaner og helse mot energien du faktisk har' },
   ],
-  whatsYourName: 'Hva heter du?',
-  nameHint: 'Brukes bare til å si hei — ingen data forlater telefonen din.',
-  getStarted: 'Kom i gang →',
   monthlyResetDateQuestion: 'Hvilken dato nullstilles månedslisten?',
   weeklyRemindersOnboarding: 'Ukentlige påminnelser',
-  finishBtn: 'Kom i gang! 🌿',
-  guidedTitle: 'Hvordan vil du starte?',
-  guidedSub: 'Du kan alltid finne tips og forklaringer i innstillingene.',
-  guidedBtn: 'Vis meg rundt',
-  guidedDesc: 'Vi går gjennom hver funksjon med en kort forklaring',
-  exploreBtn: 'Hopp rett inn',
-  exploreDesc: 'Begynn med en gang — tips er tilgjengelige i innstillingene',
   aiSetupBtn: 'Sett opp med AI',
-  aiSetupDesc: 'Lagrer en fil du tar med til en AI. Svaret laster du opp i innstillingene når du kommer tilbake.',
   aiSetupPickAnother: 'Du kan velge en annen måte å starte på.',
-  recommended: 'Anbefalt',
-  introHintNote: 'Se etter ⓘ-knappen på hver skjerm for tips og innstillinger.',
-  introPrinciples: {
-    title: 'Laget for å være mild',
-    bullets: [
-      { icon: 'accessibility-outline', text: 'For alle — men tilpasset ADHD, autisme, angst og depresjon' },
-      { icon: 'hand-left-outline', text: 'Enkel å bruke — få steg, ingenting bortgjemt' },
-      { icon: 'ribbon-outline', text: 'Ingen straff og ingen brutte rekker — små belønninger i stedet' },
-      { icon: 'gift-outline', text: 'Gratis, og vil alltid være det — ingen reklame, ingen abonnement' },
-    ],
-  },
-  introExperimental: {
-    title: 'Dette er en eksperimentell versjon',
-    body: 'UnFocus er under arbeid. Ting kan endre seg, flytte på seg eller komme halvferdig — det er som forventet. Alt blir liggende på telefonen din, og alle tilbakemeldinger er velkomne — de former det som kommer.',
-  },
-  energyIntro: {
-    title: 'Ett valg verdt å ta',
-    // "poking at it" has no idiomatic Norwegian equivalent that stays this light — "prøve deg
-    // fram" (feel your way / try as you go) carries the same "you don't have to be taught this"
-    // sense without turning it into an instruction.
-    sub: 'Resten av appen kan du prøve deg fram i. Denne delen ser ut som en poengsum, så den er verdt et minutt.',
-    energy: {
-      title: 'Energi',
-      body: 'Gjøremål og vaner kan ha en energikostnad, og måleren viser hva dagen har igjen. Den er til for å planlegge etter energien du faktisk har, ikke for å måle deg.',
-      note: 'Slår du den av, skjules måleren og alle verdiene du har satt beholdes, så de er der igjen hvis du slår den på.',
-    },
-    /* Bare nouns, not "…modus" — see the EN side's note. "Belønningsmodus" was the
-     * string that truncated at width=327. */
-    modes: {
-      label: 'To måter dette kan fungere på',
-      energy: {
-        label: 'Energi',
-        hint: 'Jeg følger med på hva en dag koster, og planlegger etter det som er igjen.',
-      },
-      rewards: {
-        label: 'Belønning',
-        hint: 'Jeg vil heller bare krysse av og slippe å telle noe.',
-      },
-    },
-  },
   firstRun: {
     step: (n: number, total: number) => `${n} av ${total}`,
     skip: 'Hopp over',
@@ -2344,7 +2264,7 @@ const no: typeof en = {
   tour: {
     step: (n: number, total: number) => `${n} av ${total}`,
     next: 'Skjønner',
-    skipStep: 'Hopp over denne',
+    /* `skipStep` fjernet 2026-08-03 — se den engelske tvillingen. */
     skipAll: 'Hopp over omvisningen',
     steps: {
       home: {
@@ -2378,6 +2298,9 @@ const no: typeof en = {
   basics: {
     title: 'Litt grunnleggende',
     sub: 'Denne skjermen endrer seg mens du trykker, så du ser hva du velger. Alt har allerede en standard som fungerer.',
+    /* Se den engelske tvillingen: dette er det en helt ny bruker møter først. */
+    welcomeTitle: 'Dagen din, på ett sted',
+    welcomeSub: 'UnFocus samler gjøremål, handling, vaner og helse, så du har ett sted å se. Ingenting her fører regnskap.',
     appearance: 'Utseende',
     textSize: 'Tekststørrelse',
     motion: 'Bevegelse',
@@ -2628,7 +2551,7 @@ const no: typeof en = {
     deleteConfirmBody: 'Oppgaver og vaner som er koblet til, blir frakoblet. Dette kan ikke angres.',
     strengthLabel: 'Måldriv — vokser når du jobber med det, avtar rolig når du ikke gjør det.',
     title: 'Mål',
-    editLink: 'Rediger mål',
+    editLink: 'Mål',
     close: 'Ferdig',
     strengthStrong: 'Går sterkt',
     strengthWarm: 'Er i gang',
@@ -2666,7 +2589,9 @@ const no: typeof en = {
       headline: 'Dataene dine er hos deg',
       local: 'Alt lagres kun på denne enheten — ingenting sendes noe sted.',
       free: 'UnFocus er gratis — og forblir det.',
-      cta: 'Skjønner →',
+      /* Se den engelske tvillingen: dette er siste skjerm i oppstarten nå. */
+      cta: 'Start',
+      restoreLink: 'Gjenoppretter du fra en sikkerhetskopi?',
     },
     restore: {
       headline: 'Har du brukt UnFocus før?',
@@ -2736,6 +2661,8 @@ const no: typeof en = {
     skipForNow: 'Jeg ordner dette senere',
     sections: {
       appearance: 'Utseende',
+      /* Se den engelske tvillingen (2026-08-03). */
+      you: 'Deg',
       notifications: 'Varsler',
       data: 'Data',
       layout: 'Oppsett',

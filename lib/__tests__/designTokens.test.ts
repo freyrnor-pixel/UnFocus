@@ -202,7 +202,8 @@ describe('DESIGN_RULES.md — no bare design literals at call sites', () => {
       'components/PlanTaskCard.tsx', // timeBox minWidth + hNowMarker width — display boxes
       'app/scan.tsx', // itemPrice minWidth — a right-aligned text column
       'components/FoodTab.tsx', // amountInput width — a numeric field's layout width
-      'app/onboarding/guided.tsx', // optionBadge — a decorative badge inside a tappable card
+      // app/onboarding/guided.tsx (optionBadge) was here until 2026-08-03 — the screen was
+      // deleted in the two-screen onboarding cut, so the exemption went with it.
     ]);
     const offenders = SCANNED.filter(
       (f) => !ALLOW.has(rel(f)) && /\b(minHeight|minWidth|height|width): 44\b/.test(readCode(f)),

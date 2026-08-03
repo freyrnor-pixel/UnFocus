@@ -8,7 +8,8 @@
  *
  * Connections:
  *   Imports → lib/date, lib/time, lib/i18n, lib/notifications, store/useSettingsStore
- *   Used by → app/_layout.tsx, app/onboarding/index.tsx, app/onboarding/guided.tsx, app/settings.tsx
+ *   Used by → app/_layout.tsx, app/onboarding/privacy.tsx (finishSetup — the single
+ *             completion path since the 2026-08-03 two-screen cut), app/settings.tsx
  *   Data    → reads settings store; schedules OS notifications
  *
  * Edit notes:

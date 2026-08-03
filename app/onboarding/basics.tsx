@@ -66,7 +66,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { getTranslations, type Translations } from '@/lib/i18n';
@@ -96,6 +96,31 @@ export default function OnboardingBasics() {
   const systemScheme = useColorScheme();
   const osReducedMotion = useSystemReducedMotion();
 
+  /**
+   * Which rows to draw — the 2026-08-03 split.
+   *
+   * A fresh install shows ONE row (language) under a headline that says what the app is.
+   * The re-run from Settings → Personal → Layout ("Run setup again") passes `?rows=all` and
+   * gets the full six, which is what that row has always meant.
+   *
+   * Why: screen one of a brand-new install was a six-row settings form, asking for fifteen
+   * decisions before the user had seen anything and before they knew what UnFocus was for.
+   * Every one of those values already has a working default (invariant 1 below), so the
+   * screen only ever ADJUSTED — which makes it exactly the kind of thing that belongs in
+   * Settings, where all five of the hidden rows already have a home (Appearance, Text size
+   * and Movement under General; Menu side and Starting screen under Personal → Layout).
+   * Language stays because everything after it is rendered in whatever it picks.
+   *
+   * The write is UNCHANGED and still atomic over all six (see commit()): the five rows this
+   * mode doesn't draw are committed at their seeded values, which are the values already in
+   * the store. So a first-run commit and a straight-through re-run are both no-ops for them,
+   * `settingsPatchFromPicks` keeps its 324-combination round-trip contract, and
+   * `firstRunComplete` still cannot be set without the selections landing with it.
+   */
+  const { rows: rowsParam } = useLocalSearchParams<{ rows?: string }>();
+  const showAllRows = rowsParam === 'all';
+  const visibleRows = showAllRows ? BASICS_ROWS : (['language'] as const);
+
   // Seed from the settings that are ALREADY applied — shipped defaults on a fresh install,
   // the user's own choices on a re-run. Nothing here is ever unset, which is what makes both
   // "Skip" and "re-run and press straight through" no-ops.
@@ -117,10 +142,20 @@ export default function OnboardingBasics() {
   const commit = useCallback(
     (final: FirstRunPicks) => {
       settings.update(settingsPatchFromPicks(final));
-      // Onboarding continues; the tabs are reached at the end of it, not from here.
-      router.push('/onboarding/restore');
+      // A re-run from Settings has nowhere to go on — onboarding proper is one screen away
+      // from finishing and the user is not in it. Go back where they came from.
+      if (showAllRows) {
+        router.back();
+        return;
+      }
+      // Onboarding continues to the privacy screen, which is now the LAST one: it carries the
+      // Start button, the restore detour and the AI setup link. The restore step used to sit
+      // here, between this screen and privacy, and was asked of every new user before they had
+      // seen anything — it is a returning user's question, so it waits on privacy for the
+      // person who needs it.
+      router.push('/onboarding/privacy');
     },
-    [settings, router],
+    [settings, router, showAllRows],
   );
 
   const choose = useCallback(<K extends keyof FirstRunPicks>(key: K, value: FirstRunPicks[K]) => {
@@ -132,11 +167,19 @@ export default function OnboardingBasics() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.top}>
-          <Text style={[styles.heading, { color: theme.text }]}>{t.basics.title}</Text>
-          <Text style={[styles.sub, { color: theme.textMuted }]}>{t.basics.sub}</Text>
+          {/* Two headings for two jobs. On a fresh install this screen has to answer "what is
+              this app?" before it asks for anything — nothing else in onboarding or the tour
+              ever did. The re-run from Settings keeps the original wording, where the only
+              open question really is what you are picking. */}
+          <Text style={[styles.heading, { color: theme.text }]}>
+            {showAllRows ? t.basics.title : t.basics.welcomeTitle}
+          </Text>
+          <Text style={[styles.sub, { color: theme.textMuted }]}>
+            {showAllRows ? t.basics.sub : t.basics.welcomeSub}
+          </Text>
         </View>
 
-        {BASICS_ROWS.map((rowKey) => {
+        {visibleRows.map((rowKey) => {
           const { label, options, selected, note } = rowContent(rowKey, t, picks, osReducedMotion);
           const chosen = options.find((o) => o.value === selected);
           return (
