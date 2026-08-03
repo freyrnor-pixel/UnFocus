@@ -169,6 +169,23 @@ describe('TourSpotlight — one primary, one escape, and it puts you back where 
   });
 });
 
+describe('Onboarding backdrop — texture, not lines over the controls', () => {
+  const src = code('app/onboarding/_layout.tsx');
+
+  it('dials the triptych back with a whole-motif multiplier', () => {
+    // Onboarding is the one place full-bleed art sits directly UNDER interactive controls
+    // rather than around a protected centre box, and it rendered at full baked opacity
+    // (trunk strokes up to 0.6/0.78) until 2026-08-03. The tab backdrop has always dialled
+    // its own cluster to 0.5/0.7 for the same reason.
+    const m = src.match(/const BACKDROP_OPACITY = ([\d.]+)/);
+    expect(m).not.toBeNull();
+    const value = Number(m![1]);
+    expect(value).toBeGreaterThan(0);
+    expect(value).toBeLessThan(1);
+    expect(src).toMatch(/opacity=\{BACKDROP_OPACITY\}/);
+  });
+});
+
 describe('PlanTaskCard — "nothing left" never contradicts a visible task', () => {
   const src = code('components/PlanTaskCard.tsx');
 

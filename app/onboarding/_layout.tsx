@@ -68,6 +68,30 @@ const TRIPTYCH_PANELS = MOTIFS['onboarding-triptych'].w / MOTIFS['screen-bg-calm
 const TRAVEL_PANELS = TRIPTYCH_PANELS - 1;
 
 /**
+ * Whole-motif multiplier, so the tree stays texture and never reads as a line drawn ON the
+ * controls (2026-08-03).
+ *
+ * This was 1 — the triptych rendered at its full baked opacity, whose trunk strokes go up to
+ * 0.6 light / 0.78 dark. The tab screens' backdrop has always dialled its own branch cluster
+ * back to 0.5/0.7 for exactly this reason (components/ScreenBackground.tsx's `branchOpacity`);
+ * onboarding never did, and it is the one place in the app where full-bleed art sits directly
+ * under interactive controls rather than around a protected centre box. The 2026-08-03
+ * walkthrough reported a branch running through the Basics screen's pills and another passing
+ * under the privacy screen's button and links as looking like scratches or a rendering fault
+ * rather than like a tree.
+ *
+ * A multiplier and not an SVG change, deliberately — see components/Motif.tsx's note on the
+ * prop. The art is NOT too strong at source (its strokes sit inside the design system's
+ * documented 0.4–0.85 budget); it is being used somewhere that needs it further back, which
+ * is precisely what the prop is for. One value rather than a light/dark pair, because the
+ * generated data already encodes that relationship in its `o`/`od` pairs.
+ *
+ * The tree still reads, and still doubles as the progress indicator. Don't raise this back
+ * without checking a screen whose controls sit low, which since the two-screen cut is privacy.
+ */
+const BACKDROP_OPACITY = 0.45;
+
+/**
  * The navigation theme with a see-through page. The opaque base colour lives on this layout's
  * own root View, underneath the backdrop, so the navigator must not paint one of its own.
  *
@@ -127,7 +151,13 @@ export default function OnboardingLayout() {
             },
           ]}
         >
-          <Motif id="onboarding-triptych" color={theme.accent} style={StyleSheet.absoluteFill} fit="slice" />
+          <Motif
+            id="onboarding-triptych"
+            color={theme.accent}
+            style={StyleSheet.absoluteFill}
+            fit="slice"
+            opacity={BACKDROP_OPACITY}
+          />
         </Animated.View>
       </View>
       {/* `contentStyle` alone is NOT enough to see the backdrop. The navigator also paints its
