@@ -73,6 +73,13 @@ const TABLE_COLUMNS: Record<SyncTable, string[]> = {
     // means the same thing on both phones. Not syncing it would let the same shared task be
     // a note here and a checkable task there — and one of them would then count it.
     'card_type',
+    // `done_at` (2026-08-02) is deliberately ABSENT and must stay that way — same shape of
+    // reasoning as `people.is_self` below, for a different reason. The day log (lib/dayLog.ts)
+    // is a device-local record of what YOU did; a peer ticking a shared task should land
+    // `done` (which is on this list) without writing a line into your day. Left off the
+    // whitelist, an inbound row keeps the local column untouched and the entry simply never
+    // appears — which is the honest outcome, since the receiving phone has no idea when the
+    // other person actually ticked it.
   ],
   shopping_items: [
     'name', 'amount', 'unit', 'list_type', 'checked', 'store', 'price', 'created_at', 'list_id',

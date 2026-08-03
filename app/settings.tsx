@@ -217,7 +217,7 @@
  *     how to retire one the same way (unconditional migration UPDATE, un-gate every call
  *     site, drop the FEATURE_ROWS/onboarding-picker row, keep the DB column).
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -240,6 +240,7 @@ import {
   EnergyMode,
   StartScreen,
 } from '@/store/useSettingsStore';
+import { DeviceCalendarInfo, listDeviceCalendars } from '@/lib/deviceCalendar';
 import { DETAIL_LEVELS, type DetailLevel } from '@/lib/cardLayout';
 import { START_SCREEN_CHOICES } from '@/lib/firstRunOptions';
 import { useShoppingStore } from '@/store/useShoppingStore';
@@ -304,12 +305,14 @@ type FeatureFlagKey =
   | 'featureSharing'
   | 'featureAutomations'
   | 'featureMedicine'
+  | 'featureDayLog'
   | 'showGrowth';
 const FEATURE_ROWS: { key: FeatureFlagKey; copy: (t: ReturnType<typeof useT>) => { label: string; hint: string } }[] = [
   { key: 'featureGoals', copy: (t) => t.config.features.goals },
   { key: 'featureSharing', copy: (t) => t.config.features.sharing },
   { key: 'featureAutomations', copy: (t) => t.config.features.automations },
   { key: 'featureMedicine', copy: (t) => t.config.features.medicine },
+  { key: 'featureDayLog', copy: (t) => t.config.features.dayLog },
   // NOTE: `energySystemEnabled` deliberately does NOT live here (2026-08-02). It is a
   // two-mode SegmentedControl at the top of the same card — Energy mode / Rewards mode —
   // because the false side is a named peer, not an absence. Re-adding it as a switch would
@@ -331,6 +334,19 @@ function formatBackupTime(iso: string): string {
 export default function SettingsScreen() {
   const router = useRouter();
   const settings = useSettingsStore();
+  const featureDayLog = settings.featureDayLog;
+  // The device's calendars, for the read-visibility picker below. Loaded once on mount and
+  // ONLY if access is already held — listDeviceCalendars() never prompts. Settings is not
+  // where a permission gets asked for; that happens contextually when the timeline is first
+  // opened (lib/useCalendarEvents.ts). An empty list simply hides the picker.
+  const [deviceCalendars, setDeviceCalendars] = useState<DeviceCalendarInfo[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    listDeviceCalendars().then((cals) => {
+      if (!cancelled) setDeviceCalendars(cals);
+    });
+    return () => { cancelled = true; };
+  }, []);
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
@@ -1366,6 +1382,50 @@ export default function SettingsScreen() {
                     onChange={(v) => { selection(); applyAndSync({ calendarSyncEnabled: v }); }}
                   />
                 </View>
+
+                {/* Which device calendars the timeline may READ (2026-08-02,
+                    lib/deviceCalendar.ts). Distinct from the toggle above it, which is about
+                    WRITING a mirrored event out — that is a separate feature with its own
+                    switch, and the two are deliberately not merged.
+                    Nothing selected means ALL of them, which is the default: a picker that
+                    started empty would show nothing and read as broken. The list is empty
+                    until calendar access is granted, and stays empty if the user declines —
+                    a supported permanent state, so there is no prompt and no call to action
+                    here. */}
+                {featureDayLog && deviceCalendars.length > 0 ? (
+                  <>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.dayLog.calendars.title}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.dayLog.calendars.hint}</Text>
+                    {deviceCalendars.map((cal) => {
+                      // Empty selection = all visible, so an untouched picker shows every
+                      // row as on rather than as an unexplained blank slate.
+                      const all = settings.dayLogCalendarIds.length === 0;
+                      const checked = all || settings.dayLogCalendarIds.includes(cal.id);
+                      return (
+                        <View key={cal.id} style={styles.switchRow}>
+                          <View style={styles.switchTextCol}>
+                            <Text style={[styles.switchLabel, { color: theme.text }]}>{cal.title}</Text>
+                          </View>
+                          <FormSwitch
+                            checked={checked}
+                            onChange={(v) => {
+                              selection();
+                              // Turning one OFF while "all" is implicit has to materialise
+                              // the full list first, or the patch would read as "only this
+                              // one" and hide every other calendar in one tap.
+                              const current = all ? deviceCalendars.map((c) => c.id) : settings.dayLogCalendarIds;
+                              const next = v
+                                ? [...new Set([...current, cal.id])]
+                                : current.filter((id) => id !== cal.id);
+                              settings.update({ dayLogCalendarIds: next });
+                            }}
+                          />
+                        </View>
+                      );
+                    })}
+                  </>
+                ) : null}
               </Surface>
             </View>
           </>

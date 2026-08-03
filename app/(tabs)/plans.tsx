@@ -41,7 +41,16 @@
  *             store/useSettingsStore, store/usePeopleStore + components/PersonChip (the person
  *             filter row), store/useTagStore + components/TagChip + lib/tags (the tag filter
  *             row — multi-select, "any of"), components/EnergyBalanceCard (the shared-load
- *             comparison, People mode only, day/week tabs only), components/SubScreenLinkButton
+ *             comparison, People mode only, day/week tabs only),
+ *             lib/useDayLog + lib/dayLog (2026-08-02 — the day log, i.e. what already
+ *             happened today, passed into PlanTaskCard so its now-line becomes the boundary
+ *             between that and the day ahead), lib/useNowMinutes (the shared 60s tick both
+ *             the log's cutoff and the grid's now-line read, so they can't disagree),
+ *             lib/useCalendarEvents + lib/deviceCalendar (READ-ONLY device-calendar events on
+ *             the timeline; the hook owns the ONE contextual permission prompt — take
+ *             `useIsFocused` from expo-router, never @react-navigation/native, which fails the
+ *             bundle outright on SDK 56), store/useMomentsStore (manual capture + delete),
+ *             components/SubScreenLinkButton
  *             (2026-07-29, the "Edit Goals" link at the bottom of the screen — Goals dropped
  *             its own Home card; see app/goals.tsx's header), components/GoalsSheet (2026-07-31,
  *             the popup that link opens)
@@ -173,7 +182,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
@@ -185,6 +194,11 @@ import TaskCard from '@/components/TaskCard';
 import PlanTaskCard from '@/components/PlanTaskCard';
 import LayoutPickerSheet from '@/components/LayoutPickerSheet';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
+import { useDayLog } from '@/lib/useDayLog';
+import { useCalendarEvents } from '@/lib/useCalendarEvents';
+import { useNowMinutes } from '@/lib/useNowMinutes';
+import { DayEntry } from '@/lib/dayLog';
+import { useMomentsStore } from '@/store/useMomentsStore';
 import { useCardState } from '@/lib/useCardState';
 import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
 import AddRow from '@/components/AddRow';
@@ -651,6 +665,7 @@ export default function TasksScreen() {
   // Gates the "Goals" link button below (2026-07-29) — same flag TaskCard's own GoalPicker
   // field already reads, so turning Goals off hides both at once.
   const featureGoals = useSettingsStore((s) => s.featureGoals);
+  const featureDayLog = useSettingsStore((s) => s.featureDayLog);
 
   const [tab, setTab] = useState<Tab>('today');
   // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open, and the
@@ -691,6 +706,33 @@ export default function TasksScreen() {
   }, [prefill]);
 
   const today = todayStr();
+
+  // The day log (2026-08-02) — what already happened today, cut at the now-line so a task
+  // due later never reads as already done. `useNowMinutes` is the same shared 60s tick the
+  // timeline's now-line runs on, so the log and the grid can't disagree about where "now"
+  // is. Returns [] when settings.featureDayLog is off.
+  const nowMinutes = useNowMinutes();
+  const dayLog = useDayLog(today, nowMinutes);
+  const removeMoment = useMomentsStore((s) => s.remove);
+  const addMoment = useMomentsStore((s) => s.add);
+  // Device calendar (2026-08-02). The hook owns the contextual permission prompt — asked
+  // once, here, the first time the timeline is opened, never during onboarding. A decline
+  // yields [] permanently and is never mentioned again; the timeline is complete without it.
+  // All five tab screens are mounted at once (`lazy: false`), so "is this screen mounted"
+  // is not "is the user looking at it" — hence a real focus check, which is also what makes
+  // the permission prompt land when the timeline is first OPENED rather than at app launch.
+  const isFocused = useIsFocused();
+  const calendarEvents = useCalendarEvents(today, isFocused);
+  // A log row opens the record it came from. Only tasks have an in-app editor to open;
+  // doses and health entries live on the Health tab, and a moment IS its own record, so
+  // those simply aren't pressable rather than pretending to navigate somewhere.
+  const handlePressLogEntry = useCallback(
+    (entry: DayEntry) => {
+      if (entry.kind !== 'task' || !entry.sourceId) return;
+      router.push({ pathname: '/task-form', params: { id: entry.sourceId } });
+    },
+    [router]
+  );
 
   // Person filter predicate — identity unless People/family mode is on AND a specific
   // person (not "Everyone") is selected. An empty assigneeId means "mine": that covers
@@ -1269,6 +1311,19 @@ export default function TasksScreen() {
                     // this, an empty day on the timeline default would lose the quick-add
                     // affordance entirely, not just the redundant second copy of the explainer.
                     onAddExample={addPlanStarterTask}
+                    // The day log (2026-08-02) — what already happened, above the now-line.
+                    // Passing it is what makes the now-line this card's boundary; the hook
+                    // returns [] when settings.featureDayLog is off, and PlanTaskCard treats
+                    // an absent/empty log as "draw the day the way it always was".
+                    dayLog={dayLog}
+                    onPressEntry={handlePressLogEntry}
+                    onRemoveMoment={removeMoment}
+                    onCaptureMoment={addMoment}
+                    // Device-calendar events (2026-08-02) — the fixed things that aren't in
+                    // this app. Read-only, and only on the To-do tab's full-screen timeline:
+                    // Home's card is a preview of YOUR day, and a meeting is structure
+                    // rather than something you did.
+                    calendarEvents={calendarEvents}
                   />
                 ) : layoutSpec.id === 'focusFirst' ? (
                   /* "One thing at a time" — a different SHAPE for the same tasks, so it replaces
@@ -1373,6 +1428,20 @@ export default function TasksScreen() {
             icon="flag"
             label={t.goals.editLink}
             onPress={() => setGoalsSheetOpen(true)}
+          />
+        )}
+
+        {/* Earlier days (2026-08-02). The day log lives in the card above — this is only the
+            way back through previous days, which a card about TODAY has no room for. Same
+            button-launched-sub-screen pattern as Goals and Shopping's Food/Catalogue links,
+            and gated on the same flag as the log itself so turning the feature off removes
+            the link rather than leaving a door to an empty room. */}
+        {featureDayLog && (
+          <SubScreenLinkButton
+            domain="task"
+            icon="time-outline"
+            label={t.dayLog.earlierDays}
+            onPress={() => router.push('/day-log')}
           />
         )}
       </View>

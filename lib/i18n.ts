@@ -248,6 +248,48 @@ const en = {
     continueEditing: 'Continue editing',
   },
   padRow: { actionLabel: 'More for this row' },
+  /**
+   * The day log — what already happened, behind the now-line (lib/dayLog.ts).
+   *
+   * Copy rules that are stricter here than anywhere else in the app, and are the feature:
+   *   - No count, total or percentage in any string. Not even a friendly one.
+   *   - No evaluation. No praise, no "productive day", no summary judgement. The entries
+   *     speak; nothing here comments on them.
+   *   - The past section has NO header. Do not add `Completed`/`Gjennomført` or similar —
+   *     labelling the section turns a record into a scorecard.
+   *   - Never `Summary`, `Progress`, `Statistics` or any translation of those.
+   */
+  dayLog: {
+    title: 'Today',
+    /**
+     * The one first-person line in the entire app, and deliberately so — see VOICE.md.
+     * It explains why the feature exists instead of instructing the user, which is the
+     * only job an empty day has. Do NOT "correct" it into the app's usual second person,
+     * and do not add a second line in this voice anywhere in this feature.
+     */
+    empty:
+      "I remember the big things. It's everything in between that disappears — especially what happened in the middle of the chaos.",
+    /** Placeholder on the capture field. Present tense, no prompt to categorise. */
+    capturePrompt: 'What just happened?',
+    /** The now-line's own label. Lowercase on purpose — it is a marker, not a heading. */
+    now: 'now',
+    /** Nothing scheduled ahead. A neutral statement of fact, not an invitation. */
+    nothingAhead: 'Nothing fixed left today.',
+    /** Entry point to the earlier-days screen. */
+    earlierDays: 'Earlier days',
+    /** Deleting a captured moment — the only entry the user can remove. */
+    deleteMoment: 'Delete this note',
+    /** Fallbacks for rows whose source row no longer has a name of its own. */
+    kinds: {
+      medicine: 'Medicine',
+    },
+    /** Which device calendars the timeline may READ. Never mentions granting access —
+     *  declining is a supported permanent state and the picker just doesn't appear. */
+    calendars: {
+      title: 'Calendars on the timeline',
+      hint: 'Events from these show up ahead of the now line. Nothing is written back.',
+    },
+  },
   /** The ⋯ router on a note row (components/SendToSheet.tsx). */
   sendTo: {
     title: 'Send it to…',
@@ -1415,6 +1457,10 @@ const en = {
         label: 'Medicine',
         hint: 'A dose card on the Health tab, with a reminder for each part of the day.',
       },
+      dayLog: {
+        label: 'The day as it happened',
+        hint: 'Keeps what you have already done above the now line, and what is left below it.',
+      },
       /**
        * Energy is TWO NAMED PEER MODES now (2026-08-02), not a feature switched on and off.
        * `label`/`hint` stay for anything still rendering it as a plain FEATURE_ROWS row;
@@ -2036,6 +2082,24 @@ const no: typeof en = {
     continueEditing: 'Fortsett å redigere',
   },
   padRow: { actionLabel: 'Mer for denne raden' },
+  dayLog: {
+    title: 'I dag',
+    // The one first-person line in the app — see VOICE.md and the English side's note.
+    empty:
+      'Jeg husker de store tingene. Det er alt imellom som forsvinner — særlig det som skjedde midt i kaoset.',
+    capturePrompt: 'Hva skjedde nå?',
+    now: 'nå',
+    nothingAhead: 'Ingenting fast igjen i dag.',
+    earlierDays: 'Tidligere dager',
+    deleteMoment: 'Slett dette notatet',
+    kinds: {
+      medicine: 'Medisin',
+    },
+    calendars: {
+      title: 'Kalendere på tidslinjen',
+      hint: 'Hendelser herfra vises foran nå-linjen. Ingenting skrives tilbake.',
+    },
+  },
   sendTo: {
     title: 'Send den til…',
     todo: 'Gjøremål',
@@ -2743,6 +2807,10 @@ const no: typeof en = {
       medicine: {
         label: 'Medisin',
         hint: 'Et dosekort på Helse-fanen, med påminnelse for hver del av dagen.',
+      },
+      dayLog: {
+        label: 'Dagen slik den skjedde',
+        hint: 'Holder det du allerede har gjort over nå-linjen, og det som er igjen under.',
       },
       energy: {
         label: 'Energi',

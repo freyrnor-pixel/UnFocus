@@ -81,6 +81,21 @@ export type HealthLog = {
   /** Optional pointer to the `medicines` row taken during the episode. '' for most entries.
    *  A dangling id (deleted medicine) is accepted, same as `medicineId`. */
   reliefMedicineId: string;
+  /**
+   * READ-ONLY. The `health_logs.created_at` column, which has carried a wall clock since
+   * the original CREATE TABLE via its `datetime('now')` default but was never surfaced.
+   * Exposed 2026-08-02 so the day log can place an entry whose `startTime` is blank —
+   * which is most of them, since Quick log writes no time and the field is hand-typed.
+   *
+   * **It is UTC**, unlike every other date in this app. Read it through
+   * lib/date.ts's `utcStampToLocalMinutes`, never directly.
+   *
+   * Deliberately absent from HEALTH_LOG_FIELDS: the SQLite default owns this column, so
+   * nothing here can overwrite it, and no new timestamp about being unwell is being
+   * stored (see EPISODES.md — "storing 'I asked at 14:02' is a timestamp about being
+   * unwell"). This surfaces one that already existed; it does not create one.
+   */
+  createdAt: string;
 };
 
 export type Symptom = {
@@ -93,7 +108,8 @@ type HealthStore = {
   logs: HealthLog[];
   symptoms: Symptom[];
   load: () => void;
-  add: (entry: Omit<HealthLog, 'id'>) => HealthLog;
+  /** `createdAt` is excluded because SQLite's `datetime('now')` default owns it — see the type. */
+  add: (entry: Omit<HealthLog, 'id' | 'createdAt'>) => HealthLog;
   update: (id: string, patch: Partial<Omit<HealthLog, 'id'>>) => void;
   remove: (id: string) => void;
   /** Typeahead over the symptom catalog (name-contains, prefix-ranked). */
@@ -129,6 +145,8 @@ function rowToHealthLog(row: Row): HealthLog {
     episodeState: toEpisodeState(readStr(row, 'episode_state')),
     reliefNote: readStr(row, 'relief_note'),
     reliefMedicineId: readStr(row, 'relief_medicine_id'),
+    // Read-only — see the type. No matching HEALTH_LOG_FIELDS entry, on purpose.
+    createdAt: readStr(row, 'created_at'),
   };
 }
 
@@ -202,7 +220,11 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
       relief_note: entry.reliefNote,
       relief_medicine_id: entry.reliefMedicineId || null,
     });
-    const log = { ...entry, id };
+    // The row's own created_at came from SQLite's `datetime('now')` default (UTC). Mirror
+    // the same instant into the in-memory copy so the day log can place a just-added entry
+    // without a reload — ISO and `YYYY-MM-DD HH:MM:SS` are both UTC and both parse in
+    // lib/date.ts's utcStampToLocalMinutes, so the two forms are interchangeable here.
+    const log: HealthLog = { ...entry, id, createdAt: new Date().toISOString() };
     set((s) => ({ logs: [log, ...s.logs] }));
     scheduleWidgetSync();
     return log;

@@ -36,8 +36,24 @@
  * the expand toggle grows it to the full axis — and only appears when the axis genuinely
  * doesn't fit, since a compressed day usually does. Untimed ("Anytime") tasks have no clock
  * position, so they stay a plain flat list above the grid, capped at `COLLAPSED_COUNT` and
- * expanded by the same toggle. The "Done today" zone is unchanged — a separate dimmed,
- * collapsed flat list below the grid (Decision 009a); done tasks don't render on the grid.
+ * expanded by the same toggle. The "Done today" zone is a separate dimmed, collapsed flat
+ * list below the grid (Decision 009a); done tasks don't render on the grid. **It is replaced
+ * by the day log when that is on** — see below.
+ *
+ * **The day log (2026-08-02) — the now-line becomes the BOUNDARY.** When the caller passes
+ * `dayLog` (lib/dayLog.ts, gated on `settings.featureDayLog`), this card is split in two by
+ * the current minute, and the two halves get deliberately OPPOSITE treatment:
+ *   - *Behind now*: a flush, spacing-free list of what already happened — completed tasks,
+ *     doses taken, health entries, captured moments. Fixed row height, no duration, no gap,
+ *     no time axis, no section heading, and no count anywhere.
+ *   - *Ahead of now*: the elastic grid below, with `buildDayScale({ startMinutes: now })` so
+ *     the axis spans [now → end of day] rather than the full 24h.
+ * A gap ahead of you is room; the identical gap behind you is an accusation — that collapse
+ * at the now-line is the entire feature, so don't "tidy" the log by giving it spacing, an
+ * hour rule, or a "3 of 9" header. It also REPLACES the "Done today" zone while active
+ * (both would draw the same completed task twice); that zone still renders with the flag
+ * off, and is still the only home for a completed task with no `done_at`.
+ * The horizontal rail is untouched by all of this, same call the grid rebuild made.
  *
  * The pre-elastic model was a "fixed-hour" grid (every hour the same height, whole 24h axis),
  * which itself replaced an earlier "proportional" rail (connector size ∝ the real gap,
@@ -67,6 +83,9 @@
  *             components/Surface, components/PressableScale, components/ProgressBar,
  *             components/DayGridLines (hour lines + compressed-gap bands + now-line),
  *             components/StarterExampleRow (the empty day's suggested-add row),
+ *             lib/dayLog (DayEntry + formatEntryTime — TYPES AND FORMATTING ONLY; the
+ *             entries themselves arrive as the `dayLog` prop, because this card cannot
+ *             derive its own date and app/day-log.tsx renders a different day through it),
  *             lib/dayGrid (buildDayScale — the elastic axis — plus layoutGridEntries,
  *             the overlap-aware column layout; see its file header),
  *             components/AddRow (inline "add a task" quick-create, gated on the optional
@@ -282,6 +301,8 @@ import { CardAccentBadge } from '@/components/CardAccent';
 import GlowPulse from '@/components/GlowPulse';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import { COLLAPSED_GRID_HEIGHT, GUTTER_WIDTH, GridEntryLayout, buildDayScale, layoutGridEntries } from '@/lib/dayGrid';
+import { DayEntry, formatEntryTime } from '@/lib/dayLog';
+import type { DeviceCalendarEvent } from '@/lib/deviceCalendar';
 
 type Props = {
   /** Tasks scheduled for the viewed date (already filtered by the caller). */
@@ -322,6 +343,48 @@ type Props = {
   onRestoreTask?: (task: Task) => void;
   /** Empty-state suggestion: creates the example task shown while the day has nothing on it. */
   onAddExample?: () => void;
+  /**
+   * The day log (2026-08-02) — what has ALREADY happened on this day, oldest first, from
+   * lib/dayLog.ts. Passing it turns the now-line into the boundary this card is split by:
+   * these rows render flush and spacing-free above it, and the grid below it starts at
+   * `now` instead of midnight.
+   *
+   * Gated on the prop's presence, the same "gate on what you pass, not on readOnly" rule
+   * every other capability here follows. The caller passes it only when
+   * `settings.featureDayLog` is on, which is why this component needs no flag of its own —
+   * and why it stays free of the store read that would otherwise be needed (it cannot
+   * derive its own date; app/day-log.tsx renders a different day through the same prop).
+   *
+   * Deliberately NOT completable and NOT reorderable: these already happened, and the list
+   * is ordered by the clock, so there is nothing to tick and no honest way to drag.
+   */
+  dayLog?: DayEntry[];
+  /** Tap a log row to open the record it came from. Entries with no `sourceId` (a moment
+   *  IS its own record) are never pressable regardless. */
+  onPressEntry?: (entry: DayEntry) => void;
+  /** The ⋯ on a captured moment — the ONLY log entry that can be removed. Derived entries
+   *  have no delete: you cannot un-happen a dose or a completed task from a record of it. */
+  onRemoveMoment?: (id: string) => void;
+  /**
+   * Capture a day-log moment from the pad's type-line — the SAME field that adds a task,
+   * with a chip in its extras row switching which of the two a submit commits.
+   *
+   * Deliberately not a second input and not a modal: the app's capture path is the pad
+   * type-line (the standalone quick-capture inbox was removed 2026-07-27; `inbox_items` is
+   * a dead table). One field, one submit, and the store stamps the time itself — the
+   * signature takes a string and nothing else, which is the guardrail against this
+   * quietly becoming a form.
+   */
+  onCaptureMoment?: (text: string) => void;
+  /**
+   * Device-calendar events for this day (lib/deviceCalendar.ts), read-only.
+   *
+   * They are **structure, not achievement**: they draw on the grid ahead of the now-line,
+   * and they never enter the day log behind it — a meeting existing in your calendar is
+   * not something you did. Never completable (no check is drawn), never editable, and
+   * nothing here writes back to the device calendar.
+   */
+  calendarEvents?: DeviceCalendarEvent[];
   /** Test/preview override for the live clock (minutes since midnight). */
   now?: number;
   /** Rail orientation — settings.planTimelineHorizontal. Default false (fixed-hour grid). */
@@ -377,6 +440,13 @@ function minutesToLabel(mins: number): string {
 
 type TimedEntry = { task: Task; start: number; end: number };
 
+/**
+ * One thing on the grid — either an app task or a device-calendar event. Exactly one of
+ * `task`/`event` is set. They share a list so a single `layoutGridEntries` pass can put an
+ * overlapping meeting and task side by side instead of stacking them.
+ */
+type GridItem = { start: number; end: number; task?: Task; event?: DeviceCalendarEvent };
+
 type RailItemOpts = {
   timed?: TimedEntry;
   isHappeningNow?: boolean;
@@ -407,6 +477,23 @@ function railTailMinutes(spanMinutes: number): number {
 // timeline's own flat "Anytime" strip above the grid.
 const COLLAPSED_COUNT = 5;
 
+/**
+ * Which glyph a day-log row leads with, per source (lib/dayLog.ts's DayEntryKind).
+ *
+ * The icon is the ONLY thing distinguishing the kinds — every row otherwise renders
+ * identically, because the log answers "what happened", not "what kind of thing happened".
+ * That is also why it is an icon rather than a colour: DESIGN_RULES rule 11, never colour
+ * alone, and the row must survive greyscale.
+ */
+const DAY_LOG_ICONS: Record<DayEntry['kind'], keyof typeof Ionicons.glyphMap> = {
+  task: 'checkmark-circle-outline',
+  habit: 'repeat',
+  medicine: 'medkit-outline',
+  health: 'pulse-outline',
+  moment: 'ellipse-outline',
+  calendar: 'calendar-outline',
+};
+
 export default function PlanTaskCard({
   tasks,
   allTasks,
@@ -420,6 +507,11 @@ export default function PlanTaskCard({
   deletedTasks,
   onRestoreTask,
   onAddExample,
+  dayLog,
+  onPressEntry,
+  onRemoveMoment,
+  onCaptureMoment,
+  calendarEvents,
   now: nowOverride,
   horizontal = false,
   spec,
@@ -460,6 +552,9 @@ export default function PlanTaskCard({
   const [addTime, setAddTime] = useState('');
   const [addRecurring, setAddRecurring] = useState<Recurring>('none');
   const [addRecurringDays, setAddRecurringDays] = useState<number[]>([]);
+  /** Which of the two things the shared type-line commits. Task is the default and stays
+   *  the default — nothing about the existing add path changes until this is pressed. */
+  const [captureAsMoment, setCaptureAsMoment] = useState(false);
 
   const gridScrollRef = useRef<ScrollView>(null);
 
@@ -496,6 +591,25 @@ export default function PlanTaskCard({
     setAddTime('');
     setAddRecurring('none');
     setAddRecurringDays([]);
+  }
+
+  /**
+   * Capture the draft as a day-log moment instead of a task.
+   *
+   * Free by design (the feature's invariant 5): one field, one submit, no category, no
+   * required field, no confirmation dialog and no edit flow on creation. The store stamps
+   * the day and time itself, because a moment IS its timestamp — nothing is passed here
+   * but the words. `resetDraft` clears and PadTypeRow keeps focus, so a second line costs
+   * nothing.
+   *
+   * The mode deliberately STAYS on after a submit: someone capturing one thing that just
+   * happened is usually about to capture the next one.
+   */
+  function commitMoment() {
+    const text = addDraft.trim();
+    if (!text || !onCaptureMoment) return;
+    onCaptureMoment(text);
+    resetDraft();
   }
 
   function commitAdd() {
@@ -535,6 +649,9 @@ export default function PlanTaskCard({
     return { dayTasks: [...tasks, ...extra], surfacedIds: surfaced };
   }, [tasks, allTasks]);
 
+  /** Presence of the `dayLog` prop is the gate — see its own doc on the Props type. */
+  const dayLogActive = !!dayLog;
+
   const anytimePending = useMemo(() => dayTasks.filter((task) => !task.time && !task.done), [dayTasks]);
   const timedPending = useMemo(
     () => dayTasks.filter((task) => !!task.time && !task.done).map(timedEntryOf).sort((a, b) => a.start - b.start),
@@ -545,16 +662,58 @@ export default function PlanTaskCard({
   // band each. Built once here and shared with DayGridLines so the lines and the cards drawn
   // over them can't disagree. `now` is included so the live line always has real context
   // around it instead of landing inside a compressed band.
+  // With the day log on, the grid draws only what is still AHEAD. An entry whose window has
+  // fully passed has no honest position on an axis that starts at `now` — several of them
+  // would all clamp to the top edge and stack on each other. They are still DUE (nothing
+  // here calls them missed — same framing as an untaken medicine tray), so they move to the
+  // flat list above the grid and sit alongside the untimed ones.
+  const gridEntries = useMemo(
+    () => (dayLogActive ? timedPending.filter((e) => e.end > now) : timedPending),
+    [timedPending, dayLogActive, now]
+  );
+  const stillDueTasks = useMemo(
+    () => (dayLogActive ? timedPending.filter((e) => e.end <= now).map((e) => e.task) : []),
+    [timedPending, dayLogActive, now]
+  );
+  /**
+   * Everything the grid draws, tasks and device-calendar events together, in one list.
+   *
+   * They MUST share a single `layoutGridEntries` pass: that's what puts a meeting and a
+   * task that overlap in time into side-by-side columns instead of stacking one on the
+   * other. Two separate passes would each think it had the width to itself.
+   *
+   * Calendar events are still structure, not achievement — they draw here, ahead of the
+   * now-line, and never enter the day log behind it. See lib/deviceCalendar.ts.
+   */
+  const gridItems = useMemo<GridItem[]>(() => {
+    const items: GridItem[] = gridEntries.map((e) => ({ start: e.start, end: e.end, task: e.task }));
+    for (const event of calendarEvents ?? []) {
+      // Same "still ahead" filter the tasks got — a meeting that's over belongs to the day
+      // behind you, and the log deliberately doesn't claim it as something you did.
+      if (dayLogActive && event.endMinutes <= now) continue;
+      // A zero/negative-length event would collapse to nothing on the axis; give it the
+      // same nominal span a start-at task gets so its title stays legible.
+      const end = Math.max(event.endMinutes, event.startMinutes + DEFAULT_BOX_MIN);
+      items.push({ start: event.startMinutes, end, event });
+    }
+    // layoutGridEntries REQUIRES start-ascending input.
+    return items.sort((a, b) => a.start - b.start);
+  }, [gridEntries, calendarEvents, dayLogActive, now]);
+
   const dayScale = useMemo(
-    () => buildDayScale(timedPending.map((e) => ({ start: e.start, end: e.end })), { now }),
-    [timedPending, now]
+    () =>
+      buildDayScale(gridItems.map((e) => ({ start: e.start, end: e.end })), {
+        now,
+        ...(dayLogActive ? { startMinutes: now } : {}),
+      }),
+    [gridItems, now, dayLogActive]
   );
   // Side-by-side columns for genuinely overlapping tasks, plus a height clamp so the
   // MIN_TASK_HEIGHT floor can't visually run into whatever starts next (see lib/dayGrid.ts's
   // file header for why both are needed), all measured on the elastic axis above.
   const timedLayout = useMemo(
-    () => layoutGridEntries(timedPending, { minHeightPx: MIN_TASK_HEIGHT, gapPx: GRID_CARD_GAP, y: dayScale.y }),
-    [timedPending, dayScale]
+    () => layoutGridEntries(gridItems, { minHeightPx: MIN_TASK_HEIGHT, gapPx: GRID_CARD_GAP, y: dayScale.y }),
+    [gridItems, dayScale]
   );
   // Everything on the day that can actually be finished (2026-08-01, card types): a 'note'
   // card has no completion state, so it is listed like any other row but counts for nothing
@@ -638,11 +797,21 @@ export default function PlanTaskCard({
 
   // Vertical: the anytime list caps independently of the grid (which always shows every
   // timed task) — same "current + next + a few more" spirit, just not mixed with timed IDs.
+  // `stillDueTasks` joins them when the day log is on: those rows came OFF the grid because
+  // their clock window has passed, and this flat strip below the now-line is where a thing
+  // that is still due but no longer has a future slot honestly belongs.
+  //
+  // `!horizontal` matters. The horizontal rail is deliberately untouched by the day log
+  // (same call the 2026-07-26 grid rebuild made — it's a secondary, opt-in accessibility
+  // mode), and it renders `timedPending` in full via `hTimedItems`. Adding the still-due
+  // rows here too would draw each of them twice on that rail.
+  const flatPending =
+    dayLogActive && !horizontal ? [...stillDueTasks, ...anytimePending] : anytimePending;
   const visibleAnytime = horizontal
-    ? anytimePending.filter((task) => isVisibleH(task.id))
+    ? flatPending.filter((task) => isVisibleH(task.id))
     : expanded
-      ? anytimePending
-      : anytimePending.slice(0, COLLAPSED_COUNT);
+      ? flatPending
+      : flatPending.slice(0, COLLAPSED_COUNT);
 
   // `showToggle` is gone (2026-07-30): the footer is components/PadFooterToggle.tsx now, and it
   // cycles three card sizes rather than answering one "does the day fit?" question. It hides
@@ -685,6 +854,11 @@ export default function PlanTaskCard({
         hitSlop={HitSlop.loose}
         onPress={() => handleToggle(task)}
         accessibilityRole="checkbox"
+        // Named after its row (2026-08-02). It was an anonymous "checkbox" to a screen
+        // reader — in a day full of them, that says nothing about which task it ticks.
+        // Matches components/PadRow.tsx's `toggleLabel`, which defaults to the title for
+        // exactly this reason, so the two layouts of this card now announce identically.
+        accessibilityLabel={task.title}
         accessibilityState={{ checked: task.done }}
         scaleTo={0.97}
       >
@@ -829,6 +1003,70 @@ export default function PlanTaskCard({
   /** Flat (non-grid) row — the anytime list and the "Done today" zone, both orientations.
    *  No rail/gutter marker any more (2026-07-26 rebuild dropped it with the old flow rail) —
    *  an inline time reading (if timed) plus the "Anytime" pill are the only position cues. */
+  /**
+   * The day log — everything that already happened, above the now-line.
+   *
+   * Deliberately the OPPOSITE treatment to the grid below it: fixed row height, flush,
+   * nothing proportional, no duration, no gap, no time axis. A gap ahead of you is room;
+   * the same gap behind you is an accusation, and the collapse at the now-line is the
+   * whole feature. Do not add spacing, a rule per hour, or a "3 of 9" header here.
+   *
+   * There is no section heading on purpose — labelling it `Completed` / `Gjennomført`
+   * turns a record into a scorecard.
+   */
+  function renderDayLog() {
+    if (!dayLog || dayLog.length === 0) return null;
+    return (
+      <View style={styles.dayLogList}>
+        {dayLog.map((entry) => (
+          <PadRow
+            key={entry.id}
+            title={entry.label}
+            accent={domainColor.accent}
+            leading={
+              <Ionicons
+                name={DAY_LOG_ICONS[entry.kind]}
+                size={14}
+                color={theme.textMuted}
+                // Rule 11 — never colour alone. The icon is the kind cue and it survives
+                // greyscale; nothing here is told apart by hue.
+              />
+            }
+            rightValue={formatEntryTime(entry.atMinutes)}
+            // No `onToggle` anywhere in this list: these already happened, so there is
+            // nothing to tick. PadRow draws no check when it has nothing to call.
+            onPress={entry.sourceId && onPressEntry ? () => onPressEntry(entry) : undefined}
+            // Only a captured moment can be removed — you cannot un-happen a dose or a
+            // completed task from a record of it.
+            onAction={
+              entry.kind === 'moment' && onRemoveMoment
+                ? () => { tap(); onRemoveMoment(entry.id.replace(/^moment:/, '')); }
+                : undefined
+            }
+            actionLabel={t.dayLog.deleteMoment}
+          />
+        ))}
+      </View>
+    );
+  }
+
+  /**
+   * The now-line as a divider, drawn only when the day log is on.
+   *
+   * Static by design: it re-evaluates on the shared 60s tick and on focus, and it never
+   * animates, ticks or counts. Nothing should move in peripheral vision on this surface.
+   */
+  function renderNowDivider() {
+    if (!dayLogActive) return null;
+    return (
+      <View style={styles.nowDivider}>
+        <View style={[styles.nowRule, { backgroundColor: theme.border }]} />
+        <Text style={[styles.nowLabel, { color: theme.textMuted }]}>{t.dayLog.now}</Text>
+        <View style={[styles.nowRule, { backgroundColor: theme.border }]} />
+      </View>
+    );
+  }
+
   function renderFlatRow(task: Task, opts: RailItemOpts) {
     const { timed, isPast, animateIn } = opts;
     const dimmed = !!(task.done || isPast);
@@ -869,6 +1107,55 @@ export default function PlanTaskCard({
    *  real start/end time (lib/dayGrid.ts). Vertical/default orientation only. `layout` carries
    *  the overlap-aware column + height clamp from `layoutGridEntries` so genuinely-overlapping
    *  tasks render side-by-side (Google Calendar style) instead of stacking on top of each other. */
+  /**
+   * A device-calendar event on the grid.
+   *
+   * Visibly a different KIND of thing from a task, and that difference is the point: no
+   * check (it isn't yours to finish), no trash, no press-through to an editor, a dashed
+   * border and muted ink. It marks out the shape of the day — "how much runway before the
+   * next fixed thing" — and claims nothing about what you achieved.
+   *
+   * Rule 11 — the distinction is carried by the border STYLE and an icon, not by colour,
+   * so it survives greyscale.
+   */
+  function renderCalendarEntry(event: DeviceCalendarEvent, layout: GridEntryLayout) {
+    const { top, height, leftPct, widthPct } = layout;
+    const sideBySide = widthPct < 100;
+    return (
+      <View
+        key={`cal:${event.id}`}
+        style={[styles.gridCardWrap, { top, height, left: GUTTER_WIDTH + Spacing.xs, right: Spacing.xs }]}
+      >
+        <View
+          style={[
+            styles.gridCardColumn,
+            { left: `${leftPct}%`, width: `${widthPct}%` },
+            sideBySide && styles.gridCardColumnGapped,
+          ]}
+        >
+          <View
+            style={[
+              styles.rowCard,
+              styles.gridCardInner,
+              styles.calendarCard,
+              { borderColor: theme.border, backgroundColor: theme.surfaceMuted },
+            ]}
+          >
+            <View style={styles.titleRow}>
+              <Ionicons name="calendar-outline" size={12} color={theme.textMuted} />
+              <Text style={[styles.durationText, TabularNums, { color: theme.textMuted }]}>
+                {minutesToLabel(event.startMinutes)}
+              </Text>
+              <Text numberOfLines={1} style={[styles.title, { color: theme.textMuted }]}>
+                {event.title}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   function renderGridEntry(entry: TimedEntry, layout: GridEntryLayout) {
     const { task, start, end } = entry;
     const isHappeningNow = now >= start && now < end;
@@ -1020,8 +1307,14 @@ export default function PlanTaskCard({
 
   // `dayTasks.length` (not the countable count) so a day holding only 'note' cards shows
   // those notes rather than the "nothing here yet" starter — there IS something here.
-  const showEmpty = dayTasks.length === 0 && pendingCount === 0 && doneTasks.length === 0;
-  const allDone = pendingCount === 0 && doneTasks.length > 0;
+  // A day with a captured moment, a dose or a health entry on it is NOT an empty day, even
+  // with no tasks — showing the "nothing here yet" starter over a log that has things in it
+  // would be the card contradicting itself.
+  const showEmpty =
+    dayTasks.length === 0 && pendingCount === 0 && doneTasks.length === 0 && (dayLog?.length ?? 0) === 0;
+  // Likewise "all done" has to cover the log-only day: nothing pending, and something
+  // behind the now-line to show for it.
+  const allDone = pendingCount === 0 && (doneTasks.length > 0 || (dayLog?.length ?? 0) > 0);
 
   // Shared with the anytime list/doneZone/footer so the whole card reflows in sync — otherwise
   // these siblings snap instantly while rows are still fading, which used to make the done-zone
@@ -1039,16 +1332,46 @@ export default function PlanTaskCard({
    */
   const typeRow = onAddTask ? (
     <PadTypeRow
-      prompt={t.pad.type.task}
+      prompt={captureAsMoment ? t.dayLog.capturePrompt : t.pad.type.task}
       value={addDraft}
       onChangeText={setAddDraft}
-      onSubmit={commitAdd}
+      onSubmit={captureAsMoment ? commitMoment : commitAdd}
       accent={domainColor.accent}
-      onMore={onAddTaskAndEdit ? commitAddAndEdit : undefined}
+      // A moment has no editor to continue into — it IS the record. Only a task offers "…".
+      onMore={!captureAsMoment && onAddTaskAndEdit ? commitAddAndEdit : undefined}
       extras={
         <>
-          <TimeBoxInput value={addTime} onChange={setAddTime} />
-          <PressableScale
+          {/* Capture target (2026-08-02). The SAME field commits either a task or a day-log
+              moment — one field, one submit, no modal, no category, no confirmation
+              (the feature's "manual capture must be free" rule). The default stays task, so
+              nothing about the existing add path changes until this is pressed.
+              A moment's time and recurrence are meaningless — it already happened, once —
+              so those two controls come off the row in moment mode rather than sitting
+              there inert. That also keeps this row at one control instead of three, which
+              is what stops it wrapping at small widths (npm run wraps, 327px). */}
+          {onCaptureMoment ? (
+            <PressableScale
+              style={[
+                styles.quickChip,
+                { borderColor: captureAsMoment ? domainColor.accent : theme.border },
+                captureAsMoment && { backgroundColor: domainColor.soft },
+              ]}
+              onPress={() => { tap(); setCaptureAsMoment((v) => !v); }}
+              hitSlop={HitSlop.base}
+              scaleTo={0.9}
+              accessibilityRole="button"
+              accessibilityState={{ selected: captureAsMoment }}
+              accessibilityLabel={t.dayLog.capturePrompt}
+            >
+              <Ionicons
+                name="time-outline"
+                size={14}
+                color={captureAsMoment ? theme.accent : theme.textMuted}
+              />
+            </PressableScale>
+          ) : null}
+          {captureAsMoment ? null : <TimeBoxInput value={addTime} onChange={setAddTime} />}
+          {captureAsMoment ? null : <PressableScale
             style={[
               styles.quickChip,
               { borderColor: addRecurring !== 'none' ? domainColor.accent : theme.border },
@@ -1072,7 +1395,7 @@ export default function PlanTaskCard({
                 {recurringLabel(addRecurring).charAt(0)}
               </Text>
             )}
-          </PressableScale>
+          </PressableScale>}
         </>
       }
     />
@@ -1155,13 +1478,28 @@ export default function PlanTaskCard({
             )}
           </View>
         ) : allDone ? (
-          <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.dayViewAllDone}</Text>
+          /* Everything on the day is finished.
+             With the day log on, this is the LEAST empty a day ever is — it is the exact
+             moment the record is worth having, so the log renders here too. Before that it
+             short-circuited to a single "all done" line and threw away the evidence, which
+             inverted the whole point of the feature. The line itself stays: it's a reward,
+             not an empty state (see the empty-state note in this file's header). */
+          <>
+            {renderDayLog()}
+            {renderNowDivider()}
+            <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.dayViewAllDone}</Text>
+          </>
         ) : !spec.timeline ? (
           /* Ruled pad list (2026-07-30) — the default on Home, where a card is too short for a
              calendar grid to be readable. Timed tasks first in clock order, then Anytime; the
              time is the row's ONE right-hand value, in tabular figures so a column of them
              lines up. The timeline is still one tap away in this card's layout picker. */
           <PadSheet state={state} typeRow={typeRow}>
+            {/* The log reads INSIDE the pad rather than above it — a separate surface for
+                "what happened" would read as a second card about the same day, which is
+                exactly the "on top of" shape this feature must not have. */}
+            {renderDayLog()}
+            {renderNowDivider()}
             {padVisibleRows(listTasks, state).map((task) => (
               <PadRow
                 key={task.id}
@@ -1204,12 +1542,20 @@ export default function PlanTaskCard({
           </ScrollView>
         ) : (
           <>
+            {renderDayLog()}
+            {renderNowDivider()}
             {visibleAnytime.length > 0 && (
               <Animated.View style={styles.anytimeList} layout={containerLayout}>
                 {visibleAnytime.map((task) => renderFlatRow(task, { animateIn: true }))}
               </Animated.View>
             )}
-            {timedPending.length > 0 && (
+            {/* Nothing fixed left today — a neutral statement of fact where the grid would
+                be, not an invitation and not an encouragement. Only when the log is on;
+                without it an empty grid is just an empty grid. */}
+            {dayLogActive && gridItems.length === 0 && !showEmpty ? (
+              <Text style={[styles.nothingAhead, { color: theme.textMuted }]}>{t.dayLog.nothingAhead}</Text>
+            ) : null}
+            {gridItems.length > 0 && (
               <View
                 style={[
                   styles.gridViewport,
@@ -1218,8 +1564,15 @@ export default function PlanTaskCard({
               >
                 <ScrollView ref={gridScrollRef} scrollEnabled={!expanded} showsVerticalScrollIndicator={false}>
                   <View style={styles.gridInner}>
-                    <DayGridLines scale={dayScale} now={now} />
-                    {timedPending.map((entry, i) => renderGridEntry(entry, timedLayout[i]))}
+                    {/* With the log on, the now-line is already drawn ABOVE this grid as the
+                        boundary divider, and the axis starts at `now` — so the grid's own
+                        line would sit redundantly on its top edge. One line, one meaning. */}
+                    <DayGridLines scale={dayScale} now={dayLogActive ? undefined : now} />
+                    {gridItems.map((item, i) =>
+                      item.task
+                        ? renderGridEntry({ task: item.task, start: item.start, end: item.end }, timedLayout[i])
+                        : renderCalendarEntry(item.event!, timedLayout[i])
+                    )}
                   </View>
                 </ScrollView>
               </View>
@@ -1239,8 +1592,14 @@ export default function PlanTaskCard({
 
         {/* Done zone — dimmed, collapsed by default (Decision 009a). Always the flat-row
             layout, even in horizontal mode — this is a secondary dropdown list, not the
-            primary glance surface. */}
-        {doneTasks.length > 0 ? (
+            primary glance surface.
+            **Replaced by the day log when that is on (2026-08-02).** Keeping both would
+            render the same completed task twice and split "what happened today" across two
+            places, which is the thing the log exists to fix. The zone is not deleted: it is
+            still the whole story when `settings.featureDayLog` is off, and it remains the
+            only home for a completed task with no `done_at` (one finished before that
+            column existed, or ticked by a paired device — see lib/liveSync's note). */}
+        {!dayLogActive && doneTasks.length > 0 ? (
           <Animated.View style={[styles.doneZone, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} layout={containerLayout}>
             <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
               <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>{t.dayViewDoneZone(doneTasks.length)}</Text>
@@ -1365,6 +1724,30 @@ const baseStyles = StyleSheet.create({
 
   // Anytime list — a plain flat list above the grid (untimed tasks have no clock position).
   anytimeList: { gap: Spacing.xs, marginBottom: Spacing.sm },
+  // The day log. NO `gap` and no per-row spacing on purpose — behind the now-line the day
+  // is flush, and PadRow's own fixed height is the only vertical rhythm it gets. Adding a
+  // gap here would reintroduce exactly the emptiness the collapse exists to remove.
+  dayLogList: {},
+  // A device-calendar event. Dashed = "not yours to finish" — a border STYLE rather than a
+  // hue, so the distinction survives greyscale (DESIGN_RULES rule 11).
+  calendarCard: { borderStyle: 'dashed', paddingRight: Spacing.sm },
+  // The now-line, as a rule with its own word — the boundary the card is split by. Static:
+  // it must never animate or tick (nothing moves in peripheral vision on this surface).
+  nowDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginVertical: Spacing.sm,
+  },
+  nowRule: { flex: 1, height: StyleSheet.hairlineWidth },
+  nowLabel: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
+  // "Nothing fixed left today." A statement of fact where the grid would be.
+  nothingAhead: {
+    fontSize: FontSize.sm,
+    fontFamily: Fonts.regular,
+    paddingVertical: Spacing.md,
+    textAlign: 'center',
+  },
   // Flat row: [content][doneCol] — used by the anytime list and the "Done today" zone.
   flatRow: { flexDirection: 'row', alignItems: 'stretch', marginBottom: Spacing.xs },
   flatContent: { flex: 1 },

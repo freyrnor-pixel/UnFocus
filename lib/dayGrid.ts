@@ -45,6 +45,12 @@
  *   - `minutesToY` (the old uniform mapping) is still exported and is what `buildDayScale`
  *     falls back to internally for its dense segments — it is NOT dead. Prefer the scale in
  *     new UI code so hour lines, task cards, and the now-line can never disagree.
+ *   - **`startMinutes` (2026-08-02, the day log)**: the axis can now begin somewhere other
+ *     than midnight, which is what lets the now-line be the BOUNDARY between the day behind
+ *     you (a flush list, drawn by PlanTaskCard from lib/dayLog.ts) and the day ahead (this
+ *     grid) rather than a marker sitting inside a full 24h axis. Omitting it reproduces the
+ *     previous axis exactly, and lib/__tests__/dayGrid.test.ts pins that: every existing
+ *     caller and every existing expectation is untouched by this parameter's existence.
  */
 export const GRID_START_HOUR = 0;
 export const GRID_END_HOUR = 24;
@@ -147,17 +153,37 @@ function mergeRanges(ranges: Range[]): Range[] {
  * gets its own full-scale window so the live now-line never lands inside a compressed
  * band. With no entries and no `now` the result is an empty axis (height 0) — callers
  * showing an empty day should render their own empty state rather than a bare axis.
+ *
+ * `startMinutes` (2026-08-02) is the earliest minute the axis may cover; it defaults to
+ * `GRID_START_HOUR * 60` (midnight), which reproduces the pre-day-log axis exactly. The
+ * day log (lib/dayLog.ts) passes the current minute, so the grid spans [now → end of day]
+ * and the now-line lands on its top edge — the BOUNDARY between what already happened and
+ * what is still ahead, rather than a marker floating inside a full 24h axis.
+ *
+ * A window that straddles the floor is clamped rather than dropped, which is what keeps a
+ * task that's happening right now (started 13:00, ends 15:00, floor 14:00) on the grid
+ * instead of vanishing the moment it starts.
  */
-export function buildDayScale(entries: Range[], opts: { now?: number } = {}): DayScale {
-  const windows: Range[] = entries.map((e) => ({
-    start: Math.max(0, e.start - DENSE_PAD_MIN),
-    end: Math.min(GRID_END_HOUR * 60, Math.max(e.end, e.start + 1) + DENSE_PAD_MIN),
-  }));
+export function buildDayScale(
+  entries: Range[],
+  opts: { now?: number; startMinutes?: number } = {}
+): DayScale {
+  const dayEnd = GRID_END_HOUR * 60;
+  const floor = Math.max(0, Math.min(dayEnd, opts.startMinutes ?? GRID_START_HOUR * 60));
+  const windows: Range[] = entries
+    .map((e) => ({
+      start: Math.max(0, e.start - DENSE_PAD_MIN),
+      end: Math.min(dayEnd, Math.max(e.end, e.start + 1) + DENSE_PAD_MIN),
+    }))
+    // Wholly behind the floor → not on this axis at all. Straddling it → clamped, so the
+    // in-progress case above survives.
+    .filter((w) => w.end > floor)
+    .map((w) => ({ start: Math.max(floor, w.start), end: w.end }));
   if (opts.now !== undefined) {
     const block = Math.floor(opts.now / NOW_SNAP_MIN) * NOW_SNAP_MIN;
     windows.push({
-      start: Math.max(0, block - NOW_WINDOW_MIN),
-      end: Math.min(GRID_END_HOUR * 60, block + NOW_SNAP_MIN + NOW_WINDOW_MIN),
+      start: Math.max(floor, block - NOW_WINDOW_MIN),
+      end: Math.min(dayEnd, Math.max(block + NOW_SNAP_MIN + NOW_WINDOW_MIN, floor + 1)),
     });
   }
   const dense = mergeRanges(windows);

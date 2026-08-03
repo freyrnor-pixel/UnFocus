@@ -10,7 +10,7 @@
  * Connections:
  *   Imports → lib/date, lib/sqlite
  *   Used by → app/_layout.tsx, lib/backup.ts, lib/liveSync.ts, store/useAutomationStore.ts, store/useCatalogStore.ts, store/useFeedbackStore.ts, store/useGoalStore.ts, store/useHabitStore.ts, store/useHealthStore.ts, store/useMealStore.ts, store/useMedicineStore.ts, store/useMonthlyListStore.ts, store/useNotesStore.ts, store/usePeersStore.ts, store/usePeopleStore.ts, store/useReceiptStore.ts, store/useSettingsStore.ts, store/useSharedStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts, store/useTaskDraftStore.ts
- *   Data    → owns ALL SQLite tables: settings, tasks (with nullable goal_id → goals), shopping_items, shopping_trips, shopping_lists, monthly_lists (multiple, named, budgeted Monthly/Katalog lists — store/useMonthlyListStore.ts), dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the old low/med/high energy check-in; table/pruning kept per the never-drop-tables rule, no longer written to), energy_budgets (LIVE — 2026-07-20 energy-budget system: per-period capacity overrides; store/useEnergyStore.ts), inbox_items (dead — the quick-capture feature was removed 2026-07-27; table + pruning kept per the never-drop-tables rule, nothing reads or writes it), receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key), widget_snapshot (single-row localised cache for the Android home-screen widgets — lib/widgets/snapshot.ts), goals (2026-07-23 — lightweight user goals with a decaying "living glow" strength; tasks/habits carry a nullable goal_id pointer to one — store/useGoalStore.ts), medicines + medicine_doses (2026-07-27 — medicine tray schedule + dose log; `health_logs.medicine_id` optionally attributes a symptom entry to one — store/useMedicineStore.ts), people (2026-07-28 — the person registry that replaces settings.child_profiles' free-text names; stable ids + colour + per-person energy capacity, SYNCED between paired devices, and pointed at by tasks.assignee_id / created_by_person_id — store/usePeopleStore.ts)
+ *   Data    → owns ALL SQLite tables: settings, tasks (with nullable goal_id → goals), shopping_items, shopping_trips, shopping_lists, monthly_lists (multiple, named, budgeted Monthly/Katalog lists — store/useMonthlyListStore.ts), dishes, ingredients, health_logs, store_items, purchase_log, shared_tasks, shared_shopping_items, habits, habit_logs, ifttt_rules, feedback_notes, energy_logs (dead — Decision 018 removed the old low/med/high energy check-in; table/pruning kept per the never-drop-tables rule, no longer written to), energy_budgets (LIVE — 2026-07-20 energy-budget system: per-period capacity overrides; store/useEnergyStore.ts), inbox_items (dead — the quick-capture feature was removed 2026-07-27; table + pruning kept per the never-drop-tables rule, nothing reads or writes it), receipts, task_drafts, notes, task_steps, peers (Decision 038d — paired LAN devices + shared HMAC key), widget_snapshot (single-row localised cache for the Android home-screen widgets — lib/widgets/snapshot.ts), goals (2026-07-23 — lightweight user goals with a decaying "living glow" strength; tasks/habits carry a nullable goal_id pointer to one — store/useGoalStore.ts), medicines + medicine_doses (2026-07-27 — medicine tray schedule + dose log; `health_logs.medicine_id` optionally attributes a symptom entry to one — store/useMedicineStore.ts), people (2026-07-28 — the person registry that replaces settings.child_profiles' free-text names; stable ids + colour + per-person energy capacity, SYNCED between paired devices, and pointed at by tasks.assignee_id / created_by_person_id — store/usePeopleStore.ts), moments (2026-08-02 — manually captured "what just happened" lines for the day log; local log_date + at_time like medicine_doses, device-local, never synced — store/useMomentsStore.ts, read by lib/dayLog.ts)
  *
  * Edit notes:
  *   - Add columns via the `migrations` array ONLY — never edit a CREATE TABLE to
@@ -1117,6 +1117,61 @@ export function initDb() {
     // tombstones, config-like rows are left alone there.
     "ALTER TABLE habits ADD COLUMN deleted_at TEXT DEFAULT NULL",
     "ALTER TABLE notes ADD COLUMN deleted_at TEXT DEFAULT NULL",
+    // --- Day log (2026-08-02, lib/dayLog.ts) ------------------------------------
+    // When a task was actually ticked, local 'HH:MM'. `done` has been a bare flag since
+    // the first schema and `updated_at` is the sync LWW stamp — it moves on ANY edit by
+    // ANY device, so it can never mean "completed at". Stamped by useTaskStore's
+    // toggle()/completeDirect() only; cleared back to '' when a task is un-ticked.
+    //
+    // Deliberately NOT added to lib/liveSync's TABLE_COLUMNS.tasks. The day log is a
+    // device-local record of what YOU did: a peer ticking your task in family mode should
+    // land `done` (which does sync) without entering your log. applyDelta writes columns
+    // directly and never stamps this, so that behaviour falls out with no extra guard.
+    //
+    // NO back-fill. Every task completed before this line has no honest time, and a day
+    // log that invents one is worse than a day log that stays quiet — the whole feature
+    // is a record you can trust when your head says you did nothing.
+    "ALTER TABLE tasks ADD COLUMN done_at TEXT DEFAULT ''",
+    // Manual capture for the day log — "what just happened", one field, one submit.
+    // Shape follows medicine_doses (local `log_date` + local `at_time`) rather than the
+    // handoff's epoch-ms `created_at`: every other dated table in this schema is keyed by
+    // a local YYYY-MM-DD, which is what makes it queryable by day and prunable below.
+    // (ifttt_rules.created_at is the schema's only epoch-ms column and is a known outlier.)
+    `CREATE TABLE IF NOT EXISTS moments (
+      id TEXT PRIMARY KEY,
+      log_date TEXT NOT NULL,
+      at_time TEXT DEFAULT '',
+      text TEXT NOT NULL
+    )`,
+    'CREATE INDEX IF NOT EXISTS idx_moments_date ON moments(log_date)',
+    // On by default, still a real toggle — the Energy/Goals/Medicine shape. This one
+    // restructures the To-do tab's DEFAULT layout (the now-line stops being a marker
+    // inside a 24h grid and becomes the boundary between what happened and what's left),
+    // so an escape hatch back to the old rendering matters while real users are testing.
+    // It gates the SURFACE only: done_at keeps being stamped while the flag is off, so
+    // switching it back on restores a complete log rather than one starting from today.
+    'ALTER TABLE settings ADD COLUMN feature_day_log INTEGER DEFAULT 1',
+    // Which device calendars the timeline may READ (lib/deviceCalendar.ts). '[]' means all
+    // of them — a picker defaulting to nothing would show an empty timeline and read as
+    // broken. Same JSON-array-in-TEXT storage shape as home_card_order / card_layouts.
+    // Nothing in this feature ever WRITES a calendar event; the app's one write path is
+    // lib/taskCalendar.ts, behind its own `calendar_sync_enabled` switch.
+    `ALTER TABLE settings ADD COLUMN day_log_calendar_ids TEXT DEFAULT '[]'`,
+    // Local 'HH:MM' the habit was FIRST logged on that day (2026-08-02) — what puts a habit
+    // in the day log. A habit is a standing commitment the user set up, so doing it is
+    // exactly the kind of evidence the log exists for.
+    //
+    // FIRST, not "when the daily goal was met", and that distinction is deliberate. Gating
+    // on met-ness would import a pass/fail threshold into a surface that has none: 5 of 7
+    // glasses of water would leave no trace at all, which reads as "you did nothing" on
+    // precisely the kind of day this feature is for. `dailyGoal` is 1 for almost every real
+    // habit anyway (3 of 4 in lib/habitStarters.ts, 8 of 10 in lib/freyrModeSeed.ts), so the
+    // two rules only differ on counters.
+    //
+    // Cleared when a decrement takes the count back to 0 — an undone habit leaves no trace,
+    // same as un-ticking a task clears tasks.done_at. NO back-fill, same reason: a habit
+    // logged before this column has no honest time and is simply absent.
+    "ALTER TABLE habit_logs ADD COLUMN first_at TEXT DEFAULT ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
@@ -1191,6 +1246,10 @@ export function pruneOldData() {
     db.runSync('DELETE FROM inbox_items WHERE created_at < ?', [c]);
     // Dose history is dated; the `medicines` rows themselves are config and stay.
     db.runSync('DELETE FROM medicine_doses WHERE log_date < ?', [c]);
+    // Manually captured moments are dated history like any other log row. Nothing here
+    // is "still live" the way an undone task or an open episode is — a moment is a record
+    // of a passing instant, so the plain date cutoff is the whole rule.
+    db.runSync('DELETE FROM moments WHERE log_date < ?', [c]);
   } catch { /* never block startup on cleanup */ }
 }
 

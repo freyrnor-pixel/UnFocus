@@ -106,6 +106,22 @@ export default function PadTypeRow({
   const scrollIntoView = useContext(ScrollIntoViewContext);
   const rowRef = useRef<View>(null);
   const isFocusedRef = useRef(false);
+  /**
+   * Set when a touch starts on one of this row's OWN controls, so the blur that touch
+   * causes doesn't commit the draft (2026-08-02).
+   *
+   * `onBlur` commits when there's text — deliberately, so a stray tap elsewhere never
+   * loses a typed line. But pressing a control that belongs to this row is not a tap
+   * elsewhere: it is part of writing the line. Without this guard, tapping the quantity
+   * stepper, the time field, the recurrence chip or the capture-target chip would commit
+   * the half-finished draft first and then apply the control to nothing — so the control
+   * that changes WHAT a submit does could never be used at all, because the submit had
+   * already happened. Found via the web preview; a capture-target chip was unusable.
+   *
+   * A capture-phase responder check gets the flag set before the blur fires on both
+   * platforms, and returning false leaves the child free to handle the touch as usual.
+   */
+  const internalPressRef = useRef(false);
   useEffect(() => {
     const sub = Keyboard.addListener('keyboardDidShow', () => {
       if (isFocusedRef.current) scrollIntoView?.(rowRef.current);
@@ -144,6 +160,13 @@ export default function PadTypeRow({
           onBlur={() => {
             setFocused(false);
             isFocusedRef.current = false;
+            // A press on this row's own controls is part of writing the line, not a tap
+            // elsewhere — see internalPressRef. Consume the flag either way, so the next
+            // genuine blur still commits.
+            if (internalPressRef.current) {
+              internalPressRef.current = false;
+              return;
+            }
             // Don't lose a typed line to a stray tap elsewhere.
             if (hasText) commit();
           }}
@@ -169,7 +192,19 @@ export default function PadTypeRow({
         <View style={[styles.ghostCheck, { borderColor: theme.border }]} pointerEvents="none" />
       ) : null}
 
-      {showControls ? extras : null}
+      {showControls ? (
+        <View
+          style={styles.extrasSlot}
+          // Capture-phase only: flag the press, then return false so the child control
+          // still receives the touch exactly as before. See internalPressRef.
+          onStartShouldSetResponderCapture={() => {
+            internalPressRef.current = true;
+            return false;
+          }}
+        >
+          {extras}
+        </View>
+      ) : null}
 
       {showControls && onMore ? (
         <PressableScale
@@ -223,6 +258,10 @@ const styles = StyleSheet.create({
   // The prompt is absolutely positioned over the field, so showing/hiding it can't reflow
   // the row (which would make selecting the line twitch).
   field: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  // A transparent wrapper whose only job is the capture-phase responder check above. It
+  // must not change the row's layout — the extras used to be direct children of the row, so
+  // this inherits the same flex-row alignment and gap and is otherwise invisible.
+  extrasSlot: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   input: {
     // See AddRow's note: react-native-web gives a bare <input> an intrinsic min-width that
     // flex:1 alone doesn't beat, which pushes the trailing controls off the card.

@@ -17,6 +17,8 @@ import {
   dateRangeForCycleWeek,
   formatDisplayDate,
   formatDateRange,
+  nowHHMM,
+  utcStampToLocalMinutes,
   parseTimeToMinutes,
   addDurationToTime,
 } from '@/lib/date';
@@ -207,5 +209,78 @@ describe('formatDateRange', () => {
   it('formats a range crossing a month boundary', () => {
     expect(formatDateRange('2026-04-29', '2026-05-05', months, 'en')).toBe('Apr 29 – May 5');
     expect(formatDateRange('2026-04-29', '2026-05-05', months, 'no')).toBe('29. Apr–5. May');
+  });
+});
+
+/**
+ * `nowHHMM` and `utcStampToLocalMinutes` (2026-08-02) back the day log (lib/dayLog.ts).
+ *
+ * These assertions are deliberately DERIVED from the runtime's own clock rather than
+ * written against fixed strings: jest here runs in whatever timezone the machine is in
+ * (there is no TZ pin in jest.config.js), and a UTC↔local test with hard-coded expectations
+ * would pass in Norway and fail in CI. Every case below builds its input from a local Date
+ * and asserts the round trip, which holds at any offset.
+ */
+describe('nowHHMM', () => {
+  it('renders the current local time, zero-padded', () => {
+    const d = new Date();
+    const expected = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    // Allow for the minute rolling over between the two reads.
+    const alt = new Date(d.getTime() + 60000);
+    const altStr = `${String(alt.getHours()).padStart(2, '0')}:${String(alt.getMinutes()).padStart(2, '0')}`;
+    expect([expected, altStr]).toContain(nowHHMM());
+  });
+
+  it('always produces a value parseTimeToMinutes accepts', () => {
+    expect(parseTimeToMinutes(nowHHMM())).not.toBeNull();
+  });
+});
+
+describe('utcStampToLocalMinutes', () => {
+  /** The UTC stamp SQLite's `datetime('now')` would have written for a given local Date. */
+  const sqliteStamp = (d: Date) => d.toISOString().replace('T', ' ').slice(0, 19);
+
+  it('converts a SQLite datetime(\'now\') stamp back to the local minutes it was written at', () => {
+    const local = new Date(2026, 5, 15, 14, 37, 0); // 15 June 2026, 14:37 local
+    expect(utcStampToLocalMinutes(sqliteStamp(local), dateStr(local))).toBe(14 * 60 + 37);
+  });
+
+  // The bug this function exists to prevent: `YYYY-MM-DD HH:MM:SS` has no timezone
+  // designator, so a bare `new Date(stamp)` reads it as LOCAL and the value is silently
+  // off by the UTC offset — 1–2 hours in Norway, which would misplace every health entry.
+  it('does not read a bare SQLite stamp as local time', () => {
+    const local = new Date(2026, 0, 15, 9, 0, 0);
+    const stamp = sqliteStamp(local);
+    const naive = new Date(stamp);
+    const naiveMinutes = naive.getHours() * 60 + naive.getMinutes();
+    const actual = utcStampToLocalMinutes(stamp, dateStr(local));
+    expect(actual).toBe(9 * 60);
+    // Only meaningful off UTC; where the offset is zero the two agree and there's nothing
+    // to catch. The assertion above is the real one either way.
+    if (local.getTimezoneOffset() !== 0) expect(actual).not.toBe(naiveMinutes);
+  });
+
+  it('accepts an ISO stamp too — the in-memory copy of a just-added row uses that shape', () => {
+    const local = new Date(2026, 2, 3, 22, 5, 0);
+    expect(utcStampToLocalMinutes(local.toISOString(), dateStr(local))).toBe(22 * 60 + 5);
+  });
+
+  // The null-on-a-different-day rule. A stamp that lands on another LOCAL day must be
+  // dropped by the caller, not folded into the wrong day's log — see lib/dayLog.ts's
+  // "absence beats invention".
+  it('returns null when the instant belongs to a different local day', () => {
+    const local = new Date(2026, 5, 15, 14, 37, 0);
+    const stamp = sqliteStamp(local);
+    expect(utcStampToLocalMinutes(stamp, '2026-06-14')).toBeNull();
+    expect(utcStampToLocalMinutes(stamp, '2026-06-16')).toBeNull();
+  });
+
+  it.each([
+    ['an empty string', ''],
+    ['whitespace', '   '],
+    ['a date with no time', 'not-a-date'],
+    ['a malformed stamp', '2026-13-45 99:99:99'],
+  ])('returns null for %s', (_label, stamp) => {
+    expect(utcStampToLocalMinutes(stamp, '2026-06-15')).toBeNull();
   });
 });

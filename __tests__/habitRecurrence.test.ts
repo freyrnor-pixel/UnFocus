@@ -23,7 +23,9 @@ function habit(o: Partial<Habit>): Habit {
 }
 
 const log = (habitId: string, logDate: string, count: number, restDay = false): HabitLog => ({
-  id: `${habitId}-${logDate}`, habitId, logDate, count, restDay,
+  // `firstAt` is the day log's stamp (lib/dayLog.ts); habitMetOn/habitProgress never read
+  // it. Present only to satisfy the type.
+  id: `${habitId}-${logDate}`, habitId, logDate, count, restDay, firstAt: '',
 });
 
 // 2026-07-13 Mon .. 2026-07-19 Sun

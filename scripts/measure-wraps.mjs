@@ -204,7 +204,15 @@ const SCAN = () => {
         // `short > 0` is the real test: the children genuinely need more width than the row
         // has. Multiple `top`s with short <= 0 means they're stacked for some other reason
         // (align-items, a taller sibling), not because the row ran out of room.
-        if (tops.size > 1 && needPx - rect.width > 0) {
+        //
+        // The 0.5px floor is sub-pixel rounding, not slack (added 2026-08-02). A row of
+        // `flex: 1` children divides the container into fractional widths that sum back to
+        // fractionally MORE than it — so a row that provably cannot wrap gets reported as
+        // "short by 0px". A genuinely tight row is short by whole pixels (the 7 weekday
+        // chips miss by ~9), so nothing real is hidden by this. The `tops` half of the test
+        // fires here because a hairline rule and a text label centred in the same row have
+        // very different `top` values.
+        if (tops.size > 1 && needPx - rect.width > 0.5) {
           const widest = Math.max(...kids.map((x) => x.r.width));
           rows.push({
             kind: 'row-wrapped',
