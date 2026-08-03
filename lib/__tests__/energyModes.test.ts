@@ -28,7 +28,7 @@
  * Headless: only '@/lib/db' and the habit store's native side-effect modules are mocked, the
  * same minimal recipe as __tests__/taskStore.test.ts and __tests__/habitStore.test.ts.
  */
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import db from '@/lib/db';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -255,16 +255,21 @@ describe('Rewards mode renders no energy UI', () => {
     expect(source).not.toMatch(/key:\s*'energySystemEnabled'/);
   });
 
-  // Onboarding offers the same two modes one tier down (an inline picker inside a card), and
-  // must still write exactly once, on continue — never per tap.
-  it('onboarding offers the modes as a SlideSelector and writes once, on continue', () => {
-    const source = code('app/onboarding/energy.tsx');
-    expect(source).toContain('<SlideSelector');
-    expect(source).not.toContain('FormSwitch');
-    expect(source.match(/settings\.update\(/g) ?? []).toHaveLength(1);
-    expect(source).toMatch(/function next\(\)[\s\S]{0,200}settings\.update\(\{\s*energySystemEnabled/);
-    // Seeded from the CURRENT value — starting on Rewards would quietly propose leaving
-    // Energy mode, which is what the deleted feature picker used to do.
-    expect(source).toMatch(/useState<EnergyModeChoice>\(\s*settings\.energySystemEnabled/);
+  // Onboarding used to offer the same two modes one tier down, on app/onboarding/energy.tsx.
+  // That screen was DELETED on 2026-08-03 when onboarding was cut from six screens to two: it
+  // asked a new user to choose between Energy and Rewards having seen neither, under a heading
+  // whose own opening line explained why it needed explaining. Energy is the default and
+  // always was; Settings → Advanced is now the only place the choice is offered, which the
+  // block above pins.
+  //
+  // Asserted as an absence rather than deleted outright, because "put the mode choice back
+  // into onboarding" is exactly the well-meaning change this pass exists to prevent, and a
+  // silently-missing test would not catch it.
+  it('does not ask a brand-new user to choose a mode', () => {
+    expect(existsSync(join(__dirname, '..', '..', 'app', 'onboarding', 'energy.tsx'))).toBe(false);
+    for (const seg of ['basics', 'privacy', 'restore']) {
+      const source = code(`app/onboarding/${seg}.tsx`);
+      expect({ seg, mentions: source.includes('energySystemEnabled') }).toEqual({ seg, mentions: false });
+    }
   });
 });

@@ -74,8 +74,9 @@ const L = {
     // "Language: English." that never exists (fixed 2026-08-01; scripts/preview.mjs always
     // had this right). Everything below is post-switch and so is genuinely English.
     langRow: /^Språk: English\./, basicsNext: 'Continue',
-    newHere: "No, I'm new here", gotIt: 'Got it →', guided: 'Walk me through it',
-    next: 'Next →', go: "Let's go! 🌿", tourNext: 'Got it', skipTour: 'Skip the tour',
+    // Onboarding is two screens since 2026-08-03 (basics → privacy), so `newHere`/`guided`/
+    // `next`/`go` are gone with the screens they advanced past. `start` finishes setup.
+    start: 'Start', tourNext: 'Got it', skipTour: 'Skip the tour',
     tabs: ['Shop', 'To-do', 'Health', 'Habits'], home: 'Home', settings: 'Settings',
     dismiss: ['Skip', 'Got it', 'Got it →', 'OK'],
     // Task-editor walk: the "All tasks" tab is the only one with an add affordance, and a
@@ -84,8 +85,7 @@ const L = {
   },
   no: {
     langRow: /^Språk: Norsk\./, basicsNext: 'Fortsett',
-    newHere: 'Nei, jeg er ny her', gotIt: 'Skjønner →', guided: 'Vis meg rundt',
-    next: 'Neste →', go: 'Kom i gang! 🌿', tourNext: 'Skjønner', skipTour: 'Hopp over omvisningen',
+    start: 'Start', tourNext: 'Skjønner', skipTour: 'Hopp over omvisningen',
     tabs: ['Handle', 'Gjøremål', 'Helse', 'Vaner'], home: 'Hjem', settings: 'Innstillinger',
     dismiss: ['Hopp over', 'Skjønner', 'Skjønner →', 'OK'],
     tasksTabAll: 'Alle', newTask: 'Ny oppgave', probeTask: 'Bredde-test',
@@ -280,33 +280,21 @@ async function main() {
   try {
     await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
     await page.waitForTimeout(1000);
-    // Basics is screen ONE and the densest control screen in the app: six rows of pills,
-    // three-across at the widest. It is exactly the shape this audit exists to catch, so it
-    // gets scanned before anything is tapped. The language row is a radio, not a button.
+    // Basics is screen ONE. It drew six rows of pills, three-across at the widest, and was
+    // the densest control screen in the app — which is why this audit scanned it before
+    // tapping anything. Since 2026-08-03 it draws ONE row (language) plus the welcome copy on
+    // a fresh install; the six-row form now lives behind Settings' "Run setup again"
+    // (`/onboarding/basics?rows=all`) and is scanned separately below, because it is still
+    // the tightest horizontal case in the app and losing sight of it would be a real gap.
     await scan(page, 'onboarding-basics');
     await page.getByRole('radio', { name: L.langRow }).first().click({ timeout: 10000 });
     await page.waitForTimeout(400);
     await clickText(page, L.basicsNext);
     await page.waitForTimeout(400);
-    await clickText(page, L.newHere);
-    await page.waitForTimeout(400);
+    // Privacy is the LAST onboarding screen now: the two-bullet card, the Start button that
+    // completes setup, and the two secondary links (restore, AI setup guide).
     await scan(page, 'onboarding-privacy');
-    await clickText(page, L.gotIt);
-    await page.waitForTimeout(400);
-    // The branch screen. Three option cards, each a badge + arrow flanking a two-line
-    // description — the horizontal budget is the tightest in onboarding, and the AI card's
-    // copy (2026-08-02) is the longest of the three because it has to describe a round trip.
-    await scan(page, 'onboarding-guided');
-    await clickText(page, L.guided);
-    await page.waitForTimeout(400);
-    // Energy pushes straight to the name screen. The feature picker that used to sit between
-    // them was deleted 2026-07-31 (B1-1) — onboarding no longer offers any feature opt-in, so
-    // there is one fewer `next` tap here than there were screens before that change.
-    await scan(page, 'onboarding-energy');
-    await clickText(page, L.next);
-    await page.waitForTimeout(400);
-    await scan(page, 'onboarding-name');
-    await clickText(page, L.go);
+    await clickText(page, L.start);
     await page.waitForTimeout(1800);
 
     // The guided tour opens straight after onboarding. Measure its coach card — it is new copy
@@ -356,6 +344,22 @@ async function main() {
     await page.getByRole('button', { name: L.settings, exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(1200);
     await scan(page, 'settings');
+
+    // ── The six-row Basics form ──
+    // Onboarding only draws its language row since 2026-08-03, but the full six-row version
+    // still exists behind Settings → Personal → Layout → "Run setup again", and it is still
+    // the tightest horizontal case in the app: six rows of pills, three across at the widest,
+    // and a row of three Norwegian labels is the worst of those. Scanned explicitly so
+    // shortening onboarding does not quietly remove the densest screen from this audit's
+    // coverage. Best-effort, like the task editor — a failure must not lose the findings
+    // already collected.
+    try {
+      await page.goto(`${BASE_URL}/onboarding/basics?rows=all`, { waitUntil: 'networkidle', timeout: 30000 });
+      await page.waitForTimeout(1200);
+      await scan(page, 'basics-all-rows');
+    } catch (e) {
+      console.error(`  (basics-all-rows step skipped: ${e.message.split('\n')[0]})`);
+    }
   } finally {
     await browser.close();
   }

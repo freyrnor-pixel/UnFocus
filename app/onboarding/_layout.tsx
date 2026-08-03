@@ -13,10 +13,10 @@
  * impression of it.
  *
  * The travel is INTERPOLATED across however many steps there are, rather than snapping one
- * panel per screen: there are six steps and three panels, so a step moves the tree about
- * two-fifths of a panel and the growth reads as continuous. It also means adding or removing
- * a step needs no change here beyond the STEPS list — the last entry always lands exactly on
- * the full-tree panel because the position is `index / (STEPS.length - 1)`.
+ * panel per screen, so adding or removing a step needs no change here beyond the STEPS list —
+ * the last entry always lands exactly on the full-tree panel because the position is
+ * `index / (STEPS.length - 1)`. That generality earned its keep on 2026-08-03, when
+ * onboarding went from six screens to two: seed → full tree, no code change here.
  *
  * This doubles as the progress indicator. That is deliberate — a filling progress bar is
  * exactly the "how much more of this is there" pressure app/onboarding/basics.tsx's copy
@@ -55,8 +55,13 @@ import { Duration, Ease } from '@/constants/motion';
 /**
  * The onboarding steps in order, by route segment. The tree's position is this index over
  * `STEPS.length - 1`, so the last step lands exactly on the full-tree panel.
+ *
+ * Two real steps since 2026-08-03 (was six). `restore` is listed third because it still
+ * EXISTS as a screen and the backdrop has to know a position for it — but it is a detour off
+ * privacy's "Restoring from a backup?" link, not a step anyone walks through, so it sits at
+ * the end where the tree is already full. Nobody sees the tree grow into it and then back.
  */
-const STEPS = ['basics', 'restore', 'privacy', 'guided', 'energy', 'index'] as const;
+const STEPS = ['basics', 'privacy', 'restore'] as const;
 
 /** Three panels wide means two screen widths of travel. */
 const TRIPTYCH_PANELS = MOTIFS['onboarding-triptych'].w / MOTIFS['screen-bg-calm'].w;

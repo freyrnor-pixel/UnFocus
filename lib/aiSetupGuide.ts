@@ -15,7 +15,7 @@
  *   Imports → lib/date (todayStr), lib/backup (SaveToDeviceResult type),
  *             expo-file-system/legacy, expo-sharing, expo-document-picker,
  *             expo-constants, react-native (Platform)
- *   Used by → app/settings.tsx (download + upload/preview), app/onboarding/guided.tsx
+ *   Used by → app/settings.tsx (download + upload/preview), app/onboarding/privacy.tsx
  *             (download only — the third way to start), components/TourSpotlight.tsx
  *             (download only — the tour's closing card), lib/aiSetupApply.ts (consumes
  *             AiSetupConfig + the per-domain draft types), __tests__/aiSetupGuide.test.ts

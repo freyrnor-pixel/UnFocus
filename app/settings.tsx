@@ -198,6 +198,7 @@
  *     components/FormControls.tsx is the right tier here (INTERACTION_HANDOFF §1's "which
  *     segmented control": form field → FormControls, inline picker inside a card →
  *     SlideSelector, screen-level view switcher → TabSlider). app/onboarding/energy.tsx
+ *     (deleted 2026-08-03) used to render the same two modes one tier down;
  *     offers the same two modes one tier down, as a SlideSelector inside its card.
  *   - **Feature toggles live in ONE place (2026-07-25)**: `FEATURE_ROWS` below is the whole
  *     list of plain on/off switches — currently Goals, Sharing & QR, Automations, Medicine,
@@ -1316,9 +1317,15 @@ export default function SettingsScreen() {
                 {/* Re-run the first-run flow. Non-destructive, so it lives here rather than
                     in the red Reset card: it re-enters app/onboarding/basics.tsx seeded from the
                     settings the user has right now, which means walking through it and
-                    pressing Done without touching anything changes nothing at all. */}
+                    pressing Done without touching anything changes nothing at all.
+                    `?rows=all` is what makes this the SIX-row screen (2026-08-03). Onboarding
+                    itself now draws only the language row — the other five moved to Settings,
+                    where every one of them already had a home — so this link is the remaining
+                    place the full set is shown in one go. Without the param it would open the
+                    new-user welcome screen instead, which would be a strange thing to reach
+                    from a settings row. */}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <PressableScale style={styles.switchRow} onPress={() => router.push('/onboarding/basics')} scaleTo={0.97}>
+                <PressableScale style={styles.switchRow} onPress={() => router.push('/onboarding/basics?rows=all')} scaleTo={0.97}>
                   <View style={styles.switchTextCol}>
                     <Text style={[styles.switchLabel, { color: theme.text }]}>{t.firstRun.reRun}</Text>
                     <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.firstRun.reRunHint}</Text>
