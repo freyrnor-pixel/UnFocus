@@ -77,8 +77,9 @@
  *             four-type rendering and the type picker live in components/TaskCard.tsx.
  *             Note "type" here is unrelated to PadTypeRow below, which is about TYPING),
  *             components/PadFooterToggle (the ruled-list layout, the type line and the
- *             three-size footer — the type line is ONE node shared by both layouts, so they
- *             can't drift into two differently-worded adds), lib/cardLayout (LayoutSpec, type
+ *             three-size footer — the type line is ONE node AND, since 2026-08-03, ONE mount
+ *             point, hoisted above the body branch so it holds the same position in all four
+ *             states this card has; see the comment at that mount), lib/cardLayout (LayoutSpec, type
  *             only), lib/padState (PadState, padVisibleRows),
  *             components/Surface, components/PressableScale, components/ProgressBar,
  *             components/DayGridLines (hour lines + compressed-gap bands + now-line),
@@ -103,11 +104,17 @@
  *             lib/useAppTheme (incl. useAccessibility), lib/domainColor, components/CardAccent
  *             (CardAccentBadge — the read-only Home header), components/GlowPulse
  *             (breathing "happening now" halo), store/useTaskStore (Task type only)
- *   Used by → app/(tabs)/index.tsx (Home — read-only day-view preview per Decision 009a). Reads
- *             settings.planTimelineHorizontal there and passes it down as the `horizontal`
- *             prop — this component stays store-free/presentational. NOTE: the full /plans
- *             (Tasks/Oppgaver) screen no longer renders this day-view — it was rebuilt into
- *             a tabbed inline-list (2026-07-08); Home is now the sole caller.
+ *   Used by → app/(tabs)/index.tsx (Home — read-only day-view preview per Decision 009a) and
+ *             app/(tabs)/plans.tsx (the To-do tab, interactively, whenever the active layout
+ *             is the timeline — `spec.timeline`). Both read settings.planTimelineHorizontal
+ *             and pass it down as the `horizontal` prop; this component stays
+ *             store-free/presentational.
+ *             **The "Home is now the sole caller" note this line carried until 2026-08-03 was
+ *             stale** — true when /plans was rebuilt into a tabbed inline-list (2026-07-08),
+ *             untrue since the timeline layout landed (2026-07-30), which mounts this card
+ *             again at plans.tsx's `spec.timeline` branch. Two callers, one component; a
+ *             change here shows up on both surfaces, which is exactly what made the type
+ *             line's two mount points a cross-surface inconsistency rather than a local one.
  *   Data    → presentational; tasks + callbacks + orientation are passed in. Live "now" line
  *             re-renders on a 60s interval (useNowMinutes). ONE exception to "reads no
  *             stores" since 2026-08-02: `useEnergyPause()` (see the pin edit note below).
@@ -1420,23 +1427,39 @@ export default function PlanTaskCard({
                 <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
                   {t.home.todaysPlans}
                 </Text>
-                {countableTasks.length > 0 && (
-                  <Text style={[styles.summary, { color: theme.textMuted }]}>
-                    {t.pad.summary(pendingCount, countableTasks.length)}
-                  </Text>
-                )}
+                {/* Rule 9 — both the summary and the bar below are ALWAYS mounted, and only
+                    their content changes. They used to be gated on `countableTasks.length > 0`,
+                    so writing the very first task of the day made a subtitle and a progress bar
+                    appear out of nothing and pushed the whole card down (2026-08-03 UX review:
+                    one keystroke changed seven things about this card). An empty day reserves
+                    the same space with an empty string and a zero bar. */}
+                <Text style={[styles.summary, { color: theme.textMuted }]}>
+                  {countableTasks.length > 0 ? t.pad.summary(pendingCount, countableTasks.length) : ' '}
+                </Text>
               </View>
             </View>
-            {countableTasks.length > 0 && (
-              <ProgressBar
-                value={doneTasks.length / countableTasks.length}
-                color={domainColor.accent}
-                height={4}
-                style={styles.progressBar}
-              />
-            )}
+            <ProgressBar
+              value={countableTasks.length > 0 ? doneTasks.length / countableTasks.length : 0}
+              color={domainColor.accent}
+              height={4}
+              style={styles.progressBar}
+            />
           </PressableScale>
         )}
+
+        {/* The type line, in ONE fixed place for every state this card can be in (2026-08-03).
+            It used to have two mount points: PadSheet's `typeRow` (the pad's first line, i.e.
+            the TOP of the card) whenever the ruled list was drawn, and a standalone PadSheet
+            AFTER the body for the three cases that don't draw a pad — the timeline layout, an
+            empty day and an all-done day. So writing the first task of the day moved the field
+            you had just typed into from the bottom of the card to the top, and the same card
+            put its input in different places on Home and on the To-do tab. That is rules 8 and
+            9 both, and it was the single clearest instance of the "I press here, then it moves
+            and I have to press the other side" report this pass came from.
+            Top rather than bottom because it keeps PadSheet's notepad metaphor intact (the type
+            line IS the first rule) and leaves the field where the thumb left it as the list
+            grows downward — the other six PadSheet callers are unaffected. */}
+        {onAddTask ? <PadSheet state="closed" typeRow={typeRow} /> : null}
 
         {showEmpty ? (
           <View style={styles.emptyWrap}>
@@ -1494,7 +1517,7 @@ export default function PlanTaskCard({
              calendar grid to be readable. Timed tasks first in clock order, then Anytime; the
              time is the row's ONE right-hand value, in tabular figures so a column of them
              lines up. The timeline is still one tap away in this card's layout picker. */
-          <PadSheet state={state} typeRow={typeRow}>
+          <PadSheet state={state}>
             {/* The log reads INSIDE the pad rather than above it — a separate surface for
                 "what happened" would read as a second card about the same day, which is
                 exactly the "on top of" shape this feature must not have. */}
@@ -1551,8 +1574,15 @@ export default function PlanTaskCard({
             )}
             {/* Nothing fixed left today — a neutral statement of fact where the grid would
                 be, not an invitation and not an encouragement. Only when the log is on;
-                without it an empty grid is just an empty grid. */}
-            {dayLogActive && gridItems.length === 0 && !showEmpty ? (
+                without it an empty grid is just an empty grid.
+                `visibleAnytime.length === 0` is load-bearing (2026-08-03, rule 25): `gridItems`
+                is only the TIMED tasks, so a day holding nothing but untimed ones printed
+                "Nothing fixed left today." directly beneath the list of things that were, in
+                fact, left today. "Fixed" was carrying the whole meaning and no reader parses it
+                that way — on screen it just read as the card contradicting itself. When there
+                are untimed tasks ahead, the list above already says what is left and this line
+                has nothing to add. */}
+            {dayLogActive && gridItems.length === 0 && visibleAnytime.length === 0 && !showEmpty ? (
               <Text style={[styles.nothingAhead, { color: theme.textMuted }]}>{t.dayLog.nothingAhead}</Text>
             ) : null}
             {gridItems.length > 0 && (
@@ -1580,15 +1610,8 @@ export default function PlanTaskCard({
           </>
         )}
 
-        {/* The type line lives on the pad's first rule (PadSheet's `typeRow`) whenever the pad
-            is drawn. When it ISN'T — the timeline layout, an empty day, or an all-done day, all
-            three of which render something else in the body — it gets its own line here, as a
-            PadSheet drawing nothing but the type row. Either way it is the SAME node, so the
-            branches can't drift into differently-worded adds, and there is no state in which
-            the card offers no way to write on it. */}
-        {onAddTask && (spec.timeline || showEmpty || allDone) ? (
-          <PadSheet state="closed" typeRow={typeRow} />
-        ) : null}
+        {/* (The type line used to have its second mount point here — see the single hoisted
+            mount above the body branch.) */}
 
         {/* Done zone — dimmed, collapsed by default (Decision 009a). Always the flat-row
             layout, even in horizontal mode — this is a secondary dropdown list, not the
