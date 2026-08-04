@@ -31,6 +31,13 @@
  *     exist (Notes' details field + "also a task" chip + time box, Shopping's qty stepper and
  *     list-target chip). They render only while the line is focused or has text — an idle pad
  *     line is just a prompt, not a control panel.
+ *   - `panel` (2026-08-04, user report: "I cannot understand small, barely visible icons") is a
+ *     SEPARATE slot from `extras`, for callers that want the full-width, labeled dropdown-panel
+ *     design (components/QuickAddOptionsPanel + QuickAddOptionRow) instead of inline chips —
+ *     see PlanTaskCard/HomeHabitsCard. Renders on its own line below the input, above the
+ *     confirm/"…" row, on the same focused-or-has-text gate as `extras`. A caller passes one or
+ *     the other, not both — `extras` stays for the surfaces that haven't moved to the panel
+ *     design (Notes, Shopping).
  *   - The commit button appears on the same terms. It's inert-looking (recessed
  *     `surfaceMuted`) until there's text, then fills with the domain accent — the same
  *     affordance grammar AddRow established, kept so the two don't read as different controls
@@ -71,6 +78,10 @@ type Props = {
   accent: string;
   /** Per-surface quick-add controls, shown only while the line is active. */
   extras?: React.ReactNode;
+  /** The full-width labeled options panel (components/QuickAddOptionsPanel), shown on its own
+   *  line below the input on the same terms as `extras`. See the edit note above for when to
+   *  use this instead of `extras`. */
+  panel?: React.ReactNode;
   /** Optional "…" — commits the draft (same as onSubmit) and opens its full editor,
    *  pre-filled, instead of just collapsing back to the prompt. Shown on the same terms as
    *  extras/the confirm button (focused or has text). The caller owns what "commit and open
@@ -89,6 +100,7 @@ export default function PadTypeRow({
   onSubmit,
   accent,
   extras,
+  panel,
   onMore,
   moreLabel,
   disabled,
@@ -135,115 +147,150 @@ export default function PadTypeRow({
     hapticConfirm();
   }
 
+  // Capture-phase only: flag the press, then return false so the child control still
+  // receives the touch exactly as before. See internalPressRef.
+  const controlsResponderProps = {
+    onStartShouldSetResponderCapture: () => {
+      internalPressRef.current = true;
+      return false;
+    },
+  };
+
+  const moreButton =
+    showControls && onMore ? (
+      <PressableScale
+        style={styles.more}
+        onPress={onMore}
+        hitSlop={HitSlop.base}
+        scaleTo={0.9}
+        accessibilityRole="button"
+        accessibilityLabel={moreLabel ?? t.pad.continueEditing}
+      >
+        <Ionicons name="ellipsis-horizontal" size={16} color={theme.textMuted} />
+      </PressableScale>
+    ) : null;
+
+  const confirmButton = showControls ? (
+    <PressableScale
+      style={[
+        styles.confirm,
+        active && Shadow.button,
+        {
+          backgroundColor: active ? accent : theme.surfaceMuted,
+          borderColor: active ? 'rgba(255,255,255,0.5)' : theme.border,
+        },
+      ]}
+      onPress={commit}
+      disabled={!active}
+      hitSlop={HitSlop.base}
+      scaleTo={0.9}
+      haptic={false}
+      accessibilityRole="button"
+      accessibilityLabel={t.a11yAdd}
+    >
+      <Ionicons name="checkmark" size={18} color={active ? contrastOn(accent) : theme.textMuted} />
+    </PressableScale>
+  ) : null;
+
+  const fieldAndPrompt = (
+    <View style={styles.field}>
+      <TextInput
+        style={[styles.input, { color: theme.text }]}
+        value={value}
+        onChangeText={onChangeText}
+        returnKeyType="done"
+        onSubmitEditing={commit}
+        editable={!disabled}
+        accessibilityLabel={prompt}
+        onFocus={() => {
+          setFocused(true);
+          isFocusedRef.current = true;
+          // Covers the keyboard-already-open case; the listener above covers it opening
+          // fresh. Both are idempotent.
+          scrollIntoView?.(rowRef.current);
+        }}
+        onBlur={() => {
+          setFocused(false);
+          isFocusedRef.current = false;
+          // A press on this row's own controls is part of writing the line, not a tap
+          // elsewhere — see internalPressRef. Consume the flag either way, so the next
+          // genuine blur still commits.
+          if (internalPressRef.current) {
+            internalPressRef.current = false;
+            return;
+          }
+          // Don't lose a typed line to a stray tap elsewhere.
+          if (hasText) commit();
+        }}
+      />
+      {/* Our own prompt layer rather than TextInput's `placeholder`, so it clears the
+          moment the line is selected instead of on the first keystroke. */}
+      {!focused && !hasText ? (
+        <View style={styles.prompt} pointerEvents="none">
+          <Text style={[styles.promptText, { color: theme.textMuted }]} numberOfLines={1}>
+            {prompt}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+
+  // Ghost check preview — idle state only (2026-07-31, user report: the blank spare
+  // lines below used to each carry their own ghost ring, which read as several
+  // identical previews; there is really only one "next thing to check" and it belongs
+  // on this row, the one actually empty-but-selected for input). Same 22×22/Radius.full
+  // ring as PadRow's real check and the old spare-line ghost, but dimmer — it's a
+  // preview of where a check WILL go once this line becomes a real row, not a control.
+  const ghostCheck = !showControls ? (
+    <View style={[styles.ghostCheck, { borderColor: theme.border }]} pointerEvents="none" />
+  ) : null;
+
+  // Panel design (2026-08-04): input line alone, the labeled options panel on its own line
+  // below, then the "…"/confirm buttons right-aligned below that — see the header note on
+  // `panel` for why this is a separate layout from the inline `extras` row below.
+  if (panel !== undefined) {
+    return (
+      <View
+        ref={rowRef}
+        style={[styles.column, disabled && styles.gated, style]}
+        pointerEvents={disabled ? 'none' : 'auto'}
+      >
+        <View style={styles.row}>
+          {fieldAndPrompt}
+          {ghostCheck}
+        </View>
+        {showControls ? (
+          <View style={styles.panelSlot} {...controlsResponderProps}>
+            {panel}
+          </View>
+        ) : null}
+        {showControls && (moreButton || confirmButton) ? (
+          <View style={styles.panelButtonRow} {...controlsResponderProps}>
+            {moreButton}
+            {confirmButton}
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
   return (
     <View
       ref={rowRef}
       style={[styles.row, disabled && styles.gated, style]}
       pointerEvents={disabled ? 'none' : 'auto'}
     >
-      <View style={styles.field}>
-        <TextInput
-          style={[styles.input, { color: theme.text }]}
-          value={value}
-          onChangeText={onChangeText}
-          returnKeyType="done"
-          onSubmitEditing={commit}
-          editable={!disabled}
-          accessibilityLabel={prompt}
-          onFocus={() => {
-            setFocused(true);
-            isFocusedRef.current = true;
-            // Covers the keyboard-already-open case; the listener above covers it opening
-            // fresh. Both are idempotent.
-            scrollIntoView?.(rowRef.current);
-          }}
-          onBlur={() => {
-            setFocused(false);
-            isFocusedRef.current = false;
-            // A press on this row's own controls is part of writing the line, not a tap
-            // elsewhere — see internalPressRef. Consume the flag either way, so the next
-            // genuine blur still commits.
-            if (internalPressRef.current) {
-              internalPressRef.current = false;
-              return;
-            }
-            // Don't lose a typed line to a stray tap elsewhere.
-            if (hasText) commit();
-          }}
-        />
-        {/* Our own prompt layer rather than TextInput's `placeholder`, so it clears the
-            moment the line is selected instead of on the first keystroke. */}
-        {!focused && !hasText ? (
-          <View style={styles.prompt} pointerEvents="none">
-            <Text style={[styles.promptText, { color: theme.textMuted }]} numberOfLines={1}>
-              {prompt}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      {/* Ghost check preview — idle state only (2026-07-31, user report: the blank spare
-          lines below used to each carry their own ghost ring, which read as several
-          identical previews; there is really only one "next thing to check" and it belongs
-          on this row, the one actually empty-but-selected for input). Same 22×22/Radius.full
-          ring as PadRow's real check and the old spare-line ghost, but dimmer — it's a
-          preview of where a check WILL go once this line becomes a real row, not a control. */}
-      {!showControls ? (
-        <View style={[styles.ghostCheck, { borderColor: theme.border }]} pointerEvents="none" />
-      ) : null}
+      {fieldAndPrompt}
+      {ghostCheck}
 
       {showControls ? (
-        <View
-          style={styles.extrasSlot}
-          // Capture-phase only: flag the press, then return false so the child control
-          // still receives the touch exactly as before. See internalPressRef.
-          onStartShouldSetResponderCapture={() => {
-            internalPressRef.current = true;
-            return false;
-          }}
-        >
+        <View style={styles.extrasSlot} {...controlsResponderProps}>
           {extras}
         </View>
       ) : null}
 
-      {showControls && onMore ? (
-        <PressableScale
-          style={styles.more}
-          onPress={onMore}
-          hitSlop={HitSlop.base}
-          scaleTo={0.9}
-          accessibilityRole="button"
-          accessibilityLabel={moreLabel ?? t.pad.continueEditing}
-        >
-          <Ionicons name="ellipsis-horizontal" size={16} color={theme.textMuted} />
-        </PressableScale>
-      ) : null}
-
-      {showControls ? (
-        <PressableScale
-          style={[
-            styles.confirm,
-            active && Shadow.button,
-            {
-              backgroundColor: active ? accent : theme.surfaceMuted,
-              borderColor: active ? 'rgba(255,255,255,0.5)' : theme.border,
-            },
-          ]}
-          onPress={commit}
-          disabled={!active}
-          hitSlop={HitSlop.base}
-          scaleTo={0.9}
-          haptic={false}
-          accessibilityRole="button"
-          accessibilityLabel={t.a11yAdd}
-        >
-          <Ionicons
-            name="checkmark"
-            size={18}
-            color={active ? contrastOn(accent) : theme.textMuted}
-          />
-        </PressableScale>
-      ) : null}
+      {moreButton}
+      {confirmButton}
     </View>
   );
 }
@@ -262,6 +309,10 @@ const styles = StyleSheet.create({
   // must not change the row's layout — the extras used to be direct children of the row, so
   // this inherits the same flex-row alignment and gap and is otherwise invisible.
   extrasSlot: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  // Panel layout (`panel` prop): a column instead of the single inline row.
+  column: { gap: Spacing.xs },
+  panelSlot: { width: '100%' },
+  panelButtonRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: Spacing.xs },
   input: {
     // See AddRow's note: react-native-web gives a bare <input> an intrinsic min-width that
     // flex:1 alone doesn't beat, which pushes the trailing controls off the card.

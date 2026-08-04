@@ -185,7 +185,8 @@ const ENERGY_SURFACES: { what: string; file: string; token: string }[] = [
   { what: 'the shared-load card', file: 'app/(tabs)/plans.tsx', token: '<EnergyBalanceCard' },
   { what: "the task editor's energy stepper", file: 'components/TaskCard.tsx', token: 't.energyGiveTakeLabel' },
   { what: "the habit form's energy stepper", file: 'app/habit-form.tsx', token: 't.energyGiveTakeLabel' },
-  { what: "the habit quick-add's energy chip", file: 'components/HomeHabitsCard.tsx', token: 'styles.energyChip' },
+  { what: "the habit quick-add's energy row", file: 'components/HomeHabitsCard.tsx', token: '<QuickAddOptionRow' },
+  { what: "the Habits tab's own quick-add energy row", file: 'app/(tabs)/habits.tsx', token: '<QuickAddOptionRow' },
 ];
 
 describe('Rewards mode renders no energy UI', () => {

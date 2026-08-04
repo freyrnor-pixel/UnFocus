@@ -5,8 +5,10 @@
  * always available (no lock): tapping a task in the All-tasks tab opens its inline
  * editor with a Discard / Save bar (see TaskCard). New tasks are made through the shared
  * inline AddRow at the bottom of the Whenever section — the one add-a-row affordance on
- * this screen — which creates an undated, non-recurring task on submit; the editor can
- * then promote it (date / repeat / steps). Today / This week expand a task to its steps
+ * this screen — which creates an undated task on submit (optionally with a time and/or a
+ * recurrence, since 2026-08-04, via the same Time/Repeat options panel PlanTaskCard's own
+ * quick-add uses — see commitWhenever's header note); the editor can then promote it further
+ * (date / steps). Today / This week expand a task to its steps
  * only (no settings); the Today section sits inside its own card. The Home "Today's plans"
  * preview keeps the unchanged PlanTaskCard day-view. On Today and This week the undated
  * **Whenever** section sits BELOW the dated content as a collapsed drawer (see `CollapsedSection`
@@ -21,6 +23,8 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedTasksSection,
  *             components/SectionRail, components/SectionCard, components/TaskCard, components/AddRow,
+ *             components/QuickAddOptionsPanel + components/QuickAddOptionRow +
+ *             components/TimeBoxInput (2026-08-04 — the Whenever AddRow's Time/Repeat panel),
  *             components/DraggableTaskRow (the Whenever list's long-press-drag),
  *             components/PressableScale, components/Surface (the local CollapsedSection's card
  *             shell), components/Collapsible + components/AnimatedChevron
@@ -212,7 +216,10 @@ import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import SubScreenLinkButton from '@/components/SubScreenLinkButton';
 import GoalsSheet from '@/components/GoalsSheet';
-import { todayStr, getWeekDates } from '@/lib/date';
+import { todayStr, getWeekDates, dayOfWeekMon0 } from '@/lib/date';
+import TimeBoxInput from '@/components/TimeBoxInput';
+import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
+import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
@@ -679,6 +686,29 @@ export default function TasksScreen() {
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   // Inline "add a row" input for the Whenever section — the one add affordance on this screen.
   const [wheneverInput, setWheneverInput] = useState('');
+  // Whenever's Time + Repeat options panel (2026-08-04) — closes the parity gap with
+  // PlanTaskCard's own quick-add, which already has both; same state/cycle shape.
+  const [wheneverTime, setWheneverTime] = useState('');
+  const [wheneverRecurring, setWheneverRecurring] = useState<Recurring>('none');
+  const [wheneverRecurringDays, setWheneverRecurringDays] = useState<number[]>([]);
+  function cycleWheneverRecurring() {
+    tap();
+    setWheneverRecurring((current) => {
+      if (current === 'none') return 'daily';
+      if (current === 'daily') {
+        setWheneverRecurringDays((days) => (days.length ? days : [dayOfWeekMon0(new Date())]));
+        return 'weekly';
+      }
+      if (current === 'weekly') return 'monthly';
+      return 'none';
+    });
+  }
+  function wheneverRecurringLabel(mode: Recurring): string {
+    if (mode === 'daily') return t.taskRecurDay;
+    if (mode === 'weekly') return t.taskRecurWeek;
+    if (mode === 'monthly') return t.taskRecurMonth;
+    return t.off;
+  }
   // Screen-level StarterCard's example (2026-07-31, user report: it vanished with no feedback
   // the instant its "+" was pressed, since that write flips `tasks.length` off zero). Keeps the
   // card mounted, dimmed, for the rest of this visit instead — see addPlanStarterTask below and
@@ -998,21 +1028,26 @@ export default function TasksScreen() {
     tasksLoaded
   );
 
-  // Quick-add: create an undated, non-recurring "Whenever" task from the inline AddRow.
-  // The editor (tap the task) can then promote it (date / repeat / steps).
+  // Quick-add: create an undated "Whenever" task from the inline AddRow — optionally with a
+  // time and/or a recurrence set via the Time/Repeat options panel (2026-08-04, mirrors
+  // PlanTaskCard's own quick-add exactly, including staying `hasStartDate: false` even when a
+  // time is set: see app/(tabs)/index.tsx's `buildQuickAddTaskInput` note — a time doesn't
+  // move a task out of Whenever, only the editor's own date field does that). The editor (tap
+  // the task) can then promote it further (date / steps).
   const commitWhenever = useCallback(() => {
     const title = wheneverInput.trim();
     if (!title) return;
     addTask({
       title,
       date: today,
+      time: wheneverTime || undefined,
       taskType: 'start-at',
       done: false,
-      recurring: 'none',
-      recurringDays: [],
+      recurring: wheneverRecurring,
+      recurringDays: wheneverRecurring === 'weekly' ? wheneverRecurringDays : [],
       weekInterval: 1,
       monthlyMode: 'day',
-      monthDay: 1,
+      monthDay: new Date().getDate(),
       monthOrdinal: 'first',
       monthWeekday: 0,
       sortOrder: 0,
@@ -1020,7 +1055,10 @@ export default function TasksScreen() {
       assignee: '',
     });
     setWheneverInput('');
-  }, [wheneverInput, addTask, today]);
+    setWheneverTime('');
+    setWheneverRecurring('none');
+    setWheneverRecurringDays([]);
+  }, [wheneverInput, wheneverTime, wheneverRecurring, wheneverRecurringDays, addTask, today]);
 
   // Section headers are the reusable <SectionRail> (hue dot + label + count) — the color-rail
   // redesign (2026-07-13). Each section's rows carry a matching `railColor` left edge; the
@@ -1211,7 +1249,9 @@ export default function TasksScreen() {
               )}
               {/* The one add-a-row affordance: an inline empty row with a "+" that saves a new
                   Whenever task into this section. Keeps its Whenever-hue accent as a functional
-                  "add" cue (the section box already carries membership color). */}
+                  "add" cue (the section box already carries membership color). Time + Repeat
+                  panel (2026-08-04) mirrors PlanTaskCard's own quick-add, closing the parity
+                  gap this row used to have (see commitWhenever's header note). */}
               <View style={[styles.addRowCard, { backgroundColor: theme.surface, borderColor: theme.border, borderLeftColor: wheneverHue }]}>
                 <AddRow
                   placeholder={t.newTask}
@@ -1221,6 +1261,25 @@ export default function TasksScreen() {
                   accent={wheneverHue}
                   showDivider={false}
                   accessibilityLabel={t.newTask}
+                  panel={
+                    <QuickAddOptionsPanel>
+                      <QuickAddOptionRow
+                        icon="time-outline"
+                        label={t.timeLabel}
+                        value={<TimeBoxInput value={wheneverTime} onChange={setWheneverTime} />}
+                        accent={wheneverHue}
+                      />
+                      <QuickAddOptionRow
+                        icon="repeat"
+                        label={t.taskRecurringToggle}
+                        value={wheneverRecurringLabel(wheneverRecurring)}
+                        isSet={wheneverRecurring !== 'none'}
+                        accent={wheneverHue}
+                        onPress={cycleWheneverRecurring}
+                        accessibilityLabel={`${t.taskRecurringToggle}: ${wheneverRecurringLabel(wheneverRecurring)}`}
+                      />
+                    </QuickAddOptionsPanel>
+                  }
                 />
               </View>
             </SectionCard>
