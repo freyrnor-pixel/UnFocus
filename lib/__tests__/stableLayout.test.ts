@@ -69,19 +69,45 @@ describe('PlanTaskCard — the type line has exactly one position', () => {
 describe('PlanTaskCard — the Home header reserves its space', () => {
   const src = code('components/PlanTaskCard.tsx');
 
-  it('does not gate the summary or the progress bar on there being tasks', () => {
-    // The exact shape of the old bug. Either gate reintroduces the pop-in.
-    expect(src).not.toMatch(/\{countableTasks\.length > 0 && \(/);
+  /**
+   * ⚠️ Two of these asserted a shape that DESIGN_COMPARISON/09 deliberately deleted on
+   * 2026-08-04, and that PR didn't update them — so `main` shipped red and #491/#492 both
+   * merged through the failure. Repaired 2026-08-04 (workstream C) rather than left to make
+   * a later session "fix" CI by reverting 09.
+   *
+   * The rule these exist for is **rule 9: writing the day's first task must not change the
+   * header's HEIGHT.** That is still enforced below — it is only the two proxies for it that
+   * went stale. Neither was weakened into nothing: the progress bar's always-mounted
+   * assertion is unchanged, the anti-gate assertion is now aimed at the bar specifically, and
+   * the deleted summary-sentence check is replaced by the `minHeight` that is the actual
+   * reason the pill is allowed to gate at all.
+   */
+  it('does not gate the progress bar on there being tasks', () => {
+    // The exact shape of the old bug, narrowed to the element it was about. It used to forbid
+    // the gate ANYWHERE in the file, which was fine while the bar and the summary sentence
+    // were the only two things that could carry it — task 09's count pill now carries it too,
+    // legitimately (see the next test), so a file-wide ban would forbid the fix as well as
+    // the bug.
+    expect(src).not.toMatch(/\{countableTasks\.length > 0 && \(\s*<ProgressBar/);
   });
 
   it('keeps the progress bar mounted and feeds it 0 on an empty day', () => {
     expect(src).toMatch(/value=\{countableTasks\.length > 0 \? doneTasks\.length \/ countableTasks\.length : 0\}/);
   });
 
-  it('keeps the summary line mounted, blank rather than absent', () => {
-    // A blank string still occupies the line box; an absent node does not, which is the
-    // difference between "reserved" and "jumps".
-    expect(src).toMatch(/countableTasks\.length > 0 \? t\.pad\.summary\([^)]*\) : ' '/);
+  it('lets the count pill gate itself, because its row cannot change height', () => {
+    // Replaces "keeps the summary line mounted, blank rather than absent". That grey
+    // `{left}/{total} left` sentence had its OWN line, so an absent node collapsed it and the
+    // card jumped — hence the blank-string trick. Task 09 replaced it with a Badge that shares
+    // the TITLE's line, where appearing changes the row's width and not its height, so the
+    // blank-string trick has nothing left to protect and `t.pad.summary(...)` survives only as
+    // the pill's accessibilityLabel.
+    //
+    // What has to stay true is the reason that is safe: the row reserves its height whether
+    // the pill is there or not. If this minHeight ever goes, the gate below becomes the 2026-08-03
+    // pop-in bug again and the pill has to go back to being always-mounted.
+    expect(src).toMatch(/headerTopRow: \{[^}]*minHeight: 32/);
+    expect(src).toMatch(/\{countableTasks\.length > 0 && \(\s*<Badge/);
   });
 });
 
@@ -175,7 +201,12 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // A full ten-pip bar with nothing able to spend it is the score-reading problem at its
     // worst. The tutorial stands where the meter will stand, with the same pop-up behind its
     // button.
-    expect(src).toMatch(/<StarterCard text=\{t\.starters\.energy\.text\}>/);
+    // `[^>]*` so a presentational prop can be added without failing this: what matters is that
+    // the tutorial card is mounted with the energy copy, not the exact attribute list. It grew
+    // `stage="sapling"` on 2026-08-04 (design comparison task 03) — a call-site choice about
+    // how large a watermark this card has room for, deliberately NOT `current / capacity`,
+    // which is one of the tree bindings both the design project and lib/growth.ts decline.
+    expect(src).toMatch(/<StarterCard text=\{t\.starters\.energy\.text\}[^>]*>/);
     expect(src).toMatch(/const showTutorial = ready && !hasEnergyItems && !hasSetCapacity/);
     // Either kind of "something added" sends the meter back: an energy value on a task/habit,
     // or a capacity the user set themselves (any energy_budgets override row).
