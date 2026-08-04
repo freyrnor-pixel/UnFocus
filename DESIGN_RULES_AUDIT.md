@@ -508,3 +508,70 @@ No screenshots — nothing drew differently, so `npm run preview` has nothing ne
 Verification is `npx tsc --noEmit` only; no behavioural change, so `scripts/test-changed.sh`
 and `npm run wraps` (both listed as "required" in the task file for the case where the stripe
 actually lands) don't apply to a decision that adds no code.
+
+**10. The coloured count pill vs the grey summary sentence** (`DESIGN_COMPARISON/09`,
+2026-08-04 — blocked by 06, resolves 08's "possibly" hedge). The design project's `CountBadge`
+(`ui_kits/unfocus_app/HomeScreen.jsx`) is a small pill beside the card title — 16% accent wash,
+**accent-coloured text**. The app instead spends a whole second line under the title, a
+`theme.textMuted` sentence ("{left}/{total} left", `components/HomeNotesCard.tsx` and three
+siblings).
+
+**Decision: (c) — pill replaces the sentence, as a deletion. Landed on all four Home cards
+(`HomeNotesCard.tsx`, `HomeHabitsCard.tsx`, `HomeShoppingCard.tsx`, `PlanTaskCard.tsx`).**
+
+Not a straight port of the design's pill, for a reason the task file's own ⚠️ flagged and
+`lib/domainColor.ts` already makes a hard rule, not a taste call: **"AN IDENTITY HUE IS A FILL.
+IT IS NEVER TEXT AND NEVER AN ICON COLOUR"** (A.4 rule 1, dated 2026-07-31 — before this task
+ran). The design's pill draws the hue as BOTH the wash and the text; Shopping's gold is
+2.25:1 on its own soft wash, which fails AA outright, not just "when the hue is light" as the
+task file hedged — it fails for the specific hue this app already has. So the pill ships with
+the wash only (`domainColor.soft`, an explicitly permitted "fill-shaped derivative" per that
+same rule) and the number in **plain `theme.textMuted` ink**, never `domainColor.accent`. This
+sidesteps the contrast question entirely rather than computing per-hue overrides.
+
+**Position: a header-row sibling at a fixed slot, not inline after the title text**, despite
+the design's "sitting beside the card title." Two independent reasons converged on this, not
+one: (1) the task's own "preserve" section says the four cards' counts line up vertically down
+the screen, which only survives if the pill sits at the same x on every card — impossible if
+it trails variable-length, variable-language title text, but automatic if it's a row sibling
+after a `flex: 1` title column; (2) it's exactly the near-miss-wrap case `npm run wraps
+--lang=no` exists to catch — a pill racing a long Norwegian title on one line. `Badge.tsx`
+gained optional `bg`/`fg`/`borderColor`/`tabularNums` overrides rather than a new component,
+per the task file's own steer to check it first.
+
+**Shopping got no second pill.** `HomeShoppingCard.tsx` already had a coloured count badge —
+the flight-animation target items fly to when ticked off, `domainColor.soft` fill + plain ink,
+independently arrived at the same A.4-compliant shape this task was about to build. Adding a
+*second* pill beside the title would have put two domain-hued count chips in one header, which
+is more chrome than the sentence it replaced — the opposite of this folder's point. The
+sentence's fraction moved INTO that existing badge instead (now "{remaining}/{total}", was a
+bare total); only the label changed, so the flight animation's target node is untouched.
+
+**Habits' pill is a third fill on top of a fourth.** `HomeHabitsCard.tsx` already draws the
+identity hue as badge + edge + a progress-bar fill (all three permitted "fill-shaped
+derivatives" per A.4 rule 1) — the pill is a fourth. Checked against the precedent this could
+have collided with: A.4 rule 3 removed a whole-HEADER wash specifically because it repeated
+the same idea (*this card is Habits*) a third time with no new information. The pill isn't
+that — it's the same fill vocabulary carrying a number (today's remaining count) nothing else
+on the card shows, the same distinction that already let the progress bar and the badge
+coexist. Recorded in that file's own edit notes so a later pass doesn't "simplify" it back
+down by removing one of the four on a miscounted "too much colour" instinct.
+
+`PlanTaskCard.tsx` keeps its progress bar ALWAYS mounted (2026-08-03's "nothing jumps" fix,
+unrelated to and unchanged by this task) but the pill itself is safe to gate on
+`countableTasks.length > 0` like the other three cards, not forced always-on: it shares the
+title's line rather than adding a second one, and `headerTopRow`'s pre-existing `minHeight: 32`
+already bounds the row to the same height with or without it — only the row's width moves,
+which was never what the "nothing jumps" fix was guarding against.
+
+**No new i18n key.** The pill shows bare `"{left}/{total}"` digits, not the old sentence's
+localised word ("left" / "igjen") — a wordless fraction next to a title is the design's own
+"holding just the number" framing, and needs no translation. `t.pad.summary` (the sentence
+string) is kept, not orphaned: all four cards still call it for the pill's
+`accessibilityLabel`, so a screen reader gets the full sentence while sighted users get the
+compact digits.
+
+Verification: `npx tsc --noEmit`; `scripts/test-changed.sh` (no jest suite covers these four
+presentational cards directly — `copyTone.test.ts` still ran clean since no new/changed
+`lib/i18n.ts` string was added); `npm run wraps -- --lang=no --width=360` (the case this task
+was flagged as the near-miss risk for).
