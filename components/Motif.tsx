@@ -12,7 +12,8 @@
  *   Imports → react-native-svg, constants/motifs, lib/useAppTheme (useIsDark)
  *   Used by → components/ScreenBackground.tsx (the tab strip + the calm sub-tier backdrop),
  *             components/SectionDivider.tsx (trunk-divider), components/StarterCard.tsx
- *             (empty-branch), components/EnergyMeter.tsx (halo-ring)
+ *             (tree-natural-seed), components/TourSpotlight.tsx (halo-ring),
+ *             app/onboarding/_layout.tsx (onboarding-triptych)
  *   Data    → none — pure presentation
  *
  * Edit notes:

@@ -2,8 +2,10 @@
 
 Imported from the "UnFocus Design System" Claude Design project (2026-08-04).
 
-**Nothing in the app references these yet.** They are source art, parked here pending a
-decision on how they should ship. Read this before wiring one up.
+**Only `tree-natural-seed` is mounted** (components/StarterCard.tsx's empty-state watermark,
+2026-08-04). The rest is source art parked here pending a decision on how it should ship —
+and for the trees, that decision has now been taken and is "not as a stage binding" (see the
+bottom of this file). Read this before wiring one up.
 
 ## Why they are in a subdirectory
 
@@ -36,11 +38,27 @@ The closer existing precedent for full-colour illustration is `assets/bg-light.p
 
 | file | size | notes |
 |---|---|---|
-| `tree-natural-{seed,sprout,sapling}-{light,dark}.svg` | 300×340 | 3 of the 4 growth stages |
+| `tree-natural-{seed,sprout,sapling}-{light,dark}.svg` | 300×340 | 3 of the 4 growth stages; `seed` is **mounted** (components/StarterCard.tsx) as of 2026-08-04 |
 | `leaf-icon-{light,dark}.svg` | 24×24 | single leaf, for inline UI use |
 | `leaf-sprig-{light,dark}.svg` | 32×64 | small stem of leaves |
 
-**`tree-natural-full-*` is missing** — the fourth and largest stage was not transferred.
+**`tree-natural-full-*` is missing** — the fourth and largest stage was not transferred, and
+as of 2026-08-04 it **cannot be fetched from here**. `DesignSync` requires an interactive
+`/design-login`, which a Claude Code remote session has no terminal for; the tool returns an
+authorization error rather than the file. The asset has also never existed in this repo's
+history (`git log --all --diff-filter=A` over this directory shows only the seed/sprout/sapling
+pairs, added in #480), so there is nothing to recover locally either.
+
+**This is not blocking anything, and that is the point.** The two tasks that wanted it —
+a stage tree bound to habit streaks, and an illustrated hero backdrop — were both declined on
+their own merits (see the non-adoption note at the bottom of this file, and
+`components/ScreenBackground.tsx`'s header). With no consumer, the ceiling of the ladder is
+`sapling` and nothing tops out early. Do **not** author a substitute: inventing a fourth stage
+would put non-design-system geometry into `constants/motifs.ts` under the design system's name,
+and a wrong tree is worse than a missing one. If the maintainer ever transfers the light file,
+the dark twin can be derived from the substitution map below and the port is a two-file drop
+plus `node scripts/build-motifs.mjs` — the pipeline already declares `illustrations/` as a
+second, `tintable: false` source dir and needs no generator work.
 
 The light→dark relationship is a pure hex substitution over identical geometry (verified
 byte-exact on the seed and sprout pairs), so a dark variant can always be regenerated from

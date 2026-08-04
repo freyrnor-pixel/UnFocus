@@ -278,3 +278,89 @@ yesterday!'`, setting `MIN_TAP_TARGET = 40`, restoring a bare `minHeight: 44`, a
 The two allowlists (`designTokens`'s literal exemptions, `copyTone`'s 13 `!` strings) are
 **ratchets in the sense of `jest.config.js`'s coverage thresholds: they may shrink, never
 grow.** Adding an entry means writing down why it isn't a violation.
+
+---
+
+## Design-project comparison — divergences deliberately NOT ported (2026-08-04)
+
+**Scope.** The "UnFocus Design System" Claude Design project
+(`ec3299ab-36de-4990-9d47-c1a3e7a0b321`) was compared against `main` on 2026-08-04; the
+review is split per task under `DESIGN_COMPARISON/`. Its tokens are already in sync — the
+project's `tokens/*.css` were regenerated *from* `constants/colors.ts`/`constants/theme.ts`
+and match value for value, so **no session should ever "port a colour" or "port a spacing
+token" from it.** The divergence is entirely in where the shared tokens get applied.
+
+This section exists so the items below stop costing a session's attention. Several parts of
+that project are not proposals at all — they are **recreations of this app's own superseded
+states**, and a later session opening the project will otherwise rediscover them and
+re-propose them as design direction. They are not.
+
+| Design-project artefact | What it shows | Verdict |
+|---|---|---|
+| `TasksScreen.jsx` `TaskRow` | Check on the **left**, two separate trailing action icons | **Do not port** |
+| `EnergyMeter.jsx` `Pip` | A flash glyph inside **every** pip, filled and hollow alike | **Do not port** |
+| `HomeScreen.jsx` `DayRail` | Fixed 56px time column, 20px minimum connector, simple sorted list | **Do not port** |
+| `screen-bg-{calm,grow,list}` | Per-screen-type backdrops + an edge-continuity rule | **Declined** |
+| `natural-tree.card.html` bindings | Stage advances on habit streak / Energy fullness / focus session | **Declined** |
+
+**1. Check position and trailing icons** (`DESIGN_COMPARISON/12`). The design's left-check +
+dual-trailing-icon row is this app's **pre-2026-07-30** state. The check moved to the right
+margin app-wide in that pass (maintainer's call), and the assorted per-surface trailing
+trash/send/put-back buttons collapsed into ONE row-level ⋯ action —
+`[leading?] title → ONE meta line → ONE right-hand value → [⋯ action] → [○ check]`. Reverting
+is not a style choice: full-width notepad rules exist *because* there is no leading check
+column to inset past, and `ShoppingRow`'s `ROW_DIVIDER_INSET` was deleted in the same pass.
+A left check means re-introducing the inset or living with rules running under the checkboxes.
+
+**2. Energy pips** (`DESIGN_COMPARISON/13`). `components/EnergyMeter.tsx`'s header says
+outright: don't reinstate the flash-icon. The 2026-07-31 rework exists because ten saturated
+pips and "10 / 10" **read as a score**, which is the one thing Energy must not be; putting a
+glyph back inside ten saturated pips walks straight into that. There is also an arithmetic
+floor — the pip shrank to `PIP_SIZE` (18) because at the audited 360px worst case, ten pips +
+the value at the `large` font scale + the edit glyph + gaps came to ≈318px of 328px available.
+The pip row clips rather than overflows, so that failure is invisible in a casual screenshot.
+
+Worth recording that the two **agree on four of five points**, so nothing else here is a gap:
+surplus pips (soft accent fill, accent outline, capped at 4 both sides), the boost chip
+(deliberately *neutral* on both sides — borrowed energy is a footnote about today, not a
+reward), the permanent italic hint under a hairline rule, and "not a card" (no background, no
+shadow, no padding). Only the flash glyph diverges, and it diverges on purpose.
+
+Also: `EnergyMeter`'s **StarterCard tutorial state** (2026-08-03, gate
+`!hasEnergyItems && !hasSetCapacity` **and** all three source stores `loaded`) has no
+equivalent in the design project. It is not an unexplained extra — a full ten-pip bar with
+nothing able to spend it is the "reads as a score" problem at its worst, on the first screen a
+new user sees. Do not remove it as an inconsistency with the reference.
+
+**3. The day rail.** The app's day view is `lib/dayGrid.ts`'s **elastic** axis with a live
+now-line, log-curve gap compression, and a deliberate split: ahead of now is the timeline with
+real durations and visible gaps; behind now the day collapses flush. "A gap ahead of you is
+room; the identical gap behind you is an accusation." The design's rail has no now-line and no
+collapse — it is much simpler *and* much less capable.
+
+**4. Per-screen backdrops** (`DESIGN_COMPARISON/05`). Declined; full reasoning in
+`components/ScreenBackground.tsx`'s header. Short version: PR #449 was reverted for a MOTION
+reason, not an art reason, and the design's edge-continuity rule does not address motion. A
+nicer picture on the same mechanism re-runs a known failure. `screen-bg-strip`/`screen-bg-calm`
+remain in `constants/motifs.ts` as **retained source art** — generated and tested, mounted
+nowhere, deliberately.
+
+**5. Tree stage bindings** (`DESIGN_COMPARISON/03`). Declined, and this one was already
+decided independently: `assets/decorative/illustrations/README.md` records the maintainer's
+2026-08-04 call that the art was taken and the bindings were not. Binding a stage tree to
+habit streaks, Energy `current / capacity`, or a focus session all contradict `lib/growth.ts`
+— growth in this app is numberless, backdrop-only, and must never read as a reward firing off
+a tap. (The focus-session binding is doubly out: there is no focus-session feature to bind to.)
+What WAS adopted is the art's own governing rule, **"floor at seed, never bare"**, now live in
+`components/StarterCard.tsx` — the bare `empty-branch` watermark became `tree-natural-seed`,
+so the app's one "nothing here yet" mark reads as potential rather than absence.
+
+The fourth growth stage (`tree-natural-full-*`) is still missing and is **not** blocking
+anything now that no binding consumes it — see that README for why it cannot be fetched from
+a remote session, and why authoring a substitute is the wrong move.
+
+**6. Boxed rows** (`DESIGN_COMPARISON/10`). The design boxes every row (border + fill + gap);
+the app rules them flush on one sheet. Declined — boxed rows are cards inside a card, which is
+the exact complaint PR #483 fixed one day earlier, and `PadSheet`/`PadRow` exist because of a
+direct user report ("look like notepads", "related cards/things in other screens should look
+practically the same"). Recorded in `components/PadSheet.tsx`'s header.
