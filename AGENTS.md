@@ -68,6 +68,7 @@ Every `.ts`/`.tsx` file starts with a JSDoc header block. **Read it before editi
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations array | Runs once on upgrade; never drop or recreate tables |
 | Stores read/write rows via `lib/dataAccess.ts` (`loadFirst`/`loadAll`/`updateRow` + `FieldMap`) | Used by 13 of 14 stores; don't hand-roll row mapping in a new store |
 | **Any screen or visual change is checked against `DESIGN_RULES.md`** | 25 numbered invariants (spacing, placement & order, colour, hierarchy, tap targets, motion, copy tone). Three of them are enforced in CI: tap targets/motion tokens (`lib/__tests__/designTokens.test.ts`), palette contrast (`colors.test.ts`), copy tone (`copyTone.test.ts`). **Eight rules have open conflicts with shipped decisions and are NOT binding yet** — read the audit before "fixing" one: `DESIGN_RULES_AUDIT.md`. Tap targets go through `MIN_TAP_TARGET`/`HitSlop`, motion through `Duration.*` — never a bare `44`/`hitSlop: 8`/`duration: 220` |
+| Copy tone is `DESIGN_RULES.md` §7 (rules 22–25); `VOICE.md` records the ONE deliberate exception | The day log's empty state is the app's only first-person line. `VOICE.md` says why it is allowed, and why there is not a second — read it before "correcting" that string, and before adding any first-person copy of your own |
 | **ALWAYS open a PR and merge it to `main`** | Standing rule: every change ends with a PR from the `claude/**` branch into `main` that the agent merges itself — never stop at "pushed the branch," never hand the merge back to the user. OTA (`.github/workflows/update.yml`) publishes ONLY on push to `main`; a `claude/**` branch push publishes nothing. Only *cutting the APK/AAB build* stays human-gated — never the PR or the merge. See `PUBLISHING.md`. |
 | `AI_SETUP_SCHEMA_VERSION` in `lib/aiSetupGuide.ts` bumps whenever the AI setup guide's schema/content changes | The downloadable "AI setup guide" (Settings + the guided tour's closing card) embeds this version; on upload, an older version is a 'stale' warning (import still proceeds) and a newer version is 'invalid' (this build can't safely interpret fields it doesn't know about yet) — see that file's header and the cookbook steps below |
 
@@ -118,6 +119,14 @@ file owns which token.)
     by the guided tour on the real app (see below). Its "experimental build" note and the AI
     setup guide download moved to the tour's closing card; `t.introPrinciples` moved to Settings.
   - The Explore path skips energy/picker/name and goes straight to home on the same defaults.
+  - **`guided.tsx` is a THREE-way branch since 2026-08-02**: Guided, Explore, and **AI setup**
+    — the AI setup guide is a peer way to start, not only a Settings/tour-closing-card
+    afterthought. The AI card downloads the guide (`exportAiSetupGuide()`) and then finishes
+    setup exactly like Explore, via that screen's single `finishSetup()`; a failed export
+    reports through `showAppModal` and leaves the user on the branch screen rather than
+    stranded. Both non-guided branches MUST go through `finishSetup()` — two hand-written
+    completions drift, and `__tests__/onboardingFlow.test.ts` pins the single write site.
+    Three cards is the cap here; a fourth option or a sub-step is not in scope.
   - The backdrop is one continuous `onboarding-triptych` motif (seed → sprout → tree) slid
     across the steps, which doubles as the progress indicator — deliberately not a filling bar.
   - Old setup steps (work mode / shopping days / notifications) are still taught in context via
@@ -133,7 +142,7 @@ file owns which token.)
   mean its screen is visible — check it is on screen), and the pager moves pages by transform,
   which fires no `onLayout`, so targets must re-measure on focus or they keep their mount-time
   position.
-- **Empty-state explainers** (`components/StarterCard.tsx`, 2026-07-26; extended 2026-07-27): a second, more visible teaching layer than the ⓘ hint — a short explanation plus one concrete example row, rendered inline where content would be while a surface is empty, and gone once the user has their own (emptiness is the gate, so it also returns if they delete everything). **The gate is a plain `length === 0` on only one of the callers** (`app/goals.tsx`) — don't copy that shape blindly (measured 2026-07-31, AUDIT.md): Habits counts the *person-filtered* `profileHabits`, Shopping needs `lists.length === 0 && items.length === 0` (a migration seeds one empty monthly list, so a monthly count is never 0 and would suppress the card for every new user), and Health and Plans both OR in a just-added flag (`healthStarterAdded` / `planStarterAdded`) so pressing the example's "+" doesn't unmount the card in the same tick that the write lands — Plans additionally suppresses it on the timeline layout, where `PlanTaskCard` already draws its own inline explainer. Live on Habits (plus four one-tap starter habits from `lib/habitStarters.ts`), Plans, Shopping and Health, and — since 2026-07-27 — on the **Home preview cards** too: the day-view card (`components/PlanTaskCard.tsx`) and the shopping card (`components/HomeShoppingCard.tsx`) each render their own explainer + suggested-add row *inside* the card, without a StarterCard wrapper (a Surface inside a Surface reads as a nested panel). Copy lives under `starters.*` in `lib/i18n.ts`; each one's core message is also in the matching `hints.*.example`, which is where it stays reachable after the card disappears. The StarterCard shell is styled with a **neutral** `theme.border` Surface, deliberately NOT the accent-barred HintCard look — on a first visit both are on screen at once and twins would read as a duplicate — while `components/StarterExampleRow.tsx` (the suggestion itself) deliberately DOES copy the surrounding list's real row styling (accent wash + accent edge), so a suggestion reads as a row of that list rather than a callout about one. **The Energy meter is the exception**: its explainer is a permanent one-line hint inside its own card (`t.energyMeter.hint`), not a disappearing StarterCard — as a separate card between Energy and the to-do card it read as belonging to the to-do card, and an explanation that self-destructs isn't there when you come back to the number months later.
+- **Empty-state explainers** (`components/StarterCard.tsx`, 2026-07-26; extended 2026-07-27): a second, more visible teaching layer than the ⓘ hint — a short explanation plus one concrete example row, rendered inline where content would be while a surface is empty, and gone once the user has their own (emptiness is the gate, so it also returns if they delete everything). **The gate is a plain `length === 0` on only one of the callers** (`app/goals.tsx`) — don't copy that shape blindly (measured 2026-07-31, AUDIT.md): Habits counts the *person-filtered* `profileHabits`, Shopping needs `lists.length === 0 && items.length === 0` (a migration seeds one empty monthly list, so a monthly count is never 0 and would suppress the card for every new user), and Health and Plans both OR in a just-added flag (`healthStarterAdded` / `planStarterAdded`) so pressing the example's "+" doesn't unmount the card in the same tick that the write lands — Plans additionally suppresses it on the timeline layout, where `PlanTaskCard` already draws its own inline explainer. Live on Habits (plus four one-tap starter habits from `lib/habitStarters.ts`), Plans, Shopping and Health, and — since 2026-07-27 — on the **Home preview cards** too: the day-view card (`components/PlanTaskCard.tsx`) and the shopping card (`components/HomeShoppingCard.tsx`) each render their own explainer + suggested-add row *inside* the card, without a StarterCard wrapper (a Surface inside a Surface reads as a nested panel). Copy lives under `starters.*` in `lib/i18n.ts`; each one's core message is also in the matching `hints.*.example`, which is where it stays reachable after the card disappears. The StarterCard shell is styled with a **neutral** `theme.border` Surface, deliberately NOT the accent-barred HintCard look — on a first visit both are on screen at once and twins would read as a duplicate — while `components/StarterExampleRow.tsx` (the suggestion itself) deliberately DOES copy the surrounding list's real row styling (accent wash + accent edge), so a suggestion reads as a row of that list rather than a callout about one. **The Energy strip is the half-exception**: its explainer is a permanent one-line hint under the meter (`t.energyMeter.hint`), *not* a disappearing StarterCard — as a separate card between Energy and the to-do card it read as belonging to the to-do card, and an explanation that self-destructs isn't there when you come back to the number months later. **But since 2026-08-03 it ALSO has a StarterCard tutorial** (`starters.energy`), and the two coexist deliberately: the tutorial *replaces the meter itself* while nothing carries an energy value and no capacity has been set (a full ten-pip bar with nothing able to spend it is the "reads as a score" problem at its worst, on the first screen a new user sees), with nothing above it to be confused with, and the permanent hint comes back attached to the meter the moment there's a number worth naming. Its gate is a third shape again — `!hasEnergyItems && !hasSetCapacity`, AND all three source stores `loaded`, because an unloaded store looks exactly like an empty one and the wrong answer flashes teaching copy at a long-time user. See `components/EnergyMeter.tsx`'s "Tutorial state" note.
 - **Medicine trays** (2026-07-27, `components/MedicineTrayCard.tsx` + `app/medicine-form.tsx` + `store/useMedicineStore.ts` + `lib/medicineSchedule.ts` + `lib/medicineNotifications.ts`): the Health tab's first card. Medicine is organised into four **trays** — morning/midday/evening/night — deliberately NOT exact per-medicine clock times: a tray is a *window*, so a dose taken at 11:40 is still a morning dose and an untaken one reads "still due", never "missed" (the same no-shame framing as habits' rest days; keep any new copy on that side of it). One reminder per tray, shared by its medicines, with a **Taken** action button that logs the whole tray from the notification shade (`'medicine-reminder'` category, next to the existing `'task-reminder'` one). As-needed (PRN) medicines belong to no tray and are guarded by a minimum gap + optional daily cap instead (`asNeededState`) — nothing ever nudges you to take one. Per-person via People/family mode (`child_name`, same convention as tasks/habits). `health_logs.medicine_id` optionally attributes a symptom entry to a medicine ("this ADHD med gives me stomach issues"), picked in `app/health-form.tsx`'s "Possibly from" row and surfaced on that medicine's own page. Gated on `settings.featureMedicine` (on by default, still a real toggle). **Deliberately NOT in the AI setup guide** — medicine names/doses are the most sensitive rows in the DB, and the guide already refuses health-log data. Stock/refill tracking is a known follow-up, not built.
 - **The row rule + matte buttons** (2026-07-28, from design-system v6's `Checklist Redesign
   Options` / `Focus First (1c)` / `handoff/BUTTONS.md` — the only parts of that bundle that
@@ -219,6 +228,76 @@ file owns which token.)
     so an episode open past the 365-day window was silently deleted on the next cold start. It
     now carries `episode_state != 'ongoing'`, NULL-unsafe by design — a NULL state fails the
     predicate and is KEPT, because failing safe means not deleting.
+- **The day log — the now-line as a boundary** (2026-08-02, `lib/dayLog.ts` + `lib/useDayLog.ts`,
+  drawn by `components/PlanTaskCard.tsx`, over the new `tasks.done_at` and `moments` table).
+  The day-view card is split by the current minute, and the two halves get deliberately
+  OPPOSITE treatment: **ahead of now** is the elastic timeline that already existed (real
+  durations, visible gaps — gaps read as room); **behind now** the same day collapses into a
+  flush, spacing-free list of what actually happened. A gap ahead of you is room; the
+  identical gap behind you is an accusation. That collapse is the entire feature — don't
+  "tidy" the log by giving it spacing, an hour rule, or a header.
+  - **It is a record, not a productivity surface.** No count, total, percentage, rate or
+    progress bar anywhere in it; no evaluation, no praise, no verdict on a quiet day; no
+    notification, ever, at any horizon. `lib/__tests__/dayLog.test.ts` source-scans the
+    module for aggregate derivations and notification APIs and asserts zero hits — same
+    mechanism that keeps the equivalent promise true for episodes.
+  - **Phase 2 of the handoff was already built.** `lib/dayGrid.ts`'s elastic axis, live
+    now-line and log-curve gap compression predate this by a week and are the To-do tab's
+    DEFAULT layout. The only change to them is `buildDayScale({ startMinutes })`, which lets
+    the axis span `[now → end of day]`; omit it and the axis is byte-identical to before.
+  - **The premise the handoff was specced on was false.** The app did not timestamp
+    completions: `tasks.done` was a bare flag and `updated_at` is the sync LWW stamp, which
+    moves on ANY edit by ANY device. Hence `tasks.done_at` (local `HH:MM`), stamped only by
+    `toggle()`/`completeDirect()`. It is deliberately **NOT** in `lib/liveSync`'s
+    `TABLE_COLUMNS.tasks`: the log is a record of what YOU did, so a peer ticking a shared
+    task lands `done` without writing a line into your day.
+  - **Absence beats invention.** No back-fill: a completion from before the column has no
+    honest time and is simply absent. Health entries reuse `health_logs.created_at`, which
+    has carried a wall clock since the first schema and was never read — it is **UTC** while
+    everything else in the app is local, so `lib/date.ts`'s `utcStampToLocalMinutes` is the
+    one place that crosses that line, and it returns null rather than filing an entry under
+    the wrong day. Sources are tasks, **habits**, medicine doses, health entries and manual
+    moments; shopping and notes are deliberately out (see `lib/dayLog.ts`'s header —
+    `monthlyReset()` NULLs every `purchased_at` and deletes trips, so shopping would vanish
+    from past days after a reset).
+  - **A habit enters the log on the FIRST log of the day, NOT on "met"** (`habit_logs.first_at`).
+    A habit is a standing commitment the user set up, so doing it is exactly the evidence
+    this log is for. Gating on `habitMetOn` would import a pass/fail threshold into a
+    surface that deliberately has none — 5 of 7 glasses of water would leave no trace at
+    all, reading as "you did nothing" on precisely the kind of day this exists for.
+    `dailyGoal` is 1 for almost every real habit anyway, so the two rules only differ on
+    counters. **Don't "unify" this with `habitMetOn`** — the codebase already has four
+    competing "done" definitions and this is deliberately not a fifth; it asks the simpler
+    question "did this happen at all today". Rest days and a count back at 0 are excluded.
+    Habits are the ONE source the log person-filters (only when People mode is on and
+    there's somebody else, mirroring `app/(tabs)/habits.tsx`). Note habits reach back only
+    **35 days** in `app/day-log.tsx` — `useHabitStore.load()`'s in-memory window — while
+    everything else reaches 365.
+  - **The cutoff is INCLUSIVE and that is load-bearing.** Everything here is minute-granular,
+    so the thing you just did is stamped at exactly the current minute. A strict `<` made the
+    log render empty for up to 60 seconds after every action — i.e. exactly when you'd look
+    at it. Pinned by a named regression test.
+  - **No new Home card.** Home already renders `PlanTaskCard` read-only, so its day-view
+    preview carries the log and the capture for free. (`HomeGoalsCard` shipped as a fifth
+    Home card on 2026-07-28 and was deleted the next day — "Home had too many lists".)
+    Capture goes through the existing pad type-line (`components/PadTypeRow.tsx`), not a new
+    input: a chip in its extras row switches whether a submit commits a task or a moment. The
+    standalone quick-capture inbox was removed 2026-07-27 and `inbox_items` is a dead table —
+    don't revive it.
+  - Device-calendar events (`lib/deviceCalendar.ts`) are **read-only** and are *structure,
+    not achievement*: they draw ahead of the now-line and never enter the log behind it. They
+    share ONE `layoutGridEntries` pass with tasks, or an overlapping meeting and task would
+    stack instead of going side by side. Permission is asked once, contextually, when the
+    timeline is first opened; declining is a supported permanent state with no nag and no
+    re-prompt. **This needed no native build** — `expo-calendar` was already a dependency and
+    already plugin-registered, and `lib/taskCalendar.ts` (a separate feature, which *writes*)
+    already called it.
+  - Gated on `settings.featureDayLog` — on by default, still a real toggle. It gates the
+    SURFACE only: `done_at` keeps being stamped while off, so switching it on shows a
+    complete history. `app/day-log.tsx` is the earlier-days screen (one day at a time, no
+    aggregation, no week view — two days compared is a scoreboard).
+  - Copy: `VOICE.md`. The empty state is **the only first-person line in the app**, and it is
+    deliberate — read that file before "correcting" it.
 - **Drag to reorder is universal** (2026-08-01, `lib/useDragReorder.ts` over the pre-existing
   `components/DraggableTaskRow.tsx` + `lib/reorder.ts`). Hold a row ~400ms, drag, drop: the list
   reflows under the finger and the new order is committed ONCE, on drop. It was already the
@@ -637,23 +716,27 @@ the 2026-07-28 pass. Widths worth checking: 430 (Pro Max), 393 (iPhone 15/Pixel 
 (small Android), and 327 as a proxy for the `large` font setting (1.2x) at 393. Set
 `FORCE_BUILD=1` to rebuild `dist/` first; otherwise it reuses the existing bundle.
 
-**Coverage.** The walk measures onboarding, the tour card, all five tabs, Settings, and — as
-of 2026-08-01 — the **task editor**, the **goals sheet**, the **health form** and the
-**medicine editor**. Before that pass it had never opened an editor or pushed sub-screen *at
-all*, so the app's densest forms were the one place it couldn't see, which is exactly where
-the mic bug lived. **`--lang=en` was also broken outright** until the same pass: it waited on
-a "Language: English." radio that never exists, because Basics renders in Norwegian until
-that very row is tapped. Both are worth knowing before trusting a clean run — a mode this
-audit doesn't walk is not a mode it passes. When you add a surface with tight horizontal
-pressure, add a step for it.
+**Coverage.** The walk measures onboarding, the tour card, all five tabs, Settings, the
+**Energy config sheet** (2026-08-03 — opened from the strip's tutorial-state button on Home
+and closed again before the tab loop, since a bottom sheet's scrim swallows every click
+under it), and — since 2026-08-01 — the **task editor**, the **goals sheet**, the **health
+form** and the **medicine editor**. Before that pass it had never opened an editor or pushed
+sub-screen *at all*, so the app's densest forms were the one place it couldn't see, which is
+exactly where the mic bug lived. **`--lang=en` was also broken outright** until the same
+pass: it waited on a "Language: English." radio that never exists, because Basics renders in
+Norwegian until that very row is tapped. Both are worth knowing before trusting a clean run —
+a mode this audit doesn't walk is not a mode it passes. When you add a surface with tight
+horizontal pressure, add a step for it.
 
 Three things constrain how steps can be ordered, all verified rather than assumed:
 - **The run is TWO passes.** `settings` and `medicine-form` are dead ends — pushed screens
   that render no `BottomNav` — so only one of them can end a pass. `health-form` is a push
-  that *keeps* BottomNav, so it doesn't need one.
-- **Never `page.goto()` or `page.goBack()` mid-walk.** Both reload the document, which resets
-  the in-memory `sql.js` DB and drops you back into onboarding. Pass 2 re-walks onboarding
-  with scanning off (its screens are identical and would double every finding).
+  that *keeps* BottomNav, so it doesn't need one. The onboarding→tour→Energy-sheet on-ramp is
+  shared by both passes via `walkToTabs()`, scanned only on the first (the second re-walks it
+  with scanning off, since it's identical and would double every finding).
+- **Never `page.goto()` or `page.goBack()` mid-walk**, except the standalone
+  `basics-all-rows` route right at the end of the run. Both reload the document, which resets
+  the in-memory `sql.js` DB and drops you back into onboarding.
 - **`app/scan.tsx` is deliberately not walked.** The web bundle resolves `app/scan.web.tsx`,
   an OCR "not available" placeholder, so measuring it would report on a screen that doesn't
   exist on device. Like the rest of the native-only surface, it needs a real device.

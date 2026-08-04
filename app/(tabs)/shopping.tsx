@@ -2153,11 +2153,17 @@ export default function ShoppingScreen() {
               )}
 
               {/* Creating a new list has no single text field to fill (it's auto-named by
-                  date range, then offers a start-empty/from-saved choice), so it doesn't fit
-                  the AddRow shape — it's a "tap to open a chooser" trigger. Big-ish plain
-                  white/surface button, just a plus sign (2026-07-23 simplification, matching
-                  the Monthly tab's NewMonthlyListRow trigger) — was a smaller accent-tinted
-                  bordered pill with an icon+label. */}
+                  date range, then offers a start-empty/from-saved choice), so it genuinely
+                  doesn't fit the AddRow / pad type-line shape the other tabs use — it's a
+                  "tap to open a chooser" trigger, and that difference is real rather than an
+                  inconsistency to iron out.
+                  What WAS an inconsistency: it carried no visible label. The 2026-08-03
+                  walkthrough hit this on an empty Shopping tab — a big empty box and an
+                  unexplained "+" — and it was the only primary add in the app that didn't say
+                  what it does. The label is back (same change, same reasoning, as the Monthly
+                  tab's NewMonthlyListRow twin: a bare glyph declutters a busy row, but this
+                  trigger's hardest moment is an empty tab where there is nothing to declutter
+                  and everything to explain). */}
               <PressableScale
                 style={[styles.newListTrigger, { borderColor: theme.border, backgroundColor: theme.surface }]}
                 onPress={() =>
@@ -2171,7 +2177,10 @@ export default function ShoppingScreen() {
                 accessibilityLabel={t.newWeeklyListTitle}
                 scaleTo={0.97}
               >
-                <Ionicons name="add" size={26} color={theme.accent} />
+                <Ionicons name="add" size={22} color={theme.accent} />
+                <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
+                  {t.newWeeklyListTitle}
+                </Text>
               </PressableScale>
             </>
           )}
@@ -2491,14 +2500,19 @@ const styles = StyleSheet.create({
   weekSectionLabel: { fontFamily: Fonts.bold, fontSize: FontSize.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
   weekSectionRange: { fontSize: FontSize.xs },
   weekSectionEmptyText: { fontSize: FontSize.sm, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs },
-  // Big-ish plain white/surface "+" button (2026-07-23) — primary action on the Weekly tab.
+  // Big-ish plain white/surface "+ Create a new list" button — primary action on the Weekly
+  // tab. Icon-only from 2026-07-23 until 2026-08-03; see the comment at the trigger.
   newListTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    // Between the glyph and its label — `gap`, not a margin, so the pair stays centred as one
+    // unit at any font scale.
+    gap: Spacing.sm,
     borderWidth: 1,
     borderRadius: Radius.lg,
     paddingVertical: Spacing.md,
     minHeight: 56,
   },
+  newListTriggerLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
 });

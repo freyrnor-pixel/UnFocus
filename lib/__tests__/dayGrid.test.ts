@@ -172,3 +172,72 @@ describe('dayGrid.buildDayScale', () => {
     expect(hours).not.toContain(3);
   });
 });
+
+/**
+ * `startMinutes` (2026-08-02) is what turns the now-line into the boundary between the
+ * day behind you and the day ahead — see lib/dayLog.ts. The first block here is the one
+ * that matters most: the parameter must be invisible when it isn't passed, because every
+ * existing caller and the whole pre-day-log rendering depend on that.
+ */
+describe('buildDayScale — startMinutes', () => {
+  const entries = [
+    { start: 9 * 60, end: 10 * 60 },
+    { start: 15 * 60, end: 16 * 60 },
+  ];
+
+  it('is a no-op when omitted, and passing midnight explicitly is identical', () => {
+    const implicit = buildDayScale(entries, { now: 12 * 60 });
+    const explicit = buildDayScale(entries, { now: 12 * 60, startMinutes: 0 });
+    expect(explicit.totalHeight).toBeCloseTo(implicit.totalHeight);
+    expect(explicit.startMin).toBe(implicit.startMin);
+    expect(explicit.endMin).toBe(implicit.endMin);
+    expect(explicit.segments).toEqual(implicit.segments);
+  });
+
+  it('drops an entry that finished before the floor', () => {
+    const scale = buildDayScale(entries, { startMinutes: 14 * 60 });
+    // The 09:00 task is gone; the axis begins at the 15:00 task's padded window.
+    expect(scale.startMin).toBeGreaterThanOrEqual(14 * 60);
+    expect(scale.endMin).toBeGreaterThanOrEqual(16 * 60);
+  });
+
+  // The in-progress case. A task running 13:00–15:00 at 14:00 has already started but has
+  // not happened yet — dropping it would delete the thing you are currently doing.
+  it('clamps rather than drops an entry straddling the floor', () => {
+    const scale = buildDayScale([{ start: 13 * 60, end: 15 * 60 }], { startMinutes: 14 * 60 });
+    expect(scale.segments.length).toBeGreaterThan(0);
+    expect(scale.startMin).toBe(14 * 60);
+    expect(scale.endMin).toBeGreaterThanOrEqual(15 * 60);
+  });
+
+  it('never places the axis before the floor, even with a now window that would reach back', () => {
+    const floor = 14 * 60;
+    const scale = buildDayScale(entries, { now: floor, startMinutes: floor });
+    expect(scale.startMin).toBeGreaterThanOrEqual(floor);
+    expect(scale.segments.every((s) => s.startMin >= floor)).toBe(true);
+  });
+
+  it('keeps y() monotonic with a floor applied', () => {
+    const scale = buildDayScale(entries, { now: 14 * 60, startMinutes: 14 * 60 });
+    let prev = -Infinity;
+    for (let m = 0; m <= 24 * 60; m += 7) {
+      const y = scale.y(m);
+      expect(y).toBeGreaterThanOrEqual(prev);
+      prev = y;
+    }
+  });
+
+  it('clamps a floor outside the day rather than producing a negative axis', () => {
+    expect(() => buildDayScale(entries, { startMinutes: -600 })).not.toThrow();
+    expect(() => buildDayScale(entries, { startMinutes: 99999 })).not.toThrow();
+    expect(buildDayScale(entries, { startMinutes: -600 }).startMin).toBeGreaterThanOrEqual(0);
+  });
+
+  // Late-evening shape: the grid is a sliver and must still be a valid axis rather than a
+  // zero-height one the caller would divide by.
+  it('still yields a usable axis when the floor is near midnight', () => {
+    const scale = buildDayScale([], { now: 23 * 60 + 50, startMinutes: 23 * 60 + 50 });
+    expect(scale.totalHeight).toBeGreaterThan(0);
+    expect(scale.endMin).toBeGreaterThan(scale.startMin);
+  });
+});

@@ -32,7 +32,11 @@
  *             components/FlightOverlay (FlightPill, Flight, FlightRect), components/DebugNoteAnchor,
  *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
  *             lib/useAppTheme, lib/useFirstVisitHint, lib/notifications, lib/reminders,
- *             lib/budget (computeSpendPace), store/useTaskStore, store/useNotesStore, store/useSharedStore,
+ *             lib/budget (computeSpendPace), lib/useDayLog + lib/dayLog (the day log — what
+ *             already happened today, passed into PlanTaskCard so its now-line becomes the
+ *             boundary; this card is why the feature needs no Home card of its own),
+ *             lib/useNowMinutes, store/useMomentsStore (manual capture + delete),
+ *             store/useTaskStore, store/useNotesStore, store/useSharedStore,
  *             store/useShoppingStore, store/useShoppingListStore, store/useMonthlyListStore, store/useSettingsStore, store/useReceiptStore
  *   Used by → Expo Router route "/" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → reads useTaskStore (tasks + deletedTasks, the restorable tombstones behind the
@@ -173,6 +177,10 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
+import { useDayLog } from '@/lib/useDayLog';
+import { useNowMinutes } from '@/lib/useNowMinutes';
+import { DayEntry } from '@/lib/dayLog';
+import { useMomentsStore } from '@/store/useMomentsStore';
 import { useCardState } from '@/lib/useCardState';
 import { requestPermissions } from '@/lib/notifications';
 import { syncReminders } from '@/lib/reminders';
@@ -331,6 +339,24 @@ export default function HomeScreen() {
   // over store state, not this variable).
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const todayTasks = useMemo(() => tasksForDate(today), [tasksForDate, today, tasks]);
+
+  // The day log (2026-08-02) — the same hook and the same 60s "now" tick the To-do tab's
+  // timeline uses, so Home's preview and the full day-view can never disagree about where
+  // the boundary is. Returns [] when settings.featureDayLog is off.
+  const nowMinutes = useNowMinutes();
+  const dayLog = useDayLog(today, nowMinutes);
+  const removeMoment = useMomentsStore((s) => s.remove);
+  const addMoment = useMomentsStore((s) => s.add);
+  // Only a task has an in-app editor to open. Doses and health entries live on the Health
+  // tab and a moment IS its own record, so those rows aren't pressable rather than
+  // navigating somewhere that isn't about them.
+  const handlePressLogEntry = useCallback(
+    (entry: DayEntry) => {
+      if (entry.kind !== 'task' || !entry.sourceId) return;
+      router.push({ pathname: '/task-form', params: { id: entry.sourceId } });
+    },
+    [router]
+  );
 
   // currentList is a fn ref; `shoppingLists` is the real input, so memo on it (this also
   // replaces the old `void shoppingLists` render-subscription hack).
@@ -574,6 +600,15 @@ export default function HomeScreen() {
                 spec={todoSpec}
                 padState={todoState}
                 onPadStateChange={setTodoState}
+                // The day log (2026-08-02). This is what satisfies the feature's "a card on
+                // Home showing what happened today, plus a capture field" — the card is
+                // already here and already has a pad type-line, so there is no fifth Home
+                // card and no HOME_CARD_KINDS change. (HomeGoalsCard shipped as a fifth card
+                // on 2026-07-28 and was deleted the next day: "Home had too many lists".)
+                dayLog={dayLog}
+                onPressEntry={handlePressLogEntry}
+                onRemoveMoment={removeMoment}
+                onCaptureMoment={addMoment}
               />
             </DebugNoteAnchor>
           </TourTarget>

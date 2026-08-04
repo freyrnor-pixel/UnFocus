@@ -77,7 +77,7 @@ import {
   readJson,
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
-import { dateStr } from '@/lib/date';
+import { dateStr, nowHHMM } from '@/lib/date';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useGoalStore } from '@/store/useGoalStore';
 import { syncHabitReminder as scheduleHabitReminder, cancelHabitReminders } from '@/lib/habitNotifications';
@@ -138,6 +138,15 @@ export type HabitLog = {
   logDate: string;
   count: number;
   restDay: boolean;
+  /**
+   * Local 'HH:MM' the habit was FIRST logged that day — what places it in the day log
+   * (lib/dayLog.ts). '' means no honest time: the log predates this column, or the count
+   * has been taken back to 0.
+   *
+   * Deliberately the first log rather than the moment `dailyGoal` was reached — see the
+   * migration's note in lib/db.ts. Do not "improve" this into a met-ness check.
+   */
+  firstAt: string;
 };
 
 type HabitStore = {
@@ -152,6 +161,15 @@ type HabitStore = {
    * than this hook needing a queue.
    */
   lastDeleted: Habit | null;
+  /**
+   * Has `load()` run at least once? (2026-08-03.) Mirrors `useTaskStore.loaded` and
+   * `useEnergyStore.loaded`, and exists for the same reason they do: an unloaded store is
+   * indistinguishable from an empty one, so a consumer that draws different UI for "the user
+   * has nothing" needs to know which it is looking at. Added for
+   * components/EnergyMeter.tsx's tutorial state, which would otherwise flash two sentences of
+   * teaching copy at anyone whose energy items are all habits.
+   */
+  loaded: boolean;
   load: () => void;
   // goalId is optional here (defaults to null) so habit seeders/quick-adds needn't set it.
   // Returns the created Habit (mirrors useTaskStore's add) so a caller can act on its id
@@ -237,6 +255,7 @@ function rowToLog(row: Row): HabitLog {
     logDate: readStr(row, 'log_date'),
     count: readInt(row, 'count'),
     restDay: readBool(row, 'rest_day'),
+    firstAt: readStr(row, 'first_at'),
   };
 }
 
@@ -274,6 +293,7 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
   habits: [],
   logs: [],
   lastDeleted: null,
+  loaded: false,
 
   load() {
     const since = new Date();
@@ -282,6 +302,7 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
     set({
       habits: loadAll('habits', rowToHabit, { where: 'active = 1 AND deleted_at IS NULL', orderBy: 'routine_order, created_at' }),
       logs: loadAll('habit_logs', rowToLog, { where: 'log_date >= ?', params: [sinceStr] }),
+      loaded: true,
     });
   },
 
@@ -379,14 +400,22 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
     const existing = logs.find((l) => l.habitId === habitId && l.logDate === date);
     if (existing) {
       const newCount = existing.count + 1;
-      updateRow('habit_logs', { count: newCount }, 'id = ?', [existing.id]);
+      // Stamp only when there isn't one yet — this is the FIRST time today, so a second
+      // and third log of the same habit must not move it. An existing row can legitimately
+      // arrive here with `firstAt: ''`: it was decremented back to 0, or it predates the
+      // column, or it was created by markRestDay(). See lib/db.ts's migration note.
+      const firstAt = existing.firstAt || nowHHMM();
+      updateRow('habit_logs', { count: newCount, first_at: firstAt }, 'id = ?', [existing.id]);
       set((s) => ({
-        logs: s.logs.map((l) => (l.id === existing.id ? { ...l, count: newCount } : l)),
+        logs: s.logs.map((l) => (l.id === existing.id ? { ...l, count: newCount, firstAt } : l)),
       }));
     } else {
       const id = generateId();
-      insertRow('habit_logs', { id, habit_id: habitId, log_date: date, count: 1 });
-      set((s) => ({ logs: [...s.logs, { id, habitId, logDate: date, count: 1, restDay: false }] }));
+      const firstAt = nowHHMM();
+      insertRow('habit_logs', { id, habit_id: habitId, log_date: date, count: 1, first_at: firstAt });
+      set((s) => ({
+        logs: [...s.logs, { id, habitId, logDate: date, count: 1, restDay: false, firstAt }],
+      }));
     }
     // Goals: logging a linked habit nudges its goal's "living glow" up (decrement never
     // lowers it — no punishment; decay handles the fade). See store/useGoalStore.ts.
@@ -399,9 +428,13 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
     const existing = logs.find((l) => l.habitId === habitId && l.logDate === date);
     if (!existing || existing.count <= 0) return;
     const newCount = existing.count - 1;
-    updateRow('habit_logs', { count: newCount }, 'id = ?', [existing.id]);
+    // Back to zero means it didn't happen after all — clear the stamp so the day log holds
+    // no trace of it, exactly as un-ticking a task clears tasks.done_at. Above zero the
+    // original first-log time still stands.
+    const firstAt = newCount === 0 ? '' : existing.firstAt;
+    updateRow('habit_logs', { count: newCount, first_at: firstAt }, 'id = ?', [existing.id]);
     set((s) => ({
-      logs: s.logs.map((l) => (l.id === existing.id ? { ...l, count: newCount } : l)),
+      logs: s.logs.map((l) => (l.id === existing.id ? { ...l, count: newCount, firstAt } : l)),
     }));
     scheduleWidgetSync();
   },
@@ -416,9 +449,13 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
         logs: s.logs.map((l) => (l.id === existing.id ? { ...l, restDay } : l)),
       }));
     } else {
+      // No `first_at`: a rest day is not something you did, so it never enters the day log
+      // (which also excludes rest days at read time — the two agree by construction).
       const id = generateId();
       insertRow('habit_logs', { id, habit_id: habitId, log_date: date, count: 0, rest_day: 1 });
-      set((s) => ({ logs: [...s.logs, { id, habitId, logDate: date, count: 0, restDay: true }] }));
+      set((s) => ({
+        logs: [...s.logs, { id, habitId, logDate: date, count: 0, restDay: true, firstAt: '' }],
+      }));
     }
     scheduleWidgetSync();
   },

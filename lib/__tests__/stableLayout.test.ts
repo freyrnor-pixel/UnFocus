@@ -1,0 +1,256 @@
+/**
+ * stableLayout.test.ts — DESIGN_RULES rules 8 and 9 on the one card that broke them worst.
+ *
+ * Rule 9 says "layout is stable — nothing jumps... reserve space for things that load
+ * asynchronously so the layout doesn't shift under the user's thumb." Rule 8 says "same
+ * element, same position, every screen." components/PlanTaskCard.tsx violated both, and the
+ * violation was the origin of the 2026-08-03 usability review: typing ONE task into an empty
+ * day changed seven things about the card at once, and the field you had just typed into was
+ * one of them — it moved from the bottom of the card to the top.
+ *
+ * Three causes, all fixed, all guarded here:
+ *
+ *   1. **Two mount points for the type line.** PadSheet's `typeRow` (the pad's first rule,
+ *      i.e. the TOP) whenever the ruled list was drawn, and a standalone PadSheet AFTER the
+ *      body for the three states that draw something else — the timeline layout, an empty day
+ *      and an all-done day. Home defaults to the ruled list and the To-do tab to the timeline,
+ *      so the same component also put its input in different places on the two surfaces.
+ *   2. **The header summary and progress bar were conditional.** Gated on
+ *      `countableTasks.length > 0`, so the first task of the day made a subtitle and a 4px bar
+ *      appear from nothing and pushed the body down.
+ *   3. **"Nothing fixed left today." contradicted the screen** (rule 25 — empty states give
+ *      direction, not mood). It was gated on the TIMED task count alone, so a day holding only
+ *      untimed tasks printed it directly beneath the list of things that were left today.
+ *
+ * These are all structural, so the guards are source scans — the same technique
+ * lib/__tests__/episodes.test.ts and lib/__tests__/dayLog.test.ts use to keep a product
+ * promise true when nothing else in the codebase can express it. A behavioural test can't see
+ * "this JSX node is mounted in two places".
+ */
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+const ROOT = join(__dirname, '..', '..');
+const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
+
+/** Source with the JSDoc header stripped — the header legitimately DESCRIBES the old shape. */
+function code(rel: string): string {
+  const src = read(rel);
+  return src.startsWith('/**') ? src.slice(src.indexOf('*/') + 2) : src;
+}
+
+describe('PlanTaskCard — the type line has exactly one position', () => {
+  const src = code('components/PlanTaskCard.tsx');
+
+  it('mounts the type row in exactly one place', () => {
+    // Both the old mounts passed `typeRow={typeRow}`. One node, one mount, one position —
+    // if a second appears, the field moves again under some state the reviewer didn't walk.
+    expect([...src.matchAll(/typeRow=\{typeRow\}/g)]).toHaveLength(1);
+  });
+
+  it('that mount is hoisted above the body branch, not inside one of its arms', () => {
+    const mount = src.indexOf('typeRow={typeRow}');
+    const bodyBranch = src.indexOf('{showEmpty ? (');
+    expect(mount).toBeGreaterThan(-1);
+    expect(bodyBranch).toBeGreaterThan(-1);
+    // Above the branch => the same position in all four states (empty / all-done / ruled
+    // list / timeline) rather than one position per arm.
+    expect(mount).toBeLessThan(bodyBranch);
+  });
+
+  it('the ruled-list PadSheet no longer draws its own type row', () => {
+    // The pad list is the arm that used to put the line at the TOP while the other three put
+    // it at the bottom; it now inherits the hoisted one like everybody else.
+    expect(src).toMatch(/<PadSheet state=\{state\}>/);
+    expect(src).not.toMatch(/<PadSheet state=\{state\} typeRow=/);
+  });
+});
+
+describe('PlanTaskCard — the Home header reserves its space', () => {
+  const src = code('components/PlanTaskCard.tsx');
+
+  it('does not gate the summary or the progress bar on there being tasks', () => {
+    // The exact shape of the old bug. Either gate reintroduces the pop-in.
+    expect(src).not.toMatch(/\{countableTasks\.length > 0 && \(/);
+  });
+
+  it('keeps the progress bar mounted and feeds it 0 on an empty day', () => {
+    expect(src).toMatch(/value=\{countableTasks\.length > 0 \? doneTasks\.length \/ countableTasks\.length : 0\}/);
+  });
+
+  it('keeps the summary line mounted, blank rather than absent', () => {
+    // A blank string still occupies the line box; an absent node does not, which is the
+    // difference between "reserved" and "jumps".
+    expect(src).toMatch(/countableTasks\.length > 0 \? t\.pad\.summary\([^)]*\) : ' '/);
+  });
+});
+
+/**
+ * The Energy strip (2026-08-03). Same review, adjacent rule: ten saturated pips and "10 / 10"
+ * at the top of Home, with no label, read as a score or a level — which is the one thing this
+ * system is documented as needing NOT to read as.
+ *
+ * The first fix for that also moved the two capacity steppers onto the strip's own top line,
+ * always visible. **The maintainer's review reversed that within the day**, verbatim: "the plus
+ * and minus is too flexible, and it is not obvious to a user what is what. Energy per day
+ * should be configured in a pop-up, not just whenever, and if they have extra Energy that is
+ * supposed to be shown as temporary. So it's better to just have a 'tutorial' there instead
+ * before anything is added."
+ *
+ * These guard the four structural claims that came out of it — one layout, always labelled; no
+ * stepper on the strip at all; extra energy marked temporary where the number is; a tutorial in
+ * place of the meter until something has been added. Rewards mode hiding the whole system is
+ * already covered, thoroughly, by energyModes.test.ts.
+ */
+describe('EnergyMeter — the strip names itself, and is set from a pop-up', () => {
+  const src = code('components/EnergyMeter.tsx');
+
+  it('has one layout, not a single-meter special case', () => {
+    // `singleMeter` picked a one-line, label-less shape for 'daily'/'weekly' and the stacked
+    // one for 'custom'. Two layouts is how the common case ended up being the unlabelled one.
+    // Matched as a DECLARATION and a USE rather than as the bare word: both files carry
+    // tombstone comments naming the thing they removed, and a session shouldn't have to
+    // delete the explanation to get this green (same reasoning as onboardingFlow.test.ts's
+    // header-stripping).
+    expect(src).not.toMatch(/const singleMeter/);
+    expect(src).not.toMatch(/singleMeter &&/);
+    expect(src).not.toMatch(/styles\.stripLine/);
+  });
+
+  it('always passes a label — the row signature no longer admits null', () => {
+    expect(src).toMatch(/label: string,/);
+    expect(src).not.toMatch(/label: string \| null/);
+    // Both call sites hand over a real string rather than a showX-conditional.
+    expect(src).toMatch(/row\('day', t\.energyMeter\.today,/);
+    expect(src).toMatch(/row\('week', t\.energyMeter\.thisWeek,/);
+  });
+
+  it('has no stepper of its own — every number is set in the pop-up', () => {
+    // The reversal, pinned at the strongest available level: the component cannot render a
+    // Stepper because it does not import one. A ± on this line has no way to say whether it
+    // moves the capacity or the spend, and being always-there invites nudging it on every
+    // glance. This is the SECOND reversal on the question (an inline Collapsible editor held
+    // the same steppers before that) — read EnergyConfigSheet's header before a third.
+    expect(src).not.toMatch(/from '@\/components\/Stepper'/);
+    expect(src).not.toMatch(/<Stepper/);
+    // The inline editor it replaced is gone with it, Collapsible and all.
+    expect(src).not.toMatch(/<Collapsible/);
+  });
+
+  it('hands all three setters to the config sheet, which owns all three steppers', () => {
+    const sheetAt = src.indexOf('<EnergyConfigSheet');
+    expect(sheetAt).toBeGreaterThan(-1);
+    for (const setter of ['setDayCapacity(today', 'setWeekCapacity(today', 'setDayBoost(today']) {
+      const at = src.indexOf(setter);
+      expect({ setter, found: at > -1 }).toEqual({ setter, found: true });
+      // Passed as a prop on the sheet element, i.e. after its opening tag — not called from a
+      // control drawn on the strip above it.
+      expect({ setter, onSheet: at > sheetAt }).toEqual({ setter, onSheet: true });
+    }
+    // And the sheet is where the three steppers actually live.
+    const sheet = code('components/EnergyConfigSheet.tsx');
+    expect([...sheet.matchAll(/<Stepper/g)]).toHaveLength(1); // one shared `field()` renderer
+    for (const prop of ['onDayCapacity', 'onWeekCapacity', 'onDayBoost']) {
+      expect({ prop, wired: sheet.includes(prop) }).toEqual({ prop, wired: true });
+    }
+    // Every field carries a line saying what its stepper CHANGES — the copy half of "it is not
+    // obvious what is what". A stepper with a bare label is the state this replaced.
+    for (const hint of ['todayCapacityHint', 'weekCapacityHint', 'boostHint']) {
+      expect({ hint, used: sheet.includes(hint) }).toEqual({ hint, used: true });
+    }
+  });
+
+  it('marks extra energy as temporary on the row that has it', () => {
+    // A boost used to vanish into the total: `+3` on a 10-energy day printed `13 / 13`,
+    // indistinguishable from somebody whose usual day is 13.
+    expect(src).toMatch(/dayBoost > 0 \? <Badge label=\{t\.energyMeter\.boostChip\(dayBoost\)\} \/> : null/);
+    const i18n = read('lib/i18n.ts');
+    // "today only" is the payload, in both languages — not the number, which the meter already
+    // has, but that the number is borrowed against one day.
+    expect(i18n).toMatch(/boostChip: \(n: number\) => `\+\$\{n\} today only`/);
+    expect(i18n).toMatch(/boostChip: \(n: number\) => `\+\$\{n\} bare i dag`/);
+  });
+
+  it('teaches instead of measuring until something has been added', () => {
+    // A full ten-pip bar with nothing able to spend it is the score-reading problem at its
+    // worst. The tutorial stands where the meter will stand, with the same pop-up behind its
+    // button.
+    expect(src).toMatch(/<StarterCard text=\{t\.starters\.energy\.text\}>/);
+    expect(src).toMatch(/const showTutorial = ready && !hasEnergyItems && !hasSetCapacity/);
+    // Either kind of "something added" sends the meter back: an energy value on a task/habit,
+    // or a capacity the user set themselves (any energy_budgets override row).
+    expect(src).toMatch(/const hasEnergyItems =/);
+    expect(src).toMatch(/const hasSetCapacity = Object\.keys\(overrides\)\.length > 0/);
+    // The load-order guard, which is the one way this could misfire: an unloaded store looks
+    // exactly like an empty one, and getting it wrong flashes teaching copy at a long-time
+    // user. All three stores have to answer first.
+    expect(src).toMatch(/const ready = tasksLoaded && habitsLoaded && energyLoaded/);
+    for (const store of ['store/useTaskStore.ts', 'store/useHabitStore.ts', 'store/useEnergyStore.ts']) {
+      expect({ store, hasFlag: read(store).includes('loaded: true') }).toEqual({ store, hasFlag: true });
+    }
+    // The meter, its hint and the tutorial are mutually exclusive — a strip drawing both would
+    // be the "explainer taller than the thing it explains" complaint all over again.
+    expect(src).toMatch(/\{!pause\.paused && showTutorial && \(/);
+    expect(src).toMatch(/\{!pause\.paused && !showTutorial && \(/);
+  });
+
+  it('names the meter in both languages', () => {
+    const i18n = read('lib/i18n.ts');
+    for (const s of ['Energy today', 'Energy this week', 'Energi i dag', 'Energi denne uken']) {
+      expect({ s, present: i18n.includes(s) }).toEqual({ s, present: true });
+    }
+  });
+});
+
+describe('TourSpotlight — one primary, one escape, and it puts you back where you chose', () => {
+  const src = code('components/TourSpotlight.tsx');
+
+  it('offers two buttons per step, not three', () => {
+    // "Skip this" and "Got it" both called record(step.id) — one button, two labels.
+    expect(src).not.toMatch(/t\.tour\.skipStep/);
+    expect(read('lib/i18n.ts')).not.toMatch(/^\s*skipStep:/m);
+  });
+
+  it('still lets you leave from any step', () => {
+    // Deleting the per-step skip must not cost escapability — that promise now rests
+    // entirely on this one.
+    expect(src).toMatch(/t\.tour\.skipAll/);
+  });
+
+  it('navigates to the chosen start screen when the tour ends', () => {
+    // Without this the tour stops on whichever tab it walked to last (Health), which is
+    // where a brand-new user landed after finishing it.
+    expect(src).toMatch(/START_SCREEN_PATHS\[startScreen\]/);
+    const body = src.slice(src.indexOf('const dismissAll'), src.indexOf('const handleAiGuide'));
+    expect(body).toMatch(/router\.navigate/);
+  });
+});
+
+describe('Onboarding backdrop — texture, not lines over the controls', () => {
+  const src = code('app/onboarding/_layout.tsx');
+
+  it('dials the triptych back with a whole-motif multiplier', () => {
+    // Onboarding is the one place full-bleed art sits directly UNDER interactive controls
+    // rather than around a protected centre box, and it rendered at full baked opacity
+    // (trunk strokes up to 0.6/0.78) until 2026-08-03. The tab backdrop has always dialled
+    // its own cluster to 0.5/0.7 for the same reason.
+    const m = src.match(/const BACKDROP_OPACITY = ([\d.]+)/);
+    expect(m).not.toBeNull();
+    const value = Number(m![1]);
+    expect(value).toBeGreaterThan(0);
+    expect(value).toBeLessThan(1);
+    expect(src).toMatch(/opacity=\{BACKDROP_OPACITY\}/);
+  });
+});
+
+describe('PlanTaskCard — "nothing left" never contradicts a visible task', () => {
+  const src = code('components/PlanTaskCard.tsx');
+
+  it('requires the untimed list to be empty too, not just the grid', () => {
+    // `gridItems` is TIMED tasks only. Without the `visibleAnytime` term this line renders
+    // under a list of untimed tasks that are, in plain English, left today.
+    const line = src.match(/dayLogActive && gridItems\.length === 0[^?]*\?/);
+    expect(line).not.toBeNull();
+    expect(line![0]).toMatch(/visibleAnytime\.length === 0/);
+  });
+});

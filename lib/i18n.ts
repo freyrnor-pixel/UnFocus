@@ -179,24 +179,73 @@ const en = {
   // Home Energy meter (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Energy',
-    today: 'Today',
-    thisWeek: 'This week',
+    /* These two name the meter, not just the period (2026-08-03). They were 'Today' /
+       'This week' and were passed ONLY in `energyMode: 'custom'`, where two meters are on
+       screen and something has to tell them apart — the far commoner single-meter case
+       drew no label at all, on the reasoning that a lone row makes its period obvious. It
+       does; what it did not make obvious was what the row WAS. A first-time-user walkthrough
+       read the ten pips plus "10 / 10" at the top of Home as a score or a level, which is
+       precisely what this system must not read as. The label is now always drawn, and it
+       carries the word "Energy" so the strip names itself. */
+    today: 'Energy today',
+    thisWeek: 'Energy this week',
     remaining: (n: number) => `${n} left`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} used`,
+    /** Title of components/EnergyConfigSheet.tsx, and the ✏️'s accessibility label. */
     editTitle: 'Adjust energy',
     todayCapacity: "Today's energy",
     weekCapacity: "This week's energy",
+    /* One line per stepper in the config sheet, saying what that stepper CHANGES (2026-08-03).
+       This is the copy half of the fix for "it is not obvious to a user what is what": a ± beside
+       a `7 / 10` readout cannot say whether it moves the capacity or the spend, and on the strip
+       there was no room to tell them. Neither line names a good number or suggests one. */
+    todayCapacityHint: 'How much today holds. Every other day keeps its own number.',
+    weekCapacityHint: 'How much the whole week holds.',
     done: 'Done',
-    overCommittedDay: (n: number) => `⚠️ Today is planned to use ${n} more Energy than you have available.`,
-    overCommittedWeek: (n: number) => `⚠️ This week is planned to use ${n} more Energy than you have available.`,
     /** Permanent one-liner under the meter (components/EnergyMeter.tsx). Keep it to one
      *  sentence with no examples — see that file's "Permanent inline hint" note. */
     hint: 'Plan the day around the energy you actually have.',
-    // Shown when current <= 0 (2026-07-28) — deliberately NOT a "great job"/celebration
-    // message. Using it all isn't the goal here (balance/planning is), so the tone stays
-    // calm and caring rather than congratulatory. See EnergyMeter.tsx's "Depleted state" note.
-    depletedDay: "Today's energy is fully spent. That's a cue to ease off, not a target to hit.",
-    depletedWeek: "This week's energy is fully spent. Worth easing off rather than filling the days ahead.",
+    // The "+ today only" boost, in the ✏️ editor beside the capacity stepper (2026-08-02).
+    // It is extra energy for ONE day, never a reward and never a target — the hint says
+    // where it goes and that tomorrow is unaffected, and stops there. `overCommittedDay/Week`
+    // and `depletedDay/Week` used to sit here; they were deleted with the two warning rows
+    // they fed (t.energyPause replaces both).
+    boostToday: 'Extra for today',
+    boostHint: 'Some days hold more than usual. This is added to today alone, and tomorrow starts from my normal amount again.',
+    /**
+     * The temporary-extra chip on the day row (2026-08-03) — a neutral components/Badge beside
+     * "Energy today" whenever a boost is set.
+     *
+     * A boost used to disappear into the total: `+3` on a 10-energy day simply printed
+     * `13 / 13`, identical to somebody whose usual day is 13. "today only" is the whole
+     * payload — it says the number is borrowed against one day, not that the day is bigger.
+     * Keep it short enough to sit on a line that already carries a label and two glyphs.
+     */
+    boostChip: (n: number) => `+${n} today only`,
+    /** Accessibility label for the extra pips drawn past a full bar (lib/energy.ts's `surplus`). */
+    surplusLabel: (n: number) => `${n} beyond today's energy`,
+  },
+  /**
+   * The daily energy pause (2026-08-02) — components/EnergyPauseSheet.tsx plus the meter's
+   * overspend control. This copy REPLACES the amber "⚠️ Today is planned to use 3 more
+   * Energy than you have available" line, which was the loudest piece of guilt copy left in
+   * the app.
+   *
+   * Narrator voice: first person, no questions, no imperatives, no exclamation marks. The
+   * sheet's two options carry equal weight in the words as well as in the layout — neither
+   * `decide` nor `imGood` is phrased as the sensible one, and both after-lines are settled
+   * rather than approving. Nothing here counts, compares or refers back to a previous day.
+   */
+  energyPause: {
+    sheetLine: "That's more than a day's worth. Mine usually is too.",
+    decide: "I'll decide",
+    imGood: "I'm good",
+    afterDecide: 'The rest keeps. This is the one.',
+    afterGood: 'Fair. Some days you just go.',
+    /** Accessibility label on the calm overspend control that opens the sheet. */
+    overspendLabel: "Over today's energy — options",
+    /** On the pinned card's badge — the tap target that removes the pin. */
+    pinnedLabel: 'Pinned — tap to unpin',
   },
   a11yAdd: 'Add',
   a11yDiscardRow: 'Discard new row',
@@ -224,6 +273,48 @@ const en = {
     continueEditing: 'Continue editing',
   },
   padRow: { actionLabel: 'More for this row' },
+  /**
+   * The day log — what already happened, behind the now-line (lib/dayLog.ts).
+   *
+   * Copy rules that are stricter here than anywhere else in the app, and are the feature:
+   *   - No count, total or percentage in any string. Not even a friendly one.
+   *   - No evaluation. No praise, no "productive day", no summary judgement. The entries
+   *     speak; nothing here comments on them.
+   *   - The past section has NO header. Do not add `Completed`/`Gjennomført` or similar —
+   *     labelling the section turns a record into a scorecard.
+   *   - Never `Summary`, `Progress`, `Statistics` or any translation of those.
+   */
+  dayLog: {
+    title: 'Today',
+    /**
+     * The one first-person line in the entire app, and deliberately so — see VOICE.md.
+     * It explains why the feature exists instead of instructing the user, which is the
+     * only job an empty day has. Do NOT "correct" it into the app's usual second person,
+     * and do not add a second line in this voice anywhere in this feature.
+     */
+    empty:
+      "I remember the big things. It's everything in between that disappears — especially what happened in the middle of the chaos.",
+    /** Placeholder on the capture field. Present tense, no prompt to categorise. */
+    capturePrompt: 'What just happened?',
+    /** The now-line's own label. Lowercase on purpose — it is a marker, not a heading. */
+    now: 'now',
+    /** Nothing scheduled ahead. A neutral statement of fact, not an invitation. */
+    nothingAhead: 'Nothing fixed left today.',
+    /** Entry point to the earlier-days screen. */
+    earlierDays: 'Earlier days',
+    /** Deleting a captured moment — the only entry the user can remove. */
+    deleteMoment: 'Delete this note',
+    /** Fallbacks for rows whose source row no longer has a name of its own. */
+    kinds: {
+      medicine: 'Medicine',
+    },
+    /** Which device calendars the timeline may READ. Never mentions granting access —
+     *  declining is a supported permanent state and the picker just doesn't appear. */
+    calendars: {
+      title: 'Calendars on the timeline',
+      hint: 'Events from these show up ahead of the now line. Nothing is written back.',
+    },
+  },
   /** The ⋯ router on a note row (components/SendToSheet.tsx). */
   sendTo: {
     title: 'Send it to…',
@@ -385,59 +476,23 @@ const en = {
     { icon: 'heart-outline', text: 'Health — log symptoms and occurrences, and see the trends over time' },
     { icon: 'battery-half-outline', text: 'An energy system that balances to-dos, habits and health against the energy you actually have' },
   ],
-  whatsYourName: "What's your name?",
-  nameHint: 'Only used to say hi — no data leaves your phone.',
-  getStarted: 'Get started →',
   monthlyResetDateQuestion: 'Which date does the monthly list reset?',
   weeklyRemindersOnboarding: 'Weekly reminders',
-  finishBtn: "Let's go! 🌿",
-  guidedTitle: 'How do you want to start?',
-  guidedSub: 'You can always find tips and explanations in Settings.',
-  guidedBtn: 'Walk me through it',
-  guidedDesc: "We'll go through each feature with a short explanation",
-  exploreBtn: 'Jump right in',
-  exploreDesc: 'Start right away — tips are available in Settings',
-  recommended: 'Recommended',
-  introHintNote: 'Look for the ⓘ button on any screen for tips and settings.',
-  // Intro tour closing pages (app/onboarding/intro.tsx) — the principles the app is
-  // designed within, then an honest note about the state of the build. Both render
-  // after the t.features pages; keep the copy short, the tour does not scroll.
-  introPrinciples: {
-    title: 'Built to be gentle',
-    bullets: [
-      { icon: 'accessibility-outline', text: 'For everyone — but tuned for ADHD, autism, anxiety and depression' },
-      { icon: 'hand-left-outline', text: 'Easy to use — few steps, nothing hidden' },
-      { icon: 'ribbon-outline', text: 'No punishment and no broken streaks — small rewards instead' },
-      { icon: 'gift-outline', text: 'Free, and always will be — no ads, no subscriptions' },
-    ],
-  },
-  introExperimental: {
-    title: 'This is an experimental build',
-    body: 'UnFocus is a work in progress. Things may change, move or arrive half-finished — that is expected. Everything stays on your phone, and all feedback is welcome — it shapes what comes next.',
-  },
-  // The Energy screen (app/onboarding/energy.tsx). Its whole job is one distinction: Energy
-  // is about today and helps you plan — it is not a score, and it cannot tell you that you
-  // are behind. Keep any new copy on that side of it.
-  //
-  // This block used to carry a second explanation, `growth` (Quiet growth), plus a `sub` and
-  // a `note` that both said "Both …". All three went with the second card on 2026-07-31 —
-  // wording that counts two things cannot survive there being one.
-  //
-  // **Ratified 2026-08-01.** `title` was a placeholder for one day; the maintainer kept it and
-  // took a new `sub` written against it, which closes the gap where this was the only
-  // onboarding screen with a heading and no sub-heading. The sub's job is to say why the
-  // screen exists AT ALL — it earns the interruption by admitting the rest of the app doesn't
-  // need one. It must not describe the meter: that is the card's `energy.body`, directly below.
-  energyIntro: {
-    title: 'One thing worth explaining',
-    sub: "The rest of the app you can learn by poking at it. This part looks like a score, so it's worth a minute.",
-    energy: {
-      title: 'Energy',
-      body: 'Tasks and habits can carry an energy cost, and the meter shows what today has left. It is for planning around the energy you actually have, not for measuring you.',
-      note: 'Turning it off hides the meter and keeps every value you have set, so turning it back on restores them.',
-    },
-  },
-  // First-run personalization (app/first-run.tsx). Four steps, one question each.
+  /* The AI setup guide. It was one of three peer cards on the deleted branch screen; since
+     2026-08-03 it is a secondary link on app/onboarding/privacy.tsx, plus Settings and the
+     guided tour's closing card. `aiSetupDesc` went with the card — a link does not carry a
+     two-line description — but the round trip it described still needs saying somewhere
+     before the tap, which is `aiSetup.*`'s job on the Settings screen. */
+  aiSetupBtn: 'Set it up with an AI',
+  aiSetupPickAnother: 'You can pick another way to start.',
+  /* `introPrinciples`, `introExperimental` and the whole `energyIntro` block were deleted on
+     2026-08-03 with the screens that rendered them (app/onboarding/{intro,energy}.tsx —
+     intro went on 2026-07-31, energy in the two-screen cut). The Energy-vs-Rewards wording
+     lives on as `config.features.energy.modes` in Settings, which is now the only place the
+     choice is offered; the "experimental build" note lives on as `tour.finale.experimental`. */
+  // First-run personalization. Was app/first-run.tsx's four-step wizard, then
+  // app/onboarding/basics.tsx's six rows on one screen; since 2026-08-03 onboarding shows
+  // only the language row and the full six are behind Settings' "Run setup again".
   // Labels that already exist elsewhere are REUSED rather than restated — text sizes come
   // from settings.accessibility.fontSize*, starting screens from nav.* — so the flow and
   // Settings say the same words for the same value. The one exception is appearance: the
@@ -492,7 +547,9 @@ const en = {
   tour: {
     step: (n: number, total: number) => `${n} of ${total}`,
     next: 'Got it',
-    skipStep: 'Skip this',
+    /* `skipStep` ("Skip this") was deleted 2026-08-03. It sat beside `next` and did exactly
+       what `next` did — both recorded the step — so the card offered three buttons for two
+       outcomes and asked the reader to tell "Skip this" from "Skip the tour". */
     skipAll: 'Skip the tour',
     steps: {
       home: {
@@ -528,8 +585,19 @@ const en = {
   // Settings say the same words. Only the row labels and the two rows that had no wizard step
   // of their own (language, handedness) live here.
   basics: {
+    /* `title`/`sub` are the SETTINGS re-run wording ("Run setup again"), where all six rows
+       show and "what am I picking" is the only question left. The pair below is what a brand
+       new user sees, where it is not (2026-08-03). */
     title: 'A few basics',
     sub: 'This screen changes as you tap, so you can see what you are picking. All of it has a working default already.',
+    /* Screen ONE of a fresh install. Its job is to answer "what is this?" — the old first
+       screen was a six-row settings form that never said, and a first-time-user walkthrough
+       got all the way through onboarding and the guided tour without finding out. Name the
+       four things the app holds, in the order the tabs sit in, and say the one thing that
+       makes it different from every other list app. The privacy screen says the local-only
+       part, so this one must not spend a line on it. */
+    welcomeTitle: 'Your day, in one place',
+    welcomeSub: 'UnFocus keeps to-dos, shopping, habits and health together, so there is one place to look. Nothing here keeps score.',
     appearance: 'Appearance',
     textSize: 'Text size',
     motion: 'Movement',
@@ -1152,7 +1220,13 @@ const en = {
     // Bottom-of-screen link on Habits/Plans that opens the GoalsSheet popup (2026-07-31 —
     // moved off the top of those screens; see those files' Edit notes). Deliberately
     // "Edit Goals" not "Goals": it opens straight into add/delete, not a browse view.
-    editLink: 'Edit Goals',
+    /* A bare noun, like Shopping's "Food" and "Catalogue" links, which this button's own
+       component header says it mirrors (components/SubScreenLinkButton.tsx). It read
+       "Edit Goals" until 2026-08-03 — a verb that overstates what the tap does (it opens
+       a sheet you can look at as well as edit) and that reads as a list row rather than a
+       way out of the screen, which is how the 2026-08-03 walkthrough took it on both the
+       To-do and Habits tabs. AGENTS.md had already recorded the label as "Goals". */
+    editLink: 'Goals',
     close: 'Done',
     strengthStrong: 'Going strong',
     strengthWarm: 'Warming up',
@@ -1192,7 +1266,15 @@ const en = {
       headline: 'Your data stays with you',
       local: 'Everything is stored only on this device — nothing is sent anywhere.',
       free: 'UnFocus is free — and stays free.',
-      cta: 'Got it →',
+      /* This is now the LAST screen of onboarding, so its button finishes setup rather
+         than advancing (2026-08-03). "Got it →" described acknowledging a notice; "Start"
+         describes what the tap does, per rule 22. */
+      cta: 'Start',
+      /* Two secondary ways off this screen, both deliberately below the primary and both
+         plain links rather than cards. The restore path used to be a whole screen of its
+         own, asked of every new user before they had seen anything; it is a returning
+         user's question, so it waits here for the person who needs it. */
+      restoreLink: 'Restoring from a backup?',
     },
     // First-run "have you used UnFocus before?" step — offers to restore a backup
     // file before the user starts a fresh setup (restore replaces all data).
@@ -1269,6 +1351,12 @@ const en = {
     sections: {
       appearance: 'Appearance',
       notifications: 'Notifications',
+      /* The General tab's FIRST group (Profile / Appearance / Accessibility). Added
+         2026-08-03: every other group on every Settings tab is introduced by a bare
+         `groupHeader` above its cards, and this one alone had none — so the tab opened with
+         an unheaded panel and then started using headings from "Data" down, which reads as
+         two different hierarchies on one screen. */
+      you: 'You',
       data: 'Data',
       layout: 'Layout',
       features: 'Features',
@@ -1356,9 +1444,32 @@ const en = {
         label: 'Medicine',
         hint: 'A dose card on the Health tab, with a reminder for each part of the day.',
       },
+      dayLog: {
+        label: 'The day as it happened',
+        hint: 'Keeps what you have already done above the now line, and what is left below it.',
+      },
+      /**
+       * Energy is TWO NAMED PEER MODES now (2026-08-02), not a feature switched on and off.
+       * `label`/`hint` stay for anything still rendering it as a plain FEATURE_ROWS row;
+       * `modes.*` is what app/settings.tsx's SegmentedControl draws. Both write the same
+       * `settings.energySystemEnabled` — Rewards mode is the false side, and it is genuinely
+       * disabled rather than hidden, which is why it gets a name of its own instead of
+       * reading as an absence.
+       */
       energy: {
         label: 'Energy',
         hint: 'Give tasks and habits an energy value, and see what a day or week adds up to.',
+        modes: {
+          label: 'How finishing something lands',
+          energy: {
+            label: 'Energy mode',
+            hint: 'Tasks and habits carry an energy cost, and the meter shows what today has left.',
+          },
+          rewards: {
+            label: 'Rewards mode',
+            hint: 'No meter and no costs. Finishing something fills its check, and that is the whole of it.',
+          },
+        },
       },
       growth: {
         label: 'Quiet growth',
@@ -1679,6 +1790,23 @@ const en = {
     notes: {
       text: 'Note thoughts for later.',
     },
+    /**
+     * The Energy strip's tutorial state (2026-08-03) — what stands at the top of Home while
+     * nothing carries an energy value and no capacity has been set. See
+     * components/EnergyMeter.tsx's "Tutorial state" note.
+     *
+     * Two sentences, in this order for a reason: what energy IS, then the two things that make
+     * the meter mean anything. It must not read as setup the user owes the app — every number
+     * already has a working default, so this only ever adjusts one. `action` opens the same
+     * pop-up the ✏️ opens, so the first available move here is the deliberate one.
+     * Energy had a StarterCard until 2026-07-27 (two "+" example rows, retired in favour of the
+     * permanent hint); this is not that card back — it replaces the METER rather than sitting
+     * under it, and the permanent hint stays exactly where it is.
+     */
+    energy: {
+      text: 'Energy is how much a day holds. Give a to-do or a habit a cost, and the meter here shows what the day has left.',
+      action: "Set the day's energy",
+    },
     goals: {
       text: 'What your to-dos and habits add up to.',
       tapToAdd: 'Tap one to start:',
@@ -1914,19 +2042,37 @@ const no: typeof en = {
   // Home Energy-måler (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Energi',
-    today: 'I dag',
-    thisWeek: 'Denne uken',
+    /* Se den engelske tvillingen: disse navngir måleren, ikke bare perioden (2026-08-03). */
+    today: 'Energi i dag',
+    thisWeek: 'Energi denne uken',
     remaining: (n: number) => `${n} igjen`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} brukt`,
     editTitle: 'Juster energi',
     todayCapacity: 'Energi i dag',
     weekCapacity: 'Energi denne uken',
+    /* Se de engelske tvillingene: én linje per teller, som sier hva telleren endrer (2026-08-03). */
+    todayCapacityHint: 'Hvor mye dagen i dag rommer. Alle andre dager beholder sitt eget tall.',
+    weekCapacityHint: 'Hvor mye hele uken rommer.',
     done: 'Ferdig',
-    overCommittedDay: (n: number) => `⚠️ I dag er det planlagt ${n} mer energibruk enn du har tilgjengelig.`,
-    overCommittedWeek: (n: number) => `⚠️ Denne uken er det planlagt ${n} mer energibruk enn du har tilgjengelig.`,
     hint: 'Planlegg dagen ut fra energien du faktisk har.',
-    depletedDay: 'Dagens energi er brukt opp. Det er et signal om å ta det roligere, ikke et mål å nå.',
-    depletedWeek: 'Ukens energi er brukt opp. Verdt å ta det roligere fremover, ikke fylle på mer.',
+    boostToday: 'Ekstra i dag',
+    boostHint: 'Noen dager rommer mer enn vanlig. Dette legges bare til i dag, og i morgen starter på det vanlige igjen.',
+    /* "bare i dag" er hele poenget — tallet er lånt av én dag, ikke en større dag. */
+    boostChip: (n: number) => `+${n} bare i dag`,
+    surplusLabel: (n: number) => `${n} utover dagens energi`,
+  },
+  energyPause: {
+    // "Mine er som regel det også" keeps the narrator alongside the user rather than above
+    // them — the same move as the English line, not a literal rendering of it.
+    sheetLine: 'Det er mer enn en dag rommer. Mine er som regel det også.',
+    decide: 'Jeg velger',
+    imGood: 'Det går fint',
+    afterDecide: 'Resten venter. Denne er den.',
+    // "bare kjører man på" is the everyday Norwegian for pressing on without a plan; it
+    // carries the shrug the English "you just go" has, which a literal translation loses.
+    afterGood: 'Greit nok. Noen dager bare kjører man på.',
+    overspendLabel: 'Over dagens energi — valg',
+    pinnedLabel: 'Festet — trykk for å løsne',
   },
   a11yAdd: 'Legg til',
   a11yDiscardRow: 'Forkast ny rad',
@@ -1946,6 +2092,24 @@ const no: typeof en = {
     continueEditing: 'Fortsett å redigere',
   },
   padRow: { actionLabel: 'Mer for denne raden' },
+  dayLog: {
+    title: 'I dag',
+    // The one first-person line in the app — see VOICE.md and the English side's note.
+    empty:
+      'Jeg husker de store tingene. Det er alt imellom som forsvinner — særlig det som skjedde midt i kaoset.',
+    capturePrompt: 'Hva skjedde nå?',
+    now: 'nå',
+    nothingAhead: 'Ingenting fast igjen i dag.',
+    earlierDays: 'Tidligere dager',
+    deleteMoment: 'Slett dette notatet',
+    kinds: {
+      medicine: 'Medisin',
+    },
+    calendars: {
+      title: 'Kalendere på tidslinjen',
+      hint: 'Hendelser herfra vises foran nå-linjen. Ingenting skrives tilbake.',
+    },
+  },
   sendTo: {
     title: 'Send den til…',
     todo: 'Gjøremål',
@@ -2093,45 +2257,10 @@ const no: typeof en = {
     { icon: 'heart-outline', text: 'Helse — logg symptomer og hendelser, og se trendene over tid' },
     { icon: 'battery-half-outline', text: 'Et energisystem som balanserer gjøremål, vaner og helse mot energien du faktisk har' },
   ],
-  whatsYourName: 'Hva heter du?',
-  nameHint: 'Brukes bare til å si hei — ingen data forlater telefonen din.',
-  getStarted: 'Kom i gang →',
   monthlyResetDateQuestion: 'Hvilken dato nullstilles månedslisten?',
   weeklyRemindersOnboarding: 'Ukentlige påminnelser',
-  finishBtn: 'Kom i gang! 🌿',
-  guidedTitle: 'Hvordan vil du starte?',
-  guidedSub: 'Du kan alltid finne tips og forklaringer i innstillingene.',
-  guidedBtn: 'Vis meg rundt',
-  guidedDesc: 'Vi går gjennom hver funksjon med en kort forklaring',
-  exploreBtn: 'Hopp rett inn',
-  exploreDesc: 'Begynn med en gang — tips er tilgjengelige i innstillingene',
-  recommended: 'Anbefalt',
-  introHintNote: 'Se etter ⓘ-knappen på hver skjerm for tips og innstillinger.',
-  introPrinciples: {
-    title: 'Laget for å være mild',
-    bullets: [
-      { icon: 'accessibility-outline', text: 'For alle — men tilpasset ADHD, autisme, angst og depresjon' },
-      { icon: 'hand-left-outline', text: 'Enkel å bruke — få steg, ingenting bortgjemt' },
-      { icon: 'ribbon-outline', text: 'Ingen straff og ingen brutte rekker — små belønninger i stedet' },
-      { icon: 'gift-outline', text: 'Gratis, og vil alltid være det — ingen reklame, ingen abonnement' },
-    ],
-  },
-  introExperimental: {
-    title: 'Dette er en eksperimentell versjon',
-    body: 'UnFocus er under arbeid. Ting kan endre seg, flytte på seg eller komme halvferdig — det er som forventet. Alt blir liggende på telefonen din, og alle tilbakemeldinger er velkomne — de former det som kommer.',
-  },
-  energyIntro: {
-    title: 'Én ting som er verdt en forklaring',
-    // "poking at it" has no idiomatic Norwegian equivalent that stays this light — "prøve deg
-    // fram" (feel your way / try as you go) carries the same "you don't have to be taught this"
-    // sense without turning it into an instruction.
-    sub: 'Resten av appen kan du prøve deg fram i. Denne delen ser ut som en poengsum, så den er verdt et minutt.',
-    energy: {
-      title: 'Energi',
-      body: 'Gjøremål og vaner kan ha en energikostnad, og måleren viser hva dagen har igjen. Den er til for å planlegge etter energien du faktisk har, ikke for å måle deg.',
-      note: 'Slår du den av, skjules måleren og alle verdiene du har satt beholdes, så de er der igjen hvis du slår den på.',
-    },
-  },
+  aiSetupBtn: 'Sett opp med AI',
+  aiSetupPickAnother: 'Du kan velge en annen måte å starte på.',
   firstRun: {
     step: (n: number, total: number) => `${n} av ${total}`,
     skip: 'Hopp over',
@@ -2174,7 +2303,7 @@ const no: typeof en = {
   tour: {
     step: (n: number, total: number) => `${n} av ${total}`,
     next: 'Skjønner',
-    skipStep: 'Hopp over denne',
+    /* `skipStep` fjernet 2026-08-03 — se den engelske tvillingen. */
     skipAll: 'Hopp over omvisningen',
     steps: {
       home: {
@@ -2208,6 +2337,9 @@ const no: typeof en = {
   basics: {
     title: 'Litt grunnleggende',
     sub: 'Denne skjermen endrer seg mens du trykker, så du ser hva du velger. Alt har allerede en standard som fungerer.',
+    /* Se den engelske tvillingen: dette er det en helt ny bruker møter først. */
+    welcomeTitle: 'Dagen din, på ett sted',
+    welcomeSub: 'UnFocus samler gjøremål, handling, vaner og helse, så du har ett sted å se. Ingenting her fører regnskap.',
     appearance: 'Utseende',
     textSize: 'Tekststørrelse',
     motion: 'Bevegelse',
@@ -2458,7 +2590,7 @@ const no: typeof en = {
     deleteConfirmBody: 'Oppgaver og vaner som er koblet til, blir frakoblet. Dette kan ikke angres.',
     strengthLabel: 'Måldriv — vokser når du jobber med det, avtar rolig når du ikke gjør det.',
     title: 'Mål',
-    editLink: 'Rediger mål',
+    editLink: 'Mål',
     close: 'Ferdig',
     strengthStrong: 'Går sterkt',
     strengthWarm: 'Er i gang',
@@ -2496,7 +2628,9 @@ const no: typeof en = {
       headline: 'Dataene dine er hos deg',
       local: 'Alt lagres kun på denne enheten — ingenting sendes noe sted.',
       free: 'UnFocus er gratis — og forblir det.',
-      cta: 'Skjønner →',
+      /* Se den engelske tvillingen: dette er siste skjerm i oppstarten nå. */
+      cta: 'Start',
+      restoreLink: 'Gjenoppretter du fra en sikkerhetskopi?',
     },
     restore: {
       headline: 'Har du brukt UnFocus før?',
@@ -2566,6 +2700,8 @@ const no: typeof en = {
     skipForNow: 'Jeg ordner dette senere',
     sections: {
       appearance: 'Utseende',
+      /* Se den engelske tvillingen (2026-08-03). */
+      you: 'Deg',
       notifications: 'Varsler',
       data: 'Data',
       layout: 'Oppsett',
@@ -2638,9 +2774,24 @@ const no: typeof en = {
         label: 'Medisin',
         hint: 'Et dosekort på Helse-fanen, med påminnelse for hver del av dagen.',
       },
+      dayLog: {
+        label: 'Dagen slik den skjedde',
+        hint: 'Holder det du allerede har gjort over nå-linjen, og det som er igjen under.',
+      },
       energy: {
         label: 'Energi',
         hint: 'Gi oppgaver og vaner en energiverdi, og se hva en dag eller uke summerer seg til.',
+        modes: {
+          label: 'Hvordan det kjennes å bli ferdig',
+          energy: {
+            label: 'Energimodus',
+            hint: 'Oppgaver og vaner har en energikostnad, og måleren viser hva dagen har igjen.',
+          },
+          rewards: {
+            label: 'Belønningsmodus',
+            hint: 'Ingen måler og ingen kostnader. Blir noe ferdig, fylles avkryssingen, og mer er det ikke.',
+          },
+        },
       },
       growth: {
         label: 'Stille vekst',
@@ -3233,6 +3384,11 @@ const no: typeof en = {
     },
     notes: {
       text: 'Noter tanker til senere.',
+    },
+    /* Se den engelske tvillingen: energistripens opplæringstilstand (2026-08-03). */
+    energy: {
+      text: 'Energi er hvor mye en dag rommer. Gi et gjøremål eller en vane en kostnad, så viser måleren her hva dagen har igjen.',
+      action: 'Sett dagens energi',
     },
     goals: {
       text: 'Det gjøremålene og vanene dine går til sammen om.',

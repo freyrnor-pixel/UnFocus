@@ -9,8 +9,15 @@
  * energy-enabled task/habit SCHEDULED for the period regardless of done/met status
  * (used to warn about an over-committed day/week before anything's completed).
  * Pure functions — no DB, no store; plain objects cast to the store types.
+ *
+ * Also covers the two 2026-08-02 additions: `energyPipCount`'s `surplus` channel (pips
+ * earned PAST capacity, capped at MAX_SURPLUS_PIPS so the clipping pip row can't overflow)
+ * and `boostKey`, the 'b:'-prefixed third period-key shape for a today-only energy boost.
+ * The existing `energyPipCount` assertions gained an explicit `surplus` field — `toEqual` is
+ * exact, so a new key has to be named — but their pipCount/filled expectations are unchanged,
+ * which is the point: surplus is purely additive.
  */
-import { dayKey, weekKey, energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek, energyStepperValue, energyFieldsFromStepper, energyPipCount } from '@/lib/energy';
+import { dayKey, weekKey, boostKey, energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek, energyStepperValue, energyFieldsFromStepper, energyPipCount, MAX_SURPLUS_PIPS } from '@/lib/energy';
 import type { Task } from '@/store/useTaskStore';
 import type { Habit, HabitLog } from '@/store/useHabitStore';
 
@@ -37,7 +44,9 @@ function habit(o: Partial<Habit>): Habit {
 }
 
 const log = (habitId: string, logDate: string, count: number): HabitLog => ({
-  id: `${habitId}-${logDate}`, habitId, logDate, count, restDay: false,
+  // `firstAt` is the day log's stamp (lib/dayLog.ts) and has no bearing on Energy, which
+  // asks habitMetOn() about counts. Present only to satisfy the type.
+  id: `${habitId}-${logDate}`, habitId, logDate, count, restDay: false, firstAt: '',
 });
 
 const DAY = '2026-07-15'; // a Wednesday
@@ -48,6 +57,16 @@ describe('period keys', () => {
   });
   it('weekKey is the w:-prefixed Monday of the week', () => {
     expect(weekKey(DAY)).toBe('w:2026-07-13'); // Monday of that week
+  });
+  it('boostKey is the b:-prefixed date itself', () => {
+    expect(boostKey(DAY)).toBe('b:2026-07-15');
+  });
+  // The three key shapes share one table, so they must never collide — and the 'b:' shape in
+  // particular must not look like a day key, or lib/db.ts's day prune would eat it early.
+  it('keeps the three period key shapes distinct for the same date', () => {
+    const keys = [dayKey(DAY), weekKey(DAY), boostKey(DAY)];
+    expect(new Set(keys).size).toBe(3);
+    expect(boostKey(DAY)).not.toBe(dayKey(DAY));
   });
 });
 
@@ -82,10 +101,10 @@ describe('energyDeltaForDay', () => {
 
   it('excludes a rest-day habit from the delta — no reward, no penalty', () => {
     const h = habit({ id: 'w', energyEnabled: true, energyValue: 1, dailyGoal: 1 });
-    const restLog: HabitLog = { id: 'w-rest', habitId: 'w', logDate: DAY, count: 0, restDay: true };
+    const restLog: HabitLog = { id: 'w-rest', habitId: 'w', logDate: DAY, count: 0, restDay: true, firstAt: '' };
     expect(energyDeltaForDay(DAY, [], [h], [restLog])).toBe(0);
     // Even if count happens to reach goal, resting still excludes it.
-    const restLogMet: HabitLog = { id: 'w-rest2', habitId: 'w', logDate: DAY, count: 1, restDay: true };
+    const restLogMet: HabitLog = { id: 'w-rest2', habitId: 'w', logDate: DAY, count: 1, restDay: true, firstAt: '' };
     expect(energyDeltaForDay(DAY, [], [h], [restLogMet])).toBe(0);
   });
 
@@ -203,23 +222,64 @@ describe('energyStepperValue / energyFieldsFromStepper', () => {
 
 describe('energyPipCount', () => {
   it('is 1 pip per unit when capacity is at or under the max', () => {
-    expect(energyPipCount(6, 8)).toEqual({ pipCount: 8, filled: 6 });
+    expect(energyPipCount(6, 8)).toEqual({ pipCount: 8, filled: 6, surplus: 0 });
   });
 
   it('scales down proportionally once capacity exceeds the max', () => {
-    expect(energyPipCount(30, 40, 10)).toEqual({ pipCount: 10, filled: 8 }); // 30/40 * 10 = 7.5 → 8
+    expect(energyPipCount(30, 40, 10)).toEqual({ pipCount: 10, filled: 8, surplus: 0 }); // 30/40 * 10 = 7.5 → 8
   });
 
   it('clamps a negative (over-committed) current to zero filled pips', () => {
-    expect(energyPipCount(-2, 8)).toEqual({ pipCount: 8, filled: 0 });
+    expect(energyPipCount(-2, 8)).toEqual({ pipCount: 8, filled: 0, surplus: 0 });
   });
 
   it('clamps current above capacity to fully filled', () => {
-    expect(energyPipCount(12, 8)).toEqual({ pipCount: 8, filled: 8 });
+    expect(energyPipCount(12, 8)).toEqual({ pipCount: 8, filled: 8, surplus: 4 });
   });
 
   it('returns no pips for a zero or negative capacity', () => {
-    expect(energyPipCount(0, 0)).toEqual({ pipCount: 0, filled: 0 });
-    expect(energyPipCount(0, -5)).toEqual({ pipCount: 0, filled: 0 });
+    expect(energyPipCount(0, 0)).toEqual({ pipCount: 0, filled: 0, surplus: 0 });
+    expect(energyPipCount(0, -5)).toEqual({ pipCount: 0, filled: 0, surplus: 0 });
+  });
+});
+
+/**
+ * Surplus pips (2026-08-02) — what the clamp used to swallow, so `12 / 10` no longer draws
+ * identically to `10 / 10`. The cap is the load-bearing part: the pip row clips, and an
+ * uncapped surplus would paint over the value text beside it (the 2026-07-28 overflow bug).
+ */
+describe('energyPipCount — surplus', () => {
+  it('is zero while current is at or under capacity', () => {
+    expect(energyPipCount(0, 10).surplus).toBe(0);
+    expect(energyPipCount(7, 10).surplus).toBe(0);
+    expect(energyPipCount(10, 10).surplus).toBe(0); // exactly full is not surplus
+    expect(energyPipCount(-4, 10).surplus).toBe(0);
+  });
+
+  it('scales past-capacity energy the same way filled pips are scaled', () => {
+    // 1:1 while capacity is under the max — 2 past a capacity of 10 is 2 pips.
+    expect(energyPipCount(12, 10).surplus).toBe(2);
+    // Scaled down above the max: 10 past 40 with 10 pips = a quarter of the row = 2.5 → 3.
+    expect(energyPipCount(50, 40, 10).surplus).toBe(3);
+  });
+
+  it('caps the surplus so the pip row can never overflow', () => {
+    expect(energyPipCount(100, 10).surplus).toBe(MAX_SURPLUS_PIPS);
+    expect(energyPipCount(1000, 40, 10).surplus).toBe(MAX_SURPLUS_PIPS);
+    // Whatever the numbers, it never exceeds the cap.
+    for (const current of [11, 15, 20, 33, 60, 400]) {
+      expect(energyPipCount(current, 10).surplus).toBeLessThanOrEqual(MAX_SURPLUS_PIPS);
+    }
+  });
+
+  it('is zero for a zero or negative capacity, along with everything else', () => {
+    expect(energyPipCount(50, 0).surplus).toBe(0);
+    expect(energyPipCount(50, -5).surplus).toBe(0);
+  });
+
+  it('leaves pipCount and filled exactly as they were', () => {
+    // The surplus channel is additive — the two original values are untouched by it.
+    expect(energyPipCount(12, 8).filled).toBe(8);
+    expect(energyPipCount(12, 8).pipCount).toBe(8);
   });
 });

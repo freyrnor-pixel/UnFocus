@@ -179,6 +179,7 @@ import { useHealthStore } from '@/store/useHealthStore';
 import { useMedicineStore } from '@/store/useMedicineStore';
 import { useMealStore } from '@/store/useMealStore';
 import { useNotesStore } from '@/store/useNotesStore';
+import { useMomentsStore } from '@/store/useMomentsStore';
 import { usePeersStore } from '@/store/usePeersStore';
 import { usePeopleStore } from '@/store/usePeopleStore';
 import { useTagStore } from '@/store/useTagStore';
@@ -307,6 +308,12 @@ export default function RootLayout() {
     useNotesStore.getState().load();
     useMealStore.getState().load();
     useCatalogStore.getState().load();
+    // Moments back the day log, which is rendered by the day-view card on BOTH Home and
+    // the To-do tab — a first screen either way, so it belongs in this tier rather than
+    // Tier B. Loads unconditionally: `settings.featureDayLog` gates the SURFACE, never
+    // the data, so turning the flag on shows a complete history rather than one that
+    // starts at the moment you flipped it.
+    useMomentsStore.getState().load();
     // Warm the one bundled image the app itself draws — icon.png, onboarding's hero.
     // Fire-and-forget: launch is deliberately NOT gated on this. It used to block the held
     // splash for up to 1.5s (its own timeout floor) so a decorative watermark wouldn't fade

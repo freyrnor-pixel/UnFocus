@@ -117,7 +117,7 @@ import AnimatedListItem from '@/components/AnimatedListItem';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import Collapsible from '@/components/Collapsible';
 import GlowPulse from '@/components/GlowPulse';
-import HabitIcon from '@/components/HabitIcon';
+import HabitIcon, { hasChosenHabitIcon } from '@/components/HabitIcon';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import EmptyState from '@/components/EmptyState';
 import StarterCard from '@/components/StarterCard';
@@ -232,9 +232,11 @@ function WeekStrip({
 }
 
 function HabitCard({
-  habit, today, onEdit, lang, theme,
+  habit, today, onEdit, lang, theme, first,
 }: {
   habit: Habit; today: string; onEdit: (id: string) => void; lang: string; theme: ThemePalette;
+  /** First row in the list — draws no divider above it. */
+  first?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const logs = useHabitStore((s) => s.logs);
@@ -287,8 +289,8 @@ function HabitCard({
 
   return (
       <View style={styles.habitGlowWrap}>
-      <GlowPulse active={isDone} color={accent} mode="static" radius={Radius.md} />
-      <View style={[styles.habitCard, { backgroundColor: theme.surface }]}>
+      <GlowPulse active={isDone} color={accent} mode="static" radius={0} />
+      <View style={[styles.habitCard, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.rule }]}>
         <View style={[styles.habitAccent, { backgroundColor: barColor }]} />
         <View style={styles.habitCardContent}>
 
@@ -329,9 +331,14 @@ function HabitCard({
           done={isDone}
           // A.4: done is a STATUS, so it takes the status token as ink; the habit's own glyph
           // is neutral. Mirrors HomeHabitsCard's leading exactly.
+          // A habit with no chosen icon draws NO leading mark — the neutral default is a
+          // hollow circle, and this row already ends in one (the check). Two identical rings,
+          // the leading one inert, was the result. See hasChosenHabitIcon's own comment.
           leading={isDone
             ? <Ionicons name="checkmark" size={22} color={theme.good} />
-            : <HabitIcon icon={habit.icon} size={22} color={theme.textMuted} />}
+            : hasChosenHabitIcon(habit.icon)
+              ? <HabitIcon icon={habit.icon} size={22} color={theme.textMuted} />
+              : undefined}
           meta={hasMetaLine ? (
             <>
               {linkedGoal ? (
@@ -471,7 +478,7 @@ function WeekView({
       {visibleHabits.map((habit) => (
         <View key={habit.id} style={styles.weekGridRow}>
           <View style={styles.weekGridLabel}>
-            <HabitIcon icon={habit.icon} size={16} color={theme.textMuted} />
+            {hasChosenHabitIcon(habit.icon) && <HabitIcon icon={habit.icon} size={16} color={theme.textMuted} />}
             <Text style={[styles.weekGridTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
           </View>
           {weekDates.map((date) => {
@@ -563,7 +570,7 @@ function MonthView({
       {visibleHabits.map((habit) => (
         <View key={habit.id} style={[styles.monthRow, { borderBottomColor: theme.border }]}>
           <View style={styles.monthRowLabel}>
-            <HabitIcon icon={habit.icon} size={14} color={theme.textMuted} />
+            {hasChosenHabitIcon(habit.icon) && <HabitIcon icon={habit.icon} size={14} color={theme.textMuted} />}
             <Text style={[styles.monthRowTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -876,14 +883,14 @@ export default function HabitsScreen() {
                       </Surface>
                     )
                   ) : (
-                    draggedHabits.map((h) => (
+                    draggedHabits.map((h, hi) => (
                       <AnimatedListItem key={h.id} enabled={hasMountedHabits.current}>
                         {/* isOpen={false}: a card's week-strip drawer is HabitCard's own private
                             state, and threading it up here just to disable the drag isn't worth
                             it — dragging an open card works, it simply reflows a taller block.
                             components/HomeCardManager.tsx made the same call for the same reason. */}
                         <DraggableTaskRow isOpen={false} {...habitDrag.rowProps(h.id)}>
-                          <HabitCard habit={h} today={today} onEdit={onEditHabit} lang={lang} theme={theme} />
+                          <HabitCard habit={h} today={today} onEdit={onEditHabit} lang={lang} theme={theme} first={hi === 0} />
                         </DraggableTaskRow>
                       </AnimatedListItem>
                     ))
@@ -1013,8 +1020,16 @@ const baseStyles = StyleSheet.create({
   habitGlowWrap: { position: 'relative', borderRadius: Radius.md },
   // Habit card — Decision 043 rule 3: progress/done state lives on the 4px accent bar
   // only (habitAccent); the card body/border never recolors (see barColor in HabitCard).
+  // A ruled line on one sheet, NOT a card of its own (2026-08-04). Each habit used to be an
+  // opaque rounded surface with its own shadow, stacked inside the list's surface — a card
+  // inside a card, three deep once the screen's own Surface is counted. Flat rows separated by
+  // a hairline is what the design system's own habit card does, and it is the difference the
+  // maintainer was pointing at.
+  //
+  // The 4px accent bar STAYS and is not decoration: it encodes progress
+  // (`progressColor(ratio)`) and the done state. With rows flush and square, consecutive bars
+  // line up into one continuous left margin, which reads as the notepad's ruled edge.
   habitCard: {
-    borderRadius: Radius.md,
     flexDirection: 'row',
     overflow: 'hidden',
   },

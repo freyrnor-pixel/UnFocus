@@ -70,7 +70,7 @@
  * lockstep automatically for an existing task; a new card's steps just toggle in the draft.
  *
  * Row anatomy (2026-07-13 color-rail redesign): the collapsed row is
- * `[sent chip?] · title · assignee · time · ◯ circle · ⌄ chevron` — the done-circle sits to
+ * `[sent chip?] · [pin?] · title · assignee · time · ◯ circle · ⌄ chevron` — the done-circle sits to
  * the RIGHT of the title and LEFT of the chevron (was far-left). A `railColor` prop paints a
  * 4px domain-hue left rail so a card reads as belonging to its section; `sharedDirection="out"`
  * adds a leading ↑ "Sent" chip in the merged Shared section. The done circle/steps fill with
@@ -93,6 +93,9 @@
  *             lib/useAppTheme, lib/useVoiceCapture, lib/useKeyboardLift, lib/location (getCurrentTaskLocation),
  *             expo-contacts, components/GoalGlowDot + components/GoalPicker (both gated on
  *             settings.featureGoals), store/useTaskStore, store/useGoalStore,
+ *             lib/useEnergyPause (2026-08-02 — the `unpin` action behind the pin badge; the
+ *             `pinned`/`dimmed` states themselves arrive as props from the surface, which is
+ *             what decides which row won "I'll decide"),
  *             store/useSettingsStore (peopleModeEnabled gates the "For" assignee chip row;
  *             voiceNotesEnabled/contactsEnabled/locationEnabled gate the matching
  *             Advanced-options rows; Energy is no longer gated at all),
@@ -133,6 +136,14 @@
  *     The meta line deliberately does NOT wrap (every child is width-capped) — a row must
  *     never become three lines. The check circle and chevron stay on the right: they are
  *     controls, not values, and moving them was explicitly out of that pass's scope.
+ *   - **The pin badge (2026-08-02, energy's "I'll decide")**: `pinned` draws a pin in the row's
+ *     LEADING slot and `dimmed` fades every other row on the day to `DONE_ROW_OPACITY`. Both are
+ *     presentation only — a dimmed row keeps its height, its controls, its reminders and its
+ *     counts, exactly like a lib/cardLayout.ts layout is allowed to de-emphasise but never
+ *     remove. The badge deliberately sits on line 1 and NOT on the meta line: `hasMetaLine`
+ *     gates that line on person/tags/goal, and a 'simple' or 'note' card draws no meta line at
+ *     all, so a pin hung there would vanish on two of the four card types. Line 1 also means
+ *     `hasMetaLine` needs no new condition — if you ever move the badge down there, add one.
  *   - There is no lock and no per-field immediate save for settings: the Discard/Save bar
  *     is the commit point. Only Shared-out, Then, and Delete bypass the draft outright;
  *     Steps bypass the draft for an existing task but are draft-buffered for `isNew`.
@@ -169,7 +180,7 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanim
 import { Ionicons } from '@expo/vector-icons';
 import { Contact, ContactField } from 'expo-contacts';
 import * as Contacts from 'expo-contacts';
-import { Fonts, FontSize, Radius, Spacing, TabularNums, Type, contrastOn, getElevation, rgba, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { DONE_ROW_OPACITY, Fonts, FontSize, Radius, RowTrailing, Spacing, TabularNums, Type, contrastOn, getElevation, rgba, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -200,6 +211,7 @@ import NewSinceGlow from '@/components/NewSinceGlow';
 import { LAYOUT_SPECS, type LayoutSpec } from '@/lib/cardLayout';
 import { GoalPicker } from '@/components/GoalPicker';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useEnergyPause } from '@/lib/useEnergyPause';
 import { useVoiceCapture } from '@/lib/useVoiceCapture';
 import { getCurrentTaskLocation } from '@/lib/location';
 import SlideSelector from '@/components/SlideSelector';
@@ -292,6 +304,24 @@ type Props = {
    * field can't grab the row. The expand state itself stays this component's.
    */
   onExpandedChange?: (open: boolean) => void;
+  /**
+   * Energy's "I'll decide" settled on THIS card (lib/useEnergyPause.ts). Draws a small pin
+   * badge in the row's LEADING slot — and that badge IS the un-pin control, since this app has
+   * no row context menu to hang one off (long-press is drag-reorder) and `TaskCard` has no ⋯.
+   * One labelled, visible, one-tap control, which is what INTERACTION_HANDOFF §2.4 asks for.
+   *
+   * Always false in Rewards mode: `useEnergyPause()` reports a null `pinnedTaskId` there, so
+   * the caller's `pinnedTaskId === task.id` test is already mode-safe.
+   */
+  pinned?: boolean;
+  /**
+   * Secondary visual weight while a DIFFERENT card is pinned. **Opacity and nothing else.**
+   * A dimmed row keeps its full height, its layout, every control, its reminders and its
+   * counts; it is still tappable, still completable, still one tap from its editor. Same rule
+   * every layout in lib/cardLayout.ts follows — presentation may de-emphasise, never remove.
+   * Reuses `DONE_ROW_OPACITY`, the app's one shared "this row is in the background" amount.
+   */
+  dimmed?: boolean;
 };
 
 function TaskCard({
@@ -311,6 +341,8 @@ function TaskCard({
   isNewSince = false,
   newFields,
   onExpandedChange,
+  pinned = false,
+  dimmed = false,
 }: Props) {
   const theme = useAppTheme();
   // Union of the in-app toggle and the OS setting (ANIMATION_GUIDELINES §7) — under it the
@@ -330,6 +362,10 @@ function TaskCard({
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
   // Energy is a real toggle again (2026-07-31) — gates the energy stepper in the editor.
   const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
+  // The pin badge's un-pin action (2026-08-02). Read here rather than threaded down as a
+  // callback: the hook is the one place that knows about the day's pause, and it returns a
+  // frozen inert object (`unpin` a no-op) in Rewards mode, so this costs nothing there.
+  const { unpin } = useEnergyPause();
   const voiceNotesEnabled = useSettingsStore((s) => s.voiceNotesEnabled);
   const contactsEnabled = useSettingsStore((s) => s.contactsEnabled);
   // Keyboard-avoidance (2026-07-31) for the editor's raw TextInputs — each field lifts itself
@@ -751,7 +787,7 @@ function TaskCard({
   }
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, dimmed && styles.dimmed]}>
       {/* The glow sits inside `wrap` so it tracks the card's own bounds; it is a
           non-interactive overlay, so it never intercepts taps on the row or its editor. */}
       <NewSinceGlow active={isNewSince}>
@@ -787,6 +823,32 @@ function TaskCard({
               <Ionicons name="arrow-up" size={11} color={railColor ? contrastOn(railColor) : theme.textMuted} />
               <Text style={[styles.dirChipText, { color: railColor ? contrastOn(railColor) : theme.textMuted }]}>{t.tasksSharedSent}</Text>
             </View>
+          )}
+
+          {/* The pin badge — the row's leading slot, the same place components/PadRow.tsx puts
+              `leading` and the same place components/PlanTaskCard.tsx draws it, so one item
+              carries the same mark on every surface it appears on. It is a CONTROL, not a
+              decoration: tapping it drops the pin, which is the only un-pin route on this card
+              (no ⋯ here, and long-press is already drag-reorder). It carries the pin GLYPH as
+              well as the accent, so the pinned state never rests on colour alone.
+
+              Touch-area note (DESIGN_RULES rule 17 / RowTrailing): this sits `Spacing.sm` +
+              `Spacing.xs` from the title's own tap block and borrows `RowTrailing.actionSlop`,
+              which is clipped on the right — the side it shares. The badge is also the EARLIER
+              sibling, and RN resolves an overlap to the LATER one, so any residual overhang
+              loses to the row body rather than the badge stealing a tap on the title. Its own
+              drawn box is always its own. */}
+          {pinned && (
+            <PressableScale
+              hitSlop={RowTrailing.actionSlop}
+              onPress={() => { tap(); unpin(); }}
+              accessibilityRole="button"
+              accessibilityLabel={t.energyPause.pinnedLabel}
+              style={[styles.pinBadge, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+              scaleTo={0.9}
+            >
+              <Ionicons name="pin" size={14} color={theme.accent} />
+            </PressableScale>
           )}
 
           <PressableScale style={styles.titleTap} onPress={openEditor} disabled={!canExpand} scaleTo={0.97}>
@@ -1639,6 +1701,21 @@ function TaskCard({
 
 const styles = StyleSheet.create({
   wrap: { gap: Spacing.xs },
+  // Secondary weight while another card is pinned (`dimmed`). Opacity only, at the same shared
+  // amount a finished row uses — nothing is hidden, resized or made unreachable.
+  dimmed: { opacity: DONE_ROW_OPACITY },
+  // The "I'll decide" pin badge / un-pin button. Sized to RowTrailing.actionSize so it matches
+  // the ⋯ button every other row draws; the extra marginRight pads the gap to the title's tap
+  // block past the slop it spreads that way (see the JSX note).
+  pinBadge: {
+    width: RowTrailing.actionSize,
+    height: RowTrailing.actionSize,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.xs,
+  },
   // Delete · Discard · Save. Unlike the two fixes above this row has nothing left to give:
   // three labelled buttons at FontSize.xs genuinely need more width than a 224px card at the
   // `large` font setting, and shrinking them further would truncate the words off the two

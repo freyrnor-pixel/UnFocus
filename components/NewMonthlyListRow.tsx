@@ -9,9 +9,13 @@
  * silently makes an unnamed list (the button stays disabled until the trimmed name is
  * non-empty).
  *
- * **Collapsed trigger (2026-07-23 simplification)**: a big-ish plain white/surface button
- * with just a "+" glyph (icon-only, `accessibilityLabel` carries "New list" for screen
- * readers) — was a smaller accent-tinted bordered pill with an icon+text label.
+ * **Collapsed trigger**: a big-ish plain white/surface button with a "+" glyph AND its label.
+ * It was icon-only from the 2026-07-23 declutter pass until 2026-08-03, with the words left to
+ * `accessibilityLabel`. The word is back: that pass was reasoning about a crowded populated
+ * card header, and this trigger's hardest moment is the opposite one — on an empty Shopping
+ * tab it is the only thing on screen, and it was the one primary add in the app that didn't
+ * say what it does (To-do and Habits both draw a labelled "Type task"/"Type habit" line).
+ * See the comment at the trigger itself.
  *
  * Connections:
  *   Imports → components/FormControls (Input), components/PressableScale, constants/theme,
@@ -71,9 +75,15 @@ export default function NewMonthlyListRow({ onCreate }: Props) {
   }
 
   if (!expanded) {
-    // Big-ish plain white/surface button, just a plus sign (2026-07-23 simplification —
-    // was a smaller accent-tinted bordered pill with an icon+label; the label is now
-    // carried by accessibilityLabel only, same icon-only convention as components/AddFAB).
+    // Big-ish plain white/surface button. The 2026-07-23 declutter pass made this icon-only
+    // and left the label to `accessibilityLabel`; the WORD came back on 2026-08-03, because
+    // that pass was reasoning about a crowded, populated card header and this trigger's
+    // hardest moment is the opposite one. On an empty Shopping tab it is the only thing on
+    // screen, and a first-time-user walkthrough found it the one primary add in the app that
+    // does not say what it does — To-do and Habits both draw a labelled "Type task"/"Type
+    // habit" line. A bare glyph declutters a busy row; on an empty tab there is nothing to
+    // declutter and everything to explain. The icon stays, so nothing about the affordance
+    // changed — it just reads now.
     return (
       <PressableScale
         style={[styles.addBar, { borderColor: theme.border, backgroundColor: theme.surface }]}
@@ -85,7 +95,8 @@ export default function NewMonthlyListRow({ onCreate }: Props) {
         accessibilityLabel={t.newMonthlyListBtn}
         scaleTo={0.97}
       >
-        <Ionicons name="add" size={26} color={theme.accent} />
+        <Ionicons name="add" size={22} color={theme.accent} />
+        <Text style={[styles.addBarLabel, { color: theme.accent }]}>{t.newMonthlyListBtn}</Text>
       </PressableScale>
     );
   }
@@ -135,11 +146,15 @@ const baseStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    // Sits between the glyph and its label (2026-08-03). `gap` rather than a margin on the
+    // Text so the pair stays centred as one unit at any font scale.
+    gap: Spacing.sm,
     borderWidth: 1,
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     minHeight: 56,
   },
+  addBarLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   panel: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
   actionsRow: { flexDirection: 'row', gap: Spacing.sm },
   ghostBtn: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: Radius.md },

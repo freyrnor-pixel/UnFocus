@@ -51,6 +51,18 @@ async function clickText(page, text, opts = {}) {
   throw new Error(`clickText: no visible match #${wantNth} for "${text}" (${candidates.length} total matches)`);
 }
 
+// All five tab screens are mounted at once (`lazy: false`), and several of them render the
+// SAME content — Home's day-view card and the To-do tab's are the same component, so a day-log
+// row exists twice in the DOM. `.first()` therefore often resolves to the off-screen copy and
+// reports "not visible" for something plainly on screen. Ask whether ANY match is visible.
+async function anyVisibleText(page, text) {
+  const matches = await page.getByText(text, { exact: true }).all();
+  for (const m of matches) {
+    if (await m.isVisible().catch(() => false)) return true;
+  }
+  return false;
+}
+
 // Some screens show a one-off info modal on first visit (e.g. Shopping's
 // pre-reset MonthlyResetReviewSheet, or its follow-up read-only
 // MonthlyResetSummaryModal — both gated on real date math, a fresh profile's
@@ -136,51 +148,32 @@ async function main() {
     await page.waitForTimeout(500);
     await shot(page, 'onboarding-basics-en');
 
-    // Walk a few rows so the live preview actually gets exercised rather than just rendered.
-    // Values are left on the shipped defaults (Light / Default / Full / Right / Home) so the
-    // tab screenshots further down still show the standard app.
-    for (const [row, option] of [['Appearance', 'Light'], ['Text size', 'Default'], ['Movement', 'Full']]) {
-      await page.getByRole('radio', { name: new RegExp(`^${row}: ${option}\\.`) }).first().click({ timeout: 10000 });
-      await page.waitForTimeout(300);
-    }
+    // A fresh install draws ONE row here — language. The other five (Appearance, Text size,
+    // Movement, Menu side, Starting screen) moved behind the `?rows=all` re-run from
+    // Settings → Personal → Layout in the 2026-08-03 onboarding split, because screen one of
+    // a new install was asking for fifteen decisions before the user knew what the app was.
+    //
+    // This walk used to click Appearance/Text size/Movement unconditionally and hung for
+    // 10s on a radio that no longer renders, which took the whole preview — and `npm run
+    // wraps`, which drives the same walk — down with it. Those rows are still worth
+    // exercising, so they're driven on the re-run route below rather than dropped.
     await shot(page, 'onboarding-basics-picked');
     await clickText(page, 'Continue');
     await page.waitForTimeout(600);
 
-    // "Have you used UnFocus before?" — the returning-user restore step. Take the
-    // "No, I'm new here" path to continue a fresh onboarding walk.
-    console.log('> onboarding: restore prompt');
-    await shot(page, 'onboarding-restore');
-    await clickText(page, "No, I'm new here");
-    await page.waitForTimeout(500);
-
-    console.log('> onboarding: privacy');
+    // Privacy is the LAST screen since the 2026-08-03 split — onboarding is two screens now,
+    // basics → privacy, and this button finishes setup rather than advancing (which is why
+    // its label is "Start" and no longer "Got it →").
+    //
+    // Four screens this walk used to step through are gone from the flow and must not be
+    // re-added here: the standalone `restore` prompt (now an optional link BELOW this
+    // screen's primary button — a returning user's question, so it waits for the person who
+    // needs it, instead of being asked of everyone), the guided/explore/AI branch, the
+    // energy explainer, and the name screen. Only `basics`, `privacy` and `restore` exist
+    // under app/onboarding/ at all.
+    console.log('> onboarding: privacy (last screen)');
     await shot(page, 'onboarding-privacy');
-    await clickText(page, 'Got it →');
-    await page.waitForTimeout(500);
-
-    console.log('> onboarding: guided/explore choice');
-    await shot(page, 'onboarding-guided-choice');
-    await clickText(page, 'Walk me through it');
-    await page.waitForTimeout(500);
-
-    // Energy vs Quiet growth (2026-07-31) — the screen that replaced the 8-page intro
-    // slideshow's one-liner about each. Left on its seeded values (Energy on, growth off),
-    // which is what a real new user lands with.
-    console.log('> onboarding: energy');
-    await shot(page, 'onboarding-energy');
-    await clickText(page, 'Next →');
-    await page.waitForTimeout(500);
-
-    // The feature picker used to sit here and was deleted 2026-07-31 (B1-1): onboarding no
-    // longer offers any feature opt-in, so energy pushes straight to the name screen. The
-    // "stripped-back default app" the tab shots below are meant to show is now what a new
-    // user gets by default rather than by leaving switches off — same screenshots, one
-    // fewer tap. Don't re-add a `Next →` here; there is no screen to advance past.
-
-    console.log('> onboarding: name + finish');
-    await shot(page, 'onboarding-name');
-    await clickText(page, "Let's go! 🌿");
+    await clickText(page, 'Start');
     await page.waitForTimeout(1800);
 
     // The guided tour (2026-07-31) starts as soon as onboarding finishes: one spotlight step
@@ -396,6 +389,84 @@ async function main() {
     if (!persisted) pageErrors.push(`Task "${taskTitle}" did not persist after navigating away and back`);
     await shot(page, 'task-persisted-check');
 
+    // The day log (2026-08-02) — the one thing about this feature that a unit test cannot
+    // reach: that ticking a task actually MOVES it across the now-line, rather than just
+    // stamping a column. lib/__tests__/dayLog.test.ts covers the selector; this covers the
+    // write → stamp → re-render → "it's above the line now" path end to end.
+    console.log('> day log (tick a task, it crosses the now-line)');
+    // The task was created on "All tasks" as an undated Whenever row, which has no clock
+    // position and so can't be in a day log. Make a dated one from Today's type line.
+    await clickText(page, 'Today');
+    await page.waitForTimeout(500);
+    const logTitle = `Log check ${Date.now()}`;
+    // The type line is an always-open input whose grey prompt is a custom Text layer that
+    // unmounts on focus — target it by accessible name, never by placeholder (same rule the
+    // Home notes step above learned).
+    const todayTypeLine = page.getByLabel('Type task', { exact: true }).first();
+    await todayTypeLine.scrollIntoViewIfNeeded();
+    await todayTypeLine.focus();
+    await todayTypeLine.fill(logTitle);
+    await todayTypeLine.press('Enter');
+    await page.waitForTimeout(800);
+    // Tick it. Both of this card's layouts name their check after the row's title.
+    await page.getByRole('checkbox', { name: logTitle, exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await shot(page, 'day-log-task-ticked');
+    // The now-line divider only renders when the log is active, so its presence is the
+    // proof that the card actually restructured rather than merely hiding a row.
+    const nowLine = await anyVisibleText(page, 'now');
+    console.log(`  now-line divider rendered: ${nowLine}`);
+    if (!nowLine) pageErrors.push('Day log: the now-line divider did not render after ticking a task');
+    const stillListed = await anyVisibleText(page, logTitle);
+    console.log(`  ticked task still on screen (in the log, not deleted): ${stillListed}`);
+    if (!stillListed) pageErrors.push(`Day log: "${logTitle}" vanished after being ticked instead of moving into the log`);
+
+    // Capture a moment through the SAME type line — the feature's "one field, one submit"
+    // rule, and the reason there is no second input anywhere.
+    //
+    // Stay on the To-do tab. All five tab screens are mounted at once (`lazy: false`), so
+    // a bare `.first()` on a shared label like "Type task" resolves to whichever card comes
+    // first in the DOM — the To-do tab's — regardless of which tab is on screen. Navigating
+    // away first therefore leaves that input filled but OFF-SCREEN, and every control in it
+    // fails Playwright's visibility check. (Home renders the identical card and the identical
+    // capture; screenshot 33's Home view is the proof of that, and it is why the feature
+    // needs no fifth Home card.)
+    const momentText = `Moment ${Date.now()}`;
+    const typeLineAgain = page.getByLabel('Type task', { exact: true }).first();
+    await typeLineAgain.scrollIntoViewIfNeeded();
+    await typeLineAgain.focus();
+    await typeLineAgain.fill(momentText);
+    await page.waitForTimeout(400);
+    // The extras row (and so this toggle) only renders while the field is focused or has
+    // text — hence filling first, then switching what a submit commits. Pressing it must
+    // NOT commit the draft as a task on the way (components/PadTypeRow.tsx's
+    // internalPressRef); if this step starts producing a task named "Moment …", that guard
+    // has regressed.
+    const captureToggle = page.getByRole('button', { name: 'What just happened?', exact: true }).first();
+    await captureToggle.click({ timeout: 10000 });
+    await page.waitForTimeout(400);
+    // Re-locate: switching the target RENAMES the field (its accessible name is its prompt,
+    // and the prompt is now "What just happened?"). That is correct — the field genuinely
+    // means something else now — but it makes the old "Type task" locator resolve to a
+    // different card's input, so pressing Enter on it would commit nothing.
+    const momentField = page.getByLabel('What just happened?', { exact: true }).first();
+    await momentField.focus();
+    await momentField.press('Enter');
+    await page.waitForTimeout(800);
+    await shot(page, 'day-log-moment-captured');
+    const momentShown = await anyVisibleText(page, momentText);
+    console.log(`  captured moment appears in the log: ${momentShown}`);
+    if (!momentShown) pageErrors.push(`Day log: captured moment "${momentText}" did not appear`);
+    // It must be a MOMENT, not a task — a moment has no checkbox, because it already
+    // happened. A checkbox here means the capture chip didn't switch the commit target.
+    const momentHasCheckbox = await page
+      .getByRole('checkbox', { name: momentText, exact: true })
+      .first()
+      .isVisible()
+      .catch(() => false);
+    console.log(`  captured as a moment, not a task (no checkbox): ${!momentHasCheckbox}`);
+    if (momentHasCheckbox) pageErrors.push(`Day log: "${momentText}" was committed as a task, not a moment`);
+
     // Exercise a second store's write path: add a habit from the Habits tab's type line, then
     // confirm it round-trips through the in-memory sql.js DB after a tab away-and-back.
     //
@@ -426,6 +497,23 @@ async function main() {
     console.log(`  habit persisted after tab round-trip: ${habitPersisted}`);
     if (!habitPersisted) pageErrors.push(`Habit "${habitTitle}" did not persist after navigating away and back`);
     await shot(page, 'habit-persisted-check');
+
+    // A habit done today belongs in the day log (2026-08-02) — a habit is a standing
+    // commitment, so doing it is exactly the evidence the log is for. Tick it here, then
+    // check the To-do tab's log. The stamp is habit_logs.first_at, written on the FIRST
+    // log of the day, so this must hold for a partly-done counter habit too.
+    console.log('> day log: a ticked habit appears in it');
+    const habitCheck = page.getByRole('checkbox', { name: habitTitle, exact: true }).first();
+    await habitCheck.scrollIntoViewIfNeeded();
+    await habitCheck.click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await shot(page, 'day-log-habit-ticked');
+    await page.getByRole('button', { name: 'To-do', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(900);
+    const habitInLog = await anyVisibleText(page, habitTitle);
+    console.log(`  ticked habit shows in the day log: ${habitInLog}`);
+    if (!habitInLog) pageErrors.push(`Day log: habit "${habitTitle}" did not appear after being ticked`);
+    await shot(page, 'day-log-habit-in-log');
 
     // Exercise the medicine store's two write paths (2026-07-27): quick-create a medicine
     // from the Health tab's tray card, then LOG A DOSE by tapping its circle — the dose is

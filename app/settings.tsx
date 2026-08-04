@@ -17,7 +17,8 @@
  *   quiet hours)] one merged panel → Shopping (weekly reset weekday, monthly reset date)
  *   → Layout (horizontal plans timeline) → Device features (voice/contacts/location/calendar).
  * - Advanced — modes and toggles: Energy (mode + capacities; NOT a toggle since 2026-07-26)
- *   → Features card (the FEATURE_ROWS flags, then the Automations link when that flag is on) →
+ *   → Features card (the Energy/Rewards mode SegmentedControl, then the FEATURE_ROWS flags,
+ *   then the Automations link when that flag is on) →
  *   [Personer-familie / Paired devices] one merged panel → Sample data (the toggle still
  *   keyed `freyrMode*` internally; renamed in copy 2026-07-31) → Debug mode.
  *
@@ -31,7 +32,8 @@
  *   2. **Feature flags added, then their defaults revised the same day.** Goals, Sharing &
  *      QR, Scan & receipts, Food & recipes and Automations first shipped as flags all off
  *      on a fresh install. Maintainer feedback flipped this same-day: Energy and Goals now
- *      default ON but stay real toggles (FEATURE_ROWS below, alongside the Energy card);
+ *      default ON but stay real toggles (Goals in FEATURE_ROWS below; Energy is a two-mode
+ *      SegmentedControl since 2026-08-02 — see the "Energy is two peer modes" note below);
  *      Scan & receipts and Food & recipes are permanently on and no longer toggles at all
  *      (removed from FEATURE_ROWS — see store/useSettingsStore.ts's "Inert columns" note);
  *      Sharing & QR and Automations are the only two still off-by-default opt-ins.
@@ -185,10 +187,22 @@
  *     `ExpandableCard` itself went `rounded` (also `theme.surfaceMuted`-backed), since chip and
  *     container became the same colour. Both now carry a `theme.border` (or `theme.accent` when
  *     active) outline, matching the border `peopleChip`/`peopleAddBtn` already had.
+ *   - **Energy is two peer modes, not a flag (2026-08-02)**: `energySystemEnabled` left
+ *     `FEATURE_ROWS` and is drawn at the TOP of the Features card as its own two-option
+ *     `SegmentedControl` — **Energy mode** (true) and **Rewards mode** (false), copy under
+ *     `t.config.features.energy.modes.*`. The storage is unchanged: still the one boolean,
+ *     still the single guard at every energy call site, still in the DB / sync / AI-setup
+ *     whitelist. Only the framing changed — Rewards mode is a real choice ("finishing
+ *     something fills its check, and that is the whole of it"), NOT "Energy turned off", so
+ *     it must never be drawn as the un-set side of a switch. `SegmentedControl` from
+ *     components/FormControls.tsx is the right tier here (INTERACTION_HANDOFF §1's "which
+ *     segmented control": form field → FormControls, inline picker inside a card →
+ *     SlideSelector, screen-level view switcher → TabSlider). app/onboarding/energy.tsx
+ *     (deleted 2026-08-03) used to render the same two modes one tier down;
+ *     offers the same two modes one tier down, as a SlideSelector inside its card.
  *   - **Feature toggles live in ONE place (2026-07-25)**: `FEATURE_ROWS` below is the whole
  *     list of plain on/off switches — currently Goals, Sharing & QR, Automations, Medicine,
- *     and (both 2026-07-31) Energy (energySystemEnabled, a toggle again after five days
- *     always-on) and Growth (showGrowth over the `show_points` column — see lib/growth.ts).
+ *     and Growth (showGrowth over the `show_points` column — see lib/growth.ts).
  *     To add
  *     one: add the flag to store/useSettingsStore.ts, append its `ALTER TABLE` (+ a
  *     back-fill UPDATE if it needs to default differently for existing vs. fresh installs)
@@ -204,7 +218,7 @@
  *     how to retire one the same way (unconditional migration UPDATE, un-gate every call
  *     site, drop the FEATURE_ROWS/onboarding-picker row, keep the DB column).
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -227,6 +241,7 @@ import {
   EnergyMode,
   StartScreen,
 } from '@/store/useSettingsStore';
+import { DeviceCalendarInfo, listDeviceCalendars } from '@/lib/deviceCalendar';
 import { DETAIL_LEVELS, type DetailLevel } from '@/lib/cardLayout';
 import { START_SCREEN_CHOICES } from '@/lib/firstRunOptions';
 import { useShoppingStore } from '@/store/useShoppingStore';
@@ -291,20 +306,23 @@ type FeatureFlagKey =
   | 'featureSharing'
   | 'featureAutomations'
   | 'featureMedicine'
-  | 'energySystemEnabled'
+  | 'featureDayLog'
   | 'showGrowth';
 const FEATURE_ROWS: { key: FeatureFlagKey; copy: (t: ReturnType<typeof useT>) => { label: string; hint: string } }[] = [
   { key: 'featureGoals', copy: (t) => t.config.features.goals },
   { key: 'featureSharing', copy: (t) => t.config.features.sharing },
   { key: 'featureAutomations', copy: (t) => t.config.features.automations },
   { key: 'featureMedicine', copy: (t) => t.config.features.medicine },
-  // Energy is a real toggle again as of 2026-07-31 (it was one until 2026-07-26, then
-  // always-on for five days). On by default — the column has been pinned to 1 the whole
-  // time, so every existing user keeps it. Gates energy SURFACES only; per-task/habit
-  // energy values are left in the DB untouched, so switching back on restores them.
-  { key: 'energySystemEnabled', copy: (t) => t.config.features.energy },
+  { key: 'featureDayLog', copy: (t) => t.config.features.dayLog },
+  // NOTE: `energySystemEnabled` deliberately does NOT live here (2026-08-02). It is a
+  // two-mode SegmentedControl at the top of the same card — Energy mode / Rewards mode —
+  // because the false side is a named peer, not an absence. Re-adding it as a switch would
+  // re-frame Rewards mode as "Energy off". See this file's header note.
   { key: 'showGrowth', copy: (t) => t.config.features.growth },
 ];
+
+/** The two peer modes over the one `settings.energySystemEnabled` boolean. */
+type EnergyModeChoice = 'energy' | 'rewards';
 
 /** Format an ISO auto-backup timestamp as "YYYY-MM-DD HH:MM" (local time). */
 function formatBackupTime(iso: string): string {
@@ -317,6 +335,19 @@ function formatBackupTime(iso: string): string {
 export default function SettingsScreen() {
   const router = useRouter();
   const settings = useSettingsStore();
+  const featureDayLog = settings.featureDayLog;
+  // The device's calendars, for the read-visibility picker below. Loaded once on mount and
+  // ONLY if access is already held — listDeviceCalendars() never prompts. Settings is not
+  // where a permission gets asked for; that happens contextually when the timeline is first
+  // opened (lib/useCalendarEvents.ts). An empty list simply hides the picker.
+  const [deviceCalendars, setDeviceCalendars] = useState<DeviceCalendarInfo[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    listDeviceCalendars().then((cals) => {
+      if (!cancelled) setDeviceCalendars(cals);
+    });
+    return () => { cancelled = true; };
+  }, []);
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
@@ -754,7 +785,13 @@ export default function SettingsScreen() {
                 these three used to be three separate floating Surface cards; merged into
                 one shared Surface with ExpandableCard rows, matching the grouping pattern
                 ExpandableCard's own header already documents — see its "Decision 043 rule 1"
-                note). */}
+                note).
+                The `groupHeader` above it is new (2026-08-03). Every other group on every
+                Settings tab is introduced by one; this was the only unheaded group, so the
+                General tab opened with a bare panel and then began using headings from
+                "Data" down — two hierarchies on one screen, which is how the first-time-user
+                walkthrough read it. */}
+            <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.you}</Text>
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <ExpandableCard title={t.sectionProfile} accentColor={theme.accent} first rounded>
@@ -1286,9 +1323,15 @@ export default function SettingsScreen() {
                 {/* Re-run the first-run flow. Non-destructive, so it lives here rather than
                     in the red Reset card: it re-enters app/onboarding/basics.tsx seeded from the
                     settings the user has right now, which means walking through it and
-                    pressing Done without touching anything changes nothing at all. */}
+                    pressing Done without touching anything changes nothing at all.
+                    `?rows=all` is what makes this the SIX-row screen (2026-08-03). Onboarding
+                    itself now draws only the language row — the other five moved to Settings,
+                    where every one of them already had a home — so this link is the remaining
+                    place the full set is shown in one go. Without the param it would open the
+                    new-user welcome screen instead, which would be a strange thing to reach
+                    from a settings row. */}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <PressableScale style={styles.switchRow} onPress={() => router.push('/onboarding/basics')} scaleTo={0.97}>
+                <PressableScale style={styles.switchRow} onPress={() => router.push('/onboarding/basics?rows=all')} scaleTo={0.97}>
                   <View style={styles.switchTextCol}>
                     <Text style={[styles.switchLabel, { color: theme.text }]}>{t.firstRun.reRun}</Text>
                     <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.firstRun.reRunHint}</Text>
@@ -1352,6 +1395,50 @@ export default function SettingsScreen() {
                     onChange={(v) => { selection(); applyAndSync({ calendarSyncEnabled: v }); }}
                   />
                 </View>
+
+                {/* Which device calendars the timeline may READ (2026-08-02,
+                    lib/deviceCalendar.ts). Distinct from the toggle above it, which is about
+                    WRITING a mirrored event out — that is a separate feature with its own
+                    switch, and the two are deliberately not merged.
+                    Nothing selected means ALL of them, which is the default: a picker that
+                    started empty would show nothing and read as broken. The list is empty
+                    until calendar access is granted, and stays empty if the user declines —
+                    a supported permanent state, so there is no prompt and no call to action
+                    here. */}
+                {featureDayLog && deviceCalendars.length > 0 ? (
+                  <>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.dayLog.calendars.title}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.dayLog.calendars.hint}</Text>
+                    {deviceCalendars.map((cal) => {
+                      // Empty selection = all visible, so an untouched picker shows every
+                      // row as on rather than as an unexplained blank slate.
+                      const all = settings.dayLogCalendarIds.length === 0;
+                      const checked = all || settings.dayLogCalendarIds.includes(cal.id);
+                      return (
+                        <View key={cal.id} style={styles.switchRow}>
+                          <View style={styles.switchTextCol}>
+                            <Text style={[styles.switchLabel, { color: theme.text }]}>{cal.title}</Text>
+                          </View>
+                          <FormSwitch
+                            checked={checked}
+                            onChange={(v) => {
+                              selection();
+                              // Turning one OFF while "all" is implicit has to materialise
+                              // the full list first, or the patch would read as "only this
+                              // one" and hide every other calendar in one tap.
+                              const current = all ? deviceCalendars.map((c) => c.id) : settings.dayLogCalendarIds;
+                              const next = v
+                                ? [...new Set([...current, cal.id])]
+                                : current.filter((id) => id !== cal.id);
+                              settings.update({ dayLogCalendarIds: next });
+                            }}
+                          />
+                        </View>
+                      );
+                    })}
+                  </>
+                ) : null}
               </Surface>
             </View>
           </>
@@ -1359,21 +1446,24 @@ export default function SettingsScreen() {
 
         {tab === 'advanced' && (
           <>
-            {/* ENERGY (2026-07-26) — its own section, NOT part of the Features card above.
-                It stopped being a flag that day, and a row with no switch sitting under
-                "Turn on only what you need" reads as broken. What's left is configuration:
-                how the budget is defined and how big it is. */}
+            {/* ENERGY (2026-07-26) — its own section, NOT part of the Features card below.
+                What lives here is CONFIGURATION: how the budget is defined and how big it
+                is. Whether energy exists at all is a different question and is asked in the
+                Features card, as the Energy/Rewards mode picker (2026-08-02). This section
+                is only meaningful in Energy mode; it is deliberately left mounted in Rewards
+                mode rather than hidden, so a capacity set months ago is still there — and
+                unchanged — the moment the user comes back. */}
             <View style={styles.section}>
               <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.settings.energy.label}</Text>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0 }]}>{t.settings.energy.hint}</Text>
-              {/* Energy is NO LONGER A TOGGLE (2026-07-26, maintainer: "Energy is always
-                  on, just on 0 by default for simplicity"). The per-task/habit control is
-                  one signed stepper that reads 0 until you set it, so an untouched task
-                  costs nothing — the system stays out of the way without needing an
-                  opt-out. energy_system_enabled is inert from here (lib/db.ts pins it to 1).
-                  The section header + intro above already carry label/hint, so the old
-                  switchTextCol row that used to sit beside the switch is gone. */}
+              {/* No switch in this section — it was removed 2026-07-26 when Energy briefly
+                  stopped being a flag, and it did not come back when the flag did: the
+                  Energy/Rewards choice belongs with the modes control in the Features card
+                  (2026-08-02), not doubled here. The per-task/habit control is one signed
+                  stepper that reads 0 until you set it, so an untouched task costs nothing
+                  even in Energy mode. The section header + intro above already carry
+                  label/hint, so there is no switchTextCol row to sit beside anything. */}
                 <View style={styles.energyCapacityRows}>
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.energy.modeLabel}</Text>
                   <SegmentedControl
@@ -1433,9 +1523,11 @@ export default function SettingsScreen() {
                 hides a purely ADDITIVE surface: turning one off never breaks app logic,
                 which is exactly why these got a toggle and things like data pruning,
                 widget/overview sync or catalog seeding deliberately did not. Goals,
-                Medicine and Energy default ON (FEATURE_ROWS — Energy is a toggle again as
-                of 2026-07-31, after five days always-on; its capacity configuration still
-                lives in its own section ABOVE this card). Sharing & QR, Automations and
+                Medicine default ON (FEATURE_ROWS). Energy is the exception and is NOT one
+                of those switches: since 2026-08-02 it is the two-mode SegmentedControl at
+                the top of this card (Energy mode / Rewards mode — peers, not on/off), while
+                its capacity configuration still lives in its own section ABOVE this card.
+                Sharing & QR, Automations and
                 Quiet growth default OFF so a first-time user meets the basics first.
                 Scan & receipts and Food & recipes are no longer here at all — they're
                 permanently on, like Habits/Health — see store/useSettingsStore.ts's
@@ -1448,6 +1540,36 @@ export default function SettingsScreen() {
             <View style={styles.section}>
               <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.features}</Text>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
+                {/* ENERGY / REWARDS — two peer modes over the one `energySystemEnabled`
+                    boolean (2026-08-02). It sits ABOVE this card's "Turn on only what you
+                    need" intro on purpose: that line belongs to the switches under it, and
+                    a mode is not something you turn on. Same row idiom as Layout's
+                    detail-level and starting-screen pickers — fieldLabel, the control, then
+                    the SELECTED option's hint — so the two read as the same kind of choice.
+                    Written with a plain settings.update(): nothing here needs re-syncing
+                    (energy schedules nothing), and SegmentedControl fires its own
+                    selection() haptic, so the FEATURE_ROWS switches' explicit one would
+                    double up. Gates energy SURFACES only — every per-task/habit
+                    energyEnabled/energyValue stays in the DB, so switching back to Energy
+                    mode restores every number untouched. */}
+                <Text style={[styles.fieldLabel, { color: theme.textMuted, marginTop: 0 }]}>
+                  {t.config.features.energy.modes.label}
+                </Text>
+                <SegmentedControl
+                  value={settings.energySystemEnabled ? 'energy' : 'rewards'}
+                  onChange={(v) => settings.update({ energySystemEnabled: (v as EnergyModeChoice) === 'energy' })}
+                  options={[
+                    { value: 'energy', label: t.config.features.energy.modes.energy.label },
+                    { value: 'rewards', label: t.config.features.energy.modes.rewards.label },
+                  ]}
+                />
+                <Text style={[styles.switchHint, { color: theme.textMuted }]}>
+                  {settings.energySystemEnabled
+                    ? t.config.features.energy.modes.energy.hint
+                    : t.config.features.energy.modes.rewards.hint}
+                </Text>
+
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0 }]}>{t.config.features.intro}</Text>
 
                 {/* The plain on/off features (Goals, Sharing & QR, Automations). Driven
