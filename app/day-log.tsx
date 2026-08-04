@@ -38,9 +38,10 @@
  *     before someone "fixes" an empty screen from 2024.
  *   - Forward navigation stops at today: this screen is for days that are over, and the
  *     live day belongs to the card that has the now-line.
- *   - `settings.featureDayLog` gates the log itself (lib/useDayLog returns [] when it's
- *     off), so with the flag off this screen renders its empty state rather than 404ing.
- *     That matches app/goals.tsx's rule — a direct deep link never dead-ends.
+ *   - `settings.featureDayLog` gates the log itself (lib/useDayLog returns `undefined`
+ *     when it's off, coalesced to `[]` here), so with the flag off this screen renders
+ *     its empty state rather than 404ing. That matches app/goals.tsx's rule — a direct
+ *     deep link never dead-ends.
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -91,7 +92,9 @@ export default function DayLogScreen() {
     return dateStr(d);
   });
 
-  const entries = useDayLog(date, WHOLE_DAY);
+  // useDayLog returns undefined (not []) when the flag is off — this screen doesn't
+  // care about that distinction, only PlanTaskCard's dayLog-presence gate does.
+  const entries = useDayLog(date, WHOLE_DAY) ?? [];
 
   const step = useCallback((days: number) => {
     tap();

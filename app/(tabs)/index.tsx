@@ -342,7 +342,8 @@ export default function HomeScreen() {
 
   // The day log (2026-08-02) — the same hook and the same 60s "now" tick the To-do tab's
   // timeline uses, so Home's preview and the full day-view can never disagree about where
-  // the boundary is. Returns [] when settings.featureDayLog is off.
+  // the boundary is. Returns undefined when settings.featureDayLog is off, which is what
+  // PlanTaskCard's dayLog prop gates itself on below.
   const nowMinutes = useNowMinutes();
   const dayLog = useDayLog(today, nowMinutes);
   const removeMoment = useMomentsStore((s) => s.remove);
