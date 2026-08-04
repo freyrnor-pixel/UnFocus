@@ -34,11 +34,21 @@
  *                       under the >= 3 that WRAPPED ROWS needs. It was found by eye, in a
  *                       screenshot, which is exactly what this script exists to replace.
  *
- * Coverage note: this walks onboarding, the tour card, all five tabs, Settings, and — since
- * the same 2026-08-01 pass — the **task editor**, which is where that mic bug lived. Pushed
- * sub-screens and opened editors were invisible to this audit before that, so a whole class
+ * Coverage note: this walks onboarding, the tour card, all five tabs, Settings, the **Energy
+ * config sheet**, and — since 2026-08-01 — the **task editor** (where the mic bug lived),
+ * the **goals sheet**, the **health form** and the **medicine editor**. Pushed sub-screens
+ * and opened editors/sheets were invisible to this audit before that pass, so a whole class
  * of the app's densest layouts was never measured. When you add a surface with tight
  * horizontal pressure, add a step for it here rather than trusting a screenshot.
+ *
+ * Ordering is constrained by three facts, all verified rather than assumed — see main():
+ *   - the run is TWO passes, because `settings` and `medicine-form` are dead ends (pushed
+ *     screens with no BottomNav) and only one of them can end a pass;
+ *   - never page.goto()/goBack() mid-walk except for the standalone `basics-all-rows` route
+ *     at the very end of a pass — both reload the document, resetting the in-memory sql.js
+ *     DB and dropping you back into onboarding;
+ *   - app/scan.tsx is never walked, because the web bundle resolves the OCR placeholder
+ *     app/scan.web.tsx and measuring it would report on a screen that isn't the real one.
  *
  * Usage:
  *   node scripts/measure-wraps.mjs [--lang=no|en] [--width=393] [--json]
@@ -87,6 +97,14 @@ const L = {
     // sheet once anything has an energy value. Three label+stepper rows plus a hint line each,
     // i.e. exactly the "label competing with a fixed-size control" case this audit exists for.
     energyTutorialAction: "Set the day's energy", energyDone: 'Done',
+    // Pushed sub-screens / popups. Each is reached by tapping, never page.goto() or
+    // goBack() — both reload the document, which resets the in-memory sql.js DB and drops
+    // you back into onboarding. BottomNav stays mounted over a pushed screen (verified), so
+    // a tab tap is the way back out — except `settings` and `medicine-form`, which render no
+    // BottomNav at all and so end whichever pass reaches them (see main()).
+    editGoals: 'Goals', goalsClose: 'Done',
+    logSymptom: "What's bothering you?",
+    addMedicine: 'Add a medicine', probeMed: 'Wrap audit med',
   },
   no: {
     langRow: /^Språk: Norsk\./, basicsNext: 'Fortsett',
@@ -95,6 +113,9 @@ const L = {
     dismiss: ['Hopp over', 'Skjønner', 'Skjønner →', 'OK'],
     tasksTabAll: 'Alle', newTask: 'Ny oppgave', probeTask: 'Bredde-test',
     energyTutorialAction: 'Sett dagens energi', energyDone: 'Ferdig',
+    editGoals: 'Mål', goalsClose: 'Ferdig',
+    logSymptom: 'Hva plager deg?',
+    addMedicine: 'Legg til medisin', probeMed: 'Bredde-med',
   },
 }[LANG];
 
@@ -284,6 +305,67 @@ async function scan(page, name) {
   screens.push({ name, ...(await page.evaluate(SCAN)) });
 }
 
+/**
+ * Load the app fresh, walk onboarding + the tour + the Energy config sheet, and land on
+ * the tab bar. Extracted because the audit needs TWO passes over this same on-ramp (see
+ * main()): `settings` and `medicine-form` are both dead ends — pushed screens that render
+ * NO BottomNav, verified — so only one of them can end a pass, and getting back out of
+ * either means reloading, which resets the in-memory sql.js DB and puts onboarding back in
+ * front of you.
+ *
+ * `scanning` is false on the second pass: onboarding/tour/energy-sheet are identical both
+ * times and would just duplicate every finding.
+ */
+async function walkToTabs(page, { scanning }) {
+  await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
+  await page.waitForTimeout(1000);
+  // Basics is screen ONE. It drew six rows of pills, three-across at the widest, and was
+  // the densest control screen in the app — which is why this audit scanned it before
+  // tapping anything. Since 2026-08-03 it draws ONE row (language) plus the welcome copy on
+  // a fresh install; the six-row form now lives behind Settings' "Run setup again"
+  // (`/onboarding/basics?rows=all`) and is scanned separately below, because it is still
+  // the tightest horizontal case in the app and losing sight of it would be a real gap.
+  if (scanning) await scan(page, 'onboarding-basics');
+  await page.getByRole('radio', { name: L.langRow }).first().click({ timeout: 10000 });
+  await page.waitForTimeout(400);
+  await clickText(page, L.basicsNext);
+  await page.waitForTimeout(400);
+  // Privacy is the LAST onboarding screen now: the two-bullet card, the Start button that
+  // completes setup, and the two secondary links (restore, AI setup guide).
+  if (scanning) await scan(page, 'onboarding-privacy');
+  await clickText(page, L.start);
+  await page.waitForTimeout(1800);
+
+  // The guided tour opens straight after onboarding. Measure its coach card — it is new copy
+  // in a fixed-width box, exactly what this audit is for — then dismiss it, or its scrim
+  // swallows every click below and the run dies somewhere unrelated.
+  if (await page.getByText(L.tourNext, { exact: true }).first().isVisible().catch(() => false)) {
+    if (scanning) await scan(page, 'tour-step');
+    await clickText(page, L.skipTour);
+    await page.waitForTimeout(900);
+  }
+
+  if (scanning) await scan(page, 'home');
+
+  // ── The Energy config sheet ──
+  // Opened from the strip's tutorial-state button (a fresh profile has no energy values, so
+  // that is what Home draws — components/EnergyMeter.tsx's "Tutorial state"). Three rows of
+  // "label + stepper" with an italic hint line under each: the stepper cannot shrink, so the
+  // label side is what has to yield, and that is precisely the failure this audit catches.
+  // Closed again before the tab loop — a bottom sheet's scrim swallows every click under it.
+  // Opening it writes nothing, so the strip is still in its tutorial state afterwards.
+  // Best-effort like the task editor: a failure must not lose the findings already collected.
+  try {
+    await clickText(page, L.energyTutorialAction);
+    await page.waitForTimeout(700);
+    if (scanning) await scan(page, 'energy-config-sheet');
+    await clickText(page, L.energyDone);
+    await page.waitForTimeout(600);
+  } catch (e) {
+    console.error(`  (energy-config-sheet step skipped: ${e.message.split('\n')[0]})`);
+  }
+}
+
 async function main() {
   const browser = await chromium.launch({
     executablePath: CHROMIUM_PATH, headless: true,
@@ -291,53 +373,8 @@ async function main() {
   });
   const page = await browser.newPage({ viewport: { width: WIDTH, height: 852 } });
   try {
-    await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
-    await page.waitForTimeout(1000);
-    // Basics is screen ONE. It drew six rows of pills, three-across at the widest, and was
-    // the densest control screen in the app — which is why this audit scanned it before
-    // tapping anything. Since 2026-08-03 it draws ONE row (language) plus the welcome copy on
-    // a fresh install; the six-row form now lives behind Settings' "Run setup again"
-    // (`/onboarding/basics?rows=all`) and is scanned separately below, because it is still
-    // the tightest horizontal case in the app and losing sight of it would be a real gap.
-    await scan(page, 'onboarding-basics');
-    await page.getByRole('radio', { name: L.langRow }).first().click({ timeout: 10000 });
-    await page.waitForTimeout(400);
-    await clickText(page, L.basicsNext);
-    await page.waitForTimeout(400);
-    // Privacy is the LAST onboarding screen now: the two-bullet card, the Start button that
-    // completes setup, and the two secondary links (restore, AI setup guide).
-    await scan(page, 'onboarding-privacy');
-    await clickText(page, L.start);
-    await page.waitForTimeout(1800);
-
-    // The guided tour opens straight after onboarding. Measure its coach card — it is new copy
-    // in a fixed-width box, exactly what this audit is for — then dismiss it, or its scrim
-    // swallows every click below and the run dies somewhere unrelated.
-    if (await page.getByText(L.tourNext, { exact: true }).first().isVisible().catch(() => false)) {
-      await scan(page, 'tour-step');
-      await clickText(page, L.skipTour);
-      await page.waitForTimeout(900);
-    }
-
-    await scan(page, 'home');
-
-    // ── The Energy config sheet ──
-    // Opened from the strip's tutorial-state button (a fresh profile has no energy values, so
-    // that is what Home draws — components/EnergyMeter.tsx's "Tutorial state"). Three rows of
-    // "label + stepper" with an italic hint line under each: the stepper cannot shrink, so the
-    // label side is what has to yield, and that is precisely the failure this audit catches.
-    // Closed again before the tab loop — a bottom sheet's scrim swallows every click under it.
-    // Opening it writes nothing, so the strip is still in its tutorial state afterwards.
-    // Best-effort like the task editor: a failure must not lose the findings already collected.
-    try {
-      await clickText(page, L.energyTutorialAction);
-      await page.waitForTimeout(700);
-      await scan(page, 'energy-config-sheet');
-      await clickText(page, L.energyDone);
-      await page.waitForTimeout(600);
-    } catch (e) {
-      console.error(`  (energy-config-sheet step skipped: ${e.message.split('\n')[0]})`);
-    }
+    // ── Pass 1: onboarding, the tabs, the task editor, the goals sheet, health-form, Settings.
+    await walkToTabs(page, { scanning: true });
 
     for (const tab of L.tabs) {
       await page.getByRole('button', { name: tab, exact: true }).first().click({ timeout: 10000 });
@@ -371,11 +408,76 @@ async function main() {
       console.error(`  (task-editor step skipped: ${e.message.split('\n')[0]})`);
     }
 
+    // ── Goals (a popup, not a route) ──
+    // components/GoalsSheet.tsx replaced the old `router.push('/goals')` so editing goals
+    // doesn't leave the tab you were on. app/goals.tsx still exists but is direct-route
+    // only, and a page.goto() would reset the DB — so the sheet is what gets measured,
+    // which is also what users actually see. Still on the To-do tab from the step above.
+    try {
+      const link = page.getByText(L.editGoals, { exact: true }).first();
+      await link.scrollIntoViewIfNeeded({ timeout: 5000 });
+      await link.click({ timeout: 10000 });
+      await page.waitForTimeout(900);
+      await scan(page, 'goals-sheet');
+      await clickText(page, L.goalsClose);
+      await page.waitForTimeout(600);
+    } catch (e) {
+      console.error(`  (goals-sheet step skipped: ${e.message.split('\n')[0]})`);
+    }
+
+    // ── Health's symptom form ──
+    // A pushed screen, but one that KEEPS BottomNav, so the walk can step back onto the
+    // Health tab afterwards without a reload. (app/scan.tsx is deliberately never walked:
+    // the web bundle resolves app/scan.web.tsx, an OCR "not available" placeholder, so
+    // measuring it would report on a screen that does not exist on device. It needs a real
+    // device, like the rest of the native-only surface.)
+    try {
+      await page.getByRole('button', { name: L.tabs[2], exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(900);
+      await dismissModalIfPresent(page);
+      await clickText(page, L.logSymptom);
+      await page.waitForTimeout(1100);
+      await scan(page, 'health-form');
+      await page.getByRole('button', { name: L.tabs[2], exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+    } catch (e) {
+      console.error(`  (health-form step skipped: ${e.message.split('\n')[0]})`);
+    }
+
+    // Settings is a DEAD END — a pushed screen with no BottomNav — so nothing can follow it
+    // in this pass. Anything else that needs the app has to start a new one.
     await page.getByRole('button', { name: L.home, exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: L.settings, exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(1200);
     await scan(page, 'settings');
+
+    // ── Pass 2: the medicine editor ──
+    // The other dead end (full-screen, no BottomNav), so it gets a pass of its own rather
+    // than a goBack() — which would reload the document, reset the sql.js DB and land back
+    // in onboarding mid-walk. Onboarding is re-walked without scanning, since its screens
+    // are identical to pass 1 and would only duplicate findings.
+    try {
+      await walkToTabs(page, { scanning: false });
+      await page.getByRole('button', { name: L.tabs[2], exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(900);
+      await dismissModalIfPresent(page);
+      // The editor needs a medicine to open, and a fresh profile has none.
+      const medBar = page.getByRole('button', { name: L.addMedicine, exact: true }).first();
+      await medBar.scrollIntoViewIfNeeded({ timeout: 5000 });
+      await medBar.click({ timeout: 10000 });
+      await page.waitForTimeout(400);
+      const medField = page.getByPlaceholder(L.addMedicine).first();
+      await medField.scrollIntoViewIfNeeded({ timeout: 5000 });
+      await medField.fill(L.probeMed);
+      await medField.press('Enter');
+      await page.waitForTimeout(900);
+      await clickText(page, L.probeMed);
+      await page.waitForTimeout(1100);
+      await scan(page, 'medicine-form');
+    } catch (e) {
+      console.error(`  (medicine-form step skipped: ${e.message.split('\n')[0]})`);
+    }
 
     // ── The six-row Basics form ──
     // Onboarding only draws its language row since 2026-08-03, but the full six-row version
