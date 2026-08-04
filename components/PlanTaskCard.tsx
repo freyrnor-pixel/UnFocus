@@ -91,7 +91,9 @@
  *             the overlap-aware column layout; see its file header),
  *             components/AddRow (inline "add a task" quick-create, gated on the optional
  *             onAddTask callback — Home preview passes it) + components/TimeBoxInput
- *             (quick-add's inline time field), components/Collapsible + components/AnimatedChevron
+ *             (quick-add's inline time field), components/QuickAddOptionsPanel +
+ *             components/QuickAddOptionRow (2026-08-04 — the type line's labeled Time/Repeat/
+ *             "Add as" dropdown panel, replacing icon-only chips), components/Collapsible + components/AnimatedChevron
  *             (done-zone reveal + chevron), react-native-reanimated (FadeInDown/FadeOutDown/
  *             LinearTransition for the anytime list + done-zone + footer, which share one
  *             `containerLayout` LinearTransition so the whole card reflows together),
@@ -287,6 +289,8 @@ import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
 import PadFooterToggle from '@/components/PadFooterToggle';
+import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
+import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import CardHintNote from '@/components/CardHintNote';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
@@ -1346,64 +1350,46 @@ export default function PlanTaskCard({
       accent={domainColor.accent}
       // A moment has no editor to continue into — it IS the record. Only a task offers "…".
       onMore={!captureAsMoment && onAddTaskAndEdit ? commitAddAndEdit : undefined}
-      extras={
-        <>
+      panel={
+        <QuickAddOptionsPanel>
           {/* Capture target (2026-08-02). The SAME field commits either a task or a day-log
               moment — one field, one submit, no modal, no category, no confirmation
               (the feature's "manual capture must be free" rule). The default stays task, so
               nothing about the existing add path changes until this is pressed.
               A moment's time and recurrence are meaningless — it already happened, once —
-              so those two controls come off the row in moment mode rather than sitting
-              there inert. That also keeps this row at one control instead of three, which
-              is what stops it wrapping at small widths (npm run wraps, 327px). */}
+              so those two rows come off the panel in moment mode rather than sitting there
+              inert. Rows redesigned 2026-08-04 (labeled, not icon-only — user report). */}
           {onCaptureMoment ? (
-            <PressableScale
-              style={[
-                styles.quickChip,
-                { borderColor: captureAsMoment ? domainColor.accent : theme.border },
-                captureAsMoment && { backgroundColor: domainColor.soft },
-              ]}
+            <QuickAddOptionRow
+              icon={captureAsMoment ? 'time-outline' : 'checkbox-outline'}
+              label={t.pad.captureTarget.label}
+              value={captureAsMoment ? t.pad.captureTarget.moment : t.pad.captureTarget.task}
+              isSet={captureAsMoment}
+              accent={domainColor.accent}
               onPress={() => { tap(); setCaptureAsMoment((v) => !v); }}
-              hitSlop={HitSlop.base}
-              scaleTo={0.9}
-              accessibilityRole="button"
-              accessibilityState={{ selected: captureAsMoment }}
               accessibilityLabel={t.dayLog.capturePrompt}
-            >
-              <Ionicons
-                name="time-outline"
-                size={14}
-                color={captureAsMoment ? theme.accent : theme.textMuted}
-              />
-            </PressableScale>
-          ) : null}
-          {captureAsMoment ? null : <TimeBoxInput value={addTime} onChange={setAddTime} />}
-          {captureAsMoment ? null : <PressableScale
-            style={[
-              styles.quickChip,
-              { borderColor: addRecurring !== 'none' ? domainColor.accent : theme.border },
-              addRecurring !== 'none' && { backgroundColor: domainColor.soft },
-            ]}
-            onPress={cycleRecurring}
-            hitSlop={HitSlop.base}
-            scaleTo={0.9}
-            accessibilityRole="button"
-            accessibilityLabel={`${t.taskRecurringToggle}: ${recurringLabel(addRecurring)}`}
-          >
-            {/* A.4 rule 1: "on" is carried by the chip's accent border + soft fill (a fill
-                channel). The glyph is the action colour and the letter is plain ink. */}
-            <Ionicons
-              name="repeat"
-              size={14}
-              color={addRecurring !== 'none' ? theme.accent : theme.textMuted}
             />
-            {addRecurring !== 'none' && (
-              <Text style={[styles.quickChipText, { color: theme.text }]}>
-                {recurringLabel(addRecurring).charAt(0)}
-              </Text>
-            )}
-          </PressableScale>}
-        </>
+          ) : null}
+          {captureAsMoment ? null : (
+            <QuickAddOptionRow
+              icon="time-outline"
+              label={t.timeLabel}
+              value={<TimeBoxInput value={addTime} onChange={setAddTime} />}
+              accent={domainColor.accent}
+            />
+          )}
+          {captureAsMoment ? null : (
+            <QuickAddOptionRow
+              icon="repeat"
+              label={t.taskRecurringToggle}
+              value={recurringLabel(addRecurring)}
+              isSet={addRecurring !== 'none'}
+              accent={domainColor.accent}
+              onPress={cycleRecurring}
+              accessibilityLabel={`${t.taskRecurringToggle}: ${recurringLabel(addRecurring)}`}
+            />
+          )}
+        </QuickAddOptionsPanel>
       }
     />
   ) : null;
@@ -1715,19 +1701,6 @@ const baseStyles = StyleSheet.create({
   // ONE horizontal inset for the whole card (PAD_GUTTER). The old paddingLeft:52 title inset
   // that dodged an absolutely-pinned badge is gone with the badge.
   cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER, position: 'relative' },
-  // Quick-add extras (2026-07-24) — compact repeat/energy toggle chips beside TimeBoxInput.
-  quickChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    minWidth: 30,
-    height: 30,
-    paddingHorizontal: 6,
-    borderRadius: Radius.full,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-  },
-  quickChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
   // Just the suggestion row + the ghost add row now — the bulb/italic explainer and the
   // "EXAMPLE TASKS" caption that used to lead this block became a foot-of-card CardHintNote

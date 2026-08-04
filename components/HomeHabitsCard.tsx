@@ -18,6 +18,8 @@
  * Connections:
  *   Imports → components/Surface, components/CardAccent (CardAccentBadge),
  *             components/HabitIcon, components/PressableScale, components/ProgressBar,
+ *             components/QuickAddOptionsPanel + components/QuickAddOptionRow (2026-08-04 —
+ *             the type line's labeled Energy row, replacing an icon-only chip),
  *             components/CardHintNote (foot-of-card explainer), components/AddRow,
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
  *             lib/domainColor, lib/habitRecurrence (habitOccursOn, habitProgress),
@@ -59,8 +61,9 @@
  *     habits.tsx's Today tab shows in that case, so the two surfaces never disagree.
  *   - **Quick-add**: creates a daily/dailyGoal-1 habit with the same neutral default icon
  *     ('ellipse-outline') as habits.tsx's own `commitHabit`. As of 2026-08-01 the type line
- *     carries one essential setting — an energy chip (off→+1→−1→off, gated on
- *     `energySystemEnabled`, same cycle as PlanTaskCard's) — plus a "…" that commits the
+ *     carries one essential setting — an Energy row (components/QuickAddOptionRow, labeled
+ *     not icon-only since 2026-08-04; off→+1→−1→off, gated on `energySystemEnabled`, same
+ *     cycle as PlanTaskCard's) — plus a "…" that commits the
  *     draft and opens the just-created habit's full editor (`/habit-form?id=`) pre-filled,
  *     for icon/goal/recurrence/reminders. Both the checkmark and "…" paths write the SAME
  *     row (`useHabitStore.add` returns the created Habit), so editing further in the full
@@ -87,6 +90,8 @@ import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
 import PadFooterToggle from '@/components/PadFooterToggle';
+import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
+import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, TabularNums, HitSlop } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
@@ -345,26 +350,19 @@ export default function HomeHabitsCard() {
               onSubmit={commitHabit}
               accent={domainColor.accent}
               onMore={commitHabitAndEdit}
-              extras={
+              panel={
                 energySystemEnabled ? (
-                  <PressableScale
-                    style={[
-                      styles.energyChip,
-                      { borderColor: habitEnergyValue !== 0 ? domainColor.accent : theme.border },
-                      habitEnergyValue !== 0 && { backgroundColor: domainColor.soft },
-                    ]}
-                    onPress={cycleEnergy}
-                    hitSlop={HitSlop.base}
-                    scaleTo={0.9}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${t.energyConsumeLabel}: ${habitEnergyValue === 0 ? t.off : habitEnergyValue > 0 ? '+1' : '-1'}`}
-                  >
-                    <Ionicons
-                      name={habitEnergyValue === 0 ? 'flash-outline' : habitEnergyValue > 0 ? 'flash' : 'flash-off'}
-                      size={14}
-                      color={habitEnergyValue > 0 ? theme.good : habitEnergyValue < 0 ? theme.warn : theme.textMuted}
+                  <QuickAddOptionsPanel>
+                    <QuickAddOptionRow
+                      icon={habitEnergyValue === 0 ? 'flash-outline' : habitEnergyValue > 0 ? 'flash' : 'flash-off'}
+                      label={t.energyMeter.title}
+                      value={habitEnergyValue === 0 ? t.off : habitEnergyValue > 0 ? '+1' : '-1'}
+                      isSet={habitEnergyValue !== 0}
+                      accent={domainColor.accent}
+                      onPress={cycleEnergy}
+                      accessibilityLabel={`${t.energyConsumeLabel}: ${habitEnergyValue === 0 ? t.off : habitEnergyValue > 0 ? '+1' : '-1'}`}
                     />
-                  </PressableScale>
+                  </QuickAddOptionsPanel>
                 ) : undefined
               }
             />
@@ -411,15 +409,6 @@ const baseStyles = StyleSheet.create({
   title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, includeFontPadding: false, textAlignVertical: 'center' },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-  // Quick-add's energy chip (2026-08-01) — same shape as PlanTaskCard's quickChip.
-  energyChip: {
-    width: 30,
-    height: 30,
-    borderRadius: Radius.full,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   // Just the starter chips now — the explainer moved to a foot-of-card CardHintNote and the
   // read-only example row (a duplicate of chip #1) is gone entirely (2026-07-30).
   emptyWrap: { gap: Spacing.sm, marginBottom: Spacing.sm },

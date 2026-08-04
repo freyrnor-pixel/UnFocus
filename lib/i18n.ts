@@ -271,6 +271,13 @@ const en = {
     // Quick-add's "…" — commits the draft, then opens its full editor pre-filled with
     // whatever was just typed (same saved row, so editing there saves in place).
     continueEditing: 'Continue editing',
+    // The type-line's options panel (2026-08-04) — the "Add as" row that toggles a task vs.
+    // a day-log moment (components/PlanTaskCard.tsx's onCaptureMoment).
+    captureTarget: {
+      label: 'Add as',
+      task: 'Task',
+      moment: 'Moment',
+    },
   },
   padRow: { actionLabel: 'More for this row' },
   /**
@@ -2090,6 +2097,11 @@ const no: typeof en = {
       item: 'Skriv vare',
     },
     continueEditing: 'Fortsett å redigere',
+    captureTarget: {
+      label: 'Legg til som',
+      task: 'Oppgave',
+      moment: 'Øyeblikk',
+    },
   },
   padRow: { actionLabel: 'Mer for denne raden' },
   dayLog: {

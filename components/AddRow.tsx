@@ -80,6 +80,11 @@ type Props = {
   confirmIcon?: keyof typeof Ionicons.glyphMap;
   /** Optional controls rendered between the input and the confirm button (e.g. a qty stepper). */
   extras?: React.ReactNode;
+  /** The full-width labeled options panel (components/QuickAddOptionsPanel), rendered on its
+   *  own line between the input and the Save/Delete row instead of inline — see
+   *  components/PadTypeRow.tsx's `panel` prop for the full rationale. Pass one of `extras`/
+   *  `panel`, not both. */
+  panel?: React.ReactNode;
   /** Hairline top divider so the row reads as appended to the list above (default true). */
   showDivider?: boolean;
   accessibilityLabel?: string;
@@ -95,6 +100,7 @@ export default function AddRow({
   accent,
   confirmIcon = 'add',
   extras,
+  panel,
   showDivider = true,
   accessibilityLabel,
   style,
@@ -171,6 +177,90 @@ export default function AddRow({
     );
   }
 
+  const inputField = (
+    <TextInput
+      ref={inputRef}
+      style={[styles.input, { color: theme.text }]}
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      placeholderTextColor={theme.textMuted}
+      returnKeyType="done"
+      onSubmitEditing={commit}
+      editable={!disabled}
+      onFocus={() => {
+        isFocusedRef.current = true;
+        // Covers the keyboard-already-open case (switching focus to this input doesn't
+        // re-fire keyboardDidShow); the listener above covers the keyboard-opening-fresh
+        // case. Harmless to call both — scrollIntoView() is idempotent.
+        scrollIntoView?.(rowRef.current);
+      }}
+      onBlur={() => {
+        isFocusedRef.current = false;
+        // Blurring an empty row backs out of the add — collapse to the "+" bar so we don't
+        // strand an open empty input. A row with text stays open (the user is mid-entry).
+        if (value.trim().length === 0) setExpanded(false);
+      }}
+    />
+  );
+
+  const discardButton = (
+    <PressableScale
+      style={styles.discard}
+      onPress={collapse}
+      hitSlop={HitSlop.base}
+      scaleTo={0.9}
+      accessibilityRole="button"
+      accessibilityLabel={t.a11yDiscardRow}
+    >
+      <Ionicons name="close" size={18} color={theme.textMuted} />
+    </PressableScale>
+  );
+
+  const confirmButton = (
+    <PressableScale
+      style={[
+        styles.confirm,
+        // Raised & pressable-looking ONLY when there's text to submit: real fill + button
+        // shadow + a uniform light edge so it reads as lifted toward the user. While the input
+        // is empty the button is inert (disabled — submitting needs text), so it drops all of
+        // that and reads as a flat, recessed well (surfaceMuted + a neutral edge, no shadow) to
+        // signal "type something first" instead of masquerading as a ready-to-tap control.
+        active && Shadow.button,
+        {
+          backgroundColor: active ? fill : theme.surfaceMuted,
+          borderColor: active ? 'rgba(255,255,255,0.5)' : theme.border,
+        },
+      ]}
+      onPress={commit}
+      disabled={!active}
+      hitSlop={HitSlop.base}
+      scaleTo={0.9}
+      haptic={false}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? t.a11yAdd}
+    >
+      <Ionicons name={confirmIcon} size={18} color={active ? contrastOn(fill) : theme.textMuted} />
+    </PressableScale>
+  );
+
+  // ── Expanded, panel design: input alone, the labeled options panel below it, then
+  // Save/Delete right-aligned below that — see the `panel` prop's doc for why this is a
+  // separate layout from the inline `extras` row (components/PadTypeRow.tsx's own `panel`
+  // branch is the same shape). ──
+  if (panel !== undefined) {
+    return (
+      <View ref={rowRef} style={[containerStyle, styles.column]} pointerEvents={disabled ? 'none' : 'auto'}>
+        <View style={styles.row}>{inputField}</View>
+        <View style={styles.panelSlot}>{panel}</View>
+        <View style={styles.panelButtonRow}>
+          {discardButton}
+          {confirmButton}
+        </View>
+      </View>
+    );
+  }
+
   // ── Expanded: editable row + Save + Delete ──
   return (
     <View
@@ -178,69 +268,10 @@ export default function AddRow({
       style={containerStyle}
       pointerEvents={disabled ? 'none' : 'auto'}
     >
-      <TextInput
-        ref={inputRef}
-        style={[styles.input, { color: theme.text }]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={theme.textMuted}
-        returnKeyType="done"
-        onSubmitEditing={commit}
-        editable={!disabled}
-        onFocus={() => {
-          isFocusedRef.current = true;
-          // Covers the keyboard-already-open case (switching focus to this input doesn't
-          // re-fire keyboardDidShow); the listener above covers the keyboard-opening-fresh
-          // case. Harmless to call both — scrollIntoView() is idempotent.
-          scrollIntoView?.(rowRef.current);
-        }}
-        onBlur={() => {
-          isFocusedRef.current = false;
-          // Blurring an empty row backs out of the add — collapse to the "+" bar so we don't
-          // strand an open empty input. A row with text stays open (the user is mid-entry).
-          if (value.trim().length === 0) setExpanded(false);
-        }}
-      />
+      {inputField}
       {extras}
-      <PressableScale
-        style={styles.discard}
-        onPress={collapse}
-        hitSlop={HitSlop.base}
-        scaleTo={0.9}
-        accessibilityRole="button"
-        accessibilityLabel={t.a11yDiscardRow}
-      >
-        <Ionicons name="close" size={18} color={theme.textMuted} />
-      </PressableScale>
-      <PressableScale
-        style={[
-          styles.confirm,
-          // Raised & pressable-looking ONLY when there's text to submit: real fill + button
-          // shadow + a uniform light edge so it reads as lifted toward the user. While the input
-          // is empty the button is inert (disabled — submitting needs text), so it drops all of
-          // that and reads as a flat, recessed well (surfaceMuted + a neutral edge, no shadow) to
-          // signal "type something first" instead of masquerading as a ready-to-tap control.
-          active && Shadow.button,
-          {
-            backgroundColor: active ? fill : theme.surfaceMuted,
-            borderColor: active ? 'rgba(255,255,255,0.5)' : theme.border,
-          },
-        ]}
-        onPress={commit}
-        disabled={!active}
-        hitSlop={HitSlop.base}
-        scaleTo={0.9}
-        haptic={false}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel ?? t.a11yAdd}
-      >
-        <Ionicons
-          name={confirmIcon}
-          size={18}
-          color={active ? contrastOn(fill) : theme.textMuted}
-        />
-      </PressableScale>
+      {discardButton}
+      {confirmButton}
     </View>
   );
 }
@@ -311,4 +342,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   gated: { opacity: 0.45 },
+  // Panel layout (`panel` prop): a column instead of the single inline expanded row.
+  column: { flexDirection: 'column', alignItems: 'stretch', gap: Spacing.xs },
+  panelSlot: { width: '100%' },
+  panelButtonRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: Spacing.xs },
 });

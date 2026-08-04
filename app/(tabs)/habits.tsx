@@ -19,7 +19,10 @@
  *             PadSheet was NOT adopted with it), components/PadTypeRow (the always-open
  *             "Type habit" line at the foot of the
  *             Today list — replaced an AddRow that was wrapped in its own Surface, which is
- *             exactly what AddRow's header tells callers not to do), components/AnimatedListItem (habit
+ *             exactly what AddRow's header tells callers not to do), components/QuickAddOptionsPanel
+ *             + components/QuickAddOptionRow (2026-08-04 — the type line's Energy row, closing
+ *             the parity gap with HomeHabitsCard's own quick-add, which already had it),
+ *             components/AnimatedListItem (habit
  *             add/remove fade), components/DraggableTaskRow (the long-press-drag gesture),
  *             components/GlowPulse (done-state static halo),
  *             components/HabitIcon, components/EmptyState, components/StarterCard
@@ -113,6 +116,8 @@ import TourTarget from '@/components/TourTarget';
 import Surface from '@/components/Surface';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
+import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
+import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import Collapsible from '@/components/Collapsible';
@@ -143,7 +148,7 @@ import { FontSize, PAD_GUTTER, Radius, Shadow, Spacing, Fonts, Type, HitSlop } f
 import type { ThemePalette } from '@/constants/colors';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getDomainColor } from '@/lib/domainColor';
-import { success, selection } from '@/lib/haptics';
+import { success, selection, tap } from '@/lib/haptics';
 
 // Habits are no longer split into build/break — a single calm "met" colour (good),
 // with accent for in-progress and a neutral border for not-yet-started. The `kind`
@@ -648,6 +653,14 @@ export default function HabitsScreen() {
   // the card's settings-gear icon → /habit-form. Mirrors Plans' AddRow → addTask flow.
   const addHabitQuick = useHabitStore((s) => s.add);
   const [habitDraft, setHabitDraft] = useState('');
+  // Quick-add's Energy row (2026-08-04) — closes the gap with HomeHabitsCard's own quick-add,
+  // which already had this; mirrors its cycleEnergy/habitEnergyValue exactly.
+  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
+  const [habitEnergyValue, setHabitEnergyValue] = useState(0);
+  function cycleEnergy() {
+    tap();
+    setHabitEnergyValue((current) => (current === 0 ? 1 : current > 0 ? -1 : 0));
+  }
 
   // Arrived from a note's ⋯ → Send it to… → Habits: seed the quick-add with the note's text
   // instead of making the user retype it (lib/prefill.ts).
@@ -717,7 +730,13 @@ export default function HabitsScreen() {
   // Same new-habit shape app/habit-form.tsx writes, minus the fields the quick-add leaves
   // at their defaults (goal/recurrence/notifications) — editable later via the form. Shared
   // by the inline AddRow and the empty-state starter chips, which differ only in title/icon/goal.
-  function createHabit(title: string, icon: string, dailyGoal: number) {
+  function createHabit(
+    title: string,
+    icon: string,
+    dailyGoal: number,
+    energyEnabled = false,
+    energyValue = 1
+  ) {
     addHabitQuick({
       title,
       icon,
@@ -736,8 +755,8 @@ export default function HabitsScreen() {
       reminderEnd: null,
       routineOrder: 0,
       childName: selectedProfile || '',
-      energyEnabled: false,
-      energyValue: 1,
+      energyEnabled,
+      energyValue,
       // Starters do NOT create a goals row the user never named — the StarterCard copy
       // points at the gear icon for that instead.
       goalId: null,
@@ -750,8 +769,9 @@ export default function HabitsScreen() {
     if (!title) return;
     // Neutral "to-do" marker default (debug-note 2026-07-21) — a star reads as a
     // reward/rating, against the app's no-shame framing. Custom icons still pickable.
-    createHabit(title, 'ellipse-outline', 1);
+    createHabit(title, 'ellipse-outline', 1, habitEnergyValue !== 0, habitEnergyValue || 1);
     setHabitDraft('');
+    setHabitEnergyValue(0);
   }
 
   function addStarterHabit(starter: HabitStarter) {
@@ -917,6 +937,21 @@ export default function HabitsScreen() {
                   onChangeText={setHabitDraft}
                   onSubmit={commitHabit}
                   accent={habitDomainColor.accent}
+                  panel={
+                    energySystemEnabled ? (
+                      <QuickAddOptionsPanel>
+                        <QuickAddOptionRow
+                          icon={habitEnergyValue === 0 ? 'flash-outline' : habitEnergyValue > 0 ? 'flash' : 'flash-off'}
+                          label={t.energyMeter.title}
+                          value={habitEnergyValue === 0 ? t.off : habitEnergyValue > 0 ? '+1' : '-1'}
+                          isSet={habitEnergyValue !== 0}
+                          accent={habitDomainColor.accent}
+                          onPress={cycleEnergy}
+                          accessibilityLabel={`${t.energyConsumeLabel}: ${habitEnergyValue === 0 ? t.off : habitEnergyValue > 0 ? '+1' : '-1'}`}
+                        />
+                      </QuickAddOptionsPanel>
+                    ) : undefined
+                  }
                 />
               </View>
 
