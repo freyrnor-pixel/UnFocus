@@ -67,22 +67,37 @@ function parse(file) {
     const fill = attr(a, 'fill');
 
     if (tag === 'path') {
-      els.push({ t: 'p', role: 'stroke', d: attr(a, 'd'), w: num(a, 'stroke-width', 1), o: opacity });
+      // A path is either a stroked LINE (fill="none" + stroke — the trunk/branch vocabulary
+      // the ellipse motifs are built from) or a FILLED SHAPE (the illustrated set's leaves and
+      // bark). Reading only stroke-width, as this did before the illustrations landed, turned
+      // every filled leaf into an unstroked 1px hairline.
+      const filled = fill !== undefined && fill !== 'none';
+      els.push(
+        filled
+          ? { t: 'p', role: 'shape', d: attr(a, 'd'), w: 0, fill: true, col: fill, o: opacity }
+          : { t: 'p', role: 'stroke', d: attr(a, 'd'), w: num(a, 'stroke-width', 1), col: attr(a, 'stroke'), o: opacity }
+      );
     } else if (tag === 'ellipse') {
       // transform="rotate(<deg> <cx> <cy>)" — only the angle matters, the origin is the
       // ellipse's own centre in every delivered file.
       const rot = a.match(/rotate\(\s*(-?[\d.]+)/);
+      // A rotated ellipse is a brush-daub canopy. An UNROTATED one only ever appears in the
+      // illustrated set, where it is the soft shadow pooled under the trunk — calling that a
+      // canopy would make the role map lie about the one element that isn't foliage.
+      const rotation = rot ? Number(rot[1]) : 0;
       els.push({
         t: 'e',
-        role: 'canopy',
+        role: rotation === 0 ? 'ground' : 'canopy',
         cx: num(a, 'cx'), cy: num(a, 'cy'), rx: num(a, 'rx'), ry: num(a, 'ry'),
-        rot: rot ? Number(rot[1]) : 0,
+        rot: rotation,
+        col: fill,
         o: opacity,
       });
     } else {
       const rad = num(a, 'r');
       const role = fill === 'none' ? 'ring' : rad >= 20 ? 'wash' : 'dot';
       const el = { t: 'c', role, cx: num(a, 'cx'), cy: num(a, 'cy'), r: rad, o: opacity };
+      el.col = role === 'ring' ? attr(a, 'stroke') : fill;
       if (role === 'ring') el.w = num(a, 'stroke-width', 1);
       els.push(el);
     }
@@ -90,51 +105,123 @@ function parse(file) {
   return { w: Number(vb[1]), h: Number(vb[2]), els };
 }
 
-/** Merge a light/dark pair into one geometry list carrying both opacities. */
+/**
+ * Merge a light/dark pair into one geometry list carrying both opacities.
+ *
+ * Colour is handled one of two ways, decided per motif by how many distinct colours the
+ * light file actually uses:
+ *
+ *   ONE colour  → the classic tintable motif. The colour is DROPPED entirely and the
+ *                 consumer passes a theme token, exactly as before. Output is unchanged.
+ *   MANY        → an illustration (the natural-tree set). Geometry alone can't carry it, so
+ *                 the motif gets a `pal`: the distinct (light, dark) colour pairs in
+ *                 first-appearance order, with each element holding an index into it.
+ *
+ * The second case is the reason `col` is excluded from the geometry equality check below —
+ * differing colour between the two files is the entire point; differing GEOMETRY is still a
+ * hard error.
+ */
 function merge(light, dark, id) {
   if (light.w !== dark.w || light.h !== dark.h) throw new Error(`${id}: viewBox mismatch`);
   if (light.els.length !== dark.els.length) throw new Error(`${id}: element count mismatch`);
+
+  const pairs = [];
+  const indexOf = new Map();
+
   const els = light.els.map((l, i) => {
     const d = dark.els[i];
     // Geometry must match exactly — that is the assumption the whole single-entry design
     // rests on, so fail loudly rather than silently preferring the light file.
     for (const k of Object.keys(l)) {
-      if (k === 'o') continue;
+      if (k === 'o' || k === 'col') continue;
       if (l[k] !== d[k]) throw new Error(`${id}: element ${i} differs in "${k}" between light and dark`);
     }
-    return { ...l, o: r4(l.o), od: r4(d.o) };
+    const key = `${l.col}|${d.col}`;
+    if (!indexOf.has(key)) {
+      indexOf.set(key, pairs.length);
+      pairs.push([l.col, d.col]);
+    }
+    return { ...l, c: indexOf.get(key), o: r4(l.o), od: r4(d.o) };
   });
-  return { w: light.w, h: light.h, els };
+
+  if (new Set(pairs.map(([lc]) => lc)).size <= 1) {
+    // Tintable: strip the colour bookkeeping back off so these entries stay byte-identical
+    // to what this generator produced before illustrations existed.
+    for (const e of els) { delete e.c; delete e.col; }
+    return { w: light.w, h: light.h, els };
+  }
+
+  for (const e of els) delete e.col;
+  return {
+    w: light.w,
+    h: light.h,
+    els,
+    pal: { light: pairs.map(([lc]) => lc), dark: pairs.map(([, dc]) => dc) },
+  };
 }
 
 /** Serialise one element as a compact single-line object literal. */
 function ser(e) {
   const parts = [`t:'${e.t}'`, `role:'${e.role}'`];
-  if (e.t === 'p') parts.push(`d:'${e.d}'`, `w:${r4(e.w)}`);
-  else if (e.t === 'e') parts.push(`cx:${r4(e.cx)}`, `cy:${r4(e.cy)}`, `rx:${r4(e.rx)}`, `ry:${r4(e.ry)}`, `rot:${r4(e.rot)}`);
+  if (e.t === 'p') {
+    parts.push(`d:'${e.d}'`, `w:${r4(e.w)}`);
+    if (e.fill) parts.push('fill:true');
+  } else if (e.t === 'e') parts.push(`cx:${r4(e.cx)}`, `cy:${r4(e.cy)}`, `rx:${r4(e.rx)}`, `ry:${r4(e.ry)}`, `rot:${r4(e.rot)}`);
   else {
     parts.push(`cx:${r4(e.cx)}`, `cy:${r4(e.cy)}`, `r:${r4(e.r)}`);
     if (e.w !== undefined) parts.push(`w:${r4(e.w)}`);
   }
+  if (e.c !== undefined) parts.push(`c:${e.c}`);
   parts.push(`o:${e.o}`, `od:${e.od}`);
   return `{ ${parts.join(', ')} }`;
 }
 
 // ── Collect the pairs ────────────────────────────────────────────────────────────────────
-const files = readdirSync(SRC).filter((f) => f.endsWith('-light.svg'));
-const ids = files.map((f) => f.replace(/-light\.svg$/, '')).sort();
-if (!ids.length) throw new Error(`no *-light.svg found in ${SRC}`);
+// Two source directories: the tintable motifs sit directly in assets/decorative/, the
+// full-colour illustrated set in assets/decorative/illustrations/. They're kept apart because
+// they are different KINDS of art, not because the generator treats the folders differently —
+// what actually decides the handling is how many colours a file uses (see merge()).
+const dirs = [
+  { dir: SRC, tintable: true },
+  { dir: join(SRC, 'illustrations'), tintable: false },
+];
+
+const sources = new Map();
+for (const { dir, tintable } of dirs) {
+  let entries;
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    continue; // the illustrations folder is optional
+  }
+  for (const f of entries.filter((n) => n.endsWith('-light.svg'))) {
+    sources.set(f.replace(/-light\.svg$/, ''), { dir, tintable });
+  }
+}
+const ids = [...sources.keys()].sort();
+if (!ids.length) throw new Error(`no *-light.svg found under ${SRC}`);
 
 const motifs = new Map();
 for (const id of ids) {
-  const light = parse(join(SRC, `${id}-light.svg`));
-  const dark = parse(join(SRC, `${id}-dark.svg`));
-  const lightSrc = readFileSync(join(SRC, `${id}-light.svg`), 'utf8');
-  const darkSrc = readFileSync(join(SRC, `${id}-dark.svg`), 'utf8');
-  if (lightSrc.includes(DARK_HEX) || darkSrc.includes(LIGHT_HEX)) {
-    throw new Error(`${id}: a file uses the other theme's colour — check the export`);
+  const { dir, tintable } = sources.get(id);
+  const light = parse(join(dir, `${id}-light.svg`));
+  const dark = parse(join(dir, `${id}-dark.svg`));
+  // The cross-theme guard catches a light file exported with the dark hex (or vice versa),
+  // which is a real and otherwise-silent export mistake. It only makes sense for the tintable
+  // set, whose whole palette IS those two hexes — an illustration legitimately uses many
+  // colours, some of which coincide with them.
+  if (tintable) {
+    const lightSrc = readFileSync(join(dir, `${id}-light.svg`), 'utf8');
+    const darkSrc = readFileSync(join(dir, `${id}-dark.svg`), 'utf8');
+    if (lightSrc.includes(DARK_HEX) || darkSrc.includes(LIGHT_HEX)) {
+      throw new Error(`${id}: a file uses the other theme's colour — check the export`);
+    }
   }
-  motifs.set(id, merge(light, dark, id));
+  const merged = merge(light, dark, id);
+  if (tintable && merged.pal) {
+    throw new Error(`${id}: sits in the tintable folder but uses ${merged.pal.light.length} colours — move it to illustrations/`);
+  }
+  motifs.set(id, merged);
 }
 
 // ── Emit ─────────────────────────────────────────────────────────────────────────────────
@@ -147,7 +234,10 @@ const panelOrder = JSON.parse(readFileSync(join(SRC, 'strip-panels.json'), 'utf8
 const body = ids
   .map((id) => {
     const m = motifs.get(id);
-    return `  '${id}': {\n    w: ${m.w},\n    h: ${m.h},\n    els: [\n${m.els.map((e) => `      ${ser(e)},`).join('\n')}\n    ],\n  },`;
+    const pal = m.pal
+      ? `    pal: {\n      light: [${m.pal.light.map((c) => `'${c}'`).join(', ')}],\n      dark: [${m.pal.dark.map((c) => `'${c}'`).join(', ')}],\n    },\n`
+      : '';
+    return `  '${id}': {\n    w: ${m.w},\n    h: ${m.h},\n${pal}    els: [\n${m.els.map((e) => `      ${ser(e)},`).join('\n')}\n    ],\n  },`;
   })
   .join('\n');
 
@@ -184,23 +274,38 @@ const out = `/**
  */
 
 /** What a part of a motif is, so a consumer can treat parts differently without re-parsing. */
-export type MotifRole = 'stroke' | 'canopy' | 'ring' | 'wash' | 'dot';
+export type MotifRole = 'stroke' | 'canopy' | 'ring' | 'wash' | 'dot' | 'shape' | 'ground';
 
-/** A trunk/branch line. */
-export type MotifPath = { t: 'p'; role: 'stroke'; d: string; w: number; o: number; od: number };
-/** A brush-daub canopy blob — rotated, never a plain circle. */
+/** A trunk/branch line (\`stroke\`), or a filled shape — a leaf or a slab of bark (\`shape\`). */
+export type MotifPath = {
+  t: 'p'; role: 'stroke' | 'shape';
+  d: string; w: number; fill?: boolean; c?: number; o: number; od: number;
+};
+/** A brush-daub canopy blob (rotated, never a plain circle), or the shadow pooled under a trunk. */
 export type MotifEllipse = {
-  t: 'e'; role: 'canopy';
-  cx: number; cy: number; rx: number; ry: number; rot: number; o: number; od: number;
+  t: 'e'; role: 'canopy' | 'ground';
+  cx: number; cy: number; rx: number; ry: number; rot: number; c?: number; o: number; od: number;
 };
 /** A halo outline (\`ring\`, has \`w\`), a large soft fill (\`wash\`), or a floating dot. */
 export type MotifCircle = {
   t: 'c'; role: 'ring' | 'wash' | 'dot';
-  cx: number; cy: number; r: number; w?: number; o: number; od: number;
+  cx: number; cy: number; r: number; w?: number; c?: number; o: number; od: number;
 };
+
+/**
+ * An illustration's own colours, one entry per mode, index-aligned — element \`c\` indexes
+ * into these. Present ONLY on the illustrated set; a tintable motif has no \`pal\` and is
+ * coloured entirely by the token its consumer passes.
+ *
+ * Yes, this is raw hex in a constants file, which the rest of this pipeline exists to avoid.
+ * It is the honest place for it: these are an illustration's pigments, no more themeable than
+ * the pixels in assets/bg-light.png, and the alternative — a component holding them — is
+ * strictly worse. The tintable path is untouched and still carries no colour at all.
+ */
+export type MotifPalette = { light: readonly string[]; dark: readonly string[] };
 export type MotifElement = MotifPath | MotifEllipse | MotifCircle;
 
-export type Motif = { w: number; h: number; els: readonly MotifElement[] };
+export type Motif = { w: number; h: number; els: readonly MotifElement[]; pal?: MotifPalette };
 
 /**
  * \`as const\` on the raw object keeps the KEY NAMES literal (so MotifId is a union of ids and
