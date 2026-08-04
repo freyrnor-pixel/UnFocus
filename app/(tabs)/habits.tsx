@@ -117,7 +117,7 @@ import AnimatedListItem from '@/components/AnimatedListItem';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import Collapsible from '@/components/Collapsible';
 import GlowPulse from '@/components/GlowPulse';
-import HabitIcon from '@/components/HabitIcon';
+import HabitIcon, { hasChosenHabitIcon } from '@/components/HabitIcon';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import EmptyState from '@/components/EmptyState';
 import StarterCard from '@/components/StarterCard';
@@ -329,9 +329,14 @@ function HabitCard({
           done={isDone}
           // A.4: done is a STATUS, so it takes the status token as ink; the habit's own glyph
           // is neutral. Mirrors HomeHabitsCard's leading exactly.
+          // A habit with no chosen icon draws NO leading mark — the neutral default is a
+          // hollow circle, and this row already ends in one (the check). Two identical rings,
+          // the leading one inert, was the result. See hasChosenHabitIcon's own comment.
           leading={isDone
             ? <Ionicons name="checkmark" size={22} color={theme.good} />
-            : <HabitIcon icon={habit.icon} size={22} color={theme.textMuted} />}
+            : hasChosenHabitIcon(habit.icon)
+              ? <HabitIcon icon={habit.icon} size={22} color={theme.textMuted} />
+              : undefined}
           meta={hasMetaLine ? (
             <>
               {linkedGoal ? (
@@ -471,7 +476,7 @@ function WeekView({
       {visibleHabits.map((habit) => (
         <View key={habit.id} style={styles.weekGridRow}>
           <View style={styles.weekGridLabel}>
-            <HabitIcon icon={habit.icon} size={16} color={theme.textMuted} />
+            {hasChosenHabitIcon(habit.icon) && <HabitIcon icon={habit.icon} size={16} color={theme.textMuted} />}
             <Text style={[styles.weekGridTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
           </View>
           {weekDates.map((date) => {
@@ -563,7 +568,7 @@ function MonthView({
       {visibleHabits.map((habit) => (
         <View key={habit.id} style={[styles.monthRow, { borderBottomColor: theme.border }]}>
           <View style={styles.monthRowLabel}>
-            <HabitIcon icon={habit.icon} size={14} color={theme.textMuted} />
+            {hasChosenHabitIcon(habit.icon) && <HabitIcon icon={habit.icon} size={14} color={theme.textMuted} />}
             <Text style={[styles.monthRowTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>

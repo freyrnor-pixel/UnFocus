@@ -81,7 +81,7 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import { CardAccentBadge } from '@/components/CardAccent';
 import ProgressBar from '@/components/ProgressBar';
-import HabitIcon from '@/components/HabitIcon';
+import HabitIcon, { hasChosenHabitIcon } from '@/components/HabitIcon';
 import CardHintNote from '@/components/CardHintNote';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
@@ -234,7 +234,9 @@ export default function HomeHabitsCard() {
           isDone ? (
             <Ionicons name="checkmark" size={16} color={theme.good} />
           ) : (
-            <HabitIcon icon={habit.icon} size={16} color={theme.textMuted} />
+            hasChosenHabitIcon(habit.icon) ? (
+              <HabitIcon icon={habit.icon} size={16} color={theme.textMuted} />
+            ) : undefined
           )
         }
         rightValue={goal > 1 ? `${count}/${goal}` : undefined}
