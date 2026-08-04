@@ -987,7 +987,17 @@ export default function PlanTaskCard({
       <>
         <View style={styles.titleRow}>
           {timed && (
-            <Text style={[styles.flatTimeText, TabularNums, { color: theme.textMuted }]}>{task.time}</Text>
+            // ONE Text node for the whole time reading (2026-08-04, maintainer report:
+            // "time boxes should have `:` instead of the vertical lines"). This used to be
+            // two separate Text nodes — the start time here, the "–end" trailing the title —
+            // split by titleRow's flex `gap`. For a time-box task that put an isolated dash
+            // one gap-width after the title, glued to neither neighbour, which read as a
+            // stray divider mark rather than part of a time range. TaskCard.tsx's row already
+            // gets this right (`${time}–${finishTime}` as one string); match it here so the
+            // range always reads as a single "09:00–10:30", not a line-like fragment.
+            <Text style={[styles.flatTimeText, TabularNums, { color: theme.textMuted }]}>
+              {task.taskType === 'time-box' ? `${task.time}–${minutesToLabel(timed.end)}` : task.time}
+            </Text>
           )}
           <Text
             numberOfLines={1}
@@ -999,9 +1009,6 @@ export default function PlanTaskCard({
           >
             {task.title}
           </Text>
-          {timed && task.taskType === 'time-box' && (
-            <Text style={[styles.durationText, TabularNums, { color: theme.textMuted }]}>–{minutesToLabel(timed.end)}</Text>
-          )}
           {showAnytimeBadge ? (
             <View style={[styles.followerBadge, { backgroundColor: theme.surfaceMuted, borderColor: theme.border, borderWidth: 1 }]}>
               <Text style={[styles.followerBadgeText, { color: theme.textMuted }]}>{t.dayViewAnytimeBadge}</Text>
