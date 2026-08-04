@@ -12,7 +12,9 @@
  *   Semantic state: good, goodSoft, bad, badSoft, warn, warnSoft
  *   Depth: shadow, overlay
  *   Hint card: hintBg, hintBorder, hintAccent
- *   Feature accents (screen hues — lib/screenColor.ts): featTask, featPlan, featHabit, featShop, featMeal, featBudget, featNote, featHealth, featScan
+ *   Feature accents (former screen hues — lib/screenColor.ts, RETIRED 2026-07-31 addendum A.5,
+ *     zero production consumers, kept dormant/contrast-tested only): featTask, featPlan,
+ *     featHabit, featShop, featMeal, featBudget, featNote, featHealth, featScan
  *   Card identity hues (lib/domainColor.ts, drives card badge+wash+edge — COLLAPSED from
  *     nine hues to FOUR on 2026-07-31, addendum A.3; the nine token names all still exist
  *     and now alias four values, see the card block below): cardTask, cardPlan, cardHabit,
@@ -24,7 +26,9 @@
  *     categoryPersonal, categoryPersonalSoft, categoryShared, categorySharedSoft
  *
  * Also exports IDENTITY_HUES / IDENTITY_NEUTRAL — the four card-identity hues + their declared
- * badge ink, which the nine card* token names alias onto (2026-07-31, addendum A.3).
+ * badge ink, which the nine card* token names alias onto (2026-07-31, addendum A.3). See the
+ * 2026-08-04 decision note above `IDENTITY_NEUTRAL` for why this stays the ONLY live
+ * identity-hue system (DESIGN_COMPARISON/06 declined reviving feat* for card colour).
  *
  * Connections:
  *   Imports → —
@@ -239,6 +243,60 @@ export const IDENTITY_HUES = {
  * the four hues; white ink clears AA on it (4.83:1). Do not saturate it.
  */
 export const IDENTITY_NEUTRAL = '#6B7280';
+
+// ── 2026-08-04 — "which colour system" decision (DESIGN_COMPARISON/06) ──────
+// The design project's `HomeScreen.jsx` colours every card from a 9-hue `--c-feat-*` set
+// (`lib/screenColor.ts`), where this app colours cards from the 4-hue `--c-card-*` set above.
+// DECIDED: **keep the 4-hue card-identity system exactly as-is, everywhere (option (a)).**
+// Declined (b)/(c) — moving cards fully or partly onto `feat*` — for a reason the task's own
+// framing didn't have: `lib/screenColor.ts` and its entire consumption chain (the
+// `ScreenColorContext` provider, `ScreenScaffold`'s `screenColor` prop, and every call site
+// that used to read a `feat*` token) were already fully retired on 2026-07-31 (addendum A.5,
+// *before* this task ran) — see that file's own header. It has **zero production consumers**
+// today; the `feat*` tokens survive only as dormant, contrast-tested values. Reviving it to
+// colour cards would be un-deleting a system that was retired for a stated, specific reason —
+// "two different systems were competing for the same 2.5px bevel; the screen-hue term lost" —
+// not a small plumbing step, and not this task's call to make alone. (Rule 12's "Open conflict
+// #5" in `DESIGN_RULES.md`/`DESIGN_RULES_AUDIT.md` still describes `screenColor.ts` as live and
+// disagreeing with `domainColor.ts` on-screen; that description is now stale and was corrected
+// the same day this note was added.)
+// Declined (d) — a Notes identity hue — for the same shape of reason: `cardNote` is
+// `IDENTITY_NEUTRAL` on purpose (A.3: "Home and Notes get NO identity hue" — they are not one
+// of the four things the collapse judged "a person actually thinks of as a separate part of
+// their life"). Giving Notes a fifth hue reopens A.3's "four, not five" the same way (b)/(c)
+// reopen A.5, and nobody asked for it today — the maintainer's actual complaint (below) was
+// about Habits and Recurring, not Notes.
+//
+// **Named complaint (maintainer, 2026-08-04): "the current color scheme is not pleasing, like
+// the one for recurring and habits."** Two different findings, two different-sized fixes:
+//   - **Habits** (`IDENTITY_HUES.habits`, `#1F7A2E`) is unchanged. It IS the outlier the task
+//     flagged — darker/more saturated (L* 44.8) than `todo`/`health` — but it is one of the
+//     four mutually-constrained, mode-invariant, CI-pinned values (`lib/__tests__/colors.test.ts`
+//     asserts its exact L*, its ΔE2000 from every other hue, and Shopping's ≥15 L* gap from
+//     it), so lightening it touches a shared system used by every card in the app and requires
+//     re-pinning those exact test constants — too large a blast radius for this task's "at most
+//     one visible change" budget. Verified, ready-to-apply proposal for whoever picks this up:
+//     lighten along the SAME hue (a pure RGB scale, not a hue/chroma change) to **`#218432`**
+//     (L* 48.33, C* 57.87 — chroma untouched, so it doesn't read as washed out) — white badge
+//     ink clears AA at **4.761:1** on the fill and **6.478:1** on the gradient's darker second
+//     stop (both ≥ the 4.5/3 floors `colors.test.ts` checks), ΔE2000 vs `todo` 52.2 and vs
+//     `health` 63.1 (both ≫ the 25 floor), and the L* gap to `shopping` (70.65) is 22.33 (≫ the
+//     15 floor two tests key off). Would also need `DOCUMENTED_LSTAR.habits` in `colors.test.ts`
+//     moved from `44.8` to `48.3` in the same edit.
+//   - **Recurring** (`app/(tabs)/plans.tsx`'s `repeatingHue`) is FIXED here. It resolves through
+//     `getDomainColor(theme, 'meal')` — a domain the section has no real identity in, borrowed
+//     purely so it wouldn't look like Whenever's blue (see that file's inline note, pre-dating
+//     A.3). Since the 2026-07-31 collapse, `cardMeal` silently aliases onto `cardShop`'s exact
+//     gold (`#D9A441`) — so "Recurring" had been rendering in the literal Shopping-tab colour
+//     for four days with nobody having chosen that. That's the real defect the maintainer's
+//     "not pleasing" flagged, not the gold hue itself. Fixed by borrowing `health` (`#A84A60`,
+//     rose) instead — the one card-identity hue nothing else on the Plans/Home screens already
+//     uses, so it costs no other surface its distinctiveness, and a zero-new-token, one-file
+//     change (no palette value touched, no CI-pinned constant to re-derive).
+//
+// Full numbers, screenshots-not-taken rationale, and the declined-options reasoning:
+// `DESIGN_COMPARISON/06-which-colour-system.md` and `DESIGN_RULES_AUDIT.md`'s
+// "Design-project comparison" section, item 7.
 
 // ── Default Theme (Cool blue, Linear/Notion-clean) ──────────────────────────
 

@@ -184,6 +184,12 @@ const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
 // true inner corner — components/CardAccent.tsx's header wash is the one case — can compute the
 // same inner radius Surface gives the mask (`radius - GLASS_EDGE_WIDTH`) instead of guessing the
 // card's own outer radius and leaving an unpainted crescent in the top corners.
+// 2026-08-04 (DESIGN_COMPARISON/07, decision in DESIGN_RULES_AUDIT.md item 8): a design-project
+// comparison proposed flattening this to a single-colour hairline. Declined — this is the same
+// "domain ramp" AGENTS.md already records the maintainer choosing to keep over a flat edge
+// (#390/#393/#410), and the SAME flatten was already tried and reverted once, in the very pass
+// that set EDGE_WIDTH to 2.5 (see CardAccent.tsx's "re-gradiented" note, same day). Don't
+// re-flatten this edge without new information beyond "a reference file draws it flat."
 export const GLASS_EDGE_WIDTH = 2.5;
 const EDGE_WIDTH = GLASS_EDGE_WIDTH;
 

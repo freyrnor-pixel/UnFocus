@@ -178,7 +178,7 @@ Full table in `DESIGN_RULES.md` § *Open conflicts*. Summarised with what a ruli
 | **2** | "No arbitrary values" vs 76 sub-token literals in `components/*.tsx` | A 44-file mechanical pass with real visual risk — these are 1–6px optical corrections, not a rival scale | Add a sentence permitting sub-token optical nudges, and cap them (say ≤6px) |
 | **3** | Max 3 type sizes vs `FontSize` (7) + `Type` (8 roles) + `HEADER_TITLE_BASE_SIZE` | Finishing the `FontSize`→`Type` migration *and* collapsing `Type` to 3 roles — a large, app-wide retypesetting | Reword as "max 3 per screen" (which the app may already satisfy) and finish the migration separately |
 | **4** | Max 2 font weights vs 4 in real use (semibold 168×, bold 140×, medium 42×, regular 21×) | Remapping ~370 call sites | Rule 16 becomes "max 2 per screen" |
-| **5** | One accent vs 1 + 9 `feat` + 9 `card` hues, `screenColor.ts` and `domainColor.ts` deliberately allowed to disagree on one screen | Deleting the identity-hue system — this is a core part of how the app reads | Carve out identity hues explicitly; they're wayfinding, not action colour. The contrast test already holds them to 3:1 ink |
+| **5** | One accent vs 1 + 4 live `card` domain hues (`lib/domainColor.ts`). *(Corrected 2026-08-04, DESIGN_COMPARISON/06: this row previously also counted 9 `feat` screen hues as a second live, disagreeing system — `lib/screenColor.ts` was actually retired 2026-07-31, addendum A.5, zero production consumers; the `feat*` tokens are dormant, contrast-tested only. That task reaffirmed keeping it retired rather than reviving it for card colour.)* | Deleting the identity-hue system — this is a core part of how the app reads | Carve out identity hues explicitly; they're wayfinding, not action colour. The contrast test already holds them to 3:1 ink |
 | **6** | Every target ≥44 vs `PAD_ROW_HEIGHT` 38, `Button` `sm` 36, FormControls' 40px rows | Undoing your own 2026-07-30 "lines can be compressed" request | Note the exception and require compensating `hitSlop` — which `hitSlopFor()` now makes a one-liner |
 | **7** | Never "!" vs 13 celebratory strings ("Nice work!", "Bra jobbet!") | Rewriting warm confirmations into flat ones, in an app whose whole point is not being punitive | Narrow rule 23's "!" clause to urgency/guilt only. **Recommended** — the clause is a proxy for the real rule, and here it fires on the opposite of the target |
 | **8** | Whitespace over lines / nothing jumps vs the notepad pass's full-width rules, first-visit hint auto-expand, `NewSinceGlow` | Undoing the 2026-07-30 "look like notepads" work and the teaching layer | Carve out ruled-sheet surfaces (rule 5) and first-visit teaching (rule 9). The glow already only fires on an explicit user action |
@@ -302,6 +302,8 @@ re-propose them as design direction. They are not.
 | `HomeScreen.jsx` `DayRail` | Fixed 56px time column, 20px minimum connector, simple sorted list | **Do not port** |
 | `screen-bg-{calm,grow,list}` | Per-screen-type backdrops + an edge-continuity rule | **Declined** |
 | `natural-tree.card.html` bindings | Stage advances on habit streak / Energy fullness / focus session | **Declined** |
+| `HomeScreen.jsx` cards | Colours every card from the 9-hue `--c-feat-*` set | **Declined** (kept the 4-hue `--c-card-*` system, option (a)) |
+| `natural-tree.card.html` leaf iconography | Leaf as row-leading bullet, card-corner accent, and icon-button glyph | **Partially adopted** — corner accent only (option (b)), landed differently from the design's literal example |
 
 **1. Check position and trailing icons** (`DESIGN_COMPARISON/12`). The design's left-check +
 dual-trailing-icon row is this app's **pre-2026-07-30** state. The check moved to the right
@@ -364,3 +366,346 @@ the app rules them flush on one sheet. Declined — boxed rows are cards inside 
 the exact complaint PR #483 fixed one day earlier, and `PadSheet`/`PadRow` exist because of a
 direct user report ("look like notepads", "related cards/things in other screens should look
 practically the same"). Recorded in `components/PadSheet.tsx`'s header.
+
+**7. Which colour system colours a card** (`DESIGN_COMPARISON/06`, 2026-08-04 — gates tasks
+07/08/09/11). The design's `HomeScreen.jsx` colours every card from the 9-hue `--c-feat-*` set;
+the app colours cards from the 4-hue `--c-card-*` set (`lib/domainColor.ts`). **Decision: keep
+the 4-hue system everywhere (option (a)), zero visible change from the top-level choice.**
+
+Declined (b)/(c) — moving cards fully or partly onto `feat*` — for a reason the task file's own
+framing (written against `tokens/colors.css`, which mirrors the palette values, not which
+systems are actually wired up) didn't have: `lib/screenColor.ts`, the module that used to route
+`feat*` hues to screens, was already **fully retired 2026-07-31 (addendum A.5)**, four days
+before this task ran. Every consumer — `ScreenColorContext`, `ScreenScaffold`'s `screenColor`
+prop, `app/scan.tsx`, `app/(tabs)/shopping.tsx`, `components/NoteRow.tsx`, `app/(tabs)/habits.tsx`
+— was migrated off it; `grep -rn "\.feat[A-Z]"` over `app/`+`components/` returns nothing.
+`screenColor.ts`'s own header states why: "That collided with the per-card identity hues...
+two different systems were competing for the same 2.5px bevel. The screen-hue term lost."
+Reviving it for (b)/(c) means relitigating that retirement, which is a bigger and more
+consequential call than an S-sized task should make alone — so it stayed declined. (This also
+means `DESIGN_RULES.md`/`DESIGN_RULES_AUDIT.md`'s Open conflict #5, which described
+`screenColor.ts` and `domainColor.ts` as two live systems "deliberately allowed to disagree,"
+was itself stale by four days; corrected in the same edit as this note.)
+
+Declined (d) — a Notes identity hue — because `cardNote: IDENTITY_NEUTRAL` is A.3's deliberate
+"four things a person actually thinks of as a separate part of their life," not an oversight;
+adding a fifth hue for Notes reopens that the same way (b)/(c) reopen A.5, and it wasn't what
+the maintainer actually flagged today (see below).
+
+**The maintainer's named complaint** ("the current color scheme is not pleasing, like the one
+for recurring and habits," 2026-08-04) got two different-sized answers:
+- **Habits** (`IDENTITY_HUES.habits`, `#1F7A2E`, L\* 44.8) — confirmed as the outlier (darker/
+  more saturated than `todo`/`health`) but **left unchanged**: it's one of the four
+  mutually-constrained, mode-invariant, CI-pinned hues (`lib/__tests__/colors.test.ts` asserts
+  its exact L\*, its ΔE2000 from the other three, and Shopping's ≥15 L\* gap from it), so
+  touching it means re-deriving and re-pinning those constants for a system every card in the
+  app shares — out of proportion for this task's "at most one visible change" budget. A
+  verified candidate is recorded for whoever picks this up next: **`#218432`** (same hue,
+  scaled brighter — L\* 48.33, chroma unchanged at 57.87), white badge ink 4.761:1 on the fill
+  / 6.478:1 on the gradient's second stop, ΔE2000 52.2 vs `todo` / 63.1 vs `health` (≫25), L\*
+  gap to Shopping 22.33 (≫15) — every constraint `colors.test.ts` checks, cleared with margin.
+  Full derivation: the addendum note above `IDENTITY_NEUTRAL` in `constants/colors.ts`.
+- **Recurring** (`app/(tabs)/plans.tsx`'s `repeatingHue`) — **fixed**. It borrows a card-identity
+  domain purely for a distinct look (the section has no real identity of its own); that borrow
+  was `meal`, which the 2026-07-31 four-hue collapse silently aliased onto `cardShop`'s exact
+  gold (`#D9A441`) — so Recurring had been rendering in the literal Shopping-tab colour for four
+  days with nobody having chosen that, which reads as arbitrary/muddy rather than as its own
+  identity. That's the real defect, not the gold hue itself. Fixed by switching the borrow to
+  `health` (`#A84A60`, rose) — the one card-identity hue nothing else on the Plans or Home
+  screens already carries, so it doesn't cost another surface its distinctiveness. Zero new
+  palette tokens, one file (`app/(tabs)/plans.tsx`, plus its comment in `components/SectionCard.tsx`).
+
+Screenshots were not taken for this task — `npm run preview` is skipped per the task's own
+Verify section when no visible hue actually changed under test, and the Recurring fix is
+precise enough to verify from source (`getDomainColor(theme, 'health').accent`) and the
+contrast numbers above rather than a screenshot. `npx tsc --noEmit` and
+`lib/__tests__/colors.test.ts` (unchanged — no palette token was touched) are the verification.
+
+**8. Card edge: gradient identity hue vs flat hairline** (`DESIGN_COMPARISON/07`, 2026-08-04 —
+blocks 08). `components/Surface.tsx` draws a card's edge as a beveled `LinearGradient` ring
+(light top → true hue mid → dark bottom) keyed to the card's identity hue. The design project
+draws a flat, single-colour edge instead — but disagrees with itself on which flat colour:
+`ui_kits/unfocus_app/HomeScreen.jsx` uses `border-strong` (`#2B5FD9`, saturated blue) while
+`components/surfaces/HabitCard.jsx` uses the neutral `border` (`#7284A2`). "What the design
+does" isn't one answer here, so there was never a colour to port — only a shape to choose.
+
+**Decision: keep the beveled gradient edge exactly as-is (option (a)). No code changed.**
+
+This one isn't a fresh call — it's a maintainer decision that already happened, on the record,
+twice. `AGENTS.md`'s "row rule + matte buttons" section states outright that a near-identical
+proposal from design-system v6 was reviewed and rejected: *"**NOT taken from that spec**:
+dropping the accent stripe / category-as-a-dot — the gradient badge, keycap edge and domain
+ramp stay (maintainer's call, #390/#393/#410)."* "Domain ramp" is this exact beveled edge.
+And `components/CardAccent.tsx`'s header dates the specific reversal this task would be
+re-running: the card badge and edge both went through a flatten-then-revert cycle already —
+flattened 2026-07-24 ("the complaint was the gradient sticker reading as a separate object"),
+then **"re-gradiented" 2026-07-26** in the same pass that widened `Surface.tsx`'s
+`EDGE_WIDTH` 1.5→2.5px, because the flat/thin era "had progressively drained identity colour
+out of cards." Options (b)/(c)/(d) are all shapes of exactly that flattening, nine days later,
+argued from a design reference that contradicts itself on the replacement colour. That isn't
+new evidence against a dated, twice-made call — it's the same debate a third time.
+
+The task file's own ⚠️ adds a second, independent reason not to move on (b)/(c) alone: removing
+colour from the edge leaves the gradient badge as the sole identity carrier unless 08's stripe
+lands in the same change, and 08 has its own unresolved blocker (a stripe alone can't tell
+same-hue domains apart — Shopping and Food are both `#D9A441` — so it only rescues (b)'s cost
+if 08 *also* solves where the glyph lives, which isn't guaranteed). With real users already on
+this build (`AGENTS.md`'s 2026-07-13 banner: a merge to `main` reaches installed apps on next
+launch), shipping a visibly quieter card now on the hope some future session finishes the other
+half is the wrong trade for an S task to take alone.
+
+(c) — flat 1.5px `borderStrong` — is the task file's own explicit anti-recommendation
+(`#2B5FD9` at 1.5px reads as "a loud blue frame around every card on the screen"); not
+seriously considered. (d) — keep the hue, drop the light→dark ramp — doesn't cost identity the
+way (b)/(c) do, but it still un-does the specific 2026-07-26 "re-gradiented" call above, and it
+would put cards out of step with the same beveled-ring technique `Button.tsx`'s rim already
+uses via the same `computeRimGradient()` (`constants/theme.ts`) — a card with a flat edge next
+to a button with a beveled rim reads as two material languages, not one.
+
+**For 08: land as (c) — no stripe.** Per 08's own interaction table: *"(a) identity gradient
+edge kept → Stripe is a third hue expression — likely too much. Lean (c)."* 07 landed (a), so
+that row applies directly; 08 doesn't need to re-derive this call, only confirm it still holds.
+
+No screenshots — nothing drew differently, so `npm run preview` has nothing new to show.
+Verification is `npx tsc --noEmit` (unchanged) plus reading `Surface.tsx`'s existing
+`EDGE_WIDTH`/`edgeHue` chain, which already matches option (a) byte for byte.
+
+**9. The 4px left accent stripe** (`DESIGN_COMPARISON/08`, 2026-08-04 — blocked by 06/07).
+Every card in the design project (`ui_kits/unfocus_app/HomeScreen.jsx`'s `CardShell`,
+`components/surfaces/HabitCard.jsx`) draws a 4px full-height colour bar down the card's left
+edge as a flex-row first child, sibling to the content. The app has no equivalent structure.
+
+**Decision: (c) — no stripe. Badge stays the sole identity carrier. No code changed.**
+
+Independently re-derived, not rubber-stamped from item 8's hand-off note — the task file's own
+interaction table is unambiguous once 07's outcome is known: *"(a) identity gradient edge kept
+→ Stripe is a third hue expression — likely too much. Lean (c)."* 07 landed (a) (item 7 above),
+so that row is the one that applies, and it points at (c) on its own without needing 08's other
+arguments to carry it.
+
+Those other arguments corroborate rather than merely pad the conclusion. The task file counts
+the colour moves a card already carries under 07(a) — gradient badge, hue-gradient bevel edge,
+and (from task 09) possibly a coloured count pill — and observes a stripe on top makes four
+expressions of one fact, on a screen (`npm run wraps`) already measured tight on horizontal
+room; a stripe is also the *most* peripherally-legible of the four, so adding it isn't a neutral
+fourth voice, it's arguably the loudest one on a card that doesn't need a loudest one.
+
+The task file also flags its own hard blocker, worth recording here because it rules out (b)
+specifically and so removes the one option that could have made a stripe worth its cost: **a
+stripe alone cannot distinguish two same-hue domains** — Shopping and Food both render
+`#D9A441`. Today that's resolved by `CardAccentBadge`'s per-domain glyph (`CardAccent.tsx`'s
+`DOMAIN_ICON`: shop=cart vs meal=restaurant vs budget=wallet, all on the same gold). Dropping
+the badge for a stripe (option (b)) would delete the one thing that tells those cards apart
+without replacing it, and the task file names this correctly as a blocker, not a nitpick. With
+(b) off the table and the interaction table pointing at (c) over (a), (c) is the only outcome
+both lines of the task's own reasoning converge on.
+
+`CardAccent.tsx`'s header already reads "expresses it as ONE colour move: a gradient icon
+BADGE" — true before this task and still true after, since nothing drew differently. No header
+edit needed, unlike the task file's "Close out" instruction, which was written assuming a
+stripe shipped.
+
+No screenshots — nothing drew differently, so `npm run preview` has nothing new to show.
+Verification is `npx tsc --noEmit` only; no behavioural change, so `scripts/test-changed.sh`
+and `npm run wraps` (both listed as "required" in the task file for the case where the stripe
+actually lands) don't apply to a decision that adds no code.
+
+**10. The coloured count pill vs the grey summary sentence** (`DESIGN_COMPARISON/09`,
+2026-08-04 — blocked by 06, resolves 08's "possibly" hedge). The design project's `CountBadge`
+(`ui_kits/unfocus_app/HomeScreen.jsx`) is a small pill beside the card title — 16% accent wash,
+**accent-coloured text**. The app instead spends a whole second line under the title, a
+`theme.textMuted` sentence ("{left}/{total} left", `components/HomeNotesCard.tsx` and three
+siblings).
+
+**Decision: (c) — pill replaces the sentence, as a deletion. Landed on all four Home cards
+(`HomeNotesCard.tsx`, `HomeHabitsCard.tsx`, `HomeShoppingCard.tsx`, `PlanTaskCard.tsx`).**
+
+Not a straight port of the design's pill, for a reason the task file's own ⚠️ flagged and
+`lib/domainColor.ts` already makes a hard rule, not a taste call: **"AN IDENTITY HUE IS A FILL.
+IT IS NEVER TEXT AND NEVER AN ICON COLOUR"** (A.4 rule 1, dated 2026-07-31 — before this task
+ran). The design's pill draws the hue as BOTH the wash and the text; Shopping's gold is
+2.25:1 on its own soft wash, which fails AA outright, not just "when the hue is light" as the
+task file hedged — it fails for the specific hue this app already has. So the pill ships with
+the wash only (`domainColor.soft`, an explicitly permitted "fill-shaped derivative" per that
+same rule) and the number in **plain `theme.textMuted` ink**, never `domainColor.accent`. This
+sidesteps the contrast question entirely rather than computing per-hue overrides.
+
+**Position: a header-row sibling at a fixed slot, not inline after the title text**, despite
+the design's "sitting beside the card title." Two independent reasons converged on this, not
+one: (1) the task's own "preserve" section says the four cards' counts line up vertically down
+the screen, which only survives if the pill sits at the same x on every card — impossible if
+it trails variable-length, variable-language title text, but automatic if it's a row sibling
+after a `flex: 1` title column; (2) it's exactly the near-miss-wrap case `npm run wraps
+--lang=no` exists to catch — a pill racing a long Norwegian title on one line. `Badge.tsx`
+gained optional `bg`/`fg`/`borderColor`/`tabularNums` overrides rather than a new component,
+per the task file's own steer to check it first.
+
+**Shopping got no second pill.** `HomeShoppingCard.tsx` already had a coloured count badge —
+the flight-animation target items fly to when ticked off, `domainColor.soft` fill + plain ink,
+independently arrived at the same A.4-compliant shape this task was about to build. Adding a
+*second* pill beside the title would have put two domain-hued count chips in one header, which
+is more chrome than the sentence it replaced — the opposite of this folder's point. The
+sentence's fraction moved INTO that existing badge instead (now "{remaining}/{total}", was a
+bare total); only the label changed, so the flight animation's target node is untouched.
+
+**Habits' pill is a third fill on top of a fourth.** `HomeHabitsCard.tsx` already draws the
+identity hue as badge + edge + a progress-bar fill (all three permitted "fill-shaped
+derivatives" per A.4 rule 1) — the pill is a fourth. Checked against the precedent this could
+have collided with: A.4 rule 3 removed a whole-HEADER wash specifically because it repeated
+the same idea (*this card is Habits*) a third time with no new information. The pill isn't
+that — it's the same fill vocabulary carrying a number (today's remaining count) nothing else
+on the card shows, the same distinction that already let the progress bar and the badge
+coexist. Recorded in that file's own edit notes so a later pass doesn't "simplify" it back
+down by removing one of the four on a miscounted "too much colour" instinct.
+
+`PlanTaskCard.tsx` keeps its progress bar ALWAYS mounted (2026-08-03's "nothing jumps" fix,
+unrelated to and unchanged by this task) but the pill itself is safe to gate on
+`countableTasks.length > 0` like the other three cards, not forced always-on: it shares the
+title's line rather than adding a second one, and `headerTopRow`'s pre-existing `minHeight: 32`
+already bounds the row to the same height with or without it — only the row's width moves,
+which was never what the "nothing jumps" fix was guarding against.
+
+**No new i18n key.** The pill shows bare `"{left}/{total}"` digits, not the old sentence's
+localised word ("left" / "igjen") — a wordless fraction next to a title is the design's own
+"holding just the number" framing, and needs no translation. `t.pad.summary` (the sentence
+string) is kept, not orphaned: all four cards still call it for the pill's
+`accessibilityLabel`, so a screen reader gets the full sentence while sighted users get the
+compact digits.
+
+Verification: `npx tsc --noEmit`; `scripts/test-changed.sh` (no jest suite covers these four
+presentational cards directly — `copyTone.test.ts` still ran clean since no new/changed
+`lib/i18n.ts` string was added); `npm run wraps -- --lang=no --width=360` (the case this task
+was flagged as the near-miss risk for).
+
+**11. Leaf iconography — `leaf-icon` / `leaf-sprig` as inline marks** (`DESIGN_COMPARISON/04`,
+2026-08-04). `natural-tree.card.html`'s "Practical UI use" section proposes three placements:
+a leaf as a list-row leading bullet, `leaf-sprig` as a card-corner accent, and a leaf inside an
+icon-only button.
+
+**Decision: option (b) only — a card-corner accent, on `components/HomeHabitsCard.tsx`.**
+Options (a) (row-leading bullet) and (c)/icon-button were not built.
+
+Row-leading bullet declined for the reason the task file itself raised: `components/
+HabitIcon.tsx`'s `hasChosenHabitIcon()` gate exists specifically because a universal leading
+mark next to the row's real trailing check ("`[⋯ action] [○ check]`") was already tried and
+reverted as visual noise. A leaf in every row's leading slot is that same shape. The task
+file's own narrower version of (a) — a leaf only on habits with no chosen icon, filling the
+gap `hasChosenHabitIcon()` leaves blank — was left for a follow-up rather than folded in here:
+it touches four separate row-render call sites (`app/(tabs)/habits.tsx`'s card/week/month rows
+plus `HomeHabitsCard`'s own), each at a different icon size, and the task file itself flags
+that shape of change as needing `npm run wraps -- --lang=no --width=360` — more surface than
+this S-sized pass should mix into the same commit as a presentational corner accent.
+
+**The corner accent did not land as literally specified**, for a fact the task file's own
+technical table states outright: `leaf-sprig` `pal`s to a fixed blue ramp that `color` cannot
+override (`constants/motifs.ts`, `Motif.tsx`'s header), and the task file warns that using it
+on a non-blue-family card "will read as a foreign object." `HomeHabitsCard` — the closest
+domain match, and the only candidate left once `components/StarterCard.tsx` was ruled out
+(task 01 already put `tree-natural-seed` there; two tree/leaf illustrations on one card is the
+same "second illustration competing with the tree itself" the task file bans) — carries the
+Habits identity hue, `#1F7A2E`, green. So `leaf-icon` (tintable, no `pal`) was used instead, at
+a larger size, exactly the substitution the task file itself names as the fallback for a
+non-blue surface: *"or use `leaf-icon` at a larger size instead."*
+
+**Not tinted `domainColor.accent` either**, despite the task file's own example doing exactly
+that. This audit's item 10 (immediately above) already counts FOUR identity-hue
+fill-derivatives stacked on this one card — badge, card edge, progress-bar fill, count pill —
+and states the reasoning for why a fifth would be too many: A.4 rule 3 removed a whole-header
+wash specifically for repeating "this is Habits" a third time with no new information. A
+tinted decorative leaf carries no information at all (unlike the count pill, which does), so
+it is exactly the case that reasoning already ruled out. `color={theme.textMuted}` instead —
+the same neutral token `components/SectionDivider.tsx`'s `trunk-divider` motif already uses —
+at `opacity={0.45}`, tucked top-right and painted BEFORE the header row (so the badge/count
+pill, drawn after, stack on top and simply hide it wherever they're opaque; confirmed in the
+`npm run preview` screenshot — a small pale-grey leaf silhouette in the card's top-right
+corner, gone where the pill would sit, visible above and around it).
+
+Icon-button placement (the design's third example) was not pursued — no existing icon-only
+button in this app currently has a leaf-shaped gap to fill the way the corner accent did, and
+inventing one wasn't in scope.
+
+Verification: `npx tsc --noEmit`. Presentational only (a `Motif` mount + one style, no gate/
+data change), so `scripts/test-changed.sh` and `npm run wraps` were not required by the task
+file for this option; `npm run preview` was run per the task's own "needs preview" flag and
+confirms the placement in `preview-shots/11-home.png`.
+
+**12. Boxed rows, confirmed and closed** (`DESIGN_COMPARISON/10`, 2026-08-04). Item 6 above
+already recorded the verdict — **option (a), keep ruled, decline boxing** — as part of an
+earlier session's broad pass over the comparison folder. This entry is the dedicated task-10
+session that actually re-verified that call and shipped the one concrete fix it turned up.
+
+**Boxing was declined for the reasons item 6 already gives** — re-confirmed, not re-litigated:
+boxed rows are cards inside a card, the exact shape PR #483 moved Habits away from a day
+earlier; adopting it means converting `ShoppingRow`/`MonthlyTableRow` and `TaskCard` in the
+*opposite* direction from the in-flight `PadRow` migration at the same time; and `PadSheet`'s
+spare lines (inert blank ruled lines that keep a short list reading as a page, not a card that
+ran out) have no boxed equivalent — deleting them changes how every short list terminates,
+which the design never accounted for. Option (d)'s first candidate (raise `PAD_ROW_HEIGHT`
+past 38px) was also declined — the task file's own warning that 38 is already below
+`MIN_TAP_TARGET` and hit-slop-compensated made it the more expensive, less reversible move.
+
+**What (d) actually found: a real bug, not a taste call.** `components/PadSheet.tsx` — the
+shared ruled-row implementation behind `HomeNotesCard`, `HomeHabitsCard`, `HomeShoppingCard`,
+`PlanTaskCard` and the Home habit/note lists — was drawing its notepad divider with
+`theme.border` (the ≥3:1 control-boundary token) rather than `theme.rule` (`#D3DBE6`,
+1.396:1 on surface, added 2026-07-31 addendum A.1 *specifically* for "decorative row divider
+ONLY… deliberately BELOW the 3:1 control-boundary floor"). PadSheet predates `theme.rule` by
+one day and was never migrated onto it. `app/(tabs)/habits.tsx`'s own hand-rolled divider (PR
+#483, one day later still) already used `theme.rule` correctly, so the app had two different
+row-divider strengths side by side — the exact "related cards/things in other screens should
+look practically the same" complaint `PadSheet` exists to fix, just moved one level down from
+layout into colour. Confirmed visually: `preview-shots/11-home.png` (Home's Habits/To-do
+cards, pre-fix) showed a distinctly solid blue-grey line under "Type task"/"Type habit";
+post-fix it reads as a faint paper rule, matching Habits' own divider. **Fix: one line in
+`PadSheet.tsx`, `theme.border` → `theme.rule` — no new token, no value change, no geometry
+change.** Recorded in that file's own header in the same edit.
+
+Verification: `npx tsc --noEmit` clean. `scripts/test-changed.sh` found no related suites
+(PadSheet has no dedicated test file; `lib/__tests__/stableLayout.test.ts` source-scans it for
+structure, not colour, and was unaffected). `npm run preview` — 0 page/console errors, all
+store round-trip assertions `true`; `preview-shots/11-home.png` and `22-home-note-added.png`
+re-captured with the fainter rule visible under every Home card's type line and spare lines.
+`npm run wraps -- --lang=no --width=360` — unchanged from the known-benign baseline (1 wrapped
+control row, the documented `goals-sheet` `starterChips` false positive; the 2 truncated + 2
+near-miss findings are `medicine-form`/`tour-step`/`onboarding-privacy`/`energy-config-sheet`,
+none of them PadSheet consumers) — expected, since a colour swap changes no width.
+
+**13. Domain-hued check rings — the design was already shipped, and it had a contrast bug**
+(`DESIGN_COMPARISON/11`, 2026-08-04). The task file's premise ("the app's checks are neutral")
+is **stale**, the same way 12 and 13's were: `components/PadRow.tsx` already took the design's
+option **(a)** — every caller passes `domainColor.accent` and the ring was hued in BOTH states.
+So there was nothing to port. What the review actually found is that the file's own ⚠️
+constraint had already come true in shipped code.
+
+**The bug.** An empty check ring is a control boundary, and WCAG 1.4.11 puts a 3:1 floor on
+one. Measured against the light palette (`surface #FFFFFF` / `bg #E2EAF5`), three of the four
+identity hues clear it comfortably — todo `#3F52B5` 6.806/5.614, habits `#1F7A2E` 5.410/4.463,
+health `#A84A60` 5.507/4.542 — but shopping/meal `#D9A441` measures **2.249:1 / 1.855:1**. It
+therefore looked fine on every surface except the app's highest-volume checkbox surface. The
+ticked state carried the same failure one layer in: the glyph used `theme.accentInk`, which is
+the ink for `theme.accent` (the app accent), not for the domain fill under it — white on gold
+is that same 2.249:1.
+
+**Fix: option (c), the task file's own recommendation.** Empty ring → `theme.border`
+(3.792/3.128, the token contrast-tuned for exactly this job). Ticked → the domain hue arrives
+as a FILL, which is what A.4 rule 1 says an identity hue is for, with the glyph on
+`contrastOn(accent)` — the same derivation `lib/domainColor.ts` uses for its own `ink`, so the
+checkmark now inherits `colors.test.ts`'s ≥3:1 assertion instead of sitting outside it. You get
+the colour at the moment it means something and lose ten coloured empty rings competing with
+row text on a full list. No token added, no hue changed, no geometry changed.
+
+**Scope: `PadRow` only, and the app is deliberately left with two check systems** — stated
+plainly here because the task file warns "a half-hued app is worse than a neutral one." This
+edit covers the four Home cards, `app/(tabs)/habits.tsx`'s `HabitCard` and
+`components/NoteRow.tsx`. It does NOT cover `components/ShoppingRow.tsx` or
+`components/TaskCard.tsx`, and those were left alone on purpose: they don't use a domain hue at
+all, they use `theme.good` with `contrastOn(theme.good)` — a *status* colour, already
+contrast-correct, and a different idea from identity. Unifying status-green and identity-hue
+checks is a real design call about what a tick MEANS, not a colour swap, and it belongs in its
+own task rather than being smuggled into an XS contrast fix.
+
+Verification: `npx tsc --noEmit` clean; `lib/__tests__/designTokens.test.ts` +
+`lib/__tests__/colors.test.ts` — 2 suites, 130 tests, all passing (the two the task file names);
+`npm run preview` — 0 page errors, 0 console errors, all store round-trip assertions true, and
+`preview-shots/11-home.png` confirms the empty rings now read as neutral. Contrast figures above
+were computed directly from the WCAG relative-luminance formula against the shipped tokens.

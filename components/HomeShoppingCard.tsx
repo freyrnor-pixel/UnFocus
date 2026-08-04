@@ -54,6 +54,13 @@
  *   - The flight animation (ANIMATION_GUIDELINES §8) targets the card's own item-count badge:
  *     there is no "In cart" section card left to fly to, and the badge is always mounted
  *     whenever there is an item to tick. Reduced motion falls straight through to `onToggle`.
+ *   - **The badge now reads "{remaining}/{total}", not a bare total (2026-08-04,
+ *     DESIGN_COMPARISON/09).** The old grey "{left}/{total} left" header sentence is gone, and
+ *     its number moved INTO this badge rather than a second pill beside the title — the badge
+ *     already was the design-comparison's "coloured count pill" pattern (`domainColor.soft`
+ *     plate, plain `theme.text` ink, never `domainColor.accent` as text — A.4 rule 1), just
+ *     showing the wrong number for that job. Only the label changed; `badgeRef`'s node identity
+ *     and position are untouched, so the flight animation still lands in the same place.
  *   - `HOME_PREVIEW_CARD_MIN_HEIGHT` applies while the card is NOT open — closed and preview
  *     both — so the four Home cards read as one size at rest; never while open, so a long list
  *     grows freely. See PlanTaskCard's header.
@@ -293,8 +300,12 @@ export default function HomeShoppingCard({
       style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
       <View style={styles.cardContent}>
-        {/* Header: badge + title/summary, then the week arrows on their own row so the week
-            label has the full width and can't be squeezed between two buttons. */}
+        {/* Header: badge + title, then the week arrows on their own row so the week label has
+            the full width and can't be squeezed between two buttons. This card already had a
+            coloured count badge (the flight-animation target items fly to when ticked off) —
+            DESIGN_COMPARISON/09 folds the old grey "{left}/{total} left" sentence into that
+            SAME badge rather than adding a second pill beside the title: two domain-hued count
+            chips in one header would be more chrome than the sentence it replaced, not less. */}
         <View style={styles.header}>
           <PressableScale onPress={onNavigateToShopping} style={styles.headerLeft} scaleTo={0.98}>
             <CardAccentBadge domain="shop" size={32} />
@@ -302,20 +313,21 @@ export default function HomeShoppingCard({
               <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
                 {t.shoppingTitle}
               </Text>
-              {totalCount > 0 && (
-                <Text style={[styles.summary, { color: theme.textMuted }]}>
-                  {t.pad.summary(progress.total - progress.inCart, progress.total)}
-                </Text>
-              )}
             </View>
           </PressableScale>
           {totalCount > 0 && (
             <View
               ref={badgeRef}
               style={[styles.badge, { backgroundColor: domainColor.soft, borderColor: rgba(domainColor.accent, 0.4) }]}
+              accessibilityLabel={t.pad.summary(progress.remaining, progress.total)}
             >
-              {/* Count badge: hue as the plate + edge (a fill), the figure in plain ink. */}
-              <Text style={[styles.badgeText, { color: theme.text }]}>{totalCount}</Text>
+              {/* Count badge: hue as the plate + edge (a fill), the figure in plain ink. Shows
+                  {remaining}/{total} (2026-08-04, DESIGN_COMPARISON/09) — was the bare list
+                  total; the flight-animation target (handleToggle's badgeRef) is unchanged,
+                  only the label drew differently. */}
+              <Text style={[styles.badgeText, { color: theme.text }]}>
+                {progress.remaining}/{progress.total}
+              </Text>
             </View>
           )}
         </View>
@@ -467,9 +479,10 @@ const baseStyles = StyleSheet.create({
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
-  summary: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, ...TabularNums },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
-  badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  // Tabular figures (2026-08-04, DESIGN_COMPARISON/09) — the label is now a "{remaining}/{total}"
+  // fraction that updates as items fly in, so its digits must not shift width tick to tick.
+  badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold, ...TabularNums },
   // The week label gets the middle of its own row, with an arrow either side. `flex: 1` and no
   // minWidth on the label (see AGENTS.md's wrap-audit lesson) so it shrinks rather than pushing
   // an arrow off the card at 360px.

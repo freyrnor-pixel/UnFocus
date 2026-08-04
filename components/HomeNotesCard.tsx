@@ -30,7 +30,7 @@
  * Connections:
  *   Imports → components/PadSheet, components/PadRow, components/PadTypeRow,
  *             components/PadFooterToggle, components/SendToSheet, components/Surface,
- *             components/PressableScale, components/CardAccent (CardAccentBadge),
+ *             components/PressableScale, components/CardAccent (CardAccentBadge), components/Badge,
  *             components/Collapsible + components/AnimatedChevron (checked-zone reveal),
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
  *             lib/domainColor, lib/padState, lib/useCardState, lib/prefill (prefillRoute),
@@ -40,6 +40,14 @@
  *             persists to settings.cardStates via lib/useCardState.
  *
  * Edit notes:
+ *   - **Count pill, not a summary sentence (2026-08-04, DESIGN_COMPARISON/09).** The old
+ *     grey "{left}/{total} left" second line under the title is gone; a `components/Badge`
+ *     pill (`domainColor.soft` fill, plain `theme.textMuted` ink — never `domainColor.accent`
+ *     as text, per lib/domainColor.ts's A.4 rule 1) sits at the header's fixed right slot
+ *     instead, holding just the digits. It's a header-row sibling, not inline after the title
+ *     text, specifically so it stays at the same x regardless of title length/language and
+ *     keeps lining up with the other three Home cards' pills — an inline placement would drift
+ *     with a long Norwegian title and lose that.
  *   - **Send-to ticks the note off.** Picking a target navigates there with the text prefilled
  *     (lib/prefill.ts) AND checks the note: it has been dealt with, so the pad clears itself as
  *     things are routed out of it. That was the maintainer's explicit choice over leaving it
@@ -48,7 +56,7 @@
  *     app/notes.tsx's job; the type line here only CREATES.
  *   - `visibleNotes` is what the pad actually draws — pass that, never the full list, anywhere
  *     that asks "what is on screen" (the same rule lib/viewSnapshot's glow ids follow).
- *   - The summary count is computed from the FULL list, never from what's visible: folding the
+ *   - The pill's count is computed from the FULL list, never from what's visible: folding the
  *     card away must not quietly tell the user they have less to do.
  *   - A note's check takes PadRow's default accessible name — the note's own title. It briefly
  *     passed `t.notes.checkedLabel` instead, which gave every check on the card the identical
@@ -85,6 +93,7 @@ import CardHintNote from '@/components/CardHintNote';
 import SendToSheet, { SendToTarget } from '@/components/SendToSheet';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
+import { Badge } from '@/components/Badge';
 import {
   FontSize,
   Fonts,
@@ -92,7 +101,6 @@ import {
   PAD_GUTTER,
   Radius,
   Spacing,
-  TabularNums,
   rgba,
   HitSlop,
 } from '@/constants/theme';
@@ -204,13 +212,25 @@ export default function HomeNotesCard() {
               <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
                 {t.notes.title}
               </Text>
-              {notes.length > 0 ? (
-                <Text style={[styles.summary, { color: theme.textMuted }]}>
-                  {t.pad.summary(leftCount, notes.length)}
-                </Text>
-              ) : null}
             </View>
           </PressableScale>
+          {/* Count pill, not the old grey "{left}/{total} left" sentence (DESIGN_COMPARISON/09):
+              a compact digit pair reads at a glance and costs no vertical line. Sits at a FIXED
+              x (right of the flexible title column, left of the mic button) rather than inline
+              after the title text — a title-adjacent pill would drift left/right with title
+              length (worse in Norwegian) and stop lining up with the other three Home cards'
+              pills down the screen, which is the one thing worth preserving from the sentence
+              layout. Bare digits carry the full sentence as their accessibility label. */}
+          {notes.length > 0 ? (
+            <Badge
+              label={`${leftCount}/${notes.length}`}
+              bg={domainColor.soft}
+              fg={theme.textMuted}
+              borderColor={rgba(domainColor.accent, 0.3)}
+              tabularNums
+              accessibilityLabel={t.pad.summary(leftCount, notes.length)}
+            />
+          ) : null}
           <PressableScale
             onPress={toggleVoiceCapture}
             hitSlop={HitSlop.base}
@@ -375,8 +395,6 @@ const baseStyles = StyleSheet.create({
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
-  // Tabular figures so the four Home cards' counts line up down the screen.
-  summary: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, ...TabularNums },
   micButton: {
     width: 28,
     height: 28,

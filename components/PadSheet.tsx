@@ -39,6 +39,21 @@
  *   - This draws the rules as child views INSIDE the card, never as border styles on a
  *     Surface's `style` — Surface silently drops every border/background key you pass it
  *     (see Surface.tsx's style-splitting contract).
+ *   - **Boxed rows declined, 2026-08-04** (DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md,
+ *     DESIGN_RULES_AUDIT.md item 12): the design project's "every row its own bordered box"
+ *     was reviewed and rejected — boxed rows are cards inside a card, which is exactly what
+ *     PR #483 ("Habits: ruled rows on one sheet, not cards inside a card") moved away from a
+ *     day earlier, and re-adopting it here would also mean converting `ShoppingRow` /
+ *     `MonthlyTableRow` and `TaskCard` the *other* direction mid-conversion. Don't re-propose
+ *     boxing without re-reading that file first.
+ *   - **Rule colour fixed in the same review**: this component's own divider was drawing with
+ *     `theme.border` (the ≥3:1 control-boundary token) since the day it was written — before
+ *     `theme.rule` (a token built specifically for "decorative row divider, deliberately BELOW
+ *     3:1", see constants/colors.ts) existed. `app/(tabs)/habits.tsx`'s hand-rolled divider
+ *     already used `theme.rule` correctly (PR #483); this file was the one straggler still on
+ *     `theme.border`, which is why the notepad rule under every Home card read closer to a
+ *     hairline border than to faint ruled paper. Now uses `theme.rule` — no value changed, no
+ *     new token, just wiring the shared component to the token that was already built for it.
  */
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
@@ -81,7 +96,9 @@ export default function PadSheet({
   const theme = useAppTheme();
   const rows = React.Children.toArray(children).filter(Boolean);
   const spare = spareLines ?? padSpareLines(state);
-  const rule = { backgroundColor: theme.border };
+  // theme.rule, not theme.border — see the 2026-08-04 header note. theme.border is the ≥3:1
+  // control-boundary token; a notepad line is decorative and belongs on theme.rule instead.
+  const rule = { backgroundColor: theme.rule };
 
   return (
     <View style={[styles.sheet, style]}>

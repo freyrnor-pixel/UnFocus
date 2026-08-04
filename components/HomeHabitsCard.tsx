@@ -16,8 +16,9 @@
  * need Home's own cross-store aggregation (Habits doesn't touch any other store).
  *
  * Connections:
- *   Imports → components/Surface, components/CardAccent (CardAccentBadge),
+ *   Imports → components/Surface, components/CardAccent (CardAccentBadge), components/Badge,
  *             components/HabitIcon, components/PressableScale, components/ProgressBar,
+ *             components/Motif (the `leaf-icon` corner accent, DESIGN_COMPARISON/04),
  *             components/QuickAddOptionsPanel + components/QuickAddOptionRow (2026-08-04 —
  *             the type line's labeled Energy row, replacing an icon-only chip),
  *             components/CardHintNote (foot-of-card explainer), components/AddRow,
@@ -72,9 +73,27 @@
  *     the section unconditionally.
  *   - Collapsed sizing follows the exact same pattern as HomeShoppingCard/HomeNotesCard/
  *     PlanTaskCard — see any of those files' own edit notes.
- *   - **(2026-07-31, addendum A.4) The header wash is gone** — the card's identity hue now
- *     appears exactly twice, as the badge fill and the card's own low-alpha edge, never as a
- *     third band and never as text or icon colour.
+ *   - **(2026-07-31, addendum A.4) The header wash is gone.** The identity hue appears as the
+ *     badge fill, the card's own low-alpha edge, the progress-bar fill and — since 2026-08-04,
+ *     DESIGN_COMPARISON/09 — the header's count pill's plate; all four are the "fill-shaped
+ *     derivative" uses A.4 rule 1 permits (`lib/domainColor.ts`'s header), never text/icon
+ *     colour. What's gone for good is the WHOLE-HEADER wash A.4 rule 3 removed — one flat band
+ *     repeating the same idea a third time with no new information. The count pill isn't that:
+ *     it's the same fill vocabulary carrying a number nothing else on the card shows.
+ *   - **Count pill, not a summary sentence (2026-08-04, DESIGN_COMPARISON/09).** Fixed-position
+ *     header-row sibling, not inline after the title — see HomeNotesCard's edit note for why.
+ *   - **`leaf-icon` corner accent (2026-08-04, DESIGN_COMPARISON/04).** A single small leaf
+ *     motif tucked top-right, behind the header row (painted first, so it sits BEHIND the
+ *     badge/count pill rather than competing with them — it simply disappears where they're
+ *     opaque). Deliberately **not** tinted `domainColor.accent`: DESIGN_RULES_AUDIT.md's
+ *     item 10 already counts FOUR identity-hue fill-derivatives on this card (badge, card
+ *     edge, progress-bar fill, count pill) — a leaf carrying the same hue would be a fifth
+ *     expression of "this is Habits" with no new information, the exact thing A.4 rule 3
+ *     removed the whole-header wash for. `theme.textMuted` instead (same neutral token
+ *     SectionDivider's `trunk-divider` motif uses), at low opacity — texture, not a colour
+ *     statement. `leaf-icon` (not `leaf-sprig`): the sprig is an ILLUSTRATION with its own
+ *     baked blue palette that `color` can't override, and blue reads as a foreign object on
+ *     this card's green edge — see Motif.tsx's header and `constants/motifs.ts`'s `pal` field.
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -83,7 +102,9 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import { CardAccentBadge } from '@/components/CardAccent';
+import { Badge } from '@/components/Badge';
 import ProgressBar from '@/components/ProgressBar';
+import Motif from '@/components/Motif';
 import HabitIcon, { hasChosenHabitIcon } from '@/components/HabitIcon';
 import CardHintNote from '@/components/CardHintNote';
 import PadSheet from '@/components/PadSheet';
@@ -92,7 +113,7 @@ import PadTypeRow from '@/components/PadTypeRow';
 import PadFooterToggle from '@/components/PadFooterToggle';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, TabularNums, HitSlop } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, HitSlop, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -284,6 +305,9 @@ export default function HomeHabitsCard() {
       borderColor={domainColor.accent}
       style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
+      {/* Corner leaf accent (DESIGN_COMPARISON/04) — painted first so the header row's badge
+          and count pill, drawn after, stack on top and hide it wherever they're opaque. */}
+      <Motif id="leaf-icon" color={theme.textMuted} opacity={0.45} fit="meet" style={styles.leafAccent} />
       <View style={styles.cardContent}>
         {/* Badge is a normal flex child — one left edge for the whole card. */}
         <PressableScale onPress={handleTitlePress} style={styles.titleRowPressable} scaleTo={0.98}>
@@ -291,12 +315,20 @@ export default function HomeHabitsCard() {
             <CardAccentBadge domain="habit" size={32} />
             <View style={styles.headerText}>
               <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>{t.habitsTitle}</Text>
-              {dueTodayHabits.length > 0 && (
-                <Text style={[styles.summary, { color: theme.textMuted }]}>
-                  {t.pad.summary(pendingCount, dueTodayHabits.length)}
-                </Text>
-              )}
             </View>
+            {/* Count pill, not the old grey sentence (DESIGN_COMPARISON/09) — see
+                HomeNotesCard's edit note for why it's a fixed-position row sibling rather than
+                inline after the title. */}
+            {dueTodayHabits.length > 0 && (
+              <Badge
+                label={`${pendingCount}/${dueTodayHabits.length}`}
+                bg={domainColor.soft}
+                fg={theme.textMuted}
+                borderColor={rgba(domainColor.accent, 0.3)}
+                tabularNums
+                accessibilityLabel={t.pad.summary(pendingCount, dueTodayHabits.length)}
+              />
+            )}
           </View>
           {dueTodayHabits.length > 0 && (
             <ProgressBar
@@ -387,6 +419,11 @@ export default function HomeHabitsCard() {
 
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
+  // Corner leaf accent (DESIGN_COMPARISON/04). Positioned against the Surface's own content
+  // view (zero padding there — cardContent applies its own inset), so top/right sit close to
+  // the card's true edge, mostly in the strip above the title row; Surface's internal
+  // overflow:'hidden' mask clips it to the rounded corner for free, no extra style needed here.
+  leafAccent: { position: 'absolute', top: Spacing.xs, right: Spacing.xs, width: 28, height: 28 },
   // Minimum height for the CLOSED and PREVIEW states, never for OPEN (maintainer's call,
   // 2026-07-30): the four cards read as one intentional size at rest, and an open card is free
   // to grow to whatever its content needs. Same constant, and the same "only while not fully
@@ -403,8 +440,6 @@ const baseStyles = StyleSheet.create({
   // Badge is a normal flex child now, so there is no paddingLeft dodging an absolute one.
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   headerText: { flex: 1, minWidth: 0 },
-  // Tabular figures so the four Home cards' counts line up down the screen.
-  summary: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, ...TabularNums },
   progressBar: { marginTop: Spacing.xs },
   title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, includeFontPadding: false, textAlignVertical: 'center' },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },

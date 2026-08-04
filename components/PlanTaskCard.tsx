@@ -107,7 +107,8 @@
  *             un-pin action behind its badge; see the edit note below for why this one hook
  *             is read here instead of being threaded in as a prop),
  *             lib/useAppTheme (incl. useAccessibility), lib/domainColor, components/CardAccent
- *             (CardAccentBadge — the read-only Home header), components/GlowPulse
+ *             (CardAccentBadge — the read-only Home header), components/Badge (the header's
+ *             count pill, DESIGN_COMPARISON/09), components/GlowPulse
  *             (breathing "happening now" halo), store/useTaskStore (Task type only)
  *   Used by → app/(tabs)/index.tsx (Home — read-only day-view preview per Decision 009a) and
  *             app/(tabs)/plans.tsx (the To-do tab, interactively, whenever the active layout
@@ -125,6 +126,15 @@
  *             stores" since 2026-08-02: `useEnergyPause()` (see the pin edit note below).
  *
  * Edit notes:
+ *   - **Count pill, not a summary sentence (2026-08-04, DESIGN_COMPARISON/09).** The old grey
+ *     "{left}/{total} left" header line is gone; a `components/Badge` pill (`domainColor.soft`
+ *     fill, plain `theme.textMuted` ink — never `domainColor.accent` as text, per
+ *     lib/domainColor.ts's A.4 rule 1) sits beside the title instead, gated the same as the
+ *     other three Home cards on `countableTasks.length > 0`. Safe to gate (rather than keep
+ *     always-mounted like the progress bar below) because the pill shares the title's LINE —
+ *     `headerTopRow`'s `minHeight: 32` already covers both, so the row's height doesn't move
+ *     whether the pill renders or not; only its width does, which the 2026-08-03 "nothing
+ *     jumps" fix (below, the progress-bar note) was never about.
  *   - **Overlap-safe grid cards (2026-07-26, user report: "not clean, make sure things don't
  *     overlap" — Outlook/Google Calendar as reference)**: `renderGridEntry` used to position
  *     every timed card at full slot width regardless of other tasks, so two overlapping tasks
@@ -313,6 +323,7 @@ import { dayOfWeekMon0 } from '@/lib/date';
 import { useNowMinutes } from '@/lib/useNowMinutes';
 import { useEnergyPause } from '@/lib/useEnergyPause';
 import { CardAccentBadge } from '@/components/CardAccent';
+import { Badge } from '@/components/Badge';
 import GlowPulse from '@/components/GlowPulse';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import { COLLAPSED_GRID_HEIGHT, GUTTER_WIDTH, GridEntryLayout, buildDayScale, layoutGridEntries } from '@/lib/dayGrid';
@@ -976,7 +987,17 @@ export default function PlanTaskCard({
       <>
         <View style={styles.titleRow}>
           {timed && (
-            <Text style={[styles.flatTimeText, TabularNums, { color: theme.textMuted }]}>{task.time}</Text>
+            // ONE Text node for the whole time reading (2026-08-04, maintainer report:
+            // "time boxes should have `:` instead of the vertical lines"). This used to be
+            // two separate Text nodes — the start time here, the "–end" trailing the title —
+            // split by titleRow's flex `gap`. For a time-box task that put an isolated dash
+            // one gap-width after the title, glued to neither neighbour, which read as a
+            // stray divider mark rather than part of a time range. TaskCard.tsx's row already
+            // gets this right (`${time}–${finishTime}` as one string); match it here so the
+            // range always reads as a single "09:00–10:30", not a line-like fragment.
+            <Text style={[styles.flatTimeText, TabularNums, { color: theme.textMuted }]}>
+              {task.taskType === 'time-box' ? `${task.time}–${minutesToLabel(timed.end)}` : task.time}
+            </Text>
           )}
           <Text
             numberOfLines={1}
@@ -988,9 +1009,6 @@ export default function PlanTaskCard({
           >
             {task.title}
           </Text>
-          {timed && task.taskType === 'time-box' && (
-            <Text style={[styles.durationText, TabularNums, { color: theme.textMuted }]}>–{minutesToLabel(timed.end)}</Text>
-          )}
           {showAnytimeBadge ? (
             <View style={[styles.followerBadge, { backgroundColor: theme.surfaceMuted, borderColor: theme.border, borderWidth: 1 }]}>
               <Text style={[styles.followerBadgeText, { color: theme.textMuted }]}>{t.dayViewAnytimeBadge}</Text>
@@ -1420,16 +1438,27 @@ export default function PlanTaskCard({
                 <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
                   {t.home.todaysPlans}
                 </Text>
-                {/* Rule 9 — both the summary and the bar below are ALWAYS mounted, and only
-                    their content changes. They used to be gated on `countableTasks.length > 0`,
-                    so writing the very first task of the day made a subtitle and a progress bar
-                    appear out of nothing and pushed the whole card down (2026-08-03 UX review:
-                    one keystroke changed seven things about this card). An empty day reserves
-                    the same space with an empty string and a zero bar. */}
-                <Text style={[styles.summary, { color: theme.textMuted }]}>
-                  {countableTasks.length > 0 ? t.pad.summary(pendingCount, countableTasks.length) : ' '}
-                </Text>
               </View>
+              {/* Count pill, not the old grey sentence (2026-08-04, DESIGN_COMPARISON/09) — see
+                  HomeNotesCard's edit note for why it's a header-row sibling, not inline after
+                  the title. Rule 9 — the bar below stays ALWAYS mounted (unchanged): it used to
+                  be gated on `countableTasks.length > 0` too, so writing the day's first task
+                  made a progress bar appear out of nothing and pushed the card down (2026-08-03
+                  UX review). The pill CAN gate on the same condition without repeating that bug,
+                  because unlike the old summary it shares the title's line rather than adding
+                  one: `headerTopRow`'s `minHeight: 32` already covers both the pill's and the
+                  title's height, so its row never changes height whether the pill is there or
+                  not — only its width does, which isn't the jump rule 9 was written against. */}
+              {countableTasks.length > 0 && (
+                <Badge
+                  label={`${pendingCount}/${countableTasks.length}`}
+                  bg={domainColor.soft}
+                  fg={theme.textMuted}
+                  borderColor={rgba(domainColor.accent, 0.3)}
+                  tabularNums
+                  accessibilityLabel={t.pad.summary(pendingCount, countableTasks.length)}
+                />
+              )}
             </View>
             <ProgressBar
               value={countableTasks.length > 0 ? doneTasks.length / countableTasks.length : 0}
@@ -1896,8 +1925,6 @@ const baseStyles = StyleSheet.create({
   // parent's padding. In flex flow there is nothing to dodge and nothing to disagree about.
   headerTopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 32 },
   headerText: { flex: 1, minWidth: 0 },
-  // Tabular figures so the four Home cards' counts line up down the screen.
-  summary: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, ...TabularNums },
   progressBar: { marginTop: Spacing.xs },
   // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
   // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).

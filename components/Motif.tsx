@@ -13,7 +13,8 @@
  *   Used by → components/ScreenBackground.tsx (the tab strip + the calm sub-tier backdrop),
  *             components/SectionDivider.tsx (trunk-divider), components/StarterCard.tsx
  *             (tree-natural-seed), components/TourSpotlight.tsx (halo-ring),
- *             app/onboarding/_layout.tsx (onboarding-triptych)
+ *             app/onboarding/_layout.tsx (onboarding-triptych), components/HomeHabitsCard.tsx
+ *             (leaf-icon corner accent, DESIGN_COMPARISON/04)
  *   Data    → none — pure presentation
  *
  * Edit notes:

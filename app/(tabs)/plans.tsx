@@ -621,18 +621,26 @@ export default function TasksScreen() {
   const theme = useAppTheme();
   const t = useT();
   // Section hues (color-rail redesign): each list section carries a stable domain accent —
-  // Whenever = task (blue), Repeating = meal (orange — was plan/indigo, too close to
-  // Whenever's blue to tell apart at a glance; 2026-07-14). Both tokens have light + dark
-  // variants, so the rail/dot/label stay distinct and legible in both modes. Shared handles
-  // its own (shop/green) hue inside SharedTasksSection.
-  // NOTE (2026-07-27): `repeatingHue` borrows the meal *colour token* only — the section has
-  // no meal identity. Its SectionCard therefore passes domain="meal" (so the badge gradient
-  // matches this hue) together with an explicit icon="repeat" override, because the badge
-  // glyph otherwise comes from the domain and drew a knife-and-fork on Recurring tasks.
-  // Don't drop the icon override, and don't "fix" it by switching the domain — that would
-  // desync the badge colour from the label/divider, which both follow `hue`.
+  // Whenever = task (blue). Both tokens have light + dark variants, so the rail/dot/label
+  // stay distinct and legible in both modes. Shared handles its own (shop/green) hue inside
+  // SharedTasksSection.
+  // Repeating = health (rose), changed 2026-08-04 (design-comparison task 06, the named
+  // "recurring and habits" colour complaint). It was `meal` (a real, distinct orange) until
+  // the 2026-07-31 four-hue identity collapse (addendum A.3) aliased `cardMeal` onto
+  // `cardShop`'s gold — so this section had been silently rendering in the exact hue of the
+  // Shopping tab ever since, despite having nothing to do with shopping. Health is the one
+  // card-identity hue nothing else on this screen uses, so it costs nothing else its own
+  // distinctiveness. See DESIGN_COMPARISON/06-which-colour-system.md and the addendum note
+  // in constants/colors.ts for the full reasoning (including why Habits' hue was NOT touched
+  // the same way).
+  // NOTE (2026-07-27, still true): `repeatingHue` borrows a colour token only — the section
+  // has no health identity. Its SectionCard therefore passes domain="health" (so the badge
+  // gradient matches this hue) together with an explicit icon="repeat" override, because the
+  // badge glyph otherwise comes from the domain and would draw a heart on Recurring tasks.
+  // Don't drop the icon override, and don't "fix" it by switching the domain alone — that
+  // would desync the badge colour from the label/divider, which both follow `hue`.
   const wheneverHue = getDomainColor(theme, 'task').accent;
-  const repeatingHue = getDomainColor(theme, 'meal').accent;
+  const repeatingHue = getDomainColor(theme, 'health').accent;
 
   const tasks = useTaskStore((s) => s.tasks);
   const tasksLoaded = useTaskStore((s) => s.loaded);
@@ -1286,7 +1294,7 @@ export default function TasksScreen() {
 
             {/* Debug notes: one anchor per region — wrap the section card, not its inner rows. */}
             <DebugNoteAnchor id="plans.recurring" label="Plans — Recurring">
-              <SectionCard hue={repeatingHue} domain="meal" icon="repeat" label={t.tasksSectionRecurring} count={recurringAll.length}>
+              <SectionCard hue={repeatingHue} domain="health" icon="repeat" label={t.tasksSectionRecurring} count={recurringAll.length}>
                 {recurringAll.length === 0 ? (
                   <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionRecurringEmpty}</Text>
                 ) : (

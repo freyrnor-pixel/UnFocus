@@ -31,10 +31,12 @@
  *     "Today"/weekday groups use `theme.accent`, which isn't a `Domain`).
  *   - `icon` (2026-07-27) overrides just the badge GLYPH while `domain` still drives its
  *     colour. Needed when a section borrows another domain's hue to stay visually distinct
- *     from its neighbours — Plans' Recurring section borrows `meal` for the colour, and
- *     before this override it inherited the knife-and-fork glyph along with it. Reach for
- *     `icon` rather than switching `domain`: the label and divider follow `hue`, so changing
- *     the domain to fix the glyph desyncs the badge colour from the rest of the header.
+ *     from its neighbours — Plans' Recurring section borrows `health` for the colour
+ *     (`meal` until 2026-08-04; see `constants/colors.ts`'s card-identity addendum for why),
+ *     and before this override it inherited whichever glyph came with that domain instead
+ *     of "repeat". Reach for `icon` rather than switching `domain` on its own: the label
+ *     and divider follow `hue`, so changing the domain to fix the glyph desyncs the badge
+ *     colour from the rest of the header.
  *   - `contentStyle` spreads onto the inner content wrapper (below the header) for callers
  *     that need to override the default gap between rows.
  */

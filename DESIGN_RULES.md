@@ -79,8 +79,11 @@ design, not the rule.
     Status, selection, and meaning must survive in greyscale.
 12. **One accent color for actions, plus a neutral grey scale.** Add semantic
     colors (success / warning / error) only where they carry meaning, and keep
-    them muted, not saturated. *(Open conflict #5: the app runs two additional
-    identity-hue systems, `lib/screenColor.ts` and `lib/domainColor.ts`, on purpose.)*
+    them muted, not saturated. *(Open conflict #5: the app runs one additional
+    identity-hue system on purpose, `lib/domainColor.ts`'s 4-hue card identity.
+    `lib/screenColor.ts`'s 9 screen hues were a SECOND such system until
+    2026-07-31 (addendum A.5) retired it — zero production consumers as of
+    2026-08-04's DESIGN_COMPARISON/06, which reaffirmed keeping it retired.)*
 13. **Low-saturation backgrounds by default.** Reserve the highest contrast on a
     screen for the single thing you want looked at.
 
@@ -171,7 +174,7 @@ one of these in passing.
 | 2 | Rule 1 — "no arbitrary values" | ~46% of component files carry 1–6px optical nudges (`2`×40, `4`×29, `6`×19). These are sub-token corrections, not a rival scale — but they are literals. | `PlanTaskCard.tsx` (13), `TaskCard.tsx` (11) |
 | 3 | Rule 14 — max 3 type sizes | Three coexisting systems: `FontSize` (7 steps), the `Type` role map (8 roles), and `HEADER_TITLE_BASE_SIZE`. The `FontSize`→`Type` migration is deliberate and unfinished. | `constants/theme.ts` |
 | 4 | Rule 16 — max 2 font weights | 5 weights defined, 4 in real use (semibold 168×, bold 140×, medium 42×, regular 21×). | `constants/theme.ts` `Fonts` |
-| 5 | Rule 12 — one accent | 1 `accent` + 9 `feat*` screen hues + 9 `card*` domain hues. `lib/screenColor.ts` and `lib/domainColor.ts` are two independent systems *deliberately allowed to disagree on the same screen*. | `constants/colors.ts` |
+| 5 | Rule 12 — one accent | 1 `accent` + 4 live `card*` domain hues (`lib/domainColor.ts`). Nine `feat*` tokens also exist in `constants/colors.ts` but are dormant — `lib/screenColor.ts`, the module that used to route them to screens, was retired 2026-07-31 (addendum A.5, zero consumers); DESIGN_COMPARISON/06 (2026-08-04) reaffirmed keeping it retired rather than reviving it for card colour. | `constants/colors.ts` |
 | 6 | Rule 17 — every target ≥ 44px | `PAD_ROW_HEIGHT` is 38 — an explicit 2026-07-30 response to a user report ("lines can be compressed for all except the empty one"). `Button` size `sm` is 36. `PAD_ROW_MIN_HEIGHT` stays 44 for the type line. | `constants/theme.ts`, `components/Button.tsx` |
 | 7 | Rule 23 — never "!" | 13 shipped strings use one, all celebratory: "Nice work!", "All done!", "Paired!", "List received!". The rule's stated purpose is anti-guilt/anti-urgency; these are its opposite. | `lib/i18n.ts` (EN + NO twins) |
 | 8 | Rules 5 & 9 — whitespace over lines; nothing jumps | The 2026-07-30 notepad pass draws **full-width rules** on every list card on purpose ("look like notepads"). First-visit ⓘ hints auto-expand, and `NewSinceGlow` paints after load — both intentional teaching moments. | `components/PadSheet.tsx`, `lib/useFirstVisitHint.ts`, `components/NewSinceGlow.tsx` |
