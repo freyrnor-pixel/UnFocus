@@ -468,3 +468,43 @@ that row applies directly; 08 doesn't need to re-derive this call, only confirm 
 No screenshots — nothing drew differently, so `npm run preview` has nothing new to show.
 Verification is `npx tsc --noEmit` (unchanged) plus reading `Surface.tsx`'s existing
 `EDGE_WIDTH`/`edgeHue` chain, which already matches option (a) byte for byte.
+
+**9. The 4px left accent stripe** (`DESIGN_COMPARISON/08`, 2026-08-04 — blocked by 06/07).
+Every card in the design project (`ui_kits/unfocus_app/HomeScreen.jsx`'s `CardShell`,
+`components/surfaces/HabitCard.jsx`) draws a 4px full-height colour bar down the card's left
+edge as a flex-row first child, sibling to the content. The app has no equivalent structure.
+
+**Decision: (c) — no stripe. Badge stays the sole identity carrier. No code changed.**
+
+Independently re-derived, not rubber-stamped from item 8's hand-off note — the task file's own
+interaction table is unambiguous once 07's outcome is known: *"(a) identity gradient edge kept
+→ Stripe is a third hue expression — likely too much. Lean (c)."* 07 landed (a) (item 7 above),
+so that row is the one that applies, and it points at (c) on its own without needing 08's other
+arguments to carry it.
+
+Those other arguments corroborate rather than merely pad the conclusion. The task file counts
+the colour moves a card already carries under 07(a) — gradient badge, hue-gradient bevel edge,
+and (from task 09) possibly a coloured count pill — and observes a stripe on top makes four
+expressions of one fact, on a screen (`npm run wraps`) already measured tight on horizontal
+room; a stripe is also the *most* peripherally-legible of the four, so adding it isn't a neutral
+fourth voice, it's arguably the loudest one on a card that doesn't need a loudest one.
+
+The task file also flags its own hard blocker, worth recording here because it rules out (b)
+specifically and so removes the one option that could have made a stripe worth its cost: **a
+stripe alone cannot distinguish two same-hue domains** — Shopping and Food both render
+`#D9A441`. Today that's resolved by `CardAccentBadge`'s per-domain glyph (`CardAccent.tsx`'s
+`DOMAIN_ICON`: shop=cart vs meal=restaurant vs budget=wallet, all on the same gold). Dropping
+the badge for a stripe (option (b)) would delete the one thing that tells those cards apart
+without replacing it, and the task file names this correctly as a blocker, not a nitpick. With
+(b) off the table and the interaction table pointing at (c) over (a), (c) is the only outcome
+both lines of the task's own reasoning converge on.
+
+`CardAccent.tsx`'s header already reads "expresses it as ONE colour move: a gradient icon
+BADGE" — true before this task and still true after, since nothing drew differently. No header
+edit needed, unlike the task file's "Close out" instruction, which was written assuming a
+stripe shipped.
+
+No screenshots — nothing drew differently, so `npm run preview` has nothing new to show.
+Verification is `npx tsc --noEmit` only; no behavioural change, so `scripts/test-changed.sh`
+and `npm run wraps` (both listed as "required" in the task file for the case where the stripe
+actually lands) don't apply to a decision that adds no code.
