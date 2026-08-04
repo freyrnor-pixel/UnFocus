@@ -62,6 +62,9 @@ Two scope splits to know before starting any of them:
   work twice, and don't let 16 add per-row borders — that is task 10's option (b).
 - **06 now carries a named colour complaint** (habits' `#1F7A2E`, and Recurring's section hue).
   That is the concrete part of 06; the abstract 4-hue-vs-9-hue question is secondary to it.
+  **Both halves are now CLOSED** — Recurring was fixed on 2026-08-04 and habits shipped as
+  `#218432` the same day, after the maintainer overruled that task's decline. See 06's Outcome
+  block; don't re-derive either.
 
 ---
 

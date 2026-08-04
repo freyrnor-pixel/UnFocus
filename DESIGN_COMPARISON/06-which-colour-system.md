@@ -7,6 +7,35 @@ whatever hue this task settles on, and reversing it later means touching them al
 
 ---
 
+## ✅ OUTCOME — read this before re-deciding anything below
+
+This task ran on 2026-08-04 and split into two halves. **Both are now closed. Do not re-open
+either.**
+
+1. **The (a)/(b)/(c)/(d) system choice: DECLINED, and it stays declined.** The 4-hue
+   `--c-card-*` system is kept exactly as-is; `lib/screenColor.ts` was already fully retired on
+   2026-07-31 with zero production consumers, so moving cards onto `feat*` would mean
+   un-deleting a retired system. Notes stays neutral. Reasoning in full: the note above
+   `IDENTITY_NEUTRAL` in `constants/colors.ts`.
+2. **The named complaint's Habits half: SHIPPED.** This task derived `#1F7A2E → #218432`,
+   verified it against every constraint `colors.test.ts` checks, and then **declined to apply
+   it** as "too large a blast radius", recording it as a candidate instead. **The maintainer
+   overruled that decline** — where the design system conflicts with a decision already
+   recorded in this repo's docs, the design system wins — and the hue was applied unchanged on
+   the same day. The blast radius was one palette value, one test constant
+   (`DOCUMENTED_LSTAR.habits` 44.8 → 48.3) and prose.
+   Re-verified numbers: L\* **44.811 → 48.329**, Lab hue angle **141.971° → 142.022°** (same
+   green), C\* **54.381 → 57.875** (the original note's "chroma unchanged" was wrong about the
+   number, right about the effect), white badge ink **4.761:1** on the fill / **6.478:1** on
+   the gradient's second stop, ΔE2000 **52.23** vs todo / **63.14** vs health, L\* gap to
+   Shopping **22.33**.
+   The **Recurring** half was already fixed in the original pass (`app/(tabs)/plans.tsx`'s
+   `repeatingHue` borrows `health` instead of the silently-gold `meal`).
+
+Everything below is the original task brief, kept for its derivation and its landmines.
+
+---
+
 ## The decision
 
 The app has **two** live colour systems. The design project's screens use the other one.
@@ -26,7 +55,8 @@ budget #D69420 · note #E6BC1C · scan #9B72E3`
 > NINE NAMES, FOUR VALUES since 2026-07-31 (addendum A.3): nine identities was more than
 > anyone learns. The retired names are kept as aliases so consumers keep compiling.
 
-`todo/goals #3F52B5 · habits #1F7A2E · health #A84A60 · shopping+food #D9A441 · notes neutral #6B7280`
+`todo/goals #3F52B5 · habits #218432 · health #A84A60 · shopping+food #D9A441 · notes neutral #6B7280`
+(habits was `#1F7A2E` when this brief was written — see the Outcome block above)
 
 with a constraint that is easy to break by accident:
 
@@ -71,7 +101,9 @@ recurring and habits."*
 That is a specific, actionable steer and it should drive this task ahead of the abstract
 (a)/(b)/(c) choice. Two concrete hues to look at:
 
-**Habits — `--c-card-habit: #1F7A2E`.** A dark forest green. It is the outlier in the identity
+**Habits — `--c-card-habit: #1F7A2E`.** ➜ **RESOLVED: now `#218432`. See the Outcome block at
+the top of this file — do not re-derive or re-decline this.** A dark forest green. It is the
+outlier in the identity
 set: `#3F52B5` (todo) and `#A84A60` (health) and `#D9A441` (shopping) all sit in a similar
 mid-lightness band, and `#1F7A2E` is noticeably darker and more saturated than any of them. On
 a white surface it reads heavy. Note the constraint before changing it — the four hues

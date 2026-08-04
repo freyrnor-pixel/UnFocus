@@ -249,9 +249,13 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
     const HUE_KEYS = ['todo', 'habits', 'health', 'shopping'] as const;
     // The lightnesses the set was designed around. Pinned so a future "let's harmonise the
     // badges" pass fails loudly here instead of silently destroying the greyscale channel.
+    // `habits` moved 44.8 → 48.3 on 2026-08-04 when `#1F7A2E` was lightened to `#218432`
+    // (DESIGN_COMPARISON/06's recorded-but-declined candidate, applied on the maintainer's
+    // overrule). That is the ONLY value that has moved; re-pinning it is exactly the "blast
+    // radius" the decline was worried about, and it was this one line.
     const DOCUMENTED_LSTAR: Record<(typeof HUE_KEYS)[number], number> = {
       todo: 38.6,
-      habits: 44.8,
+      habits: 48.3,
       health: 44.3,
       shopping: 70.7,
     };
@@ -291,8 +295,9 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
     // A.6 #5, the greyscale half of it. NOTE ON SCOPE — read before "tightening" this:
     // a literal "no identity hue's L* may come within 15 of another's" is UNSATISFIABLE for
     // this set and always was. Four values pairwise ≥15 apart need a ≥45 L* span; the
-    // mandated hues span 38.6→70.7 = 32.1, and Habits/Health are 0.5 apart by design (they
-    // separate by hue at ΔE2000 61.7, asserted above). What the L* channel actually carries
+    // mandated hues span 38.6→70.7 = 32.1, and Habits/Health are 4.0 apart (0.5 before the
+    // 2026-08-04 Habits lightening, which widened it as a side effect rather than as a goal —
+    // they still separate by hue, at ΔE2000 63.1, asserted above). What the L* channel carries
     // is Shopping standing clear of the other three — that is the gap that survives greyscale
     // and colour blindness, and the reason Shopping alone takes dark ink. That is what is
     // guarded here, plus the per-hue drift pin above.
