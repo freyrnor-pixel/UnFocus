@@ -39,8 +39,12 @@ import { useIsDark } from '@/lib/useAppTheme';
 type Props = {
   /** Which motif to draw. */
   id: MotifId;
-  /** Stroke/fill colour — a theme token. The motif carries no colour of its own. */
-  color: string;
+  /**
+   * Stroke/fill colour — a theme token, for the TINTABLE motifs, which carry no colour of
+   * their own. Ignored by an illustration (one with its own `pal`), whose colours are its
+   * own artwork; pass anything, or nothing, for those.
+   */
+  color?: string;
   /** Whole-motif opacity multiplier, clamped to [0,1]. Default 1. */
   opacity?: number;
   /** 'slice' covers the box (default, for backdrops); 'meet' fits it whole (inline marks). */
@@ -54,6 +58,14 @@ function Motif({ id, color, opacity = 1, fit = 'slice', viewBox, style }: Props)
   const isDark = useIsDark();
   const motif = MOTIFS[id];
   const group = Math.max(0, Math.min(1, opacity));
+  const pal = motif.pal ? (isDark ? motif.pal.dark : motif.pal.light) : undefined;
+
+  /**
+   * An illustration paints from its own palette; a tintable motif takes the caller's token.
+   * The `?? color` fallback matters: an element whose palette index somehow didn't resolve
+   * draws in the caller's colour rather than vanishing into `undefined`.
+   */
+  const ink = (e: { c?: number }) => (pal && e.c !== undefined ? pal[e.c] ?? color : color);
 
   return (
     <Svg
@@ -66,8 +78,13 @@ function Motif({ id, color, opacity = 1, fit = 'slice', viewBox, style }: Props)
         {motif.els.map((e, i) => {
           const o = isDark ? e.od : e.o;
           if (e.t === 'p') {
-            return (
-              <Path key={i} d={e.d} stroke={color} strokeWidth={e.w} strokeLinecap="round" fill="none" opacity={o} />
+            // A filled path is a leaf or a slab of bark; a stroked one is a trunk/branch line.
+            // Drawing the former with `fill="none"` — which this did before the illustrated
+            // set landed — reduces every leaf to an invisible 1px hairline.
+            return e.fill ? (
+              <Path key={i} d={e.d} fill={ink(e)} opacity={o} />
+            ) : (
+              <Path key={i} d={e.d} stroke={ink(e)} strokeWidth={e.w} strokeLinecap="round" fill="none" opacity={o} />
             );
           }
           if (e.t === 'e') {
@@ -75,7 +92,7 @@ function Motif({ id, color, opacity = 1, fit = 'slice', viewBox, style }: Props)
               <Ellipse
                 key={i}
                 cx={e.cx} cy={e.cy} rx={e.rx} ry={e.ry}
-                fill={color} opacity={o}
+                fill={ink(e)} opacity={o}
                 origin={`${e.cx}, ${e.cy}`}
                 rotation={e.rot}
               />
@@ -83,9 +100,9 @@ function Motif({ id, color, opacity = 1, fit = 'slice', viewBox, style }: Props)
           }
           // A ring is stroked and unfilled; wash and dot are filled.
           return e.role === 'ring' ? (
-            <Circle key={i} cx={e.cx} cy={e.cy} r={e.r} stroke={color} strokeWidth={e.w} fill="none" opacity={o} />
+            <Circle key={i} cx={e.cx} cy={e.cy} r={e.r} stroke={ink(e)} strokeWidth={e.w} fill="none" opacity={o} />
           ) : (
-            <Circle key={i} cx={e.cx} cy={e.cy} r={e.r} fill={color} opacity={o} />
+            <Circle key={i} cx={e.cx} cy={e.cy} r={e.r} fill={ink(e)} opacity={o} />
           );
         })}
       </G>
