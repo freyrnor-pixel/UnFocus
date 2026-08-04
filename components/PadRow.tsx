@@ -17,7 +17,7 @@
  *
  * Connections:
  *   Imports → components/PressableScale, constants/theme (PAD_ROW_HEIGHT,
- *             DONE_ROW_OPACITY, FontSize, Fonts, Radius, Spacing, TabularNums),
+ *             DONE_ROW_OPACITY, FontSize, Fonts, Radius, Spacing, TabularNums, contrastOn),
  *             lib/i18n, lib/useAppTheme, @expo/vector-icons
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx
  *             (the four HOME cards), and app/(tabs)/habits.tsx (2026-08-01).
@@ -61,6 +61,20 @@
  *   - `leading` is for an icon or a quantity — never a second check. StarterExampleRow's own
  *     leading circle is an icon and stays where it is, so an example still reads as a row of
  *     the list it sits in.
+ *   - **The check ring is NEUTRAL when empty and hued only when ticked** (2026-08-04,
+ *     DESIGN_COMPARISON/11, DESIGN_RULES_AUDIT.md item 13). It used to take `accent` in both
+ *     states, which put a control boundary on a token never tuned to be one: an empty ring on
+ *     the shopping/meal gold (`#D9A441`) measured **2.249:1 on surface / 1.855:1 on bg**,
+ *     under WCAG 1.4.11's 3:1 floor for a control boundary. The other three identity hues
+ *     pass (todo 6.806, habits 5.410, health 5.507), so this read as fine on every screen
+ *     except the app's highest-volume checkbox surface. Empty now uses `theme.border`
+ *     (3.792/3.128, the token contrast-tuned for exactly this job); the hue arrives on the
+ *     tick, as a FILL, which is what A.4 rule 1 says an identity hue is for.
+ *   - **The ticked glyph takes `contrastOn(accent)`, not `theme.accentInk`.** `accentInk` is
+ *     the ink for `theme.accent` (the app accent) — on a domain fill it was the wrong ink
+ *     entirely, and on gold it was the same 2.249:1 failure moved from the ring to the
+ *     checkmark. `contrastOn(accent)` is how `lib/domainColor.ts` derives its own `ink`, so
+ *     the glyph now matches the badge's contract and `colors.test.ts`'s ≥3:1 assertion.
  */
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
@@ -75,13 +89,18 @@ import {
   RowTrailing,
   Spacing,
   TabularNums,
+  contrastOn,
 } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 
 type Props = {
   title: string;
-  /** The domain accent this row belongs to (lib/domainColor). Tints the check and the ⋯. */
+  /**
+   * The domain accent this row belongs to (lib/domainColor). Fills the check once it is
+   * TICKED — an empty ring stays on `theme.border`, see the header note. Never a ring colour
+   * in the empty state: the identity hues are not tuned as control boundaries.
+   */
   accent: string;
   /** Struck through + faded. The row does NOT move — that's the surface's own logic. */
   done?: boolean;
@@ -199,7 +218,9 @@ export default function PadRow({
               <PressableScale
                 style={[
                   styles.check,
-                  { borderColor: accent },
+                  // Neutral while empty, hue only on the tick — see the header note. An empty
+                  // ring is a control boundary and belongs on the contrast-tuned token.
+                  { borderColor: done ? accent : theme.border },
                   done && { backgroundColor: accent },
                 ]}
                 onPress={onToggle}
@@ -209,7 +230,7 @@ export default function PadRow({
                 accessibilityState={{ checked: !!done }}
                 accessibilityLabel={toggleLabel ?? title}
               >
-                {done ? <Ionicons name="checkmark" size={12} color={theme.accentInk} /> : null}
+                {done ? <Ionicons name="checkmark" size={12} color={contrastOn(accent)} /> : null}
               </PressableScale>
             ) : null)}
         </View>

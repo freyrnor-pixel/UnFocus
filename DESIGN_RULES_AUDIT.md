@@ -669,3 +669,43 @@ re-captured with the fainter rule visible under every Home card's type line and 
 control row, the documented `goals-sheet` `starterChips` false positive; the 2 truncated + 2
 near-miss findings are `medicine-form`/`tour-step`/`onboarding-privacy`/`energy-config-sheet`,
 none of them PadSheet consumers) — expected, since a colour swap changes no width.
+
+**13. Domain-hued check rings — the design was already shipped, and it had a contrast bug**
+(`DESIGN_COMPARISON/11`, 2026-08-04). The task file's premise ("the app's checks are neutral")
+is **stale**, the same way 12 and 13's were: `components/PadRow.tsx` already took the design's
+option **(a)** — every caller passes `domainColor.accent` and the ring was hued in BOTH states.
+So there was nothing to port. What the review actually found is that the file's own ⚠️
+constraint had already come true in shipped code.
+
+**The bug.** An empty check ring is a control boundary, and WCAG 1.4.11 puts a 3:1 floor on
+one. Measured against the light palette (`surface #FFFFFF` / `bg #E2EAF5`), three of the four
+identity hues clear it comfortably — todo `#3F52B5` 6.806/5.614, habits `#1F7A2E` 5.410/4.463,
+health `#A84A60` 5.507/4.542 — but shopping/meal `#D9A441` measures **2.249:1 / 1.855:1**. It
+therefore looked fine on every surface except the app's highest-volume checkbox surface. The
+ticked state carried the same failure one layer in: the glyph used `theme.accentInk`, which is
+the ink for `theme.accent` (the app accent), not for the domain fill under it — white on gold
+is that same 2.249:1.
+
+**Fix: option (c), the task file's own recommendation.** Empty ring → `theme.border`
+(3.792/3.128, the token contrast-tuned for exactly this job). Ticked → the domain hue arrives
+as a FILL, which is what A.4 rule 1 says an identity hue is for, with the glyph on
+`contrastOn(accent)` — the same derivation `lib/domainColor.ts` uses for its own `ink`, so the
+checkmark now inherits `colors.test.ts`'s ≥3:1 assertion instead of sitting outside it. You get
+the colour at the moment it means something and lose ten coloured empty rings competing with
+row text on a full list. No token added, no hue changed, no geometry changed.
+
+**Scope: `PadRow` only, and the app is deliberately left with two check systems** — stated
+plainly here because the task file warns "a half-hued app is worse than a neutral one." This
+edit covers the four Home cards, `app/(tabs)/habits.tsx`'s `HabitCard` and
+`components/NoteRow.tsx`. It does NOT cover `components/ShoppingRow.tsx` or
+`components/TaskCard.tsx`, and those were left alone on purpose: they don't use a domain hue at
+all, they use `theme.good` with `contrastOn(theme.good)` — a *status* colour, already
+contrast-correct, and a different idea from identity. Unifying status-green and identity-hue
+checks is a real design call about what a tick MEANS, not a colour swap, and it belongs in its
+own task rather than being smuggled into an XS contrast fix.
+
+Verification: `npx tsc --noEmit` clean; `lib/__tests__/designTokens.test.ts` +
+`lib/__tests__/colors.test.ts` — 2 suites, 130 tests, all passing (the two the task file names);
+`npm run preview` — 0 page errors, 0 console errors, all store round-trip assertions true, and
+`preview-shots/11-home.png` confirms the empty rings now read as neutral. Contrast figures above
+were computed directly from the WCAG relative-luminance formula against the shipped tokens.
