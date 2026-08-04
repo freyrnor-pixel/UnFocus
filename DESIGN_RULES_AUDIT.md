@@ -628,3 +628,44 @@ Verification: `npx tsc --noEmit`. Presentational only (a `Motif` mount + one sty
 data change), so `scripts/test-changed.sh` and `npm run wraps` were not required by the task
 file for this option; `npm run preview` was run per the task's own "needs preview" flag and
 confirms the placement in `preview-shots/11-home.png`.
+
+**12. Boxed rows, confirmed and closed** (`DESIGN_COMPARISON/10`, 2026-08-04). Item 6 above
+already recorded the verdict — **option (a), keep ruled, decline boxing** — as part of an
+earlier session's broad pass over the comparison folder. This entry is the dedicated task-10
+session that actually re-verified that call and shipped the one concrete fix it turned up.
+
+**Boxing was declined for the reasons item 6 already gives** — re-confirmed, not re-litigated:
+boxed rows are cards inside a card, the exact shape PR #483 moved Habits away from a day
+earlier; adopting it means converting `ShoppingRow`/`MonthlyTableRow` and `TaskCard` in the
+*opposite* direction from the in-flight `PadRow` migration at the same time; and `PadSheet`'s
+spare lines (inert blank ruled lines that keep a short list reading as a page, not a card that
+ran out) have no boxed equivalent — deleting them changes how every short list terminates,
+which the design never accounted for. Option (d)'s first candidate (raise `PAD_ROW_HEIGHT`
+past 38px) was also declined — the task file's own warning that 38 is already below
+`MIN_TAP_TARGET` and hit-slop-compensated made it the more expensive, less reversible move.
+
+**What (d) actually found: a real bug, not a taste call.** `components/PadSheet.tsx` — the
+shared ruled-row implementation behind `HomeNotesCard`, `HomeHabitsCard`, `HomeShoppingCard`,
+`PlanTaskCard` and the Home habit/note lists — was drawing its notepad divider with
+`theme.border` (the ≥3:1 control-boundary token) rather than `theme.rule` (`#D3DBE6`,
+1.396:1 on surface, added 2026-07-31 addendum A.1 *specifically* for "decorative row divider
+ONLY… deliberately BELOW the 3:1 control-boundary floor"). PadSheet predates `theme.rule` by
+one day and was never migrated onto it. `app/(tabs)/habits.tsx`'s own hand-rolled divider (PR
+#483, one day later still) already used `theme.rule` correctly, so the app had two different
+row-divider strengths side by side — the exact "related cards/things in other screens should
+look practically the same" complaint `PadSheet` exists to fix, just moved one level down from
+layout into colour. Confirmed visually: `preview-shots/11-home.png` (Home's Habits/To-do
+cards, pre-fix) showed a distinctly solid blue-grey line under "Type task"/"Type habit";
+post-fix it reads as a faint paper rule, matching Habits' own divider. **Fix: one line in
+`PadSheet.tsx`, `theme.border` → `theme.rule` — no new token, no value change, no geometry
+change.** Recorded in that file's own header in the same edit.
+
+Verification: `npx tsc --noEmit` clean. `scripts/test-changed.sh` found no related suites
+(PadSheet has no dedicated test file; `lib/__tests__/stableLayout.test.ts` source-scans it for
+structure, not colour, and was unaffected). `npm run preview` — 0 page/console errors, all
+store round-trip assertions `true`; `preview-shots/11-home.png` and `22-home-note-added.png`
+re-captured with the fainter rule visible under every Home card's type line and spare lines.
+`npm run wraps -- --lang=no --width=360` — unchanged from the known-benign baseline (1 wrapped
+control row, the documented `goals-sheet` `starterChips` false positive; the 2 truncated + 2
+near-miss findings are `medicine-form`/`tour-step`/`onboarding-privacy`/`energy-config-sheet`,
+none of them PadSheet consumers) — expected, since a colour swap changes no width.
