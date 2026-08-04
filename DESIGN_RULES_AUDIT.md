@@ -419,3 +419,52 @@ Verify section when no visible hue actually changed under test, and the Recurrin
 precise enough to verify from source (`getDomainColor(theme, 'health').accent`) and the
 contrast numbers above rather than a screenshot. `npx tsc --noEmit` and
 `lib/__tests__/colors.test.ts` (unchanged — no palette token was touched) are the verification.
+
+**8. Card edge: gradient identity hue vs flat hairline** (`DESIGN_COMPARISON/07`, 2026-08-04 —
+blocks 08). `components/Surface.tsx` draws a card's edge as a beveled `LinearGradient` ring
+(light top → true hue mid → dark bottom) keyed to the card's identity hue. The design project
+draws a flat, single-colour edge instead — but disagrees with itself on which flat colour:
+`ui_kits/unfocus_app/HomeScreen.jsx` uses `border-strong` (`#2B5FD9`, saturated blue) while
+`components/surfaces/HabitCard.jsx` uses the neutral `border` (`#7284A2`). "What the design
+does" isn't one answer here, so there was never a colour to port — only a shape to choose.
+
+**Decision: keep the beveled gradient edge exactly as-is (option (a)). No code changed.**
+
+This one isn't a fresh call — it's a maintainer decision that already happened, on the record,
+twice. `AGENTS.md`'s "row rule + matte buttons" section states outright that a near-identical
+proposal from design-system v6 was reviewed and rejected: *"**NOT taken from that spec**:
+dropping the accent stripe / category-as-a-dot — the gradient badge, keycap edge and domain
+ramp stay (maintainer's call, #390/#393/#410)."* "Domain ramp" is this exact beveled edge.
+And `components/CardAccent.tsx`'s header dates the specific reversal this task would be
+re-running: the card badge and edge both went through a flatten-then-revert cycle already —
+flattened 2026-07-24 ("the complaint was the gradient sticker reading as a separate object"),
+then **"re-gradiented" 2026-07-26** in the same pass that widened `Surface.tsx`'s
+`EDGE_WIDTH` 1.5→2.5px, because the flat/thin era "had progressively drained identity colour
+out of cards." Options (b)/(c)/(d) are all shapes of exactly that flattening, nine days later,
+argued from a design reference that contradicts itself on the replacement colour. That isn't
+new evidence against a dated, twice-made call — it's the same debate a third time.
+
+The task file's own ⚠️ adds a second, independent reason not to move on (b)/(c) alone: removing
+colour from the edge leaves the gradient badge as the sole identity carrier unless 08's stripe
+lands in the same change, and 08 has its own unresolved blocker (a stripe alone can't tell
+same-hue domains apart — Shopping and Food are both `#D9A441` — so it only rescues (b)'s cost
+if 08 *also* solves where the glyph lives, which isn't guaranteed). With real users already on
+this build (`AGENTS.md`'s 2026-07-13 banner: a merge to `main` reaches installed apps on next
+launch), shipping a visibly quieter card now on the hope some future session finishes the other
+half is the wrong trade for an S task to take alone.
+
+(c) — flat 1.5px `borderStrong` — is the task file's own explicit anti-recommendation
+(`#2B5FD9` at 1.5px reads as "a loud blue frame around every card on the screen"); not
+seriously considered. (d) — keep the hue, drop the light→dark ramp — doesn't cost identity the
+way (b)/(c) do, but it still un-does the specific 2026-07-26 "re-gradiented" call above, and it
+would put cards out of step with the same beveled-ring technique `Button.tsx`'s rim already
+uses via the same `computeRimGradient()` (`constants/theme.ts`) — a card with a flat edge next
+to a button with a beveled rim reads as two material languages, not one.
+
+**For 08: land as (c) — no stripe.** Per 08's own interaction table: *"(a) identity gradient
+edge kept → Stripe is a third hue expression — likely too much. Lean (c)."* 07 landed (a), so
+that row applies directly; 08 doesn't need to re-derive this call, only confirm it still holds.
+
+No screenshots — nothing drew differently, so `npm run preview` has nothing new to show.
+Verification is `npx tsc --noEmit` (unchanged) plus reading `Surface.tsx`'s existing
+`EDGE_WIDTH`/`edgeHue` chain, which already matches option (a) byte for byte.
