@@ -303,6 +303,7 @@ re-propose them as design direction. They are not.
 | `screen-bg-{calm,grow,list}` | Per-screen-type backdrops + an edge-continuity rule | **Declined** |
 | `natural-tree.card.html` bindings | Stage advances on habit streak / Energy fullness / focus session | **Declined** |
 | `HomeScreen.jsx` cards | Colours every card from the 9-hue `--c-feat-*` set | **Declined** (kept the 4-hue `--c-card-*` system, option (a)) |
+| `natural-tree.card.html` leaf iconography | Leaf as row-leading bullet, card-corner accent, and icon-button glyph | **Partially adopted** — corner accent only (option (b)), landed differently from the design's literal example |
 
 **1. Check position and trailing icons** (`DESIGN_COMPARISON/12`). The design's left-check +
 dual-trailing-icon row is this app's **pre-2026-07-30** state. The check moved to the right
@@ -575,3 +576,55 @@ Verification: `npx tsc --noEmit`; `scripts/test-changed.sh` (no jest suite cover
 presentational cards directly — `copyTone.test.ts` still ran clean since no new/changed
 `lib/i18n.ts` string was added); `npm run wraps -- --lang=no --width=360` (the case this task
 was flagged as the near-miss risk for).
+
+**11. Leaf iconography — `leaf-icon` / `leaf-sprig` as inline marks** (`DESIGN_COMPARISON/04`,
+2026-08-04). `natural-tree.card.html`'s "Practical UI use" section proposes three placements:
+a leaf as a list-row leading bullet, `leaf-sprig` as a card-corner accent, and a leaf inside an
+icon-only button.
+
+**Decision: option (b) only — a card-corner accent, on `components/HomeHabitsCard.tsx`.**
+Options (a) (row-leading bullet) and (c)/icon-button were not built.
+
+Row-leading bullet declined for the reason the task file itself raised: `components/
+HabitIcon.tsx`'s `hasChosenHabitIcon()` gate exists specifically because a universal leading
+mark next to the row's real trailing check ("`[⋯ action] [○ check]`") was already tried and
+reverted as visual noise. A leaf in every row's leading slot is that same shape. The task
+file's own narrower version of (a) — a leaf only on habits with no chosen icon, filling the
+gap `hasChosenHabitIcon()` leaves blank — was left for a follow-up rather than folded in here:
+it touches four separate row-render call sites (`app/(tabs)/habits.tsx`'s card/week/month rows
+plus `HomeHabitsCard`'s own), each at a different icon size, and the task file itself flags
+that shape of change as needing `npm run wraps -- --lang=no --width=360` — more surface than
+this S-sized pass should mix into the same commit as a presentational corner accent.
+
+**The corner accent did not land as literally specified**, for a fact the task file's own
+technical table states outright: `leaf-sprig` `pal`s to a fixed blue ramp that `color` cannot
+override (`constants/motifs.ts`, `Motif.tsx`'s header), and the task file warns that using it
+on a non-blue-family card "will read as a foreign object." `HomeHabitsCard` — the closest
+domain match, and the only candidate left once `components/StarterCard.tsx` was ruled out
+(task 01 already put `tree-natural-seed` there; two tree/leaf illustrations on one card is the
+same "second illustration competing with the tree itself" the task file bans) — carries the
+Habits identity hue, `#1F7A2E`, green. So `leaf-icon` (tintable, no `pal`) was used instead, at
+a larger size, exactly the substitution the task file itself names as the fallback for a
+non-blue surface: *"or use `leaf-icon` at a larger size instead."*
+
+**Not tinted `domainColor.accent` either**, despite the task file's own example doing exactly
+that. This audit's item 10 (immediately above) already counts FOUR identity-hue
+fill-derivatives stacked on this one card — badge, card edge, progress-bar fill, count pill —
+and states the reasoning for why a fifth would be too many: A.4 rule 3 removed a whole-header
+wash specifically for repeating "this is Habits" a third time with no new information. A
+tinted decorative leaf carries no information at all (unlike the count pill, which does), so
+it is exactly the case that reasoning already ruled out. `color={theme.textMuted}` instead —
+the same neutral token `components/SectionDivider.tsx`'s `trunk-divider` motif already uses —
+at `opacity={0.45}`, tucked top-right and painted BEFORE the header row (so the badge/count
+pill, drawn after, stack on top and simply hide it wherever they're opaque; confirmed in the
+`npm run preview` screenshot — a small pale-grey leaf silhouette in the card's top-right
+corner, gone where the pill would sit, visible above and around it).
+
+Icon-button placement (the design's third example) was not pursued — no existing icon-only
+button in this app currently has a leaf-shaped gap to fill the way the corner accent did, and
+inventing one wasn't in scope.
+
+Verification: `npx tsc --noEmit`. Presentational only (a `Motif` mount + one style, no gate/
+data change), so `scripts/test-changed.sh` and `npm run wraps` were not required by the task
+file for this option; `npm run preview` was run per the task's own "needs preview" flag and
+confirms the placement in `preview-shots/11-home.png`.
