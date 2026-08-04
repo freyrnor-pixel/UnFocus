@@ -112,6 +112,10 @@
  *             onCommitNew fires.
  *
  * Edit notes:
+ *   - **Weekday chips got a border (task 16, 2026-08-04)**: `styles.weekdayChip` (the recurring-
+ *     days row and the monthly weekday picker) had no border at all — a solid fill only, unlike
+ *     every other chip in the app (PersonChip/TagChip/OptionalTag already had one). Now
+ *     `theme.accent` when active, `theme.border` when not, matching that convention.
  *   - **Field-level glow (2026-08-01, STALE_CODE_AUDIT.md)**: `newFields` drives `tight`
  *     `NewSinceGlow` wraps on the time label, the assignee cue, each tag pill, and the goal
  *     dot — mirroring `ShoppingRow`'s meta/price field glow so switching Plans into a richer
@@ -1313,7 +1317,7 @@ function TaskCard({
                       return (
                         <PressableScale
                           key={i}
-                          style={[styles.weekdayChip, { backgroundColor: active ? theme.accent : theme.surfaceMuted }]}
+                          style={[styles.weekdayChip, { backgroundColor: active ? theme.accent : theme.surfaceMuted, borderColor: active ? theme.accent : theme.border }]}
                           onPress={() => toggleWeekday(i)}
                           scaleTo={0.97}
                         >
@@ -1387,7 +1391,7 @@ function TaskCard({
                             return (
                               <PressableScale
                                 key={i}
-                                style={[styles.weekdayChip, { backgroundColor: active ? theme.accent : theme.surfaceMuted }]}
+                                style={[styles.weekdayChip, { backgroundColor: active ? theme.accent : theme.surfaceMuted, borderColor: active ? theme.accent : theme.border }]}
                                 onPress={() => patch({ monthWeekday: i })}
                                 scaleTo={0.97}
                               >
@@ -1857,6 +1861,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 36,
     borderRadius: Radius.sm,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
