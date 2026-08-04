@@ -36,6 +36,7 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import StarterCard from '@/components/StarterCard';
 import AddRow from '@/components/AddRow';
+import Button from '@/components/Button';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import { showAppModal } from '@/components/AppModal';
 import { FontSize, Fonts, HitSlop, Radius, Spacing, TabularNums, Type } from '@/constants/theme';
@@ -105,11 +106,22 @@ export default function GoalsSheet({ visible, onClose }: Props) {
       <Surface surfaceContext="overlay" style={styles.sheet}>
         <View style={[styles.handle, { backgroundColor: theme.border }]} />
         <Text style={[styles.title, { color: theme.text }]}>{t.goals.editLink}</Text>
-        <Text style={[styles.subtitle, { color: theme.textMuted }]}>{t.hints.goals.text}</Text>
+        {/* The explanation is stated ONCE. With no goals yet, the StarterCard below is the
+            teaching surface and carries it; this subtitle would have sat directly above that
+            card saying the same thing in different words ("The bigger thing your to-dos and
+            habits are for" over "What your to-dos and habits add up to"), which put two
+            paraphrases of one sentence in the top third of the sheet before anything you
+            could act on. Once there ARE goals the card is gone, so the subtitle takes the
+            job back. */}
+        {goals.length > 0 && (
+          <Text style={[styles.subtitle, { color: theme.textMuted }]}>{t.hints.goals.text}</Text>
+        )}
 
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
           {goals.length === 0 ? (
-            <StarterCard text={t.starters.goals.text}>
+            // The fuller of the two sentences, since it is now the only one: it explains the
+            // linking mechanic, not just what a goal is.
+            <StarterCard text={t.hints.goals.text}>
               <Text style={[styles.tapToAdd, { color: theme.textMuted }]}>{t.starters.goals.tapToAdd}</Text>
               <View style={styles.starterChips}>
                 {GOAL_STARTERS.map((starter) => (
@@ -182,9 +194,12 @@ export default function GoalsSheet({ visible, onClose }: Props) {
           />
         </ScrollView>
 
-        <PressableScale style={[styles.doneBtn, { backgroundColor: theme.accent }]} onPress={onClose} scaleTo={0.95}>
-          <Text style={[styles.doneBtnText, { color: theme.accentInk }]}>{t.goals.close}</Text>
-        </PressableScale>
+        {/* Dismissing is not this sheet's main action — adding or linking a goal is. This was a
+            hand-rolled full-width accent fill, which made "Done" the loudest thing on screen
+            while doing the least, and sat it right under the quiet add row that actually
+            matters. Secondary, through the shared Button (it was bypassing the design system's
+            button entirely, so it also missed the cap-travel press). */}
+        <Button label={t.goals.close} onPress={onClose} variant="secondary" style={styles.doneBtn} />
       </Surface>
     </AnimatedBottomSheet>
   );
@@ -227,12 +242,6 @@ const styles = StyleSheet.create({
     minHeight: 36,
   },
   starterChipText: { fontSize: FontSize.xs, fontFamily: Type.label.fontFamily },
-  doneBtn: {
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.xs,
-  },
-  doneBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
+  // Button owns its own height, radius, padding and press travel; this only positions it.
+  doneBtn: { marginTop: Spacing.xs },
 });
