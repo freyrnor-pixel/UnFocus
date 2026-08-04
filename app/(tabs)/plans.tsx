@@ -748,7 +748,8 @@ export default function TasksScreen() {
   // The day log (2026-08-02) — what already happened today, cut at the now-line so a task
   // due later never reads as already done. `useNowMinutes` is the same shared 60s tick the
   // timeline's now-line runs on, so the log and the grid can't disagree about where "now"
-  // is. Returns [] when settings.featureDayLog is off.
+  // is. Returns undefined when settings.featureDayLog is off, which is what PlanTaskCard's
+  // dayLog prop gates itself on below.
   const nowMinutes = useNowMinutes();
   const dayLog = useDayLog(today, nowMinutes);
   const removeMoment = useMomentsStore((s) => s.remove);
@@ -1380,8 +1381,8 @@ export default function TasksScreen() {
                     onAddExample={addPlanStarterTask}
                     // The day log (2026-08-02) — what already happened, above the now-line.
                     // Passing it is what makes the now-line this card's boundary; the hook
-                    // returns [] when settings.featureDayLog is off, and PlanTaskCard treats
-                    // an absent/empty log as "draw the day the way it always was".
+                    // returns undefined when settings.featureDayLog is off, and PlanTaskCard
+                    // treats an absent log as "draw the day the way it always was".
                     dayLog={dayLog}
                     onPressEntry={handlePressLogEntry}
                     onRemoveMoment={removeMoment}

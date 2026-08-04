@@ -354,4 +354,16 @@ describe('the day log keeps its promises structurally', () => {
       expect(type).not.toContain(field);
     }
   });
+
+  // Regression: useDayLog used to return `[]` — not `undefined` — when
+  // settings.featureDayLog is off. PlanTaskCard gates its `dayLogActive` boundary purely
+  // on the dayLog prop's *presence* (`!!dayLog`), and `[]` is just as truthy as a real
+  // list, so the now-line split was permanently on regardless of the setting. `undefined`
+  // is the only return value that actually turns the boundary off.
+  it('lib/useDayLog.ts returns undefined, not [], when the feature flag is off', () => {
+    const source = code('lib/useDayLog.ts');
+    expect(source).toMatch(/if \(!enabled\) return undefined;/);
+    expect(source).not.toMatch(/if \(!enabled\) return \[\];/);
+    expect(source).toMatch(/DayEntry\[\] \| undefined/);
+  });
 });

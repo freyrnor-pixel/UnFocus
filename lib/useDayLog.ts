@@ -64,11 +64,15 @@ function timeToMinutes(hhmm: string): number | null {
 /**
  * The day's already-happened entries for `date`, oldest first, cut at `cutoffMinutes`.
  *
- * Returns an empty array when `settings.featureDayLog` is off — the flag gates this
- * SURFACE, never the data underneath it, so every `done_at` keeps being stamped and
- * switching the flag back on shows a complete history.
+ * Returns `undefined` — not `[]` — when `settings.featureDayLog` is off. The flag gates
+ * this SURFACE, never the data underneath it, so every `done_at` keeps being stamped and
+ * switching the flag back on shows a complete history; but `undefined` vs. `[]` is also
+ * the signal PlanTaskCard's `dayLog` prop gates itself on (`dayLogActive = !!dayLog`) —
+ * an `[]` here read as "on, nothing happened yet" and made the now-line boundary
+ * permanently active regardless of the setting. Callers that don't care about the
+ * distinction (app/day-log.tsx) coalesce with `?? []`.
  */
-export function useDayLog(date: string, cutoffMinutes: number): DayEntry[] {
+export function useDayLog(date: string, cutoffMinutes: number): DayEntry[] | undefined {
   const tasks = useTaskStore((s) => s.tasks);
   const habits = useHabitStore((s) => s.habits);
   const habitLogs = useHabitStore((s) => s.logs);
@@ -82,7 +86,7 @@ export function useDayLog(date: string, cutoffMinutes: number): DayEntry[] {
   const people = usePeopleStore((s) => s.people);
 
   return useMemo(() => {
-    if (!enabled) return [];
+    if (!enabled) return undefined;
     const t = getTranslations(language);
     const medicineName = new Map(medicines.map((m) => [m.id, m.name]));
     // >1 because the self row always exists, so that is what actually means "there is
