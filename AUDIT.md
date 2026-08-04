@@ -1683,9 +1683,15 @@ dark via a lighter `surface`. `border` needs adjusting in both modes.
 | Hue | Claim | Computed | Verdict |
 |---|---|---|---|
 | To-do `#3F52B5` | white 6.81, L\* 38.6 | **6.81**, **38.6** | **PASS** |
-| Habits `#1F7A2E` | white 5.41, L\* 44.8 | **5.41**, **44.8** | **PASS** |
+| Habits `#1F7A2E` | white 5.41, L\* 44.8 | **5.41**, **44.8** | **PASS** (superseded — see below) |
 | Health `#A84A60` | white 5.51, L\* 44.3 | **5.51**, **44.3** | **PASS** |
 | Shopping `#D9A441` | dark `#1B2432` 6.94, L\* 70.7 | **6.94**, **70.7** | **PASS** |
+
+> **Superseded 2026-08-04 (Habits only).** `#1F7A2E` → **`#218432`**, lightened along the same
+> hue angle (141.971° → 142.022°) after the maintainer's "not pleasing" complaint. Re-measured
+> with the same math: white **4.761**, L\* **48.329**, C\* 54.381 → 57.875 — still PASS on every
+> constraint `lib/__tests__/colors.test.ts` checks, with the fill's white-ink margin now 0.26
+> over AA. The other three rows are unchanged. See `DESIGN_COMPARISON/06`'s Outcome block.
 
 Caveats the brief omits:
 - Shopping `#D9A441` needs **dark** ink (white is 2.25). `contrastOn()` would pick `#1E293B`

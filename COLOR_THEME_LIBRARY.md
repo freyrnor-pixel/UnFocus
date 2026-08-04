@@ -59,7 +59,7 @@ person actually thinks of as a separate part of their life:
 | Hue | Value | Badge ink | Owns |
 |---|---|---|---|
 | To-do | `#3F52B5` | white | tasks, plans, goals |
-| Habits | `#1F7A2E` | white | habits |
+| Habits | `#218432` | white | habits |
 | Health | `#A84A60` | white | health entries, medicines, episodes |
 | Shopping | `#D9A441` | **dark** | shopping, food, catalogue, budget, scan |
 
@@ -67,15 +67,17 @@ Home and Notes get **no** identity hue — `IDENTITY_NEUTRAL` (`#6B7280`), a
 near-grey slate.
 
 **⚠️ Load-bearing constraint — read before touching any of these four values:**
-they separate by **L\*** (lightness: 38.6 / 44.8 / 44.3 / 70.7), not by hue.
+they separate by **L\*** (lightness: 38.6 / 48.3 / 44.3 / 70.7), not by hue.
 That's what makes them distinguishable in greyscale, in a black-and-white
 screenshot, and for every form of colour blindness. Never "harmonise" them to
 equal lightness — that reads tidier in a swatch strip and destroys the one
 channel that survives colour blindness. Shopping's dark ink (vs. the other
 three's white) is the price of that L* spread, not an inconsistency to "fix".
 See `constants/colors.ts`'s `IDENTITY_HUES` comment for the full reasoning,
-including the honest caveat that Habits and Health share near-identical L*
-and separate by hue/chroma instead (ΔE2000 61.7).
+including the honest caveat that Habits and Health sit only 4.0 L\* apart and
+separate by hue/chroma instead (ΔE2000 63.1). Habits was `#1F7A2E` (L\* 44.8,
+0.5 from Health) until 2026-08-04, when it was lightened to `#218432` along the
+same hue angle — the one value in this table that has ever moved.
 
 ---
 
@@ -137,7 +139,7 @@ const theme = getThemePalette('default', isDark);
 ```typescript
 import { IDENTITY_HUES } from '@/constants/colors';
 
-const habitsHue = IDENTITY_HUES.habits.hue; // '#1F7A2E', same in light and dark
+const habitsHue = IDENTITY_HUES.habits.hue; // '#218432', same in light and dark
 ```
 
 ---

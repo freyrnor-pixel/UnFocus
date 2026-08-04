@@ -394,16 +394,27 @@ the maintainer actually flagged today (see below).
 
 **The maintainer's named complaint** ("the current color scheme is not pleasing, like the one
 for recurring and habits," 2026-08-04) got two different-sized answers:
-- **Habits** (`IDENTITY_HUES.habits`, `#1F7A2E`, L\* 44.8) — confirmed as the outlier (darker/
-  more saturated than `todo`/`health`) but **left unchanged**: it's one of the four
-  mutually-constrained, mode-invariant, CI-pinned hues (`lib/__tests__/colors.test.ts` asserts
-  its exact L\*, its ΔE2000 from the other three, and Shopping's ≥15 L\* gap from it), so
-  touching it means re-deriving and re-pinning those constants for a system every card in the
-  app shares — out of proportion for this task's "at most one visible change" budget. A
-  verified candidate is recorded for whoever picks this up next: **`#218432`** (same hue,
-  scaled brighter — L\* 48.33, chroma unchanged at 57.87), white badge ink 4.761:1 on the fill
-  / 6.478:1 on the gradient's second stop, ΔE2000 52.2 vs `todo` / 63.1 vs `health` (≫25), L\*
-  gap to Shopping 22.33 (≫15) — every constraint `colors.test.ts` checks, cleared with margin.
+- **Habits** (`IDENTITY_HUES.habits`) — **FIXED. `#1F7A2E` → `#218432`, shipped 2026-08-04.**
+  It was confirmed here as the outlier (darker/more saturated than `todo`/`health`, L\* 44.81)
+  and then **left unchanged**, on the reasoning that it's one of the four mutually-constrained,
+  mode-invariant, CI-pinned hues (`lib/__tests__/colors.test.ts` asserts its exact L\*, its
+  ΔE2000 from the other three, and Shopping's ≥15 L\* gap from it), so touching it means
+  re-deriving and re-pinning those constants for a system every card in the app shares — "out
+  of proportion for this task's budget". **That decline was overruled by the maintainer the
+  same day: where the design system conflicts with a decision already recorded in this repo's
+  docs, the design system wins.** The recorded candidate was applied as-is. The blast radius
+  was exactly what the decline predicted and nothing more — one palette value, one test
+  constant (`DOCUMENTED_LSTAR.habits` 44.8 → 48.3), and prose.
+  Re-verified with `colors.test.ts`'s own inline Lab/CIEDE2000 math (not taken on trust):
+  L\* **44.811 → 48.329**, Lab hue angle **141.971° → 142.022°** (a 0.05° shift — it is the
+  same green), white badge ink **5.410:1 → 4.761:1** on the fill and **7.021:1 → 6.478:1** on
+  the gradient's second stop, ΔE2000 **52.23** vs `todo` / **63.14** vs `health` (≫25), L\* gap
+  to Shopping **25.84 → 22.33** (≫15). Every constraint `colors.test.ts` checks still clears.
+  **One correction to what was recorded here**: chroma is *not* "unchanged at 57.87" — C\*
+  rises **54.381 → 57.875** with the lightness. The claim was wrong about the number and right
+  about the effect (it doesn't read washed out). Also worth knowing before lightening it
+  further: the white-ink margin on the fill is now 0.26 over AA, so this is as bright as this
+  hue goes while `#FFFFFF` stays its declared ink.
   Full derivation: the addendum note above `IDENTITY_NEUTRAL` in `constants/colors.ts`.
 - **Recurring** (`app/(tabs)/plans.tsx`'s `repeatingHue`) — **fixed**. It borrows a card-identity
   domain purely for a distinct look (the section has no real identity of its own); that borrow
@@ -603,7 +614,8 @@ on a non-blue-family card "will read as a foreign object." `HomeHabitsCard` — 
 domain match, and the only candidate left once `components/StarterCard.tsx` was ruled out
 (task 01 already put `tree-natural-seed` there; two tree/leaf illustrations on one card is the
 same "second illustration competing with the tree itself" the task file bans) — carries the
-Habits identity hue, `#1F7A2E`, green. So `leaf-icon` (tintable, no `pal`) was used instead, at
+Habits identity hue, `#218432` (`#1F7A2E` until 2026-08-04), green. So `leaf-icon` (tintable,
+no `pal`) was used instead, at
 a larger size, exactly the substitution the task file itself names as the fallback for a
 non-blue surface: *"or use `leaf-icon` at a larger size instead."*
 
@@ -679,8 +691,10 @@ constraint had already come true in shipped code.
 
 **The bug.** An empty check ring is a control boundary, and WCAG 1.4.11 puts a 3:1 floor on
 one. Measured against the light palette (`surface #FFFFFF` / `bg #E2EAF5`), three of the four
-identity hues clear it comfortably — todo `#3F52B5` 6.806/5.614, habits `#1F7A2E` 5.410/4.463,
-health `#A84A60` 5.507/4.542 — but shopping/meal `#D9A441` measures **2.249:1 / 1.855:1**. It
+identity hues clear it comfortably — todo `#3F52B5` 6.806/5.614, habits `#218432` 4.761/3.927
+(`#1F7A2E` 5.410/4.463 when this was measured; the 2026-08-04 lightening kept it clear of the
+3:1 floor), health `#A84A60` 5.507/4.542 — but shopping/meal `#D9A441` measures
+**2.249:1 / 1.855:1**. It
 therefore looked fine on every surface except the app's highest-volume checkbox surface. The
 ticked state carried the same failure one layer in: the glyph used `theme.accentInk`, which is
 the ink for `theme.accent` (the app accent), not for the domain fill under it — white on gold

@@ -205,14 +205,14 @@ export function contrastRatio(hex1: string, hex2: string): number {
 //
 //   Hue      Value      Badge ink   Owns
 //   To-do    #3F52B5    white       tasks, plans, goals
-//   Habits   #1F7A2E    white       habits
+//   Habits   #218432    white       habits
 //   Health   #A84A60    white       health entries, medicines, episodes
 //   Shopping #D9A441    DARK        shopping, food, catalogue, budget, scan
 //
 // Home and Notes get NO identity hue — they are neutral (IDENTITY_NEUTRAL below).
 //
 // ⚠️ THE LOAD-BEARING CONSTRAINT — READ BEFORE TOUCHING ANY OF THESE FOUR VALUES:
-// these four separate by **L\*** (38.6 / 44.8 / 44.3 / 70.7), not by hue. That is what makes
+// these four separate by **L\*** (38.6 / 48.3 / 44.3 / 70.7), not by hue. That is what makes
 // them work in greyscale, in a screenshot printed in black and white, and for every form of
 // colour blindness — a deuteranope cannot tell the green from the rose by hue at all, but the
 // gold reads instantly as "the light one" and the other three as "the dark ones". **NEVER
@@ -222,14 +222,16 @@ export function contrastRatio(hex1: string, hex2: string): number {
 // like an inconsistency and is not: it is the price of the L* spread, and it is correct. A
 // "fix" that makes all four take white ink means Shopping was darkened, which means the spread
 // is gone.
-// (Honest caveat so nobody is surprised by the test: Habits 44.8 and Health 44.3 are the same
-// lightness — those two separate by hue/chroma, ΔE2000 61.7. The L* spread is what carries
-// Shopping away from the other three and what keeps the set from collapsing into one grey.)
+// (Honest caveat so nobody is surprised by the test: Habits 48.3 and Health 44.3 are only 4.0
+// L* apart — those two separate by hue/chroma, ΔE2000 63.1. They were 0.5 apart until the
+// 2026-08-04 Habits lightening below, which widened the gap without being aimed at it. The L*
+// spread is what carries Shopping away from the other three and what keeps the set from
+// collapsing into one grey.)
 export const IDENTITY_HUES = {
   /** Tasks, plans, goals. */
   todo: { hue: '#3F52B5', ink: '#FFFFFF' },
-  /** Habits. */
-  habits: { hue: '#1F7A2E', ink: '#FFFFFF' },
+  /** Habits. Lightened from `#1F7A2E` on 2026-08-04 — see the decision note below. */
+  habits: { hue: '#218432', ink: '#FFFFFF' },
   /** Health entries, medicines, episodes. */
   health: { hue: '#A84A60', ink: '#FFFFFF' },
   /** Shopping, food, catalogue, budget, scan. Dark ink — see the constraint note above. */
@@ -269,20 +271,34 @@ export const IDENTITY_NEUTRAL = '#6B7280';
 //
 // **Named complaint (maintainer, 2026-08-04): "the current color scheme is not pleasing, like
 // the one for recurring and habits."** Two different findings, two different-sized fixes:
-//   - **Habits** (`IDENTITY_HUES.habits`, `#1F7A2E`) is unchanged. It IS the outlier the task
-//     flagged — darker/more saturated (L* 44.8) than `todo`/`health` — but it is one of the
-//     four mutually-constrained, mode-invariant, CI-pinned values (`lib/__tests__/colors.test.ts`
-//     asserts its exact L*, its ΔE2000 from every other hue, and Shopping's ≥15 L* gap from
-//     it), so lightening it touches a shared system used by every card in the app and requires
-//     re-pinning those exact test constants — too large a blast radius for this task's "at most
-//     one visible change" budget. Verified, ready-to-apply proposal for whoever picks this up:
-//     lighten along the SAME hue (a pure RGB scale, not a hue/chroma change) to **`#218432`**
-//     (L* 48.33, C* 57.87 — chroma untouched, so it doesn't read as washed out) — white badge
-//     ink clears AA at **4.761:1** on the fill and **6.478:1** on the gradient's darker second
-//     stop (both ≥ the 4.5/3 floors `colors.test.ts` checks), ΔE2000 vs `todo` 52.2 and vs
-//     `health` 63.1 (both ≫ the 25 floor), and the L* gap to `shopping` (70.65) is 22.33 (≫ the
-//     15 floor two tests key off). Would also need `DOCUMENTED_LSTAR.habits` in `colors.test.ts`
-//     moved from `44.8` to `48.3` in the same edit.
+//   - **Habits** (`IDENTITY_HUES.habits`) is **FIXED — `#1F7A2E` → `#218432`, shipped
+//     2026-08-04.** It WAS the outlier the task flagged: darker and more saturated (L* 44.81)
+//     than `todo`/`health`, and one of the four mutually-constrained, mode-invariant, CI-pinned
+//     values (`lib/__tests__/colors.test.ts` asserts its exact L*, its ΔE2000 from every other
+//     hue, and Shopping's ≥15 L* gap from it). The same-day task DECLINED to apply it —
+//     "lightening it touches a shared system used by every card in the app and requires
+//     re-pinning those exact test constants, too large a blast radius" — and recorded the
+//     candidate instead. **The maintainer overruled that decline: when the design system
+//     conflicts with a decision already recorded in the repo's docs, the design system wins.**
+//     The blast radius turned out to be exactly what the note predicted and no more: this
+//     value, `DOCUMENTED_LSTAR.habits` in `colors.test.ts`, and prose.
+//     The move is a lift along the SAME hue — Lab hue angle 141.971° → 142.022°, a 0.05°
+//     shift, i.e. it is the same green. **Correcting the recorded claim: chroma is NOT
+//     untouched** — C* rises 54.38 → 57.87 with the lightness, which is why it doesn't read as
+//     washed out; "chroma unchanged" in the original note was wrong about the number while
+//     right about the effect. Re-verified numbers, all computed with `colors.test.ts`'s own
+//     inline Lab/CIEDE2000 math:
+//       L* 44.811 → 48.329 · C* 54.381 → 57.875 · ΔE2000(old, new) 3.55
+//       white badge ink 5.410:1 → **4.761:1** on the fill and 7.021:1 → **6.478:1** on the
+//         gradient's darker second stop (`#1F644E` → `#206A51`) — both still clear the 4.5/3
+//         floors `colors.test.ts` checks, and `contrastOn()` still picks white, but note the
+//         fill margin narrowed to 0.26 over AA. A further lightening of this hue would break
+//         the declared-ink assertion; this is as bright as `#FFFFFF` ink allows.
+//       ΔE2000 vs `todo` 51.04 → 52.23 · vs `health` 61.70 → 63.14 · vs `shopping` 40.23 →
+//         38.69 (all ≫ the 25 floor)
+//       L* gap to `shopping` (70.65) 25.84 → **22.33** (≫ the 15 floor two tests key off)
+//       L* gap to `health` (44.33) 0.48 → 4.00 — a side effect, not the goal; those two still
+//         separate by hue, not lightness.
 //   - **Recurring** (`app/(tabs)/plans.tsx`'s `repeatingHue`) is FIXED here. It resolves through
 //     `getDomainColor(theme, 'meal')` — a domain the section has no real identity in, borrowed
 //     purely so it wouldn't look like Whenever's blue (see that file's inline note, pre-dating
